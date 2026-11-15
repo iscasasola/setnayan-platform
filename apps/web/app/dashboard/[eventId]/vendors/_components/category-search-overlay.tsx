@@ -37,7 +37,7 @@ import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
-import { Check, ChevronDown, Loader2, Plus, SlidersHorizontal, Sparkles, Wallet, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, SlidersHorizontal, Sparkles, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -597,7 +597,7 @@ export function CategorySearchOverlay({
           <ActionButton
             tone="brand"
             main
-            icon={isPending ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Plus}
+            icon={Plus}
             label="Add"
             name={`Add ${r.name}`}
             waiting={isPending}

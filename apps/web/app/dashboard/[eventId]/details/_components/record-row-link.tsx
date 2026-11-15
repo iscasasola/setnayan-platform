@@ -40,7 +40,7 @@ export function RecordRowLink({
         {children}
         <ChevronRight
           aria-hidden
-          className={`mt-0.5 h-4 w-4 shrink-0 text-ink/40 transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+          className={`mt-0.5 h-4 w-4 shrink-0 text-ink/70 transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
           strokeWidth={1.75}
         />
       </Link>

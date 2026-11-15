@@ -220,7 +220,7 @@ const LIVE: HubLiveState = {
   ],
 };
 
-/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT
    PRO ◆"): *everything in Style is Pro (colour, size, font …)*. A part's font, colour and size were freed on 2026-09-28
    and 2026-10-06; they are tried free in the Maker and held at ✓ Apply again — the event's unlock writes them. */
 test('💎 a part’s own FONT is Pro at Apply — held without Pro, written with it (2026-10-16)', () => {

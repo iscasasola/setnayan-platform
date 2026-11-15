@@ -716,7 +716,7 @@ function Under({
 
 /** The one spec line — the chosen size, never every size. */
 function specLine(slide: PrintSlide): string {
-  if (slide.everything) return 'one file · Event Hub Pro';
+  if (slide.everything) return 'one file · Event Pro';
   return slide.line ?? '';
 }
 
@@ -1132,7 +1132,7 @@ function EditSheet({ title, onClose, children }: { title: string; onClose: () =>
   return typeof document === 'undefined' ? null : createPortal(node, document.body);
 }
 
-/** ◆ An all-guests file that is Event Hub Pro: the prints' own centred note (`StudioProDoor`'s), "Event Hub Pro" follows its link. */
+/** ◆ An all-guests file that is Event Pro: the prints' own centred note (`StudioProDoor`'s), "Event Pro" follows its link. */
 function ProNote({ door, onClose }: { door: Extract<AllInOneF, { kind: 'door' }> | null; onClose: () => void }) {
   const router = useContext(AppRouterContext);
   return (
@@ -1140,7 +1140,7 @@ function ProNote({ door, onClose }: { door: Extract<AllInOneF, { kind: 'door' }>
       open={door !== null}
       title={door?.note.title ?? ''}
       body={door?.note.body ?? ''}
-      confirmLabel="Event Hub Pro"
+      confirmLabel="Event Pro"
       cancelLabel="Not now"
       onConfirm={() => {
         const href = door?.href;

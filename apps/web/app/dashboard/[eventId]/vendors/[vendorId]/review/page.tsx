@@ -38,6 +38,7 @@ import { offerHostFavorites } from '@/lib/favorites.server';
 import { favoriteDay, favoriteEventPhrase } from '@/lib/favorites';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { StayForm } from '@/app/_components/stay-form';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -310,7 +311,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     });
   }
   const eventLine = [
-    eventDate ? new Date(eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+    formatRecordedAt(eventDate),
     evt?.display_name?.trim() ? `${evt.display_name.trim()}’s ${formatEventTypeLabel(evt.event_type ?? null).toLowerCase()}` : null,
   ]
     .filter(Boolean)

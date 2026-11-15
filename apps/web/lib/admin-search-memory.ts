@@ -13,6 +13,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type SearchMemoryRow = {
   phrase: string;
@@ -50,4 +51,35 @@ export async function loadSearchMemory(): Promise<SearchMemoryReport> {
     })),
     error: null,
   };
+}
+
+/**
+ * The remembered phrases the ⌘K box ranks first ("You picked this before") — phrase, place and count, nothing else.
+ * Read once per admin page by the layout, so the box answers while typing with no round trip. A refused read is an
+ * empty memory for this page load: the box still works; it simply has nothing remembered to put first.
+ */
+export async function fetchLearnedPicks(): Promise<
+  { phrase: string; href: string; label: string; timesUsed: number }[]
+> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
+  const { data, error } = await admin
+    .from('admin_search_phrases')
+    .select('phrase, href, label, times_used')
+    .order('last_used_at', { ascending: false, nullsFirst: false })
+    .limit(1000);
+  if (error) {
+    logQueryError('fetchLearnedPicks (admin_search_phrases)', error);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    phrase: String(r.phrase),
+    href: String(r.href),
+    label: String(r.label),
+    timesUsed: Number(r.times_used ?? 0),
+  }));
 }

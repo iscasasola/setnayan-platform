@@ -157,7 +157,7 @@ export default async function AdminStudioPage({ searchParams }: Props) {
                     key={item.key}
                     href={railHref(item)}
                     aria-current={active ? 'page' : undefined}
-                    className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:whitespace-normal ${
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:whitespace-normal ${
                       active
                         ? 'bg-terracotta/10 text-terracotta-700'
                         : 'text-ink/65 hover:bg-ink/5 hover:text-ink'

@@ -69,3 +69,12 @@ test('the top bar is pinned, and jumps stop below it', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
   assert.match(css, /html:has\(\[data-sticky-top\]\) \{\s*scroll-padding-top: 4\.5rem;/);
 });
+
+test('F-W3-24 · a Get-together\'s name is its title, never its host — "join us", not "<title> invites you"', () => {
+  const gather = invitationCard({ words: { solemn: false, twoPeople: false, eventWord: 'event', organizerIsHonoree: false }, firstStartAt: null });
+  assert.equal(gather?.line, 'join us to celebrate');
+  assert.doesNotMatch(gather?.line ?? '', /invites/);
+  // The celebrant IS the name on the card — a birthday keeps its shipped words.
+  const bday = invitationCard({ words: { solemn: false, twoPeople: false, eventWord: 'birthday', organizerIsHonoree: true }, firstStartAt: null });
+  assert.equal(bday?.line, 'invites you to celebrate');
+});

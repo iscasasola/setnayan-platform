@@ -9,7 +9,7 @@
  * unreadability, never a dead button. Tapping it RISES FULL SCREEN (the shipped `RiseScreen`, T4) with, in this order:
  *   1. THE PROBLEM, then THE SOLUTION — the two lines from `lib/locks.ts` (the type will not take a lock without both);
  *   2. a real-looking preview of the feature, VIEW-ONLY (`inert`: nothing in it can be pressed or focused);
- *   3. the progress (verify: "2 of 4 papers in · then a short call") or the price (plan: "₱… / 28 days");
+ *   3. the progress (verify: "2 of 3 papers in · then press Submit") or the price (plan: "₱… / 28 days");
  *   4. ONE button — **Get verified** (the shipped papers flow, `/vendor-dashboard/profile#docs`) or **Upgrade to <plan>**.
  *      ✕ falls back into the row they tapped.
  *

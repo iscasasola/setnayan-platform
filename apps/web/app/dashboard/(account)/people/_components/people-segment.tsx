@@ -19,6 +19,8 @@ import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { Spotlight } from '@/app/_components/spotlight';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge } from '@/app/_components/badge';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { PeopleRosterView } from './people-roster-view';
 import { PeopleThumb } from './people-thumb';
@@ -250,22 +252,19 @@ export async function PeopleSegment({
           whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}
       <Spotlight tourKey="customer_people_v3" after="host_spotlight_v1" />
       {errorMsg ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="mb-4 text-sm text-[rgb(var(--color-danger))]">
           {errorMsg}
         </p>
       ) : null}
 
       {personNotice ? (
-        <p role="status" className="mb-3 text-sm text-ink/65" data-person-notice="">
+        <p role="status" className="mb-3 text-sm text-ink/70" data-person-notice="">
           {personNotice}
         </p>
       ) : null}
       {/* 👥 Back from leaving or archiving a group (the old Groups index forwards here with the note). */}
       {sp.left === '1' || sp.archived === '1' ? (
-        <p role="status" className="mb-3 text-sm text-ink/65" data-group-notice="">
+        <p role="status" className="mb-3 text-sm text-ink/70" data-group-notice="">
           {sp.left === '1' ? 'You left the group.' : 'The group was archived. Members keep their accounts and events.'}
         </p>
       ) : null}
@@ -377,11 +376,10 @@ function PeoplePreview() {
       {/* Everything below is the not-yet-built Connections preview — one
           block, hidden in the store shell (lib/store-shell.ts `COMING_SOON_ATTR`). */}
       <div data-coming-soon>
-      <div className="sn-tile mb-8 flex items-start gap-3">
-        <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
+      <div className="mb-8 flex items-start gap-3 border-y border-ink/10 py-3">
+        <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/70" strokeWidth={1.75} />
         <div className="space-y-1">
-          <p className="text-sm font-medium text-ink">Connections are coming soon.</p>
-          <p className="text-sm text-ink/65">
+          <InfoTip label="Connections are coming soon." labelClassName="text-sm font-medium text-ink" align="start">
             You&rsquo;ll be able to link the people in your life here — each one{' '}
             <span className="font-medium text-ink">suggested from your events</span> and{' '}
             <span className="font-medium text-ink">confirmed by both sides</span>, so nothing
@@ -390,39 +388,36 @@ function PeoplePreview() {
                 anyone with a samahan, and it is the sentence the owner read. Scope the
                 claim to connections — never to the page. */}
             Your groups above are ready now.
-          </p>
+          </InfoTip>
         </div>
       </div>
 
       <p className="mb-4 text-sm font-medium text-ink/70">A preview of what will live here</p>
 
-      <div className="space-y-4">
+      <div className="divide-y divide-ink/10 border-y border-ink/10">
         <PreviewRow
-          icon={<Users aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />}
+          icon={<Users aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.75} />}
           title="Family"
           body="Add only your closest — spouse, parent, sibling, child. Grandparents, cousins, and in-laws appear automatically from those."
         />
         <PreviewRow
-          icon={<HeartHandshake aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />}
+          icon={<HeartHandshake aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.75} />}
           title="Godparents · Ninong / Ninang"
           body="Created from your binyag, wedding, and confirmation roles — so celebrating together is what connects you. Kumpare/kumare links form on their own."
         />
         <PreviewRow
-          icon={<UserPlus aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />}
+          icon={<UserPlus aria-hidden className="h-5 w-5 text-ink/70" strokeWidth={1.75} />}
           title="Friends"
           body="Suggested from the people you&rsquo;ve celebrated with — a lighter connection, kept separate from family."
         />
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-2 border-t border-ink/10 pt-6">
+      <div className="mt-6 flex flex-wrap gap-2">
         {['Suggested from your events', 'Confirmed by both sides', 'Adults first', 'Private to you'].map(
           (g) => (
-            <span
-              key={g}
-              className="sn-row px-3 py-1 text-xs text-ink/60"
-            >
+            <Badge key={g} tone="quiet">
               {g}
-            </span>
+            </Badge>
           ),
         )}
       </div>
@@ -442,11 +437,11 @@ function PreviewRow({
   body: string;
 }) {
   return (
-    <div className="sn-row flex items-start gap-3 p-4">
+    <div className="flex min-h-14 items-start gap-3 py-3">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">{title}</p>
-        <p className="text-sm text-ink/60">{body}</p>
+        <p className="text-sm text-ink/70">{body}</p>
       </div>
     </div>
   );

@@ -25,6 +25,7 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -122,6 +123,8 @@ export type CategoryVendorResult = {
   photoUrl: string | null;
   rating: number | null;
   reviewCount: number | null;
+  /** Confirmed bookings on Setnayan; null = unknown (CYC-15b). */
+  bookedCount?: number | null;
   /** km from the event's reception/ceremony/target coords; null when unknown. */
   distanceKm: number | null;
   /** km from the CEREMONY venue's pin — read only by Find's "Nearest to ceremony" (owner 2026-10-30). */
@@ -924,11 +927,29 @@ export async function searchCategoryVendors(input: {
     string,
     { avg_response_minutes: number | null; response_rate_pct: number | null }
   >();
+  // 📖 CYC-15b (owner 2026-11-15): each shop's confirmed bookings, read beside the activity (same wait) — a shop with
+  // bookings and no reviews reads "No reviews yet", never "New to Setnayan". A refused read leaves the map null (unknown).
+  let bookedByVendor: Map<string, number> | null = null;
   {
-    const { data: actRows, error: actErr } = await admin
-      .from('vendor_activity_stats')
-      .select('vendor_profile_id, avg_response_minutes, response_rate_pct')
-      .in('vendor_profile_id', ids);
+    const [{ data: actRows, error: actErr }, booked] = await Promise.all([
+      admin
+        .from('vendor_activity_stats')
+        .select('vendor_profile_id, avg_response_minutes, response_rate_pct')
+        .in('vendor_profile_id', ids),
+      admin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .in('marketplace_vendor_id', ids)
+        .in('status', [...CONFIRMED_VENDOR_STATUSES]),
+    ]);
+    if (booked.error) {
+      console.warn('[category-search] booked counts fetch failed', booked.error.message);
+    } else {
+      bookedByVendor = new Map();
+      for (const b of (booked.data ?? []) as { marketplace_vendor_id: string | null }[]) {
+        if (b.marketplace_vendor_id) bookedByVendor.set(b.marketplace_vendor_id, (bookedByVendor.get(b.marketplace_vendor_id) ?? 0) + 1);
+      }
+    }
     if (actErr) {
       console.warn(
         '[category-search] vendor_activity_stats fetch failed',
@@ -1281,6 +1302,7 @@ export async function searchCategoryVendors(input: {
           ? r.avg_rating_overall
           : null,
       reviewCount: r.review_count ?? null,
+      bookedCount: bookedByVendor ? (bookedByVendor.get(r.vendor_profile_id) ?? 0) : null,
       distanceKm: dKm,
       ceremonyDistanceKm: ceremonyKm,
       // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own

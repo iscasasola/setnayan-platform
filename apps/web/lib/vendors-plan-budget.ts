@@ -289,6 +289,9 @@ export type AccordionPick = PlanCardPick & {
 export type VendorEnrichment = {
   rating?: number | null;
   review_count?: number | null;
+  /** Confirmed bookings across Setnayan (`CONFIRMED_VENDOR_STATUSES`); null = not read. CYC-15b: "New to Setnayan" is
+   *  only for a shop with NONE — one with bookings and no reviews says "No reviews yet" (owner 2026-11-15). */
+  booked_count?: number | null;
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   distance_km?: number | null;

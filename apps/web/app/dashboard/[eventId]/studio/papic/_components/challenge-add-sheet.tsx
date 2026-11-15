@@ -108,7 +108,7 @@ export function ChallengeAddSheet({
           {heading}
         </h2>
         {replacing ? (
-          <p className="text-[13px] text-ink/60" data-papic-challenge-replacing="">
+          <p className="text-[13px] text-ink/70" data-papic-challenge-replacing="">
             In place of “{displayChallengePrompt(replacing.prompt)}” — photos already taken keep it.
           </p>
         ) : null}
@@ -148,20 +148,20 @@ export function ChallengeAddSheet({
           />
         </div>
         {read === 'loading' ? (
-          <p className="text-[13px] text-ink/55" aria-live="polite">
+          <p className="text-[13px] text-ink/70" aria-live="polite">
             Loading challenges…
           </p>
         ) : read === 'unread' ? (
-          <p role="status" className="text-[13px] text-ink/65">
+          <p role="status" className="text-[13px] text-ink/70">
             We couldn’t load the challenges just now. Nothing changed — try again.
           </p>
         ) : (
           <>
-            <p className="text-[12.5px] text-ink/55">
+            <p className="text-[12.5px] text-ink/70">
               {formatCount(read.rows.length)} of {formatCount(read.total)}
             </p>
             {read.rows.length === 0 ? (
-              <p className="text-[13px] text-ink/65">No challenge matches — try another search.</p>
+              <p className="text-[13px] text-ink/70">No challenge matches — try another search.</p>
             ) : (
               <ul className="divide-y divide-ink/10" data-papic-challenge-library="">
                 {read.rows.map((r) => (
@@ -173,11 +173,11 @@ export function ChallengeAddSheet({
                       <span className="min-w-0 flex-1">
                         <span className="block text-[14px] text-ink">
                           {r.title}
-                          <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
+                          <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[12px] font-medium uppercase tracking-[0.08em] text-ink/70">
                             {r.capture_kind === 'clip' ? 'Clip' : 'Photo'}
                           </span>
                         </span>
-                        <span className="block text-[12.5px] text-ink/55">{displayChallengePrompt(r.prompt)}</span>
+                        <span className="block text-[12.5px] text-ink/70">{displayChallengePrompt(r.prompt)}</span>
                       </span>
                       <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={capped}>
                         {slot ? 'Choose' : 'Add'}
@@ -206,7 +206,7 @@ export function ChallengeAddSheet({
             />
             <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">{slot ? 'Use it' : 'Add'}</SubmitButton>
           </span>
-          <span className="text-[12px] text-ink/55">Up to 280 characters · it turns on if you have room</span>
+          <span className="text-[12px] text-ink/70">Up to 280 characters · it turns on if you have room</span>
         </PapicStayForm>
       </div>
     </Sheet>
@@ -226,10 +226,10 @@ export function ChallengeAddSheet({
           data-papic-challenge-choose={m ? 'change' : 'empty'}
         >
           {m ? (
-            <span className={`min-w-0 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/50'}`}>
+            <span className={`min-w-0 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/70'}`}>
               {displayChallengePrompt(m.prompt)}
               {m.capture_kind ? (
-                <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
+                <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[12px] font-medium uppercase tracking-[0.08em] text-ink/70">
                   {m.capture_kind === 'clip' ? 'Clip' : 'Photo'}
                 </span>
               ) : null}

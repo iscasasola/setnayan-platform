@@ -315,7 +315,13 @@ export async function readSupplierEventLines(
     });
     const requestedIds = asked.askedIds;
     const requested = planRead.error || interestsRead.error ? null : asked.requested;
-    const eventCategories = (planOf.get(eventId) ?? []).map((r) => r.category).filter((c): c is string => Boolean(c));
+    // 🧾 OWN-03 (live 14 Nov): "their plan" is what the COUPLE added — never this shop's own row, which the inquiry
+    // itself wrote under the first pick's category. Counting it said "They added this to their plan" beside every other
+    // service the shop has in that category, none of which the couple picked.
+    const eventCategories = (planOf.get(eventId) ?? [])
+      .filter((r) => r.marketplace_vendor_id !== me)
+      .map((r) => r.category)
+      .filter((c): c is string => Boolean(c));
     const eventTiles = tilesForVendorCategories(mine.map((r) => r.category).filter((c): c is string => Boolean(c)));
     const first = t?.is_returning && t.created_by_user_id
       ? earlier.find((e) => e.created_by_user_id === t.created_by_user_id && e.event_id !== eventId) ?? null

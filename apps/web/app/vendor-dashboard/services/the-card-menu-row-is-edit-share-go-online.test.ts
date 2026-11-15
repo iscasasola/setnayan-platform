@@ -91,13 +91,14 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const buttons = line.match(/<ActionButton\b/g) ?? [];
   assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share');
   assert.equal((line.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
-  assert.match(line, /\[&>\.ab\]:h-10 \[&>\.ab\]:min-h-10 \[&>\.ab\]:w-10/, 'the two icon buttons are not one 40×40 size');
+  // RW-286b (re-walk 14 Nov): one size for both, at the 44 px floor of the T02/T04 size round (was 40×40).
+  assert.match(line, /\[&>\.ab\]:h-11 \[&>\.ab\]:min-h-11 \[&>\.ab\]:w-11/, 'the two icon buttons are not one 44×44 size');
   const edit = line.indexOf('name="Edit"');
   const share = line.indexOf('name="Share to a client"');
   const sw = line.indexOf('role="switch"');
   assert.ok(edit > 0 && share > edit && sw > share, 'the row is not Edit · Share · switch, in that order');
   assert.equal((line.match(/role="switch"/g) ?? []).length, 1, 'the row holds one switch');
-  assert.match(line, /<SwitchTrack on=\{isActive\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
+  assert.match(line, /<SwitchTrack on=\{shown\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
   assert.match(line, /className=\{SWITCH_BUTTON\}/, 'the switch is not the shipped SWITCH_BUTTON');
   assert.match(line, /\{held \? \(\s*<PlanHoldTag \/>/, 'a card the plan holds no longer shows "On hold" in place of the switch');
   assert.doesNotMatch(line, /Go online|Go offline/, 'a worded Go online button is back in place of the switch');

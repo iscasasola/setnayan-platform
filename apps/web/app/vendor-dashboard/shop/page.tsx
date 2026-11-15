@@ -34,7 +34,7 @@ import { ShopServicesHead } from './_components/shop-services-head';
 import { ShopBundles, type ShopBundle } from './_components/shop-bundles';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
+import { cardsLiveBits, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { siteOrigin } from '@/lib/site-origin';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
@@ -102,8 +102,8 @@ type ShopData = {
   verify: {
     status: VerifyStatus;
     requiredDocsIn: boolean;
-    emailConfirmedAt: string | null;
-    phoneConfirmedAt: string | null;
+    /** How many of the required papers are in (the cover's "n of 3 papers"). */
+    requiredIn: number;
   };
   /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
@@ -433,8 +433,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
-      emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
-      phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
+      requiredIn: countCompleteRequiredSlots(verifyUploads),
     },
     serviceRows,
     scanSettings,
@@ -442,7 +441,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // Honest zero: no trusted review → no rating word; unread → "—" (null).
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
-    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
+    // RW-311: this counts events FINISHED on Setnayan (the Events badge's own number) — said so, so "0 events done"
+    // next to the shop's open bookings never reads as a contradiction (a booked event is not done until its day).
+    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'} done`,
     analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:
@@ -524,23 +525,15 @@ function AnalyticsPlaceholder() {
   );
 }
 
-/** The services head's line: "Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live". */
-function servicesLine(d: ShopData): string {
-  const parts = ['Bundles first, then every service you do, by category'];
-  const c = servicesCompact(d);
-  return c ? `${parts[0]} · ${c}` : parts[0]!;
-}
-/** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread counts are left out, never 0. */
+/** The services head's line — one plain sentence; the counts live in the pinned row. */
+const SERVICES_LINE = 'Your bundles first, then each service you offer.';
+/** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread and zero counts are left out, never "0 bundles". */
 function servicesCompact(d: ShopData): string {
   const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
   const bits: string[] = [];
-  if (packageAuthoringEnabled() && d.bundles) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
-  const cards = cardsOf(d);
-  if (cards !== null) {
-    bits.push(n(cards, 'card', 'cards'));
-    const live = (d.serviceRows ?? []).filter((r) => r.live).length;
-    if (cards > 0) bits.push(`${formatCount(live)} live`);
-  }
+  if (packageAuthoringEnabled() && d.bundles && d.bundles.length > 0) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
+  // Cards and live CARDS — one unit (lib/shop-services-summary.ts `cardsLiveBits`).
+  bits.push(...cardsLiveBits(d.serviceRows));
   return bits.join(' · ');
 }
 /** How many service cards the shop has — null when the rows were unread. */
@@ -615,7 +608,8 @@ async function ShopHome({
     verified: {
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
-      stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
+      papersIn: data.verify.requiredIn,
+      papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
     reviews: data.reviews,
@@ -722,7 +716,7 @@ async function ShopHome({
             cards · Tools picker, no "Add a service or coverage" dropdown, no second "+ Add a service" link. */}
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="" data-tour="shop-services">
           <ShopServicesHead
-            line={servicesLine(data)}
+            line={SERVICES_LINE}
             compact={servicesCompact(data)}
             serviceHref={SERVICE_MAKER_HREF}
             bundlesOn={packageAuthoringEnabled()}

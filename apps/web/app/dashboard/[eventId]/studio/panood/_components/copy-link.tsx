@@ -37,7 +37,7 @@ export function CopyLink({ label, url, hint }: Props) {
 
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+      <p className="text-[12px] uppercase tracking-[0.18em] text-ink/70">
         {label}
       </p>
       <div className="flex items-stretch gap-2 rounded-md border border-ink/10 bg-cream p-1">
@@ -66,7 +66,7 @@ export function CopyLink({ label, url, hint }: Props) {
           )}
         </button>
       </div>
-      {hint ? <p className="text-[11px] text-ink/55">{hint}</p> : null}
+      {hint ? <p className="text-[12px] text-ink/70">{hint}</p> : null}
     </div>
   );
 }

@@ -114,7 +114,8 @@ test('a client’s "Your next move" is the right column from 701 and stays in th
 });
 
 test('the editors split on the frame’s line (701), never md:', () => {
-  for (const rel of ['packages/_components/package-editor.tsx', 'services/_components/canvas-maker.tsx', 'shop/_components/verify-pairs.tsx']) {
+  // `shop/_components/verify-pairs.tsx` was retired on main (9e4d79bf8f — nothing mounted it), so it left this list in the merge.
+  for (const rel of ['packages/_components/package-editor.tsx', 'services/_components/canvas-maker.tsx']) {
     const src = read(rel);
     assert.doesNotMatch(src, /\bmd:/, `${rel}: an editor column still turns on at 768, not on the frame's line`);
     assert.match(src, /\btab:grid-cols-/, `${rel}: the editor's side column is gone`);

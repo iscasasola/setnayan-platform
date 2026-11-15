@@ -932,6 +932,8 @@ function VenuePhotoPicker({
         onChoose(uploadedVenuePicture(choice, ref, own));
       }}
       label="Upload a photo of the place"
+      // RW-315: the template's upload piece — a thumb and one button, never the dashed "Drop a file" box.
+      thumb={{ add: 'Upload a photo', replace: 'Replace photo' }}
     />
   );
 

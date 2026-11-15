@@ -9,7 +9,9 @@ import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { onSetnayanSinceLine } from '@/lib/in-business-since';
 import { eventsByKind } from '@/lib/shop-events-by-kind';
 import { ShopSinceLine } from './_components/shop-since-line';
+import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
+import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -2754,7 +2756,7 @@ export async function renderVendorBySlug({
                     never a date check or a booking (DECISION_LOG 2026-11-07). */}
                 {bookable ? (
                   <CheckADateLink
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival)}
+                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
@@ -3496,6 +3498,19 @@ export async function renderVendorBySlug({
           </div>
         </footer>
       </article>
+      {/* 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026): the shop's own `?dates` address opens
+          the sheet on top of it — the shop button above, the printed QR (`/v/<slug>/dates` forwards here) and the
+          sign-in resume all land here. Verified (bookable) shops only, the same rule as the door. */}
+      {bookable && search.dates === '1' ? (
+        <Suspense fallback={null}>
+          <CheckADateOverShop
+            slug={vendor.business_slug ?? slug}
+            logoUrl={logoDisplayUrl}
+            shopHref={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival)}
+            search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
+          />
+        </Suspense>
+      ) : null}
     </main>
   );
 }

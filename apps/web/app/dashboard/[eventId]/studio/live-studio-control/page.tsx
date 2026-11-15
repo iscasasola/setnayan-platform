@@ -260,7 +260,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           href={controllerHref}
           className="ab ab-neutral"
         >
-          Open the controller — go live with one camera, included
+          Go live with one camera — included
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </Link>
       ) : null}

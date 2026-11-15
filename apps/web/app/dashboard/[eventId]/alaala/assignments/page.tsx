@@ -82,7 +82,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
         actions={
           <Link
             href={`/dashboard/${eventId}/alaala`}
-            className="inline-flex items-center gap-1 text-[12px]"
+            className="inline-flex min-h-11 items-center gap-1 text-[12px]"
             style={{ color: 'var(--m-slate-2)' }}
           >
             ← Memories

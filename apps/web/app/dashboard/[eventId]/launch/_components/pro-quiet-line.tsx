@@ -27,7 +27,7 @@ export function ProQuietLine({ part }: { part?: HubPartId }) {
   if (rest === 0) return null;
   const owned = line.owned.length > 0 || line.paidPhp > 0;
   const mine = part && line.owned.includes(part);
-  // 🔔 Inventory #27 — Event Hub Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
+  // 🔔 Inventory #27 — Event Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
   // 2026: #26–28 "Merge"). ◆, the prices from the live catalog, "Not now" (back after 30 days), drawn where it stands (InlineNotice), inside what it explains.
   const title = mine
     ? `${hubPart(part!).name} is yours · ${formatPhp(rest)} more unlocks everything`
@@ -38,11 +38,11 @@ export function ProQuietLine({ part }: { part?: HubPartId }) {
     <InlineNotice
       kind="offer"
       noticeKey={`hub-pro:${part ?? 'sheet'}`}
-      mark={<PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Hub Pro" size="xs" />}
+      mark={<PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Pro" size="xs" />}
       title={title}
       actions={
         <Link href={line.href} className={NOTICE_ACTION} data-pro-quiet-line={mine ? 'yours' : line.paidPhp > 0 ? 'paid' : 'free'}>
-          Event Hub Pro
+          Event Pro
         </Link>
       }
     />

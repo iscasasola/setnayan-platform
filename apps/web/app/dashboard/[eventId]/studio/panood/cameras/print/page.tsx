@@ -13,6 +13,7 @@ import {
   type ChannelCameraView,
 } from '@/lib/live-studio-channel-cameras';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // Live Studio · printable camera-operator join cards.
 //
 // ── WHAT WAS WRONG WITH THIS SHEET ──────────────────────────────────────────
@@ -149,14 +150,11 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
       <style>{PRINT_STYLES}</style>
 
       <div className="print-toolbar screen-only">
-        <p className="text-sm text-ink/70">
-          Press <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[11px]">⌘P</kbd>{' '}
-          (Mac) or{' '}
-          <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[11px]">Ctrl+P</kbd>{' '}
-          (Windows) to print or save as PDF. Hand each card to the person shooting that
+        <InfoTip labelAs="p" label="Press ⌘P (Mac) or Ctrl+P (Windows) to print or save as PDF." labelNode={<>Press <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[12px]">⌘P</kbd>{' '} (Mac) or{' '} <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[12px]">Ctrl+P</kbd>{' '} (Windows) to print or save as PDF.</>} labelClassName="text-sm text-ink/70" align="start">
+          Hand each card to the person shooting that
           channel — they scan it, tap once, and their phone becomes that channel in your
           control room.
-        </p>
+        </InfoTip>
         <Link
           href={liveStudioControlPath(eventId)}
           className="mt-2 inline-block text-xs font-medium text-terracotta underline underline-offset-2"
@@ -171,7 +169,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
             {waiting.length === 1 ? 'One channel has' : `${waiting.length} channels have`} no card
             to print:
           </p>
-          <ul className="mt-1.5 space-y-1 text-sm text-ink/65">
+          <ul className="mt-1.5 space-y-1 text-sm text-ink/70">
             {waiting.map((w) => (
               <li key={w.zoneId}>
                 <strong>{w.title}</strong> — {w.why}
@@ -183,10 +181,10 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
 
       {cards.length === 0 ? (
         <div className="screen-only" style={{ padding: 24 }}>
-          <p className="text-sm text-ink/70">
-            There are no join cards to print yet. Open the control room and make a join QR for
+          <InfoTip labelAs="p" label="There are no join cards to print yet." labelClassName="text-sm text-ink/70" align="start">
+            Open the control room and make a join QR for
             each channel you want someone to shoot.
-          </p>
+          </InfoTip>
         </div>
       ) : (
         <div className="print-sheet">
@@ -212,8 +210,8 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
 const PRINT_STYLES = `
   @page { size: A4 portrait; margin: 8mm; }
 
-  .print-toolbar { padding: 12px 16px; background: #FAF7F2; border: 1px solid rgba(26, 26, 26, 0.12); border-radius: 8px; margin: 16px; }
-  .print-note { padding: 12px 16px; background: #FFF8F0; border: 1px solid rgba(196, 103, 79, 0.35); border-radius: 8px; margin: 0 16px 16px; }
+  .print-toolbar { padding: 12px 16px; background: rgb(var(--color-cream)); border: 1px solid rgb(var(--color-ink) / 0.12); border-radius: 8px; margin: 16px; }
+  .print-note { padding: 12px 16px; background: rgb(var(--color-cream)); border: 1px solid rgb(var(--color-mulberry) / 0.35); border-radius: 8px; margin: 0 16px 16px; }
 
   .print-sheet {
     display: grid;
@@ -222,7 +220,7 @@ const PRINT_STYLES = `
     padding: 6mm;
     max-width: 210mm;
     margin: 0 auto;
-    background: #ffffff;
+    background: white;
     border: 1px dashed rgba(26, 26, 26, 0.15);
   }
   .print-card {
@@ -232,11 +230,11 @@ const PRINT_STYLES = `
     text-align: center;
     page-break-inside: avoid;
     break-inside: avoid;
-    color: #1A1A1A;
-    background: #ffffff;
+    color: rgb(var(--color-ink));
+    background: white;
   }
   .print-eyebrow {
-    font-size: 7pt; color: #C4674F; margin: 0 0 3mm 0;
+    font-size: 7pt; color: rgb(var(--color-mulberry)); margin: 0 0 3mm 0;
     font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.2em; text-transform: uppercase;
   }
   .print-qr { display: inline-block; width: 48mm; height: 48mm; }
@@ -250,7 +248,7 @@ const PRINT_STYLES = `
   }
 
   @media print {
-    body { background: #ffffff !important; }
+    body { background: white !important; }
     .screen-only { display: none !important; }
     .print-sheet { padding: 0; border: none; max-width: none; }
     header, nav { display: none !important; }

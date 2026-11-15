@@ -39,7 +39,7 @@ export function DressCodeListsForm({
     <section id="dos-and-donts" className="scroll-mt-24 space-y-4" data-mood-board-dress-lists="">
       <header className="space-y-1">
         <h2 className="text-2xl font-semibold text-ink">Do&rsquo;s and don&rsquo;ts</h2>
-        <p className="max-w-prose text-sm text-ink/65">
+        <p className="max-w-prose text-sm text-ink/70">
           What guests read under your dress code. The same list as the Dress code scene — change it in
           either place.
         </p>
@@ -52,13 +52,13 @@ export function DressCodeListsForm({
           <input type="hidden" name="return_to" value={`/dashboard/${eventId}/studio/mood-board`} />
         )}
         <div className="space-y-1.5" data-dress-code-list="dos">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-success-700">Do</p>
           {/* Keyed on the saved list: a save made in the Dress code scene
               redraws these rows instead of leaving the old ones to be saved back. */}
           <ListField key={dos.join('\u0001')} name="dos" tone="do" initial={dos} />
         </div>
         <div className="space-y-1.5" data-dress-code-list="donts">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">Don&rsquo;t</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-danger-700">Don&rsquo;t</p>
           <ListField key={donts.join('\u0001')} name="donts" tone="dont" initial={donts} />
         </div>
         {/* ✍ In the Maker the lists draft themselves when a row is left (owner

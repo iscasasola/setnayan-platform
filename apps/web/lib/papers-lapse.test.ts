@@ -89,6 +89,6 @@ test('a permit printed "valid until 31 Dec" never takes the badge off on 1 Janua
 test('481b9b6b: the lapse never refuses a booking — the app gate and the trigger do not read the stamp', () => {
   const vis = stripComments(readFileSync(join(WEB, 'lib', 'vendor-visibility.ts'), 'utf8'));
   assert.ok(!/papers_lapsed/.test(vis), 'the booking gate reads the papers stamp again');
-  const mig = stripComments(readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271345631375_unrenewed_papers_pause_new_bookings.sql'), 'utf8').replace(/--[^\n]*/g, ''));
+  const mig = stripComments(readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271348041863_unrenewed_papers_pause_new_bookings.sql'), 'utf8').replace(/--[^\n]*/g, ''));
   assert.ok(!/enforce_booking_requires_verified_vendor/.test(mig), 'the lapse migration re-emits the booking trigger');
 });

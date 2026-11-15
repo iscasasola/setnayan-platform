@@ -48,7 +48,7 @@ import { parseVisibility } from './vendor-visibility';
 export const FINDABLE_COLUMN = 'is_findable' as const;
 
 /**
- * 📄 …and the papers stamp beside it (migration 20271345631375, owner 2026-11-14
+ * 📄 …and the papers stamp beside it (migration 20271348041863, owner 2026-11-14
  * "Keep them, block new" — answer B). A shop whose renewal day passed with no
  * renewed papers stays `verified` (so the couples who already booked it still see
  * it) but leaves every list: `papers_current` is generated `papers_lapsed_at IS NULL`.

@@ -146,7 +146,7 @@ COMMENT ON VIEW public.vendor_market_stats IS
   'security_invoker = true. Carries NO contact column since 20271221366210 '
   '(a shop is reached through Setnayan, never around it). Carries is_findable '
   'since 20271320303985 (the one listing rule) and papers_current since '
-  '20271345631375 (a shop whose papers lapsed leaves the lists). Used by '
+  '20271348041863 (a shop whose papers lapsed leaves the lists). Used by '
   '/vendors + Explore + Concierge wizard vendor-pick cards.';
 
 -- ── 4 · the shop's own view re-projected (its projection is frozen at CREATE) ─

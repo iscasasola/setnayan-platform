@@ -39,8 +39,8 @@ test('Check a date and the peek exist only behind the verified + bookable gate',
   assert.equal((PAGE.match(/<OpenDatesPeek\b/g) ?? []).length, 1);
   assert.match(PAGE, /if \(cinematicHero && bookable\) \{\s*const dates = await readCheckADate\(/);
   assert.equal((PAGE.match(/readCheckADate\(/g) ?? []).length, 1, 'a second, ungated dates read');
-  // The panel's Check a date is the shipped door to the shipped landing.
-  assert.match(PANEL, /<CheckADateLink href=\{checkHref\}/);
+  // RW-269 (owner-seen 14 Nov): the panel has NO Check a date door — the header's, beside Add to your event, is the one.
+  assert.doesNotMatch(PANEL, /<CheckADateLink\b/);
   assert.match(PEEK, /Check your own date/);
 });
 

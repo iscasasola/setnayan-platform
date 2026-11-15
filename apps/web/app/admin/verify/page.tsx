@@ -189,7 +189,7 @@ type VendorVisibilityRow = {
   fraud_suspended_at?: string | null;
   fraud_banned_at?: string | null;
   fraud_tombstoned?: boolean | null;
-  /** False once the shop's papers lapsed (migration 20271345631375). */
+  /** False once the shop's papers lapsed (migration 20271348041863). */
   papers_current?: boolean | null;
 };
 

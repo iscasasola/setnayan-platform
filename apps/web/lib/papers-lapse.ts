@@ -6,7 +6,7 @@
  * AN UNRENEWED SHOP KEEPS ITS EXISTING BOOKINGS", corrected by DECISION_LOG
  * 481b9b6b: the shop only drops out of search and Discover) — and the owner's
  * answer B on PR #7624: the lapse is a STAMP
- * (`vendor_profiles.papers_lapsed_at`, migration 20271345631375), never a change
+ * (`vendor_profiles.papers_lapsed_at`, migration 20271348041863), never a change
  * of `verification_state`, because the couples who already booked the shop read
  * it through policies that require `verified`.
  *

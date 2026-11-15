@@ -139,7 +139,7 @@ test('2 · no reader of the marketplace view goes back to verified-only without 
 });
 
 test('3 · the gate the lists share is the one column, and the live-shop gate is built on it', () => {
-  // 📄 + papers_current (20271345631375, owner "Keep them, block new"): a lapsed shop leaves every list.
+  // 📄 + papers_current (20271348041863, owner "Keep them, block new"): a lapsed shop leaves every list.
   assert.deepEqual(FINDABLE_SHOP_GATE, { is_findable: true, papers_current: true });
   assert.deepEqual(findableShopGate('vendor_profiles'), {
     'vendor_profiles.is_findable': true,

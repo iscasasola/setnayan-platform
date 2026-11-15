@@ -1,6 +1,6 @@
 /**
  * A FREE COUPLE'S BACKGROUND COLOUR REACHES THE GUEST (owner 2026-09-25 "fix
- * it" — Event Hub Pro feature list: "Free: … bg colour").
+ * it" — Event Pro feature list: "Free: … bg colour").
  *
  * `events.site_bg_color` saved, but `proSiteVarsFor` painted it only when the
  * event owned ACTIVE Website Pro (`proWatermarkHidden`) — a free couple's

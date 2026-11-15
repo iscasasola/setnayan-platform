@@ -87,7 +87,7 @@ export function PaletteLookStrip({ value, colours, onPick, pending = false }: { 
           className={SP_PALETTE_PICK}
         >
           <PaletteLookThumb look={o.id} colours={shown} />
-          {/* 💎 ◆ on every look but Tags (the theme's own) — Event Hub Pro since 2026-10-16, named at ✓ Apply. */}
+          {/* 💎 ◆ on every look but Tags (the theme's own) — Event Pro since 2026-10-16, named at ✓ Apply. */}
           {o.id === PALETTE_LOOK_DEFAULT ? null : (
             <span aria-hidden className="pointer-events-none absolute right-0.5 top-0 text-[9px] leading-none text-[var(--sp-ink,#2C2A29)]">
               ◆

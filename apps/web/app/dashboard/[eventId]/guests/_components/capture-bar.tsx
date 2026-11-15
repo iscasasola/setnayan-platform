@@ -37,7 +37,7 @@ import { guestAdds, queueTypedGuest, typedGuestPreview } from './guest-add-queue
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
 const ICON_BTN =
-  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink';
+  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/70 hover:bg-ink/5 hover:text-ink';
 
 export function CaptureBar({
   eventId,
@@ -152,7 +152,7 @@ export function CaptureBar({
             aria-label="Add this guest"
             title="Add this guest"
             data-capture-add=""
-            className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-ink/55 hover:text-ink disabled:text-ink/30"
+            className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-ink/70 hover:text-ink disabled:text-ink/30"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -160,7 +160,7 @@ export function CaptureBar({
 
         {/* Hint — the box never waits, so there is no "Adding…" here: each name says it on its own row (just-added.tsx). */}
         <span className="hidden shrink-0 items-center sm:inline-flex">
-          <span className="rounded-md border border-ink/10 px-1.5 py-0.5 font-mono text-[11px] text-ink/45">
+          <span className="rounded-md border border-ink/10 px-1.5 py-0.5 text-xs text-ink/70 tabular-nums">
             {'↵ add & keep going'}
           </span>
         </span>

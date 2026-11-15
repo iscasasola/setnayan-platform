@@ -32,7 +32,7 @@ THE BUSINESS PERMIT LEADS · THE RENEWAL DAY IS 30 MARCH. Outside-spec items 1�
   (`lib/papers-due.ts`) for automatic and admin approvals; an approved shop may open a renewal draft once its deadline
   is within 60 days or past.
 - **After 30 March — out of search and Discover, everything else kept** (owner answer B, corrected by DECISION_LOG
-  481b9b6b; migration `20271345631375`, add-only): the daily badge pass stamps `vendor_profiles.papers_lapsed_at` on a
+  481b9b6b; migration `20271348041863`, add-only): the daily badge pass stamps `vendor_profiles.papers_lapsed_at` on a
   verified shop whose renewal day passed unrenewed. `verification_state` is NOT changed (the couples who already booked
   it read it through policies that require `verified`). The stamp drops the shop from every couple-facing list
   (`papers_current` in `FINDABLE_SHOP_GATE` and `vendor_market_stats`), drops a free "verified" plan to "free", and tells

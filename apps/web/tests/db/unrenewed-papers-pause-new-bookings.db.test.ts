@@ -1,6 +1,6 @@
 /**
  * AFTER 30 MARCH, AN UNRENEWED SHOP DROPS OUT OF SEARCH AND DISCOVER AND KEEPS
- * EVERYTHING ELSE — migration 20271345631375 (owner answer B on PR #7624,
+ * EVERYTHING ELSE — migration 20271348041863 (owner answer B on PR #7624,
  * corrected by DECISION_LOG 481b9b6b).
  *
  * Proves, on the replayed schema:

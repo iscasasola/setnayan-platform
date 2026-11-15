@@ -16,7 +16,7 @@
  *   renewal day passed unrenewed DROPS OUT OF SEARCH AND DISCOVER — no new
  *   couples find it — and keeps its bookings, its hand-imported clients and the
  *   events that already inquired. That is not decided here: the daily pass stamps
- *   `papers_lapsed_at` (lib/papers-lapse.server.ts, migration 20271345631375),
+ *   `papers_lapsed_at` (lib/papers-lapse.server.ts, migration 20271348041863),
  *   which drops the shop from every list (`papers_current`). No booking door and
  *   not the booking trigger reads it (the inquired-before-lapse path is
  *   unconfirmed, so it stays as today). `verification_state` is still never

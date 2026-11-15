@@ -9,6 +9,9 @@
  * Suppliers list, a notification) is not intercepted and renders the full route.
  */
 import type { ReactNode } from 'react';
+// 🖥 The system's two columns (`.sn-cols`) — the Chats list beside the open thread from 701 (`_components/chat-panes.tsx`).
+// The supplier tree loads this file in its own layout; the couple's Chats is the one couple page that uses the columns.
+import '@/app/vendor-dashboard/_components/supplier-frame.css';
 
 export default function HostChatsLayout({ children, supplier }: { children: ReactNode; supplier: ReactNode }) {
   return (

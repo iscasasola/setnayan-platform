@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import type { AccountBarTab } from '@/lib/account-bar';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 
 /**
  * AccountBarSlot — how the two account layouts mount <AccountBottomNav>: in its
@@ -23,6 +24,18 @@ import type { AccountBarTab } from '@/lib/account-bar';
  */
 const AccountBottomNav = dynamic(() => import('./account-bottom-nav').then((m) => m.AccountBottomNav));
 
-export function AccountBarSlot({ tabs, hasShop = false }: { tabs: readonly AccountBarTab[]; hasShop?: boolean }) {
-  return <AccountBottomNav tabs={tabs} hasShop={hasShop} />;
+/**
+ * `boundary` is the line the layout gave its shell (`shell-boundary.tsx`), handed to the dock so the phone bar and the
+ * rail's strip switch at ONE width. Both account layouts pass `"tab"` (701, owner-approved plan D5, 2026-11-13).
+ */
+export function AccountBarSlot({
+  tabs,
+  boundary,
+  hasShop = false,
+}: {
+  tabs: readonly AccountBarTab[];
+  boundary?: ShellBoundary;
+  hasShop?: boolean;
+}) {
+  return <AccountBottomNav tabs={tabs} boundary={boundary} hasShop={hasShop} />;
 }

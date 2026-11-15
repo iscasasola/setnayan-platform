@@ -34,7 +34,7 @@ import { ShopServicesHead } from './_components/shop-services-head';
 import { ShopBundles, type ShopBundle } from './_components/shop-bundles';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
+import { cardsLiveBits, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { siteOrigin } from '@/lib/site-origin';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
@@ -532,12 +532,8 @@ function servicesCompact(d: ShopData): string {
   const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
   const bits: string[] = [];
   if (packageAuthoringEnabled() && d.bundles && d.bundles.length > 0) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
-  const cards = cardsOf(d);
-  if (cards !== null && cards > 0) {
-    bits.push(n(cards, 'card', 'cards'));
-    const live = (d.serviceRows ?? []).filter((r) => r.live).length;
-    if (live > 0) bits.push(`${formatCount(live)} live`);
-  }
+  // Cards and live CARDS — one unit (lib/shop-services-summary.ts `cardsLiveBits`).
+  bits.push(...cardsLiveBits(d.serviceRows));
   return bits.join(' · ');
 }
 /** How many service cards the shop has — null when the rows were unread. */

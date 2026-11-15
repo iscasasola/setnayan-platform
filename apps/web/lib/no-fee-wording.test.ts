@@ -48,7 +48,7 @@ test('the retired "returning clients never carry a fee" wording is nowhere in ap
 });
 
 test('the client card says the owner-approved sentence', () => {
-  const f = bookingFeeForecast({ kind: 'not_sourced' } as Parameters<typeof bookingFeeForecast>[0]);
+  const f = bookingFeeForecast({ kind: 'not_sourced' } as Parameters<typeof bookingFeeForecast>[0], null);
   assert.ok(f && 'detail' in f && typeof f.detail === 'string');
   assert.ok((f as { detail: string }).detail.includes(NEW), (f as { detail: string }).detail);
 });

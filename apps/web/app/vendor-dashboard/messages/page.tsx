@@ -16,6 +16,8 @@ import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
 import { foldByEvent } from '@/lib/chats-by-event';
 import { SupplierChats, type SupplierChatsRead } from './_components/supplier-chats';
 import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
+import { ChatPanes } from '@/app/dashboard/[eventId]/messages/_components/chat-panes';
+import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 
 /**
  * /vendor-dashboard/messages — THE SUPPLIER'S CHATS, a full-screen page of its own (owner 2026-11-06: *"The chat page
@@ -28,7 +30,13 @@ import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
  */
 export const metadata = { title: 'Chats' };
 
-export default async function SupplierChatsPage() {
+export default async function SupplierChatsPage({
+  searchParams,
+}: {
+  /** 🖥 `__in: 'thread'` — drawn by `[threadId]/layout.tsx` as the LEFT column beside an open thread (from 701). */
+  searchParams?: Promise<{ __in?: string }>;
+}) {
+  const besideThread = (await searchParams)?.__in === 'thread';
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,12 +47,20 @@ export default async function SupplierChatsPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const read = await readSupplierChats(supabase, profile.vendor_profile_id, user.id);
-  return (
+  const list = (
     <>
       <SupplierChats read={read} viewerId={user.id} />
       {/* ⚡ Re-renders when a message arrives — only with NEXT_PUBLIC_CHAT_LIVE_ENABLED on (renders nothing). */}
       <LiveInboxRefresh userId={user.id} />
     </>
+  );
+  if (besideThread) return list;
+  // 🖥 From 701 the newest active chat opens beside the list (`ChatPanes`, owner 2026-11-13 D3); below 701 nothing moves.
+  const latestHref = read.kind === 'read' ? (read.rows.find((r) => !r.archived)?.paneHref ?? null) : null;
+  return (
+    <ChatPanes list={list} open={false} latestHref={latestHref}>
+      <ThreadArrival />
+    </ChatPanes>
   );
 }
 
@@ -148,6 +164,8 @@ async function readSupplierChats(
       eventLine: '',
       archived: isArchived,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={SUPPLIER_CHATS_HREF} archived={isArchived} />,
+      // 🖥 From 701 the row opens the event's newest thread beside this list (`ChatPanes`), not the picked client over it.
+      paneHref: `/vendor-dashboard/messages/${r.threadId}`,
       // 🚦 TODO(Build 3 · Lane B): `needsYou: needsYouLevel(...)` — the one rule; no row guesses a level meanwhile.
     };
   };

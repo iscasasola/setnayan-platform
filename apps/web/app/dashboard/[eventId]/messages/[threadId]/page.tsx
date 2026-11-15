@@ -520,6 +520,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       vendorProfileId: thread.vendor_profile_id,
       messages: msgs,
       revealed: v.revealed,
+      shopName: v.name,
     });
   })();
 

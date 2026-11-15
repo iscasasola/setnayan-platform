@@ -73,7 +73,7 @@ export function PlanningTick({
         aria-pressed={on}
         aria-label={on ? `Mark "${title}" not done` : `Mark "${title}" done`}
         data-planning-tick={kind}
-        className={`inline-flex h-11 w-9 items-center justify-center rounded-full transition ${
+        className={`sn-hit-2d inline-flex h-11 w-9 items-center justify-center rounded-full transition ${
           on ? 'text-success-600' : 'text-ink/35 hover:text-success-600'
         }`}
       >

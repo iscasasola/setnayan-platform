@@ -87,17 +87,19 @@ export async function TrustedCircleBadge({ eventId, vendorProfileId }: Props) {
   if (nearCoversEventType) contextBits.push('covers your event type');
   const context = contextBits.join(' · ');
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): read-only, so never a card — a plain row between hairlines, the
+  // section's grey capitals over one bold line and one grey line.
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-ink/10 bg-cream text-ink/70">
+    <div className="flex min-h-14 items-start gap-3 border-y border-ink/10 px-0.5 py-3">
+      <div className="grid h-8 w-8 shrink-0 place-items-center text-ink/70">
         <HeartHandshake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 space-y-0.5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           Trusted by your circle
         </p>
         <p className="text-sm font-medium text-ink">{primary}</p>
-        {context ? <p className="text-xs text-ink/60">{context}</p> : null}
+        {context ? <p className="text-xs text-ink/70">{context}</p> : null}
       </div>
     </div>
   );

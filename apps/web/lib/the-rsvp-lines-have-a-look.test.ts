@@ -685,5 +685,5 @@ test('11 · When no shows ONE card: with a ground chosen for the door’s card, 
   assert.match(src('app/[slug]/invite/enter/page.tsx'), /<RsvpNoteLines\b/);
   assert.match(src('app/[slug]/_components/rsvp-note-lines.tsx'), /<div className=\{lines \? 'sn-glass-bare space-y-2 rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm' : 'sn-glass-bare rounded-2xl bg-cream\/95 px-5 py-7 text-center shadow-sm'\} data-landing-missed="">/);
   /* …and the lab draws that same component for its When no (it was a stand-in with a copy of the card's classes). */
-  assert.match(src('app/dev/maker-lab/guest/page.tsx'), /<RsvpNoteLines\s+reply="no"/);
+  assert.match(src('app/dev/maker-lab/guest/page.lab.tsx'), /<RsvpNoteLines\s+reply="no"/);
 });

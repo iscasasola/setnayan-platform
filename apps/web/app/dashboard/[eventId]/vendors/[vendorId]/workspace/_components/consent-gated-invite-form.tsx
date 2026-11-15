@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ShieldCheck, UserCheck, X } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { ActionButton, EqualRow } from '@/components/action-button';
+import { Sheet } from '@/app/_components/sheet';
 import { inviteHost } from '@/app/dashboard/[eventId]/hosts/actions';
 
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -122,6 +122,12 @@ export function ConsentGatedInviteForm({
   );
 }
 
+/**
+ * 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 7 · 9 · 13): the RA 10173 ask RISES as the house sheet (grab handle,
+ * ✕, the two foot buttons equal widths — Cancel grey, "Agree & invite" the one main) instead of a hand-drawn overlay;
+ * no box inside it — what they can see and the optional permissions are two sections in grey capitals. Every word kept.
+ * "Are you sure?" is right here: it shares the couple's planning information with another person (sheet rule 9).
+ */
 function ConsentModal({
   coordinatorLabel,
   onConfirm,
@@ -135,135 +141,110 @@ function ConsentModal({
   // Owner 2026-07-19 #5 — optional money-authority scopes, BOTH default OFF.
   const [lockVendors, setLockVendors] = useState(false);
   const [handlePayments, setHandlePayments] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
+  const titleId = useId();
 
   const who = coordinatorLabel?.trim() || 'your coordinator';
+  const CAP = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+  const CHECK = 'mt-0.5 h-4 w-4 shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta';
 
   return (
-    <div
-      ref={dialogRef}
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={`Share your event with ${who}`}
-      className="fixed inset-0 z-[100] flex items-end justify-center p-4 focus:outline-none sm:items-center"
+    <Sheet
+      open
+      onClose={onDismiss}
+      labelledById={titleId}
+      rise
+      foot={
+        <div className="px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
+          <EqualRow>
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onDismiss} />
+            <ActionButton
+              tone="brand"
+              main
+              icon={UserCheck}
+              label="Agree & invite"
+              onClick={() => onConfirm({ vendorLock: lockVendors, checkout: handlePayments })}
+              waiting={!agreed}
+            />
+          </EqualRow>
+        </div>
+      }
     >
-      <OverlayBackdrop onClose={onDismiss} />
-      <div className="relative w-full max-w-md rounded-2xl border border-terracotta/30 bg-cream p-5 shadow-xl sm:p-6">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDismiss}
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-
-        <div className="flex items-start gap-2.5 pr-6">
+      <div role="alertdialog" aria-labelledby={titleId} className="space-y-3 px-4 pb-4 pt-3">
+        <div className="flex items-start gap-2.5 pr-12">
           <ShieldCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-ink">
+            <h2 id={titleId} className="text-[17px] font-semibold text-ink">
               Share your event with {who}?
-            </h3>
-            <p className="text-xs leading-snug text-ink/65">
-              Inviting {who} as a coordinator lets them help plan on your behalf.
-              Please confirm you agree to share this information under the Data
-              Privacy Act (RA 10173).
+            </h2>
+            <p className="text-sm leading-snug text-ink/70">
+              Inviting {who} as a coordinator lets them help plan on your behalf. Please confirm you agree to share this
+              information under the Data Privacy Act (RA 10173).
             </p>
           </div>
         </div>
 
-        <div className="mt-4 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-3 text-xs text-ink/85">
-          <p className="font-medium text-ink/80">They&rsquo;ll be able to see and help edit:</p>
+        <div className="space-y-2 text-sm text-ink">
+          <p className={`mt-[18px] ${CAP}`}>They&rsquo;ll be able to see and help edit</p>
           <ul className="space-y-1.5">
             <li className="flex items-start gap-1.5">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+              <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
               <span>Your <strong>guest list &amp; RSVPs</strong></span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+              <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
               <span>Your <strong>seating plan</strong></span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+              <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
               <span>Your <strong>schedule / run-of-show</strong></span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+              <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
               <span>Your <strong>supplier chats &amp; records</strong></span>
             </li>
           </ul>
           <p className="border-t border-ink/10 pt-2 text-ink/70">
-            <strong>Your budget and payments stay private by default</strong> — a
-            coordinator can only act on money matters if you allow it below. You
-            can remove their access anytime.
+            <strong className="text-ink">Your budget and payments stay private by default</strong> — a coordinator can
+            only act on money matters if you allow it below. You can remove their access anytime.
           </p>
         </div>
 
-        <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-3 text-xs text-ink/85">
-          <p className="font-medium text-ink/80">
-            Optional — extra permissions (both off unless you allow them):
-          </p>
-          <label className="flex items-start gap-2">
+        <div className="space-y-1 text-sm text-ink">
+          <p className={`mt-[18px] ${CAP}`}>Optional — extra permissions (both off unless you allow them)</p>
+          <label className="flex min-h-11 items-start gap-2 py-1.5">
             <input
               type="checkbox"
               checked={lockVendors}
               onChange={(e) => setLockVendors(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              className={CHECK}
             />
             <span>
-              <strong>Can book suppliers</strong> — {who} may book a
-              supplier on your behalf, which commits your booking and starts its
-              payment schedule.
+              <strong>Can book suppliers</strong> — {who} may book a supplier on your behalf, which commits your
+              booking and starts its payment schedule.
             </span>
           </label>
-          <label className="flex items-start gap-2">
+          <label className="flex min-h-11 items-start gap-2 border-t border-ink/10 py-1.5">
             <input
               type="checkbox"
               checked={handlePayments}
               onChange={(e) => setHandlePayments(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              className={CHECK}
             />
             <span>
-              <strong>Can handle payments</strong> — {who} may submit orders,
-              upload payment proof, and record supplier payments for this event.
+              <strong>Can handle payments</strong> — {who} may submit orders, upload payment proof, and record supplier
+              payments for this event.
             </span>
           </label>
         </div>
 
-        <label className="mt-4 flex items-start gap-2 text-xs text-ink/85">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
+        <label className="flex min-h-11 items-start gap-2 border-t border-ink/10 pt-3 text-sm text-ink">
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className={CHECK} />
           <span>
-            I agree to share my event&rsquo;s planning information (guest list,
-            seating, schedule, and supplier chats) with {who} so they can coordinate
-            on my behalf. I understand I can revoke this anytime.
+            I agree to share my event&rsquo;s planning information (guest list, seating, schedule, and supplier chats)
+            with {who} so they can coordinate on my behalf. I understand I can revoke this anytime.
           </span>
         </label>
-
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm({ vendorLock: lockVendors, checkout: handlePayments })}
-            disabled={!agreed}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
-          >
-            <UserCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Agree &amp; invite
-          </button>
-        </div>
       </div>
-    </div>
+    </Sheet>
   );
 }

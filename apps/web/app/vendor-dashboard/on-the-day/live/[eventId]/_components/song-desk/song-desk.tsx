@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { ArrowRight, Ban, CircleAlert, Music, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { readEventSongRequests, readVendorSongs } from '@/lib/songs';
@@ -20,6 +19,7 @@ import {
 import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * THE SONG DESK — the day-of specialization for a band / singer / choir /
@@ -119,7 +119,7 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
 
       <ConsoleRule />
       {matchUnread ? (
-        <p role="status" data-song-desk-unread="" className="text-sm leading-relaxed text-ink/70">
+        <p role="status" data-song-desk-unread="" className="text-sm leading-relaxed text-warn-700">
           We couldn’t load {requestsRead.failed ? `${coupleName}’s song picks` : 'your repertoire'} just now — that’s on
           us, not on {coupleName}. Refresh before you plan the set.
         </p>
@@ -162,13 +162,12 @@ export async function SongDesk({ eventId, vendorProfileId, coupleName }: Special
       <SetsPanel eventId={eventId} sets={sets} repertoire={repertoire} />
 
       <ConsoleRule />
-      <Link
+      <ActionButton
         href="/vendor-dashboard/repertoire"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline"
-      >
-        Edit your repertoire
-        <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      </Link>
+        tone="neutral"
+        icon={<ArrowRight aria-hidden strokeWidth={1.9} />}
+        label="Edit your repertoire"
+      />
     </div>
   );
 }
@@ -212,7 +211,7 @@ function HostPlaylist({
     return (
       <>
         <ConsoleRule />
-        <p className="text-sm leading-relaxed text-ink/70" data-song-desk-playlist-unread="">
+        <p className="text-sm leading-relaxed text-warn-700" data-song-desk-playlist-unread="">
           We couldn’t load the running order just now — that’s on us, not on {coupleName}.
         </p>
       </>
@@ -229,7 +228,7 @@ function HostPlaylist({
       return (
         <>
           <ConsoleRule />
-          <p className="text-sm leading-relaxed text-ink/70">
+          <p className="text-sm leading-relaxed text-warn-700">
             We couldn’t load the running order just now — that’s on us, not on{' '}
             {coupleName}. Your requests above are unaffected.
           </p>
@@ -242,9 +241,8 @@ function HostPlaylist({
         {/* The rule belongs to whatever renders below it, so it lives on each
             branch that renders — never above a section that returned null. */}
         <ConsoleRule />
-        <p className="text-sm leading-relaxed text-ink/70">
-          {coupleName} haven’t set out the night moment by moment yet — the songs above are
-          their list, without a running order.
+        <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+          {coupleName} haven’t set out the night moment by moment yet — the songs above have no running order.
         </p>
       </>
     );
@@ -255,33 +253,33 @@ function HostPlaylist({
       <ConsoleRule />
       <section className="space-y-3">
         <div className="space-y-1">
-          <h4 className="text-sm font-medium text-ink">
+          <h4 className="text-base font-semibold text-ink">
             {coupleName}’s night, moment by moment
           </h4>
-          <p className="text-xs leading-relaxed text-ink/60">
+          <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
             {summarise(playlist)}
           </p>
         </div>
 
         {playlist.moments.map((moment) => (
           <div key={moment.slot} className="space-y-0.5">
-            <h5 className="flex flex-wrap items-baseline gap-x-2 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-ink/50">
+            <h5 className="flex flex-wrap items-baseline gap-x-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
               {moment.label}
               {/* The feel they asked for, when they named one. Sits ON the moment
                   heading rather than in the song list, because it applies to the
                   whole moment — including the parts they left to you. */}
               {moment.vibe ? (
-                <span className="rounded-full bg-gild/15 px-1.5 py-0.5 text-[0.625rem] tracking-normal text-ink/70">
+                <span className="rounded-full bg-gild/15 px-2 py-0.5 text-xs normal-case tracking-normal text-ink">
                   {PLAYLIST_VIBE_LABELS[moment.vibe]}
                 </span>
               ) : null}
             </h5>
             {moment.vibe && moment.entries.length === 0 ? (
-              <p className="text-xs leading-relaxed text-ink/60">
+              <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
                 No songs named — they asked for the feel and left the choices to you.
               </p>
             ) : null}
-            <ul>
+            <ul className="divide-y divide-[color:var(--m-line)]">
               {moment.entries.map((entry) => (
                 <PickRow key={entry.pickId} entry={entry} tone="moment" />
               ))}
@@ -323,18 +321,18 @@ function summarise(playlist: HostPlaylistModel): string {
 function Banned({ playlist }: { playlist: HostPlaylistModel }) {
   return (
     <div className="space-y-0.5 pt-1">
-      <h5 className="flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-ink/50">
+      <h5 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
         <Ban aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         Don’t play these
       </h5>
       {playlist.hazardCount > 0 ? (
-        <p className="text-xs leading-relaxed text-terracotta-700">
+        <p className="text-sm leading-relaxed text-danger-700">
           {playlist.hazardCount === 1
             ? '1 of these is in your repertoire — worth a mark on your list.'
             : `${formatCount(playlist.hazardCount)} of these are in your repertoire — worth a mark on your list.`}
         </p>
       ) : null}
-      <ul>
+      <ul className="divide-y divide-[color:var(--m-line)]">
         {playlist.banned.map((entry) => (
           <PickRow key={entry.pickId} entry={entry} tone="banned" />
         ))}
@@ -356,7 +354,7 @@ function Banned({ playlist }: { playlist: HostPlaylistModel }) {
 function PickRow({ entry, tone }: { entry: HostPlaylistEntry; tone: 'moment' | 'banned' }) {
   const flagged = tone === 'banned' ? entry.inRepertoire : !entry.inRepertoire;
   return (
-    <li className="py-1">
+    <li className="flex min-h-14 flex-col justify-center py-2">
       <div className="flex min-w-0 items-baseline gap-2">
         {flagged ? (
           <CircleAlert
@@ -365,23 +363,23 @@ function PickRow({ entry, tone }: { entry: HostPlaylistEntry; tone: 'moment' | '
             strokeWidth={1.75}
           />
         ) : null}
-        <span className={`min-w-0 truncate text-sm ${flagged ? 'font-medium text-ink' : 'text-ink/85'}`}>
+        <span className={`min-w-0 truncate text-sm text-ink ${flagged ? 'font-semibold' : 'font-medium'}`}>
           {entry.title}
         </span>
         {entry.artist ? (
-          <span className="min-w-0 shrink truncate text-xs text-ink/55">{entry.artist}</span>
+          <span className="min-w-0 shrink truncate text-sm text-[color:var(--m-slate-2)]">{entry.artist}</span>
         ) : entry.matchedArtist ? (
-          <span className="min-w-0 shrink truncate text-xs text-ink/45">
-            {/* Not the couple's word — ours, from the match. Lighter on purpose. */}
+          <span className="min-w-0 shrink truncate text-sm italic text-[color:var(--m-slate-2)]">
+            {/* Not the couple's word — ours, from the match. Set apart in italic (never paler than the reading floor). */}
             {entry.matchedArtist}
           </span>
         ) : null}
       </div>
       {entry.notes ? (
-        <p className="pl-0.5 text-xs leading-relaxed text-ink/60">{entry.notes}</p>
+        <p className="pl-0.5 text-sm leading-relaxed text-[color:var(--m-slate-2)]">{entry.notes}</p>
       ) : null}
       {tone === 'moment' && flagged ? (
-        <p className="pl-0.5 text-xs leading-relaxed text-ink/60">Not in your repertoire.</p>
+        <p className="pl-0.5 text-sm leading-relaxed text-[color:var(--m-slate-2)]">Not in your repertoire.</p>
       ) : null}
     </li>
   );
@@ -403,9 +401,8 @@ function PickRow({ entry, tone }: { entry: HostPlaylistEntry; tone: 'moment' | '
 function Coverage({ desk, coupleName }: { desk: SongDeskModel; coupleName: string }) {
   if (desk.noRequests) {
     return (
-      <p className="text-sm leading-relaxed text-ink/70">
-        {coupleName} haven’t picked any songs yet, so there’s nothing to match tonight —
-        play your set. Anything they choose later will show up here.
+      <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
+        {coupleName} haven’t picked any songs yet — nothing to match, play your set. Anything they pick shows up here.
       </p>
     );
   }
@@ -413,16 +410,16 @@ function Coverage({ desk, coupleName }: { desk: SongDeskModel; coupleName: strin
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
-        <span className="font-mono text-2xl font-bold text-ink">
+        <span className="text-2xl font-bold tabular-nums text-ink">
           {formatCount(desk.coveredCount)} / {formatCount(desk.requestedCount)}
         </span>
-        <span className="text-sm text-ink/65">
+        <span className="text-sm text-[color:var(--m-slate-2)]">
           of {coupleName}’s requests are in your repertoire
         </span>
       </div>
       {/* Decorative only — the fraction above already carries the information,
           so the bar needs no ARIA role and no percentage label of its own. */}
-      <div aria-hidden className="h-1 w-full max-w-xs bg-ink/10">
+      <div aria-hidden className="h-1 w-full max-w-xs bg-[color:var(--m-line)]">
         <div className="h-full bg-gild" style={{ width: `${desk.coveragePct}%` }} />
       </div>
     </div>
@@ -444,7 +441,7 @@ function Group({
   const gap = tone === 'gap';
   return (
     <section className="space-y-1.5">
-      <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+      <h4 className="flex items-center gap-1.5 text-base font-semibold text-ink">
         {gap ? (
           <CircleAlert aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         ) : (
@@ -452,8 +449,8 @@ function Group({
         )}
         {title}
       </h4>
-      <p className="text-xs leading-relaxed text-ink/60">{caption}</p>
-      <ul className="pt-0.5">
+      <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">{caption}</p>
+      <ul className="divide-y divide-[color:var(--m-line)] pt-0.5">
         {entries.map((e) => (
           <SongRow key={e.songId} entry={e} emphasis={gap} />
         ))}
@@ -470,19 +467,19 @@ function Group({
 function Spare({ entries }: { entries: SongDeskEntry[] }) {
   return (
     <details className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink/75 hover:text-ink">
-        <Music aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-ink">
+        <Music aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         {entries.length} more in your repertoire
         <ArrowRight
           aria-hidden
-          className="h-3.5 w-3.5 text-ink/40 transition-transform group-open:rotate-90"
+          className="h-4 w-4 text-terracotta transition-transform duration-sn-micro ease-sn group-open:rotate-90"
           strokeWidth={1.75}
         />
       </summary>
-      <p className="pt-1 text-xs leading-relaxed text-ink/60">
+      <p className="pt-1 text-sm leading-relaxed text-[color:var(--m-slate-2)]">
         Not requested — your room to read the floor.
       </p>
-      <ul className="pt-1">
+      <ul className="divide-y divide-[color:var(--m-line)] pt-1">
         {entries.map((e) => (
           <SongRow key={e.songId} entry={e} emphasis={false} />
         ))}
@@ -494,16 +491,12 @@ function Spare({ entries }: { entries: SongDeskEntry[] }) {
 /** One song. Title carries the weight; artist is secondary and may be absent. */
 function SongRow({ entry, emphasis }: { entry: SongDeskEntry; emphasis: boolean }) {
   return (
-    <li className="flex min-w-0 items-baseline gap-2 py-1">
-      <span
-        className={`min-w-0 truncate text-sm ${
-          emphasis ? 'font-medium text-ink' : 'text-ink/85'
-        }`}
-      >
+    <li className="flex min-h-14 min-w-0 items-center gap-2 py-2">
+      <span className={`min-w-0 truncate text-sm text-ink ${emphasis ? 'font-semibold' : 'font-medium'}`}>
         {entry.title}
       </span>
       {entry.artist ? (
-        <span className="min-w-0 shrink truncate text-xs text-ink/55">{entry.artist}</span>
+        <span className="min-w-0 shrink truncate text-sm text-[color:var(--m-slate-2)]">{entry.artist}</span>
       ) : null}
     </li>
   );

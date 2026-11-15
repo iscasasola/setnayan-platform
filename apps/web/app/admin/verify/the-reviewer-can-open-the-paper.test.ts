@@ -185,9 +185,10 @@ const GRANT_PATHS: ReadonlyArray<{ file: string; fn: string; what: string }> = [
     what: 'the one-click Approve — the only path production has ever used',
   },
   {
-    file: VERIFY_ACTIONS,
+    // Moved out of verify/actions.ts (2026-11-14) so the automatic path shares it.
+    file: 'lib/verification-decision.server.ts',
     fn: 'applyApplicationDecision',
-    what: 'the applications queue decision',
+    what: 'the applications queue decision (admin AND automatic)',
   },
   { file: BYPASS_ACTIONS, fn: 'grantVerificationBypass', what: 'the vouch' },
 ];

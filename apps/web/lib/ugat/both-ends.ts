@@ -434,7 +434,7 @@ export function findNoticeOrphans(input: NoticeInput, index: LiteralIndex): { fi
 
 /** Next.js entry files — the roots of runtime reachability. */
 export const ENTRY_RE =
-  /(^|\/)(page|layout|route|template|default|not-found|error|global-error|loading|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots|manifest)\.(ts|tsx)$|^(middleware|instrumentation(-client)?)\.ts$/;
+  /(^|\/)(page|layout|route|template|default|not-found|error|global-error|loading|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots|manifest)(\.lab)?\.(ts|tsx)$|^(middleware|instrumentation(-client)?)\.ts$/;
 
 const IMPORT_RE =
   /\bimport\s+([\s\S]*?)\s*from\s*['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)|\bexport\s+(\*|\{[\s\S]*?\})\s*from\s*['"]([^'"]+)['"]/g;

@@ -167,7 +167,7 @@ export function HomeWhosHereCard({
       <div className="md:grid md:grid-cols-2 md:gap-6">
       {/* ── ON THE DASHBOARD ─────────────────────────────────────────────── */}
       <div className="mt-3 min-w-0" data-whos-here-team={teamState}>
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">On the dashboard</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/75">On the dashboard</p>
         <p role="status" className="mt-0.5 text-[13.5px] text-ink/75" data-whos-here-team-words="">
           {teamWords(peers, teamState)}
         </p>
@@ -178,7 +178,7 @@ export function HomeWhosHereCard({
                 <FaceWithDot name={p.name} photo={p.photo} now />
                 <span className="min-w-0 leading-tight">
                   <span className="block truncate text-[13.5px] font-medium">{p.name}</span>
-                  <span className="block truncate text-[11.5px] text-ink/55">{p.role} · Active now</span>
+                  <span className="block truncate text-[12px] text-ink/75">{p.role} · Active now</span>
                 </span>
               </li>
             ))}
@@ -194,7 +194,7 @@ export function HomeWhosHereCard({
                   <FaceWithDot name={p.name} photo={null} now />
                   <span className="min-w-0 leading-tight">
                     <span className="block truncate text-[13.5px] font-medium">{p.name}</span>
-                    <span className="block truncate text-[11.5px] text-ink/55">{p.role} · Active now</span>
+                    <span className="block truncate text-[12px] text-ink/75">{p.role} · Active now</span>
                   </span>
                 </li>
               ))}
@@ -208,7 +208,7 @@ export function HomeWhosHereCard({
         className="mt-3 min-w-0 border-t border-ink/10 pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0"
         data-whos-here-hub={failed ? 'unread' : 'read'}
       >
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">Viewing the Event Hub</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/75">Viewing the Event Hub</p>
         <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
           <p role="status" className="min-w-0 text-[13.5px] text-ink/75" data-whos-here-hub-words="">
             {failed && viewers ? `${hubWords(viewers, hubEnabled)} · couldn’t refresh` : hubWords(failed ? null : viewers, hubEnabled)}
@@ -226,7 +226,7 @@ export function HomeWhosHereCard({
           ) : null}
         </div>
         {viewers && !viewers.may_name && viewers.team ? (
-          <p className="mt-1 text-[12px] text-ink/55" data-whos-here-names-hidden="">
+          <p className="mt-1 text-[12px] text-ink/75" data-whos-here-names-hidden="">
             Guest names show for people with the guest list.
           </p>
         ) : null}
@@ -248,7 +248,7 @@ export function HomeWhosHereCard({
                     <span className="min-w-0 leading-tight">
                       <span className="block max-w-[9rem] truncate text-[13.5px] font-medium">{name}</span>
                       {active ? (
-                        <span className="block max-w-[9rem] truncate text-[11.5px] text-ink/55" data-whos-here-active="">
+                        <span className="block max-w-[9rem] truncate text-[12px] text-ink/75" data-whos-here-active="">
                           {active.words}
                         </span>
                       ) : null}
@@ -258,7 +258,7 @@ export function HomeWhosHereCard({
               );
             })}
             {moreGuests > 0 ? (
-              <li className="px-2 text-[13px] font-medium text-ink/60" data-whos-here-more={moreGuests}>
+              <li className="px-2 text-[13px] font-medium text-ink/75" data-whos-here-more={moreGuests}>
                 +{formatCount(moreGuests)}
               </li>
             ) : null}

@@ -602,7 +602,7 @@ export function WaxStampMaker({
   return (
     <section
       id="wax-maker"
-      className="overflow-hidden rounded-2xl border border-ink/10 bg-[radial-gradient(120%_100%_at_50%_30%,#241c17_0%,#15110e_72%)] text-cream"
+      className="border-t border-ink/10 overflow-hidden bg-[radial-gradient(120%_100%_at_50%_30%,#241c17_0%,#15110e_72%)] text-cream pt-4"
     >
       <div className="flex flex-col items-center gap-6 p-6 sm:p-10">
 
@@ -737,7 +737,7 @@ export function WaxStampMaker({
             {/* Idle hint */}
             {phase === 'idle' && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cream/35">
+                <p className="text-[12px] uppercase tracking-[0.22em] text-cream/35">
                   Tap to drip · Hold to pour
                 </p>
               </div>
@@ -746,7 +746,7 @@ export function WaxStampMaker({
             {/* Wax-at-limit indicator */}
             {atLimit && phase === 'pouring' && (
               <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
-                <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-cream/38">
+                <p className="text-[12px] uppercase tracking-[0.24em] text-cream/38">
                   Wax at capacity
                 </p>
               </div>
@@ -784,14 +784,14 @@ export function WaxStampMaker({
 
               {/* Wax colour */}
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cream/55">
+                <p className="text-[12px] uppercase tracking-[0.24em] text-cream/55">
                   Wax colour
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => setWaxChoice('auto')}
-                    className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
+                    className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
                       waxChoice === 'auto'
                         ? 'bg-cream text-ink'
                         : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
@@ -821,7 +821,7 @@ export function WaxStampMaker({
                     key={f}
                     type="button"
                     onClick={() => setFinish(f)}
-                    className={`rounded-full px-4 py-1 text-[11px] font-medium capitalize transition ${
+                    className={`rounded-full px-4 py-1 text-[12px] font-medium capitalize transition ${
                       finish === f
                         ? 'bg-cream text-ink'
                         : 'bg-cream/15 text-cream/80 hover:bg-cream/25'
@@ -837,7 +837,7 @@ export function WaxStampMaker({
                 <button
                   type="button"
                   onClick={reset}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-cream/30 px-5 text-sm font-medium text-cream/85 transition hover:bg-cream/10"
+                  className="ab ab-neutral"
                 >
                   <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Try again

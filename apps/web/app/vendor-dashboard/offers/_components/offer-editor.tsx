@@ -424,11 +424,11 @@ export function OfferEditor({
     >
       <div className="shrink-0 border-b border-ink/10 bg-cream pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex min-h-[60px] w-full max-w-3xl items-center gap-2.5 px-4 py-2">
-          <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} />
+          <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} className="!h-11 !w-11" />
           <b id="offer-editor-title" className="min-w-0 flex-1 truncate text-[17px] font-bold leading-tight text-ink" data-offer-name-head="">
             {view.name || 'New offer'}
           </b>
-          <ActionButton tone="neutral" iconOnly icon={Info} label="About this offer" onClick={() => setAboutOpen((x) => !x)} aria-expanded={aboutOpen} />
+          <ActionButton tone="neutral" iconOnly icon={Info} label="About this offer" onClick={() => setAboutOpen((x) => !x)} aria-expanded={aboutOpen} className="!h-11 !w-11" />
         </div>
         {aboutOpen ? (
           <div role="note" className="border-t border-ink/10 bg-raised">
@@ -475,7 +475,7 @@ export function OfferEditor({
             {open ? (
               <div className="pb-2" data-offer-preview-full="">
                 <div className="mb-1.5 mt-0.5 flex items-center justify-between gap-2">
-                  <span className="sn-eye">As couples see it</span>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">As couples see it</span>
                   {reached.length > 1 ? (
                     <PickMenu label="Preview on" value={prev.id} compact dataAttr="data-offer-preview-card" options={reached.map((c) => ({ key: c.id, label: c.name, hint: c.pricePhp != null ? peso(c.pricePhp) : 'No price yet' }))} onPick={setPrevId} />
                   ) : null}
@@ -539,7 +539,7 @@ export function OfferEditor({
               </Part>
               {hasPrice(view) && prev?.pricePhp != null ? (
                 <p className="flex flex-col gap-0.5 border-t border-ink/10 px-3 pb-2.5 pt-2" style={{ background: 'var(--sn-canvas)' }} data-offer-worked="">
-                  <span className="sn-eye">{prev.name}</span>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{prev.name}</span>
                   <b className="truncate text-[13px] font-bold tabular-nums text-ink">{workedLine(view, prev.pricePhp)}</b>
                 </p>
               ) : null}
@@ -573,8 +573,8 @@ export function OfferEditor({
 
       <div className="shrink-0 bg-cream px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-2">
         <EqualRow className="mx-auto w-full max-w-3xl" data="offer-editor-thumb">
-          <ActionButton tone="danger" icon={Trash2} label={isNew ? 'Discard' : 'Remove'} onClick={() => (initial ? onRemove(initial) : close())} />
-          <ActionButton tone="ok" main icon={Check} label="Done" onClick={() => void done()} waiting={busy} disabled={busy} />
+          <ActionButton tone="danger" icon={Trash2} label={isNew ? 'Discard' : 'Remove'} onClick={() => (initial ? onRemove(initial) : close())} className="!h-11" />
+          <ActionButton tone="ok" main icon={Check} label="Done" onClick={() => void done()} waiting={busy} disabled={busy} className="!h-11" />
         </EqualRow>
       </div>
 
@@ -623,7 +623,7 @@ function Q({ n, label, hint, children }: { n: number; label: string; hint?: stri
       <div className="min-w-0 flex-1">
         <p className="mb-[7px] mt-[3px] text-[13px] font-semibold leading-tight text-ink">
           {label}
-          {hint ? <small className="font-normal text-ink/70"> · {hint}</small> : null}
+          {hint ? <small className="text-xs font-normal text-ink/70"> · {hint}</small> : null}
         </p>
         {children}
       </div>
@@ -691,7 +691,7 @@ function AmountBox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
   return (
-    <label className={`flex h-11 items-center gap-1.5 rounded-xl border border-ink/10 bg-raised px-3.5 text-[14.5px] text-ink ${className}`}> {/* no-card-ok: the amount field itself — a lead, the box, a trail (prototype `.q .qb .box`) */}
+    <label className={`flex h-12 items-center gap-1.5 rounded-xl border border-ink/10 bg-raised px-3.5 text-[14.5px] text-ink ${className}`}> {/* no-card-ok: the amount field itself — a lead, the box, a trail (prototype `.q .qb .box`) */}
       <span className="flex-none text-ink/70">{lead}</span>
       <input
         // field-ok: an amount box with a lead and a trail (prototype `.q .qb .box`), live-following the pinned preview
@@ -726,7 +726,7 @@ function DateBox({ lead, value, onOpen, data, className = '' }: { lead: string; 
 
 function Seg({ label, options, value, onPick }: { label: string; options: { key: string; label: string }[]; value: string; onPick: (k: string) => void }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid h-12 auto-cols-fr grid-flow-col rounded-xl border border-ink/10 bg-raised p-1"> {/* no-card-ok: a segmented control (prototype `.segc`) */}
+    <div role="radiogroup" aria-label={label} className="grid h-14 auto-cols-fr grid-flow-col rounded-xl border border-ink/10 bg-raised p-1.5"> {/* no-card-ok: a segmented control (prototype `.segc`) */}
       {options.map((o) => (
         <button
           key={o.key}
@@ -786,7 +786,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                           placeholder="Type the gift, e.g. Free tasting for two"
                           aria-label="Gift"
                           maxLength={80}
-                          className="h-7 min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none"
+                          className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none"
                         />
                         <span className="flex flex-none items-center gap-1 text-xs text-ink/70">
                           worth ₱
@@ -797,7 +797,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                             placeholder="optional"
                             inputMode="numeric"
                             aria-label="Worth in pesos"
-                            className="h-7 w-[76px] bg-transparent text-ink outline-none"
+                            className="h-11 w-[76px] bg-transparent text-ink outline-none"
                           />
                         </span>
                       </span>

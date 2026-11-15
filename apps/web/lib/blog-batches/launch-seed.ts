@@ -83,7 +83,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A budget is only real if you can see it. From the day you pay your first deposit, record every payment against your total so the number on the screen always matches the money in the bank. This is also where booking through a marketplace that takes zero commission on vendor bookings quietly protects you: the price you agree with a supplier is the price you pay, with no hidden platform cut eating into the total you worked so carefully to set. When something has to give later, you trim from the areas you already agreed matter least — calmly, not in a panic three months out.',
+        text: 'A budget is only real if you can see it. From the day you pay your first deposit, record every payment against your total so the number on the screen always matches the money in the bank. This is also where booking through a marketplace that takes zero commission on supplier bookings quietly protects you: the price you agree with a supplier is the price you pay, with no hidden platform cut eating into the total you worked so carefully to set. When something has to give later, you trim from the areas you already agreed matter least — calmly, not in a panic three months out.',
       },
       {
         type: 'cta',
@@ -102,7 +102,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
     cover: '/blog/photo.webp',
     coverAlt:
       'A wedding photographer reviewing shots on the back of a camera at a softly lit reception',
-    title: 'The questions to ask every wedding vendor before you book',
+    title: 'The questions to ask every wedding supplier before you book',
     excerpt:
       'Ten questions that apply to every supplier — photographer, caterer, florist, or host — so the same headline price never hides two very different deals.',
     category: 'vendors',
@@ -113,7 +113,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Here is the trap almost every couple falls into: two suppliers quote the same headline price, you assume they are offering the same thing, and you only discover the difference on your wedding day. Every category has its own specialist questions, but a surprising number cut across all of them. Ask these ten of every vendor you meet — photographer, caterer, florist, host, stylist, or coordinator — and you will compare like with like, avoid the costs that ambush couples later, and book with your eyes open.',
+        text: 'Here is the trap almost every couple falls into: two suppliers quote the same headline price, you assume they are offering the same thing, and you only discover the difference on your wedding day. Every category has its own specialist questions, but a surprising number cut across all of them. Ask these ten of every supplier you meet — photographer, caterer, florist, host, stylist, or coordinator — and you will compare like with like, avoid the costs that ambush couples later, and book with your eyes open.',
       },
       {
         type: 'h2',
@@ -164,7 +164,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
         type: 'cta',
         text: 'Browse verified Filipino wedding suppliers by city, category, and the styles they specialise in — then bring these questions to your shortlist.',
         href: '/?browse=1',
-        label: 'Explore the vendor marketplace',
+        label: 'Explore the supplier marketplace',
       },
       {
         type: 'p',

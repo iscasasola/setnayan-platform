@@ -2328,6 +2328,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      // 🎁 THE GIFT MOMENT'S CLAIM (owner 2026-11-14: "once the redeem is pressed they already claimed it … redeem
+      // cannot duplicate"): one row per claimed gift, UNIQUE (source, ref_id) — a supplier gift keyed to the accepted
+      // quote whose 'given' stock rows reached the event, a badge reward to its shop_badge_rewards row. Grants nothing
+      // (the gift already landed); written only by gift_moment_claim.
+      { kind: 'table', table: 'gift_moment_claims' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'gift_moment_claims', name: 'gift_moment_claims_source_allowed', mentions: 'source' },
       {
         kind: 'check',
         table: 'shop_gift_stock_entries',
@@ -4302,6 +4310,35 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'lib/event-ultra.test.ts · tests/db/event-ultra-keeps-originals-12-months.db.test.ts · app/_components/frontdoor/the-plan-prices-come-from-the-list.test.ts · lib/iap/products.test.ts',
     traps:
       'Aliases are NOT transitive: a list that confers something with COUPLE_WEBSITE_PRO must name EVENT_ULTRA too (event-ultra.test.ts holds it). The extra hold reads only APPROVED orders — a pending Ultra keeps nothing longer. Canvas prints are in Ultra but no surface sells them until the Our Day poster ships; a Pro bought before CANVAS_LEFT_PRO_AT keeps canvas.',
+  },
+  {
+    /**
+     * 🏷 A FILES PHOTO TAGGED TO INSPIRATIONS (migration 20271345380761 · DECISION_LOG 2026-11-14). The tag IS the shipped
+     * inspiration record (moodboard_library_assets, supplier_gallery, the part in asset_subtype) made from a Files photo:
+     * one new pointer back to that photo, one row per (photo, part). The slot stays in asset_subtype — J45's no_column
+     * on slot_key still holds.
+     */
+    id: 'J72',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'event_file_id', references: 'event_supplier_files' },
+      { kind: 'unique', table: 'moodboard_library_assets', columns: ['asset_subtype', 'event_file_id'] },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'slot_key' },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'event_file_slot_key' },
+    ],
+    chain: 7,
+    pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
+    title: 'Files photo → its inspirations (one row per photo × part, shown only while the shop shows the photo)',
+    joint: 'moodboard_library_assets.event_file_id',
+    cardinality:
+      'A Files photo (event_supplier_files, grp service, kind photo) has 0..n inspiration rows, at most one per part (UNIQUE event_file_id × asset_subtype); every other library row has NULL',
+    implementedBy:
+      'moodboard_library_assets.event_file_id → event_supplier_files ON DELETE SET NULL · trigger inspiration_tag_follows_its_files_photo (copies source_event_id + vendor_service_id from the photo; a part its card offers in inspiration_part_services; photos only) · public read policy + inspiration_photo_is_on_the_shop (the view event_supplier_photos_listed) · retire_tags_of_a_files_photo · inspiration_tag_event_lines (type · venue · month, also-in)',
+    writtenBy:
+      'importEditorialMediaToGallery’s Files arm (app/vendor-dashboard/moodboard-library/actions.ts → storeScreenedAsset: screen · watermark · store · scan, approved_at NULL) from the Files board (event-files-board.tsx); untag through eventFilesAction op untag (app/_actions/event-files-actions.ts)',
+    guardedBy:
+      'tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts (card parts · nothing before the shop shows it · one per photo × part · no public read of source_event_id/event_file_id · removed → retired) · column grants (event_file_id: service role only)',
+    traps:
+      'Never DELETE a tag that was ever approved — event_inspiration_assets.library_asset_id CASCADES, so a delete takes the tile off every saved board; untag RETIRES. The shop page reads on the service role, which skips the policy, so it filters by the listing view itself (lib/inspiration-tags.server.ts). The gate is LIVE: a Hide or a moved date takes the tag off at once — never copy “shown” into a column.',
   },
 ];
 

@@ -1,8 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { displayUrlForPrivateStoredAsset, displayUrlForStoredAsset, parseStoredAsset } from '@/lib/uploads';
 import { parseVideoLink } from '@/lib/video-embed';
+import { signStoredRef } from '@/lib/supplier-file-sign.server';
 import { fileKindOf, linksIn, shopStateOf, siteOf, type CoupleDecision, type FileGroup, type FileKind, type ShopState } from '@/lib/supplier-files';
 
 /**
@@ -73,17 +73,9 @@ type FileRow = {
   supplier_media: { r2_ref: string } | { r2_ref: string }[] | null;
 };
 
-/**
- * Sign one stored ref for drawing: a portfolio photo through the public signer; a private stored copy ONLY when it sits
- * in THIS shop's own `supplier-files/<shop>/` folder (the policy-checked private signer — never a raw one).
- */
-export async function signStoredRef(ref: string | null | undefined, shop: string): Promise<string | null> {
-  if (!ref) return null;
-  const parsed = parseStoredAsset(ref);
-  if (!parsed || parsed.kind === 'legacy_url') return null;
-  if (parsed.bucket === 'setnayan-media') return displayUrlForStoredAsset(ref);
-  return displayUrlForPrivateStoredAsset(ref, { bucket: 'setnayan-thread-files', prefixes: [`supplier-files/${shop}/`] }, { ttlSeconds: 60 * 60 });
-}
+// `signStoredRef` lives in its own module so a reader can sign without importing this file's quote reads (the cached
+// shop page walks imports); re-exported so every caller is unchanged.
+export { signStoredRef };
 
 /** The quoted services of one shop on one event: the union of its sent · seen · accepted quotes' cards. */
 export function quotedIdsOf(rows: readonly { service_card_ids: unknown }[]): string[] {

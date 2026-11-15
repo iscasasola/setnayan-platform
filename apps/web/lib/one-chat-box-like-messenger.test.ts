@@ -217,18 +217,21 @@ test('the header keeps the counterparty, one muted line with the service, and th
   assert.match(read(VENDOR), /Planning for \{guestCountLine\(guestCounts\)\}/);
 });
 
-test('the notice is one line: the couple may dismiss it and it is remembered; the supplier may not', () => {
+test('the notice is one line: the couple may close it (one notice memory); the supplier may not', () => {
   const s = read(NOTICE);
-  // Couple: dismiss persists (0019-adjacent consent notice — checked, kept).
-  assert.match(s, /localStorage\.getItem\(SAFETY_DISMISS_KEY\)/);
-  assert.match(s, /localStorage\.setItem\(SAFETY_DISMISS_KEY, '1'\)/);
-  assert.equal(count(s, /aria-label="Dismiss safety tips"/g), 1, 'the couple lost the dismiss, or the supplier gained one');
-  // All four points still ship, one tap away.
+  // Couple: since 14 Nov 2026 the safety line is News in the ONE notice system: "Got it" is its close, remembered in
+  // the one notice memory; the older hand-written key is only READ (its legacy), never written again.
+  const banner = s.slice(s.indexOf('export function ChatSafetyBanner'));
+  assert.match(banner, /<Notice\s+kind="news"\s+noticeKey="chat-safety"/, 'the couple safety line no longer registers with the one notice system');
+  assert.match(banner, /legacy=\{[\s\S]*?localStorage\.getItem\(SAFETY_DISMISS_KEY\)/, 'an earlier dismissal is no longer honoured');
+  assert.doesNotMatch(s, /localStorage\.setItem/, 'a hand-written dismiss store is written again');
+  // All four points still ship, one tap away (behind the ⓘ).
   assert.equal(count(s, /SAFETY_POINTS\.map\(/g), 1, 'the four safety points are no longer rendered');
   assert.equal(count(s, /^  '[^']+',$/gm), 4, 'the safety points list changed length');
-  // Both collapse to a single truncated line with an expand toggle.
-  assert.equal(count(s, /aria-expanded=\{(tips|more)\}/g), 2, 'a notice lost its expand toggle');
-  assert.ok(count(s, /\btruncate\b/g) >= 2, 'a notice no longer truncates to one line');
+  assert.match(banner, /detail=\{<SafetyPoints inline \/>\}/, 'the safety points are not behind the ⓘ');
+  // The supplier's privacy line still collapses to one truncated line with an expand toggle.
+  assert.equal(count(s, /aria-expanded=\{more\}/g), 1, 'the supplier notice lost its expand toggle');
+  assert.ok(count(s, /\btruncate\b/g) >= 1, 'the supplier notice no longer truncates to one line');
   // The supplier's notice is locked non-dismissible (0019 § Gate, 2026-05-14).
   const privacy = s.slice(s.indexOf('export function ChatPrivacyNotice'), s.indexOf('export function ChatSafetyBanner'));
   assert.doesNotMatch(privacy, /Dismiss|localStorage/, 'the supplier privacy notice became dismissible');

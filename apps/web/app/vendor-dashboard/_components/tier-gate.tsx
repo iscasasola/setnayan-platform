@@ -74,7 +74,7 @@ export async function VendorTierGate({
               icon={<ArrowUpRight aria-hidden strokeWidth={1.9} />}
               label={`Upgrade to ${TIER_LABEL[requiredTier]}`}
               href="/vendor-dashboard/subscription"
-              className="mt-1"
+              className="mt-1 !h-11"
             />
             <p className="text-sm text-ink/70">
               Everything you have today stays free — this only adds {feature.toLowerCase()}.
@@ -132,7 +132,7 @@ export async function VendorTierTeaser({
         icon={<ArrowUpRight aria-hidden strokeWidth={1.9} />}
         label={`Unlock with ${TIER_LABEL[requiredTier]}`}
         href="/vendor-dashboard/subscription"
-        className="shrink-0"
+        className="shrink-0 !h-11"
       />
     </div>
   );

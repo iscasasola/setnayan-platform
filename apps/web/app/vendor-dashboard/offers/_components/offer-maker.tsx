@@ -285,7 +285,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
           placeholder="Search offers"
           aria-label="Search offers"
           enterKeyHint="search"
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/70"
+          className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink/70"
         />
       </label>
       <PickMenu
@@ -322,7 +322,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
         {offers ? summaryLine(live, cards, today) : 'Couldn’t load your offers'}
       </p>
       <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-4">
-        <h2 className="sn-eye">Offers</h2>
+        <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Offers</h2>
         <small className="text-xs text-ink/70" data-offers-count="">
           {offers ? `${live.length ? `${formatCount(running)} of ${formatCount(live.length)} running · ` : ''}the best one wins` : ''}
         </small>
@@ -374,7 +374,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
       )}
       {offers !== null && cards.length === 0 && data.cards !== null ? (
         <div className="px-4 pt-4" data-offers-no-cards="">
-          <ActionButton tone="neutral" icon={Plus} label="Make a service card first" href="/vendor-dashboard/shop#services" />
+          <ActionButton tone="neutral" icon={Plus} label="Make a service card first" href="/vendor-dashboard/shop#services" className="!h-11" />
         </div>
       ) : null}
       <div className="h-6" />

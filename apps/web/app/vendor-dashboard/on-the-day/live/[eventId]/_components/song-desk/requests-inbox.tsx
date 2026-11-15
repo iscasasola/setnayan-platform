@@ -32,7 +32,8 @@
  */
 
 import { useOptimistic, useState, useTransition } from 'react';
-import { Check, Loader2, Pause, Play, X } from 'lucide-react';
+import { Check, Pause, Play, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import type { ActSongRequest } from '../../../../actions';
 import { decideActSongRequest, setSongRequestsOpen } from '../../../../actions';
@@ -78,7 +79,7 @@ export function RequestsInbox({
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h4 className="text-sm font-medium text-ink">
+        <h4 className="text-base font-semibold text-ink">
           {pending.length > 0
             ? `${pending.length} ${pending.length === 1 ? 'request' : 'requests'} waiting`
             : 'Requests from the room'}
@@ -86,51 +87,50 @@ export function RequestsInbox({
         <PauseToggle eventId={eventId} paused={paused} />
       </div>
 
-      <p className="text-xs leading-relaxed text-ink/60">
+      <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
         {paused
           ? 'Paused — the room can’t ask right now. Anything already asked is still below.'
           : 'Guests can ask any time tonight. Accept the ones you’ll play.'}
       </p>
 
       {error ? (
-        <p role="alert" className="text-xs leading-relaxed text-terracotta-700">
+        <p role="alert" className="text-sm leading-relaxed text-danger-700">
           {error}
         </p>
       ) : null}
 
       {pending.length === 0 && accepted.length === 0 && declinedCount === 0 ? (
-        <p className="text-sm leading-relaxed text-ink/70">
+        <p className="text-sm leading-relaxed text-[color:var(--m-slate-2)]">
           Nothing asked yet. It’ll appear here the moment someone does.
         </p>
       ) : null}
 
       {pending.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className="divide-y divide-[color:var(--m-line)]">
           {pending.map((r) => (
-            <li key={r.requestId} className="flex min-w-0 items-baseline gap-2 py-1">
+            <li key={r.requestId} className="flex min-h-14 min-w-0 items-center gap-2 py-2">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink">{r.title}</span>
-                <span className="block truncate text-xs text-ink/55">
+                <span className="block truncate text-sm font-semibold text-ink">{r.title}</span>
+                <span className="block truncate text-sm text-[color:var(--m-slate-2)]">
                   {[r.artist, asker(r)].filter(Boolean).join(' · ')}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
+                <ActionButton
+                  tone="ok"
+                  icon={Check}
+                  label="We’ll play it"
+                  name={`We’ll play it — ${r.title}`}
                   onClick={() => decide(r.requestId, 'accepted')}
-                  className="inline-flex items-center gap-1 rounded-full border border-success-400/50 px-2.5 py-1 text-xs font-medium text-success-700 hover:bg-success-500/10"
-                >
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  We’ll play it
-                </button>
-                <button
-                  type="button"
+                />
+                <ActionButton
+                  tone="neutral"
+                  iconOnly
+                  icon={X}
+                  label="Decline"
+                  name={`Decline ${r.title}`}
                   onClick={() => decide(r.requestId, 'declined')}
-                  aria-label={`Decline ${r.title}`}
-                  className="inline-flex items-center rounded-full border border-ink/15 p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink/80"
-                >
-                  <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
+                />
               </span>
             </li>
           ))}
@@ -139,15 +139,15 @@ export function RequestsInbox({
 
       {accepted.length > 0 ? (
         <div className="space-y-0.5 pt-1">
-          <h5 className="font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-ink/50">
+          <h5 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
             You said yes to {accepted.length}
           </h5>
           <ul>
             {accepted.map((r) => (
               <li key={r.requestId} className="flex min-w-0 items-baseline gap-2 py-0.5">
-                <span className="min-w-0 truncate text-sm text-ink/85">{r.title}</span>
+                <span className="min-w-0 truncate text-sm text-ink">{r.title}</span>
                 {r.artist ? (
-                  <span className="min-w-0 shrink truncate text-xs text-ink/55">{r.artist}</span>
+                  <span className="min-w-0 shrink truncate text-sm text-[color:var(--m-slate-2)]">{r.artist}</span>
                 ) : null}
               </li>
             ))}
@@ -156,7 +156,7 @@ export function RequestsInbox({
       ) : null}
 
       {declinedCount > 0 ? (
-        <p className="text-xs text-ink/45">
+        <p className="text-sm text-[color:var(--m-slate-2)]">
           {formatCount(declinedCount)} {declinedCount === 1 ? 'request' : 'requests'} declined.
         </p>
       ) : null}
@@ -210,23 +210,15 @@ function PauseToggle({ eventId, paused }: { eventId: string; paused: boolean }) 
 
   return (
     <span className="flex items-center gap-2">
-      {error ? <span className="text-xs text-terracotta-700">{error}</span> : null}
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={pending}
+      {error ? <span className="text-sm text-danger-700">{error}</span> : null}
+      <ActionButton
+        tone="neutral"
+        icon={isPaused ? Play : Pause}
+        label={isPaused ? 'Resume requests' : 'Pause requests'}
+        waiting={pending}
         aria-pressed={isPaused}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-60"
-      >
-        {pending ? (
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-        ) : isPaused ? (
-          <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        ) : (
-          <Pause aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        )}
-        {isPaused ? 'Resume requests' : 'Pause requests'}
-      </button>
+        onClick={toggle}
+      />
     </span>
   );
 }

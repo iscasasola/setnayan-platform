@@ -53,7 +53,7 @@ export async function RecordFieldSlot({ eventId, row: rawRow }: { eventId: strin
   const title = fieldTitle(editor, profile);
   return (
     <RecordFieldSheet row={row} group={RECORD_ROW_GROUP[row]} title={title} recordHref={recordHref(eventId)}>
-      <Suspense fallback={<p className="text-sm text-ink/60">Opening…</p>}>
+      <Suspense fallback={<p className="text-sm text-ink/70">Opening…</p>}>
         <RecordEditor
           editor={editor}
           ctx={{

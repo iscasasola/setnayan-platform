@@ -239,6 +239,8 @@ export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
   'papic',
   'live-watch',
   'patiktok',
+  // The supplier plans page quotes plan prices (free-plus, from vendor_billing_catalog) — truth sweep 2026-11-13.
+  'supplier-plans',
 ]);
 
 const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;

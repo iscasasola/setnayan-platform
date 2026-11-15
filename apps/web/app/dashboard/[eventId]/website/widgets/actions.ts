@@ -596,7 +596,7 @@ async function moveWithinStage(
  *   - preset               — still | calm | editorial | cinematic
  *   - timeline             — auto | time | scrub   (optional; auto removes it)
  *   - transition           — scroll | scrub | auto  (optional; the transition INTO THE NEXT
- *                            scene; scroll removes it; scrub/auto need Event Hub Pro)
+ *                            scene; scroll removes it; scrub/auto need Event Pro)
  *   - auto_speed           — slow | normal | fast  (optional; kept only beside auto)
  */
 export async function setWidgetMotion(formData: FormData): Promise<void> {
@@ -702,7 +702,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
      The transition from this scene INTO THE NEXT. `nextTransition` owns the rules —
      Scroll is an absence, a speed only lives beside Auto, nothing is repaired —
      and says whether the write needs Pro.
-     ⛔ SCRUB AND AUTO-SCROLL ARE EVENT HUB PRO. The editor locks the chips;
+     ⛔ SCRUB AND AUTO-SCROLL ARE EVENT PRO. The editor locks the chips;
      this is the real gate, because a server action is a public POST. Going
      BACK to Scroll is never gated: a free couple may always take a look off.
      Admin client for the SKU read, as `website/colors/actions.ts` does — orders
@@ -1300,7 +1300,7 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
        Maker Phase 5). The rules are pure and tested in `lib/scene-writes.ts`;
        here they meet the row. Words and the template pick are free under the
        grandfather rule above; PUTTING A PICTURE OR A CLIP INTO A SCENE, or a
-       non-default playback, is Event Hub Pro (owner: media is Pro) — asked of
+       non-default playback, is Event Pro (owner: media is Pro) — asked of
        `requireLookPro` before anything is written. Taking one off never is. */
     // In the draft, build on what is already drafted — never on the live canvas.
     const canvas = sanitizeHubCanvas(drafting ? await canvasBase(true, eventId, row) : existing);

@@ -387,7 +387,7 @@ const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }
 ]);
 
 const ENTRY_RE =
-  /(^|\/)(page|layout|template|default|not-found|error|global-error|loading)\.(ts|tsx)$/;
+  /(^|\/)(page|layout|template|default|not-found|error|global-error|loading)(\.lab)?\.(ts|tsx)$/;
 
 function sourceFiles(): string[] {
   const out = execSync(
@@ -852,7 +852,7 @@ const SUPPLIER_CORRECTIONS_SURFACE: ReadonlyMap<string, string> = new Map([
   ['lib/booked-rows.ts', "The Booked row model: turns the kept corrections into the row's mark and the ⓘ lines."],
   ['app/dashboard/[eventId]/vendors/_components/booked-row.tsx', 'Draws the mark (the short word only) and the ⓘ lines the model built.'],
   ['app/dev/suppliers-lab/booked-fixtures.ts', 'The suppliers lab: a fictional fixture, no database read, nothing real.'],
-  ['app/dev/notifications-lab/page.tsx', 'The notifications lab: a fictional fixture, no database read, nothing real.'],
+  ['app/dev/notifications-lab/page.lab.tsx', 'The notifications lab: a fictional fixture, no database read, nothing real.'],
 ]);
 
 const CORRECTIONS_IMPORT_RE = /from\s+['"](?:@\/lib|\.{1,2}(?:\/\.\.)*(?:\/lib)?)\/supplier-corrections['"]/;

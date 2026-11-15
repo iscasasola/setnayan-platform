@@ -56,8 +56,8 @@ const KIND_WORDS: Record<FaultKind, string> = {
   OTHER: 'failed',
   SERVER_THROWN: 'broke on the server',
   ACTION_RETURNED_ERROR: 'said it failed',
-  DB_WRITE_REFUSED: 'the database refused the save',
-  DB_READ_REFUSED: 'the database refused the read',
+  DB_WRITE_REFUSED: 'could not save',
+  DB_READ_REFUSED: 'could not load',
   DB_ZERO_ROW: '"saved" but nothing changed',
   DB_UNREACHABLE: 'the database did not answer',
   BUTTON_TIMEOUT: 'no answer',
@@ -74,9 +74,88 @@ export function kindWords(kind: string): string {
 }
 
 /** "app/[slug]/actions.ts#submitRsvp" → "submit rsvp". */
+/**
+ * ✍ F-A-16 (admin walk, round 2): a Problems line is read by a person, never a programmer. Code names become words —
+ * camelCase and snake_case split, a template placeholder ("[name]") reads "…", and the product's word for a vendor is
+ * "supplier" (never "vendor", owner).
+ */
+export function plainWords(raw: string): string {
+  return raw
+    .replace(/\[\.{0,3}[^\]]+\]/g, '…')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\bvendors\b/gi, 'suppliers')
+    .replace(/\bvendor\b/gi, 'supplier')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const cap = (t: string) => (t ? t[0]!.toUpperCase() + t.slice(1) : t);
+
 function actionWords(action: string): string {
   const name = action.includes('#') ? action.slice(action.lastIndexOf('#') + 1) : action;
-  return name.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return cap(plainWords(name).toLowerCase());
+}
+
+/**
+ * ✍ RW-285d (live walk, 14 Nov 2026): the verb comes from the CALL, not from the fault's kind. Before, every write
+ * kind read "Saving the …" — "Saving the samahan stories" for a DELETE, "Saving the refresh bottleneck signals" for a
+ * background refresh, and a refused `get_…` read said it could not SAVE. A call's own verb is the truest word we have.
+ */
+type DataVerb = 'Loading' | 'Removing' | 'Refreshing' | 'Checking' | 'Saving';
+const CALL_VERBS: ReadonlyArray<[RegExp, DataVerb]> = [
+  [/^(get|list|read|fetch|count|search|find|load|lookup)\b\s*/i, 'Loading'],
+  [/^(delete|remove|clear|purge)\b\s*/i, 'Removing'],
+  [/^(refresh|recompute|rebuild)\b\s*/i, 'Refreshing'],
+  [/^(detect|check|verify|scan)\b\s*/i, 'Checking'],
+  [/^(set|save|upsert|insert|update|create|add|record|bump|mark)\b\s*/i, 'Saving'],
+];
+
+/** "GET event_vendors" → "Loading the event suppliers"; "POST rpc/refresh_bottleneck_signals" → "Refreshing the bottleneck signals". */
+export function dataSubject(action: string, kind: string): { verb: DataVerb; text: string } {
+  const method = /^([A-Z]+)\s+/.exec(action)?.[1] ?? '';
+  const target = plainWords(action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '')).toLowerCase();
+  const byCall = CALL_VERBS.find(([re]) => re.test(target));
+  const verb: DataVerb = byCall
+    ? byCall[1]
+    : method === 'DELETE'
+      ? 'Removing'
+      : kind === 'DB_READ_REFUSED' || /^(GET|HEAD)$/.test(method)
+        ? 'Loading'
+        : 'Saving';
+  const what = byCall ? target.replace(byCall[0], '') : target;
+  return { verb, text: `${verb} ${what ? `the ${what}` : 'data'}` };
+}
+
+/** What went wrong, in words that agree with the verb ("Loading … — could not load", never "could not save"). */
+function dataOutcome(verb: DataVerb, kind: string): string {
+  if (kind === 'DB_ZERO_ROW') return verb === 'Removing' ? 'nothing was there to remove' : kindWords(kind);
+  if (kind === 'DB_READ_REFUSED' || kind === 'DB_WRITE_REFUSED') {
+    if (verb === 'Loading') return 'could not load';
+    if (verb === 'Removing') return 'could not remove';
+    if (verb === 'Refreshing') return 'could not refresh';
+    if (verb === 'Checking') return 'could not check';
+    return 'could not save';
+  }
+  return kindWords(kind);
+}
+
+/**
+ * ✍ RW-285d: a tapped thing's label once captured an avatar's initial glued to the name ("IIndalecio Casasola") —
+ * `textContent` joins a hidden "I" and "Indalecio" with no space. The capture now skips hidden text
+ * (`labelOf`, fault-observer.ts); rows already stored are mended here, on display.
+ */
+export function mendLabel(raw: string): string {
+  return raw.replace(/^([A-Z])\1(?=[a-z])/, '$1');
+}
+
+/**
+ * ✍ The same mend for a stored ACTION ("/dashboard · IIndalecio Casasola" — the label sits after the page), shown in
+ * the Problems row's expanded "What" (admin walk, 15 Nov 2026). Every word that opens with a doubled capital before a
+ * lower-case letter loses the extra one; the stored row is untouched (display only).
+ */
+export function mendAction(raw: string): string {
+  return raw.replace(/(^|[\s·:>/(])([A-Z])\2(?=[a-z])/g, '$1$2');
 }
 
 const DEAD_END_WORDS: Record<string, string> = {
@@ -108,6 +187,7 @@ export function oneIn(failures: number | undefined, successes: number | undefine
 export function problemLine(i: ProblemLineInput): string {
   const where = pageName(i.page);
   let subject: string;
+  let outcome = kindWords(i.kind);
   if (i.kind === 'DEAD_END') {
     const reason = /^(not_found|forwarded|missing_section)\b/.exec(i.action)?.[1] ?? 'not_found';
     const rawTo = /\s(\S+)\s←/.exec(i.action)?.[1];
@@ -117,20 +197,21 @@ export function problemLine(i: ProblemLineInput): string {
     return tail(head, i);
   }
   if (i.kind === 'DROP_OFF') {
-    return tail(`${i.label ?? i.action} — ${kindWords(i.kind)}`, i);
+    return tail(`${plainWords(i.label ?? i.action)} — ${kindWords(i.kind)}`, i);
   }
   if (i.label) {
-    const l = i.label.trim();
+    const l = plainWords(mendLabel(i.label));
     subject = /\b(button|link)$/i.test(l) ? l : `${l} button`;
   } else if (i.kind.startsWith('DB_')) {
-    const target = i.action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '');
-    subject = `${/^(GET|HEAD)\b/.test(i.action) ? 'Reading' : 'Saving to'} ${target.replace(/_/g, ' ')}`;
+    const d = dataSubject(i.action, i.kind);
+    const head = `${d.text}${where ? ` on ${where}` : ''} — ${dataOutcome(d.verb, i.kind)}`;
+    return tail(head, i);
   } else if (i.action.includes('#')) {
-    subject = `"${actionWords(i.action)}"`;
+    subject = actionWords(i.action);
   } else {
-    subject = i.action;
+    subject = plainWords(i.action);
   }
-  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${kindWords(i.kind)}`;
+  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${outcome}`;
   return tail(head, i);
 }
 

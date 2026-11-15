@@ -1,6 +1,7 @@
 import { MessageSquare } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Badge } from '@/app/_components/badge';
 import { unreadCount, type StageNote } from '@/lib/stage-notes';
 import { markStageNoteSeen } from './stage-notes-actions';
 
@@ -24,34 +25,34 @@ export function StageNotesCard({
 }) {
   const unread = unreadCount(notes);
   return (
-    <section className="border border-gild/40 bg-paper p-4">
-      <h4 className="flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
+    <section className="border-l-2 border-gild pl-3">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
         <MessageSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-gild" strokeWidth={1.75} />
         From your coordinator
         {unread > 0 ? (
-          <span className="rounded-full bg-gild/20 px-2 py-0.5 text-[0.6rem] tracking-normal text-ink">
-            {unread} new
+          <span className="normal-case tracking-normal">
+            <Badge tone="wait">{unread} new</Badge>
           </span>
         ) : null}
       </h4>
 
-      <ul className="mt-3 space-y-3">
+      <ul className="mt-1 divide-y divide-[color:var(--m-line)]">
         {notes.map((n) => (
-          <li key={n.noteId} className={n.readAt ? 'opacity-60' : ''}>
-            <p className="text-sm leading-relaxed text-ink">{n.body}</p>
+          <li key={n.noteId} className="py-2.5">
+            <p className={`text-sm leading-relaxed ${n.readAt ? 'text-[color:var(--m-slate-2)]' : 'text-ink'}`}>{n.body}</p>
             {n.readAt === null ? (
               <form action={markStageNoteSeen} className="mt-1">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="note_id" value={n.noteId} />
                 <SubmitButton
                   pendingLabel="…"
-                  className="text-xs font-medium text-ink/55 underline underline-offset-2 hover:text-ink"
+                  className="ab ab-neutral quiet inline-flex min-h-11 items-center justify-center"
                 >
                   Got it
                 </SubmitButton>
               </form>
             ) : (
-              <p className="mt-0.5 text-[0.7rem] text-ink/45">Seen</p>
+              <p className="mt-0.5 text-sm text-[color:var(--m-slate-2)]">Seen</p>
             )}
           </li>
         ))}

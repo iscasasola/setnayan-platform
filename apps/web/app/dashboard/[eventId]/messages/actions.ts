@@ -10,6 +10,7 @@ import { isFollowingVendor } from '@/lib/follow';
 import { followVendor } from '@/lib/follow-actions';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
+import { groupChatHref, openOneGroup } from '@/lib/chat-groups';
 
 /**
  * Withdraw a couple-side inquiry / remove a vendor (inquiry-followthrough
@@ -175,4 +176,22 @@ export async function startThreadByVendorEmail(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/messages`);
   redirect(`/dashboard/${eventId}/messages/${thread.thread_id}`);
+}
+
+/**
+ * 💬 Opens one of the event's group chats on a TAP (RW-305, 14 Nov). The Chats list never creates a group by being
+ * looked at; a General or role group nobody has opened yet is drawn as a row whose press posts here. The database
+ * decides who may open (hosts and the coordinator) and is idempotent, so a double tap lands in the same chat. A
+ * refusal comes back to the list with a sentence, never a silent bounce.
+ */
+export async function openGroupChat(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
+  const eventId = formData.get('event_id');
+  const kind = formData.get('group_kind');
+  const key = formData.get('group_key');
+  if (typeof eventId !== 'string' || (kind !== 'general' && kind !== 'role')) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const threadId = await openOneGroup(supabase, eventId, kind, typeof key === 'string' && key ? key : null);
+  if (!threadId) redirect(`/dashboard/${eventId}/messages?group=unopened`);
+  redirect(groupChatHref(threadId));
 }

@@ -1,5 +1,6 @@
 'use server';
 
+import { SAMAHAN_MESSAGE_ID_FIELD, isDuplicateSend, postedSamahanMessageId } from '@/lib/samahan-message-id';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
@@ -418,9 +419,14 @@ export async function postSamahanMessage(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent('That message is too long.')}`);
   }
 
+  // 🔁 ONE SEND PER MESSAGE (walk 13 Nov 2026, F-W3-12): the composer mints the message's id; `message_id` is UNIQUE,
+  // so the same message posted twice (a double Enter, a retry) is refused as a duplicate — and that is answered as
+  // sent, never as an error and never as a second row.
+  const messageId = postedSamahanMessageId(formData.get(SAMAHAN_MESSAGE_ID_FIELD));
   const { error } = await supabase
     .from('samahan_messages')
-    .insert({ community_id: communityId, user_id: user.id, body });
+    .insert({ community_id: communityId, user_id: user.id, body, ...(messageId ? { message_id: messageId } : {}) });
+  if (error && isDuplicateSend(error.code)) redirect(back);
   if (error) {
     redirect(`${back}?error=${encodeURIComponent('That didn’t send. Try again.')}`);
   }

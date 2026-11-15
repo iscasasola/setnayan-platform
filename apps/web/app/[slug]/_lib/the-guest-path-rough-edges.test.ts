@@ -26,6 +26,7 @@ import { hashOpensSheet, RSVP_SHEET_ANCHORS } from '../_components/rsvp-sheet-st
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { SITE_MENU_ANCHORS } from './site-menu';
 import { STAGE_BAR } from './stage-bar';
+import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -172,9 +173,11 @@ test('4 · the intro tour and the guest help offer yes or no — there is no May
   // Re-pointed ON PURPOSE (help-sync, 2026-10-23): the help answer now names the card the guest actually sees —
   // "Reply" on "Will you join us?" — whose two answers the host words (Joyfully accepts / Regretfully declines by
   // default), so it no longer says "Yes or No". The property is the same: no Maybe.
-  const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8').split('\n').find((l) => /Will you join us\?/.test(l) && /Reply/.test(l));
-  assert.ok(help, 'lib/help.ts: the RSVP answer moved — re-point this guard');
-  assert.doesNotMatch(help, /Maybe/i, 'lib/help.ts still offers a Maybe the guest is never shown');
+  // help split 2026-11-14: every lib/help/*.ts is read, and EVERY RSVP line — not just the first — so a second
+  // answer written into a slot file cannot offer the Maybe while the first one holds.
+  const help = publicHelpSourceText().split('\n').filter((l) => /Will you join us\?/.test(l) && /Reply/.test(l));
+  assert.ok(help.length > 0, 'lib/help/: the RSVP answer moved — re-point this guard');
+  for (const line of help) assert.doesNotMatch(line, /Maybe/i, 'the help still offers a Maybe the guest is never shown');
 });
 
 // ── 5 · THE CAMERA CONSENT CARD IS FOR THE DAY ──────────────────────────────

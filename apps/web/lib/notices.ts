@@ -33,7 +33,10 @@ export type NoticeFacts = {
   blocking?: boolean;
   /** A to-do that asks for a permission (alerts). Stops after its 2nd close; never takes the top while others wait. */
   ask?: boolean;
-  /** Live only — false means no close word at all (it affects other people). Default true. */
+  /**
+   * false means no close word at all. Live: it affects other people. News: its own answers are the close (a reply, a
+   * Remove). Default true.
+   */
   closable?: boolean;
   /** Live only. */
   tone?: NoticeTone;
@@ -56,7 +59,9 @@ export const KEY_MAX = 200;
 export function closeWord(n: Pick<NoticeFacts, 'kind' | 'closable'>): string | null {
   switch (n.kind) {
     case 'news':
-      return 'Got it';
+      // A news line whose own answers are its close ("I'll be there · Can't make it", "Yes · No", "See · Remove") has
+      // no close word (prototype §4 #20 #36 #37: "The answers are the close").
+      return n.closable === false ? null : 'Got it';
     case 'todo':
     case 'offer':
       return 'Not now';
@@ -70,7 +75,7 @@ export function isClosedNow(n: NoticeFacts, rec: CloseRecord | null | undefined,
   if (!rec) return false;
   switch (n.kind) {
     case 'news':
-      return true;
+      return n.closable !== false;
     case 'live':
       // The fact is in the key, so a close holds until the fact (and so the key) changes.
       return n.closable !== false;

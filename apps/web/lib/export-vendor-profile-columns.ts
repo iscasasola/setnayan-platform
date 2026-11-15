@@ -105,6 +105,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'microsite_featured_editorial_ids, microsite_featured_service_ids, ' +
   'microsite_hero_photo_key, microsite_pinned_review_id, microsite_sections, ' +
   'microsite_video_ids, name_revealed_at, next_renewal_due_at, outer_radius_km, ' +
+  // portfolio_section_order (migration 20271347719658) — the order the shop put its Portfolio sections in. Its own
+  // setting, exported like the microsite_* curation above.
+  'portfolio_section_order, ' +
   // A scheduled plan change, and money the shop is holding against a future
   // bill. Exported, never withheld: this is the shop's own commercial record —
   // what they are on, what it becomes, and what we still owe them. A
@@ -113,6 +116,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // papic_challenge_expires_at — the Papic Challenges 28-day window (owner
   // 2026-08-28). A paid entitlement the subject holds, so it belongs in their
   // own export for the same reason the AI and booth windows above do.
+  // papers_lapsed_at · papers_current (migration 20271348041863, PR #7624) — when the shop's papers lapsed after the
+  // 30 March renewal, and whether they are current. The shop's own state, exported like find_lock_* above.
+  'papers_current, papers_lapsed_at, ' +
   'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
   'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +

@@ -55,7 +55,7 @@ export function InspectorTabs<K extends string>({
           data-inspector-tab={t.key}
           onClick={() => onChange(t.key)}
           className={`sn-press -mb-px min-h-11 flex-1 whitespace-nowrap border-b-2 px-1 text-[13px] font-semibold transition-colors duration-sn-control ease-sn lg:min-h-10 ${
-            value === t.key ? 'border-ink text-ink' : 'border-transparent text-ink/50 hover:text-ink'
+            value === t.key ? 'border-ink text-ink' : 'border-transparent text-ink/75 hover:text-ink'
           }`}
         >
           {t.label}
@@ -83,7 +83,7 @@ export function IRow({
       data-inspector-row={data}
       className={`flex items-center gap-2.5 border-b border-ink/[0.07] py-2.5 ${wrap ? 'flex-wrap' : ''}`}
     >
-      {label !== undefined ? <p className="w-[4.5rem] shrink-0 text-[12.5px] text-ink/60">{label}</p> : null}
+      {label !== undefined ? <p className="w-[4.5rem] shrink-0 text-[12.5px] text-ink/75">{label}</p> : null}
       {children}
     </div>
   );
@@ -91,13 +91,13 @@ export function IRow({
 
 /** A small uppercase section heading inside a tab ("Show", "Order", "Background"). */
 export function ISection({ children }: { children: ReactNode }) {
-  return <p className="pb-1.5 pt-4 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink/45">{children}</p>;
+  return <p className="pb-1.5 pt-4 text-[12px] font-bold uppercase tracking-[0.14em] text-ink/75">{children}</p>;
 }
 
 /** A one-line quiet note under a row. */
 export function IHint({ children, data }: { children: ReactNode; data?: string }) {
   return (
-    <p data-inspector-hint={data} className="py-2 text-[12px] leading-snug text-ink/55">
+    <p data-inspector-hint={data} className="py-2 text-[12px] leading-snug text-ink/75">
       {children}
     </p>
   );
@@ -262,7 +262,7 @@ export function IReset({ onClick, children, data }: { onClick: () => void; child
       type="button"
       onClick={onClick}
       data-inspector-reset={data}
-      className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[12.5px] font-semibold text-ink/60 transition-colors duration-sn-control ease-sn hover:text-ink lg:min-h-9"
+      className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[12.5px] font-semibold text-ink/75 transition-colors duration-sn-control ease-sn hover:text-ink lg:min-h-9"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       {children}

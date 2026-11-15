@@ -104,7 +104,7 @@ const ALL = SOURCES.flatMap(bars);
 
 test('📏 the check finds the shipped bottom bars (anchor — a parser that finds nothing would pass everything)', () => {
   const files = new Set(ALL.map((b) => b.file));
-  for (const f of ['app/[slug]/_components/site-menu-bar.tsx', 'app/_components/stale-tab-notice.tsx', 'app/dashboard/[eventId]/launch/_components/maker-sheet.tsx']) {
+  for (const f of ['app/[slug]/_components/site-menu-bar.tsx', 'app/dashboard/[eventId]/launch/_components/maker-sheet.tsx']) {
     assert.ok(files.has(f), `no bottom bar found in ${f} — the parser no longer sees the shipped bars`);
   }
   assert.ok(ALL.length >= 6, `only ${ALL.length} bottom bars found`);

@@ -243,7 +243,7 @@ test('every page that embeds InlineCheckoutDrawer is either route-gated or an al
     'app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx',
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', // supplier bookings — real-world services, 3.1.3(e)
     // A dev lab (404 in production) that draws the drawer to WALK its in-app inert chip beside the web checkout.
-    'app/dev/iap-doors-lab/page.tsx',
+    'app/dev/iap-doors-lab/page.lab.tsx',
   ]);
   const { execSync } = require('node:child_process') as typeof import('node:child_process');
   const root = join(__dirname, '..');
@@ -1036,7 +1036,10 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     };
     const visit = (n: import('typescript').Node) => {
       const says =
-        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && SELLS.test(n.text);
+        // The fixed text of a template counts too (RW-306, 2026-11-14): `Unlock ${planName}` sells exactly as
+        // 'Unlock Event Pro' did, and a scan that skipped templates would go blind the moment a name is read, not typed.
+        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) &&
+        SELLS.test(n.text);
       if (says && inJsx(n)) {
         if (isGated(n)) gated++;
         else if (DECIDED_ELSEWHERE.has(rel)) listed++;

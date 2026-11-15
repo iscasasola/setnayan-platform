@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 
 import { FileUpload } from '@/app/_components/file-upload';
+import { CARD_SHOWCASE_MAX_PHOTOS } from '@/lib/card-photos';
 
 /**
  * Showcase media for a service card (service-card redesign · Phase 3c):
@@ -117,10 +118,6 @@ export function ShowcaseMediaFields({
    */
   onClipDurationSeconds?: (seconds: number | null) => void;
 }) {
-  const validateVideo = useMemo(
-    () => makeShowcaseVideoValidator(onClipDurationSeconds),
-    [onClipDurationSeconds],
-  );
   return (
     <div
       className="space-y-3 rounded-xl border p-3"
@@ -141,7 +138,7 @@ export function ShowcaseMediaFields({
         name="showcase_photo_r2_keys"
         unsavedHint={unsavedHint}
         multiple
-        maxFiles={5}
+        maxFiles={CARD_SHOWCASE_MAX_PHOTOS}
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         mark="supplier"
@@ -155,26 +152,59 @@ export function ShowcaseMediaFields({
         currentValue={photosCurrent && photosCurrent.length ? photosCurrent : null}
         initialDisplayUrls={displayUrls}
       />
-      <FileUpload
-        bucket="media"
-        pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
-        name="showcase_video_r2_key"
+      <ShowcaseClipField
+        vendorProfileId={vendorProfileId}
         unsavedHint={unsavedHint}
-        maxSizeMB={200}
-        acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
-        mark="supplier"
-        frame="square"
-        previews="service-video"
-        compressVideo
-        maxVideoDurationS={SHOWCASE_VIDEO_MAX_SECONDS}
-        validateFile={validateVideo}
-        qrGuard
-        variant="gallery"
-        label="Video (up to 30 seconds)"
-        help="One short clip — booth in action, a real setup, the vibe. We compress it for smooth playback."
-        currentValue={videoCurrent ?? null}
-        initialDisplayUrls={displayUrls}
+        videoCurrent={videoCurrent}
+        displayUrls={displayUrls}
+        onClipDurationSeconds={onClipDurationSeconds}
       />
     </div>
+  );
+}
+
+/**
+ * The showcase CLIP alone — the same uploader the showcase box draws, unchanged (≤30 s, compressed in the browser, its
+ * measured length handed up). The Card Maker draws it as its own "Clip" row under the photo gallery (owner 2026-11-13:
+ * the photos became one grid; the clip stays its own row).
+ */
+export function ShowcaseClipField({
+  vendorProfileId,
+  unsavedHint,
+  videoCurrent,
+  displayUrls,
+  onClipDurationSeconds,
+}: {
+  vendorProfileId: string;
+  unsavedHint: string | null;
+  videoCurrent?: string | null;
+  displayUrls?: Record<string, string>;
+  onClipDurationSeconds?: (seconds: number | null) => void;
+}) {
+  const validateVideo = useMemo(
+    () => makeShowcaseVideoValidator(onClipDurationSeconds),
+    [onClipDurationSeconds],
+  );
+  return (
+    <FileUpload
+      bucket="media"
+      pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
+      name="showcase_video_r2_key"
+      unsavedHint={unsavedHint}
+      maxSizeMB={200}
+      acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
+      mark="supplier"
+      frame="square"
+      previews="service-video"
+      compressVideo
+      maxVideoDurationS={SHOWCASE_VIDEO_MAX_SECONDS}
+      validateFile={validateVideo}
+      qrGuard
+      variant="gallery"
+      label="Video (up to 30 seconds)"
+      help="One short clip — booth in action, a real setup, the vibe. We compress it for smooth playback."
+      currentValue={videoCurrent ?? null}
+      initialDisplayUrls={displayUrls}
+    />
   );
 }

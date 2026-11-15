@@ -1,5 +1,6 @@
 'use client';
 
+import { displayChallengePrompt } from '@/lib/papic-missions';
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -404,7 +405,7 @@ function ChallengeBanner({
       <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[var(--sn-ob-gold)]">
         Papic Challenge
       </p>
-      <p className="sn-gal-text mt-1.5 text-lg font-medium leading-snug">{challenge.prompt}</p>
+      <p className="sn-gal-text mt-1.5 text-lg font-medium leading-snug">{displayChallengePrompt(challenge.prompt)}</p>
       <p className="sn-gal-soft mt-1 text-xs tabular-nums">
         {challenge.answeredCount.toLocaleString()}{' '}
         {challenge.answeredCount === 1 ? 'guest has' : 'guests have'} answered

@@ -1,6 +1,7 @@
 # Setnayan
 
-> Set na 'yan. Philippines-first life-events platform. V1 weddings.
+> Set na 'yan. Philippines-first life-events platform: plan, capture and keep every event, from a wedding to a
+> hangout, with verified suppliers booked inside the event. Weddings are the deepest surface.
 
 This repo holds the **Setnayan V1 single-codebase build** — one Next.js app distributed to:
 

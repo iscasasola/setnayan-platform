@@ -90,3 +90,38 @@ test('/recap before the day: the page says plainly the story opens after it', ()
   assert.match(body, /\{storyAsked && plan\.body !== 'editorial' && !isEditorCanvas \? \(\s*<p role="status" data-story-later="">?/, 'the line is not gated to "before the story"');
   assert.match(body, /\{STORY_LATER_WORDS\}/);
 });
+
+/* ── THE RE-WALK OF /rosa-ben/recap AFTER #7628 (controller, 2026-11-13): four rows only partly fixed. ── */
+
+test('F-W2-48 (re-walk) · the road never ends on an empty "0 · the day" stop', () => {
+  const road = read(`${E}/post-event-scene-views-3.tsx`);
+  assert.doesNotMatch(road, /0<span className=\{`\$\{MICRO\} ml-2`\}>the day<\/span>/, 'the empty "0 · the day" stop is drawn again');
+  assert.match(road, /days before the day/, 'anti-vacuity: the countdown itself is still there');
+});
+
+test('F-W2-49 (re-walk) · one day-window count of photos, everywhere the story says "photos"', () => {
+  const data = read(`${E}/data.ts`);
+  assert.match(data, /photos: typeof galleryDayTotal === 'number' \? galleryDayTotal : typeof frozen\.photos === 'number'/, 'metrics.photos is not the day count — the cover, By the numbers and Powered by disagree again');
+  assert.match(data, /photoWallPhotos = snap\.tiles\.filter\(\(t\) => capturedOnTheDay\(t\.sortAt, dayWindow\)\)/, 'Memory lane counts shots from before the day again');
+  const content = read(`${E}/editorial-content.tsx`);
+  assert.match(content, /<LivePhotoWall photos=\{data\.photoWallPhotos\} photoCount=\{data\.metrics\.photos\} \/>/, 'Powered by reads another count');
+});
+
+test('F-W2-52 (re-walk) · no bare "thank you" under the team', () => {
+  const credits = read(`${E}/post-event-scene-views-2.tsx`);
+  assert.doesNotMatch(credits, />thank you</, 'the credits roll ends on a bare "thank you" again');
+});
+
+test('F-W2-53 (re-walk) · under the story: no empty "No program…" plates, no host note — and the body stays', () => {
+  const body = read('app/[slug]/_components/site-body.tsx');
+  const plates = [...body.matchAll(/<SectionEmptyPlate kind="(details|story)"/g)];
+  assert.equal(plates.length, 3, `anti-vacuity: the three empty plates moved (${plates.length})`);
+  assert.equal(body.match(/detailsSceneList\.length === 0 && !storyLeads \? \(/g)?.length, 2, '"No program was published…" is drawn under the story again');
+  assert.match(body, /\) : plan\.openBrowse && !storyLeads \? \(\s*<SectionEmptyPlate kind="story"/, 'the empty story plate is drawn under the story again');
+  assert.match(body, /\{group\('me', <>\{plan\.openBrowse && viewerIsHost \? \(\s*storyLeads \? <div id=\{SITE_MENU_ANCHORS\.me\} aria-hidden className="scroll-mt-6" \/> : \(/, 'the host’s "You don’t need an invitation" note is drawn after the day again');
+  // The body under the story stays: it holds the guest's photos, the stranger's door, and the scenes the couple
+  // chose to show on Post Event ("What guests see"). Ending the page there is an owner call, not this fix.
+  const at = body.indexOf("plan.body === 'editorial' ? (");
+  const end = body.indexOf("plan.body === 'save_the_date' ? (", at);
+  assert.match(body.slice(at, end), /\{normalBody\(\)\}/, 'the body under the story was cut — the couple’s Post Event scenes and the guest’s photos go with it');
+});

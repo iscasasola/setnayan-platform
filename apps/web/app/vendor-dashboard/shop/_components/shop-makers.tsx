@@ -130,7 +130,7 @@ export function ShopMakers({
   const list: { k: MakerKey; title: string; sub: string; icon: LucideIcon; head: string }[] = [
     ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     ...(offers ? [{ k: 'offers' as const, title: 'Offer Maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
-    { k: 'tools', title: 'Specialized tools', sub: `Scanner · ${formatCount(tools.length - 1)} tools`, icon: Wrench, head: 'Swipe · tap one · each opens where it runs' },
+    { k: 'tools', title: 'Specialized tools', sub: `Scanner · ${formatCount(tools.length - 1)} tools`, icon: Wrench, head: 'Each tool opens where you use it' },
   ];
   const picked = tools.find((t) => t.tool.key === tool)?.tool ?? tools[0]!.tool;
   const cur = open ? list.find((t) => t.k === open) : undefined;
@@ -138,10 +138,9 @@ export function ShopMakers({
   return (
     <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-makers-h" className="sn-eye">
+        <h2 id="shop-makers-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Makers
         </h2>
-        <span className="text-[11.5px] text-ink/70">{list.map((t) => t.title.split(' ')[0]!.toLowerCase()).join(' · ')}</span>
       </div>
       <div className="grid gap-2 px-4" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }} data-maker-row="">
         {list.map((t) => (
@@ -214,7 +213,7 @@ export function ShopMakers({
                         </span>
                         <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
                         <small className="text-xs leading-snug text-ink/70">{t.line}</small>
-                        <small className="mt-auto pt-1 text-[11.5px] font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
+                        <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
                       </button>
                     </li>
                   );
@@ -303,7 +302,7 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
           icon={ArrowUpRight}
           label={`Open ${tool.title}`}
           href={tool.door.href}
-          className="w-full"
+          className="w-full !h-11"
           data-tool-open={tool.key}
         />
       </div>

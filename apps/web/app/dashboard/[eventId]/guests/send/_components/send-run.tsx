@@ -304,9 +304,11 @@ export function SendRun({
   const APP_ICON = { whatsapp: MessageCircle, viber: PhoneCall, messenger: MessagesSquare } as const;
 
   const body = !measured ? (
-    <p role="status" className="mx-auto mt-10 max-w-sm px-6 text-center text-sm text-ink/80">
-      We couldn&rsquo;t load your guest list just now, so we can&rsquo;t say who still needs their invite. Try again in a moment.
-    </p>
+    <div role="status" className="mx-auto mt-10 max-w-sm px-6 text-center text-sm text-warn-800">
+      <InfoTip label="We couldn’t load your guest list just now." labelAs="span" labelClassName="text-warn-800">
+        So we can’t say who still needs their invite. Try again in a moment.
+      </InfoTip>
+    </div>
   ) : current ? (
     <div
       ref={cardRef}
@@ -367,7 +369,14 @@ export function SendRun({
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center" data-send-run-done="">
       <Check aria-hidden className="h-9 w-9 text-success-600" strokeWidth={2} />
       <p className="font-display text-2xl text-ink">
-        {sendable.length === 0 ? 'Nobody to send to yet.' : leftCount === 0 ? 'Everyone has their invite.' : `${formatCount(sentCount)} sent.`}
+        {sendable.length === 0
+          ? 'Nobody to send to yet.'
+          : leftCount === 0
+            ? // ✉ F-W2-25: "has their invite" only when each one WAS sent one — an answer marked by hand is not a send.
+              sendable.every((g) => sentNow(g))
+              ? 'Everyone has their invite.'
+              : 'Nobody left to invite.'
+            : `${formatCount(sentCount)} sent.`}
       </p>
       {laterIn.length ? (
         <ActionButton

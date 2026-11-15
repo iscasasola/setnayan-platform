@@ -80,7 +80,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
-import { guestsArriveTime } from '@/lib/guests-arrive';
+import { coverMoment, guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -510,7 +510,7 @@ type SiteBodyProps = {
   /** 🏷 The event plan's Setnayan mark (`eventSetnayanMark`, Build 6 Lane L): Free = the watermark · Event Plus = one
    *  quiet "Made with Setnayan" · Event Pro = none. Absent → read from `proWatermarkHidden` as before. */
   setnayanMark?: SetnayanMark | null;
-  /** 💎 The Event Hub Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
+  /** 💎 The Event Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
    *  Auto-scroll are Motion's. Absent: every part while the footer is off (Full Pro), none otherwise — the old meaning. */
   hubParts?: readonly HubPartId[];
   /** 🖼 THE MAKER'S CANVAS — TRUE only when the page resolved `?editor=1` AND
@@ -799,7 +799,7 @@ export async function SiteBody({
   const rsvpAsk = resolveRsvpAsk(event.rsvp_ask_config);
   // 🖼 The reply sheet's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`).
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
-  // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
+  // The Love Story's photos (Event Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
     ...new Set([
@@ -837,7 +837,7 @@ export async function SiteBody({
     ITS SCENE AND IS ADDED FROM THAT SCENE'S STYLE") — decided ONCE here and handed to each fixed place
     (`lib/art-kits.ts` · `kit-piece.tsx`): each scene's Accent pick (`style_preferences.scene_accents`, draft-overlaid
     on the host's canvas) or the look's default; the look's own seal, flourish and divider when the RESOLVED theme brings
-    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Hub Pro as the viewer is shown it
+    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Pro as the viewer is shown it
     (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
     Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
   */
@@ -1071,10 +1071,12 @@ export async function SiteBody({
   // 🎴 The invitation card's words (canvas "1 · Arrival"), resolved once for
   // both the stranger's and the guest's first screen. Null for the solemn
   // register, which keeps its quiet masthead. See _lib/invitation-card.ts.
+  // 🎴 F-W2-40: the event's own first moment a guest sees — never a private block, never the Prep chapter.
+  const coverAt = coverMoment(scheduleBlocks);
   const inviteCard = invitationCard({
     words: clientWords,
-    firstStartAt: scheduleBlocks[0]?.start_at ?? null,
-    firstLabel: scheduleBlocks[0]?.label ?? null,
+    firstStartAt: coverAt?.start_at ?? null,
+    firstLabel: coverAt?.label ?? null,
   });
   /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
      code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */
@@ -2621,7 +2623,8 @@ export async function SiteBody({
               <>
                 {plan.openBrowse ? group(at('f:details', scenesTab), (
                   <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                    {detailsSceneList.length === 0 ? (
+                    {/* 📖 Never an empty plate under the story (F-W2-53): "No program was published…" after the day. */}
+                    {detailsSceneList.length === 0 && !storyLeads ? (
                       <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                     ) : null}
                   </section>
@@ -2636,7 +2639,7 @@ export async function SiteBody({
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
-                {detailsSceneList.length === 0 ? (
+                {detailsSceneList.length === 0 && !storyLeads ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                 ) : null}
               </section>
@@ -2682,7 +2685,7 @@ export async function SiteBody({
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
               {storySceneShown ? null : storyOffHere || !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
-              ) : plan.openBrowse ? (
+              ) : plan.openBrowse && !storyLeads ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
               ) : null}
             </div>
@@ -2697,7 +2700,10 @@ export async function SiteBody({
              invitation?" and offers "Open my invitation" — a dead end for the
              person who ISSUES the invitations, and the tab must still land
              somewhere, so it says what this page is instead of pointing them
-             at a door that is not theirs. Copy only; no control moves here. */
+             at a door that is not theirs. Copy only; no control moves here.
+             📖 After the day (F-W2-53): the tab still lands here and says nothing — never "You don't need an
+             invitation" under the story, and never the stranger's "Open my invitation" card either. */
+          storyLeads ? <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" /> : (
           <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
@@ -2707,6 +2713,7 @@ export async function SiteBody({
               </p>
             </div>
           </section>
+          )
         ) : plan.openBrowse && archiveTense ? (
           /* ☝ Before the day a stranger's one door is "Get inside" (owner
              2026-09-26/27) — the "Open my invitation" card would be a second.
@@ -4090,7 +4097,7 @@ export async function SiteBody({
                 <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
-                  children unless a section scrubs AND the event owns Event Hub
+                  children unless a section scrubs AND the event owns Event
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
@@ -4580,7 +4587,7 @@ export async function SiteBody({
           owning audio in its own phase, not about the veil: over the invitation
           the veil (z-60) sits above this control (z-50), so it is hidden until
           the veil lifts, and the music never autoplays — it starts only on a
-          tap. Suppressing it here would silence a paid Event Hub PRO feature
+          tap. Suppressing it here would silence a paid Event Pro feature
           for the whole invitation phase to solve a clash that cannot happen. */}
       {/* 🖼 Not in the Maker's canvas — the song is set in the inspector. */}
       {plan.backgroundMusic && bgMusicUrl && !isEditorCanvas ? <BackgroundMusic src={bgMusicUrl} design={hubMusicButton(heroRow?.config_json)} /> : null}

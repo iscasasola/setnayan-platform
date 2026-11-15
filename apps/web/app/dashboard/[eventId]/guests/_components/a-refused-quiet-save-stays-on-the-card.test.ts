@@ -156,6 +156,6 @@ test('structure: every refusal in updateGuest goes through refuse(); the card ha
   const bodySrc = read('guest-card-body.tsx');
   // ONE card, ONE kit (2026-10-24): the templated line always carries the card's sentences.
   assert.match(bodySrc, /<K\.SaveState copy=\{GUEST_CARD_ERROR_COPY\} \/>/);
-  const lab = readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.tsx'), 'utf8');
+  const lab = readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.lab.tsx'), 'utf8');
   assert.match(lab, /if \(formData\.get\('quiet'\) === '1'\) return \{ refused: labWords \};/, 'the lab stand-in refuses a quiet post differently from the real action');
 });

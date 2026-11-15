@@ -125,7 +125,7 @@ export function HubEventMenu({
                 placeholder="Find an event — name or date"
                 aria-label="Find an event"
                 data-hub-event-find=""
-                className="h-10 w-full rounded-full border border-ink/15 bg-white px-3.5 text-[14px] text-ink dark:bg-raised"
+                className="h-11 w-full rounded-full border border-[color:var(--m-line)] bg-white px-3.5 text-sm text-ink dark:bg-raised"
               />
             </li>
           ) : undefined

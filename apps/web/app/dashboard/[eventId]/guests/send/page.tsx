@@ -106,7 +106,7 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
   // always land on the Guest list. A one-link event needs no personal address; a personal one does.
   if (!invitationBase && !oneLink) {
     return (
-      <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6">
+      <div className="mx-auto w-full max-w-xl tab:max-w-3xl px-4 pb-24 pt-4 sm:px-6">
         <p role="status" className="mt-6 rounded-xl bg-ink/[0.04] p-4 text-sm text-ink/70">
           Your Event Hub has no address yet, so there are no personal links to send. Set one in{' '}
           <Link href={`/dashboard/${eventId}/invitation`} className="font-medium text-ink underline underline-offset-4">

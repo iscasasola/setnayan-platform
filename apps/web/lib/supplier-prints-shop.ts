@@ -1,9 +1,8 @@
 import { shopInitials } from '@/lib/shop-initials';
 import { shopBadges, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
-import { checkADateUrl } from '@/lib/check-a-date';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
-import { myPagePath, myPageUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
+import { myPagePath, myPageUrl, ownDatesUrl, ownPageUrl, ownReviewsUrl } from '@/lib/supplier-qr-codes';
 import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
 import { yearsInBusiness } from '@/lib/vendor-experience';
 import type { PrintMember, PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
@@ -22,8 +21,8 @@ import type { PrintQrMode } from '@/lib/supplier-prints';
  *              print's own read): a badge un-earned since is not printed; one earned since is
  *
  * And the QR: the address of the code the supplier picked, built by the SAME helpers the Promote codes use —
- * Check a date `checkADateUrl` · Shortlist `buildVendorInviteUrl` (any event, all services) · My page `myPageUrl` ·
- * Reviews `myPageUrl` + `/review` — the WRITE door (owner 2026-11-06, "Write a review"): it sends a couple with a
+ * Check a date `ownDatesUrl` · Shortlist `buildVendorInviteUrl` (any event, all services) · My page `myPageUrl` ·
+ * Reviews `ownReviewsUrl` (`/review?src=own`) — the WRITE door (owner 2026-11-06, "Write a review"): it sends a couple with a
  * booking ready for a review to that booking's "Leave a review", and everyone else to the page's `#reviews`
  * (`lib/shop-review-door.ts`, route `app/v/[slug]/review/route.ts`).
  *
@@ -94,8 +93,8 @@ export function printMemberFrom(displayName: string | null | undefined, teamLabe
 export function printQrUrl(mode: PrintQrMode, origin: string, slug: string): string {
   if (mode === 'shortlist') return buildVendorInviteUrl(slug, { eventType: null, category: null });
   if (mode === 'page') return ownPageUrl(origin, slug); // 💳 a printed code is the supplier's own: ?src=own
-  if (mode === 'reviews') return `${myPageUrl(origin, slug)}/review`;
-  return checkADateUrl(origin, slug);
+  if (mode === 'reviews') return ownReviewsUrl(origin, slug); // 💳 RW-19: ?src=own
+  return ownDatesUrl(origin, slug); // 💳 RW-19: ?src=own
 }
 
 export function printQr(mode: PrintQrMode, origin: string, slug: string): PrintQr {

@@ -28,8 +28,8 @@ export function ShopBundles({ bundles, cards, lock = null }: { bundles: readonly
   return (
     <div className="pb-1 pt-2" data-shop-bundles="">
       <div className="flex items-baseline justify-between pb-1.5">
-        <p className="sn-eye">Bundles</p>
-        <span className="text-[11.5px] text-ink/70">several cards as one price</span>
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Bundles</p>
+        <span className="text-xs text-ink/70">several cards as one price</span>
       </div>
       {lock ? (
         <div data-shop-bundles-locked="">
@@ -46,7 +46,7 @@ export function ShopBundles({ bundles, cards, lock = null }: { bundles: readonly
             <span>{cards !== null && cards < 2 ? 'No bundles yet · a bundle needs two service cards first' : 'No bundles yet · several cards as one price'}</span>
           </p>
           <span className={cards !== null && cards < 2 ? 'inline-flex opacity-50' : 'inline-flex'}>
-            <ActionButton tone="neutral" icon={<Package aria-hidden strokeWidth={1.9} />} label="New bundle" href={NEW_BUNDLE_HREF} />
+            <ActionButton tone="neutral" icon={<Package aria-hidden strokeWidth={1.9} />} label="New bundle" href={NEW_BUNDLE_HREF} className="!h-11" />
           </span>
         </div>
       ) : (

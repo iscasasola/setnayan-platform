@@ -65,14 +65,14 @@ test('1 · every ticket kind prints — and NO RAINBOW on any ticket (owner 15 N
   assert.ok(!/holo/i.test(src), 'no holo path left in the ticket drawing');
 });
 
-test('2 · auto-claimed: the ticket is never a button; v86 copy verbatim; the frame-metal gap is off by default', async () => {
+test('2 · auto-claimed: the ticket is never a button; v86 copy verbatim; the frame metal matches the tier', async () => {
   const { RewardTicket, TICKET_COPY } = await import('./reward-ticket');
   assert.equal(TICKET_COPY.locked, 'Reward · gift for a customer');
   assert.equal(TICKET_COPY.new, '✓ New · in your gifts');
   assert.equal(TICKET_COPY.inGifts, '✓ In your gifts');
-  const locked = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'locked' }));
-  const fresh = renderToStaticMarkup(h(RewardTicket, { kind: 'papic150', label: 'Papic 150', state: 'new' }));
-  const held = renderToStaticMarkup(h(RewardTicket, { kind: 'eultra', label: 'Event Ultra', state: 'in_gifts' }));
+  const locked = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'locked', tier: 1 }));
+  const fresh = renderToStaticMarkup(h(RewardTicket, { kind: 'papic150', label: 'Papic 150', state: 'new', tier: 1 }));
+  const held = renderToStaticMarkup(h(RewardTicket, { kind: 'eultra', label: 'Event Ultra', state: 'in_gifts', tier: 1 }));
   assert.ok(locked.includes('Reward · gift for a customer'));
   assert.ok(fresh.includes('✓ New · in your gifts'));
   assert.ok(held.includes('✓ In your gifts'));
@@ -81,10 +81,17 @@ test('2 · auto-claimed: the ticket is never a button; v86 copy verbatim; the fr
   }
   const src = stripComments(readFileSync(join(DIR, 'reward-ticket.tsx'), 'utf8'));
   assert.ok(!/onClaim|Tap to claim/.test(src), 'no claim path left in the ticket');
-  // ⚖ GAP: "ticket frame metal" is unruled — off by default, so the drawn frame is v86's for the kind
-  const plain = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'in_gifts' }));
-  const again = renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'in_gifts', frameMetal: undefined }));
-  assert.equal(plain, again, 'frameMetal undefined draws exactly the v86 frame');
+  // ✅ RULED 15 Nov (item 7): the frame metal matches the tier, Bronze → Black Diamond — seven metals, all different
+  const { TIER_RIMS, rimForTier, ticketSvg, TICKET_SPECS } = await import('./ticket-svg');
+  assert.deepEqual([...TIER_RIMS], ['bronze', 'silver', 'gold', 'plat', 'diamond', 'ruby', 'black']);
+  assert.equal(rimForTier(0), 'bronze', 'below the ladder clamps to Bronze');
+  assert.equal(rimForTier(9), 'black', 'above the ladder clamps to Black Diamond');
+  const frames = TIER_RIMS.map((rim) => ticketSvg('t', { ...TICKET_SPECS.epro, rim }));
+  assert.equal(new Set(frames).size, 7, 'each tier draws its own frame');
+  const at = (tier: number) => renderToStaticMarkup(h(RewardTicket, { kind: 'epro', label: 'Event Pro', state: 'in_gifts', tier }));
+  assert.notEqual(at(1), at(7), 'the same reward at Bronze and at Black Diamond wears a different frame');
+  assert.equal(at(3), at(3));
+  assert.ok(!/frameMetal/.test(stripComments(readFileSync(join(DIR, 'reward-ticket.tsx'), 'utf8'))), 'no unruled frame gap left');
 });
 
 test('3 · badge → caption → hallmark never overlap, at every verified size', async () => {

@@ -13,13 +13,14 @@
  * 🎟 NO RAINBOW (owner 15 Nov: "no rainbow design on the tickets" · "keep in all clean and premium"): every ticket keeps
  * its metal frame, security print, torn stub, raised numerals and serial; no holographic strip on any plan.
  *
- * ⚖ UNRULED, LEFT AS A NAMED GAP: the ticket FRAME METAL (open item "ticket frame metal", DECISION_LOG 15 Nov approval).
- * `frameMetal` is off by default — the ticket wears the frame drawn in v86 for its kind. Nothing is invented for it.
+ * 🥉→🖤 THE FRAME METAL MATCHES THE TIER (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" item 7): `tier` is the badge
+ * step that earned the ticket (1 = Bronze … 7 = Black Diamond) and picks the frame (`rimForTier`). The face keeps its
+ * kind's colours.
  *
  * Client-only; no fetch here.
  */
 import s from './award.module.css';
-import { TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketRim, type TicketSpec } from './ticket-svg';
+import { TICKET_H, TICKET_SPECS, TICKET_W, ticketDataUri, type TicketKind, type TicketSpec, rimForTier } from './ticket-svg';
 
 export type RewardTicketState = 'locked' | 'new' | 'in_gifts';
 
@@ -31,11 +32,8 @@ export type RewardTicketProps = {
   /** What the reward is, in words ("Papic 150"). */
   label: string;
   state: RewardTicketState;
-  /**
-   * ⚖ GAP — "ticket frame metal" is not ruled. Off by default (undefined = the frame v86 draws for this kind). A value
-   * here only takes effect once the owner rules on it; the kit never picks one on its own.
-   */
-  frameMetal?: TicketRim;
+  /** The badge step that earned it (1 = Bronze … 7 = Black Diamond) — the frame is cut in that tier's metal. */
+  tier: number;
   className?: string;
 };
 
@@ -45,9 +43,9 @@ export const TICKET_COPY = {
   inGifts: '✓ In your gifts',
 } as const;
 
-export function RewardTicket({ kind, spec, label, state, frameMetal, className }: RewardTicketProps) {
+export function RewardTicket({ kind, spec, label, state, tier, className }: RewardTicketProps) {
   const base = spec ?? (TICKET_SPECS as Record<string, TicketSpec>)[kind];
-  const print = base && frameMetal ? { ...base, rim: frameMetal } : base;
+  const print = base ? { ...base, rim: rimForTier(tier) } : base;
   const got = state !== 'locked';
   const cls = [s.rw, got ? s.rwGot : s.rwLocked, className ?? ''].filter(Boolean).join(' ');
   const eyebrow = state === 'new' ? TICKET_COPY.new : state === 'in_gifts' ? TICKET_COPY.inGifts : TICKET_COPY.locked;

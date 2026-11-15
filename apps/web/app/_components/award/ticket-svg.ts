@@ -14,7 +14,20 @@
  */
 import { SY_PATH } from '@/lib/photo-mark-geometry';
 
-export type TicketRim = 'bronze' | 'silver' | 'gold' | 'plat';
+export type TicketRim = 'bronze' | 'silver' | 'gold' | 'plat' | 'diamond' | 'ruby' | 'black';
+
+/**
+ * 🎟 THE FRAME METAL MATCHES THE TIER (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" item 7: "Award ticket frame
+ * metal matches the tier (Bronze → Black Diamond)"). Bottom of the ladder first, one metal per `lib/badge-tiers.ts` step:
+ * Bronze · Silver · Gold · Platinum · Diamond · Ruby · Black Diamond.
+ */
+export const TIER_RIMS: readonly TicketRim[] = ['bronze', 'silver', 'gold', 'plat', 'diamond', 'ruby', 'black'];
+
+/** The frame metal for a tier (1 = Bronze … 7 = Black Diamond), clamped to the ladder. */
+export function rimForTier(tier: number): TicketRim {
+  const i = Math.min(TIER_RIMS.length, Math.max(1, Math.round(Number.isFinite(tier) ? tier : 1)));
+  return TIER_RIMS[i - 1]!;
+}
 export type TicketSpec = {
   /** Small word over the number ("PAPIC", "EVENT"). */
   w: string;
@@ -46,6 +59,11 @@ const TKRIM: Readonly<Record<TicketRim, readonly [string, string, string, string
   silver: ['#4B525A', '#FFFFFF', '#8F98A2', '#F4F7FA', '#59616A'],
   gold: ['#6E4606', '#FFF3B8', '#C8921A', '#FFE68A', '#7A4E08'],
   plat: ['#2A2E36', '#FFFFFF', '#9AA6BC', '#E8F0FF', '#3A4150'],
+  // the three upper metals take the tier's own colours (`lib/badge-tiers.ts` edges, v86 `GIFT_TK`), in the same slots:
+  // shadow · highlight · body · light · shadow end
+  diamond: ['#1F4E6B', '#FFFFFF', '#86C3F5', '#E3F3FF', '#2F6FAE'],
+  ruby: ['#6B0A1C', '#F3A6B2', '#D22A45', '#FF8A9B', '#7A1626'],
+  black: ['#050506', '#9AA1A9', '#2B2E33', '#5A5F66', '#0E0E10'],
 };
 
 /** Drawn size (the viewBox is padded for the drop shadow). */

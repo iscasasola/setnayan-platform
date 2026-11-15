@@ -62,6 +62,7 @@ export function AwardLab() {
             key={kind}
             kind={kind}
             label={kind}
+            tier={i + 1}
             state={i === 0 ? 'locked' : i === 1 ? 'new' : 'in_gifts'}
           />
         ))}

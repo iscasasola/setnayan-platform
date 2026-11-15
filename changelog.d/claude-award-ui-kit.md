@@ -44,7 +44,8 @@ A port of `prototypes/supplier_badges_2026-11-15/badge-milestones_v86.html` and 
 - **Service-card badges:**
   - The congratulations screen (`CardBadgeCongrats`).
   - The rules pop-up shell (`CardBadgeRules`), which J3 fills.
-- **Off by default (props):** the ticket frame metal, the shop-logo watermark behind No. 1, and No. 1's gift.
+- **The ticket frame metal matches the tier** (owner ruling 15 Nov, item 7): Bronze · Silver · Gold · Platinum · Diamond · Ruby · Black Diamond, chosen by the ticket's `tier`.
+- **Off by default (props):** the shop-logo watermark behind No. 1, and No. 1's gift.
 - **Guards** (`award-kit.test.ts`, `card-badge.test.ts`, `tap-shows.test.ts`):
   - Confetti appears only on No. 1, and the days line only on tiered badges.
   - The art loads lazily, and the tickets have no rainbow.

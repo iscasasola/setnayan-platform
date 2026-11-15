@@ -155,7 +155,7 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopReach, shopWhere } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -2317,12 +2317,17 @@ export async function renderVendorBySlug({
     inspirationTiles.length > 0 ||
     hasPhotosByService;
   // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
-  const hasWhere = shopHasWhere({
-    latitude: vendor.hq_latitude,
-    longitude: vendor.hq_longitude,
-    address: vendor.hq_address,
-    city: vendor.location_city,
-  });
+  // An unverified shop shows its city only — no pin, no directions, no street (`shopWhere`, DECISION_LOG 2026-11-15).
+  const where = shopWhere(
+    {
+      latitude: vendor.hq_latitude,
+      longitude: vendor.hq_longitude,
+      address: vendor.hq_address,
+      city: vendor.location_city,
+    },
+    cinematicHero,
+  );
+  const hasWhere = where.has;
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -3319,8 +3324,9 @@ export async function renderVendorBySlug({
         />
         </div>
 
-        {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
-            pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
+        {/* 📍 WHERE — the unverified shop's own section (prototype: Services · Reviews · Where · Inquire): its CITY only.
+            No pinned map, no Get directions, no street — "no exact address" until verified (`shopWhere`, DECISION_LOG
+            2026-11-15). */}
         {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
@@ -3328,17 +3334,9 @@ export async function renderVendorBySlug({
               <p className="text-sm text-ink/70">
                 <ShopReachLine reach={reach} city={vendor.location_city ?? null} />
               </p>
-              <ShopReachMap
-                reach={reach}
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                city={vendor.location_city ?? null}
-              />
-              <DirectionsMenu
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                query={vendor.hq_address ?? vendor.location_city ?? null}
-              />
+              <p data-shop-exact-address-held="" className="text-[13px] text-ink/60">
+                {where.addressNote}
+              </p>
             </section>
           </div>
         )}

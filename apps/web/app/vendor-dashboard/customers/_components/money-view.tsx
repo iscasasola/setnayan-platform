@@ -11,6 +11,7 @@ import type { Paged } from '@/lib/paginate';
 import { ListPager } from '../../_components/list-pager';
 import { CustomersPick } from './customers-pick';
 import { DatesRow, RowTile } from './dates-row';
+import { RememberPickedOrigin } from './remember-picked-origin';
 import { MoneyFill } from './money-figures';
 import { InfoTip } from '@/app/_components/info-tip';
 
@@ -161,15 +162,17 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
               )
             ) : (
               rows.items.map((r) => (
-                <DatesRow
-                  key={r.key}
-                  data="money-row"
-                  title={r.title}
-                  line={r.line}
-                  strong={<span className="text-[15px]">{formatPhp(r.amountPhp)}</span>}
-                  badge={r.badge}
-                  href={data.rowHref(r.eventId)}
-                />
+                /* ↩ EB-246: the row records the list it opened from, so the client's ✕ goes back HERE. */
+                <RememberPickedOrigin key={r.key} to={data.rowHref(r.eventId)}>
+                  <DatesRow
+                    data="money-row"
+                    title={r.title}
+                    line={r.line}
+                    strong={<span className="text-[15px]">{formatPhp(r.amountPhp)}</span>}
+                    badge={r.badge}
+                    href={data.rowHref(r.eventId)}
+                  />
+                </RememberPickedOrigin>
               ))
             )}
           </div>

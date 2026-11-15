@@ -45,6 +45,7 @@ import {
   PICKED_PAGE_SLIDE_EASE,
   PICKED_PAGE_SLIDE_MS,
   forgetPickedOrigin,
+  pickedCloseStep,
   pickedMotion,
   prefersReducedMotion,
   readPickedOrigin,
@@ -297,7 +298,7 @@ export function PickedShell<P extends string>({
     const origin = originRef.current;
     const leave = () => {
       forgetPickedOrigin();
-      if (origin && window.history.length > 1) router.back();
+      if (pickedCloseStep(origin, window.history.length) === 'back') router.back();
       else router.push(closeHref);
     };
     if (!el) return leave();

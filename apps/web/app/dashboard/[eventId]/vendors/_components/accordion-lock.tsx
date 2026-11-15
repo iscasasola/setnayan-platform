@@ -178,7 +178,6 @@ export function AccordionLockButton({
   icon,
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
-  isVerified,
 }: {
   eventId: string;
   groupId: PlanGroupId;
@@ -196,12 +195,8 @@ export function AccordionLockButton({
   className?: string;
   wrapperClassName?: string;
   /**
-   * Marketplace-vendor verification state (owner 2026-07-24 booking gate).
-   * `undefined` = off-platform / not-yet-enriched → no indicator, lock proceeds
-   * (server + DB still enforce). `false` = a marketplace vendor still verifying:
-   * shows a "Verifying" pill and the tap surfaces the friendly block WITHOUT a
-   * round-trip. `true` = verified → normal lock. This is a UX nicety only; the
-   * server gate + DB trigger are the real enforcement.
+   * @deprecated 2026-11-15 ("We allow booking"): verification no longer gates the press, so this is not read. Kept
+   * so the callers that still pass it compile; the server and the DB trigger decide.
    */
   isVerified?: boolean;
 }) {
@@ -238,19 +233,9 @@ export function AccordionLockButton({
   // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
   // vast majority of vendors (no slots → no extra round-trip in the UI flow).
   const requestLock = () => {
-    // Booking-requires-verified gate (owner 2026-07-24) — fast client-side
-    // short-circuit when we already know this marketplace vendor is unverified,
-    // so the couple gets the explanation without a round-trip. `undefined`
-    // (off-platform / not-yet-enriched) still goes to the server, which is the
-    // authority (+ the DB trigger).
-    if (isVerified === false) {
-      setState({
-        kind: 'error',
-        message:
-          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.",
-      });
-      return;
-    }
+    // 2026-11-15 ("We allow booking"): an unverified shop CAN be booked, so there is no client short-circuit on
+    // verification any more. The server (`shopBookingRefusal`) and the DB trigger decide, and refuse only a rejected,
+    // demoted, archived or frozen shop.
     startTransition(async () => {
       let slots: VendorServiceTimeSlot[] = [];
       try {
@@ -527,19 +512,6 @@ export function AccordionLockButton({
         {icon}
         <span className="lbl">{isPending && state.kind === 'idle' ? pendingLabel : label}</span>
       </button>
-
-      {/* Booking-requires-verified indicator (owner 2026-07-24) — surfaces the
-          block BEFORE the tap so it isn't a surprise. Shown only for a known-
-          unverified marketplace vendor. */}
-      {isVerified === false ? (
-        <p
-          role="status"
-          className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-[rgb(var(--color-warn))]"
-        >
-          <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-          Verifying — can&apos;t book yet
-        </p>
-      ) : null}
 
       {state.kind === 'error' ? (
         <p role="alert" className="mt-2 text-xs text-[rgb(var(--color-danger))]">

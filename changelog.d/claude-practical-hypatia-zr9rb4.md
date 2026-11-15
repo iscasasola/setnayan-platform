@@ -30,3 +30,18 @@ OPTION". Approved drawing: artifact QSMD9BaefarMRNQAnMFiND §1–5. Extends the 
 SPEC IMPACT: None — implements the 2026-11-14 DECISION_LOG rows above; no new ruling. Owner action surfaced in the PR:
 App Store Connect price points for the (not yet sellable) supplier gift IAP products were set from the retired gift
 price and should equal the list price.
+
+## 2026-11-15 · test(gifts): the gift-for-services rulings, checked against G1
+
+The owner's 15 Nov picks on `setnayan_gift_services_2026-11-14_fable` (DECISION_LOG "GIFT FOR SERVICES DESIGN — DECISIONS"), checked against this PR:
+- A plan gift and Papic may be combined within the 40% limit — the judge already sums every bought line. **New guard** in `lib/shop-gifts.test.ts`: a plan + Papic 150 that goes over the limit is refused, and Papic 150 beside a plan is not the always-allowed gift (sabotage: count Papic 150 as always allowed whenever present → two blocks red).
+- Event Ultra is a supplier gift at its ₱9,990 list price. Already built.
+- Papic 150 is always allowed. Already built and guarded.
+- A stocked gift lands at the couple's first payment, as today, and stock bought ahead counts toward the limit. Already built.
+- Not in this PR, and named in its body: the design's own scope is the SETNAYAN gift added at booking ("Not touched: the supplier's own shop gifts"). That covers several pieces, a build of its own:
+  - the couple spends a peso gift on Papic or a plan, and it arrives when the supplier's bill (fee + gift) is paid;
+  - "N free Papic photos" retires;
+  - "Most credits for your limit" shows only when the gift is all Papic;
+  - Admin › Gifts gets a Setnayan gifts view.
+
+SPEC IMPACT: None — checks this PR against DECISION_LOG 2026-11-15 as written.

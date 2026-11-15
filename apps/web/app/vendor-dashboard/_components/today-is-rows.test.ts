@@ -262,8 +262,9 @@ test('2b · a row is ONE link to its page — no fold, no form, nothing answered
 
 test('2c · the date change and the delete request JUMP to the client’s Details, where their answers now are', async () => {
   const rows = new Map(needRows(await render({ needsAnswer: [REMOVE, MOVE] })));
-  assert.equal(rows.get('dc1'), '/vendor-dashboard/clients/e-cruz?tab=details');
-  assert.equal(rows.get('d1'), '/vendor-dashboard/clients/e-x?tab=details');
+  // EB-290 (#7821): Today's door into a card carries `?from=today`, so ✕ returns to Today.
+  assert.equal(rows.get('dc1'), '/vendor-dashboard/clients/e-cruz?tab=details&from=today');
+  assert.equal(rows.get('d1'), '/vendor-dashboard/clients/e-x?tab=details&from=today');
   const body = code('app/vendor-dashboard/_components/client-day-answers.tsx');
   assert.match(body, /<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} returnTo=\{back\} \/>/, 'Details does not draw the shipped Move · Unlock');
   assert.match(body, /<DeleteRequestBody card=\{card\} agreeDeletion=\{vendorAgreeToDeletion\} declineDeletion=\{vendorDeclineDeletion\} returnTo=\{back\} \/>/);

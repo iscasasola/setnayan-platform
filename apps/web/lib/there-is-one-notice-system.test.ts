@@ -145,6 +145,7 @@ const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string 
   'app/[slug]/pabuya/_components/gift-record-sheet.tsx': { n: 1, why: SHEET },
   'app/_components/chat/blocker-ask-row.tsx': { n: 1, why: FLOW },
   'app/_components/chat/cards/offer-card.tsx': { n: 1, why: FLOW },
+  'app/_components/card-badges/card-badges-explainer.tsx': { n: 1, why: TOUR }, // the card-badge rules explainer (v86 draws "Got it")
   'app/_components/explain-open.tsx': { n: 1, why: TOUR },
   'app/_components/guided-tour-card.tsx': { n: 1, why: TOUR },
   'app/_components/iap/apple-pro-screen.tsx': { n: 1, why: SHEET },

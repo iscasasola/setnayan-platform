@@ -33,10 +33,11 @@ import {
   type CardInquiry,
 } from './card-badges';
 import { CARD_BADGE_ART, CARD_PAPER } from './card-badges-art';
+import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const strip = stripComments;
 
 /** A Manila wall-clock instant → epoch ms (Manila = UTC+8, no DST). */
 const mnl = (iso: string) => Date.parse(`${iso}+08:00`);

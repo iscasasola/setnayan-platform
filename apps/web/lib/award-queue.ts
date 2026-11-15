@@ -1,3 +1,5 @@
+import { formatCount } from '@/lib/format-number';
+
 /**
  * 🎬 THE AWARD QUEUE AND ITS ONE TODAY LINE (owner 15 Nov 2026, DECISION_LOG e5ec685d "THE WHOLE BADGE + SEAL FLOW —
  * ONE ORDER, AND TWELVE COLLISIONS RULED"; prototype badge-flow-walkthrough_v5):
@@ -72,7 +74,7 @@ export function todayAwardLine(
   const midway = progress ? queue.find((i) => (progress[i.key]?.step ?? 0) > 0) : undefined;
   if (midway) {
     const p = progress![midway.key]!;
-    const of = p.totalSteps ? ` · ${p.step} of ${p.totalSteps}` : '';
+    const of = p.totalSteps ? ` · ${formatCount(p.step)} of ${formatCount(p.totalSteps)}` : '';
     return { tone: 'todo', text: `Continue ${midway.title}${of}`, action: 'Continue', flowKey: midway.key, resumeStep: p.step, waiting: queue.length };
   }
   const first = queue[0]!;

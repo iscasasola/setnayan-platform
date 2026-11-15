@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { printPreviewBox, printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
 import { PRINT_FIELD_LABEL, parsePrintFields, useDetailsTap, type PrintFieldsHeader } from './details-tap';
 
@@ -171,7 +172,7 @@ export function PrintPreview({
               decoding="async"
               onLoad={() => settle('loaded')}
               onError={() => settle('error')}
-              className={`max-h-[308px] max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+              className={`max-h-[308px] max-w-full object-contain drop-shadow-xl transition-opacity duration-sn-elem ${
                 view.imageVisible ? 'opacity-100' : 'opacity-0'
               }`}
             />
@@ -207,7 +208,7 @@ export function PrintPreview({
             decoding="async"
             onLoad={() => settle('loaded')}
             onError={() => settle('error')}
-            className={`max-h-full max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+            className={`max-h-full max-w-full object-contain drop-shadow-xl transition-opacity duration-sn-elem ${
               view.imageVisible ? 'opacity-100' : 'opacity-0'
             }`}
           />
@@ -223,25 +224,23 @@ export function PrintPreview({
           {view.showShimmer ? (
             <div aria-hidden className="absolute inset-0 -z-0 animate-pulse rounded-lg bg-ink/[0.06]" />
           ) : null}
-          {view.loadingLabel ? <p className="relative text-xs font-medium text-ink/55">{view.loadingLabel}</p> : null}
+          {view.loadingLabel ? <p className="relative text-xs font-medium text-ink/70">{view.loadingLabel}</p> : null}
         </div>
       ) : null}
 
       {view.errorLabel ? (
         <div role="alert" className="flex flex-col items-center gap-2 px-2 text-center">
           <AlertTriangle aria-hidden className="h-5 w-5 text-danger-700" strokeWidth={1.75} />
-          <p className="text-xs font-medium text-danger-800">{view.errorLabel}</p>
-          <button
-            type="button"
+          <p className="text-[13px] font-medium text-danger-800">{view.errorLabel}</p>
+          <ActionButton
+            tone="neutral"
+            icon={RefreshCw}
+            label="Try again"
             onClick={() => {
               setState({ src, status: 'loading' });
               setAttempt((n) => n + 1);
             }}
-            className="button-secondary inline-flex items-center gap-1.5 text-xs"
-          >
-            <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Retry
-          </button>
+          />
         </div>
       ) : null}
     </div>

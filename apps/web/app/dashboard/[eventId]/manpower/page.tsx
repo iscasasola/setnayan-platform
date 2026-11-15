@@ -166,7 +166,8 @@ export default async function HostManpowerPage({
       <div className="mx-auto w-full max-w-4xl px-4 pb-24 pt-8 sm:px-6">
         <Link
           href={`/dashboard/${eventId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
+          // 📐 Design template (rules 1 · 3 · 14): a 44-px way back in the accent, not a 20-px slate link.
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
           Back to event home

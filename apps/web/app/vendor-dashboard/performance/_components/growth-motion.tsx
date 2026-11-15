@@ -136,6 +136,18 @@ export function HeldCount({
 }) {
   const batch = useBatch();
   const v = useHeld(value, id);
+  // 🔢 RW-304 (live walk, 14 Nov 2026): a held count that has never shown a number drew a "0" — in the server's HTML
+  // too — while the plain line beside it already said the real one ("0 asked" over "8 couples asked"). Held and never
+  // shown, it now keeps its place but draws NOTHING you can read as a fact; it counts up exactly as before once its
+  // section plays. A count that has shown a value keeps showing it (the counter's own memory), as before.
+  const neverShown = usePlayed() === false && peekShown(id) === undefined;
+  if (neverShown) {
+    return (
+      <span aria-hidden style={{ visibility: 'hidden' }} data-held-count="">
+        <Count value={value} id={`${id}:held`} delayMs={0} format={format} className={className} />
+      </span>
+    );
+  }
   return <Count value={v} id={id} delayMs={batch + delay} format={format} className={className} />;
 }
 

@@ -31,6 +31,7 @@ import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { ENTOURAGE_ROLES, entourageGroupOfRole } from '@/lib/entourage';
 import type { EventItemKey } from '@/lib/maker-details-items';
 import { openDateWords } from './event-date-options';
+import { onePickedDay } from './event-anchor';
 
 /** What an event type says about itself, as these items need it. */
 export type YourEventKind = {
@@ -192,6 +193,10 @@ export function yourEventDateDisplay(
 ): string | null {
   const locked = dateDisplayOf(row.event_date, precision);
   if (locked) return locked;
+  /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through
+     `withPickedDate`): say it as the date, never "Not settled". Only 2+ options or a range are open. */
+  const picked = onePickedDay({ event_type: (row as { event_type?: string | null }).event_type ?? null, date_candidates: row.date_candidates });
+  if (picked) return dateDisplayOf(picked, 'day');
   const open = openDateWords({
     mode: row.date_mode,
     candidates: row.date_candidates,

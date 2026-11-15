@@ -6,6 +6,9 @@
  * your date is set". Both read the locked day only. One phrase now says the picked day(s) everywhere
  * (`openDateWords`).
  *
+ * 💍 Corrected the same day: ONE picked day IS the event's date (owner 14 Nov, DECISION_LOG 16f7e76a — Home already reads
+ * it that way through `withPickedDate`), so the fact rows say it as the date. "Not settled · …" is for 2+ options or a range.
+ *
  * What would silently undo it:
  *   1. the shared phrase stops naming the day (or drops the year);
  *   2. Event settings' Date row stops reading the options — its column list loses them, or the load stops using them;
@@ -37,7 +40,12 @@ test('1 · the shared phrase names the day(s), with the year', () => {
 });
 
 test('2 · Event settings: the Date row says the picked day, and its read selects the options', () => {
-  assert.equal(yourEventDateDisplay({ event_date: null, ...PROD_ROW }, null), 'Not settled · Jun 19, 2027');
+  // 💍 One picked day IS the date (owner 14 Nov, 16f7e76a) — the same answer Home gives through `withPickedDate`.
+  assert.equal(yourEventDateDisplay({ event_date: null, ...PROD_ROW }, null), 'June 19, 2027');
+  assert.equal(
+    yourEventDateDisplay({ event_date: null, ...PROD_ROW, date_candidates: ['2027-06-19', '2027-07-03'] }, null),
+    'Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027',
+  );
   assert.equal(yourEventDateDisplay({ event_date: '2027-06-19', ...PROD_ROW, date_candidates: ['2027-07-03'] }, 'day'), 'June 19, 2027');
   assert.equal(yourEventDateDisplay({ event_date: null, ...PROD_ROW, date_candidates: [] }, null), null);
   const facts = src('app/dashboard/[eventId]/launch/_components/details-your-event-facts.ts');
@@ -50,8 +58,10 @@ test('2 · Event settings: the Date row says the picked day, and its read select
 });
 
 test('3 · Event details: the describer says the picked day, never a count', () => {
-  assert.equal(describeEventDate({ event_date: null, ...PROD_ROW }), 'Not settled · Jun 19, 2027');
-  assert.doesNotMatch(String(describeEventDate({ event_date: null, ...PROD_ROW })), /candidate date/);
+  assert.equal(describeEventDate({ event_date: null, ...PROD_ROW }), 'June 19, 2027');
+  const two = describeEventDate({ event_date: null, ...PROD_ROW, date_candidates: ['2027-06-19', '2027-07-03'] });
+  assert.equal(two, 'Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027');
+  assert.doesNotMatch(String(two), /candidate date/);
   assert.equal(describeEventDate({ event_date: null, date_mode: 'window', date_window_start: '2027-06-01', date_window_end: '2027-06-30' }), 'Not settled · between Jun 1, 2027 and Jun 30, 2027');
 });
 

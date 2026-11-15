@@ -23,6 +23,7 @@
  * Pure (no I/O) so `event-details-sheet.test.ts` can exercise it directly.
  */
 import { openDateWords } from './event-date-options';
+import { onePickedDay } from './event-anchor';
 import { RSVP_ASK_FIELDS, RSVP_ASK_LABEL, readGuestsReply, sanitizeRsvpAskConfig } from './rsvp-ask';
 import { guestsGetInLabel, readGuestsGetIn } from './who-can-reply';
 
@@ -142,8 +143,17 @@ export function sheetDate(ymd: string | null | undefined, withYear = true): stri
  * editor and this sheet word one fact one way.
  */
 export function describeEventDate(e: Record<string, unknown>): string | null {
-  const eventDate = typeof e.event_date === 'string' ? e.event_date : null;
-  const precision = typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
+  /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through
+     `withPickedDate`), so it reads as the date here too. Only 2+ options or a range fall through to "Not settled". */
+  const stored = typeof e.event_date === 'string' ? e.event_date : null;
+  const picked = stored
+    ? null
+    : onePickedDay({
+        event_type: typeof e.event_type === 'string' ? e.event_type : null,
+        date_candidates: Array.isArray(e.date_candidates) ? (e.date_candidates as string[]) : null,
+      });
+  const eventDate = stored ?? picked;
+  const precision = picked ? 'day' : typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
   if (eventDate) {
     const d = new Date(`${eventDate}T00:00:00`);
     if (Number.isNaN(d.getTime())) return null;

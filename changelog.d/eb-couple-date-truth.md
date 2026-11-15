@@ -23,3 +23,5 @@ Guard: `lib/the-couple-reads-their-open-date.test.ts` (4 tests). Three sabotages
 Follow-up, once #7820 has merged: its `eventDateWords` (lib/agreed-now.ts) should call `openDateWords`, so the phrase lives once.
 
 SPEC IMPACT: None.
+
+**Corrected the same day (16 Nov):** one picked day IS the event's date (owner ruling 14 Nov, DECISION_LOG 16f7e76a — the same rule Home reads through `withPickedDate`). Event settings and Event details now print that day as the date instead of "Not settled · …". "Not settled · …" stays only for two or more options or a date range. Both readers use the existing `onePickedDay` rule; no new rule was added. Sabotage: dropping the picked day from the details describer (1 → 0) turned the guard red.

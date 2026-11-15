@@ -66,12 +66,12 @@ export async function PapicCameraSettings({
   credits?: { total: number | null; left: number | null } | null;
 }) {
   const supabase = await createClient();
+  // 📅 date_mode … event_days: the couple's still-open date (EB-191) — named in the "switches on"
+  // line, never read as the day. ONE string literal: a concatenated select defeats Supabase's typing.
   const { data: ev, error } = await supabase
     .from('events')
     .select(
-      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, ' +
-        // 📅 The couple's still-open date (EB-191) — named in the "switches on" line, never read as the day.
-        'date_mode, date_candidates, date_window_start, date_window_end, event_days',
+      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, event_days',
     )
     .eq('event_id', eventId)
     .maybeSingle();

@@ -73,7 +73,7 @@ export async function PapicCameraSettings({
   if (error) logQueryError('PapicCameraSettings.event', error, { eventId }, 'graceful_degrade');
   if (!ev) {
     return (
-      <p role="status" className="py-3 text-[13px] text-ink/65" data-papic-settings-unread="">
+      <p role="status" className="py-3 text-[13px] text-ink/70" data-papic-settings-unread="">
         We couldn’t load your Papic settings just now. Nothing has changed — refresh to try again.
       </p>
     );
@@ -149,7 +149,7 @@ export async function PapicCameraSettings({
                 ] as const
               ).map(([k, v], i) => (
                 <div key={k} className={`py-3 ${i > 0 ? 'border-l border-ink/10' : ''}`}>
-                  <dt className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">{k}</dt>
+                  <dt className="text-[12px] font-medium uppercase tracking-[0.12em] text-ink/70">{k}</dt>
                   <dd className={`mt-1 text-[22px] font-semibold ${k === 'Remaining' ? 'text-success-700' : 'text-ink'}`} data-papic-counter-value={k.toLowerCase()}>
                     {v === null ? '—' : formatCount(v)}
                   </dd>
@@ -172,7 +172,7 @@ export async function PapicCameraSettings({
 
       {/* (3) SETTINGS — his five, flat: every control on its line, every explanation in its ⓘ. */}
       <section className="flex flex-col gap-3" data-papic-settings="" data-tour="papic-settings">
-        <h2 className="flex items-center gap-3 pt-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ink/55 before:h-px before:flex-1 before:bg-ink/10 after:h-px after:flex-1 after:bg-ink/10">Settings</h2>
+        <h2 className="flex items-center gap-3 pt-2 text-[12px] font-medium uppercase tracking-[0.18em] text-ink/70 before:h-px before:flex-1 before:bg-ink/10 after:h-px after:flex-1 after:bg-ink/10">Settings</h2>
         {/* 🎨 THE FILTER — the approved controller's Filter A (`style-picker.tsx` variant="strip"): five looks across
             one row, the current one marked, one tap saves. Not the 2×3 cards (they made Home's card a screen and a half
             long, walk 2026-10-24) and not a copy of the picker — the SAME forms, drawn small. The word for the current
@@ -183,7 +183,7 @@ export async function PapicCameraSettings({
               One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
               Memories feel like one set. Guests cannot change it.
             </InfoTip>
-            <span className="truncate text-[12.5px] text-ink/60" data-papic-filter-now="">{papicStyleLabel} · every camera</span>
+            <span className="truncate text-[12.5px] text-ink/70" data-papic-filter-now="">{papicStyleLabel} · every camera</span>
           </div>
           <StylePicker variant="strip" returnTo={seat === 'page' ? null : seat} eventId={eventId} current={papicStyle} />
         </div>
@@ -199,9 +199,9 @@ export async function PapicCameraSettings({
           >
             <span>
               Each guest’s camera is on their guest card
-              <span className="block text-[12.5px] text-ink/55">Their own number · face tagging · face blocking</span>
+              <span className="block text-[12.5px] text-ink/70">Their own number · face tagging · face blocking</span>
             </span>
-            <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
+            <ChevronRight aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.9} />
           </Link>
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'page' ? null : seat} subLine="set per guest on their guest card" />
           {/* Face blocking — a COUNT, never a switch (owner 2026-10-24: "each guest's wish is always honoured"). */}

@@ -56,7 +56,7 @@ export function HubProOffer({
   /** `/dashboard/<eventId>`. */
   base: string;
 }) {
-  // 🔔 Inventory #26 — Event Hub Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
+  // 🔔 Inventory #26 — Event Pro: ONE offer line, used in three places (one notice system, owner approved 14 Nov
   // 2026: #26–28 "Merge"), drawn where it stands in the Maker. The headline is the line; the price, the blurb and THE SEVEN (with the one they are standing
   // on lit — one price seven times, not seven prices) are behind the ⓘ.
   return (
@@ -67,7 +67,7 @@ export function HubProOffer({
       detail={
         <span className="block space-y-2" aria-labelledby="hub-pro-offer-headline">
           <span id="hub-pro-offer-headline" className="block font-semibold">
-            Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
+            Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one unlock
           </span>
           <span className="block">{offer.blurb}</span>
           <span className="flex flex-wrap gap-1.5">

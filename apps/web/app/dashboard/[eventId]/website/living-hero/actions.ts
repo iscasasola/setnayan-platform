@@ -80,7 +80,7 @@ export async function saveLivingHero(
   if (!(filmOk && stillOk)) {
     return {
       ok: false,
-      error: 'A living hero is part of Event Hub Pro — unlock it to put your own film at the top.',
+      error: 'A living hero is part of Event Pro — unlock it to put your own film at the top.',
     };
   }
 

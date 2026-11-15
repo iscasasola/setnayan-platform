@@ -1,9 +1,9 @@
 /**
  * onboarding-hub-pro.ts — the PURE decisions behind the third card on the
- * onboarding services step: Event Hub Pro (`COUPLE_WEBSITE_PRO`).
+ * onboarding services step: Event Pro (`COUPLE_WEBSITE_PRO`).
  *
  * ⚖ Owner, 2026-09-25: *"so now on the onboarding also, there are 3 things they
- * can purchase Papic, Setnayan AI, Event Hub Pro."*
+ * can purchase Papic, Setnayan AI, Event Pro."*
  *
  * Modelled on the Setnayan AI card, and deliberately nothing more: a yes/no that
  * adds to the running total and is minted as one more line on the SAME
@@ -19,7 +19,7 @@
  *
  * ⛔ NO FIGURE, AND NO COPY OF ITS OWN. The price is the catalog row
  * (`platform_retail_catalog_v2`, priced through `setupPricePhp` exactly like the
- * Papic rungs), and the words are the existing Event Hub PRO offer copy
+ * Papic rungs), and the words are the existing Event Pro offer copy
  * (`addOnHeroCopy('website-pro')`, the sentence the Pro buy page already opens
  * with). This file only decides how that one sentence is laid out.
  */
@@ -63,7 +63,7 @@ export function hubProOffered(input: {
 }
 
 /**
- * The bill line for Event Hub Pro, or null — decided at MINT time, on the
+ * The bill line for Event Pro, or null — decided at MINT time, on the
  * server, against the freshly-committed event.
  *
  * Every input is re-measured there, never taken from the browser:

@@ -2,14 +2,26 @@ import { notFound } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { ActionButton } from '@/components/action-button';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { VenueForm } from '../_components/venue-form';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { VenueForm, VENUE_TYPE_LABEL } from '../_components/venue-form';
 import { deleteVenue, updateVenue } from '../actions';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { ReadFailed } from '../../_components/read-failed';
+import { RecordBack, RecordHead, RecordNote, RecordSection } from '../../_components/record-kit';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Edit venue · Admin' };
+
+/**
+ * 📇 THE VENUE RECORD (owner 14 Nov 2026, "Yes, queue the builds" — the approved 13 Nov drawing
+ * `Setnayan-specs/prototypes/admin_pub/people.html`, screen `venue`): the head (what kind of venue · its name), every
+ * field of the shared VenueForm, and Remove at the bottom, behind its confirm.
+ *
+ * ⚖ HONEST READ: a refused read used to fall through to `notFound()` — a real venue reported as missing. It now says
+ * "Couldn't read this venue"; only a read that went through and found nothing is a 404.
+ */
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -32,7 +44,7 @@ export default async function EditVenuePage({ params }: Props) {
   const { id } = await params;
 
   const admin = createAdminClient();
-  const { data: rowRaw } = await admin
+  const { data: rowRaw, error: venueError } = await admin
     .from('venue_directory')
     .select(
       'venue_directory_id,slug,name,venue_type,location_city,hq_address,hq_latitude,hq_longitude,compatible_ceremony_types,source_note,created_at',
@@ -40,65 +52,66 @@ export default async function EditVenuePage({ params }: Props) {
     .eq('venue_directory_id', id)
     .maybeSingle();
 
+  if (venueError) {
+    logQueryError('admin/venues/[id]', venueError);
+    return (
+      <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+        <RecordBack href="/admin/venues" label="Venues" />
+        <PageMasthead title="Venue" />
+        <ReadFailed what="this venue" />
+      </div>
+    );
+  }
   if (!rowRaw) notFound();
   const row = rowRaw as VenueRow;
 
   const updateBound = updateVenue.bind(null, row.venue_directory_id);
+  const typeLabel = VENUE_TYPE_LABEL[row.venue_type as keyof typeof VENUE_TYPE_LABEL] ?? row.venue_type;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        titleNode={
-          <span>
-            {row.name}
-          </span>
-        }
-      />
+    <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+      <RecordBack href="/admin/venues" label="Venues" />
+      <PageMasthead titleNode={<span>{row.name}</span>} />
+      <RecordHead small={`Venue · ${typeLabel}`} name={row.name} />
 
-      <VenueForm
-        action={updateBound}
-        initial={{
-          slug: row.slug,
-          name: row.name,
-          venue_type: row.venue_type,
-          location_city: row.location_city,
-          hq_address: row.hq_address,
-          hq_latitude: Number(row.hq_latitude),
-          hq_longitude: Number(row.hq_longitude),
-          compatible_ceremony_types: row.compatible_ceremony_types,
-          source_note: row.source_note,
-        }}
-        submitLabel="Save changes"
-        cancelHref="/admin/venues"
-      />
+      <div className="mt-3">
+        <VenueForm
+          action={updateBound}
+          initial={{
+            slug: row.slug,
+            name: row.name,
+            venue_type: row.venue_type,
+            location_city: row.location_city,
+            hq_address: row.hq_address,
+            hq_latitude: Number(row.hq_latitude),
+            hq_longitude: Number(row.hq_longitude),
+            compatible_ceremony_types: row.compatible_ceremony_types,
+            source_note: row.source_note,
+          }}
+          submitLabel="Save changes"
+          cancelHref="/admin/venues"
+        />
+      </div>
 
-      <section className="mt-10 rounded-2xl border border-danger-200 bg-danger-50/40 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-danger-700">
-          Danger zone
-        </p>
-        <p className="mt-1 mb-3 max-w-prose text-sm text-danger-900/80">
-          Deleting a venue removes it from the marketplace Paired-Venue panel
-          immediately. Couples with this venue in their saved shortlist will
-          lose the row. Not reversible.
-        </p>
-        <ConfirmForm
-          action={deleteVenue}
-          message={`Delete ${row.name}? This cannot be undone.`}
-        >
-          <input
-            type="hidden"
-            name="venue_directory_id"
-            value={row.venue_directory_id}
-          />
-          <SubmitButton
-            className="inline-flex h-11 items-center gap-1.5 rounded-md border border-danger-500 bg-danger-500/10 px-4 text-sm font-medium text-danger-700 hover:bg-danger-500/20"
-            pendingLabel="Deleting…"
-          >
-            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Delete venue
-          </SubmitButton>
-        </ConfirmForm>
-      </section>
+      <div className="mt-8 border-t border-[color:var(--m-line)] pt-2">
+        <RecordSection label="Remove">
+          <RecordNote>
+            Deleting a venue removes it from the marketplace Paired-Venue panel immediately. Couples with this venue in
+            their saved shortlist will lose the row. Not reversible.
+          </RecordNote>
+          <div className="mt-3">
+            <ConfirmForm
+              action={deleteVenue}
+              title={`Delete ${row.name}?`}
+              confirmLabel="Delete venue"
+              message={`Delete ${row.name}? It leaves the marketplace Paired-Venue panel immediately, and couples with it in their saved shortlist lose the row. This cannot be undone.`}
+            >
+              <input type="hidden" name="venue_directory_id" value={row.venue_directory_id} />
+              <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove the venue" type="submit" />
+            </ConfirmForm>
+          </div>
+        </RecordSection>
+      </div>
     </div>
   );
 }

@@ -98,7 +98,7 @@ export function MakerPage({
         >
           {/* The title is the desktop's — on a phone the lower third's column names the controls. */}
           <div className="hidden items-center gap-2 px-4 pt-3 lg:flex">
-            <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
+            <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">{title}</p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">
             {controls}
@@ -186,7 +186,7 @@ export function MakerPageFrame({
     refreshInPlace.current();
   }, [refreshOn]);
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgb(var(--color-terracotta)/.10),transparent_60%)] px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
       <BufferedCanvasFrame
         frameKey={`${frameKey}:${reload}`}
         group={src}
@@ -198,7 +198,7 @@ export function MakerPageFrame({
         anchorKey={() => null}
         onShown={(key) => onShown?.(key)}
         onSwapped={() => {}}
-        className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
+        className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-sn-float transition-[max-width] duration-sn-elem ease-sn ${
           device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
         }`}
       />

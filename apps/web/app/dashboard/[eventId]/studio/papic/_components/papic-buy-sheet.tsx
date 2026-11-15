@@ -109,7 +109,7 @@ export function PapicBuySheet({
           {left === 0
             ? 'Your cameras restart the moment this is paid.'
             : left !== null
-              ? `You have ${left.toLocaleString('en-PH')} credits`
+              ? `You have ${left.toLocaleString('en-PH')} ${left === 1 ? 'credit' : 'credits'}`
               : 'Credits land once your payment is confirmed.'}
         </p>
         {error ? (

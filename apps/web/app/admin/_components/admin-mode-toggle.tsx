@@ -11,12 +11,24 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Rows3, Search } from 'lucide-react';
+import type { ReactElement } from 'react';
+import { Rows3 } from 'lucide-react';
 import { ADMIN_MODE_COOKIE, ADMIN_MODE_MAX_AGE, type AdminMode } from '@/lib/admin/admin-mode';
 
-const HALVES: ReadonlyArray<{ mode: AdminMode; label: string; Icon: typeof Search }> = [
-  { mode: 'focus', label: 'Focus', Icon: Search },
-  { mode: 'full', label: 'Full', Icon: Rows3 },
+/** A search BAR (a pill with a magnifier) — the prototype's Focus icon; lucide has a magnifier, not a bar. */
+function SearchBarIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <rect x="1.5" y="6.5" width="21" height="11" rx="5.5" />
+      <circle cx="7" cy="11.5" r="2.2" />
+      <path d="M8.6 13.1l1.6 1.6M13 12h6" />
+    </svg>
+  );
+}
+
+const HALVES: ReadonlyArray<{ mode: AdminMode; label: string; Icon: (p: { className?: string }) => ReactElement }> = [
+  { mode: 'focus', label: 'Focus', Icon: SearchBarIcon },
+  { mode: 'full', label: 'Full', Icon: ({ className }) => <Rows3 aria-hidden className={className} strokeWidth={1.9} /> },
 ];
 
 export function AdminModeToggle({ mode }: { mode: AdminMode }) {
@@ -33,7 +45,7 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
   };
   return (
     <div
-      role="radiogroup"
+      role="group"
       aria-label="Mode"
       className="inline-flex shrink-0 gap-0.5 rounded-full p-[3px]"
       style={{ background: 'var(--sn-paper)' }}
@@ -45,22 +57,21 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
           <Link
             key={m}
             href="/admin"
-            role="radio"
-            aria-checked={on}
+            aria-pressed={on}
             aria-label={label}
             title={label}
             onClick={(e) => {
               e.preventDefault();
               if (!on) choose(m);
             }}
-            className="inline-flex min-h-10 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold"
             style={
               on
                 ? { background: 'rgb(var(--sn-accent))', color: 'rgb(var(--sn-on-accent))' }
                 : { color: 'var(--sn-ink-500)' }
             }
           >
-            <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+            <Icon className="h-[22px] w-[22px] shrink-0" />
             <span className="hidden lg:inline">{label}</span>
           </Link>
         );

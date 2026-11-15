@@ -1,14 +1,14 @@
 /**
  * home-shows-every-paid-service.test.ts — 🧾 EVERY PAID SERVICE HAS EXACTLY ONE HOME ROW STATE.
  *
- * Owner, 2026-10-14 (DECISION_LOG "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB PRO; FREE TOOLS
+ * Owner, 2026-10-14 (DECISION_LOG "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT PRO; FREE TOOLS
  * STAY OUT" + "APPROVE ALL: THE SERVICES PROTOTYPE"): Guest photos · Planner · Live stream · Music ·
- * Video booth · Event Hub Pro — owned with their state, not added as one slim "· ₱<catalog> · Add" line.
+ * Video booth · Event Pro — owned with their state, not added as one slim "· ₱<catalog> · Add" line.
  * Owner, live on cale-ice 2026-10-20, seeing only Guest photos and Planner: *"i thought we will have our
  * other paid services here in home?"* — the row had only ever been built for those two (2026-10-01).
  *
  * The PROPERTY held here, not a phrasing: for every paid service the one list names
- * (`lib/service-names.ts` SERVICE_NAMES + Event Hub Pro), across every combination of what the page can
+ * (`lib/service-names.ts` SERVICE_NAMES + Event Pro), across every combination of what the page can
  * read (on · waiting · not added · read failed · no read), offered or not, sellable today or not, priced or
  * not, in the store shell or not — the service lands in EXACTLY ONE state (`homePaidState`), and Home draws
  * exactly one row for it unless that state is the event's own "absent" (not offered / the day has passed /
@@ -16,8 +16,8 @@
  * (`lib/event-needs.ts`) can never hide one: Papic is always on, and no other paid service is a need — and
  * whatever IS left off keeps its ONE "Switch on more" row.
  *
- * 💎 EVENT HUB PRO IS FOLDED INTO THE EVENT HUB (owner 2026-10-23, the service widgets
- * `home_service_widgets_2026-10-23.html`, his answers: *"Event Hub Pro FOLDED into the Event Hub widget"* · *"order
+ * 💎 EVENT PRO IS FOLDED INTO THE EVENT HUB (owner 2026-10-23, the service widgets
+ * `home_service_widgets_2026-10-23.html`, his answers: *"Event Pro FOLDED into the Event Hub widget"* · *"order
  * Papic → Event Hub → …"*): the hub key is still one state, but it is drawn as the Event Hub's card — right after
  * Papic, never a slim "Add" line and never a price (its ◆ line says the state; the Maker's Apply asks for Pro).
  */
@@ -96,7 +96,7 @@ function entryOf(key: HomeSkuKey, catalogue: ReadonlyArray<AddOnEntry>): AddOnEn
   return keys.map((k) => catalogue.find((a) => a.key === k)).find(Boolean);
 }
 
-test('1 · the six rows are the one list of services, plus Event Hub Pro — none forgotten', () => {
+test('1 · the six rows are the one list of services, plus Event Pro — none forgotten', () => {
   const cards = new Set(Object.values(HOME_PAID_CARD));
   for (const k of Object.keys(SERVICE_NAMES)) {
     assert.ok(k === 'papic' || cards.has(k), `SERVICE_NAMES has "${k}" but Home has no row for it (HOME_PAID_CARD)`);

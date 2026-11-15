@@ -22,3 +22,7 @@ cale-ice / maria-and-jose pin, no hand-built `/v/` link). `lib/slug-forwarding-r
 `lib/the-shop-page-is-setnayan-sourced.test.ts` re-pointed at the new addresses, same properties.
 
 SPEC IMPACT: Applies the owner's address ruling (DECISION_LOG d7910b5d) — no new corpus edit; PR 2 (events) follows.
+
+- **Folded in #7818 (the supplier photo mark — address + QR on every shop; one PR per area, 16 Nov).** The mark's
+  address line (`markVerifiedAddress`) and its QR (`markQrUrl`) both build the address with `shopPath(slug)`, never a
+  typed `/${slug}`. `lib/shop-address.test.ts` holds that, and goes red if the QR is retyped by hand.

@@ -32,6 +32,8 @@ import {
 } from './shop-address';
 import { RESERVED_SLUGS } from './reserved-slugs';
 import { bareWordIsNoEvent, forgetHubStampsForTest } from './hub-view-route';
+import { markQrUrl, markVerifiedAddress } from './watermark-text';
+import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -160,4 +162,20 @@ test('5 · no file builds a /v/ shop link by hand — every one goes through sho
     for (const m of text.matchAll(/`\/v\/\$\{/g)) offenders.push(`${r}:${text.slice(0, m.index).split('\n').length}`);
   }
   assert.deepEqual(offenders, [], `build shop links with shopPath (lib/shop-address.ts):\n  ${offenders.join('\n  ')}`);
+});
+
+test('the photo mark prints the shop address from shopPath — the line and the QR both, never a typed path', () => {
+  const src = stripComments(read('lib/watermark-text.ts'));
+  const bodyOf = (fn: string) => {
+    const i = src.indexOf(`export function ${fn}(`);
+    assert.ok(i >= 0, `${fn} is gone from watermark-text.ts — re-point this guard`);
+    return src.slice(i, src.indexOf('\n}', i));
+  };
+  for (const fn of ['markVerifiedAddress', 'markQrUrl']) {
+    const body = bodyOf(fn);
+    assert.match(body, /shopPath\(slug\)/, `${fn} builds the address with shopPath(slug)`);
+    assert.doesNotMatch(body, /\/\$\{slug\}|\/v\//, `${fn} types the shop path by hand`);
+  }
+  assert.equal(markVerifiedAddress('bloom-vine'), `setnayan.com${shopPath('bloom-vine')}`);
+  assert.equal(markQrUrl('bloom-vine'), `https://www.setnayan.com${shopPath('bloom-vine')}`);
 });

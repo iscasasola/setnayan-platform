@@ -471,6 +471,25 @@
   }
 
   /*
+   * 👆 `.sn-hit-2d` — `.sn-hit` in BOTH directions, for a small control that stands ALONE (an icon in a top bar, a
+   * tick, a ✕, a pager dot, a footer link) — never in a `useFitRow` row, whose width a sideways bleed would break.
+   * The same invisible `::after`, reaching 46 px across as well as tall around the control's centre; a control
+   * already 46 or larger on an axis is left as it is on that axis. The drawing does not change (controller round,
+   * 15 Nov 2026). Held by `lib/small-targets-press-at-44.test.ts`.
+   */
+  :where(.sn-hit-2d) {
+    position: relative;
+  }
+  .sn-hit-2d::after {
+    content: '';
+    position: absolute;
+    left: min(0px, calc((100% - 46px) / 2));
+    right: min(0px, calc((100% - 46px) / 2));
+    top: min(0px, calc((100% - 46px) / 2));
+    bottom: min(0px, calc((100% - 46px) / 2));
+  }
+
+  /*
    * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
    * buttons; no animation when pressed"; made universal 2026-06-13). We kill
    * the default mobile tap-highlight above, so every button-like control needs

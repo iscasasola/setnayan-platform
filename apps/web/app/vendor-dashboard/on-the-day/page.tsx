@@ -56,7 +56,7 @@ import {
 } from '@/lib/vendor-team';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { forYourServicePages } from '@/lib/supplier-event-lines';
-import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
+import { hubAddChoices, hubDayWords, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
 import type { ConfiguratorModule } from './_components/module-configurator';
 import {
   HubDoorRow,
@@ -336,6 +336,14 @@ export default async function VendorOnTheDayPage({
   const invited = open && briefMeasured ? brief?.pax.invited ?? 0 : null;
   const attending = open && briefMeasured ? brief?.pax.attending ?? 0 : null;
 
+  // F-W1-76: sent back from the live page before its day — say when it opens, for the event that was asked for.
+  const liveNotYet =
+    sp.live === 'not-yet' && configureId === selected.eventId && booking?.bookedDate !== today
+      ? booking?.bookedDate
+        ? `The live page opens on ${hubDayWords(booking.bookedDate) ?? booking.bookedDate}, the booked day. Set it up here until then.`
+        : 'The live page opens on the booked day — this event has no booked day for your shop yet.'
+      : null;
+
   const menu = (
     <HubEventMenu
       events={hub}
@@ -352,11 +360,19 @@ export default async function VendorOnTheDayPage({
       title={coupleName}
       place={place}
       saved={
-        open && selected.when !== 'past' ? (
+        <>
+        {liveNotYet ? (
+          // F-W1-76 (walk 13 Nov 2026): "Launch Hub" before the day lands here, on this event, and says why.
+          <p role="status" data-hub-live-not-yet="" className="mb-3 text-[13px]" style={{ color: 'rgba(251,251,250,0.82)' }}>
+            {liveNotYet}
+          </p>
+        ) : null}
+        {open && selected.when !== 'past' ? (
           // 📶 The saved mark + Update now, top of the event card (EV3, owner 2026-10-28) — this supplier's own copy
           // of the Hub, the event's console and, when they run the hosts' door, its Check-in desk.
-          <SupplierSavedStrip viewer={user.id} eventId={selected.eventId} eventDate={booking?.bookedDate ?? null} checkin={run != null} />
-        ) : null
+          <SupplierSavedStrip viewer={user.id} eventId={selected.eventId} eventDate={booking?.bookedDate ?? null} checkin={run != null} liveToday={booking?.bookedDate === today} />
+        ) : null}
+        </>
       }
     />
   );
@@ -519,6 +535,10 @@ async function setupBody(input: SetupInput): Promise<ReactNode> {
 
   return (
     <div>
+      {/* 📣 Post an update (cut 6, 2026-11-14) — the shipped status presets, as ONE button on top of every booked event's
+          page and every day (it was drawn only on the day, under the tools). Renders itself away when its control is
+          dark, or for the coordinator, who reads the inbox instead. */}
+      {input.kind !== 'coordinator' ? <VendorStatusUpdates eventId={booking.eventId} /> : null}
       <div id="hub-tools" className="scroll-mt-28" data-tour="hub-setup">
         <ModuleConfigurator eventId={booking.eventId} modules={tools} />
       </div>
@@ -704,10 +724,6 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
       {kind === 'photo' ? (
         <ShotListSection eventId={booking.eventId} eventName={coupleName} />
       ) : null}
-
-      {/* Report to the coordinator — one-tap status presets into the shared day-of requests stream (build plan §10 #2).
-          Renders itself away when its control is dark, or for the coordinator (who reads the inbox instead). */}
-      {kind !== 'coordinator' ? <VendorStatusUpdates eventId={booking.eventId} /> : null}
 
       {/* Capture for your website + their recap. */}
       <div>

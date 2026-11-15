@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setPapicUploadsOpen } from '../actions';
 import { SettingRow } from './setting-row';
+import { uploadPhotoCostWords } from '../_lib/upload-credits';
 
 /**
  * WHO MAY ADD PHOTOS BY HAND — one quiet row, two states.
@@ -37,7 +38,7 @@ export function UploadsOpenChoice({
   back?: 'memories' | null;
 }) {
   const explanation = open
-    ? 'Photos and snippets can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
+    ? `Photos and snippets can be added from a phone or laptop — older memories included. ${uploadPhotoCostWords()}`
     : 'Only what your cameras capture goes into your Memories. Nothing can be added from a phone or laptop.';
 
   const control = (
@@ -48,7 +49,7 @@ export function UploadsOpenChoice({
       <SubmitButton className={open ? 'ab ab-neutral inline-flex min-h-11 items-center justify-center' : 'ab ab-brand ab-main inline-flex min-h-11 items-center justify-center'}>
         {open ? 'Turn this off' : 'Turn this on'}
       </SubmitButton>
-      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
+      <span className="text-[12px] uppercase tracking-[0.14em] text-ink/70">
         {open ? 'On' : 'Off'}
       </span>
     </PapicStayForm>
@@ -62,20 +63,20 @@ export function UploadsOpenChoice({
         value={open ? 'On' : 'Off'}
         sheetTitle="Adding photos by hand"
       >
-        <p className="mb-4 text-sm text-ink/65">{explanation}</p>
+        <p className="mb-4 text-sm text-ink/70">{explanation}</p>
         {control}
       </SettingRow>
     );
   }
 
   return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Upload aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Adding photos by hand
         </h2>
-        <p className="max-w-prose text-sm text-ink/60">{explanation}</p>
+        <p className="max-w-prose text-sm text-ink/70">{explanation}</p>
       </div>
 
       {control}

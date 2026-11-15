@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ArrowDown, ArrowUp, Camera, CircleSlash, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Camera, Check, CircleSlash, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { updatePhotoMoments } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
@@ -152,12 +155,15 @@ export function PhotoMomentsEditor({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Intro copy */}
-      <section className="space-y-2 rounded-xl border border-ink/10 bg-cream p-5">
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 4 · 5 · 6 · 13): no card per section or per moment — grey
+          capitals over plain blocks divided by hairlines; the mode is the ▾ picker, its chip the shared soft Badge;
+          the buttons are the shared pills; an empty list is one plain line. */}
+      <section className="space-y-2">
         <label htmlFor="intro_copy" className="block">
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             Intro paragraph
           </span>
-          <span className="mt-1 block text-sm text-ink/65">
+          <span className="mt-1 block text-sm text-ink/75">
             Optional. Sets the tone above the list. Up to{' '}
             {PHOTO_MOMENT_LIMITS.MAX_INTRO_LEN} characters.
           </span>
@@ -175,7 +181,7 @@ export function PhotoMomentsEditor({
           placeholder="We'll have our shutterbugs around so you can be fully present. Here's what we'd love you phone-down for —"
           className="input-field min-h-[88px] py-2"
         />
-        <p className="text-right text-[11px] text-ink/45">
+        <p className="text-right text-[12px] tabular-nums text-ink/75">
           {formatCount(intro.length)} / {formatCount(PHOTO_MOMENT_LIMITS.MAX_INTRO_LEN)}
         </p>
       </section>
@@ -184,41 +190,25 @@ export function PhotoMomentsEditor({
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               Your moments
             </h2>
-            <p className="mt-1 text-sm text-ink/65">
+            <p className="mt-1 text-sm text-ink/75">
               {formatCount(moments.length)} of {formatCount(PHOTO_MOMENT_LIMITS.MAX_MOMENTS)} · displayed in
               this order on your landing page
             </p>
           </div>
-          <button
-            type="button"
-            onClick={addRow}
-            disabled={!canAddRow}
-            className="inline-flex h-11 items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            Add a moment
-          </button>
+          <ActionButton tone="neutral" icon={Plus} label="Add a moment" onClick={addRow} disabled={!canAddRow} />
         </div>
 
         {moments.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
-            <Sparkles
-              aria-hidden
-              className="mx-auto mb-2 h-6 w-6 text-ink/30"
-              strokeWidth={1.5}
-            />
-            <p className="text-sm font-medium text-ink">No moments yet.</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-              Tap &ldquo;Add a moment&rdquo; to start curating your phone-down list.
-            </p>
-          </div>
+          <p className="py-2 text-sm text-ink/75">
+            No moments yet. Tap &ldquo;Add a moment&rdquo; to start curating your phone-down list.
+          </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-ink/10">
             {moments.map((m, i) => (
-              <li key={i}>
+              <li key={i} className="py-4">
                 <MomentRow
                   index={i}
                   total={moments.length}
@@ -237,7 +227,7 @@ export function PhotoMomentsEditor({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="text-sm font-semibold text-danger-700"
         >
           {error}
         </p>
@@ -245,7 +235,7 @@ export function PhotoMomentsEditor({
       {savedAt ? (
         <p
           role="status"
-          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
+          className="text-sm font-semibold text-success-800"
         >
           {draft
             ? 'Saved to your draft. Guests see it after you press Apply.'
@@ -254,14 +244,14 @@ export function PhotoMomentsEditor({
       ) : null}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
+        <ActionButton
+          tone="brand"
+          main
           type="submit"
-          disabled={isPending}
-          className="button-primary"
-          aria-busy={isPending}
-        >
-          {isPending ? 'Saving…' : 'Save changes'}
-        </button>
+          icon={Check}
+          label={isPending ? 'Saving…' : 'Save changes'}
+          waiting={isPending}
+        />
       </div>
     </form>
   );
@@ -290,13 +280,13 @@ function MomentRow({
   const modeBadge = MODE_BADGE[moment.mode];
 
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="space-y-3">
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${modeBadge.bgClass} ${modeBadge.textClass}`}>
-            <modeBadge.Icon aria-hidden className="h-3 w-3" strokeWidth={2} />
+          <Badge tone={modeBadge.tone}>
+            <modeBadge.Icon aria-hidden className="mr-1 h-3 w-3" strokeWidth={2} />
             {PHOTO_MOMENT_MODE_LABEL[moment.mode]}
-          </span>
+          </Badge>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -304,7 +294,7 @@ function MomentRow({
             onClick={() => onMove(-1)}
             disabled={index === 0}
             aria-label="Move up"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/75 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowUp className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -313,7 +303,7 @@ function MomentRow({
             onClick={() => onMove(1)}
             disabled={index === total - 1}
             aria-label="Move down"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/75 transition-colors hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowDown className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -321,7 +311,7 @@ function MomentRow({
             type="button"
             onClick={onRemove}
             aria-label="Remove moment"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md p-1.5 text-ink/75 transition-colors hover:bg-ink/5 hover:text-danger-700"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
           </button>
@@ -346,17 +336,13 @@ function MomentRow({
         </label>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">Mode</span>
-          <select
+          <PickMenu
+            label="Mode"
             value={moment.mode}
-            onChange={(e) => onChange('mode', e.target.value)}
-            className="input-field"
-          >
-            {PHOTO_MOMENT_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {PHOTO_MOMENT_MODE_LABEL[mode]}
-              </option>
-            ))}
-          </select>
+            options={PHOTO_MOMENT_MODES.map((mode) => ({ key: mode, label: PHOTO_MOMENT_MODE_LABEL[mode] }))}
+            onPick={(key) => onChange('mode', key)}
+            className="w-full !min-h-11"
+          />
         </label>
         <label className="space-y-1 sm:col-span-2">
           <span className="block text-xs font-medium text-ink">Title</span>
@@ -387,38 +373,19 @@ function MomentRow({
       {moment.mode === 'papic_only' ? (
         /* 🍎 One page, two readers (lib/store-shell.ts `data-web-only` / `data-app-only`): the iPhone app
            names no paid extra, so it reads "your photo team" where the web names Papic. */
-        <p className="text-xs italic text-ink/55">
+        <p className="text-[13px] italic text-ink/75">
           <span data-web-only="">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</span>
           <span data-app-only="">Reserved for your photo team — guests stay present.</span>
         </p>
       ) : (
-        <p className="text-xs italic text-ink/55">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</p>
+        <p className="text-[13px] italic text-ink/75">{PHOTO_MOMENT_MODE_HINT[moment.mode]}</p>
       )}
     </article>
   );
 }
 
-const MODE_BADGE: Record<
-  PhotoMomentMode,
-  {
-    bgClass: string;
-    textClass: string;
-    Icon: typeof Camera;
-  }
-> = {
-  camera_ok: {
-    bgClass: 'bg-success-100',
-    textClass: 'text-success-800',
-    Icon: Camera,
-  },
-  phone_down: {
-    bgClass: 'bg-ink/5',
-    textClass: 'text-ink/70',
-    Icon: CircleSlash,
-  },
-  papic_only: {
-    bgClass: 'bg-terracotta/15',
-    textClass: 'text-terracotta-700',
-    Icon: Sparkles,
-  },
+const MODE_BADGE: Record<PhotoMomentMode, { tone: BadgeTone; Icon: typeof Camera }> = {
+  camera_ok: { tone: 'ok', Icon: Camera },
+  phone_down: { tone: 'quiet', Icon: CircleSlash },
+  papic_only: { tone: 'wait', Icon: Sparkles },
 };

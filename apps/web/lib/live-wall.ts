@@ -30,6 +30,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { displayChallengePrompt } from '@/lib/papic-missions';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -537,7 +538,8 @@ export async function fetchWallArmedChallenge(
     measured: true,
     challenge: {
       missionId: mission.mission_id,
-      prompt: mission.prompt,
+      // F-W2-33 (walk 14 Nov): the RPC returns the stored prompt with its tokens — never a raw {who} on the wall.
+      prompt: displayChallengePrompt(mission.prompt),
       answeredCount: count ?? 0,
       expiresAt: mission.expires_at ?? null,
     },

@@ -155,6 +155,11 @@ export const CEILING = 1251;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));
+// THE /dev LABS ARE NOT COUNTED (2026-11-14): `next build` never compiles app/dev (next.config.ts
+// pageExtensions; held by app/dev/the-labs-never-ship.test.ts), so a lab's 'use server' is not a Vercel
+// route. Measured on main 10582a97f3: 6 of the 1,251 counted exports lived under app/dev. CEILING was NOT
+// lowered or raised here — the room is for later, measured raises.
+const LABS = join(WEB, 'app', 'dev');
 const USE_SERVER = /^\s*['"]use server['"]/m;
 const EXPORT = /^export\s+(?:async\s+)?(?:function|const)\s+\w+/gm;
 
@@ -162,6 +167,7 @@ function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
     const p = join(dir, name);
+    if (p === LABS) continue;
     const st = statSync(p);
     if (st.isDirectory()) walk(p, out);
     else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);

@@ -106,30 +106,30 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                 <div className="h-2 overflow-hidden rounded-full bg-ink/10">
                   <MoneyFill value={totals.pct} id="money-received-of-booked" />
                 </div>
-                <p className="mt-1.5 text-[12.5px] text-ink/60">
+                <p className="mt-1.5 text-[13px] text-[color:var(--m-slate-2)]">
                   {formatCount(totals.pct)}% of {formatPhp(totals.bookedPhp)} booked
                   {totals.overdue > 0 ? ` · ${formatCount(totals.overdue)} overdue` : ''}
                   {totals.unresolved > 0 ? ` · ${formatCount(totals.unresolved)} with no amount set` : ''}
                 </p>
               </div>
             ) : moneyTopLine(totals) === 'unset' ? (
-              <p className="mt-2 text-[13px] text-ink/60" data-money-unset="">
+              <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]" data-money-unset="">
                 {formatCount(totals.unresolved)} {totals.unresolved === 1 ? 'payment has' : 'payments have'} no amount set
                 yet, so {totals.unresolved === 1 ? 'it is' : 'they are'} not counted above.
               </p>
             ) : (
-              <p className="mt-2 text-[13px] text-ink/60" data-money-none="">
+              <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]" data-money-none="">
                 No payment plans yet — a couple&rsquo;s plan shows here once they book you.
               </p>
             )}
           </>
         ) : (
           // ⚠ NOT ₱0. A payday read that did not reach the end is said in the figures' own place (frame 15).
-          <div className="flex min-h-[60px] items-center gap-3" role="status" data-money-unread="">
-            <p className="min-w-0 flex-1 text-[14px] text-ink/70">
+          <div className="flex min-h-14 items-center gap-3" role="status" data-money-unread="">
+            <p className="min-w-0 flex-1 text-[15px] text-ink/70">
               <b className="font-semibold text-ink">Couldn&rsquo;t load your payments.</b> Nothing is lost — the figures are hidden, not zero.
             </p>
-            <Link href={data.retryHref} className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14px] font-semibold text-sn-accent">
+            <Link href={data.retryHref} className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[15px] font-semibold text-sn-accent">
               <RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} /> Retry
             </Link>
           </div>
@@ -208,7 +208,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
             title={data.wallet.title}
             line={data.wallet.line}
             end={
-              <Link href={data.retryHref} className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14px] font-semibold text-sn-accent">
+              <Link href={data.retryHref} className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[15px] font-semibold text-sn-accent">
                 <RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} /> Retry
               </Link>
             }
@@ -232,15 +232,15 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
             <div className="pb-3" data-money-year-body="">
               {year === 'locked' ? (
                 <div data-money-year-locked="">
-                  <p className="py-2 text-[13.5px] text-ink/70">{data.lockedLine}</p>
+                  <p className="py-2 text-[13px] text-ink/70">{data.lockedLine}</p>
                   <DatesRow data="money-plans" title="See plans" line="Supplier Plus and Supplier Pro carry the year" href="/vendor-dashboard/subscription" />
                 </div>
               ) : year === null ? (
-                <p className="py-2 text-[13.5px] text-ink/70" role="status" data-money-year-unread="">
+                <p className="py-2 text-[13px] text-ink/70" role="status" data-money-year-unread="">
                   Couldn&rsquo;t load your year — a failed read, not a year with nothing in it. Reload to try again.
                 </p>
               ) : year.months.length === 0 ? (
-                <p className="py-2 text-[13.5px] text-ink/60">
+                <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]">
                   Nothing confirmed yet this year. When a couple logs a payment to you on their booking and you confirm it, it rolls up here.
                 </p>
               ) : (
@@ -255,7 +255,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                 ))
               )}
               {data.legacy === null ? (
-                <p className="py-2 text-[13px] text-ink/60" role="status" data-money-legacy-unread="">
+                <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]" role="status" data-money-legacy-unread="">
                   Your older payout records couldn&rsquo;t load. Nothing owed to you has changed.
                 </p>
               ) : data.legacy.length > 0 ? (

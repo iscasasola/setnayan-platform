@@ -90,7 +90,7 @@ test('2 · the draft keeps the pick, and the guest page may serve it', () => {
   assert.equal(siteMediaServeRef(OURS), OURS, 'the public media bucket — what `BackgroundMusic` is handed');
 });
 
-test('3 · a song from Our music is free to use; the couple’s own song stays Event Hub Pro', () => {
+test('3 · a song from Our music is free to use; the couple’s own song stays Event Pro', () => {
   for (const change of ['add', 'change'] as const) {
     assert.equal(eventItemIsPro('site_bg_music_r2_key', OURS, change), false, `ours · ${change}`);
     assert.equal(eventItemIsPro('site_bg_music_r2_key', OWN, change), true, `own · ${change}`);

@@ -1,10 +1,22 @@
-import Link from 'next/link';
+import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft, ScanFace } from 'lucide-react';
+import { ScanFace, Undo2 } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { ActionButton } from '@/components/action-button';
+import {
+  RecordBack,
+  RecordEmpty,
+  RecordFacts,
+  RecordFold,
+  RecordFolds,
+  RecordHead,
+  RecordRow,
+  RecordRows,
+  RecordSection,
+} from '@/app/admin/_components/record-kit';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { setEventFaceMode } from '@/app/admin/events/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -40,6 +52,11 @@ export const dynamic = 'force-dynamic';
  * data, and only one of them is true (same contract as lib/guests.ts and
  * lib/guests-read-is-honest.test.ts). Held by
  * lib/admin-event-page-is-honest.test.ts.
+ *
+ * 📇 THE EVENT RECORD (owner 14 Nov 2026, "Yes, queue the builds" — the approved 13 Nov drawing
+ * `Setnayan-specs/prototypes/admin_pub/people.html`, screen `event`): the head, the facts, the hosts, then one fold
+ * each — Guest list (Reopen) · Face tagging · Suppliers (who each counts · schedule · scans). Force-delete stays on the
+ * Events list, where its paid-supplier and money reads word the consequence.
  *
  * PRIVACY WALL: face data here is a yes/no per guest, read as `guest_id` only.
  * No descriptor, no selfie asset, no quality score ever leaves the database.
@@ -89,6 +106,8 @@ type FaceRow = {
 };
 
 export default async function AdminEventPage({ params, searchParams }: Props) {
+  // 🏷 F-A-15: event types by their admin-managed names.
+  const typeName = await readEventTypeNames();
   const { userId: adminUserId } = await requireAdmin();
   const { eventId: rawId } = await params;
   const sp = await searchParams;
@@ -309,134 +328,152 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   const notice = sp.saved ? NOTICE[sp.saved] : undefined;
   const failure = sp.error ? (ERROR[sp.error] ?? 'That did not go through. Nothing changed.') : undefined;
 
+  const yes = countCell(yesRead);
+  const guestSummary = `${closed ? 'Finalized' : 'Open'} · ${countCell(totalRead)} guests`;
+  const supplierSummary =
+    supplierLocks === null ? COULD_NOT_LOAD : `${formatCount(supplierLocks.length)} booked`;
+
   return (
-    <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <Link
-        href="/admin/accounts?tab=events"
-        className="inline-flex items-center gap-1 text-xs text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Events
-      </Link>
+    <main className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+      <RecordBack href="/admin/accounts?tab=events" label="Events" />
       <PageMasthead titleNode={name} />
+      <RecordHead
+        small={`Event · ${ev.public_id as string} · ${typeName(ev.event_type as string | null)}`}
+        name={name}
+        badges={<Badge tone={ev.archived ? 'quiet' : 'ok'}>{ev.archived ? 'Archived' : 'Active'}</Badge>}
+      />
 
       {notice ? (
-        <p role="status" className="rounded-lg bg-success-100 p-3 text-sm text-success-800">
+        <p role="status" className="my-2 rounded-lg bg-success-100 p-3 text-sm text-success-800">
           {notice}
         </p>
       ) : null}
       {failure ? (
-        <p role="alert" className="rounded-lg bg-mulberry/10 p-3 text-sm text-mulberry">
+        <p role="alert" className="my-2 rounded-lg bg-mulberry/10 p-3 text-sm text-mulberry">
           {failure}
         </p>
       ) : null}
 
-      {/* The event */}
-      <section className="border-t border-ink/10 pt-5">
-        <h2 className="text-lg font-medium text-ink">{name}</h2>
-        <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-xs text-ink/60">Type</dt>
-            <dd className="text-ink">{(ev.event_type as string | null) ?? '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Date</dt>
-            <dd className="text-ink">{fmtDate(eventDate)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">ID</dt>
-            <dd className="font-mono text-xs text-ink">{ev.public_id as string}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Status</dt>
-            <dd className="text-ink">{ev.archived ? 'Archived' : 'Active'}</dd>
-          </div>
-        </dl>
-      </section>
+      <RecordFacts
+        label="The event"
+        items={[
+          ['Type', typeName(ev.event_type as string | null)],
+          ['Date', fmtDate(eventDate)],
+          ['ID', ev.public_id as string],
+          ['Status', ev.archived ? 'Archived' : 'Active'],
+        ]}
+      />
 
-      {/* Hosts */}
-      <section className="border-t border-ink/10 pt-5">
-        <h2 className="mb-3 text-sm font-medium text-ink">Hosts</h2>
+      <RecordSection label={`Hosts${hosts === null ? '' : ` (${formatCount(hosts.length)})`}`}>
         {hosts === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the hosts — the read was refused, so this is not &ldquo;no hosts&rdquo;.
           </p>
         ) : hosts.length === 0 ? (
-          <p className="text-sm text-ink/60">Verified: this event has no host accounts.</p>
+          <RecordEmpty>Verified: this event has no host accounts.</RecordEmpty>
         ) : (
-          <ul className="space-y-1 text-sm">
+          <RecordRows label="Hosts">
             {hosts.map((h) => (
-              <li key={h.user_id as string}>
-                <Link href={`/admin/users/${h.user_id as string}`} className="text-ink underline hover:text-ink/80">
-                  {(h.display_name as string | null) || 'No name'}
-                </Link>{' '}
-                <span className="text-ink/60">{(h.email as string | null) ?? '—'}</span>
-              </li>
+              <RecordRow
+                key={h.user_id as string}
+                href={`/admin/users/${h.user_id as string}`}
+                title={(h.display_name as string | null) || 'No name'}
+                line={(h.email as string | null) ?? '—'}
+              />
             ))}
-          </ul>
+          </RecordRows>
         )}
-      </section>
+      </RecordSection>
 
-      {/* Guests + the finalized list */}
-      <section className="border-t border-ink/10 pt-5">
-        <h2 className="mb-3 text-sm font-medium text-ink">Guest list</h2>
-        <dl className="grid grid-cols-3 gap-4 text-sm">
-          <div>
-            <dt className="text-xs text-ink/60">Guests</dt>
-            <dd className="text-ink">{countCell(totalRead)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Replied yes</dt>
-            <dd className="text-ink">{countCell(yesRead)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Declined</dt>
-            <dd className="text-ink">{countCell(declinedRead)}</dd>
-          </div>
-        </dl>
-        <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-xs text-ink/60">State</dt>
-            <dd className="font-medium text-ink">
-              {closed ? 'Finalized' : 'Open'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Finalized on</dt>
-            <dd className="text-ink">{fmtDate(lockedAt)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Final count</dt>
-            <dd className="text-ink">
-              {ev.final_pax === null || ev.final_pax === undefined ? '—' : formatCount(ev.final_pax as number)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink/60">Reply-by date</dt>
-            <dd className="text-ink">{deadline ? fmtDate(deadline) : 'Not set'}</dd>
-          </div>
-        </dl>
+      <RecordFolds>
+        <RecordFold title="Guest list" anchor="guests" summary={guestSummary}>
+          <RecordFacts
+            items={[
+              ['Guests', countCell(totalRead)],
+              ['Replied yes', yes],
+              ['Declined', countCell(declinedRead)],
+              ['State', closed ? 'Finalized' : 'Open'],
+              ['Finalized on', fmtDate(lockedAt)],
+              ['Final count', ev.final_pax === null || ev.final_pax === undefined ? '—' : formatCount(ev.final_pax as number)],
+              ['Reply-by date', deadline ? fmtDate(deadline) : 'Not set'],
+            ]}
+          />
         {closed ? (
           <ConfirmForm
             action={setEventFaceMode}
             title="Reopen this guest list?"
             confirmLabel="Reopen"
             destructive={false}
-            className="mt-4"
+            className="mt-3"
             message={`Reopen the guest list for "${name}"? This clears the finalized stamp and the frozen final count. The hosts can add, remove and change replies again, and the list stays open until a host presses Finalize. Recorded in the admin audit log.`}
           >
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="intent" value="reopen_guest_list" />
             <input type="hidden" name="from" value="event" />
-            <SubmitButton className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm text-ink hover:bg-ink/5">
-              Reopen guest list
-            </SubmitButton>
+            <ActionButton tone="warn" icon={<Undo2 aria-hidden strokeWidth={1.9} />} label="Reopen guest list" type="submit" />
           </ConfirmForm>
         ) : null}
-      </section>
+        </RecordFold>
 
+        <RecordFold title="Face tagging" anchor="face" summary={`${faceLabel} · running: ${effective === 'mode_a' ? 'yes' : 'no'}`}>
+        <p className="text-sm text-ink">
+          <span className="font-medium">{faceLabel}</span>
+          <span className="text-ink/60">
+            {' '}
+            · running on this event: {effective === 'mode_a' ? 'yes' : 'no'}
+          </span>
+        </p>
+        <ConfirmForm
+          action={setEventFaceMode}
+          className="mt-3"
+          message={
+            stored === 'mode_a'
+              ? `Turn face auto-tagging OFF for "${name}"? New photos stop being matched to faces. Descriptors already stored are not deleted by this.`
+              : `Turn face auto-tagging ON for "${name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.${declined ? ' The couple declined face tagging, so it still will not run until they change that.' : ''}`
+          }
+        >
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="face_mode" value={stored === 'mode_a' ? 'mode_b' : 'mode_a'} />
+          <input type="hidden" name="from" value="event" />
+          <ActionButton tone={stored === 'mode_a' ? 'danger' : 'neutral'} icon={<ScanFace aria-hidden strokeWidth={1.9} />} label={stored === 'mode_a' ? 'Turn off' : 'Turn on'} type="submit" />
+        </ConfirmForm>
+
+        {enrolledIds === null ? (
+          <p role="alert" className="mt-4 text-sm text-mulberry">
+            {COULD_NOT_LOAD} the face enrolments — the &ldquo;Enrolled&rdquo; column below is unknown, not &ldquo;no&rdquo;.
+          </p>
+        ) : null}
+        <div className="mt-4">
+          <ConsoleTable
+            rows={faceRows}
+            readPermitted
+            readError={guestsRead.error}
+            reads="the guest list"
+            label="Guests and face enrolment"
+            cap={GUEST_CAP}
+            rowKey={(g) => g.guest_id}
+            empty={{
+              Icon: ScanFace,
+              title: 'No guests yet',
+              blurb: 'The read went through and this event has no guests on its list.',
+            }}
+            columns={[
+              { header: 'Guest', cell: (g) => <span className="text-ink">{g.name}</span> },
+              {
+                header: 'Enrolled',
+                cell: (g) =>
+                  enrolledIds === null ? COULD_NOT_LOAD : enrolledIds.has(g.guest_id) ? 'Yes' : 'No',
+              },
+              { header: 'Excluded by host', cell: (g) => (g.excluded ? 'Yes' : 'No') },
+            ]}
+          />
+        </div>
+        </RecordFold>
+
+        <RecordFold title="Suppliers" anchor="suppliers" summary={supplierSummary}>
       {/* 🧮 Who each supplier counts (owner 2026-11-04) — each per-head service's count and its rule. */}
-      <section className="border-t border-ink/10 pt-5" data-admin-service-counts="">
-        <h2 className="mb-3 text-sm font-medium text-ink">Who each supplier counts</h2>
+      <div data-admin-service-counts="">
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Who each supplier counts</h3>
         {serviceCounts === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the suppliers&rsquo; counts — the read was refused, so this is not &ldquo;none&rdquo;.
@@ -464,11 +501,11 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             ))}
           </ul>
         )}
-      </section>
+      </div>
 
       {/* 🔒 Suppliers' schedule — the CHANGE LOCK (audit D7), read-only */}
-      <section className="border-t border-ink/10 pt-5" data-admin-supplier-locks="">
-        <h2 className="mb-3 text-sm font-medium text-ink">Suppliers&rsquo; schedule</h2>
+      <div data-admin-supplier-locks="">
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Suppliers&rsquo; schedule</h3>
         {supplierLocks === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the booked suppliers — the read was refused, so this is not &ldquo;no suppliers&rdquo;.
@@ -488,11 +525,11 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             ))}
           </ul>
         )}
-      </section>
+      </div>
 
       {/* 🎟 Suppliers' scans — the claim scanner's record at this event; Remove takes back one recorded in error. */}
-      <section className="border-t border-ink/10 pt-5" data-admin-supplier-scans="">
-        <h2 className="mb-3 text-sm font-medium text-ink">Suppliers&rsquo; scans</h2>
+      <div data-admin-supplier-scans="">
+        <h3 className="flex min-h-9 items-center pb-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Suppliers&rsquo; scans</h3>
         {supplierScans === null ? (
           <p role="alert" className="text-sm text-mulberry">
             {COULD_NOT_LOAD} the suppliers&rsquo; scans — the read failed, so this is not &ldquo;no scans&rdquo;.
@@ -502,67 +539,10 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         ) : (
           <SupplierScansAdmin eventId={eventId} claims={supplierScans} />
         )}
-      </section>
+      </div>
 
-      {/* Face tagging */}
-      <section className="border-t border-ink/10 pt-5">
-        <h2 className="mb-3 text-sm font-medium text-ink">Papic face tagging</h2>
-        <p className="text-sm text-ink">
-          <span className="font-medium">{faceLabel}</span>
-          <span className="text-ink/60">
-            {' '}
-            · running on this event: {effective === 'mode_a' ? 'yes' : 'no'}
-          </span>
-        </p>
-        <ConfirmForm
-          action={setEventFaceMode}
-          className="mt-3"
-          message={
-            stored === 'mode_a'
-              ? `Turn face auto-tagging OFF for "${name}"? New photos stop being matched to faces. Descriptors already stored are not deleted by this.`
-              : `Turn face auto-tagging ON for "${name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.${declined ? ' The couple declined face tagging, so it still will not run until they change that.' : ''}`
-          }
-        >
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="face_mode" value={stored === 'mode_a' ? 'mode_b' : 'mode_a'} />
-          <input type="hidden" name="from" value="event" />
-          <SubmitButton className="rounded-lg border border-ink/20 px-3 py-1.5 text-sm text-ink hover:bg-ink/5">
-            {stored === 'mode_a' ? 'Turn off' : 'Turn on'}
-          </SubmitButton>
-        </ConfirmForm>
-
-        {enrolledIds === null ? (
-          <p role="alert" className="mt-4 text-sm text-mulberry">
-            {COULD_NOT_LOAD} the face enrolments — the &ldquo;Enrolled&rdquo; column below is unknown, not &ldquo;no&rdquo;.
-          </p>
-        ) : null}
-        <div className="mt-4">
-          <ConsoleTable
-            rows={faceRows}
-            readPermitted
-            readError={guestsRead.error}
-            reads="the guest list"
-            label="Guests and face enrolment"
-            cap={GUEST_CAP}
-            rowKey={(g) => g.guest_id}
-            empty={{
-              Icon: ScanFace,
-              title: 'No guests yet',
-              blurb: 'The read went through and this event has no guests on its list.',
-              verifiedNote: 'Verified: read permitted · nobody on the list',
-            }}
-            columns={[
-              { header: 'Guest', cell: (g) => <span className="text-ink">{g.name}</span> },
-              {
-                header: 'Enrolled',
-                cell: (g) =>
-                  enrolledIds === null ? COULD_NOT_LOAD : enrolledIds.has(g.guest_id) ? 'Yes' : 'No',
-              },
-              { header: 'Excluded by host', cell: (g) => (g.excluded ? 'Yes' : 'No') },
-            ]}
-          />
-        </div>
-      </section>
+        </RecordFold>
+      </RecordFolds>
     </main>
   );
 }

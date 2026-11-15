@@ -127,7 +127,7 @@ export type DayOfFrameUpsell = {
   /** Distinguishes "renew" from "subscribe" — a lapsed subscriber and a
    *  never-subscribed vendor deserve different sentences. */
   lapsed: boolean;
-  /** The minimum tier that unlocks it, already humanised ("Solo"). Read from
+  /** The minimum tier that unlocks it, already humanised ("Supplier Plus"). Read from
    *  SPECIALIZATION_MIN_TIER so moving the floor moves this copy for free. */
   minTierLabel: string;
   href: string;

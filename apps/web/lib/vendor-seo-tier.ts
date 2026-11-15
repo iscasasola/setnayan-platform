@@ -5,7 +5,7 @@
  *
  * Spec: Vendor_Monetization_Model_LOCKED_2026-07-25 § 8 —
  *   • Basic indexability .............. FREE for every tier (also feeds our own SEO)
- *   • Enhanced SEO + GEO .............. Solo+
+ *   • Enhanced SEO + GEO .............. Supplier Plus and up
  *   • AEO + priority sitemap .......... Pro+
  *   • Top priority band ............... Ultra ("Priority + AEO")
  *
@@ -37,7 +37,7 @@ export interface VendorSeoPlan {
   /**
    * GEO / local-entity enrichment: `knowsAbout` service entities that let
    * Google + local-pack surfaces match the vendor to category+place queries.
-   * Solo+.
+   * Supplier Plus and up.
    */
   entityGraph: boolean;
   /**
@@ -99,7 +99,7 @@ export function vendorSeoPlan(
     level,
     // Never gated — basic indexability is free for all (§ 8).
     indexable: true,
-    entityGraph: level !== 'basic', // Solo+
+    entityGraph: level !== 'basic', // Supplier Plus and up
     offerGraph: level === 'aeo' || level === 'priority', // Pro+
     sitemapPriority: rank,
   };

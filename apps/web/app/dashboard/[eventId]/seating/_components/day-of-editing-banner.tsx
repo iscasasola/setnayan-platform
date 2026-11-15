@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Radio } from 'lucide-react';
+import { Notice } from '@/app/_components/notices/notices';
 import { theDayIsOpenAt, theDayWhenKey, type TheDayWhen } from '@/lib/event-clock';
 
 /**
@@ -54,26 +54,16 @@ export function DayOfEditingBanner({ eventDate }: { eventDate: TheDayWhen }) {
 
   if (!live) return null;
 
+  // 🔔 Inventory #24 — a LIVE notice (one notice system, owner approved 14 Nov 2026): very top, and it can't be hidden —
+  // guests see every change the moment it is made.
   return (
-    <div
-      role="status"
-      className="flex items-start gap-3 rounded-2xl border border-danger-200 bg-danger-50/70 px-4 py-3 text-sm"
-    >
-      <span className="relative mt-0.5 flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-400/70" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger-500" />
-      </span>
-      <div className="space-y-0.5">
-        <p className="flex items-center gap-1.5 font-semibold text-danger-900">
-          <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Live — guests are seeing this now
-        </p>
-        <p className="text-danger-900/70">
-          Every seat change reaches the digital <span className="font-medium">Find your seat</span>{' '}
-          the moment you make it. Printed escort cards, table signs, and boards are frozen snapshots —
-          today the live plan is the source of truth.
-        </p>
-      </div>
-    </div>
+    <Notice
+      kind="live"
+      tone="warning"
+      closable={false}
+      noticeKey={`guests-see-live:${whenKey}`}
+      title="Live — guests are seeing this now"
+      detail="Every seat change reaches the digital Find your seat the moment you make it. Printed escort cards, table signs, and boards are frozen snapshots — today the live plan is the source of truth."
+    />
   );
 }

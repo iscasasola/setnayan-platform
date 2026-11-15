@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 334 jobs, 217 of them form-driven, as of 0caf51131e.
+// that performs it. 334 jobs, 218 of them form-driven, as of c2adff7235.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -238,8 +238,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "phrase": "agree to request from work list",
     "ownerPath": "/admin/work",
     "resolvedPath": "/admin/work",
-    "fields": [],
-    "refusedWhenEmpty": [],
+    "fields": [
+      "intent",
+      "back",
+      "reason",
+      "approval_id"
+    ],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -350,9 +357,12 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "back",
       "intent",
+      "reason",
       "payment_id"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -1477,9 +1487,13 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/work",
     "resolvedPath": "/admin/work",
     "fields": [
-      "back"
+      "back",
+      "intent",
+      "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -2879,7 +2893,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/integrations",
     "resolvedPath": "/admin/integrations",
     "fields": [
-      "mode"
+      "mode",
+      "back"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3224,7 +3239,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/referrals",
     "resolvedPath": "/admin/referrals",
     "fields": [
-      "referral_program_enabled"
+      "referral_program_enabled",
+      "back"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3472,9 +3488,12 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/work",
     "resolvedPath": "/admin/work",
     "fields": [
-      "decision"
+      "decision",
+      "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {

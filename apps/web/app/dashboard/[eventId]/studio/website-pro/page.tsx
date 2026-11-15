@@ -7,12 +7,21 @@ import { getCurrentUser } from '@/lib/auth';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
-import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_PLUS_SKU, HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { isPlanKey } from '@/lib/plan-buy-doors';
 import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
+import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import { planCreditsFrom, planPricesFrom } from '@/lib/event-plans';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
+import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
+import type { PlanOfferFacts } from './_components/plan-offer';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
-export const metadata = { title: 'Event Hub PRO' };
+export const metadata = { title: 'Event Pro' };
 
 /* Name + promise from the one record every Studio row reads — never a second
    sentence written into this page. Throws rather than rendering a nameless
@@ -22,7 +31,7 @@ const HERO = addOnHeroCopy('website-pro');
 
 /**
  * /dashboard/[eventId]/studio/website-pro — the couple-facing buy surface for
- * Event Hub PRO (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
+ * Event Pro (the UMBRELLA · owner 2026-07-04). Price is read LIVE from the
  * catalog, never written here. Wires the EXISTING apply-then-pay flow (live
  * catalog price + platform BDO/GCash settings → InlineCheckoutDrawer →
  * submitOrderAction). No new payment mechanics.
@@ -55,10 +64,10 @@ const HERO = addOnHeroCopy('website-pro');
  *   • Active (admin-approved) → "Unlocked" + a link into the website hub.
  *   • Owned but pending → "Payment under review", no second drawer.
  *   • Owned nothing → the working buy drawer.
- * Event Hub PRO is the top tier, so there's no cross-sell line up from it.
+ * Event Pro is the top tier, so there's no cross-sell line up from it.
  */
 
-type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ from?: string; then?: string; buy?: string; plan?: string }> };
 
 const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
 
@@ -72,7 +81,7 @@ const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
  * 🔑 THE RULE THAT REPLACED THE OLD BENEFITS LIST is the same rule, made structural: a line may name only something a
  * buyer of THAT part is actually let through — so the lines ARE the gate table (`lib/hub-parts.ts`).
  *
- * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade Event Pro" → "no more by part as well on the
  * website"): every part's row is off sale, so `onSale` hands no part price and the body sells Everything alone, the
  * parts kept only as the list of what it unlocks (`pro-parts-body.tsx`).
  */
@@ -102,13 +111,32 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   // pending order (double-buy prevention). owned && !active ⇒ under review.
   const ent = await eventEntitlementClient(eventId);
   const supabase = await createClient();
-  const [active, owned, prices, settings, vatRatePct] = await Promise.all([
+  const [active, owned, prices, settings, vatRatePct, catalog, plusActive, plusOwned, freeGrant, ultraActive, ultraOwned] = await Promise.all([
     eventHubOwnership(ent, eventId, 'active').catch(() => null),
     eventHubOwnership(ent, eventId, 'owned').catch(() => null),
     hubPartPrices(createAdminClient()).catch(() => null),
     fetchPlatformSettings(supabase),
     getEffectiveVatRatePct(supabase),
+    // 💰 F-W2-29 (2026-11-13): the plans /pricing offers, read from the same catalogue rows the front door reads.
+    fetchV2CustomerCatalog().catch(() => []),
+    eventSkuActive(ent, eventId, EVENT_PLUS_SKU).catch(() => false),
+    eventOwnsSku(ent, eventId, EVENT_PLUS_SKU).catch(() => false),
+    readPapicFreeGrantRead(),
+    // 💎 Event Ultra (#7601) — its OWN order (an Ultra event also reads as Pro through the ownership aliases).
+    eventSkuActive(ent, eventId, EVENT_ULTRA_SKU).catch(() => false),
+    eventOwnsSku(ent, eventId, EVENT_ULTRA_SKU).catch(() => false),
   ]);
+  const planPrices = planPricesFrom(catalog);
+  const plans: PlanOfferFacts = {
+    plusPhp: planPrices.plus,
+    ...planCreditsFrom(catalog),
+    freePapic: papicFreeCreditPromise(freeGrant)?.sentence ?? null,
+    plus: plusActive ? 'yours' : plusOwned ? 'review' : 'buy',
+    ultraPhp: planPrices.ultra,
+    ultra: ultraActive ? 'yours' : ultraOwned ? 'review' : 'buy',
+    // Paid toward Plus or Pro → Ultra asks only the difference (the drawer's server quote gives the figure).
+    paidTowardAPlan: plusOwned || Boolean(owned?.full) || (owned?.paidPhp ?? 0) > 0,
+  };
   const view = (o: typeof active) => (o ? { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp } : null);
   const partPricePhp: Partial<Record<HubPartId, number>> = {};
   for (const p of HUB_PARTS) {
@@ -119,6 +147,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     <ProPartsBody
       eventId={eventId}
       title={HERO.label}
+      // 🏷 The plan's name from its catalogue row (RW-306) — the same read as the prices; unread → the plan list's name.
+      planName={prices?.fullTitle ?? PLAN_NAME.pro}
       back={back}
       fromMaker={fromMaker}
       hubHref={WEBSITE_HUB_HREF(eventId)}
@@ -127,8 +157,11 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
       partPricePhp={partPricePhp}
       fullPhp={prices?.full ?? null}
       buy={search.buy}
+      // 💰 RW-13: a public plan door (`lib/plan-buy-doors.ts`) opens this page at one plan's card. A closed value.
+      focusPlan={isPlanKey(search.plan) ? search.plan : null}
       settings={settings}
       vatRatePct={vatRatePct}
+      plans={plans}
     />
   );
 }

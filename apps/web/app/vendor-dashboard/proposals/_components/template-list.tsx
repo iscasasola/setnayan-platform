@@ -51,7 +51,7 @@ export function TemplateList({ templates }: { templates: TemplateListRow[] }) {
             >
               <div className="min-w-0 py-2.5" data-proposal-template="">
                 <p className="truncate text-sm font-medium">{t.template_name}</p>
-                <p className="truncate text-xs text-ink/50">{t.body.slice(0, 90) || 'No body yet'}</p>
+                <p className="truncate text-xs text-[color:var(--m-slate-2)]">{t.body.slice(0, 90) || 'No body yet'}</p>
               </div>
             </SwipeToDelete>
           ))}

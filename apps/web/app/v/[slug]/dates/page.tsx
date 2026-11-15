@@ -25,6 +25,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { readCheckADate } from '@/lib/check-a-date.server';
 import { CheckADateCalendar, type CheckDateEvent } from './_components/check-a-date-calendar';
 import { arrivalParams, withShopArrival } from '@/lib/shop-back';
+import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,7 @@ export default async function CheckADatePage({ params, searchParams }: Props) {
         <CheckADateCalendar
           shop={read.shop}
           shopHref={shopHref}
+          inquirySource={arrivalInquirySourceOf(search.src)}
           services={read.services}
           today={read.today}
           to={read.to}

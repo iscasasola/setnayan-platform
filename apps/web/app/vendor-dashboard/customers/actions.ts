@@ -10,7 +10,7 @@ import {
   type SchedulePool,
   type VendorCalendarDayState,
 } from '@/lib/vendor-schedule';
-import type { DatesBlock, DatesBooking } from '@/lib/vendor-dates';
+import type { DatesBlock, DatesBooking, DatesInquiry } from '@/lib/vendor-dates';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
@@ -54,7 +54,7 @@ export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?:
     blocks: DatesBlock[];
     closuresComplete: boolean;
     /** The asked-about dates, counted; null = not read (no marks drawn, none claimed). */
-    inquiries: { requestedDate: string; count: number }[] | null;
+    inquiries: DatesInquiry[] | null;
   };
 } | null> {
   if (!/^\d{4}-\d{2}$/.test(month)) return null;
@@ -90,7 +90,7 @@ export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?:
     if (dayStates === null) return null;
     const [asks, bookedHours] = await Promise.all([
       threadsRead && threadsRead.complete
-        ? readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId))).catch(() => null)
+        ? readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId)), vendorProfileId).catch(() => null)
         : Promise.resolve(null),
       // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
       readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), manilaTodayIsoFor(Date.now())),

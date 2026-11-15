@@ -238,7 +238,7 @@ test('every part with a Studio bar has a door; every focused field exists in the
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
   /* ⚡ The focusing lives in the lazy chunk (`EditorFieldFocus`) — the Maker's first load was 0.4 KB over its budget on
      #6413. 🔁 2026-11-11 (Build 6 Lane F): the way back is the bar's ✕, which names the part it closes. */
-  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /aria-label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
+  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
   assert.match(shell, /\{studioFrom && studioOn \? <EditorFieldFocus focus=\{studioFrom\.focus\} at=\{studioAt\} \/> : null\}/, 'the shell mounts it for a jump');
   assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const EditorFieldFocus = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
   /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). The way back to the part is the bar's ✕;
@@ -367,7 +367,7 @@ test('the frame carries no ↑ ↓ ✕ any more; keys, Esc, a swipe and a tap on
   assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
   assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
   /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
-  /* 🫥 AMENDED 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)": the toolbar "hides on a tap on empty page"): a
+  /* 🫥 AMENDED 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)": the toolbar "hides on a tap on empty page"): a
      tap on the page's ground puts the toolbar away and keeps the part — `lib/the-toolbar-shows-and-hides.test.ts`. */
   assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\)/, 'a tap on the page’s ground does not put the toolbar away');
 });

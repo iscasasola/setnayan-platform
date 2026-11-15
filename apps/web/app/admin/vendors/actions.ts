@@ -28,6 +28,7 @@ import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
   nextPhotoChallengeExpiry,
   fetchVendorPhotoChallengePricePhp,
+  VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP,
 } from '@/lib/vendor-photo-challenge';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 
@@ -415,7 +416,7 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
 }
 
 // 🚨 WAS A PRIVATE FOUR-VALUE LIST that silently disagreed with the six-option
-// dropdowns posting to it — picking Solo threw `Invalid tier.` as an unhandled
+// dropdowns posting to it — picking Supplier Plus threw `Invalid tier.` as an unhandled
 // error. Now the ONE list, shared with every `<select>` that posts here, so the
 // offered set and the accepted set cannot drift apart again. See its docblock.
 const VENDOR_TIER_VALUES = VENDOR_TIER_SETTABLE;
@@ -716,7 +717,8 @@ export async function executeVendorSkuComp(
     .eq('vendor_profile_id', vendorProfileId);
   if (grantErr) throw new Error(grantErr.message);
 
-  const pricePhp = await fetchVendorPhotoChallengePricePhp(admin);
+  // The comp's recorded retail value — the catalogue row, else the guarded fallback exactly as before (admin record only).
+  const pricePhp = (await fetchVendorPhotoChallengePricePhp(admin)) ?? VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
 
   const { error: insertErr } = await admin.from('comp_grants').insert({
     user_id: null,

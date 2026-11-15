@@ -149,6 +149,8 @@ import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { wholeMarchLabel } from '@/lib/schedule-chapters';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata = { title: 'Schedule' };
 
@@ -996,7 +998,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   Staged — hidden from the couple ({stagedBlocks.length})
                 </p>
               </div>
-              <p className="text-xs text-ink/55">
+              <p className="text-xs text-ink/70">
                 Only you can see these. Release a block to add it to the couple&rsquo;s schedule.
               </p>
               <ul className="divide-y divide-ink/10">
@@ -1007,7 +1009,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{b.label}</p>
-                      <p className="truncate font-mono text-xs text-ink/55">
+                      <p className="truncate text-xs text-ink/70">
                         {b.end_at
                           ? formatBlockTimeRange(b.start_at, b.end_at)
                           : formatBlockTime(b.start_at)}
@@ -1124,7 +1126,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             hostPanel={
               hasHost ? (
                 <>
-                  <p className="text-[13px] text-ink/60">
+                  <p className="text-[13px] text-ink/70">
                     Your booked host&rsquo;s segments, their questions for you, and a line to them
                     mid-service.
                   </p>
@@ -1234,7 +1236,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <p className="text-sm text-ink/60">
+            <p className="text-sm text-ink/70">
               {eventRow?.display_name?.trim() ? (
                 <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
               ) : null}
@@ -1247,7 +1249,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 </>
               ) : null}
             </p>
-            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-xs font-semibold text-ink/65">
               <i
                 aria-hidden
                 className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
@@ -1361,15 +1363,14 @@ function VendorSuggestionsQueue({
   if (suggestions.length === 0) return null;
   const blockLabel = new Map(blocks.map((b) => [b.block_id, b.label]));
   return (
-    <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
-      <header className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-          Supplier requests · {suggestions.length}
-        </p>
-        <p className="max-w-prose text-sm text-ink/65">
-          Your booked suppliers asked for timeline changes. Accepting applies the
-          change; suppliers never edit your timeline directly.
-        </p>
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 7 · 11): no card — the section's grey capitals with the explaining
+    // behind ⓘ, then each request as a row that needs you (a gold edge, its own Decline / Approve).
+    <section className="space-y-1">
+      <header className="mb-1 mt-[18px]">
+        <InfoTip label={`Supplier requests · ${suggestions.length}`} labelAs="p" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">
+          Your booked suppliers asked for timeline changes. Accepting applies the change; suppliers never edit your
+          timeline directly.
+        </InfoTip>
       </header>
       <ul className="divide-y divide-ink/10">
         {suggestions.map((s) => {
@@ -1380,7 +1381,7 @@ function VendorSuggestionsQueue({
             .filter(Boolean)
             .join(' – ');
           return (
-            <li key={s.suggestion_id} className="space-y-1.5 py-3">
+            <li key={s.suggestion_id} className="min-h-14 space-y-1.5 border-l-[3px] border-l-terracotta py-3 pl-3">
               <p className="text-sm">
                 <span className="font-medium">{s.suggested_by_name ?? 'A booked supplier'}</span>{' '}
                 {s.kind === 'remove' || s.kind === 'skip' ? (
@@ -1409,10 +1410,10 @@ function VendorSuggestionsQueue({
               </p>
               <p className="text-sm text-ink/70">&ldquo;{s.note}&rdquo;</p>
               {proposedWindow ? (
-                <p className="text-xs text-ink/55">Proposed time: {proposedWindow}</p>
+                <p className="text-xs text-ink/70">Proposed time: {proposedWindow}</p>
               ) : null}
               {s.proposed_location ? (
-                <p className="text-xs text-ink/55">Location: {s.proposed_location}</p>
+                <p className="text-xs text-ink/70">Location: {s.proposed_location}</p>
               ) : null}
               <div className="pt-0.5">
                 <RequestDecision eventId={eventId} suggestionId={s.suggestion_id} noteOnly={isNoteOnlySuggestion(s)} decide={resolveScheduleSuggestion} />
@@ -1460,7 +1461,7 @@ function EventDayView({
     blocks.find((b) => new Date(b.start_at).getTime() >= now) ?? blocks[0] ?? null;
   return (
     <div className="space-y-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
         {blocks.length} block{blocks.length === 1 ? '' : 's'} · {formatCount(publicCount)} public
       </p>
 
@@ -1479,7 +1480,7 @@ function EventDayView({
             <p className="mt-0.5 truncate text-base font-bold text-ink">
               {nextBlock.label}
             </p>
-            <p className="mt-0.5 truncate font-mono text-xs text-ink/60">
+            <p className="mt-0.5 truncate text-xs text-ink/70">
               {nextBlock.end_at
                 ? formatBlockTimeRange(nextBlock.start_at, nextBlock.end_at)
                 : formatBlockTime(nextBlock.start_at)}
@@ -1499,7 +1500,7 @@ function EventDayView({
             strokeWidth={1.5}
           />
           <p className="text-sm font-medium text-ink">No blocks yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+          <p className="mx-auto mt-1 max-w-md text-xs text-ink/70">
             {isTravel
               ? 'Add your first one above — a hotel stay covers its nights (check-in to check-out), and each tour or activity takes a time slot on the trip.'
               : 'Add your first one above — start with the ceremony, then layer cocktails, reception, dinner, dancing, and send-off.'}
@@ -1567,15 +1568,14 @@ function AddBlockForm({
         </label>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">Type</span>
-          <select name="block_type" defaultValue="custom" className="input-field">
-            {typeOptions.map((t) => (
-              <option key={t} value={t}>
-                {scheduleBlockLabelFor(t, eventType)}
-              </option>
-            ))}
-          </select>
+          <PostedPick
+            name="block_type"
+            label="Type"
+            initial={(typeOptions as readonly string[]).includes('custom') ? 'custom' : typeOptions[0]}
+            options={typeOptions.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
+          />
           {isTravel ? (
-            <span className="block text-[11px] text-ink/50">
+            <span className="block text-xs text-ink/70">
               A hotel stay spans check-in → check-out; tours can&rsquo;t overlap
               each other.
             </span>
@@ -1625,7 +1625,7 @@ function AddBlockForm({
           />
           <span>
             <span className="block font-medium text-ink">Show to guests</span>
-            <span className="block text-xs text-ink/55">
+            <span className="block text-xs text-ink/70">
               When on, this block appears on every guest&rsquo;s invitation site.
             </span>
           </span>
@@ -1641,7 +1641,7 @@ function AddBlockForm({
               <span className="block font-medium text-ink">
                 Start hidden from the couple (prep)
               </span>
-              <span className="block text-xs text-ink/55">
+              <span className="block text-xs text-ink/70">
                 Staged so only you can see it — release it to the couple when it&rsquo;s ready.
               </span>
             </span>
@@ -1704,10 +1704,10 @@ function BlockCard({
           />
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+          className={`rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
             block.is_public
               ? 'bg-success-100 text-success-800'
-              : 'bg-ink/5 text-ink/55'
+              : 'bg-ink/5 text-ink/70'
           }`}
         >
           {block.is_public ? 'Public' : 'Hidden'}

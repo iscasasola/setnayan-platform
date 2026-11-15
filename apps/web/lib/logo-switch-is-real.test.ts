@@ -6,7 +6,7 @@
  * one" / "No, use our names") was written by the host and read by no guest
  * page: a switch that changed nothing. Now:
  *   ON  (true, or NULL = never asked) + a logo ⇒ the logo on the cover, and in
- *       the QR centre for an Event Hub Pro event (the Pro gate is unchanged —
+ *       the QR centre for an Event Pro event (the Pro gate is unchanged —
  *       a free event's code always wears the Setnayan mark).
  *   OFF (false) ⇒ neither: the cover draws the couple's initials, a Pro code
  *       wears their lettered lockup.

@@ -105,7 +105,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     else (a coordinator, a kind with no Event Hub) keeps this page exactly as
     it was, so the redirect can never bounce a viewer into a Maker with
     nothing for them. The Animated Monogram's motion is Details › Logo's
-    Motion (Event Hub Pro, paid at Apply) — `TOOL_HOMES['animated-monogram']`.
+    Motion (Event Pro, paid at Apply) — `TOOL_HOMES['animated-monogram']`.
   */
   if (await detailsIsTheDoor(supabase, eventId, user.id)) {
     redirect(detailsItemHref(eventId, 'logo'));
@@ -148,7 +148,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
   // The EVENT holds the animation, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
   const ownsAnimated = await eventOwnsAnimatedMonogram(ent, eventId);
-  /* Event Hub Pro includes the animation (owner 2026-09-24, "A then"). The
+  /* Event Pro includes the animation (owner 2026-09-24, "A then"). The
    * alias already makes `ownsAnimated` true for a Pro couple, so the ₱500 buy
    * is gone; this names WHY on the owned state. Read only when owned. */
   const includedNote = animatedMonogramIncludedNote(
@@ -172,14 +172,14 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
     settings: Awaited<ReturnType<typeof fetchPlatformSettings>>;
   } | null = null;
   if (!ownsAnimated && !storeShell) {
-    /* 💎 The animation is Event Hub Pro's Logo & QR part (owner 2026-10-22, Q2): the standalone Animated Monogram is
+    /* 💎 The animation is Event Pro's Logo & QR part (owner 2026-10-22, Q2): the standalone Animated Monogram is
        retired from sale (migration 20271283592608), so the ONE button sells the part, at the part's catalogue price. */
     const logoQr = hubPart('logo_qr');
     const pricePhp = (await formatV2Sku(logoQr.sku).catch(() => null))?.price_php ?? null;
     if (pricePhp != null) {
       checkout = {
         serviceKey: logoQr.sku,
-        displayName: `Event Hub Pro · ${logoQr.name}${event.display_name ? ` · ${event.display_name}` : ''}`,
+        displayName: `Event Pro · ${logoQr.name}${event.display_name ? ` · ${event.display_name}` : ''}`,
         originalPriceCentavos: String(Math.round(pricePhp * 100)),
         settings: await fetchPlatformSettings(supabase),
       };

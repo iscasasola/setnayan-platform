@@ -46,6 +46,7 @@
 
 import { OfflineDiagnosticLoader } from '@/app/admin/offline/_components/offline-diagnostic-loader';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Note } from '../_components/insights-parts';
 
 // IndexedDB is client-only (lives on `window`), so the diagnostic panel
 // loads via `next/dynamic({ ssr: false })`. Next.js 15 forbids that call
@@ -55,21 +56,17 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 // 2026-05-29 — was blocking every Vercel production deploy since PR #623
 // (Phase G offline daemon) merged.
 export function OfflineSurface() {
+  // One column, no frames (approved drawing, insights.html › Offline daemon): status rows, the queue, and the
+  // pilot note as a closing ⓘ line instead of a boxed aside (T17/T18).
   return (
-    <div className="space-y-6">
-      <PageMasthead
-        title="Offline daemon"
-      />
+    <div className="max-w-3xl">
+      <PageMasthead title="Offline daemon" className="mb-0" />
 
       <OfflineDiagnosticLoader />
 
-      <aside className="sn-row border border-orange/15 bg-orange/5 p-6">
-        <p className="sn-eye">Note</p>
-        <p className="mt-2 text-sm text-ink-soft">
-          Offline daemon is scaffolded for pilot. Service-specific sync
-          handlers ship with the next refresh.
-        </p>
-      </aside>
+      <Note label="Scaffolded for pilot">
+        Offline daemon is scaffolded for pilot. Service-specific sync handlers ship with the next refresh.
+      </Note>
     </div>
   );
 }

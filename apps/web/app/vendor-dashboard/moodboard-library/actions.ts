@@ -79,7 +79,7 @@ import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/co
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
 import { autoColourRanges } from '@/lib/extract-palette.server';
-import { verifyCardForPart } from '@/lib/inspiration-card-link.server';
+import { cardLabel, readShopCards, verifyCardForPart } from '@/lib/inspiration-card-link.server';
 import { isFromAlbumPageRef } from '@/lib/put-photo-on-my-page';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { bucketForPrefix } from '@/lib/bucket-routing';
@@ -238,6 +238,8 @@ async function storeScreenedAsset(args: {
     vendor_service_id?: string | null;
     /** 🔗 The Mood Board suggestion this pool copy was offered from (`importSuggestionToGallery` only). */
     source_suggestion_id?: string | null;
+    /** 🏷 The Files photo this tag was made from (`importEventFileToGallery` only — migration 20271345380761). */
+    event_file_id?: string | null;
   };
 }): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   // ⚠ THE SHOP IS STAMPED ON GALLERY ROWS ONLY, AND THAT IS NOT AN OVERSIGHT.
@@ -425,6 +427,24 @@ export async function uploadStylistAsset(formData: FormData): Promise<UploadStyl
   }
 }
 
+/**
+ * 🧰 THE NAME OF AN UNLABELLED INSPIRATION PHOTO (cut 4, owner-approved 2026-11-14: "Label optional, filled from the
+ * linked service card"). The linked card's name as couples see it (`cardLabel`); with no card, or an unreadable one,
+ * the part's own name; never empty. Not a pure helper: it reads the shop's own cards (the same read the card check uses).
+ */
+async function inspirationLabelFallback(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  vendorServiceId: string | null,
+  partLabel: string | null,
+): Promise<string> {
+  if (vendorServiceId) {
+    const card = (await readShopCards(admin, vendorProfileId))?.find((c) => c.vendor_service_id === vendorServiceId);
+    if (card) return cardLabel(card);
+  }
+  return partLabel ?? 'Inspiration';
+}
+
 /** The upload itself — every gate THROWS its sentence; `uploadStylistAsset` above turns that into a result. */
 async function uploadStylistAssetOrThrow(
   formData: FormData,
@@ -438,7 +458,9 @@ async function uploadStylistAssetOrThrow(
   // upload"): the same form, the same gates below, only the bytes come from the shop's page / service cards instead
   // of the supplier's machine. The ref is checked against the shop's OWN list, read here — never trusted as sent.
   const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
-  const label = String(formData.get('label') ?? '').trim();
+  // 🧰 OPTIONAL on an inspiration photo (cut 4, owner-approved 2026-11-14): left empty, it is named after the linked
+  // service card (else the part) once the card is verified below. Still required on the other asset types.
+  let label = String(formData.get('label') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? '');
   const assetSubtype = String(formData.get('assetSubtype') ?? '').trim() || null;
   const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
@@ -447,7 +469,7 @@ async function uploadStylistAssetOrThrow(
 
   if (!file && !shopPhotoRef) throw new Error('Pick a photo — a file, or one from your shop.');
   if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
-  if (!label) throw new Error('label required');
+  if (!label && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) throw new Error('label required');
   if (shopPhotoRef && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) {
     throw new Error('Photos from your shop go to the couples’ inspiration library.');
   }
@@ -484,6 +506,7 @@ async function uploadStylistAssetOrThrow(
     });
     if (!card.ok) throw new Error(card.message);
     vendorServiceId = card.vendorServiceId;
+    if (!label) label = await inspirationLabelFallback(admin, profile.vendor_profile_id, vendorServiceId, libraryPartLabel(slot.slotKey, parts));
 
     const tier = await fetchShopTier(admin, profile.vendor_profile_id);
     const mode: GalleryUploadMode = 'back_catalogue';
@@ -644,6 +667,8 @@ export async function importEditorialMediaToGallery(input: ImportToGalleryInput)
   // 🔗 THE OTHER EVENT-LINKED SOURCE (owner 2026-10-30): a Mood Board suggestion offered to the pool. Its own door,
   // with its own proofs — the editorial gates below are about editorial media and do not apply to it.
   if ('suggestionId' in input) return importSuggestionToGallery(input);
+  // 🏷 A PHOTO FILED IN FILES, TAGGED TO AN INSPIRATION (DECISION_LOG 2026-11-14) — its own door, its own proofs.
+  if ('eventFileId' in input) return importEventFileToGallery(input);
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
@@ -739,6 +764,12 @@ export type ImportToGalleryInput =
       vendorServiceId?: string | null;
       /** The shop photo the suggestion was made from, when it was one (`shopPhotoRef`) — an album copy never travels. */
       sourceRef?: string | null;
+    }
+  | {
+      /** 🏷 The Files photo (event_supplier_files) — filed under a service card of an event this shop works. */
+      eventFileId: string;
+      slotKey: string;
+      rightsWarranted: boolean;
     };
 
 /** The pool states a suggestion may be offered from: still waiting, or answered by the couple either way. */
@@ -863,6 +894,119 @@ async function importSuggestionToGallery(
       source_event_id: sugg.event_id,
       vendor_service_id: card.vendorServiceId,
       source_suggestion_id: sugg.suggestion_id,
+    },
+  });
+
+  revalidatePath('/vendor-dashboard/moodboard-library');
+  return result;
+}
+
+/**
+ * 🏷 A FILES PHOTO TAGGED TO AN INSPIRATION (DECISION_LOG 2026-11-14, "A SUPPLIER TAGS ITS EVENT PHOTOS TO
+ * INSPIRATIONS"). One part per call; the Files board's action loops its picks.
+ *
+ * Every proof is re-made here, on rows the server reads — never taken from the board:
+ *   · the photo is THIS shop's, filed under a service card (grp 'service'), and a PHOTO (ruling 7);
+ *   · the part is one that photo's own card offers (ruling 3: the card is live and its service is in
+ *     `inspiration_part_services` for the part — `verifyCardForPart`), and one this shop's trades may fill;
+ *   · one row per (photo, part): a live tag is refused as already there; an approved tag removed earlier stays out
+ *     (retired — it may be on a couple's board) — the UNIQUE holds it either way;
+ * then the SAME storeScreenedAsset every upload takes: rights warranty · screen · watermark (the event seal — the row
+ * carries the event) · store · theft scan. The row lands with approved_at NULL (ruling 2), and the public read policy
+ * shows it only while the photo shows on the shop (ruling 1, migration 20271345380761). No quota: a photo delivered
+ * on a booked event is event-linked, never back-catalogue.
+ */
+async function importEventFileToGallery(
+  input: Extract<ImportToGalleryInput, { eventFileId: string }>,
+): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
+  const { userId, profile } = await requireLibraryAccess();
+  const admin = createAdminClient();
+
+  if (!input.rightsWarranted) {
+    throw new Error('Please confirm you hold the rights to publish this photo before tagging it.');
+  }
+
+  const { data: found, error: readErr } = await admin
+    .from('event_supplier_files')
+    .select('file_id, event_id, vendor_profile_id, grp, kind, vendor_service_id, file_name, supplier_media ( r2_ref )')
+    .eq('file_id', input.eventFileId)
+    .maybeSingle();
+  if (readErr) {
+    logQueryError('moodboardLibrary.importEventFile.read', readErr, { eventFileId: input.eventFileId });
+    throw new Error('We couldn’t read that photo just now — please try again in a moment.');
+  }
+  const file = found as {
+    file_id: string;
+    event_id: string;
+    vendor_profile_id: string;
+    grp: string;
+    kind: string;
+    vendor_service_id: string | null;
+    file_name: string;
+    supplier_media: { r2_ref: string } | { r2_ref: string }[] | null;
+  } | null;
+  if (!file) throw new Error('That photo is no longer in Files.');
+  if (file.vendor_profile_id !== profile.vendor_profile_id) throw new Error('That photo belongs to another shop.');
+  if (file.kind !== 'photo') throw new Error('Only photos can be tagged to an inspiration.');
+  if (file.grp !== 'service' || !file.vendor_service_id) {
+    throw new Error('File this photo under one of your service cards first — only a filed photo can be tagged.');
+  }
+
+  const parts = await getInspirationParts();
+  const slot = libraryUploadVerdict(input.slotKey, profile.services, parts);
+  if (!slot.allowed) throw new Error(slot.message);
+  const card = await verifyCardForPart(admin, {
+    vendorProfileId: profile.vendor_profile_id,
+    slotKey: slot.slotKey,
+    requested: file.vendor_service_id,
+    parts,
+  });
+  if (!card.ok) throw new Error(card.message);
+
+  const { data: had, error: hadErr } = await admin
+    .from('moodboard_library_assets')
+    .select('asset_id, retired_at')
+    .eq('event_file_id', file.file_id)
+    .eq('asset_subtype', slot.slotKey)
+    .maybeSingle();
+  if (hadErr) {
+    logQueryError('moodboardLibrary.importEventFile.had', hadErr, { eventFileId: file.file_id });
+    throw new Error('We couldn’t check this photo’s inspirations just now — please try again in a moment.');
+  }
+  const prior = had as { asset_id: string; retired_at: string | null } | null;
+  if (prior && !prior.retired_at) throw new Error('This photo is already in that inspiration.');
+  // A tag that was approved and later taken out is RETIRED (it may sit on a couple's board) and stays out: bringing it
+  // back is Setnayan's call, never a supplier write to approval (a retire and a takedown look the same here).
+  if (prior) throw new Error('This photo was taken out of that inspiration earlier, so it stays out. Pick another inspiration, or ask Setnayan.');
+
+  const media = Array.isArray(file.supplier_media) ? file.supplier_media[0] : file.supplier_media;
+  const at = parseStoredAsset(media?.r2_ref ?? null);
+  if (!at || at.kind !== 'r2' || !at.key.startsWith(`supplier-files/${profile.vendor_profile_id}/`)) {
+    throw new Error('That photo could not be opened. Upload it to Files again.');
+  }
+  let bytes: Uint8Array;
+  try {
+    bytes = (await r2GetBytes({ bucket: at.bucket, key: at.key })).bytes;
+  } catch {
+    throw new Error('That photo could not be opened just now — please try again in a moment.');
+  }
+
+  const result = await storeScreenedAsset({
+    admin,
+    userId,
+    profile,
+    bytes,
+    contentType: null,
+    row: {
+      asset_type: SUPPLIER_GALLERY_ASSET_TYPE,
+      asset_subtype: slot.slotKey,
+      label: `${libraryPartLabel(slot.slotKey, parts) ?? 'Inspiration'} · from an event`,
+      source: 'stylist_upload',
+      // EVENT-LINKED: the event the photo was filed on (the trigger `inspiration_tag_follows_its_files_photo` copies it
+      // from the Files photo as well). Never read by a couple — source_event_id stays revoked from anon/authenticated.
+      source_event_id: file.event_id,
+      vendor_service_id: card.vendorServiceId,
+      event_file_id: file.file_id,
     },
   });
 

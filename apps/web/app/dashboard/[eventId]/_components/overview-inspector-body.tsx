@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { ArrowRight } from 'lucide-react';
 import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 
@@ -58,27 +59,20 @@ export function OverviewDecisionInspector({
         <div className="flex flex-wrap items-center gap-2">
           {chip ? (
             <span
-              className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
+              className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-semibold"
               style={chipStyle}
             >
               {chip}
             </span>
           ) : null}
-          <span className="rounded-full border border-ink/10 px-2.5 py-0.5 text-[11px] font-medium text-ink/55">
-            {groupSub}
-          </span>
+          <Badge tone="quiet">{groupSub}</Badge>
         </div>
         <p className="text-sm leading-relaxed text-ink/75">{sub}</p>
-        {why ? <p className="text-sm leading-relaxed text-ink/60">{why}</p> : null}
+        {why ? <p className="text-sm leading-relaxed text-ink/75">{why}</p> : null}
         {/* The SAME action the row offers — this decision's own CTA to its room. */}
-        <Link
-          href={href}
-          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-transform hover:-translate-y-0.5"
-          style={{ background: 'var(--sn-gold-700)', color: 'rgb(var(--color-cream))' /* white in light; the page colour in dark, where the gold goes light */ }}
-        >
-          {ctaLabel}
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 5 · 14): the one main terracotta pill, not a hand-painted gold one;
+            the group line is the shared soft chip (no outline). */}
+        <ActionButton tone="brand" main href={href} icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={ctaLabel} />
       </div>
     </InspectorColumn>
   );
@@ -96,7 +90,6 @@ export function OverviewWatchInspector({
   copy: string;
 }) {
   const isGuard = category === 'guard';
-  const color = isGuard ? 'var(--sn-info)' : 'var(--sn-gold-600)';
   const roleLabel = isGuard ? 'Guard' : 'Secretary';
   return (
     <InspectorColumn
@@ -106,16 +99,16 @@ export function OverviewWatchInspector({
       ariaLabel="Sai on watch"
     >
       <div className="space-y-3">
-        <p
-          className="font-mono text-[11px] font-bold uppercase tracking-[0.13em]"
-          style={{ color }}
-        >
-          {roleLabel} · {templateId}
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 13 · 14): grey capitals in the words' own font, not a coloured typewriter
+            caption; the guard's template id is no longer printed as words (a programmer label) — it stays on the line's
+            title for whoever needs to trace it. */}
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" title={templateId}>
+          {roleLabel}
         </p>
         <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
           {copy}
         </p>
-        <p className="text-xs text-ink/45">
+        <p className="text-[13px] text-ink/75">
           A background guard surfaced this — it only speaks up when something
           changes. There&rsquo;s nothing you must do.
         </p>

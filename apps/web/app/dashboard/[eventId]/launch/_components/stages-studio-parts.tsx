@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -116,19 +117,11 @@ export function StageSwitch({
         >
           <span aria-hidden data-stage-pill-dot="" className="h-[7px] w-[7px] shrink-0 rounded-full bg-sn-on-accent" />
           <span className="min-w-0 truncate">{name ?? MAKER_SIDE_LABEL.stages}</span>
-          <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-300 motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
+          <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-sn-elem motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
         </button>
       ) : (
         <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2">
-          <button
-            type="button"
-            aria-label={`Close ${editor.label}`}
-            data-stage-editor-close=""
-            onClick={close}
-            className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-1 ring-ink/10"
-          >
-            <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.2} />
-          </button>
+          <ActionButton tone="neutral" iconOnly icon={X} label={`Close ${editor.label}`} onClick={close} data-stage-editor-close="" className="shrink-0" />
           <h1 data-stage-editor-title="" className="min-w-0 truncate text-[16px] font-semibold text-ink">
             {editor.label}
           </h1>
@@ -253,10 +246,10 @@ export function MakerSheet({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
+        className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-sn-md ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
-        <p className="flex shrink-0 items-baseline gap-2 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+        <p className="flex shrink-0 items-baseline gap-2 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">
           {label}
           {aside ? <span className="ml-auto" data-maker-sheet-aside="">{aside}</span> : null}
         </p>
@@ -338,7 +331,7 @@ export function LowerThirdGrab({ px, onPx }: { px: number | null; onPx: (px: num
       }}
       className="flex h-6 w-full shrink-0 touch-none items-center justify-center"
     >
-      <span aria-hidden className={`h-[5px] rounded-full transition-[width,background-color] duration-150 ${dragging ? 'w-14 bg-gild' : 'w-11 bg-ink/20'}`} />
+      <span aria-hidden className={`h-[5px] rounded-full transition-[width,background-color] duration-sn-micro ${dragging ? 'w-14 bg-gild' : 'w-11 bg-ink/20'}`} />
     </button>
   );
 }

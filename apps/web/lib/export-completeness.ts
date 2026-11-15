@@ -129,6 +129,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'event_stage_notes', decision: 'exported', as: 'stage_notes_sent' },
   { table: 'founder_seats', decision: 'exported', as: 'founder_seat' },
   { table: 'guest_saved_vendors', decision: 'exported', as: 'saved_suppliers' },
+  { table: 'notice_closes', decision: 'exported', as: 'notices_closed' },
   { table: 'help_messages', decision: 'exported', as: 'help_messages_sent' },
   { table: 'referral_codes', decision: 'exported', as: 'referral_codes' },
   { table: 'service_slot_reservations', decision: 'exported', as: 'reservations_made' },
@@ -316,7 +317,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     table: 'admin_scopes',
     decision: 'excluded',
     why:
-      'Staff console configuration (admin areas × levels, 2026-11-13, migration 20271344663185): which admin areas an ' +
+      'Staff console configuration (admin areas × levels, 2026-11-13, migration 20271348365823): which admin areas an ' +
       'account may act in. The same kind of fact as the users.is_team_member flag, which the export already carries on ' +
       'the profile; `granted_by` is an actor stamp (SET NULL on delete) and no customer data is held here.',
   },

@@ -105,11 +105,11 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   // different gold from the two beside it reads as a bug.
   ['vendors/[vendorId]/workspace/_components/colour-access-card.tsx', 1],
   // The RA 10173 consent modal, moved here from the Hosts page in the Hosts
-  // fold (2026-09-30): the ShieldCheck ICON and three CHECKBOX accents —
+  // fold (2026-09-30): the ShieldCheck ICON and the one shared CHECKBOX class (template T10, 14 Nov 2026) —
   // non-text, 3:1 — never a word.
-  ['vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx', 4],
+  ['vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx', 2],
   ['vendors/[vendorId]/workspace/_components/deposit-reservation.tsx', 1],
-  ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 2],
+  ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/host-service-details.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/quote-bridge.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx', 1],
@@ -119,9 +119,7 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   ['vendors/_components/build-compare.tsx', 2],
   ['vendors/_components/build-locked.tsx', 1],
   ['vendors/_components/merkado-guard-banner.tsx', 1],
-  ['vendors/_components/pending-lock-proposals.tsx', 1],
   ['vendors/_components/quote-fill.tsx', 1],
-  ['vendors/_components/reuse-bookings-panel.tsx', 1],
   ['vendors/_components/services-takeover.tsx', 2],
   ['vendors/_components/vendor-quickview-inspector.tsx', 1],
   ['vendors/packages/[bookingId]/page.tsx', 1],

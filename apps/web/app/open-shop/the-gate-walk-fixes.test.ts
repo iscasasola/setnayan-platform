@@ -216,8 +216,8 @@ test('A10 · one line, the numbers inside the ⓘ, still before "Open my shop"',
   const at = WIZARD.indexOf('data-testid="open-shop-fee-disclosure"');
   assert.ok(at > 0);
   const line = WIZARD.slice(at, WIZARD.indexOf('</p>', WIZARD.indexOf('</InfoTip>', at)));
-  // The sentence IS the ⓘ's label (2026-11-06, the prototype: "…through Setnayan ⓘ", no full stop before the ⓘ).
-  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan"/);
+  // The sentence IS the ⓘ's label (2026-11-06). Walk 13 Nov (F-W1-12): it ends with a full stop like every other line.
+  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan\."/);
   assert.match(line, /<InfoTip[\s\S]*\{feeNotice\.detail\}/, 'the numbers left the ⓘ');
   assert.ok(at < WIZARD.indexOf('Open my shop — free'), 'the fee line moved below the button');
 });

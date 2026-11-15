@@ -24,13 +24,13 @@ export function InviteLink({ url }: { url: string }) {
   }
 
   return (
-    <div className="flex items-stretch gap-2 rounded-lg border border-ink/10 bg-cream p-1">
+    <div className="flex min-h-12 items-stretch gap-2 rounded-xl bg-cream p-1 ring-1 ring-ink/15">
       <input
         readOnly
         value={url}
         aria-label="Your guest invite link"
         onFocus={(e) => e.currentTarget.select()}
-        className="min-w-0 flex-1 bg-transparent px-2.5 py-2 font-mono text-xs text-ink/85 outline-none"
+        className="min-w-0 flex-1 bg-transparent px-2.5 py-2 text-xs text-ink/85 outline-none tabular-nums"
       />
       <button
         type="button"

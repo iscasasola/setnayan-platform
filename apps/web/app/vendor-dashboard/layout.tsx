@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { NoticeSlot } from '@/app/_components/notices/notices';
+import { VendorNoticeTop } from './_components/vendor-notice-top';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -670,11 +672,14 @@ export default async function VendorDashboardLayout({
               is left at every width is the floating thumb row's measured room
               (`--sn-thumb-room`, lib/thumb-room.ts). */}
           <div className="pb-[max(calc(env(safe-area-inset-bottom)+92px),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]">
-            {/* Live vendor deal announcement (self-gates to null when
-                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
-                vendor right now). */}
-            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            {/* 🔔 The supplier pages' TOP for notices (one notice system, owner approved 14 Nov 2026) — every page but
+                Today, whose top sits under the photo (badge-earned-line.tsx). */}
+            <VendorNoticeTop />
             <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
+            {/* Live vendor deal — an OFFER, registered for the END of the page (one notice system). Self-gates to null when
+                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS vendor right now. */}
+            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            <NoticeSlot place="end" className="mt-6 px-4" />
           </div>
         </main>
       </div>

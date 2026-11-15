@@ -53,6 +53,7 @@ import { CalendarDays, Check, Eye, EyeOff, ImageIcon, Info, MessageCircle, Play,
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CardRecordSection } from '@/app/_components/card-record-section';
+import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { VerifiedBookingMark } from '@/app/_components/service-card-view';
@@ -406,7 +407,12 @@ export function ServiceDetailsSheet({
     });
   }
   // ── EVENTS, without names — the record's anonymised lines (type · month · guest band) ──
-  if (eventLines.length > 0) {
+  // 🃏📸 …and, while the record flag is on, the photos of the events this card was booked on (DECISION_LOG 2026-10-08,
+  // frame 77): type · venue · month, the same set the supplier's Their work shows, by reference. Absent → as before ·
+  // none yet → nothing added · a refused read → "Couldn't load", never drawn as nothing.
+  const work = c.eventWork;
+  const workShown = work === null || (work !== undefined && work.length > 0);
+  if (eventLines.length > 0 || workShown) {
     sections.push({
       key: 'events',
       title: 'Events',
@@ -431,6 +437,11 @@ export function ServiceDetailsSheet({
               )}
             </li>
           ))}
+          {workShown ? (
+            <li className={eventLines.length > 0 ? 'pt-2' : ''} data-grown-event-work="">
+              <CardPortfolioSection work={work ?? null} variant="couple" retryHref={typeof window === 'undefined' ? null : `${window.location.pathname}${window.location.search}`} />
+            </li>
+          ) : null}
         </ul>
       ),
     });

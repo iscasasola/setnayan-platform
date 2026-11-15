@@ -88,7 +88,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     live: true,
   },
   /**
-   * 🎛 THE EVENT HUB ⚙ (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+   * 🎛 THE EVENT HUB ⚙ (owner 2026-10-30, DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV STAYS"): the
    * right end of the Hub's pinned row — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙ (`maker-shell.tsx`). Its sheet is "Your Event
    * Hub": Go live · who can view · which version · open browsing · the QR — what the Maker's "Your Event Hub" sheet held.
    */

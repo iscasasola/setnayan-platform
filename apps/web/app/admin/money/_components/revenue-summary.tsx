@@ -1,7 +1,8 @@
+import { Explain } from '@/app/_components/explain';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/orders';
-import { revenueStatement, revenueScopeNote } from '@/lib/admin/revenue-statement';
+import { revenueStatement, revenueScopeNote, splitPaidRevenue } from '@/lib/admin/revenue-statement';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -22,8 +23,8 @@ export async function RevenueSummary() {
     // `lapsed` is paid money too: a subscription whose term ran out, or a service
     // switched off when its value became Papic credits (owner 2026-11-05). Only a
     // `paid` order is ever lapsed, and nothing was sent back — so it stays revenue.
-    admin.from('orders').select('requested_total_php, status').in('status', ['paid', 'fulfilled', 'lapsed']),
-    admin.from('booking_fee_charges').select('amount_charged_centavos').eq('status', 'paid'),
+    admin.from('orders').select('requested_total_php, status, service_key').in('status', ['paid', 'fulfilled', 'lapsed']),
+    admin.from('booking_fee_charges').select('charge_id, amount_charged_centavos').eq('status', 'paid'),
     admin.from('order_refunds').select('refund_amount_centavos'),
     admin.from('receipts').select('gross_total_php'),
   ]);
@@ -49,16 +50,17 @@ export async function RevenueSummary() {
     );
   }
 
-  const orders = ordersRes.data ?? [];
-  const fees = feesRes.data ?? [];
+  // 🧾 F-A-02: a booking fee paid through its order counts under Booking fees, never under Software sales.
+  const split = splitPaidRevenue(ordersRes.data ?? [], feesRes.data ?? []);
   const s = revenueStatement({
-    softwarePhp: orders.reduce((a, o) => a + Number(o.requested_total_php ?? 0), 0),
-    bookingFeePhp: fees.reduce((a, f) => a + Number(f.amount_charged_centavos ?? 0) / 100, 0),
+    softwarePhp: split.softwarePhp,
+    bookingFeePhp: split.bookingFeePhp,
     refundedPhp: (refundsRes.data ?? []).reduce((a, r) => a + Number(r.refund_amount_centavos ?? 0) / 100, 0),
     receiptCount: (receiptsRes.data ?? []).length,
     receiptPhp: (receiptsRes.data ?? []).reduce((a, r) => a + Number(r.gross_total_php ?? 0), 0),
-    paidOrderCount: orders.length,
-    paidFeeCount: fees.length,
+    paidOrderCount: split.paidOrderCount,
+    paidFeeCount: split.paidFeeCount,
+    paidFeeOrderCount: split.paidFeeOrderCount,
   });
 
   const Row = ({ label, value, note }: { label: string; value: string; note?: string }) => (
@@ -73,7 +75,13 @@ export async function RevenueSummary() {
 
   return (
     <section className="mb-6 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <h2 className="text-sm font-semibold text-ink">Revenue, all time</h2>
+      {/* ⓘ F-A-21 (admin walk, round 2): what the total counts sits behind the ⓘ, not as five lines under the card. */}
+      <div className="-my-3 flex items-center gap-0.5">
+        <h2 className="text-sm font-semibold text-ink">Revenue, all time</h2>
+        <Explain title="What this counts" label="What the revenue total counts" data="revenue-scope">
+          {revenueScopeNote(s)}
+        </Explain>
+      </div>
       <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-ink">
         {formatPhp(s.netPhp)}
       </p>
@@ -86,7 +94,6 @@ export async function RevenueSummary() {
       <div className="mt-3 border-t border-dashed border-ink/15 pt-2">
         <Row label="Receipts issued" value={formatPhp(s.receiptPhp)} note={`${formatCount(s.receiptCount)} · not counted in the total`} />
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-ink/55">{revenueScopeNote(s)}</p>
     </section>
   );
 }

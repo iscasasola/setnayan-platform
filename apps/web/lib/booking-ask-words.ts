@@ -50,6 +50,14 @@ export function askLine(state: AskState, viewer: AskViewer): string {
   return `${ASKED} · ${OUTCOME[state][viewer]}`;
 }
 
+/**
+ * 📅 AGREED, NOT YET PAID (owner 13 Nov 2026, "until first payment is completed" — ruling 5 of 27 Jul kept): the
+ * supplier said yes, so the booking IS booked; the date is held only once the first payment is in. Never "Asking".
+ * Drawn as the Booked badge with this line beside it on the supplier's calendar and schedule.
+ */
+export const BOOKED_DATE_HELD_LINE = 'Date held once the first payment is in';
+export const BOOKED_DATE_HELD = `Booked · ${BOOKED_DATE_HELD_LINE.charAt(0).toLowerCase()}${BOOKED_DATE_HELD_LINE.slice(1)}`;
+
 /** After a no, a lapse or a take-back the couple may simply ask again (the
  *  shipped rule — `lib/bench-card-actions.ts` offers Book again). */
 export const ASK_AGAIN = 'you can ask again';

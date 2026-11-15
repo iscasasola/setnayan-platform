@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type ComponentProps, type FormEvent, type FormHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { useRef, useState, useTransition, type ComponentProps, type FormEvent, type FormHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { saveInPlace } from '@/app/_actions/save-in-place';
 import { COULD_NOT_SAVE, type StayResult } from '@/lib/save-in-place';
 import { ConfirmForm } from './confirm-form';
@@ -32,6 +32,7 @@ export function StayForm({
   onSaved,
   resetOnSaved,
   save,
+  sayNote,
   ref,
   children,
   ...rest
@@ -47,6 +48,9 @@ export function StayForm({
   resetOnSaved?: boolean;
   /** The saver — `saveInPlace` itself, unless a screen's actions context hands in its own (the Guests lab's stand-ins). */
   save?: StaySave;
+  /** ✅ Say the door's own news line (`StayWords.note`) under the form once a save lands — for a press whose result is
+   *  not otherwise visible on the page (walk 13 Nov 2026, F-W1-69: "Send link" sent with no word that it had). */
+  sayNote?: boolean;
   children: ReactNode;
 } & Omit<FormHTMLAttributes<HTMLFormElement>, 'action' | 'onSubmit' | 'children'>) {
   const stay = useStaySubmit(door, onSaved, resetOnSaved, save);
@@ -56,6 +60,7 @@ export function StayForm({
         {children}
       </form>
       {stay.refusal}
+      {sayNote ? stay.saved : null}
     </>
   );
 }
@@ -86,19 +91,31 @@ export type StaySave = (door: StayDoor, fd: FormData) => Promise<StayResult>;
 
 export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved = true, save: StaySave = saveInPlace) {
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  /* 👆 ONE PRESS, ONE SEND (walk 13 Nov 2026, F-W1-69): a second press while the first is still on its way is the same
+     press — it is ignored, never a second save racing the first (and the form's reset after it). */
+  const inFlight = useRef(false);
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     const form = e.currentTarget;
     const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
     const fd = new FormData(form, submitter ?? undefined);
     setError(null);
+    setNote(null);
     start(async () => {
-      const r = await save(door, fd).catch(() => ({ ok: false as const, error: COULD_NOT_SAVE }));
-      if (!r.ok) setError(r.error);
-      else {
-        if (resetOnSaved) form.reset();
-        onSaved?.();
+      try {
+        const r = await save(door, fd).catch(() => ({ ok: false as const, error: COULD_NOT_SAVE }));
+        if (!r.ok) setError(r.error);
+        else {
+          if (r.note) setNote(r.note);
+          if (resetOnSaved) form.reset();
+          onSaved?.();
+        }
+      } finally {
+        inFlight.current = false;
       }
     });
   };
@@ -110,5 +127,11 @@ export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved
       {error}
     </p>
   ) : null;
-  return { onSubmit, pending, refusal };
+  const saved = note ? (
+    <p role="status" className="text-[12.5px] leading-snug text-success-800" data-stay-saved={door}>
+      {note}
+    </p>
+  ) : null;
+  // `saved` is drawn only where a form asks for it (`StayForm sayNote`) — every other screen shows its news its own way.
+  return { onSubmit, pending, refusal, saved };
 }

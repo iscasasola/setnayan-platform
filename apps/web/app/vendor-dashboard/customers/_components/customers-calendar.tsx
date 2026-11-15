@@ -12,7 +12,7 @@ import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type Ca
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
-import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
+import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, withAgreedDot, type DatesBlock, type DatesBooking, type DatesInquiry, type DayRow } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
 import { DayBar } from './day-bar';
@@ -133,7 +133,7 @@ export function CustomersCalendar({
   initialDayStatesRead?: boolean;
   initialWaitlist: WaitlistDateGroup[];
   /** Dates couples are asking about, counted (`pendingInquiryDates`). */
-  inquiries?: { requestedDate: string; count: number }[];
+  inquiries?: DatesInquiry[];
   /** 'YYYY-MM' of the first-painted month. */
   initialMonth: string;
   /** The day picked on arrival; null = none (the one Clients screen opens on its whole list, v113). */
@@ -213,14 +213,16 @@ export function CustomersCalendar({
     );
   }, [month, monthInputs, shownPools, bookings, blocks, todayIso, inquiries]);
 
+  // 📅 F-W1-68: the agreed, not-yet-paid bookings per day — Booked (a dot and a row), never counted as asking.
+  const agreedOn = useMemo(() => new Map(inquiries.filter((i) => i.agreed?.length).map((i) => [i.requestedDate, i.agreed!])), [inquiries]);
   const readStates = useMemo(() => {
     const out = new Map<CalendarDay, CalendarDayState>();
     for (const d of data.days) {
-      const st = dayStateOf(d);
+      const st = withAgreedDot(dayStateOf(d), agreedOn.has(d.date));
       if (st) out.set(d.date, st);
     }
     return out;
-  }, [data.days]);
+  }, [data.days, agreedOn]);
 
   // 🎉 #29 ACCEPT BOOKINGS IS FELT: the day bar's switch is flipped → the day's cell (month + week strip) is struck /
   // un-struck AT ONCE, in the picked fill too, from what the switch now SHOWS — not when the write's re-read lands.
@@ -461,6 +463,7 @@ export function CustomersCalendar({
       blocks,
       holds,
       asking: at?.inquiryCount ?? 0,
+      agreed: agreedOn.get(day) ?? [],
       waiting: at?.waitlistCount ?? 0,
     });
   };

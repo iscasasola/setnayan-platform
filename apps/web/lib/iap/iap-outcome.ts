@@ -3,7 +3,7 @@
  *
  * Prototype `in_app_purchase_screens_2026-10-17_fable.html` frames 6–9:
  *   success   — said ONLY once our server verified Apple's transaction and
- *               switched the item on ("Event Hub Pro is on");
+ *               switched the item on ("Event Pro is on");
  *   pending   — Apple confirmed, we are still switching it on: never "success",
  *               never a spinner forever ("Switching it on…");
  *   cancelled — the person closed Apple's sheet: "Nothing was charged.";

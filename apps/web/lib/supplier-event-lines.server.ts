@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { readInChunks } from '@/lib/read-all-pages';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -57,7 +58,7 @@ export async function readSupplierEventLines(
   if (ids.length === 0) return out;
   const me = input.vendorProfileId;
 
-  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead, honoreesRead] = await Promise.all([
+  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead, honoreesRead, perGuest] = await Promise.all([
     readInChunks<{
       thread_id: string;
       event_id: string;
@@ -144,6 +145,8 @@ export async function readSupplierEventLines(
         .in('role', ['bride', 'groom', 'celebrant'])
         .in('event_id', part),
     ),
+    // 👥 RW-08: this shop's claimed per-guest bookings (null = refused → the shipped count).
+    readShopPerGuest(admin, me, ids).catch(() => null),
   ]);
   for (const [site, r] of [
     ['threads', threadsRead],
@@ -312,7 +315,13 @@ export async function readSupplierEventLines(
     });
     const requestedIds = asked.askedIds;
     const requested = planRead.error || interestsRead.error ? null : asked.requested;
-    const eventCategories = (planOf.get(eventId) ?? []).map((r) => r.category).filter((c): c is string => Boolean(c));
+    // 🧾 OWN-03 (live 14 Nov): "their plan" is what the COUPLE added — never this shop's own row, which the inquiry
+    // itself wrote under the first pick's category. Counting it said "They added this to their plan" beside every other
+    // service the shop has in that category, none of which the couple picked.
+    const eventCategories = (planOf.get(eventId) ?? [])
+      .filter((r) => r.marketplace_vendor_id !== me)
+      .map((r) => r.category)
+      .filter((c): c is string => Boolean(c));
     const eventTiles = tilesForVendorCategories(mine.map((r) => r.category).filter((c): c is string => Boolean(c)));
     const first = t?.is_returning && t.created_by_user_id
       ? earlier.find((e) => e.created_by_user_id === t.created_by_user_id && e.event_id !== eventId) ?? null
@@ -343,7 +352,10 @@ export async function readSupplierEventLines(
               windowEnd: ev.date_window_end,
             })
           : null),
-      pax: t?.pax_current ?? t?.pax_at_inquiry ?? ev?.estimated_pax ?? null,
+      // 👥 RW-08: a claimed per-guest booking counts the couple's guests (the figure it bills) — never the event's
+      // estimate, which on Wanda & Indigo read 150 against 4 counted.
+      perGuest: perGuest?.get(eventId) ?? null,
+      pax: perGuest?.get(eventId)?.guests ?? t?.pax_current ?? t?.pax_at_inquiry ?? ev?.estimated_pax ?? null,
       hosts: membersRead.error || usersRead.error
         ? null
         : [

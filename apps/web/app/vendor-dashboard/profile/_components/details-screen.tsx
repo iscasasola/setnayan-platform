@@ -219,14 +219,6 @@ export function DetailsScreen({
                 showProgress={false}
                 asks={asks}
               />
-              <p className="flex flex-wrap gap-2" data-details-confirmed="">
-                <Badge tone={d.verify.phoneConfirmedAt ? 'ok' : 'quiet'} data="phone-confirmed">
-                  {d.verify.phoneConfirmedAt ? 'Phone confirmed' : 'Phone not confirmed yet'}
-                </Badge>
-                <Badge tone={d.verify.emailConfirmedAt ? 'ok' : 'quiet'} data="email-confirmed">
-                  {d.verify.emailConfirmedAt ? 'Email confirmed' : 'Email not confirmed yet'}
-                </Badge>
-              </p>
               <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} fairWords={d.fairWords} />
               <VisibilityCard
                 initialSameDayAvailable={d.sameDayAvailable}

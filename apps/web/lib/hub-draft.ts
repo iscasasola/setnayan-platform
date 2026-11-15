@@ -11,7 +11,7 @@
  *   Save    — a changed key goes into the draft; guests still see the live page.
  *   Apply   — the draft's keys are written to the live columns, in a fixed order,
  *             each classified by the ONE look rule (`lib/hub-look-pro.ts`). A
- *             Pro key without Event Hub Pro is REFUSED and STAYS in the draft, so
+ *             Pro key without Event Pro is REFUSED and STAYS in the draft, so
  *             the couple who tried it can pay and Apply again without redoing it.
  *   Restore — the draft is thrown away; the preview matches the guest link again.
  *   Reset   — the page we wrote, for one stage, written INTO THE DRAFT (so it can
@@ -474,7 +474,7 @@ export const HUB_DRAFT_WORDS_COLUMNS = [
  * *"yes to all 3, do the follow-up"* — DECISION_LOG "TRY-THEN-PAY REACHES THE
  * LAST THREE PRO TOOLS…"). Each used to save LIVE and send a couple without
  * Pro to the buy page; now each is drafted, drawn on the host's canvas and
- * named on the Apply sheet, and Apply writes it only with Event Hub Pro:
+ * named on the Apply sheet, and Apply writes it only with Event Pro:
  *
  *   · background music + the hero video (`updateSiteChrome`) —
  *     `site_bg_music_r2_key` · `site_bg_music_enabled` ·
@@ -814,7 +814,7 @@ export type HubDraftWidget = {
    * re-reads it through `readVenueChoices` (this event's own photos only).
    * ⛪ A card's `drawing: true` ("Our drawing ◆", owner 2026-10-16) is the one
    * Pro key in the bag: turning it ON is held at Apply for a couple without
-   * Event Hub Pro (`venueBagNewDrawings`); the rest of the bag still goes live.
+   * Event Pro (`venueBagNewDrawings`); the rest of the bag still goes live.
    */
   venue?: HubDraftVenueChoices;
   /**
@@ -852,7 +852,7 @@ export function draftVenueChoices(raw: unknown): HubDraftVenueChoices {
 /**
  * ⛪ THE ONE PRO KEY IN A VENUE BAG (owner 2026-10-16, "A VENUE CARD'S PICTURE IS
  * THE COUPLE'S CHOICE"): the cards whose "Our drawing ◆" the next bag turns ON
- * where the live bag does not have it. Event Hub Pro — tried in the draft, held
+ * where the live bag does not have it. Event Pro — tried in the draft, held
  * at Apply for a couple without it, and named on the Apply sheet. Turning a
  * drawing OFF (back to the photo, or None) is never Pro.
  */
@@ -902,7 +902,7 @@ export type HubDraftState = {
    */
   march?: MarchStep[][];
   /**
-   * 💎 A CUSTOM ADDRESS TRIED IN THE MAKER (owner 2026-10-22, "Event Hub Pro, part by part"): the couple's own
+   * 💎 A CUSTOM ADDRESS TRIED IN THE MAKER (owner 2026-10-22, "Event Pro, part by part"): the couple's own
    * setnayan.com/… typed under "Pick your own ◆", held here — never saved on the Details page itself. Apply renames the
    * event to it (`renameEventSlug`, the shipped rename: conflict checks, the old link forwarding) when the event holds
    * the Custom address part; until then guests use the address they have. Absent = nothing drafted.
@@ -1659,7 +1659,7 @@ export type HubDraftItem =
       column: HubDraftEventColumn;
       value: unknown;
       change: LookChange;
-      /** Would this write need Event Hub Pro for a couple without it? */
+      /** Would this write need Event Pro for a couple without it? */
       pro: boolean;
       /**
        * 🎉 Set only on the FREE PART of a held RSVP config (`rsvpAskFreePart`) —
@@ -1935,7 +1935,7 @@ function draftedSectionWordOf(live: unknown, key: string): string | null {
 }
 
 /**
- * Does THIS drafted value need Event Hub Pro to Apply? The one rule per column:
+ * Does THIS drafted value need Event Pro to Apply? The one rule per column:
  * a look column (`HUB_LOOK_EVENT_COLUMNS`) when it adds or changes; the reveal
  * when the value is an opening (never "No reveal" or clearing it — both free);
  * the Logo never (its animation is gated where it plays, not where it is saved).
@@ -1968,21 +1968,21 @@ export function eventItemIsPro(
   // only a new or different song is Pro — that is `site_bg_music_r2_key`.
   if (column === 'site_bg_music_enabled') return false;
   // 🎉 The When yes celebration (owner 2026-10-06): adding or changing an
-  // effect is Event Hub Pro; the RSVP's words, switches and going back to None
+  // effect is Event Pro; the RSVP's words, switches and going back to None
   // never are — so the WHOLE config is Pro only while it carries a new effect
   // (and Apply still writes its free part — `rsvpAskFreePart`).
   // 💎 …and a reply line's own Style (colour · font · size · its picture's look) or Build in, or a card's or a group's
   // Build in (owner 2026-10-16, "all animate, effects, styles, accents are pro") — `rsvpLookGrowing`.
   if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value) || rsvpLookGrowing(live, value).length > 0;
-  // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
+  // 🔳 The QR's shape · pattern · colour are Event Pro (`updateQrStyle`);
   // going back to the plain code is a removal, which is free.
-  // 🕯 …or turns a scene's accent ON (Event Hub Pro while `ART_KIT_IS_PRO`; turning one off is free).
+  // 🕯 …or turns a scene's accent ON (Event Pro while `ART_KIT_IS_PRO`; turning one off is free).
   // 💎 …or (2026-10-16, "all animate, effects, styles, accents are pro") gives a fixed block a motion it does not
   // have live. Each part is asked by `stylePreferencesProParts`.
   if (column === 'style_preferences') return stylePreferencesProParts(live, value).length > 0;
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
-    // 2026-09-29) are free; every other theme is Event Hub Pro (owner 2026-09-28,
+    // 2026-09-29) are free; every other theme is Event Pro (owner 2026-09-28,
     // "WHAT IS FREE VS PRO … REDRAWN": "only when you start adding themes will
     // it be pro"). Going back to Classic is always free.
     const id = normalizeThemeId(value);
@@ -1996,7 +1996,7 @@ export function eventItemIsPro(
   }
   // 🎵 A song from "Our music" (the list Setnayan uploads, owner 2026-10-08 —
   // the approved Look restudy offers it as "Setnayan’s own songs, by mood ·
-  // free to use") is free to pick. The couple's OWN song stays Event Hub Pro.
+  // free to use") is free to pick. The couple's OWN song stays Event Pro.
   // Which one it is, is read off the stored reference (`lib/hub-music-ref.ts`);
   // Apply separately admits that reference only while its track is published.
   if (column === 'site_bg_music_r2_key' && isHubMusicRef(value)) return false;
@@ -2117,7 +2117,7 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas,
   }
   out.push({ key: 'video', group: 'playback', change: refChange(asText(live.video), asText(next.video)) });
   /* 🖼 THE COVER SCENE'S BACKGROUND (`canvas.ground`, the hero row's — owner-approved 2026-10-15): Scene ◆ (a
-     ready-made loop) and Upload ◆ (a photo) are Event Hub Pro by the shipped rule (`BACKGROUND_SOURCE_IS_PRO`);
+     ready-made loop) and Upload ◆ (a photo) are Event Pro by the shipped rule (`BACKGROUND_SOURCE_IS_PRO`);
      Colour is free and taking either off is free. Without this facet a free couple could draft a loop on the cover
      and Apply it — the gate would see no look key change at all. */
   out.push({ key: 'ground', group: 'media', change: refChange(coverGroundProRef(live), coverGroundProRef(next)) });
@@ -2187,7 +2187,7 @@ function runStyles(style: HubElementStyle | undefined): string | null {
 
 const grows = (c: LookChange) => c === 'add' || c === 'change';
 
-/** Does this facet need Event Hub Pro to go live (it adds or changes a look)? */
+/** Does this facet need Event Pro to go live (it adds or changes a look)? */
 export function canvasFacetGrows(f: CanvasLookFacet): boolean {
   return grows(f.change);
 }
@@ -2328,7 +2328,7 @@ export function presetSceneOf(canvas: HubSectionCanvas): string | null {
 export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
   /* 🖼 "The theme's background" and "None — just the colour" carry no media
      and no tint: going to either is a removal (free), never an addition. */
-  /* 🎞 A moving background of ours is an ADDITION like media (Event Hub Pro, owner
+  /* 🎞 A moving background of ours is an ADDITION like media (Event Pro, owner
      2026-10-05): going to one, or from one loop to another, is never free. */
   const ref = (m: HubMainGround | null) => (isHubMainOwn(m) ? `${m.kind}:${m.media}` : isHubMainLoop(m) ? `loop:${m.loop}` : null);
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
@@ -2613,7 +2613,7 @@ export function classifyHubDraft(
     }
     /* 🏛 The venue cards' source and photo — compared as the page reads the
        bag; the value written is the WHOLE merged bag. Free — except ⛪ "Our
-       drawing ◆" turned ON on a card (owner 2026-10-16): that is Event Hub Pro,
+       drawing ◆" turned ON on a card (owner 2026-10-16): that is Event Pro,
        an 'add' the gate holds for a couple without it (its free part — every
        photo and source edit — still goes live; see `planHubDraftApply`). */
     if (w.venue !== undefined && type === 'venue_map') {
@@ -2657,7 +2657,7 @@ export function classifyHubDraft(
     }
   }
   // 🎨 The fixed parts' style picks, last — each compared with what is live.
-  // 💎 A style card that is not the theme's own is Event Hub Pro ◆ (owner 2026-10-16, "everything in Style is Pro …
+  // 💎 A style card that is not the theme's own is Event Pro ◆ (owner 2026-10-16, "everything in Style is Pro …
   // style cards on a part") — the scene registry's one rule (`sceneStyleIsPro`); back to the default is free, and a
   // card already live is no change at all (grandfathered).
   for (const [scene, value] of Object.entries(draft.fixedStyles ?? {}) as Array<[StyledScene, string | null]>) {
@@ -2683,7 +2683,7 @@ export function classifyHubDraft(
 export type HubDraftApplyPlan = {
   /** Written, in this order. */
   apply: HubDraftItem[];
-  /** Refused: Pro keys for a couple without Event Hub Pro. They stay in the draft. */
+  /** Refused: Pro keys for a couple without Event Pro. They stay in the draft. */
   refused: HubDraftItem[];
   /** The draft that remains after the apply (the refused keys only). */
   remaining: HubDraftState;
@@ -2865,7 +2865,7 @@ function canonicalJson(v: unknown): string {
 }
 
 /**
- * 💎 WHICH PARTS A DRAFTED ITEM NEEDS (owner 2026-10-22, "Event Hub Pro, part by
+ * 💎 WHICH PARTS A DRAFTED ITEM NEEDS (owner 2026-10-22, "Event Pro, part by
  * part") — derived from the SAME comparisons that decided `item.pro`, never a
  * second list of what is Pro: only of WHOSE it is (`lib/hub-parts.ts`).
  * Empty for an item that is not Pro. An item can need several parts at once
@@ -3167,7 +3167,7 @@ export type HubDraftSummary = {
   hasChanges: boolean;
   /** Keys that differ from live. */
   changeCount: number;
-  /** Of those, how many need Event Hub Pro to Apply (0 for an owning couple). */
+  /** Of those, how many need Event Pro to Apply (0 for an owning couple). */
   proCount: number;
   canUndo: boolean;
   /**
@@ -3217,12 +3217,12 @@ export type HubDraftChangeLine = {
   place: string;
   /** What it is — "Buttons", "Venue", "Ceremony time". */
   what: string;
-  /** Would it need Event Hub Pro for a couple without it? (◆, as everywhere.) */
+  /** Would it need Event Pro for a couple without it? (◆, as everywhere.) */
   pro: boolean;
-  /** Held back at this Apply — it needs Event Hub Pro, or the web. */
+  /** Held back at this Apply — it needs Event Pro, or the web. */
   held: boolean;
   /**
-   * 💎 The Event Hub Pro parts this change needs to go live (owner 2026-10-22, part by part) — `hubDraftItemParts`.
+   * 💎 The Event Pro parts this change needs to go live (owner 2026-10-22, part by part) — `hubDraftItemParts`.
    * Empty for a free change. What lets the toolbar say, without asking anybody, which held lines an event that owns
    * some parts would still hold (`hubSummaryFor`).
    */
@@ -3235,7 +3235,7 @@ export type HubDraftChangeLine = {
  * (`hubDraftChangeLines`, lib/hub-draft-change-lines.ts) both walk, so the
  * list can never name more, or fewer, than the badge counts.
  *
- * Each is a plan item; `held` = refused (it needs Event Hub Pro, or the web).
+ * Each is a plan item; `held` = refused (it needs Event Pro, or the web).
  */
 export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean; stage?: LifecyclePhase }> {
   // A held scene's free part is the same scene as its refused twin — one change.

@@ -11,6 +11,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-06-24',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -67,7 +68,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Compare caterers side by side, by city and budget, with zero commission on anything you book.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -230,6 +231,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-19',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -290,7 +292,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Find and compare mobile bar suppliers near your venue, with no booking commission.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -304,6 +306,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-07',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -364,7 +367,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Browse food-cart and snack suppliers, compare packages, and book with zero commission.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -378,6 +381,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-25',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -437,7 +441,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Find cake designers near your venue and compare styles and packages, commission-free.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -451,6 +455,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-14',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -510,7 +515,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Browse florists and stylists by city and style, and book the team that matches your mood board.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -524,6 +529,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-11-02',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -584,7 +590,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Find lights-and-sounds and AV suppliers who know your venue, and compare them commission-free.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -733,7 +739,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'cta',
         text: 'Browse wedding hosts and emcees, watch their work, and book the right voice for your day.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },

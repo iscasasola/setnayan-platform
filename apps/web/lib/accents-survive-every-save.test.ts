@@ -72,7 +72,7 @@ test('THE OWNER’S WALK: an accent on every scene, then a Love Story edit — e
   assert.ok(alone, 'the Love Story sample is not a draftable value');
   assert.deepEqual(draft.events.love_story, alone, 'the Love Story save was lost');
 
-  /* ✓ Apply, owning Event Hub Pro (cale-ice does): the accents are written, nothing is held. */
+  /* ✓ Apply, owning Event Pro (cale-ice does): the accents are written, nothing is held. */
   const live = { events: { style_preferences: liveBlob }, widgets: [] } as unknown as import('./hub-draft').HubLiveState;
   const plan = planHubDraftApply(draft, live, true);
   const item = plan.apply.find((i) => i.kind === 'event' && i.column === 'style_preferences');

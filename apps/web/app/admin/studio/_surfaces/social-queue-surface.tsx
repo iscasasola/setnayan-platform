@@ -382,7 +382,7 @@ export async function SocialQueueSurface({
     (c) => !shareConsentPublishGatePassed(eventMap[c.event_id]?.event_date ?? null),
   );
 
-  // ── New verified vendors awaiting their celebration feature ─────────────
+  // ── New verified vendors awaiting their event feature ─────────────
   const { data: vendorData, error: vendorErr } = await admin
     .from('vendor_profiles')
     .select(
@@ -976,7 +976,7 @@ export async function SocialQueueSurface({
       {/* ── New verified vendors ── */}
       <QueueSection
         title="New verified suppliers"
-        hint="Verification celebration features — unnamed for Free, named for Pro+."
+        hint="Verification event features — unnamed for Free, named for Pro+."
         count={vendorQueue.length}
         loadFailed={Boolean(vendorErr)}
         empty="No suppliers waiting — newly verified suppliers (who haven't opted out) land here."
@@ -1075,7 +1075,7 @@ export async function SocialQueueSurface({
                   Birthday · {(u.birth_date ?? '').slice(5)}
                 </p>
                 <pre className="whitespace-pre-wrap rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 font-sans text-xs text-ink/80">
-                  {`Happy birthday, ${u.display_name || 'friend'}! 🎂 Wishing you a day as wonderful as the celebrations you plan with us. — the Setnayan team`}
+                  {`Happy birthday, ${u.display_name || 'friend'}! 🎂 Wishing you a day as wonderful as the events you plan with us. — the Setnayan team`}
                 </pre>
               </article>
             </li>

@@ -197,7 +197,7 @@ test('words: a part’s own line, or back to the words written from the day', ()
   assert.deepEqual(Object.keys(ch.sceneLooks!), ['chapters']);
 });
 
-/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO
    ◆"): a part's font and colour and the scene's card are Style — held at ✓ Apply for a couple without Pro, each named
    on the sheet; the couple's words beside them still go live. */
 test('a part’s own font, colour and the scene’s card are Pro at Apply — named, held, and written with Pro', () => {

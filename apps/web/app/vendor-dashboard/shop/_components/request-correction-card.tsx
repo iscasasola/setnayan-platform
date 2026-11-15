@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Loader2, MailQuestion } from 'lucide-react';
+import { MailQuestion, Send, X } from 'lucide-react';
+
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -37,6 +42,9 @@ import { SHOP_NAME_MAX } from '@/lib/business-slug';
  * request an admin applies or declines, and the address stays permanent-by-
  * design either way.
  */
+/** Rule 2's section label — small grey capitals, no box. */
+const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]';
+
 export function RequestCorrectionCard({
   currentSlug,
   isVerified,
@@ -131,79 +139,70 @@ export function RequestCorrectionCard({
   }
 
   const available = fields.filter((f) => !alreadyOpen.has(f));
+  // Which other details are changed by asking, too — said under the label.
+  const sameWay = isVerified
+    ? ' Your verified business details work the same way.'
+    : setUpBySetnayan
+      ? ' Setnayan set up your shop, so the name and address we typed work the same way.'
+      : '';
 
   return (
-    <section className="sn-tile space-y-3">
-      <div className="flex items-start gap-3">
-        <MailQuestion aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.75} />
-        <div className="min-w-0 space-y-1">
-          <h3 className="text-sm font-semibold text-ink">Something here is wrong?</h3>
-          <p className="text-sm text-ink/65">
-            Your shop&rsquo;s web address is permanent — it goes on printed cards
-            and QR codes, so neither you nor we can change it casually. If it
-            &rsquo;s wrong, ask us and we&rsquo;ll look at it.
-            {isVerified
-              ? ' Your verified business details work the same way.'
-              : setUpBySetnayan
-                ? ' Setnayan set up your shop, so the name and address we typed work the same way.'
-                : ''}
+    <section className="space-y-3" data-request-correction>
+      <div className="space-y-1">
+        <InfoTip label="Something here is wrong?" labelAs="h3" labelClassName={SECTION_LABEL} align="start">
+          Your shop&rsquo;s web address is permanent — it goes on printed cards and QR codes, so neither you nor we can
+          change it casually.
+        </InfoTip>
+        <p className="text-sm text-[color:var(--m-slate-2)]">
+          If it&rsquo;s wrong, ask us and we&rsquo;ll look at it.{sameWay}
+        </p>
+        {currentSlug ? (
+          <p className="text-sm text-[color:var(--m-slate-2)]">
+            Your address today: <span className="font-semibold text-ink">setnayan.com/{currentSlug}</span>
           </p>
-          {currentSlug ? (
-            <p className="font-mono text-xs text-ink/50">
-              Your address today: setnayan.com/{currentSlug}
-            </p>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       {alreadyOpen.size > 0 ? (
-        <ul className="space-y-1">
+        <ul className="divide-y divide-[color:var(--m-line)]">
           {[...alreadyOpen].map((k) => (
-            <li key={k} className="text-xs text-ink/60">
-              <span className="font-medium text-ink/75">
+            <li key={k} className="flex min-h-14 items-center justify-between gap-3 py-2">
+              <span className="min-w-0 text-sm font-semibold text-ink">
                 {LOCKED_FIELD_LABEL[k as LockedIdentityFieldKey] ?? k}
-              </span>{' '}
-              — asked for, waiting on Setnayan.
+              </span>
+              <Badge tone="wait">Asked · waiting on Setnayan</Badge>
             </li>
           ))}
         </ul>
       ) : null}
 
       {available.length === 0 ? null : !open ? (
-        <button
-          type="button"
+        <ActionButton
+          tone="neutral"
+          icon={MailQuestion}
+          label="Ask us to correct something"
           onClick={() => {
             // A shop Setnayan set up most often asks about its NAME (owner 2026-10-29) — start there when offered.
             setField(setUpBySetnayan && available.includes('business_name') ? 'business_name' : available[0]!);
             setOpen(true);
           }}
-          className="button-secondary inline-flex h-9 items-center px-3 text-xs"
-        >
-          Ask us to correct something
-        </button>
+        />
       ) : (
-        <div className="space-y-3 border-t border-ink/10 pt-3">
-          <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
-              What&rsquo;s wrong
-            </span>
-            <select
+        <div className="space-y-3 border-t border-[color:var(--m-line)] pt-3">
+          <div className="space-y-1">
+            <span className={`block ${SECTION_LABEL}`}>What&rsquo;s wrong</span>
+            <PickMenu
+              label="What’s wrong"
               value={field}
-              onChange={(e) => setField(e.target.value as LockedIdentityFieldKey)}
-              className="input-field w-full text-sm"
-            >
-              {available.map((f) => (
-                <option key={f} value={f}>
-                  {LOCKED_FIELD_LABEL[f]}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={available.map((f) => ({ key: f, label: LOCKED_FIELD_LABEL[f] }))}
+              onPick={(k) => setField(k as LockedIdentityFieldKey)}
+              dataAttr="data-correction-field"
+              className="!min-h-11"
+            />
+          </div>
 
           <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
-              What it should be
-            </span>
+            <span className={`block ${SECTION_LABEL}`}>What it should be</span>
             <input
               value={value}
               onChange={(e) =>
@@ -211,10 +210,10 @@ export function RequestCorrectionCard({
               }
               maxLength={field === 'business_name' ? SHOP_NAME_MAX : undefined}
               placeholder={isAddress ? 'banaweflorals' : ''}
-              className={`input-field w-full text-sm ${isAddress ? 'font-mono' : ''}`}
+              className="input-field w-full text-sm"
             />
             {isAddress ? (
-              <span className="block text-xs text-ink/50">
+              <span className="block text-sm text-[color:var(--m-slate-2)]">
                 Lowercase letters, numbers and hyphens. Your old address will
                 keep working, so anything already printed still finds you.
               </span>
@@ -222,9 +221,7 @@ export function RequestCorrectionCard({
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
-              Why (helps us say yes)
-            </span>
+            <span className={`block ${SECTION_LABEL}`}>Why (helps us say yes)</span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -239,28 +236,14 @@ export function RequestCorrectionCard({
           </label>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
+            <ActionButton
+              tone="brand"
+              icon={Send}
+              label={pending ? 'Sending…' : 'Send to Setnayan'}
               onClick={submit}
-              disabled={pending}
-              className="button-secondary inline-flex h-9 items-center gap-2 px-3 text-xs disabled:opacity-50"
-            >
-              {pending ? (
-                <>
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                  Sending…
-                </>
-              ) : (
-                'Send to Setnayan'
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="text-xs text-ink/55 underline underline-offset-2"
-            >
-              Cancel
-            </button>
+              waiting={pending}
+            />
+            <ActionButton tone="neutral" quiet icon={X} label="Cancel" onClick={() => setOpen(false)} />
           </div>
         </div>
       )}

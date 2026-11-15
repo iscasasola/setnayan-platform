@@ -9,10 +9,26 @@
  * jump to a section.
  */
 
+import { serviceKeyStem } from '@/lib/distinct-shop-services';
+
 /** `?inquire=1` — reopen the Inquire pop-up on arrival. */
 export const INQUIRE_PARAM = 'inquire';
 /** `?isvc=a,b` — the services already picked in it. */
 export const INQUIRE_SERVICES_PARAM = 'isvc';
+/**
+ * 🆕 OWN-02 (walk 13 Nov): the event the couple just STARTED from "For which event? › Start a new event". The new
+ * event's commit writes it into the way back (`withNewInquireEvent`), and the sheet opens with it picked — it used to
+ * come back with nothing picked, so the couple had to find the event they had made a second ago.
+ */
+export const INQUIRE_EVENT_PARAM = 'ievent';
+
+/** The way back to an open ask, with the event just made named in it. Any other path is returned as it was. */
+export function withNewInquireEvent(nextPath: string, eventId: string): string {
+  const url = new URL(nextPath, 'https://setnayan.invalid');
+  if (url.searchParams.get(INQUIRE_PARAM) !== '1') return nextPath;
+  url.searchParams.set(INQUIRE_EVENT_PARAM, eventId);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 /** The Undo window before the ask is sent — the same five seconds as Check a date. */
 export const INQUIRE_UNDO_MS = 5000;
 
@@ -38,14 +54,18 @@ export function inquireClearedHref(currentHref: string): string {
   const url = new URL(currentHref, 'https://setnayan.invalid');
   url.searchParams.delete(INQUIRE_PARAM);
   url.searchParams.delete(INQUIRE_SERVICES_PARAM);
+  url.searchParams.delete(INQUIRE_EVENT_PARAM);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
 /** What the address asks for on arrival: `null` = nothing to reopen. */
-export function inquireResumeOf(search: string): { serviceIds: string[] } | null {
+export function inquireResumeOf(search: string): { serviceIds: string[]; eventId: string | null } | null {
   const q = new URLSearchParams(search);
   if (q.get(INQUIRE_PARAM) !== '1') return null;
-  return { serviceIds: (q.get(INQUIRE_SERVICES_PARAM) ?? '').split(',').map((s) => s.trim()).filter(Boolean) };
+  return {
+    serviceIds: (q.get(INQUIRE_SERVICES_PARAM) ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    eventId: q.get(INQUIRE_EVENT_PARAM)?.trim() || null,
+  };
 }
 
 /**
@@ -112,19 +132,24 @@ export function inquireServiceList(
 ): InquireListItem[] {
   const waiting = new Set((pricedNotLiveKinds ?? []).map((k) => (k ?? '').trim()).filter(Boolean));
   const out: InquireListItem[] = cards.map((c) => ({ ...c }));
-  const carried = new Set(cards.map((c) => (c.category ?? '').trim()).filter(Boolean));
+  // 🧹 CYC-07 (walk 13 Nov): ONE service, one row — compared by its words, not its spelling (`serviceKeyStem`, RW-167).
+  // A shop whose sign-up kept an older spelling (`lights_and_sound` beside its cards' `lights_sound`) listed a 4th
+  // "Lights & Sound · Price on request" row the shop page never shows.
+  const stem = (k: string) => serviceKeyStem(k) || k;
+  const carried = new Set(cards.map((c) => (c.category ?? '').trim()).filter(Boolean).map(stem));
+  const waitingStems = new Set([...waiting].map(stem));
   const seen = new Set<string>();
   for (const raw of providedKeys ?? []) {
     const key = typeof raw === 'string' ? raw.trim() : '';
-    if (!key || carried.has(key) || seen.has(key)) continue;
-    seen.add(key);
+    if (!key || carried.has(stem(key)) || seen.has(stem(key))) continue;
+    seen.add(stem(key));
     out.push({
       serviceId: `${PROVIDED_PREFIX}${key}`,
       label: labelOf(key),
       price: '',
       category: key,
       provided: true,
-      ...(waiting.has(key) ? { waiting: true } : {}),
+      ...(waiting.has(key) || waitingStems.has(stem(key)) ? { waiting: true } : {}),
     });
   }
   return out;

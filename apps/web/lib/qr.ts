@@ -29,7 +29,7 @@ const QR_OPTIONS = {
  * and drew the couple's lettered lockup in the centre of every code, free or
  * not, and a separate `renderBranded*` pair tinted the modules for the
  * "Custom QR per guest" product. Both are gone: the centre and the colour are
- * facts of the LOOK, and the look is decided by Event Hub Pro.
+ * facts of the LOOK, and the look is decided by Event Pro.
  * ─────────────────────────────────────────────────────────────────────────
  */
 

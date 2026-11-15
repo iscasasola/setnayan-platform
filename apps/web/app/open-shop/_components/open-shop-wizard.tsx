@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCheck, Eraser, Info, Mail, MailCheck, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCheck, Eraser, Info, Loader2, Mail, MailCheck, RotateCw, X } from 'lucide-react';
 
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -28,7 +28,7 @@ import { SHOP_NAME_HELD_MESSAGE } from '@/lib/shop-name-hold';
 import { locationStepError } from '@/lib/open-shop-location-gate';
 import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
-import { EventTiles, type EventTileOption } from './event-tiles';
+import { EventTiles, supplierEventWords, type EventTileOption } from './event-tiles';
 import { ServiceCards, placeIndex, type PickedService, type SpecialtyField, type SpecialtyPicks } from './service-cards';
 import { ServicesAtEvents, eventsTheyCanServe } from './services-at-events';
 import { PLAN_AGREE_ERROR, PlanPane, PlanSheet } from './plan-sheet';
@@ -53,7 +53,7 @@ import { OAUTH_VERB } from '@/lib/oauth-words';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
-import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
+import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN, PREFILLED_ACCOUNT_EMAIL_FIELD, shopOwnerNameOf } from '@/lib/open-shop-account';
 import {
   OPEN_SHOP_DRAFT_KEY,
   parseOpenShopDraft,
@@ -116,7 +116,7 @@ export function OpenShopWizard({
   serviceTree = [],
   savedServiceLabel = null,
   existingSlug = null,
-  eventTypeOptions,
+  eventTypeOptions: rosterIn,
   logoDisplayMap,
   fairWords = null,
   defaults,
@@ -131,7 +131,20 @@ export function OpenShopWizard({
   specialties = {},
   emailTaken = false,
   sentTo = null,
+  accountKey = 'guest',
+  prefilledAccountEmail = null,
 }: {
+  /**
+   * 🔁 WHO THE PAGE WAS DRAWN FOR (walk 13 Nov, F-W1-13) — the signed-in account's id, or 'guest'. The boxes filled
+   * FROM the account (the name, the company email) are keyed on it, so when the account changes while the wizard is
+   * open (the sign-in pane, another tab) they are redrawn with the NEW account's values instead of keeping the old.
+   */
+  accountKey?: string;
+  /**
+   * The company email box was prefilled with the ACCOUNT's email (no shop email on record yet). Posted beside it, so
+   * the server can tell an untouched prefill from a typed address and re-read the account that actually submits.
+   */
+  prefilledAccountEmail?: string | null;
   /**
    * "How many categories you can run depends on your plan ⓘ" — one line per plan, read from `TIER_CAPS` by
    * `categoryLadder()` on the server (never typed here). Empty = the ⓘ is not drawn.
@@ -206,6 +219,8 @@ export function OpenShopWizard({
   // Seeded from `?step=` so a SERVER rejection re-renders on the step that owns
   // the rejected field, instead of dumping the vendor back to the start with
   // everything they typed on later steps gone.
+  // F-W1-06: the roster with the supplier door's words ("Other events", never "Celebration") — keys unchanged.
+  const eventTypeOptions = useMemo(() => supplierEventWords(rosterIn), [rosterIn]);
   const [step, setStep] = useState<Step>(
     initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
   );
@@ -317,12 +332,38 @@ export function OpenShopWizard({
   const [confirmedCity, setConfirmedCity] = useState<string | null>(null);
   /** "Is this your address?" is waiting for an answer — at ≥768 the right column becomes that pane. */
   const [pinPending, setPinPending] = useState(false);
-  const [who, setWho] = useState(titleCasePersonName(accountName ?? defaults.contactName));
+  // 🪪 The typed name wins (owner 13 Nov 2026): a saved/typed name first, the account's only when nothing was typed.
+  const [who, setWho] = useState(titleCasePersonName(shopOwnerNameOf(defaults.contactName, accountName) ?? ''));
+  // F-W1-13: a different account → "Contact" in the glance follows it (the box itself is remounted by `accountKey`).
+  const seenAccount = useRef(accountKey);
+  useEffect(() => {
+    if (seenAccount.current === accountKey) return;
+    seenAccount.current = accountKey;
+    // 🪪 The typed name wins (owner 13 Nov 2026): a new account's name fills the box ONLY when nothing was typed — it
+    // never overwrites a name the supplier wrote.
+    const box = formRef.current?.elements.namedItem('contact_name') as HTMLInputElement | null;
+    if (accountName && box && !box.value.trim()) {
+      box.value = titleCasePersonName(accountName);
+      setWho(box.value);
+    }
+    setTakenEmail(defaults.contactEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only an account change resets these
+  }, [accountKey]);
   /** The right-hand column's slot the confirmation card is portalled into (≥768 only). */
   const [sideSlot, setSideSlot] = useState<HTMLElement | null>(null);
   const wide = useMediaQuery('(min-width: 768px)');
   // 🔄 Page left open across a deploy → the primary button becomes "Tap Reload to keep going" (owner 2026-11-06).
   const stale = useStaleBuild();
+  /**
+   * ⏳ CONTINUE ANSWERS THE TAP AT ONCE (walk 13 Nov, F-W1-04). Drawing the next step takes a phone a second or two; the
+   * button used to sit unchanged through it, so a second tap — or the next letters typed — landed on the new step's
+   * search box. Now the press is drawn FIRST (a spinner, the button busy), every further tap is ignored, the focus
+   * leaves the box being typed in, and only then is the step changed.
+   */
+  const [moving, setMoving] = useState(false);
+  const movingRef = useRef(false);
+  /** Continue's icon: the arrow, or the spinner while the next step is being drawn. */
+  const continueIcon = moving ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : ArrowRight;
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
@@ -478,7 +519,7 @@ export function OpenShopWizard({
     const tag = t?.tagName;
     if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' || tag === 'SELECT') return;
     e.preventDefault();
-    if (step < TOTAL_STEPS) next();
+    if (step < TOTAL_STEPS) go();
   };
 
   /** Refuse with a sentence: drawn under its box, on its page, the cursor put there. */
@@ -514,7 +555,27 @@ export function OpenShopWizard({
     window.scrollTo({ top: 0 });
   };
 
+  /** Continue (button or Enter): drawn as pressed at once, one move per press — see `moving`. */
+  const go = () => {
+    if (movingRef.current) return;
+    movingRef.current = true;
+    setMoving(true);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    // Two frames: the busy button is painted before the heavy re-render of the next step starts.
+    window.requestAnimationFrame(() =>
+      window.setTimeout(() => {
+        try {
+          next();
+        } finally {
+          movingRef.current = false;
+          setMoving(false);
+        }
+      }, 0),
+    );
+  };
+
   const back = () => {
+    if (movingRef.current) return;
     setBanner(null);
     setPlanOpen(false);
     setDir('back');
@@ -642,7 +703,7 @@ export function OpenShopWizard({
     if (d.email) setTakenEmail(d.email);
     if (d.name) {
       write('contact_name', d.name);
-      if (!accountName) setWho(d.name);
+      setWho(d.name);
     }
     if (d.address) setRestoredAddress(d.address);
     // Parked at submit: the server's `?step=` already names the step that owns the refusal — keep it. The address it
@@ -697,7 +758,8 @@ export function OpenShopWizard({
           : ['What you do', service ? 'Your services. Add more if you do more.' : 'Pick your main service.'],
     3: ['Where you are', 'Type your address; the pin follows. Then confirm it.'],
     4: ['About you', 'Who couples will talk to.'],
-    5: ['Your account', guest ? 'Pick how you’ll sign in. This creates your Setnayan account.' : null],
+    // F-W1-12 (walk 13 Nov): signed in, the step had no line under its title — every other step has one.
+    5: ['Your account', guest ? 'Pick how you’ll sign in. This creates your Setnayan account.' : 'Your shop’s email, then open your shop.'],
   };
   const [title, line] = heads[step];
   const phoneOk = phoneBoxState(phoneDigits, true).state === 'ok';
@@ -1214,30 +1276,23 @@ export function OpenShopWizard({
                 <input
                   id="open-shop-contact_name"
                   name="contact_name"
-                  // Owner 2026-08-10: "your name (automatic from their account)". READONLY, not disabled — a
-                  // disabled input submits NOTHING. Falls back to editable when the account has no name.
-                  readOnly={!!accountName}
+                  // 🪪 Always editable (owner 13 Nov 2026, "the typed name wins" — superseding 2026-08-10's read-only
+                  // account name). The account's name only fills an empty box; it never replaces what was typed.
                   // Capitalised on BLUR, not per keystroke: rewriting the box mid-word fights the typist.
                   onBlur={(e) => {
                     e.currentTarget.value = titleCasePersonName(e.currentTarget.value);
                     setWho(e.currentTarget.value);
                   }}
                   onInput={(e) => setWho(e.currentTarget.value)}
-                  defaultValue={titleCasePersonName(accountName ?? defaults.contactName)}
+                  defaultValue={titleCasePersonName(shopOwnerNameOf(defaults.contactName, accountName) ?? '')}
                   maxLength={128}
                   placeholder="Your full name"
                   autoComplete="name"
                   className="input-field"
-                  style={accountName ? { background: 'var(--m-paper-2)', color: 'var(--m-slate)' } : undefined}
                   aria-invalid={errorFor('contact_name') ? true : undefined}
                   aria-describedby={describedBy('contact_name')}
                 />
                 {fieldError('contact_name')}
-                {accountName ? (
-                  <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                    From your account.
-                  </span>
-                ) : null}
               </label>
 
               <div className="block max-w-[620px] space-y-1">
@@ -1289,6 +1344,7 @@ export function OpenShopWizard({
                   )}
                 </span>
                 <input
+                  key={`email-${accountKey}`}
                   id="open-shop-contact_email"
                   name="contact_email"
                   type="email"
@@ -1303,6 +1359,11 @@ export function OpenShopWizard({
                   aria-describedby={describedBy('contact_email')}
                 />
                 {fieldError('contact_email')}
+                {/* F-W1-13: what the box was prefilled with from the account — the server swaps an UNTOUCHED prefill
+                    for the submitting account's own email (`accountEmailAtSubmit`). */}
+                {prefilledAccountEmail ? (
+                  <input key={`prefill-${accountKey}`} type="hidden" name={PREFILLED_ACCOUNT_EMAIL_FIELD} value={prefilledAccountEmail} />
+                ) : null}
               </label>
 
               {guest ? (
@@ -1371,7 +1432,7 @@ export function OpenShopWizard({
               {feeNotice ? (
                 <p data-testid="open-shop-fee-disclosure" className="max-w-[620px] text-sm" style={{ color: 'var(--m-slate)' }}>
                   <InfoTip
-                    label="Free to open, free to run. You pay only when a couple books you through Setnayan"
+                    label="Free to open, free to run. You pay only when a couple books you through Setnayan."
                     labelClassName="text-sm"
                     ariaLabel="About the booking fee"
                     align="start"
@@ -1417,20 +1478,22 @@ export function OpenShopWizard({
                   /* Not yet — still a real press: it says what is missing, under its box. */
                   <ActionButton
                     tone="neutral"
-                    icon={ArrowRight}
+                    icon={continueIcon}
                     label={step === 2 ? 'Pick a service to continue' : 'Continue'}
                     className="ml-auto"
-                    onClick={next}
+                    onClick={go}
+                    data-busy={moving ? '' : undefined}
                     data-testid="open-shop-quiet"
                   />
                 ) : (
                   <ActionButton
                     tone="brand"
                     main
-                    icon={ArrowRight}
+                    icon={continueIcon}
                     label="Continue"
                     className="ml-auto"
-                    onClick={next}
+                    onClick={go}
+                    data-busy={moving ? '' : undefined}
                     data-testid="open-shop-continue"
                   />
                 )

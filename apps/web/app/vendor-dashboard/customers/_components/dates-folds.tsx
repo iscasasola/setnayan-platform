@@ -132,7 +132,7 @@ export function DatesFolds({
         <Fold lead={<RowTile><CalendarX2 strokeWidth={1.75} /></RowTile>} title="Not available" line={closuresIncomplete ? 'Some couldn’t load — reload to see them all' : blockDaysLine(closures, today)} defaultOpen={open === 'block'} data="dates-block">
           <div className="pb-3">
             {closures.length === 0 ? (
-              <p className="py-2 text-[13.5px] text-ink/60">Nothing marked yet.</p>
+              <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]">Nothing marked yet.</p>
             ) : (
               closures.map((c) => (
                 <DatesRow
@@ -161,7 +161,7 @@ export function DatesFolds({
                     >
                       {back('block')}
                       <input type="hidden" name="block_id" value={c.blockId} />
-                      <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" className="icon-only" />
+                      <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" className="icon-only" />
                     </StayConfirmForm>
                   }
                 />
@@ -187,7 +187,7 @@ export function DatesFolds({
         >
           <div className="pb-3">
             {!waitlist.settingsMeasured ? (
-              <p role="alert" className="py-2 text-[13.5px] text-ink/70">
+              <p role="alert" className="py-2 text-[13px] text-ink/70">
                 We couldn&rsquo;t read your waiting-list settings, so nothing here says what your plan holds. Nothing has changed — reload in a moment.
               </p>
             ) : waitlist.tierCap === 0 ? (
@@ -200,12 +200,12 @@ export function DatesFolds({
             ) : (
               <>
                 {/* The switch IS the submit: it posts the opposite of what it shows (works without script). */}
-                <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3" data-dates-waitlist-switch="">
+                <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-14 items-center gap-3" data-dates-waitlist-switch="">
                   {back('waitlist')}
                   <input type="hidden" name="max_waitlist_acceptances" value={String(waitlist.cap)} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-medium text-ink">Keep a waiting list</span>
-                    <span className="block text-[13px] text-ink/60">For full days</span>
+                    <span className="block text-[13px] text-[color:var(--m-slate-2)]">For full days</span>
                   </span>
                   <button
                     type="submit"
@@ -223,12 +223,12 @@ export function DatesFolds({
                   waitlist.unlimited ? (
                     <DatesRow data="waitlist-cap" title="How many a date" line="As many as are waiting — no limit on your plan" />
                   ) : (
-                    <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-waitlist-cap="">
+                    <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-14 items-center gap-3 border-t border-ink/10" data-dates-waitlist-cap="">
                       {back('waitlist')}
                       <input type="hidden" name="waitlist_enabled" value="on" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15px] font-medium text-ink">How many a date</span>
-                        <span className="block text-[13px] text-ink/60">
+                        <span className="block text-[13px] text-[color:var(--m-slate-2)]">
                           {waitlist.grandfathered > 0 ? `You keep ${waitlist.grandfathered}; your plan holds ${waitlist.tierCap}` : `Up to ${waitlist.tierCap} on your plan`}
                         </span>
                       </span>
@@ -240,13 +240,13 @@ export function DatesFolds({
             )}
 
             {waitlist.dates.length === 0 ? (
-              waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13.5px] text-ink/60">Nobody waiting.</p> : null
+              waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13px] text-[color:var(--m-slate-2)]">Nobody waiting.</p> : null
             ) : (
               waitlist.dates.map((w) => (
-                <div key={w.requestedDate} className="flex min-h-[60px] flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink/10 py-2.5" data-dates-waitlist-date={w.requestedDate}>
+                <div key={w.requestedDate} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink/10 py-2.5" data-dates-waitlist-date={w.requestedDate}>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-medium text-ink">{rangeWords(w.requestedDate, w.requestedDate, today)}</span>
-                    <span className="block text-[13px] text-ink/60">
+                    <span className="block text-[13px] text-[color:var(--m-slate-2)]">
                       {formatCount(w.pendingCount)} waiting
                       {waitlist.on ? ` · picked ${waitlist.pickedMeasured ? formatCount(w.picked) : '—'}${waitlist.unlimited ? '' : ` of ${formatCount(waitlist.cap)}`}` : ''}
                     </span>
@@ -255,13 +255,13 @@ export function DatesFolds({
                     <StayForm door="supCalendar.pickWaitlistCouple" action={actions.pickWaitlistCouple}>
                       {back('waitlist')}
                       <input type="hidden" name="requested_date" value={w.requestedDate} />
-                      <SupplierSubmit tone="neutral" icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Pick" pendingLabel="Picking…" />
+                      <SupplierSubmit tone="neutral" icon={<Check aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Pick" pendingLabel="Picking…" />
                     </StayForm>
                   ) : null}
                   <StayForm door="supCalendar.notifyWaitlistSlot" action={actions.notifyWaitlistSlot}>
                     {back('waitlist')}
                     <input type="hidden" name="requested_date" value={w.requestedDate} />
-                    <SupplierSubmit tone="neutral" icon={<BellRing aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Tell them" pendingLabel="Telling…" />
+                    <SupplierSubmit tone="neutral" icon={<BellRing aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Tell them" pendingLabel="Telling…" />
                   </StayForm>
                 </div>
               ))
@@ -376,14 +376,14 @@ export function DaysSettings({
         <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={!venue} data="dates-capacity" anchor={HOW_MANY_A_DAY_ANCHOR}>
           <div className="pb-3">
             {schedules.length === 0 ? (
-              <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">
+              <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]" data-dates-not-set="">
                 Not set. {namedCalendars ? 'Make a schedule for the team that does the work.' : 'Add a service — each kind you offer gets its own schedule.'}
               </p>
             ) : (
               schedules.map((c) => (
                 // The name opens its sheet OUTSIDE the counter's form — a portalled form inside another form's React
                 // tree would hand its submit to the wrong action.
-                <div key={c.poolId} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 first:border-t-0" data-dates-calendar={c.poolId}>
+                <div key={c.poolId} className="flex min-h-14 items-center gap-3 border-t border-ink/10 first:border-t-0" data-dates-calendar={c.poolId}>
                   <span className="min-w-0 flex-1">
                     {namedCalendars ? (
                       <CalendarSheet
@@ -398,7 +398,7 @@ export function DaysSettings({
                     ) : (
                       <span className="block truncate text-[15px] font-medium text-ink">{c.label}</span>
                     )}
-                    <span className="block truncate text-[13px] text-ink/60">
+                    <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">
                       {c.isHall ? 'A hall' : 'At the same time'}
                       {c.line ? ` · ${c.line}` : ''}
                     </span>
@@ -421,7 +421,7 @@ export function DaysSettings({
               />
             ) : null}
             {schedules.length > 0 ? (
-              <p className="pt-2 text-[13px] text-ink/60" data-dates-capacity-note="">
+              <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-dates-capacity-note="">
                 {schedules.length > 1
                   ? 'Each schedule fills on its own — one can be full while the other is free.'
                   : 'One number for the whole shop. Add a second schedule only if two can run at the same time.'}

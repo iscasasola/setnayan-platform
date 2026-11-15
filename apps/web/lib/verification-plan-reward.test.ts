@@ -33,7 +33,7 @@ test('a comped Ultra still running is extended from its own end day — the week
   // An Ultra already over starts again today.
   const over = new Date(NOW.getTime() - 86_400_000).toISOString();
   assert.equal(days(ultraRewardWrite({ tier_state: 'enterprise', tier_source: 'admin_comp', tier_expires_at: over }, 'regular', NOW)!.tier_expires_at), 28);
-  // A comped Solo or Pro becomes Ultra today.
+  // A comped Supplier Plus or Pro becomes Ultra today.
   assert.equal(ultraRewardWrite({ tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: end }, 'regular', NOW)!.tier_state, 'enterprise');
 });
 

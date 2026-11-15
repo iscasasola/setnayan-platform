@@ -16,6 +16,8 @@
 import { Camera, CheckCircle2, Circle } from 'lucide-react';
 import type { ShotRow } from '@/lib/shot-list';
 import { formatCount } from '@/lib/format-number';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export type ShotListCardState =
   | { state: 'ok'; rows: ShotRow[] }
@@ -47,15 +49,14 @@ export function ShotListCard({
 }) {
   const expected = SHOT_LIST_CATEGORIES.has(category);
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 6 · 7 · 13): no tile — the section's grey capitals, then plain hairline
+  // rows; the count is a soft chip, the explaining line sits behind ⓘ, an empty or refused read is one line.
   if (list.state === 'unreadable') {
     return (
-      <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
-        <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
-        </h2>
-        <p className="mt-2 text-sm text-warn-800">
-          We couldn’t load {vendorName}’s shot list just now. Refresh to try again — this is not the
-          same as them not having one.
+      <section aria-labelledby="shot-list-heading">
+        <ShotListLabel />
+        <p role="status" className="py-2 text-sm text-warn-800">
+          Couldn’t load {vendorName}’s shot list — not the same as them not having one. Refresh to try again.
         </p>
       </section>
     );
@@ -67,49 +68,56 @@ export function ShotListCard({
     // florist an absent card is the honest answer.
     if (!expected) return null;
     return (
-      <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
-        <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
-        </h2>
-        <p className="mt-2 text-sm text-ink/60">
-          {vendorName} hasn’t shared a shot list yet. When they save one from their day-of console,
-          it shows up here — and you can follow along as shots are captured on the day.
-        </p>
+      <section aria-labelledby="shot-list-heading">
+        <ShotListLabel tip={`When ${vendorName} saves one from their day-of console, it shows up here — and you can follow along as shots are captured on the day.`} />
+        <p className="py-2 text-sm text-ink/70">{vendorName} hasn’t shared a shot list yet.</p>
       </section>
     );
   }
 
   const captured = rows.filter((r) => r.captured_at != null).length;
   return (
-    <section className="sn-tile p-4 sm:p-5" aria-labelledby="shot-list-heading">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="shot-list-heading" className="flex items-center gap-2 text-base font-semibold">
-          <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} /> Shot list
-        </h2>
-        <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+    <section aria-labelledby="shot-list-heading">
+      <div className="flex items-center justify-between gap-2">
+        <ShotListLabel tip={`The must-get shots ${vendorName} is working from. Want one added? Message them.`} />
+        <Badge tone="quiet">
           {formatCount(captured)}/{formatCount(rows.length)} captured
-        </span>
+        </Badge>
       </div>
-      <p className="mt-1 text-sm text-ink/60">
-        The must-get shots {vendorName} is working from. Want one added? Message them.
-      </p>
-      <ul className="mt-3 space-y-1">
+      <ul className="divide-y divide-ink/10">
         {rows.map((r) => (
-          <li key={r.item_id} className="flex items-start gap-2 text-sm">
+          <li key={r.item_id} className="flex min-h-11 items-start gap-2 py-2.5 text-[15px]">
             {r.captured_at ? (
               <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success-600" strokeWidth={1.75} />
             ) : (
               <Circle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/25" strokeWidth={1.75} />
             )}
-            <span className={r.captured_at ? 'text-ink/50' : 'text-ink/80'}>
+            <span className={r.captured_at ? 'text-ink/70' : 'text-ink'}>
               {r.label}
               {r.captured_at ? (
-                <span className="ml-1.5 text-xs text-ink/40">· captured {fmtTime(r.captured_at)}</span>
+                <span className="ml-1.5 text-[13px] text-ink/70">· captured {fmtTime(r.captured_at)}</span>
               ) : null}
             </span>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** The section's label — grey capitals, no box; its explaining line (when there is one) behind the ⓘ. */
+function ShotListLabel({ tip }: { tip?: string }) {
+  const cls = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+  return (
+    <h2 id="shot-list-heading" className="mb-1 mt-[18px] flex items-center gap-2">
+      <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} />
+      {tip ? (
+        <InfoTip label="Shot list" labelAs="span" labelClassName={cls} align="start">
+          {tip}
+        </InfoTip>
+      ) : (
+        <span className={cls}>Shot list</span>
+      )}
+    </h2>
   );
 }

@@ -33,7 +33,7 @@ import { ClientDayAnswersBody } from '@/app/vendor-dashboard/_components/client-
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
-import { offerProgress, type SetupDailySchedule } from '@/lib/supplier-setup';
+import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import type { SpotlightScript } from '@/lib/tours';
@@ -43,6 +43,7 @@ import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
 import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
@@ -415,7 +416,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false, daily: dailyMode = null }: { /** 7️⃣ `&daily=` — step 7's fixture (`labDaily`). */ daily?: string | null; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   if (moment === 'answers') {
     // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
     const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
@@ -481,7 +482,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         serviceCount: labCards.length,
         docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : 'none',
         docsIn: 0,
-        docsTotal: 4,
+        docsTotal: REQUIRED_DOC_COUNT,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
         // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).
@@ -599,34 +600,12 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
               today={TODAY}
               lab
               gear={<TodaySettings />}
-              daily={labDaily(dailyMode, supKey === 'venue')}
             />
           ) : null
         }
       />
     </div>
   );
-}
-
-/**
- * 7️⃣ Step 7's fixture (`?easy=setup&daily=`): one schedule (default) · two · unset (no schedule yet) · unread (the
- * read refused) · halls (a venue whose schedules are all halls) · off (no row — Today as it was before Build 6).
- */
-function labDaily(mode: string | null, venue: boolean): { schedules: SetupDailySchedule[] | null; venue: boolean } | null {
-  switch (mode) {
-    case 'off':
-      return null;
-    case 'unread':
-      return { schedules: null, venue };
-    case 'unset':
-      return { schedules: [], venue };
-    case 'two':
-      return { schedules: [{ poolId: 'lab-a', name: 'Team A', capacity: 1 }, { poolId: 'lab-b', name: 'Team B', capacity: 2 }], venue };
-    case 'halls':
-      return { schedules: [{ poolId: 'lab-h1', name: 'Grand Hall', capacity: 1, hall: true }, { poolId: 'lab-h2', name: 'Garden', capacity: 1, hall: true }], venue: true };
-    default:
-      return { schedules: [{ poolId: 'lab-1', name: venue ? 'Reception venue' : 'Your schedule', capacity: 1 }], venue };
-  }
 }
 
 /** When a lab card started waiting — the page uses `cardTimestamp`; the lab reads each fixture's own stamp. */

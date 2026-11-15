@@ -26,14 +26,14 @@ function Row({ row }: { row: FavoriteListRow }) {
         <img src={row.logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
       ) : (
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-bold text-terracotta-700">
-          {row.name.trim().charAt(0).toUpperCase() || 'V'}
+          {row.name.trim().charAt(0).toUpperCase() || 'S'}
         </span>
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-ink">{row.name}</span>
-        {row.line ? <span className="block truncate text-[13px] text-ink/65">{row.line}</span> : null}
+        {row.line ? <span className="block truncate text-[13px] text-ink/70">{row.line}</span> : null}
         {row.from ? (
-          <span className="mt-0.5 block text-[12px] leading-snug text-ink/70" data-favorite-from="">
+          <span className="mt-0.5 block text-xs leading-snug text-ink/70" data-favorite-from="">
             <CalendarDays aria-hidden className="-mt-0.5 mr-1 inline h-3 w-3" strokeWidth={2} />
             {row.from}
           </span>
@@ -42,7 +42,7 @@ function Row({ row }: { row: FavoriteListRow }) {
     </>
   );
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-cream px-3 py-2.5"> {/* no-card-ok: the row is pressed — tap opens the shop at that service, swipe left removes */}
+    <div className="flex min-h-14 items-center gap-3 border-b border-ink/10 bg-cream py-2">
       {row.href ? (
         <Link href={row.href} className="flex min-w-0 flex-1 items-center gap-3">
           {body}
@@ -71,7 +71,7 @@ export function FavoriteRows({ rows }: { rows: FavoriteListRow[] }) {
   return (
     <>
       <UndoToastHost />
-      <ul className="grid gap-2" data-library-favorites="">
+      <ul data-library-favorites="">
         {rows.map((r) => {
           const k = favoriteKey(r.shopId, r.serviceId);
           if (gone.has(k)) return <li key={k} hidden data-swipe-gone="" />;
@@ -81,7 +81,7 @@ export function FavoriteRows({ rows }: { rows: FavoriteListRow[] }) {
               as="li"
               label={`Remove ${r.name} from favorites`}
               word="Remove"
-              radiusClass="rounded-xl"
+              radiusClass=""
               onDelete={() =>
                 deleteWithUndo({
                   label: `${r.name} removed from favorites.`,

@@ -44,7 +44,8 @@ export function nextSaturdays(
   return out;
 }
 
-export function OpenDatesPeek({ days, checkHref }: { days: ReadonlyArray<PeekDay>; checkHref: string }) {
+/** `checkHref` null — the sample shop page: the same peek on sample days, its door drawn without a calendar to open. */
+export function OpenDatesPeek({ days, checkHref }: { days: ReadonlyArray<PeekDay>; checkHref: string | null }) {
   if (days.length === 0) return null;
   return (
     <div data-open-dates-peek="" data-rise="" className="grid w-full gap-2 rounded-2xl bg-ink/[0.04] px-3.5 py-3">
@@ -73,9 +74,13 @@ export function OpenDatesPeek({ days, checkHref }: { days: ReadonlyArray<PeekDay
           </li>
         ))}
       </ul>
-      <Link href={checkHref} className="inline-flex min-h-[44px] items-center text-sm font-semibold text-link">
-        Check your own date →
-      </Link>
+      {checkHref === null ? (
+        <span className="inline-flex min-h-[44px] items-center text-sm font-semibold text-link">Check your own date →</span>
+      ) : (
+        <Link href={checkHref} className="inline-flex min-h-[44px] items-center text-sm font-semibold text-link">
+          Check your own date →
+        </Link>
+      )}
     </div>
   );
 }

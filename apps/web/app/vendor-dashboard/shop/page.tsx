@@ -37,7 +37,7 @@ import { resolveCoverageLabels } from '@/lib/vendor-coverages';
 import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { siteOrigin } from '@/lib/site-origin';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
 import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
@@ -102,8 +102,8 @@ type ShopData = {
   verify: {
     status: VerifyStatus;
     requiredDocsIn: boolean;
-    emailConfirmedAt: string | null;
-    phoneConfirmedAt: string | null;
+    /** How many of the required papers are in (the cover's "n of 3 papers"). */
+    requiredIn: number;
   };
   /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
@@ -433,8 +433,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
-      emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
-      phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
+      requiredIn: countCompleteRequiredSlots(verifyUploads),
     },
     serviceRows,
     scanSettings,
@@ -494,6 +493,8 @@ function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): Profi
     logoFrame: readLogoFrame(profile),
     logoDisplayMap: profile.logo_url && logoUrl ? { [profile.logo_url]: logoUrl } : {},
     services: (profile.services ?? []) as string[],
+    // Only the logo row reads this data here — the "Services covered" row is never drawn from it.
+    serviceCategoryCount: 0,
     extraServiceLeaves: [],
     vendorProfileId: profile.vendor_profile_id,
   };
@@ -601,7 +602,7 @@ async function ShopHome({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
-  const shareUrl = data.slug ? myPageUrl(siteOrigin(), data.slug) : null;
+  const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug) : null; // 💳 shared BY the supplier: ?src=own
   const cover: CoverData = {
     name: data.businessName,
     initials: data.initials,
@@ -613,7 +614,8 @@ async function ShopHome({
     verified: {
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
-      stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
+      papersIn: data.verify.requiredIn,
+      papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
     reviews: data.reviews,

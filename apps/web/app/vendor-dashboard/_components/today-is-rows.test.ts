@@ -342,7 +342,7 @@ test('6 · the three outcome notices are the shared TOP toast + a status line �
   // …and the lasting status line is drawn ABOVE Needs you today (the Next card it sat under is retired, v103), by the
   // server, with the door the sentence asks for (fee held → "Pay the booking fee", lib/lock-answer-notice.ts).
   assert.match(page, /door: lockAnswer\.door \?\? null,/, 'the status line lost the Pay door the fee-held sentence asks for');
-  const said = await render({ needsAnswer: [REPLY], outcome: { text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.', tone: 'ok', door: { label: 'Pay the booking fee', href: '/vendor-dashboard/booking-fees' } } });
+  const said = await render({ needsAnswer: [REPLY], outcome: { text: 'You took the booking — it stands for the couple whatever happens. Your Setnayan booking fee for it is due. We tell the couple their booking is confirmed once it is paid.', tone: 'ok', door: { label: 'Pay the booking fee', href: '/vendor-dashboard/booking-fees' } } });
   const statusAt = said.indexOf('role="status" data-supplier-outcome="ok"');
   assert.ok(statusAt > 0 && statusAt < said.indexOf('data-today-needs='), 'the status line is not right above Needs you today');
   assert.match(said.slice(statusAt, said.indexOf('data-today-needs=')), /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/, 'the status line has no Pay door');

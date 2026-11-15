@@ -3,6 +3,8 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { createClient } from '@/lib/supabase/server';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   WORKING_NOTE_BODY_MAX,
   WORKING_NOTE_VISIBILITY_LABEL,
@@ -115,25 +117,23 @@ export async function WorkingFolderNotes({
   };
 
   return (
-    <section
-      id="working-folder"
-      aria-labelledby="working-folder-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream/40 p-5"
-    >
-      <header className="space-y-1">
-        <h2
-          id="working-folder-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 5 · 6 · 7 · 13): no card — the section's grey capitals with who sees
+    // what behind ⓘ, the composer, then each note as a plain row between hairlines (a private one keeps its dashed
+    // edge so it never reads as shared). Who-can-see is a soft chip; "Add note" is the shared pill.
+    <section id="working-folder" aria-labelledby="working-folder-heading" className="space-y-3">
+      <h2 id="working-folder-heading" className="mb-1 mt-[18px] flex items-center gap-2">
+        <NotebookPen aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        <InfoTip
+          label={`Working folder · notes on ${displayName}`}
+          labelAs="span"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+          align="start"
         >
-          <NotebookPen aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Working folder · notes on {displayName}
-        </h2>
-        <p className="text-xs text-ink/60">
           {viewer.isCoordinator
             ? 'Prep privately, share when ready — private notes stay between coordinators; shared notes are visible to the couple.'
             : 'Notes you and your coordinator keep on this supplier. Your coordinator may also keep private working notes.'}
-        </p>
-      </header>
+        </InfoTip>
+      </h2>
 
       {/* Composer — append-only; visibility chosen at write time. */}
       <form action={addWorkingNoteAction} className="space-y-3">
@@ -160,36 +160,36 @@ export async function WorkingFolderNotes({
           {viewer.isCoordinator ? (
             <fieldset className="flex flex-wrap items-center gap-3">
               <legend className="sr-only">Who can see this note</legend>
-              <label className="inline-flex items-center gap-1.5 text-xs text-ink/75">
+              <label className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink">
                 <input
                   type="radio"
                   name="visibility"
                   value="coordinator_private"
                   defaultChecked
-                  className="h-3.5 w-3.5 accent-mulberry"
+                  className="h-4 w-4 accent-mulberry"
                 />
-                <Lock aria-hidden className="h-3 w-3 text-ink/50" strokeWidth={2} />
+                <Lock aria-hidden className="h-3 w-3 text-ink/70" strokeWidth={2} />
                 {WORKING_NOTE_VISIBILITY_LABEL.coordinator_private}
               </label>
-              <label className="inline-flex items-center gap-1.5 text-xs text-ink/75">
+              <label className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink">
                 <input
                   type="radio"
                   name="visibility"
                   value="shared"
-                  className="h-3.5 w-3.5 accent-mulberry"
+                  className="h-4 w-4 accent-mulberry"
                 />
-                <Users aria-hidden className="h-3 w-3 text-ink/50" strokeWidth={2} />
+                <Users aria-hidden className="h-3 w-3 text-ink/70" strokeWidth={2} />
                 {WORKING_NOTE_VISIBILITY_LABEL.shared}
               </label>
             </fieldset>
           ) : (
-            <p className="text-[11px] text-ink/50">
+            <p className="text-[13px] text-ink/70">
               Visible to you and your coordinator.
             </p>
           )}
           <SubmitButton
             pendingLabel="Adding…"
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="ab ab-brand inline-flex min-h-11 items-center justify-center"
           >
             Add note
           </SubmitButton>
@@ -197,34 +197,28 @@ export async function WorkingFolderNotes({
       </form>
 
       {notes.length === 0 ? (
-        <p className="text-xs text-ink/50">No notes in this folder yet.</p>
+        <p className="py-2 text-sm text-ink/70">No notes in this folder yet.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-ink/10">
           {notes.map((n) => {
             const isPrivate = n.visibility === 'coordinator_private';
             const card = isPrivate
-              ? 'rounded-lg border border-dashed border-ink/30 bg-ink/5 px-3 py-2.5'
-              : 'rounded-lg border border-ink/10 bg-cream/80 px-3 py-2.5';
+              ? 'min-h-14 border-l-2 border-dashed border-l-ink/30 py-2.5 pl-3'
+              : 'min-h-14 py-2.5';
             const body = (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink/70">
                       {isPrivate ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-ink/70">
-                          <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-                          {WORKING_NOTE_VISIBILITY_LABEL.coordinator_private}
-                        </span>
+                        <Badge tone="quiet">{WORKING_NOTE_VISIBILITY_LABEL.coordinator_private}</Badge>
                       ) : viewer.isCoordinator ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-success-800">
-                          <Users aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
-                          {WORKING_NOTE_VISIBILITY_LABEL.shared}
-                        </span>
+                        <Badge tone="ok">{WORKING_NOTE_VISIBILITY_LABEL.shared}</Badge>
                       ) : null}
                       <span>
                         {authorLabel(n)} · {fmtDate(n.created_at)}
                       </span>
                     </p>
-                    <p className="whitespace-pre-line text-sm text-ink/85">{n.body}</p>
+                    <p className="whitespace-pre-line text-[15px] text-ink">{n.body}</p>
                   </div>
                 </div>
             );

@@ -23,6 +23,7 @@
  * `app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts`.
  */
 import type { ReplyCard } from './guest-me-parts';
+import type { ReplyWindow } from './reply-window';
 
 /** What the cover's foot button draws for this reader. */
 export type CoverRsvp =
@@ -40,7 +41,22 @@ export const COVER_RSVP_CLOSED = 'Replies are closed';
  * states: its `href` is the reply page, `inviteReplyPath`) or a canvas VISITOR (`visitorHref`, the reply door). Null: no
  * button (no reply on this page). Every pressable state opens the reply page itself — never a mark on this page.
  */
-export function coverRsvpOf(input: { card: ReplyCard | null; visitorHref?: string | null }): CoverRsvp | null {
+export function coverRsvpOf(input: {
+  card: ReplyCard | null;
+  visitorHref?: string | null;
+  /**
+   * 📬 The couple's reply window (`lib/reply-window.ts`) — asked on the VISITOR path too (walk 13 Nov 2026, F-W3-25).
+   * A reader with no Reply card of their own (a signed-in guest the page does not recognise, a stranger) used to get
+   * "Confirm attendance" whatever the window said, and the reply page then answered "Replies are not open yet" — a
+   * dead end. A shut window now draws its own line here, not a button. Absent = open (the Maker's canvas).
+   */
+  window?: ReplyWindow;
+  /**
+   * The window's own sentence (`replyWindowWords(window, organizer)?.line`), worded by the CALLER — this module stays a
+   * leaf the page's test fixtures can import before their seams (a value import of `reply-window` loads the admin client).
+   */
+  windowLine?: string | null;
+}): CoverRsvp | null {
   const c = input.card;
   if (c) {
     if (c.kind === 'closed') return { kind: 'closed', line: COVER_RSVP_CLOSED };
@@ -49,7 +65,13 @@ export function coverRsvpOf(input: { card: ReplyCard | null; visitorHref?: strin
     if (c.kind === 'going' && c.more && c.more > 0) return { kind: 'going', href: c.href, more: c.more };
     return { kind: c.kind, href: c.href };
   }
-  return input.visitorHref ? { kind: 'ask', href: input.visitorHref } : null;
+  if (!input.visitorHref) return null;
+  if (input.window && input.window.state !== 'open') {
+    return input.window.state === 'closed'
+      ? { kind: 'closed', line: COVER_RSVP_CLOSED }
+      : { kind: 'not_yet', line: input.windowLine || 'Replies are not open yet' };
+  }
+  return { kind: 'ask', href: input.visitorHref };
 }
 
 /**

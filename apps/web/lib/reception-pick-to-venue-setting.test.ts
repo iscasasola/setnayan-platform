@@ -18,11 +18,11 @@ test('no two picks share a value — the collapse that destroyed the data cannot
   for (const t of targets) assert.ok((VENUE_SETTINGS as readonly string[]).includes(t), `${t} is not a legal venue_setting`);
 });
 
-test('the first recognised pick wins; no pick, or only unknown picks, falls to the documented ambiguous default', () => {
+test('the first recognised pick wins; no pick, or only unknown picks, is Not set — never a default banquet hall (F-W2-02)', () => {
   assert.equal(venueSettingForReceptionPicks(['setting_beach', 'setting_garden']), 'beach');
   assert.equal(venueSettingForReceptionPicks(['bogus', 'setting_heritage']), 'heritage');
-  assert.equal(venueSettingForReceptionPicks([]), 'banquet_hall');
-  assert.equal(venueSettingForReceptionPicks(['bogus']), 'banquet_hall');
+  assert.equal(venueSettingForReceptionPicks([]), null);
+  assert.equal(venueSettingForReceptionPicks(['bogus']), null);
 });
 
 test('🔴 the onboarding writer uses this table and keeps no map of its own', () => {

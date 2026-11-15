@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 285 single-column FKs onto auth.users / public.users
-# CASCADE=76  RESTRICT=1  SET NULL=208
+# 287 single-column FKs onto auth.users / public.users
+# CASCADE=77  RESTRICT=1  SET NULL=209
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -176,6 +176,7 @@ moodboard_part_finalizations.reopen_answered_by_user_id   SET NULL     nullable 
 moodboard_part_finalizations.reopen_requested_by_user_id  SET NULL     nullable  -> users
 moodboard_part_finalizations.requested_by_user_id         SET NULL     nullable  -> users
 nav_slot_override.updated_by                              SET NULL     nullable  -> auth.users
+notice_closes.user_id                                     CASCADE      NOT NULL  -> users
 notifications.user_id                                     CASCADE      NOT NULL  -> users
 npc_filing_tasks.resolved_by                              SET NULL     nullable  -> auth.users
 oauth_grants.granted_by_user_id                           SET NULL     nullable  -> users
@@ -231,6 +232,7 @@ social_posts.created_by                                   SET NULL     nullable 
 stewardship_transfers.created_by_user_id                  SET NULL     nullable  -> users
 stewardship_transfers.from_user_id                        SET NULL     nullable  -> users
 stewardship_transfers.to_user_id                          SET NULL     nullable  -> users
+supplier_own_times.updated_by                             SET NULL     nullable  -> auth.users
 supplier_scan_claims.scanned_by_user_id                   SET NULL     nullable  -> auth.users
 supplier_scan_sessions.opened_by_user_id                  SET NULL     nullable  -> auth.users
 supplier_scan_settings.updated_by_user_id                 SET NULL     nullable  -> auth.users

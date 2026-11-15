@@ -153,7 +153,7 @@ export async function updateEventSlug(
 
   const admin = createAdminClient();
 
-  /* 💎 RENAMING IS THE CUSTOM ADDRESS PART (owner 2026-10-22, "Event Hub Pro, part by part"): the free address is the
+  /* 💎 RENAMING IS THE CUSTOM ADDRESS PART (owner 2026-10-22, "Event Pro, part by part"): the free address is the
      automatic one; picking your own is the ₱500 part, or everything. An event that renamed before keeps its address —
      nothing here takes one away — but a further change asks for the part. A server action is a public POST, so the
      gate is here, not only on the field. Saving the address already in use is no rename and passes. */

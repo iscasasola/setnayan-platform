@@ -96,7 +96,7 @@ export async function RecapsSurface({
             const slug = ev?.slug as string | null;
             const name = (ev?.display_name as string) ?? UNNAMED_EDITORIAL_LABEL;
             const publishedAt = recap.published_at
-              ? new Date(recap.published_at as string).toLocaleDateString('en-PH', {
+              ? new Date(recap.published_at as string).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

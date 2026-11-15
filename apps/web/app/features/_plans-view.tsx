@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 
-import { EVENT_PLANS, SUPPLIER_PLANS, type PlanColumn } from '@/lib/features-page';
+import { EVENT_PLANS, SUPPLIER_PLANS, planLines, type PlanColumn } from '@/lib/features-page';
 import { featurePriceLabel, resolveFeaturePrice, type CatalogueRow } from '@/lib/feature-pages/price';
 import s from './features-story.module.css';
 import { StoryIcon } from './_story-icons';
@@ -30,7 +30,7 @@ function PlanCol({ plan, rows, href, hrefLabel }: { plan: PlanColumn; rows: read
         {price}
       </p>
       <ul>
-        {plan.lines.map((l) => (
+        {planLines(plan, rows).map((l) => (
           <li key={l}>
             <StoryIcon name="check" className={s.ci} />
             <span>{l}</span>

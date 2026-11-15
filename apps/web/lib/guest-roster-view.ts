@@ -153,6 +153,15 @@ export function mayBeInvited(g: InviteFacts): boolean {
 }
 
 /**
+ * ✉ WAS AN INVITATION ACTUALLY SENT — a stamp on `invitation_sent_at`, nothing else (F-W2-25, walk 14 Nov: a guest
+ * marked Attending by hand was counted "invited" with no invite ever sent). A reply is NOT a send: `isToInvite` drops a
+ * guest who answered from the queue, but the words "invited" may only be said of a guest this is true for.
+ */
+export function invitationWasSent(g: Pick<InviteFacts, 'invitation_sent_at'>): boolean {
+  return Boolean(g.invitation_sent_at) && String(g.invitation_sent_at).trim() !== '';
+}
+
+/**
  * 💬 HAS THIS GUEST ANSWERED — Attending, Can't come or Maybe, by the guest or marked by the host. Every reply but
  * 'pending' is an answer (the same line `hasNotAnswered` draws for "No reply"). A read that does not carry
  * `rsvp_status` says nothing, so it is never read as an answer.

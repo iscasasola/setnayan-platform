@@ -127,6 +127,7 @@ import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { PasswordField } from '@/app/_components/password-field';
+import { slugify } from '@/lib/slugs';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingEventName, weddingEventNameReady, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -944,7 +945,7 @@ const groupDigits = (raw: string) => {
 // live_background dropped 2026-07-22: Live Background is bundle-only (folded into
 // Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
 // pick (its SKU is is_active=false → the card would otherwise render as ₱0).
-// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Hub Pro's Logo & QR
+// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Pro's Logo & QR
 // part (is_active=false → the card would otherwise render as ₱0), and onboarding keeps ONE Pro offer (Full Pro).
 const INAPP_KEYS = ['papic_seats', 'advanced_website', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
@@ -2505,12 +2506,11 @@ export function OnboardingShell({
   const bloomSurnameB = state.groomLastName.trim() || state.groomFirstName.trim() || 'Juan';
   // Partner first name for the share footer "Show {partner} 💍" row (groom side, mirrors prototype).
   const bloomPartnerName = state.groomFirstName.trim() || 'them';
-  // Display-only share slug ("brideandgroom") — the real page link is minted on the dashboard.
-  const coupleSlug =
-    [state.brideFirstName, state.groomFirstName]
-      .map((n) => n.trim().toLowerCase().replace(/[^a-z0-9]+/g, ''))
-      .filter(Boolean)
-      .join('and') || 'yourwedding';
+  // 🔗 THE ADDRESS STEP 2 PROMISED (walk 13 Nov 2026, F-W2-12). This was its own "display-only" spelling
+  // (bride + "and" + groom → setnayan.com/wandaandindigo), an address that never exists — a 404 — while "Name your
+  // wedding" showed, and the commit mints, `slugify(event name)` (`generateUniqueSlug(displayName)` →
+  // setnayan.com/wanda-indigo). One spelling now: the same `slugify(weddingEventName(state))` as step 2.
+  const coupleSlug = slugify(weddingEventName(state)) || 'yourwedding';
   // Does the couple actually have a love story, or did they skip / leave it blank?
   const bloomHasStory =
     !state.loveSkipped &&
@@ -4698,6 +4698,7 @@ export function OnboardingShell({
             <StepBar
               wide
               className="flex-1"
+              stepKey={activeId}
               main={{
                 label: committing ? 'Creating your plan…' : nextLabel,
                 'data-testid': 'onboarding-continue',

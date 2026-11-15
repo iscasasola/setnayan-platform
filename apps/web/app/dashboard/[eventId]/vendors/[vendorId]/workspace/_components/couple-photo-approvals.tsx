@@ -25,8 +25,8 @@ export async function CouplePhotoApprovals({
   if (evErr) {
     logQueryError('CouplePhotoApprovals.event', evErr, { event_id: eventId }, 'graceful_degrade');
     return (
-      <p role="alert" className="text-sm text-ink/70">
-        We couldn&rsquo;t load the photos {shopName} wants to show. Reload in a moment.
+      <p role="alert" className="py-2 text-sm text-warn-800">
+        Couldn&rsquo;t load the photos {shopName} wants to show. Reload in a moment.
       </p>
     );
   }
@@ -34,8 +34,8 @@ export async function CouplePhotoApprovals({
   const read = await readCoupleApprovals(supabase, { eventId, vendorProfileId, eventDate: ev?.event_date ?? null });
   if (read.status !== 'ok') {
     return (
-      <p role="alert" className="text-sm text-ink/70">
-        We couldn&rsquo;t load the photos {shopName} wants to show. Reload in a moment.
+      <p role="alert" className="py-2 text-sm text-warn-800">
+        Couldn&rsquo;t load the photos {shopName} wants to show. Reload in a moment.
       </p>
     );
   }

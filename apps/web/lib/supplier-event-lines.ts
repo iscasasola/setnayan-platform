@@ -21,6 +21,7 @@ import { familiesForServices, type DayOfFamily } from '@/lib/vendor-dayof-module
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { guestRoleLabel, ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { isHonoreeRole } from '@/lib/role-groups';
+import { realNameOrNull } from '@/lib/no-name';
 import type { RoleNames } from '@/lib/role-names';
 
 /** Where the event stands with THIS shop (the roster's lanes, folded to the four words a row says). */
@@ -105,6 +106,9 @@ export type EventLines = {
   date: string | null;
   /** The count they asked with (or now plan for), else the event's estimate; null when neither is set. */
   pax: number | null;
+  /** 👥 RW-08: this shop's claimed per-guest booking, as the couple reads it — its total now (null when unreadable) and
+   *  the guests it bills. Absent/null = not such a booking: the card says "Est. pax" as shipped. */
+  perGuest?: { totalPhp: number | null; guests: number } | null;
   /** Everyone hosting it, the one who asked first. Null = the read was refused (said, never "nobody"). */
   hosts: EventLineHost[] | null;
   /** What they asked THIS shop for. Null = the read was refused. */
@@ -259,9 +263,12 @@ export function eventCelebrantWords(input: {
   const sig = input.signatureDetails && typeof input.signatureDetails === 'object' ? (input.signatureDetails as Record<string, unknown>) : null;
   for (const key of ['celebrant_name', 'celebrant_names']) {
     const v = sig?.[key];
-    if (typeof v === 'string' && v.trim()) return v.replace(/\s+/g, ' ').trim();
+    // 👤 OWN-03 (live 14 Nov): a STAND-IN is no name — "Someone —" was saved as an event's celebrant and read back here
+    // as if it were one (the RW-64 rule, `realNameOrNull`).
+    const named = typeof v === 'string' ? realNameOrNull(v.replace(/\s+/g, ' ').trim()) : null;
+    if (named) return named;
   }
-  return (input.honoreeLabel ?? '').replace(/\s+/g, ' ').trim() || null;
+  return realNameOrNull((input.honoreeLabel ?? '').replace(/\s+/g, ' ').trim());
 }
 
 /** One `thread_service_interests` row, as the requested line reads it. */

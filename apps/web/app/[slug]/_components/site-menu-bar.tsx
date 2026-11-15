@@ -202,7 +202,11 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
       document.removeEventListener('click', onLinkClick);
     };
   }, [onePage, page, markKey]);
-  const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;
+  /* 📖 A PAGE OF NO TABS LIGHTS ITS HOME (F-W2-54, the live walk after #7596): after the day the bar's tabs are
+     anchors on the one story page, so no tab was lit — and the camera, always in its own colour, read as the tab you
+     were on while you read the Recap. The page you are on is the bar's Home ("Recap" after the day). */
+  const homeOfThisPage = !onePage && tabKeys.length === 0 && slots.some((s) => s.key === 'home' && s.state === 'live') ? 'home' : null;
+  const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : (page ?? homeOfThisPage);
   /** 📜 A lit jump mark is "the place you are on this page" (`true`); a lit page is the page (`page`). */
   const currentOf = (key: string): 'page' | 'true' | undefined =>
     key !== activeKey ? undefined : onePage && marks.some((m) => m.key === key) ? 'true' : 'page';

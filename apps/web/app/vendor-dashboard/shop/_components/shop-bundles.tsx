@@ -28,12 +28,12 @@ export function ShopBundles({ bundles, cards, lock = null }: { bundles: readonly
   return (
     <div className="pb-1 pt-2" data-shop-bundles="">
       <div className="flex items-baseline justify-between pb-1.5">
-        <p className="sn-eye">Bundles</p>
-        <span className="text-[11.5px] text-ink/50">several cards as one price</span>
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Bundles</p>
+        <span className="text-xs text-ink/70">several cards as one price</span>
       </div>
       {lock ? (
         <div data-shop-bundles-locked="">
-          <LockedFeature lock="bundleMaker" need={lock} lead={<Package aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />} preview={<BundlePreviewSample />} />
+          <LockedFeature lock="bundleMaker" need={lock} lead={<Package aria-hidden className="h-[18px] w-[18px] flex-none text-ink/70" strokeWidth={1.75} />} preview={<BundlePreviewSample />} />
         </div>
       ) : bundles === null ? (
         <p role="status" className={`${empty} text-[13.5px] text-ink/70`} style={ground} data-shop-bundles-unread="">
@@ -41,12 +41,12 @@ export function ShopBundles({ bundles, cards, lock = null }: { bundles: readonly
         </p>
       ) : bundles.length === 0 ? (
         <div className={`space-y-2.5 ${empty}`} style={ground} data-shop-bundles-empty="">
-          <p className="flex items-start gap-2 text-[14px] leading-snug text-ink/75">
-            <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+          <p className="flex items-start gap-2 text-sm leading-snug text-ink/75">
+            <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
             <span>{cards !== null && cards < 2 ? 'No bundles yet · a bundle needs two service cards first' : 'No bundles yet · several cards as one price'}</span>
           </p>
           <span className={cards !== null && cards < 2 ? 'inline-flex opacity-50' : 'inline-flex'}>
-            <ActionButton tone="neutral" icon={<Package aria-hidden strokeWidth={1.9} />} label="New bundle" href={NEW_BUNDLE_HREF} />
+            <ActionButton tone="neutral" icon={<Package aria-hidden strokeWidth={1.9} />} label="New bundle" href={NEW_BUNDLE_HREF} className="!h-11" />
           </span>
         </div>
       ) : (

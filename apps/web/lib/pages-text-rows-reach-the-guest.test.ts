@@ -76,7 +76,7 @@ test("the hero's alignment is one choice for the whole hero; a scene's parts ali
 const widget = (type: string, config: unknown): InvitationWidgetRow =>
   ({ widget_id: `S89W-${type}`, widget_type: type, is_visible: true, display_order: 1, mode: 'auto', config_json: config }) as unknown as InvitationWidgetRow;
 
-/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO
    ◆"): *everything in Style is Pro*. The Text rows (weight · B/I/U · alignment · spacing) were freed on 2026-09-28; they
    are held at ✓ Apply again for a couple without Pro. Hiding a part and its own words stay the page we write — free. */
 test('at Apply the Text rows are Pro (2026-10-16); hiding a part and the joiner’s word stay free', () => {

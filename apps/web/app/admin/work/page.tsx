@@ -41,6 +41,7 @@ import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SupplierInbox } from './_components/supplier-inbox';
 import { Suspense } from 'react';
+import { NoticeSlot } from '@/app/_components/notices/notices';
 import { AppleSecretReminder } from '../_apple-secret-reminder';
 import { EmailDeliveryStrip } from '../_email-delivery-strip';
 import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-payments.server';
@@ -116,6 +117,8 @@ export default async function AdminWorkLanding({
     if (meta?.watchOnly) ageLabel = 'In the last 7 days — you only watch these';
     else if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
     else if (age && dueState === 'due-soon') ageLabel = `Oldest ${age} · due soon`;
+    // ⏳ F-A-05: a queue with no promise says so — its oldest item is not "on pace", it has no clock at all.
+    else if (age && dueState === 'ok' && meta?.slaHours === null) ageLabel = `Oldest ${age} · no set time`;
     else if (age && dueState === 'ok') ageLabel = `Oldest ${age}`;
 
     return {
@@ -125,6 +128,7 @@ export default async function AdminWorkLanding({
       dueState,
       ageLabel,
       watchOnly: meta?.watchOnly === true,
+      noPromise: meta?.slaHours === null,
       // ➕ "Approve all N green" lives on the payments row itself (admin slice 4).
       greenBatch: base.key === 'payments' && (d.count ?? 0) > 0 ? greenBatch : undefined,
       _index: index,
@@ -214,6 +218,9 @@ export default async function AdminWorkLanding({
             email that did not arrive, an unreadable log, or email switched off),
             so a healthy day draws nothing here. The email strip streams behind
             its own Suspense so a slow log read never holds the list. */}
+        {/* 🔔 The page's top for notices (ONE NOTICE SYSTEM, owner approved 14 Nov 2026): the two reminders below
+            register here; at most two lines show, the rest wait in the bell. */}
+        <NoticeSlot place="top" className="mb-4" />
         <AppleSecretReminder />
         <Suspense fallback={null}>
           <EmailDeliveryStrip />

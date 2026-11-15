@@ -53,3 +53,11 @@ SPEC IMPACT: None new — implements the controller's J0 brief from DECISION_LOG
 Controller's reachability audit: #7652 (`20271345709071_supplier_gifts_event_ultra`) and this PR (`20271348181787_black_diamond_gives_event_ultra`) both add the Event Ultra gift kind, with opposite price rules. Owner 15 Nov: *"Event Ultra may be a supplier gift at its ₱9,990 list price until a gift price is set."* ⇒ this PR keeps the ONE migration and now sells Ultra: `SHOP_GIFT_UNLOCK_CODE` carries it, `shopGiftBuyable('EVENT_ULTRA')` is true, a `vendor_gift__EVENT_ULTRA` order activates into stock, and a Verified shop still pays ₱9,990 (no gift price → list). `SHOP_GIFT_EARNED_ONLY_CODE(S)` are removed. #7652's migration is withdrawn; see that PR.
 
 SPEC IMPACT: None — implements DECISION_LOG 2026-11-15 "GIFT FOR SERVICES DESIGN — DECISIONS" as written.
+
+## 2026-11-15 · refactor(badges): every badge step lives in ONE table
+
+Controller 15 Nov: the owner is re-setting all five badges' steps. `SHOP_BADGE_STEPS` (`lib/badge-tiers.ts`) is now the only place the numbers are written. Its doc comment says what each badge counts, without the numbers. The tests derive every count and expected line from the table (`badge-rewards.test.ts`), so a new set of numbers is a one-table edit.
+- The slice-A `trusted_by:<step>` legacy mapping is removed: it repeated the steps, and that slice never reached production.
+- The frozen OLD ladders that old payments map from (`MILESTONE_THRESHOLDS`, `REVIEW_STEPS`, the retired Booked Loop ladder) are history, not these badges' steps.
+
+SPEC IMPACT: None.

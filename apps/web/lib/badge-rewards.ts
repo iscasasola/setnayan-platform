@@ -367,14 +367,13 @@ export function tierRewardKey(badge: ShopBadgeKey, tier: TierKey): string {
 /**
  * 🗄 OLD PAYMENTS ALL COUNT (3cbf12c1): a reward paid under an old key blocks the tier it was told it earned on the
  * badge that took over its count — `events:<step>` (the old Events ladder) → Completed bookings, `reviews:<step>` →
- * Five-star reviews, `trusted_by:<step>` (the step-keyed Trusted by of this PR's first slice) → Trusted by — by the
- * step's position on its OLD ladder. A retired badge with no successor (Booked Loop, 1st Pick, Branches, Service
+ * Five-star reviews — by the step's position on its OLD ladder (both frozen ladders, not the new steps). The
+ * step-keyed `trusted_by:<step>` of this PR's first slice never reached production, so it maps to nothing. A retired badge with no successor (Booked Loop, 1st Pick, Branches, Service
  * cards, Inspiration box, the Firsts) blocks nothing: what it paid stays paid (the retired-ladders row).
  */
 const LEGACY_LADDERS: ReadonlyArray<{ prefix: string; successor: ShopBadgeKey; steps: readonly number[] }> = [
   { prefix: 'events', successor: 'completed_bookings', steps: MILESTONE_THRESHOLDS },
   { prefix: 'reviews', successor: 'five_star_reviews', steps: REVIEW_STEPS },
-  { prefix: 'trusted_by', successor: 'trusted_by', steps: [1, 5, 10, 25, 50, 100, 250] },
 ];
 
 /** Every (badge, tier) a shop's existing reward keys have already paid — new keys and legacy keys alike. */

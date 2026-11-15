@@ -134,13 +134,14 @@ export const TIER_KEYS: readonly TierKey[] = ['tier1', 'tier2', 'tier3', 'tier4'
 /**
  * 🏅 THE FIVE TIERED SHOP BADGES AND THEIR OWN STEPS — the only shop badges Setnayan has (owner 15 Nov, 4b8cc3a3 "the
  * badges we created will be the only badges we have"; prototype badge-milestones_v86). Each badge keeps ITS OWN steps,
- * Bronze → Black Diamond (correction to e6cd652e):
- *   Completed bookings  5 · 25 · 50 · 100 · 250 · 500 · 1,000            (the calendar-steps row)
- *   Five-star reviews   50 · 250 · 500 · 1,000 · 2,500 · 5,000 · 10,000  (approved with the prototype set)
- *   Gifts given         150 · 750 · 1,500 · 3,000 · 5,000 · 10,000 · 20,000 gift points (bc148e4e — replaces 7,500 ·
- *                       15,000 · 30,000)
- *   Trusted by          1 · 5 · 10 · 25 · 50 · 100 · 250 clients who booked the shop a second time (50566f42)
- *   Invites             1 · 5 · 10 · 25 · 50 · 100 · 250 suppliers the shop added who have a completed booking (219fb192)
+ * Bronze → Black Diamond (correction to e6cd652e). ⚖ THE STEP NUMBERS LIVE IN `SHOP_BADGE_STEPS` BELOW AND NOWHERE
+ * ELSE — no comment, test or reader repeats them; every reader and test reads this table (controller 15 Nov: the owner
+ * is re-setting them). What each badge counts:
+ *   Completed bookings  completed events (the calendar-steps row)
+ *   Five-star reviews   trusted five-star reviews
+ *   Gifts given         gift points, 1 per ₱10 of each gift's regular price, on completed events (bc148e4e)
+ *   Trusted by          clients who booked the shop a second time (50566f42)
+ *   Invites             suppliers the shop imported, each at its first completed event (owner 15 Nov, open item 3)
  * Lifetime counts — they never reset (3cbf12c1). Seals are yearly and card badges rolling 30 days, by their own rows.
  * ⚠ NOT `MILESTONE_THRESHOLDS`: that ladder still sizes the service-card record's milestone medals and many readers.
  */

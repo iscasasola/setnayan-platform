@@ -180,9 +180,9 @@
   color: inherit;
 }
 .cbp::backdrop {
-  background: rgba(8, 14, 30, 0.55);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: var(--sn-scrim);
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
+  backdrop-filter: blur(var(--sn-scrim-blur));
 }
 .cbpCard {
   position: relative;

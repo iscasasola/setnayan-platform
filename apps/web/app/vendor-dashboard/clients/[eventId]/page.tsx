@@ -789,7 +789,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .order('created_at', { ascending: false }),
       fetchVendorThreads(supabase, profile.vendor_profile_id),
       getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
-      supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId }),
+      /*
+        🍸 RW-285c (live 14 Nov — "Saving the supplier cocktail editor — could not save", 62× in a day): the editor's read
+        REFUSES, by design and as an access error (42501), whenever the shop is not booked (`not_booked`), the booking fee
+        is not settled (`fee_unsettled`) or the couple has not opened the cocktail area to suppliers (`vendor_edit_off`).
+        This page asked it on EVERY client visit — inquiries included — so each ordinary "no editor here" was logged as a
+        refused write. It is asked now only when all three are already true; otherwise the answer is known: no editor.
+      */
+      (async (): Promise<{ data: unknown }> => {
+        if (!isBooked || !feeUnlocked) return { data: null };
+        const { data: plan, error: planError } = await admin
+          .from('event_floor_plan')
+          .select('cocktail_enabled, cocktail_vendor_edit')
+          .eq('event_id', eventId)
+          .maybeSingle();
+        // A refused read shows no editor (the same as before this gate) — logged, never read as "switched off".
+        if (planError) logQueryError('vendor customer card: event_floor_plan (cocktail gate)', planError, { eventId }, 'graceful_degrade');
+        if (!plan?.cocktail_enabled || !plan?.cocktail_vendor_edit) return { data: null };
+        return supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId });
+      })(),
       // This org's booth poster for this event (its own table — one artwork per
       // vendor per event, not per booked service row). Admin-read: the page is
       // already booked/inquiry-gated above, and the row is scoped by

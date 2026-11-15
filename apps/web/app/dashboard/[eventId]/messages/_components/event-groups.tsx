@@ -5,9 +5,11 @@
  * "N inside · its line", the last line you may read and the time; unread rows bold with a dot; a group you left
  * greyed. "+ New group" for hosts only.
  *
- * SERVER-RENDERED, NO SCRIPT: plain links, so the Chats page's first load carries nothing new (🛡 guard 5). Opening a
- * host's or the coordinator's Chats opens General and the role groups (idempotent, in the database —
- * `openEventGroups`). A refused read says so, never "no groups".
+ * SERVER-RENDERED, NO SCRIPT: plain links, so the Chats page's first load carries nothing new (🛡 guard 5).
+ * 🔒 LOOKING NEVER WRITES (RW-305, 14 Nov): opening the list used to CREATE General and the role groups, so an empty
+ * "General" appeared for a host who had pressed nothing. Now a group the event should have but nobody has opened is
+ * drawn as the same row, and its press posts `openGroupChat` (a form — a link would be prefetched). A refused read
+ * says so, never "no groups". 🛡 a-chats-list-never-writes.test.ts
  */
 import Link from 'next/link';
 import { Hash, Plus, Users } from 'lucide-react';
@@ -15,30 +17,64 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatChatTimestamp } from '@/lib/chat';
 import { formatCount } from '@/lib/format-number';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { openGroupChat } from '../actions';
 import {
   groupChatHref,
   groupListLine,
   groupListPreview,
   newGroupHref,
-  openEventGroups,
+  groupsToOpen,
   readEventGroups,
+  unopenedGroups,
+  type GroupToOpen,
   type GroupListRow,
   type GroupPersonKind,
 } from '@/lib/chat-groups';
 
 const GROUP_HEAD = 'pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50';
 
-export async function EventGroups({ supabase, eventId }: { supabase: SupabaseClient; eventId: string }) {
+export async function EventGroups({
+  supabase,
+  eventId,
+  openFailed = false,
+}: {
+  supabase: SupabaseClient;
+  eventId: string;
+  /** The last tap on an unopened group was refused (`?group=unopened`). */
+  openFailed?: boolean;
+}) {
   const mine = await supabase.rpc('chat_group_my_kind', { p_event_id: eventId });
   if (mine.error) logQueryError('EventGroups (chat_group_my_kind)', mine.error, { event_id: eventId }, 'graceful_degrade');
   const me = (mine.data ?? null) as GroupPersonKind | null;
-  if (me === 'host' || me === 'coordinator') await openEventGroups(supabase, eventId);
-  const rows = await readEventGroups(supabase, eventId);
-  return <GroupsList rows={rows} newGroup={me === 'host' ? newGroupHref(eventId) : null} />;
+  const opener = me === 'host' || me === 'coordinator';
+  const [rows, wanted] = await Promise.all([readEventGroups(supabase, eventId), opener ? groupsToOpen(supabase, eventId) : null]);
+  const toOpen = rows && wanted ? unopenedGroups(wanted, rows) : [];
+  return (
+    <GroupsList
+      rows={rows}
+      toOpen={toOpen}
+      eventId={eventId}
+      openFailed={openFailed}
+      newGroup={me === 'host' ? newGroupHref(eventId) : null}
+    />
+  );
 }
 
 /** The section itself, data in (the dev lab draws it on fixtures). `rows` null = the read was refused. */
-export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] | null; newGroup: string | null }) {
+export function GroupsList({
+  rows,
+  newGroup,
+  toOpen = [],
+  eventId = '',
+  openFailed = false,
+}: {
+  rows: readonly GroupListRow[] | null;
+  newGroup: string | null;
+  /** Groups the event should have that nobody has opened yet — each row's press opens it (a POST, never on render). */
+  toOpen?: readonly GroupToOpen[];
+  eventId?: string;
+  openFailed?: boolean;
+}) {
   return (
     <section aria-labelledby="chats-groups-head" className="mb-2" data-chats-groups="">
       <div className="flex items-center justify-between">
@@ -56,11 +92,16 @@ export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] |
           </Link>
         ) : null}
       </div>
+      {openFailed ? (
+        <p role="alert" className="py-2 text-[13px] text-ink/70">
+          Couldn&rsquo;t open that group just now. Try again in a moment.
+        </p>
+      ) : null}
       {rows === null ? (
         <p role="status" className="py-2 text-[13px] text-ink/60">
           Couldn&rsquo;t load your groups just now &mdash; this does not mean you have none. Reload in a moment.
         </p>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && toOpen.length === 0 ? (
         <p className="py-2 text-[13px] text-ink/60">No group chats yet.</p>
       ) : (
         <ul>
@@ -93,6 +134,32 @@ export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] |
                   </span>
                   {g.unread ? <span aria-label="Unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-sn-accent" /> : null}
                 </Link>
+              </li>
+            );
+          })}
+          {toOpen.map((g) => {
+            const Icon = g.kind === 'general' ? Users : Hash;
+            return (
+              <li key={`open:${g.kind}:${g.key ?? ''}`}>
+                <form action={openGroupChat}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="group_kind" value={g.kind} />
+                  {g.key ? <input type="hidden" name="group_key" value={g.key} /> : null}
+                  <button
+                    type="submit"
+                    className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2 text-left"
+                    data-chats-group-row={g.kind}
+                    data-chats-group-unopened=""
+                  >
+                    <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink/[0.07] text-ink/70">
+                      <Icon className="h-5 w-5" strokeWidth={1.9} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-ink">{g.name}</span>
+                      <span className="block truncate text-[12px] text-ink/55">{groupListLine({ group_kind: g.kind, made_by_name: null })}</span>
+                    </span>
+                  </button>
+                </form>
               </li>
             );
           })}

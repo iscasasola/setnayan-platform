@@ -196,35 +196,64 @@ export async function readGroupPeople(supabase: SupabaseClient, eventId: string)
   return (Array.isArray(data) ? data : []) as GroupPerson[];
 }
 
+/** A group the event should have that nobody has opened yet — General, or one per role on the guest list. */
+export type GroupToOpen = { kind: 'general' | 'role'; key: string | null; name: string };
+
 /**
- * Opens General and the event's role groups (hosts and the coordinator; every call is idempotent in the database).
- * Reads the guest list's roles through the caller's own session. Never throws: a refusal is logged and the list shows
- * what exists.
+ * 🔒 A PAGE LOAD NEVER WRITES (RW-305, 14 Nov). Opening the Chats list used to CREATE General and every role group —
+ * an empty "General" appeared for a host who had pressed nothing. This is READ-ONLY: it names the groups the event
+ * should have (General + one per role held on the guest list), and the list draws the ones not yet opened as rows
+ * whose tap opens them (`openOneGroup`, behind a POST). `null` = the guest list could not be read.
  */
-export async function openEventGroups(supabase: SupabaseClient, eventId: string): Promise<void> {
-  const general = await supabase.rpc('chat_group_open', { p_event_id: eventId });
-  if (general.error) {
-    logQueryError('openEventGroups (chat_group_open)', general.error, { event_id: eventId }, 'graceful_degrade');
-    return;
-  }
+export async function groupsToOpen(supabase: SupabaseClient, eventId: string): Promise<GroupToOpen[] | null> {
+  const roles = await roleGroupsOnTheList(supabase, eventId);
+  if (!roles) return null;
+  return [{ kind: 'general', key: null, name: 'General' }, ...roles.map((r) => ({ kind: 'role' as const, key: r.key, name: r.name }))];
+}
+
+/** The role groups the guest list holds, named (the caller's own session). `null` = the guest list could not be read. */
+async function roleGroupsOnTheList(supabase: SupabaseClient, eventId: string): Promise<RoleGroupChat[] | null> {
   const guests = await supabase.from('guests').select('role, extra_roles').eq('event_id', eventId).is('deleted_at', null);
   if (guests.error) {
-    logQueryError('openEventGroups (guests roles)', guests.error, { event_id: eventId }, 'graceful_degrade');
-    return;
+    logQueryError('roleGroupsOnTheList (guests roles)', guests.error, { event_id: eventId }, 'graceful_degrade');
+    return null;
   }
   const held: GuestRole[] = [];
   for (const g of (guests.data ?? []) as Array<{ role: GuestRole | null; extra_roles: GuestRole[] | null }>) {
     if (g.role) held.push(g.role);
     for (const x of g.extra_roles ?? []) held.push(x);
   }
-  const names = await loadRoleNames(supabase, eventId, 'openEventGroups');
-  for (const r of roleGroupChats(held, names)) {
-    const { error } = await supabase.rpc('chat_group_open_role', {
-      p_event_id: eventId,
-      p_key: r.key,
-      p_name: r.name,
-      p_roles: r.roles,
-    });
-    if (error) logQueryError('openEventGroups (chat_group_open_role)', error, { event_id: eventId, key: r.key }, 'graceful_degrade');
+  const names = await loadRoleNames(supabase, eventId, 'roleGroupsOnTheList');
+  return roleGroupChats(held, names);
+}
+
+/** The groups in `wanted` that `rows` does not already hold (General by kind, a role group by its key). */
+export function unopenedGroups(wanted: readonly GroupToOpen[], rows: readonly Pick<GroupListRow, 'group_kind' | 'group_key'>[]): GroupToOpen[] {
+  const hasGeneral = rows.some((r) => r.group_kind === 'general');
+  const roleKeys = new Set(rows.filter((r) => r.group_kind === 'role').map((r) => r.group_key));
+  return wanted.filter((w) => (w.kind === 'general' ? !hasGeneral : !roleKeys.has(w.key)));
+}
+
+/**
+ * Opens ONE group on an explicit tap (hosts and the coordinator; idempotent in the database) and answers its thread.
+ * A role group's name and roles are re-derived here from the guest list — never taken from the form. `null` = refused
+ * (logged), or a role key the guest list no longer holds.
+ */
+export async function openOneGroup(supabase: SupabaseClient, eventId: string, kind: 'general' | 'role', key: string | null): Promise<string | null> {
+  if (kind === 'general') {
+    const { data, error } = await supabase.rpc('chat_group_open', { p_event_id: eventId });
+    if (error) {
+      logQueryError('openOneGroup (chat_group_open)', error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return typeof data === 'string' ? data : null;
   }
+  const r = (await roleGroupsOnTheList(supabase, eventId))?.find((x) => x.key === key);
+  if (!r) return null;
+  const { data, error } = await supabase.rpc('chat_group_open_role', { p_event_id: eventId, p_key: r.key, p_name: r.name, p_roles: r.roles });
+  if (error) {
+    logQueryError('openOneGroup (chat_group_open_role)', error, { event_id: eventId, key: r.key }, 'graceful_degrade');
+    return null;
+  }
+  return typeof data === 'string' ? data : null;
 }

@@ -38,6 +38,7 @@ import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { CoupleChallengesManager } from '../couple-challenges-manager';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -95,10 +96,10 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
         </p>
       ) : null}
       {search.add === 'unavailable' ? (
-        <p className="mt-4 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-          We couldn&rsquo;t check your board just now, so nothing was added. Try
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check your board just now, so nothing was added." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-4" align="start">
+          Try
           again in a moment &mdash; nothing has changed.
-        </p>
+        </InfoTip>
       ) : null}
 
       {/* ↩ The one Undo toast for a swiped-away challenge (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"). */}

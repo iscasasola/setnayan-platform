@@ -26,6 +26,9 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ChapterEmbedFrame } from './_components/chapter-embed-frame';
 import { TeaserGenerator } from './_components/teaser-generator';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import {
   createChapter,
   deleteChapter,
@@ -205,12 +208,12 @@ async function CreatorBody({
     <>
       <OfferInbox offers={inbox} publishedChapters={publishedChapters} />
 
-      <section className="sn-tile mb-8 space-y-4">
+      <section className="mb-8 space-y-4">
         <h2 className="sn-sec">New chapter</h2>
         <StayForm door="accCreator.createChapter" action={createChapter} className="space-y-4">
           <ChapterFields myEvents={myEvents} prefillEventId={prefillEventId} />
           <SubmitButton
-            className="button-primary inline-flex items-center justify-center gap-2"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-2"
             pendingLabel="Creating…"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -228,16 +231,10 @@ async function CreatorBody({
           {chaptersMeasured ? `Your chapters (${chapters.length})` : 'Your chapters'}
         </h2>
         {chapters.length === 0 ? (
-          <div className="sn-tile border-dashed p-8 text-center">
-            <Clapperboard
-              aria-hidden
-              className="mx-auto mb-2 h-6 w-6 text-ink/30"
-              strokeWidth={1.5}
-            />
-            <p className="text-sm text-ink/55">
-              No chapters yet. Create one above, write your story, then publish.
-            </p>
-          </div>
+          <p className="flex items-center gap-2 py-3 text-sm text-ink/70">
+            <Clapperboard aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.75} />
+            No chapters yet. Create one above, write your story, then publish.
+          </p>
         ) : (
           <div className="space-y-8">
             {chronicle.map((block) => (
@@ -250,12 +247,12 @@ async function CreatorBody({
                   </h3>
                   <span className="h-px flex-1 bg-ink/10" aria-hidden />
                   {block.year ? null : (
-                    <span className="text-[11px] text-ink/50">
+                    <span className="text-xs text-ink/70">
                       These land in a year once you post them.
                     </span>
                   )}
                 </div>
-                <ul className="space-y-4">
+                <ul className="divide-y divide-ink/10 border-y border-ink/10">
                   {block.entries.map(({ item: c, number }) => (
                     <li key={c.chapter_id}>
                       <ChapterCard
@@ -284,11 +281,17 @@ async function CreatorBody({
 // may credit the vendor in a published chapter (the deliverable). Setnayan only
 // records the collab — the discount settles off-platform.
 // ---------------------------------------------------------------------------
-const OFFER_STATUS_STYLE: Record<CreatorInboxOffer['status'], string> = {
-  pending: 'bg-amber-100 text-amber-900',
-  accepted: 'bg-success-100 text-success-800',
-  declined: 'bg-ink/[0.06] text-ink/60',
-  expired: 'bg-ink/[0.06] text-ink/50',
+const OFFER_STATUS_TONE: Record<CreatorInboxOffer['status'], BadgeTone> = {
+  pending: 'wait',
+  accepted: 'ok',
+  declined: 'quiet',
+  expired: 'quiet',
+};
+const OFFER_STATUS_WORD: Record<CreatorInboxOffer['status'], string> = {
+  pending: 'Pending',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
 };
 
 function OfferInbox({
@@ -305,21 +308,19 @@ function OfferInbox({
   return (
     <section id="offers" className="mb-8 space-y-4">
       <div className="space-y-1">
-        <p className="sn-eye">
-          <Handshake aria-hidden strokeWidth={1.75} />
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <Handshake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Partnerships
         </p>
-        <h2 className="sn-sec">Discount offers ({pending.length} to review)</h2>
-        <p className="text-sm text-ink/60">
-          A supplier is offering you a discount for a credited feature in one of
-          your chapters. Setnayan never touches the money — any discount settles
-          directly between you and the supplier.
-        </p>
+        <InfoTip label={`Discount offers (${pending.length} to review)`} labelAs="h2" labelClassName="sn-sec" align="start">
+          A supplier is offering you a discount for a credited feature in one of your chapters. Setnayan never touches the
+          money — any discount settles directly between you and the supplier.
+        </InfoTip>
       </div>
 
-      <ul className="space-y-3">
+      <ul className="divide-y divide-ink/10 border-y border-ink/10">
         {pending.map((o) => (
-          <li key={o.offerId} className="sn-tile space-y-3">
+          <li key={o.offerId} className="space-y-3 py-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-semibold text-ink">
@@ -336,53 +337,45 @@ function OfferInbox({
                   {o.creatorRateTerms}
                 </p>
                 {o.audienceRateTerms ? (
-                  <p className="text-[13px] text-ink/60">
-                    <span className="font-medium text-ink/80">Your viewers:</span>{' '}
+                  <p className="text-[13px] text-ink/75">
+                    <span className="font-medium text-ink">Your viewers:</span>{' '}
                     {o.audienceRateTerms}
                   </p>
                 ) : null}
               </div>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${OFFER_STATUS_STYLE[o.status]}`}
-              >
-                Pending
-              </span>
+              <Badge tone={OFFER_STATUS_TONE[o.status]}>Pending</Badge>
             </div>
 
             <div className="flex flex-wrap items-end gap-2 border-t border-ink/10 pt-3">
               <StayForm door="accCreator.acceptCreatorOffer" action={acceptCreatorOffer} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="offer_id" value={o.offerId} />
                 {publishedChapters.length > 0 ? (
-                  <label className="space-y-1">
-                    <span className="block text-[11px] font-medium text-ink/80">
-                      Credit in chapter (optional)
-                    </span>
-                    <select
+                  <span className="block space-y-1">
+                    <span className="block text-xs font-medium text-ink">Credit in chapter (optional)</span>
+                    <PostedPick
                       name="deliverable_chapter_id"
-                      defaultValue=""
-                      className="input-field max-w-[15rem]"
-                    >
-                      <option value="">Link later</option>
-                      {publishedChapters.map((c) => (
-                        <option key={c.chapter_id} value={c.chapter_id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      label="Link later"
+                      initial=""
+                      className="block max-w-[15rem]"
+                      options={[
+                        { key: '', label: 'Link later' },
+                        ...publishedChapters.map((c) => ({ key: c.chapter_id, label: c.title })),
+                      ]}
+                    />
+                  </span>
                 ) : null}
                 <SubmitButton
-                  className="button-primary inline-flex items-center gap-1"
+                  className="ab ab-brand ab-main inline-flex min-h-11 items-center gap-1"
                   pendingLabel="Accepting…"
                 >
-                  <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Accept
                 </SubmitButton>
               </StayForm>
               <StayForm door="accCreator.declineCreatorOffer" action={declineCreatorOffer}>
                 <input type="hidden" name="offer_id" value={o.offerId} />
                 <SubmitButton
-                  className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
+                  className="ab ab-neutral inline-flex min-h-11 items-center gap-1"
                   pendingLabel="Declining…"
                 >
                   Decline
@@ -395,26 +388,22 @@ function OfferInbox({
 
       {resolved.length > 0 ? (
         <details className="group">
-          <summary className="cursor-pointer text-sm font-medium text-ink/70 hover:text-ink">
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ink/75 hover:text-ink">
             Past offers ({resolved.length})
           </summary>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-ink/10 border-y border-ink/10">
             {resolved.map((o) => {
               const canLink =
                 o.status === 'accepted' &&
                 !o.deliverableChapterId &&
                 publishedChapters.length > 0;
               return (
-                <li key={o.offerId} className="sn-row space-y-2 p-3">
+                <li key={o.offerId} className="min-h-14 space-y-2 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[13px] font-medium text-ink">
                       {o.vendorName}
                     </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em] ${OFFER_STATUS_STYLE[o.status]}`}
-                    >
-                      {o.status}
-                    </span>
+                    <Badge tone={OFFER_STATUS_TONE[o.status]}>{OFFER_STATUS_WORD[o.status]}</Badge>
                   </div>
                   {canLink ? (
                     <StayForm
@@ -423,23 +412,15 @@ function OfferInbox({
                       className="flex flex-wrap items-end gap-2"
                     >
                       <input type="hidden" name="offer_id" value={o.offerId} />
-                      <select
+                      <PostedPick
                         name="deliverable_chapter_id"
-                        defaultValue=""
-                        required
-                        className="input-field max-w-[15rem]"
-                      >
-                        <option value="" disabled>
-                          Credit this supplier in…
-                        </option>
-                        {publishedChapters.map((c) => (
-                          <option key={c.chapter_id} value={c.chapter_id}>
-                            {c.title}
-                          </option>
-                        ))}
-                      </select>
+                        label="Credit this supplier in…"
+                        initial=""
+                        className="block w-full max-w-[15rem]"
+                        options={publishedChapters.map((c) => ({ key: c.chapter_id, label: c.title }))}
+                      />
                       <SubmitButton
-                        className="button-secondary inline-flex items-center gap-1 text-xs"
+                        className="ab ab-neutral inline-flex min-h-11 items-center gap-1"
                         pendingLabel="Linking…"
                       >
                         Link chapter
@@ -480,45 +461,33 @@ function ChapterCard({
   const shared = chapterIsShared(c.status);
 
   return (
-    <div className="sn-tile space-y-4">
+    <div className="space-y-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           {/* The number is the chronicle's, not the author's: it comes from the
               day the celebration happened. A chapter with no day yet says so
               rather than borrowing a position it has not earned. */}
-          <p className="sn-eye text-ink/50">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             {number === null ? 'Chapter — not placed yet' : `Chapter ${number}`}
           </p>
           <p className="text-base font-semibold text-ink">{c.title}</p>
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/65">
-              {CHAPTER_KIND_LABEL[c.kind]}
-            </span>
+            <Badge tone="quiet">{CHAPTER_KIND_LABEL[c.kind]}</Badge>
             {c.embed_provider ? (
-              <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/65">
-                {EMBED_PROVIDER_LABEL[c.embed_provider]}
-              </span>
+              <Badge tone="quiet">{EMBED_PROVIDER_LABEL[c.embed_provider]}</Badge>
             ) : null}
             {/* The badge says WHO, not whether a switch is on. "Draft" told
                 somebody sharing with one celebration that their finished piece
                 was unfinished. */}
-            <span
-              className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                shared ? 'bg-success-100 text-success-800' : 'bg-ink/[0.06] text-ink/60'
-              }`}
-            >
-              {CHAPTER_AUDIENCE_LABEL[c.status]}
-            </span>
+            <Badge tone={shared ? 'ok' : 'quiet'}>{CHAPTER_AUDIENCE_LABEL[c.status]}</Badge>
           </div>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-          {c.public_id}
-        </span>
+        <span className="text-xs tabular-nums text-ink/70">{c.public_id}</span>
       </div>
 
       {c.embed_url ? (
         <div className="space-y-1">
-          <p className="sn-eye text-ink/50">Preview</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Preview</p>
           <ChapterEmbedFrame src={c.embed_url} title={c.title} />
         </div>
       ) : (
@@ -528,9 +497,8 @@ function ChapterCard({
            step, so a finished written story permanently read as unfinished and
            blocked — the publish wall rebuilt in copy after it was removed from
            the code. A video is optional; its absence needs no warning. */
-        <p className="text-xs text-ink/50">
-          No video on this chapter — that&rsquo;s fine, your story stands on its
-          own. Add a link below any time.
+        <p className="text-xs text-ink/70">
+          No video on this chapter — that’s fine, your story stands on its own. Add a link below any time.
         </p>
       )}
 
@@ -539,12 +507,12 @@ function ChapterCard({
            chapter timeline renders on /u TODAY — the old "ships in a later
            update" line was a reverse fake door telling creators publishing was
            inert. Link the live page. */
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           <Globe aria-hidden className="mr-1 inline h-3 w-3" strokeWidth={1.75} />
           Live on your public page —{' '}
           <Link
             href={`/u/${slug}`}
-            className="font-mono text-ink/70 underline decoration-ink/25 underline-offset-2 hover:text-ink"
+            className="text-ink underline decoration-ink/25 underline-offset-2"
           >
             /u/{slug}
           </Link>
@@ -559,14 +527,14 @@ function ChapterCard({
 
       {/* Edit */}
       <details className="group">
-        <summary className="cursor-pointer text-sm font-medium text-ink/70 hover:text-ink">
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ink/75 hover:text-ink">
           Edit chapter
         </summary>
         <StayForm door="accCreator.updateChapter" action={updateChapter} className="mt-3 space-y-4">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
           <ChapterFields chapter={c} substrate={substrate} myEvents={myEvents} />
           <SubmitButton
-            className="button-primary inline-flex items-center justify-center gap-2"
+            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-2"
             pendingLabel="Saving…"
           >
             Save changes
@@ -595,8 +563,8 @@ function ChapterCard({
                 <SubmitButton
                   className={
                     current
-                      ? 'inline-flex items-center gap-1 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-white'
-                      : 'inline-flex items-center gap-1 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-ink'
+                      ? 'ab ab-brand ab-main inline-flex min-h-11 items-center gap-1'
+                      : 'ab ab-neutral inline-flex min-h-11 items-center gap-1'
                   }
                   pendingLabel="Saving…"
                 >
@@ -607,7 +575,7 @@ function ChapterCard({
             );
           })}
         </div>
-        <p className="text-[11px] leading-snug text-ink/55">
+        <p className="text-xs leading-snug text-ink/70">
           {CHAPTER_AUDIENCE_NOTE[c.status]}
         </p>
         {/* Everything the "Everyone" answer depends on, said BEFORE it is
@@ -617,7 +585,7 @@ function ChapterCard({
             switch had never been turned on by anyone in production, so a
             published chapter used to land somewhere nobody could reach.) */}
         {c.status !== 'published' ? (
-          <p className="text-[11px] leading-snug text-ink/50">
+          <p className="text-xs leading-snug text-ink/70">
             {!slug ? (
               <>
                 To choose Everyone, pick your web address first in{' '}
@@ -645,10 +613,10 @@ function ChapterCard({
         <StayForm door="accCreator.deleteChapter" action={deleteChapter} className="ml-auto">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
           <SubmitButton
-            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-700"
+            className="ab ab-danger inline-flex min-h-11 items-center gap-1"
             pendingLabel="Deleting…"
           >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Delete
           </SubmitButton>
         </StayForm>
@@ -705,16 +673,16 @@ function ChapterFields({
         />
       </label>
 
-      <label className="block space-y-1">
+      <span className="block space-y-1">
         <span className="block text-xs font-medium text-ink">Type</span>
-        <select name="kind" defaultValue={chapter?.kind ?? 'wedding'} className="input-field">
-          {CHAPTER_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {CHAPTER_KIND_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </label>
+        <PostedPick
+          name="kind"
+          label="Type"
+          initial={chapter?.kind ?? 'wedding'}
+          className="block"
+          options={CHAPTER_KINDS.map((k) => ({ key: k, label: CHAPTER_KIND_LABEL[k] }))}
+        />
+      </span>
 
       {/* THE STORY — the main event, and therefore the biggest field on the
           form. It used to be a 3-row box called "Itinerary" inside a fieldset
@@ -732,7 +700,7 @@ function ChapterFields({
           }
           className="input-field"
         />
-        <span className="block text-[11px] text-ink/55">
+        <span className="block text-xs text-ink/70">
           This is your chapter. Needed to publish — a video is optional. Blank
           lines become paragraphs.
         </span>
@@ -749,7 +717,7 @@ function ChapterFields({
           placeholder="https://youtu.be/…  ·  instagram.com/reel/…  ·  tiktok.com/@you/video/…"
           className="input-field"
         />
-        <span className="block text-[11px] text-ink/55">
+        <span className="block text-xs text-ink/70">
           Leave this empty if you don’t have one — your story stands on its own.
           If you paste a link we store a privacy-enhanced embed only; Setnayan
           never hosts your video, it stays on your platform.
@@ -769,14 +737,14 @@ function ChapterFields({
           defaultValue={chapter?.happened_on?.slice(0, 10) ?? ''}
           className="input-field"
         />
-        <span className="block text-[11px] text-ink/55">
+        <span className="block text-xs text-ink/70">
           This decides which year your chapter files under. Leave it blank if you
           pick an event below — we’ll use that day.
         </span>
       </label>
 
-      <fieldset className="space-y-3 rounded-tile border border-ink/10 p-3">
-        <legend className="px-1 text-xs font-medium text-ink">
+      <fieldset className="space-y-3 border-t border-ink/10 pt-3">
+        <legend className="text-xs font-medium text-ink">
           Behind the chapter — all optional
         </legend>
         {/* 🔴 THIS REPLACED A BOX THAT ASKED FOR A RAW EVENT ID — and a second
@@ -786,7 +754,7 @@ function ChapterFields({
             🔑 The day is asked ONCE, here. The gallery value the teaser reads
             is derived from this answer in the action — never a second box. */}
         <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink/80">
+          <span className="block text-xs font-medium text-ink">
             Which event is this about?
           </span>
           {myEvents.length > 0 ? (
@@ -799,7 +767,7 @@ function ChapterFields({
                   </option>
                 ))}
               </select>
-              <span className="block text-[11px] text-ink/55">
+              <span className="block text-xs text-ink/70">
                 Only events that are over show up here — this is the story
                 of a day that happened. Attach it and your chapter stands on it:
                 its photos, and the suppliers who were really there. Setnayan’s
@@ -811,7 +779,7 @@ function ChapterFields({
           ) : (
             <>
               <input type="hidden" name="event_id" value="" />
-              <span className="block text-[11px] text-ink/55">
+              <span className="block text-xs text-ink/70">
                 Nothing to attach yet — an event appears here once its day
                 has passed. Your chapter stands on its own until then. If you
                 were a guest at someone else’s day, asking them to link it is
@@ -828,12 +796,15 @@ function ChapterFields({
             to type. It is now the SOURCE, so attaching a celebration is the one
             action that makes the suppliers appear. Narrowing which of them show
             is a later refinement; nobody can narrow a list they never had. */}
-        <p className="text-[11px] text-ink/55">
-          The suppliers who worked your event appear on your published
-          chapter on their own, once you attach the day above — there&rsquo;s
-          nothing to type. Anyone your story merely mentions in writing stays
-          plain text, never a bookable card.
-        </p>
+        <InfoTip
+          label="The suppliers who worked your event appear on your published chapter on their own."
+          labelAs="p"
+          labelClassName="text-xs text-ink/70"
+          align="start"
+        >
+          Once you attach the day above — there&rsquo;s nothing to type. Anyone your story merely mentions in writing
+          stays plain text, never a bookable card.
+        </InfoTip>
       </fieldset>
     </>
   );

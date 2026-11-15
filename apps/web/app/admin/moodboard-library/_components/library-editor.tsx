@@ -41,6 +41,7 @@ import { ScreenFindingsPanel } from './screen-findings-panel';
 import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { RandomMoodboardPrompt } from '@/lib/higgsfield-prompts';
 import { useSaveLoader } from '@/components/sd-loader';
+import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery-pure';
 
 export type LibraryAsset = {
   asset_id: string;
@@ -71,7 +72,48 @@ export type LibraryAsset = {
 
 type Props = {
   initialAssets: LibraryAsset[];
+  /**
+   * RW-306 · the inspiration part's display name by its stored key ("entourage_bouquets" → "Entourage
+   * bouquets"), read on the server from the admin's parts (`getInspirationParts`). A shop's gallery photo
+   * carries that key in `asset_subtype`; this page printed it raw ("SUPPLIER_GALLERY · ENTOURAGE_BOUQUETS").
+   */
+  partLabels?: Readonly<Record<string, string>>;
 };
+
+/** The words the Upload form's "Asset type" picker already shows — one list, read by the picker AND the cards. */
+const ASSET_TYPE_OPTIONS = [
+  { key: 'venue_scene', label: 'Venue scene' },
+  { key: 'figure_attire', label: 'Figure attire' },
+  { key: 'florals', label: 'Florals' },
+] as const;
+
+/** The words the Upload form's "Source" picker already shows — one list, read by the picker AND the header. */
+const SOURCE_OPTIONS = [
+  { key: 'internet_placeholder', label: 'Internet placeholder (V1 soft-beta only)' },
+  { key: 'higgsfield_generated', label: 'Higgsfield-generated (V1.x)' },
+  { key: 'stylist_upload', label: 'Stylist-approved upload (V1.x+)' },
+] as const;
+
+function assetTypeLabel(type: string): string {
+  return ASSET_TYPE_OPTIONS.find((o) => o.key === type)?.label ?? type;
+}
+
+function sourceLabel(source: string): string {
+  return SOURCE_OPTIONS.find((o) => o.key === source)?.label ?? source;
+}
+
+/**
+ * Where a photo sits, in display words, never the stored codes. A shop's gallery photo reads
+ * "Inspiration · <part>" — the supplier's own library words for the same row — and an unknown key falls back
+ * to itself rather than vanishing.
+ */
+function assetWhere(a: Pick<LibraryAsset, 'asset_type' | 'asset_subtype'>, partLabels: Readonly<Record<string, string>>): string {
+  if (a.asset_type === SUPPLIER_GALLERY_ASSET_TYPE) {
+    const part = a.asset_subtype ? (partLabels[a.asset_subtype] ?? a.asset_subtype) : null;
+    return part ? `Inspiration · ${part}` : 'Inspiration';
+  }
+  return `${assetTypeLabel(a.asset_type)}${a.asset_subtype ? ` · ${a.asset_subtype}` : ''}`;
+}
 
 const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
   1: '#5b3d8c', // a deep purple — visually distinct from typical sampled colors
@@ -82,7 +124,7 @@ const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
   6: '#a02c45',
 };
 
-export function LibraryEditor({ initialAssets }: Props) {
+export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
   const [assets, setAssets] = useState<LibraryAsset[]>(initialAssets);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
@@ -351,9 +393,12 @@ export function LibraryEditor({ initialAssets }: Props) {
           </button>
         </div>
       ) : null}
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+    {/* RW-306 · `grid-cols-1` (minmax(0,1fr)) + `min-w-0` on each column: the tagging canvas draws at the
+        photo's FULL width, and an implicit `auto` track sized itself to it — 584 px on a 390 px phone. Desktop
+        keeps its 320 px + 1fr columns. */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: random-prompt generator + library grid + upload */}
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         {/* Random Higgsfield prompt generator (owner directive 2026-05-21:
            "we can just click generate and it will make one everytime") */}
         <section className="bg-terracotta/5 py-4 border-t border-ink/10">
@@ -380,7 +425,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                 <div>
                   <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Type</p>
                   <p className="text-ink">
-                    {randomPrompt.assetType}
+                    {assetTypeLabel(randomPrompt.assetType)}
                     {' · '}
                     {randomPrompt.assetSubtype}
                   </p>
@@ -442,11 +487,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                 required
                 defaultValue="venue_scene"
                 className="min-h-11 w-full"
-                options={[
-                  { key: 'venue_scene', label: 'Venue scene' },
-                  { key: 'figure_attire', label: 'Figure attire' },
-                  { key: 'florals', label: 'Florals' },
-                ]}
+                options={[...ASSET_TYPE_OPTIONS]}
               />
               <input
                 name="assetSubtype"
@@ -460,11 +501,7 @@ export function LibraryEditor({ initialAssets }: Props) {
               label="Source"
               defaultValue="internet_placeholder"
               className="min-h-11 w-full"
-              options={[
-                { key: 'internet_placeholder', label: 'Internet placeholder (V1 soft-beta only)' },
-                { key: 'higgsfield_generated', label: 'Higgsfield-generated (V1.x)' },
-                { key: 'stylist_upload', label: 'Stylist-approved upload (V1.x+)' },
-              ]}
+              options={[...SOURCE_OPTIONS]}
             />
             <ActionButton tone="brand" main icon={Upload} label={isPending ? 'Uploading…' : 'Upload + tag'} type="submit" disabled={isPending} className="w-full" />
           </form>
@@ -500,8 +537,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{a.label}</p>
                       <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                        {a.asset_type}
-                        {a.asset_subtype ? ` · ${a.asset_subtype}` : ''}
+                        {assetWhere(a, partLabels)}
                         {' · '}
                         {a.rejected_at
                           ? '✕ rejected'
@@ -527,15 +563,14 @@ export function LibraryEditor({ initialAssets }: Props) {
       </div>
 
       {/* RIGHT: editor */}
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         {selected ? (
           <>
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
                 <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                  {selected.asset_type}
-                  {selected.asset_subtype ? ` · ${selected.asset_subtype}` : ''} · {selected.source}
+                  {assetWhere(selected, partLabels)} · {sourceLabel(selected.source)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

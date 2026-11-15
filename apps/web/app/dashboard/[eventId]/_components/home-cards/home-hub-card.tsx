@@ -13,7 +13,7 @@ import { HubPartsSwitches } from './hub-parts-switches';
 
 /**
  * 💎 THE EVENT HUB CARD (owner 2026-10-23, approved `prototypes/home_service_widgets_2026-10-23.html` frames 2–4, with
- * his answers: Event Hub Pro folded in · no visits line · right after Papic).
+ * his answers: Event Pro folded in · no visits line · right after Papic).
  *
  *   QUICK VIEW   who can view + the link (the Maker's words) · the page guests see now · the ◆ line (Pro is a state of the
  *                Hub, `hubProLine`) · Share link · QR.

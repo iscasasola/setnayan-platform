@@ -177,7 +177,9 @@ test('the specific claim wins over the umbrella (query beats path, deeper beats 
   assert.equal(activeAdminTabKey('/admin/studio', null), 'catalogue');
   assert.equal(activeAdminTabKey('/admin/payments/supplier-refunds', null), 'money');
   assert.equal(activeAdminTabKey('/admin/users/abc', null), 'people');
-  assert.equal(activeAdminTabKey('/admin/settings', new URLSearchParams('tab=demo-mode')), 'people');
+  // the query claim still beats the bare path: the old Demo mode tab forwards to avatar › Switches (2026-11-14), not Business
+  const demo = adminPlaceFor('/admin/settings', new URLSearchParams('tab=demo-mode'));
+  assert.equal(demo?.kind === 'avatar' ? demo.row.key : null, 'switches');
   // avatar pages light no tab
   assert.equal(activeAdminTabKey('/admin/secrets', null), null);
   assert.equal(activeAdminTabKey('/admin/settings', new URLSearchParams('tab=compliance')), null);

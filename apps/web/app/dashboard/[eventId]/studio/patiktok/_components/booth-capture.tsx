@@ -447,21 +447,21 @@ export function BoothCapture({
   const canTag = phase === 'idle' || phase === 'ready' || phase === 'review';
 
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="border-t border-ink/10 space-y-3 py-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
           <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
           Booth capture
         </h2>
         {captured.length > 0 ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[11px] font-medium text-success-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 text-[12px] font-medium text-success-900">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {formatCount(captured.length)} clip{captured.length === 1 ? '' : 's'} this session
           </span>
         ) : null}
       </div>
 
-      <p className="text-sm text-ink/65">
+      <p className="text-sm text-ink/70">
         Records with the <strong>{template.name}</strong> template · target{' '}
         {targetSec}s · guest steps in → countdown → record → review → keep or
         retake (max {MAX_RETAKES}).
@@ -499,7 +499,7 @@ export function BoothCapture({
 
           {/* Recording badge + elapsed */}
           {phase === 'recording' ? (
-            <div className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[11px] font-medium text-white">
+            <div className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[12px] font-medium text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
               REC {elapsed.toFixed(1)}s / {targetSec}s
             </div>
@@ -528,7 +528,7 @@ export function BoothCapture({
       {/* Recording for — set the tag BEFORE recording (editable at review) */}
       {canTag ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <span className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
             Recording for
           </span>
           {tag ? (
@@ -547,12 +547,12 @@ export function BoothCapture({
               </button>
             </span>
           ) : faceBusy ? (
-            <span className="inline-flex items-center gap-1.5 text-sm text-ink/45">
+            <span className="inline-flex items-center gap-1.5 text-sm text-ink/70">
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
               Recognising…
             </span>
           ) : (
-            <span className="text-sm text-ink/45">anyone (untagged)</span>
+            <span className="text-sm text-ink/70">anyone (untagged)</span>
           )}
           <button
             type="button"
@@ -590,7 +590,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={() => setSuggestion(null)}
-            className="rounded-md px-2.5 py-1 text-sm font-medium text-ink/60 hover:bg-ink/5 hover:text-ink"
+            className="rounded-md px-2.5 py-1 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink"
           >
             Not them
           </button>
@@ -603,7 +603,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={openCamera}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+            className="ab ab-brand ab-main"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Open camera
@@ -611,7 +611,7 @@ export function BoothCapture({
         ) : null}
 
         {phase === 'requesting' ? (
-          <span className="inline-flex items-center gap-2 text-sm text-ink/60">
+          <span className="inline-flex items-center gap-2 text-sm text-ink/70">
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
             Requesting camera…
           </span>
@@ -621,7 +621,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={startCountdown}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+            className="ab ab-brand ab-main"
           >
             <Video aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {captured.length > 0 ? 'Record next guest' : 'Start recording'}
@@ -632,7 +632,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={stopRecording}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-ink/85"
+            className="ab ab-neutral"
           >
             <Square aria-hidden className="h-4 w-4 fill-current" strokeWidth={1.75} />
             Stop
@@ -665,7 +665,7 @@ export function BoothCapture({
           <button
             type="button"
             onClick={openCamera}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+            className="ab ab-brand ab-main"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Retry camera
@@ -684,7 +684,7 @@ export function BoothCapture({
         </Link>
       ) : null}
 
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+      <p className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
         Captured clips upload to your Memories · the reel renders in your
         browser (no server)
         {faceEnabled ? ' · faces auto-recognised on-device (Papic)' : ''}

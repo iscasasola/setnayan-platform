@@ -246,7 +246,7 @@ export default function SupplierSheet({
   const quote = cardVerbWords('ask');
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
-  const k2 = 'text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70';
+  const k2 = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
 
   return createPortal(
     <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
@@ -266,10 +266,10 @@ export default function SupplierSheet({
           <h2 id="supplier-sheet-name" className="mt-1 text-[17px] font-semibold leading-snug text-ink">
             {target.name}
           </h2>
-          {target.nameWithheld ? <p className="mt-0.5 text-[12px] text-ink/55">Real name shown after they reply</p> : null}
+          {target.nameWithheld ? <p className="mt-0.5 text-xs text-ink/70">Real name shown after they reply</p> : null}
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink/70">
             {target.verified ? (
-              <span className="rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-[12px] font-semibold text-[rgb(var(--color-ok))]">Verified</span>
+              <span className="rounded-full bg-[rgb(var(--color-ok)_/_0.12)] px-2.5 py-1 text-xs font-semibold text-[rgb(var(--color-ok))]">Verified</span>
             ) : null}
             {target.rating != null ? (
               <span className="inline-flex items-center gap-1">
@@ -309,7 +309,7 @@ export default function SupplierSheet({
             {target.fits.length > 0 ? (
               <p className="flex flex-wrap gap-x-3.5 gap-y-1 text-[13.5px]">
                 {target.fits.map((f) => (
-                  <span key={f.kind} className={f.tone === 'ok' ? 'text-[rgb(var(--color-ok))]' : f.tone === 'muted' ? 'text-ink/60' : 'text-[rgb(var(--color-warn))]'}>
+                  <span key={f.kind} className={f.tone === 'ok' ? 'text-[rgb(var(--color-ok))]' : f.tone === 'muted' ? 'text-ink/70' : 'text-[rgb(var(--color-warn))]'}>
                     {f.text}
                   </span>
                 ))}
@@ -343,7 +343,7 @@ export default function SupplierSheet({
 
         {data && data.reviews === null ? (
           <div className="flex flex-wrap items-center gap-3" role="status" data-sheet-section="reviews-failed">
-            <p className="text-[13px] text-ink/55">Couldn’t load their reviews.</p>
+            <p className="text-[13px] text-ink/70">Couldn’t load their reviews.</p>
             <ActionButton
               tone="neutral"
               icon={RotateCw}
@@ -359,7 +359,7 @@ export default function SupplierSheet({
           <section data-sheet-section="reviews">
             {data.reviews.map((r) => (
               <div key={r.id} className="border-t border-ink/10 py-2">
-                <p className="text-[12px] text-ink/55">
+                <p className="text-xs text-ink/70">
                   <span className="text-terracotta-700" aria-label={`${r.stars} of 5 stars`}>
                     {'★'.repeat(r.stars)}
                   </span>
@@ -400,7 +400,7 @@ export default function SupplierSheet({
                 </div>
               ))}
             </div>
-            <p className="text-[12px] text-ink/55">Their own shots only. No names, no guest details, nothing from a couple’s Memories.</p>
+            <p className="text-xs text-ink/70">Their own shots only. No names, no guest details, nothing from a couple’s Memories.</p>
           </section>
         ) : null}
 
@@ -408,7 +408,7 @@ export default function SupplierSheet({
           <section data-sheet-section="others">
             <p className={k2}>The rest of their portfolio</p>
             {data.others.length === 0 ? (
-              <p className="border-t border-ink/10 py-3 text-[14px] text-ink/55">{target.categoryLabel} is all they offer.</p>
+              <p className="border-t border-ink/10 py-3 text-[14px] text-ink/70">{target.categoryLabel} is all they offer.</p>
             ) : (
               data.others.map((o) => {
                 const there = target.onPage[o.tile];
@@ -417,7 +417,7 @@ export default function SupplierSheet({
                     <span>
                       <b className="font-semibold">{o.label}</b>
                       <br />
-                      <span className="text-ink/55">{there ?? 'can be in the same quote'}</span>
+                      <span className="text-ink/70">{there ?? 'can be in the same quote'}</span>
                     </span>
                     {there ? (
                       <Check size={18} strokeWidth={2} className="text-[rgb(var(--color-ok))]" aria-label="On your page" />
@@ -460,7 +460,7 @@ export default function SupplierSheet({
               {data?.sharePath ? <ActionButton tone="neutral" icon={Share} label="Share" onClick={() => void share()} /> : null}
             </div>
             {said ? (
-              <p className={`mt-1.5 flex flex-wrap items-center gap-2 text-[12px] ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
+              <p className={`mt-1.5 flex flex-wrap items-center gap-2 text-xs ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">
                 {said.text}
                 {said.retry ? <ActionButton tone="neutral" quiet icon={RotateCw} label="Try again" onClick={said.retry} /> : null}
               </p>

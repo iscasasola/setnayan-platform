@@ -77,7 +77,7 @@ export async function SimilarShopsRow({
   return (
     <section className="sn-shopend border-b border-ink/10 py-8" data-similar-shops="" aria-labelledby="similar-shops-heading">
       <header className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 id="similar-shops-heading" className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <h2 id="similar-shops-heading" className="sn-sec">
           {similarShopsHeading(kindLabel, self.city, picked.near)}
         </h2>
         <Link

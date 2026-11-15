@@ -70,7 +70,7 @@ async function shopNames(admin: Admin, ids: readonly string[]): Promise<Map<stri
  * of the stored ref (never a constant), and a file filed under ANOTHER shop is never handed over. Images only; a PDF
  * is opened with the verify desk's own Open button.
  */
-async function previewUrl(ref: string, vendorProfileId: string): Promise<string | null> {
+export async function previewUrl(ref: string, vendorProfileId: string): Promise<string | null> {
   const where = resolveDocumentLocation(ref, Object.values(R2_BUCKETS), R2_BUCKETS.vendorVerification);
   if (where.kind !== 'r2' || !IMAGE.test(where.key)) return null;
   const owner = /^vendors\/([^/]+)\//.exec(where.key)?.[1] ?? null;

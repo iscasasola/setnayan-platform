@@ -37,14 +37,14 @@ export function MajorsEditor() {
 
   return (
     <div className="space-y-2">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+      <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
         Your main colors
       </p>
       <div className="flex flex-wrap items-end gap-2" aria-label="Your five main colors">
         {colors.map((hex, i) => (
           <div key={`major-${i}`} className="flex flex-col items-stretch gap-1">
             {LIMITS.slotLabels?.[i] ? (
-              <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+              <span className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
                 {LIMITS.slotLabels[i]}
               </span>
             ) : null}
@@ -66,7 +66,7 @@ export function MajorsEditor() {
               return (
                 <div key={`major-empty-${slotIndex}`} className="flex flex-col items-stretch gap-1">
                   {LIMITS.slotLabels?.[slotIndex] ? (
-                    <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/40">
+                    <span className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
                       {LIMITS.slotLabels[slotIndex]}
                     </span>
                   ) : null}
@@ -88,13 +88,13 @@ export function MajorsEditor() {
             type="button"
             onClick={() => board.addMajorSlot()}
             aria-label="Add a major color"
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-ink/25 text-ink/50 transition hover:border-terracotta hover:text-terracotta"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-ink/25 text-ink/70 transition hover:border-terracotta hover:text-terracotta"
           >
             +
           </button>
         ) : null}
       </div>
-      <p className="text-xs text-ink/50">
+      <p className="text-xs text-ink/70">
         {formatCount(colors.length)} / {formatCount(LIMITS.min)}–{LIMITS.max} — the palette below (in{' '}
         <a href="#palette" className="underline underline-offset-2 hover:text-terracotta">
           Palette

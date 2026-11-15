@@ -83,7 +83,7 @@ export function MakerHeroDesignPicker({
           dataAttr="data-hero-design-pick"
         />
       </div>
-      <p className="text-[12.5px] text-ink/65">
+      <p className="text-[12.5px] text-ink/70">
         {HERO_DESIGN_LABEL[shown].suits} Tap any part of it on the canvas to change its font, colour, size or motion.
       </p>
       {shown !== live ? (

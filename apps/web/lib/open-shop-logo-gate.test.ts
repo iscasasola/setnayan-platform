@@ -14,9 +14,12 @@
  *     a logo-less shop is visibly sub-100% with a row literally labelled
  *     "Logo". Removing it from the checklist would hide the obligation AND
  *     (see below) unlock both downstream gates at once.
- *   • VERIFICATION  — `verificationSubmitMissing` refuses to submit while the
- *     profile is incomplete, so a logo-less vendor cannot reach pending_review
- *     even with every required document uploaded.
+ *   • VERIFICATION  — ⚠ SUPERSEDED 2026-11-14 (owner, DECISION_LOG "VERIFICATION
+ *     IS THREE PAPERS AND ONE SUBMIT"; profile gate: "Yes, remove it"). The
+ *     submit gate no longer reads the profile: a logo-less vendor with the three
+ *     papers CAN submit, and the tests below now hold that. The logo stays a
+ *     checklist item (PROFILE, above) — an obligation on the profile, not a gate
+ *     on verification.
  *   • PUBLISH       — ⚠ CORRECTED 2026-08-09. This used to read "the save-time
  *     gate in app/vendor-dashboard/actions.ts checks the same field set via
  *     BUSINESS_PROFILE_LABELS". That gate lived inside `saveVendorProfile`,
@@ -30,8 +33,7 @@
  *     asserted below because the CHECKLIST and the completion card share it.
  *
  * If someone drops the logo from the checklist to "make onboarding easier",
- * these fail on purpose: that one edit would hide the obligation AND let a
- * logo-less shop get verified.
+ * these fail on purpose: that one edit would hide the obligation.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -108,21 +110,18 @@ test('the logo keeps the same name on the checklist and on the completion card',
   assert.ok(keys.includes('logo'), 'checklist and label set must share the logo item');
 });
 
-test('a logo-less vendor cannot submit for verification, even with all docs in', () => {
+// SUPERSEDED 2026-11-14 — owner, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT" (profile gate: "Yes,
+// remove it"): neither Submit nor the admin's approval may be blocked by the shop profile, the logo included. These two
+// tests used to hold the opposite (a logo-less vendor could not submit); they now hold the ruling.
+test('a logo-less vendor CAN submit for verification once the papers are in (2026-11-14)', () => {
   const uploads = allRequiredDocs();
   assert.equal(requiredDocsComplete(uploads), true, 'documents must not be the blocker');
-
-  const missing = verificationSubmitMissing({
-    profileComplete: businessProfileChecklist(profileWithoutLogo()).complete,
-    uploads,
-  });
-  assert.deepEqual(missing, ['Finish your business profile']);
+  assert.equal(businessProfileChecklist(profileWithoutLogo()).complete, false, 'the fixture lost its missing logo');
+  assert.deepEqual(verificationSubmitMissing({ uploads }), [], 'the missing logo blocks Submit again');
 });
 
-test('adding the logo is the ONLY thing between that vendor and submitting', () => {
-  const missing = verificationSubmitMissing({
-    profileComplete: businessProfileChecklist(profileWithLogo()).complete,
-    uploads: allRequiredDocs(),
-  });
-  assert.deepEqual(missing, [], 'logo in + docs in → the gate is clear');
+test('the papers are the ONLY thing between a vendor and submitting', () => {
+  assert.equal(businessProfileChecklist(profileWithLogo()).complete, true, 'a complete profile changes nothing either way');
+  assert.deepEqual(verificationSubmitMissing({ uploads: allRequiredDocs() }), [], 'docs in → the gate is clear');
+  assert.deepEqual(verificationSubmitMissing({ uploads: {} }), ['Upload your DTI/SEC, BIR 2303, and Business Permit']);
 });

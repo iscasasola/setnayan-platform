@@ -88,7 +88,8 @@ export function HelpersView({
   canBuySeats: boolean;
   storeShell: boolean;
   extraSeats: number;
-  seatFeePhp: number;
+  /** The live `vendor_extra_seat` price; null when unread — then no figure is shown. */
+  seatFeePhp: number | null;
   search: HelpersSearch;
   actions: HelpersActions;
   /** Drawn inside the Shop ⚙'s "Team" fold (2026-10-31): no page column, no page title — the fold names it. */
@@ -211,7 +212,7 @@ export function HelpersView({
           <DatesRow
             data="helpers-add-seat"
             title="Add a seat"
-            line={`${formatPhp(seatFeePhp)} / 28 days each · ${formatCount(extraSeats)} added · joins your renewal`}
+            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} / 28 days each · ` : ''}${formatCount(extraSeats)} added · joins your renewal`}
             end={
               <form action={actions.buySeat}>
                 <SupplierSubmit

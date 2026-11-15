@@ -155,11 +155,31 @@ export function wire(
   };
 }
 
+/**
+ * ✍ RW-285d (live walk, 14 Nov 2026): the words a person can see, one space between pieces. `textContent` glued an
+ * avatar's hidden initial onto the name ("I" + "Indalecio" → "IIndalecio") and ran pieces together; hidden text
+ * (`aria-hidden="true"`) is skipped and each text piece is separated.
+ */
+export function visibleText(el: Element): string {
+  const parts: string[] = [];
+  const walk = (n: Node) => {
+    if (n.nodeType === 3) {
+      parts.push(n.nodeValue ?? '');
+      return;
+    }
+    if (n.nodeType !== 1) return;
+    if ((n as Element).getAttribute('aria-hidden') === 'true') return;
+    n.childNodes.forEach(walk);
+  };
+  walk(el);
+  return parts.join(' ');
+}
+
 /** The visible name of a tapped thing. */
 export function labelOf(el: Element): string {
   const aria = el.getAttribute('aria-label') || el.getAttribute('title');
   if (aria) return aria;
-  const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const text = visibleText(el).replace(/\s+/g, ' ').trim();
   if (text) return text.slice(0, 60);
   const img = el.querySelector('img[alt]');
   if (img) return img.getAttribute('alt') ?? '';

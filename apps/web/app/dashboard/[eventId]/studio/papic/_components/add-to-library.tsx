@@ -365,7 +365,7 @@ export function AddToLibrary({
           {costInfoLine()} Snippets are up to 10 seconds. Older memories are welcome — the engagement shoot, childhood photos,
           the proposal clip. Credits come from your event&rsquo;s one pot, the same your cameras use.
         </InfoTip>
-        <p className="mt-0.5 text-sm text-ink/65" data-add-photos-pot={typeof pot === 'number' ? pot : String(pot)}>
+        <p className="mt-0.5 text-sm text-ink/70" data-add-photos-pot={typeof pot === 'number' ? pot : String(pot)}>
           {/* Title + ONE short line (house rule) — the price from the one function, never typed. */}
           {photoCostLine()}
         </p>
@@ -408,13 +408,13 @@ export function AddToLibrary({
           <p className="text-sm text-ink">
             These need {creditsCount(short.cost)} — you have {creditsCount(short.left)}. Nothing was uploaded.
           </p>
-          {buy ? <div data-add-photos-buy="short">{buy}</div> : <p className="text-sm text-ink/65">Add more from your event&rsquo;s Home.</p>}
+          {buy ? <div data-add-photos-buy="short">{buy}</div> : <p className="text-sm text-ink/70">Add more from your event&rsquo;s Home.</p>}
         </div>
       ) : null}
 
       {ranDry && !short ? (
         <div className="space-y-2" data-add-photos-ran-dry="">
-          {buy ? <div data-add-photos-buy="ran-dry">{buy}</div> : <p className="text-sm text-ink/65">Add more from your event&rsquo;s Home.</p>}
+          {buy ? <div data-add-photos-buy="ran-dry">{buy}</div> : <p className="text-sm text-ink/70">Add more from your event&rsquo;s Home.</p>}
         </div>
       ) : null}
 
@@ -435,16 +435,16 @@ export function AddToLibrary({
               ) : r.state === 'held' ? (
                 <span aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border border-ink/25" />
               ) : (
-                <Loader2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-ink/40" strokeWidth={2} />
+                <Loader2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-ink/70" strokeWidth={2} />
               )}
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-ink/80">{r.name}</span>
                   {r.state === 'working' && typeof r.pct === 'number' ? (
-                    <span className="shrink-0 tabular-nums text-ink/55">{r.pct}%</span>
+                    <span className="shrink-0 tabular-nums text-ink/70">{r.pct}%</span>
                   ) : null}
                 </span>
-                {r.detail ? <span className="block text-ink/55">{r.detail}</span> : null}
+                {r.detail ? <span className="block text-ink/70">{r.detail}</span> : null}
               </span>
             </li>
           ))}

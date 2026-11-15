@@ -5,6 +5,9 @@ import type { DateClash } from '@/lib/date-fits-booked';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { DATE_CHANGE_DUE_DAYS } from '@/lib/rule-constants';
+import { CalendarClock, Send, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * 🗓 A PICK A BOOKED SUPPLIER CANNOT DO — said plainly ("Your photographer is
@@ -64,42 +67,32 @@ export function DateClashNote({
         </p>
       ) : confirming ? (
         <div className="flex flex-col gap-2" data-date-change-confirm="">
-          <p className="text-[13px] text-ink/80">
-            We&rsquo;ll ask {who} to move to the new date or unlock their service. They have {DATE_CHANGE_DUE_DAYS} days to answer. Your
-            date stays as it is meanwhile, and guests see nothing.
-          </p>
-          <div className="flex flex-wrap gap-2">
+          <InfoTip
+            label={`We’ll ask ${who} to move to the new date or unlock their service.`}
+            labelClassName="text-[13px] font-semibold text-ink"
+            align="start"
+          >
+            They have {DATE_CHANGE_DUE_DAYS} days to answer. Your date stays as it is meanwhile, and guests see nothing.
+          </InfoTip>
+          <div className="grid grid-cols-2 gap-2">
             {/* The confirm's yes is the screen's main verb — terracotta, never ink (look audit 2026-10-13). */}
-            <button
-              type="button"
-              onClick={ask}
-              disabled={pending}
-              className="inline-flex min-h-11 items-center rounded-full bg-sn-accent px-4 text-[13px] font-semibold text-sn-on-accent disabled:opacity-60"
-            >
-              {pending ? 'Asking…' : 'Yes, ask them'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              disabled={pending}
-              className="inline-flex min-h-11 items-center rounded-full border border-ink/20 px-4 text-[13px] font-semibold text-ink"
-            >
-              Not now
-            </button>
+            <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => setConfirming(false)} disabled={pending} />
+            <ActionButton tone="brand" main icon={Send} onClick={ask} label={pending ? 'Asking…' : 'Yes, ask them'} disabled={pending} waiting={pending} />
           </div>
         </div>
       ) : (
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          quiet
+          icon={CalendarClock}
           onClick={() => setConfirming(true)}
+          label="Ask them to move or unlock?"
           data-date-clash-ask=""
-          className="inline-flex min-h-11 w-fit items-center text-[13px] font-semibold text-terracotta-700 underline underline-offset-2"
-        >
-          Ask them to move or unlock?
-        </button>
+          className="w-fit"
+        />
       )}
       {said && !said.ok ? (
-        <p className="text-[12.5px] text-terracotta-700" role="status">
+        <p className="text-[13px] text-danger-700" role="status">
           {said.text}
         </p>
       ) : null}
@@ -108,7 +101,7 @@ export function DateClashNote({
           key={c.vendorId}
           href={c.href}
           data-date-clash-thread={c.vendorId}
-          className="inline-flex min-h-11 w-fit items-center text-[12.5px] text-ink/65 underline underline-offset-2"
+          className="inline-flex min-h-11 w-fit items-center text-[13px] font-semibold text-ink underline underline-offset-2"
         >
           Message {c.name}
         </a>

@@ -169,9 +169,9 @@ export function ColourPickerBody({
           className={`h-9 w-9 shrink-0 rounded-full border border-ink/15 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''}`}
           style={{ background: r.hex }}
         />
-        <span className={`w-full truncate text-center text-[11px] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/70'}`}>{r.name ?? '\u00A0'}</span>
+        <span className={`w-full truncate text-center text-[12px] leading-tight ${on ? 'font-semibold text-ink' : 'text-ink/70'}`}>{r.name ?? '\u00A0'}</span>
         {coded ? (
-          <small className="font-mono text-[10px] leading-none text-ink/50" data-picker-code={on ? '' : undefined}>
+          <small className="font-mono text-[12px] leading-none text-ink/70" data-picker-code={on ? '' : undefined}>
             {on ? r.hex : '\u00A0'}
           </small>
         ) : null}
@@ -180,7 +180,7 @@ export function ColourPickerBody({
   };
   return (
     <div className="flex flex-col gap-3 px-2 pb-2" data-colour-picker="">
-      {job ? <p className="-mt-1 text-[12px] text-ink/60">{job}</p> : null}
+      {job ? <p className="-mt-1 text-[12px] text-ink/70">{job}</p> : null}
       {read ? (
         <div className="flex flex-col gap-1">
           <p className={SHELF}>Against the background</p>
@@ -188,7 +188,7 @@ export function ColourPickerBody({
             <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: readsOn ?? undefined }} />
             <small className="min-w-0 flex-1 text-[12.5px] text-ink/70">{read.words}</small>
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.06em] ${
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold tracking-[0.06em] ${
                 read.grade === 'clear' ? 'bg-success-50 text-success-700' : 'bg-terracotta/10 text-terracotta-700'
               }`}
             >
@@ -266,14 +266,14 @@ export function ColourPickerBody({
               <span aria-hidden className="h-7 w-7 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: m.hex }} />
               <span className="min-w-0 truncate text-[14px] text-ink">
                 {m.name}
-                {m.typed ? <span className="text-ink/50"> · for {m.typed}</span> : null}
+                {m.typed ? <span className="text-ink/70"> · for {m.typed}</span> : null}
               </span>
-              <small className="ml-auto shrink-0 font-mono text-[11px] text-ink/50">{m.hex}</small>
+              <small className="ml-auto shrink-0 font-mono text-[12px] text-ink/70">{m.hex}</small>
             </button>
           ))}
         </div>
       ) : !typed && /^[^#\d]{2,}$/.test(code.trim()) ? (
-        <p id="picker-name-matches" className="-mt-1 px-3 text-[12px] text-ink/55" role="status" data-picker-name-none="">
+        <p id="picker-name-matches" className="-mt-1 px-3 text-[12px] text-ink/70" role="status" data-picker-name-none="">
           No colour by that name — try another word, or a code like #7A1F2B.
         </p>
       ) : null}
@@ -295,7 +295,7 @@ export function ColourPickerBody({
 }
 
 /** A shelf's heading. */
-const SHELF = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55';
+const SHELF = 'text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70';
 
 /**
  * ▁ Studio's pop-ups — the new Maker's ONE bottom sheet on a phone (the shell's
@@ -336,7 +336,7 @@ export function StudioPopup({ label, onClose, children }: { label: string; onClo
         tabIndex={-1}
         className="relative flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl bg-white px-2 pb-4 pt-3 shadow-xl ring-1 ring-ink/10 focus:outline-none sm:rounded-3xl"
       >
-        <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
+        <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">{label}</p>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>

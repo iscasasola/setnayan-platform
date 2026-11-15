@@ -61,7 +61,7 @@ export function GroupAttireField({
 }) {
   if (groups.length === 0) {
     return (
-      <p className="text-sm text-ink/60">
+      <p className="text-sm text-ink/70">
         Once your guest list has sponsors, a wedding party or immediate family, you can dress a
         whole group in one line here.
       </p>
@@ -83,7 +83,7 @@ export function GroupAttireField({
             <div className="flex items-center gap-3">
               <span className={`${labelCls} flex-1`}>
                 {label}
-                <span className="ml-2 text-ink/45">
+                <span className="ml-2 text-ink/70">
                   {people} {people === 1 ? 'person' : 'people'}
                   {roleCount > 1 ? ` · ${formatCount(roleCount)} roles` : ''}
                 </span>
@@ -91,7 +91,7 @@ export function GroupAttireField({
               {/* 👗 The Wear is the Studio's (2026-10-17): said here as the Studio says it, posted back unchanged so the
                   zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
               <input type="hidden" name="group_style" value={current?.style ?? ''} />
-              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-group-wear={group}>
+              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/70" data-group-wear={group}>
                 {wear?.[`groups:${group}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
               </span>
             </div>
@@ -115,7 +115,7 @@ export function GroupAttireField({
             {/* 🛑 THE ANTI-SILENCE LINE. Named people, before the typing, not a
                 toast after the save — a toast is gone by the time they wonder. */}
             {overridden.length > 0 ? (
-              <p className="text-xs leading-relaxed text-ink/60" data-group-overrides={group}>
+              <p className="text-xs leading-relaxed text-ink/70" data-group-overrides={group}>
                 <span className="font-medium text-ink/75">
                   {overridden.length === 1 ? 'One of these has' : `${overridden.length} of these have`}
                   {' '}their own line

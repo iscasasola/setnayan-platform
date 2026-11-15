@@ -1,3 +1,4 @@
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
@@ -8,7 +9,9 @@ import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { onSetnayanSinceLine } from '@/lib/in-business-since';
 import { eventsByKind } from '@/lib/shop-events-by-kind';
 import { ShopSinceLine } from './_components/shop-since-line';
+import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
+import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -16,6 +19,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
@@ -27,6 +31,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
+  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
@@ -156,11 +161,12 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
+import { startRead } from '@/lib/start-read';
 import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceRow } from './_components/photos-by-service';
@@ -475,7 +481,9 @@ async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id
 // `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
 // fallback (a second hand-rolled query would silently fall out of sync with
 // this one the next time a column is added or renamed here).
-export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+// ⚡ One read per render (speed pass 2026-11-14): `generateMetadata` and the page body each asked for the same shop row
+// before the first byte. `cache()` hands them one answer; outside a render (the OG route) it reads as before.
+export const fetchVendor = cache(async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -525,7 +533,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
       .maybeSingle());
   }
   return (data ?? null) as PublicVendorRow | null;
-}
+});
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
@@ -1121,6 +1129,28 @@ export async function renderVendorBySlug({
     : Promise.resolve(null);
   // Handled where it is awaited; this only stops a refusal that lands first from counting as unhandled.
   similarRows.catch(() => undefined);
+  /* ⚡ "Trusted by", the typical price, the favourites count and the awards each need only the shop row and the batch
+     above — they START together here and are still awaited where they were (speed pass 2026-11-14: they ran one after
+     another before this page's first byte). Same reads, same fail-softs, same "couldn't check" markers. */
+  const verifiedMedianP = startRead(
+    verifiedMedianEnabled() && !hidePricesPublicly
+      ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
+      : Promise.resolve(null),
+  );
+  const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  const favoritesCountP = startRead((async () => {
+    const { data, error } = await admin.rpc('count_saves_for_vendor', {
+      p_vendor_profile_id: vendor.vendor_profile_id,
+    });
+    if (error) {
+      // The fail-soft (hide the badge) stays — see the comment above — but a
+      // refused call should not vanish the way the pre-20271141980127 P0001s did.
+      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
+        vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
+    return !error && typeof data === 'number' ? data : 0;
+  })());
   const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
   const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
   const trustedBy = trustedByUnreadable ? [] : trustedByRead;
@@ -1129,10 +1159,7 @@ export async function renderVendorBySlug({
   // The median of this vendor's OWN locked-booking declared prices. Read ONLY
   // when the flag is on AND the vendor isn't hiding prices publicly. Returns the
   // vendor's own rounded typical price — no cross-vendor comparison (comp-law).
-  const verifiedTypicalPrice =
-    verifiedMedianEnabled() && !hidePricesPublicly
-      ? await fetchVendorVerifiedMedian(vendor.vendor_profile_id)
-      : null;
+  const verifiedTypicalPrice = await verifiedMedianP;
 
   // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
   // distinct couples who follow OR saved this vendor (count_saves_for_vendor
@@ -1155,19 +1182,7 @@ export async function renderVendorBySlug({
   //
   // The fail-soft stays: a transient blip must hide the badge, never break a
   // public shop page. But it is now the LAST resort rather than the only path.
-  const favoritesCount = await (async () => {
-    const { data, error } = await admin.rpc('count_saves_for_vendor', {
-      p_vendor_profile_id: vendor.vendor_profile_id,
-    });
-    if (error) {
-      // The fail-soft (hide the badge) stays — see the comment above — but a
-      // refused call should not vanish the way the pre-20271141980127 P0001s did.
-      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
-        vendor_profile_id: vendor.vendor_profile_id,
-      });
-    }
-    return !error && typeof data === 'number' ? data : 0;
-  })();
+  const favoritesCount = await favoritesCountP;
 
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
@@ -1177,7 +1192,7 @@ export async function renderVendorBySlug({
   // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
   // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
   // `fetchVendorCurrentAwards` contract).
-  const spotlightAwards = await fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []);
+  const spotlightAwards = await awardsP;
   const pagePills = shopBadges({
     verified: false,
     completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
@@ -1318,6 +1333,12 @@ export async function renderVendorBySlug({
   //
   // Flag-gated so OFF costs not one extra query — the map stays empty, every
   // card's `record` is null, and the gallery renders byte-identically to today.
+  // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14).
+  const shopWorkP = cardRecordEnabled()
+    ? startRead(
+        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null),
+      )
+    : undefined;
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(admin, activeServiceIds)
     : new Map<string, CompiledCardRecord>();
@@ -1327,9 +1348,7 @@ export async function renderVendorBySlug({
   // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
   // 📸 …and the same read gives each card its event photos for PHOTOS BY SERVICE (owner 2026-11-14): one entry per
   // photo, captioned kind · month, keyed to an opaque per-page event number — never the event id.
-  const shopWork = cardRecordEnabled()
-    ? await readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null)
-    : undefined;
+  const shopWork = shopWorkP === undefined ? undefined : await shopWorkP;
   const albumsByService: Map<string, AlbumView[] | null> | null =
     shopWork === undefined
       ? null
@@ -1457,8 +1476,15 @@ export async function renderVendorBySlug({
         })),
       )
     : [];
-  const orderedServices = orderFeaturedFirst(
+  // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
+  // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
+  const distinctServiceKeys = distinctShopServices(
     vendor.services,
+    Object.fromEntries(vendor.services.filter(isCanonicalService).map((k) => [k, displayServiceLabel(k)])),
+    displayServiceLabel,
+  ).map((s) => s.key);
+  const orderedServices = orderFeaturedFirst(
+    distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
@@ -1790,7 +1816,7 @@ export async function renderVendorBySlug({
 
   /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
-  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
+  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId, q: arrivalParams(search).q, from: arrivalParams(search).from };
   const shopBack = shopBackDoor(shopArrival);
   /*
     💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
@@ -2319,6 +2345,13 @@ export async function renderVendorBySlug({
     (showEditorials && (featuredEditorials.length > 0 || featuredChapterCredits.length > 0)) ||
     inspirationTiles.length > 0 ||
     hasPhotosByService;
+  // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
+  const hasWhere = shopHasWhere({
+    latitude: vendor.hq_latitude,
+    longitude: vendor.hq_longitude,
+    address: vendor.hq_address,
+    city: vendor.location_city,
+  });
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2329,7 +2362,7 @@ export async function renderVendorBySlug({
     : [
         { id: 'shop-services', label: 'Services' },
         { id: 'shop-reviews', label: 'Reviews' },
-        { id: 'shop-where', label: 'Where' },
+        ...(hasWhere ? [{ id: 'shop-where', label: 'Where' }] : []),
       ];
 
   // 🏅 THE BADGE ROW, drawn ONCE in source and placed by the look: on the hero photo for a verified shop (the seal
@@ -2515,7 +2548,10 @@ export async function renderVendorBySlug({
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
-          <div className="min-w-0 space-y-2">
+          {/* 📐 RW-270 (owner-seen 14 Nov, 390 px): `w-full`, as the sample card (`SampleShopPage`) — in the phone's
+              column flex (`items-start`) a fit-content column grew to its widest line and dragged the map and the
+              Directions row past the right gutter, cutting the map's credit. Pinned to the card's width, they fit. */}
+          <div className="w-full min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
@@ -2749,7 +2785,7 @@ export async function renderVendorBySlug({
                     never a date check or a booking (DECISION_LOG 2026-11-07). */}
                 {bookable ? (
                   <CheckADateLink
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival)}
+                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
@@ -2864,7 +2900,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}
@@ -3309,7 +3344,7 @@ export async function renderVendorBySlug({
 
         {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
             pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
-        {cinematicHero ? null : (
+        {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Where</h2>
@@ -3511,6 +3546,19 @@ export async function renderVendorBySlug({
           </div>
         </footer>
       </article>
+      {/* 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026): the shop's own `?dates` address opens
+          the sheet on top of it — the shop button above, the printed QR (`/v/<slug>/dates` forwards here) and the
+          sign-in resume all land here. Verified (bookable) shops only, the same rule as the door. */}
+      {bookable && search.dates === '1' ? (
+        <Suspense fallback={null}>
+          <CheckADateOverShop
+            slug={vendor.business_slug ?? slug}
+            logoUrl={logoDisplayUrl}
+            shopHref={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival)}
+            search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
+          />
+        </Suspense>
+      ) : null}
     </main>
   );
 }

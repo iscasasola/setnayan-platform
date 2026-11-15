@@ -15,6 +15,8 @@ import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
+import { lockedLine, type GiftsToBookings, type LockedBadge } from '@/lib/graph-unlocks';
+import { GIFTS_TITLE, giftsSpec } from './gifts-graph';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -101,9 +103,22 @@ function countSpec(k: CountKind, win: GrowthWindow, totals: Totals | null, view:
   };
 }
 
+/**
+ * 🏅 J5 — which badge graphs this shop sees (lib/graph-unlocks.ts, decided on the server). `hidden` graphs are never
+ * drawn, not even greyed; each `locked` badge leaves ONE plain line under the carousel instead (badge-unlock_v6).
+ */
+export type CarouselUnlocks = { hidden: readonly string[]; locked: readonly LockedBadge[] };
+
 type Props =
-  | { view: GrowthView; graphs: Record<GrowthWindow, NewGraphs>; locked?: undefined }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined };
+  | {
+      view: GrowthView;
+      graphs: Record<GrowthWindow, NewGraphs>;
+      unlocks?: CarouselUnlocks;
+      /** The gifts graph, per window — present only once Gifts given Bronze has opened it (null = a refused read). */
+      gifts?: Record<GrowthWindow, GiftsToBookings | null> | null;
+      locked?: undefined;
+    }
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined };
 
 export function AnalyticsCarousel(props: Props) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
@@ -111,13 +126,25 @@ export function AnalyticsCarousel(props: Props) {
   const setWin = (k: CardKey, w: GrowthWindow) => setWins((cur) => ({ ...cur, [k]: w }));
 
   // The graphs of BOTH windows, built once each from the same reads (no refetch when a switch slides).
-  const specs = useMemo(
+  const base = useMemo(
     () =>
       props.view
         ? { '30': graphSpecsFor({ view: props.view, graphs: props.graphs['30'], win: '30' }), '12': graphSpecsFor({ view: props.view, graphs: props.graphs['12'], win: '12' }) }
         : null,
     [props.view, props.graphs],
   );
+  // 🎁 The gifts graph (J5) joins the same per-window lookup, so the same one card builder below draws it.
+  const specs = useMemo(
+    () =>
+      base
+        ? {
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30']) : null },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12']) : null },
+          }
+        : null,
+    [base, props.gifts],
+  );
+  const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 
   const control = (k: CardKey, title: string): ReactNode =>
     FIXED_WINDOW[k] ? (
@@ -143,6 +170,8 @@ export function AnalyticsCarousel(props: Props) {
       continue;
     }
     if (!specs) continue;
+    // 🏅 A graph its badge has not opened is never drawn — not greyed, not a placeholder card (badge-unlock_v6).
+    if (hidden.has(k)) continue;
     const g = specs[winOf(k)][k as GraphKey];
     if (!g) continue;
     cards.push({ key: k, label: g.title, node: <GraphCard g={g} control={control(k, g.title)} /> });
@@ -171,6 +200,16 @@ export function AnalyticsCarousel(props: Props) {
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
       <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
+      {/* 🏅 One plain line per badge whose graphs are still shut — where they would be, under the carousel. */}
+      {props.unlocks && props.unlocks.locked.length > 0 ? (
+        <ul className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
+          {props.unlocks.locked.map((l) => (
+            <li key={l.badge} data-graph-unlock-line={l.badge}>
+              {lockedLine(l, (k) => (k === 'gifts' ? GIFTS_TITLE : (specs?.['30'][k as GraphKey]?.title ?? k)))}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

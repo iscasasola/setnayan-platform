@@ -79,6 +79,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
 import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
+import { badgeGate, graphUnlocks, type UnlockFacts } from '@/lib/graph-unlocks';
+import { readGiftsToBookings, readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 
 
@@ -231,6 +233,10 @@ export async function OneAnalyticsSection({
   // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
   // 🌱 Analytics, growing (owner-approved 6 Nov 2026): the 12-month figures are read the SAME honest way, so the pinned
   // row, the sentence and the funnel follow the ONE window — the old 365-day read folded a refusal into zeros.
+  // 🏅 J5 — which badge graphs this shop sees (lib/graph-unlocks.ts): the keep marker, the Trusted-by count and every
+  // badge step ever earned, in ONE call, started here beside the rest (only a shop past the Verified lock reads it).
+  const unlockRead = safeRead(readGraphUnlockFacts(bookingsAdmin, profile.vendor_profile_id), null, 'graph_unlocks');
+
   const pinNowRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
   const pinYearRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
 
@@ -620,9 +626,37 @@ export async function OneAnalyticsSection({
     pro: gateOn && !canMarket,
   });
 
+  // 🏅 J5 — EACH BADGE'S BRONZE OPENS ITS OWN GRAPHS (badge-unlock_v6). Completed bookings is the count the page already
+  // read (badge facts); Trusted by comes with the unlock facts; five-star reviews and gift points have no counter on
+  // this build (J0, #7753), so they are decided by the steps already earned. A refused read is `null` — the adapter keeps
+  // those graphs showing rather than calling a shop "below Bronze" on a count it could not read.
+  const unlockFacts = await unlockRead;
+  const facts: UnlockFacts = {
+    kept: unlockFacts ? unlockFacts.kept : null,
+    earned: unlockFacts ? unlockFacts.earned : null,
+    counts: {
+      completed_bookings: badgeFacts ? badgeFacts.completedEvents : null,
+      trusted_by: unlockFacts ? unlockFacts.trustedBy : null,
+    },
+  };
+  const unlocks = graphUnlocks(facts);
+  // The NEW gifts graph is read and drawn only once its badge has OPENED it — never on "we couldn't tell".
+  const giftsOpen = badgeGate('gifts_given', facts) === 'open';
+  const [gifts30, gifts12] = giftsOpen
+    ? await Promise.all([
+        safeRead(readGiftsToBookings(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)), null, 'gifts_to_bookings_30'),
+        safeRead(readGiftsToBookings(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)), null, 'gifts_to_bookings_12'),
+      ])
+    : [null, null];
+
   return (
     <>
-      <AnalyticsCarousel view={growthView} graphs={newGraphs} />
+      <AnalyticsCarousel
+        view={growthView}
+        graphs={newGraphs}
+        unlocks={{ hidden: [...unlocks.hidden], locked: unlocks.locked }}
+        gifts={giftsOpen ? { '30': gifts30, '12': gifts12 } : null}
+      />
       {verifiedMedian ? (
         <div className="px-4 pt-4">
           <VerifiedMedianCard data={verifiedMedian} />

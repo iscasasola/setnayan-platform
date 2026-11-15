@@ -10831,7 +10831,7 @@ html.dark .sn-acc-head[data-open] {
 @media (min-width: 701px) {
   /* The pane ends at the window's foot even where the page's column starts below the pin line (`ChatPanes` measures it). */
   [data-chat-panes] [data-supplier-cols-pane] {
-    height: calc(100dvh - var(--sn-pin-top, var(--fd-bar, 0px)) - var(--sn-chat-pane-gap, 0px));
+    height: calc(100dvh - var(--sn-chat-pane-top, var(--sn-pin-top, var(--fd-bar, 0px))));
   }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] { flex: 1 1 0; height: auto; min-height: 0; }
   /* The supplier's thread page keeps its own gutter (its tree has no event column); in the pane it passes the height on. */
@@ -10841,17 +10841,21 @@ html.dark .sn-acc-head[data-open] {
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] > aside { display: none; }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-takeover] { border: 0; border-radius: 0; }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-back] { display: none; }
-  /* ✍ THE MESSAGE BOX IS ALWAYS IN THE WINDOW (W1, live 08b8522, RW-327: the composer's foot at 916 in an 800 window,
-     supplier 1280). A busy thread's head, notice and pinned band plus the stream's 14rem floor outgrow a short window,
-     and the column scrolls itself (chat-thread-frame.tsx) — which carried the composer under the fold. It now holds the
-     column's foot while the rest scrolls above it. 🔒 lib/the-chat-composer-stays-in-the-window.test.ts */
-  [data-chat-panes] [data-supplier-cols-pane] [data-chat-composer-gutter] {
-    position: sticky;
-    bottom: 0;
-    z-index: 1;
-    background-color: rgb(var(--color-cream));
-  }
   [data-chat-panes] [data-supplier-cols-list] [data-chat-takeover] { border: 0; border-radius: 0; background-color: transparent; }
+}
+
+/* ✍ THE MESSAGE BOX IS ALWAYS IN THE WINDOW, AND ON TOP (W1, RW-327 → RW-330). Wherever the open thread scrolls as one
+   — the phone's full-screen takeover, the chat column from 701, a picked page's chat — a busy thread (head, notice, a
+   payment plan, the stream's 14rem floor) outgrows the window and the composer scrolled away with the rest: supplier
+   390 × 844, its foot at 879. It holds the scroller's foot instead while the rest scrolls above it. It sits on the
+   sticky layer: a message bubble is `relative z-10` (`swipe-to-delete.tsx`, `--sn-z-raised`) and drew OVER a composer
+   at z 1 (supplier 1280); menus and sheets (`--sn-z-pop` and up) still open over it.
+   🔒 tests/e2e/the-chat-box-is-in-the-window.spec.ts (measured) · lib/the-chat-composer-stays-in-the-window.test.ts */
+[data-chat-takeover] > [data-chat-composer-gutter] {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--sn-z-sticky);
+  background-color: rgb(var(--color-cream));
 }
 
 /* 📌 A CHAT INSIDE A PICKED PAGE IS IN FLOW (owner, 9 Nov: "the pinned on top should stay pinned"). The thread's phone

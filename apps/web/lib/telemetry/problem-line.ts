@@ -149,6 +149,15 @@ export function mendLabel(raw: string): string {
   return raw.replace(/^([A-Z])\1(?=[a-z])/, '$1');
 }
 
+/**
+ * ✍ The same mend for a stored ACTION ("/dashboard · IIndalecio Casasola" — the label sits after the page), shown in
+ * the Problems row's expanded "What" (admin walk, 15 Nov 2026). Every word that opens with a doubled capital before a
+ * lower-case letter loses the extra one; the stored row is untouched (display only).
+ */
+export function mendAction(raw: string): string {
+  return raw.replace(/(^|[\s·:>/(])([A-Z])\2(?=[a-z])/g, '$1$2');
+}
+
 const DEAD_END_WORDS: Record<string, string> = {
   not_found: 'a missing page',
   forwarded: 'an old address that forwards elsewhere',

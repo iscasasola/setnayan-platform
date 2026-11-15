@@ -441,7 +441,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // Honest zero: no trusted review → no rating word; unread → "—" (null).
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
-    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
+    // RW-311: this counts events FINISHED on Setnayan (the Events badge's own number) — said so, so "0 events done"
+    // next to the shop's open bookings never reads as a contradiction (a booked event is not done until its day).
+    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'} done`,
     analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:

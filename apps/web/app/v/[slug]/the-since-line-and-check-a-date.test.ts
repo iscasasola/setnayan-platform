@@ -39,14 +39,14 @@ test('Check a date sits in the action row, after Add to your event and before Sh
 });
 
 test('Check a date opens the live landing (#7007) — never a 404', () => {
-  // #7065 waited for #7007 (`/v/[slug]/dates`), now on main. The door must point at a page that exists.
-  assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — the door would 404');
-  // Since 2026-11-07 the door also carries where the visit came from (`withShopArrival`, lib/shop-back.ts), so the
-  // shop's Back stays right after the round trip. It still points at the same landing.
+  // #7065 waited for #7007 (`/v/[slug]/dates`), now on main. That printed address must keep existing (it forwards now).
+  assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — every printed QR would 404');
+  // SHOP-02 v7 (14 Nov 2026): the door opens the sheet OVER the shop — the shop's own `?dates` address, still carrying
+  // where the visit came from (`withShopArrival`, lib/shop-back.ts), so the shop's Back stays right.
   assert.match(
     PAGE,
-    /<CheckADateLink\s+href=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}\/dates`, shopArrival\)\}/,
-    'the door does not point at /v/<slug>/dates',
+    /<CheckADateLink\s+href=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}`, shopArrival, \{ dates: '1' \}\)\}/,
+    'the door does not open the sheet over the shop (?dates=1)',
   );
 });
 

@@ -37,6 +37,7 @@ import {
   RecordRow,
   RecordRows,
   RecordSection,
+  RECORD_LINK,
 } from '../../_components/record-kit';
 import { formatPhp, PAYMENT_STATUS_LABEL } from '@/lib/orders';
 import {
@@ -601,7 +602,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
           <RecordSection
             label={`Orders (${ordersUnread ? '—' : formatCount((orders ?? []).length)})`}
             right={
-              <Link href="/admin/payments" className="font-semibold text-mulberry underline-offset-2 hover:underline">
+              <Link href="/admin/payments" className={RECORD_LINK}>
                 Reconcile in Payments ›
               </Link>
             }
@@ -1054,7 +1055,7 @@ function SupportSection({
     <RecordSection
       label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
       right={
-        <Link href={href} className="font-semibold text-mulberry underline-offset-2 hover:underline">
+        <Link href={href} className={RECORD_LINK}>
           {hrefLabel} ›
         </Link>
       }

@@ -40,6 +40,16 @@
   --gold: var(--m-orange);
   --lining: var(--m-ivory);
   --waxb: var(--paper);
+  /* the light and shade the drawn SVG parts (seal, bow, ribbon tails, lid top) paint with */
+  --gb-shade: #1a0602;
+  --gb-sheen2: #fffbea;
+  --gb-sheen: #fffdf2;
+  --gb-tint: #2b1a05;
+  --gb-cream: #fff1c9;
+  --gb-peach: #ffe6d2;
+  --gb-blush: #ffd9bf;
+  --gb-pearl: #fff1e4;
+  --gb-crease: #1e1002;
   --p-hi: color-mix(in srgb, var(--paper) 80%, #ffe2c4);
   --p-top: color-mix(in srgb, var(--paper) 91%, #ffe2c4);
   --p-lo: color-mix(in srgb, var(--paper) 82%, #2a0e05);

@@ -64,7 +64,7 @@ function Face({
   html,
   style,
 }: {
-  cls: string;
+  cls: string | undefined;
   w: number;
   h: number;
   transform: string;
@@ -91,8 +91,8 @@ function tabsSvg(id: string): string {
     `<svg style="position:absolute;left:0;top:0;width:${W}em;height:${H}em;overflow:visible" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>` +
     `<linearGradient id="tb${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--g-lo)"/><stop offset=".3" style="stop-color:var(--g-hi)"/><stop offset=".45" style="stop-color:var(--g-sp)"/><stop offset=".62" style="stop-color:var(--gold)"/><stop offset="1" style="stop-color:var(--g-dk)"/></linearGradient></defs>` +
     `<g transform="translate(${W / 2} ${SY})">` +
-    `<path d="M-3.4 2 L-7.2 13.4 L-4.2 11.6 L-2.2 14.4 L1 2Z" fill="#1A0602" opacity=".3" transform="translate(.5 .5)"/>` +
-    `<path d="M3.4 2 L7.6 12.6 L4.4 11.2 L2.8 14 L-1 2Z" fill="#1A0602" opacity=".3" transform="translate(.5 .5)"/>` +
+    `<path d="M-3.4 2 L-7.2 13.4 L-4.2 11.6 L-2.2 14.4 L1 2Z" style="fill:var(--gb-shade)" opacity=".3" transform="translate(.5 .5)"/>` +
+    `<path d="M3.4 2 L7.6 12.6 L4.4 11.2 L2.8 14 L-1 2Z" style="fill:var(--gb-shade)" opacity=".3" transform="translate(.5 .5)"/>` +
     `<path d="M-3.4 2 L-7.2 13.4 L-4.2 11.6 L-2.2 14.4 L1 2Z" fill="url(#tb${id})"/>` +
     `<path d="M3.4 2 L7.6 12.6 L4.4 11.2 L2.8 14 L-1 2Z" fill="url(#tb${id})"/>` +
     `</g></svg>`
@@ -115,28 +115,28 @@ function bowSvg(id: string): string {
     `</defs>` +
     `<path d="M78 70 C 70 48, 58 12, 42 11 C 28 13, 27 36, 41 54 C 52 66, 66 71, 78 74Z" fill="${u('bc')}"/>` +
     `<path d="M72 64 C 65 48, 55 30, 46 28 C 40 31, 42 44, 50 54 C 57 61, 65 63, 72 66Z" fill="${u('bi')}"/>` +
-    `<path d="M73 60 C 66 42, 56 20, 44 17" fill="none" stroke="#FFFBEA" stroke-opacity=".5" stroke-width="1.8" stroke-linecap="round"/>` +
+    `<path d="M73 60 C 66 42, 56 20, 44 17" fill="none" style="stroke:var(--gb-sheen2)" stroke-opacity=".5" stroke-width="1.8" stroke-linecap="round"/>` +
     `<path d="M82 70 C 90 48, 102 12, 118 11 C 132 13, 133 36, 119 54 C 108 66, 94 71, 82 74Z" fill="${u('bl')}"/>` +
     `<path d="M88 64 C 95 48, 105 30, 114 28 C 120 31, 118 44, 110 54 C 103 61, 95 63, 88 66Z" fill="${u('bi')}"/>` +
-    `<path d="M87 60 C 94 42, 104 21, 115 17" fill="none" stroke="#FFFBEA" stroke-opacity=".3" stroke-width="1.6" stroke-linecap="round"/>` +
+    `<path d="M87 60 C 94 42, 104 21, 115 17" fill="none" style="stroke:var(--gb-sheen2)" stroke-opacity=".3" stroke-width="1.6" stroke-linecap="round"/>` +
     `<path d="M76 69 C 63 44, 36 24, 16 31 C 0 38, -2 64, 11 78 C 26 91, 58 88, 78 80Z" fill="${u('ba')}"/>` +
-    `<path d="M12 60 C 24 44, 46 44, 70 66 C 52 56, 30 54, 14 70Z" fill="#2B1A05" opacity=".16"/>` +
+    `<path d="M12 60 C 24 44, 46 44, 70 66 C 52 56, 30 54, 14 70Z" style="fill:var(--gb-tint)" opacity=".16"/>` +
     `<path d="M67 73 C 57 63, 41 56, 29 60 C 21 64, 22 72, 30 77 C 42 82, 57 80, 68 77Z" fill="${u('bi')}"/>` +
-    `<path d="M30 77 C 42 82, 57 80, 68 77 C 56 77.5, 43 77, 33 73.5Z" fill="#FFF1C9" opacity=".3"/>` +
-    `<path d="M70 60 C 57 41, 37 30, 20 36" fill="none" stroke="#FFFDF2" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M66 62 C 54 47, 38 38, 24 42" fill="none" stroke="#FFFDF2" stroke-opacity=".3" stroke-width="5" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M8 46 C 1 56, 3 70, 14 80" fill="none" stroke="#FFFBEA" stroke-opacity=".35" stroke-width="1.6" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M74 70 C 64 62, 55 58, 45 56M75 79 C 65 83, 54 85, 42 85M73 74.5 C 66 73, 60 72, 54 71.5" fill="none" stroke="#2B1A05" stroke-opacity=".34" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M30 77 C 42 82, 57 80, 68 77 C 56 77.5, 43 77, 33 73.5Z" style="fill:var(--gb-cream)" opacity=".3"/>` +
+    `<path d="M70 60 C 57 41, 37 30, 20 36" fill="none" style="stroke:var(--gb-sheen)" stroke-opacity=".85" stroke-width="3" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M66 62 C 54 47, 38 38, 24 42" fill="none" style="stroke:var(--gb-sheen)" stroke-opacity=".3" stroke-width="5" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M8 46 C 1 56, 3 70, 14 80" fill="none" style="stroke:var(--gb-sheen2)" stroke-opacity=".35" stroke-width="1.6" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M74 70 C 64 62, 55 58, 45 56M75 79 C 65 83, 54 85, 42 85M73 74.5 C 66 73, 60 72, 54 71.5" fill="none" style="stroke:var(--gb-tint)" stroke-opacity=".34" stroke-width=".9" stroke-linecap="round"/>` +
     `<path d="M84 69 C 97 44, 124 24, 144 31 C 160 38, 162 64, 149 78 C 134 91, 102 88, 82 80Z" fill="${u('bb')}"/>` +
-    `<path d="M148 60 C 136 44, 114 44, 90 66 C 108 56, 130 54, 146 70Z" fill="#2B1A05" opacity=".18"/>` +
+    `<path d="M148 60 C 136 44, 114 44, 90 66 C 108 56, 130 54, 146 70Z" style="fill:var(--gb-tint)" opacity=".18"/>` +
     `<path d="M93 73 C 103 63, 119 56, 131 60 C 139 64, 138 72, 130 77 C 118 82, 103 80, 92 77Z" fill="${u('bi')}"/>` +
-    `<path d="M130 77 C 118 82, 103 80, 92 77 C 104 77.5, 117 77, 127 73.5Z" fill="#FFF1C9" opacity=".18"/>` +
-    `<path d="M90 60 C 103 42, 122 31, 138 35" fill="none" stroke="#FFFDF2" stroke-opacity=".6" stroke-width="2.4" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M94 62 C 106 47, 122 38, 136 42" fill="none" stroke="#FFFDF2" stroke-opacity=".2" stroke-width="5" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M86 70 C 96 62, 105 58, 115 56M85 79 C 95 83, 106 85, 118 85M87 74.5 C 94 73, 100 72, 106 71.5" fill="none" stroke="#2B1A05" stroke-opacity=".36" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M130 77 C 118 82, 103 80, 92 77 C 104 77.5, 117 77, 127 73.5Z" style="fill:var(--gb-cream)" opacity=".18"/>` +
+    `<path d="M90 60 C 103 42, 122 31, 138 35" fill="none" style="stroke:var(--gb-sheen)" stroke-opacity=".6" stroke-width="2.4" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M94 62 C 106 47, 122 38, 136 42" fill="none" style="stroke:var(--gb-sheen)" stroke-opacity=".2" stroke-width="5" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M86 70 C 96 62, 105 58, 115 56M85 79 C 95 83, 106 85, 118 85M87 74.5 C 94 73, 100 72, 106 71.5" fill="none" style="stroke:var(--gb-tint)" stroke-opacity=".36" stroke-width=".9" stroke-linecap="round"/>` +
     `<path d="M70 62 C 76 59, 84 59, 90 62 C 93.5 69, 93.5 81, 90 88 C 84 91, 76 91, 70 88 C 66.5 81, 66.5 69, 70 62Z" fill="${u('bk')}"/>` +
-    `<path d="M73.5 64 C 71 72, 71 81, 73.5 87" fill="none" stroke="#FFFDF2" stroke-opacity=".8" stroke-width="2" stroke-linecap="round" data-sheen=""/>` +
-    `<path d="M85 62 C 87.5 71, 87.5 81, 85 89M79.5 61 C 80.5 70, 80.5 81, 79.5 90" fill="none" stroke="#2B1A05" stroke-opacity=".3" stroke-width=".8"/>` +
+    `<path d="M73.5 64 C 71 72, 71 81, 73.5 87" fill="none" style="stroke:var(--gb-sheen)" stroke-opacity=".8" stroke-width="2" stroke-linecap="round" data-sheen=""/>` +
+    `<path d="M85 62 C 87.5 71, 87.5 81, 85 89M79.5 61 C 80.5 70, 80.5 81, 79.5 90" fill="none" style="stroke:var(--gb-tint)" stroke-opacity=".3" stroke-width=".8"/>` +
     `</svg>`
   );
 }
@@ -151,15 +151,15 @@ function topSvg(id: string): string {
   const b = 'M2.2 -1.4 Q 9.6 2.1, 17 10.2 L 12.9 10.2 L 13.8 14.3 Q 6.6 7.6, -1 2.6Z';
   return (
     `<svg style="position:absolute;left:0;top:0;width:${n(LW)}em;height:${n(LD)}em;overflow:visible" viewBox="0 0 ${n(LW)} ${n(LD)}" aria-hidden="true"><defs>` +
-    `<radialGradient id="ts${id}"><stop offset="0" stop-color="#1A0602" stop-opacity=".6"/><stop offset="1" stop-color="#1A0602" stop-opacity="0"/></radialGradient>` +
+    `<radialGradient id="ts${id}"><stop offset="0" style="stop-color:var(--gb-shade)" stop-opacity=".6"/><stop offset="1" style="stop-color:var(--gb-shade)" stop-opacity="0"/></radialGradient>` +
     g('ta', -9.2, 5.4, -5.5, 9.1) +
     g('tc', 9.2, 3.6, 6, 7.7) +
     `</defs><g transform="translate(${n(cxx)} ${n(cy)})">` +
     `<ellipse cx="1.4" cy="1.6" rx="15" ry="6.5" fill="url(#ts${id})"/>` +
-    `<path d="${a}" fill="#1A0602" opacity=".34" transform="translate(.55 .65)"/><path d="${b}" fill="#1A0602" opacity=".34" transform="translate(.55 .65)"/>` +
+    `<path d="${a}" style="fill:var(--gb-shade)" opacity=".34" transform="translate(.55 .65)"/><path d="${b}" style="fill:var(--gb-shade)" opacity=".34" transform="translate(.55 .65)"/>` +
     `<path d="${a}" fill="url(#ta${id})"/><path d="${b}" fill="url(#tc${id})"/>` +
-    `<path d="M-1 .4 Q -8 5.6, -13.4 13" fill="none" stroke="#1E1002" stroke-opacity=".22" stroke-width=".28"/>` +
-    `<path d="M.8 .4 Q 8 4.6, 14.6 11.6" fill="none" stroke="#1E1002" stroke-opacity=".22" stroke-width=".28"/>` +
+    `<path d="M-1 .4 Q -8 5.6, -13.4 13" fill="none" style="stroke:var(--gb-crease)" stroke-opacity=".22" stroke-width=".28"/>` +
+    `<path d="M.8 .4 Q 8 4.6, 14.6 11.6" fill="none" style="stroke:var(--gb-crease)" stroke-opacity=".22" stroke-width=".28"/>` +
     `</g></svg>`
   );
 }
@@ -168,22 +168,22 @@ function topSvg(id: string): string {
 function waxSvg(id: string): string {
   return (
     `<svg class="${s.wx}" viewBox="-12 -12 124 124" aria-hidden="true"><defs>` +
-    `<radialGradient id="ws${id}" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#1A0602" stop-opacity=".55"/><stop offset="1" stop-color="#1A0602" stop-opacity="0"/></radialGradient>` +
+    `<radialGradient id="ws${id}" cx=".5" cy=".5" r=".5"><stop offset=".62" style="stop-color:var(--gb-shade)" stop-opacity=".55"/><stop offset="1" style="stop-color:var(--gb-shade)" stop-opacity="0"/></radialGradient>` +
     `<radialGradient id="wf${id}" cx=".34" cy=".28" r=".85"><stop offset="0" style="stop-color:var(--wax-hi)"/><stop offset=".42" style="stop-color:var(--wax)"/><stop offset="1" style="stop-color:var(--wax-dk)"/></radialGradient>` +
-    `<linearGradient id="wr${id}" x1=".12" y1=".1" x2=".62" y2=".66"><stop offset="0" stop-color="#FFE6D2" stop-opacity=".75"/><stop offset="1" stop-color="#FFE6D2" stop-opacity="0"/></linearGradient>` +
-    `<linearGradient id="wd${id}" x1=".9" y1=".92" x2=".4" y2=".4"><stop offset="0" stop-color="#1A0602" stop-opacity=".6"/><stop offset="1" stop-color="#1A0602" stop-opacity="0"/></linearGradient>` +
-    `<linearGradient id="ww${id}" x1=".15" y1=".1" x2=".85" y2=".9"><stop offset="0" stop-color="#1A0602" stop-opacity=".34"/><stop offset=".55" stop-color="#1A0602" stop-opacity=".08"/><stop offset="1" stop-color="#FFD9BF" stop-opacity=".14"/></linearGradient>` +
-    `<linearGradient id="wl${id}" x1=".2" y1=".15" x2=".85" y2=".9"><stop offset=".35" stop-color="#FFD9BF" stop-opacity="0"/><stop offset="1" stop-color="#FFD9BF" stop-opacity=".7"/></linearGradient>` +
+    `<linearGradient id="wr${id}" x1=".12" y1=".1" x2=".62" y2=".66"><stop offset="0" style="stop-color:var(--gb-peach)" stop-opacity=".75"/><stop offset="1" style="stop-color:var(--gb-peach)" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="wd${id}" x1=".9" y1=".92" x2=".4" y2=".4"><stop offset="0" style="stop-color:var(--gb-shade)" stop-opacity=".6"/><stop offset="1" style="stop-color:var(--gb-shade)" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="ww${id}" x1=".15" y1=".1" x2=".85" y2=".9"><stop offset="0" style="stop-color:var(--gb-shade)" stop-opacity=".34"/><stop offset=".55" style="stop-color:var(--gb-shade)" stop-opacity=".08"/><stop offset="1" style="stop-color:var(--gb-blush)" stop-opacity=".14"/></linearGradient>` +
+    `<linearGradient id="wl${id}" x1=".2" y1=".15" x2=".85" y2=".9"><stop offset=".35" style="stop-color:var(--gb-blush)" stop-opacity="0"/><stop offset="1" style="stop-color:var(--gb-blush)" stop-opacity=".7"/></linearGradient>` +
     `</defs>` +
     `<ellipse cx="53.5" cy="55" rx="55" ry="54" fill="url(#ws${id})"/>` +
     `<path d="${WAX_BLOB}" fill="url(#wf${id})"/>` +
     `<path d="${WAX_BLOB}" fill="none" stroke="url(#wd${id})" stroke-width="3.2" transform="translate(50 50) scale(.955) translate(-50 -50)"/>` +
     `<path d="${WAX_BLOB}" fill="none" stroke="url(#wr${id})" stroke-width="2.6" transform="translate(50 50) scale(.945) translate(-50 -50)"/>` +
     `<circle cx="50" cy="50" r="33" fill="url(#ww${id})"/>` +
-    `<circle cx="50" cy="50" r="33" fill="none" stroke="#1A0602" stroke-opacity=".5" stroke-width="1.5"/>` +
+    `<circle cx="50" cy="50" r="33" fill="none" style="stroke:var(--gb-shade)" stroke-opacity=".5" stroke-width="1.5"/>` +
     `<circle cx="50.6" cy="50.7" r="33.6" fill="none" stroke="url(#wl${id})" stroke-width="1.1"/>` +
-    `<ellipse cx="27" cy="19.5" rx="9.5" ry="3.6" transform="rotate(-36 27 19.5)" fill="#FFF1E4" opacity=".55"/>` +
-    `<circle cx="16.5" cy="33" r="1.7" fill="#FFF1E4" opacity=".5"/>` +
+    `<ellipse cx="27" cy="19.5" rx="9.5" ry="3.6" transform="rotate(-36 27 19.5)" style="fill:var(--gb-pearl)" opacity=".55"/>` +
+    `<circle cx="16.5" cy="33" r="1.7" style="fill:var(--gb-pearl)" opacity=".5"/>` +
     `</svg>`
   );
 }
@@ -258,9 +258,9 @@ export function GiftBox({ seal, label, open, animate = false, shaking = false, t
       <div className={s.pool} />
       <div className={s.scene}>
         <div className={s.world}>
-          <Face cls={s.sh + ' ' + s.far} w={W * 1.1} h={D * 1.1} transform={tr(6, -0.02, 5, 'rotateX(90deg)')} />
+          <Face cls={cx(s.sh, s.far)} w={W * 1.1} h={D * 1.1} transform={tr(6, -0.02, 5, 'rotateX(90deg)')} />
           <Face cls={s.sh} w={W * 0.94} h={D * 0.94} transform={tr(2.6, -0.04, 2, 'rotateX(90deg)')} />
-          <Face cls={s.sh + ' ' + s.shLid} w={LH + 10} h={LD * 0.9} transform={tr(EX + 3, -0.06, EZ + 1.5, 'rotateX(90deg)')} />
+          <Face cls={cx(s.sh, s.shLid)} w={LH + 10} h={LD * 0.9} transform={tr(EX + 3, -0.06, EZ + 1.5, 'rotateX(90deg)')} />
           <div className={cx(s.g3, s.base)}>
             {/* inside first (painted under on engines that sort by order) */}
             <Face cls={cx(s.in, s.flr)} w={W - 2 * T} h={D - 2 * T} transform={tr(0, -T, 0, 'rotateX(90deg)')}>

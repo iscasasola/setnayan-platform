@@ -111,6 +111,7 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   mayBeInvited,
+  invitationWasSent,
   mapTree,
   hostMaySetReply,
   plusOneFilterMatches,
@@ -1245,6 +1246,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
     </button>
   );
   const listToWalk = roster.some((g) => mayBeInvited(g));
+  // ✉ F-W2-25 (walk 14 Nov): "Everyone invited" only when every guest who may be invited WAS SENT one — a guest marked
+  // Attending by hand answered, so nobody is left to invite, but nothing was sent and "invited" would be untrue.
+  const everyoneSent = roster.filter((g) => mayBeInvited(g)).every((g) => invitationWasSent(g));
   const inviteFoot: ReactNode =
     stats.toInvite > 0 ? (
       <>
@@ -1264,7 +1268,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       </>
     ) : listToWalk ? (
       <span className={`${styles.cardSub} ${styles.allInvited}`} data-roster-to-invite="words">
-        <Check aria-hidden strokeWidth={2} /> Everyone invited
+        <Check aria-hidden strokeWidth={2} /> {everyoneSent ? 'Everyone invited' : 'Nobody left to invite'}
       </span>
     ) : oneQr ? (
       <>
@@ -1804,7 +1808,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             // Invite N is the ONE run (`/guests/send`), with only the selected
             // who still need theirs — never the couple, never the already sent.
             if (invitable.length === 0) {
-              toast.info('Everyone selected is already invited');
+              toast.info('Nobody selected still needs an invitation');
               return;
             }
             router.push(sendRunHref(eventId, invitable.map((g) => g.guest_id)));

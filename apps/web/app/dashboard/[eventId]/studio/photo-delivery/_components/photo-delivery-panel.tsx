@@ -23,6 +23,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
 import { StayForm } from '@/app/_components/stay-form';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
 // Server component. Renders one of three top-level states based on
@@ -234,13 +235,13 @@ function IdleState({
         ].map((step) => (
           <li
             key={step.n}
-            className="space-y-1.5 rounded-xl border border-ink/10 bg-cream p-4"
+            className="border-t border-ink/10 space-y-1.5 py-4"
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+            <p className="text-[12px] uppercase tracking-[0.2em] text-terracotta">
               Step {step.n}
             </p>
             <p className="text-sm font-semibold text-ink">{step.title}</p>
-            <p className="text-xs text-ink/65">{step.body}</p>
+            <p className="text-xs text-ink/70">{step.body}</p>
           </li>
         ))}
       </ol>
@@ -387,15 +388,15 @@ function ConnectedState({
       ) : null}
 
       {isConnectedIdle && syncMode === 'manual_release' ? (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="border-t border-ink/10 space-y-3 py-5">
           <header className="space-y-1">
             <h3 className="text-base font-semibold text-ink">
               Ready when you are
             </h3>
-            <p className="max-w-prose text-sm text-ink/65">
-              Setnayan is holding your photos. When you&rsquo;ve finished
+            <InfoTip labelAs="p" label="Setnayan is holding your photos." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+              When you&rsquo;ve finished
               reviewing, release the full archive to your Drive in one pass.
-            </p>
+            </InfoTip>
           </header>
           <StayForm door="photoDelivery.releasePhotoDelivery" action={releasePhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
@@ -413,43 +414,31 @@ function ConnectedState({
       {isConnectedIdle && syncMode === 'auto_sync' ? (
         <section
           aria-label="Auto-sync active"
-          className="rounded-2xl border border-ink/10 bg-cream p-5"
+          className="border-t border-ink/10 py-5"
         >
-          <p className="max-w-prose text-sm text-ink/65">
-            Photos will land in your Drive as they arrive in Setnayan. No
+          <InfoTip labelAs="p" label="Photos will land in your Drive as they arrive in Setnayan." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+            No
             release step needed. Check this page during the event to see the
             upload count tick up.
-          </p>
+          </InfoTip>
         </section>
       ) : null}
 
       {isComplete ? (
         <section className="space-y-3 rounded-2xl border border-success-300/60 bg-success-50/70 p-5">
           <header className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-success-900/70">
+            <p className="text-[12px] uppercase tracking-[0.2em] text-success-900/70">
               Delivery complete{completedAt ? ` · ${formatCompletedAt(completedAt)}` : ''}
             </p>
             <h3 className="text-base font-semibold text-success-950">
               All photos are in your Drive
             </h3>
-            <p className="text-sm text-success-900/85">
-              {job
-                ? `${job.uploaded_files.toLocaleString('en-US')} files · ${formatBytes(job.uploaded_bytes)} delivered.`
-                : 'Your folder is ready.'}{' '}
-              {/* ⚠ Was "Setnayan keeps a 5-year backup" — untrue. We hold the
-                  full-resolution originals for six months. Said here because
-                  this is the screen where a couple decides they are done.
-                  ⚠ AMENDED 2026-08-07: the fix stopped one clause too early.
-                  "The copy that lasts" told them OURS does not, and ending at
-                  "6 months" omitted the half that matters — the gallery is kept
-                  for good. Now matches the step copy at line ~221 verbatim, so
-                  the two cannot drift. Nothing is ever deleted; the
-                  full-resolution original is replaced by a compressed copy. */}
-              Your Drive folder holds the originals — that folder is yours.
+            <InfoTip labelAs="p" label="files · $ delivered.` : 'Your folder is ready.'} Your Drive folder holds the originals" labelNode={<>{job ? `${job.uploaded_files.toLocaleString('en-US')} files · ${formatBytes(job.uploaded_bytes)} delivered.` : 'Your folder is ready.'}{' '} {/* ⚠ Was "Setnayan keeps a 5-year backup" — untrue. We hold the full-resolution originals for six months. Said here because this is the screen where a couple decides they are done. ⚠ AMENDED 2026-08-07: the fix stopped one clause too early. "The copy that lasts" told them OURS does not, and ending at "6 months" omitted the half that matters — the gallery is kept for good. Now matches the step copy at line ~221 verbatim, so the two cannot drift. Nothing is ever deleted; the full-resolution original is replaced by a compressed copy. */} Your Drive folder holds the originals</>} labelClassName="text-sm text-success-900/85" align="start">
+              that folder is yours.
               Setnayan holds the full-resolution originals until 3 months after
               your event&rsquo;s last day, then keeps the 720p copy in your
               Memories, free, for life.
-            </p>
+            </InfoTip>
           </header>
           <div className="flex flex-wrap gap-2">
             {driveFolderUrl ? (

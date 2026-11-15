@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Loader2, Send, XCircle } from 'lucide-react';
+import { CheckCircle2, Send, XCircle } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 // Integration Activation Console — PR1. Fires the existing admin smoke-test
 // (/api/admin/smoke-test?type=resend), which sends a real test email via the
@@ -37,19 +38,8 @@ export function TestResendButton() {
 
   return (
     <div className="space-y-2">
-      <button
-        type="button"
-        onClick={run}
-        disabled={state === 'testing'}
-        className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700-700 disabled:opacity-60"
-      >
-        {state === 'testing' ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-        ) : (
-          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        )}
-        Send a test email
-      </button>
+      {/* T19 — messaging is the info tone (the avatar screens' Email delivery, 2026-11-14). */}
+      <ActionButton tone="info" icon={Send} label="Send a test email" onClick={run} waiting={state === 'testing'} disabled={state === 'testing'} />
       {state === 'ok' && (
         <p className="inline-flex items-start gap-1.5 text-xs text-emerald-800">
           <CheckCircle2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />

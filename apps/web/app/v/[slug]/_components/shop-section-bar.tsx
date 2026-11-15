@@ -24,6 +24,54 @@ export type ShopSectionTab = { id: string; label: string };
 /** The parts that rise as they enter: every direct child of a section, and anything marked `data-rise`. */
 const RISE_SELECTOR = '[data-shop-section] > *, [data-rise]';
 
+/**
+ * 🪟 WHERE THE BAR SCROLLS. On the shop page that is the window. The same bar also draws inside the sample shop page
+ * (`SampleShopPage`), which /for-suppliers lifts into a full-screen sheet that scrolls INSIDE itself — so the bar finds
+ * its nearest scrolling ancestor and jumps, tracks and returns to the top within it. No such ancestor → the window,
+ * exactly as before. Sections are looked up inside that scroller too, so a second drawing of the same sample (the
+ * miniature the sheet rose from) can never be the one it jumps to.
+ */
+type Scroller = {
+  el: HTMLElement | null;
+  top: () => number;
+  to: (top: number, smooth: boolean) => void;
+  viewTop: () => number;
+  end: () => boolean;
+};
+
+function scrollerOf(nav: HTMLElement): Scroller {
+  let el: HTMLElement | null = nav.parentElement;
+  while (el && el !== document.body && el !== document.documentElement) {
+    const oy = getComputedStyle(el).overflowY;
+    // `scrollHeight > clientHeight` too: an ancestor with only `overflow-x: hidden` computes overflow-y to `auto` without
+    // ever scrolling, and must not be mistaken for the scroller.
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) break;
+    el = el.parentElement;
+  }
+  if (!el || el === document.body || el === document.documentElement) {
+    return {
+      el: null,
+      top: () => window.scrollY,
+      to: (top, smooth) => window.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' }),
+      viewTop: () => 0,
+      end: () => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2,
+    };
+  }
+  const box = el;
+  return {
+    el: box,
+    top: () => box.scrollTop,
+    to: (top, smooth) => box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' }),
+    viewTop: () => box.getBoundingClientRect().top,
+    end: () => box.scrollTop + box.clientHeight >= box.scrollHeight - 2,
+  };
+}
+
+function sectionIn(scroller: Scroller, id: string): HTMLElement | null {
+  if (!scroller.el) return document.getElementById(id);
+  return scroller.el.querySelector<HTMLElement>(`[id="${id.replace(/"/g, '')}"]`);
+}
+
 function reducedMotion(): boolean {
   try {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -32,7 +80,16 @@ function reducedMotion(): boolean {
   }
 }
 
-export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<ShopSectionTab>; motionRootId?: string }) {
+export function ShopSectionBar({
+  tabs,
+  motionRootId,
+  topId = 'shop-top',
+}: {
+  tabs: ReadonlyArray<ShopSectionTab>;
+  motionRootId?: string;
+  /** The page top ↑ Top returns to — the shop page's `shop-top`; a sample page passes its own. */
+  topId?: string;
+}) {
   const navRef = useRef<HTMLElement | null>(null);
   const [current, setCurrent] = useState<string | null>(tabs[0]?.id ?? null);
   const holdUntil = useRef(0);
@@ -40,6 +97,9 @@ export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<Sho
   // Which section you are in — the last one whose top has passed under the bar. At the very end of the page the last
   // tab is current, because a short last section can never reach the bar.
   useEffect(() => {
+    const nav0 = navRef.current;
+    if (!nav0) return;
+    const scroller = scrollerOf(nav0);
     let ticking = false;
     const track = () => {
       ticking = false;
@@ -49,11 +109,10 @@ export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<Sho
       const line = nav.getBoundingClientRect().bottom + 8;
       let cur: string | null = tabs[0]?.id ?? null;
       for (const t of tabs) {
-        const sec = document.getElementById(t.id);
+        const sec = sectionIn(scroller, t.id);
         if (sec && sec.getBoundingClientRect().top <= line) cur = t.id;
       }
-      const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
-      if (atEnd && tabs.length > 0) cur = tabs[tabs.length - 1]!.id;
+      if (scroller.end() && tabs.length > 0) cur = tabs[tabs.length - 1]!.id;
       setCurrent(cur);
     };
     const onScroll = () => {
@@ -61,9 +120,10 @@ export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<Sho
       ticking = true;
       requestAnimationFrame(track);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
+    const target: HTMLElement | Window = scroller.el ?? window;
+    target.addEventListener('scroll', onScroll, { passive: true });
     track();
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => target.removeEventListener('scroll', onScroll);
   }, [tabs]);
 
   // Keep the current tab in view when the bar scrolls sideways on a phone.
@@ -106,23 +166,24 @@ export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<Sho
   }, [motionRootId]);
 
   const jump = (id: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
-    const sec = document.getElementById(id);
+    const nav = navRef.current;
+    if (!nav) return;
+    const scroller = scrollerOf(nav);
+    const sec = sectionIn(scroller, id);
     if (!sec) return; // let the anchor do its plain job
     e.preventDefault();
-    const navH = navRef.current?.getBoundingClientRect().height ?? 0;
+    const navH = nav.getBoundingClientRect().height;
     holdUntil.current = performance.now() + (reducedMotion() ? 150 : 1000);
     setCurrent(id);
-    window.scrollTo({
-      top: sec.getBoundingClientRect().top + window.scrollY - navH - 6,
-      behavior: reducedMotion() ? 'auto' : 'smooth',
-    });
+    scroller.to(sec.getBoundingClientRect().top - scroller.viewTop() + scroller.top() - navH - 6, !reducedMotion());
   };
 
   const toTop = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     holdUntil.current = performance.now() + (reducedMotion() ? 150 : 1000);
     setCurrent(tabs[0]?.id ?? null);
-    window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    const nav = navRef.current;
+    if (nav) scrollerOf(nav).to(0, !reducedMotion());
   };
 
   if (tabs.length === 0) return null;
@@ -147,7 +208,7 @@ export function ShopSectionBar({ tabs, motionRootId }: { tabs: ReadonlyArray<Sho
         </a>
       ))}
       <a
-        href="#shop-top"
+        href={`#${topId}`}
         onClick={toTop}
         aria-label="Back to the top of the page"
         className="sticky right-0 ml-auto inline-flex min-h-[46px] shrink-0 items-center gap-1.5 whitespace-nowrap bg-page pl-4 pr-3 shadow-[-10px_0_10px_-6px_rgb(var(--sn-page-bg)/0.95)] font-mono text-[0.64rem] font-bold uppercase tracking-[0.12em] text-ink/60 no-underline"

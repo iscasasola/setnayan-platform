@@ -165,8 +165,8 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
         </div>
         <div className="px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <EqualRow data="bundle-delete">
-            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setWarn(false)} data-bundle-delete-cancel="" />
-            <ActionButton tone="danger" main icon={Trash2} label="Delete" onClick={confirmDelete} data-bundle-delete-confirm="" />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setWarn(false)} data-bundle-delete-cancel="" className="!h-11" />
+            <ActionButton tone="danger" main icon={Trash2} label="Delete" onClick={confirmDelete} data-bundle-delete-confirm="" className="!h-11" />
           </EqualRow>
         </div>
       </Sheet>

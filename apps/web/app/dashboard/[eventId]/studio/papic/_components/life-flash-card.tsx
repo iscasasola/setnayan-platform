@@ -73,12 +73,12 @@ export async function LifeFlashCard({ eventId, state }: { eventId: string; state
   if (moments === null || moments < SCOPE_MIN_MOMENTS.event) return null;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <Zap aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
         This day, as a flash
       </h2>
-      <p className="mt-1 text-sm text-ink/60">
+      <p className="mt-1 text-sm text-ink/70">
         {moments} {moments === 1 ? 'moment' : 'moments'} from this day, played back through
         every camera that was there.
       </p>
@@ -86,7 +86,7 @@ export async function LifeFlashCard({ eventId, state }: { eventId: string; state
           same id space the moment graph keys on. NEVER the S89E public id. */}
       <a
         href={`/dashboard/life-flash?scope=e${eventId}`}
-        className="mt-4 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
+        className="ab ab-brand ab-main mt-4"
       >
         <Zap aria-hidden className="h-4 w-4" strokeWidth={2} />
         Play this day

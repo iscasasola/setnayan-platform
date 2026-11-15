@@ -10,12 +10,14 @@
  * Server component (no interactivity) — it only displays the frozen snapshot.
  */
 import { ShieldCheck } from 'lucide-react';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import type { PolicyAcknowledgement } from '@/lib/vendor-service-payment-schedules.server';
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Manila' });
 }
 
 export function ReservationTermsAck({
@@ -32,27 +34,29 @@ export function ReservationTermsAck({
       : null;
 
   return (
-    <div className="space-y-2 rounded-lg border border-terracotta/25 bg-terracotta/[0.04] p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-          <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-          Reservation terms
-        </p>
-        <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-terracotta-700">
-          Acknowledged {fmtDate(ack.acknowledgedAt)}
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 7 · 13): read-only, so no card — the section's grey capitals with
+    // the "terms on record" explaining behind ⓘ, the acknowledgement a soft green chip, the terms as plain lines.
+    <div className="space-y-2">
+      <div className="mb-1 mt-[18px] flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <InfoTip
+            label="Reservation terms"
+            labelAs="span"
+            labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+            align="start"
+          >
+            You agreed to {vendorName}&rsquo;s first payment policy when you booked. These are the exact terms on record —
+            they can&rsquo;t be changed after the fact.
+          </InfoTip>
         </span>
+        <Badge tone="ok">Acknowledged {fmtDate(ack.acknowledgedAt)}</Badge>
       </div>
 
-      <p className="text-[11px] leading-snug text-ink/55">
-        You agreed to {vendorName}&rsquo;s first payment policy when you booked this
-        booking. These are the exact terms on record — they can&rsquo;t be changed
-        after the fact.
-      </p>
-
-      <ul className="space-y-1.5 text-xs text-ink/85">
+      <ul className="space-y-1.5 text-sm text-ink">
         {p.downpayment_non_refundable ? (
           <li className="flex items-start gap-1.5">
-            <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+            <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
             <span>
               The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
               <strong>non-refundable</strong>.
@@ -61,7 +65,7 @@ export function ReservationTermsAck({
         ) : null}
         {p.no_show_forfeit ? (
           <li className="flex items-start gap-1.5">
-            <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
+            <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
             <span>
               A <strong>no-show forfeits</strong> the first payment.
             </span>
@@ -69,7 +73,7 @@ export function ReservationTermsAck({
         ) : null}
         {p.refund_window_days != null ? (
           <li className="flex items-start gap-1.5">
-            <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
+            <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink/40" />
             <span>
               Refundable if cancelled within{' '}
               <strong>
@@ -82,7 +86,7 @@ export function ReservationTermsAck({
       </ul>
 
       {p.cancellation_terms ? (
-        <p className="whitespace-pre-wrap border-t border-terracotta/15 pt-2 text-[11px] leading-snug text-ink/70">
+        <p className="whitespace-pre-wrap border-t border-ink/10 pt-2 text-[13px] leading-snug text-ink/70">
           {p.cancellation_terms}
         </p>
       ) : null}

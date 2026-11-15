@@ -27,56 +27,48 @@ export function eventHasSeatPlan(headTable: EventTableRow | null, nearbyTables: 
   return headTable !== null || nearbyTables.length > 0;
 }
 
+// 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 6 · 13 · 14): no box — the section's grey capitals over plain lines; the
+// nearby tables are one hairline row each; the way to the plan is the terracotta › on the label's row; an empty or
+// refused read is one line where the rows would be; 12 px floor, full-strength ink.
+const LABEL = 'inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+
 export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed = false }: Props) {
   if (!tablesFailed && !eventHasSeatPlan(headTable, nearbyTables)) return null;
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-      <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-          <Pin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+    <section aria-labelledby="day-of-head-table" className="space-y-1">
+      <header className="flex min-h-11 items-center justify-between gap-2">
+        <h2 id="day-of-head-table" className={LABEL}>
+          <Pin aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={2} />
           Head table
-        </p>
+        </h2>
         <Link
           href={`/dashboard/${eventId}/seating`}
-          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 hover:text-terracotta"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-terracotta-700 hover:underline"
         >
-          Plan <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Plan <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </header>
 
       {tablesFailed ? (
-        <>
-          <p role="status" className="text-sm text-danger-700">
-            Couldn’t load your tables.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/seating`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-          >
+        <p role="status" className="py-2 text-sm text-warn-800">
+          Couldn’t load your tables — not the same as none.{' '}
+          <Link href={`/dashboard/${eventId}/seating`} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             Open seating
-            <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           </Link>
-        </>
+        </p>
       ) : headTable ? (
         <>
-          <h3 className="text-2xl font-semibold tracking-tight text-ink">
-            {headTable.table_label}
-          </h3>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <h3 className="text-2xl font-bold tracking-tight text-ink">{headTable.table_label}</h3>
+          <p className="text-sm text-ink/75">
             {TABLE_TYPE_LABEL[headTable.table_type] ?? headTable.table_type} ·{' '}
             {formatCount(headTable.capacity)} seats
           </p>
           {nearbyTables.length > 0 ? (
-            <div className="space-y-1 border-t border-ink/10 pt-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Nearby tables
-              </p>
-              <ul className="flex flex-wrap gap-1.5">
+            <div className="pt-2">
+              <p className={LABEL}>Nearby tables</p>
+              <ul className="divide-y divide-ink/10">
                 {nearbyTables.map((t) => (
-                  <li
-                    key={t.table_id}
-                    className="rounded-full bg-ink/5 px-2.5 py-1 text-xs text-ink/70"
-                  >
+                  <li key={t.table_id} className="flex min-h-11 items-center py-2 text-[15px] text-ink">
                     {t.table_label}
                   </li>
                 ))}
@@ -85,19 +77,13 @@ export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed =
           ) : null}
         </>
       ) : (
-        <>
-          <p className="text-sm text-ink/65">
-            No head table set up yet.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/seating`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
-          >
+        <p className="py-2 text-sm text-ink/75">
+          No head table set up yet.{' '}
+          <Link href={`/dashboard/${eventId}/seating`} className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             Open seating
-            <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           </Link>
-        </>
+        </p>
       )}
-    </article>
+    </section>
   );
 }

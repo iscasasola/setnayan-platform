@@ -529,7 +529,7 @@ export async function applyClaimAutoLink(args: {
       );
 
     // (6. The flat 1-token claim burn — `claim_unlock_vendor_event` — is gone,
-    // 2026-11-05: the token wallet is RETIRED (2026-05-11), so it could only
+    // 2026-11-05: the token balance is RETIRED (2026-05-11), so it could only
     // fail or spend a leftover retired token. The supplier's unlock row is
     // written for free right after this returns, by finalize's
     // `seatClaimedCoupleAsCustomer` → `unlock_vendor_event_free`.)

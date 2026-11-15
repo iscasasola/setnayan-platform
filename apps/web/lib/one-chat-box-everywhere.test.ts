@@ -83,7 +83,7 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   // The ONE exception: the chat lab (`/dev/chat-lab`), which draws the real stream on fixtures so a walk can see it —
   // allowed only because it 404s in production as its FIRST statement (checked here, not assumed).
   // The supplier's chat lab (`/dev/supplier-chat-lab`) draws it too since 2026-10-29, on the same terms.
-  const LABS = ['app/dev/chat-lab/t/[threadId]/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const LABS = ['app/dev/chat-lab/t/[threadId]/page.lab.tsx', 'app/dev/supplier-chat-lab/page.lab.tsx'];
   // 💬 12 Nov 2026 — EVENT GROUP CHATS (owner "group chats approved": "Same chat as the supplier's"). The group's ONE
   // view draws the same stream, in the same ChatBox; it is mounted by the group page and by its lab, which 404s in
   // production (checked below like the other labs).
@@ -92,7 +92,7 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   // `app/dev/_components/lab-picked-chat.tsx` — not a page, so it cannot 404 itself. It is allowed only while EVERY
   // file that imports it is a lab page that 404s in production as its first statement (checked here, not assumed).
   const LAB_PART = 'app/dev/_components/lab-picked-chat.tsx';
-  const LAB_PART_PAGES = ['app/dev/chat-lab/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const LAB_PART_PAGES = ['app/dev/chat-lab/page.lab.tsx', 'app/dev/supplier-chat-lab/page.lab.tsx'];
   const partImporters = files
     .filter((f) => /lab-picked-chat['"]/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(WEB.length + 1))
@@ -102,9 +102,9 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
     .filter((f) => /group-chat-view['"]/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(WEB.length + 1))
     .filter((f) => !/\.test\.tsx?$/.test(f));
-  assert.deepEqual(groupViewImporters.sort(), ['app/dev/event-group-chat-lab/page.tsx', 'app/samahan/chat/[threadId]/page.tsx'], `the group view is drawn elsewhere: ${groupViewImporters.join(', ')}`);
+  assert.deepEqual(groupViewImporters.sort(), ['app/dev/event-group-chat-lab/page.lab.tsx', 'app/samahan/chat/[threadId]/page.tsx'], `the group view is drawn elsewhere: ${groupViewImporters.join(', ')}`);
   {
-    const lab = stripComments(readFileSync(join(WEB, 'app/dev/event-group-chat-lab/page.tsx'), 'utf8'));
+    const lab = stripComments(readFileSync(join(WEB, 'app/dev/event-group-chat-lab/page.lab.tsx'), 'utf8'));
     const body = lab.slice(lab.indexOf('{', lab.indexOf(')', lab.indexOf('export default async function'))) + 1).trimStart();
     assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, 'the group chat lab can render on the live site');
   }

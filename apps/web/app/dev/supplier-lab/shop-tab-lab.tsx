@@ -89,7 +89,7 @@ function shopLab(fail: boolean, none: boolean) {
     hero: none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[0]!, kind: 'photo' },
     heroCaption: none ? null : 'Cover · Your page',
     city: 'Batangas',
-    verified: { isVerified: true, inReview: false, stepsDone: 2 },
+    verified: { isVerified: true, inReview: false, papersIn: 3, papersOf: 3 },
     rating: fail || none ? null : '4.8',
     reviews: fail || none ? null : '38 reviews',
     events: fail ? null : none ? '0 events' : '120 events',
@@ -105,7 +105,7 @@ function shopLab(fail: boolean, none: boolean) {
   const logoFields: ProfileFieldData = {
     business_name: 'SetnaProd', business_owner_name: '', hq_address: '', location_city: 'Batangas', hq_latitude: null, hq_longitude: null,
     contact_phone: '', contact_email: '', in_business_since_year: '', venue_width_m: '', venue_length_m: '', capacity_min: '', capacity_max: '',
-    logo_url: null, logoDisplayMap: {}, services: ['live_band'], extraServiceLeaves: [], vendorProfileId: 'lab-shop',
+    logo_url: null, logoDisplayMap: {}, services: ['live_band'], serviceCategoryCount: 1, extraServiceLeaves: [], vendorProfileId: 'lab-shop',
   };
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-shop-tab-lab="">

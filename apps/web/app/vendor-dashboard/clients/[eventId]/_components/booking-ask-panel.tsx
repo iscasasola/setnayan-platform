@@ -37,6 +37,7 @@ import { ActionButton } from '@/components/action-button';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { AskSubmit } from '@/app/_components/ask-submit';
+import { InfoTip } from '@/app/_components/info-tip';
 import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
 import type { DayCheckRead } from '@/lib/day-check';
 import { DayCheckLine } from './day-check-line';
@@ -131,13 +132,15 @@ export function LockRequestAnswer({
   return (
     <section className="mt-3 border-y py-3.5" style={{ borderColor: 'var(--sn-line)' }} data-booking-ask="requested">
       <p className="text-sm font-semibold text-ink">{askLine('requested', 'supplier')}</p>
-      <p className="mt-0.5 text-sm text-ink/60">{fuse}</p>
+      <p className="mt-0.5 text-sm text-ink/70">{fuse}</p>
       {/* Saying WHY the page is thin is part of the answer: the venue address
           and the run-of-show arrive with the yes. */}
-      <p className="mt-2 text-sm text-ink/55">
-        You are seeing the area, the date and the headcount. The exact venue and the day-of run-of-show open the moment you
-        agree.
-      </p>
+      <div className="mt-2 text-[13px] text-ink/70">
+        <InfoTip label="What you can see before you agree" align="start">
+          You are seeing the area, the date and the headcount. The exact venue and the day-of run-of-show open the
+          moment you agree.
+        </InfoTip>
+      </div>
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
           receipt, not a disclosure. */}
@@ -184,7 +187,7 @@ export function LockRequestAnswer({
       </div>
       {/* A no is a real answer, but not one mis-tap away from a yes. */}
       <details className="mt-3" data-booking-ask-no="">
-        <summary className="flex min-h-11 cursor-pointer items-center text-sm text-ink/60">Can&rsquo;t take this booking?</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm text-ink/70">Can&rsquo;t take this booking?</summary>
         <form action={declineLock} className="mt-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={eventVendorId} />
           <input type="hidden" name="return_to" value={returnTo} />
@@ -227,10 +230,10 @@ export function BookingAskOutcomeLine({ outcome }: { outcome: SupplierAskOutcome
     <section className="mt-3 border-y py-3" style={{ borderColor: 'var(--sn-line)' }} data-booking-ask={outcome.state}>
       <p className="text-sm font-semibold text-ink">
         {outcome.line}
-        {when ? <span className="font-normal text-ink/55"> · {when}</span> : null}
+        {when ? <span className="font-normal text-ink/70"> · {when}</span> : null}
       </p>
-      {outcome.words ? <p className="mt-0.5 text-sm text-ink/60">Your words: &ldquo;{outcome.words}&rdquo;</p> : null}
-      <p className="mt-0.5 text-sm text-ink/55">
+      {outcome.words ? <p className="mt-0.5 text-sm text-ink/70">Your words: &ldquo;{outcome.words}&rdquo;</p> : null}
+      <p className="mt-0.5 text-sm text-ink/70">
         {outcome.state === 'declined'
           ? 'The couple was told. If they ask again, it shows here to answer.'
           : outcome.state === 'expired'

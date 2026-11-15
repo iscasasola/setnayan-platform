@@ -24,6 +24,7 @@
  * Pure: no React, no I/O. Server components on both sides import it.
  */
 
+import type { AlbumView } from '@/lib/card-portfolio-albums';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSay, type CompiledCardRecord } from '@/lib/service-card-record';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -121,6 +122,26 @@ export type ServiceCard = {
   /** Vendor-level trusted rating shown inside the record block. SHOP-wide, not
    *  per-card: reviews carry no service dimension. null → no stars. */
   recordRating: CardRecordRating | null;
+  /**
+   * 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frame 77): the photos of the events THIS card was booked on —
+   * type · venue · month, no names, no ids (`toAlbumViews`), drawn inside the grown card's Events section. Absent when
+   * the card-record flag is off (nothing new shows) · null = the read was refused ("Couldn't load", never an empty
+   * list) · [] = none yet (nothing drawn).
+   */
+  eventWork?: AlbumView[] | null;
+  /**
+   * 📸 PHOTOS BY SERVICE (owner 2026-11-14, DECISION_LOG d8ec0922): the card's SERVICE — the kind it is filed under
+   * (`vendor_services.category`) and the words a couple reads for it ("Lights & Sound"). The view groups every card of
+   * one service together; the key is the grouping, never shown.
+   */
+  serviceKey?: string;
+  serviceLabel?: string;
+  /**
+   * 📸 The photos of the events this card was booked on, each captioned kind · month ("Wedding · Dec 2025") — the
+   * same photos `eventWork` draws, one entry per photo. `event` is an opaque per-page key (never an event id) so the
+   * view can count events. Absent when the record flag is off · null = the read was refused.
+   */
+  eventPhotos?: { url: string; caption: string; event: string }[] | null;
   /**
    * SUP-4 (2026-09-18): the supplier said yes to the Setnayan gift on this card
    * (`vendor_services.includes_setnayan_gift`). Drives the ONE shared gift line
@@ -317,6 +338,8 @@ export function toServiceCard(
   return {
     id: row.vendor_service_id,
     label,
+    serviceKey: row.category,
+    serviceLabel: displayServiceLabel(row.category),
     priceLabel,
     meta: crewParts.length > 0 ? crewParts.join(' · ') : null,
     discountLabel: best?.label ?? null,

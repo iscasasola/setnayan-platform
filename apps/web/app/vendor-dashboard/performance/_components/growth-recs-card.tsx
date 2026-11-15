@@ -61,7 +61,7 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
           {REC_ICON[rec.key]}
         </span>
         <span
-          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
           style={impactChipStyle(rec.impact)}
         >
           {rec.impactLabel}
@@ -75,7 +75,7 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
       </p>
       <Link
         href={rec.ctaHref}
-        className="group mt-3 inline-flex items-center gap-1.5 text-sm font-medium"
+        className="group mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium"
         style={{ color: 'var(--m-orange-2)' }}
       >
         {rec.ctaLabel}

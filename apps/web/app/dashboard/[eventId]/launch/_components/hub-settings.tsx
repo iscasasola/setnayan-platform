@@ -72,7 +72,7 @@ export function HubSettingsGear({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   doors: HubSettingsDoors;
-  /** The work area's own extras (the Event Hub Pro line), drawn after the groups. */
+  /** The work area's own extras (the Event Pro line), drawn after the groups. */
   children?: ReactNode;
 }) {
   /* Asked only while the sheet is open: the work area's table says whether "What guests see" can be offered. */

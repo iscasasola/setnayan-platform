@@ -37,6 +37,7 @@ import { cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { GuestCameraTools, GuestFocusSquare, GuestGridLines } from './guest-camera-tools';
 import { TagScannerOverlay } from './tag-scanner-overlay';
 import { MyShotsSheet, MyShotsWaitingBadge, type MyShot } from './my-shots-sheet';
+import { AddFromPhoneSheet } from './add-from-phone-sheet';
 import { focusPointFromTap, PAPIC_GRID_STORAGE_KEY, zoomSteps } from '@/lib/papic-camera-steps';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ChallengeFollowUp, ChallengePill, useGuestChallenges, type ArmedChallenge } from './papic-challenge-panel';
@@ -739,6 +740,11 @@ export function PapicGuestCapture({
   );
 
   const closeShots = useCallback(() => setShotsOpen(false), []);
+  // 📲 Add from your phone (guest upload v2, approved 2026-11-13) — opened from My shots' head; the files join THIS
+  // camera's queue (same owner tag, same mark), priced at the upload price by the route.
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  const openPhone = useCallback(() => setPhoneOpen(true), []);
+  const closePhone = useCallback(() => setPhoneOpen(false), []);
 
   // ---- clip recording (Option A) --------------------------------------------
 
@@ -2293,7 +2299,23 @@ export function PapicGuestCapture({
         </div>
       </div>
 
-      <MyShotsSheet open={shotsOpen} onClose={closeShots} shots={myShotsList} eventId={eventId} />
+      <MyShotsSheet
+        open={shotsOpen}
+        onClose={closeShots}
+        shots={myShotsList}
+        eventId={eventId}
+        onAddFromPhone={uploadOwner ? openPhone : null}
+      />
+      <AddFromPhoneSheet
+        open={phoneOpen}
+        onClose={closePhone}
+        eventId={eventId}
+        uploadOwner={uploadOwner}
+        mark={mark}
+        creditsLeft={capApplies ? remaining : null}
+        poolEmpty={poolEmpty}
+        onAdded={keepSessionShot}
+      />
 
       <canvas ref={canvasRef} className="hidden" />
     </main>

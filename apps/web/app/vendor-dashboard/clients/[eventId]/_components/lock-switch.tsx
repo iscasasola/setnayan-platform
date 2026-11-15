@@ -49,9 +49,9 @@ export function LockSwitch({
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-semibold text-ink">
           {words.label}
-          {title ? <span className="font-normal text-ink/60"> · {title}</span> : null}
+          {title ? <span className="font-normal text-ink/70"> · {title}</span> : null}
         </span>
-        <span className="block text-[13px] text-ink/60">{on ? words.on : words.off}</span>
+        <span className="block text-[13px] text-ink/70">{on ? words.on : words.off}</span>
         {refused ? (
           <span role="alert" className="mt-0.5 block text-[13px] text-danger-900">
             {refused}

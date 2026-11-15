@@ -382,7 +382,9 @@ export function buildEventMenuSections(
     label: 'Guests',
     href: `${base}/guests`,
     icon: PILLAR_TAB_ICON.guests,
-    alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`, ...seatPages],
+    // 🙏 Sponsors are people on this list too (principal/secondary sponsors), so their page lights Guests and the
+    // pinned row names it (`Guests · Sponsors`) — design template rule 1, owner-approved 14 Nov 2026.
+    alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`, `${base}/sponsors`, ...seatPages],
   });
 
   // SUPPLIERS — "Your Team" until 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). It lit /budget
@@ -392,6 +394,9 @@ export function buildEventMenuSections(
     label: 'Suppliers',
     href: `${base}/vendors`,
     icon: PILLAR_TAB_ICON.explore,
+    // 👷 Manpower is crew the couple's suppliers send, so its page lights Suppliers and the pinned row names it
+    // (`Suppliers · Manpower`) — design template rule 1, owner-approved 14 Nov 2026.
+    alsoMatch: [`${base}/manpower`],
   });
 
   // HUB — the Event Hub Maker, one row, one word, every phase (key `launch`,

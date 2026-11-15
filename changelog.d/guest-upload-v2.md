@@ -1,0 +1,12 @@
+## 2026-11-14 · feat(papic): guests add event-day photos and videos from their own phone (guest upload v2)
+
+Approved prototype `prototypes/guest_phone_uploads_2026-11-13/` (specs) · DECISION_LOG 13 Nov "GUESTS CAN ADD PHOTOS FROM THEIR PHONE" + "TAP TO CHOOSE · VIDEO 3–10 SECONDS" · the four owner rulings of 14 Nov (d8ec0922).
+
+- **Guest:** My shots (beside the shutter) gains **Add from your phone**. The guest picks freely; each file's taken-date is read on the phone (photo EXIF `DateTimeOriginal`, video `mvhd`), and only the event day's go. No taken-date → left out, no "add anyway" (ruling 2). Every eligible file is a tap target. A video goes up at 3–10 s; a longer one opens a trim and only the chosen part is cut **on the phone** (ffmpeg.wasm, location stripped) and sent (ruling 3). Pot empty or the guest's limit short → **"Out of Credits"**, nothing sent (ruling 1).
+- **Not a new upload path:** each file becomes a shot in the guest camera's own queue, marked `source: 'phone'`. The guest-capture route then charges the **upload price** (`papicCaptureCost(…, 'upload')`, the shipped ×`PAPIC_UPLOAD_MULTIPLIER`), refuses when the couple turned *Adding photos by hand* off (`uploads_closed`) or the taken-date is not the event day (`not_event_day`).
+- **Couple:** Memories › Papic settings gains **Photos from guests' phones: Right away / After I check**. In *After I check*, an upload is born hidden (the shipped Hide) and never reaches the wall; the Recap shows **From your guests' phones** — Keep · Leave out · Keep all — and asks once before publishing with photos unchecked. Unchecked or left-out photos stay out and are **not refunded** (ruling 4 — the meters never filter `hidden_at`).
+- Migration `20271345220516_guest_phone_uploads.sql`: `events.papic_phone_uploads_held` (service-role only, no user grant — listed in `lint-events-column-grants` NO_GRANT_NEEDED) · `papic_guest_captures.phone_upload` (`live|waiting|kept|left_out`).
+- Couple controls go through `app/api/papic/phone-uploads/route.ts` (host-checked), not new server actions — the action budget is at its ceiling.
+- Help: two answers in the Papic topic; tour: the camera's *My shots* stop and the Papic settings stop name it; ⓘ on the sheet and the review.
+
+SPEC IMPACT: None beyond the 13–14 Nov DECISION_LOG rows this builds (no ruling changed). Not built, named: a phone that cannot run ffmpeg.wasm cannot send a video (it is refused, never sent whole); a HEIC whose Exif item sits past the first 1 MB reads as "no date".

@@ -193,7 +193,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/growth', tab: 'insights', stubTo: '/admin/app-performance?tab=growth', note: 'Sign-ups.' },
   { route: '/admin/funnels', tab: 'insights', stubTo: '/admin/app-performance?tab=funnels' },
   { route: '/admin/intelligence', tab: 'insights', stubTo: '/admin/app-performance?tab=intelligence' },
-  { route: '/admin/insights', tab: 'insights', stubTo: '/admin/app-performance?tab=intelligence' },
+  { route: '/admin/insights', tab: 'insights', stubTo: '/admin/app-performance' },
   { route: '/admin/seo', tab: 'insights', stubTo: '/admin/app-performance?tab=seo' },
   { route: '/admin/offline', tab: 'insights', stubTo: '/admin/app-performance?tab=offline' },
   { route: '/admin/operations-hiring', tab: 'insights', stubTo: '/admin/app-performance?tab=operations' },
@@ -210,26 +210,43 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
 
   // ── AVATAR — running admin itself ─────────────────────────────────────────
   { route: '/admin/secrets', tab: 'avatar', note: 'Secrets & integrations.' },
+  { route: '/admin/ask', tab: 'avatar', note: 'What can I ask? — the ask box cheat sheet + its A4 download (Focus | Full, 14 Nov).' },
   { route: '/admin/integrations', tab: 'avatar', note: 'Secrets & integrations.' },
   {
     route: '/admin/live-studio-channels',
     tab: 'avatar',
     note: 'Secrets & integrations — the Setnayan-owned YouTube channel pool and its Google grants.',
   },
-  { route: '/admin/notifications', tab: 'avatar', stubTo: '/admin/settings?tab=notifications', note: 'Email delivery.' },
+  { route: '/admin/notifications', tab: 'avatar', stubTo: '/admin/email-delivery', note: 'Email delivery.' },
+  {
+    route: '/admin/email-delivery',
+    tab: 'avatar',
+    note: 'Email delivery — the Resend facts, the delivery log, the digest, push and the bell (2026-11-14).',
+  },
+  {
+    route: '/admin/switches',
+    tab: 'avatar',
+    note: 'Switches — every for-everyone setting, each flip behind a confirm (2026-11-14).',
+  },
+  {
+    route: '/admin/business',
+    tab: 'avatar',
+    note: 'Business & compliance — identity, brand icon, loader, Sentry, the RA 10173 facts (2026-11-14).',
+  },
   {
     route: '/admin/settings',
     tab: 'avatar',
-    note: 'Platform settings (business details, VAT) with compliance, demo mode and notifications as tabs.',
+    stubTo: '/admin/business',
+    note: 'The old Settings studio: every ?tab= forwards — settings/compliance → Business, notifications → Email delivery, demo-mode → Switches (2026-11-14).',
   },
-  { route: '/admin/settings/demo-mode', tab: 'avatar', stubTo: '/admin/settings?tab=demo-mode', note: 'Per-admin session switch.' },
+  { route: '/admin/settings/demo-mode', tab: 'avatar', stubTo: '/admin/switches', note: 'Per-admin session switch.' },
   {
     route: '/admin/npc-readiness',
     tab: 'avatar',
     stubTo: '/admin/data-privacy?tab=checklist',
   },
   { route: '/admin/data-privacy', tab: 'avatar', note: 'Follows npc-readiness, which forwards here.' },
-  { route: '/admin/compliance', tab: 'avatar', stubTo: '/admin/settings?tab=compliance' },
+  { route: '/admin/compliance', tab: 'avatar', stubTo: '/admin/business' },
   { route: '/admin/compliance/data-sheet', tab: 'avatar' },
   {
     route: '/admin/search-memory',

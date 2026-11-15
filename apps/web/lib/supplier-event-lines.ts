@@ -105,6 +105,9 @@ export type EventLines = {
   date: string | null;
   /** The count they asked with (or now plan for), else the event's estimate; null when neither is set. */
   pax: number | null;
+  /** 👥 RW-08: this shop's claimed per-guest booking, as the couple reads it — its total now (null when unreadable) and
+   *  the guests it bills. Absent/null = not such a booking: the card says "Est. pax" as shipped. */
+  perGuest?: { totalPhp: number | null; guests: number } | null;
   /** Everyone hosting it, the one who asked first. Null = the read was refused (said, never "nobody"). */
   hosts: EventLineHost[] | null;
   /** What they asked THIS shop for. Null = the read was refused. */

@@ -646,7 +646,7 @@ export function nextHubStage(stage: LifecyclePhase | null): LifecyclePhase | nul
  * With no link guests can open yet, the tile opens the Maker instead (there is no page to open).
  */
 export const HUB_TILE_INFO =
-  'Tap to open your Event Hub. Pick what shows: which page guests see — Save the Date, Invitation, The Day or Post Event. Maker: design the page.';
+  'Tap to open your Event Hub — the page your guests see.';
 
 export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
@@ -762,7 +762,7 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
 }
 
 /** What the To do tile's ⓘ says (the approved prototype's words). */
-export const TODO_TILE_INFO = 'Only the plan: how far along you are and the next dated tasks, soonest first. One list now, in Schedule › Planning Stage.';
+export const TODO_TILE_INFO = 'How far along your plan is, and the next tasks, soonest first. The whole plan is in Schedule.';
 
 /**
  * ⑥ TO DO — only the plan: % done · open · due this week. One list since the owner merged the Checklist into Planning
@@ -897,7 +897,7 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
   if (s.toApprove > 0) doors.push({ id: 'approve', label: `${n(s.toApprove)} to approve`, href: schedulePageHref(e, { sheet: 'requests' }), main: true });
   if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: schedulePageHref(e, { announce: '1' }), main: true, pro: !s.pro });
   if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: door });
-  if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} owe times`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
+  if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} ${s.oweTimes === 1 ? 'supplier' : 'suppliers'} without a time`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
   return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors };
 }
 

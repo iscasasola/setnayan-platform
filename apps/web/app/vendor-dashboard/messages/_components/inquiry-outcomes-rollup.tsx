@@ -1,5 +1,6 @@
 import { Trophy, X, MessageSquareOff } from 'lucide-react';
 import type { VendorOutcomeRollup, OutcomeState } from '@/lib/inquiry-outcomes';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Won & Lost Reasons roll-up (Wave 6) — the vendor's own outcome breakdown,
@@ -17,7 +18,7 @@ const META: Record<
 > = {
   won: { label: 'Won', icon: Trophy, tone: 'text-mulberry' },
   lost: { label: 'Lost', icon: X, tone: 'text-terracotta-700' },
-  no_response: { label: 'No response', icon: MessageSquareOff, tone: 'text-ink/60' },
+  no_response: { label: 'No response', icon: MessageSquareOff, tone: 'text-[color:var(--m-slate-2)]' },
 };
 
 const nf = new Intl.NumberFormat('en-PH');
@@ -42,7 +43,7 @@ export function InquiryOutcomesRollup({
     <section className="mb-6 sn-row p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Won &amp; lost</h2>
-        <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+        <span className="tabular-nums text-[13px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">
           From {nf.format(totals.total)} logged
         </span>
       </div>
@@ -65,7 +66,7 @@ export function InquiryOutcomesRollup({
               <p className="mt-1 text-lg font-semibold text-ink">
                 {nf.format(totals[key])}
               </p>
-              <p className="text-[10px] uppercase tracking-[0.12em] text-ink/50">
+              <p className="text-[13px] uppercase tracking-[0.12em] text-[color:var(--m-slate-2)]">
                 {meta.label}
               </p>
             </div>
@@ -101,10 +102,15 @@ export function InquiryOutcomesRollup({
         })}
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-ink/50">
-        Self-reported by you. “Won” means the couple booked you — Setnayan
-        settles off-platform, so it’s your signal, not a verified payment.
-      </p>
+      <InfoTip
+        label="Self-reported by you."
+        labelAs="p"
+        className="mt-3"
+        labelClassName="text-[13px] text-[color:var(--m-slate-2)]"
+        align="start"
+      >
+        “Won” means the couple booked you — Setnayan settles off-platform, so it’s your signal, not a verified payment.
+      </InfoTip>
     </section>
   );
 }

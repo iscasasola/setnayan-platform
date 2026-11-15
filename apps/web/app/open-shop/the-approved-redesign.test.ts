@@ -33,7 +33,7 @@ const PHONE = read('app/open-shop/_components/phone-field.tsx');
 const CARDS = read('app/open-shop/_components/service-cards.tsx');
 const AT_EVENTS = read('app/open-shop/_components/services-at-events.tsx');
 const SHEET = read('app/open-shop/_components/plan-sheet.tsx');
-const LAB = read('app/dev/open-shop-lab/page.tsx');
+const LAB = read('app/dev/open-shop-lab/page.lab.tsx');
 const METER = read('lib/open-shop-more-services.ts');
 
 /* ── every sentence has a box, and the box is on the step the server sends you to ─────────────────────────────── */
@@ -99,7 +99,7 @@ test('five steps in the approved order, the account LAST', () => {
   // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
   assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
-  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : null/);
+  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : 'Your shop’s email, then open your shop\.'/);
   // Five segments in the step bar.
   assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<div key=\{n\} className="h-1 flex-1/);
 });

@@ -8,9 +8,9 @@
  * services"*. Editorial folds into Gallery; the Suite becomes this page.
  *
  * Owner, 2026-09-30, trimming it further: *"gallery inside Papic"* ·
- * *"Editorial inside Post Event in Event Hub Maker"* · *"Event Hub Pro has its
+ * *"Editorial inside Post Event in Event Hub Maker"* · *"Event Pro has its
  * own place too"* (the Maker's "Unlock Pro and Apply"). So Gallery is a part
- * under the Papic card, Editorial and Event Hub Pro are not drawn here at all.
+ * under the Papic card, Editorial and Event Pro are not drawn here at all.
  *
  * ─── NOTHING HERE IS NEW DATA ─────────────────────────────────────────────
  * Every card is a row the Suite already had. Its door is `addOnHref` — the
@@ -136,7 +136,7 @@ const SERVICES: readonly CatalogueService[] = [
     line: 'Short video reels from your day',
     addOnKeys: ['patiktok'],
   },
-  // ⛔ NO EVENT HUB PRO CARD (owner 2026-09-30, "Event Hub Pro has its own place
+  // ⛔ NO EVENT PRO CARD (owner 2026-09-30, "Event Pro has its own place
   // too"): Pro is unlocked where it is used — the Maker's "Unlock Pro and Apply".
   // `website-pro` stays in OUR_SERVICE_ADD_ON_KEYS so the lists below never
   // bring it back either.

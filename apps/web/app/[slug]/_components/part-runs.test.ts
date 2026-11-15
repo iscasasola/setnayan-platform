@@ -19,7 +19,7 @@
  *   S6 the Maker canvas lays the same cut on every choice and every keystroke;
  *   S7 the wiring: mounted by the page, the selection carries its words, the
  *      sheet re-anchors; ⛔ never the RSVP form;
- *   P  a scene run's FONT is Event Hub Pro at Apply, its colour and size are free.
+ *   P  a scene run's FONT is Event Pro at Apply, its colour and size are free.
  *
  * 🪤 No DOM library in the unit runner: a small parser and fake DOM (with the
  * handful of selectors the scene list uses) read React's server HTML.
@@ -462,7 +462,7 @@ test('S7 · wiring: the page mounts the cutter when a scene has runs; the select
 
 /* ── P ──────────────────────────────────────────────────────────────────── */
 
-/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO
+/* 💎 RE-AIMED 2026-10-18 — owner 2026-10-16 (DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO
    ◆"): a run's font, colour and size are Style — held at Apply without Pro, written with it. */
 test('P · a scene run\'s FONT, colour and size are Pro at Apply (2026-10-16) — written with Pro', () => {
   const live: HubLiveState = { events: {}, widgets: [widget('our_love_story', {})] };

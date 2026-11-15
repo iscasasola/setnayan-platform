@@ -64,6 +64,7 @@ import { ACTIVE_CHALLENGE_CAP } from '@/lib/papic-missions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 export type MissionRow = {
   mission_id: string;
   // ⚠ Reuse the shared union — do NOT restate it. This file used to declare its
@@ -94,7 +95,7 @@ const KIND_LABEL: Record<CaptureKind, string> = {
 const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> = {
   couple: { label: 'Yours', cls: 'bg-mulberry/15 text-mulberry' },
   auto: { label: 'Booth', cls: 'bg-terracotta/15 text-terracotta' },
-  vendor: { label: 'Supplier', cls: 'bg-ink/10 text-ink/60' },
+  vendor: { label: 'Supplier', cls: 'bg-ink/10 text-ink/70' },
   setnayan: { label: 'Recommended', cls: 'bg-gold/15 text-gold-700' },
 };
 
@@ -146,8 +147,8 @@ function FilterChip({
       aria-current={active ? 'true' : undefined}
       className={
         active
-          ? 'rounded-full bg-mulberry px-2.5 py-1 text-[11px] font-medium text-cream'
-          : 'rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink'
+          ? 'rounded-full bg-mulberry px-2.5 py-1 text-[12px] font-medium text-cream'
+          : 'rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-[12px] text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink'
       }
     >
       {label}
@@ -422,12 +423,12 @@ export async function CoupleChallengesManager({
                 comes back exactly as it was.
               </InfoTip>
               {missionsReadable ? (
-                <span className="text-[12.5px] text-ink/55" data-papic-challenges-count="">
+                <span className="text-[12.5px] text-ink/70" data-papic-challenges-count="">
                   {formatCount(running.length)} of {formatCount(ACTIVE_CHALLENGE_CAP)} challenges on
                 </span>
               ) : null}
             </span>
-            <span className="block text-[12.5px] text-ink/60" data-papic-challenges-showing="">
+            <span className="block text-[12.5px] text-ink/70" data-papic-challenges-showing="">
               {!pause.measured ? 'Couldn’t check whether they are on' : off ? 'Off' : missionsReadable ? 'On' : 'Couldn’t load your challenges'}
             </span>
           </span>
@@ -457,7 +458,7 @@ export async function CoupleChallengesManager({
               </ul>
             ) : null}
             {full ? (
-              <p className="pt-2 text-[12.5px] text-ink/60" data-papic-challenges-full="">
+              <p className="pt-2 text-[12.5px] text-ink/70" data-papic-challenges-full="">
                 10 are on — turn one off to turn another on.
               </p>
             ) : null}
@@ -469,12 +470,12 @@ export async function CoupleChallengesManager({
 
   if (!standalone) {
     return (
-      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
           <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
           Papic Challenges
         </h3>
-        <p className="mt-1 text-xs text-ink/60">
+        <p className="mt-1 text-xs text-ink/70">
           Little photo missions for your guests. Pick up to {ceiling}.
         </p>
         {/* ⚠ A FAILED READ SAYS SO. `missions.length === 0` on an unreadable
@@ -501,7 +502,7 @@ export async function CoupleChallengesManager({
         )}
         <Link
           href={`/dashboard/${eventId}/studio/papic/challenges`}
-          className="button-primary mt-4 inline-flex"
+          className="ab ab-brand ab-main mt-4"
         >
           {chosen > 0 ? 'Change your challenges' : 'Pick your challenges'} &rarr;
         </Link>
@@ -510,7 +511,7 @@ export async function CoupleChallengesManager({
             the quieter of the two: picking the challenges is the couple's job
             and comes first; ordering them against the ceremony is the
             coordinator's, and often somebody else entirely. */}
-        <p className="mt-3 text-xs text-ink/55">
+        <p className="mt-3 text-xs text-ink/70">
           Running the day?{' '}
           <Link
             href={`/dashboard/${eventId}/studio/papic/run-of-show`}
@@ -526,7 +527,7 @@ export async function CoupleChallengesManager({
 
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
       <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
         Papic Challenges
@@ -551,16 +552,16 @@ export async function CoupleChallengesManager({
           <> &mdash; that&rsquo;s the lot. Remove one to swap it out.</>
         )}
       </p>
-      <p className="mt-1 text-xs text-ink/60">
-        Your guests see up to {BOARD_SIZE} on their phone. Anything you don&rsquo;t
+      <InfoTip labelAs="p" label="Your guests see up to on their phone." labelNode={<>Your guests see up to {BOARD_SIZE} on their phone.</>} labelClassName="text-xs text-ink/70" className="mt-1" align="start">
+        Anything you don&rsquo;t
         pick, we fill in for you &mdash; so the board is never empty. Booth
         challenges appear here as you book suppliers.
-      </p>
+      </InfoTip>
       {/* Only ever shown when it is TRUE. A permanent "0 slots are sponsored"
           line would be noise on every event, and today it is nought on all of
           them. */}
       {soldAway > 0 ? (
-        <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
+        <p className="mt-2 rounded-lg bg-ink/5 px-3 py-2 text-[12px] text-ink/70">
           <span className="tabular-nums">{soldAway}</span>{' '}
           {soldAway === 1 ? 'slot is' : 'slots are'} held by a supplier who
           sponsored a challenge for you, so your own limit is {ceiling}.
@@ -631,7 +632,7 @@ export async function CoupleChallengesManager({
           &mdash; nothing has changed.
         </p>
       ) : (
-        <div className="mt-5 rounded-xl border border-gold/25 bg-gold/[0.04] p-4">
+        <div className="border-t border-ink/10 mt-5 border-gold/25 bg-gold/[0.04] py-4">
           <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
             <MessageSquareQuote aria-hidden className="h-4 w-4 text-gold-700" strokeWidth={1.75} />
             {showingDefault
@@ -640,7 +641,7 @@ export async function CoupleChallengesManager({
                 : 'Where most people start'
               : 'Challenges you can add'}
           </h4>
-          <p className="mt-1 text-xs text-ink/60">
+          <p className="mt-1 text-xs text-ink/70">
             {showingDefault
               ? picker.rankedByPicks
                 ? `The ${PICKER_PAGE_SIZE} other hosts add most often. Search or filter below for the rest.`
@@ -735,13 +736,13 @@ export async function CoupleChallengesManager({
               board and the count lives at the top; what remains here is the
               honest end-stop. */}
           {roomLeft === 0 ? (
-            <p className="mt-3 rounded-lg bg-ink/5 px-3 py-2 text-[11px] text-ink/70">
+            <p className="mt-3 rounded-lg bg-ink/5 px-3 py-2 text-[12px] text-ink/70">
               You have picked all {ceiling}. Remove one below to make room.
             </p>
           ) : null}
 
           {picker.rows.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/45">
+            <p className="mt-4 text-sm text-ink/70">
               {showingDefault
                 ? 'You have added every challenge we have. That is a first.'
                 : 'Nothing matches that. Try a different word, or clear the filters.'}
@@ -751,21 +752,21 @@ export async function CoupleChallengesManager({
               {picker.rows.map((row) => (
                 <li
                   key={row.library_id}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-ink/10 bg-cream/70 px-3 py-2"
+                  className="border-t border-ink/10 flex items-start justify-between gap-3 px-3 py-2"
                 >
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-ink">
                       {row.title}
-                      <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-normal text-ink/60">
+                      <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[12px] font-normal text-ink/70">
                         {KIND_LABEL[row.capture_kind]}
                       </span>
-                      <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[10px] font-normal text-ink/50">
+                      <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-[12px] font-normal text-ink/70">
                         {CATEGORY_LABELS[row.category]}
                       </span>
                       {/* Only ever shown when it is a real number. A "0 events"
                           badge on every row would be a worse silence than none. */}
                       {row.picks > 0 ? (
-                        <span className="rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-normal text-gold-700">
+                        <span className="rounded-full bg-gold/15 px-1.5 py-0.5 text-[12px] font-normal text-gold-700">
                           {row.picks} {row.picks === 1 ? 'event' : 'events'}
                         </span>
                       ) : null}
@@ -785,7 +786,7 @@ export async function CoupleChallengesManager({
                     <span
                       aria-disabled="true"
                       title={`You have picked all ${ceiling}. Remove one to make room.`}
-                      className="inline-flex shrink-0 items-center rounded-md border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/40"
+                      className="inline-flex shrink-0 items-center rounded-md border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/70"
                     >
                       Full
                     </span>
@@ -821,7 +822,7 @@ export async function CoupleChallengesManager({
           nothing has changed.
         </p>
       ) : missions.length === 0 ? (
-        <p className="mt-4 text-sm text-ink/45">
+        <p className="mt-4 text-sm text-ink/70">
           No challenges yet — add one above, or they&rsquo;ll appear as you book suppliers.
         </p>
       ) : (
@@ -830,18 +831,17 @@ export async function CoupleChallengesManager({
             <h4 className="text-sm font-medium text-ink">
               What your guests see{onBoard.length > 0 ? ` · ${onBoard.length}` : ''}
             </h4>
-            <p className="mt-0.5 text-xs text-ink/55">In this order, on their phone.</p>
+            <p className="mt-0.5 text-xs text-ink/70">In this order, on their phone.</p>
             {/* ⏱ The clock, stated once. Three different sentences for three
                 different states — an un-armed celebration and a read we could
                 not make are NOT the same thing, and collapsing them is how a
                 couple mid-reception gets told nothing is running when
                 something is. */}
             {!armedReading.measured ? (
-              <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-                We couldn&rsquo;t check which challenge is being asked just now.
+              <InfoTip labelAs="p" label="We couldn&rsquo;t check which challenge is being asked just now." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-2" align="start">
                 Refresh in a moment &mdash; nothing has stopped, and your guests
                 can still take photos either way.
-              </p>
+              </InfoTip>
             ) : armedReading.armed ? (
               <p className="mt-2 flex items-start gap-1.5 text-sm text-ink/70">
                 <Radio aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
@@ -856,17 +856,17 @@ export async function CoupleChallengesManager({
                       this screen would be confidently wrong whenever the next
                       arming or the capture window bit first. */}
                   {armedReading.armed.expiresAt ? (
-                    <span className="text-ink/55">
+                    <span className="text-ink/70">
                       {' '}&middot; until {formatUntil(armedReading.armed.expiresAt, eventTz)}
                     </span>
                   ) : null}
                 </span>
               </p>
             ) : (
-              <p className="mt-2 text-sm text-ink/45">
-                No challenge is being asked yet. Start one when the moment comes
+              <InfoTip labelAs="p" label="No challenge is being asked yet." labelClassName="text-sm text-ink/70" className="mt-2" align="start">
+                Start one when the moment comes
                 &mdash; it runs for the time you pick, or until you start the next.
-              </p>
+              </InfoTip>
             )}
             {onBoard.length > 0 ? (
               <ul className="mt-2 space-y-2">
@@ -881,7 +881,7 @@ export async function CoupleChallengesManager({
                 ))}
               </ul>
             ) : boardReadable ? (
-              <p className="mt-2 text-sm text-ink/45">
+              <p className="mt-2 text-sm text-ink/70">
                 Nothing is showing yet — unhide one below, or add a challenge above.
               </p>
             ) : (
@@ -890,11 +890,10 @@ export async function CoupleChallengesManager({
                  couple their challenges reach nobody — when the truth is that we
                  failed to work it out — is the same confident lie in a quieter
                  voice. */
-              <p className="mt-2 rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700">
-                We couldn&rsquo;t work out which of these your guests see just
-                now. Refresh in a moment &mdash; nothing has changed, and nothing
+              <InfoTip labelAs="p" label="We couldn&rsquo;t work out which of these your guests see just now." labelClassName="rounded-lg bg-terracotta/10 px-3 py-2 text-sm text-terracotta-700" className="mt-2" align="start">
+                Refresh in a moment &mdash; nothing has changed, and nothing
                 needs removing.
-              </p>
+              </InfoTip>
             )}
           </div>
 
@@ -903,7 +902,7 @@ export async function CoupleChallengesManager({
               <h4 className="text-sm font-medium text-ink">
                 Not showing · {offBoard.length}
               </h4>
-              <p className="mt-0.5 text-xs text-ink/55">
+              <p className="mt-0.5 text-xs text-ink/70">
                 {/* 🔑 THE INVERSION THIS SCREEN SHIPPED. "Waiting for a free
                     spot — hide one above to make room" claims the board is
                     FULL. When the resolver was refused every challenge had a
@@ -989,7 +988,7 @@ export function ChallengeRow({
   // value the database allows and TypeScript has not heard of. It must NOT fall
   // back to another source's badge — defaulting to `vendor` is exactly how
   // Setnayan's own recommendations came to be labelled as a vendor's.
-  const badge = SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/60' };
+  const badge = SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/70' };
   const kind = m.capture_kind ? KIND_LABEL[m.capture_kind] : null;
 
   const row = (
@@ -1004,7 +1003,7 @@ export function ChallengeRow({
           {m.board_slot !== null ? (
             <span
               aria-hidden
-              className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold tabular-nums text-ink/55"
+              className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[12px] font-semibold tabular-nums text-ink/70"
             >
               {m.board_slot}
             </span>
@@ -1012,12 +1011,12 @@ export function ChallengeRow({
           <div className="min-w-0">
             <span className="flex flex-wrap items-center gap-1.5">
               <span
-                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.cls}`}
+                className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${badge.cls}`}
               >
                 {badge.label}
               </span>
               {kind ? (
-                <span className="inline-block rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink/50">
+                <span className="inline-block rounded-full bg-ink/[0.06] px-2 py-0.5 text-[12px] font-medium uppercase tracking-wide text-ink/70">
                   {kind}
                 </span>
               ) : null}
@@ -1027,10 +1026,10 @@ export function ChallengeRow({
                 neutral wording — never the raw token. */}
             <p className="mt-1 text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
             {!m.is_active ? (
-              <p className="mt-0.5 text-[11px] text-ink/45">Hidden from guests</p>
+              <p className="mt-0.5 text-[12px] text-ink/70">Hidden from guests</p>
             ) : null}
             {isLiveNow ? (
-              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[11px] font-medium text-mulberry">
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[12px] font-medium text-mulberry">
                 <Radio aria-hidden className="h-3 w-3" strokeWidth={2.5} />
                 Being asked now
                 {armed.measured && armed.armed?.expiresAt
@@ -1058,25 +1057,16 @@ export function ChallengeRow({
                   or an hour, or two. A plain select rather than a second
                   screen — the choice is made in the same tap as starting it,
                   because a coordinator making it is standing in a reception. */}
-              <label className="sr-only" htmlFor={`len-${m.mission_id}`}>
-                How long this challenge runs
-              </label>
-              <select
-                id={`len-${m.mission_id}`}
+              <PostedPick
                 name="duration_minutes"
-                defaultValue={CHALLENGE_DURATION_DEFAULT}
-                className="rounded-md border border-ink/15 bg-cream px-1.5 py-1.5 text-[11px] text-ink/70"
-              >
-                {CHALLENGE_DURATION_CHOICES.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {CHALLENGE_DURATION_LABELS[minutes]}
-                  </option>
-                ))}
-              </select>
+                label="How long"
+                initial={String(CHALLENGE_DURATION_DEFAULT)}
+                options={CHALLENGE_DURATION_CHOICES.map((minutes) => ({ key: String(minutes), label: CHALLENGE_DURATION_LABELS[minutes] }))}
+              />
               <SubmitButton
                 title="Ask this one now"
                 aria-label="Ask this challenge now"
-                className="inline-flex items-center gap-1 rounded-md border border-mulberry/30 bg-cream px-2 py-1.5 text-[11px] font-medium text-mulberry transition-colors hover:bg-mulberry/10"
+                className="inline-flex items-center gap-1 rounded-md border border-mulberry/30 bg-cream px-2 py-1.5 text-[12px] font-medium text-mulberry transition-colors hover:bg-mulberry/10"
               >
                 <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Ask now
@@ -1094,7 +1084,7 @@ export function ChallengeRow({
               <SubmitButton
                 title="Stop asking this one"
                 aria-label="Stop asking this challenge"
-                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+                className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-[12px] font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
               >
                 <Square aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Stop
@@ -1110,7 +1100,7 @@ export function ChallengeRow({
               type="submit"
               title={m.is_active ? 'Hide from guests' : 'Show to guests'}
               aria-label={m.is_active ? 'Hide from guests' : 'Show to guests'}
-              className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
+              className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
             >
               {m.is_active ? (
                 <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />

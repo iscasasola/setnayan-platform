@@ -1,6 +1,6 @@
 /**
  * free-events-keep-what-they-published.test.ts — 🏛 THE GRANDFATHER (owner 2026-10-16, DECISION_LOG "ALL ANIMATE,
- * EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆", his answer the same night: *free events keep what they already
+ * EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆", his answer the same night: *free events keep what they already
  * published — nothing changes for guests on live pages; new changes need Pro*).
  *
  * The fixture is a FREE event whose page went live before the ruling, wearing every kind of choice the ruling made

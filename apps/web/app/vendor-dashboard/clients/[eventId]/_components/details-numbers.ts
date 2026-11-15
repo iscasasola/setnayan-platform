@@ -34,6 +34,8 @@ export type DetailsNumbersInput = {
   onPlan: boolean;
   /** Not booked only. `null` = the quotes could not be read; `undefined` = no quote sent. */
   sentQuotePhp: number | null | undefined;
+  /** 👥 RW-108: a claimed per-guest booking's figure and count (`readShopPerGuest`), when no quote was sent. */
+  perGuest?: { totalPhp: number | null; guests: number } | null;
   peso: (php: number) => string;
 };
 
@@ -56,7 +58,16 @@ export function detailsNumbers(i: DetailsNumbersInput): DetailsNumber[] {
     const quote: DetailsNumber =
       i.sentQuotePhp === null
         ? { key: 'quote', label: 'Quote', value: '—', sub: 'couldn’t load', page: 'quote' }
-        : i.sentQuotePhp === undefined
+        : i.sentQuotePhp === undefined && i.perGuest
+          ? {
+              key: 'quote',
+              label: 'Agreed',
+              // Never ₱0: an unreadable total says the count alone.
+              value: i.perGuest.totalPhp != null && i.perGuest.totalPhp > 0 ? i.peso(i.perGuest.totalPhp) : '—',
+              sub: `${i.perGuest.guests.toLocaleString('en-PH')} guest${i.perGuest.guests === 1 ? '' : 's'}`,
+              page: 'quote',
+            }
+          : i.sentQuotePhp === undefined
           ? { key: 'quote', label: 'Quote', value: '—', sub: 'not sent', page: 'quote' }
           : { key: 'quote', label: 'Quote', value: i.peso(i.sentQuotePhp), sub: 'sent', page: 'quote' };
     return [quote, { key: 'schedules', label: 'Schedules', value: '—', sub: 'none yet', page: 'schedule' }, eventCell(i)];

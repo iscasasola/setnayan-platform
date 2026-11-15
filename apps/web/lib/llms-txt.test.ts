@@ -96,7 +96,7 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
   assert.ok(!body.includes('₱1,999'), 'Papic Pool 6k is ₱2,000 now, not ₱1,999');
 });
 
-test('Setnayan AI is never quoted a price of its own — it comes with Event Plus and Event Pro', () => {
+test('Setnayan AI is never quoted a price of its own — it comes with Event Plus, Event Pro and Event Ultra', () => {
   /*
     ⚖ Owner 2026-11-04 (final price sheet): "Setnayan ai no separate purchase will be part of event plus and event
     pro". Until that day this test proved the four-rung AI ladder rendered; the ladder is no longer for sale, so the
@@ -117,7 +117,8 @@ test('Setnayan AI is never quoted a price of its own — it comes with Event Plu
     assert.ok(!figures(body).has(fig), `llms.txt still quotes ${row.service_code} at ${fig}`);
   }
   assert.ok(!/priced by event type/i.test(body), 'llms.txt still sells Setnayan AI by event type');
-  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Plus and Event Pro/);
+  // Re-pointed 2026-11-13: Event Ultra is the third plan and carries the AI too (AI_INCLUDED_PLAN_SKUS, lib/sku-activation.ts).
+  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Plus, Event Pro and Event Ultra/);
   assert.ok(body.includes(peso(Number(RETAIL.find((r) => r.service_code === 'EVENT_PLUS')!.retail_price_php))), 'Event Plus is not priced');
   // The ladder primitive still resolves (other callers price from it); it is simply not rendered here.
   assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);
@@ -206,19 +207,19 @@ test('the retired subdomain is gone from the rendered file', () => {
 test('the monogram no longer promises the LED background — and is no longer sold on its own', () => {
   const out = renderLlmsTxt(INPUT);
   // The standalone Animated Monogram was retired from sale on 2026-10-22 (#6781, migration
-  // 20271283592608): the animation is Event Hub PRO's Logo & QR part. Its last mention — the
+  // 20271283592608): the animation is Event Pro's Logo & QR part. Its last mention — the
   // /palogo link label — read as a product a model would recommend buying (live check 2026-10-23).
   // SABOTAGE: put "[Animated Monogram](…/palogo)" back in lib/llms-txt.ts → RED.
   assert.ok(
     !/Animated Monogram/.test(out),
     'llms.txt still names the Animated Monogram, which is no longer sold — the animation is ' +
-      "Event Hub PRO's Logo & QR part. Name /palogo \"Logo Maker\".",
+      "Event Pro's Logo & QR part. Name /palogo \"Logo Maker\".",
   );
   assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
-  // 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the animation's
-  // home is Event Hub PRO itself, named on the Monogram Maker's own line.
+  // 2026-10-26 (owner, "just have the upgrade Event Pro"): the Logo & QR part is off sale too — the animation's
+  // home is Event Pro itself, named on the Monogram Maker's own line.
   assert.match(out, /\*\*Monogram Maker\*\* — free\.[^\n]*Event Pro animates it/, "the animation's real home (Event Pro) must still be named");
-  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Hub PRO part by part');
+  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Pro part by part');
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +
@@ -313,8 +314,9 @@ test('with the fee on, every supplier-facing "0% commission" is followed by the 
     supplierSection(body).includes(schedule),
     'the vendor tier section says 0% commission and never states the booking fee',
   );
-  const listLine = body.split('\n').find((l) => l.includes('[List Your Business]'));
-  assert.ok(listLine, 'the List Your Business line is gone — re-point this guard');
+  // Re-pointed 2026-11-13: the link reads "[For Suppliers]" (the page's own name), the check is unchanged.
+  const listLine = body.split('\n').find((l) => l.includes('[For Suppliers]'));
+  assert.ok(listLine, 'the For Suppliers line is gone — re-point this guard');
   assert.ok(
     listLine.includes(schedule),
     `the supplier acquisition line promises no commission without the fee: ${listLine}`,
@@ -336,3 +338,22 @@ test('an unlisted-until-proven product is never named to answer engines', () => 
   assert.equal((LINKED_ROUTES as readonly string[]).includes('/patiktok'), false);
 });
 
+
+// ⚖ THE LAUNCH OFFER IS SAID ONLY WHILE IT IS OPEN (truth sweep 2026-11-13). The route passes the admin-edited cap
+// only when `launchOfferIsOpen` is true; with no cap the sentence must be absent, never a remembered "2,000".
+// SABOTAGE: print the sentence unconditionally, or type the number → RED.
+test('the launch offer is named from the passed cap only, and absent when the offer is closed', () => {
+  const open = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, launchOfferCap: 1234 }));
+  assert.match(open, /Launch offer: the first 1,234 bookings Setnayan introduces/);
+  const closed = withFeeFlag('true', () => renderLlmsTxt({ ...INPUT, launchOfferCap: null }));
+  assert.doesNotMatch(closed, /Launch offer/);
+  const feeOff = withFeeFlag(undefined, () => renderLlmsTxt({ ...INPUT, launchOfferCap: 1234 }));
+  assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
+});
+
+// The supplier's own clients — brought through their own invite, booking QR or link — never carry the fee
+// (`SUPPLIER_BROUGHT_SOURCES` in lib/booking-fee-gate.ts). SABOTAGE: drop the clause → RED.
+test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
+  const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
+  assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+});

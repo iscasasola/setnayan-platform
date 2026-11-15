@@ -62,10 +62,16 @@ export function workBadge(
   overdue: number,
   dueSoon: number,
   unreadable: number,
+  /** 🔢 F-A-03 (admin walk 13 Nov 2026): the ONE total the Work page shows (`deriveQueueUrgency().totalOpen` — work
+   *  waiting, never a trail to watch). Summing every count here put the watch-only trails in and read 624 against the
+   *  page's 53. The sum below is only the fallback for a caller that passes none (the lab). */
+  workTotal?: number,
 ): BottomNavItem['badge'] | null {
-  const total = queueCounts
-    ? Object.values(queueCounts).reduce<number>((sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0), 0)
-    : 0;
+  const total =
+    workTotal ??
+    (queueCounts
+      ? Object.values(queueCounts).reduce<number>((sum, c) => sum + (typeof c === 'number' && c > 0 ? c : 0), 0)
+      : 0);
   if (total > 0) {
     return {
       count: total,
@@ -86,8 +92,11 @@ export function AdminBottomNav({
   overdue = 0,
   dueSoon = 0,
   unreadable = 0,
+  workTotal,
   at,
 }: {
+  /** The Work page's own total (`deriveQueueUrgency().totalOpen`). */
+  workTotal?: number;
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
   /** Lab only — an address drawn on fixtures. */
@@ -103,7 +112,7 @@ export function AdminBottomNav({
   const active = activeAdminTabKey(pathname, params);
   // The shared bar lights a tab by the URL it is actually on, so the winner is handed THAT address.
   const here = usePathname() ?? pathname;
-  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
+  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable, workTotal);
 
   const items = ADMIN_BOTTOM_NAV_ITEMS.flatMap((item): BottomNavItem[] => {
     // Registry overlay: label + icon per tab from its admin.bottom-nav.<key> slot; a hidden slot drops the tab.

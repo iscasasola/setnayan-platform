@@ -28,37 +28,34 @@
 // Parent decides which button to render based on the vendor row's status +
 // deposit_paid_php — keeps this component focused on the cancellable case.
 //
-// Modal UX: native overlay div + role="dialog" matching plan-card-lock.tsx
-// (the canonical Setnayan modal pattern). ESC key dismisses, backdrop
-// click dismisses, Tab cycles focus, Cancel button focused on open
-// (calmest default per the same pattern). Per
-// [[feedback_setnayan_no_dev_text_post_launch]] — polite brand voice, no
-// engineering jargon, no all-caps urgency.
+// Confirm UX (design template 14 Nov 2026, rule 9): the app's one confirm box,
+// `ConfirmDialog` — native <dialog>, so ESC, focus trap and the dark blurred
+// backdrop come from the browser; a tap on the dark keeps the booking. Polite
+// brand voice, no engineering jargon, no all-caps urgency.
 //
-// On success: success toast surfaces for 5 seconds in the corner, page
-// revalidates via the server action's revalidatePath calls so the
-// cancelled vendor disappears from every host-facing view. When
-// `redirectToHomeOnSuccess` is true (workspace page entry), router pushes
-// back to event home — the workspace URL is stale after the row is
-// deleted.
+// On success: the app's one toast says it worked, and the page revalidates via
+// the server action's revalidatePath calls so the cancelled supplier
+// disappears from every host-facing view. When `redirectToHomeOnSuccess` is
+// true (workspace page entry), router pushes back to event home — the
+// workspace URL is stale after the row is deleted.
 // ============================================================================
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Trash2,
-  X,
-} from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { AlertTriangle, Trash2, X } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button';
+import { ConfirmDialog } from '@/app/_components/confirm-dialog';
+import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   cancelBookingAsHost,
   type CancelBookingAsHostResult,
 } from '../actions';
+
+// 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 9 · 14): the confirm is the app's one
+// confirm box (`ConfirmDialog` — dark blurred backdrop, the two answers drawn by
+// `ActionButton`), the trigger wears the shared button's classes, and "it worked"
+// is the app's one toast. Every fact and every outcome below is unchanged.
 
 type Props = {
   eventId: string;
@@ -69,30 +66,23 @@ type Props = {
    *  false (vendors list entry), success stays on the current page so the
    *  host sees the row disappear in-place. */
   redirectToHomeOnSuccess?: boolean;
-  /** Optional layout — 'pill' renders as a small bordered button matching
-   *  the vendors-list per-row affordances. 'cta' renders as a destructive-
-   *  toned full-width button matching the workspace page's action row. */
+  /** Optional layout — 'pill' is the quiet row-level button; 'cta' is the
+   *  workspace page's red action. Both are the shared button. */
   variant?: 'pill' | 'cta';
   /** Wear another control's own classes (the Booked row's `ActionButton`
    *  pill) instead of a variant's. The word then sits in a `.lbl`, so a verb
-   *  row's fit pass can fold it to the icon. Absent → byte-identical to before. */
+   *  row's fit pass can fold it to the icon. */
   triggerClass?: string;
   /** The word on a `triggerClass` trigger — the Booked row's tile says "Cancel" (owner 2026-10-30, one row of equal
    *  tiles). The accessible name still says the whole thing. Absent → "Cancel booking". */
   triggerWord?: string;
 };
 
-const TOAST_AUTO_DISMISS_MS = 5_000;
-
 type DialogState =
   | { kind: 'closed' }
   | { kind: 'open' }
   | { kind: 'pending' }
   | { kind: 'error'; message: string };
-
-type ToastState =
-  | { kind: 'hidden' }
-  | { kind: 'cancelled'; vendorName: string };
 
 export function CancelBookingButton({
   eventId,
@@ -104,36 +94,17 @@ export function CancelBookingButton({
   triggerWord,
 }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' });
-  const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
-
-  // Auto-dismiss the success toast after 5s. Matches plan-card-lock.tsx
-  // and the rest of the lock/delete/overlap flows for consistency.
-  useEffect(() => {
-    if (toast.kind !== 'cancelled') return;
-    const t = setTimeout(() => setToast({ kind: 'hidden' }), TOAST_AUTO_DISMISS_MS);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const closeDialog = () => {
-    if (isPending) return; // Don't allow close during in-flight submit.
+    if (isPending || dialog.kind === 'pending') return; // Don't allow close during in-flight submit.
     setDialog({ kind: 'closed' });
   };
 
-  // Focus trap + Esc-to-close + scroll lock. Initial focus lands on the
-  // "Keep the booking" button — calmest default, the destructive path
-  // requires a deliberate Tab over. Mirrors plan-card-lock.
-  useModalA11y({
-    open: dialog.kind !== 'closed',
-    onClose: closeDialog,
-    containerRef: dialogRef,
-    initialFocusRef: cancelBtnRef,
-  });
-
   const performCancel = () => {
+    if (isPending || dialog.kind === 'pending') return;
     setDialog({ kind: 'pending' });
     startTransition(async () => {
       const fd = new FormData();
@@ -155,9 +126,9 @@ export function CancelBookingButton({
       switch (result.status) {
         case 'ok':
         case 'not_found':
-          // Both states leave the row deleted — show the toast either
-          // way so re-cancels (multi-host race) don't look broken.
-          setToast({ kind: 'cancelled', vendorName });
+          // Both states leave the row deleted — say so either way so
+          // re-cancels (multi-host race) don't look broken.
+          toast.success(`Booking with ${vendorName} cancelled — your date is open again on their calendar.`);
           setDialog({ kind: 'closed' });
           // Otherwise stay on the current page — the server action revalidated, and its answer carries the redraw.
           if (redirectToHomeOnSuccess) router.push(`/dashboard/${eventId}`);
@@ -188,183 +159,52 @@ export function CancelBookingButton({
   };
 
   const triggerLabel = 'Cancel booking';
-  const triggerClassName =
-    variant === 'cta'
-      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-danger-300/60 bg-cream px-3 py-2 text-xs font-medium text-danger-800 transition-colors hover:border-danger-400 hover:bg-danger-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500'
-      : 'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-ink/55 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+  const ownClass =
+    variant === 'cta' ? actionButtonClass('danger') : actionButtonClass('danger', { quiet: true });
 
   return (
     <>
       <button
         type="button"
         onClick={() => setDialog({ kind: 'open' })}
-        className={triggerClass ?? triggerClassName}
+        className={triggerClass ?? ownClass}
         aria-label={`Cancel booking with ${vendorName}`}
         title={triggerClass ? triggerLabel : undefined}
       >
-        {triggerClass ? (
-          <>
-            <X aria-hidden strokeWidth={1.9} />
-            <span className="lbl">{triggerWord ?? triggerLabel}</span>
-          </>
-        ) : (
-          <>
-            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {triggerLabel}
-          </>
-        )}
+        <X aria-hidden strokeWidth={1.9} />
+        <span className="lbl">{triggerClass ? (triggerWord ?? triggerLabel) : triggerLabel}</span>
       </button>
 
-      {dialog.kind !== 'closed' ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="cancel-booking-headline"
-          aria-describedby="cancel-booking-body"
-          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
-        >
-          <OverlayBackdrop onClose={closeDialog} />
-          <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={closeDialog}
-              disabled={isPending}
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
-
-            <h2
-              id="cancel-booking-headline"
-              className="font-display text-2xl italic tracking-tight text-ink"
-            >
-              Cancel your booking with {vendorName}?
-            </h2>
-
-            <div
-              id="cancel-booking-body"
-              className="mt-3 space-y-3 text-sm text-ink/75"
-            >
-              <p>
-                We&rsquo;ll let{' '}
-                <strong className="font-medium text-ink">{vendorName}</strong>{' '}
-                know and your date opens back up on their calendar.
+      <ConfirmDialog
+        open={dialog.kind !== 'closed'}
+        title={`Cancel your booking with ${vendorName}?`}
+        body={
+          <div className="space-y-2">
+            <p>
+              We&rsquo;ll let <strong className="font-semibold text-ink">{vendorName}</strong> know and your date opens back up on
+              their calendar. You can add them again from Find anytime.
+            </p>
+            {dialog.kind === 'pending' ? (
+              <p role="status" className="font-semibold text-ink">
+                Cancelling…
               </p>
-              <p className="text-ink/65">
-                You can re-add them via the marketplace anytime if plans
-                change.
-              </p>
-            </div>
-
-            {dialog.kind === 'error' ? (
-              <div
-                role="alert"
-                className="mt-4 flex items-start gap-2 rounded-md border border-danger-300/60 bg-danger-50/70 px-3 py-2 text-xs text-danger-900"
-              >
-                <AlertTriangle
-                  aria-hidden
-                  className="mt-0.5 h-4 w-4 shrink-0 text-danger-700"
-                  strokeWidth={2}
-                />
-                <span>{dialog.message}</span>
-              </div>
             ) : null}
-
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-              <button
-                ref={cancelBtnRef}
-                type="button"
-                onClick={closeDialog}
-                disabled={isPending}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-              >
-                Keep the booking
-              </button>
-              <button
-                type="button"
-                onClick={performCancel}
-                disabled={isPending}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-danger-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-danger-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500 disabled:opacity-60"
-              >
-                {isPending ? (
-                  <>
-                    <Loader2
-                      aria-hidden
-                      className="h-4 w-4 animate-spin"
-                      strokeWidth={2}
-                    />
-                    Cancelling…
-                  </>
-                ) : (
-                  <>
-                    <Trash2
-                      aria-hidden
-                      className="h-4 w-4"
-                      strokeWidth={2}
-                    />
-                    Yes, cancel
-                  </>
-                )}
-              </button>
-            </div>
+            {dialog.kind === 'error' ? (
+              <p role="alert" className="flex items-start justify-center gap-1.5 font-semibold text-danger-700">
+                <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+                <span>{dialog.message}</span>
+              </p>
+            ) : null}
           </div>
-        </div>
-      ) : null}
-
-      {/* Success toast — same fixed-bottom-centered shape plan-card-lock
-          uses. 5-second auto-dismiss matches the rest of the lock/delete
-          flow toasts. Visible after redirect-to-home path completes too —
-          toast state survives the router.push because Next 13+ keeps
-          client component state across navigations within the same layout. */}
-      {toast.kind === 'cancelled' ? (
-        <SuccessToast
-          vendorName={toast.vendorName}
-          onDismiss={() => setToast({ kind: 'hidden' })}
-        />
-      ) : null}
+        }
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep the booking"
+        destructive
+        confirmIcon={Trash2}
+        onConfirm={performCancel}
+        onCancel={closeDialog}
+      />
     </>
-  );
-}
-
-function SuccessToast({
-  vendorName,
-  onDismiss,
-}: {
-  vendorName: string;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
-    >
-      <div className="flex items-start gap-3">
-        <CheckCircle2
-          aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
-          strokeWidth={2}
-        />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-ink">
-            Booking with {vendorName} cancelled.
-          </p>
-          <p className="text-[11px] text-ink/60">
-            We let them know — your date is open again on their calendar.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Dismiss notification"
-          className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -394,14 +234,11 @@ export function DisputeLinkButton({
   eventId: string;
   variant?: 'pill' | 'cta';
 }) {
-  const className =
-    variant === 'cta'
-      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warn-300/60 bg-cream px-3 py-2 text-xs font-medium text-warn-900 transition-colors hover:border-warn-400 hover:bg-warn-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600'
-      : 'inline-flex items-center gap-1.5 rounded-md border border-warn-300/50 bg-cream px-2 py-1 text-xs font-medium text-warn-900 transition-colors hover:border-warn-400 hover:bg-warn-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600';
+  const className = actionButtonClass('warn', { quiet: variant !== 'cta' });
   return (
     <Link href={`/dashboard/${eventId}/disputes`} className={className}>
-      <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      Report a problem
+      <AlertTriangle aria-hidden strokeWidth={1.9} />
+      <span className="lbl">Report a problem</span>
     </Link>
   );
 }

@@ -23,6 +23,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
+import { readLaunchOffer } from '@/lib/launch-offer.server';
+import { launchOfferIsOpen } from '@/lib/launch-offer';
 
 export const revalidate = 3600;
 
@@ -49,7 +51,7 @@ https://www.setnayan.com/pricing.
 
 - Home: https://www.setnayan.com/
 - Pricing: https://www.setnayan.com/pricing
-- Vendor marketplace: https://www.setnayan.com/explore
+- Find suppliers: https://www.setnayan.com/
 - Help: https://www.setnayan.com/help
 `;
 
@@ -75,6 +77,10 @@ export async function GET(): Promise<Response> {
       return new Response(FALLBACK, { headers: HEADERS });
     }
 
+    // The launch offer is named only while it is open; an unreadable read (null) is the same as closed — say nothing.
+    const offer = await readLaunchOffer(admin);
+    const launchOfferCap = offer && launchOfferIsOpen(offer, Date.now()) ? offer.cap : null;
+
     const body = renderLlmsTxt({
       retail: retailRes.data as RetailRow[],
       vendor: vendorRes.data as VendorRow[],
@@ -83,6 +89,7 @@ export async function GET(): Promise<Response> {
       bookingFee: await getBookingFeeSchedule(admin),
       // The same flag /for-suppliers draws its plan table with (Build 6 Lane K) — one table, one truth.
       vendorPaywallOn: isVendorFeatureGateEnabled(),
+      launchOfferCap,
       refreshedOn: new Date().toISOString().slice(0, 10),
     });
 

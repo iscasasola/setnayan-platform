@@ -1,5 +1,6 @@
 import { Wallet, X } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { AskSubmit } from '@/app/_components/ask-submit';
+import { InfoTip } from '@/app/_components/info-tip';
 import { vendorAskForPayment, vendorWithdrawPaymentAsk } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -81,11 +82,13 @@ export function PaymentAsksPanel({
    */
   canAsk: boolean;
 }) {
+  // 📐 Design template (2026-11-14): a section label, hairline rows, one honest line when there is nothing, the money
+  // bold in the words' own font, buttons from the shared kit (AskSubmit = SubmitButton wearing ActionButton's look),
+  // the explaining behind an ⓘ. Every notice, refusal and action is kept.
+  const NOTE = 'py-2 text-[13px] font-semibold';
   return (
-    <div className="space-y-2">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        Ask for a payment
-      </p>
+    <div data-payment-asks="">
+      <h3 className="pt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Ask for a payment</h3>
 
       {/*
         EVERY REFUSAL HAS SOMEWHERE TO BE SHOWN. The action refuses for four
@@ -93,47 +96,48 @@ export function PaymentAsksPanel({
         refuses in silence is indistinguishable from one that passed.
       */}
       {notice === 'sent' ? (
-        <p className="rounded-lg bg-success-50 px-3 py-2 text-xs font-semibold text-success-900">
+        <p role="status" className={`${NOTE} text-success-700`}>
           Sent. {customerName} has been told.
         </p>
       ) : null}
       {notice === 'withdrawn' ? (
-        <p className="rounded-lg bg-ink/5 px-3 py-2 text-xs font-semibold text-ink/70">
+        <p role="status" className={`${NOTE} text-ink/70`}>
           Taken back. It is off their page.
         </p>
       ) : null}
       {notice === 'amount' ? (
-        <p className="rounded-lg bg-warn-50 px-3 py-2 text-xs font-semibold text-warn-900">
+        <p role="alert" className={`${NOTE} text-warn-800`}>
           Put in an amount above zero.
         </p>
       ) : null}
       {notice === 'notbooked' ? (
-        <p className="rounded-lg bg-warn-50 px-3 py-2 text-xs font-semibold text-warn-900">
+        <p role="alert" className={`${NOTE} text-warn-800`}>
           You can only ask a customer who has booked you.
         </p>
       ) : null}
       {notice === 'error' ? (
-        <p className="rounded-lg bg-warn-50 px-3 py-2 text-xs font-semibold text-warn-900">
+        <p role="alert" className={`${NOTE} text-warn-800`}>
           That did not go through. Nothing was sent — try again.
         </p>
       ) : null}
 
       {!canAsk ? null : !measured ? (
-        <p className="flex items-center gap-2 rounded-lg border border-warn-300/50 bg-warn-50 px-3 py-2.5 text-sm text-warn-900">
-          <Wallet aria-hidden className="h-4 w-4 shrink-0" /> We could not load
-          what you have already asked for. Check back before asking again, so{' '}
-          {customerName} does not get the same request twice.
+        <p role="status" className="flex min-h-14 items-center gap-2 border-b border-ink/10 text-[15px] font-semibold text-warn-800">
+          <Wallet aria-hidden className="h-4 w-4 shrink-0" />
+          <InfoTip label="Couldn’t load what you already asked for" align="start">
+            Check back before asking again, so {customerName} does not get the same request twice.
+          </InfoTip>
         </p>
       ) : asks.length > 0 ? (
-        <ul className="space-y-2">
+        <ul>
           {asks.map((a) => (
             <li
               key={a.askId}
-              className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta bg-white px-3 py-2.5"
+              className="flex min-h-14 items-center gap-3 border-b border-ink/10 border-l-4 border-l-gold py-2 pl-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{peso(a.amountPhp)}</p>
-                <p className="truncate text-xs text-ink/55">
+                <p className="text-[15px] font-bold tabular-nums text-ink">{peso(a.amountPhp)}</p>
+                <p className="truncate text-[13px] text-ink/70">
                   {a.note ? `${a.note} · ` : ''}
                   {a.dueDate ? `by ${dayLabel(a.dueDate)} · ` : ''}
                   asked {dayLabel(a.createdAt.slice(0, 10))}
@@ -142,20 +146,14 @@ export function PaymentAsksPanel({
               <StayForm door="supClients.vendorWithdrawPaymentAsk" action={vendorWithdrawPaymentAsk} className="shrink-0">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="ask_id" value={a.askId} />
-                <SubmitButton
-                  pendingLabel="Taking back…"
-                  className="inline-flex items-center gap-1 rounded-lg border border-ink/15 px-2.5 py-1.5 text-xs font-semibold text-ink/70"
-                >
-                  <X aria-hidden className="h-3.5 w-3.5" /> Take it back
-                </SubmitButton>
+                <AskSubmit tone="danger" icon={<X aria-hidden className="h-4 w-4" />} label="Take it back" pendingLabel="Taking back…" />
               </StayForm>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-          <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Nothing
-          outstanding. {customerName} has not been asked for anything.
+        <p className="flex min-h-14 items-center gap-2 border-b border-ink/10 text-[15px] text-ink/70">
+          Nothing outstanding. {customerName} has not been asked for anything.
         </p>
       )}
 
@@ -163,12 +161,12 @@ export function PaymentAsksPanel({
       <StayForm
         door="supClients.vendorAskForPayment"
         action={vendorAskForPayment}
-        className="rounded-xl border border-ink/10 bg-white px-3 py-3"
+        className="pt-3"
       >
         <input type="hidden" name="event_id" value={eventId} />
         <div className="flex flex-wrap items-end gap-2">
-          <label className="min-w-[7rem] flex-1">
-            <span className="mb-1 block text-[11px] font-semibold text-ink/60">
+          <label className="min-w-28 flex-1">
+            <span className="mb-1 block text-[13px] font-semibold text-ink/70">
               How much
             </span>
             <input
@@ -179,22 +177,22 @@ export function PaymentAsksPanel({
               required
               inputMode="decimal"
               placeholder="18000"
-              className="h-9 w-full rounded-lg border border-ink/15 px-2.5 text-sm"
+              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
             />
           </label>
-          <label className="min-w-[8rem] flex-1">
-            <span className="mb-1 block text-[11px] font-semibold text-ink/60">
+          <label className="min-w-32 flex-1">
+            <span className="mb-1 block text-[13px] font-semibold text-ink/70">
               By when (optional)
             </span>
             <input
               type="date"
               name="due_date"
-              className="h-9 w-full rounded-lg border border-ink/15 px-2.5 text-sm"
+              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
             />
           </label>
         </div>
         <label className="mt-2 block">
-          <span className="mb-1 block text-[11px] font-semibold text-ink/60">
+          <span className="mb-1 block text-[13px] font-semibold text-ink/70">
             What it is for (optional)
           </span>
           <input
@@ -202,24 +200,22 @@ export function PaymentAsksPanel({
             name="note"
             maxLength={500}
             placeholder="Second payment"
-            className="h-9 w-full rounded-lg border border-ink/15 px-2.5 text-sm"
+            className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
           />
         </label>
-        <SubmitButton
-          pendingLabel="Sending…"
-          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-cream"
-        >
-          <Wallet aria-hidden className="h-3.5 w-3.5" /> Ask {customerName}
-        </SubmitButton>
-        <p className="mt-2 text-[11px] text-ink/45">
-          They pay you directly, the way they always have. Setnayan never holds
-          this money — this just tells them what you are waiting for.
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <AskSubmit tone="brand" icon={<Wallet aria-hidden className="h-4 w-4" />} label={`Ask ${customerName}`} pendingLabel="Sending…" />
+          <span className="text-[13px] text-ink/70">
+            <InfoTip label="Who holds the money" align="start">
+              They pay you directly, the way they always have. Setnayan never holds this money — this just tells them
+              what you are waiting for.
+            </InfoTip>
+          </span>
+        </div>
       </StayForm>
       ) : (
-        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
-          <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> You can
-          ask for a payment once {customerName} has booked you.
+        <p className="flex min-h-14 items-center border-b border-ink/10 text-[15px] text-ink/70">
+          You can ask for a payment once {customerName} has booked you.
         </p>
       )}
     </div>

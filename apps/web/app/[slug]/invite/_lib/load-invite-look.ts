@@ -67,7 +67,7 @@ export function doorMarkFor(event: InviteLookEvent): { mark: string | null; mono
 /**
  * How a door of the invite arrival looks for this event — its theme, and the
  * DoorShell skin that paints it. The gating (shipped theme · weddings-only
- * fence · Event Hub Pro held right now) all happens in `resolveHubLook`; what is
+ * fence · Event Pro held right now) all happens in `resolveHubLook`; what is
  * left here is the door's own dressing.
  */
 export async function loadInviteLook(event: InviteLookEvent): Promise<{

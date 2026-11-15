@@ -35,7 +35,7 @@
  * ── WHAT IS PRO ────────────────────────────────────────────────────────────
  * Show / hide and order are FREE (E4). A style pick is FREE (owner 2026-09-29,
  * "a design pick is free"). The words are free. A part's own FONT and its
- * ANIMATION are Event Hub Pro — the same two fields every other scene's parts
+ * ANIMATION are Event Pro — the same two fields every other scene's parts
  * gate (`HUB_ELEMENT_PRO_FIELDS`, owner 2026-09-28) — tried in the draft, held
  * at Apply while everything free beside them goes live (`sceneLooksFreePart`).
  *
@@ -189,7 +189,7 @@ export type PostEventArrangement = {
  * The drafted part: each key present ONLY when the couple changed it.
  *
  * 💎 The three story extras (`chapterOverrides`, `customColumns`, `reviews`)
- * are Event Hub Pro. A couple without Pro writes them in the story workroom and
+ * are Event Pro. A couple without Pro writes them in the story workroom and
  * `saveEditorial` keeps them HERE, off the live story, until Apply asks for Pro
  * (`lib/story-pro-extras.ts`). Each is replaced whole, like every other key.
  */
@@ -503,7 +503,7 @@ export type PostEventApplyItem =
       field: 'sceneLooks';
       value: PostEventSceneLooks;
       change: LookChange;
-      /** A part's own font or animation added or changed — Event Hub Pro. */
+      /** A part's own font or animation added or changed — Event Pro. */
       pro: boolean;
       /** Set only on the FREE PART of a held look (`sceneLooksFreePart`). */
       freePart?: true;

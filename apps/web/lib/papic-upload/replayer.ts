@@ -144,6 +144,8 @@ export interface NewShot {
   adopted?: boolean;
   /** 📷 The chapter the camera showed at the shutter (see QueuedShot.chapterId). */
   chapterId?: string | null;
+  /** 📲 Added from the phone's gallery (see QueuedShot.source). */
+  source?: 'phone' | null;
 }
 
 /** A 'kept' shot is asked again on this beat (and on every wake). */
@@ -361,6 +363,7 @@ export class PapicUploader {
       adopted: input.adopted === true && !input.ownerTag,
       mark: input.mark ?? null,
       chapterId: input.chapterId ?? null,
+      source: input.source === 'phone' ? 'phone' : null,
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
     const kept = this.memBlobs.size;

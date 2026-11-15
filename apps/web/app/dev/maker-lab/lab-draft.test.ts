@@ -452,10 +452,10 @@ test('the lab keeps no draft arithmetic of its own — one door, and the bar is 
   assert.match(shell, /labDraftCookies\(/);
   /* ↺ · ✓ · Restore · Reset go to the lab's door too — never to the real server action with a made-up event. */
   assert.match(shell, /<HubDraftToolbar[^>]*draftAction=\{labDraft\}/);
-  const page = read('page.tsx');
+  const page = read('page.lab.tsx');
   assert.match(page, /labDraftedRows\(/, 'the Maker is handed the sample rows without the draft over them');
   assert.match(page, /labBarFromCookie\(/, 'the lab render reports no draft');
-  const guest = read('guest', 'page.tsx');
+  const guest = read('guest', 'page.lab.tsx');
   assert.match(guest, /const labRowsNow = labDraftedRows\(/, 'the canvas ignores the draft’s order');
   assert.match(guest, /const stageTiles = labStageTiles\(labRowsNow, stageNow, labStory\);/, 'the canvas draws a list of its own');
   assert.match(guest, /<LabStagePages\s+stage=\{stageNow\}\s+tiles=\{stageTiles\}/);

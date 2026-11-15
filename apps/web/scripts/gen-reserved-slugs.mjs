@@ -41,7 +41,7 @@ function servesAUrl(dir) {
     return false;
   }
   for (const e of entries) {
-    if (e.isFile() && /^(page|route)\.(tsx?|jsx?)$/.test(e.name)) return true;
+    if (e.isFile() && /^(page|route)(\.lab)?\.(tsx?|jsx?)$/ /* .lab: a /dev lab, served by next dev */.test(e.name)) return true;
   }
   for (const e of entries) {
     if (e.isDirectory() && servesAUrl(path.join(dir, e.name))) return true;

@@ -202,7 +202,7 @@ export type TicketSeat = { seat: string | null; seatNumber: string | null };
 
 /**
  * The event's half of every card. The theme is the couple's own — unless it is
- * a Pro theme and the event does not hold Event Hub Pro, in which case the card
+ * a Pro theme and the event does not hold Event Pro, in which case the card
  * wears Classic (the same rule the print route applies, `mayServe`). The words
  * are the event type's own ("The debut of"), never "wedding" for everybody.
  */

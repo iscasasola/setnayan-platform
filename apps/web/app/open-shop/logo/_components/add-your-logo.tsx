@@ -8,7 +8,7 @@ import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { PictureFrameControl } from '@/app/_components/picture-frame-control';
 import { updateVendorProfileField, type FieldSaveResult } from '@/app/vendor-dashboard/actions';
 import { ActionButton } from '@/components/action-button';
-import { DEFAULT_LOGO_FRAME, LOGO_FRAME_INPUTS, type LogoFrame } from '@/lib/open-shop-logo';
+import { DEFAULT_LOGO_FRAME, LOGO_FRAME_INPUTS, SHOP_LOGO_UPLOAD, type LogoFrame } from '@/lib/open-shop-logo';
 import { LOGO_LATER } from '@/lib/open-shop-validation';
 import { storedPictureFrame } from '@/lib/picture-frame';
 
@@ -87,15 +87,28 @@ export function AddYourLogo({
   const status = queued || saving ? 'saving' : state?.ok ? 'saved' : null;
 
   return (
-    <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg p-1 sm:p-2" data-open-shop-logo="">
-        <FirstRunBrand className="mb-4" color="var(--m-ink)" size={13} />
-        <h1 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+    /* 🧱 THE WIZARD'S OWN SHELL (walk 13 Nov 2026, F-W1-08). This screen used to be a centred card — no progress, the
+       button floating mid-page, and the whole block re-centring (jumping) as the picture and its controls grew in. It
+       now wears `/open-shop`'s frame: top-aligned, the wordmark over the five step bars (all filled — the shop is open),
+       the step's title + line, and the same sticky bottom bar holding the one button. */
+    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-logo="">
+      <div className="flex flex-1 flex-col gap-[18px] px-4 pt-6 md:mx-auto md:max-w-[620px] md:px-7 md:pb-9">
+        <div className="grid gap-3">
+          <FirstRunBrand color="var(--m-ink)" size={13} />
+          <div className="flex gap-1.5" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={5} aria-label="Your shop is open" data-open-shop-segments="">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div key={n} className="h-1 flex-1 rounded-full" style={{ background: 'var(--m-orange-deep)' }} />
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-[3px]">
+        <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
           {hasSaved ? 'Your logo' : 'Add your logo'}
         </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--m-slate)' }}>
+        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           {shopName} is open. Couples see your logo on every supplier card. Changes save on their own.
         </p>
+        </div>
         {state && !state.ok ? (
           <p
             className="mt-4 rounded-lg p-3 text-xs"
@@ -105,7 +118,7 @@ export function AddYourLogo({
             {state.error}
           </p>
         ) : null}
-        <div className="mt-5 space-y-4">
+        <div className="flex-1 space-y-4">
           {/* The circle IS the editor (prototype v21): it comes first, the bare picture and nothing over it. Once a
               picture is in, the upload below draws no second picture — only `[Replace photo] [Remove]` (`pills`). */}
           <PictureFrameControl
@@ -147,9 +160,10 @@ export function AddYourLogo({
                 setPreview(null);
               }
             }}
-            maxSizeMB={10}
+            // 📏 The one logo rule, shared with Today's logo row (F-W1-09).
+            maxSizeMB={SHOP_LOGO_UPLOAD.maxSizeMB}
             compressImage
-            acceptedTypes={['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif']}
+            acceptedTypes={[...SHOP_LOGO_UPLOAD.acceptedTypes]}
             qrGuard
           />
           {/* Shipped copy, one line, until a logo is in (v21 drops the skip hint once it saves). */}
@@ -158,15 +172,19 @@ export function AddYourLogo({
               {LOGO_LATER.hint}
             </span>
           )}
-          {/* The thumb row: one content-width pill on the right (BUTTON_RULE). */}
-          <div className="flex items-center justify-end gap-2 pt-1">
+        </div>
+          {/* The thumb row: one content-width pill on the right (BUTTON_RULE) — in the wizard's sticky bottom bar. */}
+          <div
+            className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center justify-end gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:border-0 md:px-0 md:pb-0 md:pt-1"
+            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+            data-open-shop-bar=""
+          >
             {hasSaved ? (
               <ActionButton tone="brand" main icon={ArrowRight} label="Continue" href="/vendor-dashboard" data-testid="open-shop-logo-continue" />
             ) : (
               <ActionButton tone="neutral" icon={Clock} label="Skip for now" href="/vendor-dashboard" data-testid="open-shop-logo-skip" />
             )}
           </div>
-        </div>
       </div>
     </main>
   );

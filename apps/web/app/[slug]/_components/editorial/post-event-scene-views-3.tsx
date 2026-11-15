@@ -76,7 +76,10 @@ export function RoadScene({
       </div>
     );
   }
-  if (style === 'diary') {
+  /* ⏳ A COUNTDOWN ONLY WHEN SOMETHING COUNTS DOWN (F-W2-48, the live walk after #7596): a road whose steps carry no date
+     before the day (a year, or nothing) drew no figure but the last stop — "0 · THE DAY", an empty countdown. Such a
+     road reads as the diary: each step by its month or year, nothing counted. */
+  if (style === 'diary' || (style !== 'scrapbook' && !roadCountsDown(entries, dayMs))) {
     /* .diary — the month as the margin figure; one line per entry. */
     return (
       <div className="py-8">
@@ -150,17 +153,17 @@ export function RoadScene({
             </li>
           );
         })}
-        {dayMs !== null ? (
-          <li className="relative">
-            <span aria-hidden className="absolute -left-[22px] top-2.5 h-2.5 w-2.5 rounded-full bg-terracotta" />
-            <span className="block font-serif text-[1.9rem] leading-none text-terracotta-700">
-              0<span className={`${MICRO} ml-2`}>the day</span>
-            </span>
-          </li>
-        ) : null}
+        {/* (No "0 · the day" stop — F-W2-48, the walk after #7628: a stop with no step on it read as an empty row.
+            The road ends on its last real step; the day itself is the story's own next scene.) */}
       </ol>
     </div>
   );
+}
+
+/** ⏳ Does any step of the road come before the day by a whole day or more — something a countdown can count? */
+export function roadCountsDown(entries: readonly Pick<RoadEntry, 'atMs'>[], dayMs: number | null): boolean {
+  if (dayMs === null) return false;
+  return entries.some((e) => e.atMs !== null && Math.round((dayMs - e.atMs) / 86_400_000) > 0);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

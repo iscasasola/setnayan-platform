@@ -1,10 +1,10 @@
 /**
- * Event Hub Pro includes the logo animation (owner ruling 2026-09-24, "A then").
+ * Event Pro includes the logo animation (owner ruling 2026-09-24, "A then").
  *
  * The alias in lib/entitlements.ts makes a Pro couple OWN ANIMATED_MONOGRAM, so
  * the Monogram Maker hides its ₱500 "Unlock Animation & Apply" button. This
  * suite holds the other half: the owned state SAYS why ("Included with Event
- * Hub Pro"), and only to a couple for whom it is true.
+ * Pro"), and only to a couple for whom it is true.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,8 +41,8 @@ function ordersOwning(owned: Set<string>, status = 'submitted'): SupabaseClient 
   return b as unknown as SupabaseClient;
 }
 
-test('the owned note says "Included with Event Hub Pro" only when owned AND Pro', () => {
-  assert.equal(INCLUDED_WITH_HUB_PRO, 'Included with Event Hub Pro');
+test('the owned note says "Included with Event Pro" only when owned AND Pro', () => {
+  assert.equal(INCLUDED_WITH_HUB_PRO, 'Included with Event Pro');
   assert.equal(animatedMonogramIncludedNote(true, true), INCLUDED_WITH_HUB_PRO);
   // Bought the ₱500 standalone — must not be told it came with Pro.
   assert.equal(animatedMonogramIncludedNote(true, false), null);

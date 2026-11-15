@@ -70,7 +70,7 @@ export const HOME_SHELF_DEPENDS: Record<
     ],
   },
   /*
-    ⚡ THE COVER FACTS (2026-10-11): whether an event owns Event Hub Pro and
+    ⚡ THE COVER FACTS (2026-10-11): whether an event owns Event Pro and
     whether its logo animation is on are read once for everybody, with the cover
     rows. They follow `orders.status` — and comp grants, bundles, promo windows
     and the internal/founder flags, which are decided inside database functions

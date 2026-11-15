@@ -16,7 +16,7 @@
  *     longer becomes the background by itself (`heroNeedsMeasuring`).
  *
  * ◆ EVERY EFFECT IS PRO, TRIED FREE AND NAMED AT ✓ APPLY (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS,
- * STYLES AND ACCENTS ARE EVENT HUB PRO ◆"; the #6623 pattern). A tap is written to the draft whoever taps it — the
+ * STYLES AND ACCENTS ARE EVENT PRO ◆"; the #6623 pattern). A tap is written to the draft whoever taps it — the
  * sample wears it — and the one gate is Apply (`mainGroundChange` → `mainEffectChange`, lib/hub-draft.ts). Until
  * 2026-10-16 a ◆ effect was tried on the sample and never written, with a See Pro note; that path is gone.
  *

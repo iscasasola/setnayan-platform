@@ -60,7 +60,8 @@ test('3 · under the calm header the bench draws no "Covered N of M" line — it
 test('4 · a settled date draws no banner under the calm header; a conflict still does', () => {
   assert.match(
     BENCH,
-    /\{convergence && !\(coverInHeader && convergence\.tone === 'anchored'\) \? \(\s*<div className=\{`convrg t-\$\{convergence\.tone\}`\}/,
+    // 🔔 Since the one notice system (14 Nov 2026) the banner is a live notice drawn where it stands.
+    /\{convergence && !\(coverInHeader && convergence\.tone === 'anchored'\) \? \(\s*(?:\/\/[^\n]*\n\s*)*<InlineNotice\s+kind="live"/,
     'the settled-date banner is back, or a warning tone is hidden with it',
   );
   // Only 'anchored' is hidden — never the conflict, a narrowing build, or "Booking these suppliers sets your date".

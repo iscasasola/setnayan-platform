@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -89,11 +90,13 @@ export async function PaymentDisputesSection() {
           “This payment never reached me”
         </h2>
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-ink/60">
-        A supplier says an installment the couple logged never arrived. Nothing the couple
+      <div className="mb-4 max-w-2xl">
+        <InfoTip label="About these disputes" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A supplier says an installment the couple logged never arrived. Nothing the couple
         sent is deleted while this is open — their amount, method, reference and receipt all
         stand. Confirm it by hand against the bank record.
-      </p>
+        </InfoTip>
+      </div>
 
       {rows === null ? (
         <p className="rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]">
@@ -109,7 +112,7 @@ export async function PaymentDisputesSection() {
           {rows.map((r) => {
             const receipt = receiptByPayment.get(r.payment_id) ?? null;
             return (
-              <li key={r.payment_id} className="rounded-xl border border-ink/10 bg-white p-4">
+              <li key={r.payment_id} className="py-4 border-t border-ink/10">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-sm font-medium text-ink">
                     {nameByBooking.get(r.vendor_id)?.trim() || 'Unnamed supplier'}

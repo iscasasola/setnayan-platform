@@ -8,7 +8,7 @@
  *   · all 15 looks × every piece that carries the code (the card's back, the standee, the door print, the backdrop,
  *     the tarp, the roll-up, the table-front) — with the Check a date code, the default;
  *   · all 3 codes (Check a date · Shortlist · My page) on every piece — each address built by the SAME helper the
- *     Promote codes use (`printQrUrl` → `checkADateUrl` / `buildVendorInviteUrl` / `myPageUrl`);
+ *     Promote codes use (`printQrUrl` → `ownDatesUrl` / `buildVendorInviteUrl` / `ownPageUrl` / `ownReviewsUrl`);
  *   · the Save files themselves (exact size + bleed), not only the screen drawing;
  *   · with a long name, seal, rating and badges on — the busiest the layout gets.
  */
@@ -22,7 +22,7 @@ import { printQrUrl } from '@/lib/supplier-prints-shop';
 import { PRINT_DESIGNS, PRINT_PIECES, PRINT_QR_ORDER, pieceHasQr, type PrintPiece, type PrintSide } from '@/lib/supplier-prints';
 import { shopBadges } from '@/lib/shop-badges';
 import { checkADateUrl } from '@/lib/check-a-date';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { myPageUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { reviewDoorPath } from '@/lib/shop-review-door';
 
@@ -62,14 +62,16 @@ test('seven sides carry the code — every piece but the card’s front', () => 
 });
 
 test('the printed address is the one the Promote codes already build — never typed here', () => {
-  assert.equal(printQrUrl('dates', ORIGIN, SLUG), checkADateUrl(ORIGIN, SLUG));
-  assert.equal(printQrUrl('page', ORIGIN, SLUG), myPageUrl(ORIGIN, SLUG));
+  // 💳 RW-19 (walk 13 Nov 2026): every printed code is the supplier's own — ?src=own on Check a date and Reviews too.
+  assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${checkADateUrl(ORIGIN, SLUG)}?src=own`);
+  // 💳 A printed My page code is the supplier's own link: ?src=own (owner 2026-11-13, F-W1-58).
+  assert.equal(printQrUrl('page', ORIGIN, SLUG), ownPageUrl(ORIGIN, SLUG));
   assert.equal(printQrUrl('shortlist', ORIGIN, SLUG), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
-  assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${ORIGIN}/v/${SLUG}/dates`);
+  assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${ORIGIN}/v/${SLUG}/dates?src=own`);
   // Reviews opens the WRITE door (owner 2026-11-06 "Write a review"): /v/<slug>/review → the couple's "Leave a review",
   // or the shop page's reviews section (`<section id="reviews">` on /v/[slug]) for anyone without a booking ready for one.
-  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${myPageUrl(ORIGIN, SLUG)}/review`);
-  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${ORIGIN}${reviewDoorPath(SLUG)}`);
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${myPageUrl(ORIGIN, SLUG)}/review?src=own`);
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${ORIGIN}${reviewDoorPath(SLUG)}?src=own`);
   assert.ok(existsSync(new URL('../app/v/[slug]/review/route.ts', import.meta.url)), 'the Reviews code prints an address with no route behind it');
   assert.match(readFileSync(new URL('../app/v/[slug]/page.tsx', import.meta.url), 'utf8'), /<section id="reviews"/, 'the shop page lost the #reviews section the Reviews door falls back to');
 });

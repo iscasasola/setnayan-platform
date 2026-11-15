@@ -10,7 +10,7 @@
  *   3 · the Digital ticket's count line, built from the REAL `loadPassGuestNames` over the SAME rows, says the number of PNGs the
  *       zip really holds — and names coming / not replied, never "who is coming" for a list that includes the not-replied;
  *   4 · `/dashboard/<id>/seating/print` is CALLED: `guests=` draws only those guests' place cards (no directory, no signs); a
- *       guest of another event or one not seated refuses the file (403); without Event Hub Pro a picked file is refused like the
+ *       guest of another event or one not seated refuses the file (403); without Event Pro a picked file is refused like the
  *       whole pack.
  *
  * SABOTAGE (seen RED, then restored): the zip route zipping `read.guests` instead of `pick.rows` (test 2 fails: 4 PNGs for a pick
@@ -252,7 +252,7 @@ test('4 · picked place cards are those guests’ cards only; an unseated or for
   assert.equal((await cards(`&guest=${ANA}&guests=${ANA}`)).status, 400, 'one guest and a pick at once was not refused');
 
   state.ownsPro = false;
-  assert.equal((await cards(`&guests=${ANA}`)).status, 403, 'a picked file of place cards skipped the pack’s Event Hub Pro question');
+  assert.equal((await cards(`&guests=${ANA}`)).status, 403, 'a picked file of place cards skipped the pack’s Event Pro question');
   assert.equal((await cards(`&guest=${ANA}`)).status, 200, 'one guest’s own card is no longer free');
   state.ownsPro = true;
 });

@@ -375,7 +375,7 @@ const INLINE_PROFILE_FIELDS = new Set([
   // they are picked up here rather than left as one more setting nobody can set.
   'venue_size',
   // 🖼 PORTFOLIO › REORDER (ruling 5940): the supplier's section order, `portfolio_section_order` (migration
-  // 20271342126686). Not identity — like the gallery fields it stays editable on a verified shop (`NOT_IDENTITY`).
+  // 20271347719658). Not identity — like the gallery fields it stays editable on a verified shop (`NOT_IDENTITY`).
   'portfolio_order',
 ]);
 

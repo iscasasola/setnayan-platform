@@ -83,7 +83,7 @@ test('the real Home: the event layout pads exactly what the band pulls', () => {
 });
 
 test('/dev/home-lab wraps the Home in the same gutter, so it draws what the Home draws', () => {
-  const lab = read('app/dev/home-lab/page.tsx');
+  const lab = read('app/dev/home-lab/page.lab.tsx');
   const i = lab.indexOf('<HomeFirstScreen');
   assert.ok(i > 0, '/dev/home-lab no longer draws HomeFirstScreen');
   const before = lab.slice(0, i);

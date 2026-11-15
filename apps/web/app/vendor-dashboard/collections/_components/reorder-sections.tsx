@@ -13,7 +13,7 @@ import { moveSection, type PortfolioSectionKey } from '@/lib/portfolio-section-o
  * is drawn, each with ↑ and ↓ (44-px presses — a drag needs a second hand on a phone and has no keyboard path).
  *
  *   · Save writes the whole order through the SHIPPED field save (`updateVendorProfileField`, field `portfolio_order`
- *     → `vendor_profiles.portfolio_section_order`, migration 20271342126686) — no new server action.
+ *     → `vendor_profiles.portfolio_section_order`, migration 20271347719658) — no new server action.
  *   · Reset saves an empty list (the shipped order is what an empty list means).
  *   · A refused save says so in the toast and the page keeps the order it had; nothing moves on the page until it saved.
  *   · More is not in the list: it always closes the page, then this row.

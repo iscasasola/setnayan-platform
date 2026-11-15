@@ -2,7 +2,7 @@
  * hub-look-is-pro.test.ts — EVERY DOOR TO THE PAGE'S LOOK ASKS FIRST.
  *
  * Owner, 2026-09-24 ("A"): the couple's own photos, snippets and films on the
- * Event Hub — and changing how it looks and moves — are Event Hub Pro. The
+ * Event Hub — and changing how it looks and moves — are Event Pro. The
  * editor's lock is presentation; a server action is a public POST. So the real
  * gate is in the actions, and this file holds the PROPERTY, not a phrasing:
  *
@@ -93,7 +93,7 @@ const EXEMPT: Record<string, { why: string; mustContain: RegExp }> = {
     mustContain: /await assertAdmin\(\)/,
   },
   // A couple adopting the song they BOUGHT (the PAKANTA SKU, its own purchase)
-  // as the site song. Gated on that purchase, not on Event Hub Pro.
+  // as the site song. Gated on that purchase, not on Event Pro.
   'app/dashboard/[eventId]/studio/pakanta/actions.ts#adoptPakantaSongAsSiteMusic': {
     why: 'gated on the PAKANTA purchase — a song we made them, not their upload',
     mustContain: /eventSkuActive\([^)]*'PAKANTA'\)/,

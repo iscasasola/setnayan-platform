@@ -28,6 +28,45 @@
  * arithmetic — the part that can be got wrong — lives here.
  */
 
+import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+
+/**
+ * 🧾 EACH PAID ORDER IN ITS REAL KIND (admin walk 13 Nov 2026, F-A-02). A supplier pays a booking fee through an
+ * ORDER keyed `vendor_booking_fee__<chargeId>` — so a paid fee sat in "Software sales" while "Booking fees" read
+ * "0 paid · ₱0". The total was right and the split was wrong. Fee orders now count under Booking fees; a paid
+ * `booking_fee_charges` row is added only when no paid order already carries that charge, so nothing counts twice.
+ */
+export function splitPaidRevenue(
+  orders: readonly { service_key: string | null; requested_total_php: number | string | null }[],
+  paidCharges: readonly { charge_id: string; amount_charged_centavos: number | string | null }[],
+): { softwarePhp: number; paidOrderCount: number; bookingFeePhp: number; paidFeeCount: number; paidFeeOrderCount: number } {
+  let softwarePhp = 0;
+  let paidOrderCount = 0;
+  let bookingFeePhp = 0;
+  let paidFeeCount = 0;
+  let paidFeeOrderCount = 0;
+  const billed = new Set<string>();
+  for (const o of orders) {
+    const php = Number(o.requested_total_php ?? 0);
+    const chargeId = chargeIdFromBookingFeeLockServiceKey(o.service_key);
+    if (chargeId) {
+      billed.add(chargeId);
+      bookingFeePhp += php;
+      paidFeeCount += 1;
+      paidFeeOrderCount += 1;
+    } else {
+      softwarePhp += php;
+      paidOrderCount += 1;
+    }
+  }
+  for (const c of paidCharges) {
+    if (billed.has(c.charge_id)) continue;
+    bookingFeePhp += Number(c.amount_charged_centavos ?? 0) / 100;
+    paidFeeCount += 1;
+  }
+  return { softwarePhp, paidOrderCount, bookingFeePhp, paidFeeCount, paidFeeOrderCount };
+}
+
 export type RevenueInput = {
   /** PHP from orders that reached paid/fulfilled. */
   softwarePhp: number;
@@ -41,6 +80,8 @@ export type RevenueInput = {
   /** Counts, so a zero total can be told from a zero-row read. */
   paidOrderCount: number;
   paidFeeCount: number;
+  /** Booking fees paid through an ORDER — orders too, so a receipt can be owed for them (F-A-02). */
+  paidFeeOrderCount?: number;
 };
 
 export type RevenueStatement = RevenueInput & {
@@ -70,7 +111,7 @@ export function revenueStatement(input: RevenueInput): RevenueStatement {
     receiptPhp: money(input.receiptPhp),
     grossPhp: gross,
     netPhp: money(gross - input.refundedPhp),
-    unreceiptedOrderCount: Math.max(0, input.paidOrderCount - input.receiptCount),
+    unreceiptedOrderCount: Math.max(0, input.paidOrderCount + (input.paidFeeOrderCount ?? 0) - input.receiptCount),
   };
 }
 

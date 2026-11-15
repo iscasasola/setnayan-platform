@@ -289,8 +289,8 @@ test('the lead never recommends a retired (utility) card — Event, Photo Delive
 
 /* ── Owner "yes to all 4" (2026-09-29) ───────────────────────────────────── */
 
-test('Event Hub Pro is not a card — it is unlocked at the Maker’s Apply', () => {
-  // Owner 2026-09-30: "Event Hub Pro has its own place too".
+test('Event Pro is not a card — it is unlocked at the Maker’s Apply', () => {
+  // Owner 2026-09-30: "Event Pro has its own place too".
   assert.equal(buildOurServices(input()).some((c) => c.key === 'event-hub-pro'), false);
   assert.ok(OUR_SERVICE_ADD_ON_KEYS.has('website-pro'), 'the lists below would bring it back');
 });

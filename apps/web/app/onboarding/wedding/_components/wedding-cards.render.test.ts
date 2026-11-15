@@ -39,7 +39,10 @@ test('every wedding card renders in the shared frame with "n of N"', async () =>
     const html = await render(card);
     assert.match(html, new RegExp(`data-setup-card="${card}"`), card);
     assert.match(html, /3 of 10/, card);
-    assert.match(html, /You can change this anytime|Steps of 10/, card);
+    // F-W2-08 (walk 14 Nov): said once, on the first card — never under every step; F-W2-07: never "Steps of 10".
+    if (card === 'w_names') assert.match(html, /You can change this anytime/, card);
+    else assert.doesNotMatch(html, /You can change this anytime/, card);
+    assert.doesNotMatch(html, /Steps of 10/, card);
   }
 });
 
@@ -55,7 +58,8 @@ test('the cards say what the owner approved, in plain English', async () => {
 test('the estimate opens on 150, the budget on Classic with the figure for those guests', async () => {
   assert.match(await render('w_pax', { pax: null }), />150</);
   const b = await render('w_budget', { pax: 150 });
-  assert.match(b, /Classic · The sweet spot/);
+  // F-W2-09 (walk 14 Nov): the SHUT pill carries the peso amount for those guests.
+  assert.match(b, /<span class="min-w-0 truncate">Classic · about ₱[\d,]+<\/span>/);
 });
 
 test('a kind pick shows its row; the budget follows the estimate', async () => {
@@ -109,4 +113,10 @@ test('🔑 names: the open field offers the phone’s saved name on your row onl
   assert.match(cards, /'brideLastName', false, 'family-name'\)/);
   assert.match(cards, /'groomFirstName', true, 'given-name'\)/);
   assert.match(cards, /'groomLastName', false, 'family-name'\)/);
+});
+
+test('F-W2-04 · a fresh names card shows no red "Required" before a letter is typed', async () => {
+  const html = await render('w_names', { role: 'bride', brideFirstName: '', groomFirstName: '' });
+  assert.match(html, /data-wedding-name-row="bride"/, 'the name rows did not open');
+  assert.doesNotMatch(html, /data-form-row-required/, '"Required" is shown before the couple has typed');
 });

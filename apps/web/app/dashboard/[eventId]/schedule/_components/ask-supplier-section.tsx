@@ -120,7 +120,7 @@ export function AskSupplierSection({
   return (
     <section data-moment-asks={mine.length} aria-label="Asked of suppliers" className={bare ? '' : 'mt-2 border-t border-ink/10 pt-3'}>
       {bare && mine.length === 0 ? null : (
-      <InfoTip label="Asked of suppliers" labelAs="h4" labelClassName="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55" align="start">
+      <InfoTip label="Asked of suppliers" labelAs="h4" labelClassName="font-mono text-xs uppercase tracking-[0.06em] text-ink/70" align="start">
         Ask a booked supplier to change their times on this moment. They answer Accept or Decline on their schedule; a
         Yes moves the moment for you, and either way you get a notice here in the app.
       </InfoTip>
@@ -134,7 +134,7 @@ export function AskSupplierSection({
           {mine.map((a) => (
             <li key={a.suggestion_id} data-moment-ask={a.status} className="py-2 text-[13px]">
               <span className="font-medium">{shopNameOf(a)}</span>
-              {a.proposed_start_at ? <span className="text-ink/60"> · to {clockWords(a.proposed_start_at)}</span> : null}
+              {a.proposed_start_at ? <span className="text-ink/70"> · to {clockWords(a.proposed_start_at)}</span> : null}
               <span className={`block ${a.status === 'open' ? 'text-warn-900' : a.status === 'accepted' ? 'text-success-900' : 'text-ink/65'}`}>
                 {askStateWords(a, shopNameOf(a))}
               </span>
@@ -199,7 +199,7 @@ export function AskSupplierSection({
               data="moment-ask-note"
             />
           </FormRows>
-          {!moved && who ? <p className="text-[12px] text-ink/60">Change the time or the minutes first.</p> : null}
+          {!moved && who ? <p className="text-xs text-ink/70">Change the time or the minutes first.</p> : null}
           <div className="flex justify-end gap-2">
             <ActionButton tone="neutral" icon={X} label="Not now" quiet onClick={() => setOpen(false)} />
             <ActionButton

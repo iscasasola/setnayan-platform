@@ -62,7 +62,7 @@ export const COVER_SCENE_SOURCE_LABEL: Readonly<Record<CoverSceneSource, string>
   scene: BACKGROUND_SOURCE_LABEL.scene,
   own: BACKGROUND_SOURCE_LABEL.own,
 };
-/** ◆ — the shipped rule, never a second one: Colour free; Scene and Upload Event Hub Pro (asked at Apply). */
+/** ◆ — the shipped rule, never a second one: Colour free; Scene and Upload Event Pro (asked at Apply). */
 export const COVER_SCENE_SOURCE_IS_PRO: Readonly<Record<CoverSceneSource, boolean>> = {
   theme: false,
   colour: BACKGROUND_SOURCE_IS_PRO.colour,
@@ -80,7 +80,7 @@ export function coverGroundSource(g: HubCoverGround | null | undefined): CoverSc
   return 'colour';
 }
 
-/** Does the Cover Scene's background ask Apply for Event Hub Pro? (`hub-pro-effect-view.ts` names it there.) */
+/** Does the Cover Scene's background ask Apply for Event Pro? (`hub-pro-effect-view.ts` names it there.) */
 export function coverGroundIsPro(g: HubCoverGround | null | undefined): boolean {
   return COVER_SCENE_SOURCE_IS_PRO[coverGroundSource(g)];
 }

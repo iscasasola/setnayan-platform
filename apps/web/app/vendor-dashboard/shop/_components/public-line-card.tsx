@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
+
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { TAGLINE_MAX } from '@/lib/vendor-public-line';
@@ -75,15 +78,9 @@ export function PublicLineCard({
   }
 
   return (
-    <section
-      className="mt-3 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
-      <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-        Your line and your link{' '}
-        <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
-          (optional)
-        </span>
+    <section className="mt-5" data-public-line-card>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
+        Your line and your link (optional)
       </h3>
       {/*
         SUP-30 · THIS SENTENCE USED TO PUT THE WEBSITE INSIDE "what couples read".
@@ -99,17 +96,13 @@ export function PublicLineCard({
         the product is built, on purpose, never to show it. The tagline half of
         the sentence was true; only the website half was not.
       */}
-      <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+      <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">
         The one line couples read under your name on your page and in search results.
       </p>
 
-      <div className="mt-3 space-y-3">
-        <div>
-          <label
-            htmlFor="public-line-tagline"
-            className="block text-xs font-medium"
-            style={{ color: 'var(--m-ink)' }}
-          >
+      <div className="mt-2 divide-y divide-[color:var(--m-line)]">
+        <div className="py-3">
+          <label htmlFor="public-line-tagline" className="block text-sm font-semibold text-ink">
             Your one line
           </label>
           <input
@@ -124,20 +117,23 @@ export function PublicLineCard({
             placeholder="Documentary wedding films, shot across Luzon"
             className="input-field mt-1 w-full"
           />
-          <p className="mt-1 text-xs tabular-nums" style={{ color: 'var(--m-slate)' }}>
+          <p className="mt-1 text-sm tabular-nums text-[color:var(--m-slate-2)]">
             {remaining} character{remaining === 1 ? '' : 's'} left
           </p>
           <FairNote hits={fair} field="tagline" />
         </div>
 
-        <div>
-          <label
-            htmlFor="public-line-website"
-            className="block text-xs font-medium"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            Your website
-          </label>
+        <div className="py-3">
+          <div className="flex items-center gap-1">
+            <label htmlFor="public-line-website" className="block text-sm font-semibold text-ink">
+              Your website
+            </label>
+            <InfoTip label="" ariaLabel="About your website" align="start">
+              Your own site, not your Setnayan page. Setnayan never puts a link off the app on your page — your
+              enquiries stay in your Setnayan inbox. The first time you add this, Setnayan reads it once, for free, to
+              suggest coverage you might be missing — you always confirm before anything is added.
+            </InfoTip>
+          </div>
           <input
             id="public-line-website"
             // Deliberately type="text", not type="url": the field accepts a
@@ -153,41 +149,28 @@ export function PublicLineCard({
             placeholder="yourstudio.com"
             className="input-field mt-1 w-full"
           />
-          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-            Your own site, not your Setnayan page. Leave blank if you don&rsquo;t have one.
-          </p>
           {/* Says where the value DOES and does not go, in the voice /v/[slug]
               already uses when it tells a shop previewing itself why its email
-              and phone are absent. Saved, not published. */}
-          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-            Couples don&rsquo;t see this. Setnayan never puts a link off the app on
-            your page — your enquiries stay in your Setnayan inbox.
-          </p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-            The first time you add this, Setnayan reads it once, for free, to
-            suggest coverage you might be missing — you always confirm before
-            anything is added.
+              and phone are absent. Saved, not published. The rest (no link off the app; the one free read
+              that suggests coverage) sits behind the ⓘ beside the label. */}
+          <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">
+            Couples don&rsquo;t see this. Leave blank if you don&rsquo;t have one.
           </p>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          icon={Check}
+          label={pending ? 'Saving…' : 'Save'}
           onClick={save}
+          waiting={pending}
           disabled={pending || fair.length > 0}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          style={{ background: 'var(--m-accent-deep)' }}
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
-          Save
-        </button>
+        />
         {justSaved && !pending ? (
-          <span
-            className="inline-flex items-center gap-1 text-xs"
-            style={{ color: 'var(--m-slate)' }}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={2} />
+          <span className="inline-flex items-center gap-1 text-sm text-[color:var(--m-slate-2)]" role="status">
+            <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
             Saved
           </span>
         ) : null}

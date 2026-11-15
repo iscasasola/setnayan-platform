@@ -132,7 +132,7 @@ export function SupplierQuestionsBody({
           <MessageCircleQuestion aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={1.9} />
           {shopName} asks
         </h2>
-        <span className="text-[13px] text-ink/60">
+        <span className="text-[13px] text-ink/70">
           {remaining === 0
             ? 'All answered'
             : `${formatCount(questionnaire.answered)} of ${formatCount(questionnaire.total)} answered`}
@@ -142,7 +142,7 @@ export function SupplierQuestionsBody({
       <InfoTip
         label="Things only you can tell them."
         labelAs="p"
-        labelClassName="text-[14px] text-ink/70"
+        labelClassName="text-sm text-ink/70"
         align="start"
       >
         Only the two of you and {shopName} can read these — not your guests, not your other suppliers, not your
@@ -166,9 +166,9 @@ export function SupplierQuestionsBody({
 
 function SupplierQuestionsUnread({ shopName }: { shopName: string }) {
   return (
-    <p role="alert" className="rounded-2xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
-      <strong className="text-ink">We couldn&rsquo;t load {shopName}&rsquo;s questions.</strong> Anything you already
-      answered is safe. Reload in a moment.
+    // 📐 Design template (14 Nov 2026, rule 6): a failed read is one amber line, no box — never mistakable for "none".
+    <p role="alert" className="py-2 text-sm text-warn-800">
+      Couldn&rsquo;t load {shopName}&rsquo;s questions — anything you already answered is safe. Reload in a moment.
     </p>
   );
 }

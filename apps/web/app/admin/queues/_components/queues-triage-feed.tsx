@@ -23,6 +23,7 @@ import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
+import { RowPending } from './row-pending';
 import { GreenBatchAction, type GreenBatch } from './green-batch';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type {
@@ -51,6 +52,8 @@ export type TriageItem = {
   peek?: QueuePeek | null;
   /** A trail to watch (`watchOnly` in ADMIN_QUEUE_META) — shown, never summed as work waiting. */
   watchOnly?: boolean;
+  /** ⏳ F-A-05: the queue promises no time (`slaHours: null`) — never "late", and never "on pace" either. */
+  noPromise?: boolean;
   /** Payments only: the green/held sort behind "Approve all N green" (admin slice 4). */
   greenBatch?: GreenBatch;
 };
@@ -112,6 +115,17 @@ function badgeColor(dueState?: AdminQueueDueState): string {
   return '#8A6A2E';
 }
 
+/**
+ * The Work address a card press returns to, with THIS row still open — the toggle link of an open row is its CLOSE
+ * link, so a press used to fold the queue shut and the next card (or the refusal beside it) went out of sight.
+ */
+function stayOpen(href: string, key: string): string {
+  const [path, query = ''] = href.split('?');
+  const p = new URLSearchParams(query);
+  p.set('open', key);
+  return `${path}?${p.toString()}`;
+}
+
 function TriageRow({
   item,
   toggleHref,
@@ -170,6 +184,8 @@ function TriageRow({
           </span>
         </span>
 
+        {/* Walk RW-301 (6): the tap shows it started — the open is a server read. */}
+        <RowPending />
         {open ? (
           <span
             className="inline-flex h-7 min-w-[1.75rem] shrink-0 items-center justify-center rounded-full px-2 text-sm font-semibold"
@@ -201,7 +217,8 @@ function TriageRow({
           peek={item.peek}
           href={item.href}
           label={item.label}
-          backTo={toggleHref ?? '/admin/work'}
+          backTo={stayOpen(toggleHref ?? '/admin/work', item.key)}
+          late={item.dueState === 'overdue'}
         />
       ) : null}
     </li>
@@ -219,7 +236,8 @@ function TriageRow({
 function triageTotals(items: TriageItem[]) {
   let late = 0,
     soon = 0,
-    onPace = 0;
+    onPace = 0,
+    noPromise = 0;
   for (const i of items) {
     // A trail to watch is not work waiting — it keeps its badge, not a place here.
     if (i.watchOnly) continue;
@@ -227,19 +245,22 @@ function triageTotals(items: TriageItem[]) {
     if (n <= 0) continue;
     if (i.dueState === 'overdue') late += n;
     else if (i.dueState === 'due-soon') soon += n;
+    else if (i.noPromise) noPromise += n;
     else onPace += n;
   }
-  return { late, soon, onPace, total: late + soon + onPace };
+  return { late, soon, onPace, noPromise, total: late + soon + onPace + noPromise };
 }
 
 function TriageStrip({ items }: { items: TriageItem[] }) {
-  const { late, soon, onPace, total } = triageTotals(items);
+  const { late, soon, onPace, noPromise, total } = triageTotals(items);
   if (total === 0) return null;
   const pct = (n: number) => `${(n / total) * 100}%`;
   const parts: Array<[number, string, string]> = [
     [late, 'past promise', '#B42318'],
     [soon, 'due soon', '#B54708'],
     [onPace, 'on pace', '#8A6A2E'],
+    // ⏳ F-A-05: work with no promised time is its own bucket — a 150-day-old post was being counted "on pace".
+    [noPromise, 'no set time', 'var(--sn-ink-500)'],
   ];
   return (
     <div className="sn-tile mb-5 p-4">
@@ -259,7 +280,7 @@ function TriageStrip({ items }: { items: TriageItem[] }) {
       <div
         className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-ink/5"
         role="img"
-        aria-label={`${late} past promise, ${soon} due soon, ${onPace} on pace`}
+        aria-label={`${late} past promise, ${soon} due soon, ${onPace} on pace, ${noPromise} with no set time`}
       >
         {parts.map(([n, label, colour]) =>
           n > 0 ? (
@@ -297,7 +318,7 @@ function LaneChips({
       key={label}
       href={href}
       aria-current={active ? 'true' : undefined}
-      className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+      className="sn-hit inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
       style={{
         borderColor: active ? '#8A6A2E' : 'var(--sn-line)',
         background: active ? 'var(--sn-paper)' : 'transparent',
@@ -332,7 +353,7 @@ function LaneChips({
  * be claiming a transfer twice". Collapsing them into a generic "couldn't do
  * that" throws away the only part an admin can act on.
  */
-const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> = {
+export const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> = {
   shortfall: { tone: 'warn', headline: 'Not enough money to finish this order' },
   duplicate: { tone: 'warn', headline: 'This reference has been used before' },
   refused: { tone: 'warn', headline: 'That could not be done' },
@@ -352,6 +373,10 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
   'sent-back': { tone: 'ok', headline: 'Sent back with the reason — the shop sees it on its setup' },
   declined: { tone: 'ok', headline: 'Declined with the reason — the shop is told in the app' },
   'type-added': { tone: 'ok', headline: 'Event type added' },
+  /* ➕ ADMIN REQUEST CARDS (owner 2026-11-14) — the card's new second buttons, each said. */
+  asked: { tone: 'ok', headline: 'Asked for a clearer photo — they are told and can send it again' },
+  kept: { tone: 'ok', headline: 'Kept held — the reason is on the record' },
+  'declined-request': { tone: 'ok', headline: 'Turned down — your colleague sees why' },
   replied: { tone: 'ok', headline: 'Reply sent — they see it in the app' },
 };
 

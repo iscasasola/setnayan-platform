@@ -754,7 +754,7 @@ export function isVendorVenueExempt(
  *      (per CLAUDE.md 2026-05-30 refinement row).
  *   2. Verified vendor — the "open it up" lock (2026-07-22): a verified
  *      vendor's name is NEVER gated, on any tier, from day 1.
- *   3. Paid tier flag — the tier declares nameMode 'true' (Solo+ · and
+ *   3. Paid tier flag — the tier declares nameMode 'true' (Supplier Plus and up · and
  *      the de-gated Verified tier). Belt-and-suspenders with (2).
  *   4. Reveal timestamp — first vendor chat reply stamped name_revealed_at.
  */

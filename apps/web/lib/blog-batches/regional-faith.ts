@@ -23,6 +23,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-07-03',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -71,7 +72,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'However you blend the old and the new, a clear plan keeps the day calm. A free planning workspace lets you track the pamalaye, the church, the caterer and the guest list in one place — and a free wedding website makes it easy to share details with relatives spread across the islands and abroad, so no one is left guessing about the date or the dress code.',
+        text: 'However you blend the old and the new, a clear plan keeps the day calm. A free planning workspace lets you track the pamalaye, the church, the caterer and the guest list in one place — and a free Event Hub makes it easy to share details with relatives spread across the islands and abroad, so no one is left guessing about the date or the dress code.',
       },
       {
         type: 'cta',
@@ -91,6 +92,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-07-22',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -139,7 +141,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A free planning workspace keeps the guest list, the budget and the vendor short-list in one place, and a free wedding website helps relatives in Manila or abroad follow along. If you are just starting out, our printable checklist is a calm, practical first step.',
+        text: 'A free planning workspace keeps the guest list, the budget and the supplier short-list in one place, and a free Event Hub helps relatives in Manila or abroad follow along. If you are just starting out, our printable checklist is a calm, practical first step.',
       },
       {
         type: 'cta',
@@ -159,6 +161,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-10',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -207,7 +210,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Muslim marriages in the Philippines are governed by the Code of Muslim Personal Laws (Presidential Decree 1083). Requirements, registration and the role of the Shari’ah authorities are best confirmed with your imam and your local Shari’ah Circuit Court office, because details and procedures vary by place and situation. We describe customs here in general terms only and do not give legal or religious rulings — defer to your officiant and your community on anything that affects the validity or registration of your marriage. For the universal parts — the guest list, the budget, the suppliers and the timeline — a free planning workspace can help keep everything in one calm place while your family and imam carry the religious and legal heart of the day, and a free wedding website makes it easy to share details with relatives near and far.',
+        text: 'Muslim marriages in the Philippines are governed by the Code of Muslim Personal Laws (Presidential Decree 1083). Requirements, registration and the role of the Shari’ah authorities are best confirmed with your imam and your local Shari’ah Circuit Court office, because details and procedures vary by place and situation. We describe customs here in general terms only and do not give legal or religious rulings — defer to your officiant and your community on anything that affects the validity or registration of your marriage. For the universal parts — the guest list, the budget, the suppliers and the timeline — a free planning workspace can help keep everything in one calm place while your family and imam carry the religious and legal heart of the day, and a free Event Hub makes it easy to share details with relatives near and far.',
       },
       {
         type: 'cta',
@@ -227,6 +230,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-28',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -275,7 +279,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Running two traditions in a single day takes a clear timeline. A free planning workspace lets you lay out the church, the tea ceremony and the reception side by side, and a free wedding website helps relatives — including those overseas — follow the same schedule without a dozen group chats.',
+        text: 'Running two traditions in a single day takes a clear timeline. A free planning workspace lets you lay out the church, the tea ceremony and the reception side by side, and a free Event Hub helps relatives — including those overseas — follow the same schedule without a dozen group chats.',
       },
       {
         type: 'cta',
@@ -295,6 +299,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-09-16',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -343,7 +348,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'For everything outside the ceremony, a free planning workspace keeps the reception, budget, suppliers and guest list organised, and a free wedding website makes sharing the details easy with family near and far. We keep the religious specifics general here out of respect — your congregation is the one to ask, and the only one with the answers that count. Treat anything you read elsewhere as background, and let your minister have the final word.',
+        text: 'For everything outside the ceremony, a free planning workspace keeps the reception, budget, suppliers and guest list organised, and a free Event Hub makes sharing the details easy with family near and far. We keep the religious specifics general here out of respect — your congregation is the one to ask, and the only one with the answers that count. Treat anything you read elsewhere as background, and let your minister have the final word.',
       },
       {
         type: 'cta',
@@ -363,6 +368,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-05',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -411,7 +417,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A free planning workspace keeps the reception, budget, suppliers and guests in one place while your church carries the spiritual heart of the day — and a free wedding website helps you share the details with everyone you love, in any city or province. With the practical side organised, you are free to focus your energy where it belongs: on the worship, the vows, and the people gathered to celebrate with you.',
+        text: 'A free planning workspace keeps the reception, budget, suppliers and guests in one place while your church carries the spiritual heart of the day — and a free Event Hub helps you share the details with everyone you love, in any city or province. With the practical side organised, you are free to focus your energy where it belongs: on the worship, the vows, and the people gathered to celebrate with you.',
       },
       {
         type: 'cta',
@@ -431,6 +437,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-23',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -479,7 +486,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A free planning workspace keeps the reception, budget, suppliers and guest list organised while your parish guides the rite — and a free wedding website makes it easy to share the day with family near and far. With the practical details in hand, you can give the ceremony itself the attention it deserves, and lean on your priest for everything that touches the rite.',
+        text: 'A free planning workspace keeps the reception, budget, suppliers and guest list organised while your parish guides the rite — and a free Event Hub makes it easy to share the day with family near and far. With the practical details in hand, you can give the ceremony itself the attention it deserves, and lean on your priest for everything that touches the rite.',
       },
       {
         type: 'cta',
@@ -499,6 +506,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-11-11',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -510,7 +518,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The most important planning for a mixed-faith wedding happens in living rooms, not vendor showrooms. Talk early — with each other first, then with both sets of parents, then with the officiants of each faith. Understand what each tradition asks, what is non-negotiable for each family, and where there is room to blend. Many tensions dissolve simply because the conversation happened months ahead instead of the week before, when emotions and deadlines are both running high.',
+        text: 'The most important planning for a mixed-faith wedding happens in living rooms, not supplier showrooms. Talk early — with each other first, then with both sets of parents, then with the officiants of each faith. Understand what each tradition asks, what is non-negotiable for each family, and where there is room to blend. Many tensions dissolve simply because the conversation happened months ahead instead of the week before, when emotions and deadlines are both running high.',
       },
       {
         type: 'ul',
@@ -547,7 +555,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'When two traditions share a day, sequencing and communication are everything — and that is exactly where a calm plan helps. A free planning workspace lets you lay out both ceremonies, the reception and every supplier side by side, and a free wedding website helps both families, in any region or abroad, follow the same schedule so no one feels left out. Above all, remember that the effort you put into honouring both heritages is itself a love letter to your families — and a beautiful way to begin a marriage that already bridges two worlds.',
+        text: 'When two traditions share a day, sequencing and communication are everything — and that is exactly where a calm plan helps. A free planning workspace lets you lay out both ceremonies, the reception and every supplier side by side, and a free Event Hub helps both families, in any region or abroad, follow the same schedule so no one feels left out. Above all, remember that the effort you put into honouring both heritages is itself a love letter to your families — and a beautiful way to begin a marriage that already bridges two worlds.',
       },
       {
         type: 'cta',
@@ -615,7 +623,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Coordinating people, places and dates across islands is exactly the kind of thing a single calm plan makes manageable. A free planning workspace keeps your venue, travelling suppliers, budget and guest list in one view, and a free wedding website is invaluable for a destination wedding — one link with travel directions, accommodation tips and your schedule, shared with every guest at once instead of repeated across endless messages. Get the logistics right, and the islands will take care of the rest.',
+        text: 'Coordinating people, places and dates across islands is exactly the kind of thing a single calm plan makes manageable. A free planning workspace keeps your venue, travelling suppliers, budget and guest list in one view, and a free Event Hub is invaluable for a destination wedding — one link with travel directions, accommodation tips and your schedule, shared with every guest at once instead of repeated across endless messages. Get the logistics right, and the islands will take care of the rest.',
       },
       {
         type: 'cta',
@@ -681,13 +689,13 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Weigh four things together: your guest count, your season and weather risk, your budget, and the feeling you want. A large formal wedding in the rainy months leans ballroom; an intimate, natural celebration in fair weather suits a garden; a couple chasing a sunset-and-sand dream — and willing to manage the logistics — heads to the beach. Once you have settled the type, choosing the actual venue gets far easier, because you are comparing like with like. Our venue-selection guide walks through the exact questions to ask each one before you sign. And whatever type you land on, a free planning workspace helps you compare venues and suppliers side by side at 0% commission — you deal with vendors directly — so you can see the real trade-offs before you commit. Visit a shortlist in person if you can, at the time of day your wedding will happen, and you will know very quickly which kind of venue feels like yours.',
+        text: 'Weigh four things together: your guest count, your season and weather risk, your budget, and the feeling you want. A large formal wedding in the rainy months leans ballroom; an intimate, natural celebration in fair weather suits a garden; a couple chasing a sunset-and-sand dream — and willing to manage the logistics — heads to the beach. Once you have settled the type, choosing the actual venue gets far easier, because you are comparing like with like. Our venue-selection guide walks through the exact questions to ask each one before you sign. And whatever type you land on, a free planning workspace helps you compare venues and suppliers side by side at 0% commission — you deal with suppliers directly — so you can see the real trade-offs before you commit. Visit a shortlist in person if you can, at the time of day your wedding will happen, and you will know very quickly which kind of venue feels like yours.',
       },
       {
         type: 'cta',
         text: 'Compare real venues and suppliers side by side, commission-free.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },

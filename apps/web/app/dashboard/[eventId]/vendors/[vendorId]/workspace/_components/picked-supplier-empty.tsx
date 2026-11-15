@@ -5,7 +5,7 @@
  * his phone with a booked supplier: the Quotation tab and the Forms tab rendered BLANK).
  *
  * The workspace's own empty line, not a new drawing: the Schedule page's "No times with {name} yet."
- * (`py-6 text-sm text-ink/60`), and the supplier's empty Quotation's action (`min-h-11 text-terracotta-700 underline`,
+ * (`py-6 text-sm text-ink/70`), and the supplier's empty Quotation's action (`min-h-11 text-terracotta-700 underline`,
  * `vendor-dashboard/clients/[eventId]/_pages/quotation.tsx`). The action is the one the host really has — a quote and a
  * form are things the supplier SENDS, so the host's move is to ask in the chat: it switches to the Chat page in place
  * (`PickedNavContext`, the same switch as the menu — no request). No chat → no action (never a dead control).
@@ -30,7 +30,7 @@ export function PickedSupplierEmpty({
   const nav = useContext(PickedNavContext);
   const cls = 'mt-2 inline-flex min-h-11 items-center text-terracotta-700 underline';
   return (
-    <div className="py-6 text-sm text-ink/60" data-picked-supplier-empty={page}>
+    <div className="py-6 text-sm text-ink/70" data-picked-supplier-empty={page}>
       <p>{line}</p>
       {ask ? (
         nav ? (

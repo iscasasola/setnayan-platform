@@ -39,7 +39,7 @@ test('(2) the real canvas hides it — on the host’s canvas only, never on a g
 });
 
 test('(3) the lab’s stand-in for the canvas hides it the same way', () => {
-  const lab = read('app/dev/maker-lab/guest/page.tsx');
+  const lab = read('app/dev/maker-lab/guest/page.lab.tsx');
   assert.match(lab, /import \{ EDITOR_CANVAS_HIDES_APP_CHROME, [^}]*\} from '@\/app\/\[slug\]\/_lib\/editor-canvas';/);
   assert.match(lab, /<style>\{EDITOR_CANVAS_HIDES_APP_CHROME\}<\/style>/, 'the lab’s sample draws the app’s notices — the real Maker’s never does');
   assert.doesNotMatch(lab, /\[data-app-chrome\]\{/, 'the lab wrote a copy of the rule');

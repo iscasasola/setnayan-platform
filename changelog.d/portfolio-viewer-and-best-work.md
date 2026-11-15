@@ -17,7 +17,7 @@ Rulings 5951 and 5940 (supplier portfolio), approved prototype
   (`vendor_portfolio_photo_views`, migration 20271331531509 — no new counter). Empty = its title, the placeholder tile
   and the Upload door; an unread count says so.
 - **Reorder** closes the list: a sheet with ↑ ↓ per section, saved to the new
-  `vendor_profiles.portfolio_section_order` (migration 20271342126686) through the shipped field save
+  `vendor_profiles.portfolio_section_order` (migration 20271347719658) through the shipped field save
   (`updateVendorProfileField`, field `portfolio_order`). No stored order can hide a section
   (`lib/portfolio-section-order.ts`).
 - Already shipped and unchanged: who-sees-it and "Show plays" (one dropdown) live in the Portfolio ⚙; empty sections

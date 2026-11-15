@@ -82,7 +82,7 @@ export function PrintablePdfButton({
         onClick={download}
         disabled={busy}
         aria-busy={busy}
-        className="inline-flex items-center gap-2 rounded-full border border-ink/20 bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ab ab-neutral disabled:cursor-not-allowed"
       >
         {busy ? (
           <>

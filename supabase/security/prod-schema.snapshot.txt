@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1868
-# tables: 500
-# columns: 6075
-# notnull: 3662
+# ledger: 1883
+# tables: 504
+# columns: 6105
+# notnull: 3681
 [ledger]
 20260512000000
 20260513000000
@@ -1874,12 +1874,27 @@
 20271343002292
 20271343328401
 20271343340931
+20271343652941
 20271343761700
 20271344038763
 20271344061337
 20271344065097
 20271344452857
 20271344488042
+20271344732290
+20271344860040
+20271345020514
+20271345220516
+20271345227050
+20271345334309
+20271345380761
+20271345494976
+20271345870082
+20271345904117
+20271346331739
+20271346335702
+20271346561709
+20271347531019
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3605,6 +3620,13 @@ event_vendor_found.found_at_claim_at
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.due_date
@@ -3950,6 +3972,7 @@ events.papic_guest_spend_floor_points
 events.papic_ltd_cap_php
 events.papic_mini_cap_php
 events.papic_on
+events.papic_phone_uploads_held
 events.papic_quality_tier
 events.papic_storage_target
 events.papic_style
@@ -4136,6 +4159,13 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.claimed_by
+gift_moment_claims.event_id
+gift_moment_claims.ref_id
+gift_moment_claims.source
+gift_moment_claims.vendor_profile_id
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.resend_id
@@ -4748,6 +4778,7 @@ moodboard_library_assets.asset_id
 moodboard_library_assets.asset_subtype
 moodboard_library_assets.asset_type
 moodboard_library_assets.created_at
+moodboard_library_assets.event_file_id
 moodboard_library_assets.is_event_linked
 moodboard_library_assets.label
 moodboard_library_assets.rejected_at
@@ -4807,6 +4838,10 @@ nav_slot_override.lucide_name
 nav_slot_override.slot_key
 nav_slot_override.updated_at
 nav_slot_override.updated_by
+notice_closes.close_count
+notice_closes.closed_at
+notice_closes.notice_key
+notice_closes.user_id
 notifications.body
 notifications.created_at
 notifications.event_id
@@ -5115,6 +5150,7 @@ papic_guest_captures.id
 papic_guest_captures.media_type
 papic_guest_captures.moderation_state
 papic_guest_captures.orig_bytes
+papic_guest_captures.phone_upload
 papic_guest_captures.points_cost
 papic_guest_captures.poster_r2_key
 papic_guest_captures.preserved_at
@@ -5619,6 +5655,7 @@ platform_package_catalog.updated_by_admin_id
 platform_retail_catalog_v2.billing_period
 platform_retail_catalog_v2.created_at
 platform_retail_catalog_v2.description
+platform_retail_catalog_v2.fullres_extra_keep_days
 platform_retail_catalog_v2.gift_price_php
 platform_retail_catalog_v2.included_papic_credits
 platform_retail_catalog_v2.is_active
@@ -6219,6 +6256,14 @@ supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.resend_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.arrive_clock
+supplier_own_times.call_clock
+supplier_own_times.done_clock
+supplier_own_times.event_id
+supplier_own_times.filed_at
+supplier_own_times.updated_at
+supplier_own_times.updated_by
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at
@@ -9027,6 +9072,13 @@ event_vendor_found.first_source
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.event_id
@@ -9159,6 +9211,7 @@ events.papic_guest_capture_early
 events.papic_guest_spend_ceiling_on
 events.papic_ltd_cap_php
 events.papic_mini_cap_php
+events.papic_phone_uploads_held
 events.papic_quality_tier
 events.papic_storage_target
 events.papic_style
@@ -9251,6 +9304,10 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.ref_id
+gift_moment_claims.source
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.sent_at
@@ -9692,6 +9749,10 @@ moodboard_theme_templates.updated_at
 nav_slot_override.is_hidden
 nav_slot_override.slot_key
 nav_slot_override.updated_at
+notice_closes.close_count
+notice_closes.closed_at
+notice_closes.notice_key
+notice_closes.user_id
 notifications.created_at
 notifications.notification_id
 notifications.title
@@ -10560,6 +10621,9 @@ supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.event_id
+supplier_own_times.updated_at
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at

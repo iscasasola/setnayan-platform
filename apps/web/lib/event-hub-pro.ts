@@ -12,7 +12,7 @@
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
  * It is NOT one upgrade slot per item, and it is NOT a shop tab. The Pro items
- * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
+ * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Pro" in the live
  * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
  * are ONE unlock … no per-feature buy button."* So the controller grows
  * exactly ONE offer, and moves it to whichever channel the couple is standing on
@@ -149,7 +149,7 @@ const PITCH: Partial<Record<WebsiteProItem, { headline: string; blurb: string }>
     2026-09-28 (the free-vs-Pro redraw): the two colour items left the list —
     colours are free for everyone — and media behind a scene took their place.
     Grounded only in what ships: the Maker's scene Background offers "Upload
-    media" (a photo or a few seconds of video) only with Event Hub Pro, and the
+    media" (a photo or a few seconds of video) only with Event Pro, and the
     Main background takes the couple's own clip or photo behind every scene.
     Not led on by any channel (`LEAD_BY_CHANNEL` unchanged).
   */
@@ -172,8 +172,8 @@ const PITCH: Partial<Record<WebsiteProItem, { headline: string; blurb: string }>
   */
   [PRO_THEMES_ITEM]: {
     // Drafted with the Fable model (the owner's standing preference for product
-    // copy), 2026-09-13. Its opening clause — "With Event Hub Pro," — is the one
-    // edit: this chip is rendered INSIDE the Event Hub Pro offer, so the words
+    // copy), 2026-09-13. Its opening clause — "With Event Pro," — is the one
+    // edit: this chip is rendered INSIDE the Event Pro offer, so the words
     // named the panel the reader is already looking at.
     headline: 'Your whole Event Hub, in the look you pictured.',
     // 🎨 The NAMES come from the registry (owner 2026-09-29: Modern and Cyber
@@ -181,7 +181,7 @@ const PITCH: Partial<Record<WebsiteProItem, { headline: string; blurb: string }>
     blurb: `Choose ${themeNames(PRO_THEMES, 'or')}. Each one sets the background film, the colours, the lettering and how every section moves, from your invite link to the last page.`,
   },
   /*
-    THE LOGO ANIMATION (owner "A then", 2026-09-24): Event Hub Pro also unlocks the
+    THE LOGO ANIMATION (owner "A then", 2026-09-24): Event Pro also unlocks the
     logo animation. Like the invite theme, NOT led on by any channel —
     `LEAD_BY_CHANNEL` is unchanged.
     Grounded only in what ships: the Logo Maker's five reveal effects play

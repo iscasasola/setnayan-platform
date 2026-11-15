@@ -156,6 +156,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
     category: 'culture',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-07',
+    updatedAt: '2026-11-13',
     blocks: [
       {
         type: 'p',
@@ -210,7 +211,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
         type: 'cta',
         text: 'Browse trusted Filipino suppliers — handlers, stylists, and the teams who make these moments — by city and category.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -622,7 +623,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
         type: 'cta',
         text: 'Find trusted Filipino suppliers — bridal cars, stylists, coordinators — by city and category.',
         href: '/?browse=1',
-        label: 'Browse the vendor marketplace',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },

@@ -24,7 +24,7 @@ import { LAB_SAMPLE } from './guest/lab-sample';
  */
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), 'app', 'dev', ...p), 'utf8');
-const GUEST = read('maker-lab', 'guest', 'page.tsx');
+const GUEST = read('maker-lab', 'guest', 'page.lab.tsx');
 
 test('P12 — a stage draws its own parts: Save the Date and Post Event do not carry the invitation', () => {
   const rows = labRows();
@@ -114,7 +114,7 @@ test('P11 — "Only you see this" and the per-guest samples are the Maker’s ca
 test('P03 — the lab offers a Studio tile only for a page its Studio draws', () => {
   /* 🗂 R4 (2026-10-28): the Seat plan tile (the one the lab could not draw) left Studio for Guests › Seats, so every
      tile left is one the lab's Studio draws — the list is the keys, unfiltered. */
-  const page = read('maker-lab', 'page.tsx');
+  const page = read('maker-lab', 'page.lab.tsx');
   assert.match(page, /tiles: STUDIO_TILE_KEYS\.map\(\(key\) => \(\{/);
   assert.doesNotMatch(page, /LAB_STUDIO_NOT_DRAWN/);
 });
@@ -128,7 +128,7 @@ test('P07 — one sample event: Studio’s pages say the canvas’s date, venue,
   assert.match(node, /const slug = mj \? LAB_SAMPLE\.slug : /);
   /* The Maker lab always asks for that shape… */
   /* `studio: '1'` always (2026-10-26): the lab's Details is the real Maker's — its Studio, never the retired one-piece view. */
-  assert.match(read('maker-lab', 'page.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', shape: 'mj'/);
+  assert.match(read('maker-lab', 'page.lab.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', shape: 'mj'/);
   /* …and the canvas and the Look sample draw the same facts. */
   /* (The names are the sample's until some are typed: the cover draws the drafted line — `labNamesFrom`.) */
   assert.match(GUEST, /const labNames = labNamesFrom\(\(await cookies\(\)\)\.get\(LAB_NAMES_COOKIE\)\?\.value, LAB_SAMPLE\.names\);/);

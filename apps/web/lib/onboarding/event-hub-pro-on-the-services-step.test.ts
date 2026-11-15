@@ -2,7 +2,7 @@
  * event-hub-pro-on-the-services-step.test.ts — the third card.
  *
  * ⚖ Owner, 2026-09-25: *"so now on the onboarding also, there are 3 things they
- * can purchase Papic, Setnayan AI, Event Hub Pro."*
+ * can purchase Papic, Setnayan AI, Event Pro."*
  *
  * What this pins, in the order a couple meets it:
  *   1. THE CARD — offered only where the type has an Event Hub AND the catalog
@@ -152,7 +152,7 @@ test('the card reaches the render: label, price, (i), and an OFF tick', async ()
   assert.match(html, new RegExp(PRO_COPY.label));
   assert.match(html, /₱700/);
   assert.match(html, /What Pro adds/, 'what it adds sits behind the house (i)');
-  assert.match(html, /role="switch" aria-checked="false"[^>]*>[\s\S]*?Add Event Hub/);
+  assert.match(html, /role="switch" aria-checked="false"[^>]*>[\s\S]*?Add Event Pro/);
   assert.match(html, /₱300 off while you/, 'the saving is stated when there is one');
   assert.match(html, /Not added/, 'the total names Pro on its own line');
 });
@@ -192,7 +192,7 @@ test('the bill line: every "no" drops it, and an owner is NEVER billed twice', (
 test('the mint bills COUPLE_WEBSITE_PRO from three server-side measurements', () => {
   const minter = strip(read('lib/onboarding-services-orders.ts'));
   const block = minter.slice(minter.indexOf('if (selection.hubPro)'));
-  assert.ok(block.length > 0, 'the mint has no Event Hub Pro branch');
+  assert.ok(block.length > 0, 'the mint has no Event Pro branch');
   const head = block.slice(0, 1200);
   assert.match(head, /eventHasEventHub\(admin, eventId\)/, 'the STORED type is re-read');
   assert.match(head, /eventAlreadyHasHubPro\(admin, eventId\)/, 'prior ownership is checked');

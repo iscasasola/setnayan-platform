@@ -4,7 +4,7 @@
  * shipped sections, then More, then the "Reorder" closing row).
  *
  * The supplier's order is stored as a list of section keys (`vendor_profiles.portfolio_section_order`, migration
- * 20271342126686). This file is the ONE place that turns that list into what the page draws:
+ * 20271347719658). This file is the ONE place that turns that list into what the page draws:
  *   · a stored key the app no longer draws is IGNORED (never an error, never a blank);
  *   · a section the stored list does not name keeps its SHIPPED place, after the named ones — so a new section ships
  *     visible, and no stored order can ever hide one;

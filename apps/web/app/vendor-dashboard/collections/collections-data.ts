@@ -117,7 +117,7 @@ export async function loadCollectionsData(
     const { data, error } = await supabase
       .from('vendor_profiles')
       // `gallery_video_titles` rides this one row read (Video links' titles, migration 20271334860034) — no new request.
-      // …and `portfolio_section_order` (Reorder, migration 20271342126686) — same row, no new request.
+      // …and `portfolio_section_order` (Reorder, migration 20271347719658) — same row, no new request.
       .select(`tier_state, gallery_video_titles, portfolio_section_order, ${MICROSITE_COLUMNS}`)
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();

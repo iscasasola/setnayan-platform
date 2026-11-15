@@ -56,8 +56,8 @@ test('1 · the Shop tab streams the one Analytics, with the badge row directly u
 test('2 · one long carousel in the prototype’s order, mounted by the section alone', () => {
   assert.deepEqual(
     [...CARD_ORDER],
-    // 'gifts' — J5 (badge-unlock_v6): the graph Gifts given Bronze opens, last, marked New.
-    ['opened', 'asked', 'booked', 'sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price', 'gifts'],
+    // 'gifts' · 'invites' — J5 (badge-unlock_v6; specs 7fbff0cd): the graphs Gifts given and Invites Bronze open, last, marked New.
+    ['opened', 'asked', 'booked', 'sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price', 'gifts', 'invites'],
     'the carousel’s cards moved, merged or went missing',
   );
   assert.match(CAROUSEL, /<SnapCarousel cards=\{cards\} label="Analytics"/, 'the Analytics is not one carousel');

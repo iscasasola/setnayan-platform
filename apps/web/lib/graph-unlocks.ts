@@ -7,7 +7,10 @@
  *   Gifts given Bronze        → Gifts given → bookings                                       (gifts, NEW)
  *   Trusted by Bronze         → none yet — its old graph "Which partners send you couples" no longer fits now that
  *                               Trusted by counts returning clients (50566f42); open item 10, nothing drawn until ruled.
- *   Invites Bronze            → none yet — which graphs it opens is unruled (open item 4).
+ *   Invites Bronze            → Suppliers you invited (ONE graph, month by month: invited · booked · completed an
+ *                               event — specs 7fbff0cd (10)). ⏸ NOT COUNTED YET: nothing records which shop imported
+ *                               which supplier until the add-a-supplier door is built (owner 6439 (4)), so the badge
+ *                               shows its line "not counted yet" and the graph is never drawn.
  * The sign-up graphs, the Verified graphs and the Pro graphs open exactly as they do today; this file decides only the
  * badge ones.
  *
@@ -70,12 +73,19 @@ export const BADGE_GRAPHS: Readonly<Record<UnlockBadge, readonly string[]>> = {
   gifts_given: ['gifts'],
   // Open item 10 (a33fd894): "Which partners send you couples" no longer fits Trusted by — none until ruled.
   trusted_by: [],
-  // Open item 4 (7d6c8129): which graphs Invites opens is unruled — none until ruled.
-  invites: [],
+  // Ruled 15 Nov (specs 7fbff0cd (10)): ONE graph, month by month.
+  invites: ['invites'],
 };
 
 /** Graphs new with this change — a kept shop never "had" them; they sit at the end of the carousel, marked New. */
-export const NEW_BADGE_GRAPHS: readonly string[] = ['gifts'];
+export const NEW_BADGE_GRAPHS: readonly string[] = ['gifts', 'invites'];
+
+/**
+ * ⏸ Badges with NO record to count on this build (owner 6439 (4): "Until the add/invite door is built, the Invites badge
+ * ships showing 'Not counted yet'"). Their line says so instead of a "to go" figure; drop a badge from here the day its
+ * record exists.
+ */
+export const NOT_COUNTED_YET: readonly UnlockBadge[] = ['invites'];
 
 /** Every graph a badge decides. */
 export const BADGE_GATED_GRAPHS: readonly string[] = UNLOCK_BADGES.flatMap((b) => BADGE_GRAPHS[b]);
@@ -157,7 +167,8 @@ export function graphUnlocks(facts: UnlockFacts): GraphUnlocks {
     const shut = facts.kept === true ? graphs.filter((g) => NEW_BADGE_GRAPHS.includes(g)) : [...graphs];
     if (shut.length === 0) continue;
     for (const g of shut) hidden.add(g);
-    locked.push({ badge, name: BADGE_NAME[badge], graphs: shut, toGo: toGoLine(badge, facts.counts[badge]) });
+    const toGo = NOT_COUNTED_YET.includes(badge) ? 'not counted yet' : toGoLine(badge, facts.counts[badge]);
+    locked.push({ badge, name: BADGE_NAME[badge], graphs: shut, toGo });
   }
   return { hidden, locked, unsure };
 }
@@ -213,4 +224,16 @@ export function giftsRec(g: GiftsToBookings | null): GrowthRec | null {
     ctaHref: '/vendor-dashboard/shop/promote',
     weight: high ? 80 : 50,
   };
+}
+
+// ── The Invites graph (Invites Bronze) ────────────────────────────────────────────────────────────────────────────
+
+/** One month of the Invites graph: suppliers invited that month, how many of them booked, how many completed an event. */
+export type InviteMonth = { month: string; invited: number; booked: number; completed: number };
+
+/** The graph's one line ("You invited 6 suppliers in the last 12 months; 3 booked, 2 completed an event."). */
+export function invitesLine(months: readonly InviteMonth[]): string {
+  const sum = (k: 'invited' | 'booked' | 'completed') => months.reduce((t, m) => t + m[k], 0);
+  const invited = sum('invited');
+  return `You invited ${formatCount(invited)} ${invited === 1 ? 'supplier' : 'suppliers'} in the last 12 months; ${formatCount(sum('booked'))} booked, ${formatCount(sum('completed'))} completed an event.`;
 }

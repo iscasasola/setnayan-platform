@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   BADGE_GRAPHS,
+  invitesLine,
   BRONZE_STEP,
   badgeGate,
   giftsLine,
@@ -23,12 +24,12 @@ const facts = (o: Partial<UnlockFacts> = {}): UnlockFacts => ({
   ...o,
 });
 
-test('the ruled map: each badge opens its own graphs; Trusted by and Invites open none until ruled', () => {
+test('the ruled map: each badge opens its own graphs; Trusted by opens none until ruled; Invites opens ONE', () => {
   assert.deepEqual(BADGE_GRAPHS.completed_bookings, ['slow', 'lost', 'split']);
   assert.deepEqual(BADGE_GRAPHS.five_star_reviews, ['rep', 'replyvs']);
   assert.deepEqual(BADGE_GRAPHS.gifts_given, ['gifts']);
   assert.deepEqual(BADGE_GRAPHS.trusted_by, [], 'open item 10: the partners graph no longer fits Trusted by');
-  assert.deepEqual(BADGE_GRAPHS.invites, [], 'open item 4: Invites graphs are unruled');
+  assert.deepEqual(BADGE_GRAPHS.invites, ['invites'], 'specs 7fbff0cd (10): one graph, month by month');
 });
 
 test('below Bronze, a badge hides its graphs and leaves ONE plain line naming them and what is left to go', () => {
@@ -36,12 +37,12 @@ test('below Bronze, a badge hides its graphs and leaves ONE plain line naming th
   for (const g of ['slow', 'lost', 'split', 'rep', 'replyvs', 'gifts']) assert.ok(u.hidden.has(g), `${g} should be hidden`);
   const cb = u.locked.find((l) => l.badge === 'completed_bookings')!;
   assert.equal(lockedLine(cb, (g) => g.toUpperCase()), 'Completed bookings Bronze opens SLOW · LOST · SPLIT — 2 more completed bookings to go.');
-  assert.equal(u.locked.length, 3, 'one line per badge with graphs, never one per graph');
+  assert.equal(u.locked.length, 4, 'one line per badge with graphs (completed · five-star · gifts · invites), never one per graph');
 });
 
 test('at Bronze the graphs open — the step is the badge’s OWN first step', () => {
   const u = graphUnlocks(
-    facts({ counts: { completed_bookings: BRONZE_STEP.completed_bookings, five_star_reviews: BRONZE_STEP.five_star_reviews, gifts_given: BRONZE_STEP.gifts_given } }),
+    facts({ counts: { completed_bookings: BRONZE_STEP.completed_bookings, five_star_reviews: BRONZE_STEP.five_star_reviews, gifts_given: BRONZE_STEP.gifts_given, invites: BRONZE_STEP.invites } }),
   );
   assert.equal(u.hidden.size, 0);
   const justBelow = graphUnlocks(facts({ counts: { completed_bookings: BRONZE_STEP.completed_bookings - 1 } }));
@@ -59,7 +60,8 @@ test('a shop that already saw graphs keeps them — but a graph NEW with this ch
   const u = graphUnlocks(facts({ kept: true }));
   for (const g of ['slow', 'lost', 'split', 'rep', 'replyvs']) assert.ok(!u.hidden.has(g), `${g} was seen before — kept`);
   assert.ok(u.hidden.has('gifts'), 'the gifts graph is new: nobody "had" it');
-  assert.deepEqual(u.locked.map((l) => l.badge), ['gifts_given']);
+  assert.ok(u.hidden.has('invites'), 'the Invites graph is new too');
+  assert.deepEqual(u.locked.map((l) => l.badge), ['gifts_given', 'invites']);
 });
 
 test('a count we could not read is never 0: the graphs stay shown, no locked line, and the badge is named unsure', () => {
@@ -89,4 +91,20 @@ test('the gifts recommendation fires only with couples deciding AND stock; High 
   assert.equal(giftsRec({ ...g, giftedDeciding: 0, plainDeciding: 0 }), null, 'nobody deciding, no task');
   assert.equal(giftsRec({ ...g, giftedBooked: 2, giftedDeciding: 7, plainBooked: 4, plainDeciding: 20 })!.impact, 'medium', '22% vs 17% is not twice');
   assert.equal(giftsRec(null), null, 'an unread graph gives no task');
+});
+
+test('Invites: until imports are recorded the badge says "not counted yet" — never a number to go, never its graph', () => {
+  const u = graphUnlocks(facts({ kept: true }));
+  const inv = u.locked.find((l) => l.badge === 'invites');
+  assert.ok(inv, 'Invites must leave its line, even for a kept shop (its graph is new)');
+  assert.equal(lockedLine(inv!, () => 'Suppliers you invited'), 'Invites Bronze opens Suppliers you invited — not counted yet.');
+  assert.ok(u.hidden.has('invites'));
+});
+
+test('the Invites line adds the months — invited, booked, completed', () => {
+  const months = [
+    { month: 'Oct', invited: 4, booked: 2, completed: 1 },
+    { month: 'Nov', invited: 2, booked: 1, completed: 1 },
+  ];
+  assert.equal(invitesLine(months), 'You invited 6 suppliers in the last 12 months; 3 booked, 2 completed an event.');
 });

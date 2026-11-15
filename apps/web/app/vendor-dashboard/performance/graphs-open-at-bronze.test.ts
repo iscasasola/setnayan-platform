@@ -46,3 +46,8 @@ test('3 · decided on the server from the one unlock read; the gifts graph is re
   // The unlock read sits AFTER the Verified lock's early return — an unverified shop reads none of it.
   assert.ok(SECTION.indexOf('const unlockRead') > SECTION.indexOf("canUse('analytics'"), 'an unverified shop must not run the unlock read');
 });
+
+test('4 · Invites is not counted yet: the section hands the carousel no Invites data, so its card is never drawn', () => {
+  assert.doesNotMatch(SECTION, /\binvites=\{/, 'Invites data reached the carousel before anything records an import');
+  assert.match(CAROUSEL, /invites: props\.invites !== undefined \? invitesSpec\(props\.invites\) : null/);
+});

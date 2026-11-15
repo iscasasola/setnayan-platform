@@ -17,6 +17,8 @@ import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
 import { lockedLine, type GiftsToBookings, type LockedBadge } from '@/lib/graph-unlocks';
 import { GIFTS_TITLE, giftsSpec } from './gifts-graph';
+import { INVITES_TITLE, invitesSpec } from './invites-graph';
+import type { InviteMonth } from '@/lib/graph-unlocks';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -116,9 +118,11 @@ type Props =
       unlocks?: CarouselUnlocks;
       /** The gifts graph, per window — present only once Gifts given Bronze has opened it (null = a refused read). */
       gifts?: Record<GrowthWindow, GiftsToBookings | null> | null;
+      /** The Invites graph (a fixed 12 months) — present only once Invites Bronze has opened it; null = a refused read. */
+      invites?: InviteMonth[] | null;
       locked?: undefined;
     }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined };
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; invites?: undefined };
 
 export function AnalyticsCarousel(props: Props) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
@@ -138,11 +142,11 @@ export function AnalyticsCarousel(props: Props) {
     () =>
       base
         ? {
-            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30']) : null },
-            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12']) : null },
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30']) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12']) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
           }
         : null,
-    [base, props.gifts],
+    [base, props.gifts, props.invites],
   );
   const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 
@@ -205,7 +209,7 @@ export function AnalyticsCarousel(props: Props) {
         <ul className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
           {props.unlocks.locked.map((l) => (
             <li key={l.badge} data-graph-unlock-line={l.badge}>
-              {lockedLine(l, (k) => (k === 'gifts' ? GIFTS_TITLE : (specs?.['30'][k as GraphKey]?.title ?? k)))}
+              {lockedLine(l, (k) => (k === 'gifts' ? GIFTS_TITLE : k === 'invites' ? INVITES_TITLE : (specs?.['30'][k as GraphKey]?.title ?? k)))}
             </li>
           ))}
         </ul>

@@ -4,9 +4,9 @@
  */
 
 /** The carousel's order — the prototype's option 3, one card per fact. */
-// 🎁 'gifts' — J5 (badge-unlock_v6): the graph Gifts given Bronze opens. "New graphs stay at the end of the carousel,
-// marked New." A card here is drawn only when its badge has opened it (lib/graph-unlocks.ts).
-export const CARD_ORDER = ['opened', 'asked', 'booked', 'sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price', 'gifts'] as const;
+// 🎁 'gifts' · 🤝 'invites' — J5 (badge-unlock_v6; specs 7fbff0cd): the graphs Gifts given and Invites Bronze open. "New
+// graphs stay at the end of the carousel, marked New." Drawn only when its badge has opened it (lib/graph-unlocks.ts).
+export const CARD_ORDER = ['opened', 'asked', 'booked', 'sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price', 'gifts', 'invites'] as const;
 export type CardKey = (typeof CARD_ORDER)[number];
 
 /**
@@ -21,5 +21,7 @@ export const FIXED_WINDOW: Readonly<Partial<Record<CardKey, string>>> = {
   rep: 'All time',
   bench: 'Your category · region',
   price: 'Your service · region',
+  // Month by month (specs 7fbff0cd (10)) — one fixed window, a bar group per month.
+  invites: 'Last 12 months',
 };
 

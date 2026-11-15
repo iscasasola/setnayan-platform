@@ -7,7 +7,7 @@ Owner, 15 Nov: every supplier badge prototype is approved and the build may star
   - Five-star reviews → what couples say · replies that book.
   - Gifts given → **Gifts given → bookings** (new, last in the carousel, marked New).
   - Trusted by opens nothing yet. Its old partners graph no longer fits now that it counts returning clients (50566f42, open item 10).
-  - Invites opens nothing yet: unruled (open item 4).
+  - Invites → **Suppliers you invited**: ONE graph, month by month (invited · booked · completed an event; specs 7fbff0cd (10)). An imported supplier counts only once its event is completed. ⏸ **Not counted yet:** nothing records which shop imported which supplier until the add-a-supplier door is built (owner 6439 (4)). So the badge's line says "not counted yet" and the graph is never drawn; its read lands with that door.
   - The sign-up, Verified and Pro graphs are unchanged.
 - **An unearned graph is never drawn, not even greyed.** One plain line under the carousel names what that badge opens and how many are left to go.
 - **Keep what you had:**
@@ -27,5 +27,6 @@ Owner, 15 Nov: every supplier badge prototype is approved and the build may star
   - `app/vendor-dashboard/performance/graphs-open-at-bronze.test.ts`
 
 SPEC IMPACT: None — builds the approved badge-unlock_v6. Gaps named in the PR:
-- Trusted by graphs (open item 10) and Invites graphs (open item 4).
+- Trusted by graphs (open item 10).
+- The Invites graph's data: it needs a record of who imported whom, which the add-a-supplier door creates (and that door needs a server action — none allowed here).
 - The full-screen unlock flow (badge → what it opened → tour → summary, Later resumes) rides J0's notice and `shop_award_flow_progress`.

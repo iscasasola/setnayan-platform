@@ -48,7 +48,7 @@ GRANT ALL ON TABLE public.vendor_graph_unlocks_kept TO service_role;
 DROP POLICY IF EXISTS vendor_graph_unlocks_kept_own_read ON public.vendor_graph_unlocks_kept;
 CREATE POLICY vendor_graph_unlocks_kept_own_read ON public.vendor_graph_unlocks_kept
   FOR SELECT TO authenticated
-  USING (vendor_profile_id IN (SELECT public.current_vendor_ids()) OR public.is_admin());
+  USING (vendor_profile_id IN (SELECT public.current_vendor_ids()) OR (SELECT public.is_admin()));
 
 COMMENT ON TABLE public.vendor_graph_unlocks_kept IS
   'J5 keep-what-you-had marker (owner 15 Nov, badge-unlock_v6: "Shops that already see graphs today keep them"). One '

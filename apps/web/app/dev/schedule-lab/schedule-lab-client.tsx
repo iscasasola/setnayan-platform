@@ -379,7 +379,7 @@ export default function ScheduleLabClient({
   }
 
   return (
-    <main className="sn-col space-y-5 pb-24">
+    <main className="sn-col sn-col-wide space-y-5 pb-24">
       <header className="flex flex-wrap items-center gap-2 pt-4">
         <p className="mr-auto text-sm text-ink/60">
           <b className="font-semibold text-ink">Schedule lab</b> · fixtures, no database

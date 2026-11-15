@@ -857,7 +857,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             ) : composerOpen ? (
               <div className="space-y-1.5">
                 {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
-                  <p className="px-1 text-xs text-ink/55">
+                  <p className="px-1 text-xs text-ink/70">
                     You can send one follow-up while you wait for {vendorLabel} to
                     accept.
                   </p>
@@ -882,7 +882,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 <form action={withdrawInquiry}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="thread_id" value={threadId} />
-                  <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
+                  <SubmitButton pendingLabel="Withdrawing…" className="text-[12px] uppercase tracking-[0.15em] text-ink/70 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
                 </form>
               </div>
             ) : (
@@ -893,7 +893,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                     {closing.showSimilarVendors ? (
                       <Link
                         href={similarVendorsHref}
-                        className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                        className="ab ab-brand ab-main"
                       >
                         See similar suppliers
                       </Link>
@@ -902,7 +902,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                       <form action={withdrawInquiry}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="thread_id" value={threadId} />
-                        <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
+                        <SubmitButton pendingLabel="Withdrawing…" className="text-[12px] uppercase tracking-[0.15em] text-ink/70 underline-offset-2 hover:text-terracotta hover:underline">
                           Withdraw inquiry
                         </SubmitButton>
                       </form>

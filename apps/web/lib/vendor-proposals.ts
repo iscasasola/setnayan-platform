@@ -85,6 +85,12 @@ export type ProposalLineItem = {
   extra_hour_centavos?: number;
   /** `vendor_offers.public_id` — the offer's own named line, or a gift that came from it. */
   offer_id?: string | null;
+  /**
+   * 🧾 `vendor_offers.public_id` on the "Discount" line when that discount WAS a card's offer, filled in untouched
+   * (OWN-01, 14 Nov): the offer's uses are counted from it, so a "first N couples" offer closes at N
+   * (migration 20271346038449). Not an offer line — a revision keeps it as the Discount it is.
+   */
+  from_offer_id?: string | null;
 };
 
 export type ProposalStatus =

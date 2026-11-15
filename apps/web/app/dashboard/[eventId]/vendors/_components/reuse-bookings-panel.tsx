@@ -47,7 +47,7 @@ export async function ReuseBookingsPanel() {
         label="Book a past supplier again"
         labelAs="h3"
         align="start"
-        labelClassName="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
+        labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
       >
         Re-book a supplier you&rsquo;ve booked before for another event. They&rsquo;ll re-price it for the new date — a
         fresh booking, so the usual booking terms apply.

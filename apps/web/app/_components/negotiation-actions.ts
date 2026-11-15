@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
+import { CLOSED_DAY_COUPLE_MESSAGE } from '@/lib/closed-day.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
@@ -855,6 +856,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'bookings_closed') {
       failBack(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+    }
+    if (outcome.status === 'date_closed') {
+      failBack(CLOSED_DAY_COUPLE_MESSAGE);
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(

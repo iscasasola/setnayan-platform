@@ -22,9 +22,17 @@
  * `_components/funnel-vendor-picker.tsx`, where its cap, its query and the
  * sentence disclosing it sit together. It was also the surface's one wholly
  * unchecked read.
+ *
+ * ── Re-drawn 2026-11-14 onto the approved drawing (`admin_pub/insights.html` ›
+ * Funnels) ── the range and the supplier are two dropdown rows
+ * (`InsightsParamPick`; each moves its own query parameter and keeps the
+ * other — the two native select + Apply GET forms went), the supplier
+ * drill-down comes first under them, and no funnel wears a tile frame any
+ * more (T18): a section head with its explanation in the ⓘ, then the table,
+ * which still owns error-vs-empty.
  */
 import { manilaDayLabel } from '@/lib/admin/manila-stamp';
-import { LineChart, Filter, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
@@ -40,6 +48,9 @@ import {
 } from '../_components/funnel-vendor-picker';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Sec } from '../_components/insights-parts';
+import { InsightsParamPick } from '../_components/insights-param-pick';
 
 type RangeKey = 'week' | 'month' | 'quarter';
 
@@ -240,51 +251,22 @@ export async function FunnelsSurface({ searchParams }: Props) {
       : null;
 
   return (
-    <div>
-      <PageMasthead
-        title="Funnels"
-        titleNode={
-          <span>
-            {/* Gold on an ICON clears the 3:1 non-text bar; gold on a WORD does
-                not. The class sits on the glyph, never on a text container. */}
-            <LineChart aria-hidden strokeWidth={1.75} />
-            Funnels
-          </span>
-        }
-        className="mb-6"
-      />
+    <div className="max-w-3xl">
+      <PageMasthead title="Funnels" className="mb-0" />
 
-      <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value="funnels" />
-        {/* Preserve the selected vendor drill-down when changing the range. */}
-        {typeof search.vendor === 'string' && search.vendor.length > 0 ? (
-          <input type="hidden" name="vendor" value={search.vendor} />
-        ) : null}
-        <label
-          htmlFor="range"
-          className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/70"
-        >
-          Range
-        </label>
-        <select
-          id="range"
-          name="range"
-          defaultValue={range}
-          className="input-field h-9 max-w-[14rem] py-0 text-sm"
-        >
-          {RANGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Apply
-        </button>
-        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Since {manilaDayLabel(sinceIso)}
-        </span>
-      </form>
+      {/* Range and supplier — one dropdown row each (approved drawing: fr('Range', …) · fr('Supplier', …)). */}
+      <InsightsParamPick
+        name="Range"
+        param="range"
+        value={range}
+        options={RANGE_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+        about={`Since ${manilaDayLabel(sinceIso)}.`}
+      />
+      <VendorPicker
+        result={vendorPicker}
+        range={range}
+        selectedVendorId={selectedVendorId}
+      />
 
       {errors.length > 0 ? (
         <FormFlash tone="error">
@@ -292,40 +274,23 @@ export async function FunnelsSurface({ searchParams }: Props) {
         </FormFlash>
       ) : null}
 
-      <div className="space-y-6">
-        {funnels.map((f) => (
-          <FunnelTable key={f.key} funnel={f} />
-        ))}
-      </div>
-
       {/* ── Per-vendor Quote-to-Booking drill-down (Wave 6) ─────────────── */}
-      <section className="mt-8 sn-tile p-5">
-        <header className="mb-3 flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta/10">
-            <Filter aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          </span>
-          <div className="space-y-0.5">
-            <h2 className="text-base font-semibold text-ink">Supplier drill-down</h2>
-            <p className="text-xs text-ink/70">
-              Pick a supplier to see their views → inquiries → quotes → booked
-              funnel for the selected range.
-            </p>
-          </div>
-        </header>
-        <VendorPicker
-          result={vendorPicker}
-          range={range}
-          selectedVendorId={selectedVendorId}
-        />
-        {vendorFunnel ? (
-          <FunnelTable funnel={vendorFunnel} />
-        ) : (
-          <p className="text-sm text-ink/70">
-            No supplier selected. Pick one above to load their funnel.
+      {vendorFunnel ? (
+        <FunnelTable funnel={vendorFunnel} />
+      ) : (
+        <section aria-label="Supplier drill-down">
+          <p className="flex min-h-11 items-center gap-1 text-[13.5px] text-ink/70" data-testid="funnels-no-supplier">
+            No supplier selected.
+            <InfoTip label="Pick one above to load their funnel" align="start">
+              Pick a supplier to see their views → inquiries → quotes → booked funnel for the selected range.
+            </InfoTip>
           </p>
-        )}
-      </section>
+        </section>
+      )}
 
+      {funnels.map((f) => (
+        <FunnelTable key={f.key} funnel={f} />
+      ))}
     </div>
   );
 }
@@ -381,18 +346,15 @@ function FunnelTable({ funnel }: { funnel: Funnel }) {
   const steps = funnel.steps;
   const maxCount = Math.max(1, ...(steps ?? []).map((s) => s.count));
   return (
-    <section className="sn-tile p-5">
-      <header className="mb-3 space-y-0.5">
-        <h2 className="text-base font-semibold text-ink">{funnel.title}</h2>
-        <p className="text-xs text-ink/70">{funnel.blurb}</p>
-      </header>
+    <section aria-labelledby={`funnel-${funnel.key}`}>
+      <Sec id={`funnel-${funnel.key}`} title={funnel.title} about={funnel.blurb} />
       <ConsoleTable
         rows={steps}
         readPermitted
         readError={funnel.error}
         reads={`the ${funnel.title.toLowerCase()} counts`}
         label={funnel.title}
-        minWidth="32rem"
+        minWidth="18rem"
         rowKey={(s) => s.label}
         empty={{
           Icon: BarChart3,
@@ -431,13 +393,19 @@ function FunnelTable({ funnel }: { funnel: Funnel }) {
           {
             header: 'Bar',
             hideBelow: 'lg',
-            cell: (s) => (
-              <span
-                aria-hidden
-                className="block h-2 rounded-full bg-terracotta/70"
-                style={{ width: `${Math.max(1, Math.round((s.count / maxCount) * 100))}%` }}
-              />
-            ),
+            cell: (s) => {
+              const last = (steps ?? []).indexOf(s) === (steps ?? []).length - 1;
+              return (
+                <span
+                  aria-hidden
+                  className="block h-2 rounded-full"
+                  style={{
+                    width: `${Math.max(1, Math.round((s.count / maxCount) * 100))}%`,
+                    background: last ? 'var(--sn-accent)' : 'var(--sn-ink-300)',
+                  }}
+                />
+              );
+            },
           },
         ]}
       />

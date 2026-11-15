@@ -3,8 +3,8 @@
  * "THE SHOP PAGE HAS ONE MAIN BUTTON — INQUIRE": the four equal "Do it from here" doors are replaced by one door and
  * three quiet lines; prototype `public_pages_three_2026-11-13`, `.cando`).
  *
- *   Check a date — said here in words only: its ONE button is in the calling card beside Add to your event (walk
- *   14 Nov 2026 — a second "Check a date" here read as a duplicate at phone width);
+ *   Check a date — a line, NOT a door: RW-269 (owner-seen 14 Nov) — the door here repeated the header's Check a date
+ *   beside "Add to your event", so the page showed it twice; the header's is the one;
  *   the chat · Add to your event · Book a package — supporting copy, NOT buttons. Each says what that step does, and the
  *   real control lives where it belongs: Inquire + Add in the calling card, Book on each package card next to its price.
  *   The chat line never says "Inquire" (owner 13 Nov, "Yes, only one": one Inquire label on the page, the button).

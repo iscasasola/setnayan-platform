@@ -30,7 +30,7 @@ function ApplyButton() {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+      className="ab ab-brand ab-main"
     >
       <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
       {pending ? 'Applying…' : 'Make it my monogram'}
@@ -59,19 +59,19 @@ export function MonogramDraftRestore({ eventId, hasCustomMark }: { eventId: stri
   const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(draft.svg)}`;
 
   return (
-    <section className="rounded-2xl border border-terracotta/30 bg-terracotta/5 p-5 sm:p-6">
+    <section className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white p-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- inert data-URI preview; next/image can't optimise data-URIs */}
           <img src={dataUri} alt="The monogram you designed" className="max-h-full max-w-full" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
+          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             From setnayan.com
           </p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight">Pick up the monogram you designed</h2>
-          <p className="mt-1 max-w-prose text-sm text-ink/65">
+          <p className="mt-1 max-w-prose text-sm text-ink/75">
             You started this on our free studio before signing up. Make it your wedding&rsquo;s official mark — it
             shows on your Event Hub, QR codes, and save-the-date.
           </p>
@@ -88,7 +88,7 @@ export function MonogramDraftRestore({ eventId, hasCustomMark }: { eventId: stri
                 clearMonogramDraft();
                 setDraft(null);
               }}
-              className="text-sm font-medium text-ink/55 hover:text-ink"
+              className="text-sm font-medium text-ink/75 hover:text-ink"
             >
               Not now
             </button>

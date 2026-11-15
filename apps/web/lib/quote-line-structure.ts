@@ -16,7 +16,7 @@
  */
 import type { ProposalLineItem } from './vendor-proposals';
 
-type Structure = Pick<ProposalLineItem, 'card_id' | 'basis' | 'rate_centavos' | 'incl_hours' | 'extra_hour_centavos' | 'offer_id'>;
+type Structure = Pick<ProposalLineItem, 'card_id' | 'basis' | 'rate_centavos' | 'incl_hours' | 'extra_hour_centavos' | 'offer_id' | 'from_offer_id'>;
 
 const id = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 && v.length <= 64 ? v : null);
 const whole = (v: unknown): number | null => {
@@ -39,6 +39,9 @@ export function lineStructureOf(raw: unknown): Structure {
   if (extra != null) out.extra_hour_centavos = extra;
   const offer = id(r.offer_id);
   if (offer) out.offer_id = offer;
+  // OWN-01: the offer a Discount was filled in from — what the offer's "first N" count reads.
+  const fromOffer = id(r.from_offer_id);
+  if (fromOffer) out.from_offer_id = fromOffer;
   return out;
 }
 

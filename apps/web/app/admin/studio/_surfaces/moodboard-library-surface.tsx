@@ -4,6 +4,7 @@ import { LibraryEditor, type LibraryAsset } from '@/app/admin/moodboard-library/
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { parseScreenFindings } from '@/lib/moodboard-screen-findings';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 /**
  * MoodboardLibrarySurface — the Moodboard Library body, re-homed byte-identical
@@ -93,13 +94,19 @@ export async function MoodboardLibrarySurface() {
     };
   });
 
+  // RW-306 · a shop's gallery photo stores its inspiration part as a key; the cards print the part's display
+  // name. `getInspirationParts` never throws — a failed read is the seeded names, never an empty map.
+  const parts = await getInspirationParts();
+  const partLabels: Record<string, string> = {};
+  for (const p of parts.parts) partLabels[p.slotKey] = p.label;
+
   return (
     <div>
       <PageMasthead
         title="Moodboard Library"
       />
 
-      <LibraryEditor initialAssets={assets} />
+      <LibraryEditor initialAssets={assets} partLabels={partLabels} />
     </div>
   );
 }

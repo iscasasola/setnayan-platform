@@ -1,4 +1,5 @@
 import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
+import { ShopLink } from '@/app/_components/shop-link';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -48,13 +49,14 @@ import { formatAudienceCount } from '@/lib/creator-audience';
 import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
+import { ConnectionAnswer } from '@/app/u/_components/connection-answer';
+import { profileShownName } from '@/lib/person-page-facts';
 import { MutualDays } from '@/app/u/_components/mutual-days';
 import { ProfileBack } from '@/app/u/_components/profile-back';
 import { SectionBar, type SectionTab } from '@/app/u/_components/section-bar';
 import { formatCount } from '@/lib/format-number';
 import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
 import { pictureFrameStyle, readProfilePhotoFrame } from '@/lib/picture-frame';
-import { realNameOrNull } from '@/lib/no-name';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -120,7 +122,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const name = realNameOrNull(resolved.user.display_name) || 'Setnayan';
+  const name = profileShownName(resolved.user) || 'Setnayan';
   const canonicalSlug = resolved.user.slug ?? userSlug;
   // Personalized share card (name + most-recent public hero) — item #7c. The OG
   // route re-checks the SAME enabled + ≥1-public-chapter gate before rendering a
@@ -543,9 +545,9 @@ export default async function AccountProfilePage({ params }: Props) {
   // empty state, where printing it would confirm "this slug exists and belongs
   // to <name>". A creator with a published chapter timeline counts as content.
   const hasPublicContent = mode !== 'empty' || hasChapters;
-  // Walk 14 Nov 2026: a stored stand-in ("Someone —") is no name — every name on this page goes through `realNameOrNull`.
-  const realName = realNameOrNull(user.display_name);
-  const displayName = realName || 'Events';
+  // 👤 F-W3-04/10/29: the display name, else the account's own first + last — never "Someone", never the handle.
+  const shownName = profileShownName(user);
+  const displayName = shownName || 'Events';
   // A viewer who knows them already reads their name on People — the page says it too. Everyone else keeps
   // the name-free heading on an empty profile (no name oracle).
   const knowsThem = viewerKnowsThem(viewer);
@@ -553,9 +555,9 @@ export default async function AccountProfilePage({ params }: Props) {
   const heading = hasPublicContent
     ? displayName
     : knowsThem
-      ? realName || 'A Setnayan member'
+      ? shownName || 'A Setnayan member'
       : 'A Setnayan profile';
-  const firstName = (realName || '').split(/\s+/)[0] || 'they';
+  const firstName = (shownName || '').split(/\s+/)[0] || 'they';
 
   /*
     🧭 THE SECTIONS, AND THE BAR THAT MOVES BETWEEN THEM (owner 13 Nov 2026, "SIMPLER TO MOVE AROUND" — prototype
@@ -610,7 +612,9 @@ export default async function AccountProfilePage({ params }: Props) {
           photoStyle={pictureFrameStyle(readProfilePhotoFrame(user))}
           initials={initialsFor(heading)}
           heading={heading}
-          handle={user.slug ? `${host}/u/${canonicalSlug}` : null /* no slug → no address line: the raw S89U-… handle is not a name (walk 14 Nov 2026) */}
+          // 🔒 F-W3-04/10/29: the address line is the handle the person CHOSE. With no slug the page is reached by the
+          // account's public id (`/u/S89U-…`) — a machine handle, never printed as if it were their address.
+          handle={user.slug ? `${host}/u/${canonicalSlug}` : null}
           relation={relation || null}
           badge={hasChapters ? <CreatorBadge size="md" /> : null}
           audience={
@@ -687,6 +691,9 @@ export default async function AccountProfilePage({ params }: Props) {
           }
           rule={false}
         />
+
+        {/* 🤝 F-W3-06: they asked you — answer here, the same two answers People › Requests gives. */}
+        {viewer?.answerConnectionId ? <ConnectionAnswer connectionId={viewer.answerConnectionId} name={shownName} /> : null}
 
         <SectionBar tabs={sectionTabs} />
 
@@ -765,7 +772,7 @@ export default async function AccountProfilePage({ params }: Props) {
             nothing; the island says "them" when it has nothing. */}
         <MutualDays
           profileUserId={user.user_id}
-          profileName={hasPublicContent || knowsThem ? realName : null}
+          profileName={hasPublicContent || knowsThem ? shownName : null}
         />
 
         {hasChapters ? (
@@ -963,7 +970,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
-            <Link href={`/v/${v.slug}`} className="uprof-inf-card">
+            <ShopLink href={`/v/${v.slug}`} className="uprof-inf-card">
               {v.logoUrl ? (
                 <span className="uprof-inf-logo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -975,7 +982,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
                 </span>
               )}
               <span className="uprof-inf-name">{v.name}</span>
-            </Link>
+            </ShopLink>
           </li>
         ))}
       </ul>
@@ -1117,7 +1124,7 @@ const UPROF_CSS = `
     font-family: var(--font-mono-marketing), ui-monospace, monospace;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--m-orange-2, #8A6B39);
+    color: var(--m-orange-2);
     text-transform: uppercase;
   }
   .uprof-inf-name {
@@ -1128,7 +1135,7 @@ const UPROF_CSS = `
 
   .uprof {
     min-height: 100dvh;
-    background: var(--m-paper, #FBFBFA);
+    background: var(--m-paper);
     color: var(--m-ink);
     display: flex;
     flex-direction: column;
@@ -1147,12 +1154,24 @@ const UPROF_CSS = `
     border: 1px solid var(--m-line);
     border-radius: var(--m-r-md, 14px);
     background: var(--m-ivory);
-    color: var(--m-slate, #4F535B);
+    color: var(--m-slate);
     font-size: 0.85rem;
     text-align: center;
   }
 
 ${PROFILE_HEADER_CSS}
+
+  /* 🤝 F-W3-06 — Accept · Decline under the header, for a viewer a request waits on. */
+  .uprof-answer {
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-r-md, 14px);
+    background: var(--m-ivory);
+  }
+  .uprof-answer-line { margin: 0 0 0.6rem; font-size: 0.95rem; color: var(--m-ink); }
+  .uprof-answer-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .uprof-answer-error { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--m-mulberry-deep); }
 
   /* ── 🪪 THE PERSON PAGE IN HOME'S SHAPE (owner 13 Nov 2026, "THREE PUBLIC PAGES APPROVED"; prototype
      public_pages_three_2026-11-13, Person frame). The shared header draws layout="home"; these rules are the
@@ -1244,7 +1263,7 @@ ${PROFILE_HEADER_CSS}
     padding: 0 14px;
     font-weight: 600;
     font-size: 0.92rem;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     text-decoration: none;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
@@ -1265,7 +1284,7 @@ ${PROFILE_HEADER_CSS}
     font: 700 .64rem var(--font-mono-marketing), ui-monospace, monospace;
     letter-spacing: .12em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -1288,7 +1307,7 @@ ${PROFILE_HEADER_CSS}
     font: 700 .7rem var(--font-mono-marketing), ui-monospace, monospace;
     letter-spacing: .18em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
   }
   .uprof-lab::before { content: ""; flex: none; width: 34px; height: 2px; background: rgb(var(--color-terracotta)); }
   /* ── COMING UP vs PAST ──────────────────────────────────────────────────
@@ -1307,13 +1326,13 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.82rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     padding: 0.55rem 1rem;
     border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
   }
   .uprof-more-btn::-webkit-details-marker { display: none; }
-  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
+  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange); }
   .uprof-more[open] .uprof-more-btn { margin-bottom: 1.1rem; }
   .uprof-more-grid { margin-top: 0; }
 
@@ -1322,7 +1341,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-section-head {
     font-size: 0.9rem;
     font-weight: 400;
-    color: var(--m-slate-2, #6E6A62);
+    color: var(--m-slate-2);
     margin: 0 0 0.75rem;
   }
   .uprof-past .uprof-section-head { color: var(--m-slate-3, #8A857B); }
@@ -1445,7 +1464,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-moon {
     position: absolute; left: 50%; top: 12cqw; transform: translateX(-50%);
     width: 78cqw; aspect-ratio: 1; border-radius: 50%;
-    background: var(--m-paper, #FFFFFF);
+    background: var(--m-paper);
     color: var(--m-ink);
     display: grid; place-items: center; text-align: center; padding: 8cqw;
     box-shadow: 0 0 0 6px rgba(255,255,255,.24), 0 26px 44px -22px rgba(0,0,0,.5);
@@ -1593,7 +1612,7 @@ ${PROFILE_HEADER_CSS}
     background: #fff;
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink); }
-  .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+  .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2); }
 
   /* ── WHO WAS THERE ────────────────────────────────────────────────────
      The warm band, and the one thing measured nowhere else in the category:
@@ -1645,7 +1664,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line); }
   .uprof-yr-c {
     font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
   }
   .uprof-list { list-style: none; margin: 0; padding: 0; }
 
@@ -1689,10 +1708,10 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.66rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--m-slate-2, #6A6E76);
+    color: var(--m-slate-2);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
+  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange); }
 `;

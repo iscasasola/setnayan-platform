@@ -41,7 +41,8 @@ export type DeepSearchRunnerProps = {
   /** Server-decided: Run asks for a paid plan (◆ note only; never a lock). */
   planAsks: boolean;
   /** The one per-search price, from the admin-managed catalog. */
-  pricePhp: number;
+  /** The catalogue's per-search price; null when unread — no figure (the server re-prices at Run). */
+  pricePhp: number | null;
 };
 
 export function DeepSearchRunner(props: DeepSearchRunnerProps) {
@@ -84,7 +85,7 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
       ) : null}
       {/* Honest price line */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-ink">{peso(pricePhp)} per search</span>
+        {pricePhp !== null ? <span className="text-sm font-medium text-ink">{peso(pricePhp)} per search</span> : null}
         <span className="text-xs text-ink/55">Each purchase runs one search.</span>
       </div>
 
@@ -112,7 +113,7 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
           pendingLabel="Starting…"
         >
           <Search className="h-4 w-4" strokeWidth={2} aria-hidden />
-          {`Run Deep Search — ${peso(pricePhp)}`}
+          {pricePhp !== null ? `Run Deep Search — ${peso(pricePhp)}` : 'Run Deep Search'}
         </SubmitButton>
       </form>
 

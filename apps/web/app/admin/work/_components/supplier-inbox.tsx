@@ -34,6 +34,7 @@ import { EventTypeNameRow } from './event-type-name-row';
 import { WorkRowHead } from './work-row-head';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
+import { REQUIRED_DOC_SLOT_KEYS } from '@/lib/vendor-verification';
 import {
   SUPPLIER_WORK_CHIP,
   SUPPLIER_WORK_KINDS,
@@ -165,6 +166,18 @@ function DocsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'doc
             tone={c.outcome === 'pass' ? 'ok' : c.outcome === 'mismatch' ? 'no' : 'wait'}
           />
         ))}
+        {/* 📨 A send-back names only the paper that needs a new copy (owner 2026-11-14, "Only the named one"). */}
+        <fieldset className="mt-2 space-y-1" data-send-back-papers="">
+          <legend className="text-xs text-ink/65">Needs a fix — which paper needs a new copy?</legend>
+          {item.papers
+            .filter((p) => REQUIRED_DOC_SLOT_KEYS.has(p.slot))
+            .map((p) => (
+              <label key={p.slot} className="flex items-center gap-2 text-xs text-ink">
+                <input type="checkbox" name="sent_back_slots" value={p.slot} form={b} />
+                {p.label}
+              </label>
+            ))}
+        </fieldset>
         <ReasonPick list="docs" form={b} id={`reason-${b}`} />
         <form id={a} action={settleVerificationFromWorkList} data-work-form="docs-approve">
           <input type="hidden" name="application_id" value={item.applicationId} />

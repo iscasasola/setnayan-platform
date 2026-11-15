@@ -52,6 +52,6 @@ test('item 6 · every admin tab reads "X · Admin"; the get-together page has it
   }
   assert.deepEqual(bad, [], `admin tab titles off the "X · Admin" pattern:\n${bad.join('\n')}`);
   const simple = code('app/onboarding/simple/page.tsx');
-  assert.match(simple, /export const metadata = \{ title: 'Plan a get-together' \};/);
+  assert.match(simple, /export const metadata = \{ title: 'Create a Get-together' \};/); // main's RW-65 title (walk round 9) won the merge
   assert.doesNotMatch(simple, /Simple Event/);
 });

@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchBackgroundVideosForAdmin } from '@/lib/background-videos';
 import { BackgroundVideosManager, type SlotState } from './background-videos-manager';
@@ -35,13 +36,15 @@ export default async function AdminBackgroundVideosPage() {
           reports a bug. */}
       <PageMasthead title="Homepage background videos" />
       <div className="mb-6">
-        <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
-          Six looping background videos for the homepage. The first is the{' '}
+        <div className="mt-2 max-w-2xl">
+          <InfoTip label="About these videos" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Six looping background videos for the homepage. The first is the{' '}
           <strong>main background video</strong> (the full-screen looping hero). The other five are the{' '}
           <strong>pillar icons</strong> shown in the dock at the bottom of the page — Memories, Likha, Plano,
           Sai, and Tiangge. Upload a clip to a slot, then click <strong>Publish</strong> to make it live. Until a
           slot is published, the homepage keeps its current hero / hides that icon.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <BackgroundVideosManager slots={slots} />

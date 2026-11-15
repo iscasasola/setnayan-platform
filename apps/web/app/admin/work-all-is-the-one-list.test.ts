@@ -30,9 +30,11 @@ const feed = read('queues/_components/queues-triage-feed.tsx');
 
 test('/admin renders the work list itself — not a copy, not the old Overview', () => {
   assert.match(home, /import AdminWorkLanding from '\.\/work\/page';/);
-  assert.match(home, /export default AdminWorkLanding;/);
-  // One list: /admin draws nothing of its own.
-  assert.doesNotMatch(home, /<section|<div|return \(/, '/admin draws its own body again — it must be the work list');
+  // ➕ FOCUS | FULL (owner 14 Nov 2026): in FULL /admin is still the work list itself; in FOCUS it is the decide list.
+  assert.match(home, /if \(mode === 'full'\) return AdminWorkLanding\(props\);/);
+  assert.match(home, /return <FocusHome /);
+  // One list: /admin draws nothing of its own beyond choosing which.
+  assert.doesNotMatch(home, /<section|<div|return \(/, '/admin draws its own body again — it must be the work list or Focus');
 });
 
 test('the Exception desk body is gone from Work (desk · ring · lane tiles · More queues · directory)', () => {

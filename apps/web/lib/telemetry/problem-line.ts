@@ -97,30 +97,56 @@ function actionWords(action: string): string {
   return cap(plainWords(name).toLowerCase());
 }
 
-/** A read call's name opens with one of these; anything else saves. */
-const READ_VERB = /^(get|list|read|fetch|count|search|find|load|lookup)\b\s*/i;
-
-const WRITE_VERB = /^(set|save|upsert|insert|update|create|delete|add|remove)\b\s*/i;
-
 /**
- * "GET event_vendors" → "Loading the event suppliers"; "POST rpc/get_vendor_cocktail_editor" → "Loading the supplier
- * cocktail editor". The call's OWN verb wins: a `get_…` function is a read even though it travels as a POST and the
- * fault was filed as a refused write — "Saving to get …" was nonsense on the owner's screen (walk, 14 Nov).
+ * ✍ RW-285d (live walk, 14 Nov 2026): the verb comes from the CALL, not from the fault's kind. Before, every write
+ * kind read "Saving the …" — "Saving the samahan stories" for a DELETE, "Saving the refresh bottleneck signals" for a
+ * background refresh, and a refused `get_…` read said it could not SAVE. A call's own verb is the truest word we have.
  */
-function dataWords(action: string, kind: string): { subject: string; reads: boolean } {
+type DataVerb = 'Loading' | 'Removing' | 'Refreshing' | 'Checking' | 'Saving';
+const CALL_VERBS: ReadonlyArray<[RegExp, DataVerb]> = [
+  [/^(get|list|read|fetch|count|search|find|load|lookup)\b\s*/i, 'Loading'],
+  [/^(delete|remove|clear|purge)\b\s*/i, 'Removing'],
+  [/^(refresh|recompute|rebuild)\b\s*/i, 'Refreshing'],
+  [/^(detect|check|verify|scan)\b\s*/i, 'Checking'],
+  [/^(set|save|upsert|insert|update|create|add|record|bump|mark)\b\s*/i, 'Saving'],
+];
+
+/** "GET event_vendors" → "Loading the event suppliers"; "POST rpc/refresh_bottleneck_signals" → "Refreshing the bottleneck signals". */
+export function dataSubject(action: string, kind: string): { verb: DataVerb; text: string } {
   const method = /^([A-Z]+)\s+/.exec(action)?.[1] ?? '';
   const target = plainWords(action.replace(/^[A-Z]+\s+/, '').replace(/^rpc\//, '')).toLowerCase();
-  const reads = READ_VERB.test(target)
-    ? true
-    : WRITE_VERB.test(target)
-      ? false
-      : kind === 'DB_READ_REFUSED'
-        ? true
-        : kind === 'DB_WRITE_REFUSED'
-          ? false
-          : /^(GET|HEAD)$/.test(method);
-  const what = target.replace(READ_VERB, '').replace(WRITE_VERB, '');
-  return { subject: `${reads ? 'Loading' : 'Saving'} ${what ? `the ${what}` : 'data'}`, reads };
+  const byCall = CALL_VERBS.find(([re]) => re.test(target));
+  const verb: DataVerb = byCall
+    ? byCall[1]
+    : method === 'DELETE'
+      ? 'Removing'
+      : kind === 'DB_READ_REFUSED' || /^(GET|HEAD)$/.test(method)
+        ? 'Loading'
+        : 'Saving';
+  const what = byCall ? target.replace(byCall[0], '') : target;
+  return { verb, text: `${verb} ${what ? `the ${what}` : 'data'}` };
+}
+
+/** What went wrong, in words that agree with the verb ("Loading … — could not load", never "could not save"). */
+function dataOutcome(verb: DataVerb, kind: string): string {
+  if (kind === 'DB_ZERO_ROW') return verb === 'Removing' ? 'nothing was there to remove' : kindWords(kind);
+  if (kind === 'DB_READ_REFUSED' || kind === 'DB_WRITE_REFUSED') {
+    if (verb === 'Loading') return 'could not load';
+    if (verb === 'Removing') return 'could not remove';
+    if (verb === 'Refreshing') return 'could not refresh';
+    if (verb === 'Checking') return 'could not check';
+    return 'could not save';
+  }
+  return kindWords(kind);
+}
+
+/**
+ * ✍ RW-285d: a tapped thing's label once captured an avatar's initial glued to the name ("IIndalecio Casasola") —
+ * `textContent` joins a hidden "I" and "Indalecio" with no space. The capture now skips hidden text
+ * (`labelOf`, fault-observer.ts); rows already stored are mended here, on display.
+ */
+export function mendLabel(raw: string): string {
+  return raw.replace(/^([A-Z])\1(?=[a-z])/, '$1');
 }
 
 const DEAD_END_WORDS: Record<string, string> = {
@@ -165,13 +191,12 @@ export function problemLine(i: ProblemLineInput): string {
     return tail(`${plainWords(i.label ?? i.action)} — ${kindWords(i.kind)}`, i);
   }
   if (i.label) {
-    const l = plainWords(i.label);
+    const l = plainWords(mendLabel(i.label));
     subject = /\b(button|link)$/i.test(l) ? l : `${l} button`;
   } else if (i.kind.startsWith('DB_')) {
-    const d = dataWords(i.action, i.kind);
-    subject = d.subject;
-    // A refused read or write says the one that actually happened — never "Loading … — could not save".
-    if (i.kind === 'DB_READ_REFUSED' || i.kind === 'DB_WRITE_REFUSED') outcome = d.reads ? 'could not load' : 'could not save';
+    const d = dataSubject(i.action, i.kind);
+    const head = `${d.text}${where ? ` on ${where}` : ''} — ${dataOutcome(d.verb, i.kind)}`;
+    return tail(head, i);
   } else if (i.action.includes('#')) {
     subject = actionWords(i.action);
   } else {

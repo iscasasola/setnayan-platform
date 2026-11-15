@@ -37,6 +37,7 @@ import {
   SheetFoot,
 } from '@/app/dashboard/[eventId]/schedule/_components/schedule-sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export type VendorPrepItem = {
   itemId: string;
@@ -62,13 +63,7 @@ function todayLocal(): string {
 }
 
 function formatDateShort(date: string): string {
-  const d = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return date;
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(d);
+  return formatRecordedAt(date) ?? date;
 }
 
 export function VendorPrepForBooking({

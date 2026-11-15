@@ -4,6 +4,7 @@ import { House, Telescope } from 'lucide-react';
 import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { AccountBarTab } from '@/lib/account-bar';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { HOME_HREF } from '@/lib/home-segments';
 
 /** The supplier bar's Today — the shop's first screen (`vendor-bottom-nav.tsx`), the Home tab's twin. */
@@ -92,11 +93,20 @@ export function accountBarItems(tabs: readonly AccountBarTab[], { hasShop = fals
  * the same for every tab on every bar (`app/_components/nav/tab-memory.ts`, wired in `BottomNav`) — the Home tab's last
  * address is `/dashboard?seg=…`. Re-tapping Home ON Home is the page's to answer (the top, `useTabReselect('home')`).
  */
-export function AccountBottomNav({ tabs, hasShop = false }: { tabs: readonly AccountBarTab[]; hasShop?: boolean }) {
+export function AccountBottomNav({
+  tabs,
+  boundary,
+  hasShop = false,
+}: {
+  tabs: readonly AccountBarTab[];
+  boundary?: ShellBoundary;
+  hasShop?: boolean;
+}) {
   const items = accountBarItems(tabs, { hasShop });
   return (
     <div data-account-bar="">
-      <BottomDock>
+      {/* 📱→🖥 The dock leaves at the shell's line — 701 on both account layouts (plan D5, 2026-11-13). */}
+      <BottomDock boundary={boundary}>
         <BottomNav items={items} />
       </BottomDock>
     </div>

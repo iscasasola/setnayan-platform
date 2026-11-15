@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1876
-# tables: 502
-# columns: 6089
-# notnull: 3674
+# ledger: 1884
+# tables: 504
+# columns: 6105
+# notnull: 3681
 [ledger]
 20260512000000
 20260513000000
@@ -1887,7 +1887,15 @@
 20271345220516
 20271345227050
 20271345334309
+20271345380761
 20271345494976
+20271345870082
+20271345904117
+20271346038449
+20271346331739
+20271346335702
+20271346561709
+20271347531019
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -4152,6 +4160,13 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.claimed_by
+gift_moment_claims.event_id
+gift_moment_claims.ref_id
+gift_moment_claims.source
+gift_moment_claims.vendor_profile_id
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.resend_id
@@ -4764,6 +4779,7 @@ moodboard_library_assets.asset_id
 moodboard_library_assets.asset_subtype
 moodboard_library_assets.asset_type
 moodboard_library_assets.created_at
+moodboard_library_assets.event_file_id
 moodboard_library_assets.is_event_linked
 moodboard_library_assets.label
 moodboard_library_assets.rejected_at
@@ -6241,6 +6257,14 @@ supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.resend_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.arrive_clock
+supplier_own_times.call_clock
+supplier_own_times.done_clock
+supplier_own_times.event_id
+supplier_own_times.filed_at
+supplier_own_times.updated_at
+supplier_own_times.updated_by
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at
@@ -9281,6 +9305,10 @@ fraud_signals.updated_at
 fraud_signals.vendor_profile_id
 fraud_signals.window_end
 fraud_signals.window_start
+gift_moment_claims.claim_id
+gift_moment_claims.claimed_at
+gift_moment_claims.ref_id
+gift_moment_claims.source
 godchild_reminder_log.godparent_id
 godchild_reminder_log.reminder_year
 godchild_reminder_log.sent_at
@@ -10594,6 +10622,9 @@ supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.sent_at
+supplier_own_times.event_id
+supplier_own_times.updated_at
+supplier_own_times.vendor_profile_id
 supplier_page_photo_notices.event_id
 supplier_page_photo_notices.notice_id
 supplier_page_photo_notices.noticed_at

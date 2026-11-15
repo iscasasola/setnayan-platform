@@ -107,3 +107,30 @@ export function eventLineWords(input: { typeLabel: string | null; venue: string 
   const words = [input.typeLabel?.trim() || null, input.venue?.trim() || null, month].filter((x): x is string => Boolean(x));
   return words.length ? words.join(' · ') : null;
 }
+
+/** One inspiration a tagged Files photo is in — plain data. */
+export type TagPart = { slotKey: string; label: string };
+/** An album's inspirations with a count (frame 6 chips · frame 7 "In inspiration" row), in first-seen order. */
+export type AlbumInspiration = TagPart & { count: number };
+
+/**
+ * Frames 6–7: which inspirations an album's photos are in, with how many photos each. Only Files photos can be tagged
+ * (an album photo's key is `files:<file id>`); a Papic album photo never is. Pure — the pages hand in the tags they read.
+ */
+export function albumInspirations(photoKeys: readonly string[], tagsByFile: ReadonlyMap<string, readonly TagPart[]>): AlbumInspiration[] {
+  const out = new Map<string, AlbumInspiration>();
+  for (const key of photoKeys) {
+    if (!key.startsWith('files:')) continue;
+    for (const t of tagsByFile.get(key.slice('files:'.length)) ?? []) {
+      const cur = out.get(t.slotKey);
+      if (cur) cur.count += 1;
+      else out.set(t.slotKey, { ...t, count: 1 });
+    }
+  }
+  return [...out.values()];
+}
+
+/** "Bridal bouquet · 2" — one chip's words. */
+export function inspirationChipWords(i: AlbumInspiration): string {
+  return `${i.label} · ${formatCount(i.count)}`;
+}

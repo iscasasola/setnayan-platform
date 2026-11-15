@@ -6,6 +6,7 @@ import {
   CalendarHeart,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   CircleDashed,
@@ -63,6 +64,7 @@ import ps from './people-screen.module.css';
 import { PeoplePinnedRow, type PeopleSettings } from './people-pinned-row';
 import Link from 'next/link';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Sheet } from '@/app/_components/sheet';
 import { personPageHref } from '@/lib/person-page-link';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
@@ -144,7 +146,7 @@ const STATE_LABEL: Record<RosterState, string> = {
 /** ONE heading style for the whole page (the redesign's problem 5 — four
  *  styles lived on one page). The roster's own rule, used everywhere. */
 export const PEOPLE_SECTION_HEADING =
-  'font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55';
+  'text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]';
 
 /** The label pill's tint — the Guest row's pill vocabulary, chosen by MEANING (family warm, ninong violet). */
 function pillTint(relation: ConnectionRelation | null): string {
@@ -568,17 +570,17 @@ export function PeopleRosterView({
           label="People — show, or work the list"
           value={picker.view}
           options={[
-            ...picker.options.map((o) => ({ ...o, group: 'Show', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+            ...picker.options.map((o) => ({ ...o, group: 'Show', icon: <ListFilter className="h-5 w-5" strokeWidth={1.9} /> })),
             ...(nobody
               ? []
               : [
-                  { key: 'list:fold', label: allOpen ? 'Collapse all' : 'Expand all', group: 'This list', icon: allOpen ? <ChevronsDownUp className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <ChevronsUpDown className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
-                  { key: 'list:select', label: 'Select', group: 'This list', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
+                  { key: 'list:fold', label: allOpen ? 'Collapse all' : 'Expand all', group: 'This list', icon: allOpen ? <ChevronsDownUp className="h-5 w-5" strokeWidth={1.9} /> : <ChevronsUpDown className="h-5 w-5" strokeWidth={1.9} /> },
+                  { key: 'list:select', label: 'Select', group: 'This list', icon: <SquareCheck className="h-5 w-5" strokeWidth={1.9} /> },
                   ...(tally.waiting > 0
-                    ? [{ key: 'list:waiting', label: `Waiting for them ${formatCount(tally.waiting)}`, group: 'This list', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={1.9} /> }]
+                    ? [{ key: 'list:waiting', label: `Waiting for them ${formatCount(tally.waiting)}`, group: 'This list', icon: <Clock className="h-5 w-5" strokeWidth={1.9} /> }]
                     : []),
                 ]),
-            { key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
+            { key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-5 w-5" strokeWidth={1.9} /> },
           ]}
           onPick={(k) => {
             if (k === INVITE_SOMEONE_KEY) return setInviting(true);
@@ -607,12 +609,12 @@ export function PeopleRosterView({
               label="Ask the selected into"
               value={null}
               buttonText={askable.length === 0 ? 'Ask into group' : `Ask ${formatCount(askable.length)} into group`}
-              options={roster.mySamahan.map((s) => ({ key: s.id, label: s.name, icon: <UsersRound className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+              options={roster.mySamahan.map((s) => ({ key: s.id, label: s.name, icon: <UsersRound className="h-5 w-5" strokeWidth={1.9} /> }))}
               onPick={askIntoGroup}
             />
           </span>
         ) : (
-          <span className="flex h-full min-w-0 flex-1 items-center px-3.5 text-[13px] text-ink/60">Make a group to ask people into it.</span>
+          <span className="flex h-full min-w-0 flex-1 items-center px-3.5 text-[13px] text-ink/70">Make a group to ask people into it.</span>
         )
       }
       action={
@@ -637,7 +639,7 @@ export function PeopleRosterView({
       <UndoToastHost />
       {topLine}
       {error ? (
-        <p role="alert" className="py-2 text-sm text-red-700 dark:text-red-300">
+        <p role="alert" className="py-2 text-sm text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}
@@ -675,10 +677,10 @@ export function PeopleRosterView({
       ) : null}
       {toRemove ? (
         <GuestPopup kind="confirm" onClose={() => setToRemove(null)} label="Remove from your people">
-          <p className="text-[17px] font-semibold text-ink">
+          <p className="text-lg font-semibold text-ink">
             {toRemove.length === 1 ? `Remove ${toRemove[0]!.name}?` : `Remove ${formatCount(toRemove.length)} people?`}
           </p>
-          <p className="mb-3 mt-1 text-[14px] text-ink/65">
+          <p className="mb-3 mt-1 text-sm text-ink/70">
             {toRemove.length === 1 && toRemove[0]!.state === 'waiting_them'
               ? 'Your request is taken back. They are not told.'
               : 'They leave your people. You can add them again any time.'}
@@ -786,7 +788,7 @@ function RequestRow({ person: p, pending, run }: { person: RosterPerson; pending
           <PersonAvatar name={p.name} size="row" />
         </span>
       )}
-      <span className="min-w-0 text-[14px] leading-snug text-ink">
+      <span className="min-w-0 text-sm leading-snug text-ink">
         {isLabelAsk && p.ask ? (
           <PersonNameLink href={href} name={p.name} className="font-semibold" data={{ 'data-request-sentence': '' }}>
             {sentence}
@@ -985,15 +987,8 @@ function PersonCard({
   const canAskGroup = p.kind === 'connection' && p.state === 'connected' && samahan.length > 0;
   const outgoingAsk = p.state === 'connected' && p.ask?.state === 'waiting_them';
   return (
-    <GuestPopup
-      onClose={onClose}
-      rootClassName="fixed inset-0 z-[80]"
-      panelClassName={`gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl`}
-      labelledById="person-card-name"
-      panelData={{ 'data-person-card': '' }}
-    >
-      <div className={ps.cardBody}>
-      <span aria-hidden className="mx-auto mb-3.5 mt-1.5 block h-1 w-10 rounded-full bg-ink/15" />
+    <Sheet open onClose={onClose} labelledById="person-card-name" rise>
+      <div className={ps.cardBody} data-person-card="">
       <div className="flex items-start gap-3.5">
         <span className={`${ps.cardFace} ${pillTint(p.relation)}`} aria-hidden>
           <PersonAvatar name={p.name} size="row" />
@@ -1001,7 +996,7 @@ function PersonCard({
         {/* No eyebrow (owner 2026-10-25, "wording is too much"): it said the state the pill says and the label
             the Label row says. Name + state, then the page. */}
         <div className="min-w-0">
-          <h2 id="person-card-name" className="mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+          <h2 id="person-card-name" className="mt-0.5 text-2xl font-semibold leading-tight text-ink">
             {p.name}
           </h2>
           <span className={`${gs.pill} ${p.state === 'connected' ? gs.pillOk : gs.pillWine} ${ps.pillRow} mt-2`}>
@@ -1014,12 +1009,12 @@ function PersonCard({
       {href ? (
         <Link
           href={href}
-          className={`${ps.kv} mt-4 justify-between text-[16px] font-medium text-ink`}
+          className={`${ps.kv} mt-4 justify-between text-base font-medium text-ink`}
           data-card-page-link=""
           data-person-page-link=""
         >
           <span>See {first}’s page</span>
-          <span aria-hidden className="text-ink/45">→</span>
+          <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={1.75} />
         </Link>
       ) : null}
 
@@ -1090,16 +1085,16 @@ function PersonCard({
         </div>
       ) : null}
 
-      <button
-        type="button"
+      <ActionButton
+        tone="danger"
+        icon={X}
+        label={p.state === 'waiting_them' ? `Withdraw your request to ${first}` : `Remove ${first} from your people`}
         onClick={onRemove}
-        className="mt-6 min-h-11 text-[14px] text-ink/60 underline underline-offset-[3px]"
+        className="mt-6"
         data-card-remove=""
-      >
-        {p.state === 'waiting_them' ? `Withdraw your request to ${first}` : `Remove ${first} from your people`}
-      </button>
+      />
       </div>
-    </GuestPopup>
+    </Sheet>
   );
 }
 
@@ -1155,13 +1150,13 @@ function CardLabel({
         />
       </span>
       {ask ? (
-        <span className="text-[12.5px] text-ink/60" data-label-ask-state={ask.state}>
+        <span className="text-[13px] text-ink/70" data-label-ask-state={ask.state}>
           {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
         </span>
       ) : null}
       {question ? (
         <span className="flex flex-col gap-1.5" role="status" data-replace-partner>
-          <span className="text-[12.5px] leading-snug text-ink">{question.text}</span>
+          <span className="text-[13px] leading-snug text-ink">{question.text}</span>
           <span className="flex gap-2">
             <ActionButton tone="brand" main icon={Check} label="Yes, change it" onClick={() => commit(question.next, true)} disabled={busy} />
             <ActionButton tone="neutral" icon={X} label="Keep as is" onClick={() => setQuestion(null)} disabled={busy} />
@@ -1222,7 +1217,7 @@ function CardGroup({
           />
         </span>
       ) : person.samahan.length === 0 ? (
-        <span className="text-[14px] text-ink/50">No group yet</span>
+        <span className="text-sm text-ink/70">No group yet</span>
       ) : null}
     </span>
   );
@@ -1319,10 +1314,10 @@ function LabelCell({
           · {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
         </span>
       ) : null}
-      {failed ? <span className="text-red-700 dark:text-red-300">{failed}</span> : null}
+      {failed ? <span className="text-[rgb(var(--color-danger))]">{failed}</span> : null}
       {question ? (
         <span className="mt-1.5 flex w-full flex-col gap-1.5" role="status" data-replace-partner>
-          <span className="text-[12.5px] leading-snug text-ink">{question.text}</span>
+          <span className="text-[13px] leading-snug text-ink">{question.text}</span>
           <span className="flex gap-2">
             <ActionButton tone="brand" main icon={Check} label="Yes, change it" onClick={() => commit(question.next, true)} disabled={busy} />
             <ActionButton tone="neutral" icon={X} label="Keep as is" onClick={() => setQuestion(null)} disabled={busy} />
@@ -1331,9 +1326,16 @@ function LabelCell({
       ) : null}
       {open ? (
         <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={228}>
-          <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
-            How is {person.name.split(/\s+/)[0]} yours?
-          </p>
+          <div className="px-2.5 pb-1 pt-1.5" data-label-footnote="">
+            <InfoTip
+              label={`How is ${person.name.split(/\s+/)[0]} yours?`}
+              labelClassName="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]"
+              align="start"
+            >
+              Lolo, lola, pinsan, biyenan and the other in-laws come out of these on their own.
+              {person.state === 'connected' ? ` ${person.name.split(/\s+/)[0]} confirms a label before it counts.` : ''}
+            </InfoTip>
+          </div>
           {relations.map((r) => (
             <button
               key={r}
@@ -1342,7 +1344,7 @@ function LabelCell({
               onClick={() => commit(r)}
               className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] transition-colors ${
                 current === r
-                  ? 'bg-terracotta/10 font-medium text-terracotta-700'
+                  ? 'bg-ink/[0.06] font-semibold text-ink'
                   : 'text-ink/85 hover:bg-ink/[0.04]'
               }`}
             >
@@ -1355,15 +1357,11 @@ function LabelCell({
               type="button"
               role="menuitem"
               onClick={() => commit(null)}
-              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-ink/60 transition-colors hover:bg-ink/[0.04]"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[15px] text-[rgb(var(--color-danger))] transition-colors hover:bg-ink/[0.04]"
             >
               Remove the label
             </button>
           ) : null}
-          <p className="px-2.5 pb-1.5 pt-1 text-[11.5px] leading-snug text-ink/55" data-label-footnote>
-            Lolo, lola, pinsan, biyenan and the other in-laws come out of these on their own.
-            {person.state === 'connected' ? ` ${person.name.split(/\s+/)[0]} confirms a label before it counts.` : ''}
-          </p>
         </Popover>
       ) : null}
     </>

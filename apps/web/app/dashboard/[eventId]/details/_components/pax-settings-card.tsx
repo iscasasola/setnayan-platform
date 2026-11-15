@@ -86,14 +86,14 @@ export function PaxSettingsCard({
             />
             <span>
               <span className="block text-sm font-medium text-ink">{opt.label}</span>
-              <span className="block text-xs text-ink/55">{opt.help}</span>
+              <span className="block text-xs text-ink/70">{opt.help}</span>
             </span>
           </label>
         ))}
       </fieldset>
 
       <div className="flex items-center gap-3">
-        <button type="submit" className="button-primary" disabled={pending}>
+        <button type="submit" className="ab ab-brand ab-main" disabled={pending}>
           {pending ? 'Saving…' : 'Save'}
         </button>
         {saved ? <span className="text-sm text-success-700">Saved.</span> : null}

@@ -34,6 +34,7 @@ import {
   spouseIsOfferable,
 } from '@/lib/people-add';
 import { followUser, unfollowUser } from '@/app/u/_actions/audience-actions';
+import { confirmedByName, type AccountNameParts } from '@/lib/person-page-facts';
 import { celebrantAccountsFor } from '@/lib/event-celebrants.server';
 import { requestConnection } from '@/lib/people-connection-request.server';
 import { removalWriteResult, removableConnectionFilter } from '@/lib/people-remove';
@@ -816,17 +817,16 @@ export async function confirmConnection(
         .eq('person_id', rows[0]!.from_person_id)
         .maybeSingle(),
       admin.from('people').select('display_name').eq('person_id', myPerson).maybeSingle(),
-      // The account's own name — the person node's `display_name` is empty for every confirmed connection measured on
-      // prod (2026-11-14, 8 of 8 read "They confirmed your connection"; W3 finding F-W3-27). Same fallback as the
-      // label path above.
-      admin.from('users').select('display_name').eq('user_id', user.id).maybeSingle(),
+      // 👤 F-W3-27: "They confirmed your connection" — the person row's display name is blank on most accounts, so the
+      // account's own name (display, else first + last — `profileShownName`) is the fallback before the neutral word.
+      admin.from('users').select('display_name, first_name, last_name').eq('user_id', user.id).maybeSingle(),
     ]);
     const askerUserId = (asker as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
     if (askerUserId) {
-      const myName =
-        firstNameOf((me as { display_name: string | null } | null)?.display_name) ??
-        firstNameOf((myAccount as { display_name: string | null } | null)?.display_name) ??
-        'They';
+      const myName = confirmedByName(
+        (me as { display_name: string | null } | null)?.display_name,
+        myAccount as AccountNameParts | null,
+      );
       await emitNotification({
         userId: askerUserId,
         type: 'connection_confirmed',

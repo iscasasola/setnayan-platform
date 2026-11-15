@@ -18,6 +18,7 @@ import {
   type PageNoticeRow,
 } from '@/lib/card-portfolio-albums';
 import type { TheirOwnUploadsView, TheirWorkAlbumView } from '@/app/vendor-dashboard/services/their-work/their-work-list';
+import { albumInspirations, type TagPart } from '@/lib/inspiration-tags';
 
 const NOW = new Date('2026-11-13T00:00:00Z');
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
@@ -67,9 +68,19 @@ const WORK = shopWorkAlbums({
   now: NOW,
 });
 
+/** 🏷 Frames 6–7 (DECISION_LOG 2026-11-14): sample inspiration tags on three of the wedding's filed photos. */
+const BOUQUET: TagPart = { slotKey: 'flowers', label: 'Bridal bouquet' };
+const ENTOURAGE: TagPart = { slotKey: 'entourage_flowers', label: 'Entourage bouquets' };
+const LAB_TAGS = new Map<string, TagPart[]>([
+  [`lab-e1-${LAB_CARD_ID}-f0`, [BOUQUET, ENTOURAGE]],
+  [`lab-e1-${LAB_CARD_ID}-f1`, [BOUQUET]],
+  [`lab-e1-${LAB_CARD_ID}-f2`, [ENTOURAGE]],
+]);
+
 /** The edit sheet's Portfolio (supplier side: each album opens in Their work). */
 export const LAB_CARD_ALBUMS: AlbumView[] = toAlbumViews(cardAlbums(WORK, LAB_CARD_ID), {
   href: (id) => `/dev/card-maker-lab?s=edit&work=1#${workAlbumAnchor(id)}`,
+  tags: LAB_TAGS,
 });
 export const LAB_CARD_SUMMARY = portfolioSummary(cardAlbums(WORK, LAB_CARD_ID));
 /** The couple's grown card (no href, no ids). */
@@ -85,6 +96,7 @@ export const LAB_THEIR_WORK: TheirWorkAlbumView[] = WORK.map((a) => {
     urls,
     more: Math.max(0, a.photos.length - urls.length),
     bookedOn: rows.map((r) => ({ ...r, href: '/dev/card-maker-lab?s=edit' })),
+    inspirations: albumInspirations(a.photos.map((p) => p.key), LAB_TAGS).map((i) => i.label),
   };
 });
 

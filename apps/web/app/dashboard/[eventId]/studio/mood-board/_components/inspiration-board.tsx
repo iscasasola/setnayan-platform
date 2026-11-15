@@ -245,16 +245,16 @@ export function InspirationBoard({
       ) : null}
       {GROUPS.map((group) => (
         <div key={group.title} className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
             {group.title}
           </p>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {group.slots.map((slot) => (
               <li
                 key={slot.k}
-                className="space-y-1 rounded-xl border border-ink/12 bg-cream p-2"
+                className="border-t border-ink/10 space-y-1 p-2"
               >
-                <p className="px-0.5 text-[11px] font-medium text-ink/70">{slot.label}</p>
+                <p className="px-0.5 text-[12px] font-medium text-ink/70">{slot.label}</p>
                 <div className="flex gap-1.5">
                   {MOODBOARD_SLOT_POSITIONS.map((pos) => (
                     <SlotTile
@@ -269,7 +269,7 @@ export function InspirationBoard({
                   ))}
                 </div>
                 {moveError?.slot === slot.k ? (
-                  <p role="alert" className="px-0.5 text-[10px] text-terracotta-700">
+                  <p role="alert" className="px-0.5 text-[12px] text-terracotta-700">
                     {moveError.message}
                   </p>
                 ) : null}
@@ -283,7 +283,7 @@ export function InspirationBoard({
                       setOpenGallerySlot((prior) => (prior === slot.k ? null : slot.k))
                     }
                     aria-expanded={openGallerySlot === slot.k}
-                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
+                    className="sn-press px-0.5 text-left text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
                   >
                     {openGallerySlot === slot.k
                       ? 'Hide supplier photos'
@@ -378,7 +378,7 @@ function SlotTile({
 
   if (tile === 'uploading') {
     return (
-      <div className="flex aspect-square flex-1 items-center justify-center rounded-lg border border-ink/15 bg-white text-[10px] text-ink/50">
+      <div className="border-t border-ink/10 flex aspect-square flex-1 items-center justify-center text-[12px] text-ink/70 pt-4">
         …
       </div>
     );
@@ -413,7 +413,7 @@ function SlotTile({
             answer "whose bouquet was that?" a week later. Absent for the
             couple's own uploads, which have nobody to credit. */}
         {tile.credit ? (
-          <span className="absolute inset-x-0 bottom-0 truncate bg-ink/65 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-cream">
+          <span className="absolute inset-x-0 bottom-0 truncate bg-ink/65 px-1.5 py-0.5 text-[12px] font-semibold leading-tight text-cream">
             {tile.credit}
           </span>
         ) : null}
@@ -425,7 +425,7 @@ function SlotTile({
       onDragOver={handleDragOver}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
-      className={`flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/40 transition hover:border-terracotta hover:text-terracotta ${dropZoneClass}`}
+      className={`flex aspect-square flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-ink/25 bg-white text-lg text-ink/70 transition hover:border-terracotta hover:text-terracotta ${dropZoneClass}`}
     >
       +
       <input

@@ -72,7 +72,7 @@ export async function HomeLiveCard({ eventId, name, brand }: { eventId: string; 
           {read.channels.length > 0 ? (
             <div className="flex flex-col gap-2 py-3" data-home-card-row="channels">
               <span className="text-[14px] font-medium">Channels</span>
-              <span className="text-[12.5px] text-ink/60">Tap a camera to put it on Channel 1.</span>
+              <span className="text-[13px] text-ink/75">Tap a camera to put it on Channel 1.</span>
               <div className="grid grid-cols-2 gap-2">
                 {read.channels.map((c) => (
                   <form key={c.id} action={cutToMainStage}>
@@ -86,7 +86,7 @@ export async function HomeLiveCard({ eventId, name, brand }: { eventId: string; 
                       data-home-live-channel={c.id}
                     >
                       <span className="text-[13.5px] font-medium">{c.label}</span>
-                      <span className="text-[12px] text-ink/60">{c.mainStage ? 'On Channel 1' : c.caption}</span>
+                      <span className="text-[13px] text-ink/75">{c.mainStage ? 'On Channel 1' : c.caption}</span>
                     </button>
                   </form>
                 ))}

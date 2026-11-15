@@ -66,6 +66,8 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   plan_not_in_full: 'proposal_plan_not_in_full',
   // 🧪 the demo rule — one notice per sentence (`demoNotice` picks it from the core's own message).
   demo_scope: 'proposal_demo_shop',
+  // 🧾 OWN-01 — the offer's first-N couples already have it.
+  offer_taken: 'proposal_offer_taken',
   failed: 'proposal_failed',
 };
 

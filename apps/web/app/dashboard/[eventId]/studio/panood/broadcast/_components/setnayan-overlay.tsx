@@ -58,9 +58,9 @@ export type OverlaySize = 'thumb' | 'monitor' | 'full';
 
 const SIZE: Record<OverlaySize, { text: string; sub: string; gap: string }> = {
   // Source thumbnails — small, so wordmark only; a subtitle would be unreadable noise.
-  thumb: { text: 'text-[10px] tracking-[0.28em]', sub: 'hidden', gap: 'gap-0' },
+  thumb: { text: 'text-[12px] tracking-[0.28em]', sub: 'hidden', gap: 'gap-0' },
   // The control-room program monitor.
-  monitor: { text: 'text-2xl sm:text-3xl tracking-[0.3em]', sub: 'text-[10px] tracking-[0.2em]', gap: 'gap-2' },
+  monitor: { text: 'text-2xl sm:text-3xl tracking-[0.3em]', sub: 'text-[12px] tracking-[0.2em]', gap: 'gap-2' },
   // The OBS capture surface / fullscreen.
   full: { text: 'text-4xl sm:text-6xl tracking-[0.32em]', sub: 'text-xs tracking-[0.22em]', gap: 'gap-3' },
 };

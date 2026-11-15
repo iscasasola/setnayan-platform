@@ -71,7 +71,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10 sm:px-6">
-      <Link href="/admin/vendors" className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
+      <Link href="/admin/vendors" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> All suppliers
       </Link>
 
@@ -104,7 +104,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
         </div>
         <Link
           href={`/admin/vendors/${vendorProfileId}/plan`}
-          className="inline-flex items-center gap-1.5 text-sm text-sky-700 hover:text-sky-900"
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm text-sky-700 hover:text-sky-900"
         >
           <BadgeCheck className="h-4 w-4" strokeWidth={1.75} /> Plan
         </Link>

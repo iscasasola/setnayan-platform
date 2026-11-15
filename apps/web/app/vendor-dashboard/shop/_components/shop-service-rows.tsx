@@ -39,7 +39,7 @@ export function ShopServiceRows({
       <h2 id="shop-services-h" className="sr-only">
         Services
       </h2>
-      <p className="pb-1 pt-2 text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
+      <p className="pb-1 pt-2 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         <InfoTip label="Services" align="start">
           List and build every service you do — cards, tools, photos — while you wait. A service with a card switched on is
           live: couples can find and book it. The rest stay ready. How many can be live on each plan is set by Setnayan.

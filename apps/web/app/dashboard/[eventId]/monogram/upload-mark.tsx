@@ -112,11 +112,7 @@ export function UploadMark({
       {notice ? (
         <p
           role="status"
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            notice.tone === 'ok'
-              ? 'border-success-200 bg-success-50 text-success-800'
-              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
-          }`}
+          className={`text-sm font-semibold ${notice.tone === 'ok' ? 'text-success-800' : 'text-danger-700'}`}
         >
           {notice.text}
         </p>
@@ -143,9 +139,9 @@ export function UploadMark({
           first thing on this side, as in the concept, with the file controls
           under it. */}
       {decoded ? (
-        <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+        <div className="space-y-4">
           <header className="flex items-center justify-between gap-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep" data-testid="upload-elements">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" data-testid="upload-elements">
               {decoded.traced
                 ? `Deciphered into ${decoded.elements} ${decoded.elements === 1 ? 'piece' : 'pieces'} — traced to crisp vector`
                 : `${decoded.elements} vector ${decoded.elements === 1 ? 'element' : 'elements'} found`}
@@ -190,7 +186,7 @@ export function UploadMark({
           <span className="text-sm font-medium text-ink/80">
             {busy ? 'Deciphering…' : 'Tap to upload · SVG or transparent PNG'}
           </span>
-          <span className="text-xs text-ink/50">Up to 8MB · your file never leaves the page until you save</span>
+          <span className="text-xs text-ink/75">Up to 8MB · your file never leaves the page until you save</span>
         </label>
       ) : null}
 
@@ -238,13 +234,13 @@ function SavedMark({
   const colours = markInks(svg).length;
 
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="space-y-3 border-t border-ink/10 pt-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-gold-deep">
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {live ? 'Your logo, in use' : 'Your logo, kept'}
         </p>
         <div className="flex items-center gap-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
             {pieces} {pieces === 1 ? 'piece' : 'pieces'} · {colours} {colours === 1 ? 'colour' : 'colours'}
           </p>
           {tools}

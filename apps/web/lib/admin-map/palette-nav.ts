@@ -60,6 +60,11 @@ export function shouldOfferAssistant(args: {
 }
 
 export type PaletteNavRow<T, R = never> =
+  /**
+   * ONE recommended action read off the owner's own words (ASK-KW, 14 Nov 2026) — always first, so Enter takes it.
+   * It opens a page or prepares a form; it never performs anything.
+   */
+  | { kind: 'recommend' }
   | { kind: 'ask' }
   | { kind: 'dest'; dest: T }
   /**
@@ -93,8 +98,10 @@ export function buildNavRows<T, R = never>(
   offerAsk: boolean,
   hits: readonly T[],
   records: readonly R[] = [],
+  recommend = false,
 ): PaletteNavRow<T, R>[] {
   return [
+    ...(recommend ? [{ kind: 'recommend' as const }] : []),
     ...(offerAsk ? [{ kind: 'ask' as const }] : []),
     ...hits.map((dest) => ({ kind: 'dest' as const, dest })),
     ...records.map((record) => ({ kind: 'record' as const, record })),

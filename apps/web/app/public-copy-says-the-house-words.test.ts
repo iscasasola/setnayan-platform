@@ -45,7 +45,7 @@ import { copyStrings } from '@/lib/public-copy-strings';
  *     only as an EVENT TYPE's name, which comes from the database vocabulary,
  *     not from these files — so it can never be a finding here.
  *   · "Animated Monogram" — retired from sale 2026-10-22 (#6781); its
- *     animation is Event Hub Pro's Logo & QR part. /palogo and the home page's
+ *     animation is Event Pro's Logo & QR part. /palogo and the home page's
  *     structured data still sold it by name.
  *   · New roots: the sign-up doors (/open-shop, /signup, /login, the password
  *     pages), /help articles, /download, the /tour walk-through, the front
@@ -79,6 +79,7 @@ const ROOTS = [
   'app/_components/frontdoor',
   'lib/blog.ts',
   'lib/help.ts',
+  'lib/help', // help split 2026-11-14: the answers live here now
   // Widened 2026-10-23 — see the docblock.
   'app/page.tsx',
   'app/open-shop',
@@ -102,7 +103,7 @@ const BANNED: ReadonlyArray<[string, RegExp]> = [
   ['website — say "Event Hub" (or "Setnayan page" for a supplier)', /\bweb ?sites?\b/gi],
   ['site — say "Event Hub"', /\b(?:your|our|their|the|event|wedding|invitation|own)\s+sites?\b/gi],
   ['celebration — say "event"', /\bcelebrations?\b/gi],
-  ['Animated Monogram — retired; say Logo Maker / Event Hub Pro’s Logo & QR', /\banimated monograms?\b/gi],
+  ['Animated Monogram — retired; say Logo Maker / Event Pro’s Logo & QR', /\banimated monograms?\b/gi],
 ];
 
 /** Each allowance: the file, the exact phrase it permits, and why that is true. */
@@ -123,7 +124,7 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
       'category the Event Hub replaces, never our own page (same exemption as product-pages-say-what-ships).',
   },
   {
-    file: 'lib/help.ts',
+    file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /paid wedding website builders/i,
     why: 'The question a couple types into a search engine; it names the other products, and the answer is "the Event Hub".',
   },
@@ -133,7 +134,7 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     why: "The Church's own word for the rite (a liturgical celebration is the Mass), in an article about a Catholic wedding — not our word for an event.",
   },
   {
-    file: 'lib/help.ts',
+    file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /local government website/i,
     why: "A city hall's own website, where a supplier renews a business permit — not ours.",
   },

@@ -17,6 +17,7 @@ import {
   setPhotoDeliverySyncModeManual,
 } from './actions';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Photo Delivery' };
 
 type SyncMode = 'manual_release' | 'auto_sync';
@@ -194,14 +195,11 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
             <p className="font-semibold tracking-tight">
               Your photos stay — full resolution has a window
             </p>
-            <p className="text-warn-900/85">
-              Every photo stays in your Memories, free, for life.{' '}
-              <span className="font-mono font-semibold">3 months</span> after
-              your event&rsquo;s last day we swap the full-resolution original for
-              the 720p copy, and we keep that copy indefinitely. Anything already in your
+            <InfoTip labelAs="p" label="Every photo stays in your Memories, free, for life. 3 months after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely." labelNode={<>Every photo stays in your Memories, free, for life.{' '} <span className="font-mono font-semibold">3 months</span> after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely.</>} labelClassName="text-warn-900/85" align="start">
+              Anything already in your
               Drive folder is yours: we only add to it, and never compress or
               remove what&rsquo;s there.
-            </p>
+            </InfoTip>
           </div>
         </div>
       </aside>
@@ -279,7 +277,7 @@ function SyncModeSection({
   return (
     <section
       aria-label="Photo delivery sync mode"
-      className="sn-tile space-y-4 p-5 sm:p-6"
+      className="border-t border-ink/10 space-y-4 py-5 sm:p-6"
     >
       <header className="space-y-1.5">
         <p className="sn-eye">
@@ -288,10 +286,10 @@ function SyncModeSection({
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
           How should photos reach your Drive?
         </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Change this any time before the event. The upload pipeline reads
+        <InfoTip labelAs="p" label="Change this any time before the event." labelClassName="text-sm text-ink/70" className="max-w-prose" align="start">
+          The upload pipeline reads
           this setting when photos start landing in your archive.
-        </p>
+        </InfoTip>
       </header>
 
       {justSet ? (
@@ -397,7 +395,7 @@ function SyncModeCard({
           {selected ? (
             <span
               aria-hidden
-              className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream"
+              className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-2 py-0.5 text-[12px] uppercase tracking-[0.15em] text-cream"
             >
               <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
               Selected
@@ -406,7 +404,7 @@ function SyncModeCard({
         </div>
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-ink">{title}</h3>
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
             {tagline}
           </p>
         </div>

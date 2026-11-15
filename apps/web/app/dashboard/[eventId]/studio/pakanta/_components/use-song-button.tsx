@@ -33,7 +33,7 @@ export function UseSongButton({ eventId }: { eventId: string }) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex items-center gap-2 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry/90 disabled:opacity-60"
+        className="ab ab-brand ab-main"
       >
         {pending ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -47,8 +47,8 @@ export function UseSongButton({ eventId }: { eventId: string }) {
           {error}
         </p>
       ) : (
-        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink/55">
-          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-ink/40" /> Guests hear it on your Event Hub.
+        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink/70">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-ink/70" /> Guests hear it on your Event Hub.
         </p>
       )}
     </div>

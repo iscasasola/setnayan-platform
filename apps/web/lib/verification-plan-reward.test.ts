@@ -50,7 +50,8 @@ test('once per shop: the server checks for an earlier reward first, and both doo
   const founders = stripComments(readFileSync('app/admin/vendors/verification-bypass-actions.ts', 'utf8'));
   assert.match(founders, /grantVerificationPlanReward\(admin, \{ vendorProfileId: vendorId, door: 'founders'/);
   assert.ok(founders.indexOf("door: 'founders'") > founders.indexOf("from('vendor_verification_bypasses').upsert"), 'the reward runs after the vouch is written');
-  const regular = stripComments(readFileSync('app/admin/verify/actions.ts', 'utf8'));
+  // The decision engine moved to its own module (2026-11-14) — admin and automatic grants share it.
+  const regular = stripComments(readFileSync('lib/verification-decision.server.ts', 'utf8'));
   assert.match(regular, /input\.decision === 'approved' && toState === 'verified' && fromState !== 'verified'\) \{\s*await grantVerificationPlanReward\(admin, \{[\s\S]{0,120}door: 'regular'/);
 });
 

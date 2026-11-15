@@ -37,6 +37,10 @@ import {
 } from '@/lib/colour-access';
 import { ColourChangeRowView } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card';
 import { formatCount } from '@/lib/format-number';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+
+const LABEL = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
 
 type Result = { status: string };
 
@@ -85,58 +89,39 @@ export function CoordinatorColourDomains({
   }
 
   return (
-    <section
-      id="colour-domains"
-      aria-labelledby="colour-domains-heading"
-      className="sn-tile space-y-3 p-5"
-    >
-      {/* 🔑 A <div>, NOT A <header>. `.sn-eye`'s own spec in globals.css calls it
-          a "Tile eyebrow", and this IS a tile — one card inside the page that holds it.
-          Wrapping it in <header> is the shape that drifted the card token onto
-          real page headers, which is what scripts/lint-page-masthead.mjs
-          watches for; the page's own masthead is its <PageMasthead>. */}
-      <div className="space-y-1">
-        <p id="colour-domains-heading" className="sn-eye">
-          <Palette aria-hidden className="mr-1.5 inline h-3.5 w-3.5" strokeWidth={1.75} />
-          Colour access
-        </p>
-        <p className="max-w-prose text-sm text-ink/65">
-          A coordinator isn’t tied to one craft the way a supplier is — they can hold access
-          across several parts of your design at once. Grant only what makes sense; each one
-          is its own switch. You’re told about every change, and you can undo any single one
-          without touching their access.
-        </p>
-      </div>
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 7 · 13 · 14): no tile and no card per person — grey capitals with the
+    // explaining paragraph behind the ⓘ; each person is a bold line over plain hairline rows, their "N of M on" a soft
+    // chip; sub-section labels in grey capitals (never 10 px typewriter); full-strength ink.
+    <section id="colour-domains" aria-labelledby="colour-domains-heading" className="space-y-3">
+      <h2 id="colour-domains-heading" className="flex items-center gap-1.5">
+        <Palette aria-hidden className="h-3.5 w-3.5 text-terracotta-700" strokeWidth={1.75} />
+        <InfoTip label="Colour access" labelAs="span" labelClassName={LABEL} align="start">
+          A coordinator isn’t tied to one craft the way a supplier is — they can hold access across several parts of
+          your design at once. Grant only what makes sense; each one is its own switch. You’re told about every change,
+          and you can undo any single one without touching their access.
+        </InfoTip>
+      </h2>
 
-      <ul className="space-y-4">
+      <ul className="space-y-6">
         {people.map((p) => (
-          <li key={p.userId} className="rounded-xl border border-ink/10 bg-cream/60 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 pb-3">
+          <li key={p.userId}>
+            <div className="flex min-h-14 items-center justify-between gap-3 border-b border-ink/10 pb-2">
               <div>
-                <p className="text-sm font-bold text-ink">{p.displayName}</p>
-                <p className="text-xs text-ink/55">{p.roleLine}</p>
+                <p className="text-[15px] font-bold text-ink">{p.displayName}</p>
+                <p className="text-[13px] text-ink/75">{p.roleLine}</p>
               </div>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
-                  p.active.length > 0
-                    ? 'bg-success-100 text-success-900'
-                    : 'bg-ink/5 text-ink/50'
-                }`}
-              >
-                <span aria-hidden className="h-[5px] w-[5px] rounded-full bg-current" />
+              <Badge tone={p.active.length > 0 ? 'ok' : 'quiet'}>
                 {formatCount(p.active.length)} of {formatCount(COLOUR_DOMAINS.length)} on
-              </span>
+              </Badge>
             </div>
 
-            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
-              Colour domains
-            </p>
+            <p className={`mt-[18px] ${LABEL}`}>Colour domains</p>
             <ul className="divide-y divide-ink/10">
               {COLOUR_DOMAINS.map((domain) => {
                 const on = p.active.includes(domain);
                 const key = `${p.userId}:${domain}`;
                 return (
-                  <li key={domain} className="flex items-start gap-3 py-3">
+                  <li key={domain} className="flex min-h-14 items-start gap-3 py-3">
                     <input
                       type="checkbox"
                       checked={on}
@@ -151,10 +136,10 @@ export function CoordinatorColourDomains({
                       className="mt-0.5 h-5 w-5 flex-none cursor-pointer rounded-md border-[1.5px] border-ink/20 text-success-600 accent-success-600 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                     />
                     <div className="flex-1">
-                      <p className="text-[13.5px] font-semibold text-ink">
+                      <p className="text-[15px] font-semibold text-ink">
                         {COLOUR_DOMAIN_LABEL[domain]}
                       </p>
-                      <p id={`${key}-desc`} className="mt-0.5 text-xs text-ink/55">
+                      <p id={`${key}-desc`} className="mt-0.5 text-[13px] text-ink/75">
                         {COLOUR_DOMAIN_BLURB[domain]}
                       </p>
                     </div>
@@ -163,11 +148,9 @@ export function CoordinatorColourDomains({
               })}
             </ul>
 
-            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
-              Recent changes
-            </p>
+            <p className={`mt-[18px] ${LABEL}`}>Recent changes</p>
             {p.changes.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-ink/55">No changes yet.</p>
+              <p className="py-2 text-sm text-ink/75">No changes yet.</p>
             ) : (
               <ul className="divide-y divide-ink/10">
                 {p.changes.map((row) => (
@@ -199,7 +182,7 @@ export function CoordinatorColourDomains({
       </ul>
 
       {message ? (
-        <p role="alert" className="text-xs text-danger-700">
+        <p role="alert" className="text-[13px] text-danger-700">
           {message}
         </p>
       ) : null}

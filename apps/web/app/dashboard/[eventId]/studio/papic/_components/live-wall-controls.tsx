@@ -97,7 +97,7 @@ export function LiveWallControls({
           exactly this choice in Nov 2026 and had zero readers and zero writers
           until now. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/70">
           Where Memory lane shows
         </p>
         <p className="mt-1.5 text-sm text-ink/70">
@@ -134,7 +134,7 @@ export function LiveWallControls({
       {/* Wall display config (owner 2026-07-08 · D5) — how many photos + which
           layout. Fully responsive, so no resolution. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Memory lane display</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/70">Memory lane display</p>
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="text-sm text-ink/70">
             Photos shown
@@ -190,7 +190,7 @@ export function LiveWallControls({
             className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-ink/[0.03] px-2.5 py-1.5 font-mono text-sm tracking-widest text-ink"
           >
             {s.code}
-            <span className="text-[11px] font-sans tracking-normal text-ink/50">
+            <span className="text-[12px] font-sans tracking-normal text-ink/70">
               {s.claimed ? 'on a screen' : 'unclaimed'}
             </span>
             <button
@@ -198,7 +198,7 @@ export function LiveWallControls({
               aria-label={`Revoke screen code ${s.code}`}
               disabled={pending}
               onClick={() => run(() => revokeWallScreen(eventId, s.sessionId))}
-              className="rounded p-0.5 text-ink/40 hover:bg-ink/10 hover:text-ink"
+              className="rounded p-0.5 text-ink/70 hover:bg-ink/10 hover:text-ink"
             >
               <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -208,7 +208,7 @@ export function LiveWallControls({
 
       {tiles.length > 0 ? (
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink/70">
             On Memory lane now — newest first
           </p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
@@ -272,7 +272,7 @@ export function LiveWallControls({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-ink/50">
+        <p className="text-sm text-ink/70">
           No photos on Memory lane yet — they appear here the moment your paparazzi start shooting.
         </p>
       )}

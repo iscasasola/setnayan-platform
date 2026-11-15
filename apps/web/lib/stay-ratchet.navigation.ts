@@ -25,6 +25,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/dashboard/[eventId]/guests/new/actions.ts › createGuest": "add-guest page → guest list",
   "app/dashboard/[eventId]/guests/quick/actions.ts › bulkAddGuests": "quick-add page → guest list",
   "app/dashboard/[eventId]/messages/actions.ts › startThreadByVendorEmail": "start thread → thread page",
+  "app/dashboard/[eventId]/messages/actions.ts › openGroupChat": "open a group on a tap → that group's chat (or back to the list with ?group=unopened when refused)",
   "app/dashboard/[eventId]/messages/actions.ts › withdrawInquiry": "withdraw → messages list (leave)",
   "app/dashboard/[eventId]/orders/actions.ts › cancelOrder": "cancel order → orders list (delete-then-leave)",
   "app/dashboard/[eventId]/story/whats-next-actions.ts › startTheNextCelebration": "create next event → its Home",

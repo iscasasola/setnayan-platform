@@ -95,7 +95,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
   const hasAnyone = groomSide.length + brideSide.length + bothSides.length > 0;
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 print:max-w-none">
+    <section className="mx-auto w-full max-w-3xl tab:max-w-3xl space-y-6 print:max-w-none">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/dashboard/${eventId}/guests`}

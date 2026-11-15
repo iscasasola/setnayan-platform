@@ -8,7 +8,7 @@ import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
  *
  * Called from the event-commit paths, AFTER the event row and its free grants
  * exist. Mints a SINGLE order covering everything they chose — a Papic Pool
- * rung, Setnayan AI, Event Hub Pro — and returns where to send them.
+ * rung, Setnayan AI, Event Pro — and returns where to send them.
  *
  * ── WHY ONE ORDER AND NOT THREE ────────────────────────────────────────────
  * Owner: *"it will total and create a custom QR"* … *"it will also integrate the
@@ -174,7 +174,7 @@ async function eventHasEventHub(admin: SupabaseClient, eventId: string): Promise
 }
 
 /**
- * Does this event ALREADY have Event Hub Pro — an order (pending counts, so a
+ * Does this event ALREADY have Event Pro — an order (pending counts, so a
  * couple mid-review is not billed twice), or an active grant (an internal or
  * founder-seat host, a comp)? 🔑 Never sell it twice.
  *
@@ -275,7 +275,7 @@ export async function mintOnboardingServiceOrders(
       }
     }
 
-    // ── Event Hub Pro (owner 2026-09-25) ────────────────────────────────────
+    // ── Event Pro (owner 2026-09-25) ────────────────────────────────────
     // Priced like the Papic rungs — the ACTIVE catalog row through the shared
     // sign-up rule (`priceOf`) — because Pro has ONE price for every event type
     // and that is exactly what the card quoted. Three things are re-measured
@@ -294,10 +294,10 @@ export async function mintOnboardingServiceOrders(
           serviceCode: COUPLE_WEBSITE_PRO_SERVICE_KEY,
           quantity: line.quantity,
           unitPhp: line.unitPhp,
-          label: 'Event Hub PRO — one upgrade for your whole Event Hub',
+          label: 'Event Pro — one upgrade for your whole Event Hub',
         });
       } else {
-        console.warn('[onboarding-services-orders] Event Hub Pro not billed at commit:', {
+        console.warn('[onboarding-services-orders] Event Pro not billed at commit:', {
           websiteEnabled,
           alreadyOwned,
           priced: unitPhp !== null,

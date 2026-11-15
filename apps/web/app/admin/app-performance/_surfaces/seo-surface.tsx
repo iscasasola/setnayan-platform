@@ -26,14 +26,15 @@
  * "showing the first 1, there are more" on every single load. The cap that IS
  * real is the 14-day Search Console window below.
  */
-import { AlertTriangle, CheckCircle2, XCircle, Bot } from 'lucide-react';
+import { Bot } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { ErrorState } from '@/app/_components/states/error-state';
-import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type { HealthFinding, PriceDriftEntry, HealthStatus } from '@/lib/seo/health-checks';
+import { Badge, Nums, One, Row, Rows, Sec, type NumTone } from '../_components/insights-parts';
 import { SeoRerunButton } from './seo-rerun-button';
 import { AiAnswerCheckRow, ResolveDriftButton } from './seo-ai-answer-check';
 import {
@@ -66,11 +67,30 @@ type MetricRow = {
   top_queries: { query: string; clicks: number; impressions: number }[];
 };
 
-const STATUS_STYLE: Record<HealthStatus, { icon: typeof CheckCircle2; cls: string; label: string }> = {
-  ok: { icon: CheckCircle2, cls: 'text-emerald-600', label: 'OK' },
-  warn: { icon: AlertTriangle, cls: 'text-amber-600', label: 'Warn' },
-  fail: { icon: XCircle, cls: 'text-[color:var(--sn-danger)]', label: 'Fail' },
+/** A finding's state as a pill — tokens only (the approved drawing's OK · Warn · Fail badges). */
+const STATUS_BADGE: Record<HealthStatus, { tone: NumTone; label: string }> = {
+  ok: { tone: 'ok', label: 'OK' },
+  warn: { tone: 'warn', label: 'Warn' },
+  fail: { tone: 'danger', label: 'Fail' },
 };
+
+/**
+ * A hairline row whose words WRAP — a finding's detail or an AI's answer is a sentence, and the shared `Row` cuts its
+ * lines with "…"; nothing on this view may be cut away (rule: nothing dropped).
+ */
+function Line({ title, sub, trail, data }: { title: ReactNode; sub?: ReactNode; trail?: ReactNode; data?: string }) {
+  return (
+    <li data-insights-row={data ?? ''} className="border-t border-ink/10">
+      <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 py-2">
+        <span className="min-w-0">
+          <span className="block break-words text-[15px] font-semibold leading-tight text-ink">{title}</span>
+          {sub ? <span className="mt-0.5 block break-words text-[13px] text-ink/65">{sub}</span> : null}
+        </span>
+        {trail ? <span className="flex items-center gap-2 text-[14px] text-ink/70">{trail}</span> : null}
+      </div>
+    </li>
+  );
+}
 
 /**
  * The Search Console window, hoisted so the query, the heading and the cap
@@ -138,8 +158,12 @@ export async function SeoSurface() {
   const questions = aiAnswers({ bookingFee });
   const nowMs = Date.now();
 
+  const checkedAt = snap
+    ? new Date(snap.checked_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
+    : null;
+
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="w-full max-w-3xl">
       <PageMasthead
         title="SEO & GEO"
         /* The audit is claim-gated to ~daily off admin traffic, and after()
@@ -156,103 +180,96 @@ export async function SeoSurface() {
           todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
         />
       ) : !snap ? (
-        <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/60">
-          No health snapshot yet. The daily SEO health audit runs automatically off
-          admin traffic (cron-free) and writes the first one; just keep browsing the
-          console and it&rsquo;ll populate within a few minutes.
-        </div>
+        <section aria-labelledby="seo-health">
+          <Sec id="seo-health" title="Health audit" />
+          <One label="No health snapshot yet">
+            The daily SEO health audit runs automatically off admin traffic (cron-free) and writes the first one; just
+            keep browsing the console and it&rsquo;ll populate within a few minutes.
+          </One>
+        </section>
       ) : (
         <>
-          {/* Scorecard */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/70">Health scorecard</h2>
-              <span className="text-xs text-ink/50">
-                checked {new Date(snap.checked_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} ·{' '}
-                {snap.generated_by}
-              </span>
-            </div>
-            {/* The shared admin stat tile, replacing a local re-declaration of
-                it. Its `null` renders an em-dash, which is why these counts are
-                only ever reached inside the branch that HAS a snapshot. */}
-            <div className="grid grid-cols-3 gap-3">
-              <KpiStatCard label="Passing" value={snap.ok_count} />
-              <KpiStatCard label="Warnings" value={snap.warn_count} />
-              <KpiStatCard label="Failing" value={snap.fail_count} />
-            </div>
-            <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-white/60">
+          {/* Scorecard — the three counts as one strip, the findings as hairline rows (no tiles, T18). Only ever
+              reached inside the branch that HAS a snapshot, so a count here is a measured count. */}
+          <section aria-labelledby="seo-health">
+            <Sec
+              id="seo-health"
+              title="Health audit"
+              about={`Checked ${checkedAt} · ${snap.generated_by}. Runs off admin traffic (cron-free); "Re-run audit now" checks again at once.`}
+              right={<span className="text-[12px] text-ink/55">checked {checkedAt}</span>}
+            />
+            <Nums
+              data="seo-scorecard"
+              items={[
+                { value: snap.ok_count, label: 'passing', tone: 'ok' },
+                { value: snap.warn_count, label: 'warnings', tone: snap.warn_count > 0 ? 'warn' : undefined },
+                { value: snap.fail_count, label: 'failing', tone: snap.fail_count > 0 ? 'danger' : undefined },
+              ]}
+            />
+            <Rows label="Health findings" data="seo-findings">
               {snap.findings.map((f, i) => {
-                const s = STATUS_STYLE[f.status];
-                const Icon = s.icon;
-                return (
-                  <li key={i} className="flex items-start gap-3 p-3">
-                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${s.cls}`} />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-ink">{f.check}</div>
-                      <div className="text-xs text-ink/60">{f.detail}</div>
-                    </div>
-                  </li>
-                );
+                const s = STATUS_BADGE[f.status];
+                return <Line key={i} title={f.check} sub={f.detail} trail={<Badge tone={s.tone}>{s.label}</Badge>} />;
               })}
-            </ul>
+            </Rows>
           </section>
 
           {/* Price drift */}
           {snap.price_drift.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/70">
-                llms.txt price drift ({snap.price_drift.length})
-              </h2>
-              <p className="text-xs text-ink/55">
-                <strong>missing</strong> = a live catalog price absent from the AI-crawler copy (fix the
-                copy). <strong>orphan</strong> = a figure in the copy with no active SKU (retired price or
-                a legit example/token band).
-              </p>
-              <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-white/60">
+            <section aria-labelledby="seo-drift">
+              <Sec
+                id="seo-drift"
+                title="llms.txt price drift"
+                count={snap.price_drift.length}
+                about={
+                  <>
+                    <strong>missing</strong> = a live catalog price absent from the AI-crawler copy (fix the copy).{' '}
+                    <strong>orphan</strong> = a figure in the copy with no active SKU (retired price or a legit
+                    example/token band).
+                  </>
+                }
+              />
+              <Rows label="llms.txt price drift" data="seo-price-drift">
                 {snap.price_drift.map((d, i) => (
-                  <li key={i} className="flex items-center gap-3 p-3 text-sm">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                        d.kind === 'missing' ? 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]' : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {d.kind}
-                    </span>
-                    <span className="font-mono text-ink">{d.figure}</span>
-                    <span className="min-w-0 truncate text-xs text-ink/55">{d.note}</span>
-                  </li>
+                  <Line
+                    key={i}
+                    title={<span className="font-mono">{d.figure}</span>}
+                    sub={d.note}
+                    trail={<Badge tone={d.kind === 'missing' ? 'danger' : 'warn'}>{d.kind}</Badge>}
+                  />
                 ))}
-              </ul>
+              </Rows>
             </section>
           )}
 
           {/* Owner-action nags */}
           {nags.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/70">Owner actions</h2>
-              <ul className="space-y-1.5">
+            <section aria-labelledby="seo-owner-actions">
+              <Sec id="seo-owner-actions" title="Owner actions" count={nags.length} />
+              <Rows label="Owner actions" data="seo-owner-actions">
                 {nags.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-ink/70">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                    <span>{f.detail}</span>
-                  </li>
+                  <Line key={i} title={f.detail} trail={<Badge tone={STATUS_BADGE[f.status].tone}>{STATUS_BADGE[f.status].label}</Badge>} />
                 ))}
-              </ul>
+              </Rows>
             </section>
           )}
         </>
       )}
 
       {/* AI-answer check (Build 6 Lane K) */}
-      <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-ink/70">
-          <Bot className="h-4 w-4 text-ink/40" /> AI answer check
-        </h2>
-        <p className="text-xs text-ink/55">
-          Every {AI_ANSWER_RECHECK_DAYS} days, ask an AI assistant each question below in a fresh chat, without naming
-          our features, and paste what it said. Right or wrong, it is saved; a wrong answer waits in the queue until the
-          copy is fixed. The true answers are the ones /llms.txt and the /features FAQ print.
-        </p>
+      <section aria-labelledby="seo-ai-check">
+        <Sec
+          id="seo-ai-check"
+          title="AI answer check"
+          count={questions.length}
+          about={
+            <>
+              Every {AI_ANSWER_RECHECK_DAYS} days, ask an AI assistant each question below in a fresh chat, without
+              naming our features, and paste what it said. Right or wrong, it is saved; a wrong answer waits in the
+              queue until the copy is fixed. The true answers are the ones /llms.txt and the /features FAQ print.
+            </>
+          }
+        />
         {aiRows === null ? (
           <ErrorState
             title="Couldn't read the AI answer log"
@@ -262,9 +279,9 @@ export async function SeoSurface() {
           />
         ) : null}
         {aiRows && aiRows.length >= AI_ANSWER_ROWS_READ ? (
-          <p className="text-xs text-ink/55">Showing the newest {formatCount(AI_ANSWER_ROWS_READ)} logged answers.</p>
+          <p className="text-[13px] text-ink/60">Showing the newest {formatCount(AI_ANSWER_ROWS_READ)} logged answers.</p>
         ) : null}
-        <ul className="divide-y divide-ink/5">
+        <Rows label="AI answer check questions" data="seo-ai-questions">
           {questions.map((q) => {
             const last = lastAsked?.get(q.id) ?? null;
             return (
@@ -281,40 +298,43 @@ export async function SeoSurface() {
               />
             );
           })}
-        </ul>
+        </Rows>
         {drift.length > 0 ? (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/70">
-              Drift to fix ({formatCount(drift.length)})
-            </h3>
-            <ul className="divide-y divide-ink/5">
+          <>
+            <Sec title="Drift to fix" count={drift.length} />
+            <Rows label="Drift to fix" data="seo-ai-drift">
               {drift.map((r) => {
                 const parsed = parseAiAnswerRationale(r.rationale);
                 const q = questions.find((x) => x.id === parsed?.id);
                 return (
-                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
-                    <div className="min-w-0 space-y-1">
-                      <div className="text-sm font-medium text-ink">{q?.question ?? parsed?.id ?? r.route}</div>
-                      <div className="text-xs text-ink/60">AI said: {r.current_value}</div>
-                      <div className="text-xs text-ink/55">
-                        {new Date(r.created_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })} · fix on{' '}
-                        {r.route}
-                      </div>
-                    </div>
-                    <ResolveDriftButton rowId={r.id} />
-                  </li>
+                  <Line
+                    key={r.id}
+                    title={q?.question ?? parsed?.id ?? r.route}
+                    sub={
+                      <>
+                        AI said: {r.current_value}
+                        <span className="block text-ink/55">
+                          {new Date(r.created_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })} · fix on{' '}
+                          {r.route}
+                        </span>
+                      </>
+                    }
+                    trail={<ResolveDriftButton rowId={r.id} />}
+                  />
                 );
               })}
-            </ul>
-          </div>
+            </Rows>
+          </>
         ) : null}
       </section>
 
       {/* Search Console trend */}
-      <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-ink/70">
-          <Bot className="h-4 w-4 text-ink/40" /> Search Console (last {GSC_WINDOW_DAYS} days)
-        </h2>
+      <section aria-labelledby="seo-gsc">
+        <Sec
+          id="seo-gsc"
+          title={`Search Console · last ${GSC_WINDOW_DAYS} days`}
+          about="It needs GSC_CLIENT_ID, GSC_CLIENT_SECRET, GSC_REFRESH_TOKEN and GSC_SITE_URL set in Vercel, and a Google account that is allowed to answer; the audit above does not depend on any of that and keeps running either way."
+        />
         <ConsoleTable
           rows={metrics}
           readPermitted
@@ -322,13 +342,13 @@ export async function SeoSurface() {
           reads="the Search Console figures"
           cap={GSC_WINDOW_DAYS}
           label="Search Console daily figures"
-          minWidth="34rem"
+          minWidth="20rem"
           rowKey={(m) => m.metric_date}
           empty={{
             Icon: Bot,
             title: 'No Search Console data has arrived',
             blurb:
-              'Nothing has been pulled yet, which is the expected state rather than a fault — the nightly pull has never delivered a day of figures. It needs GSC_CLIENT_ID, GSC_CLIENT_SECRET, GSC_REFRESH_TOKEN and GSC_SITE_URL set in Vercel, and a Google account that is allowed to answer; the audit above does not depend on any of that and keeps running either way.',
+              'Nothing has been pulled yet, which is the expected state rather than a fault — the nightly pull has never delivered a day of figures.',
           }}
           columns={[
             { header: 'Date', mono: true, cell: (m) => <span className="text-ink/70">{m.metric_date}</span> },
@@ -356,21 +376,25 @@ export async function SeoSurface() {
           ]}
         />
         {latestMetric?.top_queries?.length ? (
-          <div className="rounded-xl border border-ink/10 bg-white/60 p-3">
-            <div className="mb-2 text-xs uppercase tracking-wide text-ink/70">
-              Top queries on {latestMetric.metric_date}
-              {latestMetric.top_queries.length > TOP_QUERIES_SHOWN
-                ? ` · showing ${formatCount(TOP_QUERIES_SHOWN)} of ${formatCount(latestMetric.top_queries.length)}`
-                : ''}
-            </div>
-            <ul className="flex flex-wrap gap-2">
+          <>
+            <Sec
+              title={`Top queries on ${latestMetric.metric_date}`}
+              right={
+                latestMetric.top_queries.length > TOP_QUERIES_SHOWN
+                  ? `showing ${formatCount(TOP_QUERIES_SHOWN)} of ${formatCount(latestMetric.top_queries.length)}`
+                  : undefined
+              }
+            />
+            <Rows label="Top queries" data="seo-top-queries">
               {latestMetric.top_queries.slice(0, TOP_QUERIES_SHOWN).map((q, i) => (
-                <li key={i} className="rounded-full bg-ink/5 px-2 py-0.5 text-xs text-ink/70">
-                  {q.query} <span className="text-ink/70">· {q.clicks}c</span>
-                </li>
+                <Row
+                  key={i}
+                  title={q.query}
+                  trail={`${formatCount(q.clicks)} clicks · ${formatCount(q.impressions)} impressions`}
+                />
               ))}
-            </ul>
-          </div>
+            </Rows>
+          </>
         ) : null}
       </section>
     </div>

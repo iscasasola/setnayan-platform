@@ -23,7 +23,7 @@ function vendor(partial: Partial<BoothVendor>): BoothVendor {
 
 test('tier factor: only pro/enterprise CAN brand', () => {
   // ⚠ REWRITTEN 2026-08-29 BY AN OWNER RULING: *"3D Plan and papic Challenge is
-  // only for paid vendors Solo, Pro, Enterprise, and Custom. not for free"*.
+  // only for paid vendors Supplier Plus, Pro, Enterprise, and Custom. not for free"*.
   // The gate has moved three times — a Pro/Ent perk (2026-07-04), then anybody
   // who bought the add-on (2026-07-25, behind a PRICE flag), now every PAID plan.
   //
@@ -57,7 +57,7 @@ test('brandable tier WITHOUT the add-on → NOT branded (generic booth)', () => 
 });
 
 test('add-on active but tier NOT brandable → NOT branded', () => {
-  // Solo moved from refused to admitted by the 2026-08-29 ruling, Verified by the 2026-11-09 one
+  // Supplier Plus moved from refused to admitted by the 2026-08-29 ruling, Verified by the 2026-11-09 one
   // (Specialized tools, Verified and up). The unverified Free plan did not move.
   assert.equal(boothIsBranded(vendor({ tier: 'solo', boothAddonActive: true })), true);
   assert.equal(boothIsBranded(vendor({ tier: 'verified', boothAddonActive: true })), true);
@@ -79,7 +79,7 @@ test('no vendor → never branded', () => {
 // booth, not the tier"* — including that a FREE shop holding the add-on brands.
 //
 // The owner turned that model's switch on (2026-08-29) and, in the same breath,
-// ruled the floor: *"3D Plan and papic Challenge is only for paid vendors Solo,
+// ruled the floor: *"3D Plan and papic Challenge is only for paid vendors Supplier Plus,
 // Pro, Enterprise, and Custom. not for free"*. The parameter those four tests
 // exercised no longer exists, so they could not be inverted — a test cannot
 // assert about an argument the function does not take. What they were protecting

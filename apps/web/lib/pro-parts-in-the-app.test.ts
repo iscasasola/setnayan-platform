@@ -1,15 +1,15 @@
 /**
- * 💎🍎 EVENT HUB PRO IN THE iPHONE APP — SOLD WHOLE (owner 2026-10-26, "just have the upgrade event hub pro"; it
+ * 💎🍎 EVENT PRO IN THE iPHONE APP — SOLD WHOLE (owner 2026-10-26, "just have the upgrade Event Pro"; it
  * retires the 2026-10-22 "part by part in the app" build, PR3, which this file used to hold).
  *
  * Flag-dark: nothing here lights up without the one IAP gate (`SetnayanIAP/2` + the owner's switch). The properties:
  *
  *   1. the retired standalone Animated Monogram READS AS Logo & QR — in the ownership chain (both directions) and in
  *      the cap (what its owners paid counts at the part's web value) — and the monogram page sells the part only while
- *      its catalogue row is on sale, else Event Hub Pro whole;
+ *      its catalogue row is on sale, else Event Pro whole;
  *   2. the Apply sheet, where Apple sells, is the ONE-UNLOCK sheet — "Unlock Pro and Apply", no part named;
  *   3. the server refuses every part in the app, refuses "Everything" once any part is owned, and an owned Pro;
- *   4. Apple's page sells Event Hub Pro alone, at StoreKit's own `displayPrice` — never a part, never a typed ₱.
+ *   4. Apple's page sells Event Pro alone, at StoreKit's own `displayPrice` — never a part, never a typed ₱.
  *
  * Run: cd apps/web && node --import tsx --test lib/pro-parts-in-the-app.test.ts
  */
@@ -53,7 +53,7 @@ test('the cap counts a paid monogram as Logo & QR, at the part’s web value', (
   assert.match(resolver, /\.map\(\(r\) => hubPartOfPaidCode\(r\.service_key\)\)/);
 });
 
-test('the monogram page sells the Logo & QR part only while it is on sale — else Event Hub Pro whole', () => {
+test('the monogram page sells the Logo & QR part only while it is on sale — else Event Pro whole', () => {
   const page = code('app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx');
   assert.match(page, /hubPart\('logo_qr'\)\.sku/);
   assert.doesNotMatch(page, /serviceKey=["']ANIMATED_MONOGRAM["']/);
@@ -92,7 +92,7 @@ test('the server refuses every part in the app, Everything once any part is owne
 
 /* ── 4 · Apple's page ───────────────────────────────────────────────────── */
 
-test('Apple’s page sells Event Hub Pro alone, and not to an event that holds a part', () => {
+test('Apple’s page sells Event Pro alone, and not to an event that holds a part', () => {
   const page = code('app/dashboard/[eventId]/apple-pro/page.tsx');
   assert.match(page, /eventHubOwnership\(ent, eventId, 'owned'\)/);
   assert.doesNotMatch(page, /isHubPartId|iapProductForServiceKey|search\.buy/, 'Apple’s page still reads a part to sell');
@@ -100,7 +100,7 @@ test('Apple’s page sells Event Hub Pro alone, and not to an event that holds a
   assert.match(page, /<AppleProScreen eventId=\{eventId\} back=\{back\} \/>/);
 });
 
-test('Apple’s page prices Event Hub Pro from StoreKit — no part, no typed ₱', () => {
+test('Apple’s page prices Event Pro from StoreKit — no part, no typed ₱', () => {
   const screen = code('app/_components/iap/apple-pro-screen.tsx');
   assert.match(screen, /iapProductForServiceKey\('COUPLE_WEBSITE_PRO'\)/);
   assert.match(screen, /map\?\.get\(PRO\.productId\)\?\.displayPrice/);

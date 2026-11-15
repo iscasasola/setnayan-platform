@@ -31,7 +31,7 @@ import { COVER_NOT_OWNED, type CoverOwnership } from '@/lib/hub-parts';
  *   • FROM REMEMBERED PUBLIC FACTS — every other Discover card. The readers
  *     hand back answers that were read once, with the service client, for
  *     everybody (`lib/home-public-reads-core.ts`): whether the event owns Event
- *     Hub Pro, whether its logo animation is on, its event type's words. No
+ *     Pro, whether its logo animation is on, its event type's words. No
  *     read, no cookie and no session is asked for on the way to the card.
  *
  * The rules themselves did not move and are not copied: the theme gate

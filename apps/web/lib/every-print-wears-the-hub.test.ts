@@ -211,7 +211,7 @@ test('7 · Studio › Prints: owned says the Hub look; a free event on the web m
   assert.equal(draw(false, true), '', 'the app-store shell shows a free event a door to buy');
   const shellOwned = draw(true, true);
   assert.match(shellOwned, /data-print-hub-look="worn"/);
-  assert.doesNotMatch(shellOwned, /Event Hub Pro/, 'the app-store shell names the paid extra');
+  assert.doesNotMatch(shellOwned, /Event Pro/, 'the app-store shell names the paid extra');
 });
 
 /* ── 8 · 🤍 free is plain white ───────────────────────────────────────────────────────────────────────────────────────── */

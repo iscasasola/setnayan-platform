@@ -66,6 +66,16 @@ export const PRICE_BAND_REFILL_GAP_MS = 12 * 60 * 60 * 1000;
 export const GUEST_REMINDER_GAP_MS = 6 * 60 * 60 * 1000;
 
 /**
+ * An account hold "lifts itself on the Until date" (owner 2026-11-13, ACCOUNT SUSPEND). Hourly: the sign-in ban ends
+ * on the exact instant by itself (GoTrue `banned_until`); this job clears the database half (the person's row and
+ * their shops) and tells them, so a 7-day hold never keeps a shop hidden for a day longer. When nothing is due the
+ * body is one indexed read.
+ *
+ * 🔑 DECLARED HERE, IMPORTED BY `account-suspension.server.ts` — same direction as `PRICE_BAND_REFILL_GAP_MS`.
+ */
+export const ACCOUNT_SUSPENSION_LIFT_GAP_MS = 60 * 60 * 1000;
+
+/**
  * The face-tagging selfie is erased when the event's Papic closes — twelve hours
  * after the event ends (owner 2026-09-30, DECISION_LOG "FACE DATA: THREE OWNER
  * ANSWERS"). Half an hour: the close is an instant a guest was promised, so the
@@ -231,6 +241,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'retention',
     gapMs: DAILY_GAP_MS,
     what: 'Download all zips deleted from storage 48 hours after they were made',
+    reportsCount: true,
+  },
+  {
+    key: 'account-suspension-lift',
+    kind: 'operational',
+    gapMs: ACCOUNT_SUSPENSION_LIFT_GAP_MS,
+    what: 'Account holds lifted on their Until date — the person and their shops, and the person told',
     reportsCount: true,
   },
   {

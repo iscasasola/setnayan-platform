@@ -89,7 +89,7 @@ test('a frozen snapshot cancels plus-lighter too, or it washes the chrome out', 
   );
 });
 
-test('the pill and the FAB each carry a name of their own', () => {
+test('the pill carries a name of its own (the FAB retired 2026-11-13)', () => {
   const names = declaredNames();
   const byName = new Map(names.map((n) => [n.name, n.selector]));
   assert.ok(
@@ -98,16 +98,12 @@ test('the pill and the FAB each carry a name of their own', () => {
       `sn-bottomnav. Unnamed, the floating pill falls back into \`root\`, which paints BENEATH the sliding ` +
       `sn-page group whose <main> box covers that strip. The bar vanishes for 320ms on every tab press.`,
   );
-  assert.ok(
-    byName.has('sn-navfab'),
-    `No sn-navfab name — the broken-out FAB shares the pill's bar row, so leaving it in \`root\` makes half ` +
-      `the row disappear while the other half stays.`,
-  );
   // ⚓ 2026-09-25: the name sits on the anchored DOCK, which holds the bar AND
   // the moment strip above it. Naming only the <nav> would leave the strip in
   // `root`, under the sliding page, for 320ms of every tab press.
   assert.equal(byName.get('sn-bottomnav'), '[data-bottom-dock]');
-  assert.equal(byName.get('sn-navfab'), '.sn-vt-fab');
+  // No floating button is mounted anywhere, so its name must not linger either.
+  assert.equal(byName.has('sn-navfab'), false);
 });
 
 test('each of those selectors still matches a mounted element', () => {
@@ -130,14 +126,7 @@ test('each of those selectors still matches a mounted element', () => {
       `duplicate view-transition-name, which makes the browser skip the transition entirely.`,
   );
 
-  const fab = readFileSync(join(webRoot, 'app', '_components', 'nav', 'nav-fab.tsx'), 'utf8');
-  const hits = fab.match(/className="[^"]*\bsn-vt-fab\b[^"]*"/g) ?? [];
-  assert.equal(
-    hits.length,
-    1,
-    `nav-fab.tsx carries ${hits.length} sn-vt-fab classNames — expected exactly 1. Zero means the CSS name ` +
-      `reaches nothing and the FAB is covered by the slide again, silently.`,
-  );
+  // The floating button (`nav-fab.tsx`, `.sn-vt-fab`) is retired — no doorway mounts one since 2026-11-13.
 });
 
 test('no two selectors share a view-transition name', () => {

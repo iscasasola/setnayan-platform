@@ -79,8 +79,14 @@ test('a type whose date is not a fixed input keeps its candidates (birthday)', (
 
 test('a wedding is never a fixed-date input type — its date comes from booking a venue', () => {
   assert.equal(isFixedDateInputType('wedding'), false);
+  // 💍 …but its ONE picked day is its date when read (owner 14 Nov 2026, DECISION_LOG 16f7e76a, "Yes, save it"; CYC-03:
+  // Home said "No date yet" while Suppliers said "1 date · …"). Two or more picks stay options, untouched.
   const old = { event_type: 'wedding', event_date: null, date_candidates: ['2026-11-14'] };
-  assert.equal(withPickedDate(old), old, 'a wedding row is returned untouched');
+  assert.equal(withPickedDate(old).event_date, '2026-11-14', 'a wedding\'s one picked day is not read as its date');
+  const two = { event_type: 'wedding', event_date: null, date_candidates: ['2026-11-14', '2026-11-21'] };
+  assert.equal(withPickedDate(two), two, 'two picks are a choice still to make');
+  const bday = { event_type: 'birthday', event_date: null, date_candidates: ['2026-12-19'] };
+  assert.equal(withPickedDate(bday).event_date, '2026-12-19', 'a birthday\'s one picked day is not its date');
 });
 
 test('an unknown type does not ride the fallback anchor into the fix', () => {

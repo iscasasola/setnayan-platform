@@ -59,6 +59,9 @@ export const INQUIRY_SOURCES = [
   // Organic marketplace discovery — Booking-Fee SOURCED origins (PR-0).
   'explore',
   'search',
+  // 💳 An organic arrival on the supplier's Setnayan shop page (owner 2026-11-13) — SOURCED. Its twin 'website' is the
+  // supplier's own link / personal QR (`?src=own`) — an import. Migration 20271345227050.
+  'shop_page',
 ] as const;
 
 export type InquirySource = (typeof INQUIRY_SOURCES)[number];
@@ -75,6 +78,7 @@ export const INQUIRY_SOURCE_LABEL: Record<InquirySource, string> = {
   degree: 'Degree Recommendation',
   explore: 'Explore Inquiry',
   search: 'Search Inquiry',
+  shop_page: 'Shop Page Inquiry',
 };
 
 /** Companion chip label when chat_threads.is_returning is TRUE. */

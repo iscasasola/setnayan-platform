@@ -368,6 +368,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── accountability: audit trails ──
   admin_data_access_log: 'Record of ADMIN access to an account. Erasing the subject id destroys the accountability trail that protects that same subject.',
   admin_approval_requests: 'Two-admin governance record.',
+  vendor_plan_contents: 'Setnayan plan configuration (owner 2026-11-13); changed_by/confirmed_by are the two admins who approved a plan change — the accountability stamp of a two-admin decision.',
+  vendor_plan_content_changes: 'The change history of plan configuration — the two-admin accountability trail; erasing the admin id destroys it.',
   event_action_log: 'Per-event action trail used for dispute resolution.',
   account_deletion_requests:
     'The erasure REQUEST itself. Deleting it would erase the evidence that erasure was asked for and fulfilled — and this is also where a failed erasure is discoverable.',

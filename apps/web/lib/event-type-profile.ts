@@ -927,9 +927,9 @@ export function strandedWithoutWebsiteMessage(
     .join(' and ');
   const verb = stranded.length > 1 ? 'both render' : 'renders';
   return (
-    `Can't save: ${names} ${verb} on the event's public website, and Website is ` +
+    `Can't save: ${names} ${verb} on the event's public Event Hub, and Event Hub is ` +
     `switched off — the host would have no way to make the page live, so guests ` +
-    `could never open it. Tick Website, or untick ${names}.`
+    `could never open it. Tick Event Hub, or untick ${names}.`
   );
 }
 

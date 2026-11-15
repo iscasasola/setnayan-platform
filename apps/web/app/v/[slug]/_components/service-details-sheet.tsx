@@ -15,7 +15,7 @@
  *   the face      the card's own name · by the shop · price · the best offer · how the price works · the gift line
  *   facts FIRST   What's included (the WHOLE list + crew) · Not included (+ Serves) · The record · Reviews
  *   media LAST    Photos (an even 3-column grid, +N past six) · Clip (a row; tap plays it in place) · Inspiration
- *   thumb row     Inquire about this (its caption lives in ⓘ)
+ *   thumb row     Choose this service (opens the shop's ONE Inquire pop-up with this card picked; caption in ⓘ)
  *
  * 📌 SECTION ROWS PIN. Each section wraps its own head, so under the pinned bar the head of the section you are in pins
  * compact (its name and count), and the next section's head pushes it out — one pinned row at a time. Tapping it glides
@@ -53,6 +53,7 @@ import { CalendarDays, Check, Eye, EyeOff, ImageIcon, Info, MessageCircle, Play,
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CardRecordSection } from '@/app/_components/card-record-section';
+import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { VerifiedBookingMark } from '@/app/_components/service-card-view';
@@ -68,12 +69,12 @@ import { formatCount } from '@/lib/format-number';
 import type { ServiceCard } from './services-gallery';
 
 /**
- * How the grown card's "Inquire about this" behaves, decided SERVER-side because only the server knows which composer
+ * How the grown card's "Choose this service" behaves, decided SERVER-side because only the server knows which composer
  * (if any) is on the page:
  *
- *   • 'focus'  — the signed-in couple's `InquiryComposer` is mounted. The button points it at THIS service and opens it.
- *   • 'anchor' — only the compose-first `AnonInquiryComposer` is mounted (a visitor without an event yet). It has its own
- *                service picker, so we send them to it rather than pretending to preselect.
+ *   • 'focus'  — points a listener on the service-inquiry focus bus at THIS service. Its only listener, the inline
+ *                `InquiryComposer`, was retired 2026-11-13 (one Inquire), so the page no longer passes this.
+ *   • 'anchor' — the button is a `#get-in-touch` link, which the shop's ONE Inquire pop-up catches and opens.
  *   • 'none'   — no composer at all (not bookable / no contact route). No CTA, because a button that does nothing is
  *                worse than no button.
  */
@@ -406,7 +407,12 @@ export function ServiceDetailsSheet({
     });
   }
   // ── EVENTS, without names — the record's anonymised lines (type · month · guest band) ──
-  if (eventLines.length > 0) {
+  // 🃏📸 …and, while the record flag is on, the photos of the events this card was booked on (DECISION_LOG 2026-10-08,
+  // frame 77): type · venue · month, the same set the supplier's Their work shows, by reference. Absent → as before ·
+  // none yet → nothing added · a refused read → "Couldn't load", never drawn as nothing.
+  const work = c.eventWork;
+  const workShown = work === null || (work !== undefined && work.length > 0);
+  if (eventLines.length > 0 || workShown) {
     sections.push({
       key: 'events',
       title: 'Events',
@@ -431,6 +437,11 @@ export function ServiceDetailsSheet({
               )}
             </li>
           ))}
+          {workShown ? (
+            <li className={eventLines.length > 0 ? 'pt-2' : ''} data-grown-event-work="">
+              <CardPortfolioSection work={work ?? null} variant="couple" retryHref={typeof window === 'undefined' ? null : `${window.location.pathname}${window.location.search}`} />
+            </li>
+          ) : null}
         </ul>
       ),
     });
@@ -770,12 +781,13 @@ export function ServiceDetailsSheet({
             <button
               type="button"
               onClick={() => setTold('This is the couple’s button. On your own card it is a preview — it opens no chat.')}
-              aria-label="Inquire about this · Preview"
+              // The couple's button reads "Choose this service" on this redesign (one Inquire per shop page), so its
+              // preview reads the same; the visible "Preview" pill names it, so no aria-label repeats the words.
               className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
               data-grown-inquire-preview=""
             >
               <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <span>Inquire about this</span>
+              <span>Choose this service</span>
               <span className="ml-1 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-medium">Preview</span>
             </button>
           </div>
@@ -789,7 +801,7 @@ export function ServiceDetailsSheet({
             data-grown-thumb=""
           >
             {inquireMode === 'focus' ? (
-              <ActionButton tone="brand" main icon={MessageCircle} label="Inquire about this" onClick={onInquire} className="w-full" />
+              <ActionButton tone="brand" main icon={MessageCircle} label="Choose this service" onClick={onInquire} className="w-full" />
             ) : (
               <a
                 href="#get-in-touch"
@@ -799,7 +811,7 @@ export function ServiceDetailsSheet({
                 className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
               >
                 <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <span>Inquire about this</span>
+                <span>Choose this service</span>
               </a>
             )}
           </div>

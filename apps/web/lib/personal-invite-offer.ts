@@ -2,7 +2,7 @@
  * lib/personal-invite-offer.ts — THE PERSONAL INVITE'S OFFER, in words. Pure: no database, no `server-only`.
  *
  * ⚖ OWNER 2026-10-23 (prototype `supplier_personal_invite_2026-10-23.html`, approved): the admin's invite to one
- * supplier can offer a plan — Solo · Pro · Ultra — free until a date, and (optionally, a switch that is off) 100
+ * supplier can offer a plan — Supplier Plus · Pro · Ultra — free until a date, and (optionally, a switch that is off) 100
  * portfolio photos instead of the every-plan 50. RULING the same day: the 100 are the supplier's to KEEP after the
  * offer ends; only new invites stop offering them (DECISION_LOG 2026-10-23).
  *
@@ -126,13 +126,13 @@ export function offerResultLine(o: PersonalInviteOffer): string | null {
 /** Monthly (28-day) catalogue price per paid plan; absent = not in the catalogue, so named without a price. */
 export type PlanPrices = Partial<Record<PersonalInviteTier, number>>;
 
-/** "Solo ₱1,000" — or "Ultra" when the catalogue holds no price for it. */
+/** "Supplier Plus ₱1,000" — or "Ultra" when the catalogue holds no price for it. */
 function planWithPrice(tier: PersonalInviteTier, prices: PlanPrices): string {
   const p = prices[tier];
   return typeof p === 'number' && Number.isFinite(p) ? `${planWord(tier)} ${formatPhp(p)}` : planWord(tier);
 }
 
-/** "Free, Solo ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / 28 days" — the four choices after the gift (prices read). */
+/** "Free, Supplier Plus ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / 28 days" — the four choices after the gift (prices read). */
 export function planChoicesLine(prices: PlanPrices): string {
   const paid = PERSONAL_INVITE_TIERS.map((t) => planWithPrice(t, prices));
   return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} / 28 days`;

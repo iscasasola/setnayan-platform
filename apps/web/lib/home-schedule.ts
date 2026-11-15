@@ -94,6 +94,12 @@ export function homeScheduleFrom(i: {
   nowMs: number;
   tz: string;
   today: string;
+  /**
+   * 📅 The event has NO date yet (walk 13 Nov 2026, F-W2-01). Its seeded blocks are stamped on a placeholder day —
+   * `anchorIso` in `lib/schedule.ts` uses six months from the day they were seeded — so a day word on them is invented
+   * ("Prep · Thu, May 13" for a couple who picked June 19). Undated, a line says its clock only, never a day.
+   */
+  undated?: boolean;
 }): HomeScheduleFacts {
   const chapters = chaptersFromBlocks(i.blocks);
   const kidsOf = new Map<string, HomeScheduleBlock[]>();
@@ -102,6 +108,7 @@ export function homeScheduleFrom(i: {
   }
   const when = (iso: string) => {
     const clock = clockWords(iso);
+    if (i.undated) return clock;
     return wallDay(iso) === i.today ? clock : [dayWords(iso), clock].filter(Boolean).join(' · ');
   };
 
@@ -115,7 +122,7 @@ export function homeScheduleFrom(i: {
       const day = wallDay(c.start_at);
       const dayStart = plannedInstant(`${day}T00:00`, i.tz);
       if (day > i.today && dayStart !== null) {
-        upcoming.push({ at: dayStart, line: { chapterId: c.block_id, k: c.label, v: [dayWords(c.start_at), TIME_TBA, placeOf(c)].filter(Boolean).join(' · ') } });
+        upcoming.push({ at: dayStart, line: { chapterId: c.block_id, k: c.label, v: [i.undated ? null : dayWords(c.start_at), TIME_TBA, placeOf(c)].filter(Boolean).join(' · ') } });
       }
       continue;
     }

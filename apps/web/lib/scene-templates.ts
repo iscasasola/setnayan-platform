@@ -362,7 +362,7 @@ export function sceneTemplatesIn(family: SceneFamily): SceneTemplate[] {
  * together. This is the canvas's "Auto is an absence" rule applied to the pick.
  *
  * `withMotion` false (a free couple): only the template itself is stored. The
- * motion and the transition are Event Hub Pro, and the renderer would draw a
+ * motion and the transition are Event Pro, and the renderer would draw a
  * Scrub as Scroll without it anyway — storing it would be a saved value that
  * moves no pixels.
  */

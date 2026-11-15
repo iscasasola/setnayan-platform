@@ -26,6 +26,7 @@ import { SMALL_COUNTS_ARE_A_VERDICT } from '@/lib/story-room';
 import type { IndexAnchor } from '@/lib/story-index';
 import type { YourOwnDay } from '../../_lib/your-own-day.server';
 import { YourOwnConsent } from './your-own-consent';
+import { SaveAllOwnPhotos } from './save-all-own-photos';
 
 /** The nearest written minute to an instant, within a window. */
 function anchorFor(
@@ -54,6 +55,7 @@ export function WereYouThere({
   occasion,
   host,
   storyCard,
+  keptUntil = null,
 }: {
   own: YourOwnDay;
   anchors: readonly IndexAnchor[];
@@ -65,6 +67,11 @@ export function WereYouThere({
   host: string;
   /** The 9:16 card. Null until the story is published — see the note below. */
   storyCard: { url: string; filenameBase: string } | null;
+  /**
+   * 📸 "Full size until <date>" (owner 2026-11-13, "SIX CALLS SETTLED" (4)) — `fullSizeKeptUntil`'s label, from
+   * `FULL_RES_POST_EVENT_GRACE_DAYS`. Null: no date to promise (no event date, or the window has closed).
+   */
+  keptUntil?: string | null;
 }): ReactElement {
   const minutes = [...own.appearsIn, ...own.shot]
     .map((it) => ({ it, a: anchorFor(it.atMs, anchors, windowMs) }))
@@ -79,6 +86,11 @@ export function WereYouThere({
     else byMinute.set(m.a.id, { a: m.a, n: 1 });
   }
   const rows = [...byMinute.values()].sort((x, y) => x.a.atMs - y.a.atMs);
+
+  /* 📸 Their OWN photos — the ones they are in and the ones they took, each once — for Save all. */
+  const ownUrls = Array.from(
+    new Set([...own.appearsIn, ...own.shot].map((i) => i.url).filter((u): u is string => typeof u === 'string' && u.length > 0)),
+  );
 
   const nothingYet =
     own.appearsIn.length === 0 &&
@@ -113,6 +125,25 @@ export function WereYouThere({
             You are here on your own account, from your Papic link. Nothing to type — your day is
             already yours.
           </p>
+
+          {/*
+            📸 KEEP YOUR PHOTOS (owner 2026-11-13, DECISION_LOG "SIX CALLS SETTLED" (4)): the day their full-size
+            photos stop being kept — the drop's own clock, never a guess — and Save all, the viewer's own Save for
+            every photo of theirs at once. On their own screen only (this branch is `signedIn`). No email.
+          */}
+          {ownUrls.length > 0 ? (
+            <div data-keep-your-photos="" className="mt-4 flex flex-wrap items-center gap-3">
+              {keptUntil ? (
+                <p className="m-0 basis-full text-[15px] font-semibold leading-snug" data-full-size-until="">
+                  Keep them. Full size until {keptUntil}.
+                </p>
+              ) : null}
+              <SaveAllOwnPhotos urls={ownUrls} baseName="my-photos" />
+              {keptUntil ? (
+                <span className="text-xs leading-snug text-ink/70">After that date, the smaller copies stay.</span>
+              ) : null}
+            </div>
+          ) : null}
 
           {nothingYet ? (
             <p className="mt-4 font-serif text-lg italic text-ink/70">

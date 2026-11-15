@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 
 /**
  * Notification helpers for the vendor SUBSCRIPTION (Pro/Enterprise) checkout
@@ -25,8 +25,8 @@ const peso = (n: number) =>
   '₱' + new Intl.NumberFormat('en-PH').format(Math.round(n));
 
 const TIER_LABEL: Record<string, string> = {
-  pro: 'Pro',
-  enterprise: 'Ultra',
+  pro: 'Supplier Pro',
+  enterprise: 'Supplier Ultra',
 };
 
 /**
@@ -62,7 +62,7 @@ export async function notifyAdminsSubscriptionPending(
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'order_awaiting_reconciliation',
           title: `Subscription awaiting payment · ${name}`,

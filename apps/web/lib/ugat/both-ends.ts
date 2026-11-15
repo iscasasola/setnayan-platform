@@ -111,7 +111,7 @@ const TIER_WORDS: Record<Exclude<ImpactTier, 'other'>, RegExp> = {
   booking:
     /book|lock|contract|proposal|quote|inquir|event_vendor|deal|amend|negotiat|appointment|schedule|availab|slot|waitlist|hire|thread|chat|message|finaliz|complet|dispute|review|rating|handshake|agree/i,
   couple:
-    /guest|rsvp|invit|seat|event|std|save[-_]the[-_]date|papic|couple|sponsor|entourage|mood|registry|slug|day[-_]of|timeline|program|song|photo|album|face|memor|story|samahan|communit|join|dashboard|wedding|celebration|host/i,
+    /guest|rsvp|invit|seat|event|std|save[-_]the[-_]date|papic|couple|sponsor|entourage|mood|registry|slug|day[-_]of|timeline|program|song|photo|album|face|memor|story|samahan|communit|join|dashboard|wedding|event|host/i,
   supplier:
     /vendor|shop|supplier|service|portfolio|creator|storefront|onboard|verification|profile|calendar|emcee|band|act_|activity|lines|encoder|studio|live/i,
   admin:
@@ -434,7 +434,7 @@ export function findNoticeOrphans(input: NoticeInput, index: LiteralIndex): { fi
 
 /** Next.js entry files — the roots of runtime reachability. */
 export const ENTRY_RE =
-  /(^|\/)(page|layout|route|template|default|not-found|error|global-error|loading|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots|manifest)\.(ts|tsx)$|^(middleware|instrumentation(-client)?)\.ts$/;
+  /(^|\/)(page|layout|route|template|default|not-found|error|global-error|loading|opengraph-image|twitter-image|icon|apple-icon|sitemap|robots|manifest)(\.lab)?\.(ts|tsx)$|^(middleware|instrumentation(-client)?)\.ts$/;
 
 const IMPORT_RE =
   /\bimport\s+([\s\S]*?)\s*from\s*['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)|\bexport\s+(\*|\{[\s\S]*?\})\s*from\s*['"]([^'"]+)['"]/g;
@@ -658,7 +658,7 @@ export const baselineKey = (f: Pick<OrphanFinding, 'cls' | 'key'>) => `${f.cls}\
 const TIER_TITLE: Record<ImpactTier, string> = {
   money: 'MONEY — a payment, fee, price or ledger with a missing end',
   booking: 'BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit',
-  couple: 'COUPLE-FACING — guests, invitations, the celebration itself',
+  couple: 'COUPLE-FACING — guests, invitations, the event itself',
   supplier: 'SUPPLIER-FACING — shops, services, the vendor dashboard',
   admin: 'ADMIN / OPS — the console, jobs, tooling',
   other: 'UNCLASSIFIED — no tier keyword matched; read the name',

@@ -240,7 +240,7 @@ export function BuildLocked({
           <LockIcon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
         </span>
         <h2 className="text-lg font-semibold text-ink">Nothing to book yet</h2>
-        <p className="text-sm text-ink/60">
+        <p className="text-sm text-ink/70">
           Add suppliers to your build from the Shortlist, then come back here to book them — that
           confirms your pick, updates your budget, and notifies the supplier.
         </p>
@@ -324,7 +324,7 @@ export function BuildLocked({
   // empty state above.
   const orientation =
     replan && lockedRows.length === 0 ? (
-      <p className="text-sm text-ink/55">
+      <p className="text-sm text-ink/70">
         Nothing booked yet — start with the reception venue. It sets your date and your location,
         and everything else follows from those two.
       </p>
@@ -333,13 +333,13 @@ export function BuildLocked({
   const readyToLock = toLockRows.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg italic text-ink/85">
+            <h3 className="mt-[18px] text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               {replan ? 'In your build — ready to book' : 'Ready to book'}
             </h3>
             {/* Same figure as the "Still to lock" tile, and it may not round a
                 missing price down to ₱0 either — `subtotalLabel` says
                 "No prices recorded yet" rather than inventing a total. */}
-            <span className="text-xs text-ink/55">
+            <span className="text-xs text-ink/70">
               {subtotalLabel(toLockTotal, money.inBuildUnpriced)} in your build
             </span>
           </div>
@@ -349,7 +349,7 @@ export function BuildLocked({
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                  <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                     {r.folder} · {r.group}
                   </span>
                 </span>
@@ -403,7 +403,7 @@ export function BuildLocked({
               that fixes it — Remove (the row's swipe) — and no "Lock to confirm". */}
           {blockedRows.length > 0 ? (
             <div className="space-y-2 pt-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {CANT_LOCK_YET_HEADING}
               </p>
               {blockedRows.map((r) => {
@@ -411,7 +411,7 @@ export function BuildLocked({
                   <div className="flex items-center justify-between gap-3 border-b border-ink/15 py-3">
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
-                      <span className="block text-xs text-ink/60">
+                      <span className="block text-xs text-ink/70">
                         {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
                       </span>
                     </span>
@@ -438,7 +438,7 @@ export function BuildLocked({
 
   const lockedIn = lockedRows.length > 0 && (
         <section className="space-y-2">
-          <h3 className="font-display text-lg italic text-ink/85">Booked</h3>
+          <h3 className="mt-[18px] text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Booked</h3>
           <ul>
             {lockedRows.map((r, i) => (
               <li
@@ -450,7 +450,7 @@ export function BuildLocked({
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-[rgb(var(--color-ok))]" strokeWidth={1.75} aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
-                      <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                      <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         {r.folder} · {r.group}
                       </span>
                     </span>
@@ -476,7 +476,7 @@ export function BuildLocked({
                       />
                     ) : null}
                     {reviewStatusByVendorId?.get(r.vendorId) === 'submitted' ? (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[rgb(var(--color-ok))]">
+                      <span className="text-xs font-semibold uppercase tracking-[0.06em] text-[rgb(var(--color-ok))]">
                         Reviewed
                       </span>
                     ) : null}
@@ -498,7 +498,7 @@ export function BuildLocked({
   // Locked and package-covered categories never appear.
   const stillNeedsDecisionSection = replan && decisions.rows.length > 0 && (
     <section className="space-y-1">
-      <h3 className="font-display text-lg italic text-ink/85">Still needs your decision</h3>
+      <h3 className="mt-[18px] text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Still needs your decision</h3>
       <ul className="divide-y divide-ink/8">
         {decisions.rows.map((d) => (
           <li key={d.groupId}>
@@ -513,7 +513,7 @@ export function BuildLocked({
         ))}
       </ul>
       {decisions.hiddenCount > 0 ? (
-        <p className="px-2 pt-1 text-xs text-ink/45">
+        <p className="px-2 pt-1 text-xs text-ink/70">
           …and {formatCount(decisions.hiddenCount)} more to decide.
         </p>
       ) : null}
@@ -526,8 +526,8 @@ export function BuildLocked({
     return (
       <div className="mx-auto max-w-2xl space-y-5 px-1 py-2">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-2xl italic text-ink">Book your build</h2>
-          <span className="font-display text-xl italic text-ink/80">
+          <h2 className="text-[17px] font-semibold leading-snug text-ink">Book your build</h2>
+          <span className="text-[17px] font-bold tabular-nums text-ink">
             {peso(model.chosenCentavos)}
           </span>
         </div>
@@ -648,7 +648,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
     );
   }
   return (
-    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60" data-money="">
+    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" data-money="">
       {step === 'confirmed' ? 'First payment confirmed' : 'First payment sent · waiting for them to confirm'}
     </p>
   );
@@ -677,7 +677,7 @@ function RowPrice({ cost, shrink = false }: { cost: number | null; shrink?: bool
         'text-sm font-medium tabular-nums',
         // The absence is quieter than a price, but it is THERE. Muted, never
         // hidden — this whole component exists because it was drawn as nothing.
-        text ? 'text-ink/75' : 'italic text-ink/45',
+        text ? 'text-ink' : 'text-ink/70',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -711,7 +711,7 @@ function LockTile({
   // Flipping tokens only — `text-danger-700` / `text-success-700` /
   // `text-terracotta-700` had no dark value of their own (2026-10-12 look sweep).
   // The accent is kept for what can be pressed, so the committed figure is ink,
-  // set heavier rather than coloured.
+  // set larger rather than coloured — the screen's one strong number (design template rule 13).
   const toneClass =
     tone === 'over'
       ? 'text-[rgb(var(--color-danger))]'
@@ -727,13 +727,13 @@ function LockTile({
       // last-seen data (lib/last-seen).
       data-money={k === 'Date' || k === 'Location' ? undefined : ''}
     >
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
+      <div className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{k}</div>
       <div
-        className={`mt-1 truncate font-display text-lg italic ${toneClass ?? 'text-ink'}${accent ? ' font-semibold' : ''}`}
+        className={`mt-1 truncate font-bold tabular-nums ${accent ? 'text-[20px]' : 'text-[17px]'} ${toneClass ?? 'text-ink'}`}
       >
         {v}
       </div>
-      {note && <div className="mt-0.5 text-[11px] leading-snug text-ink/55">{note}</div>}
+      {note && <div className="mt-0.5 text-xs leading-snug text-ink/70">{note}</div>}
     </div>
   );
 }

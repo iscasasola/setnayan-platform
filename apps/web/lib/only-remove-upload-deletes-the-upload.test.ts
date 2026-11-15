@@ -48,7 +48,7 @@ const NULLS = /monogram_uploaded_svg\s*:\s*null/g;
  * a file here must never call update/upsert on events. Keep this list short.
  */
 const READ_FIXTURES: Record<string, string> = {
-  'app/dev/notifications-lab/page.tsx':
+  'app/dev/notifications-lab/page.lab.tsx':
     'dev lab: a sample events row (plain lettering, no upload) handed to the notification list — it writes nothing',
 };
 

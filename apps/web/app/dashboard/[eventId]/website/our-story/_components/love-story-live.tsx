@@ -369,7 +369,7 @@ export function LiveStoryPanel({
       {/* It drafts — nothing here reaches a guest before Apply. */}
       <HubDraftField />
       <LoveStoryChaptersPanel story={story as LoveStoryBlob} ownsPro={ownsPro} />
-      <p role="status" className="mt-4 text-xs text-ink/60" data-love-story-save-state={state}>
+      <p role="status" className="mt-4 text-xs text-ink/70" data-love-story-save-state={state}>
         {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved to your draft' : 'Every change saves as you type'}
       </p>
       <RefusalLine />

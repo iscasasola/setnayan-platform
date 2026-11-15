@@ -54,6 +54,12 @@ export interface QueuedShot {
   deviceModel?: string;
   /** 📷 The chapter the camera showed at the shutter (owner 2026-11-01) — the server re-asks if it may go in. */
   chapterId?: string | null;
+  /**
+   * 📲 'phone' = added from the phone's gallery, not taken by this camera (guest upload v2, owner 2026-11-13). Every
+   * call carries it: the route then charges the UPLOAD price and checks the taken-date is on the event day.
+   * `capturedAtMs` is the file's own taken-date.
+   */
+  source?: 'phone' | null;
   /** Tiers made from the saved original (false until the prepare step ran). */
   prepared: boolean;
   tiers: Partial<Record<CaptureTier, QueuedTier>>;
@@ -245,7 +251,9 @@ export const DROP_REFUSALS: ReadonlySet<string> = new Set(['blocked']);
 
 /** Refused today, kept on the phone, asked again later. */
 export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
-  // guest lane
+  // guest lane — 📲 a phone upload: the couple turned adding-by-hand off, or the file was not taken on the event day
+  'uploads_closed',
+  'not_event_day',
   'terms_required',
   'guest_capture_not_open_yet',
   'guest_capture_closed',

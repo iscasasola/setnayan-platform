@@ -1,4 +1,5 @@
 import { Check, Clock3, Lock, RotateCcw, Trash2 } from 'lucide-react';
+import { AskSubmit } from '@/app/_components/ask-submit';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClientNote, toggleClientNoteDone, deleteClientNote } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
@@ -54,18 +55,16 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
         return (
           <div
             key={n.note_id}
-            className={`rounded-xl border p-3 sm:p-4 ${
-              n.done_at
-                ? 'border-ink/10 bg-white/60'
-                : overdue
-                  ? 'border-warn-300 bg-warn-50'
-                  : 'border-terracotta/30 bg-terracotta/[0.06]'
+            // 📐 Design template rules 2 · 11: a note is a hairline row; a due follow-up wears the gold edge, an overdue
+            // one the red edge — the edge is the only colour on the row.
+            className={`border-b border-ink/10 py-3 ${
+              n.done_at ? '' : overdue ? 'border-l-4 border-l-danger-600 pl-3' : n.remind_at ? 'border-l-4 border-l-gold pl-3' : ''
             }`}
           >
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink/50">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/70">
               <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
               {n.remind_at && !n.done_at ? (
-                <span className={overdue ? 'text-warn-900' : 'text-ink/55'}>
+                <span className={overdue ? 'text-warn-900' : 'text-ink/70'}>
                   Follow-up · {fmtRemind(n.remind_at)}
                 </span>
               ) : (
@@ -74,12 +73,12 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
             </div>
             <p
               className={`mt-1.5 whitespace-pre-wrap text-sm ${
-                n.done_at ? 'text-ink/45 line-through' : 'text-ink'
+                n.done_at ? 'text-ink/70 line-through' : 'text-ink'
               }`}
             >
               {n.body}
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink/50">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink/70">
               <span>
                 {n.author_label ?? 'Your team'} · {fmtNoteDate(n.created_at)}
               </span>
@@ -89,7 +88,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
                 <input type="hidden" name="done" value={n.done_at ? '0' : '1'} />
                 <SubmitButton
                   pendingLabel="Saving…"
-                  className="inline-flex items-center gap-1 font-medium text-ink/55 hover:text-ink"
+                  className="inline-flex min-h-11 items-center gap-1 font-medium text-ink/70 hover:text-ink"
                 >
                   {n.done_at ? (
                     <>
@@ -107,7 +106,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
                 <input type="hidden" name="note_id" value={n.note_id} />
                 <SubmitButton
                   pendingLabel="Removing…"
-                  className="inline-flex items-center gap-1 font-medium text-ink/45 hover:text-danger-700"
+                  className="inline-flex min-h-11 items-center gap-1 font-medium text-ink/70 hover:text-danger-700"
                 >
                   <Trash2 aria-hidden className="h-3 w-3" /> Delete
                 </SubmitButton>
@@ -121,10 +120,10 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
       <StayForm
         door="supClients.createClientNote"
         action={createClientNote}
-        className="rounded-xl border border-ink/10 bg-white p-3 sm:p-4"
+        className="pt-3"
       >
         <input type="hidden" name="event_id" value={eventId} />
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] text-ink/50">
+        <div className="mb-2 flex items-center gap-1.5 text-xs text-ink/70">
           <Lock aria-hidden className="h-3 w-3 text-terracotta" strokeWidth={2} /> Private note —
           only your team sees this.
         </div>
@@ -137,20 +136,15 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
           className="w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-1.5 text-xs text-ink/60">
-            <Clock3 aria-hidden className="h-3.5 w-3.5 text-ink/45" /> Remind me
+          <label className="inline-flex items-center gap-1.5 text-xs text-ink/70">
+            <Clock3 aria-hidden className="h-3.5 w-3.5 text-ink/70" /> Remind me
             <input
               type="date"
               name="remind_at"
-              className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-ink focus:border-terracotta focus:outline-none"
+              className="h-11 rounded-lg border border-ink/15 bg-white px-3 text-[13px] text-ink focus:border-terracotta focus:outline-none"
             />
           </label>
-          <SubmitButton
-            pendingLabel="Saving…"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream"
-          >
-            <Check aria-hidden className="h-3.5 w-3.5" /> Save note
-          </SubmitButton>
+          <AskSubmit tone="brand" icon={<Check aria-hidden className="h-4 w-4" />} label="Save note" pendingLabel="Saving…" className="ml-auto" />
         </div>
       </StayForm>
     </div>

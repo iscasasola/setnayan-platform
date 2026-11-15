@@ -113,7 +113,6 @@ const READ: Array<[string, string]> = [
   ['seat/page.tsx', 'Scanning your'],
   ['seat/page.tsx', 'See you soon.</p>'],
   ['find-my-table/page.tsx', ' />\n      </footer>\n      <RoomFooter'],
-  ['recap/page.tsx', 'A living memory.</p>'],
   ['pabuya/page.tsx', 'Kept safe on Setnayan'],
   ['_components/save-to-account.tsx', 'Use my email instead'],
 ];
@@ -133,7 +132,6 @@ const PRESS: Array<[string, string]> = [
   ['seat/page.tsx', '<EventHubHeaderBrand eventId={eventId} />'],
   ['avatar/page.tsx', '← Back\n          </Link>'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
-  ['recap/page.tsx', 'Open their page'],
   ['avatar/_components/avatar-maker.tsx', 'See me in the room →'],
 ];
 

@@ -1,7 +1,7 @@
 /**
  * shimmer-is-an-action-on-any-text.test.ts — ✨ SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT (owner 2026-10-16, DECISION_LOG
  * "SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT · 'CONFIRM ATTENDANCE' IS THE RSVP"; verbatim: *"text animate shimmer is on any
- * text they want. it is an effect."*; and "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆").
+ * text they want. it is an effect."*; and "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆").
  *
  *   (1) ANY TEXT PART TAKES IT — every hero line with words and every scene's label · heading · words; never the logo
  *       (a drawing) nor the RSVP button (Look › Buttons'). Gold is kept only beside a shimmer.

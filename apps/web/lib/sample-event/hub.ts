@@ -314,7 +314,7 @@ export type SampleDayOnly = {
   key: 'check-in' | 'live-watch' | 'papic' | 'reveal';
   label: string;
   line: string;
-  /** The Event Hub Pro part's name when this door is Pro (◆), from `HUB_PARTS` — never typed here. */
+  /** The Event Pro part's name when this door is Pro (◆), from `HUB_PARTS` — never typed here. */
   pro: string | null;
 };
 
@@ -323,7 +323,7 @@ const REVEAL_PART = HUB_PARTS.find((p) => p.id === 'reveal')!;
 /**
  * 🔒 THE DAY-ONLY DOORS (brief item 10) — the sample is never on the day, so each
  * says "Opens on your wedding day" and opens nothing. Pro is marked only where a
- * shipped table says so (the Reveal is an Event Hub Pro part, `HUB_PARTS`).
+ * shipped table says so (the Reveal is an Event Pro part, `HUB_PARTS`).
  */
 export const SAMPLE_DAY_ONLY: readonly SampleDayOnly[] = Object.freeze([
   { key: 'check-in', label: 'Check-in', line: 'Your ticket is scanned once at the door.', pro: null },

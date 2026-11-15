@@ -1,6 +1,6 @@
 /**
- * all-in-one-prints-are-pro.test.ts — EVERY "DOWNLOAD ALL" IS EVENT HUB PRO; ONE AT A TIME IS FREE (owner 2026-10-16, DECISION_LOG
- * "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"; verbatim: *"Yes — Whole set (PDF) and Every guest's pass
+ * all-in-one-prints-are-pro.test.ts — EVERY "DOWNLOAD ALL" IS EVENT PRO; ONE AT A TIME IS FREE (owner 2026-10-16, DECISION_LOG
+ * "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL' IS EVENT PRO"; verbatim: *"Yes — Whole set (PDF) and Every guest's pass
  * (PDF) become Pro. Each piece's own PDF, and each guest's own pass one at a time, stay free."*).
  *
  *   1 · THE SERVER REFUSES: `/api/hub-print` is CALLED (its own GET, the I/O stood in for) — a free event asking for every guest's
@@ -129,7 +129,7 @@ test('1 · the server refuses the designed set in one file to a free event — C
   ]) {
     const free = await ask(path, false);
     assert.equal(free.status, 403, `${path}: a free event is not refused`);
-    assert.match(free.text, /Event Hub Pro/, `${path}: the refusal does not say why`);
+    assert.match(free.text, /Event Pro/, `${path}: the refusal does not say why`);
     assert.doesNotMatch(free.text, /₱|PHP\s?\d/, 'a price in the refusal');
     assert.equal(free.drew, false, `${path}: something was drawn before the refusal`);
     const pro = await ask(path, true);
@@ -142,7 +142,7 @@ test('1c · the Guest QR sheet — the PDF and its picture — is served to a fr
   for (const path of [`qr-codes?event=${EVENT}`, `qr-codes?event=${EVENT}&mode=print`, `qr-codes?event=${EVENT}&mode=screen`]) {
     const free = await ask(path, false);
     assert.notEqual(free.status, 403, `${path}: a free event is refused every guest’s QR`);
-    assert.doesNotMatch(free.text, /Event Hub Pro/, `${path}: the answer still says the QR sheet is Pro`);
+    assert.doesNotMatch(free.text, /Event Pro/, `${path}: the answer still says the QR sheet is Pro`);
     assert.equal(free.readGuests, true, `${path}: a free event does not reach the guest list`);
   }
 });
@@ -171,7 +171,7 @@ test('1d · the DIGITAL TICKET ZIP is served to a free event (2026-10-22): no Pr
     const text = await res.text();
     const who = ownsPro ? 'a Pro event' : 'a free event';
     assert.notEqual(res.status, 403, `${who} is refused the ticket zip: ${text}`);
-    assert.doesNotMatch(text, /Event Hub Pro/, `${who}: the zip's answer still says it is Pro`);
+    assert.doesNotMatch(text, /Event Pro/, `${who}: the zip's answer still says it is Pro`);
     assert.equal(state.zipGuests, 1, `${who} does not reach the guest list`);
     /* …and the cards are drawn from the ONE kit — `loadPrintSet`, whose look door (`printLookForEvent`) makes a free event's
        tickets plain white and a Pro event's its Hub look (held in the-pro-list-names-only-real-gates § 5b). */

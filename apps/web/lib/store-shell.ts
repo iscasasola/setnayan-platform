@@ -188,7 +188,7 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   '/pa3d/try',
   '/setnayan-ai',
   // The supplier-recruitment marketing page — its whole subject is the vendor
-  // subscription tiers (Solo/Pro/Enterprise), priced live from
+  // subscription tiers (Supplier Plus/Pro/Enterprise), priced live from
   // getVendorPrices()/vendor_billing_catalog and quoted in its own metadata.
   // Reachable from the ☰ drawer's footer ("For suppliers") on every surface
   // this app shell wraps (2026-09-25 audit). Distinct from
@@ -200,7 +200,7 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // entry of its own here.)
   '/for-suppliers',
   // The coordinator door (6 Nov 2026 page) quotes the same supplier plan prices from
-  // vendor_billing_catalog (Solo / Pro / Ultra, +1 branch, +1 seat), so it is refused the same way.
+  // vendor_billing_catalog (Supplier Plus / Pro / Ultra, +1 branch, +1 seat), so it is refused the same way.
   '/for-coordinators',
   // The Tagalog /features hub. Every feature row carries its live price
   // ("Free · upgrades from ₱…", "₱2,500"). The English hub was bounced by the
@@ -239,6 +239,8 @@ export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
   'papic',
   'live-watch',
   'patiktok',
+  // The supplier plans page quotes plan prices (free-plus, from vendor_billing_catalog) — truth sweep 2026-11-13.
+  'supplier-plans',
 ]);
 
 const FEATURE_PAGE_ROUTE = /^\/(?:tl\/)?features\/([^/]+)$/;

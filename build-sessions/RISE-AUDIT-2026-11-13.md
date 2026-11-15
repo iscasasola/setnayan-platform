@@ -23,7 +23,7 @@ Guard: `app/_components/rise/the-rise-screen-is-one-full-screen.test.ts`.
 
 | batch | what | state |
 |---|---|---|
-| 1 | every ⚙ rises — `MenuSettingsButton` `rise` becomes the default (Home · Guests · Event Hub · Suppliers · Memories · People · Today · Clients · Portfolio · Supplier Hub · Shop). The picked client's own ⚙ keeps its sheet (`rise={false}`: it is already inside a risen view — one level). | ✅ this PR |
+| 1 | every ⚙ rises — `MenuSettingsButton` `rise` becomes the default (Home · Guests · Event Hub · Suppliers · Memories · People · Today · Clients · Portfolio · Supplier Hub · Shop). The picked client's own ⚙ keeps its sheet (`rise={false}`: it is already inside a risen view — one level). | ⏭ dropped from #7595 on 15 Nov — Settings v2 (#7760) owns the ⚙ |
 | 2 | lock & upsell explainers that were still sheets/dialogs → `RiseScreen` (`IapUnlockSheet` · `IapPapicSheet` · `IapLiveWatchSheet` · `ChoosePlanSheet`). `RiseScreen` gains `busy` (a purchase in flight holds every way out) and `useRiseClose` / `WithRiseClose` (an inner Done / Not now falls back exactly as ✕ does). | ✅ this PR |
 | 3 | the supplier avatar rows (Your details · Your page · Helpers · Plan · Settings) — page jump → rise, through `@rise/(.)<page>` + `RiseRoute` (§ H). Billing & receipts and Profile & settings live in the `/dashboard` tree — next. | ✅ this PR (supplier rows) |
 | 4 | Prints ⚙ (`StudioPrintSettings`, its fields must never unmount) · `ApplyProSheet` (drawn at z-90 inside the Maker — above the pop layer, needs a layer decision first) · `offer-editor.tsx` / `body-panel.tsx` own overlays → `RiseScreen` | next |

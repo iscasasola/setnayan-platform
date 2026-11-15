@@ -106,7 +106,7 @@ test('clamp · THE DOWNGRADE: 50 km declared on Pro reads 20 km on Verified', ()
   const declaredOnPro = 50;
   assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'pro'), 50);
   assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'verified'), 20);
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'solo'), 30); // Solo reaches 30 km (owner 2026-10-23)
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'solo'), 30); // Supplier Plus reaches 30 km (owner 2026-10-23)
   // …all the way down to Free, where the ring collapses to nothing.
   assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'free'), 0);
   // …and an UNKNOWN tier_state degrades to free, not to the declared value.
@@ -541,7 +541,7 @@ test('validate → clamp → badge round-trips a real Pro declaration', () => {
   assert.equal(read(10, 'pro'), 'free_travel');
   assert.equal(read(30, 'pro'), 'travel_fee');
   assert.equal(read(60, 'pro'), 'outside_range');
-  // Same stored row, after a lapse to Solo (cap 30, owner 2026-10-23).
+  // Same stored row, after a lapse to Supplier Plus (cap 30, owner 2026-10-23).
   assert.equal(read(10, 'solo'), 'free_travel');
   assert.equal(read(28, 'solo'), 'travel_fee');
   assert.equal(read(35, 'solo'), 'outside_range');

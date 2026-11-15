@@ -47,7 +47,7 @@ export function EventHubScanner({
       </HubEyebrow>
       {claims ? <SupplierClaimScanner eventId={eventId} services={scan} initialAnswer={scanAnswer} labNumbers={scanNumbers} /> : null}
       {scan === 'unreadable' ? (
-        <p role="alert" className="py-3 text-[14px] text-ink/70" data-event-hub-scan-unread="">
+        <p role="alert" className="py-3 text-sm text-[color:var(--m-slate-2)]" data-event-hub-scan-unread="">
           <strong className="text-ink">We couldn&rsquo;t load your scanner just now.</strong> Reload to try again.
         </p>
       ) : null}
@@ -57,8 +57,8 @@ export function EventHubScanner({
       {run ? <CheckinDeskRows events={[run]} /> : null}
       {any || scan === 'unreadable' ? null : (
         <div className="flex items-start gap-3 py-3" data-event-hub-no-scanner="">
-          <ScanLine aria-hidden className="mt-0.5 h-5 w-5 flex-none text-ink/50" strokeWidth={1.8} />
-          <p className="text-[14px] text-ink/65">
+          <ScanLine aria-hidden className="mt-0.5 h-5 w-5 flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.8} />
+          <p className="text-sm text-[color:var(--m-slate-2)]">
             No scanner on your service for this event. A scanner is set once per service, under Shop › Services.
           </p>
         </div>
@@ -81,6 +81,9 @@ export function EventHubAnnounce({
   recent: CoordinatorBroadcastItem[] | 'unreadable' | null;
 }) {
   const may = enabled && run?.canAnnounce === true;
+  const closedLine = enabled
+    ? 'The hosts and their coordinator announce. Ask them in this event’s chat.'
+    : 'Announcements are not switched on yet.';
   return (
     <div data-event-hub-announce={may ? 'open' : 'closed'}>
       <HubEyebrow about="One message to every guest who opened their invitation — it sits at the top of their guests’ page. The hosts and the coordinator they let announce can send.">
@@ -88,15 +91,11 @@ export function EventHubAnnounce({
       </HubEyebrow>
       {may ? (
         <div className="space-y-2 py-2">
-          <p className="text-[14px] text-ink/70">Goes to every guest and the hosts, on their guests’ page.</p>
+          <p className="text-sm text-[color:var(--m-slate-2)]">Goes to every guest and the hosts, on their guests’ page.</p>
           <AnnounceButton eventId={eventId} isEventDay recent={recent === 'unreadable' ? null : recent} />
         </div>
       ) : (
-        <p className="py-3 text-[14px] text-ink/65">
-          {enabled
-            ? 'The hosts and their coordinator announce. Ask them in this event’s chat.'
-            : 'Announcements are not switched on yet.'}
-        </p>
+        <p className="py-3 text-sm text-[color:var(--m-slate-2)]">{closedLine}</p>
       )}
     </div>
   );

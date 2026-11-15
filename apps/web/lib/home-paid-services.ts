@@ -1,16 +1,16 @@
 /**
  * lib/home-paid-services.ts — WHAT HOME KNOWS ABOUT EACH PAID SERVICE (pure, no I/O).
  *
- * 🧾 Owner 2026-10-14 (DECISION_LOG "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB PRO;
+ * 🧾 Owner 2026-10-14 (DECISION_LOG "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT PRO;
  * FREE TOOLS STAY OUT" + "APPROVE ALL: THE SERVICES PROTOTYPE"): Home lists Guest photos · Planner ·
- * Live stream · Music · Video booth · Event Hub Pro — owned with their state, not added as one slim
+ * Live stream · Music · Video booth · Event Pro — owned with their state, not added as one slim
  * "· ₱<catalog> · Add" line. This module turns the page's reads into one `HomePaidFact` per row;
  * `lib/home-first-screen.ts` `homePaidState` maps each fact onto exactly one state.
  *
  * 🔑 ONE BUILDER FOR "WHICH SERVICES, AND WHERE EACH OPENS". Planner · Live stream · Music · Video booth
  * are the More menu's own cards (`buildOurServices`, `lib/our-services.ts`) — the same offered-for-this-
  * event rule, the same day-of "stop selling after the day" rule, the same door. Home never keeps a second
- * list of them. Event Hub Pro has no card there by design (owner 2026-09-30: "Event Hub Pro has its own
+ * list of them. Event Pro has no card there by design (owner 2026-09-30: "Event Pro has its own
  * place"), so its fact is made here from the SAME catalogue entry (`website-pro`) and the same predicates.
  *
  * 🔑 OWNED IS THE FEATURE GATE'S ANSWER. `owned` is `eventSkuActive` per SKU — the read the service's own
@@ -105,7 +105,7 @@ export function homePaidFacts(input: HomePaidInput): Record<HomeSkuKey, HomePaid
   return out;
 }
 
-/** Event Hub Pro — the More menu has no card for it, so its card-shaped fact is made from the same entry. */
+/** Event Pro — the More menu has no card for it, so its card-shaped fact is made from the same entry. */
 function hubProFact(input: HomePaidInput, active: Set<string>, pending: Set<string>, unread: boolean): HomePaidFact {
   const sku = HOME_PAID_SKU.hub;
   const entry = input.catalogue.find((a) => a.key === 'website-pro');

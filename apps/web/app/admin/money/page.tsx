@@ -27,7 +27,7 @@ import { TablePageSkeleton } from '@/components/skeletons';
 import { TransactionsLedger } from './_components/transactions-ledger';
 import { RevenueSummary } from './_components/revenue-summary';
 
-export const metadata = { title: 'Money' };
+export const metadata = { title: 'Money · Admin' };
 
 /**
  * THE MONEY IS ON THE MONEY PAGE NOW — 2026-08-25.

@@ -11,9 +11,8 @@
  *   3 · WHAT IT IS — a full-screen modal on the pop layer token, drawn on <body>; the bars step away (`useChromeAway`);
  *       the house modal contract (`useModalA11y`: focus, Esc, the page held and put back on the same pixel); the phone's
  *       Back closes it (`useBackCloses`); the close plays the SAME frames in reverse; a tab re-tap still reaches the top.
- *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton` (rendered: the risen
- *       frame, never the sheet). Since 13 Nov `rise` is the DEFAULT — every ⚙ rises; only the picked client's own ⚙
- *       (inside a risen view, one level) passes `rise={false}` and keeps its sheet.
+ *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton rise` (rendered:
+ *       the risen frame, never the sheet), every other ⚙ keeps its sheet byte-for-byte.
  *   5 · THE SHOP TAB MAP — ⚙ · Logo · Share · Promote · QR · Cover · View shop · each Analytics card · each Badge open the
  *       ONE `RiseScreen`; none of those files draws a popup `<Sheet` any more; View shop stays in the app (the only new
  *       tab left is the risen page's own "Open in browser ↗").
@@ -124,16 +123,6 @@ test('4 · ONE part: nobody else draws a risen screen; a ⚙ rises through the s
   // Every other ⚙ is as it was — the popup sheet frame, no risen screen.
   const sheet = draw(false);
   assert.doesNotMatch(sheet, /data-rise-screen/);
-  // ⤴ 13 Nov — "fullscreen everything": a ⚙ with no `rise` prop RISES (the default), and the ONE ⚙ that keeps its sheet is
-  // the picked client's own, which already sits inside a risen view (one level only).
-  const byDefault = renderToStaticMarkup(
-    React.createElement(MenuSettingsButton, { menu: 'guests', open: true, onOpenChange: () => {} }, React.createElement('p', null, 'rows')),
-  );
-  assert.match(byDefault, /data-rise-screen="settings-guests"/, 'a ⚙ with no `rise` prop opens the popup sheet again');
-  const optOuts = walk(join(WEB, 'app'))
-    .filter((p) => /<MenuSettingsButton\b[^>]*rise=\{false\}/.test(stripComments(readFileSync(p, 'utf8'))))
-    .map((p) => relative(WEB, p));
-  assert.deepEqual(optOuts, ['app/_components/picked/picked-shell.tsx'], 'a ⚙ outside a risen view still opens a popup sheet');
 });
 
 test('5 · the Shop tab map: every door rises into the ONE screen — no popup sheet left; View shop stays in the app', () => {
@@ -191,11 +180,10 @@ test('6 · every lock / upsell explainer rises — no popup sheet, no drawer of 
 // ⤴ 13 Nov rollout, batch 3 (build-sessions/RISE-AUDIT-2026-11-13.md § H): the avatar sheet's rows RISE their page over the
 // page you are on — an intercepted route whose LAYOUT is the ONE screen (it stands the moment the tap lands, the page streams
 // into it), the SAME page re-exported (never a second body), headed by the row's own words; the slot clears on any other
-// navigation; the sheet stays mounted under it (the row keeps its rect) but steps aside; and a ⚙ inside a risen page keeps
-// its sheet (one level). Proved end to end in app/dev/rise-route-lab (✕ and the phone's Back both land on the first URL).
+// navigation; the sheet stays mounted under it (the row keeps its rect) but steps aside. Proved end to end in app/dev/rise-route-lab (✕ and the phone's Back both land on the first URL).
 // 🛡 SABOTAGE (seen RED, then restored): `onClick={supplierSheet ? undefined : close}` → `onClick={close}` in
 // account-switcher.tsx.
-test('7 · every avatar row rises its page — one screen, the same page, the sheet under it, one level', () => {
+test('7 · every avatar row rises its page — one screen, the same page, the sheet under it', () => {
   const SLOT = 'app/vendor-dashboard/@rise';
   const rows: Record<string, string> = { profile: 'details', website: 'page', team: 'helpers', subscription: 'plan', settings: 'settings' };
   for (const [dir, key] of Object.entries(rows)) {
@@ -224,6 +212,4 @@ test('7 · every avatar row rises its page — one screen, the same page, the sh
     /html\[data-chrome-away\] \[data-account-sheet-layer\] \{\s*visibility: hidden;/,
     'the sheet draws over the risen page',
   );
-  // One level: a ⚙ inside a risen screen keeps its sheet.
-  assert.match(code('app/_components/menu-settings-button.tsx'), /const risen = rise && !insideRise;/, 'a ⚙ inside a risen page rises a second screen');
 });

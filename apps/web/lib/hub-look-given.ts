@@ -4,7 +4,7 @@ import { resolveMonogram } from '@/lib/monogram';
 
 /**
  * hub-look-given.ts — WHICH THEME AN EVENT WEARS, GIVEN WHETHER IT OWNS EVENT
- * HUB PRO. The viewer-free half of `app/[slug]/_lib/hub-look.ts`.
+ * PRO. The viewer-free half of `app/[slug]/_lib/hub-look.ts`.
  *
  * ─── WHY A SECOND FILE, WHEN THAT ONE SAYS "EXACTLY ONE PLACE" ───────────────
  * `resolveHubTheme` / `resolveHubLook` decide the theme AND ask who owns what —
@@ -54,7 +54,7 @@ export function wantsProTheme(saved: unknown): boolean {
 }
 
 /**
- * `resolveHubTheme`, with its answer to "is Event Hub Pro live for this event?"
+ * `resolveHubTheme`, with its answer to "is Event Pro live for this event?"
  * handed in. `owned` is consulted only for a saved Pro theme, exactly as the
  * original only ASKS for one.
  */

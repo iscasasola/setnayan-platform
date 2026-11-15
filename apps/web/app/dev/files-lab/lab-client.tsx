@@ -7,6 +7,10 @@ import { shopStateOf } from '@/lib/supplier-files';
 import { FilesFinder } from '@/app/vendor-dashboard/clients/[eventId]/_pages/files-finder';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import type { EventFile } from '@/lib/supplier-files.server';
+import type { FileTag, OfferedPart } from '@/lib/inspiration-tags';
+import { GalleryPicker } from '@/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker';
+import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
+import type { GalleryAsset } from '@/lib/moodboard-gallery';
 
 const EV = '00000000-0000-4000-8000-0000000000e1';
 const SHOP = '00000000-0000-4000-8000-0000000000cc';
@@ -67,8 +71,74 @@ const FILES: EventFile[] = [
   f({ grp: 'linked', kind: 'photo', name: 'dessert-bar.jpg', serviceId: DESSERT, counts: false }),
 ];
 
+// 🏷 Inspiration tags (DECISION_LOG 2026-11-14) — the parts the Garden buffet card offers, and three tags.
+const OFFERED: Record<string, OfferedPart[]> = {
+  [BUFFET]: [
+    { slotKey: 'table', label: 'Tables' },
+    { slotKey: 'cake', label: 'Cake & desserts' },
+    { slotKey: 'cocktail', label: 'Cocktail & bar' },
+  ],
+  [COCKTAIL]: [{ slotKey: 'cocktail', label: 'Cocktail & bar' }],
+};
+const byName = (name: string) => FILES.find((x) => x.name === name)!.fileId;
+const TAGS: FileTag[] = [
+  { assetId: 't1', fileId: byName('Buffet line.jpg'), slotKey: 'table', label: 'Tables', state: 'shown', reason: null },
+  { assetId: 't2', fileId: byName('Buffet line.jpg'), slotKey: 'cake', label: 'Cake & desserts', state: 'checking', reason: null },
+  { assetId: 't3', fileId: byName('Carving station.jpg'), slotKey: 'table', label: 'Tables', state: 'waiting', reason: null },
+];
+const click = (sel: string) => (document.querySelector(sel) as HTMLElement | null)?.click();
+/** Opens a tile by its name — after "+N" shows the rest of its group. */
+const openTile = (name: string) => {
+  for (const b of document.querySelectorAll('[data-files-grid] li:last-child button')) if (b.textContent?.startsWith('+')) (b as HTMLElement).click();
+  setTimeout(() => click(`[data-files-grid] button[aria-label^="${name}"]`), 150);
+};
+
+// 🏷 The couple's side (frames 8 · 9 · 11) and the shop page (frame 10) — fixture photos, no database.
+const LINE = 'Wedding · Makati Shangri-La · Sep 2026';
+const LIB: GalleryAsset[] = [
+  { assetId: 'a1', imageUrl: tile(3), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: true, eventLine: LINE, alsoIn: [{ slotKey: 'cake', label: 'Cake & desserts' }] },
+  { assetId: 'a2', imageUrl: tile(1), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: true, eventLine: 'Debut · Tagaytay Highlands · Aug 2026', alsoIn: [] },
+  { assetId: 'a3', imageUrl: tile(2), label: 'Grazing table', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: false },
+  { assetId: 'a4', imageUrl: tile(0), label: 'Long table', credit: 'Casa Verde Styling · Stylist', vendorProfileId: SHOP, shopSlug: null, swatches: [], isEventLinked: false },
+];
+const libPage = (assets: GalleryAsset[]) => async () => ({ assets, total: assets.length, withheld: 0, offset: 0, limit: 24, hasMore: false });
+
 export function FilesLabClient({ mode }: { mode: string }) {
   useEffect(() => {
+    if (mode === 'library-open') {
+      const t = setTimeout(() => click('[data-gallery-open]'), 1200);
+      return () => clearTimeout(t);
+    }
+    if (mode.startsWith('tag-')) {
+      const steps: (() => void)[] =
+        mode === 'tag-open'
+          ? [() => openTile('Setup.jpg')]
+          : mode === 'tag-pick'
+            ? [
+                () => openTile('Setup.jpg'),
+                () => {},
+                () => click('[data-files-tag-picker] > button'),
+                () => {
+                  const boxes = [...document.querySelectorAll('[data-files-tag-picker] input[type="checkbox"]')] as HTMLElement[];
+                  boxes[0]?.click();
+                  boxes[1]?.click();
+                },
+                () => click('[data-files-tag-rights]'),
+              ]
+            : mode === 'tag-after'
+              ? [() => openTile('Buffet line.jpg')]
+              : mode === 'tag-select'
+                ? [
+                    () => click(`[data-files-select="${BUFFET}"]`),
+                    () => {
+                      const tiles = [...document.querySelectorAll(`[data-files-group="${BUFFET}"] [data-files-grid] button[aria-pressed]`)] as HTMLElement[];
+                      [0, 1, 3].forEach((i) => tiles[i]?.click());
+                    },
+                  ]
+                : [];
+      const timers = steps.map((fn, i) => setTimeout(fn, 600 + i * 450));
+      return () => timers.forEach(clearTimeout);
+    }
     if (mode === 'filechat') {
       const t2 = setTimeout(() => (document.querySelector('[data-files-group="unfiled"] li button') as HTMLElement | null)?.click(), 600);
       return () => clearTimeout(t2);
@@ -89,6 +159,33 @@ export function FilesLabClient({ mode }: { mode: string }) {
     return () => clearTimeout(t);
   }, [mode]);
 
+  if (mode === 'library' || mode === 'library-open' || mode === 'library-waiting') {
+    return (
+      <GalleryPicker
+        eventId={EV}
+        slotKey="table"
+        slotLabel="Tables"
+        emptyPositions={[0, 1]}
+        fetchAction={libPage(mode === 'library-waiting' ? LIB.filter((a) => !a.eventLine) : LIB)}
+        applyAction={async () => ({ status: 'ok', imageUrl: LIB[0]!.imageUrl })}
+        onSaved={() => {}}
+        onClose={() => {}}
+      />
+    );
+  }
+  if (mode === 'shop') {
+    return (
+      <ShopInspirationSection
+        shopName="Rosa Mendoza Catering"
+        tiles={[
+          { id: 'a1', url: tile(3), part: 'Tables', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' }, eventLine: LINE },
+          { id: 'a1b', url: tile(3), part: 'Cake & desserts', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' }, eventLine: LINE },
+          { id: 'a3', url: tile(2), part: 'Tables', card: { label: 'Garden buffet', priceLabel: 'Price on request', anchorId: 'card-a' } },
+          { id: 'a5', url: tile(1), part: 'Cocktail & bar', card: null },
+        ]}
+      />
+    );
+  }
   // ?m=now — the SHIPPED Files page body, unchanged (the "Now" beside the board).
   if (mode === 'now') {
     const row = (k: string, kind: SharedFileEntry['kind'], name: string, typeLabel: string, isImage: boolean): SharedFileEntry => ({
@@ -153,6 +250,8 @@ export function FilesLabClient({ mode }: { mode: string }) {
       }))}
       feeUnlocked={mode !== 'hub-fee'}
       returnPath="/dev/files-lab"
+      tags={mode.startsWith('hub') ? undefined : TAGS}
+      offered={OFFERED}
     />
   );
 }

@@ -32,6 +32,8 @@ import {
   type ServiceInquireMode,
 } from './service-details-sheet';
 import { formatCount } from '@/lib/format-number';
+import { servicesFromCards } from '@/lib/photos-by-service';
+import { PhotosByServiceSheet } from './photos-by-service';
 
 export type ServiceGroup = {
   key: string;
@@ -50,7 +52,7 @@ export function ServicesGallery({
    */
   detailsEnabled = false,
   /**
-   * How the sheet's "Inquire about this" should behave — decided server-side
+   * How the sheet's "Choose this service" should behave — decided server-side
    * because only the server knows which composer is on the page. Ignored while
    * `detailsEnabled` is false.
    */
@@ -211,6 +213,11 @@ export function ServicesGallery({
     ? (groups.flatMap((g) => g.cards).find((c) => c.id === openCardId) ?? null)
     : null;
 
+  // 📸 Ⓐ PHOTOS BY SERVICE (owner 2026-11-14): the service named on each card opens every photo of that service, from
+  // every card in it — the same view the Portfolio's row opens. Built from the cards already here; nothing is fetched.
+  const photoServices = useMemo(() => servicesFromCards(groups.flatMap((g) => g.cards)), [groups]);
+  const [openService, setOpenService] = useState<string | null>(null);
+
   return (
     <div className="space-y-5">
       {showChips ? (
@@ -243,6 +250,15 @@ export function ServicesGallery({
               <ServiceCardView
                 card={withViewerLooks(c)}
                 path={g.label}
+                pathLead={
+                  c.serviceKey && c.serviceLabel
+                    ? {
+                        label: c.serviceLabel,
+                        onPress: () => setOpenService(c.serviceKey ?? null),
+                        ariaLabel: `See every ${c.serviceLabel} photo from ${shopName ?? 'this shop'}`,
+                      }
+                    : null
+                }
                 detailsEnabled={detailsEnabled}
                 onOpen={(from) => {
                   originRef.current = from;
@@ -253,6 +269,13 @@ export function ServicesGallery({
           )),
         )}
       </ul>
+
+      <PhotosByServiceSheet
+        view={photoServices.find((v) => v.key === openService) ?? null}
+        open={openService !== null}
+        onClose={() => setOpenService(null)}
+        ownerShopId={ownerCheckFor}
+      />
 
       {/* ONE sheet for the whole gallery, not one per card — mounting a dialog
           per card would put N focus-trap subscriptions on the page for a screen

@@ -4,6 +4,8 @@ import { useActionState, useState } from 'react';
 import { TypedRow } from '@/app/_components/form-row';
 import { ANSWER_MAX } from '@/lib/emcee-questions';
 import { saveSupplierAnswers, type SaveAnswersState } from '../question-answers-actions';
+import { Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 export type AnswerRow = { questionId: string; prompt: string; hint: string | null; answer: string | null };
 
@@ -39,19 +41,14 @@ export function SupplierAnswersForm({
           <AnswerField key={r.questionId} row={r} />
         ))}
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className="sn-press inline-flex min-h-[44px] items-center justify-center rounded-full bg-ink px-5 text-[15px] font-semibold text-cream disabled:opacity-60"
-      >
-        {pending ? 'Saving…' : 'Save answers'}
-      </button>
+      {/* 📐 Design template (14 Nov 2026, rule 3): the page's one main button is the shared terracotta pill. */}
+      <ActionButton type="submit" tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Save answers'} waiting={pending} />
       {state.status === 'saved' ? (
         <p role="status" className="text-[13px] text-ink/70">
           Saved — {shopName} can read your answers now.
         </p>
       ) : state.status === 'error' ? (
-        <p role="alert" className="text-[13px] text-terracotta-700">
+        <p role="alert" className="text-[13px] text-[rgb(var(--color-danger))]">
           {state.message}
         </p>
       ) : null}

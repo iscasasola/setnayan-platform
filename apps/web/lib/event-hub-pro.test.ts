@@ -37,7 +37,7 @@ test('🪤 AN OWNING EVENT IS OFFERED NOTHING — on any channel, in any phase',
       assert.equal(
         offer,
         null,
-        `a couple who paid was still sold Event Hub Pro on ${channel} / ${phase}`,
+        `a couple who paid was still sold Event Pro on ${channel} / ${phase}`,
       );
       checked += 1;
     }
@@ -110,7 +110,7 @@ test('⛔ THE UMBRELLA IS NEVER SOLD ON SOMETHING THAT IS ALREADY FREE', () => {
   /*
     EDITORIAL_PRO joined FREE_FOR_ALL_SKUS on 2026-08-23 — every couple already
     passes `isEditorialProActive`. `couple-website-pro.ts` states the constraint
-    in its own words: "Event Hub PRO may NOT be SOLD on this inclusion while it
+    in its own words: "Event Pro may NOT be SOLD on this inclusion while it
     is free." Showing the item is right; leading on it is asking for money for
     something the couple already has.
   */

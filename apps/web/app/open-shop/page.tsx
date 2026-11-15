@@ -227,6 +227,10 @@ export default async function OpenShopPage({
       serviceLabels={serviceLabels}
       serviceTree={serviceTree}
       accountName={accountName}
+      // 🔁 F-W1-13: who this page was drawn for, and whether the company email below is the ACCOUNT's (no shop email
+      // on record) — so an account change redraws the account's boxes, and the server re-reads an untouched prefill.
+      accountKey={user?.id ?? 'guest'}
+      prefilledAccountEmail={row?.contact_email ? null : (user?.email ?? null)}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
       eventTypeOptions={eventTypeOptions}

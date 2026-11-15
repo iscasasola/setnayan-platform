@@ -38,6 +38,8 @@ const BASELINE = join(HERE, 'no-delete-x-on-list-rows.baseline.txt');
 /** Kept kinds — tile · chip · editor field · confirm — never a list row. Path (from apps/web) → why. */
 export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx', 'tile — the booth poster preview’s Remove in the booth editor (one poster, not a list)'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx', 'editor field — the booth words’ Remove in the booth editor (one set of words, not a list)'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
   ['app/dashboard/(account)/people/_components/dependents-section.tsx', 'chip — a ninong / ninang chip’s ✕ inside a loved one’s card'],
@@ -57,6 +59,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/open-shop/_components/claim-door.tsx', 'editor field — an inclusion line’s input and a picked service inside the claim door’s edit slide, written only on “Claim it” (A6)'],
   ['app/open-shop/_components/service-cards.tsx', 'editor — ONLY the opened specialties’ own Remove (prototype v19 fit row ⌃ Specialties · Remove · ✓ Done, owner 7 Nov “Remove also inside”); every service ROW is on the swipe, with Undo'],
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
+  ['app/vendor-dashboard/services/_components/card-photo-gallery.tsx', 'tile — a card photo’s own sheet: Delete photo, opened by tapping the photo tile, with Undo (owner 13 Nov, the approved gallery upload)'],
   ['app/_components/proposal-maker.tsx', 'editor field — a payment’s ✕ removes a draft installment inside the quote editor (a quote LINE is on the swipe since 8 Nov: swipe left drops it, with Undo and “Put back”)'],
   ['app/_components/amendment-builder.tsx', 'editor field — a draft change item (type, words, ₱) inside the amendment form, written on Send'],
   ['app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx', 'tile — a booth / sign piece on the drag-to-place cocktail floor plan'],

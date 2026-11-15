@@ -123,7 +123,7 @@ test('the City or area is a closed pick — onboarding’s list or nothing, refu
   // The editor has no box a city is typed into: the one search field only finds, a tap on a row picks.
   assert.doesNotMatch(EDITORS, /e\.g\. Quezon City|setCityValue\(e\.target\.value\)/, 'the city is free text again');
   assert.match(EDITORS, /<CityPick\b/);
-  assert.match(CITY, /onPick\(c\.n\);/);
+  assert.match(CITY, /onPick\(c\.n(?:, c)?\);/);
   assert.equal((stripComments(CITY).match(/onPick\(/g) ?? []).length, 1, 'something other than a listed row picks the city');
   assert.match(CITY, /from '@\/app\/onboarding\/wedding\/_data\/wedding-cities'/, 'not onboarding’s own list');
   assert.match(CITY, /import\('@\/app\/onboarding\/wedding\/_data\/ph-places'\)/, 'the PSGC list must load lazily, as onboarding loads it');
@@ -133,7 +133,7 @@ test('the City or area is a closed pick — onboarding’s list or nothing, refu
 
 test('AddressPinField hides its two hint lines behind a prop — set in the Maker, never on the manual sheet', () => {
   const pin = stripComments(PIN);
-  assert.match(pin, /\{hideHints \? null : \(\s*<p className="text-\[10px\] text-ink\/45">\s*\{required \? MANUAL_VENUE_ADDRESS_HINT/);
+  assert.match(pin, /\{hideHints \? null : \(\s*<p className="text-\[12px\] text-ink\/75">\s*\{required \? MANUAL_VENUE_ADDRESS_HINT/);
   assert.match(pin, /\{pin \|\| !hideHints \? \(/, 'the unpinned "Drag the map…" line still shows in the Maker');
   assert.match(pin, /hideHints = false,/, 'the default must show them');
   assert.match(EDITORS, /<AddressPinField[\s\S]{0,200}hideHints[\s\S]{0,80}onChange=\{\(next\) => edit\(s\.slot, next\)\}/);

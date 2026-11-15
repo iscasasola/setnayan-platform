@@ -286,7 +286,7 @@ async function main() {
   STATE.rev += 1;
   out.freshAfterAWrite = await view('stranger', 'pre');
   out.warmAgainAfterTheWrite = await view('stranger', 'pre');
-  // 💳 AN EVENT WITH ORDERS (a bought Event Hub Pro, an add-on, and a basket line).
+  // 💳 AN EVENT WITH ORDERS (a bought Event Pro, an add-on, and a basket line).
   STATE.orders = [
     { service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' },
     { service_key: 'PAPIC_UNLOCK', status: 'paid' },

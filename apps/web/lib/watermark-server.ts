@@ -137,7 +137,7 @@ import { markOverlaySvgForLayout, serverMarkLayout } from './photo-mark-server';
  */
 export { WATERMARK_TEXT };
 
-/** The two lines inside the seal's badge. Brand lock: never STNYN. */
+/** The two lines inside the seal's badge. Brand lock: the full spelling, never abbreviated. */
 export const SEAL_NAME_TEXT = 'SETNAYAN';
 export const SEAL_SUB_TEXT = 'CELEBRATION';
 

@@ -66,7 +66,8 @@ const CHOKEPOINTS = [
   // rows, which is what the rail renders. Same rule, new address.
   'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
   'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
-  'app/admin/_components/admin-sidebar.tsx',
+  // The six-group admin sidebar retired 2026-11-13; the five-tab rail reads the same admin.bottom-nav slots.
+  'app/admin/_components/admin-rail-context.tsx',
   'app/admin/_components/admin-bottom-nav.tsx',
   'app/_components/marketing/site-nav.tsx',
 ];

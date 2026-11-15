@@ -172,7 +172,10 @@ test('🪤 the floor is a GREATEST in SQL, not a subtraction in TypeScript', () 
     // `event_last_dayX` — a phantom identifier, the exact shape of four live
     // bugs on this project — still matches on the prefix and the sabotage run
     // goes green. This suite has already been fooled that way once.
-    /\bevent_last_day\b[\s\S]{0,60}\+\s*make_interval\(days\s*=>\s*GREATEST\(p_post_event_days,\s*0\)\)/,
+    // 💎 2026-11-13 (Event Ultra): a paid plan's extra hold is ADDED inside the same interval (`+ f.extra_keep_days`),
+    // so the term is optional here — it can only push the floor later. Its own executing test is
+    // tests/db/event-ultra-keeps-originals-12-months.db.test.ts.
+    /\bevent_last_day\b[\s\S]{0,60}\+\s*make_interval\(days\s*=>\s*GREATEST\(p_post_event_days,\s*0\)(\s*\+\s*f\.extra_keep_days)?\)/,
     'the floor must ADD p_post_event_days to the event\'s LAST day in the ' +
       'predicate. Without this the three-month promise lives only in a comment.',
   );
@@ -286,7 +289,7 @@ test('the rule lives in ONE place, and both terms are in it', () => {
   // (a) 6 months from first use…
   assert.match(sql, /f\.started_at \+ make_interval\(days => GREATEST\(p_retention_days, 0\)\)/);
   // (b) …and the post-event download grace.
-  assert.match(sql, /make_interval\(days => GREATEST\(p_post_event_days, 0\)\)/);
+  assert.match(sql, /make_interval\(days => GREATEST\(p_post_event_days, 0\)( \+ f\.extra_keep_days)?\)/);
 });
 
 test('first use spans BOTH capture tables', () => {

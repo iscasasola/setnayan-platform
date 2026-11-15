@@ -88,6 +88,7 @@ const NOT_A_TOOL: Record<string, string> = {
   '@ffmpeg/util': 'video compression of a picked file (with @ffmpeg/ffmpeg)',
   jsqr: 'reads a QR inside a picked image (upload pipeline)',
   'app/_components/plan3d/plan3d-scene.tsx': 'the 3D plan view (three.js) — same reason',
+  'app/_components/notices/inline-notice.tsx': 'the ROOT layout\'s lazy door to a notice ("Setnayan was updated", demo mode) — not a Maker tool; the Maker\'s own Pro lines import it statically, so it is already in the Maker\'s load',
   'app/papic/actions.ts': 'Papic camera/offline handlers (the service-worker drain), not the Maker',
   'lib/clip-poster.ts': 'Papic camera/offline handlers, not the Maker',
   'app/_components/home/HomeOverlays.tsx': 'the marketing site’s overlays — not the signed-in app',

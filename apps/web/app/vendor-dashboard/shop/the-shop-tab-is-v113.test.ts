@@ -6,7 +6,7 @@
  *       Your page is the Shop ⚙'s first row, Your details the account sheet's (`lib/my-shop-doors-keep-every-control`
  *       pins both). The order is still pinned, one part shorter, and the doors are pinned ABSENT.
  *   2 · The app's words, never the prototype's WRONG/INVENTED ones: no Explore / Boost / Approve first / Owner ID /
- *       Enterprise / Custom plan / Take a photo / Request a name change; the unverified chip is "Get verified · N of 2".
+ *       Enterprise / Custom plan / Take a photo / Request a name change; the unverified chip is "Get verified · N of 3 papers" (owner 2026-11-14, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT": the papers are the only step).
  *   3 · Makers = ONE row of tiles — Forms Maker + Specialized tools (Lane E, 9 Nov: Scanner = its first tile, the shipped
  *       ServiceScannerPick), each opening into the body
  *       (§10 #33); NO Tools Maker in this build. 🔁 UPDATED ON PURPOSE 2026-11-08: the Forms door was a link to the Forms
@@ -44,7 +44,7 @@ test('2 · the app’s words, never the WRONG or INVENTED ones', () => {
   for (const [name, src] of [['page', PAGE], ['cover', COVER], ['makers', MAKERS]] as const) {
     assert.doesNotMatch(src, />[^<]*\b(Explore|Boost|Approve first|Owner ID|Enterprise|Custom plan|Take a photo|Request a name change)\b[^<]*</, `${name} draws a word the map ruled out`);
   }
-  assert.match(COVER, /Get verified · \{d\.verified\.stepsDone\} of 2/);
+  assert.match(COVER, /Get verified · \{formatCount\(d\.verified\.papersIn\)\} of \{formatCount\(d\.verified\.papersOf\)\} papers/);
   assert.match(COVER, /href="#docs"/, 'Verified does not open the papers');
   assert.match(COVER, /View shop/);
 });

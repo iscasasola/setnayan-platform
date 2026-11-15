@@ -318,7 +318,7 @@ export const STUDIO_HTML_V2 = `
           </div>
         </div>
         <button type="button" class="mini play playwide" id="play">▶&nbsp; Play the reveal</button>
-        <p class="cap" style="margin:0"><b>Animate the reveal</b> picks how your monogram appears on your website.</p>
+        <p class="cap" style="margin:0"><b>Animate the reveal</b> picks how your monogram appears on your Event Hub.</p>
       </div>
     </div>
 

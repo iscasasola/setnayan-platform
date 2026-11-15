@@ -142,7 +142,7 @@ const NAME: Record<HomeControlKey, string> = {
 const INFO: Record<HomeControlKey, string> = {
   count: 'Counts down to your date. This card is the one door to your date, place and time.',
   guests: 'Who said yes, who has not replied, who has no invitation yet — and the one thing to do about it.',
-  hub: 'Which of the four pages your guests see now, and what comes next. The card and View Event Hub open the page your guests see; Pick what shows chooses which of the four pages guests see; Edit in Maker opens the Event Hub Maker.',
+  hub: 'The page your guests see now, and what comes next. Pick what shows changes the page; Edit in Maker changes how it looks.',
   sup: 'How many of your plan’s categories are booked, and what waits on you: a quote to decide, suppliers who replied.',
   budget: 'Every payment still to settle, soonest first; then what you have paid and what is still owing.',
   plan: 'Only the plan: how far along you are and the next three dated tasks, soonest first. Guests, suppliers and money live on their own cards.',

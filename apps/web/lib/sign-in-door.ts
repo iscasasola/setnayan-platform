@@ -27,6 +27,8 @@
  * never confirm that an address is unknown.
  */
 
+import { BANNED_REFUSAL, SUSPENDED_SIGN_IN } from '@/lib/account-suspension';
+
 export type SignInDoor =
   /** The lookup could not run (refused, timed out, threw). */
   | { kind: 'unknown' }
@@ -75,6 +77,9 @@ export function explainFailedSignIn(input: {
   door: SignInDoor | null;
 }): FailedSignInExplanation {
   const { authMessage, door } = input;
+  // ⏸ An account an admin put on hold (owner 2026-11-13, ACCOUNT SUSPEND): GoTrue answers "User is banned". Say it
+  // in plain words — the person is told why at the door, not left reading an engine message.
+  if (BANNED_REFUSAL.test(authMessage)) return { message: SUSPENDED_SIGN_IN, provider: null };
   if (!CREDENTIALS_REFUSAL.test(authMessage)) return { message: authMessage, provider: null };
   if (door === null || door.kind === 'unknown') {
     // Never "wrong password" when we could not check. Say so.

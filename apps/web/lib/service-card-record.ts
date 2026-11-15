@@ -438,6 +438,27 @@ export function cardRecordRatingFromTrusted(
 export const RECORD_BATCH_MAX = 50;
 
 /**
+ * 🃏 ONE CARD'S RECORD, WITH A REFUSAL SAID (frame 75 of the approved maker drawing: *Couldn't load this card's record ·
+ * Retry* in the row's own place). `fetchServiceCardRecords` folds a refused read into "no record", which on the edit
+ * sheet reads exactly like a card nobody booked; this one keeps the two apart.
+ *   null              the read was refused
+ *   { record: null }  read, and the card has no record row
+ */
+export async function readOneCardRecord(
+  supabase: SupabaseClient,
+  vendorServiceId: string,
+): Promise<{ record: CompiledCardRecord | null } | null> {
+  const { data, error } = await supabase.rpc('service_card_records', { p_service_ids: [vendorServiceId] });
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[service-card-record] one-card read failed', { error: error.message });
+    return null;
+  }
+  const row = ((data ?? []) as { vendor_service_id?: unknown; record?: unknown }[]).find((r) => r?.vendor_service_id === vendorServiceId);
+  return { record: row ? compileCardRecord(row.record) : null };
+}
+
+/**
  * Read + compile records for a list of cards, keyed by vendor_service_id.
  *
  * ONE round-trip per batch. This matters: `/v/[slug]` is force-dynamic and

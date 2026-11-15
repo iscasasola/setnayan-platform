@@ -17,7 +17,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Loader2, MapPin, ScanLine } from 'lucide-react';
+import { Camera, CameraOff, MapPin, ScanLine } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import { classifyScan, resolveSeatScan, type SeatScanOutcome } from '@/lib/floor-command';
 import { floorSeatByQr } from './actions';
@@ -105,39 +106,28 @@ export function SeatScanner({
             ref={videoRef}
             playsInline
             muted
-            className="aspect-[4/3] w-full rounded-xl bg-ink/90 object-cover"
+            className="aspect-[4/3] w-full rounded-lg bg-ink object-cover"
           />
-          <button
-            type="button"
-            onClick={stop}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink/80 transition hover:border-terracotta"
-          >
-            <CameraOff aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Stop
-          </button>
+          <ActionButton tone="neutral" icon={CameraOff} label="Stop" onClick={stop} />
         </div>
       ) : (
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          icon={Camera}
+          label="Scan a guest’s card"
           onClick={() => void start()}
-          disabled={busy}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-ink/15 bg-white px-4 py-3 text-sm font-medium text-ink transition hover:border-terracotta disabled:opacity-40"
-        >
-          {busy ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          )}
-          Scan a guest’s card
-        </button>
+          waiting={busy}
+          className="w-full"
+        />
       )}
 
       {cameraError ? (
-        <p role="alert" className="rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+        <p role="alert" className="text-sm font-semibold text-warn-700">
           {cameraError}
         </p>
       ) : null}
       {lookupError ? (
-        <p role="alert" className="rounded-lg bg-warn-600/10 px-3 py-2 text-sm text-warn-600">
+        <p role="alert" className="text-sm font-semibold text-warn-700">
           {lookupError}
         </p>
       ) : null}
@@ -157,11 +147,11 @@ function Answer({ outcome }: { outcome: SeatScanOutcome }) {
     return (
       <p
         aria-live="polite"
-        className="flex items-center gap-2 rounded-xl border border-success-400/40 bg-success-500/5 px-3 py-3"
+        className="flex min-h-14 items-center gap-2 py-2"
       >
         <MapPin aria-hidden className="h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
         <span>
-          <span className="block text-xs uppercase tracking-[0.15em] text-ink/50">Seated at</span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Seated at</span>
           <span className="block text-lg font-semibold text-ink">{outcome.tableLabel}</span>
         </span>
       </p>
@@ -176,7 +166,7 @@ function Answer({ outcome }: { outcome: SeatScanOutcome }) {
   };
 
   return (
-    <p aria-live="polite" className="rounded-xl border border-ink/15 bg-white px-3 py-3 text-sm text-ink/70">
+    <p aria-live="polite" className="py-2 text-sm text-ink">
       {copy[outcome.kind]}
     </p>
   );

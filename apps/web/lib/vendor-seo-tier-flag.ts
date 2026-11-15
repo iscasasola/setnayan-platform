@@ -3,7 +3,7 @@
  *
  * Vendor_Monetization_Model_LOCKED_2026-07-25 § 8 bundles external visibility
  * into the subscription: Basic indexability free for all · Enhanced SEO+GEO
- * Solo+ · AEO + priority sitemap Pro+. Today every vendor gets the full
+ * Supplier Plus and up · AEO + priority sitemap Pro+. Today every vendor gets the full
  * enrichment regardless of tier, so switching this on CHANGES WHAT CRAWLERS SEE
  * for free-tier vendors — the loudest possible side effect, and irreversible on
  * the crawler's own schedule (a de-enriched page can take weeks to re-enrich).

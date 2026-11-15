@@ -1,7 +1,7 @@
 /**
  * the-effects-reach-every-part.test.ts — ✨ THE SIX NEW EFFECTS ON EVERY TEXT AND PICTURE PART (owner 2026-10-17,
  * verbatim: *"Ship #6600 and #6601. Then extend the effects to every text and picture part."*; the six's own rulings:
- * DECISION_LOG "APPROVED — SIX NEW EFFECTS" and "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆").
+ * DECISION_LOG "APPROVED — SIX NEW EFFECTS" and "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT PRO ◆").
  *
  *   (1) EVERY PART THAT OFFERS SHIMMER OFFERS GLOW AND WORDS ▾ — read off the closed sets for every part key, so a new
  *       text part cannot arrive with Shimmer alone. The one exception is NAMED (`HUB_WORD_FX_NOT`, the joiner).

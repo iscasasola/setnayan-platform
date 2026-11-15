@@ -1,4 +1,5 @@
 import 'server-only';
+import { ACCOUNT_NAME_COLUMNS, accountPersonName, type AccountNameRow } from '@/lib/account-person-name';
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -80,10 +81,10 @@ export async function readUnreadCounts(supabase: SupabaseClient): Promise<Map<st
 export async function readSpeakerNames(admin: SupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (userIds.length === 0) return names;
-  const { data, error } = await admin.from('users').select('user_id, display_name').in('user_id', [...userIds]);
+  const { data, error } = await admin.from('users').select(`user_id, ${ACCOUNT_NAME_COLUMNS}`).in('user_id', [...userIds]);
   if (error) logQueryError('readSpeakerNames', error, { users: userIds.length }, 'graceful_degrade');
-  for (const r of (data ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-    const label = (r.display_name ?? '').trim();
+  for (const r of (data ?? []) as Array<{ user_id: string } & AccountNameRow>) {
+    const label = accountPersonName(r);
     if (label) names.set(r.user_id, label);
   }
   return names;

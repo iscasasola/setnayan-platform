@@ -23,9 +23,10 @@ export function EmptyShelf({
   line: string;
   /** Anything more — read behind the ⓘ beside the line. */
   tip?: ReactNode;
-  href: string;
+  /** The one action — optional: a shelf may only say what it is for (owner 13 Nov: Discover never creates an event). */
+  href?: string;
   /** The one action's words. */
-  go: string;
+  go?: string;
 }) {
   return (
     <div className="fd-empty" data-empty-shelf="">
@@ -36,9 +37,11 @@ export function EmptyShelf({
       ) : (
         <p className="fd-empty-line">{line}</p>
       )}
-      <Link href={href} className="fd-btn-quiet">
-        {go}
-      </Link>
+      {href && go ? (
+        <Link href={href} className="fd-btn-quiet">
+          {go}
+        </Link>
+      ) : null}
     </div>
   );
 }

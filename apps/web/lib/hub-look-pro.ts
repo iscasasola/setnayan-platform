@@ -230,7 +230,7 @@ export const HUB_CANVAS_LOOK_KEYS = [
  * on purpose rather than drifting to whichever the comparison forgot.
  */
 /* 💎 EVERYTHING IN STYLE IS PRO, AND EVERY ANIMATE (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
-   ACCENTS ARE EVENT HUB PRO ◆", verbatim: *"all animate, effects, styles, accents are pro"* — and the same night:
+   ACCENTS ARE EVENT PRO ◆", verbatim: *"all animate, effects, styles, accents are pro"* — and the same night:
    *everything in Style is Pro* (colour, size, font and style cards on a part; free events keep the theme's
    defaults), and *free events keep what they already published*). So a part's own colour · size · font · weight ·
    B/I/U · alignment · width · spacing join its motion: tried free in the Maker, named at ✓ Apply. It supersedes the

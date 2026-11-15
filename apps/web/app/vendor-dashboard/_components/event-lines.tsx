@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatPhp } from '@/lib/php';
 import type { ReactNode } from 'react';
 import { Check, ChevronRight, MessageSquare, X } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
@@ -50,8 +51,8 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
           <p className="py-2 text-[13.5px] text-ink/60">No host has joined on Setnayan yet.</p>
         ) : (
           <ul data-event-lines-hosts="">
-            {lines.hosts.map((h) => (
-              <li key={h.name} className="flex min-h-11 items-center gap-3 py-1.5">
+            {lines.hosts.map((h, i) => (
+              <li key={`${h.name}-${i}`} className="flex min-h-11 items-center gap-3 py-1.5">
                 <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-full bg-ink/[0.06] text-[12px] font-semibold text-ink/70">
                   {initials(h.name)}
                 </span>
@@ -79,7 +80,13 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
         cells={[
           { k: 'Location', v: unread ? null : (lines.location ?? 'Not set yet'), wide: true },
           { k: 'Date', v: unread ? null : (lines.date ?? 'Not set yet') },
-          { k: 'Est. pax', v: unread ? null : lines.pax ? formatCount(lines.pax) : 'Not set yet' },
+          // 👥 RW-08: a claimed per-guest booking shows the guests the couple counts and its total — what they read.
+          lines.perGuest
+            ? { k: 'Guests counted', v: unread ? null : formatCount(lines.perGuest.guests) }
+            : { k: 'Est. pax', v: unread ? null : lines.pax ? formatCount(lines.pax) : 'Not set yet' },
+          ...(lines.perGuest && lines.perGuest.totalPhp != null
+            ? [{ k: 'Total · priced per guest', v: unread ? null : formatPhp(lines.perGuest.totalPhp) }]
+            : []),
         ]}
       />
 

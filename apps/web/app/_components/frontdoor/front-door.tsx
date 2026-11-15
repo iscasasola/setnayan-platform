@@ -9,7 +9,8 @@
 import 'server-only';
 
 import { loadFrontDoorData } from './data';
-import { FrontDoorShell } from './front-door-shell';
+// ⚡ The front page's own reference to the shell (not the (shell) layout's) — see front-door-shell-for-home.tsx.
+import { FrontDoorShell } from './front-door-shell-for-home';
 import { FrontDoorAnchor } from './front-door-anchor';
 import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
@@ -19,7 +20,8 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { FrontDoorAccountBar } from './front-door-account-bar';
 import { resolveCommandItems } from './command-data';
-import { DiscoverThumbRow } from './shell-thumb-rows';
+// ⚡ Signed in only — loaded only when drawn (front-door-lazy.tsx).
+import { DiscoverThumbRow } from './front-door-lazy';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
@@ -117,7 +119,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   */
   /*
     💰 …and the two plan prices, from `platform_retail_catalog_v2` — the price list Admin edits — never typed:
-    Event Pro is Event Hub Pro (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
+    Event Pro is `COUPLE_WEBSITE_PRO` (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
     PR (#7262) puts on sale. A row that is not on sale or not readable draws no figure. Named cost: one catalogue
     read per signed-out view (prices are read live everywhere, never remembered).
   */

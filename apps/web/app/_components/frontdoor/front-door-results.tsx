@@ -60,7 +60,8 @@ import { ShellOnward } from './shell-search-onward';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 import type { ShellPeopleResults } from '@/lib/shell-people-results';
 import { ShellPeopleSection } from './shell-people-section';
-import { DiscoverAddOwn } from './discover-add-own';
+// ⚡ Signed-in search only — loaded only when drawn (front-door-lazy.tsx).
+import { DiscoverAddOwn } from './front-door-lazy';
 import { readAddOwnCategories } from '@/lib/add-own-categories.server';
 import type { ShelfState } from '@/lib/discover-events';
 import type { DiscoverEventCard as DiscoverEventCardData } from '@/lib/discover-events-core';
@@ -148,8 +149,9 @@ function ReadCard({
  * line and pills land here too). 🧭 `?src=search` — a search hit: the inquiry is a Search Inquiry
  * (lib/inquiry-source.ts) and the shop page's "Back" returns to Discover, where search lives (lib/shop-back.ts).
  */
-function ShopHitCard({ s }: { s: FrontDoorShop }) {
-  return <ShopCard s={s} href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.search })} />;
+function ShopHitCard({ s, query }: { s: FrontDoorShop; query: string }) {
+  // 🔎 SB (W1 SHOP-01): the words ride along (`q`), so the shop's Back returns to these results — never to a bare "/".
+  return <ShopCard s={s} href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.search, q: query })} />;
 }
 
 /** One of the searcher's own events or spaces. */
@@ -352,7 +354,7 @@ export async function FrontDoorResults({
       {shops.length > 0 ? (
         <div className="fd-grid">
           {shops.map((s) => (
-            <ShopHitCard key={s.href} s={s} />
+            <ShopHitCard key={s.href} s={s} query={query} />
           ))}
         </div>
       ) : null}
@@ -473,7 +475,7 @@ function DiscoverResults({
         </div>
       ) : channelShop ? (
         <div className="fd-grid" data-discover-channel="">
-          <ShopHitCard s={channelShop} />
+          <ShopHitCard s={channelShop} query={query} />
         </div>
       ) : null}
 
@@ -504,7 +506,7 @@ function DiscoverResults({
             <OwnCard key={i.id} item={i} />
           ))}
           {restShops.map((s) => (
-            <ShopHitCard key={s.href} s={s} />
+            <ShopHitCard key={s.href} s={s} query={query} />
           ))}
         </div>
       ) : null}

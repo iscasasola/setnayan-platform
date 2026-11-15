@@ -51,7 +51,7 @@ const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}
 async function paint(search: Record<string, string>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
-  const { default: Lab } = await import('@/app/dev/create-for-lab/page');
+  const { default: Lab } = await import('@/app/dev/create-for-lab/page.lab');
   const el = await Lab({ searchParams: Promise.resolve(search) });
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, el));
 }

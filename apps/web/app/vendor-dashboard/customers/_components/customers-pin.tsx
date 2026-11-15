@@ -235,7 +235,7 @@ export function CustomersPin({
               // v113 `.odue` (Build 2 #43, the one screen): a round pill tinted by what it is — Overdue in the money
               // colour, Unread in the brand — the count in a filled bubble. The shipped neutral pill elsewhere.
               className={`sn-press min-h-11 truncate rounded-full border px-3 text-[13px] font-bold disabled:opacity-60 ${
-                title ? '' : 'rounded-xl border-ink/15 font-semibold text-ink'
+                title ? '' : 'border-ink/15 font-semibold text-ink'
               }`}
               style={title ? QUICK_TINT[q.key === 'overdue' ? 'overdue' : 'unread'] : undefined}
               aria-pressed={false}
@@ -248,7 +248,7 @@ export function CustomersPin({
                 <>
                   {q.word}
                   <span
-                    className="mx-1 inline-block min-w-[18px] rounded-full px-1.5 py-px align-[1px] text-[11px] font-extrabold leading-tight"
+                    className="mx-1 inline-block min-w-5 rounded-full px-1.5 py-px align-[1px] text-[13px] font-extrabold leading-tight"
                     style={{ background: 'currentColor' }}
                   >
                     <span style={{ color: 'rgb(var(--sn-on-accent))' }}>{q.value}</span>
@@ -281,7 +281,7 @@ export function CustomersPin({
             <button
               key={d.key}
               type="button"
-              className={`sn-press min-h-11 min-w-0 flex-[0_1_auto] rounded-xl px-1.5 py-1.5 text-center transition-colors duration-150 motion-reduce:transition-none ${
+              className={`sn-press min-h-11 min-w-0 flex-[0_1_auto] rounded-xl px-1.5 py-1.5 text-center transition-colors duration-sn-micro motion-reduce:transition-none ${
                 pressed ? 'bg-ink text-cream' : 'text-ink'
               }`}
               aria-pressed={pressed}
@@ -289,14 +289,14 @@ export function CustomersPin({
               onClick={() => show(pressed ? null : d.key)}
               data-customers-door={d.key}
             >
-              <span className={`block whitespace-nowrap text-[11px] ${pressed ? '' : 'text-ink/60'}`}>
+              <span className={`block whitespace-nowrap text-[13px] ${pressed ? '' : 'text-[color:var(--m-slate-2)]'}`}>
                 {d.dot ? (
                   <i aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-[1px]" style={{ background: TILE_DOT[d.dot] }} />
                 ) : null}
                 {d.word.charAt(0).toUpperCase() + d.word.slice(1)}
               </span>
               <b
-                className={`block whitespace-nowrap text-[15.5px] font-bold tabular-nums ${d.hot && !pressed ? 'text-sn-accent' : ''}`}
+                className={`block whitespace-nowrap text-[15px] font-bold tabular-nums ${d.hot && !pressed ? 'text-sn-accent' : ''}`}
                 data-customers-unread={d.hot ? '' : undefined}
               >
                 {d.value ?? '—'}

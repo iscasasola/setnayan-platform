@@ -12,7 +12,7 @@
  *   2. No giveaway pitch — no visible "free", no "₱0"; the included things say "Included".
  *   3. Every peso is read from the catalogue — not one "₱<digit>" typed on the page, its pieces or the quiz.
  *   4. The five parts, in order, and nothing below them (no add-ons grid, no estimator, no old free list).
- *   5. The included group is there (the eleven, six shown, "See all included ↓"), and Event Hub Pro's line says the
+ *   5. The included group is there (the eleven, six shown, "See all included ↓"), and Event Pro's line says the
  *      included design stays.
  *   6. The questionnaire: a paid question with no price is not asked; included answers say "Included"; "about 9 hours"
  *      only on a yes to the guest list; "Start your event" goes to /start.
@@ -22,7 +22,7 @@
  *   · the included figure "Included" → "Free"                                  → 2 RED
  *   · Live Watch's figure typed as "₱2,500"                                    → 3 RED
  *   · a <section id="addons"> put back under the close                         → 4 RED
- *   · Event Hub Pro's line loses "the included design stays yours"             → 5 RED
+ *   · Event Pro's line loses "the included design stays yours"             → 5 RED
  *   · the quiz shows "about 9 hours" without the guest-list yes                → 6 RED
  */
 import test from 'node:test';
@@ -108,7 +108,7 @@ test('4 · the five parts, in order, and nothing else', () => {
   assert.match(page, /<GuestSpotlight tourKey="pricing_page_v1"/);
 });
 
-test('5 · the included group is there, and Event Hub Pro keeps the included design', async () => {
+test('5 · the included group is there, and Event Pro keeps the included design', async () => {
   const names = [...page.matchAll(/name: '([^']+)',/g)].map((m) => m[1]);
   assert.deepEqual(names.slice(0, 11), [
     'The Event Hub',

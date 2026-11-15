@@ -18,7 +18,7 @@ import { DatesRow } from '../../../customers/_components/dates-row';
 /** A refund row as the Payment page draws it — the record plus its proof's display link (null when none / not servable). */
 export type ClientRefundView = ClientRefund & { proofUrl: string | null };
 
-const H = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55';
+const H = 'text-xs font-semibold uppercase tracking-[0.12em] text-ink/70';
 
 /** Today in Manila, 'YYYY-MM-DD' — the date field's default and its upper bound. */
 function manilaToday(): string {
@@ -179,11 +179,11 @@ export function ClientRefunds({
       {dialog}
       <p className={H}>Refunds you gave</p>
       {!measured ? (
-        <p role="status" className="py-2 text-[13.5px] text-ink/60" data-client-refunds-unread="">
+        <p role="status" className="py-2 text-[13px] text-ink/70" data-client-refunds-unread="">
           Your refunds couldn&rsquo;t load just now — nothing was lost. Refresh to try again.
         </p>
       ) : shown.length === 0 ? (
-        <p className="py-2 text-[13.5px] text-ink/60" data-client-refunds-empty="">
+        <p className="py-2 text-[13px] text-ink/70" data-client-refunds-empty="">
           None recorded.
         </p>
       ) : (
@@ -208,7 +208,7 @@ export function ClientRefunds({
           <h2 id={headId} className="sr-only">
             Record a refund to {clientName}
           </h2>
-          <p className="text-[13.5px] text-ink/65">Money you gave back to {clientName}. No money moves here — it is your record.</p>
+          <p className="text-[13px] text-ink/65">Money you gave back to {clientName}. No money moves here — it is your record.</p>
           <div ref={rowsRef}>
             <FormRows width="wide">
               <TypedRow name="Amount" value={amount} amount required empty="How much" fieldName="amount_php" data="client-refund-amount" onKeep={(t) => setAmount(t)} />
@@ -234,7 +234,7 @@ export function ClientRefunds({
             </FormRows>
           </div>
           {error ? (
-            <p role="alert" className="text-[13.5px] text-danger-700" data-client-refund-error="">
+            <p role="alert" className="text-[13px] text-danger-700" data-client-refund-error="">
               {error}
             </p>
           ) : null}
@@ -248,18 +248,18 @@ export function ClientRefunds({
             <h2 id={viewId} className="font-display text-[22px] font-medium tabular-nums text-ink">
               {formatPhp(viewing.amountPhp)}
             </h2>
-            <p className="text-[14px] text-ink/70">
+            <p className="text-sm text-ink/70">
               Given back to {clientName} on {refundDayWords(viewing.refundedOn)}
             </p>
-            <p className="text-[14px] text-ink">{viewing.reason}</p>
+            <p className="text-sm text-ink">{viewing.reason}</p>
             {viewing.proofUrl ? (
-              <a href={viewing.proofUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13.5px] font-semibold text-sn-accent underline-offset-2 hover:underline">
+              <a href={viewing.proofUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent underline-offset-2 hover:underline">
                 The proof photo
               </a>
             ) : viewing.proofRef ? (
-              <p className="text-[13px] text-ink/55">A proof photo is kept with it.</p>
+              <p className="text-[13px] text-ink/70">A proof photo is kept with it.</p>
             ) : null}
-            <p className="pt-2 text-xs text-ink/50">To take it back, swipe the row left.</p>
+            <p className="pt-2 text-xs text-ink/70">To take it back, swipe the row left.</p>
           </div>
         ) : null}
       </Sheet>

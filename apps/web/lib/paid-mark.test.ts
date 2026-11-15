@@ -67,12 +67,12 @@ test('💎 ◆ PRO: a Maker control a couple may TRY — owned is still the diam
   assert.equal(makerProUsable({ owns: true, storeShell: true }), true);
   // The padlock rule everywhere else is untouched.
   assert.equal(paidMarkState({ owns: false }), 'locked');
-  assert.match(paidMarkLabel('try', 'Event Hub Pro'), /Event Hub Pro — try it here; Apply asks for it/);
+  assert.match(paidMarkLabel('try', 'Event Pro'), /Event Pro — try it here; Apply asks for it/);
 });
 
 test('paidMarkLabel names the state for a screen reader', () => {
-  assert.match(paidMarkLabel('locked', 'Event Hub Pro'), /^Locked .*Event Hub Pro/);
-  assert.match(paidMarkLabel('unlocked', 'Event Hub Pro'), /^Unlocked .*Event Hub Pro/);
+  assert.match(paidMarkLabel('locked', 'Event Pro'), /^Locked .*Event Pro/);
+  assert.match(paidMarkLabel('unlocked', 'Event Pro'), /^Unlocked .*Event Pro/);
 });
 
 test('PaidMark draws a padlock when locked and a diamond when unlocked', async () => {
@@ -133,12 +133,12 @@ test('the themed prints wear the mark their owner has earned — both directions
   // 💎 Owner 2026-09-28: "let us remove padlock and just show that these tools
   // are for pro with the diamond icon" — no padlock anywhere in the Maker.
   // The themed prints' mark + the pass cards' "Download all passes (.zip)"
-  // (Event Hub Pro, 2026-09-29; FREE since 2026-10-22, below) — ◆ for both, never a padlock.
-  /* 🗂 +5 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the whole set and every guest's ticket — Classic and, when
+  // (Event Pro, 2026-09-29; FREE since 2026-10-22, below) — ◆ for both, never a padlock.
+  /* 🗂 +5 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT PRO"): the whole set and every guest's ticket — Classic and, when
      it prints, the theme's — and the Printed ticket batch each wear ◆ too. A free couple meets the three Classic ones (the theme's
      own are not offered without Pro). */
   /* 🤍 +1 since 2026-10-21 (owner: "Free version is the plain white. Themes that follows the event hub is pro"): the access line's
-     "Your Event Hub look on paper is Event Hub Pro." wears the mark too — the diamond owned, ◆ PRO free, nothing in the shell. */
+     "Your Event Hub look on paper is Event Pro." wears the mark too — the diamond owned, ◆ PRO free, nothing in the shell. */
   /* 🎟 −3 owned / −2 free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."):
      every guest's ticket in one file — Classic, the theme's, and the Printed ticket batch — is a FREE save now, so it wears no ◆. */
   /* 🎟 −1 owned / −1 free, the same day (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"): the digital ticket zip is a

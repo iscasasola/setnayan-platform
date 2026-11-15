@@ -111,6 +111,7 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   mayBeInvited,
+  invitationWasSent,
   mapTree,
   hostMaySetReply,
   plusOneFilterMatches,
@@ -265,6 +266,8 @@ export type GuestsScreenProps = {
   /** 🍽 Show & sort › one row per PER-HEAD service: who it counts · who is ticked out (owner 2026-11-12,
       `lib/guest-pax-filter.ts`). Absent or empty → no pax rows. */
   paxServices?: PaxListService[];
+  /** The per-head read was refused — Show & sort says so instead of "none yet". */
+  paxRefused?: boolean;
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
   /** guest_id → a face to draw. */
@@ -446,6 +449,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     inviteTagByGuest = {},
     notCountedByGuest = NO_NOTES,
     paxServices = NO_PAX,
+    paxRefused = false,
     songsByGuest,
     faceByGuest,
     requests,
@@ -1242,6 +1246,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
     </button>
   );
   const listToWalk = roster.some((g) => mayBeInvited(g));
+  // ✉ F-W2-25 (walk 14 Nov): "Everyone invited" only when every guest who may be invited WAS SENT one — a guest marked
+  // Attending by hand answered, so nobody is left to invite, but nothing was sent and "invited" would be untrue.
+  const everyoneSent = roster.filter((g) => mayBeInvited(g)).every((g) => invitationWasSent(g));
   const inviteFoot: ReactNode =
     stats.toInvite > 0 ? (
       <>
@@ -1261,7 +1268,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       </>
     ) : listToWalk ? (
       <span className={`${styles.cardSub} ${styles.allInvited}`} data-roster-to-invite="words">
-        <Check aria-hidden strokeWidth={2} /> Everyone invited
+        <Check aria-hidden strokeWidth={2} /> {everyoneSent ? 'Everyone invited' : 'Nobody left to invite'}
       </span>
     ) : oneQr ? (
       <>
@@ -1536,19 +1543,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
           : null
       }
       asking={requestsInPlace ? { label: `Asking to join · ${formatCount(requests)}`, on: asking, onPick: () => (asking ? closeAsking() : openAsking()) } : null}
-      pax={
-        paxServices.length > 0
-          ? {
-              services: paxServices,
-              value: paxPick,
-              count: (pick) => roster.filter((g) => paxFilterMatches(g, pick, paxServices)).length,
-              onPick: (next) => {
-                setPaxPick(next);
-                window.scrollTo({ top: 0 });
-              },
-            }
-          : null
-      }
+      pax={{
+        services: paxServices,
+        refused: paxRefused,
+        value: paxPick,
+        count: (pick) => roster.filter((g) => paxFilterMatches(g, pick, paxServices)).length,
+        onPick: (next) => {
+          setPaxPick(next);
+          window.scrollTo({ top: 0 });
+        },
+      }}
       shown={shown}
       onClearAll={clearAllFilters}
       tour="guests-sort"
@@ -1804,7 +1808,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             // Invite N is the ONE run (`/guests/send`), with only the selected
             // who still need theirs — never the couple, never the already sent.
             if (invitable.length === 0) {
-              toast.info('Everyone selected is already invited');
+              toast.info('Nobody selected still needs an invitation');
               return;
             }
             router.push(sendRunHref(eventId, invitable.map((g) => g.guest_id)));

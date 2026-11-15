@@ -197,6 +197,13 @@ export type PostEventSources = {
   entourage?: number;
   /** 🎞 A cover chosen for after the day, beside the Save the Date's own. Absent = no. */
   beforeAfter?: boolean;
+  /**
+   * 🎁 The couple wrote their one thank-you line for everyone who sent a gift (owner 2026-11-13, "SIX CALLS SETTLED"
+   * (2) — `sceneLooks.gifts.words.body`). Absent = no.
+   */
+  giftThanks?: boolean;
+  /** 🎁 How many gifts guests said they sent (`event_gift_records`, not removed) — a count, never an amount. Absent = 0. */
+  gifts?: number;
   liveWall: { active: boolean; photos: number };
   reviews: number;
   services: number;
@@ -226,7 +233,8 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   chapters: 'Set the day’s schedule and each moment becomes a chapter here, with its photos.',
   gallery: 'Your photos appear here. Everything your guests capture on the day files itself by the minute.',
   film: 'If you broadcast with Live Watch, the replay lands here after the day.',
-  videos: 'Paste a link to your same-day edit or your films, and they play here.',
+  /* 🎞 owner 2026-11-13 (3): the Thank-You Video on the page is a YouTube link the couple pastes — no video storage. */
+  videos: 'Paste a YouTube link to your same-day edit or your thank-you video, and it plays here.',
   you: 'After the day, each guest opens their own captures here, from their own Papic link.',
   wishes: 'Wishes appear here as your guests leave them.',
   asked: 'Ask your guests something. Their answers land here.',
@@ -240,6 +248,7 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   seating: 'Once your seat plan is drawn, each guest finds their own table here after the day.',
   entourage: 'Give people their roles on your guest list, and your entourage is listed here.',
   beforeAfter: 'Choose a cover for after the day, and it sits here beside your Save the Date’s.',
+  gifts: 'Write one thank-you line here. Only a guest who sent a gift reads it — never an amount.',
   song: 'Your song appears here.',
 };
 
@@ -288,7 +297,7 @@ const FIXED: Record<string, Def> = {
   },
   videos: {
     key: 'videos', name: POST_EVENT_SCENE_NAMES.videos!, template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',
-    fill: (s) => (s.films > 0 ? { count: s.films, source: `Your films · ${plural(s.films, 'link')}` } : { skip: 'No films linked yet' }),
+    fill: (s) => (s.films > 0 ? { count: s.films, source: `Your films · ${plural(s.films, 'link')}` } : { skip: 'No films yet — paste a YouTube link to your same-day edit or thank-you video' }),
   },
   you: {
     key: 'you', name: POST_EVENT_SCENE_NAMES.you!, template: null, open: 'you', pin: null, block: null, switch: null,
@@ -348,6 +357,16 @@ const FIXED: Record<string, Def> = {
   beforeAfter: {
     key: 'beforeAfter', name: POST_EVENT_SCENE_NAMES.beforeAfter!, template: 17, open: null, pin: null, block: 'beforeAfter', switch: 'beforeAfter',
     fill: (s) => (s.beforeAfter ? { count: null, source: 'Your Save the Date’s cover beside your story’s' } : { skip: 'Your story’s cover is your Save the Date’s — nothing to set beside it' }),
+  },
+  gifts: {
+    /* 🎁 THANK YOU FOR YOUR GIFT (owner 2026-11-13, "SIX CALLS SETTLED" (2)): ONE line the couple types for every
+       giver, drawn only for a signed-in guest who has a gift record (`lib/gift-thanks.server.ts`) — never another
+       guest, never a stranger, never an amount. Just before the couple's closing words. */
+    key: 'gifts', name: POST_EVENT_SCENE_NAMES.gifts!, template: 11, open: null, pin: null, block: null, switch: null,
+    fill: (s) =>
+      s.giftThanks
+        ? { count: (s.gifts ?? 0) > 0 ? (s.gifts ?? 0) : null, source: (s.gifts ?? 0) > 0 ? `Your thank-you line · for ${plural(s.gifts ?? 0, 'gift')}` : 'Your thank-you line' }
+        : { skip: 'Write one thank-you line for everyone who sent a gift' },
   },
   couple: {
     key: 'couple', name: POST_EVENT_SCENE_NAMES.couple!, template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
@@ -470,6 +489,7 @@ export function compilePostEventScenes(
     build(FIXED.seating!, s, day),
     build(FIXED.entourage!, s, day),
     build(FIXED.beforeAfter!, s, day),
+    build(FIXED.gifts!, s, day),
     build(FIXED.couple!, s, day),
     build(FIXED.song!, s, day),
     s.whatsNext
@@ -604,6 +624,8 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
     if (!sceneKey) continue; // a couple's own column — not a scene of the auto story
     rows.push({ key: sceneKey, hidden: off(FIXED[sceneKey]!.switch) });
   }
+  // 🎁 The gift thank-you — just before the close; it has no switch (an empty line is skipped, said as such).
+  rows.push({ key: 'gifts', hidden: false });
   rows.push({ key: 'couple', hidden: off('fromTheCouple') });
   rows.push({ key: 'song', hidden: false });
   rows.push({ key: 'next', hidden: false });
@@ -631,6 +653,11 @@ export type PostEventMakerRead =
        * build their draft saves from this.
        */
       arrangement: PostEventArrangement;
+      /**
+       * 🎁 The couple's "Peek now" (`events.chapters_peek`, owner 2026-11-13 (6)): true = they see the chapters'
+       * photos before Post Event opens. Null when it could not be read — the switch then says so, never a guess.
+       */
+      chaptersPeek?: boolean | null;
     }
   | { ok: false };
 

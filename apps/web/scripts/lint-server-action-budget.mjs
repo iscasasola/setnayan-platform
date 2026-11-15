@@ -144,10 +144,22 @@ import { fileURLToPath } from 'node:url';
 // The four exports nothing but tests import (papic purchasePapicCameras / activatePapicLimited / purchasePapicExtras,
 // guests setGuestPlusOneCount) are pinned by their tests, so none was retired. No fresh `vercel build` count for this +2 —
 // the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1249;
+// 1249 → 1251 (2026-11-13, admin slice 3 — owner "Yes, add both": account suspend + editable plan contents): TWO
+// dispatchers, one per feature, instead of the five exports they would have been — `accountHold` (admin/users/
+// suspend-actions.ts, op=suspend|unsuspend|undo) and `requestPlanContentsChange` (admin/pricing/plan-contents-actions.ts,
+// kind=supplier|event). The plan-change EXECUTOR was kept out of 'use server' on purpose (lib/plan-contents-execute.server.ts),
+// so it is not a route at all. An unimported-export sweep of all 390 'use server' files found none to retire. No fresh
+// `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build;
+// read that job before merging.
+export const CEILING = 1251;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));
+// THE /dev LABS ARE NOT COUNTED (2026-11-14): `next build` never compiles app/dev (next.config.ts
+// pageExtensions; held by app/dev/the-labs-never-ship.test.ts), so a lab's 'use server' is not a Vercel
+// route. Measured on main 10582a97f3: 6 of the 1,251 counted exports lived under app/dev. CEILING was NOT
+// lowered or raised here — the room is for later, measured raises.
+const LABS = join(WEB, 'app', 'dev');
 const USE_SERVER = /^\s*['"]use server['"]/m;
 const EXPORT = /^export\s+(?:async\s+)?(?:function|const)\s+\w+/gm;
 
@@ -155,6 +167,7 @@ function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
     const p = join(dir, name);
+    if (p === LABS) continue;
     const st = statSync(p);
     if (st.isDirectory()) walk(p, out);
     else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);

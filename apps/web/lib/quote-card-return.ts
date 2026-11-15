@@ -61,3 +61,11 @@ export function cardMakerFromQuote(here: string): string {
 
 /** The quote draft kept on this device while the supplier is in the Card Maker — one per conversation. */
 export const quoteDraftKey = (threadId: string) => `sn-quote-draft:${threadId}`;
+/**
+ * 🧾 RW-24 (walk 13 Nov 2026): the quote as it was when Send was pressed, kept on this device until the send is known to
+ * have landed. A refused send (an inquiry not yet accepted, a missing validity date, …) redirects with a notice, and
+ * the redirect used to drop everything the supplier had built.
+ */
+export const quoteSentKey = (threadId: string) => `sn-quote-sent:${threadId}`;
+/** The notices that mean the quote DID go — the kept copy is then forgotten. */
+export const QUOTE_SENT_NOTICES: ReadonlySet<string> = new Set(['proposal_sent', 'proposal_sent_no_card']);

@@ -7,7 +7,7 @@
  *   · reach  — `effectiveOuterRadiusKm` (lib/vendor-service-radius.ts): the plan's `serviceRadiusKm` (read from
  *              lib/vendor-tier-caps.ts — Ultra is `Infinity`, "nationwide", since 2026-11-04) clamping the shop's own
  *              declared outer ring — the SAME number couples' search and the supplier's own Where you work map draw;
- *   · own address — `tierCaps(tier).customWebsiteName` (Solo+ since 2026-11-04; the Pro page parts read
+ *   · own address — `tierCaps(tier).customWebsiteName` (Supplier Plus and up since 2026-11-04; the Pro page parts read
  *              `premiumPage`, the cap the page calls `premiumLayout`);
  *   · pinned review — the page's own `proPicksRender` (Pro+, flag-aware) and `reviewCommentsViewable`.
  *
@@ -34,6 +34,23 @@ export function shopReach(input: {
   const km = effectiveOuterRadiusKm(input.declaredOuterKm, input.tier);
   if (km === Infinity) return { kind: 'nationwide' };
   return Number.isFinite(km) && km > 0 ? { kind: 'ring', km } : { kind: 'city_only' };
+}
+
+/**
+ * 📍 DOES THE SHOP HAVE A "WHERE"? (map card follow-up, live re-walk 2026-11-14.) The calm shop page's Where tab and
+ * its section are drawn only when there is something to put behind them: a pin (a map + Get directions) or an address
+ * or city (the reach line + a Get directions search). A shop with none of those got a "Where" tab that scrolled to an
+ * empty heading. One answer for the tab AND the section, so they can never disagree.
+ */
+export function shopHasWhere(place: {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  address: string | null | undefined;
+  city: string | null | undefined;
+}): boolean {
+  const pinned =
+    place.latitude != null && place.longitude != null && Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
+  return pinned || Boolean(place.address?.trim()) || Boolean(place.city?.trim());
 }
 
 /** The reach fact line's words. Null when there is no city to say it about. */
@@ -73,7 +90,7 @@ export function shopAlsoInLine(
 
 /**
  * The shop's own web address, shown "sampaguitatable.com → this page" (approved Q4 = A: the shop's own domain pointing
- * at the page). Solo+ (`customWebsiteName`, owner 2026-11-04), and only a domain the verification backend has stamped — an
+ * at the page). Supplier Plus and up (`customWebsiteName`, owner 2026-11-04), and only a domain the verification backend has stamped — an
  * unverified row is a domain that does not point here yet. Lower-cased and bare (no scheme, no slash).
  */
 export function ownWebAddress(input: {

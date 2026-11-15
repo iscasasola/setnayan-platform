@@ -35,7 +35,10 @@ test('nothing the Suppliers search draws leaves the page — no /explore, no /v/
     assert.doesNotMatch(src, /['"`]\/explore\b/, `${name} links to /explore`);
     assert.doesNotMatch(src, /['"`]\/v\//, `${name} links to a /v/ shop page`);
   }
-  assert.doesNotMatch(BENCH, /searchMarketplaceForBench/, 'the bench no longer runs the whole-marketplace name search');
+  // 🔎 The whole-marketplace NAME search is back (walk 13 Nov 2026) — but only under "Nothing in your shortlist matches",
+  // and its hits open a category row ON this page (`openShopHit`), never a shop page: still nothing leaves.
+  // Pinned in `bench-search-fallback.test.ts`.
+  assert.match(BENCH, /if \(!shortlistMissed \|\| q\.length < 2\) return;\s*let cancelled = false;\s*void searchMarketplaceForBench\(eventId, q\)/);
   assert.doesNotMatch(BENCH, /See all results|From the whole marketplace/);
 });
 
@@ -50,7 +53,8 @@ test('while searching, the last row is the Add — the thumb row’s own door in
 });
 
 test('the empty line points at the Add row, not the marketplace', () => {
-  assert.match(BENCH, /Nothing in your shortlist matches “\{query\.trim\(\)\}”\. Add them as your own below\./);
+  assert.match(BENCH, /Nothing in your shortlist matches “\{query\.trim\(\)\}”\.\{' '\}/);
+  assert.match(BENCH, /'On Setnayan:' : 'Add them as your own below\.'/, 'with nothing on Setnayan either, the line points at the Add row');
   assert.doesNotMatch(BENCH, /try the whole marketplace/);
 });
 

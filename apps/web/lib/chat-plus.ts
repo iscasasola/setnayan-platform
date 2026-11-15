@@ -128,6 +128,16 @@ function pollRow(pollOpen: boolean | undefined): PlusRow {
   };
 }
 
+/** The shipped builder's own name (`VENDOR_THREAD_TOOLS` build-quote) — "Full quotation" in the Make a quote card. */
+export const SEND_A_QUOTE_LABEL = 'Send a quote';
+
+/**
+ * 🧾 Before any quote, the supplier's first Negotiate row (cut 7, 2026-11-14): a CARD in the chat — pick cards, the
+ * offer, Good until (filled, 14 days), a note — that lands as the shipped quote card. Its Full quotation opens the
+ * builder. It was a door straight to the builder (walk 13 Nov), which left the chat for ~8 taps.
+ */
+export const MAKE_A_QUOTE_LABEL = 'Make a quote';
+
 /** See every version — both sides, last in Negotiate. */
 const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
 
@@ -139,19 +149,33 @@ const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a phot
  * Propose a payment plan · See every version; then the menu's order (owner 11 Nov): Decision (Chat) · Ask for access
  * (Details) · Payment · Form (Forms) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a problem (LAST).
  */
-export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): PlusRow[] {
+export function supplierPlusRows(opts: {
+  paid: boolean;
+  pollOpen?: boolean;
+  /**
+   * 🧾 Is there a quote in this chat yet — the SAME rung the composer's 🧾 reads (`dealEntryFor` · `threadHasQuote`).
+   * `false` (walk 13 Nov 2026): the first row is "Send a quote", a DOOR to the shipped builder (`#build-quote`), and
+   * "See every version" is not drawn — "Change quote" over no quote dropped a card that said "No quote in this chat
+   * yet" with no way forward, and pinned an empty "Running topic". Omitted = a quote exists (the earlier behaviour).
+   */
+  hasQuote?: boolean;
+}): PlusRow[] {
+  const noQuoteYet = opts.hasQuote === false;
   return [
     // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
     // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
-    {
-      key: 'quote',
-      label: 'Change quote',
-      line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
-      card: 'quote',
-      door: 'build-quote',
-    },
+    noQuoteYet
+      ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
+        { key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' }
+      : {
+          key: 'quote',
+          label: 'Change quote',
+          line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
+          card: 'quote',
+          door: 'build-quote',
+        },
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
-    VERSIONS_ROW,
+    ...(noQuoteYet ? [] : [VERSIONS_ROW]),
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
     // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked

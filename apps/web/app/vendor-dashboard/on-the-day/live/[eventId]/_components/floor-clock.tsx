@@ -12,6 +12,12 @@ import type { RunOfShowBlock } from '@/lib/run-of-show';
  * vendor service countdown). Requests a Screen Wake Lock so the floor phone
  * doesn't sleep during the event, releasing it on unmount / tab-hide.
  */
+/* 🌗 The words sit on the obsidian focal (`.sn-tile-dark`), whose own tokens keep the parchment light in both
+   themes — `--sn-gold-100` is the island's word colour (globals.css "DARK ISLANDS STAY DARK"). The line under it is
+   the same parchment at 72 %. Tokens only: no colour code of this file's own. */
+const MAIN = 'var(--sn-gold-100)';
+const SUB = 'color-mix(in srgb, var(--sn-gold-100) 72%, transparent)';
+
 export function FloorClock({ blocks }: { blocks: RunOfShowBlock[] }) {
   const [, setTick] = useState(0);
 
@@ -49,39 +55,41 @@ export function FloorClock({ blocks }: { blocks: RunOfShowBlock[] }) {
   }, []);
 
   const clock = deriveDayOfClock(blocks, new Date());
+  const steady =
+    clock.mode === 'program' && clock.hoursLeftInProgram != null
+      ? `~${clock.hoursLeftInProgram}h left in the couple’s program`
+      : 'Following the couple’s program';
 
   return (
     <div className="flex items-center gap-3">
-      <CalendarClock aria-hidden className="h-6 w-6 shrink-0" style={{ color: 'var(--m-gold, #d9b45b)' }} strokeWidth={1.5} />
+      <CalendarClock aria-hidden className="size-6 shrink-0" style={{ color: 'var(--sn-gold-300)' }} strokeWidth={1.5} />
       <div className="min-w-0">
         {clock.mode === 'program' ? (
           clock.allDone ? (
-            <p className="text-base font-semibold" style={{ color: 'var(--m-paper)' }}>
+            <p className="text-base font-semibold" style={{ color: MAIN }}>
               The program has wrapped
             </p>
           ) : clock.minutesToNext != null && clock.nextLabel ? (
             <>
-              <p className="font-mono text-xl font-bold" style={{ color: 'var(--m-paper)' }}>
+              <p className="text-xl font-bold tabular-nums" style={{ color: MAIN }}>
                 {clock.minutesToNext <= 0 ? 'Now' : `in ${formatDuration(clock.minutesToNext)}`}
-                <span className="ml-2 text-sm font-medium" style={{ color: 'rgba(251,251,250,0.7)' }}>
+                <span className="ml-2 text-sm font-medium" style={{ color: SUB }}>
                   {clock.nextLabel}
                 </span>
               </p>
               {clock.hoursLeftInProgram != null ? (
-                <p className="mt-0.5 text-xs" style={{ color: 'rgba(251,251,250,0.55)' }}>
+                <p className="mt-0.5 text-sm" style={{ color: SUB }}>
                   ~{clock.hoursLeftInProgram}h left in the couple’s program
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-base font-semibold" style={{ color: 'var(--m-paper)' }}>
-              {clock.hoursLeftInProgram != null
-                ? `~${clock.hoursLeftInProgram}h left in the couple’s program`
-                : 'Following the couple’s program'}
+            <p className="text-base font-semibold" style={{ color: MAIN }}>
+              {steady}
             </p>
           )
         ) : (
-          <p className="text-base font-semibold" style={{ color: 'var(--m-paper)' }}>
+          <p className="text-base font-semibold" style={{ color: MAIN }}>
             Event day · running for {formatDuration(clock.minutesElapsed)}
           </p>
         )}

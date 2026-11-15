@@ -9,7 +9,7 @@
  *
  * ⚠ AND IT PINS THE BOUNDARY WITH `<EmptyState>`, which already ships and is
  * CORRECT — for the ADMIN register. That one draws a terracotta ring, demands
- * `readPermitted: true`, and prints "Verified: read permitted · 0 rows", which
+ * `readPermitted: true` (its "Verified: read permitted" stamp was removed 13 Nov 2026, F-A-01 — engineering words), which
  * is engineering language on a screen a couple reads. Merging the two is the
  * likeliest wrong simplification here, so both directions are asserted.
  */

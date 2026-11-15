@@ -1,54 +1,36 @@
-// Money-split studio surface — the body of the former settings/demo-mode page,
-// re-homed here (2026-07-10). actions/_components stay in /admin/settings/demo-mode; the
-// legacy route is now a redirect (or, for pricing/settings, the studio shell).
 /**
- * Admin · Settings · Demo mode toggle page.
+ * Admin · Switches · Demo mode — the rows the approved drawing draws under Switches › Admins
+ * (`Setnayan-specs/prototypes/admin_five_tabs_2026-11-13/admin.html` `page('switches' …)`, owner go 14 Nov 2026).
  *
- * Sister to the Sentry smoke-test section in /admin/settings — narrow
- * UI for a single owner-action: turn demo mode on or off for the
- * current admin session.
+ * It was the Settings studio's Demo mode tab (`/admin/settings?tab=demo-mode`, and before that
+ * `/admin/settings/demo-mode`); both old addresses now forward to `/admin/switches#demo-mode`. Nothing was dropped:
+ *   - the state (ON / OFF) from the cookie, for this admin session;
+ *   - the ONE toggle, still a POST to /api/admin/demo-mode/toggle — now behind the confirm that names who it reaches;
+ *   - "Last toggled … by … — set to …" from admin_audit_log, so the audit trail shows without leaving the page;
+ *   - the quick links (the marketplace with/without demo, Manage demo suppliers), the "never bookable" rule and the
+ *     ?demo=1 / ?demo=0 shortcut — the explanations now sit behind their ⓘ (T17).
+ * The sample event at /sample moved to Switches › Couples (it changes what strangers see, not this session).
  *
- * Admin-only (the `/admin/*` layout gates the whole tree; this page
- * adds nothing on top — the layout's notFound() for non-admins is the
- * actual enforcement).
- *
- * What this page does:
- *   - Shows current state (ON / OFF) via the cookie.
- *   - Surfaces a single Toggle button that POSTs to
- *     /api/admin/demo-mode/toggle.
- *   - Renders the "last toggled" line from admin_audit_log so the
- *     audit trail is visible without leaving the page.
- *   - Provides quick links into /vendors with demo mode + (when
- *     Agent 1 ships the page) /admin/demo-vendors for cleanup.
- *
- * Reference: PR brief 2026-05-22 evening, CLAUDE.md row 458 follow-on
- * (the open "hide-prices spec lock" question).
+ * Admin-only (the `/admin/*` layout gates the whole tree; `requireAdmin` re-asserts it here).
  */
 
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { cookies } from 'next/headers';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
-import { FormFlash } from '@/app/_components/forms/form-flash';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { SampleEventSwitch } from '../_components/sample-event-switch';
+import { TemplateRow } from '@/app/_components/template-rows';
+import { ConfirmButton } from '@/app/admin/_components/avatar-confirm';
+import { ConfirmLines, SettingRow } from '@/app/admin/_components/avatar-screen';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
-type Props = {
-  searchParams: Promise<{ toggled?: string }>;
-};
-
-export async function DemoModeSurface({ searchParams }: Props) {
+export async function DemoModeSurface({ toggled }: { toggled?: string }) {
   await requireAdmin();
   const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath('/admin/settings?tab=demo-mode'));
+  if (!user) redirect(loginRedirectPath('/admin/switches'));
 
   const supabase = await createClient();
   const { data: profile } = await supabase
@@ -57,36 +39,24 @@ export async function DemoModeSurface({ searchParams }: Props) {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  // The /admin layout already gates on admin status with notFound(),
-  // so this is defense in depth — both branches arrive at the same
-  // outcome but the page handles the case where someone reaches it
-  // before layout resolution (e.g., direct redirect from the API).
+  // The /admin layout already gates on admin status with notFound(); this is
+  // defense in depth for a request that reaches here before the layout resolves.
   if (!isAdminProfile(profile)) redirect('/');
 
   const cookieStore = await cookies();
   const isOn = cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
 
-  // Pull the most-recent demo_mode_* row from admin_audit_log so the
-  // page reads as a real audit surface, not just a toggle.
+  // The most-recent demo_mode_* row from admin_audit_log, so the row reads as an
+  // audit surface, not just a toggle. A refused read says so — never "never toggled".
   const admin = createAdminClient();
-  const { data: auditRows } = await admin
+  const { data: auditRows, error: auditErr } = await admin
     .from('admin_audit_log')
     .select('action, actor_user_id, created_at, after_json')
     .in('action', ['demo_mode_enabled', 'demo_mode_disabled'])
     .order('created_at', { ascending: false })
     .limit(1);
+  if (auditErr) logQueryError('admin.switches.demoModeLastToggle', auditErr);
   const lastToggle = auditRows?.[0] ?? null;
-
-  // 🎭 The Maria and Jose sample's switch (lib/sample-event/switch.server.ts).
-  // A refused read says so instead of drawing a picker that guesses "Default".
-  const { data: sampleRow, error: sampleErr } = await admin
-    .from('platform_settings')
-    .select('sample_event_enabled')
-    .eq('id', 1)
-    .maybeSingle();
-  if (sampleErr) logQueryError('admin.demoMode.sampleEventSwitch', sampleErr);
-  const sampleStored = (sampleRow as { sample_event_enabled?: boolean | null } | null)?.sample_event_enabled;
-  const sampleMode = sampleStored === true ? 'on' : sampleStored === false ? 'off' : 'default';
 
   let lastToggleActorLabel: string | null = null;
   if (lastToggle?.actor_user_id) {
@@ -95,180 +65,73 @@ export async function DemoModeSurface({ searchParams }: Props) {
       .select('display_name, email')
       .eq('user_id', lastToggle.actor_user_id)
       .maybeSingle();
-    lastToggleActorLabel =
-      actor?.display_name ?? actor?.email ?? lastToggle.actor_user_id;
+    lastToggleActorLabel = actor?.display_name ?? actor?.email ?? lastToggle.actor_user_id;
   }
 
-  const search = await searchParams;
-  const justToggled = search.toggled === 'on' || search.toggled === 'off';
+  const justToggled = toggled === 'on' || toggled === 'off';
+  const line = justToggled
+    ? `Demo mode is now ${toggled === 'on' ? 'ON' : 'OFF'}. The cookie is set for the current admin session.`
+    : auditErr
+      ? 'Couldn’t read when it was last toggled.'
+      : lastToggle
+        ? `Last toggled ${new Date(lastToggle.created_at).toLocaleString('en-PH', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: 'Asia/Manila',
+          })} by ${lastToggleActorLabel ?? 'admin'} — set to ${lastToggle.action === 'demo_mode_enabled' ? 'on' : 'off'}`
+        : 'Demo mode has not been toggled before. The audit log will start tracking transitions from the first toggle.';
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      {/* BackButton dropped — Demo mode is a tab inside the Settings studio. */}
-
-      {/* The tab strip already says "Demo mode", with the same icon on it.
-          The name stays in the document at zero pixels.
-          ⚖ The sentence survives: this switch changes what STRANGERS see on
-          the public marketplace, and the clause saying the real hide-prices
-          lock is untouched is the reassurance an operator needs before
-          flipping it. */}
-      <PageMasthead title="Demo mode" />
-      <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          Suppliers marked{' '}
-          <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">
-            is_demo = TRUE
-          </code>{' '}
-          now show to everyone, marked (DEMO ONLY). When demo mode is on, they also
-          display their pricing publicly. Real supplier visibility (the
-          2026-05-16 hide-prices lock) is unchanged. Admins only — non-admin
-          sessions silently ignore the flag.
-        </p>
-      </div>
-
-      {justToggled ? (
-        <FormFlash tone="success">
-          Demo mode is now <strong>{search.toggled === 'on' ? 'ON' : 'OFF'}</strong>.
-          The cookie is set for the current admin session.
-        </FormFlash>
-      ) : null}
-
-      <section className="space-y-5 sn-tile p-5">
-        <div className="flex items-center gap-3">
-          <span
-            className={
-              isOn
-                ? 'inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-800'
-                : 'inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-3 py-1 text-xs font-medium text-ink/60'
+    <>
+      <SettingRow
+        id="demo-mode"
+        data="demo-mode"
+        name="Demo mode"
+        tip={
+          <>
+            Suppliers marked is_demo = TRUE show to everyone, marked (DEMO ONLY). When demo mode is on, they also display
+            their pricing publicly. Real supplier visibility (the 2026-05-16 hide-prices lock) is unchanged. Admins only —
+            non-admin sessions silently ignore the flag. Shortcut: append ?demo=1 to any URL to enable it (admin session
+            required); ?demo=0 clears it.
+          </>
+        }
+        line={<span role="status">{line}</span>}
+        right={
+          <ConfirmButton
+            action="/api/admin/demo-mode/toggle"
+            fields={{ state: isOn ? 'off' : 'on' }}
+            tone={isOn ? 'neutral' : 'brand'}
+            icon={isOn ? 'pause' : 'play'}
+            label={isOn ? 'Turn demo mode OFF' : 'Turn demo mode ON'}
+            title={isOn ? 'Turn demo mode OFF' : 'Turn demo mode ON'}
+            confirmLabel={isOn ? 'Turn OFF' : 'Turn ON'}
+            body={
+              <ConfirmLines
+                what={
+                  isOn
+                    ? ['Demo suppliers stop displaying their pricing in this session']
+                    : ['Demo suppliers display their pricing', 'Overview, Growth, Intelligence and Visits show demo data']
+                }
+                not={['Real supplier visibility is unchanged (the 2026-05-16 hide-prices lock)']}
+                who="You, in this admin session · written to the Admin log"
+              />
             }
-          >
-            <span
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full ${
-                isOn ? 'bg-success-600' : 'bg-ink/30'
-              }`}
-            />
-            {isOn ? 'Demo mode is ON' : 'Demo mode is OFF'}
-          </span>
-        </div>
-
-        <form action="/api/admin/demo-mode/toggle" method="post">
-          <input type="hidden" name="state" value={isOn ? 'off' : 'on'} />
-          <SubmitButton
-            className={
-              isOn
-                ? 'rounded-full bg-ink px-5 py-2 text-sm font-medium text-cream hover:bg-ink/90'
-                : 'rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream hover:bg-terracotta/90'
-            }
-            pendingLabel="Toggling…"
-          >
-            {isOn ? 'Turn demo mode OFF' : 'Turn demo mode ON'}
-          </SubmitButton>
-        </form>
-
-        {lastToggle ? (
-          <p className="text-xs text-ink/55">
-            Last toggled{' '}
-            <strong className="text-ink/75">
-              {new Date(lastToggle.created_at).toLocaleString('en-PH', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-                timeZone: 'Asia/Manila',
-              })}
-            </strong>{' '}
-            by{' '}
-            <span className="text-ink/75">{lastToggleActorLabel ?? 'admin'}</span>{' '}
-            — set to{' '}
-            <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">
-              {lastToggle.action === 'demo_mode_enabled' ? 'on' : 'off'}
-            </code>
-          </p>
-        ) : (
-          <p className="text-xs text-ink/55">
-            Demo mode has not been toggled before. The audit log will start
-            tracking transitions from the first toggle.
-          </p>
-        )}
-      </section>
-
-      <section className="mt-6 space-y-3 sn-tile p-5" data-sample-event-section="">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Sample event
-        </h2>
-        <p className="text-sm text-ink/70">
-          Maria and Jose at <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">/sample</code>.
-          While it is off, only internal accounts can open it; everyone else gets a page-not-found.
-        </p>
-        {sampleErr ? (
-          <p className="text-sm text-danger-700">Couldn’t read the sample switch. Reload to try again.</p>
-        ) : (
-          <SampleEventSwitch initial={sampleMode} />
-        )}
-        {/* 🚪 The sample's way in from inside the app (Root map: a page with no door is a page nobody reaches). */}
-        <Link
-          href="/sample"
-          className="inline-flex items-center gap-1.5 text-sm text-ink/80 underline-offset-2 hover:underline"
-        >
-          Open the sample
-          <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </Link>
-      </section>
-
-      <section className="mt-6 space-y-3 sn-tile p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Quick links
-        </h2>
-        <ul className="space-y-2 text-sm">
-          <li>
-            <Link
-              href="/?browse=1"
-              className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
-            >
-              View /vendors {isOn ? '(demo suppliers visible)' : '(without demo)'}
-              <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/admin/demo-vendors"
-              className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
-            >
-              Manage demo suppliers
-              <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <section className="mt-6 space-y-2 rounded-xl border border-warn-200/60 bg-warn-50/60 p-5 text-sm text-warn-900">
-        <div className="flex items-center gap-2">
-          <ShieldCheck
-            className="h-4 w-4 text-warn-700"
-            strokeWidth={1.75}
-            aria-hidden
+            data="demo-mode"
           />
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-700">
-            Demo shops are public — and never bookable
-          </h2>
-        </div>
-        {/* The Dec-1 "cleanup deadline" is retired (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). */}
-        <p>
-          Demo shops and demo events show to everyone, marked (DEMO ONLY). A real event can never book,
-          pay or message a demo shop, and a demo event books only demo shops.
-        </p>
-      </section>
-
-      <section className="mt-6 sn-tile p-5 text-sm text-ink/65">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Shortcut
-        </h2>
-        <p className="mt-2">
-          Append <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">?demo=1</code>{' '}
-          to any URL to enable demo mode (admin session required; non-admins are
-          silently ignored). <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">?demo=0</code>{' '}
-          clears it.
-        </p>
-      </section>
-    </div>
+        }
+      />
+      <TemplateRow
+        title={`View /vendors ${isOn ? '(demo suppliers visible)' : '(without demo)'}`}
+        line="The marketplace as a visitor sees it now"
+        href="/?browse=1"
+        data="demo-view-vendors"
+      />
+      <TemplateRow
+        title="Manage demo suppliers"
+        line="Public, never bookable — a real event can never book, pay or message a demo shop"
+        href="/admin/demo-vendors"
+        data="demo-manage"
+      />
+    </>
   );
 }

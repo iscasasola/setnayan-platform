@@ -516,8 +516,6 @@
 2 apps/web/app/tour/seating/page.tsx
 2 apps/web/app/tour/vendors/_components/tour-shortlist.tsx
 2 apps/web/app/tour/vendors/page.tsx
-2 apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx
-7 apps/web/app/v/[slug]/_components/inquiry-composer.tsx
 1 apps/web/app/v/[slug]/_components/share-button.tsx
 1 apps/web/app/v/[slug]/_components/verified-price-card.tsx
 10 apps/web/app/v/[slug]/page.tsx

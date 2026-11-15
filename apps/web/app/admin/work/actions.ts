@@ -18,12 +18,15 @@ import {
 } from '@/app/admin/payment-options/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { safeNext } from '@/lib/safe-next';
-import { pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
+import { pickedCorrectionReason, pickedReason, redirectRefusal, workBackHref } from '@/lib/admin/supplier-work';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { approvePaymentCore } from '@/app/admin/payments/actions';
-import { overridePublishReview } from '@/app/admin/reviews/actions';
+import { approvePaymentCore, requestPaymentResubmit } from '@/app/admin/payments/actions';
+import { after } from 'next/server';
+import { readPaymentLights } from '@/lib/admin/green-payments.server';
+import { greenIds } from '@/lib/admin/green-payments';
+import { overridePublishReview, rejectAppeal } from '@/app/admin/reviews/actions';
 import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
-import { approveRequest } from '@/app/admin/approvals/actions';
+import { approveRequest, rejectRequest } from '@/app/admin/approvals/actions';
 
 /**
  * Settle a queue item FROM THE WORK LIST, without leaving it.
@@ -59,8 +62,35 @@ import { approveRequest } from '@/app/admin/approvals/actions';
 export async function approvePaymentFromWorkList(formData: FormData): Promise<void> {
   const { userId } = await requireAdmin();
 
-  const paymentId = formData.get('payment_id');
   const back = safeNext(formData.get('back'), '/admin/work');
+  // ➕ "APPROVE ALL N GREEN" (admin slice 4, 2026-11-13) — an intent branch, not
+  // a new exported action: the server-action budget sits at its ceiling
+  // (scripts/lint-server-action-budget.mjs).
+  if (formData.get('intent') === 'approve-green') {
+    await approveGreenPayments(formData, userId, back);
+    return;
+  }
+  // ➕ "ASK FOR A CLEARER PHOTO" (admin request cards, owner 2026-11-14) — a payment is never just declined. Runs the
+  // desk's own `requestPaymentResubmit` (the couple is emailed and the upload form reopens); the notice is one of the
+  // list's own words, never typed. An intent branch, not a new action (the server-action ceiling).
+  if (formData.get('intent') === 'resubmit') {
+    const notice = pickedReason('proof', formData.get('reason'));
+    if (!notice) redirect(workBackHref(back, 'refused', 'Pick what the couple should fix.'));
+    const fd = new FormData();
+    fd.set('payment_id', String(formData.get('payment_id') ?? ''));
+    fd.set('admin_resubmit_notice', notice);
+    try {
+      await requestPaymentResubmit(fd);
+    } catch (e) {
+      // A refusal ("already resolved", "not found") is shown on Work in the desk's own words — never a silent redraw.
+      redirect(workBackHref(back, 'refused', e instanceof Error ? e.message : 'That could not be done.'));
+    }
+    revalidatePath('/admin/work');
+    revalidatePath('/admin/payments');
+    redirect(workBackHref(back, 'asked'));
+  }
+
+  const paymentId = formData.get('payment_id');
   if (typeof paymentId !== 'string' || paymentId.length === 0) {
     redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
   }
@@ -108,6 +138,70 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
   revalidatePath('/admin/payments');
 }
 
+/**
+ * Approve every GREEN payment the admin confirmed on the Work row, in one press.
+ *
+ * SAFETY — the same model as the desk's `batchApprovePayments`, plus its
+ * duplicate check:
+ *   • the ids came from the confirm list the admin just read; none is trusted —
+ *     each is RE-SORTED here with the same rule that drew it green
+ *     (`readPaymentLights`: isDecisivePaymentMatch AND no counted duplicate);
+ *     a row that is no longer green is skipped, never forced;
+ *   • approval runs through `approvePaymentCore`, the single money path, with
+ *     no `acknowledgeDuplicate` — a duplicate can never clear in a batch;
+ *   • the receipt read is not consulted (an AI may not approve money);
+ *   • one bad row never stops the rest, and every outcome is SAID on return.
+ */
+async function approveGreenPayments(formData: FormData, userId: string, back: string): Promise<never> {
+  const sep = back.includes('?') ? '&' : '?';
+  const ids = Array.from(
+    new Set(
+      formData.getAll('batch_payment_ids').filter((v): v is string => typeof v === 'string' && v.length > 0),
+    ),
+  );
+  if (ids.length === 0) redirect(`${back}${sep}settle=missing`);
+
+  const admin = createAdminClient();
+  const read = await readPaymentLights(admin, { paymentIds: ids });
+  if (!read.ok) {
+    redirect(
+      `${back}${sep}settle=refused&why=${encodeURIComponent('Couldn’t re-check the payments, so none were approved. Try again.')}`,
+    );
+  }
+  const stillGreen = new Set(greenIds(read.rows));
+
+  let approved = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const id of ids) {
+    if (!stillGreen.has(id)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const outcome = await approvePaymentCore({ admin, userId, paymentId: id, adminNotes: null, promoteOrder: true });
+      if (outcome.ok) approved += 1;
+      else failed += 1;
+    } catch (e) {
+      console.error('approveGreenPayments row failed (non-fatal to batch):', id, e);
+      failed += 1;
+    }
+  }
+
+  revalidatePath('/admin/work');
+  revalidatePath('/admin');
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+  after(() => revalidatePath('/dashboard', 'layout'));
+
+  const parts = [`${approved} approved`];
+  if (skipped > 0) parts.push(`${skipped} no longer green — left for you to open`);
+  if (failed > 0) parts.push(`${failed} could not be approved — open them one by one`);
+  redirect(
+    `${back}${sep}settle=${skipped > 0 || failed > 0 ? 'batch-partial' : 'batch'}&why=${encodeURIComponent(parts.join(' · '))}`,
+  );
+}
+
 
 /* VERIFY moved to `app/admin/verify/actions.ts` → `settleVerificationFromWorkList` (admin supplier slice,
    2026-10-28): beside the decision engine it calls, so that engine could stop being an exported route (it had no
@@ -127,6 +221,24 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
  */
 export async function agreeToRequestFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
+  // ➕ "I DON'T" (admin request cards, owner 2026-11-14) — the page's own `rejectRequest`, with a reason from the list
+  // the colleague reads. An intent branch, not a new action (the server-action ceiling).
+  if (formData.get('intent') === 'reject') {
+    const back = safeNext(formData.get('back'), '/admin/work');
+    const reason = pickedReason('approval', formData.get('reason'));
+    if (!reason) redirect(workBackHref(back, 'refused', 'Pick the reason your colleague will see.'));
+    const fd = new FormData();
+    fd.set('approval_id', String(formData.get('approval_id') ?? ''));
+    fd.set('reason', reason);
+    try {
+      await rejectRequest(fd);
+    } catch (e) {
+      redirect(workBackHref(back, 'refused', e instanceof Error ? e.message : 'That could not be done.'));
+    }
+    revalidatePath('/admin/work');
+    revalidatePath('/admin/approvals');
+    redirect(workBackHref(back, 'declined-request'));
+  }
   await approveRequest(formData);
   revalidatePath('/admin/work');
   revalidatePath('/admin/approvals');
@@ -147,6 +259,16 @@ export async function publishReviewFromWorkList(formData: FormData): Promise<voi
   await requireAdmin();
 
   const back = safeNext(formData.get('back'), '/admin/work');
+
+  // ➕ ADMIN REQUEST CARDS (owner 2026-11-14): "Publish" and "Keep it held" each take a reason from a list, never
+  // typed. Keep-it-held is the page's own `rejectAppeal` — an intent branch, not a new action (the ceiling).
+  const keep = formData.get('intent') === 'keep';
+  const picked = pickedReason(keep ? 'held' : 'publish', formData.get('reason'));
+  if (!picked) redirect(workBackHref(back, 'refused', 'Pick the reason for the record.'));
+  if (keep) {
+    await settleViaRedirectingAction(() => rejectAppeal(formData), ['/admin/work', '/admin/reviews'], back, 'kept');
+    return;
+  }
 
   // The page's own action ends in redirect('/admin/reviews?override=1') — right
   // for that page, and the exact page-jump the owner asked to remove when the
@@ -262,7 +384,7 @@ export async function settleCorrectionFromWorkList(formData: FormData): Promise<
   }
   // 🔑 A DECLINE WITHOUT A REASON FROM THE LIST IS REFUSED (admin supplier slice, owner 2026-10-28: "Decline with a
   // reason"). The shop is told why; a bare "declined" tells them nothing they can act on. The admin stays on Work.
-  if (decision === 'decline' && !pickedReason('names', formData.get('reason'))) {
+  if (decision === 'decline' && !pickedCorrectionReason(formData.get('reason'))) {
     redirect(workBackHref(backOf(formData), 'refused', 'Pick the reason the shop will see.'));
   }
   await settleViaRedirectingAction(
@@ -282,6 +404,13 @@ export async function settleSubscriptionFromWorkList(formData: FormData): Promis
   const decision = formData.get('decision');
   if (decision !== 'approve' && decision !== 'reject') {
     throw new Error('Choose approve or reject.');
+  }
+  // ➕ A declined plan payment tells the shop WHY, in the list's own words (admin request cards, owner 2026-11-14) —
+  // without one the page action would send its default "Payment not received", which may not be true.
+  if (decision === 'reject') {
+    const reason = pickedReason('plan', formData.get('reason'));
+    if (!reason) redirect(workBackHref(backOf(formData), 'refused', 'Pick the reason the shop will see.'));
+    formData.set('reason', reason);
   }
   await settleViaRedirectingAction(
     () =>

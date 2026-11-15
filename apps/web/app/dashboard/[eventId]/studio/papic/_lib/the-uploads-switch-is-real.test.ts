@@ -106,7 +106,8 @@ test('🚨 the control posts the value it WANTS, never a flip of what it read', 
 });
 
 test('the copy says what it costs, and what OFF actually means', () => {
-  assert.match(CHOICE, /uses a credit/, '"allow uploads" reads like a free door unless the cost is on the same screen');
+  // F-W2-31 (walk 14 Nov): the cost is ASKED (`uploadPhotoCostWords` → `papicCaptureCost`), never a typed "a credit".
+  assert.match(CHOICE, /uploadPhotoCostWords\(\)/, '"allow uploads" reads like a free door unless the cost is on the same screen');
   assert.match(CHOICE, /Only what your cameras capture/, 'the off state no longer says what it does — a switch whose off position is unexplained gets left on');
 });
 

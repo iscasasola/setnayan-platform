@@ -81,7 +81,7 @@ export function ShopSettings({
     <MenuSettingsButton menu="shop" rise open={open} onOpenChange={(next) => go(next)}>
       <div className="px-4 pb-6 pt-2" data-shop-settings="">
         {body ?? (
-          <p role="status" className="py-4 text-[13.5px] text-ink/60" data-shop-settings-loading="">
+          <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-settings-loading="">
             Opening your settings…
           </p>
         )}

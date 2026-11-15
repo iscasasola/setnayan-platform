@@ -52,9 +52,9 @@ export function DatesRow({
       {lead ?? null}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-medium leading-tight text-ink">{title}</span>
-        {line ? <span className="mt-0.5 block truncate text-[13px] text-ink/60">{line}</span> : null}
+        {line ? <span className="mt-0.5 block truncate text-[13px] text-[color:var(--m-slate-2)]">{line}</span> : null}
         {line2 ? (
-          <span className="block truncate text-[13px] text-ink/60" data-dates-row-line2="">
+          <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" data-dates-row-line2="">
             {line2}
           </span>
         ) : null}
@@ -69,7 +69,7 @@ export function DatesRow({
       {href && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : onOpen && !end ? <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} /> : null}
     </>
   );
-  const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
+  const rowClass = 'flex min-h-14 items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
   if (href && !end && download) {
     return (
       <SaveFileLink
@@ -107,7 +107,7 @@ export function DatesRow({
  */
 export function RowTile({ children }: { children: ReactNode }) {
   return (
-    <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink/70 [&>svg]:h-5 [&>svg]:w-5">
+    <span aria-hidden className="grid h-11 w-11 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink/70 [&>svg]:h-5 [&>svg]:w-5">
       {children}
     </span>
   );

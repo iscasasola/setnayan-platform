@@ -25,7 +25,7 @@ export const readFeatureCatalogue = cache(async (): Promise<readonly CatalogueRo
     return null;
   }
   const [retail, supplier] = await Promise.all([
-    admin.from('platform_retail_catalog_v2').select('service_code, retail_price_php, billing_period, is_active'),
+    admin.from('platform_retail_catalog_v2').select('service_code, retail_price_php, billing_period, is_active, included_papic_credits'),
     admin.from('vendor_billing_catalog').select('sku_code, price_php, offering_type, is_active'),
   ]);
   if (retail.error || supplier.error || !retail.data || !supplier.data) {
@@ -40,6 +40,7 @@ export const readFeatureCatalogue = cache(async (): Promise<readonly CatalogueRo
       php: Number(r.retail_price_php),
       period: (r.billing_period as string | null) ?? null,
       active: Boolean(r.is_active),
+      credits: r.included_papic_credits == null ? null : Number(r.included_papic_credits),
     })),
     ...supplier.data.map((r) => ({
       catalogue: 'supplier' as const,

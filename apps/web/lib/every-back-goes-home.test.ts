@@ -26,6 +26,7 @@
  * `#123456` to a page; add a `<select>` to a page. 2026-11-12 (DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
  * APPROVED"): drop the `/[slug]` computed entry; make BackButton ignore `inPlace` (both red, then restored).
  */
+import { ADMIN_TABS } from '@/lib/admin/admin-tabs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -154,7 +155,8 @@ test('the map’s bar roots are today’s bars', () => {
   const supplier = hrefsAfter('app/vendor-dashboard/_components/vendor-nav-destinations.ts', /export const VENDOR_DESTINATIONS/, '    ');
   assert.deepEqual(sorted(supplier), sorted(BAR_ROOTS.supplier));
 
-  const admin = hrefsAfter('app/admin/_components/admin-bottom-nav.tsx', /export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem\[\] = \[/, '    ');
+  // The admin bar is drawn from the five tabs (owner 13 Nov 2026); read their landings from the one source.
+  const admin = ADMIN_TABS.map((t) => t.href);
   assert.deepEqual(sorted(admin), sorted(BAR_ROOTS.admin));
 });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { realNameOrNull } from '@/lib/no-name';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -19,12 +20,18 @@ import {
   CircleHelp,
   Info,
   Receipt,
+  KeyRound,
+  Mail,
+  ToggleRight,
+  Building2,
+  ScrollText,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { pictureFrameStyle } from '@/lib/picture-frame';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
-import { signOutAllAction } from '@/lib/account-jars';
+// ⚡ Not from lib/account-jars: that module names `Buffer`, which ships the buffer polyfill to the browser.
+import { signOutAllAction } from '@/lib/account-sign-out-path';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { appearanceSwitchShown } from '@/lib/appearance';
 import { AppearanceChoice } from './appearance-choice';
@@ -51,6 +58,12 @@ type Props = {
    * shell) is step 6's — built in the vendor layout.
    */
   shopRows?: readonly ShopRow[] | null;
+  /**
+   * 🛠 ADMIN-OF-ADMIN (owner 13 Nov 2026, the approved admin — `prototypes/admin_pub/`): Team · Admin log · Secrets ·
+   * Email delivery · Switches · Business live under the avatar, never as a tab. Handed in by the admin layout only
+   * (from `lib/admin/admin-tabs.ts`), so every other surface's sheet is exactly as it was.
+   */
+  adminRows?: readonly AdminRow[] | null;
   /** Which "Switch to" row wears the ✓ — the layout knows where it is. Default: Your events. */
   here?: SheetPlace;
   /** The vendor layout's open shop, so its row (of several) wears the ✓. */
@@ -58,6 +71,7 @@ type Props = {
 };
 
 export type ShopRow = { key: string; href: string; label: string; sub: string };
+export type AdminRow = { key: string; href: string; label: string };
 /** Step 6's name for the same row (simpler supplier dashboard — prototype SHEETS.avatar); one shape, two names. */
 export type SwitcherShopRow = ShopRow;
 
@@ -166,6 +180,15 @@ const SUB = 'mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap 
 const TILE = 'flex min-h-[44px] flex-1 basis-0 flex-col items-center gap-[7px] rounded-card bg-[var(--m-paper)] px-1 pb-2.5 pt-3 text-center text-[11.5px] font-medium leading-[1.15] text-ink';
 const TILE_MARK = 'flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--m-ivory)]';
 
+const ADMIN_ROW_ICON: Record<string, typeof Store> = {
+  team: Users,
+  'admin-log': ScrollText,
+  secrets: KeyRound,
+  'email-delivery': Mail,
+  switches: ToggleRight,
+  business: Building2,
+};
+
 const SHOP_ROW_ICON: Record<string, typeof Store> = {
   details: UserRound,
   page: Store,
@@ -215,6 +238,7 @@ export function SwitcherPanelBody({
   data,
   close,
   shopRows = null,
+  adminRows = null,
   here = 'events',
   activeShopId = null,
   unread = null,
@@ -224,6 +248,7 @@ export function SwitcherPanelBody({
   close: () => void;
   referHref?: string | null;
   shopRows?: readonly ShopRow[] | null;
+  adminRows?: readonly AdminRow[] | null;
   here?: SheetPlace;
   activeShopId?: string | null;
   /** The per-row counts — null until read, and null for good when the read failed (nothing is drawn). */
@@ -423,9 +448,9 @@ export function SwitcherPanelBody({
           <form key={acct.uid} action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>
             <input type="hidden" name="uid" value={acct.uid} />
             <button type="submit" className={ROW}>
-              <RowMark className="bg-[var(--m-ivory)] text-ink">{(acct.name?.trim() || acct.email).charAt(0).toUpperCase()}</RowMark>
+              <RowMark className="bg-[var(--m-ivory)] text-ink">{(realNameOrNull(acct.name) ?? acct.email).charAt(0).toUpperCase()}</RowMark>
               <span className="min-w-0 flex-1">
-                <span className={NAME}>{acct.name?.trim() || acct.email}</span>
+                <span className={NAME}>{realNameOrNull(acct.name) ?? acct.email}</span>
                 <span className={SUB}>
                   <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
                   <span className="truncate">{acct.email}</span>
@@ -479,6 +504,29 @@ export function SwitcherPanelBody({
                     <span className="block truncate text-[15px] font-medium text-ink">{r.label}</span>
                     <span className="block truncate text-[12.5px] text-[var(--m-slate-2)]">{r.sub}</span>
                   </span>
+                  <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
+                </Link>
+              );
+            })}
+          </nav>
+        </>
+      ) : null}
+
+      {/* ── 3a · Admin — the admin-of-admin, admin layout only (owner 13 Nov 2026). ── */}
+      {adminRows && adminRows.length > 0 ? (
+        <>
+          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+            Admin
+          </span>
+          <nav aria-label="Admin" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-switcher-admin-rows="">
+            {adminRows.map((r) => {
+              const Icon = ADMIN_ROW_ICON[r.key] ?? ChevronRight;
+              return (
+                <Link key={r.key} href={r.href} onClick={close} data-switcher-admin-row={r.key} className={ROW_SM}>
+                  <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">{r.label}</span>
                   <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
                 </Link>
               );
@@ -569,7 +617,7 @@ export function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, referHref, shopRows, here = 'events', activeShopId = null }: Props) {
+export function AccountSwitcher({ data, currentEventName, referHref, shopRows, adminRows = null, here = 'events', activeShopId = null }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [unread, setUnread] = useState<SheetUnread | null>(null);
@@ -738,6 +786,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
           close={close}
           referHref={referHref}
           shopRows={shopRows}
+          adminRows={adminRows}
           here={here}
           activeShopId={activeShopId}
           unread={unread}

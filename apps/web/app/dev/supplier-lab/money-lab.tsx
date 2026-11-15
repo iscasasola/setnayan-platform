@@ -187,7 +187,7 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
             waived: fail || state === 'money-empty' ? [] : state === 'money-waived' ? ALL_WAIVED : WAIVED,
           },
           year: state === 'money-locked' ? 'locked' : fail ? null : state === 'money-empty' ? moneyYear({ measured: true, ytdPhp: 0, months: [] }, TODAY) : moneyYear(YEAR, TODAY),
-          lockedLine: 'Totals by month start with Solo. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee, only on the couples we introduce.',
+          lockedLine: 'Totals by month start with Supplier Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee, only on the couples we introduce.',
           legacy: fail ? null : [],
           wallet: { read: wallet.balance != null, title: walletRowTitle(wallet.balance), line: walletRowSubline(wallet, formatPhp), href: `${base}&open=wallet` },
         }}

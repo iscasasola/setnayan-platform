@@ -8,7 +8,7 @@
  * share one allowance per event, measured after browser compression, with a
  * visible meter. Guest/Papic media is separate (credits) and never counts.
  * 2026-10-15 (owner FINAL, "Free 10MB" · "Pro is 500MB"): the number is no longer
- * one for everybody — Free 10 MB, Event Hub Pro 500 MB, named by the one function
+ * one for everybody — Free 10 MB, Event Pro 500 MB, named by the one function
  * `coupleMediaCapBytes(isPro)` in `lib/maker-media-limits.ts`.
  *
  * Until this file the allowance was only COUNTED: `/api/upload` incremented
@@ -87,7 +87,7 @@ export const COUPLE_MEDIA_IN_FLIGHT_GRACE_MS = 15 * 60 * 1000;
  * (`/dashboard/<id>/studio/website-pro`); a refusal sentence cannot carry a link.
  */
 export function coupleMediaProMention(): string {
-  return `◆ Event Hub Pro gives you ${mb(coupleMediaCapBytes(true))} of uploads.`;
+  return `◆ Event Pro gives you ${mb(coupleMediaCapBytes(true))} of uploads.`;
 }
 
 /**

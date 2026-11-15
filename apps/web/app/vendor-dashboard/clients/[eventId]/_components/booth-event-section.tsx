@@ -104,7 +104,7 @@ export async function BoothEventSection({
       ) : !tierOk ? (
         <p className="mt-1 text-xs text-ink/55">
           Right now the couple sees a plain booth with your name. Branding it — your logo and poster — comes
-          with a paid plan (Solo, Pro or Ultra).{' '}
+          with a paid plan (Supplier Plus, Supplier Pro or Supplier Ultra).{' '}
           <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
             See plans
           </Link>
@@ -124,7 +124,7 @@ export async function BoothEventSection({
             It stays for as long as the couple keeps their room up.
           </p>
           <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />
-          {cyclePricePhp > 0 ? (
+          {cyclePricePhp != null && cyclePricePhp > 0 ? (
             <p className="mt-2 text-[11px] text-ink/45">
               Several weddings this month? The 3D Booth cycle brands every client&rsquo;s room for{' '}
               {peso(cyclePricePhp)} / 4 weeks.{' '}

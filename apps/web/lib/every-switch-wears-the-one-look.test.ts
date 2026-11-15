@@ -194,7 +194,7 @@ const SWITCH_NOT_SWEPT: readonly { path: string; has?: string; why: string }[] =
   {
     path: 'app/onboarding/_shared/services-step.tsx',
     has: 'aria-checked={selection.hubPro}',
-    why: 'the same tick, for Event Hub Pro (pinned by lib/onboarding/event-hub-pro-on-the-services-step.test.ts)',
+    why: 'the same tick, for Event Pro (pinned by lib/onboarding/event-hub-pro-on-the-services-step.test.ts)',
   },
 ];
 

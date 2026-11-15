@@ -10,10 +10,10 @@
  *     `PRINT_SETTINGS_SAVED` in the house toast (`print-settings-has-one-way-to-save.test.ts`).
  *   · A PIECE ROW — picture · name · size line · size ▾ · ONE Download (free).
  *   · A GUEST PRINT (Event pass · Digital ticket · Guest QR codes · Table signs & place cards) — ONE View as ▾ shared by all four
- *     (`guestPickOptions`), a Download for that guest (free), All guests (◆ Event Hub Pro — but every guest's pass and the Guest
+ *     (`guestPickOptions`), a Download for that guest (free), All guests (◆ Event Pro — but every guest's pass and the Guest
  *     QR sheet are free since 2026-10-22, `isAllInOnePrint`), and the line under both
  *     (`guestPrintCountLine`) — the number IS the file, never a guess.
- *   · EVERYTHING ◆ — the set, every guest's pass and place card, the day's sheets, in one PDF (Event Hub Pro).
+ *   · EVERYTHING ◆ — the set, every guest's pass and place card, the day's sheets, in one PDF (Event Pro).
  */
 
 /** The ⚙ row's name and its one line — what the sheet holds (prototype `.band .gear`). */
@@ -184,7 +184,7 @@ export const GUEST_WORD_TOKEN = '__GUESTWORD__';
 export function everythingLine(themeName: string): string {
   return `Every piece above in one PDF, in ${themeName} — the set, every guest’s pass and place card, the day’s sheets.`;
 }
-export const EVERYTHING_HEAD = { title: 'Everything', line: 'one file · Event Hub Pro' } as const;
+export const EVERYTHING_HEAD = { title: 'Everything', line: 'one file · Event Pro' } as const;
 export const EVERYTHING_LABEL = 'Download everything';
 
 /**
@@ -193,7 +193,7 @@ export const EVERYTHING_LABEL = 'Download everything';
  */
 export function printSetTip(storeShell: boolean): string {
   const free = 'Free prints are plain white and print-ready — 3 mm bleed and crop marks, no watermark.';
-  return storeShell ? free : `${free} Your Event Hub look on paper is Event Hub Pro.`;
+  return storeShell ? free : `${free} Your Event Hub look on paper is Event Pro.`;
 }
 /** The Digital ticket's ⓘ — the pass panel's own shipped line. */
 export const DIGITAL_TICKET_TIP = 'One PNG per guest who is coming. Each guest’s own saves free.';

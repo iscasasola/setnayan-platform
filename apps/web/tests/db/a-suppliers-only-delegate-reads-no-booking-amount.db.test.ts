@@ -1,5 +1,5 @@
 /**
- * A SUPPLIERS-ONLY DELEGATE READS NO BOOKING AMOUNT — #5936 · migration 20271342818285.
+ * A SUPPLIERS-ONLY DELEGATE READS NO BOOKING AMOUNT — #5936 · migrations 20271342818285 (A) + 20271343340931 (B).
  *
  * Build 3 lane B round 4 (20271333705710) closed every chat / quote / amendment route to an amount for a
  * coordinator without Budget & payments, and left ONE route open for the owner: the five price columns on
@@ -9,9 +9,9 @@
  *     amount NULL and money_shown = FALSE;
  *   • a delegate WITH Budget & payments, and the host, read the real figures through the reader;
  *   • a stranger reads no row at all; the service role reads every figure;
- *   • the readers are purely ADDITIVE — migration 20271342818285 closes no column, so the build still serving when
- *     `db push` runs keeps working. The per-column close is migration B, a separate follow-up PR (controller audit
- *     on PR #7560), and that PR flips the last test here into "every direct read of an amount is refused".
+ *   • since migration B (20271343340931) every direct browser read of an amount — select, filter or `*` — is
+ *     refused for every seat, the host included; the row itself, the readers and the service role are unaffected,
+ *     and a session write of a typed price still lands (migration B closes reads only).
  *
  * Run (from apps/web): tsx --test tests/db/a-suppliers-only-delegate-reads-no-booking-amount.db.test.ts
  */
@@ -116,17 +116,85 @@ test('a stranger reads no row; the service role reads every figure', async () =>
   assert.equal(svc[0]!.money_shown, true);
 });
 
-test('the readers close nothing — the build still serving when db push runs keeps every column it selects', async () => {
-  // Migration A of two (controller audit on PR #7560): deploy-prod applies migrations BEFORE the new build serves,
-  // so a column close here would refuse the old build's selects. The close is migration B, in its own PR.
-  const closed = await q<{ c: string }>(`
-    SELECT column_name AS c FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = 'event_vendors'
-       AND NOT has_column_privilege('authenticated', 'public.event_vendors', column_name, 'SELECT')
-     ORDER BY 1`);
-  assert.deepEqual(closed, [], 'a column was closed in migration A — that is migration B, after prod serves the readers');
-  const fns = await q<{ f: string; ok: boolean }>(`
-    SELECT f, has_function_privilege('authenticated', f, 'EXECUTE') AS ok
+const MONEY = ['total_cost_php', 'deposit_paid_php', 'transport_php', 'food_allowance_php', 'pax_surcharge_php'];
+
+test('migration B (20271343340931): every direct read of an amount is refused on a browser session — host included', async () => {
+  const w = await newWorld();
+  for (const uid of [w.suppliersOnly, w.withBudget, w.host]) {
+    for (const col of MONEY) {
+      await assert.rejects(
+        as(uid, 'authenticated', () => q(`SELECT ${col} FROM public.event_vendors WHERE vendor_id = $1`, [w.booking])),
+        /permission denied/,
+        `${col} is still selectable on a browser session`,
+      );
+      // A filter names the column too — Postgres checks it exactly as for the select list.
+      await assert.rejects(
+        as(uid, 'authenticated', () => q(`SELECT vendor_id FROM public.event_vendors WHERE ${col} > 0`)),
+        /permission denied/,
+        `${col} is still usable in a WHERE on a browser session`,
+      );
+    }
+    // select * is refused outright, never silently trimmed.
+    await assert.rejects(
+      as(uid, 'authenticated', () => q(`SELECT * FROM public.event_vendors WHERE vendor_id = $1`, [w.booking])),
+      /permission denied/,
+    );
+  }
+});
+
+test('migration B: the row itself still reads, the readers still fill the amounts, the service role reads every column', async () => {
+  const w = await newWorld();
+  // POSITIVE CONTROL — the same seats, the same row, without an amount: the denial above is the column, not the row.
+  for (const uid of [w.suppliersOnly, w.host]) {
+    const rows = await as(uid, 'authenticated', () =>
+      q<{ vendor_id: string; status: string }>(`SELECT vendor_id, status FROM public.event_vendors WHERE vendor_id = $1`, [w.booking]));
+    assert.deepEqual(rows, [{ vendor_id: w.booking, status: 'contracted' }]);
+  }
+  // The definer reader still reads the closed columns (it runs as its owner).
+  const hostMoney = await as(w.host, 'authenticated', () => readMoney(w));
+  assert.equal(hostMoney[0]!.total_cost_php, '99000.00');
+  assert.equal(hostMoney[0]!.money_shown, true);
+  // DIFFERENTIAL CONTROL — the very statement refused above succeeds for the service role.
+  await db.exec(`SET ROLE service_role`);
+  try {
+    const svc = await q<{ total_cost_php: string }>(
+      `SELECT total_cost_php::text FROM public.event_vendors WHERE vendor_id = $1`, [w.booking]);
+    assert.deepEqual(svc, [{ total_cost_php: '99000.00' }]);
+  } finally {
+    await reset();
+  }
+});
+
+test('migration B closes reads only: a host still writes a typed price on their session, returning vendor_id', async () => {
+  // The session writers (vendors/actions.ts, chat-lock-booking.server.ts, …) write a price and read back vendor_id
+  // only; lib/booking-cost-write.ts decides which amounts a caller may write.
+  const w = await newWorld();
+  const rows = await as(w.host, 'authenticated', () =>
+    q<{ vendor_id: string }>(`UPDATE public.event_vendors SET transport_php = 1800 WHERE vendor_id = $1 RETURNING vendor_id`, [w.booking]));
+  assert.deepEqual(rows, [{ vendor_id: w.booking }]);
+  const after = await as(null, 'service_role', () => readMoney(w));
+  assert.equal(after[0]!.transport_php, '1800.00');
+});
+
+test('every OTHER event_vendors column stays SELECT-able by anon and authenticated (a new column must be granted)', async () => {
+  // Since migration B the browser roles hold SELECT per column, so a column added later is NOT readable until a
+  // migration grants it. If this fails, add to that migration:
+  //   GRANT SELECT (<new_column>) ON public.event_vendors TO anon, authenticated;
+  // — unless the column is an amount, in which case add it to the reader instead and to the list below.
+  const ungranted = await q<{ r: string; c: string }>(`
+    SELECT r, c.column_name AS c
+      FROM information_schema.columns c, unnest(ARRAY['anon', 'authenticated']) r
+     WHERE c.table_schema = 'public' AND c.table_name = 'event_vendors'
+       AND c.column_name <> ALL ($1::text[])
+       AND NOT has_column_privilege(r, 'public.event_vendors', c.column_name, 'SELECT')
+     ORDER BY 1, 2`, [MONEY]);
+  assert.deepEqual(ungranted, [], 'these event_vendors columns are not browser-selectable — grant them in the migration that added them');
+  const open = await q<{ r: string; c: string }>(`
+    SELECT r, c FROM unnest($1::text[]) c, unnest(ARRAY['anon', 'authenticated']) r
+     WHERE has_column_privilege(r, 'public.event_vendors', c, 'SELECT')`, [MONEY]);
+  assert.deepEqual(open, [], 'a later migration handed a booking amount back to a browser role');
+  const fns = await q<{ ok: boolean }>(`
+    SELECT has_function_privilege('authenticated', f, 'EXECUTE') AS ok
       FROM unnest(ARRAY['public.event_vendor_money_read(uuid)', 'public.event_vendor_money_event_ids()']) f`);
   assert.deepEqual(fns.map((r) => r.ok), [true, true], 'authenticated must be able to call both readers');
   const anon = await q<{ ok: boolean }>(

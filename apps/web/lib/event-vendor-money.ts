@@ -1,21 +1,22 @@
 /**
  * event-vendor-money.ts — the ONE way app code reads a booking's five amounts.
  *
- * 🔒 #5936 · migration 20271342818285 (migration A — readers only). `event_vendors.total_cost_php · deposit_paid_php ·
- * transport_php · food_allowance_php · pax_surcharge_php` are still SELECT-able today: a Suppliers delegate without
- * Budget & payments reads the same row as the host, and RLS cannot hide a column. The per-column close (a REVOKE, so
- * a direct select or a `select('*')` on a user session is refused with "permission denied") lands in migration B, a
- * later PR, once prod serves code that reads only through here.
+ * 🔒 #5936 · migrations 20271342818285 (A — the readers) + 20271343340931 (B — the close). `event_vendors.total_cost_php
+ * · deposit_paid_php · transport_php · food_allowance_php · pax_surcharge_php` are closed PER COLUMN to anon and
+ * authenticated: a direct select, a filter or a `select('*')` on a user session is refused with "permission denied"
+ * (the WHOLE statement, not just the column). A Suppliers delegate without Budget & payments reads the same row as the
+ * host, and RLS cannot hide a column — so the amounts never come off the row on a session.
  *
- * Until then this module is the ONE app path to the amounts: read them through
+ * This module is the ONE app path to the amounts on a session: read them through
  * `public.event_vendor_money_read(event_id)` — this module. It returns every booking row
  * the caller may read, with the amounts filled only for a host or a delegate whose Budget area is not Off;
  * `money_shown: false` means HIDDEN, never ₱0. On the service role (the admin client) every amount is filled, so
  * a lib function called with either client reads the same way.
  *
- * Held by `lib/booking-money-reads-through-the-reader.test.ts`.
+ * Held by `lib/booking-money-reads-through-the-reader.test.ts` and `lib/security/booking-money-is-not-session-readable.test.ts`.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { askedOnce } from '@/lib/request-once';
 
 export const BOOKING_MONEY_COLUMNS = [
   'total_cost_php',
@@ -70,7 +71,11 @@ export async function readBookingMoney(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Map<string, BookingMoney>> {
-  const { data, error } = await supabase.rpc('event_vendor_money_read', { p_event_id: eventId });
+  // ⚡ One answer per render (speed pass 2026-11-14): the workspace asked twice (its own row and the budget summary).
+  // A refusal is handed to every caller and each still throws; outside a render it reads fresh, as before.
+  const { data, error } = await askedOnce(supabase, 'event_vendor_money_read', [eventId], () =>
+    Promise.resolve(supabase.rpc('event_vendor_money_read', { p_event_id: eventId })),
+  );
   if (error) throw new Error(`event_vendor_money_read failed: ${error.message}`);
   const out = new Map<string, BookingMoney>();
   for (const r of (data ?? []) as ReaderRow[]) {

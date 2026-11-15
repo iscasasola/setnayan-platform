@@ -70,7 +70,7 @@ test('(1) Edit and Style always work; Animate works exactly where there is a sav
     assert.ok(yes.includes(k), `${k}: Animate worked on the lab and is now greyed`);
   }
   assert.ok(yes.length >= 12 && no.length >= 12, `anti-vacuity: ${yes.length} yes · ${no.length} no`);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto'], 'a part lost its Style — only a part with no look at all may');
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK], ['spotlight', 'beforeafter', 'song', 'next', 'wall', 'you', 'coverphoto', 'pegifts'], 'a part lost its Style — only a part with no look at all may');
 });
 
 test('(2) the predicate is the work area’s own rule: a part’s sheet needs `canvas && el`; a scene’s heading and motion need a scene', () => {
@@ -121,7 +121,10 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   assert.doesNotMatch(group, /(?<![-\w])disabled=\{/, 'a tool is `disabled` — its tap is dead and silent');
   /* (Re-aimed: the toolbar is one height and always up, so the thumb always rests on a tool — the one whose rows are
      on screen, `shownTool`, which is never a tool with nothing to set here.) */
-  assert.match(group, /aria-pressed=\{shownTool === t\}/, 'a pill can be pressed over another tool’s panel');
+  /* 🔁 RE-AIMED 2026-11-13 (Maker Edit shell v3): the thumb rests on the tool whose rows are on screen — and a LOCKED
+     tab's rows are its own Problem → Solution (`lockShown`), so the thumb goes there with them. Still never pressed
+     over another tool's panel. */
+  assert.match(group, /aria-pressed=\{\(lockShown \?\? shownTool\) === t\}/, 'a pill can be pressed over another tool’s panel');
   assert.match(group, /onClick=\{\(\) => pickTool\(t\)\}/);
   /* Grey by the same class a disabled pill wore. */
   assert.ok(STAGE_TOOL_BUTTON.split(' ').includes('aria-disabled:opacity-40'), 'an inactive tool is not grey');
@@ -146,7 +149,12 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
      (`makerPartToolWhy`, still the default and the last word), unless the part is a SAMPLE on the canvas or E-Gifts
      with nothing for a guest to see, which say that instead (`a-fixed-block-has-its-own-motion.test.ts` §5). The
      claim is unchanged: a tap on a grey tool says ONE plain line and sets nothing. */
-  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
+
+  /* 🔁 RE-AIMED 2026-11-13 (Maker Edit shell v3, owner-approved "maker shell approved"): a tap on a grey tool no longer
+     says its line in a toast over blank rows — it opens the line IN THE ROWS as Problem → Solution (`setLockTool`,
+     `makerPartToolLock(picked, lockShown, whyNot(lockShown))`). The claim is unchanged: the tap answers with the line
+     `whyNot` works out, and sets no tool. */
+  assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setLockTool\(t\);\s*setLockTool\(null\);\s*setTool\(t\);/);
   assert.match(tools, /return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/, 'the part’s own line is no longer the default');
   /* ⚙ `gearText` keeps the line word for word and draws its ⚙ as the real Settings icon (Build 5 F5, 2026-11-10). */
   /* 🖼 …the toast may end in ONE door: a cover word's Background line selects the Cover Scene (`whyDoor`). */

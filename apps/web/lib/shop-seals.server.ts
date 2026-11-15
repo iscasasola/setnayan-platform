@@ -10,6 +10,8 @@ import {
   judgeVerifiedPartner,
   manilaYear,
   pickYearlySeals,
+  sealWindow,
+  top10PlaqueLine,
   yearlySealsMayRun,
   type PartnerFacts,
   type PartnerVerdict,
@@ -42,12 +44,16 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** `shop_seal_year_facts(year)` — every non-demo shop with activity that year. null = the read failed. */
+/**
+ * `shop_seal_year_facts(from, to)` for seal year `year` (18 Dec → 17 Dec, `sealWindow`) — every non-demo shop with
+ * activity in it. null = the read failed.
+ */
 export async function readSealYearFacts(
   admin: SupabaseClient,
   year: number,
 ): Promise<Array<Omit<SealYearCandidate, 'verified' | 'trustedAvgRating' | 'trustedReviewCount'>> | null> {
-  const { data, error } = await admin.rpc('shop_seal_year_facts', { p_year: year });
+  const win = sealWindow(year);
+  const { data, error } = await admin.rpc('shop_seal_year_facts', { p_from: win.from, p_to: win.to });
   if (error) {
     logQueryError(`${SITE}: shop_seal_year_facts`, error, { year }, 'graceful_degrade');
     return null;
@@ -59,9 +65,17 @@ export async function readSealYearFacts(
     const refunded = num(r.refunded_events);
     const cancelled = num(r.shop_cancellations);
     const inquiries = num(r.inquiries);
+    const seconds = num(r.second_bookings);
     // A row with a count that did not come back as a number is not a row we can rank on.
-    if (!id || completed === null || refunded === null || cancelled === null || inquiries === null) return null;
-    out.push({ vendorProfileId: id, completedEvents: completed, refundedEvents: refunded, shopCancellations: cancelled, inquiries });
+    if (!id || completed === null || refunded === null || cancelled === null || inquiries === null || seconds === null) return null;
+    out.push({
+      vendorProfileId: id,
+      completedEvents: completed,
+      refundedEvents: refunded,
+      shopCancellations: cancelled,
+      inquiries,
+      secondBookings: seconds,
+    });
   }
   return out;
 }
@@ -180,8 +194,8 @@ export type YearlyRunResult =
   | { ran: true; year: number; picks: YearlyPicks; given: number };
 
 /**
- * Gives one year's seals: Top 10, No. 1 and Most In-Demand (Clients' Choice waits for its rule). Refuses to run until
- * the first award year is ruled, and for a year that has not ended in Manila. Idempotent.
+ * Gives one seal year's seals: Top 10, No. 1, Most In-Demand and Clients' Choice. Refuses to run before 18 Dec (Manila)
+ * of that year, or for a year before the first. Idempotent.
  */
 export async function runYearlySeals(admin: SupabaseClient, year: number, now: Date = new Date()): Promise<YearlyRunResult> {
   const may = yearlySealsMayRun(year, now);
@@ -197,6 +211,7 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
       completed_events: c.completedEvents,
       refunded_events: c.refundedEvents,
       inquiries: c.inquiries,
+      second_bookings: c.secondBookings,
       trusted_avg_rating: c.trustedAvgRating,
       trusted_review_count: c.trustedReviewCount,
       ...extra,
@@ -207,8 +222,8 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
       vendor_profile_id: r.vendorProfileId,
       seal: 'top10' as const,
       award_year: year,
-      // The rank is kept for the record; whether the plaque shows it is still open (6373).
-      facts: factsOf(r.vendorProfileId, { rank: r.rank, score: r.score }),
+      // The plaque SHOWS the exact rank (11d044c0 (5)).
+      facts: factsOf(r.vendorProfileId, { rank: r.rank, score: r.score, plaque_line: top10PlaqueLine(r.rank, year) }),
     })),
     ...(picks.no1
       ? [
@@ -227,8 +242,10 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
         ]
       : []),
     ...picks.mostInDemand.map((id) => ({ vendor_profile_id: id, seal: 'most_in_demand' as const, award_year: year, facts: factsOf(id) })),
+    ...(picks.clientsChoice
+      ? [{ vendor_profile_id: picks.clientsChoice, seal: 'clients_choice' as const, award_year: year, facts: factsOf(picks.clientsChoice) }]
+      : []),
   ];
-  // Clients' Choice gives nothing until its winner rule is ruled (CLIENTS_CHOICE_WINNER_RULE, lib/shop-seals.ts).
   const given = await giveSeals(admin, rows);
   if (given === null) return { ran: false, why: 'the write was refused — nothing was given' };
   return { ran: true, year, picks, given };

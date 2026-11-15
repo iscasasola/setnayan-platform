@@ -80,12 +80,20 @@ async function book(
   }
   return id;
 }
-type YearRow = { completed_events: number; refunded_events: number; shop_cancellations: number; inquiries: number };
+type YearRow = {
+  completed_events: number;
+  refunded_events: number;
+  shop_cancellations: number;
+  inquiries: number;
+  second_bookings: number;
+};
+/** Seal year `year`: 18 Dec of year−1 → 17 Dec of year; 2026 (the first) from launch (lib/shop-seals.ts sealWindow). */
 async function yearFacts(year: number, vpid: string): Promise<YearRow | null> {
+  const from = year <= 2026 ? null : `${year - 1}-12-18`;
   const r = await db.query<YearRow>(
-    `SELECT completed_events, refunded_events, shop_cancellations, inquiries
-       FROM public.shop_seal_year_facts($1) WHERE vendor_profile_id = $2`,
-    [year, vpid],
+    `SELECT completed_events, refunded_events, shop_cancellations, inquiries, second_bookings
+       FROM public.shop_seal_year_facts($1::date, $2::date) WHERE vendor_profile_id = $3`,
+    [from, `${year}-12-18`, vpid],
   );
   return r.rows[0] ?? null;
 }
@@ -98,7 +106,7 @@ after(async () => {
   await db?.close();
 });
 
-test('a year counts only completed bookings on events dated in that year — never archived, fraud or a self-booking', async () => {
+test('a seal year counts only completed bookings on events dated in it — never archived, fraud or a self-booking', async () => {
   const { vpid, owner } = await newShop();
   const c = await newUser();
   await book(await newEvent('2026-03-01', c), vpid);
@@ -108,9 +116,33 @@ test('a year counts only completed bookings on events dated in that year — nev
   await book(await newEvent('2026-09-01', c), vpid, { archived: true });
   await book(await newEvent('2026-10-01', c), vpid, { fraud: true });
   await book(await newEvent('2026-11-01', owner), vpid);
+  await book(await newEvent('2026-12-20', c), vpid);
   const f = await yearFacts(2026, vpid);
-  assert.equal(f?.completed_events, 2, 'complete + delivered in 2026 only');
-  assert.equal((await yearFacts(2027, vpid))?.completed_events, 1);
+  assert.equal(f?.completed_events, 2, 'complete + delivered in the 2026 seal year only');
+  assert.equal((await yearFacts(2027, vpid))?.completed_events, 2, '20 Dec 2026 and 2 Jan 2027 fall in the 2027 seal year');
+});
+
+test('second bookings: a client\'s 2nd event counts in its own seal year, once per client; a 3rd never counts', async () => {
+  const { vpid } = await newShop();
+  const p1 = await newUser();
+  const p2 = await newUser();
+  await book(await newEvent('2025-05-01', p1, p2), vpid, { status: 'contracted' });
+  await book(await newEvent('2026-03-01', p1, p2), vpid, { status: 'contracted' });
+  await book(await newEvent('2026-06-01', p1, p2), vpid);
+  const q = await newUser();
+  await book(await newEvent('2026-01-10', q), vpid);
+  await book(await newEvent('2026-12-20', q), vpid, { status: 'deposit_paid' });
+  assert.equal((await yearFacts(2026, vpid))?.second_bookings, 1, 'two partners are one client; the third booking adds nothing');
+  assert.equal((await yearFacts(2027, vpid))?.second_bookings, 1, 'a second booking dated 20 Dec 2026 counts in the 2027 seal year');
+
+  // A client whose 2nd booking was in 2026 and whose 3rd is in 2027: the 3rd never counts, in any year.
+  const other = await newShop();
+  const r = await newUser();
+  await book(await newEvent('2026-01-05', r), other.vpid);
+  await book(await newEvent('2026-02-05', r), other.vpid);
+  await book(await newEvent('2027-03-03', r), other.vpid);
+  assert.equal((await yearFacts(2026, other.vpid))?.second_bookings, 1);
+  assert.equal((await yearFacts(2027, other.vpid))?.second_bookings, 0, 'a third booking is not a second booking');
 });
 
 test('a refunded completed booking is counted as refunded; a vendor_cancelled release is a shop cancellation', async () => {
@@ -141,17 +173,18 @@ test('a refunded completed booking is counted as refunded; a vendor_cancelled re
   assert.equal(f?.shop_cancellations, 1);
 });
 
-test('inquiries are threads opened in the year; a demo shop is never in the yearly facts', async () => {
+test('inquiries are threads opened in the seal year; a demo shop is never in the yearly facts', async () => {
   const real = await newShop();
   const c = await newUser();
   const e1 = await newEvent('2026-02-02', c);
   const e2 = await newEvent('2026-03-03', c);
-  await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_at) VALUES ($1, $3, '2026-04-01'), ($2, $3, '2025-12-31')`, [
+  await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_at) VALUES ($1, $3, '2026-04-01'), ($2, $3, '2026-12-19T12:00:00+08:00')`, [
     e1,
     e2,
     real.vpid,
   ]);
-  assert.equal((await yearFacts(2026, real.vpid))?.inquiries, 1, 'only the thread opened in 2026');
+  assert.equal((await yearFacts(2026, real.vpid))?.inquiries, 1, 'the 2026 seal year ends 17 Dec');
+  assert.equal((await yearFacts(2027, real.vpid))?.inquiries, 1, 'a thread opened 19 Dec 2026 counts in 2027');
 
   const demo = await newShop({ demo: true });
   await book(await newEventOf('2026-02-02', true, c), demo.vpid);
@@ -170,7 +203,7 @@ test('the Verified Partner counters read every channel, the Booking QR token, an
 
   const r = await db.query<Record<string, string | number>>(`SELECT * FROM public.shop_verified_partner_facts($1)`, [vpid]);
   const f = r.rows[0]!;
-  assert.equal(Number(f.booked_total_php), 1_000_000, 'only real bookings add to the total');
+  assert.equal(Number(f.booked_total_php), 1_000_000, 'only completed real bookings add to the total');
   assert.equal(Number(f.bookings_unpriced), 1);
   assert.equal(Number(f.find_bookings), 2);
   assert.equal(Number(f.website_bookings), 2);
@@ -188,6 +221,17 @@ test('the Verified Partner counters read every channel, the Booking QR token, an
   );
   const q = await db.query<{ n: number }>(`SELECT booking_qr_events AS n FROM public.shop_verified_partner_facts($1)`, [vpid]);
   assert.equal(Number(q.rows[0]!.n), 1);
+
+  // Rule 2 (11d044c0 (4)): a contracted (not completed) booking adds nothing; a refund comes off the total.
+  await book(await newEvent('2026-01-07', c), vpid, { status: 'contracted', total: 500_000 });
+  const qrEvent = await db.query<{ event_id: string }>(`SELECT event_id FROM public.event_vendors WHERE vendor_id = $1`, [qrBooking]);
+  await db.query(
+    `INSERT INTO public.event_vendor_refunds (event_id, event_vendor_id, vendor_profile_id, amount_php, refunded_on, reason)
+     VALUES ($1, $2, $3, 50000, '2026-02-01', 'Part refund')`,
+    [qrEvent.rows[0]!.event_id, qrBooking, vpid],
+  );
+  const t = await db.query<{ v: string }>(`SELECT booked_total_php AS v FROM public.shop_verified_partner_facts($1)`, [vpid]);
+  assert.equal(Number(t.rows[0]!.v), 950_000, 'completed value minus refunds');
   assert.equal(Number(f.recommenders), 0);
 
   const other = await newShop();
@@ -227,6 +271,11 @@ test('shop_seals: once per shop + seal + year, Verified Partner once for life, o
     db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year) VALUES ($1, 'no1', 2026)`, [b.vpid]),
     'one No. 1 a year',
   );
+  await db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year) VALUES ($1, 'clients_choice', 2026)`, [a.vpid]);
+  await assert.rejects(
+    db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year) VALUES ($1, 'clients_choice', 2026)`, [b.vpid]),
+    'one Clients\' Choice a year',
+  );
   await assert.rejects(
     db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year) VALUES ($1, 'verified', 2026)`, [b.vpid]),
     'Setnayan Verified is read live, never stored',
@@ -253,7 +302,7 @@ test('shop_seals has RLS, and a signed-in session cannot write it', async () => 
 });
 
 test('both counting functions are service_role only', async () => {
-  for (const fn of ['public.shop_seal_year_facts(integer)', 'public.shop_verified_partner_facts(uuid)']) {
+  for (const fn of ['public.shop_seal_year_facts(date, date)', 'public.shop_verified_partner_facts(uuid)']) {
     const r = await db.query<{ role: string; ok: boolean }>(
       `SELECT r AS role, has_function_privilege(r, $1, 'EXECUTE') AS ok FROM unnest(ARRAY['anon','authenticated','service_role']) AS r`,
       [fn],

@@ -15,14 +15,17 @@
  *   No. 1 of the Year   — the first of that Top 10. One shop a year.
  *   Most In-Demand      — yearly: top 10% of suppliers by completed bookings that year; cancelled or refunded ones do
  *                         not count (v86 "crest"). The same top-10% rule as the monthly Most Booked it replaces.
- *   Clients' Choice     — yearly; drawn in v86 ("heart"). Its WINNER RULE IS NOT RULED (6451 (b)) — not awarded.
+ *   Clients' Choice     — yearly (11d044c0 (2)): the shop with the most SECOND bookings that year, among shops with
+ *                         ≥ 10 completed events that year; ties go to the higher rating. One shop.
+ *
+ * ── THE SEAL YEAR (owner, 11d044c0 (1); amends 6373's "calendar year") ──────────────────────────────────────────
+ * The four yearly seals are given on 18 DEC and count 18 Dec last year → 17 Dec this year — a full 12 months, no gap
+ * or overlap. The FIRST year runs from launch to 17 Dec 2026. Verified Partner is given the day its rules are met.
+ * The Top 10 plaque shows the exact rank: "No. 4 of the Top 10 Suppliers of 2026" (11d044c0 (5)).
  *
  * ── WHAT IS NOT RULED, OR HAS NO DATA TODAY (each a named gap, never an invented number) ─────────────────────────
- *   · FIRST_SEAL_YEAR — the first year seals are given is not ruled ⇒ null ⇒ the yearly run gives nothing.
- *   · The award date (18 Dec proposed, 6451 (a)) and so "the year" window — the engine counts the CALENDAR year (6373)
- *     and only a year that has ENDED in Manila.
- *   · Clients' Choice winner rule (6451 (b)) and its yearly count: there is no booked-at date on a booking, so "a
- *     second booking made that year" cannot be windowed as written ⇒ CLIENTS_CHOICE_WINNER_RULE = null.
+ *   · "A second booking made that year": a booking carries no booked-at date, so the second booking is placed in the
+ *     seal year of its EVENT's date — the same date every yearly count uses (shop_seal_year_facts).
  *   · "Cancelled by the shop": the only RECORDED source is a schedule-pool release `vendor_cancelled`; a couple's
  *     force-majeure flag is a claim, not a record, and is not counted. Bookings outside schedule pools have no
  *     who-cancelled column ⇒ a partial source (SHOP_CANCELLATION_SOURCE).
@@ -72,11 +75,24 @@ export const RETIRED_SPOTLIGHT_AWARDS = ['top_pick', 'most_booked', 'rising'] as
 
 // ── The gaps, named in one place ───────────────────────────────────────────────────────────────────────────────
 
-/** The first year seals are given — NOT RULED. null ⇒ the yearly run gives nothing. */
-export const FIRST_SEAL_YEAR: number | null = null;
+/** The first seal year: launch → 17 Dec 2026 (11d044c0 (1)). */
+export const FIRST_SEAL_YEAR = 2026;
 
-/** How the Clients' Choice winner is picked — NOT RULED (6451 (b)). null ⇒ never awarded. */
-export const CLIENTS_CHOICE_WINNER_RULE: null = null;
+/** The day the yearly seals are given — and the first day of the next seal year: 18 December (11d044c0 (1)). */
+export const SEAL_DAY = { month: 12, day: 18 } as const;
+
+const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+/**
+ * Seal year `year` = [18 Dec of year−1, 18 Dec of year) — `from` inclusive, `to` exclusive, as DATEs. The first year
+ * has no start (`from: null` = from launch).
+ */
+export function sealWindow(year: number, firstYear: number = FIRST_SEAL_YEAR): { from: string | null; to: string } {
+  return {
+    from: year <= firstYear ? null : iso(year - 1, SEAL_DAY.month, SEAL_DAY.day),
+    to: iso(year, SEAL_DAY.month, SEAL_DAY.day),
+  };
+}
 
 /** Where "cancelled by the shop" is read from — a PARTIAL source (see the module note). */
 export const SHOP_CANCELLATION_SOURCE = "vendor_schedule_pool_bookings.release_reason = 'vendor_cancelled'" as const;
@@ -97,6 +113,8 @@ export type SealYearCandidate = {
   refundedEvents: number;
   shopCancellations: number;
   inquiries: number;
+  /** Clients' second bookings whose event falls in the seal year (shop_seal_year_facts.second_bookings). */
+  secondBookings: number;
   trustedAvgRating: number | null;
   trustedReviewCount: number | null;
 };
@@ -162,9 +180,33 @@ export type YearlyPicks = {
   top10: RankedShop[];
   no1: RankedShop | null;
   mostInDemand: string[];
-  /** Always empty until CLIENTS_CHOICE_WINNER_RULE is ruled. */
-  clientsChoice: string[];
+  clientsChoice: string | null;
 };
+
+/** Clients' Choice needs at least 10 completed events that year (11d044c0 (2)). */
+export const CLIENTS_CHOICE_MIN_EVENTS = 10;
+
+/**
+ * Clients' Choice (11d044c0 (2)): among verified shops with ≥ 10 completed events that year, the one with the most
+ * second bookings; a tie goes to the higher rating (trusted average). A tie on both goes to the stable id — never to
+ * chance. Nobody when no eligible shop has a second booking.
+ */
+export function pickClientsChoice(candidates: ReadonlyArray<SealYearCandidate>): string | null {
+  const best = candidates
+    .filter((c) => c.verified && c.completedEvents >= CLIENTS_CHOICE_MIN_EVENTS && c.secondBookings > 0)
+    .sort(
+      (a, b) =>
+        b.secondBookings - a.secondBookings ||
+        Number(b.trustedAvgRating ?? 0) - Number(a.trustedAvgRating ?? 0) ||
+        a.vendorProfileId.localeCompare(b.vendorProfileId),
+    )[0];
+  return best ? best.vendorProfileId : null;
+}
+
+/** The Top 10 plaque's line, with the exact rank (11d044c0 (5)): "No. 4 of the Top 10 Suppliers of 2026". */
+export function top10PlaqueLine(rank: number, year: number): string {
+  return `No. ${rank} of the Top 10 Suppliers of ${year}`;
+}
 
 export function pickYearlySeals(candidates: ReadonlyArray<SealYearCandidate>): YearlyPicks {
   const top10 = pickTop10(candidates);
@@ -172,28 +214,31 @@ export function pickYearlySeals(candidates: ReadonlyArray<SealYearCandidate>): Y
     top10,
     no1: pickNo1(top10),
     mostInDemand: pickMostInDemand(candidates),
-    // Nobody, until CLIENTS_CHOICE_WINNER_RULE is ruled (6451 (b)) — a winner picked by a guessed rule is a guess.
-    clientsChoice: [],
+    clientsChoice: pickClientsChoice(candidates),
   };
 }
 
-/** The year in Manila (UTC+8, no daylight saving). */
+/** The date in Manila (UTC+8, no daylight saving), as YYYY-MM-DD. */
+export function manilaDate(now: Date): string {
+  return new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** The year in Manila. */
 export function manilaYear(now: Date): number {
-  return new Date(now.getTime() + 8 * 3600 * 1000).getUTCFullYear();
+  return Number(manilaDate(now).slice(0, 4));
 }
 
 /**
- * May the yearly seals for `year` be given now? Only once the first award year is ruled, only from it on, and only
- * for a calendar year that has ENDED in Manila — a seal for a year still running would be given on part of it.
+ * May the seals of seal year `year` be given now? From its 18 December (Manila) on — the day they are given, when the
+ * year (ending 17 Dec) is complete — and never for a year before the first.
  */
 export function yearlySealsMayRun(
   year: number,
   now: Date,
-  firstYear: number | null = FIRST_SEAL_YEAR,
+  firstYear: number = FIRST_SEAL_YEAR,
 ): { ok: true } | { ok: false; why: string } {
-  if (firstYear === null) return { ok: false, why: 'the first year seals are given is not ruled (FIRST_SEAL_YEAR)' };
   if (!Number.isInteger(year) || year < firstYear) return { ok: false, why: `${year} is before the first seal year ${firstYear}` };
-  if (year >= manilaYear(now)) return { ok: false, why: `${year} has not ended in Manila` };
+  if (manilaDate(now) < sealWindow(year, firstYear).to) return { ok: false, why: `the ${year} seal year ends 17 Dec — seals are given from 18 Dec` };
   return { ok: true };
 }
 

@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  CLIENTS_CHOICE_WINNER_RULE,
   FIRST_SEAL_YEAR,
   NO1_PLAN_GIFT,
   PARTNER_RULES_9_AND_10,
@@ -17,10 +16,13 @@ import {
   displayedSeals,
   judgeVerifiedPartner,
   manilaYear,
+  pickClientsChoice,
   pickMostInDemand,
   pickNo1,
   pickTop10,
   pickYearlySeals,
+  sealWindow,
+  top10PlaqueLine,
   yearlySealsMayRun,
   type PartnerFacts,
   type SealYearCandidate,
@@ -34,6 +36,7 @@ const shop = (id: string, over: Partial<SealYearCandidate> = {}): SealYearCandid
   refundedEvents: 0,
   shopCancellations: 0,
   inquiries: 40,
+  secondBookings: 0,
   trustedAvgRating: 4.8,
   trustedReviewCount: 20,
   ...over,
@@ -93,25 +96,38 @@ test('Most In-Demand never goes to zero bookings, an unverified shop, or nobody 
   assert.deepEqual(pickMostInDemand([]), []);
 });
 
-test('Clients\' Choice gives nothing while its winner rule is unruled (6451 (b))', () => {
-  assert.equal(CLIENTS_CHOICE_WINNER_RULE, null);
-  assert.deepEqual(pickYearlySeals([shop('a'), shop('b')]).clientsChoice, []);
+test('Clients\' Choice = the most second bookings among shops with ≥ 10 completed events; ties to the higher rating', () => {
+  assert.equal(pickClientsChoice([shop('a', { secondBookings: 3 }), shop('b', { secondBookings: 5 })]), 'b');
+  assert.equal(pickClientsChoice([shop('a', { secondBookings: 9, completedEvents: 9 }), shop('b', { secondBookings: 2 })]), 'b', 'nine events is not eligible');
+  assert.equal(
+    pickClientsChoice([shop('a', { secondBookings: 4, trustedAvgRating: 4.6 }), shop('b', { secondBookings: 4, trustedAvgRating: 4.9 })]),
+    'b',
+    'a tie goes to the higher rating',
+  );
+  assert.equal(pickClientsChoice([shop('b', { secondBookings: 4 }), shop('a', { secondBookings: 4 })]), 'a', 'a full tie never goes to chance');
+  assert.equal(pickClientsChoice([shop('a')]), null, 'no second booking, no seal');
+  assert.equal(pickClientsChoice([shop('a', { secondBookings: 4, verified: false })]), null);
+  assert.equal(pickYearlySeals([shop('a', { secondBookings: 2 })]).clientsChoice, 'a');
+});
+
+test('the Top 10 plaque shows the exact rank', () => {
+  assert.equal(top10PlaqueLine(4, 2026), 'No. 4 of the Top 10 Suppliers of 2026');
 });
 
 // ── When the yearly run may give anything ─────────────────────────────────────────────────────────────────────
 
-test('the first award year is not ruled, so the yearly run gives nothing', () => {
-  assert.equal(FIRST_SEAL_YEAR, null);
-  const r = yearlySealsMayRun(2026, new Date('2027-03-01T00:00:00Z'));
-  assert.equal(r.ok, false);
+test('the seal year runs 18 Dec → 17 Dec; the first year runs from launch to 17 Dec 2026', () => {
+  assert.equal(FIRST_SEAL_YEAR, 2026);
+  assert.deepEqual(sealWindow(2026), { from: null, to: '2026-12-18' });
+  assert.deepEqual(sealWindow(2027), { from: '2026-12-18', to: '2027-12-18' });
 });
 
-test('a year is given only once it has ENDED in Manila, and never before the first year', () => {
-  // 31 Dec 2026 23:30 Manila = 15:30 UTC — still 2026 there.
-  assert.equal(yearlySealsMayRun(2026, new Date('2026-12-31T15:30:00Z'), 2026).ok, false);
-  // 1 Jan 2027 00:30 Manila = 31 Dec 16:30 UTC — 2026 has ended.
-  assert.equal(yearlySealsMayRun(2026, new Date('2026-12-31T16:30:00Z'), 2026).ok, true);
-  assert.equal(yearlySealsMayRun(2025, new Date('2027-06-01T00:00:00Z'), 2026).ok, false);
+test('a seal year is given from its 18 Dec in Manila, never before, never for a year before the first', () => {
+  // 17 Dec 2026 23:30 Manila = 15:30 UTC — the year is still running.
+  assert.equal(yearlySealsMayRun(2026, new Date('2026-12-17T15:30:00Z')).ok, false);
+  // 18 Dec 2026 00:30 Manila = 17 Dec 16:30 UTC — given today.
+  assert.equal(yearlySealsMayRun(2026, new Date('2026-12-17T16:30:00Z')).ok, true);
+  assert.equal(yearlySealsMayRun(2025, new Date('2027-06-01T00:00:00Z')).ok, false);
   assert.equal(manilaYear(new Date('2026-12-31T16:30:00Z')), 2027);
 });
 

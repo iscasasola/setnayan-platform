@@ -22,6 +22,7 @@
  *
  * Pure (no I/O) so `event-details-sheet.test.ts` can exercise it directly.
  */
+import { openDateWords } from './event-date-options';
 import { RSVP_ASK_FIELDS, RSVP_ASK_LABEL, readGuestsReply, sanitizeRsvpAskConfig } from './rsvp-ask';
 import { guestsGetInLabel, readGuestsGetIn } from './who-can-reply';
 
@@ -151,21 +152,15 @@ export function describeEventDate(e: Record<string, unknown>): string | null {
     return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
-  const mode = typeof e.date_mode === 'string' ? e.date_mode : null;
-  if (mode === 'window') {
-    const start = typeof e.date_window_start === 'string' ? e.date_window_start : null;
-    const end = typeof e.date_window_end === 'string' ? e.date_window_end : null;
-    if (start && end) return `Flexible · ${shortDay(start)}–${shortDay(end)}`;
-  }
-  if (mode === 'specific' && Array.isArray(e.date_candidates)) {
-    const n = (e.date_candidates as unknown[]).filter((c) => typeof c === 'string').length;
-    if (n > 0) return `${n} candidate date${n === 1 ? '' : 's'}`;
-  }
-  return null;
+  // 📅 Still options (EB-111): say the day(s) the couple picked, the same phrase every screen uses — never a count
+  // ("1 candidate date") and never "Not set".
+  const open = openDateWords({
+    mode: e.date_mode,
+    candidates: e.date_candidates,
+    windowStart: e.date_window_start,
+    windowEnd: e.date_window_end,
+    days: e.event_days,
+  });
+  return open ? `Not settled · ${open}` : null;
 }
 
-function shortDay(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-}

@@ -30,6 +30,7 @@
 import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { ENTOURAGE_ROLES, entourageGroupOfRole } from '@/lib/entourage';
 import type { EventItemKey } from '@/lib/maker-details-items';
+import { openDateWords } from './event-date-options';
 
 /** What an event type says about itself, as these items need it. */
 export type YourEventKind = {
@@ -175,4 +176,28 @@ export function dateDisplayOf(value: string | null | undefined, precision: strin
   if (precision === 'year') return String(y);
   if (precision === 'month') return at.toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   return at.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** The Date row's words: the locked day; else "Not settled · Jun 19, 2027" from the couple's open option(s); else null. */
+export function yourEventDateDisplay(
+  row: {
+    event_date: string | null;
+    date_mode: string | null;
+    date_candidates: string[] | null;
+    date_window_start: string | null;
+    date_window_end: string | null;
+    event_days: number | null;
+  },
+  precision: string | null,
+): string | null {
+  const locked = dateDisplayOf(row.event_date, precision);
+  if (locked) return locked;
+  const open = openDateWords({
+    mode: row.date_mode,
+    candidates: row.date_candidates,
+    windowStart: row.date_window_start,
+    windowEnd: row.date_window_end,
+    days: row.event_days,
+  });
+  return open ? `Not settled · ${open}` : null;
 }

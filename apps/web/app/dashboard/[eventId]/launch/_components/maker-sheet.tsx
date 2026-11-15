@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   ELEMENT_SHEET_CLOSED,
   HALF_SHEET_REST,
@@ -208,16 +209,8 @@ export function MakerHalfSheet({
             </div>
           ) : null}
           {/* The title and × are the desktop's — on a phone the lower third's column names it and closes it. */}
-          <p className="hidden min-w-0 flex-1 truncate font-serif text-lg text-ink lg:block">{title}</p>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={closeLabel}
-            data-half-sheet-close=""
-            className="sn-press hidden h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink lg:inline-flex"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <p className="hidden min-w-0 flex-1 truncate text-[17px] font-semibold text-ink lg:block">{title}</p>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label={closeLabel} onClick={close} data-half-sheet-close="" className="hidden lg:inline-flex" />
         </div>
         {children}
       </aside>
@@ -237,7 +230,7 @@ export function MakerHalfSheet({
         className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl max-lg:pl-[var(--sn-safe-l)] max-lg:pr-[var(--sn-safe-r)] ${state.raised ? HALF_SHEET_UP : HALF_SHEET_REST} ${
           slim ? 'max-lg:hidden' : ''
         } ${state.peeking ? 'max-lg:translate-y-[calc(100%-64px)]' : ''} ${
-          dragDy > 0 ? '' : 'transition-[height,transform] duration-200 ease-out motion-reduce:transition-none'
+          dragDy > 0 ? '' : 'transition-[height,transform] duration-sn-control ease-sn-out motion-reduce:transition-none'
         } lg:transform-none ${desktopClassName}`}
       >
         {beforeGrip}
@@ -269,7 +262,7 @@ export function MakerHalfSheet({
               {head}
             </div>
           ) : null}
-          <p className={`min-w-0 flex-1 truncate font-serif text-lg text-ink ${head ? 'max-lg:hidden' : ''} ${state.peeking ? 'max-lg:opacity-0' : ''}`}>{title}</p>
+          <p className={`min-w-0 flex-1 truncate text-[17px] font-semibold text-ink ${head ? 'max-lg:hidden' : ''} ${state.peeking ? 'max-lg:opacity-0' : ''}`}>{title}</p>
           {/* 👁 PEEK — press and hold: the sheet slides away while held (phone). */}
           <button
             type="button"
@@ -300,15 +293,7 @@ export function MakerHalfSheet({
           >
             Peek
           </button>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={closeLabel}
-            data-half-sheet-close=""
-            className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label={closeLabel} onClick={close} data-half-sheet-close="" />
         </div>
         {children}
       </aside>
@@ -370,18 +355,11 @@ export function HalfSheetSlimBar({
         onClick={onRestore}
         className="sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 truncate rounded-full px-2 text-left text-[13px] font-semibold text-ink/75"
       >
-        <span className="truncate font-serif text-[17px] font-medium text-ink">{title}</span>
+        <span className="truncate text-[17px] font-semibold text-ink">{title}</span>
         {section ? <span className="truncate">· {section}</span> : null}
         <span aria-hidden className="shrink-0">▴</span>
       </button>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={closeLabel}
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-      >
-        <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
+      <ActionButton tone="neutral" quiet iconOnly icon={X} label={closeLabel} onClick={onClose} className="shrink-0" />
     </div>
   );
 }

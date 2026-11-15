@@ -312,7 +312,7 @@ test('EventLayout: an event read that THREW is handed on as "no answer" (status 
 test('the Maker: its membership read throws a blip before the redirect out', () => {
   throwsBefore(
     'app/dashboard/[eventId]/launch/page.tsx',
-    /withSchemaRetry\(\(\) =>\s*supabase\.from\('event_members'\)/,
+    /eventMemberTypeOnce\(supabase, eventId, user\.id\)/,
     'LaunchPage.membership',
     'redirect(`/dashboard/${eventId}`)',
   );

@@ -58,9 +58,9 @@ type NavRow = Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode };
 /** The answer as one card — the question, and what was answered, from the stored value. */
 function AnswerCard({ question, answer }: { question: string; answer: string }) {
   return (
-    <section className="sn-tile w-full max-w-sm p-5" data-answer-card="">
+    <section className="w-full max-w-sm rounded-card bg-[var(--m-paper-2)] p-5" data-answer-card="">
       <p className="text-sm font-semibold text-ink">{question}</p>
-      <p className="mt-2 font-serif text-2xl text-ink">{answer || NOT_SET_YET}</p>
+      <p className="mt-2 text-2xl font-semibold text-ink">{answer || NOT_SET_YET}</p>
     </section>
   );
 }

@@ -24,6 +24,8 @@ already"* · post-event stories are the new stories) and `8593a939` "RETIRED ADD
   string addressing `/blog` or `/realstories`, checks nav slots, that the pages are gone, and that the forwards land
   where ruled while media files do not. Sabotaged twice: a footer `/blog` link and a mis-pointed `/realstories` row
   each turn it red.
+- `app/_components/vendor-credit-chip.tsx` deleted too — its only importer was the retired stories gallery. Guards
+  that read the deleted pages drop those cases (each marked with the retirement); pinned lists re-measured.
 - Regenerated: ugat screens, ask phrase bank, template-score, design-rules and port-control baselines (all lowered).
 
 Not done here (follow-ups): the admin Real Stories / Journal Spotlights / Storytellers tools still exist and their

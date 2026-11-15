@@ -1485,7 +1485,8 @@ export default async function ProfilePage({ searchParams }: Props) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    // 📱→🖥 One reading column from 701 (plan D5, 2026-11-13): the groups' sidebar is the app rail's now.
+    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 tab:max-w-3xl lg:px-8">
       <PageMasthead title="Profile &amp; settings" />
 
       <SettingsShell

@@ -1,6 +1,6 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { Trash2, Undo2 } from 'lucide-react';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';

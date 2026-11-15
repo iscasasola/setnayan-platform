@@ -6,7 +6,7 @@
 import Link from 'next/link';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   buildInvitationMessage,
   sponsorRoleHonorific,

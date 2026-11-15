@@ -146,9 +146,9 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
   // The reason is drawn on the named paper, and the one line above the rows is only for an old send-back.
   // (#7624: the paired cards became the one upload place; the line moved with them.)
   assert.match(code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), /!s\?\.r2_key && sentBackOf\(payload\.docMap\[row\.slot\]/);
-  const rows = code('app/vendor-dashboard/_components/setup-papers.tsx');
-  assert.match(rows, /p\.reason \? `\$\{PAPER_STATE_WORD\.new_copy\} · \$\{p\.reason\}`/);
-  assert.match(rows, /&& !papers\.some\(\(p\) => p\.reason\)/, 'the reason is said above every paper again');
+  // Today's step 5 is the same place (15 Nov 2026); its one line is only for an old send-back that named no paper.
+  const today = code('app/vendor-dashboard/_components/setup-paper-place.tsx');
+  assert.match(today, /payload\?\.status === 'rejected' && reason && !namedSendBack/, 'the reason is said above every paper again');
   // The supplier's notice names the papers too (through the one notification pipeline the bell and #7631 read).
   assert.match(engine, /sentBackPapers:\s*input\.decision === 'rejected'/, 'the send-back notice does not name its papers');
   const notify = code('lib/vendor-status-notify.ts');

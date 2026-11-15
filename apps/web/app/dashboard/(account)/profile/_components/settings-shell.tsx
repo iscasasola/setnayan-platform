@@ -7,6 +7,16 @@
  * groups with the chosen group on the right; a phone gets a list of the groups
  * and opens one at a time behind a "‹ Settings" back link.
  *
+ * 📱→🖥 FROM 701, THE RAIL IS THE SHELL'S (owner-approved plan D5, "Account/
+ * launcher onto the 701 line", 2026-11-13). The page's own `md:` sidebar is
+ * gone: its six rows are rows of the app rail (`SettingsRailContext`, mounted
+ * by the account layout), and this page is one reading column. The rows ask
+ * this shell to open a group (`SETTINGS_GO_EVENT`) and this shell says which
+ * group it shows (`SETTINGS_SHOWN_EVENT`), so the open group stays decided in
+ * ONE place — here. Below 701 nothing moved: the list, the back link and the
+ * one-group-at-a-time phone are exactly what they were (they were `md:`-gated
+ * and are now `tab:`-gated; 701 < 768, so no phone width sees a difference).
+ *
  * 🔑 EVERY GROUP IS ALREADY IN THE DOM. The page renders all six on the server
  * and hands them in as `panes`; this component only decides which one is not
  * `hidden`. So every form and server action works exactly as it did on the
@@ -25,32 +35,19 @@
  */
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  IdCard,
-  LockKeyhole,
-  ShieldCheck,
-  SlidersHorizontal,
-  UserRound,
-  Utensils,
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   isSettingsGroup,
   SETTINGS_GROUPS,
   SETTINGS_GROUP_META,
   type SettingsGroup,
 } from '@/lib/profile-settings-groups';
-
-const ICONS: Record<SettingsGroup, typeof UserRound> = {
-  profile: UserRound,
-  'guest-details': Utensils,
-  privacy: ShieldCheck,
-  security: LockKeyhole,
-  preferences: SlidersHorizontal,
-  account: IdCard,
-};
+import {
+  SETTINGS_GO_EVENT,
+  SETTINGS_GROUP_ICONS as ICONS,
+  SETTINGS_SHOWN_EVENT,
+} from '../../_components/settings-groups-ui';
 
 /** The five groups above the divider; Account sits quietly below it. */
 const MAIN_GROUPS = SETTINGS_GROUPS.filter((g) => g !== 'account');
@@ -149,29 +146,20 @@ export function SettingsShell({
 
   const shown: SettingsGroup = active ?? 'profile';
 
-  const railLink = (id: SettingsGroup) => {
-    const Icon = ICONS[id];
-    const current = shown === id;
-    return (
-      <a
-        key={id}
-        href={`?tab=${id}`}
-        aria-current={current ? 'page' : undefined}
-        onClick={(e) => {
-          e.preventDefault();
-          go(id);
-        }}
-        className={`flex h-11 items-center gap-3 rounded-md px-3.5 text-[15px] transition-colors ${
-          current
-            ? 'bg-terracotta/10 font-semibold text-terracotta-700'
-            : 'font-medium text-ink hover:bg-ink/5'
-        }`}
-      >
-        <Icon aria-hidden className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
-        <span>{SETTINGS_GROUP_META[id].label}</span>
-      </a>
-    );
-  };
+  // 📱→🖥 The rail's rows (from 701) open a group here, and are told which one is shown — one answer, this shell's.
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    const onGo = (e: Event) => {
+      const g = (e as CustomEvent<unknown>).detail;
+      if (isSettingsGroup(g)) goRef.current(g);
+    };
+    window.addEventListener(SETTINGS_GO_EVENT, onGo);
+    return () => window.removeEventListener(SETTINGS_GO_EVENT, onGo);
+  }, []);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(SETTINGS_SHOWN_EVENT, { detail: shown }));
+  }, [shown]);
 
   const indexRow = (id: SettingsGroup) => {
     const Icon = ICONS[id];
@@ -196,28 +184,14 @@ export function SettingsShell({
   };
 
   return (
-    <div className="md:grid md:grid-cols-[13.5rem_minmax(0,1fr)] md:gap-10">
-      {/* ── Desktop rail ───────────────────────────────────────────────── */}
-      <nav
-        aria-label="Settings sections"
-        className="hidden md:sticky md:top-24 md:flex md:flex-col md:gap-1 md:self-start"
-      >
-        <p className="mx-3.5 mb-4 mt-1 font-display text-3xl font-semibold leading-none text-ink">
-          Settings
-        </p>
-        {MAIN_GROUPS.map(railLink)}
-        <div aria-hidden className="mx-3.5 my-3 h-px bg-ink/10" />
-        {railLink('account')}
-        {accountId ? (
-          <p className="mx-3.5 mt-4 font-mono text-xs text-ink/60">{accountId}</p>
-        ) : null}
-      </nav>
-
+    // One reading column at every width: from 701 the six groups are the app rail's rows (SettingsRailContext), and the
+    // account ID the old sidebar's footer carried is the Account group's own first row.
+    <div>
       <div className="min-w-0">
         {showFlash ? flash : null}
 
         {/* ── Phone: the list of groups (only when none is chosen) ─────── */}
-        <div hidden={active !== null} className={active === null ? 'space-y-5 md:hidden' : undefined}>
+        <div hidden={active !== null} className={active === null ? 'space-y-5 tab:hidden' : undefined}>
           <a
             href="?tab=profile"
             aria-label={`Profile: ${identity.displayName ?? 'add your name'}`}
@@ -302,7 +276,7 @@ export function SettingsShell({
               e.preventDefault();
               go(null);
             }}
-            className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-terracotta-700 md:hidden"
+            className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-terracotta-700 tab:hidden"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
             Settings
@@ -319,8 +293,8 @@ export function SettingsShell({
               data-settings-group={id}
               aria-label={SETTINGS_GROUP_META[id].label}
               hidden={!isShown}
-              // Nothing chosen: Profile shows on desktop, the list on a phone.
-              className={isShown && active === null ? 'hidden md:block' : undefined}
+              // Nothing chosen: Profile shows from 701, the list on a phone.
+              className={isShown && active === null ? 'hidden tab:block' : undefined}
             >
               {panes[id]}
             </section>

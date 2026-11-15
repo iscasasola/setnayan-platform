@@ -228,7 +228,7 @@ export function ShopCover({
               type="button"
               onClick={openGear}
               aria-label="Shop settings"
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
+              className="sn-hit-2d grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
               data-shop-cover-gear=""
               data-tour="shop-gear"
             >

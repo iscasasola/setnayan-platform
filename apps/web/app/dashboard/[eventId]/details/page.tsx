@@ -532,7 +532,7 @@ export default async function EventDetailsPage({
        supplier-payment and Papic-credit rows carry `data-money` and are never
        kept (lib/last-seen). */
     <LastSeenCapture page="details" fresh={lastSeenFresh}>
-    <section className="sn-col space-y-4" data-event-details>
+    <section className="sn-col sn-col-wide space-y-4" data-event-details>
       <PageMasthead title="Event Details" />
       {/* The slim bar: the record's name and the Maker's own Undo · Apply — a
           change made here is the same waiting change as one made in the Maker. */}

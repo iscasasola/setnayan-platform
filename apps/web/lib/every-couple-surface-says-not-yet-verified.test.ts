@@ -7,7 +7,7 @@
  * `threadShowsNotYetVerified` (a READ state that is not 'verified', never a demo). An unread state draws nothing.
  *
  * Not listed, on purpose: Discover / Find search and Compare list verified shops only, so an unverified shop never
- * appears there. The Book confirm gets the line in its own PR (book-asks-one-confirm), which carries its own guard.
+ * appears there.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,6 +26,7 @@ const SURFACES: ReadonlyArray<{ file: string; draws: RegExp; why: string }> = [
   { file: 'app/dashboard/[eventId]/messages/[threadId]/page.tsx', draws: /shopNotYetVerified \? <NotYetVerifiedThreadLine \/> : null/, why: 'the chat head' },
   { file: `${V}/_components/shortlist-categories.tsx`, draws: /v\.notYetVerified \? <NotYetVerifiedThreadLine \/> : null/, why: 'the Suppliers card' },
   { file: `${V}/_components/vendor-quickview-inspector.tsx`, draws: /v\.notYetVerified \? <NotYetVerifiedThreadLine \/> : null/, why: 'the quick-view' },
+  { file: `${V}/_components/accordion-lock.tsx`, draws: /notYetVerified \? \(\s*<>\s*\{copy\.body\}\s*<NotYetVerifiedThreadLine \/>/, why: 'the Book confirm (every Book press)' },
   { file: `${V}/_components/booked-row.tsx`, draws: /row\.notYetVerified \? \(\s*<div className="ml-14">\s*<NotYetVerifiedThreadLine \/>/, why: 'the booked and waiting rows' },
 ];
 

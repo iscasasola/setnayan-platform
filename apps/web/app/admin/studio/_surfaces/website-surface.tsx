@@ -48,7 +48,7 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
           href={pageEntry.url}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-medium text-mulberry hover:underline"
+          className="sn-hit inline-block text-xs font-medium text-mulberry hover:underline"
         >
           View live →
         </Link>

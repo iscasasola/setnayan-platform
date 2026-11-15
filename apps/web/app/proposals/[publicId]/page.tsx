@@ -32,7 +32,6 @@ import {
   respondToProposal,
   sendProposal,
 } from '@/app/vendor-dashboard/proposals/actions';
-import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
@@ -45,6 +44,7 @@ import { depositStepHref } from '@/lib/deposit-pay-step';
 import { readQuoteWhere } from '@/lib/booked-call-times.server';
 import { BookedWhere, QuoteWhereFact } from '@/app/dashboard/[eventId]/vendors/_components/booked-where';
 import { StayForm } from '@/app/_components/stay-form';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 export const metadata = { title: 'Quote' };
 
@@ -95,8 +95,9 @@ type ProposalRow = {
 
 function fmtDate(iso: string | null): string | null {
   if (!iso) return null;
-  // A DATE column — the day it names must not move with the reader.
-  return formatCalendarDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
+  // "14 Nov 2026" in Manila — day first. A bare DATE (valid_until) keeps its day;
+  // a timestamp (resolved_at, created_at) lands on the Manila day it happened.
+  return formatRecordedAt(iso);
 }
 
 /**

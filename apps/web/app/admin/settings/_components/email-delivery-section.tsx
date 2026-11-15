@@ -34,6 +34,11 @@ const TONE: Record<DeliveryVerdict, string> = {
 
 const SHOWN = 50;
 
+/** Our own read-back's error ("status check: …"), stored on the row by `refreshDeliveryStatus` — not a fact about the mail. */
+function isStatusCheckError(error: string): boolean {
+  return /^status check/i.test(error);
+}
+
 export async function EmailDeliverySection() {
   const [configured, log] = await Promise.all([isEmailConfigured(), readRecentDeliveries()]);
   const now = Date.now();
@@ -87,9 +92,12 @@ export async function EmailDeliverySection() {
                 align="start"
                 labelClassName="font-semibold text-ink"
               >
-                Resend accepted these emails, but this page has not been able to ask Resend whether they arrived. If the
-                email key can only send, a full-access key lets this page confirm delivery — then these turn into
-                Delivered or Did not arrive on their own.
+                Resend accepted these emails, but this page has not been able to ask Resend whether they arrived
+                {log.rows.some((r) => r.error && isStatusCheckError(r.error) && /restricted to only send/i.test(r.error))
+                  ? ' — Resend says the email key is restricted to only sending'
+                  : ''}
+                . A full-access key lets this page confirm delivery — then these turn into Delivered or Did not arrive on
+                their own.
               </InfoTip>
             </p>
           ) : null}
@@ -109,7 +117,9 @@ export async function EmailDeliverySection() {
                       {r.recipient_masked} · {String(r.kind).replace(/_/g, ' ')} · {relativeTime(r.created_at)}
                       {r.last_event && VERDICT_LABEL[v].toLowerCase() !== r.last_event ? ` · resend: ${r.last_event}` : ''}
                     </span>
-                    {r.error && v !== 'delivered' ? (
+                    {/* A "status check:" error is about OUR read-back (a send-only key), not the email — said once, in the ⓘ
+                        above, never in red under every calm "Sent · not confirmed" row (controller round, 15 Nov 2026). */}
+                    {r.error && v !== 'delivered' && !isStatusCheckError(r.error) ? (
                       <span className="mt-0.5 block break-words text-[13px] text-[rgb(var(--color-danger))]">{r.error}</span>
                     ) : null}
                   </span>

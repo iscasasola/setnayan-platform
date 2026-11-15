@@ -555,7 +555,7 @@ export default async function AccountProfilePage({ params }: Props) {
   const heading = hasPublicContent
     ? displayName
     : knowsThem
-      ? shownName || 'Someone on Setnayan'
+      ? shownName || 'A Setnayan member'
       : 'A Setnayan profile';
   const firstName = (shownName || '').split(/\s+/)[0] || 'they';
 

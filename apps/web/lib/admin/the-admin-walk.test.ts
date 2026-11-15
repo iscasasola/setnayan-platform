@@ -102,8 +102,9 @@ test('F-A-16 · Problems: no [name]/[id] placeholders, and one row per problem a
   const src = code('lib/telemetry/fault-issues.server.ts');
   assert.match(src, /open: mergeSameProblem\(/);
   assert.match(src, /closed: mergeSameProblem\(/);
-  // The merge itself (a pure function in a server-only file — read and executed through its text would need the module).
-  const body = src.slice(src.indexOf('export function mergeSameProblem'));
+  // The merge itself (RW-285e moved it to a plain module so the Work count uses the same rule).
+  const merge = code('lib/telemetry/problem-merge.ts');
+  const body = merge.slice(merge.indexOf('export function mergeSameProblem'));
   assert.match(body, /\[row\.kind, row\.action, row\.label \?\? '', pageName\(row\.page as string \| null\) \?\? ''\]/);
   assert.match(body, /merged\.hit_count = Number\(had\.hit_count \?\? 0\) \+ Number\(row\.hit_count \?\? 0\)/);
 });

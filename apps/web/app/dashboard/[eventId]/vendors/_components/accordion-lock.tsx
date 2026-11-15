@@ -20,6 +20,8 @@ import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { bookConfirmCopy } from '@/lib/explore-info-copy';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   finalizeVendor,
@@ -218,6 +220,8 @@ export function AccordionLockButton({
   // another card; a dismiss leaves it false, so "Not yet" really means not yet.
   const impactConfirmedRef = useRef(false);
   const save = useSaveLoader();
+  // 🛑 ONE CONFIRM BEFORE ANYTHING IS SENT (owner 2026-11-16; walk EB-175) — the shipped `useConfirm` box.
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -507,12 +511,16 @@ export function AccordionLockButton({
 
   return (
     <div className={wrapperClassName}>
+      {confirmDialog}
       <button
         type="button"
         className={className}
         disabled={isPending}
-        onClick={() => {
+        onClick={async () => {
           haptic('confirm');
+          // Asked OUTSIDE any transition: in React 19 a state update inside an async `startTransition` is held until the
+          // action settles, so a confirm awaited in there never opens (bench-vendor-actions.tsx measured it, 2026-10-12).
+          if (!(await confirm(bookConfirmCopy(vendorName)))) return;
           requestLock();
         }}
       >

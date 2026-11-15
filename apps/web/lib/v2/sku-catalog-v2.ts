@@ -25,6 +25,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * Every active V2 retail SKU code in `platform_retail_catalog_v2`.
@@ -209,11 +210,17 @@ export async function formatV2Sku(
     return null;
   }
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('platform_retail_catalog_v2')
-    .select('service_code, title, retail_price_php, is_token_able, description')
-    .eq('service_code', sku)
-    .maybeSingle();
+  // ⚡ One read per render for a code (speed pass 2026-11-14): the Maker asked the same row twice. Outside a render it
+  // reads fresh, as before; a failure is handed to every caller and each still logs and returns null.
+  const { data, error } = await askedOnce(admin, 'catalog_v2.sku', [sku], () =>
+    Promise.resolve(
+      admin
+        .from('platform_retail_catalog_v2')
+        .select('service_code, title, retail_price_php, is_token_able, description')
+        .eq('service_code', sku)
+        .maybeSingle(),
+    ),
+  );
   if (error) {
     console.error('[supabase-error] sku-catalog-v2: catalogue row', error);
     return null;

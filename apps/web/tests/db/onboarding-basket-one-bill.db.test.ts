@@ -334,9 +334,9 @@ test('ownership counts a SKU bought inside a bill', () => {
   assert.match(active.slice(0, 2000), /basketGrantsSku\(/, 'eventSkuActive ignores baskets');
 });
 
-// ── Event Hub Pro on the bill (owner 2026-09-25) ───────────────────────────
+// ── Event Pro on the bill (owner 2026-09-25) ───────────────────────────
 
-test('an Event Hub Pro line on the bill is what ownership finds', async () => {
+test('an Event Pro line on the bill is what ownership finds', async () => {
   // Pro has NO activation hook — its gates read the order live — so the basket
   // path is only real if the ownership RPC can see a Pro line inside a bill.
   // Without that, a couple who bought Pro at onboarding stays locked after the

@@ -16,7 +16,7 @@ import { applySheetParts, applySheetButtons, partsBuyHref, type ApplySheetPricin
 export const APPLY_SHEET_MAX_LINES = 8;
 
 /**
- * 💎 THE APPLY SHEET — Apply is where Event Hub Pro is asked for.
+ * 💎 THE APPLY SHEET — Apply is where Event Pro is asked for.
  *
  * Owner, 2026-09-28, verbatim: *"they can edit it with pro features. but need
  * to upgrade to pro when clicked on apply and point out the effect chosen that
@@ -27,7 +27,7 @@ export const APPLY_SHEET_MAX_LINES = 8;
  * DRAFT. When they press Apply and the draft holds any, THIS opens instead of
  * the write, and lists each effect by what and where — "Font · Names on the
  * Hero", "Animation · Schedule", "Theme · Velvet". Each row can take the couple
- * to it, or take it off the draft. The first action is the one Event Hub Pro
+ * to it, or take it off the draft. The first action is the one Event Pro
  * page, at the catalogue's price (`priceLabel` — read live, never typed); the
  * second is the Apply that already shipped: everything free goes live, the Pro
  * effects stay in the draft (#6075's split).
@@ -89,7 +89,7 @@ export function ApplyProSheet({
   onRemoveHeld?: () => void;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
   priceLabel: string | null;
-  /** The one Event Hub Pro page — null in the store shell (then no effects are passed either). */
+  /** The one Event Pro page — null in the store shell (then no effects are passed either). */
   proHref: string | null;
   pending: boolean;
   onGo: (effect: HubProEffectView) => void;
@@ -129,14 +129,14 @@ export function ApplyProSheet({
       >
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
-          <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
-            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Hub Pro'}
+          <p id={titleId} className="min-w-0 flex-1 text-lg font-bold tracking-tight text-ink">
+            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Pro'}
           </p>
           {none ? null : (
-            <InfoTip label="" ariaLabel="About Event Hub Pro effects" align="end">
+            <InfoTip label="" ariaLabel="About Event Pro effects" align="end">
               {grouped
                 ? 'These are in your draft. Guests see them once their part is unlocked for this event — everyone on it. Tap one to go to it, take one off, or apply the rest now; the Pro ones stay in your draft.'
-                : 'These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
+                : 'These are in your draft. Guests see them once you unlock Event Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
             </InfoTip>
           )}
           <button
@@ -161,18 +161,18 @@ export function ApplyProSheet({
                 {changes.slice(0, APPLY_SHEET_MAX_LINES).map((c, i) => (
                   <li key={`${c.place}·${c.what}·${i}`} data-apply-change="" className="flex min-w-0 items-center gap-1.5 text-ink">
                     {c.pro ? (
-                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Hub Pro" size="xs" />
+                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Pro" size="xs" />
                     ) : (
                       <span aria-hidden className="inline-block h-1 w-1 shrink-0 rounded-full bg-ink/30" />
                     )}
                     <span className="min-w-0 truncate">
-                      <span className="text-ink/60">{c.place} · </span>
+                      <span className="text-ink/75">{c.place} · </span>
                       <span className="font-semibold">{c.what}</span>
                     </span>
                   </li>
                 ))}
                 {changes.length > APPLY_SHEET_MAX_LINES ? (
-                  <li data-apply-change-more="" className="pl-2.5 text-ink/60">
+                  <li data-apply-change-more="" className="pl-2.5 text-ink/75">
                     + {formatCount(changes.length - APPLY_SHEET_MAX_LINES)} more
                   </li>
                 ) : null}
@@ -181,7 +181,7 @@ export function ApplyProSheet({
             {heldForPro > 0 ? (
               <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
                 <p className="inline-flex items-center gap-1.5">
-                  <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                  <PaidMark state="try" bare label="Event Pro" size="xs" />
                   {formatCount(heldForPro)} waiting for Pro
                 </p>
                 {onRemoveHeld ? (
@@ -212,14 +212,14 @@ export function ApplyProSheet({
                       onClick={() => setOpenPart(open ? null : g.part)}
                       className="flex min-h-11 w-full items-center gap-2 rounded-2xl px-2 text-left disabled:cursor-default"
                     >
-                      <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                      <PaidMark state="try" bare label="Event Pro" size="xs" />
                       <span className="min-w-0 flex-1 text-sm">
                         <span className="block font-semibold text-ink">{g.name}</span>
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
-                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/60">{g.summary}</span> : null}
+                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/75">{g.summary}</span> : null}
                       </span>
-                      {g.pricePhp !== null ? <span className="font-mono text-[13px] text-ink">{formatPhp(g.pricePhp)}</span> : null}
-                      {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
+                      {g.pricePhp !== null ? <span className="text-[13px] font-semibold tabular-nums text-ink">{formatPhp(g.pricePhp)}</span> : null}
+                      {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/75 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
                     </button>
                     {open ? (
                       <ul className="pb-1">
@@ -235,7 +235,7 @@ export function ApplyProSheet({
                             >
                               <span className="min-w-0 truncate">
                                 <span className="font-semibold">{e.what}</span>
-                                <span className="text-ink/60"> · {e.where}</span>
+                                <span className="text-ink/75"> · {e.where}</span>
                               </span>
                             </button>
                             {e.removable ? (
@@ -245,7 +245,7 @@ export function ApplyProSheet({
                                 onClick={() => onRemove(e)}
                                 aria-label={`Remove ${hubProEffectLine(e)}`}
                                 title="Remove from your draft"
-                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                               >
                                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                               </button>
@@ -268,7 +268,7 @@ export function ApplyProSheet({
                         {formatCount(buttons.otherParts)} parts, and no &ldquo;Powered by Setnayan&rdquo; footer.
                       </p>
                       {buttons.ownedNames.length > 0 ? (
-                        <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-ink/55">
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                           {buttons.ownedNames.map((n, i) => (
                             <span key={n}>
                               {i > 0 ? ' · ' : ''}
@@ -282,15 +282,15 @@ export function ApplyProSheet({
                     <>
                       <p className="flex items-baseline justify-between text-sm text-ink">
                         <span>{grouped.parts.length === 1 ? 'This part' : `These ${formatCount(grouped.parts.length)} parts`}</span>
-                        <span className="font-mono font-bold">{formatPhp(buttons.subtotalPhp)}</span>
+                        <span className="font-bold tabular-nums">{formatPhp(buttons.subtotalPhp)}</span>
                       </p>
                       {buttons.lead === 'parts' ? (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
                           Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer — for{' '}
                           <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong>. What you pay counts toward it.
                         </p>
                       ) : (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
                           Everything is only <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong> — the other{' '}
                           {formatCount(buttons.otherParts)} parts and no footer mark.
                         </p>
@@ -305,7 +305,7 @@ export function ApplyProSheet({
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
                 {/* Every row here is Pro — the diamond alone, no word repeated seven times. */}
-                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                <PaidMark state="try" bare label="Event Pro" size="xs" />
                 {/* 🚫 No "Go to ↗" (owner 2026-10-22) — the row itself is the press. */}
                 <button
                   type="button"
@@ -316,7 +316,7 @@ export function ApplyProSheet({
                 >
                   <span className="min-w-0">
                     <span className="font-semibold">{e.what}</span>
-                    <span className="text-ink/60"> · {e.where}</span>
+                    <span className="text-ink/75"> · {e.where}</span>
                   </span>
                 </button>
                 {e.removable ? (
@@ -326,7 +326,7 @@ export function ApplyProSheet({
                     onClick={() => onRemove(e)}
                     aria-label={`Remove ${hubProEffectLine(e)}`}
                     title="Remove from your draft"
-                    className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                    className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                   >
                     <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                   </button>
@@ -357,7 +357,7 @@ export function ApplyProSheet({
                       key="parts"
                       href={unlockAndApplyHref(partsBuyHref(proHref, buttons.partIds))}
                       data-apply-parts-unlock=""
-                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                      className={`ab ab-brand ${primary ? 'ab-main' : ''} w-full text-center`}
                     >
                       {primary
                         ? `Unlock ${buttons.partsLabel} and Apply · ${formatPhp(buttons.subtotalPhp)}`
@@ -369,7 +369,7 @@ export function ApplyProSheet({
                       key="everything"
                       href={unlockAndApplyHref(partsBuyHref(proHref, 'full'))}
                       data-apply-pro-unlock=""
-                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                      className={`ab ab-brand ${primary ? 'ab-main' : ''} w-full text-center`}
                     >
                       {primary ? `Unlock everything and Apply · ${formatPhp(buttons.restPhp)}` : `Everything instead · ${formatPhp(buttons.restPhp)}`}
                     </Link>

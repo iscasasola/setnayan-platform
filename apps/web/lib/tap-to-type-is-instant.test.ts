@@ -494,7 +494,8 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   assert.match(read(`${L}details-date-finder.tsx`), /const fit = fittingDates\(rankWithPin\(m\.dates, pinned\)\);/);
   const editors = read(`${L}details-your-event.tsx`);
   const note = read(`${L}details-date-clash.tsx`);
-  assert.match(note, />\s*Ask them to move or unlock\?\s*</, 'the one action, as the owner worded it');
+  // The shared pill (design template 14 Nov 2026, rule 3): the owner's words are the ActionButton's label.
+  assert.match(note, /label="Ask them to move or unlock\?"/, 'the one action, as the owner worded it');
   assert.match(note, /Your date stays as it is\./, 'the event keeps its current date');
   assert.match(note, /href=\{c\.href\}/);
   assert.match(editors, /<DateClashNote eventId=\{eventId\} clash=\{clash\} \/>/);

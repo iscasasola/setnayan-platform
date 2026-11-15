@@ -10,7 +10,7 @@
  * Post Event prototype's Maker frames. A scene tapped → its panel → **Style**,
  * the shared PickMenu showing the current choice; a tap lists the styles with
  * one line each. Picking a style is FREE — except a look the owner made Event
- * Hub Pro (`lib/scene-style-pro.ts`: the Love Story's two-lane timeline and
+ * Pro (`lib/scene-style-pro.ts`: the Love Story's two-lane timeline and
  * swipe cards, 2026-10-17), which carries ◆ and is tried free here, asked for at
  * ✓ Apply — and never touches the couple's words or data (any set of choices is
  * a dropdown, owner 2026-09-28).
@@ -51,7 +51,7 @@ import {
   type HubElementAlign,
 } from '@/lib/element-style';
 
-/** `pro` — 💎 an Event Hub Pro ◆ look (`lib/scene-style-pro.ts`): tried free here, named at ✓ Apply. */
+/** `pro` — 💎 an Event Pro ◆ look (`lib/scene-style-pro.ts`): tried free here, named at ✓ Apply. */
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean; pro?: boolean };
 
 export function SceneStyleRow({

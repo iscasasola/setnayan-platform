@@ -168,11 +168,13 @@ export function LivingHeroStudio({
     }
   };
 
-  const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13 · 14): each step is a plain block divided by a hairline (no card);
+  // the presses are the shared pills; outcomes speak in the house tokens, not raw green/red.
+  const card = 'border-t border-ink/10 pt-5';
   const primaryBtn =
-    'inline-flex h-11 items-center justify-center rounded-lg border border-burgundy/20 bg-burgundy px-5 text-sm font-semibold text-cream transition hover:bg-burgundy/90 disabled:opacity-50';
+    'ab ab-brand ab-main';
   const ghostBtn =
-    'inline-flex h-11 items-center justify-center rounded-lg border border-ink/15 bg-white px-5 text-sm font-medium text-ink/75 transition hover:bg-cream';
+    'ab ab-neutral';
   // Hoist before JSX to avoid TypeScript narrowing the type away inside
   // phase-guarded blocks (e.g. `phase === 'ready'` narrows phase, making
   // `phase === 'saving'` always-false inside that branch).
@@ -183,7 +185,7 @@ export function LivingHeroStudio({
       {/* Current state */}
       {(currentClipUrl || currentStillUrl) && phase === 'idle' ? (
         <div className={card}>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink/55">Your hero now</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Your hero now</p>
           <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl bg-ink/5">
             {currentClipUrl ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
@@ -201,7 +203,7 @@ export function LivingHeroStudio({
               <img src={currentStillUrl} alt="" className="h-full w-full object-cover" />
             ) : null}
           </div>
-          <p className="mt-2 text-sm text-ink/55">
+          <p className="mt-2 text-sm text-ink/75">
             {currentClipUrl ? 'A living hero is set. Pick a new clip to replace it.' : 'A still photo is set.'}
           </p>
         </div>
@@ -213,7 +215,7 @@ export function LivingHeroStudio({
           <label className="block cursor-pointer rounded-xl border-2 border-dashed border-ink/15 p-8 text-center transition hover:border-ink/30">
             <input type="file" accept="video/*" onChange={onPick} className="hidden" />
             <p className="text-sm font-semibold text-ink">Choose a video</p>
-            <p className="mt-1 text-sm text-ink/55">
+            <p className="mt-1 text-sm text-ink/75">
               We&rsquo;ll use up to {MAX_CLIP_SECONDS} seconds of it. Everything happens on your device —
               nothing uploads until you save.
             </p>
@@ -246,7 +248,7 @@ export function LivingHeroStudio({
             <div>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-ink">Start of your {Math.round(windowLen)}s</span>
-                <span className="tabular-nums text-ink/55">
+                <span className="tabular-nums text-ink/75">
                   {fmt(start)} – {fmt(start + windowLen)}
                 </span>
               </div>
@@ -270,7 +272,7 @@ export function LivingHeroStudio({
             <div>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-ink">Freeze frame (your photo)</span>
-                <span className="tabular-nums text-ink/55">{fmt(freeze)}</span>
+                <span className="tabular-nums text-ink/75">{fmt(freeze)}</span>
               </div>
               <input
                 type="range"
@@ -286,7 +288,7 @@ export function LivingHeroStudio({
                 }}
                 className="mt-2 w-full"
               />
-              <p className="mt-1 text-xs text-ink/55">
+              <p className="mt-1 text-[13px] text-ink/75">
                 This frame is your printed photo, the poster, and what shows on slow connections.
               </p>
             </div>
@@ -295,11 +297,11 @@ export function LivingHeroStudio({
               <div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
                   <div
-                    className="h-full rounded-full bg-burgundy transition-all"
+                    className="h-full rounded-full bg-mulberry transition-all"
                     style={{ width: `${Math.round(progress * 100)}%` }}
                   />
                 </div>
-                <p className="mt-2 text-sm text-ink/55">Making it move… {Math.round(progress * 100)}%</p>
+                <p className="mt-2 text-sm text-ink/75">Making it move… {Math.round(progress * 100)}%</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-3">
@@ -323,12 +325,12 @@ export function LivingHeroStudio({
       {/* Preview baked boomerang */}
       {phase === 'preview' && bakedUrl ? (
         <div className={card}>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink/55">Your living hero</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Your living hero</p>
           <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl bg-black">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video src={bakedUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
           </div>
-          <p className="mt-2 text-sm text-ink/55">It plays forward, then reverses — on a gentle loop.</p>
+          <p className="mt-2 text-sm text-ink/75">It plays forward, then reverses — on a gentle loop.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button type="button" onClick={onSaveBoomerang} disabled={isSaving} className={primaryBtn}>
               Save as my hero
@@ -347,16 +349,16 @@ export function LivingHeroStudio({
         </div>
       ) : null}
       {phase === 'done' ? (
-        <div className={`${card} border-green-200 bg-green-50`}>
-          <p className="text-sm font-semibold text-green-800">Saved. Your wedding page now leads with it.</p>
+        <div className={card}>
+          <p className="text-sm font-semibold text-success-800">Saved. Your wedding page now leads with it.</p>
           <button type="button" onClick={reset} className={`${ghostBtn} mt-3`}>
             Change it again
           </button>
         </div>
       ) : null}
       {phase === 'error' ? (
-        <div className={`${card} border-red-200 bg-red-50`}>
-          <p className="text-sm font-semibold text-red-800">{error ?? 'Something went wrong.'}</p>
+        <div className={card}>
+          <p className="text-sm font-semibold text-danger-700">{error ?? 'Something went wrong.'}</p>
           <button type="button" onClick={reset} className={`${ghostBtn} mt-3`}>
             Try again
           </button>

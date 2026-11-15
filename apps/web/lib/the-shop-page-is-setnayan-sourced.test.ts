@@ -61,9 +61,10 @@ test('RW-19 · every Promote code the supplier hands out is tagged as theirs (th
 });
 
 test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → shop, the ask on dates, the review door', () => {
-  const dates = code('app/v/[slug]/dates/page.tsx');
-  assert.match(dates, /const shopHref = withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrival\);/);
-  assert.match(dates, /inquirySource=\{arrivalInquirySourceOf\(search\.src\)\}/, 'the ask on Check a date is stamped by the same rule');
+  // SHOP-02 v7: Check a date is a sheet over the shop; the printed address forwards with the arrival, and the sheet's
+  // ask is stamped by the same rule.
+  assert.match(code('lib/check-a-date.ts'), /return withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrivalParams\(search\), extra\);/);
+  assert.match(code('app/v/[slug]/_components/check-a-date-over-shop.tsx'), /inquirySource=\{arrivalInquirySourceOf\(search\.src\)\}/, 'the ask on Check a date is stamped by the same rule');
   assert.match(code('app/v/[slug]/dates/_components/check-a-date-calendar.tsx'), /checkDateAskLine\(day\) \},\s*inquirySource,/);
   assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'own'), '/v/titanena?src=own#reviews');
   assert.equal(reviewDoorTarget({ kind: 'moved', slug: 'titanena' } as never, 'own'), '/v/titanena/review?src=own');

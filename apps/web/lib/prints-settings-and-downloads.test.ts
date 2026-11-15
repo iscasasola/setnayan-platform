@@ -245,7 +245,7 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
   /* The ◆ notes are the prototype's, said the same by the routes. */
   assert.equal(PLACE_CARDS_PRO_NOTE.title, 'Every place card in one file is Event Pro');
   assert.equal(allInOneRefusal('seating-pack'), `${PLACE_CARDS_PRO_NOTE.title}. ${PLACE_CARDS_PRO_NOTE.body}`);
-  assert.match(read(`${L}/studio-prints-six.tsx`), /confirmLabel="Event (?:Hub )?Pro"\s*cancelLabel="Not now"/, 'the ◆ note’s buttons are not "Not now" · "Event Pro"');
+  assert.match(read(`${L}/studio-prints-six.tsx`), /confirmLabel="Event Pro"\s*cancelLabel="Not now"/, 'the ◆ note’s buttons are not "Not now" · "Event Pro"');
   /* The bar's ⬇ is gone with the bar (2026-10-26): every slide's own Download is the file, and "Everything" is the last slide. */
   const carousel = read(`${L}/studio-prints-carousel.tsx`);
   assert.match(carousel, /if \(slide\.everything\) \{[\s\S]*?label=\{saveWord\(state, 'Download everything'\)\}/, 'the Everything slide’s main verb is not "Download everything"');

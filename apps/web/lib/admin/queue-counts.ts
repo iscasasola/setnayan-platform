@@ -10,6 +10,7 @@ import {
 } from '@/lib/admin/completions-stuck';
 import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 import { formatCount } from '@/lib/format-number';
+import { countOpenProblems } from '@/lib/telemetry/problem-merge';
 import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
@@ -412,14 +413,20 @@ export async function countStuckCompletions(
  * Work said "2 waiting" over one real item. Pending rows are few, so they are read and judged by the ONE rule
  * (`paymentStillWaiting`, lib/payment-logged.ts) the Payments desk and the Work drawer use. A refused read is null.
  */
+/* 🔑 The payments queue's count carries both rules (merge of AW-4 + walk RW-308a, 14 Nov 2026): an order already PAID
+   is not waiting on you (RW-308a — through the order, inner join; `payments.order_id` is NOT NULL, so no payment is
+   lost), and a bill's placeholder on a paid order is not either (AW-4, `paymentStillWaiting`). `readPaymentLights`
+   reads the same way, so the count and the cards agree. */
 export async function countPaymentsWaiting(
   admin: SupabaseClient,
   _nowMs: number,
 ): Promise<AdminQueueDigestRow> {
   const { data, error } = await admin
     .from('payments')
-    .select('created_at, status, reference_number, screenshot_url, order:orders(status)')
+    .select('created_at, status, reference_number, screenshot_url, order:orders!inner(status)')
     .eq('status', 'pending')
+    // RW-308a: an order already paid is not waiting on anyone.
+    .neq('order.status', 'paid')
     .order('created_at', { ascending: true })
     .limit(5000);
   if (error || !Array.isArray(data)) {
@@ -838,6 +845,8 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     tsCol: 'first_seen',
+    // RW-285e: the count is the Problems page's own merged rows, never the raw row count.
+    digest: (admin) => countOpenProblems(admin),
     digestLine: { label: 'Problems', say: (n) => `${formatCount(n)} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
   },
   {

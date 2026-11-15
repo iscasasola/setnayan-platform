@@ -235,6 +235,7 @@ import {
   seatPlanPlaceRows,
   seatPlanRoomName,
   SEAT_PLAN_MAP_PIECE,
+  starterDraftHint,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
@@ -8628,9 +8629,8 @@ export function SeatingEditor({
           {tables.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
               {(() => {
-                const draftable = guests.filter(
-                  (g) => g.rsvp_status !== 'declined' && g.role !== 'bride' && g.role !== 'groom',
-                ).length;
+                /* 🔢 RW-304b: the same count as the top row's Unseated, and the reason when they differ (`starterDraftHint`). */
+                const { draftable, hint: draftHint } = starterDraftHint({ guests, coupleRoles: roleSet.coupleRoles });
                 // §7 — blueprint-styled starter card: a faint dashed room + ghost
                 // table behind three check-off steps (no new actions; each ticks
                 // as its state lands). Gold transfers HERE (the command-bar Auto
@@ -8674,7 +8674,7 @@ export function SeatingEditor({
                     <div className="flex flex-col gap-2">
                       <Step num={1} done={venueScaled} label="Set room size" hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Match your reception footprint'} onClick={() => setShowRoomPanel(true)} disabled={!canEdit} />
                       <Step num={2} done={false} label="Add your first table" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (isNarrow) setDrawerSnap('half'); }} disabled={!canEdit} />
-                      <Step num={3} done={false} gold label="Build my seating draft" hint={draftable > 0 ? `Seat your ${formatCount(draftable)} guest${draftable === 1 ? '' : 's'} by role` : 'Add guests first'} onClick={buildDraft} disabled={!canEdit || isPending || draftable === 0} />
+                      <Step num={3} done={false} gold label="Build my seating draft" hint={draftHint} onClick={buildDraft} disabled={!canEdit || isPending || draftable === 0} />
                     </div>
                   </div>
                 );

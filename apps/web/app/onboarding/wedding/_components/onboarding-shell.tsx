@@ -945,7 +945,7 @@ const groupDigits = (raw: string) => {
 // live_background dropped 2026-07-22: Live Background is bundle-only (folded into
 // Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
 // pick (its SKU is is_active=false → the card would otherwise render as ₱0).
-// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Hub Pro's Logo & QR
+// animated_monogram dropped 2026-10-22: the standalone Animated Monogram is retired into Event Pro's Logo & QR
 // part (is_active=false → the card would otherwise render as ₱0), and onboarding keeps ONE Pro offer (Full Pro).
 const INAPP_KEYS = ['papic_seats', 'advanced_website', 'panood', 'papic_guest', 'pakanta', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +

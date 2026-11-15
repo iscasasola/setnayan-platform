@@ -71,7 +71,7 @@ export function StagePicker({
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <header className="flex flex-col gap-0.5">
           <h2 className="font-serif text-2xl text-ink">Which stage do you want ready?</h2>
-          <p className="text-[13px] text-ink/65" data-stage-picker-whole="">
+          <p className="text-[13px] text-ink/75" data-stage-picker-whole="">
             {formatCount(whole.done)} of {formatCount(whole.total)} in place
           </p>
         </header>
@@ -103,11 +103,11 @@ export function StagePicker({
                     {on ? <span className="h-2.5 w-2.5 rounded-full bg-terracotta-700" /> : null}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className={`text-[15px] font-semibold ${open ? 'text-ink' : 'text-ink/45'}`}>{roundName(plan, s)}</span>
-                    <span className={`text-[12.5px] ${open ? 'text-ink/60' : 'text-ink/40'}`}>{stageLine(plan, s)}</span>
+                    <span className={`text-[15px] font-semibold ${open ? 'text-ink' : 'text-ink/75'}`}>{roundName(plan, s)}</span>
+                    <span className={`text-[12.5px] ${open ? 'text-ink/75' : 'text-ink/75'}`}>{stageLine(plan, s)}</span>
                     {open ? <Bar done={p.done} total={p.total} /> : null}
                   </span>
-                  <span className={`shrink-0 text-[13px] ${open ? 'text-ink/70' : 'text-ink/40'}`}>
+                  <span className={`shrink-0 text-[13px] ${open ? 'text-ink/70' : 'text-ink/75'}`}>
                     {open ? `${formatCount(p.done)} of ${formatCount(p.total)}` : '—'}
                   </span>
                 </button>
@@ -120,7 +120,7 @@ export function StagePicker({
             type="button"
             onClick={() => onPick(picked)}
             data-stage-go={picked}
-            className="sn-press inline-flex min-h-12 w-full items-center justify-center rounded-full bg-ink px-6 text-[16px] font-semibold text-cream hover:bg-ink/90"
+            className="ab ab-brand ab-main !min-h-12 w-full"
           >
             Get {roundName(plan, picked)} ready
           </button>
@@ -147,7 +147,7 @@ export function BeforeWeStartScreen({
   const b = beforeWeStart(plan, round);
   const title = roundName(plan, round);
   const card = 'flex flex-col gap-1.5 rounded-xl bg-white/80 px-3.5 py-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]';
-  const head = 'flex items-baseline justify-between px-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55';
+  const head = 'flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
   return (
     <section data-before-we-start={round} aria-label={`${title} — before we start`} className={PANE}>
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
@@ -216,7 +216,7 @@ export function BeforeWeStartScreen({
             type="button"
             onClick={onStart}
             data-before-start-anyway=""
-            className="sn-press inline-flex min-h-12 items-center justify-center rounded-full border border-ink/15 bg-white px-4 text-[15px] font-semibold text-ink"
+            className="ab ab-neutral !min-h-12 w-full"
           >
             Start anyway
           </button>
@@ -224,7 +224,7 @@ export function BeforeWeStartScreen({
             type="button"
             onClick={onStart}
             data-before-ready=""
-            className="sn-press inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-4 text-[15px] font-semibold text-cream hover:bg-ink/90"
+            className="ab ab-brand ab-main !min-h-12 w-full"
           >
             I’m ready
           </button>

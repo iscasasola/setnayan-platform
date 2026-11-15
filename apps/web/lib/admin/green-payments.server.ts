@@ -31,8 +31,8 @@ export const GREEN_READ_CAP = 200;
 
 const PAYMENT_COLS =
   'payment_id, order_id, status, amount_php, channel, reference_number, screenshot_url, created_at, ' +
-  'order:orders(status, public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key), ' +
-  'user:users!payments_user_id_fkey(email)';
+  'order:orders!inner(status, public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key), ' +
+  'user:users!payments_user_id_fkey(email, display_name)';
 
 type PendingJoined = {
   payment_id: string;
@@ -52,7 +52,7 @@ type PendingJoined = {
     voucher_discount_centavos: number | null;
     service_key: string | null;
   } | null;
-  user: { email: string | null } | null;
+  user: { email: string | null; display_name: string | null } | null;
 };
 
 export type PaymentLightsRead =
@@ -73,6 +73,8 @@ export async function readPaymentLights(
   if (!src) return { ok: false };
   let q = src
     .filter(admin.from(src.table).select(PAYMENT_COLS, { count: 'exact' }), { nowIso: new Date().toISOString() })
+    // An order already paid is not waiting on anyone — the same exclusion the queue's count makes (queue-counts.ts).
+    .neq('order.status', 'paid')
     .order('created_at', { ascending: true })
     .limit(GREEN_READ_CAP);
   if (opts.paymentIds) q = q.in('payment_id', [...opts.paymentIds]);
@@ -119,6 +121,10 @@ export async function readPaymentLights(
       referenceNumber: p.reference_number,
       who: p.user?.email ?? p.order?.public_id ?? 'a guest order',
       createdAt: p.created_at,
+      orderPublicId: p.order?.public_id ?? null,
+      orderStatus: p.order?.status ?? null,
+      payerName: p.user?.display_name?.trim() || null,
+      hasScreenshot: (p.screenshot_url ?? '').trim() !== '',
       // Proof means non-empty, not merely non-null — '' is what an empty field posts.
       hasProof:
         (p.reference_number != null && p.reference_number.trim() !== '') ||

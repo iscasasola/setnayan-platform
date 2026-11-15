@@ -262,7 +262,7 @@ export async function GuestAllotmentsChoice({
 
   const control = (
     <div className="space-y-5">
-      <p className="text-sm text-ink/65">
+      <p className="text-sm text-ink/70">
         {enabled
           ? 'Each guest has their own LIMIT. Name anyone you want to let take more, and everyone else shares what is left. Every credit still comes out of the one pot, first come first served — a limit caps what one guest may take; it does not hold credits back for her.'
           : 'Right now every guest draws from the same pot until it runs out, with no limit on any one of them. Turn this on to cap how much each guest may take.'}
@@ -285,7 +285,7 @@ export async function GuestAllotmentsChoice({
         <SubmitButton className={enabled ? 'ab ab-neutral inline-flex min-h-11 items-center justify-center' : 'ab ab-brand ab-main inline-flex min-h-11 items-center justify-center'}>
           {enabled ? 'Turn this off' : 'Turn this on'}
         </SubmitButton>
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
+        <span className="text-[12px] uppercase tracking-[0.14em] text-ink/70">
           {enabled ? 'On' : 'Off'}
         </span>
       </PapicStayForm>
@@ -311,7 +311,7 @@ export async function GuestAllotmentsChoice({
         <>
           {/* THE LIVE LINE — what the couple's choices actually add up to. */}
           <p
-            className={`rounded-lg px-3 py-2 font-mono text-[11.5px] ${
+            className={`rounded-lg px-3 py-2 text-[13px] tabular-nums ${
               split.overCommitted ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/70'
             }`}
           >
@@ -344,19 +344,17 @@ export async function GuestAllotmentsChoice({
                 does. Without this line the couple types 50, reads 14, and has
                 no idea why their number was not the one that applied. */}
             {everyoneElse !== null && everyoneElse > split.perHead ? (
-              <p className="text-xs text-terracotta">
-                Your event holds enough for {formatCount(split.perHead)} credits each right now, so that is
-                what each guest gets. Add credits and it rises on its own, up to your {everyoneElse}.
-              </p>
+              <InfoTip labelAs="p" label="Your event holds enough for credits each right now, so that is what each guest gets." labelNode={<>Your event holds enough for {formatCount(split.perHead)} credits each right now, so that is what each guest gets.</>} labelClassName="text-xs text-terracotta" align="start">
+                Add credits and it rises on its own, up to your {everyoneElse}.
+              </InfoTip>
             ) : null}
-            <p className="text-xs text-ink/55">
-              Leave this empty and their limit is an equal share of what is left —{' '}
-              {formatCount(split.perHead)} credits each right now. The smallest you can set is 1. To stop one
+            <InfoTip labelAs="p" label="Leave this empty and their limit is an equal share of what is left — credits each right now." labelNode={<>Leave this empty and their limit is an equal share of what is left —{' '} {formatCount(split.perHead)} credits each right now.</>} labelClassName="text-xs text-ink/70" align="start">
+              The smallest you can set is 1. To stop one
               person taking anything, name them below and set them to 0.
               {sponsors.length > 0
-                ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
-                : null}
-            </p>
+              ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
+              : null}
+            </InfoTip>
           </PapicStayForm>
 
           {/* ══ THE LEAST ANYBODY GETS ═══════════════════════════════════════
@@ -397,20 +395,20 @@ export async function GuestAllotmentsChoice({
             {minimumLine ? (
               <p
                 className={`text-xs ${
-                  minimum.status === 'short' ? 'text-terracotta' : 'text-ink/55'
+                  minimum.status === 'short' ? 'text-terracotta' : 'text-ink/70'
                 }`}
               >
                 {minimumLine}
               </p>
             ) : null}
-            <p className="text-xs text-ink/55">
-              Every guest is promised at least this many credits — including anyone you have
+            <InfoTip labelAs="p" label="Every guest is promised at least this many credits" labelClassName="text-xs text-ink/70" align="start">
+              including anyone you have
               named below for less, whose number rises to meet it. Leave it empty for no
               minimum.
               {everyoneElse !== null
-                ? ` It cannot be more than the ${everyoneElse} you set above.`
-                : ''}
-            </p>
+              ? ` It cannot be more than the ${everyoneElse} you set above.`
+              : ''}
+            </InfoTip>
           </PapicStayForm>
 
           {/* NAMING GUESTS — the real new control. */}
@@ -435,18 +433,18 @@ export async function GuestAllotmentsChoice({
                 🔑 A DEAD END IS THE DEFECT, NOT THE ABSENCE OF A CONTROL. The
                 honest answer to "how do I add a guest" is a link to where guests
                 are added, not an Add button that writes a second roster. */}
-            <p className="text-xs text-ink/55">
-              These are the people on your guest list — you add and remove them{' '}
+            <InfoTip labelAs="p" label="These are the people on your guest list" labelClassName="text-xs text-ink/70" align="start">
+              you add and remove them{' '}
               <Link
-                href={`/dashboard/${eventId}/guests`}
-                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              href={`/dashboard/${eventId}/guests`}
+              className="font-medium text-mulberry underline-offset-2 hover:underline"
               >
-                on your guest list
+              on your guest list
               </Link>
               , and whoever is there appears here.
-            </p>
+            </InfoTip>
             {guests.length === 0 ? (
-              <p className="text-xs text-ink/55">
+              <p className="text-xs text-ink/70">
                 Your guest list is empty. Add guests there and you can name them here.
               </p>
             ) : (
@@ -476,11 +474,11 @@ export async function GuestAllotmentsChoice({
                 })}
               />
             )}
-            <p className="text-xs text-ink/55">
-              The grey number is each guest’s limit now — sponsors already get a bigger one. Type
+            <InfoTip labelAs="p" label="The grey number is each guest’s limit now" labelClassName="text-xs text-ink/70" align="start">
+              sponsors already get a bigger one. Type
               a number to set it yourself; clear the box to go back. A limit a named guest does
               not use is not held for her: it stays in the pot and anybody may take it.
-            </p>
+            </InfoTip>
           </div>
           )}
 
@@ -489,7 +487,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="event_id" value={eventId} />
             {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
-            <p className="text-xs text-ink/55">
+            <p className="text-xs text-ink/70">
               {releasedAt
                 ? 'Already open — every limit is lifted and the whole pot is anyone’s.'
                 : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your event too.'}
@@ -531,7 +529,7 @@ export async function GuestAllotmentsChoice({
               an equal share of what is left when you leave it blank. A guest&rsquo;s own number is on their guest card.
               Every credit still comes out of the one pot, first come first served.
             </InfoTip>
-            <span className="block text-[12.5px] text-ink/60">{value}</span>
+            <span className="block text-[12.5px] text-ink/70">{value}</span>
           </span>
           <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="shrink-0">
             {carry}
@@ -554,7 +552,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
             <label className="min-w-0 flex-1 text-[14px] text-ink">
               Each guest, at most
-              <span className="block text-[12.5px] text-ink/55">Leave it empty to share what is left equally</span>
+              <span className="block text-[12.5px] text-ink/70">Leave it empty to share what is left equally</span>
             </label>
             <input
               type="number"
@@ -574,7 +572,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
             <label className="min-w-0 flex-1 text-[14px] text-ink">
               The least anybody gets
-              <span className="block text-[12.5px] text-ink/55">Leave it empty for no minimum</span>
+              <span className="block text-[12.5px] text-ink/70">Leave it empty for no minimum</span>
             </label>
             <input
               type="number"
@@ -588,7 +586,7 @@ export async function GuestAllotmentsChoice({
             />
             <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
           </PapicStayForm>
-          {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
+          {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/70">{minimumLine}</p> : null}
         </div>
       </div>
     );
@@ -608,7 +606,7 @@ export async function GuestAllotmentsChoice({
   }
 
   return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Coins aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -627,11 +625,10 @@ export async function GuestAllotmentsChoice({
  */
 function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
   const body = (
-    <p className="text-sm text-ink/65">
-      We couldn&rsquo;t load your guest list and credit limits just now, so we won&rsquo;t show
-      numbers that might be wrong. Nothing you set before has changed. Reload the page to try
+    <InfoTip labelAs="p" label="We couldn&rsquo;t load your guest list and credit limits just now, so we won&rsquo;t show numbers that might be wrong." labelClassName="text-sm text-ink/70" align="start">
+      Nothing you set before has changed. Reload the page to try
       again.
-    </p>
+    </InfoTip>
   );
   if (variant === 'row') {
     return (
@@ -646,7 +643,7 @@ function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
     );
   }
   return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-3 py-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
         <Coins aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
         How many credits each guest gets

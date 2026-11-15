@@ -60,7 +60,7 @@ export async function loadYourEvent({
    * not draw the march.
    */
   draftedMarch?: MarchStep[][] | null;
-  /** ⛪ Event Hub Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
+  /** ⛪ Event Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
   venuePro?: { owns: boolean; storeShell: boolean };
 }): Promise<YourEventInput | null> {
   const [base, confirmedVendorCount, nameStyle, liveCeremony, savedSections] = await Promise.all([

@@ -59,7 +59,7 @@ test('AW-4 · every count and list of waiting payments goes through the one rule
   assert.match(counts, /key: 'payments',[\s\S]{0,400}?digest: countPaymentsWaiting/, 'the payments queue counts through its digest');
   assert.match(counts, /export async function countPaymentsWaiting[\s\S]{0,900}?paymentStillWaiting\(/);
   assert.match(code('lib/admin/green-payments.server.ts'), /paymentStillWaiting\(p, p\.order\?\.status\)/, 'the Work drawer');
-  assert.match(code('lib/admin/green-payments.server.ts'), /order:orders\(status,/, 'the drawer reads the order status it judges by');
+  assert.match(code('lib/admin/green-payments.server.ts'), /order:orders!inner\(status,/, 'the drawer reads the order status it judges by (inner join since RW-308a)');
   assert.match(code('app/admin/payments/page.tsx'), /countPaymentsWaiting\(admin/, 'the desk’s “To confirm” number');
 });
 

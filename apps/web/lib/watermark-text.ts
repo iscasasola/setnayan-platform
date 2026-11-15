@@ -56,6 +56,15 @@ export const WATERMARK_TEXT = 'WWW.SETNAYAN.COM';
 export const MARK_CAPS = 'SETNAYAN';
 export const MARK_CAPS_VERIFIED = 'SETNAYAN VERIFIED';
 export const MARK_ADDRESS = 'setnayan.com';
+/**
+ * setnayan.com/{slug} — the shop's canonical address (`app/[slug]` serves the shop; `/v/{slug}` points there). The
+ * owner, 2026-11-15: the address line drops /v/ and reads the same for EVERY shop, verified or not, matching the QR.
+ */
 export function markVerifiedAddress(slug: string): string {
-  return `${MARK_ADDRESS}/v/${slug}`;
+  return `${MARK_ADDRESS}/${slug}`;
+}
+
+/** The URL the photo-mark QR encodes (owner 2026-11-15) — the same address as the line, with its scheme and host. */
+export function markQrUrl(slug: string): string {
+  return `https://www.${MARK_ADDRESS}/${slug}`;
 }

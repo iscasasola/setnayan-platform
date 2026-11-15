@@ -147,6 +147,14 @@ export const ADMIN_TABS: readonly AdminTab[] = [
       { key: 'subs', label: 'Subscriptions', href: '/admin/subscriptions', queue: 'subscriptions' },
       { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', queue: 'payment-options' },
       { key: 'everything', label: 'Everything', href: '/admin/money' },
+      {
+        // 🏅 Badges & seals (controller 15 Nov 2026). The monthly Spotlight Awards fold in here (DECISION_LOG dd7d05f1),
+        // so their old addresses light this view.
+        key: 'badges',
+        label: 'Badges & seals',
+        href: '/admin/badges',
+        match: ['/admin/badges', '/admin/studio?tab=spotlight-awards', '/admin/spotlight-awards'],
+      },
     ],
     settings: [
       { key: 'accounts', label: 'Receiving accounts', href: '/admin/settings/payment-methods' },
@@ -263,12 +271,6 @@ export const ADMIN_TABS: readonly AdminTab[] = [
       },
       { key: 'storytellers', label: 'Storytellers', href: '/admin/studio?tab=storytellers' },
       { key: 'recaps', label: 'Recaps', href: '/admin/studio?tab=recaps', match: ['/admin/studio?tab=recaps', '/admin/recaps'] },
-      {
-        key: 'spotlight-awards',
-        label: 'Spotlight Awards',
-        href: '/admin/studio?tab=spotlight-awards',
-        match: ['/admin/studio?tab=spotlight-awards', '/admin/spotlight-awards'],
-      },
       {
         key: 'journal-spotlights',
         label: 'Journal Spotlights',

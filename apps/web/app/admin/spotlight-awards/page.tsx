@@ -1,19 +1,13 @@
 import { redirect } from 'next/navigation';
 
 /**
- * Legacy /admin/spotlight-awards → Studio Studio redirect (Studio Studio slice 3).
+ * Legacy /admin/spotlight-awards → Money › Badges & seals (controller 15 Nov 2026; DECISION_LOG dd7d05f1 (4): the
+ * monthly Spotlight Awards view folds into the badges page). It forwards the incoming ok / error search params so
+ * the addAwardManually / SpotlightAwardRowActions redirects (which still return to /admin/spotlight-awards?ok=… /
+ * ?error=…) show their banner on the badges page's seals section, where the surface is mounted.
  *
- * Spotlight Awards curation now lives at /admin/studio?tab=spotlight-awards; its
- * body was re-homed byte-identical into
- * app/admin/studio/_surfaces/spotlight-awards-surface.tsx. This stub forwards the
- * incoming ok / error search params onto the studio route so the
- * addAwardManually / SpotlightAwardRowActions redirects (which still return to
- * /admin/spotlight-awards?ok=… / ?error=…) surface their banner on the Spotlight
- * Awards tab.
- *
- * NOTE: actions.ts + _components/ are intentionally NOT moved — the re-homed
- * surface imports addAwardManually / SpotlightRecomputeButton /
- * SpotlightAwardRowActions from here.
+ * NOTE: actions.ts + _components/ stay here — the surface (app/admin/studio/_surfaces/spotlight-awards-surface.tsx)
+ * imports addAwardManually / SpotlightRecomputeButton / SpotlightAwardRowActions from here.
  */
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +22,12 @@ function first(v: string | string[] | undefined): string | undefined {
 export default async function AdminSpotlightAwardsRedirect({ searchParams }: Props) {
   const search = await searchParams;
   const params = new URLSearchParams();
-  params.set('tab', 'spotlight-awards');
+  // 🏅 The monthly Spotlight Awards fold into Money › Badges & seals (DECISION_LOG dd7d05f1 (4)), so their own
+  // ok / error redirects land on that page's seals section.
   for (const key of ['ok', 'error']) {
     const val = first(search[key]);
     if (val !== undefined) params.set(key, val);
   }
-  redirect(`/admin/studio?${params.toString()}`);
+  const qs = params.toString();
+  redirect(qs ? `/admin/badges?${qs}` : '/admin/badges');
 }

@@ -7471,6 +7471,7 @@
         "Notice",
         "PageMasthead",
         "PathCard",
+        "PickMenu",
         "ProRow",
         "ProgressStrip",
         "RadioGroup",
@@ -7624,6 +7625,7 @@
         "FlagCard",
         "NewFlagForm",
         "PageMasthead",
+        "PostedPick",
         "StayForm",
         "SubmitButton"
       ]

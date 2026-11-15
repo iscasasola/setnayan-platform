@@ -43,7 +43,7 @@ export async function readVerificationRewardPlanUntil(admin: SupabaseClient, ven
  */
 export async function grantVerificationPlanReward(
   admin: SupabaseClient,
-  args: { vendorProfileId: string; door: VerificationDoor; actorUserId: string; now?: Date },
+  args: { vendorProfileId: string; door: VerificationDoor; actorUserId: string | null; now?: Date },
 ): Promise<PlanRewardOutcome> {
   const now = args.now ?? new Date();
   const { data: earlier, error: earlierErr } = await admin

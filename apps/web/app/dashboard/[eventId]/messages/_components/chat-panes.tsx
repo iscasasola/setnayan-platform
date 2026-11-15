@@ -21,6 +21,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SupplierColumns } from '@/app/vendor-dashboard/_components/supplier-columns';
+import { fitChatPane } from './chat-pane-fit';
 
 /** The system's tablet line — `tab:` in tailwind.config, `.sn-cols` in supplier-frame.css. */
 export const CHAT_PANES_FROM = '(min-width: 701px)';
@@ -57,25 +58,32 @@ export function ChatPanes({
   }, [open, latestHref, router]);
 
   /*
-    📏 THE PANE ENDS AT THE WINDOW'S FOOT. `.sn-cols-pane` is `100vh − the pin line` tall, which is right when the page's
-    column starts AT the pin line (the supplier tree). The couple's column starts its own gutter below it (24 px), so the
-    pane ran that far past the window and the composer sat under the fold (measured 2026-11-12: y 1040 in a 1024 window
-    at 768). The gap is measured, never guessed, and only the chat's pane reads it (globals.css).
+    📏 THE PANE ENDS AT THE WINDOW'S FOOT — sized from its own top on screen (`fitChatPane`), never from a model of what
+    stands above it (W1, live f896598, RW-330: the pane at y≈173, sized as if at 93; the composer under the fold).
+    Re-read on load, resize, scroll (sticky: it rises to the pin line) and any change in the page's height (a strip that
+    arrives late, its "Got it").
   */
   const ref = useRef<HTMLDivElement>(null);
   const splits = open || Boolean(latestHref);
   useLayoutEffect(() => {
     const root = ref.current;
-    const pane = root?.querySelector<HTMLElement>('[data-supplier-cols-pane]');
-    if (!root || !pane) return;
+    if (!root) return;
+    let frame = 0;
     const measure = () => {
-      const pin = parseFloat(getComputedStyle(pane).top) || 0;
-      const at = root.getBoundingClientRect().top + window.scrollY;
-      root.style.setProperty('--sn-chat-pane-gap', `${Math.max(0, Math.round(at - pin))}px`);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => fitChatPane(root));
     };
-    measure();
+    fitChatPane(root);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    window.addEventListener('scroll', measure, { passive: true });
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    watch?.observe(document.body);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure);
+      watch?.disconnect();
+    };
   }, [splits]);
 
   if (!splits) return <>{list}</>;

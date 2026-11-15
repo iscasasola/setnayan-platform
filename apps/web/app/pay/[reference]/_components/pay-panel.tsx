@@ -304,8 +304,7 @@ export function PayPanel({
 
           <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
             Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s
-            scanner can open it from your photos. Sending to BDO from another bank usually costs you
-            a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
+            scanner can open it from your photos.
           </p>
 
           <div className="mt-5 flex flex-col gap-2">

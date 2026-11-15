@@ -67,7 +67,7 @@ export function ReissueQrButton({
             setTyped('');
             setOpen(true);
           }}
-          className="inline-flex items-center gap-1 text-sm text-terracotta-700 underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap text-sm text-terracotta-700 underline-offset-4 hover:underline"
         >
           <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Re-issue

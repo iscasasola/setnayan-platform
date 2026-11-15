@@ -12,6 +12,9 @@ W1's walk on 4c094d4:
 - **Shop cover** (RW-311): the cover's "N events" counts events FINISHED on Setnayan (the Events badge's own number), so a
   new shop read "0 events" beside its open bookings. It now says "0 events done".
 - **Manpower** (RW-312): `/dashboard/[eventId]/manpower` gets its own tab title, "Manpower · Setnayan", like Sponsors.
+- **44 px** (RW-314): Story's "Back to Event Hub"; Invitation's "Preview as guest", each guest's name and "Re-issue"
+  (one line now); "Download PNG" in the shared QR actions; the Shop cover's "Verified" and plan links (the "Get
+  verified" pill presses at 46 through the shared `.sn-hit`, its drawing unchanged).
 - Not changed (RW-311 item 4): the tour bubble's Skip and Next are already `min-height: 44px`
   (`spotlight-tour.tsx`); its pop-in starts at `scale(.94)`, and 44 × 0.94 ≈ 41 — the walk's 41 px reads as a
   mid-animation measurement.

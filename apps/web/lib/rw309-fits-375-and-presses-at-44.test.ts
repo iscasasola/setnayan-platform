@@ -73,3 +73,16 @@ test('3 · RW-311: the Shop cover says its events are the FINISHED ones — neve
 test('5 · RW-312: the Manpower tab reads "Manpower · Setnayan"', () => {
   assert.match(read('app/dashboard/[eventId]/manpower/page.tsx'), /export const metadata = \{\s*title: 'Manpower',\s*\};/);
 });
+
+test('6 · RW-314: Story, Invitation and the Shop cover — each named control has the 44-px floor', () => {
+  assert.match(read('app/dashboard/[eventId]/story/page.tsx'), /className="mb-6 inline-flex min-h-11 items-center[^"]*"\s*>\s*<ArrowLeft[^>]*\/>\s*<span>Back to Event Hub<\/span>/, 'Back to Event Hub');
+  const inv = read('app/dashboard/[eventId]/invitation/page.tsx');
+  assert.match(inv, /className="inline-flex min-h-11 [^"]*bg-mulberry[^"]*"\s*>\s*Preview as guest/, 'Preview as guest');
+  assert.match(inv, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/\$\{guest\.guest_id\}`\}\s*className="inline-flex min-h-11 items-center/, 'the guest-name chip');
+  assert.match(read('app/_components/qr-actions.tsx'), /className="inline-flex min-h-11 items-center[^"]*"/, 'Download PNG (the shared QR actions)');
+  const reissue = read('app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx');
+  assert.match(reissue, /className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap[^"]*"\s*>\s*<RefreshCw[^>]*\/>\s*Re-issue/, 'Re-issue wraps or is short');
+  const cover = read('app/vendor-dashboard/shop/_components/shop-cover.tsx');
+  assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">/, 'the Verified link');
+  assert.match(cover, /<a href="#plan" className="inline-flex min-h-11 items-center[^"]*" data-shop-plan="">/, 'the plan link');
+});

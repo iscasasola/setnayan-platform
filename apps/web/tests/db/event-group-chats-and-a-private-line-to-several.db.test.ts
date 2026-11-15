@@ -551,3 +551,31 @@ test('the unread counters: a private line moves only its recipients; the list pr
     (await db.query<{ last_body: string | null }>(`SELECT last_body FROM public.chat_group_list($1)`, [w.eventId])).rows[0]!.last_body);
   assert.equal(own, 'Psst for Ana');
 });
+
+// ── an add reaches the person added (W1/W3 RW-197, 2026-11-14: "added to its chat gets NO notice") ─────────
+test('a person added to a group is told who added them and where — the adder, a rejoin and a refused add are not', async () => {
+  const w = await newWorld();
+  const notices = async (uid: string) =>
+    (await db.query<{ title: string; related_url: string; event_id: string | null }>(
+      `SELECT title, related_url, event_id FROM public.notifications WHERE user_id = $1 AND type = 'chat_message' ORDER BY created_at`, [uid])).rows;
+
+  const crew = await rpc(w.hostA, `SELECT public.chat_group_create($1,'Day-of crew',$2) AS r`, [w.eventId, [w.hostB, w.supplier]]);
+  for (const added of [w.hostB, w.supplier]) {
+    const n = await notices(added);
+    assert.equal(n.length, 1, 'one notice for each person ticked');
+    assert.match(n[0]!.title, /^Ana added you to Day-of crew$/);
+    assert.equal(n[0]!.related_url, `/samahan/chat/${crew}`);
+    assert.equal(n[0]!.event_id, w.eventId, 'the notice carries its event, so the bell names its place');
+  }
+  assert.equal((await notices(w.hostA)).length, 0, 'the person who made the group is not told about it');
+
+  const g = await openGeneral(w);
+  assert.equal(await rpc(w.hostA, `SELECT public.chat_group_add($1,$2) AS r`, [g, [w.supplier]]), 'no_suppliers_in_general');
+  assert.equal((await notices(w.supplier)).length, 1, 'a refused add tells nobody');
+  assert.equal(await rpc(w.hostA, `SELECT public.chat_group_add($1,$2) AS r`, [g, [w.coordinator]]), 'added');
+  assert.equal((await notices(w.coordinator)).length, 1);
+
+  assert.equal(await rpc(w.hostB, `SELECT public.chat_group_leave($1,NULL) AS r`, [crew]), 'left');
+  assert.equal(await rpc(w.hostB, `SELECT public.chat_group_add($1,$2) AS r`, [crew, [w.hostB]]), 'rejoined');
+  assert.equal((await notices(w.hostB)).length, 1, 'coming back by yourself is not news');
+});

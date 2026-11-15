@@ -181,7 +181,11 @@ async function readBadgeCount(
   fn: 'shop_completed_bookings_count' | 'shop_trusted_by_count',
   vendorProfileId: string,
 ): Promise<number | null> {
-  const { data, error } = await admin.rpc(fn, { p_vendor_profile_id: vendorProfileId });
+  // Named literally, so the read-only render guard (`the-shop-render-never-writes`) can see each call.
+  const { data, error } =
+    fn === 'shop_completed_bookings_count'
+      ? await admin.rpc('shop_completed_bookings_count', { p_vendor_profile_id: vendorProfileId })
+      : await admin.rpc('shop_trusted_by_count', { p_vendor_profile_id: vendorProfileId });
   if (error) {
     logQueryError(`badgeRewards.${fn}`, error, { vendorProfileId }, 'graceful_degrade');
     return null;

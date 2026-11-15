@@ -136,7 +136,7 @@
  "dashboard/[eventId]/guests/tea-ceremony": 13,
  "dashboard/[eventId]/hosts": 1,
  "dashboard/[eventId]/invitation": 34,
- "dashboard/[eventId]/launch": 110,
+ "dashboard/[eventId]/launch": 64,
  "dashboard/[eventId]/live": 2,
  "dashboard/[eventId]/manpower": 3,
  "dashboard/[eventId]/memories": 2,

@@ -1804,7 +1804,7 @@
   justify-items: center;
   gap: 4px;
   padding: 14px 10px 12px;
-  border-radius: 16px;
+  border-radius: var(--m-r-md);
   background: color-mix(in srgb, currentColor 7%, transparent);
   text-align: center;
 }

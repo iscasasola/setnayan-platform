@@ -680,11 +680,11 @@ export default async function VendorDashboardLayout({
                 Today, whose top sits under the photo (badge-earned-line.tsx). */}
             <VendorNoticeTop />
             <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
+            {rise}
             {/* Live vendor deal — an OFFER, registered for the END of the page (one notice system). Self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS vendor right now. */}
             <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
             <NoticeSlot place="end" className="mt-6 px-4" />
-            {rise}
           </div>
         </main>
       </div>

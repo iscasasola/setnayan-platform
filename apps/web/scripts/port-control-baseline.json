@@ -12467,57 +12467,6 @@
         "DemoCaptureReel"
       ]
     },
-    "/dev/rise-route-lab": {
-      "files": [
-        "dev/rise-route-lab/lab-sheet.tsx",
-        "dev/rise-route-lab/layout.tsx",
-        "dev/rise-route-lab/page.tsx",
-        "dev/rise-route-lab/row-body.tsx"
-      ],
-      "destinations": [
-        "/dev/rise-route-lab/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "HTMLDivElement",
-        "OverlayBackdrop",
-        "RiseRouteLabSheet",
-        "SwitcherPanelBody"
-      ]
-    },
-    "/dev/rise-route-lab/@rise": {
-      "files": [
-        "dev/rise-route-lab/@rise/default.tsx",
-        "dev/rise-route-lab/@rise/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
-    "/dev/rise-route-lab/@rise/(.)[row]": {
-      "files": [
-        "dev/rise-route-lab/@rise/(.)[row]/layout.tsx",
-        "dev/rise-route-lab/@rise/(.)[row]/loading.tsx",
-        "dev/rise-route-lab/@rise/(.)[row]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "ListPageSkeleton",
-        "RiseRoute",
-        "RowBody"
-      ]
-    },
-    "/dev/rise-route-lab/[row]": {
-      "files": [
-        "dev/rise-route-lab/[row]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "RowBody"
-      ]
-    },
     "/forgot-password": {
       "files": [
         "forgot-password/actions.ts",

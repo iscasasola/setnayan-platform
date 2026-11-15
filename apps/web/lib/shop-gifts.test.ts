@@ -248,6 +248,25 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
     assert.equal(ok.credits, 150, 'Papic credits only');
     assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0, event_ultra: 0 });
   });
+  it('a plan gift and Papic combine — WITHIN the limit (owner 15 Nov, gift-for-services decisions)', () => {
+    // Both on one quote: together they must fit; Papic 150 beside a plan is not the always-allowed gift any more.
+    const pair = ['EVENT_PLUS', 'PAPIC_GUEST_150'];
+    const fits = judgeQuoteGifts(pair, UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
+    assert.equal(fits.state, 'ok');
+    assert.equal(fits.valueCentavos, 299_000 + 9_900);
+    // A quote whose limit covers the plan alone (₱2,990) but not the plan + Papic 150 (₱3,089).
+    const at = (pesos: number) => judgeQuoteGifts(pair, UNLOCKS, pesos * 100, BOOKING_FEE, LIMIT, F(150, 1));
+    let tight = 0;
+    for (let p = 1_000; p < 2_000_000; p += 1_000) {
+      const lim = giftLimitCentavos(p * 100, BOOKING_FEE, LIMIT);
+      if (lim >= 299_000 && lim < 308_900) { tight = p; break; }
+    }
+    assert.ok(tight > 0, 'a quote size between the two exists under the live schedule');
+    const over = at(tight);
+    assert.equal(over.alwaysAllowed, false);
+    assert.equal(over.state, 'over_limit');
+    assert.equal(judgeQuoteGifts(['EVENT_PLUS'], UNLOCKS, tight * 100, BOOKING_FEE, LIMIT, F(150, 1)).state, 'ok');
+  });
   it('count toward the 40% limit at the price couples pay', () => {
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], UNLOCKS, 100_000_00, BOOKING_FEE, LIMIT, F(0, 0, 1));
     assert.equal(v.valueCentavos, 569_000);

@@ -86,11 +86,13 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.shop_seals FROM authenticated;
 DROP POLICY IF EXISTS shop_seals_own_read ON public.shop_seals;
 CREATE POLICY shop_seals_own_read ON public.shop_seals
   FOR SELECT
+  TO authenticated
   USING ((SELECT public.is_admin()) OR vendor_profile_id IN (SELECT public.current_vendor_ids()));
 
 DROP POLICY IF EXISTS shop_seals_admin_write ON public.shop_seals;
 CREATE POLICY shop_seals_admin_write ON public.shop_seals
   FOR ALL
+  TO authenticated
   USING ((SELECT public.is_admin()))
   WITH CHECK ((SELECT public.is_admin()));
 

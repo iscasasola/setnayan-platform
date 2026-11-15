@@ -7115,8 +7115,8 @@ policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIV
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
-policy	public.shop_seals|shop_seals_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.shop_seals|shop_seals_own_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.shop_seals|shop_seals_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.shop_seals|shop_seals_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
 policy	public.site_visit_days|site_visit_days_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.site_widgets|site_widgets_admin_write_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_admin_write_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

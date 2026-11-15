@@ -625,7 +625,12 @@ export type NotificationType =
      (lib/account-suspension.ts). ⚠ IN-APP ONLY: not on EMAIL_ENABLED_TYPES (owner rule 2026-10-11). ⚠ ENUM values in
      their own migration (notification_type_account_suspension). */
   | 'account_suspended'
-  | 'account_unsuspended';
+  | 'account_unsuspended'
+  /** Badge build J3 (owner-approved prototypes 15 Nov): one of the shop's service cards earned a CARD BADGE
+     (lib/card-badges.server.ts sends it, once per earning). In-app + push only — NOT on EMAIL_ENABLED_TYPES (the owner
+     ruled email for badge_earned only). ⚠ ENUM value in its own migration (notification_type_card_badge_earned; J0's
+     notification_types_seal_and_card_badge adds the same value with IF NOT EXISTS). */
+  | 'card_badge_earned';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -773,6 +778,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   service_card_shared: 'A supplier shared a service card',
   account_suspended: 'Your account is on hold',
   account_unsuspended: 'Your account is active again',
+  card_badge_earned: 'A service card earned a badge',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -1032,6 +1038,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // An account hold — something the person must know about, not an ask → the action-needed amber; the lift → sky.
   account_suspended: 'bg-warn-100 text-warn-900',
   account_unsuspended: 'bg-sky-100 text-sky-800',
+  // A card badge earned — the celebratory green the booked/paid moments wear.
+  card_badge_earned: 'bg-success-200 text-success-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1351,6 +1359,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   service_card_moderated: 'image',
   review_request: 'star',
   review_received: 'star',
+  card_badge_earned: 'gift',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',

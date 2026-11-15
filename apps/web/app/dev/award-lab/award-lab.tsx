@@ -13,6 +13,7 @@ import {
 import { CardBadgeCongrats } from '@/app/_components/award/card-badge-congrats';
 import { CardBadgeRules } from '@/app/_components/award/card-badge-rules';
 import { TIERS } from '@/lib/badge-tiers';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 /** A plain sample badge and seal — drawn here in the current colour, so the lab needs no real shop's art and no colour of its own. */
 const SAMPLE_BADGE =
@@ -92,16 +93,15 @@ export function AwardLab() {
       </section>
 
       <section className="space-y-2" aria-label="Tap shows">
-        <label className="block text-sm">
-          Tier{' '}
-          <select value={tierIx} onChange={(e) => setTierIx(Number(e.target.value))} data-award-lab-tier="">
-            {TIERS.slice(0, 7).map((t, i) => (
-              <option key={i} value={i + 1}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* The house dropdown, never a raw <select> (`every-back-goes-home.test.ts`). */}
+        <PickMenu
+          label="Tier"
+          value={String(tierIx)}
+          options={TIERS.slice(0, 7).map((t, i) => ({ key: String(i + 1), label: t.name }))}
+          onPick={(k) => setTierIx(Number(k))}
+          dataAttr="data-award-lab-tier"
+          buttonText={`Tier · ${tierName}`}
+        />
         <div className="flex flex-wrap gap-2">
           {FAMILIES.map(([k, name]) => (
             <button

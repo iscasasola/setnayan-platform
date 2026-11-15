@@ -27,7 +27,6 @@ Owner rulings: DECISION_LOG 2026-11-15 "GIFT FOR SERVICES DESIGN — DECISIONS" 
   - Five DB tests that pinned the photo gift on new charges now stand up a charge raised before the retirement (`tests/db/a-charge-from-before-the-photo-gift-retired.ts`).
   - The badge-reward test 8 follows the retirement.
 
-SPEC IMPACT: None. This implements the 15 Nov DECISION_LOG row. Owner flags are in the PR body:
-- the committed prototype draws a gift amount the couple spends, while the ruling and the brief describe items the supplier picks;
-- the brief's "Verified pays the gift price" was superseded on 14 Nov;
-- a badge-paid booking gets no picker.
+- **No bill, stock only** (owner 16 Nov, DECISION_LOG `03e465e1`). On a free, promo, badge-paid or imported booking the picker offers only gifts the shop already holds, sized on the fee the booking would have carried. `booking_gift_pick` takes stock-only picks there: it answers `stock_only` when anything would have to be bought, and never makes a bill.
+
+SPEC IMPACT: None. This implements the 15 Nov DECISION_LOG row and the owner's 16 Nov answers (`03e465e1`): the gift is items picked at Agree, every shop pays the list price, and a booking with no bill gives stock only.

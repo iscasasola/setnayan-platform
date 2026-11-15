@@ -41,6 +41,8 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
   const fee = basis.feeCentavos;
   const giftOnBill = ok ? verdict.boughtCentavos : 0;
   const fromStock = ok ? verdict.lines.filter((l) => l.fromStock).length : 0;
+  // 🎁 No bill (free, promo, badge-paid, imported — owner 2026-11-16): stock gifts only, nothing to pay.
+  const stockOnly = basis.stockOnly === true;
 
   const add = (code: string) => setCodes((c) => [...c, code]);
   const remove = (code: string) =>
@@ -55,7 +57,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
       <dl className="divide-y divide-ink/10 border-y border-ink/10 text-[14px]">
         <div className="flex items-baseline justify-between gap-3 py-3">
           <dt className="text-ink/70">Booking fee</dt>
-          <dd className="tabular-nums text-ink">{pesoFromCentavos(fee)}</dd>
+          <dd className="tabular-nums text-ink">{stockOnly ? 'No bill on this booking' : pesoFromCentavos(fee)}</dd>
         </div>
         <div className="py-3">
           <button
@@ -71,17 +73,25 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
                 <span className="block text-[12.5px] text-ink/60">
                   {items && ok
                     ? `${items}${fromStock > 0 ? ` · ${fromStock} from your stock` : ''}`
-                    : `Papic or their Event plan · up to ${pesoFromCentavos(verdict.limitCentavos)} · optional`}
+                    : stockOnly
+                      ? `From your stock · up to ${pesoFromCentavos(verdict.limitCentavos)} · optional`
+                      : `Papic or their Event plan · up to ${pesoFromCentavos(verdict.limitCentavos)} · optional`}
                 </span>
               </span>
             </span>
-            <span className="flex-none tabular-nums text-ink">{items && ok ? pesoFromCentavos(giftOnBill) : 'Add ›'}</span>
+            <span className="flex-none tabular-nums text-ink">
+              {items && ok ? (stockOnly ? 'From stock' : pesoFromCentavos(giftOnBill)) : 'Add ›'}
+            </span>
           </button>
         </div>
-        <div className="flex items-baseline justify-between gap-3 py-3 font-medium">
-          <dt className="text-ink">You pay if you agree</dt>
-          <dd className="tabular-nums text-ink" data-agree-gift-total="">{pesoFromCentavos(fee + giftOnBill)}</dd>
-        </div>
+        {stockOnly ? null : (
+          <div className="flex items-baseline justify-between gap-3 py-3 font-medium">
+            <dt className="text-ink">You pay if you agree</dt>
+            <dd className="tabular-nums text-ink" data-agree-gift-total="">
+              {pesoFromCentavos(fee + giftOnBill)}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <Sheet
@@ -92,7 +102,13 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
         foot={
           <div className="flex items-center justify-between gap-3 px-5 py-3">
             <p className="text-[13px] text-ink/70">
-              Adds <span className="tabular-nums text-ink">{pesoFromCentavos(giftOnBill)}</span> to your bill
+              {stockOnly ? (
+                'From your stock — nothing to pay'
+              ) : (
+                <>
+                  Adds <span className="tabular-nums text-ink">{pesoFromCentavos(giftOnBill)}</span> to your bill
+                </>
+              )}
             </p>
             <button
               type="button"

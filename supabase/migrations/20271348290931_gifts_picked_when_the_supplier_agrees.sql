@@ -360,6 +360,10 @@ DECLARE
   v_free      INTEGER;
   v_order     RECORD;
   v_amount    NUMERIC(12, 2);
+  v_billed    BOOLEAN := FALSE;
+  v_found     BOOLEAN;
+  v_charge_id UUID;
+  v_fee       BIGINT;
   c           RECORD;
 BEGIN
   IF p_event_vendor_id IS NULL OR p_event_has IS NULL
@@ -392,9 +396,11 @@ BEGIN
     RETURN jsonb_build_object('status', 'already');
   END IF;
 
-  -- The gift is sized on THIS booking's billed fee. No bill (a free booking, a waived fee) ⇒ no gift
-  -- ("no fee, no gift", 2026-09-09): nothing to add a bought gift to and nothing to size by.
-  SELECT bc.charge_id, bc.amount_charged_centavos, bc.status
+  -- The gift is sized on THIS booking's fee. With a BILL (a pending, billed fee) the rest of the gift is bought on it.
+  -- 🎁 With NO bill (a free, promo, badge-paid or imported booking — owner 2026-11-16, DECISION_LOG 03e465e1) the
+  -- supplier may still give from stock they already hold: nothing is bought, no bill is made, and the limit is sized
+  -- on the fee this booking WOULD have carried (the charge's computed fee, else the live schedule on its total).
+  SELECT bc.charge_id, bc.amount_charged_centavos, bc.computed_fee_centavos, bc.status
     INTO v_charge
     FROM public.booking_fee_charges bc
    WHERE bc.event_vendor_id = p_event_vendor_id
@@ -402,12 +408,25 @@ BEGIN
      AND bc.source = 'lock'
    ORDER BY bc.created_at DESC
    LIMIT 1;
-  IF NOT FOUND OR v_charge.status <> 'pending' OR COALESCE(v_charge.amount_charged_centavos, 0) <= 0 THEN
-    RETURN jsonb_build_object('status', 'no_bill');
+  v_found := FOUND;
+  IF v_found THEN
+    v_charge_id := v_charge.charge_id;
+    v_billed := v_charge.status = 'pending' AND COALESCE(v_charge.amount_charged_centavos, 0) > 0;
+  END IF;
+  IF v_billed THEN
+    v_fee := v_charge.amount_charged_centavos;
+  ELSIF v_found AND COALESCE(v_charge.computed_fee_centavos, 0) > 0 THEN
+    v_fee := v_charge.computed_fee_centavos;
+  ELSE
+    SELECT public.booking_fee_centavos(round(COALESCE(ev.total_cost_php, 0) * 100)::BIGINT) INTO v_fee
+      FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
+  END IF;
+  IF COALESCE(v_fee, 0) <= 0 THEN
+    RETURN jsonb_build_object('status', 'no_fee');
   END IF;
 
   v_pct := COALESCE((SELECT s.gift_limit_pct::BIGINT FROM public.platform_settings s WHERE s.id = 1), 40);
-  v_limit := floor((v_charge.amount_charged_centavos * v_pct) / 100.0)::BIGINT;
+  v_limit := floor((v_fee * v_pct) / 100.0)::BIGINT;
   SELECT sp.service_code INTO v_smallest FROM public.shop_gift_smallest_papic_pack() sp;
 
   -- Every code, priced from the catalogue NOW (list price); Papic credits from its tier.
@@ -486,11 +505,16 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- No bill: every line must come from stock — nothing can be bought where nothing is billed.
+  IF NOT v_billed AND EXISTS (SELECT 1 FROM pg_temp._gift_pick g WHERE NOT g.from_stock) THEN
+    RETURN jsonb_build_object('status', 'stock_only', 'from_stock', v_stock, 'lines', v_n);
+  END IF;
+
   INSERT INTO public.booking_gift_lines
     (event_vendor_id, event_id, vendor_profile_id, charge_id, service_code, gift_kind,
      credits, price_centavos, title, from_stock)
   SELECT p_event_vendor_id, v_ev.event_id, v_ev.marketplace_vendor_id,
-         CASE WHEN g.from_stock THEN NULL ELSE v_charge.charge_id END,
+         CASE WHEN g.from_stock THEN NULL ELSE v_charge_id END,
          g.code, g.kind, g.credits, g.price, g.title, g.from_stock
     FROM pg_temp._gift_pick g
    ORDER BY g.ord;
@@ -501,17 +525,17 @@ BEGIN
     -- The charge re-sizes its gift from the bought lines (trigger), then its bill follows.
     UPDATE public.booking_fee_charges
        SET updated_at = NOW()
-     WHERE charge_id = v_charge.charge_id;
+     WHERE charge_id = v_charge_id;
     SELECT o.order_id, o.status INTO v_order
       FROM public.orders o
-     WHERE o.service_key = 'vendor_booking_fee__' || v_charge.charge_id::text
+     WHERE o.service_key = 'vendor_booking_fee__' || v_charge_id::text
      LIMIT 1;
     IF FOUND AND v_order.status NOT IN ('paid', 'fulfilled', 'refunded', 'cancelled') THEN
       v_amount := round(v_charge.amount_charged_centavos + v_bought)::numeric / 100.0;
       UPDATE public.orders
          SET requested_total_php = v_amount,
              description = 'Setnayan booking fee (' || public.booking_fee_schedule_summary() || ')'
-               || public.booking_gift_bill_clause(v_charge.charge_id)
+               || public.booking_gift_bill_clause(v_charge_id)
                || ' — up for verification, confirmation within 24 hrs',
              updated_at = NOW()
        WHERE order_id = v_order.order_id;
@@ -539,7 +563,8 @@ COMMENT ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT) IS
   'code at the list price from platform_retail_catalog_v2, refuses a plan the event already holds and more than '
   'one plan, caps the total at gift_limit_pct of the booking''s billed fee (stock lines included; the smallest '
   'Papic pack alone always fits), takes from the shop''s gift stock first, and adds the rest to the booking-fee '
-  'bill. Once per booking. Service-role only (vendorAgreeToLock, after the yes).';
+  'bill. With no bill (free, promo, badge-paid, imported — owner 2026-11-16) only stock gifts are taken, sized on the '
+  'fee the booking would have carried. Once per booking. Service-role only (vendorAgreeToLock, after the yes).';
 
 -- ── 6 · stock readers count agree-time stock picks as held ──────────────────
 -- Re-created from 20271346218077 (packs) and 20271345709071 (kinds). ADDED: a stock line picked at a yes

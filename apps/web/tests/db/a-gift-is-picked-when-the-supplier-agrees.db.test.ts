@@ -6,8 +6,8 @@
  *      that said yes; a charge that already carries it keeps it.
  *   ② THE LIMIT — everything picked is capped at the gift limit of THIS booking's billed fee, at the LIST price read
  *      from the catalogue; the smallest Papic pack alone always fits; nothing is written on a refusal.
- *   ③ THE REFUSALS — not agreed · no bill (a free booking) · a code that is not on sale · a plan the event holds ·
- *      two plans · a repeat ('already').
+ *   ③ THE REFUSALS — not agreed · a code that is not on sale · a plan the event holds · two plans · a repeat
+ *      ('already') — and NO BILL (a free booking): only gifts from stock, nothing bought, no bill made (owner 16 Nov).
  *   ④ STOCK FIRST — what the shop holds is taken from its stock (held, costs nothing more, still counts toward the
  *      limit); the rest is BOUGHT on the bill: the charge carries exactly the bought lines, the order is fee + gift
  *      and names the items.
@@ -238,14 +238,21 @@ test('② the limit: list prices against this booking’s billed fee; the smalle
   assert.equal(ok.value_centavos, p150, 'counted at the LIST price from the catalogue');
 });
 
-test('③ refusals: not agreed · no bill · not on sale · a plan the event holds · two plans · a repeat', async () => {
+test('③ refusals: not agreed · no bill takes stock only · not on sale · a plan the event holds · two plans · a repeat', async () => {
   const notAgreed = await agreedBooking(shop, 3_000_000, { agreed: false });
   assert.equal((await pick(notAgreed.evId, [P150])).status, 'not_agreed');
 
+  // 🎁 No bill (owner 2026-11-16, DECISION_LOG 03e465e1): a free booking may still give from stock — nothing is bought.
   const fresh = await newShop('pick-free@gift.test'); // its first booking is on us → no bill
   const free = await agreedBooking(fresh, 3_000_000);
   assert.notEqual(free.chargeStatus, 'pending', 'fixture: the first booking bears no bill');
-  assert.equal((await pick(free.evId, [P150])).status, 'no_bill');
+  assert.equal((await pick(free.evId, [P150])).status, 'stock_only', 'nothing can be bought where nothing is billed');
+  assert.deepEqual(await lines(free.evId), [], 'a refused stock-only pick writes nothing');
+  await stockIn(fresh, P150, 1);
+  const fromStock = await pick(free.evId, [P150]);
+  assert.equal(fromStock.status, 'ok', 'a gift from stock goes on a booking with no bill');
+  assert.equal(fromStock.bought_centavos, 0);
+  assert.deepEqual((await lines(free.evId)).map((l) => [l.from_stock, l.charge_id]), [[true, null]], 'no bill is made');
 
   const b = await agreedBooking(shop, 3_000_000);
   assert.equal((await pick(b.evId, ['NOT_A_GIFT'])).status, 'unknown_pack');

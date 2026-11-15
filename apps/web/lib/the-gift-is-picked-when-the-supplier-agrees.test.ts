@@ -9,7 +9,7 @@
  * Sabotage, measured (2026-11-15): dropping the `aloneSmallest` exception turns test 2 red · `fromStock = used < have`
  * → `false` turns test 3 red · dropping the `kind !== 'papic'` count turns test 4 red · returning `true` from
  * `offersBetterPapicMix` for a plan turns test 5 red · dropping the photo-gift retirement in `quoteSetnayanGift` turns
- * test 6 red.
+ * test 6 red · dropping the `stockOnly` check turns test 5b red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,6 +103,20 @@ test('5 · "Most credits for your limit": the best Papic mix, shown only when th
   assert.equal(offersBetterPapicMix(best, b), false, 'already the best: not shown');
   assert.equal(offersBetterPapicMix([PLUS.code], basis(5_000_000)), false, 'not all Papic: not shown');
   assert.deepEqual(bestPapicMix(basis(10_000)), [P150.code], 'below the smallest pack: the always-allowed pack');
+});
+
+test('5b · no bill (owner 2026-11-16): only gifts from stock — nothing bought, no "Most credits" mix to buy', () => {
+  const free: FreeByKind = { ...NONE_FREE, packs: { [P150.code]: 2 } };
+  const b = basis(5_000_000, { free, stockOnly: true });
+  const v = judgeAgreeGifts([P150.code, P150.code], b);
+  assert.equal(v.state, 'ok', 'stock gifts go on a booking with no bill');
+  assert.equal(v.boughtCentavos, 0);
+  assert.equal(judgeAgreeGifts([P150.code, P150.code, P150.code], b).state, 'stock_only', 'a third is not in stock');
+  assert.equal(judgeAgreeGifts([PRO.code], b).state, 'stock_only', 'a plan not held cannot be bought here');
+  const opts = agreeGiftOptions([P150.code, P150.code], b);
+  assert.equal(opts.find((o) => o.pack.code === P150.code)?.why, 'Not in your stock — this booking has no bill to buy on');
+  assert.equal(offersBetterPapicMix([], b), false, 'no mix to buy where nothing can be bought');
+  assert.equal(judgeAgreeGifts([PRO.code], basis(5_000_000)).state, 'ok', 'a billed booking still buys');
 });
 
 test('6 · the old photo gift is retired: no quote, card or forecast promises it', async () => {

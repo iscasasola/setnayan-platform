@@ -44,6 +44,12 @@ export type AgreeGiftBasis = {
   free: FreeByKind | null;
   /** What the couple's event already holds. */
   eventHas: EventHolds;
+  /**
+   * 🎁 NO BILL (owner 2026-11-16, DECISION_LOG 03e465e1): a free, promo, badge-paid or imported booking raises no bill, so
+   * nothing can be bought — the supplier may still give from stock they already hold, within the limit of the fee the
+   * booking WOULD have carried (`feeCentavos`). Absent / false → a billed booking.
+   */
+  stockOnly?: boolean;
 };
 
 /** The limit for one booking: `limitPct`% of its fee, FLOORED — the SQL door's own arithmetic. */
@@ -54,7 +60,15 @@ export function agreeGiftLimitCentavos(feeCentavos: number, limitPct: number): n
 
 export type AgreeGiftLine = { pack: ShopGiftPack; fromStock: boolean };
 
-export type AgreeGiftState = 'none' | 'ok' | 'unknown_pack' | 'already_has' | 'one_plan' | 'over_limit' | 'too_many';
+export type AgreeGiftState =
+  | 'none'
+  | 'ok'
+  | 'unknown_pack'
+  | 'already_has'
+  | 'one_plan'
+  | 'over_limit'
+  | 'too_many'
+  | 'stock_only';
 
 export type AgreeGiftVerdict = {
   lines: AgreeGiftLine[];
@@ -106,6 +120,8 @@ export function judgeAgreeGifts(codes: readonly string[], basis: AgreeGiftBasis)
   const smallest = alwaysAllowedPack(basis.packs);
   const aloneSmallest = picked.length === 1 && !!smallest && picked[0]!.code === smallest.code;
   if (valueCentavos > limitCentavos && !aloneSmallest) return { ...base, state: 'over_limit' };
+  // No bill: every line must come from stock — the SQL door's own last check (`stock_only`).
+  if (basis.stockOnly && lines.some((l) => !l.fromStock)) return { ...base, state: 'stock_only' };
   return { ...base, state: 'ok' };
 }
 
@@ -138,7 +154,9 @@ export function agreeGiftOptions(codes: readonly string[], basis: AgreeGiftBasis
               ? 'Over this booking’s gift limit'
               : next.state === 'too_many'
                 ? 'That is the most one gift can hold'
-                : 'Not on sale right now';
+                : next.state === 'stock_only'
+                  ? 'Not in your stock — this booking has no bill to buy on'
+                  : 'Not on sale right now';
     return { pack, count, inStock, canAdd: next.state === 'ok', why };
   });
 }
@@ -187,6 +205,8 @@ export function bestPapicMix(basis: AgreeGiftBasis): string[] {
  * gives more credits than what is picked now (owner 2026-11-15).
  */
 export function offersBetterPapicMix(codes: readonly string[], basis: AgreeGiftBasis): boolean {
+  // No bill: the gift is whatever stock holds — a mix to BUY is not on offer.
+  if (basis.stockOnly) return false;
   const byCode = new Map(basis.packs.map((p) => [p.code, p]));
   const picked = codes.map((c) => byCode.get(c));
   if (picked.some((p) => !p || p.kind !== 'papic')) return false;
@@ -219,8 +239,10 @@ export function agreeGiftOutcomeLine(status: string | null | undefined): { tone:
       return { tone: 'refused', text: 'Your gift did not go on: it was over this booking’s gift limit. The booking is agreed.' };
     case 'already_has':
       return { tone: 'refused', text: 'Your gift did not go on: their event already has that plan. The booking is agreed.' };
-    case 'no_bill':
-      return { tone: 'refused', text: 'Your gift did not go on: this booking has no fee bill to add it to. The booking is agreed.' };
+    case 'stock_only':
+      return { tone: 'refused', text: 'Your gift did not go on: this booking has no bill, so only gifts already in your stock can be given. The booking is agreed.' };
+    case 'no_fee':
+      return { tone: 'refused', text: 'Your gift did not go on: this booking has no fee to size a gift by. The booking is agreed.' };
     case 'unknown_pack':
       return { tone: 'refused', text: 'Your gift did not go on: something in it is no longer on sale. The booking is agreed.' };
     case 'one_plan':

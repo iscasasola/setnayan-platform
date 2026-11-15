@@ -4,16 +4,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookingFeePhp } from '@/lib/booking-fee';
 import { feeBaseTotalPhp, resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { fetchEventGiftHolds, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
-import { freeByKind } from '@/lib/shop-gifts';
+import { freeByKind, freeOfPack } from '@/lib/shop-gifts';
 import type { AgreeGiftBasis } from '@/lib/agree-gifts';
 
 /**
  * GIFT FOR SERVICES — the I/O half of `lib/agree-gifts.ts`.
  *
- * The picker opens only where the yes will raise a BILL: a billable booking that is not a free, promo or badge-reward
- * one ("no fee, no gift", 2026-09-09 — there is nothing to add a bought gift to, and nothing to size it by). Every
- * other answer is null and the Agree step looks exactly as it did. A failed read is null too — the picker then says
+ * Where the yes raises a BILL the picker offers everything (stock first, the rest bought on the bill). Where it raises
+ * none — a free, promo, badge-paid or imported booking — it offers only what the shop already holds in stock, sized on
+ * the fee the booking WOULD have carried (owner 2026-11-16, DECISION_LOG 03e465e1), and only when the shop holds
+ * something. Otherwise null and the Agree step looks exactly as it did. A failed read is null too — the picker then says
  * nothing rather than offer a limit computed from half the inputs; the SQL door would refuse the pick anyway.
  *
  * MUST be called with the service-role client (the catalogue's `retired_at` is not granted to a session), after the
@@ -29,8 +31,11 @@ export async function fetchAgreeGiftBasis(
     const total = Number(totalPhp);
     if (!eventId || !Number.isFinite(total) || total <= 0) return null;
     const standing = await resolveBookingFeeStanding(admin, { vendorProfileId: args.vendorProfileId, eventId });
-    if (standing.kind !== 'billable' || standing.badgeReward) return null;
-    const feeCentavos = Math.round(bookingFeePhp(total, standing.schedule) * 100);
+    if (standing.kind === 'unreadable') return null;
+    // 🎁 No bill (free, promo, badge-paid, imported — owner 2026-11-16): stock gifts only, sized on the fee it WOULD carry.
+    const stockOnly = standing.kind !== 'billable' || !!standing.badgeReward;
+    const schedule = standing.kind === 'billable' ? standing.schedule : await getBookingFeeSchedule(admin);
+    const feeCentavos = Math.round(bookingFeePhp(total, schedule) * 100);
     if (feeCentavos <= 0) return null;
 
     const [packs, limitPct, stock, eventHas] = await Promise.all([
@@ -41,7 +46,10 @@ export async function fetchAgreeGiftBasis(
       fetchEventGiftHolds(admin, eventId, 'owned'),
     ]);
     if (!packs || packs.length === 0) return null;
-    return { packs, feeCentavos, limitPct, free: freeByKind(stock), eventHas };
+    const free = freeByKind(stock);
+    // With no bill, a shop holding nothing (or whose stock could not be read) has nothing to give: no picker.
+    if (stockOnly && (!free || !packs.some((p) => (freeOfPack(free, p) ?? 0) > 0))) return null;
+    return { packs, feeCentavos, limitPct, free, eventHas, stockOnly };
   } catch (e) {
     console.error('[agree-gifts] basis read failed', e);
     return null;
@@ -61,6 +69,8 @@ const PICK_STATUSES = new Set([
   'one_plan',
   'over_limit',
   'too_many',
+  'stock_only',
+  'no_fee',
   'bad_input',
 ]);
 

@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 207,
+  "total": 197,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -68,14 +68,11 @@
     "app/creators/_components/creator-story-sections.tsx · m-ink on m-orange-3": 1,
     "app/creators/_components/creator-story-sections.tsx · m-orange-3 on m-ink": 1,
     "app/dashboard/(launcher)/_components/event-card-menu.tsx · ink on white": 3,
-    "app/dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx · #fff on m-mulberry": 1,
     "app/dashboard/[eventId]/alaala/page.tsx · #fff on m-mulberry": 2,
     "app/dashboard/[eventId]/date-selection/_components/date-picker.tsx · ink on white": 1,
     "app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx · ink on white": 3,
-    "app/dashboard/[eventId]/details/_components/details-form.tsx · white on mulberry": 1,
-    "app/dashboard/[eventId]/details/_components/governed-fields.tsx · white on mulberry": 2,
+    "app/dashboard/[eventId]/details/_components/governed-fields.tsx · white on mulberry": 1,
     "app/dashboard/[eventId]/documents/page.tsx · ink on white": 2,
-    "app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-date-finder.tsx · ink on white": 1,
     "app/dashboard/[eventId]/launch/_components/details-workspace.tsx · white on success-700": 2,
     "app/dashboard/[eventId]/launch/_components/details-your-event.tsx · ink on white": 5,
@@ -86,7 +83,6 @@
     "app/dashboard/[eventId]/launch/_components/parent-cards.tsx · ink on white": 2,
     "app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx · ink on white": 2,
     "app/dashboard/[eventId]/launch/_components/special-message-field.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/launch/_components/stage-picker.tsx · ink on white": 1,
     "app/dashboard/[eventId]/manpower/page.tsx · danger-700 on white": 1,
     "app/dashboard/[eventId]/schedule/_components/day-ui.tsx · white on mulberry": 1,
     "app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx · ink on white": 3,
@@ -96,13 +92,9 @@
     "app/dashboard/[eventId]/schedule/_components/tell-the-host.tsx · ink on white": 1,
     "app/dashboard/[eventId]/story/_components/editorial-editor.tsx · ink on white": 1,
     "app/dashboard/[eventId]/story/_components/the-desk.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/story/_components/the-desk.tsx · white on ink": 1,
-    "app/dashboard/[eventId]/story/_components/the-desk.tsx · white on mulberry": 1,
-    "app/dashboard/[eventId]/story/_components/whats-next-step.tsx · white on burgundy": 1,
     "app/dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx · ink on white": 1,
-    "app/dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/panood/setup/page.tsx · ink on white": 1,
     "app/dashboard/[eventId]/studio/papic/crew/poster/page.tsx · ink on white": 1,
@@ -155,7 +147,6 @@
     "app/vendor-dashboard/on-the-day/_components/shot-list.tsx · ink on white": 1,
     "app/vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx · ink on white": 1,
     "app/vendor-dashboard/partnerships/page.tsx · white on ink": 2,
-    "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1,
     "app/vendor-dashboard/website/_components/flag-reason-pick.tsx · white on danger-600": 1
   }
 }

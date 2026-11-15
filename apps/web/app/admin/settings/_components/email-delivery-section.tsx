@@ -28,6 +28,7 @@ const TONE: Record<DeliveryVerdict, string> = {
   not_sent: 'bg-danger-50 text-danger-700',
   cancelled: 'bg-ink/5 text-ink/60',
   waiting: 'bg-ink/5 text-ink/70',
+  unconfirmed: 'bg-ink/5 text-ink/70',
   unknown: 'bg-amber-50 text-amber-800',
 };
 
@@ -68,15 +69,30 @@ export async function EmailDeliverySection() {
             items={[
               { label: 'Delivered', value: formatCount(log.summary.delivered), tone: 'ok' },
               { label: 'Did not arrive', value: formatCount(missed), tone: missed > 0 ? 'danger' : undefined },
-              { label: 'Waiting', value: formatCount(log.summary.waiting) },
+              { label: 'Sent · not confirmed', value: formatCount(log.summary.unconfirmed) },
             ]}
           />
           <TemplateNums
             items={[
+              { label: 'Waiting', value: formatCount(log.summary.waiting) },
               { label: 'No answer', value: formatCount(log.summary.unknown), tone: log.summary.unknown > 0 ? 'warn' : undefined },
               { label: 'Total', value: formatCount(log.summary.total) },
             ]}
           />
+          {/* 📨 Resend ACCEPTED these; this page just cannot ask whether they arrived. Never "waiting", never "not going out". */}
+          {log.summary.unconfirmed > 0 ? (
+            <p data-email-delivery-state="unconfirmed" className={`py-1 text-[14px] ${TEMPLATE_SUBLINE}`}>
+              <InfoTip
+                label={`Sent ${formatCount(log.summary.unconfirmed)} · delivery not confirmed`}
+                align="start"
+                labelClassName="font-semibold text-ink"
+              >
+                Resend accepted these emails, but this page has not been able to ask Resend whether they arrived. If the
+                email key can only send, a full-access key lets this page confirm delivery — then these turn into
+                Delivered or Did not arrive on their own.
+              </InfoTip>
+            </p>
+          ) : null}
           {log.truncated ? (
             <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
               Counts cover the newest {log.rows.length} sends only.

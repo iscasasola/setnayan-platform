@@ -42,7 +42,7 @@ import {
 } from './badge-rewards';
 import { badgeTracker, type TrackerFacts } from './shop-badges';
 
-const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' };
+const NAMES: RewardNames = { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' };
 
 const NONE: BadgeRewardFacts = {
   verified: null,
@@ -295,11 +295,18 @@ describe('the gifts list', () => {
 
 describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep it', () => {
   const PACKS = shopGiftPacksFrom([
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
   ]);
-  const F = (papic: number, event_plus = 0, event_pro = 0) => ({ papic, event_plus, event_pro });
+  // 🔢 Papic counted in packs (2026-11-14): `papic` credits of Papic 150 are that many / 150 packs.
+  const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({
+    papic,
+    event_plus,
+    event_pro,
+    event_ultra,
+    packs: { PAPIC_GUEST_150: Math.floor(papic / 150) },
+  });
   // A small booking: its 40% limit is far below Event Pro's price.
   const TOTAL = 2_000_000;
 
@@ -325,7 +332,7 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
   });
 
   it('reward stock never counts for more than is free to offer, and an unread one counts as none', () => {
-    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 } }, F(150, 3)), F(150, 0, 0));
+    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 } }, F(150, 3)), { ...F(150, 0, 0), packs: {} });
     assert.equal(rewardFreeByKind(null, F(150)), null);
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', null);
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');

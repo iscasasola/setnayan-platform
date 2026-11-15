@@ -882,8 +882,8 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
       </div>
       <p className="mt-1.5 text-xs leading-snug text-ink/70">
         Your extras have no limit. Setnayan gifts are added up against the gift limit at the price couples pay
-        {ctx.limitPct ? ` (${ctx.limitPct}% of the booking fee)` : ''}; a stocked gift costs the stocked price, with no stock it goes on the booking fee at the regular price. The same gift from two offers is given once.
-        {ctx.packs.some((p) => packsInStock(p, ctx.free) === 0) ? ' Stock gifts ahead to pay less.' : ''}
+        {ctx.limitPct ? ` (${ctx.limitPct}% of the booking fee)` : ''}; a gift you&rsquo;ve stocked is already paid for, and with none in stock it goes on the booking fee at the same price. The same gift from two offers is given once.
+        {ctx.packs.some((p) => packsInStock(p, ctx.free) === 0) ? ' Stock a bundle to get one free.' : ''}
       </p>
     </div>
   );

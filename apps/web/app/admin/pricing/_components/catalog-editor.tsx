@@ -81,6 +81,12 @@ export type RetailRowProp = {
     papicConfigPointer: boolean;
   } | null;
   history: PricingHistoryEntryProp[];
+  /**
+   * 📦 A supplier GIFT BUNDLE (owner 2026-11-14, "buy 10, get 1 free"): which pack it holds and how many — READ from the
+   * row's own `bundle_of_service_code` / `bundle_quantity` — and whether its price still equals whole packs at today's
+   * list price (`bundleListNote`). Shelved under Bundles. Absent on every other row.
+   */
+  giftBundle?: { holds: string; note: { ok: boolean; text: string } | null };
 };
 
 export type BundleRowProp = {
@@ -132,7 +138,7 @@ type Family = 'Customer' | 'Bundles' | 'Supplier';
 type ViewState = 'sale' | 'off';
 
 function familyOf(row: PriceRowProp): Family {
-  if (row.kind === 'retail') return 'Customer';
+  if (row.kind === 'retail') return row.giftBundle ? 'Bundles' : 'Customer';
   if (row.kind === 'bundle') return 'Bundles';
   return 'Supplier';
 }
@@ -639,6 +645,16 @@ function RowCard(props: {
           {row.kind === 'retail' && view === 'sale' && (
             <span className={`mt-1 block text-[13px] ${row.description ? 'text-ink/60' : 'italic text-danger-700'}`}>
               {row.description || 'No note — the last save blanked it.'}
+            </span>
+          )}
+          {row.kind === 'retail' && row.giftBundle && (
+            <span className="mt-1 block text-[13px] text-ink/70" data-admin-gift-bundle="">
+              Gift bundle · suppliers · holds {row.giftBundle.holds} (from the catalogue)
+              {row.giftBundle.note ? (
+                <span className={row.giftBundle.note.ok ? 'text-ink/60' : 'font-semibold text-danger-700'}>
+                  {' '}· {row.giftBundle.note.text}
+                </span>
+              ) : null}
             </span>
           )}
         </span>

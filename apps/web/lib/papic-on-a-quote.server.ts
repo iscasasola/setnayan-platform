@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
-import { fetchGiftLadder, fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { fetchGiftLadder } from '@/lib/setnayan-gift.server';
 import { giftLadderIsPriceable, type GiftQuoteBasis } from '@/lib/setnayan-gift';
 import { standingForGiftArm, type PapicQuoteStanding } from '@/lib/papic-on-a-quote';
 
@@ -78,16 +78,15 @@ export async function resolvePapicQuoteStanding(
     // decided by the arm alone, so a free or imported booking costs no reads.
     let basis: GiftQuoteBasis | null = null;
     if (arm === 'applies' || arm === 'card_says_no' || arm === 'badge_reward' || arm === 'badge_reward_card_says_no') {
-      const [schedule, ladder, giftPrice, limitPct] = await Promise.all([
+      const [schedule, ladder, limitPct] = await Promise.all([
         getBookingFeeSchedule(admin),
         fetchGiftLadder(admin),
-        fetchVendorPaysGiftPrice(admin, args.vendorProfileId),
         getGiftLimitPct(admin),
       ]);
       // A ladder that cannot price the cap cannot bound the maximum. `null`
       // here becomes `unreadable`, never "no deal" — the difference between a
       // broken catalogue and an honest absence.
-      if (ladder && giftLadderIsPriceable(ladder)) basis = { schedule, ladder, giftPrice, limitPct };
+      if (ladder && giftLadderIsPriceable(ladder)) basis = { schedule, ladder, limitPct };
     }
     return standingForGiftArm(arm, basis);
   } catch {

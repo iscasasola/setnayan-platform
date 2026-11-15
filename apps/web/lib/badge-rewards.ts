@@ -41,8 +41,12 @@ import { stepName, type ShopBadge, type TrackerRow } from '@/lib/shop-badges';
 import type { SpotlightAwardType } from '@/lib/spotlight-awards';
 import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
-/** What a reward is: gift-stock packs / unlocks, or a free booking fee. */
-export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'fee_waiver';
+/**
+ * What a reward is: gift-stock packs / unlocks, or a free booking fee. 💎 `event_ultra` is a reward KIND since
+ * 2026-11-13 (owner: "Ultra kind, no step yet") — the grant door and the stock take it, and NO step below pays it until
+ * the owner names one (`no-step-pays-ultra-yet` in badge-rewards.test.ts holds that).
+ */
+export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra' | 'fee_waiver';
 
 /** A reward: how many of one kind ("2 × Papic 150" = { papic, 2 }). */
 export type BadgeReward = { kind: BadgeRewardKind; units: number };
@@ -313,11 +317,16 @@ const AWARD_WORD: Record<SpotlightAwardType, string> = { top_pick: 'Top Pick', m
 
 /* ── words ────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** The products' names as the catalogue titles them (the smallest Papic pack, Event Plus, Event Pro). */
-export type RewardNames = Readonly<Record<'papic' | 'event_plus' | 'event_pro', string>>;
+/** The products' names as the catalogue titles them (the smallest Papic pack, Event Plus, Event Pro, Event Ultra). */
+export type RewardNames = Readonly<Record<'papic' | 'event_plus' | 'event_pro' | 'event_ultra', string>>;
 
 /** When the catalogue could not be read — product words, never a size or a price. */
-export const FALLBACK_REWARD_NAMES: RewardNames = { papic: 'Papic pack', event_plus: 'Event Plus', event_pro: 'Event Pro' };
+export const FALLBACK_REWARD_NAMES: RewardNames = {
+  papic: 'Papic pack',
+  event_plus: 'Event Plus',
+  event_pro: 'Event Pro',
+  event_ultra: 'Event Ultra',
+};
 
 /** The first Events step that pays a free booking fee — read from the table, so the line can never disagree with it. */
 export const FIRST_FREE_FEE_STEP: number =

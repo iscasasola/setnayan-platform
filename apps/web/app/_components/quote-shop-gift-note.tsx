@@ -10,9 +10,11 @@ export function QuoteShopGiftNote({
   given,
   unlocks = [],
   unlocksGiven = 0,
+  items,
   shopName,
   side,
 }: {
+  /** Papic credits on the quote (what the state compares against what was given). */
   credits: number;
   /** Credits this shop has already given this event. */
   given: number;
@@ -20,10 +22,12 @@ export function QuoteShopGiftNote({
   unlocks?: string[];
   /** Event Plus / Event Pro this shop has already given this event. */
   unlocksGiven?: number;
+  /** 🔢 What the couple reads, Papic in packs: "1 × Papic 1000", "Event Ultra" (`giftItemsOf`, 2026-11-14). */
+  items: readonly string[];
   shopName: string | null;
   side: 'couple' | 'supplier';
 }) {
-  const headline = coupleGiftHeadline(credits, shopName, unlocks);
+  const headline = coupleGiftHeadline(items, shopName);
   if (!headline) return null;
   const state = given >= credits && unlocksGiven >= unlocks.length ? 'given' : 'promised';
   return (

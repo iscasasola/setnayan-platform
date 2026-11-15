@@ -5,7 +5,9 @@ import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server
 
 /** The gift a row moved: "1,000 credits" for Papic, "1 Event Plus" for an unlock (slice 2). */
 const giftWord = (kind: ShopGiftLedgerRow['giftKind'], n: number) =>
-  kind === 'papic' ? `${formatCount(n)} credits` : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : 'Event Pro'}`;
+  kind === 'papic'
+    ? `${formatCount(n)} credits`
+    : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : kind === 'event_ultra' ? 'Event Ultra' : 'Event Pro'}`;
 
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
@@ -35,8 +37,8 @@ export function ShopGiftsLedger({
       <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">Supplier gifts</h2>
       <p className="mb-4 text-xs text-ink/60">
         A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
-        price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Gift prices
-        are the catalogue&rsquo;s.
+        price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Every gift is
+        at its catalogue list price; the only way to pay less is a buy-10-get-1 Papic bundle, which lands as packs.
       </p>
 
       <ConsoleTable<ShopGiftLedgerRow>
@@ -75,7 +77,11 @@ export function ShopGiftsLedger({
             header: 'Gift',
             mono: true,
             align: 'right',
-            cell: (r) => `${r.delta > 0 ? '+' : '−'}${giftWord(r.giftKind, Math.abs(r.delta))}`,
+            // 🔢 Papic counted in packs (2026-11-14): "+11 Papic 1000"; a row from before packs says its credits.
+            cell: (r) =>
+              r.giftKind === 'papic' && r.packCode && r.packs
+                ? `${r.packs > 0 ? '+' : '−'}${formatCount(Math.abs(r.packs))} ${r.packTitle ?? r.packCode}`
+                : `${r.delta > 0 ? '+' : '−'}${giftWord(r.giftKind, Math.abs(r.delta))}`,
           },
         ]}
       />
@@ -107,6 +113,7 @@ export function ShopGiftsLedger({
                 h.credits > 0 ? giftWord('papic', h.credits) : null,
                 h.plus > 0 ? giftWord('event_plus', h.plus) : null,
                 h.pro > 0 ? giftWord('event_pro', h.pro) : null,
+                h.ultra > 0 ? giftWord('event_ultra', h.ultra) : null,
               ]
                 .filter(Boolean)
                 .join(' · '),

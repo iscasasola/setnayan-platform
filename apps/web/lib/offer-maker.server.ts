@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
-import { freeByKind, tierPaysGiftPrice } from '@/lib/shop-gifts';
+import { freeByKind } from '@/lib/shop-gifts';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -88,7 +88,6 @@ export async function readOfferMaker(
           packs,
           schedule,
           limitPct,
-          paysGiftPrice: tierPaysGiftPrice(shop.tier),
           free: freeByKind(stock),
           addons: ((addonsRes.data ?? []) as { id: number; vendor_service_id: string; label: string; from_price_php: number | null }[]).map((a) => ({
             id: a.id,

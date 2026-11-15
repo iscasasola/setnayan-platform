@@ -129,13 +129,11 @@ export type ShopPapicPack = {
   code: string;
   title: string;
   credits: number;
-  /** The price couples pay (`retail_price_php`). */
-  pricePhp: number;
   /**
-   * 🎁 What a Verified-and-up shop pays to GIFT this pack (`gift_price_php`, owner 2026-11-04 "GIFT PRICES"), or
-   * null when the row has none — then every shop pays `pricePhp`. Read with the pack, never typed.
+   * The price couples pay (`retail_price_php`) — and, since 2026-11-14, THE price of a gift too: one price per gift,
+   * the only gift discount is the buy-10-get-1 bundle (`gift_price_php` is not a price anywhere).
    */
-  giftPricePhp?: number | null;
+  pricePhp: number;
 };
 
 /** The order key a shop pack is minted under. */

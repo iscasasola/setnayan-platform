@@ -23,7 +23,9 @@ import {
   offerProblem,
   offerStatus,
   priceSteps,
+  recommendGifts,
   seasonFromLeanMonths,
+  stackCost,
   stockLine,
   whoLine,
   workedLine,
@@ -31,7 +33,7 @@ import {
   type Offer,
 } from './offers';
 import { pickBestDiscount } from './vendor-service-public';
-import { shopGiftPacksFrom, tierPaysGiftPrice } from './shop-gifts';
+import { shopGiftPacksFrom } from './shop-gifts';
 import type { BookingFeeSchedule } from './booking-fee';
 
 const TODAY = '2026-11-12';
@@ -41,16 +43,15 @@ const offer = (p: Partial<Offer>): Offer => ({ ...blankOffer('o1'), name: 'Test'
 // Test fixtures for the arithmetic only — the build reads the live schedule, limit and catalogue.
 const SCHEDULE: BookingFeeSchedule = { rate: 0.05, tailRate: 0.01, tier1LimitPhp: 100_000, minPhp: 50 };
 const PACKS = shopGiftPacksFrom([
-  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
-  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999, giftPricePhp: 899 },
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
 ]);
 const ctx = (p: Partial<GiftContext> = {}): GiftContext => ({
   packs: PACKS,
   schedule: SCHEDULE,
   limitPct: 40,
-  paysGiftPrice: true,
-  free: { papic: 6000, event_plus: 0, event_pro: 0 },
+  free: { papic: 6000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_150: 4, PAPIC_GUEST_1K: 6, PAPIC_GUEST: 0 } },
   addons: [{ id: 7, cardId: 'c1', label: 'Extra hour', fromPhp: 8000 }],
   ...p,
 });
@@ -131,13 +132,40 @@ test('4 · own gifts have NO limit; Setnayan gifts are summed against the live l
   assert.match(chk.items[3]!.why, /doesn’t fit/);
 });
 
-test('5 · the stocked gift price is Verified-and-up only — a Free shop pays the list price', () => {
-  assert.equal(tierPaysGiftPrice('free'), false);
-  assert.equal(tierPaysGiftPrice('verified'), true);
+test('5 · 📦 ONE price per gift (14 Nov) — the stock line says how many PACKS are stocked and the one list price', () => {
   const p1k = PACKS.find((p) => p.code === 'PAPIC_GUEST_1K')!;
-  assert.match(stockLine(p1k, ctx({ paysGiftPrice: true })), /₱449 each from stock · ₱499 on the booking fee/);
-  assert.doesNotMatch(stockLine(p1k, ctx({ paysGiftPrice: false })), /₱449/);
+  const p3k = PACKS.find((p) => p.code === 'PAPIC_GUEST')!;
+  assert.equal(stockLine(p1k, ctx()), '6 in stock · ₱499 each');
+  assert.equal(stockLine(p3k, ctx()), 'none in stock · ₱999 each');
+  assert.doesNotMatch(stockLine(p1k, ctx()), /from stock|on the booking fee/);
   assert.match(stockLine(p1k, ctx({ free: null })), /Couldn’t read your stock/);
+});
+
+test('5b · 📦 a stack costs ONE total at list price, and says which gifts are already stocked', () => {
+  assert.equal(stackCost([{ kind: 'sn', code: 'PAPIC_GUEST_150' }], ctx()), '₱99 · from your stock');
+  assert.equal(stackCost([{ kind: 'sn', code: 'PAPIC_GUEST' }], ctx()), '₱999 · on the booking fee');
+  assert.equal(
+    stackCost([{ kind: 'sn', code: 'PAPIC_GUEST' }, { kind: 'sn', code: 'PAPIC_GUEST_1K' }], ctx()),
+    '₱1,498 · 1 of 2 from your stock',
+  );
+  assert.equal(stackCost([{ kind: 'addon', addonId: 7 }], ctx()), 'costs you nothing');
+});
+
+test('5c · 📐 at most ONE plan gift per recommended set (owner pick 3, 14 Nov) — the biggest that fits, the rest Papic', () => {
+  const withPlans = shopGiftPacksFrom([
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+    { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+    { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990 },
+  ]);
+  // A very large booking — its limit would hold Ultra AND Pro if plans could pair.
+  const rec = recommendGifts(10_000_000, ['c1'], ctx({ packs: withPlans }));
+  const plans = rec.better.filter((g) => g.kind === 'sn' && !g.code.startsWith('PAPIC_GUEST'));
+  assert.deepEqual(plans, [{ kind: 'sn', code: 'EVENT_ULTRA' }], 'Ultra leads; Pro and Plus never join it');
+  assert.ok(rec.better.some((g) => g.kind === 'sn' && g.code === 'PAPIC_GUEST'), 'the rest is Papic');
+  assert.equal(rec.best.filter((g) => g.kind === 'sn' && !g.code.startsWith('PAPIC_GUEST')).length, 1);
 });
 
 test('6 · the same gift from two offers is given once', () => {

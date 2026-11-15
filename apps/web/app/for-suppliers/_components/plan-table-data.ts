@@ -9,7 +9,6 @@
 import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS, canUse, type LockDef, type LockKey } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords, type PlanLimitKey } from '@/lib/plan-sheet';
-import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import {
   SPECIALIZED_TOOLS_INCLUDED_TIERS,
   SPECIALIZED_TOOLS_MIN_TIER,
@@ -48,7 +47,8 @@ function planName(t: VendorTier): string {
  *     actions actually let a shop do, not a cap nobody enforces;
  *   · plan features → `TIER_CAPS` (lib/vendor-tier-caps.ts);
  *   · the tools unlock → `SPECIALIZED_TOOLS_MIN_TIER` / `SPECIALIZED_TOOLS_INCLUDED_TIERS`;
- *   · gift price vs list price → `tierPaysGiftPrice` (lib/shop-gifts.ts, the one the purchase asks);
+ *   · gifts → the SAME list price on every plan (📦 2026-11-14: one price per gift; the buy-10-get-1 Papic bundles are open
+ *     to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;
  *   · Deep Search · chatbot → the SKU each plan is CHARGED from (`vendorAddonSkuCode`), priced by the catalogue;
  *   · Ultra's add-ons → `canBuyUltraAddOn` + the SKU each one charges (`ultraAddOnSku`);
  *   · the locks → `LOCKS` + `canUse` (lib/locks.ts). ⚠ ONLY a lock whose server gate exists (`server !== null`) is
@@ -155,7 +155,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   ];
 
   const money: TableRow[] = [
-    { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each((t) => words(tierPaysGiftPrice(t) ? 'Gift price' : 'List price')) },
+    { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each(() => words('List price')) },
     {
       key: 'money:deep',
       label: 'Deep Search',

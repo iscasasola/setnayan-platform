@@ -49,7 +49,7 @@ async function sqlFeeCentavos(bookingPhp: number): Promise<number> {
 }
 async function tsLadder(): Promise<GiftRung[]> {
   const c = await db.query<GiftCatalogRow>(
-    `SELECT service_code, retail_price_php, gift_price_php, is_active, retired_at
+    `SELECT service_code, retail_price_php, is_active, retired_at
        FROM public.platform_retail_catalog_v2 WHERE service_code LIKE 'PAPIC_GUEST%'`,
   );
   const t = await db.query<GiftTierRow>(

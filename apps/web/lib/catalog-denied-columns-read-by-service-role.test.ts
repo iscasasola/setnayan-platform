@@ -137,11 +137,16 @@ function giftReaderCalls(): Array<{ where: string; fn: string; arg: string }> {
   return out;
 }
 
-test('2 · the two G6 readers ask the catalogue with the client named for the service role', () => {
+test('2 · the two G6 readers ask the catalogue with the client named for the service role — and no longer for the gift price', () => {
+  // 📦 2026-11-14 (owner: "we only have the 10+1"): `gift_price_php` is not a price anywhere, so neither reader asks for
+  // it any more. They still read `retired_at` (withheld from a session), so they stay on the service role.
   for (const file of ['lib/vendor-papic-grants.ts', 'lib/shop-gifts.server.ts']) {
-    const mine = CHAINS.filter((c) => c.file === file && c.columns.includes('gift_price_php'));
-    assert.ok(mine.length >= 1, `${file}: its gift-price read was not seen`);
-    for (const c of mine) assert.ok(isServiceRole(c.receiver), `${file}:${c.line} reads the gift price off \`${c.receiver}\``);
+    const mine = CHAINS.filter((c) => c.file === file);
+    assert.ok(mine.length >= 1, `${file}: its catalogue read was not seen`);
+    for (const c of mine) {
+      assert.ok(isServiceRole(c.receiver), `${file}:${c.line} reads the catalogue off \`${c.receiver}\``);
+      assert.ok(!c.columns.includes('gift_price_php'), `${file}:${c.line} reads the retired gift price`);
+    }
   }
 });
 

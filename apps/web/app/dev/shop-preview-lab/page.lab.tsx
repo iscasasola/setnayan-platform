@@ -32,7 +32,7 @@ import { LAB_COUPLE_EVENT_WORK } from '../card-albums-lab-fixture/fixture';
 export default async function ShopPreviewLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string; view?: string; events?: string; work?: string; owner?: string; state?: string }>;
+  searchParams: Promise<{ reason?: string; view?: string; events?: string; work?: string; owner?: string; state?: string; verified?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;

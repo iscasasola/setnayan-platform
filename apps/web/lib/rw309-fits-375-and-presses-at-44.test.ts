@@ -86,3 +86,25 @@ test('6 · RW-314: Story, Invitation and the Shop cover — each named control h
   assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">/, 'the Verified link');
   assert.match(cover, /<a href="#plan" className="inline-flex min-h-11 items-center[^"]*" data-shop-plan="">/, 'the plan link');
 });
+
+test('8 · admin walk: the Studio section tabs (Moodboard library …) press at 44', () => {
+  assert.match(read('app/admin/studio/page.tsx'), /className=\{`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2/);
+});
+
+test('9 · admin walk: a record’s inline text links use the shared RECORD_LINK (44)', () => {
+  const kit = read('app/admin/_components/record-kit.tsx');
+  assert.match(kit, /export const RECORD_LINK = 'inline-flex min-h-11 items-center [^']*';/);
+  for (const rel of ['app/admin/users/[userId]/page.tsx', 'app/admin/vendors/[vendorProfileId]/page.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /className="font-semibold text-mulberry underline-offset-2 hover:underline"/, `${rel}: an 18-px record link`);
+    assert.match(src, /className=\{RECORD_LINK\}/, rel);
+  }
+});
+
+test('10 · admin walk: Problems › What mends a stored "IIndalecio" on display', async () => {
+  const { mendAction } = await import('./telemetry/problem-line');
+  assert.equal(mendAction('/dashboard · IIndalecio Casasola'), '/dashboard · Indalecio Casasola');
+  assert.equal(mendAction('IIndigo'), 'Indigo');
+  assert.equal(mendAction('/v/x · OK · GCash'), '/v/x · OK · GCash', 'a real acronym is kept');
+  assert.match(read('app/admin/app-performance/_surfaces/problems-list.tsx'), /\{mendAction\(issue\.action\)\}/);
+});

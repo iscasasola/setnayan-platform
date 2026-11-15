@@ -13,6 +13,7 @@ import {
   RecordHead,
   RecordNote,
   RecordSection,
+  RECORD_LINK,
 } from '@/app/admin/_components/record-kit';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
@@ -275,7 +276,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
 
   const runBy: ReactNode =
     ownerId && !ownerRead?.error ? (
-      <Link href={`/admin/users/${ownerId}`} className="font-semibold text-mulberry underline-offset-2 hover:underline">
+      <Link href={`/admin/users/${ownerId}`} className={RECORD_LINK}>
         {ownerLabel} ›
       </Link>
     ) : (
@@ -376,7 +377,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
             right={
               <Link
                 href={`/admin/payouts?filter=all&vendor=${shopId}`}
-                className="font-semibold text-mulberry underline-offset-2 hover:underline"
+                className={RECORD_LINK}
               >
                 All their payouts ›
               </Link>

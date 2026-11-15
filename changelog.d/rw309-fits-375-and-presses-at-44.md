@@ -15,6 +15,9 @@ W1's walk on 4c094d4:
 - **44 px** (RW-314): Story's "Back to Event Hub"; Invitation's "Preview as guest", each guest's name and "Re-issue"
   (one line now); "Download PNG" in the shared QR actions; the Shop cover's "Verified" and plan links (the "Get
   verified" pill presses at 46 through the shared `.sn-hit`, its drawing unchanged).
+- **Admin walk**: the Studio section tabs (Moodboard library and the rest) press at 44 (were 36); a record's inline
+  text links (Person, Shop) use the new shared `RECORD_LINK` in `record-kit` (were 17–18 px lines); Problems › the
+  expanded "What" mends a stored pre-#7768 "IIndalecio" on display (`mendAction`) — no stored row is rewritten.
 - Not changed (RW-311 item 4): the tour bubble's Skip and Next are already `min-height: 44px`
   (`spotlight-tour.tsx`); its pop-in starts at `scale(.94)`, and 44 × 0.94 ≈ 41 — the walk's 41 px reads as a
   mid-animation measurement.

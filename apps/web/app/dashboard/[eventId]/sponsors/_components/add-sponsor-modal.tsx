@@ -60,7 +60,7 @@ export function AddSponsorModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/30 bg-cream/60 px-3 py-2.5 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5 hover:text-terracotta-700-700"
+        className="ab ab-brand inline-flex min-h-11 w-full items-center justify-center gap-1.5" // 📐 design template rule 3: the shared pill, not a dashed box
       >
         <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         {triggerLabel}

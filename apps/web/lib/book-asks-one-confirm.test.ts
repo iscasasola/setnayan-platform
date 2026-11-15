@@ -34,11 +34,28 @@ test('the Book press waits for that confirm before anything is sent', () => {
   const press = src.match(/onClick=\{async \(\) => \{([\s\S]*?)\n {8}\}\}/);
   assert.ok(press, 'the Book press is no longer an async handler that can wait for the confirm');
   const body = press![1]!;
-  const asked = body.indexOf('await confirm(bookConfirmCopy(vendorName))');
+  assert.match(body, /const copy = bookConfirmCopy\(vendorName\);/, 'the confirm does not use the one copy');
+  const asked = body.indexOf('await confirm({ ...copy, body })');
   const sent = body.indexOf('requestLock()');
   assert.ok(asked >= 0, 'the Book press sends without asking');
   assert.ok(sent > asked, 'the Book press sends before the confirm answers');
-  assert.match(body, /if \(!\(await confirm\(bookConfirmCopy\(vendorName\)\)\)\) return;/, '"Not yet" still sends');
+  assert.match(body, /if \(!\(await confirm\(\{ \.\.\.copy, body \}\)\)\) return;/, '"Not yet" still sends');
+});
+
+test('owner 16 Nov: the confirm TELLS the couple a shop is not yet verified — with the shipped line, never blocking', () => {
+  const src = read(LOCK);
+  assert.match(src, /import \{ NotYetVerifiedThreadLine \} from '@\/app\/_components\/chat\/not-yet-verified-line';/, 'not the shipped line');
+  const press = src.match(/onClick=\{async \(\) => \{([\s\S]*?)\n {8}\}\}/)![1]!;
+  assert.match(press, /const notYetVerified = isVerified !== undefined && !isVerified;/, 'the line is drawn from an absence, or not at all');
+  assert.match(press, /notYetVerified \? \(\s*<>\s*\{copy\.body\}\s*<NotYetVerifiedThreadLine \/>/, 'the confirm drops the not-yet-verified line');
+  // Told, never blocked: the only early return in the press is the couple's own "Not yet".
+  assert.equal((press.match(/return;/g) ?? []).length, 1, 'something besides "Not yet" stops the press');
+  // Every door that knows the shop is not verified hands it to the button.
+  for (const p of ['app/_components/chat-message-stream.tsx', 'app/proposals/[publicId]/page.tsx']) {
+    assert.match(read(p), /isVerified=\{lockTarget\.notYetVerified \? false : undefined\}/, `${p} never tells the button`);
+  }
+  assert.match(read('app/dashboard/[eventId]/messages/[threadId]/page.tsx'), /if \(quoteLockTarget\) quoteLockTarget\.notYetVerified = shopNotYetVerified;/);
+  assert.match(read('app/proposals/[publicId]/page.tsx'), /lockTarget\.notYetVerified = await readThreadShopNotYetVerified\(/);
 });
 
 test('every Book door goes through that one button', () => {

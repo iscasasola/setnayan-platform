@@ -21,6 +21,7 @@ import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { bookConfirmCopy } from '@/lib/explore-info-copy';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
@@ -178,6 +179,7 @@ export function AccordionLockButton({
   icon,
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
+  isVerified,
 }: {
   eventId: string;
   groupId: PlanGroupId;
@@ -195,8 +197,10 @@ export function AccordionLockButton({
   className?: string;
   wrapperClassName?: string;
   /**
-   * @deprecated 2026-11-15 ("We allow booking"): verification no longer gates the press, so this is not read. Kept
-   * so the callers that still pass it compile; the server and the DB trigger decide.
+   * Marketplace-vendor verification. It NEVER gates the press (2026-11-15, "We allow booking": the server and the DB
+   * trigger decide). `false` = not yet verified: the one confirm carries the shipped "Not yet verified by Setnayan"
+   * line (owner 16 Nov, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET VERIFIED"). `undefined` = off-platform
+   * or not read, so no line is drawn from an absence.
    */
   isVerified?: boolean;
 }) {
@@ -505,7 +509,18 @@ export function AccordionLockButton({
           haptic('confirm');
           // Asked OUTSIDE any transition: in React 19 a state update inside an async `startTransition` is held until the
           // action settles, so a confirm awaited in there never opens (bench-vendor-actions.tsx measured it, 2026-10-12).
-          if (!(await confirm(bookConfirmCopy(vendorName)))) return;
+          const copy = bookConfirmCopy(vendorName);
+          // Told, never blocked: a shop we READ as not yet verified carries the shipped line under the ask.
+          const notYetVerified = isVerified !== undefined && !isVerified;
+          const body = notYetVerified ? (
+            <>
+              {copy.body}
+              <NotYetVerifiedThreadLine />
+            </>
+          ) : (
+            copy.body
+          );
+          if (!(await confirm({ ...copy, body }))) return;
           requestLock();
         }}
       >

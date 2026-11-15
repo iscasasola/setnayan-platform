@@ -41,7 +41,11 @@ type Reason = (typeof REASONS)[number];
 // 'vendor' added 2026-09-22 (CTRL-B3 build 9): the marketplace was the only
 // public surface with no report route, which is the one place strangers meet
 // strangers and money changes hands.
-const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter', 'vendor'] as const;
+// 'article_topic' / 'article_reply' added 2026-11-16 (Articles): the prototype
+// reuses THIS sheet and THIS queue — "same six reasons, same single queue, new
+// target types for a topic and a reply". target_id = the topic's public_id
+// (S89A-…) / the reply's reply_id. Not tied to an event (event_id NULL).
+const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter', 'vendor', 'article_topic', 'article_reply'] as const;
 type PublicTarget = (typeof PUBLIC_TARGETS)[number];
 
 export type FileReportInput = {
@@ -102,6 +106,16 @@ export async function fileReport(input: FileReportInput): Promise<FileReportResu
       .eq('vendor_profile_id', targetId)
       .maybeSingle();
     if (!data || !isShopLive(data)) return { ok: false, error: 'invalid_target' };
+    eventId = null;
+  } else if ((targetType as PublicTarget) === 'article_topic' || (targetType as PublicTarget) === 'article_reply') {
+    // Reportable while it is still up — a removed post is already actioned.
+    const isTopic = targetType === 'article_topic';
+    const { data } = await admin
+      .from(isTopic ? 'article_topics' : 'article_replies')
+      .select('removed_at')
+      .eq(isTopic ? 'public_id' : 'reply_id', targetId)
+      .maybeSingle();
+    if (!data || data.removed_at) return { ok: false, error: 'invalid_target' };
     eventId = null;
   } else if ((targetType as PublicTarget) === 'chapter') {
     // The reportable surface is the LIVE chapter page — published only (a draft

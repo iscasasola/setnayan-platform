@@ -42,12 +42,19 @@ export function ReportPageButton({
   targetType,
   targetId,
   label = 'Report this page',
+  sheetTitle = 'Report this page',
+  thing = 'page',
   className,
 }: {
-  /** 'vendor' added 2026-09-22 (CTRL-B3 build 9) — the id is `vendor_profiles.vendor_profile_id`. */
-  targetType: 'event' | 'user_profile' | 'chapter' | 'vendor';
+  /** 'vendor' added 2026-09-22 (CTRL-B3 build 9) — the id is `vendor_profiles.vendor_profile_id`.
+   *  'article_topic' / 'article_reply' added 2026-11-16 (Articles) — a topic's public_id / a reply's reply_id. */
+  targetType: 'event' | 'user_profile' | 'chapter' | 'vendor' | 'article_topic' | 'article_reply';
   targetId: string;
   label?: string;
+  /** The sheet's heading — "Report this reply" inside Articles (prototype screen 5). Same sheet, same six reasons. */
+  sheetTitle?: string;
+  /** The word in "Tell us what's wrong with this …". */
+  thing?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -97,7 +104,7 @@ export function ReportPageButton({
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Report this page"
+          aria-label={sheetTitle}
           className="fixed inset-0 z-[60] flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
           <OverlayBackdrop onClose={close} />
@@ -108,7 +115,7 @@ export function ReportPageButton({
             <div className="mb-3 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Flag aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-                Report this page
+                {sheetTitle}
               </h2>
               <button
                 type="button"
@@ -140,7 +147,7 @@ export function ReportPageButton({
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-ink/75">
-                  Tell us what&rsquo;s wrong with this page. Reports are private
+                  Tell us what&rsquo;s wrong with this {thing}. Reports are private
                   and go straight to the Setnayan team.
                 </p>
                 <fieldset className="space-y-1.5">

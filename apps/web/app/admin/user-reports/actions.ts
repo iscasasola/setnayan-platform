@@ -12,6 +12,7 @@ import { deletePageCopyAfterTakedown } from '@/lib/supplier-page-notice.server';
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { isArticleTarget, removeReportedArticlePost } from '@/lib/articles-moderation.server';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
 //   · hidden     — hide the reported photo (papic_photos OR papic_guest_captures
@@ -142,6 +143,23 @@ export async function resolveReport(formData: FormData) {
   }
 
   /*
+    ARTICLES (2026-11-16, prototype screen 6): Keep · Remove · Remove and pause
+    posting. The three buttons post the existing lanes — dismiss · hide · block —
+    so no new action exists for them. A pause stops posting in Articles only.
+  */
+  let articleOutcome: { removed: boolean; paused: boolean } | null = null;
+  if ((action === 'hide' || action === 'block') && isArticleTarget(report.target_type as string)) {
+    articleOutcome = await removeReportedArticlePost(
+      admin,
+      report.target_type as 'article_topic' | 'article_reply',
+      report.target_id as string,
+      userId,
+      { pause: action === 'block', reportId: report.report_id as string },
+    );
+    revalidatePath('/articles');
+  }
+
+  /*
     A hidden photograph is a consent write like any other: the story, the recap,
     both prints and the share card are cached on their own clocks, so without
     this it stayed on all of them after the moderator pressed Hide.
@@ -179,8 +197,15 @@ export async function resolveReport(formData: FormData) {
   // A chapter "hide" is really an unfeature (the content stays on the
   // creator's own page) — say so honestly in the resolution note. A photo
   // "hide" that found no photograph says THAT, never "Content hidden".
-  const actionNote =
-    action === 'hide' && report.target_type === 'chapter'
+  const actionNote = articleOutcome
+    ? !articleOutcome.removed
+      ? 'Nothing removed — the reported post was not found in Articles.'
+      : articleOutcome.paused
+        ? 'Removed from Articles; the poster is paused from posting in Articles.'
+        : action === 'block'
+          ? 'Removed from Articles; the pause could not be saved — try again.'
+          : 'Removed from Articles by Setnayan moderator.'
+    : action === 'hide' && report.target_type === 'chapter'
       ? 'Removed from the Real Stories Storytellers shelf by Setnayan moderator (stays on the creator’s own page).'
       : action === 'hide' && report.target_type === 'photo' && !hiddenIn
         ? 'Nothing hidden — the reported photo was not found in this event.'

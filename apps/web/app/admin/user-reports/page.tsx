@@ -13,6 +13,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
+import { articleReportContext, isArticleTarget } from '@/lib/articles-moderation.server';
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,10 @@ type ReportRow = {
     | 'event'
     | 'user_profile'
     | 'chapter'
-    | 'vendor';
+    | 'vendor'
+    // Articles (2026-11-16) — target_id = topic public_id / reply_id.
+    | 'article_topic'
+    | 'article_reply';
   target_id: string;
   reason: string;
   details: string | null;
@@ -99,6 +103,8 @@ const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
   user_profile: 'a public profile',
   chapter: 'a creator chapter',
   vendor: 'a supplier’s shop',
+  article_topic: 'a topic in Articles',
+  article_reply: 'a reply in Articles',
 };
 const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   photo: 'photo',
@@ -109,6 +115,8 @@ const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   user_profile: 'profile',
   chapter: 'chapter',
   vendor: 'shop',
+  article_topic: 'topic',
+  article_reply: 'reply',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -324,6 +332,14 @@ export default async function AdminUserReportsPage({
   const thumbUrl = new Map<string, string | null>();
   for (const [id, url] of thumbEntries) thumbUrl.set(id, url);
 
+  // Articles: the post, its code, and — for the team only — the real account
+  // and its history (prototype screen 6: "Only the team sees who posted").
+  const articleMeta = await articleReportContext(admin, rows);
+  const articleReportsOn = new Map<string, number>();
+  for (const r of rows)
+    if (isArticleTarget(r.target_type))
+      articleReportsOn.set(`${r.target_type}:${r.target_id}`, (articleReportsOn.get(`${r.target_type}:${r.target_id}`) ?? 0) + 1);
+
   const openCount = rows.filter((r) => r.status === 'open').length;
 
   return (
@@ -468,6 +484,37 @@ export default async function AdminUserReportsPage({
                       generation {r.target_id}
                     </p>
                   )}
+                  {isArticleTarget(r.target_type) && (() => {
+                    const a = articleMeta.get(`${r.target_type}:${r.target_id}`);
+                    if (!a) return <p className="text-xs text-ink/50">This post is no longer in Articles.</p>;
+                    const n = articleReportsOn.get(`${r.target_type}:${r.target_id}`) ?? 1;
+                    return (
+                      <div className="space-y-1 text-xs text-ink/70" data-article-report>
+                        <p>
+                          {r.target_type === 'article_reply' ? 'Reply in ' : 'Topic '}
+                          {a.topicHref ? (
+                            <a href={a.topicHref} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 hover:text-terracotta-700">
+                              “{a.topicTitle ?? 'a topic'}”
+                            </a>
+                          ) : (
+                            <span className="font-medium">“{a.topicTitle ?? 'a topic'}”</span>
+                          )}
+                          {n > 1 ? ` · ${formatCount(n)} reports` : ''}
+                          {a.removed ? ' · removed' : ''}
+                        </p>
+                        <p className="whitespace-pre-line rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-sm text-ink/80">“{a.excerpt}”</p>
+                        <p>
+                          Posted by <span className="font-medium text-ink">{a.posterName || a.posterEmail || 'Unknown account'}</span>
+                          {a.label ? ` · ${a.label}` : ''}
+                        </p>
+                        <p className="text-ink/55">
+                          Before {formatCount(a.removedBefore)} removed
+                          {a.joinedAt ? ` · joined ${new Date(a.joinedAt).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })}` : ''}
+                          {a.paused ? ' · paused from posting' : ''}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   {r.details && (
                     <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-sm text-ink/70">
                       “{r.details}”
@@ -480,7 +527,43 @@ export default async function AdminUserReportsPage({
                     </p>
                   )}
 
-                  {r.status === 'open' && (
+                  {r.status === 'open' && isArticleTarget(r.target_type) && (
+                    // Articles: Keep · Remove · Remove and pause posting — the
+                    // existing dismiss · hide · block lanes of resolveReport.
+                    <div className="flex flex-wrap gap-2 pt-1" data-article-moderation>
+                      <form action={resolveReport}>
+                        <input type="hidden" name="report_id" value={r.report_id} />
+                        <input type="hidden" name="action" value="dismiss" />
+                        <SubmitButton
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                          pendingLabel="Keeping…"
+                        >
+                          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Keep
+                        </SubmitButton>
+                      </form>
+                      <form action={resolveReport}>
+                        <input type="hidden" name="report_id" value={r.report_id} />
+                        <input type="hidden" name="action" value="hide" />
+                        <SubmitButton
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                          pendingLabel="Removing…"
+                        >
+                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove
+                        </SubmitButton>
+                      </form>
+                      <form action={resolveReport}>
+                        <input type="hidden" name="report_id" value={r.report_id} />
+                        <input type="hidden" name="action" value="block" />
+                        <SubmitButton
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                          pendingLabel="Removing…"
+                        >
+                          <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove and pause posting
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  )}
+                  {r.status === 'open' && !isArticleTarget(r.target_type) && (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {r.target_type === 'photo' && (
                         <form action={resolveReport}>

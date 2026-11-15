@@ -324,7 +324,7 @@ export default function GiftMoment({
             <i
               key={i}
               className={box.mote}
-              style={{ left: m.left, ['--d' as string]: m.d, ['--dl' as string]: m.dl, ['--x' as string]: m.x } as CSSProperties}
+              style={{ left: m.left, ['--gb-d' as string]: m.d, ['--gb-dl' as string]: m.dl, ['--gb-x' as string]: m.x } as CSSProperties}
             />
           ))}
         </div>

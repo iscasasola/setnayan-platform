@@ -142,7 +142,7 @@ export const SPARKS: readonly Spark[] = (() => {
 
 /**
  * The Setnayan mark embossed all over the gold foil (owner 15 Nov: "more premium and expensive"): a light edge up-left,
- * a shadow down-right, nothing printed — the prototype's `--emb`, from the one shared mark path.
+ * a shadow down-right, nothing printed — the prototype's `--gb-emb`, from the one shared mark path.
  */
 export function embossDataUri(markPath: string): string {
   const m = (x: number, y: number, c: string) =>

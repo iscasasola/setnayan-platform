@@ -89,7 +89,7 @@ function Strip({ cls, l, t, w, h }: { cls?: string; l: number; t: number; w: num
 function tabsSvg(id: string): string {
   return (
     `<svg style="position:absolute;left:0;top:0;width:${W}em;height:${H}em;overflow:visible" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>` +
-    `<linearGradient id="tb${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--g-lo)"/><stop offset=".3" style="stop-color:var(--g-hi)"/><stop offset=".45" style="stop-color:var(--g-sp)"/><stop offset=".62" style="stop-color:var(--gold)"/><stop offset="1" style="stop-color:var(--g-dk)"/></linearGradient></defs>` +
+    `<linearGradient id="tb${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--gb-g-lo)"/><stop offset=".3" style="stop-color:var(--gb-g-hi)"/><stop offset=".45" style="stop-color:var(--gb-g-sp)"/><stop offset=".62" style="stop-color:var(--gb-gold)"/><stop offset="1" style="stop-color:var(--gb-g-dk)"/></linearGradient></defs>` +
     `<g transform="translate(${W / 2} ${SY})">` +
     `<path d="M-3.4 2 L-7.2 13.4 L-4.2 11.6 L-2.2 14.4 L1 2Z" style="fill:var(--gb-shade)" opacity=".3" transform="translate(.5 .5)"/>` +
     `<path d="M3.4 2 L7.6 12.6 L4.4 11.2 L2.8 14 L-1 2Z" style="fill:var(--gb-shade)" opacity=".3" transform="translate(.5 .5)"/>` +
@@ -106,12 +106,12 @@ function bowSvg(id: string): string {
   const u = (k: string) => `url(#${k}${id})`;
   return (
     `<svg viewBox="0 0 160 92" aria-hidden="true"><defs>` +
-    g('ba', '--g-sp', '--g-hi', '--gold', 0.35, 0, 0.55, 1) +
-    g('bb', '--g-hi', '--gold', '--g-lo', 0.6, 0, 0.45, 1) +
-    g('bi', '--g-dk', '--g-dk', '--g-lo', 0, 0, 0, 1) +
-    g('bk', '--g-sp', '--g-hi', '--g-lo', 0, 0.1, 1, 0.9) +
-    g('bc', '--g-hi', '--gold', '--g-dk', 0, 0, 0, 1) +
-    g('bl', '--gold', '--g-lo', '--g-dk', 0, 0, 0, 1) +
+    g('ba', '--gb-g-sp', '--gb-g-hi', '--gb-gold', 0.35, 0, 0.55, 1) +
+    g('bb', '--gb-g-hi', '--gb-gold', '--gb-g-lo', 0.6, 0, 0.45, 1) +
+    g('bi', '--gb-g-dk', '--gb-g-dk', '--gb-g-lo', 0, 0, 0, 1) +
+    g('bk', '--gb-g-sp', '--gb-g-hi', '--gb-g-lo', 0, 0.1, 1, 0.9) +
+    g('bc', '--gb-g-hi', '--gb-gold', '--gb-g-dk', 0, 0, 0, 1) +
+    g('bl', '--gb-gold', '--gb-g-lo', '--gb-g-dk', 0, 0, 0, 1) +
     `</defs>` +
     `<path d="M78 70 C 70 48, 58 12, 42 11 C 28 13, 27 36, 41 54 C 52 66, 66 71, 78 74Z" fill="${u('bc')}"/>` +
     `<path d="M72 64 C 65 48, 55 30, 46 28 C 40 31, 42 44, 50 54 C 57 61, 65 63, 72 66Z" fill="${u('bi')}"/>` +
@@ -146,7 +146,7 @@ function topSvg(id: string): string {
   const cxx = LW / 2;
   const cy = LD / 2;
   const g = (k: string, x1: number, y1: number, x2: number, y2: number) =>
-    `<linearGradient id="${k}${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" style="stop-color:var(--g-lo)"/><stop offset=".3" style="stop-color:var(--g-hi)"/><stop offset=".46" style="stop-color:var(--g-sp)"/><stop offset=".64" style="stop-color:var(--gold)"/><stop offset="1" style="stop-color:var(--g-dk)"/></linearGradient>`;
+    `<linearGradient id="${k}${id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" style="stop-color:var(--gb-g-lo)"/><stop offset=".3" style="stop-color:var(--gb-g-hi)"/><stop offset=".46" style="stop-color:var(--gb-g-sp)"/><stop offset=".64" style="stop-color:var(--gb-gold)"/><stop offset="1" style="stop-color:var(--gb-g-dk)"/></linearGradient>`;
   const a = 'M-2.2 -1.2 Q -9.4 3.6, -15.9 12.5 L -11.7 11.9 L -12.3 16.1 Q -5.4 8.1, 1.4 2.4Z';
   const b = 'M2.2 -1.4 Q 9.6 2.1, 17 10.2 L 12.9 10.2 L 13.8 14.3 Q 6.6 7.6, -1 2.6Z';
   return (
@@ -169,7 +169,7 @@ function waxSvg(id: string): string {
   return (
     `<svg class="${s.wx}" viewBox="-12 -12 124 124" aria-hidden="true"><defs>` +
     `<radialGradient id="ws${id}" cx=".5" cy=".5" r=".5"><stop offset=".62" style="stop-color:var(--gb-shade)" stop-opacity=".55"/><stop offset="1" style="stop-color:var(--gb-shade)" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="wf${id}" cx=".34" cy=".28" r=".85"><stop offset="0" style="stop-color:var(--wax-hi)"/><stop offset=".42" style="stop-color:var(--wax)"/><stop offset="1" style="stop-color:var(--wax-dk)"/></radialGradient>` +
+    `<radialGradient id="wf${id}" cx=".34" cy=".28" r=".85"><stop offset="0" style="stop-color:var(--gb-wax-hi)"/><stop offset=".42" style="stop-color:var(--gb-wax)"/><stop offset="1" style="stop-color:var(--gb-wax-dk)"/></radialGradient>` +
     `<linearGradient id="wr${id}" x1=".12" y1=".1" x2=".62" y2=".66"><stop offset="0" style="stop-color:var(--gb-peach)" stop-opacity=".75"/><stop offset="1" style="stop-color:var(--gb-peach)" stop-opacity="0"/></linearGradient>` +
     `<linearGradient id="wd${id}" x1=".9" y1=".92" x2=".4" y2=".4"><stop offset="0" style="stop-color:var(--gb-shade)" stop-opacity=".6"/><stop offset="1" style="stop-color:var(--gb-shade)" stop-opacity="0"/></linearGradient>` +
     `<linearGradient id="ww${id}" x1=".15" y1=".1" x2=".85" y2=".9"><stop offset="0" style="stop-color:var(--gb-shade)" stop-opacity=".34"/><stop offset=".55" style="stop-color:var(--gb-shade)" stop-opacity=".08"/><stop offset="1" style="stop-color:var(--gb-blush)" stop-opacity=".14"/></linearGradient>` +
@@ -234,8 +234,8 @@ export type GiftBoxProps = {
 /** The box's keyframes that depend on its own sizes — written once per page, by the first box drawn. */
 const KEYFRAMES = boxKeyframes();
 /** The poses the stylesheet reads, and the gold foil's emboss — computed once, from the one geometry. */
-const BOX_VARS = { '--lid-rest': LID_REST, '--lid-end': LID_END, '--tk-end': TICKET_END } as CSSProperties;
-const SN_VARS = { ...BOX_VARS, '--emb': embossDataUri(SY_PATH) } as CSSProperties;
+const BOX_VARS = { '--gb-lid-rest': LID_REST, '--gb-lid-end': LID_END, '--gb-tk-end': TICKET_END } as CSSProperties;
+const SN_VARS = { ...BOX_VARS, '--gb-emb': embossDataUri(SY_PATH) } as CSSProperties;
 
 export function GiftBox({ seal, label, open, animate = false, shaking = false, ticketSrc, className }: GiftBoxProps) {
   const rawId = useId();
@@ -246,7 +246,7 @@ export function GiftBox({ seal, label, open, animate = false, shaking = false, t
   const ll = (LW - RW) / 2;
   const ld = (LD - RW) / 2;
   const glw = <i className={s.glw} />;
-  const ao = <i className={s.ao} style={{ ['--cover' as string]: `${n(cover)}em` } as CSSProperties} />;
+  const ao = <i className={s.ao} style={{ ['--gb-cover' as string]: `${n(cover)}em` } as CSSProperties} />;
   return (
     <span
       className={cx(s.gbox, open && s.open, open && animate && s.anim, shaking && s.shake, paperFor(seal) === 'setnayan' && s.fromSn, className)}
@@ -340,7 +340,7 @@ export function GiftBox({ seal, label, open, animate = false, shaking = false, t
           <i
             key={i}
             className={cx(s.spk, k.shape === 'streak' && s.s2, k.shape === 'square' && s.s3)}
-            style={{ ['--dx' as string]: k.dx, ['--dy' as string]: k.dy, ['--rt' as string]: k.rt } as CSSProperties}
+            style={{ ['--gb-dx' as string]: k.dx, ['--gb-dy' as string]: k.dy, ['--gb-rt' as string]: k.rt } as CSSProperties}
           />
         ))}
         <div className={s.flash} />

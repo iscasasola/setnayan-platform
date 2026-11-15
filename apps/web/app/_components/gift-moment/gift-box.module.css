@@ -36,10 +36,10 @@
   inset: 0;
   display: block;
   transform-origin: 50% 88%;
-  --paper: var(--m-mulberry);
-  --gold: var(--m-orange);
-  --lining: var(--m-ivory);
-  --waxb: var(--paper);
+  --gb-paper: var(--m-mulberry);
+  --gb-gold: var(--m-orange);
+  --gb-lining: var(--m-ivory);
+  --gb-waxb: var(--gb-paper);
   /* the light and shade the drawn SVG parts (seal, bow, ribbon tails, lid top) paint with */
   --gb-shade: #1a0602;
   --gb-sheen2: #fffbea;
@@ -50,46 +50,46 @@
   --gb-blush: #ffd9bf;
   --gb-pearl: #fff1e4;
   --gb-crease: #1e1002;
-  --p-hi: color-mix(in srgb, var(--paper) 80%, #ffe2c4);
-  --p-top: color-mix(in srgb, var(--paper) 91%, #ffe2c4);
-  --p-lo: color-mix(in srgb, var(--paper) 82%, #2a0e05);
-  --p-sh: color-mix(in srgb, var(--paper) 63%, #2a0e05);
-  --p-dk: color-mix(in srgb, var(--paper) 48%, #2a0e05);
-  --g-sp: color-mix(in srgb, var(--gold) 22%, #fff9e6);
-  --g-hi: color-mix(in srgb, var(--gold) 55%, #fff1c9);
-  --g-lo: color-mix(in srgb, var(--gold) 70%, #2b1a05);
-  --g-dk: color-mix(in srgb, var(--gold) 46%, #2b1a05);
-  --l-lit: color-mix(in srgb, var(--lining) 82%, #3a2410);
-  --l-sh: color-mix(in srgb, var(--lining) 58%, #2a1608);
-  --l-dk: color-mix(in srgb, var(--lining) 40%, #1e0f05);
-  --wax-hi: color-mix(in srgb, var(--waxb) 62%, #ffc7a0);
-  --wax: color-mix(in srgb, var(--waxb) 66%, #5a1c08);
-  --wax-dk: color-mix(in srgb, var(--waxb) 38%, #330d03);
-  --press: color-mix(in srgb, var(--waxb) 30%, #2a0a02);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .9 0 0 0 -.42'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  --gb-p-hi: color-mix(in srgb, var(--gb-paper) 80%, #ffe2c4);
+  --gb-p-top: color-mix(in srgb, var(--gb-paper) 91%, #ffe2c4);
+  --gb-p-lo: color-mix(in srgb, var(--gb-paper) 82%, #2a0e05);
+  --gb-p-sh: color-mix(in srgb, var(--gb-paper) 63%, #2a0e05);
+  --gb-p-dk: color-mix(in srgb, var(--gb-paper) 48%, #2a0e05);
+  --gb-g-sp: color-mix(in srgb, var(--gb-gold) 22%, #fff9e6);
+  --gb-g-hi: color-mix(in srgb, var(--gb-gold) 55%, #fff1c9);
+  --gb-g-lo: color-mix(in srgb, var(--gb-gold) 70%, #2b1a05);
+  --gb-g-dk: color-mix(in srgb, var(--gb-gold) 46%, #2b1a05);
+  --gb-l-lit: color-mix(in srgb, var(--gb-lining) 82%, #3a2410);
+  --gb-l-sh: color-mix(in srgb, var(--gb-lining) 58%, #2a1608);
+  --gb-l-dk: color-mix(in srgb, var(--gb-lining) 40%, #1e0f05);
+  --gb-wax-hi: color-mix(in srgb, var(--gb-waxb) 62%, #ffc7a0);
+  --gb-wax: color-mix(in srgb, var(--gb-waxb) 66%, #5a1c08);
+  --gb-wax-dk: color-mix(in srgb, var(--gb-waxb) 38%, #330d03);
+  --gb-press: color-mix(in srgb, var(--gb-waxb) 30%, #2a0a02);
+  --gb-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .9 0 0 0 -.42'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
 }
 /* owner 15 Nov: "Setnayan box is gold" · "make the gift box of setnayan more premium and expensive" — polished gold
    foil with the Setnayan mark embossed all over, a deep wine satin ribbon edged in gold, a wine wax pressed in gold
    leaf, a dark velvet lining, a slow light across the foil while it waits. */
 .fromSn {
-  --paper: #c9982f;
-  --p-hi: #fff1bc;
-  --p-top: #edc867;
-  --p-lo: #9a6a19;
-  --p-sh: #7a5113;
-  --p-dk: #462c08;
-  --gold: #701330;
-  --g-sp: #c77590;
-  --g-hi: #992f55;
-  --g-lo: #4e0b21;
-  --g-dk: #2a0411;
-  --l-lit: #3e2632;
-  --l-sh: #26141c;
-  --l-dk: #140a0f;
-  --wax-hi: #9a3a58;
-  --wax: #541027;
-  --wax-dk: #21040e;
-  --press: #ebc66a;
+  --gb-paper: #c9982f;
+  --gb-p-hi: #fff1bc;
+  --gb-p-top: #edc867;
+  --gb-p-lo: #9a6a19;
+  --gb-p-sh: #7a5113;
+  --gb-p-dk: #462c08;
+  --gb-gold: #701330;
+  --gb-g-sp: #c77590;
+  --gb-g-hi: #992f55;
+  --gb-g-lo: #4e0b21;
+  --gb-g-dk: #2a0411;
+  --gb-l-lit: #3e2632;
+  --gb-l-sh: #26141c;
+  --gb-l-dk: #140a0f;
+  --gb-wax-hi: #9a3a58;
+  --gb-wax: #541027;
+  --gb-wax-dk: #21040e;
+  --gb-press: #ebc66a;
 }
 
 .pool {
@@ -141,51 +141,51 @@
 
 /* paper: grain + softened lit edges + a slow sheen + the face's own light */
 .pf.front {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 232, 208, 0.34), rgba(255, 232, 208, 0) 1.3em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 232, 208, 0.34), rgba(255, 232, 208, 0) 1.3em),
     linear-gradient(270deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 0.55em),
     linear-gradient(0deg, rgba(38, 12, 4, 0.42), rgba(38, 12, 4, 0) 6em),
     linear-gradient(112deg, rgba(255, 255, 255, 0) 18%, rgba(255, 244, 230, 0.13) 36%, rgba(255, 255, 255, 0) 56%),
-    linear-gradient(168deg, var(--paper), var(--p-lo));
+    linear-gradient(168deg, var(--gb-paper), var(--gb-p-lo));
 }
 .pf.right {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 226, 200, 0.2), rgba(255, 226, 200, 0) 0.5em),
-    linear-gradient(0deg, rgba(20, 6, 2, 0.4), rgba(20, 6, 2, 0) 7em), linear-gradient(180deg, var(--p-sh), var(--p-dk));
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 226, 200, 0.2), rgba(255, 226, 200, 0) 0.5em),
+    linear-gradient(0deg, rgba(20, 6, 2, 0.4), rgba(20, 6, 2, 0) 7em), linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
 }
 .pf.back,
 .pf.left {
-  background: var(--p-dk);
+  background: var(--gb-p-dk);
 }
 .pf.ltop {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(0deg, rgba(255, 238, 220, 0.55), rgba(255, 238, 220, 0) 0.5em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(0deg, rgba(255, 238, 220, 0.55), rgba(255, 238, 220, 0) 0.5em),
     linear-gradient(270deg, rgba(255, 238, 220, 0.38), rgba(255, 238, 220, 0) 0.5em),
     linear-gradient(125deg, rgba(255, 255, 255, 0) 30%, rgba(255, 246, 234, 0.2) 46%, rgba(255, 255, 255, 0) 64%),
-    linear-gradient(140deg, var(--p-hi), var(--p-top) 55%, var(--paper));
-  outline: 0.14em solid var(--p-top);
+    linear-gradient(140deg, var(--gb-p-hi), var(--gb-p-top) 55%, var(--gb-paper));
+  outline: 0.14em solid var(--gb-p-top);
 }
 .pf.lfront {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 236, 216, 0.42), rgba(255, 236, 216, 0) 0.55em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 236, 216, 0.42), rgba(255, 236, 216, 0) 0.55em),
     linear-gradient(0deg, rgba(38, 12, 4, 0.46), rgba(38, 12, 4, 0) 0.9em),
     linear-gradient(90deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 1.3em),
     linear-gradient(270deg, rgba(255, 232, 208, 0.28), rgba(255, 232, 208, 0) 0.55em),
-    linear-gradient(170deg, var(--p-top), var(--paper));
+    linear-gradient(170deg, var(--gb-p-top), var(--gb-paper));
 }
 .pf.lright {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 226, 200, 0.26), rgba(255, 226, 200, 0) 0.5em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 226, 200, 0.26), rgba(255, 226, 200, 0) 0.5em),
     linear-gradient(0deg, rgba(20, 6, 2, 0.42), rgba(20, 6, 2, 0) 0.9em),
-    linear-gradient(180deg, var(--p-sh), color-mix(in srgb, var(--p-sh) 55%, var(--p-dk)));
+    linear-gradient(180deg, var(--gb-p-sh), color-mix(in srgb, var(--gb-p-sh) 55%, var(--gb-p-dk)));
 }
 .pf.lback,
 .pf.lleft {
-  background: linear-gradient(180deg, var(--p-sh), var(--p-dk));
+  background: linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
 }
 .pf.rim {
-  background: var(--p-top);
+  background: var(--gb-p-top);
 }
 .pf.rim.rimSh {
-  background: var(--paper);
+  background: var(--gb-paper);
 }
 .pf.lrim {
-  background: var(--p-lo);
+  background: var(--gb-p-lo);
 }
 /* the gold box: the mark embossed in the foil, the ribbon edged in gold */
 .fromSn .pf.front,
@@ -200,7 +200,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--emb) 0 0 / 10em;
+  background: var(--gb-emb) 0 0 / 10em;
   opacity: 0.9;
 }
 .fromSn .pf.right::before,
@@ -274,21 +274,21 @@
 
 /* the lining, in shadow; the warm light is a separate layer that only fades */
 .in {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, var(--l-sh), var(--l-dk));
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
 }
 .in.inb {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(100deg, rgba(24, 10, 3, 0.55), rgba(24, 10, 3, 0) 46%),
-    linear-gradient(180deg, var(--l-lit), var(--l-sh));
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(100deg, rgba(24, 10, 3, 0.55), rgba(24, 10, 3, 0) 46%),
+    linear-gradient(180deg, var(--gb-l-lit), var(--gb-l-sh));
 }
 .in.inl {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(24, 10, 3, 0.25), rgba(24, 10, 3, 0.5)),
-    linear-gradient(180deg, var(--l-sh), var(--l-dk));
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(24, 10, 3, 0.25), rgba(24, 10, 3, 0.5)),
+    linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
 }
 .in.flr {
-  background: var(--grain) 0 0 / 9.6em, linear-gradient(120deg, rgba(24, 10, 3, 0.6), rgba(24, 10, 3, 0.1) 70%), var(--l-sh);
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(120deg, rgba(24, 10, 3, 0.6), rgba(24, 10, 3, 0.1) 70%), var(--gb-l-sh);
 }
 .in.lin {
-  background: linear-gradient(180deg, var(--l-sh), var(--l-lit));
+  background: linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-lit));
 }
 /* closed, nothing inside can be seen: leave it undrawn (a depth sort would otherwise show hairlines of lining) */
 .gbox:not(.open) .in {
@@ -309,15 +309,15 @@
     linear-gradient(180deg, rgba(255, 250, 230, 0.16), rgba(255, 250, 230, 0) 26%, rgba(30, 16, 2, 0) 64%, rgba(30, 16, 2, 0.22)),
     linear-gradient(
       90deg,
-      var(--g-dk) 0,
-      var(--g-lo) 7%,
-      var(--gold) 21%,
-      var(--g-hi) 33%,
-      var(--g-sp) 40%,
-      var(--g-hi) 46%,
-      var(--gold) 60%,
-      var(--g-lo) 86%,
-      var(--g-dk) 100%
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 21%,
+      var(--gb-g-hi) 33%,
+      var(--gb-g-sp) 40%,
+      var(--gb-g-hi) 46%,
+      var(--gb-gold) 60%,
+      var(--gb-g-lo) 86%,
+      var(--gb-g-dk) 100%
     );
   box-shadow: 0.32em 0.08em 0.55em rgba(38, 12, 4, 0.42), -0.08em 0 0.22em rgba(38, 12, 4, 0.22);
 }
@@ -326,15 +326,15 @@
     linear-gradient(90deg, rgba(255, 250, 230, 0.2), rgba(255, 250, 230, 0) 30%, rgba(30, 16, 2, 0) 70%, rgba(30, 16, 2, 0.16)),
     linear-gradient(
       180deg,
-      var(--g-dk) 0,
-      var(--g-lo) 7%,
-      var(--gold) 20%,
-      var(--g-hi) 34%,
-      var(--g-sp) 42%,
-      var(--g-hi) 49%,
-      var(--gold) 63%,
-      var(--g-lo) 88%,
-      var(--g-dk) 100%
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 20%,
+      var(--gb-g-hi) 34%,
+      var(--gb-g-sp) 42%,
+      var(--gb-g-hi) 49%,
+      var(--gb-gold) 63%,
+      var(--gb-g-lo) 88%,
+      var(--gb-g-dk) 100%
     );
   box-shadow: 0.08em 0.3em 0.5em rgba(38, 12, 4, 0.38);
 }
@@ -343,15 +343,15 @@
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
     linear-gradient(
       90deg,
-      var(--g-dk) 0,
-      var(--g-lo) 7%,
-      var(--gold) 21%,
-      var(--g-hi) 33%,
-      var(--g-sp) 40%,
-      var(--g-hi) 46%,
-      var(--gold) 60%,
-      var(--g-lo) 86%,
-      var(--g-dk) 100%
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 21%,
+      var(--gb-g-hi) 33%,
+      var(--gb-g-sp) 40%,
+      var(--gb-g-hi) 46%,
+      var(--gb-gold) 60%,
+      var(--gb-g-lo) 86%,
+      var(--gb-g-dk) 100%
     );
 }
 .rb.shade::after {
@@ -375,8 +375,8 @@
   background: linear-gradient(
     180deg,
     rgba(26, 8, 2, 0.62) 0,
-    rgba(26, 8, 2, 0.62) var(--cover),
-    rgba(26, 8, 2, 0.22) calc(var(--cover) + 2.3em),
+    rgba(26, 8, 2, 0.62) var(--gb-cover),
+    rgba(26, 8, 2, 0.22) calc(var(--gb-cover) + 2.3em),
     rgba(26, 8, 2, 0)
   );
 }
@@ -448,7 +448,7 @@
   transform: translate(0.9%, 1.4%);
 }
 .mk .dk {
-  color: var(--press);
+  color: var(--gb-press);
 }
 .fromSn .mk .lo {
   color: rgba(20, 0, 6, 0.75);
@@ -460,7 +460,7 @@
   font-weight: 600;
   font-size: 6.4em;
   letter-spacing: 0.03em;
-  color: var(--press);
+  color: var(--gb-press);
   text-shadow: 0.05em 0.07em 0 rgba(255, 206, 176, 0.55), -0.02em -0.03em 0.03em rgba(30, 6, 0, 0.55);
 }
 .logo {
@@ -490,7 +490,7 @@
   visibility: hidden;
 }
 .open .tkt {
-  transform: var(--tk-end);
+  transform: var(--gb-tk-end);
 }
 .open.anim .tkt {
   animation: gmb-tk calc(var(--sn-dur-enter) * 1.1) var(--sn-ease) calc(var(--gb-open) * 0.36) both;
@@ -527,26 +527,26 @@
   border-radius: var(--m-r-full);
   opacity: 0;
   pointer-events: none;
-  background: var(--g-sp);
+  background: var(--gb-g-sp);
 }
 .spk.s2 {
   width: 1.1em;
   height: 3.4em;
   margin: -1.7em -0.55em;
   border-radius: 0.6em;
-  background: var(--g-hi);
+  background: var(--gb-g-hi);
 }
 .spk.s3 {
   width: 1.9em;
   height: 1.9em;
   margin: -0.95em;
   border-radius: 0.3em;
-  background: var(--paper);
+  background: var(--gb-paper);
 }
 
 /* ── MOTION ── */
 .lid {
-  transform: var(--lid-rest);
+  transform: var(--gb-lid-rest);
 }
 /* 1 · the shake (one "enter"), ending in the squash that loads the lid */
 .shake {
@@ -580,7 +580,7 @@
 }
 /* 2 · the open */
 .open .lid {
-  transform: var(--lid-end);
+  transform: var(--gb-lid-end);
 }
 .open .rb.up,
 .open .rb.dn,
@@ -751,7 +751,7 @@
   }
   100% {
     opacity: 0;
-    transform: translate(var(--dx), var(--dy)) rotate(var(--rt)) scale(0.7);
+    transform: translate(var(--gb-dx), var(--gb-dy)) rotate(var(--gb-rt)) scale(0.7);
   }
 }
 
@@ -869,7 +869,7 @@
   background: #f3d58a;
   box-shadow: 0 0 6px 1px rgba(243, 213, 138, 0.7);
   opacity: 0;
-  animation: gb-mote var(--d) linear var(--dl) infinite;
+  animation: gb-mote var(--gb-d) linear var(--gb-dl) infinite;
 }
 @keyframes gb-mote {
   0% {
@@ -884,7 +884,7 @@
   }
   100% {
     opacity: 0;
-    transform: translate(var(--x), -105vh);
+    transform: translate(var(--gb-x), -105vh);
   }
 }
 

@@ -94,7 +94,10 @@ CREATE POLICY booking_gift_lines_read
   FOR SELECT TO authenticated
   USING (
     vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
-    OR event_id IN (SELECT public.current_event_ids())
+    -- Hosts only (the couple), never a coordinator or delegate: a line carries what the supplier paid for the gift
+    -- (price_centavos), and a masked coordinator reads no amount by any route
+    -- (tests/db/a-masked-coordinator-reads-no-amount-by-any-route.db.test.ts).
+    OR event_id IN (SELECT public.current_couple_event_ids())
     OR (SELECT public.is_admin())
   );
 

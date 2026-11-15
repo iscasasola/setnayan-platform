@@ -163,8 +163,6 @@ export type CheckFacts = {
   contactEmail: string | null;
   contactPhone: string | null;
   hqAddress: string | null;
-  contactEmailConfirmedAt: string | null;
-  contactPhoneConfirmedAt: string | null;
 
   inBusinessSinceYear: number | null;
   experienceVerifiedAt: string | null;

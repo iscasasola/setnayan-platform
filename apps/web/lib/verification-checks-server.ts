@@ -115,8 +115,6 @@ export type ChecksInput = {
   contactEmail: string | null;
   contactPhone: string | null;
   hqAddress: string | null;
-  contactEmailConfirmedAt: string | null;
-  contactPhoneConfirmedAt: string | null;
   registrationNumberRaw: string | null;
   registrationNumberNeedsReview: boolean;
   inBusinessSinceYear: number | null;
@@ -437,8 +435,6 @@ export async function buildVerificationChecks(
     contactEmail: input.contactEmail,
     contactPhone: input.contactPhone,
     hqAddress: input.hqAddress,
-    contactEmailConfirmedAt: input.contactEmailConfirmedAt,
-    contactPhoneConfirmedAt: input.contactPhoneConfirmedAt,
     inBusinessSinceYear: input.inBusinessSinceYear,
     experienceVerifiedAt: input.experienceVerifiedAt,
     registeredBusinessName: payoutNames.registeredBusinessName,
@@ -513,7 +509,7 @@ export async function buildVerificationChecksForVendors(
     const { data: appRows, error: aErr } = await admin
       .from('vendor_verification_applications')
       .select(
-        'vendor_profile_id, doc_uploads, contact_email_confirmed_at, contact_phone_confirmed_at, created_at',
+        'vendor_profile_id, doc_uploads, created_at',
       )
       .in('vendor_profile_id', ids)
       .order('created_at', { ascending: false });
@@ -538,8 +534,6 @@ export async function buildVerificationChecksForVendors(
             contactEmail: (v.contact_email as string | null) ?? null,
             contactPhone: (v.contact_phone as string | null) ?? null,
             hqAddress: (v.hq_address as string | null) ?? null,
-            contactEmailConfirmedAt: (app?.contact_email_confirmed_at as string | null) ?? null,
-            contactPhoneConfirmedAt: (app?.contact_phone_confirmed_at as string | null) ?? null,
             registrationNumberRaw: (v.registration_number_raw as string | null) ?? null,
             registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
             inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,

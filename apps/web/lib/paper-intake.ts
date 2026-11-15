@@ -465,6 +465,20 @@ export function fileTypedValues(
 }
 
 /**
+ * 🔢 THE REGISTRATION NUMBER COMES OFF THE PAPER (owner 2026-11-14, DECISION_LOG 93ed7cd0 cut 2:
+ * "the registration number is read from the papers, not typed").
+ *
+ * The DTI/SEC slot, already opened through its seal, gives the number the shop's anti-farm claim is made
+ * with: the number READ off a clean copy, or — only on the third unclear try, when the slot is MANUAL — the
+ * number the supplier typed from that paper. Nothing else: no form field, no unsealed value.
+ */
+export function registrationNumberOnPaper(dti: IntakeSlot | null): string | null {
+  if (!dti?.r2_key) return null;
+  const n = dti.manual ? dti.typed?.registration_number_raw : dti.evidence?.model?.registrationNumber;
+  return typeof n === 'string' && n.trim() ? n.trim() : null;
+}
+
+/**
  * Compare-and-set loop: load the row, merge, save only if nobody wrote in
  * between; otherwise merge AGAIN on the fresher row. The merge is pure, so a
  * retry can never lose a slot another upload filed meanwhile.

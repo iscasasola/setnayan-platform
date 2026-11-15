@@ -17,6 +17,7 @@ import { Gift, Minus, Plus, Sparkles } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { pesoFromCentavos } from '@/lib/accepted-quote-terms';
+import { formatCount } from '@/lib/format-number';
 import {
   agreeGiftItems,
   agreeGiftOptions,
@@ -140,7 +141,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
                   <p className="text-[14px] font-medium text-ink">{o.pack.title}</p>
                   <span className="block text-[12.5px] text-ink/60">
                     {pesoFromCentavos(o.pack.srpCentavos)} each
-                    {o.inStock && o.inStock > 0 ? ` · In your stock (${o.inStock})` : ''}
+                    {o.inStock && o.inStock > 0 ? ` · In your stock (${formatCount(o.inStock)})` : ''}
                     {!o.canAdd && o.count === 0 && o.why ? ` · ${o.why}` : ''}
                   </span>
                 </div>
@@ -154,7 +155,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
                   >
                     <Minus {...ico} className="h-4 w-4" />
                   </button>
-                  <span className="w-6 text-center tabular-nums text-ink">{o.count}</span>
+                  <span className="w-6 text-center tabular-nums text-ink">{formatCount(o.count)}</span>
                   <button
                     type="button"
                     aria-label={`One more ${o.pack.title}`}
@@ -170,7 +171,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
             ))}
           </ul>
           {basis.free === null ? (
-            <p className="mt-2 text-[12.5px] text-amber-800">
+            <p className="mt-2 text-[12.5px] text-warn-800">
               We couldn&rsquo;t read your gift stock just now, so everything here is priced as bought.
             </p>
           ) : null}

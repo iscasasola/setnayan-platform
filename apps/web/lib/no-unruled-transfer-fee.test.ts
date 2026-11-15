@@ -11,13 +11,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const PAY_PANEL = join(__dirname, '..', 'app', 'pay', '[reference]', '_components', 'pay-panel.tsx');
-
-/** Strip comments so an explanatory note never counts as the copy. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
 
 const FEE_RANGE = /₱\s*10\s*(?:&ndash;|–|-|to)\s*₱?\s*15/i;
 const TRANSFER_FEE = /transfer\s+fee/i;

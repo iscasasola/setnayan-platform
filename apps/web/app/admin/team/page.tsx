@@ -153,10 +153,13 @@ export default async function AdminTeamPage() {
       {/* ADD AN ADMIN */}
       <section className="mb-10">
         <h2 className="mb-1 sn-eye">Add an admin</h2>
-        <p className="mb-4 text-xs text-ink/60">
-          Name, email, then what they may do. They need a Setnayan account already. Making someone an admin waits for a
-          second admin — or, for the owner, his typed word and 24 hours.
-        </p>
+        <div className="mb-4 flex items-center gap-1 text-xs text-ink/60">
+          <p>Name, email, then what they may do.</p>
+          <InfoTip label="" ariaLabel="Before you add someone" align="start">
+            They need a Setnayan account already. Making someone an admin waits for a second admin — or, for the owner,
+            his typed word and 24 hours.
+          </InfoTip>
+        </div>
         {manageWhy ? (
           <p className="mb-3 flex items-center gap-2 text-xs text-ink/60">
             <span>Adding admins is Escalated in Team.</span>
@@ -216,9 +219,13 @@ export default async function AdminTeamPage() {
         ) : (
           <ul className="space-y-3">
             {scopes === null ? (
-              <li role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
-                <strong className="text-ink">Areas could not be read.</strong> The ticks below may be empty when they are
-                not. Do not save from this state — reload first.
+              <li>
+                <ErrorState
+                  title="Areas could not be read"
+                  broke="The admins' areas did not load."
+                  survived="The ticks below may be empty when they are not."
+                  todo="Do not save from this state — reload first."
+                />
               </li>
             ) : null}
             {people.map((p) => {

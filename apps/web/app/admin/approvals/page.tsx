@@ -211,11 +211,13 @@ export default async function AdminApprovalsPage() {
         <h2 className="mb-1 sn-eye">
           New request
         </h2>
-        <p className="mb-4 text-xs text-ink/55">
-          Proposes a privileged-role grant. It stays pending until a different
-          admin with Escalated in Team approves it — or, on the owner&rsquo;s own
-          request, until he types {SELF_APPROVAL_WORD} and 24 hours pass.
-        </p>
+        <div className="mb-4 flex items-center gap-1 text-xs text-ink/55">
+          <p>Proposes a privileged-role grant.</p>
+          <InfoTip label="" ariaLabel="When it runs" align="start">
+            It stays pending until a different admin with Escalated in Team approves it — or, on the owner&rsquo;s own
+            request, until he types {SELF_APPROVAL_WORD} and 24 hours pass.
+          </InfoTip>
+        </div>
         <form action={requestPrivilegedGrant} className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Action</span>
@@ -375,13 +377,16 @@ export default async function AdminApprovalsPage() {
                                     </span>
                                   </form>
                                 ) : (
-                                  <p className="max-w-[220px] text-right text-xs text-ink/70">
-                                    {st.kind === 'waiting'
-                                      ? `Typed by you · runs in ${waitWords(st.msLeft)}`
-                                      : 'Its 24 hours have passed · runs on the next visit'}
-                                    <br />
-                                    <span className="text-ink/55">You were emailed when it started waiting and will be when it runs.</span>
-                                  </p>
+                                  <div className="flex max-w-[220px] items-center justify-end gap-1 text-right text-xs text-ink/70">
+                                    <p>
+                                      {st.kind === 'waiting'
+                                        ? `Typed by you · runs in ${waitWords(st.msLeft)}`
+                                        : 'Its 24 hours have passed · runs on the next visit'}
+                                    </p>
+                                    <InfoTip label="" ariaLabel="About the emails" align="end">
+                                      You were emailed when it started waiting and will be when it runs.
+                                    </InfoTip>
+                                  </div>
                                 )}
                                 <form action={adminTeamAct}>
                                   <input type="hidden" name="op" value="withdraw" />
@@ -510,9 +515,12 @@ export default async function AdminApprovalsPage() {
           Waiting for an Escalated admin ({escalations === null ? '—' : escalations.length})
         </h2>
         {escalations === null ? (
-          <p role="alert" className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70">
-            <strong className="text-ink">Escalations could not be read.</strong> This is not “nothing escalated” — reload.
-          </p>
+          <ErrorState
+            title="Escalations could not be read"
+            broke="The escalation list did not load."
+            survived="This is not “nothing escalated” — nothing was changed."
+            todo="Reload the page."
+          />
         ) : escalations.length === 0 ? (
           <p className="text-xs text-ink/55">Nothing has been sent up.</p>
         ) : (

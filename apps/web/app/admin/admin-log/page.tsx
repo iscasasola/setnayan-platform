@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { ADMIN_AREA_LIST, adminAreaLabel, auditRowArea, isAdminArea } from '@/lib/admin/areas';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ActionButton } from '@/components/action-button';
+import { Filter } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { NoteField, PickField } from '@/app/admin/team/_components/team-fields';
@@ -140,9 +142,7 @@ export default async function AdminLogPage({
           <NoteField fieldName="action" name="Action" empty="All actions" placeholder="refund" maxLength={80} initial={action} data="admin-log-action" />
         </div>
         <div className="sm:col-span-3">
-          <button type="submit" className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream">
-            Show
-          </button>
+          <ActionButton tone="neutral" type="submit" icon={<Filter aria-hidden />} label="Show" />
         </div>
       </form>
 
@@ -161,17 +161,17 @@ export default async function AdminLogPage({
         </div>
       ) : (
         <>
-          <p className="mb-3 flex items-center gap-2 text-xs text-ink/55">
-            <span>
+          <div className="mb-3 flex items-center gap-2 text-xs text-ink/55">
+            <p>
               {shown.length} {shown.length === 1 ? 'action' : 'actions'}
               {rows.length === WINDOW ? ` · from the latest ${WINDOW}` : ''}
-            </span>
+            </p>
             <InfoTip label="" ariaLabel="About the Admin log" align="start">
               Every confirm in the console writes one row with the person and the reason. Rows are never edited. Rows
               from before 13 Nov 2026 did not record an area; theirs is read from the action’s name and marked “from the
               action”.
             </InfoTip>
-          </p>
+          </div>
           <ul className="space-y-2">
             {shown.map((r, i) => {
               const a = auditRowArea(r);

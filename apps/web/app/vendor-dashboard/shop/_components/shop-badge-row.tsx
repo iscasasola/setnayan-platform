@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Gift } from 'lucide-react';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { nextGoalLine, nowLine, type BadgeTile } from '@/lib/shop-badge-row';
@@ -114,7 +114,7 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
   const reward = tile.row.reward;
   const l = tile.ladder;
   return (
-    <RiseScreen labelledById={hid} onClose={onClose} data={`badge-${tile.key}`}>
+    <ShopDoorScreen labelledById={hid} onClose={onClose} data={`badge-${tile.key}`}>
       <div className="space-y-4 px-4 pb-6 pt-2" data-badge-sheet={tile.key}>
         <div className="flex flex-col items-center gap-2 pt-2">
           <ImageBadge shape={tile.shape} face={tile.face} num={tile.num} mini={tile.mini} on={tile.on} uid={`sheet-${tile.key}`} size={120} />
@@ -158,6 +158,6 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
           </Link>
         ) : null}
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }

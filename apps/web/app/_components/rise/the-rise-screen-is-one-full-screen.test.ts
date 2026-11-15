@@ -14,8 +14,11 @@
  *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton rise` (rendered:
  *       the risen frame, never the sheet), every other ⚙ keeps its sheet byte-for-byte.
  *   5 · THE SHOP TAB MAP — ⚙ · Logo · Share · Promote · QR · Cover · View shop · each Analytics card · each Badge open the
- *       ONE `RiseScreen`; none of those files draws a popup `<Sheet` any more; View shop stays in the app (the only new
- *       tab left is the risen page's own "Open in browser ↗").
+ *       ONE `RiseScreen` BELOW 701 (a phone); none of those files draws a popup `<Sheet` itself; View shop stays in the
+ *       app (the only new tab left is the risen page's own "Open in browser ↗"). ⚖ NARROWED 2026-11-16 (owner, DECISION_LOG
+ *       "FROM 701px THE SHOP DOORS OPEN AS THE 440px RIGHT PANEL"): from 701 the doors other than ⚙ open through
+ *       `ShopDoorScreen` as the right panel — 🔒 `vendor-dashboard/shop/each-shop-door-is-the-panel-from-701.test.ts`.
+ *       This file still holds the phone: below 701 the door IS `RiseScreen`, with the props it was given.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-10): `<RiseScreen` → `<Sheet open` in shop-badge-row.tsx (red: 5);
  * `rise` dropped from `ShopSettings`' ⚙ (red: 5); `direction: 'reverse'` removed from the close (red: 3);
@@ -129,16 +132,22 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
     // Analytics), and each tile rises through the same ONE screen.
     analytics: code('app/vendor-dashboard/performance/_components/graph-tile.tsx'),
   };
+  // Below 701 every door IS the ONE risen screen: it opens through `ShopDoorScreen`, whose phone branch is `RiseScreen`
+  // with the very props it was handed, and whose server render (the phone's first paint) is that branch.
+  const door = code('app/vendor-dashboard/_components/shop-door-screen.tsx');
+  assert.match(door, /if \(!panel\) return <RiseScreen \{\.\.\.props\} \/>;/, 'below 701 a Shop door no longer rises');
+  assert.match(door, /const panelOnServer = \(\) => false;/, 'the server (a phone’s first paint) no longer draws the risen screen');
   for (const [name, src] of Object.entries(files)) {
-    assert.match(src, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/, `${name} does not open the ONE risen screen`);
+    assert.match(src, /import \{ ShopDoorScreen \} from '@\/app\/vendor-dashboard\/_components\/shop-door-screen';/, `${name} does not open the ONE risen screen`);
     assert.doesNotMatch(src, /<Sheet\b/, `${name} still opens a popup sheet where a Rise belongs`);
+    assert.doesNotMatch(src, /<RiseScreen\b/, `${name} rises past the door (it would stay full screen from 701)`);
   }
-  // The cover's doors: Logo · Promote · QR · Cover (ParamSheet) · Share · View shop — each a RiseScreen.
+  // The cover's doors: Logo · Promote · QR · Cover (ParamSheet) · Share · View shop — each through the door.
   const fn = (src: string, name: string) => src.slice(src.indexOf(`function ${name}(`), src.indexOf('\n}\n', src.indexOf(`function ${name}(`)));
-  for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<RiseScreen\b/, `${f} does not rise`);
+  for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<ShopDoorScreen\b/, `${f} does not rise`);
   for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(files.cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
-  assert.match(fn(files.badges, 'BadgeSheet'), /<RiseScreen\b/, 'a badge does not rise');
-  assert.match(fn(files.analytics, 'GraphCard'), /<RiseScreen\b/, 'an analytics card does not rise');
+  assert.match(fn(files.badges, 'BadgeSheet'), /<ShopDoorScreen\b/, 'a badge does not rise');
+  assert.match(fn(files.analytics, 'GraphCard'), /<ShopDoorScreen\b/, 'an analytics card does not rise');
   // ⚙ — the pinned row's and the cover's (`?gear=1`) — through the ONE door, risen.
   assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" rise\b/, 'the Shop ⚙ opens a popup sheet');
   // View shop: both doors are buttons that rise the page in the app; the only new tab is "Open in browser ↗" inside it.

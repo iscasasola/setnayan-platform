@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
@@ -123,7 +123,7 @@ function sheetInAddress(params: { get(k: string): string | null }): CoverSheet |
 function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
   if (!open) return null;
   return (
-    <RiseScreen title={title} onClose={onClose} data={`shop-${data}`}>
+    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`}>
       <div className="px-4 pb-6 pt-3" data-shop-sheet={data}>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60">
@@ -131,7 +131,7 @@ function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClo
           </p>
         )}
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }
 
@@ -366,7 +366,7 @@ export const SHARE_DOOR_PRESS = actionButtonClass('neutral', { extra: SHARE_DOOR
 function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | null; name: string; onClose: () => void }) {
   const toast = useToast();
   return (
-    <RiseScreen title="Share your shop" onClose={onClose} data="shop-share">
+    <ShopDoorScreen title="Share your shop" onClose={onClose} data="shop-share">
       <div className="divide-y divide-ink/10 px-4 pb-6" data-shop-sheet="share">
         <div className="flex items-center justify-between gap-3 py-3">
           <span className="min-w-0">
@@ -411,7 +411,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
           </button>
         </div>
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }
 
@@ -424,7 +424,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
 function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live: boolean; shareUrl: string | null; onClose: () => void }) {
   const where = shareUrl ? shareUrl.replace(/^https?:\/\/(www\.)?/, '') : path;
   return (
-    <RiseScreen
+    <ShopDoorScreen
       title="Your page"
       line={`${where} · ${live ? 'as couples see it' : 'a preview for your team'}`}
       actions={
@@ -438,6 +438,6 @@ function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live:
       data="shop-view"
     >
       <iframe src={path} title={live ? 'Your shop, as couples see it' : 'Your shop, a preview for your team'} className="min-h-0 w-full flex-1 border-0 bg-cream" data-view-shop-frame="" />
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }

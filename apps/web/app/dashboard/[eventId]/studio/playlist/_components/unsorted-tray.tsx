@@ -41,6 +41,8 @@ import {
 import type { UnsortedTrayEntry } from '@/lib/song-desk';
 import { addPlaylistPick } from '../actions';
 
+import { InfoTip } from '@/app/_components/info-tip';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 export function UnsortedTray({
   eventId,
   entries,
@@ -91,15 +93,12 @@ export function UnsortedTray({
           id="playlist-unsorted-heading"
           className="flex items-center gap-2 font-display text-xl italic leading-tight text-ink sm:text-2xl"
         >
-          <Music4 aria-hidden className="h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
+          <Music4 aria-hidden className="h-5 w-5 shrink-0 text-ink/70" strokeWidth={1.75} />
           Songs you’ve already chosen
         </h2>
-        <p className="text-xs leading-relaxed text-ink/65 sm:text-sm">
-          {remaining.length === 1
-            ? 'One song from your earlier picks hasn’t been given a moment yet.'
-            : `${remaining.length} songs from your earlier picks haven’t been given a moment yet.`}{' '}
-          Put each where you want it heard — or leave them here and your band will read the room.
-        </p>
+        <InfoTip labelAs="p" label="songs from your earlier picks haven’t been given a moment yet.`} Put each where you want it heard" labelNode={<>{remaining.length === 1 ? 'One song from your earlier picks hasn’t been given a moment yet.' : `${remaining.length} songs from your earlier picks haven’t been given a moment yet.`}{' '} Put each where you want it heard</>} labelClassName="text-xs leading-relaxed text-ink/70" className="sm:text-sm" align="start">
+          or leave them here and your band will read the room.
+        </InfoTip>
       </header>
 
       {error ? (
@@ -117,27 +116,23 @@ export function UnsortedTray({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-ink">{entry.title}</span>
               {entry.artist ? (
-                <span className="block truncate text-xs text-ink/55">{entry.artist}</span>
+                <span className="block truncate text-xs text-ink/70">{entry.artist}</span>
               ) : null}
             </span>
-            <label className="shrink-0 text-xs text-ink/60">
+            <label className="shrink-0 text-xs text-ink/70">
               <span className="sr-only">Place “{entry.title}” in a moment</span>
-              <select
-                defaultValue=""
-                disabled={pending}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) place(entry, v as PlaylistSlotType);
+              <PickMenu
+                label="Place in…"
+                value=""
+                onPick={(v) => {
+                  if (v && !pending) place(entry, v as PlaylistSlotType);
                 }}
-                className="rounded-full border border-ink/15 bg-white px-2.5 py-1 text-xs text-ink/80 disabled:opacity-60"
-              >
-                <option value="">Place in…</option>
-                {PLAYLIST_SLOT_TYPES.filter((s) => s !== 'banned_songs').map((slot) => (
-                  <option key={slot} value={slot}>
-                    {PLAYLIST_SLOT_LABELS[slot]}
-                  </option>
-                ))}
-              </select>
+                dataAttr="data-unsorted-place"
+                options={PLAYLIST_SLOT_TYPES.filter((s) => s !== 'banned_songs').map((slot) => ({
+                  key: slot,
+                  label: PLAYLIST_SLOT_LABELS[slot],
+                }))}
+              />
             </label>
           </li>
         ))}

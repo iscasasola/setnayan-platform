@@ -72,7 +72,7 @@ const BOOKED_CSS =
   '@media (prefers-reduced-motion:reduce){[data-booked-body] .bk-exp{transition:none}}';
 
 const H2 = 'text-[17px] font-semibold leading-snug text-ink';
-const SUB = 'mt-0.5 text-[14px] text-ink/60';
+const SUB = 'mt-0.5 text-[14px] text-ink/70';
 
 export type BookedBodyState =
   | { kind: 'unreadable'; retryHref: string }
@@ -101,7 +101,7 @@ export function BookedBody({
     return (
       <div data-booked-body="unreadable" role="alert" className="py-2">
         <p className="text-sm font-semibold text-ink">Couldn’t load your suppliers</p>
-        <p className="mt-1 text-[12.5px] text-ink/60">This is a loading problem — not an empty list.</p>
+        <p className="mt-1 text-[12.5px] text-ink/70">This is a loading problem — not an empty list.</p>
         <ActionButton
           href={state.retryHref}
           tone="neutral"
@@ -171,7 +171,7 @@ export function BookedBody({
               ) : null}
             </p>
             {dateChangeUnread ? (
-              <p className="mt-1 text-[12.5px] text-ink/60" role="status" data-booked-date-unread="">
+              <p className="mt-1 text-[12.5px] text-ink/70" role="status" data-booked-date-unread="">
                 We couldn’t check whether a date change is waiting.
               </p>
             ) : null}

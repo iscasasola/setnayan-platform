@@ -184,7 +184,7 @@ export default async function ComplianceDataSheetPage() {
 
       <div className="my-2 flex flex-wrap gap-2 print:hidden">
         <Link
-          href="/admin/settings?tab=compliance"
+          href="/admin/business#compliance"
           className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.03]"
         >
           <Pencil aria-hidden className="h-4 w-4 text-[var(--sn-accent)]" strokeWidth={2} /> Edit the facts

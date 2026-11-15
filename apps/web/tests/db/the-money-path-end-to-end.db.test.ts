@@ -196,8 +196,8 @@ test('0 · a verified supplier, the free booking already behind them, and a coup
   // otherwise, so a billable booking presupposes a verified identity.
   const vp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, 'Saysay Studios', 'Manila', ARRAY['photography']::text[], 'verified', NOW())
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'Saysay Studios', 'Manila', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [run.vendorUserId],
   );
@@ -1052,8 +1052,8 @@ test('waived · a booking inside the first five bills ₱0, mints no bill, and s
   const shopUserId = u.rows[0]!.id;
   const vp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, 'Brand New Shop', 'Cebu', ARRAY['photography']::text[], 'verified', NOW())
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'Brand New Shop', 'Cebu', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [shopUserId],
   );
@@ -1183,8 +1183,8 @@ test('skips · a booking that cannot be billed is skipped, never billed twice', 
   );
   const byoVp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, 'Own Audience Studio', 'Davao', ARRAY['photography']::text[], 'verified', NOW())
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1, 'Own Audience Studio', 'Davao', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
      RETURNING vendor_profile_id`,
     [byoUser.rows[0]!.id],
   );

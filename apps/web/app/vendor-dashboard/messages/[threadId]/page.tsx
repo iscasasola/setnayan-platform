@@ -233,6 +233,9 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // 📅 No lifetime quotation (2026-11-09).
   proposal_needs_valid_until: 'Pick how long this quote is valid before you send it — nothing was sent.',
   proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
+  // 🧾 OWN-01: a "first N couples" offer is used up once N other couples have it on their quote.
+  proposal_offer_taken:
+    'An offer on this quote was for the first couples only, and they already have it. Take the offer off, then send — nothing was sent.',
   // 🧪 The demo rule (lib/demo-scope.ts) — the same sentences the rule itself uses, plus "nothing was sent".
   proposal_demo_shop: `${DEMO_SHOP_CANNOT_BE_BOOKED} Quotes from a demo shop go only to demo events — nothing was sent.`,
   proposal_demo_event: `${DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY} Nothing was sent.`,

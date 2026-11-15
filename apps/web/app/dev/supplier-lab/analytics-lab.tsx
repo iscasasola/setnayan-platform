@@ -25,6 +25,7 @@ import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges'
 import type { SourceSlice } from '@/lib/vendor-funnel';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthSeries } from '@/lib/vendor-growth-series';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 export type LabShop = 'setnaprod' | 'sample' | 'new';
 
@@ -408,7 +409,7 @@ export function labCarouselProps({ shop, fail, locked = false }: { shop?: string
   const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
   const lab = fail ? refused() : which === 'sample' ? sample() : which === 'new' ? fresh() : setnaprod();
   // 🔒 `&locked=1` — an UNVERIFIED shop: the section's counts-only branch — three count cards and the ONE shared lock.
-  if (locked) return { locked: { progress: papersProgress({ done: 2, of: 4 }), totals: { '30': lab.now, '12': lab.year } } };
+  if (locked) return { locked: { progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }), totals: { '30': lab.now, '12': lab.year } } };
   const graphs: Record<GrowthWindow, NewGraphs> = fail
     ? { '30': REFUSED_GRAPHS, '12': REFUSED_GRAPHS }
     : which === 'sample'

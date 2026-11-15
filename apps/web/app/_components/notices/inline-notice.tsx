@@ -10,7 +10,7 @@ import { getServerSnapshot, getSnapshot, subscribe, type NoticeEntry } from './n
  * 🔔 A notice drawn WHERE IT STANDS — the one look (`NoticeLine`) and the one memory (`notice_closes` + this browser),
  * for the few notices the approved prototype keeps in place rather than in the page's top or end
  * (`prototypes/notices_system_2026-11-14_fable.html` §4): the payout to-do "on a client or quote page stays inline
- * where it is", the Event Hub Pro line "used in three places" (inside the sheets it explains), a guest's reply-able
+ * where it is", the Event Pro line "used in three places" (inside the sheets it explains), a guest's reply-able
  * news, the booth review under the guest's number. Same kinds, same close words, same return rules; it simply does
  * not queue for the top. It is drawn on the server like the
  * line it replaced; a notice the memory says is closed leaves on the first client paint.

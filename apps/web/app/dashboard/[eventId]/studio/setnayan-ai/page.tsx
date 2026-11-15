@@ -29,6 +29,7 @@ import { iapSetnayanAiProductForTier } from '@/lib/iap/products';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
+import { InfoTip } from '@/app/_components/info-tip';
 export const metadata = { title: 'Setnayan AI' };
 
 /**
@@ -203,10 +204,12 @@ export default async function SetnayanAiPage({ params }: Props) {
           extended to Setnayan AI 2026-06-25). The "tool" itself (the ranked
           shortlist) lives on /vendors, so the active state leads straight there. */}
       {notOffered ? (
-        <p data-sai-not-offered="" className="text-sm leading-relaxed text-ink/70">
-          Setnayan AI works with your suppliers. This {eventWord} has Suppliers switched off, so there is nothing for
-          it to do yet — switch Suppliers on from Today and it appears here.
-        </p>
+        <div data-sai-not-offered="">
+          <InfoTip labelAs="p" label="Setnayan AI works with your suppliers." labelClassName="text-sm leading-relaxed text-ink/70" align="start">
+            This {eventWord} has Suppliers switched off, so there is nothing for
+            it to do yet — switch Suppliers on from Today and it appears here.
+          </InfoTip>
+        </div>
       ) : active ? (
         <>
           <PageMasthead
@@ -224,7 +227,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
             <Link
               href={`/dashboard/${eventId}/vendors`}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
+              className="ab ab-brand ab-main w-full sm:w-auto"
             >
               See your ranked suppliers
               <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
@@ -299,8 +302,8 @@ export default async function SetnayanAiPage({ params }: Props) {
                   triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
                 />
               ) : (
-                <p className="inline-flex items-center gap-2 text-sm text-ink/65">
-                  <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
+                <p className="inline-flex items-center gap-2 text-sm text-ink/70">
+                  <Sparkles aria-hidden className="h-4 w-4 text-ink/70" />
                   Pricing loads from your catalog &mdash; please refresh in a moment.
                 </p>
               )

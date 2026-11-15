@@ -17,7 +17,7 @@ export const LINE_INPUT_CLASS =
 /** The grip column — the swipe's handle, drawn; the whole line swipes. */
 export function LineGrip() {
   return (
-    <span aria-hidden className="inline-flex min-h-12 w-7 shrink-0 items-center justify-center self-stretch text-ink/45">
+    <span aria-hidden className="inline-flex min-h-12 w-7 shrink-0 items-center justify-center self-stretch text-ink/70">
       <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
     </span>
   );

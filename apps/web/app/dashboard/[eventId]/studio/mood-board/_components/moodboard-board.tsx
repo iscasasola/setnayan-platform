@@ -106,14 +106,14 @@ export function MoodboardBoard({
               <h2
                 className={
                   compact
-                    ? 'text-sm font-medium uppercase tracking-wide text-ink/60'
+                    ? 'text-sm font-medium uppercase tracking-wide text-ink/70'
                     : 'text-xl font-semibold text-ink'
                 }
               >
                 {section.title}
               </h2>
               {section.blurb && !compact ? (
-                <p className="text-sm text-ink/65">{section.blurb}</p>
+                <p className="text-sm text-ink/70">{section.blurb}</p>
               ) : null}
             </header>
             <ul
@@ -167,7 +167,7 @@ export function BoardCardView({ card }: { card: BoardCard }) {
     return (
       <li
         data-lineup={card.paletteColors.length}
-        className="col-span-full overflow-hidden rounded-xl border border-ink/15 bg-cream sm:col-span-2"
+        className="border-t border-ink/10 col-span-full overflow-hidden sm:col-span-2 pt-4"
       >
         <ul className="flex gap-1.5 overflow-x-auto p-2">
           {card.paletteColors.map((hex, i) => (
@@ -184,7 +184,7 @@ export function BoardCardView({ card }: { card: BoardCard }) {
                   style={{ backgroundColor: hex }}
                   title={hex}
                 />
-                <span className="truncate text-[11px] text-ink/70">
+                <span className="truncate text-[12px] text-ink/70">
                   {nearestColorName(hex) ?? hex}
                 </span>
               </div>
@@ -193,14 +193,14 @@ export function BoardCardView({ card }: { card: BoardCard }) {
         </ul>
         <div className="space-y-0.5 px-3 pb-3">
           <p className="text-sm font-medium text-ink">{card.label}</p>
-          <p className="text-xs text-ink/55">Any one of these colors</p>
+          <p className="text-xs text-ink/70">Any one of these colors</p>
         </div>
       </li>
     );
   }
 
   return (
-    <li className="overflow-hidden rounded-xl border border-ink/15 bg-cream">
+    <li className="border-t border-ink/10 overflow-hidden pt-4">
       {!hasPalette ? (
         <NeutralDrawing src={card.imageUrl} alt={card.label} portrait={card.portrait} />
       ) : hasRegions ? (
@@ -327,7 +327,7 @@ function NeutralDrawing({
 function PaletteStrip({ colors }: { colors: string[] }) {
   if (colors.length === 0) {
     return (
-      <p className="text-xs text-ink/50">
+      <p className="text-xs text-ink/70">
         Set this palette above to see it here.
       </p>
     );

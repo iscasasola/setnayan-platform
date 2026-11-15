@@ -29,7 +29,7 @@ export function HostSetlistPanel({
   // checking. Say what is true instead.
   if (failed) {
     return (
-      <section className="sn-tile space-y-2 p-5">
+      <section className="border-t border-ink/10 space-y-2 py-5">
         <h2 className="sn-eye">What your band is playing</h2>
         <p className="text-sm text-ink/70">
           We couldn’t load your band’s set list just now. It hasn’t been lost — try
@@ -44,10 +44,10 @@ export function HostSetlistPanel({
   if (acts.length === 0) return null;
 
   return (
-    <section className="sn-tile space-y-4 p-5">
+    <section className="border-t border-ink/10 space-y-4 py-5">
       <div className="space-y-1">
         <h2 className="sn-eye">What your band is playing</h2>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           Built by your act from your requests. This is theirs to change — your own
           picks are above.
         </p>
@@ -58,29 +58,29 @@ export function HostSetlistPanel({
           {/* One block per act. Two booked acts may BOTH have a "Set 1" — the
               uniqueness rule is per act, not per event — so the act's name has
               to head each block or the couple reads one list as two. */}
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
             {act.actName}
           </p>
           {act.sets.map((set) => (
-            <div key={set.setId} className="rounded-lg border border-ink/10 p-3">
+            <div key={set.setId} className="border-t border-ink/10 py-3">
               <p className="text-sm font-medium text-ink">
                 {set.name}{' '}
-                <span className="font-normal text-ink/50">· {set.slotLabel}</span>
+                <span className="font-normal text-ink/70">· {set.slotLabel}</span>
               </p>
               {set.songs.length > 0 ? (
                 <ol className="mt-1.5 space-y-0.5">
                   {set.songs.map((s) => (
                     <li key={s.setSongId} className="text-sm text-ink/75">
                       {s.title}
-                      {s.artist ? <span className="text-ink/45"> — {s.artist}</span> : null}
+                      {s.artist ? <span className="text-ink/70"> — {s.artist}</span> : null}
                     </li>
                   ))}
                 </ol>
               ) : (
-                <p className="mt-1 text-xs text-ink/45">No songs added to this set yet.</p>
+                <p className="mt-1 text-xs text-ink/70">No songs added to this set yet.</p>
               )}
               {set.missingFromHost.length > 0 ? (
-                <p className="mt-2 text-xs text-ink/55">
+                <p className="mt-2 text-xs text-ink/70">
                   You asked for {set.missingFromHost.length}{' '}
                   {set.missingFromHost.length === 1 ? 'song' : 'songs'} in this moment
                   that aren’t in their set yet:{' '}

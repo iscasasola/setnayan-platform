@@ -146,6 +146,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',
   'hub-day-launch': 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx',
   'hub-setup': 'app/vendor-dashboard/on-the-day/page.tsx',
+  'hub-post-update': 'app/vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx',
   'dates-calendar': 'app/vendor-dashboard/customers/_components/customers-calendar.tsx',
   'money-summary': 'app/vendor-dashboard/customers/_components/money-view.tsx',
   'money-next': 'app/vendor-dashboard/customers/_components/money-view.tsx',

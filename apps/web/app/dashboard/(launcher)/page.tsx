@@ -1505,6 +1505,7 @@ async function EventsBoard({
                 main
                 icon={<Plus aria-hidden />}
                 label="Create an event"
+                className="!h-11"
                 tour="create-event"
               />
             }
@@ -2562,7 +2563,7 @@ function NewEventButton() {
       aria-label="New event"
       /* `actionButtonClass('brand', { iconOnly: true })` written out — this is a SERVER file and the helper lives in a
          client module (the build-locked.tsx precedent). */
-      className="ab ab-brand icon-only shrink-0"
+      className="ab ab-brand icon-only shrink-0 !h-11 !w-11 !min-w-11"
     >
       <Plus aria-hidden strokeWidth={2.25} />
     </Link>

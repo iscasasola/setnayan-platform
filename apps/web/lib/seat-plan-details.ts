@@ -333,3 +333,30 @@ export function moveTargets(
     }))
     .filter((u) => u.current || u.free >= Math.max(1, opts.party));
 }
+
+/**
+ * 🔢 THE EMPTY FLOOR'S "BUILD MY SEATING DRAFT" STEP SAYS THE SAME COUNT AS THE TOP ROW (RW-304b, 14 Nov 2026 — live:
+ * the step read "Seat your 4 guests" under a row that read "6 unseated"). Both numbers were true and counted different
+ * people: the row's Unseated is everyone coming without a seat — the couple too — and the draft (`computeAutoSeat`)
+ * seats everyone coming EXCEPT the couple's own roles (`roleSet.coupleRoles`), who choose their own table. So the step
+ * counts what the draft will seat, and when that differs from the row it says the row's number and why — never two
+ * bare numbers for one room. Counted from the same guests and the same couple rule the seater uses, never typed.
+ */
+export function starterDraftHint(input: {
+  /** Every guest of the plan (the editor's own list). */
+  guests: readonly { rsvp_status: string | null; role: string; seated_table_id: string | null }[];
+  /** The event type's couple roles — the ones the draft leaves for the couple to seat (`RoleSet.coupleRoles`). */
+  coupleRoles: ReadonlySet<string>;
+}): { draftable: number; unseated: number; hint: string } {
+  const coming = input.guests.filter((g) => g.rsvp_status !== 'declined' && !g.seated_table_id);
+  const draftable = coming.filter((g) => !input.coupleRoles.has(g.role)).length;
+  const unseated = coming.length;
+  if (draftable === 0) return { draftable, unseated, hint: 'Add guests first' };
+  const plural = draftable === 1 ? 'guest' : 'guests';
+  if (draftable === unseated) return { draftable, unseated, hint: `Seat your ${formatCount(draftable)} ${plural} by role` };
+  return {
+    draftable,
+    unseated,
+    hint: `Seat ${formatCount(draftable)} of your ${formatCount(unseated)} unseated by role — you two pick your own table`,
+  };
+}

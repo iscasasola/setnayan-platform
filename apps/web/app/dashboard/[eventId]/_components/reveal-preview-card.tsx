@@ -112,7 +112,7 @@ export function ColorRow({
 /** The sentence a refused opening save shows — never silence. */
 export function revealSaveFailure(error: string | undefined): string {
   return error === REVEAL_NEEDS_PRO
-    ? 'This opening comes with Event Hub Pro — it was not saved. “No reveal” is always free.'
+    ? 'This opening comes with Event Pro — it was not saved. “No reveal” is always free.'
     : 'Your opening could not be saved. Please try again.';
 }
 

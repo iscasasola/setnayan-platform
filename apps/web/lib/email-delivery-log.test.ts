@@ -13,7 +13,9 @@ import {
   maskRecipient,
   summarize,
   homeAlert,
+  isSettled,
   STOP_ASKING_AFTER_MS,
+  UNCONFIRMED_AFTER_MS,
   RECHECK_AFTER_MS,
   type DeliveryRow,
 } from './email-delivery-log';
@@ -66,12 +68,29 @@ test('our own refusal outcomes never read as delivered or waiting', () => {
 
 test('an accepted email Resend never answered for is "no answer", not "waiting" forever', () => {
   assert.equal(verdictOf(row({ created_at: iso(STOP_ASKING_AFTER_MS + 1) }), NOW), 'unknown');
-  assert.equal(verdictOf(row({ created_at: iso(STOP_ASKING_AFTER_MS - 1) }), NOW), 'waiting');
+  assert.equal(verdictOf(row({ created_at: iso(STOP_ASKING_AFTER_MS - 1) }), NOW), 'unconfirmed');
   // A scheduled send's clock starts at its scheduled time, not at creation.
   assert.equal(
     verdictOf(row({ created_at: iso(STOP_ASKING_AFTER_MS + 1), scheduled_for: iso(1000) }), NOW),
     'waiting',
   );
+});
+
+test('📨 accepted, and no status an hour later, is "sent · not confirmed" — never "waiting", never "not going out"', () => {
+  // Measured 15 Nov 2026: 58 of 58 rows accepted with a provider id and NO last_event — the live Resend key can only
+  // send, so the status check cannot read an email back. They were counted as Waiting and read as "mail is not going out".
+  assert.equal(verdictOf(row({ created_at: iso(UNCONFIRMED_AFTER_MS + 1) }), NOW), 'unconfirmed');
+  assert.equal(verdictOf(row({ created_at: iso(UNCONFIRMED_AFTER_MS - 1) }), NOW), 'waiting', 'a fresh send may honestly be waiting');
+  // Resend's own "sent" / "queued" is an ANSWER (not yet delivered), so it stays waiting however old it gets.
+  assert.equal(verdictOf(row({ created_at: iso(UNCONFIRMED_AFTER_MS + 1), last_event: 'sent' }), NOW), 'waiting');
+  // A scheduled send's clock starts at its scheduled time.
+  assert.equal(verdictOf(row({ created_at: iso(UNCONFIRMED_AFTER_MS * 5), scheduled_for: iso(1000) }), NOW), 'waiting');
+  // It is NOT settled: it is asked again, so a key that CAN read turns it into a real answer.
+  const old = row({ created_at: iso(UNCONFIRMED_AFTER_MS + 1) });
+  assert.equal(isSettled(old, NOW), false);
+  assert.equal(isDueForCheck(old, NOW), true);
+  // And it is no alarm: the home strip speaks for failures, not for an unconfirmed week.
+  assert.equal(homeAlert({ configured: true, readFailed: false, summary: summarize([old], NOW) }), null);
 });
 
 test('the checker asks only about accepted, unsettled, due rows', () => {
@@ -116,10 +135,11 @@ test('summary counts every row exactly once', () => {
     row({ last_event: 'bounced' }),
     row({ outcome: 'not_configured', provider_message_id: null }),
     row(),
+    row({ created_at: iso(UNCONFIRMED_AFTER_MS + 1) }),
     row({ created_at: iso(STOP_ASKING_AFTER_MS + 1) }),
   ];
   const s = summarize(rows, NOW);
-  assert.deepEqual(s, { delivered: 1, failed: 1, not_sent: 1, cancelled: 0, waiting: 1, unknown: 1, total: 5 });
+  assert.deepEqual(s, { delivered: 1, failed: 1, not_sent: 1, cancelled: 0, waiting: 1, unconfirmed: 1, unknown: 1, total: 6 });
 });
 
 test('the home strip speaks only for trouble — and never mistakes an unreadable log for a quiet week', () => {

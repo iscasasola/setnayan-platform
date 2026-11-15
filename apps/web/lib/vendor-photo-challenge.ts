@@ -223,13 +223,12 @@ export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, stri
 // ── DB readers (client passed in — no server-only import) ────────────────────
 
 /**
- * Resolve the live Papic Challenges price (PHP) from the admin-managed catalog,
- * falling back to {@link VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP} when the row is
- * missing/unreadable. Any non-positive / non-finite price is treated as missing.
+ * The live Papic Challenges price (PHP) from the admin-managed catalog — or null when the row is missing,
+ * inactive, unpriced or unreadable (💰 owner 2026-11-13: a screen shows no figure rather than a remembered one).
  */
 export async function fetchVendorPhotoChallengePricePhp(
   supabase: SupabaseClient,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
@@ -238,16 +237,14 @@ export async function fetchVendorPhotoChallengePricePhp(
       .eq('is_active', true)
       .maybeSingle();
     if (error) {
-      console.error('[supabase-error] vendor-photo-challenge: price (using fallback)', error);
-      return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+      console.error('[supabase-error] vendor-photo-challenge: price unread', error);
+      return null;
     }
-    if (!data) return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    if (!data) return null;
     const price = Number((data as { price_php: number | string }).price_php);
-    return Number.isFinite(price) && price > 0
-      ? price
-      : VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
-    return VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
+    return null;
   }
 }
 

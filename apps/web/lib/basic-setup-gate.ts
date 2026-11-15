@@ -12,8 +12,9 @@
  *
  * 🖼 THE LOGO GATES GOING LIVE, NOT THE SHOP PAGES (owner, verbatim, 2026-11-06: *"Yes, logo gates live"*). The logo
  * is on the same checklist but is NOT counted here (`NOT_A_HOLD`): a brand-new shop with no logo must still reach Shop
- * and make its first service card. The logo stays required to go live — `verificationSubmitMissing`
- * (`lib/vendor-verification.ts`) reads the WHOLE checklist's `complete`, and Today keeps its "Add your logo" step.
+ * and make its first service card. Today keeps its "Add your logo" step. ⚠ Since 2026-11-14 (owner, DECISION_LOG
+ * "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"; profile gate: "Yes, remove it") the logo no longer gates going
+ * live: `verificationSubmitMissing` asks for the three papers only, never the checklist.
  *
  * WHO IS HELD: the OWNER or ADMIN (`canManageVendor`) of a shop NOT YET VERIFIED — the people who can fill it in,
  * while Today still draws the six setup steps "Back to setup" returns to. A helper (agent ·
@@ -53,6 +54,15 @@ export const OPEN_WHILE_SETTING_UP: readonly string[] = [
 
 /** Checklist keys that never hold a page — they gate going live only (the logo, owner 2026-11-06). */
 export const NOT_A_HOLD: ReadonlySet<string> = new Set(['logo']);
+
+/**
+ * 🧰 A step that never holds THESE pages (owner-approved 2026-11-14, cut 4 of the supplier's eleven jobs — DECISION_LOG
+ * "THE SEVEN SUPPLIER CUTS ARE APPROVED"): "In business since" no longer locks inspiration. It is still asked on setup,
+ * where the years badge uses it — it simply never stands between a supplier and adding photos of their work.
+ */
+export const NOT_A_HOLD_ON: Readonly<Record<string, readonly string[]>> = {
+  in_business_since_year: ['/vendor-dashboard/collections', '/vendor-dashboard/moodboard-library'],
+};
 
 /** Customers' segments that are the shop's business, not its chat — held. */
 const HELD_CUSTOMER_SEGMENTS: ReadonlySet<string> = new Set(['money', 'dates']);
@@ -105,6 +115,8 @@ export function pageIsHeld(pathname: string, hold: BasicSetupHold | null, seg?: 
   for (const key of hold.missing) {
     if ((STEP_HOMES[key] ?? []).some((b) => under(path, b))) return false;
   }
+  /* 🧰 Only steps that hold THIS page count: with nothing else missing, the page is open (cut 4). */
+  if (hold.missing.every((key) => (NOT_A_HOLD_ON[key] ?? []).some((b) => under(path, b)))) return false;
   if (under(path, '/vendor-dashboard/customers')) return HELD_CUSTOMER_SEGMENTS.has(seg ?? '');
   return !OPEN_WHILE_SETTING_UP.some((b) => under(path, b));
 }

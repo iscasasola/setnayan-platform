@@ -104,10 +104,57 @@ export type VendorStatusDraft = {
   preset_key: string;
 };
 
-export function buildVendorStatusDraft(key: string | null | undefined): VendorStatusDraft | null {
+/**
+ * 📣 "POST AN UPDATE" (owner-approved cut 6, 2026-11-14): a status may carry the supplier's own note — "The cake is
+ * melting near the lights…". The note becomes the row's body and the preset still decides the KIND (so "Need help"
+ * still files as work for the coordinator whatever was typed); with no note the preset's own sentence is the body,
+ * exactly as before. One row per post, never a status row plus a loose note row.
+ */
+export function buildVendorStatusDraft(key: string | null | undefined, note?: string | null): VendorStatusDraft | null {
   const preset = presetByKey(key);
   if (!preset) return null;
-  return { origin: 'vendor', kind: preset.kind, body: preset.body, preset_key: preset.key };
+  const own = normalizeRequestBody(note);
+  return { origin: 'vendor', kind: preset.kind, body: own ?? preset.body, preset_key: preset.key };
+}
+
+/** One supplier update as the couple reads it on the day: who, which status, their note (if any), when. */
+export type SupplierUpdateLine = {
+  id: string;
+  supplier: string;
+  status: string;
+  note: string | null;
+  at: string;
+  /** "Running late" and "Need help" — drawn in the warning colour. */
+  urgent: boolean;
+};
+
+/**
+ * The couple's read of what their suppliers posted (cut 6). Only the VENDOR lane — the couple's own notes and the
+ * coordinator's are theirs already. A row from a preset shows the preset's word and, when the body is not the preset's
+ * own sentence, the supplier's note under it; a free-text row (the "Something else?" box) shows "Update" and the note.
+ * Newest first. A supplier the couple's list cannot name reads "A supplier" — never a blank.
+ */
+export function supplierUpdatesForCouple(
+  rows: readonly DayRequestRow[],
+  names: ReadonlyMap<string, string>,
+  max = 8,
+): SupplierUpdateLine[] {
+  return rows
+    .filter((r) => r.origin === 'vendor')
+    .slice()
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0))
+    .slice(0, max)
+    .map((r) => {
+      const preset = presetByKey(r.preset_key);
+      return {
+        id: r.request_id,
+        supplier: (r.author_vendor_profile_id && names.get(r.author_vendor_profile_id)) || 'A supplier',
+        status: preset?.label ?? 'Update',
+        note: preset && r.body === preset.body ? null : r.body,
+        at: r.created_at,
+        urgent: r.kind === 'issue',
+      };
+    });
 }
 
 // ─── 2. Body normalization ─────────────────────────────────────────────────
@@ -322,3 +369,17 @@ export function decideRequestsPanel(view: RequestsPanelInput): RequestsPanelStat
   return 'inbox';
 }
 
+
+/**
+ * The clock time a supplier update was posted, on the EVENT's wall clock (the venue's timezone; Manila when the event
+ * has none). Formatted on the server so the couple's page never redraws it in a different zone on hydration.
+ */
+export function updateTimeLabel(iso: string, timeZone: string | null | undefined): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: timeZone || 'Asia/Manila' });
+  } catch {
+    return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' });
+  }
+}

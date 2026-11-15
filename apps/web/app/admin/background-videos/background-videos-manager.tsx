@@ -103,19 +103,19 @@ function SlotCard({ initial }: { initial: SlotState }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--m-line,#e2ded4)] bg-white p-5">
+    <div className="border-ink/10 py-5 border-t border-ink/10">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)]">
+          <div className="text-ink/70 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             {isMain ? 'Main · slot 1' : `Bottom icon · slot ${initial.slot + 1}`}
           </div>
-          <div className="text-sm font-medium text-[var(--m-ink,#1b1a17)] mt-0.5">{initial.label}</div>
+          <div className="text-sm font-medium text-ink mt-0.5">{initial.label}</div>
         </div>
         <span
-          className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap"
+          className="px-2.5 py-1 rounded-full whitespace-nowrap text-[12px] font-bold"
           style={{
-            background: published ? 'rgba(60,140,90,.12)' : 'rgba(0,0,0,.05)',
-            color: published ? '#2f7d4f' : '#6a6e76',
+            background: published ? 'rgb(var(--color-ok) / .12)' : 'rgb(var(--color-ink) / .05)',
+            color: published ? 'rgb(var(--color-ok))' : 'rgb(var(--color-ink) / .7)',
           }}
         >
           {published ? '● Live' : hasVideo ? 'Draft' : 'Empty'}
@@ -123,7 +123,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
       </div>
 
       <div
-        className="relative rounded-xl overflow-hidden bg-[#0d0f12] mb-3 flex items-center justify-center"
+        className="relative rounded-xl overflow-hidden bg-black mb-3 flex items-center justify-center"
         style={{ aspectRatio: isMain ? '16 / 9' : '1 / 1' }}
       >
         {url ? (
@@ -135,7 +135,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
       </div>
 
       <label
-        className="block cursor-pointer rounded-xl border-2 border-dashed border-[var(--m-line,#e2ded4)] px-4 py-4 text-center hover:border-[var(--m-orange,#a9834b)] transition-colors"
+        className="block cursor-pointer rounded-xl border-2 border-dashed border-ink/10 px-4 py-4 text-center hover:border-terracotta transition-colors"
         style={{ opacity: working ? 0.6 : 1, pointerEvents: working ? 'none' : 'auto' }}
       >
         <input
@@ -145,16 +145,16 @@ function SlotCard({ initial }: { initial: SlotState }) {
           onChange={onPick}
           disabled={working}
         />
-        <div className="text-[13px] text-[var(--m-ink,#1b1a17)] font-medium">
+        <div className="text-[13px] text-ink font-medium">
           {working ? msg || 'Working…' : hasVideo ? 'Replace video' : 'Upload video'}
         </div>
-        <div className="text-[12px] text-[var(--m-slate,#4f535b)] mt-0.5">
+        <div className="text-[12px] text-ink/70 mt-0.5">
           MP4 / WebM / MOV · keep it short &amp; web-friendly{isMain ? ' (16:9 ideal)' : ' (square ideal)'}
         </div>
       </label>
 
-      {phase === 'done' && <div className="mt-2 text-[12px] text-[#2f7d4f]">{msg}</div>}
-      {error && <div className="mt-2 text-[12px] text-[#b4252f]">{error}</div>}
+      {phase === 'done' && <div className="mt-2 text-[12px] text-[rgb(var(--color-ok))]">{msg}</div>}
+      {error && <div className="mt-2 text-[12px] text-[rgb(var(--color-danger))]">{error}</div>}
 
       <div className="mt-3 flex items-center gap-2">
         {hasVideo && !published && (
@@ -173,7 +173,7 @@ function SlotCard({ initial }: { initial: SlotState }) {
             type="button"
             onClick={() => onTogglePublish(false)}
             disabled={busyPublish}
-            className="px-4 py-2 text-[13px] rounded-full border border-[var(--m-line,#e2ded4)] text-[var(--m-slate,#4f535b)]"
+            className="px-4 py-2 text-[13px] rounded-full border border-ink/10 text-ink/70"
             style={{ opacity: busyPublish ? 0.6 : 1 }}
           >
             {busyPublish ? 'Unpublishing…' : 'Unpublish'}
@@ -191,7 +191,7 @@ export function BackgroundVideosManager({ slots }: { slots: SlotState[] }) {
     <div className="space-y-8">
       {main && (
         <div>
-          <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)] mb-2">
+          <div className="text-ink/70 mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Main background video
           </div>
           <div className="max-w-md">
@@ -200,7 +200,7 @@ export function BackgroundVideosManager({ slots }: { slots: SlotState[] }) {
         </div>
       )}
       <div>
-        <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)] mb-2">
+        <div className="text-ink/70 mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Bottom pillar icons (5)
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -29,6 +29,9 @@ import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { supplierUpdatesForCouple, updateTimeLabel, type DayRequestRow } from '@/lib/day-requests';
+import type { SupplierUpdateCardLine } from './_components/day-of-mode/supplier-updates-card';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
@@ -128,6 +131,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { withPickedDate } from '@/lib/event-anchor';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
 
 export const dynamic = 'force-dynamic';
 
@@ -416,6 +420,7 @@ export default async function EventHomePage({
     // Fails closed: any read error leaves this false and the card simply hides.
     let dayOfLiveWallActive = false;
     let dayOfBroadcast: BroadcastCardData | undefined;
+    let dayOfSupplierUpdates: SupplierUpdateCardLine[] | null | undefined;
     if (dayOfActive) {
       // The schedule is read ONCE and shared: the grid shows it, and the P3
       // call-time count below derives from it, so that count waits on this
@@ -482,7 +487,34 @@ export default async function EventHomePage({
         return undefined;
       })();
 
-      const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes] = await Promise.all([
+      // 📣 "From your suppliers" (cut 6, 2026-11-14) — what booked suppliers posted with Post an update. Read through the
+      // couple's OWN session (RLS: the event side reads its event's stream), never the service role. Dark control → no
+      // card (undefined); a refused read → null, so the card says it could not load instead of "No updates yet".
+      const supplierUpdatesRead = (async (): Promise<SupplierUpdateCardLine[] | null | undefined> => {
+        if (!(await isDataPrivacyControlActive('coordinator_requests_inbox'))) return undefined;
+        const [rowsRes, namesRes] = await Promise.all([
+          supabase
+            .from('event_day_requests')
+            .select('request_id, origin, kind, status, body, preset_key, author_user_id, author_vendor_profile_id, created_at')
+            .eq('event_id', eventId)
+            .eq('origin', 'vendor')
+            .order('created_at', { ascending: false })
+            .limit(8),
+          supabase.from('event_vendors').select('linked_vendor_profile_id, vendor_name').eq('event_id', eventId).not('linked_vendor_profile_id', 'is', null),
+        ]);
+        if (rowsRes.error) {
+          logQueryError('dashboard/day-of.supplier-updates', rowsRes.error);
+          return null;
+        }
+        const names = new Map<string, string>();
+        for (const v of (namesRes.data ?? []) as { linked_vendor_profile_id: string | null; vendor_name: string | null }[]) {
+          if (v.linked_vendor_profile_id && v.vendor_name) names.set(v.linked_vendor_profile_id, v.vendor_name);
+        }
+        const tz = (event as { timezone?: string | null }).timezone ?? null;
+        return supplierUpdatesForCouple((rowsRes.data ?? []) as DayRequestRow[], names).map((l) => ({ ...l, time: updateTimeLabel(l.at, tz) }));
+      })().catch(() => null);
+
+      const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes, supplierUpdatesRes] = await Promise.all([
         blocksRead,
         measuredOr(fetchTables(supabase, eventId), [] as EventTableRow[], (e) =>
           logQueryError('dashboard/day-of.tables', e),
@@ -506,7 +538,9 @@ export default async function EventHomePage({
           .catch(() => [] as SameDayVendor[]),
         liveWallRead,
         broadcastCardRead,
+        supplierUpdatesRead,
       ]);
+      dayOfSupplierUpdates = supplierUpdatesRes;
       dayOfBlocks = blocksRes;
       dayOfSameDayVendors = sameDayRes;
       const tables = tablesRes.value;
@@ -530,6 +564,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
+      dayOfSupplierUpdates,
     };
   })();
 
@@ -716,7 +751,7 @@ export default async function EventHomePage({
   // React-cached, the layout's own read.
   const homeTypeProfileRead = startAhead(resolveProfile((event.event_type as string | null) ?? 'wedding'));
   /*
-    🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14; live on cale-ice 2026-10-20: "i thought we
+    🧾 EVERY PAID SERVICE + EVENT PRO (owner 2026-10-14; live on cale-ice 2026-10-20: "i thought we
     will have our other paid services here in home?"). Per SKU: is it ON — `eventSkuActive`, the feature
     gate the service's own page reads (an internal / founder-seat host owns every feature, and the row
     must say what the feature does) — is a payment waiting (`eventOwnsSku`), and, only where it is not
@@ -844,6 +879,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
+      dayOfSupplierUpdates,
     },
     { nikahImamBooked },
     { canViewPapicCounts, viewerMemberType },
@@ -1422,6 +1458,7 @@ export default async function EventHomePage({
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
+          supplierUpdates={dayOfSupplierUpdates}
           papic={
             <DayPapicRow
               eventId={eventId}
@@ -1570,6 +1607,10 @@ export default async function EventHomePage({
           {homeFirstScreen}
         </>
       )}
+      {/* 🎁 A supplier's gift that reached this event: the tap-to-open moment, once per HOST (couple member), never a
+          guest (owner 14 Nov 2026); an unclaimed one waits as a line at the page's top and in the bell. Asked after
+          Home has drawn; it draws no box in the flow (a notice registration and a popup) — Home's own reads never grow for it. */}
+      {viewerMemberType === 'couple' ? <GiftMoments url={`/api/unwrap?event=${eventId}`} /> : null}
     </LastSeenCapture>
   );
 }

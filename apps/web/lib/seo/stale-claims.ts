@@ -15,8 +15,9 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   // The plan a person sees is "Ultra" (owner 2026-10-23). `enterprise` survives only as an internal key and SKU id.
   { pattern: /\bEnterprise\b/, why: 'the top supplier plan is called Ultra (owner 2026-10-23)' },
   { pattern: /\bCustom plan\b|\bCustom tier\b/i, why: 'the negotiated Custom tier was retired 2026-11-06 — Ultra add-ons replace it' },
-  // Event Hub Pro was folded into Event Pro; "Pro Event Hub" is the same retired product in other words.
-  { pattern: /Event Hub Pro\b|Pro Event Hub/i, why: 'Event Hub Pro is retired — the paid event plans are Event Plus, Event Pro and Event Ultra' },
+  // The old Hub plan name was folded into Event Pro; "Pro Event Hub" is the same retired product in other words.
+  // (Written with \s+ so this file never spells the old name — `lib/the-old-hub-plan-name-is-gone.test.ts`.)
+  { pattern: /Event\s+Hub\s+Pro\b|Pro\s+Event\s+Hub/i, why: 'the old Hub plan name is retired — the paid event plans are Event Plus, Event Pro and Event Ultra' },
   { pattern: /4-in-1/i, why: 'the "4-in-1 Event Hub" description was removed as untrue in Build 6 Lane J' },
   // The token wallet was retired 2026-05-11 (token-economy-is-retired.test.ts holds the code side).
   { pattern: /token wallet|\btokens?\b/i, why: 'the token wallet is retired (2026-05-11) — prices are PHP-direct' },

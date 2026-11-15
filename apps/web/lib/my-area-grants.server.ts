@@ -8,6 +8,7 @@ import 'server-only';
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import type { DelegateArea, ModeratorPermissions } from '@/lib/event-moderators';
 import { SUPPLIER_SEAT_ROLE, seatAreaLevel } from '@/lib/delegate-areas';
@@ -24,10 +25,9 @@ import { SUPPLIER_SEAT_ROLE, seatAreaLevel } from '@/lib/delegate-areas';
 export async function fetchMyAreaGrants(
   eventId: string,
 ): Promise<Partial<Record<DelegateArea, 'edit' | 'view' | null>>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The render's ONE sign-in answer (`getCurrentUser` is `cache()`d; the layout already asked) — this sent its own
+  // auth round trip on every open (speed pass 2026-11-14). Outside a render it asks fresh, as before.
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) return {};
 
   // RLS scopes this to rows the caller may see; the filter keeps it to their own.
@@ -64,10 +64,9 @@ export async function fetchMyAreaGrants(
 export async function fetchMyPendingAsk(
   eventId: string,
 ): Promise<{ requestedAreas: DelegateArea[]; createdAt: string } | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The render's ONE sign-in answer (`getCurrentUser` is `cache()`d; the layout already asked) — this sent its own
+  // auth round trip on every open (speed pass 2026-11-14). Outside a render it asks fresh, as before.
+  const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) return null;
 
   const { data } = await supabase

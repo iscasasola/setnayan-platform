@@ -333,7 +333,9 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   }
 
   return (
-    <>
+    /* 🖥 From 701 the library sits on the 64-rem wide stage (owner D1, tablet/desktop lane 1); below 701 this div is
+       an unstyled block, so the phone is unchanged. */
+    <div className="tab:mx-auto tab:w-full tab:max-w-5xl" data-memories-stage="">
     {/* 🔒 WITHHELD, NOT ABSENT — a viewer the couple's sources do not reach (a coordinator) is told the guests' and
         crew's photos exist and are the couple's; zero photos must never read as "there are none". Moved with the
         library from the Papic page (`lib/papic-gallery-scope.test.ts`). */}
@@ -386,6 +388,6 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     />
     {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
     <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
-    </>
+    </div>
   );
 }

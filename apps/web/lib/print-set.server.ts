@@ -3,6 +3,7 @@ import 'server-only';
 import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
 import { printBrandForMark } from '@/lib/setnayan-mark-by-plan';
 import { startAhead } from '@/lib/start-ahead';
+import { askedOnce } from '@/lib/request-once';
 import { entourageWithProxies } from '@/lib/guest-proxy';
 import { entourageProxyNames } from '@/lib/guest-proxy.server';
 import { originalForPrint } from '@/lib/old-photo-copies.server';
@@ -160,7 +161,11 @@ export type PrintEventRow = {
 };
 
 export async function readPrintEvent(admin: SupabaseClient, eventId: string): Promise<PrintEventRow | null> {
-  const { data, error } = await admin.from('events').select(EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
+  /* ⚡ ONE read per render (speed pass 2026-11-14): the Maker asks it twice (its own print inputs and
+     `printInputsVersion`). Same row, same failure — `askedOnce` hands both callers one answer; each still logs. */
+  const { data, error } = await askedOnce(admin, 'print-set.readPrintEvent', [eventId], () =>
+    Promise.resolve(admin.from('events').select(EVENT_COLUMNS).eq('event_id', eventId).maybeSingle()),
+  );
   if (error) logQueryError('print-set.readPrintEvent', error, { event_id: eventId }, 'graceful_degrade');
   return (data as PrintEventRow | null) ?? null;
 }
@@ -881,15 +886,21 @@ export type PassGuestRow = PassCardRow & { guest_id: string; first_name: string 
 /** The guests a pass is printed for, in the files' order — ONE read and ONE rule for every guest's file, one guest's pass and the list that names them. */
 export async function passGuestRows(eventId: string, ticketsOnly: boolean): Promise<{ rows: PassGuestRow[]; measured: boolean }> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('guests')
-    // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
-    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at, side, group_category`)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    // 🛂 No pass for a request until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
-    .order('last_name', { ascending: true });
+  /* ⚡ ONE read per render (speed pass 2026-11-14): the pass list and the QR list ask the SAME query — `ticketsOnly`
+     only filters afterwards — so both share one answer (`askedOnce`; a failure is handed to both, each still logs). */
+  const { data, error } = await askedOnce(admin, 'print-set.passGuestRows', [eventId], () =>
+    Promise.resolve(
+      admin
+        .from('guests')
+        // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
+        .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at, side, group_category`)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        // 🛂 No pass for a request until Keep or Link.
+        .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
+        .order('last_name', { ascending: true }),
+    ),
+  );
   if (error) {
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
     return { rows: [], measured: false };
@@ -926,6 +937,14 @@ function roleWord(role: string | null, names: RoleNames): string | null {
   return role ? guestRoleLabel(role as GuestRole, names) || null : null;
 }
 
+/** The couple's role words for the pass and QR pickers — ONE read per render for both (`askedOnce`). */
+function passRoleNames(eventId: string) {
+  const admin = createAdminClient();
+  return askedOnce(admin, 'print-set.passRoleNames', [eventId], () =>
+    Promise.resolve(admin.from('events').select('role_names').eq('event_id', eventId).maybeSingle()),
+  ).then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null));
+}
+
 export async function loadPassGuestNames(
   eventId: string,
   /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
@@ -935,12 +954,7 @@ export async function loadPassGuestNames(
     passGuestRows(eventId, true),
     printDetails,
     // Role ▾ speaks the couple's words for roles (`events.role_names`, "Bride's Crew") — the usual word the fallback.
-    createAdminClient()
-      .from('events')
-      .select('role_names')
-      .eq('event_id', eventId)
-      .maybeSingle()
-      .then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null)),
+    passRoleNames(eventId),
   ]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);
@@ -978,12 +992,7 @@ export async function loadQrGuestNames(
   const [read, details, roleNames] = await Promise.all([
     passGuestRows(eventId, false),
     printDetails,
-    createAdminClient()
-      .from('events')
-      .select('role_names')
-      .eq('event_id', eventId)
-      .maybeSingle()
-      .then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null)),
+    passRoleNames(eventId),
   ]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);

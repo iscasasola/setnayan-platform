@@ -228,10 +228,10 @@ test('5 · the full-screen preview is an overlay with a way back — Exit previe
   assert.match(src, /window\.addEventListener\('popstate', onPop\)/);
   assert.match(src, /if \(pushed\.current\) window\.history\.back\(\);/);
   // "Exit preview", labelled, a thumb tall, clear of the notch.
-  const exitBtn = /<button[\s\S]*?data-theme-preview-exit=""[\s\S]*?<\/button>/.exec(src)?.[0] ?? '';
+  // The shared pill (design template 14 Nov 2026, rule 3) — `ActionButton` carries the 44 px floor itself.
+  const exitBtn = /<ActionButton[\s\S]*?data-theme-preview-exit=""[\s\S]*?\/>/.exec(src)?.[0] ?? '';
   assert.match(exitBtn, /onClick=\{exit\}/);
-  assert.match(exitBtn, /min-h-11/);
-  assert.match(exitBtn, /Exit preview/);
+  assert.match(exitBtn, /label="Exit preview"/);
   assert.match(src, /env\(safe-area-inset-top\)/);
   // "Use this theme" is the gallery's own pick — the preview itself sets nothing.
   assert.match(src, /onClick=\{\(\) => \{\s*onUse\(\);\s*exit\(\);\s*\}\}/);

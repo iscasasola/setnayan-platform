@@ -12,8 +12,8 @@
  * Card 2 · Setnayan AI — introduced, never given away, and absent entirely on a
  *   vendor-free type. The gate is resolved server-side (services-step-server.ts);
  *   `view.ai === null` means it does not render at all.
- * Card 3 · Event Hub Pro — owner 2026-09-25: *"there are 3 things they can
- *   purchase Papic, Setnayan AI, Event Hub Pro."* Built exactly like card 2: a
+ * Card 3 · Event Pro — owner 2026-09-25: *"there are 3 things they can
+ *   purchase Papic, Setnayan AI, Event Pro."* Built exactly like card 2: a
  *   yes/no that adds to the total and is minted on the same bill. `view.hubPro
  *   === null` (no Event Hub on this type, or the catalog cannot price it) means
  *   it does not render at all. Its words are the existing Pro offer sentence,
@@ -79,6 +79,7 @@
  * these props to local state to "turn it on everywhere".
  */
 
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
 import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -398,8 +399,11 @@ function PackPoolPicker({
         <ActionButton tone="neutral" quiet icon={X} label="Not now" onClick={() => onChange({ ...selection, poolRungKey: null })} />
       </div>
       <p className="mt-2 text-center text-xs text-ink/50">
-        Nothing is charged until you pay. {type.freePoints.toLocaleString('en-PH')} credits come free with every
-        event; top up later at the regular price.
+        Nothing is charged until you pay.
+        {/* 💰 The count is the live allowance or nothing (2026-11-13) — and it is once per account, never "every event". */}
+        {type.freePoints > 0
+          ? ` ${type.freePoints.toLocaleString('en-PH')} credits come free ${PAPIC_FREE_CREDIT_CONDITION}; top up later at the regular price.`
+          : ' Top up later at the regular price.'}
       </p>
     </div>
   );
@@ -818,8 +822,8 @@ export function ServicesStep({
         </article>
       ) : null}
 
-      {/* ── CARD 3 · EVENT HUB PRO — gated server-side; null ⇒ never rendered ──
-          Owner 2026-09-25: Papic, Setnayan AI, Event Hub Pro. The same shape as
+      {/* ── CARD 3 · EVENT PRO — gated server-side; null ⇒ never rendered ──
+          Owner 2026-09-25: Papic, Setnayan AI, Event Pro. The same shape as
           the planner card above, on purpose: a price, the saving if there is
           one, and a tick that is OFF until the couple turns it on. The title is
           the existing Pro offer sentence and what Pro adds sits behind the (i),
@@ -868,7 +872,7 @@ export function ServicesStep({
           ) : null}
 
           {interactive ? (
-            <button /* button-ok: THE TICK for Event Hub Pro (owner 2026-08-11), pinned by event-hub-pro-on-the-services-step.test.ts */
+            <button /* button-ok: THE TICK for Event Pro (owner 2026-08-11), pinned by event-hub-pro-on-the-services-step.test.ts */
               type="button"
               className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
                 selection.hubPro

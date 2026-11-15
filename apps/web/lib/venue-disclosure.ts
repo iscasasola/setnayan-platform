@@ -159,6 +159,16 @@ export function withheldVenue<T extends VenueFields>(event: T): T {
   };
 }
 
+/**
+ * The event as THIS viewer may see it: open when the one rule (`venueIsOpen`) says so, closed (`withheldVenue`)
+ * otherwise. The invitation page's shared props go through it with only `isHost` — a host (event_members /
+ * moderators, the page's `ownerCapability`) sees the venue they set, everyone else the closed row (re-walk
+ * 2026-11-14: the host's own hub said "The address and directions open as soon as you reply." to the host).
+ */
+export function venueForViewer<T extends VenueFields>(event: T, viewer: VenueViewer): T {
+  return venueIsOpen(viewer) ? event : withheldVenue(event);
+}
+
 /** What a viewer who has not replied is told where the map would be. */
 export const VENUE_WITHHELD_LINE = 'The address and directions open as soon as you reply.';
 

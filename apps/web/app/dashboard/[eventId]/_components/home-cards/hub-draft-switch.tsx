@@ -78,7 +78,7 @@ export function HubDraftSwitch({
         }
       />
       {line ? (
-        <p role="status" className="pb-2 text-[12.5px] text-ink/65">
+        <p role="status" className="pb-2 text-[12.5px] text-ink/75">
           {line}
         </p>
       ) : null}

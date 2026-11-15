@@ -78,6 +78,7 @@ import { BadgeUpgradesLedger } from '@/app/admin/gifts/_components/badge-upgrade
 import { startableChoices, type BadgeUpgradeChoice, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { formatCentavos } from '@/lib/vendor-proposals';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -209,7 +210,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           verified={!unverified}
           action={startSubscriptionPurchase}
           expiresOn={who === 'caterer' ? '8 Dec 2026' : shop.expires}
-          papersProgress={papersProgress({ done: 2, of: 4 })}
+          papersProgress={papersProgress({ done: 2, of: REQUIRED_DOC_COUNT })}
         />
       }
       feeRow={bookingFeeRow(standing, who === 'studio' ? 1 : 0)}
@@ -428,7 +429,7 @@ export default async function SupplierPlanLabPage({
           need={
             sp.plan
               ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / 28 days`, href: '/vendor-dashboard/subscription' }
-              : { kind: 'verify', progress: papersProgress({ done: 2, of: 4 }) }
+              : { kind: 'verify', progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }) }
           }
           preview={
             <div className="space-y-1.5 text-[13.5px] text-ink">

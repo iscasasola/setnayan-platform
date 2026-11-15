@@ -64,7 +64,7 @@ export const routes = {
     money: () => `/admin/money`,
     moodboardLibrary: () => `/admin/moodboard-library`,
     more: () => `/admin/more`,
-    notifications: () => `/admin/settings?tab=notifications`,
+    notifications: () => `/admin/email-delivery`,
     offline: () => `/admin/app-performance?tab=offline`,
     onboarding: () => `/admin/ugat?tab=onboarding`,
     operationsHiring: () => `/admin/app-performance?tab=operations`,
@@ -84,7 +84,7 @@ export const routes = {
     reviews: () => `/admin/reviews`,
     settings: {
       index: () => `/admin/settings`,
-      demoMode: () => `/admin/settings?tab=demo-mode`,
+      demoMode: () => `/admin/switches#demo-mode`,
       paymentMethods: () => `/admin/settings/payment-methods`,
     },
     socialQueue: () => `/admin/social-queue`,

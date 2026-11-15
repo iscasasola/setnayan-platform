@@ -22,7 +22,7 @@ import { libraryUploadVerdict, libraryPartLabel } from '@/lib/moodboard-gallery-
 import { cardsForPart } from '@/lib/inspiration-card-link';
 import { readShopCards } from '@/lib/inspiration-card-link.server';
 import { eventTypeLabel } from '@/lib/demand-radar';
-import { eventLineWords, tagStateOf, type FileTag, type OfferedPart } from '@/lib/inspiration-tags';
+import { eventLineWords, tagStateOf, type FileTag, type OfferedPart, type TagPart } from '@/lib/inspiration-tags';
 import type { EventFile } from '@/lib/supplier-files.server';
 
 export type EventTagBoard = {
@@ -151,6 +151,39 @@ export async function readTagEventLines(client: SupabaseClient, assetIds: readon
       line: eventLineWords({ typeLabel: r.event_type ? eventTypeLabel(r.event_type) : null, venue: r.venue_name, month: r.event_month }),
       alsoIn: (r.also_in ?? []).map((k) => ({ slotKey: k, label: libraryPartLabel(k, parts) ?? 'Inspiration' })),
     });
+  }
+  return out;
+}
+
+/**
+ * Frames 6–7: the inspirations each Files photo is IN (approved, not retired, not refused) — keyed by file id. On the
+ * service role (`event_file_id` is granted to nobody else), scoped to the shop the caller proved. `null` = unread —
+ * the album then simply carries no inspiration row (never a wrong one).
+ */
+export async function readAlbumTags(admin: SupabaseClient, shop: string, fileIds: readonly string[]): Promise<Map<string, TagPart[]> | null> {
+  const ids = [...new Set(fileIds)];
+  const out = new Map<string, TagPart[]>();
+  if (ids.length === 0) return out;
+  const parts = await getInspirationParts();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await admin
+      .from('moodboard_library_assets')
+      .select('event_file_id, asset_subtype')
+      .eq('vendor_profile_id', shop)
+      .eq('asset_type', 'supplier_gallery')
+      .in('event_file_id', ids.slice(i, i + 200))
+      .not('approved_at', 'is', null)
+      .is('retired_at', null)
+      .is('rejected_at', null);
+    if (error) {
+      logQueryError('readAlbumTags', error, { files: ids.length }, 'graceful_degrade');
+      return null;
+    }
+    for (const r of (data ?? []) as { event_file_id: string; asset_subtype: string }[]) {
+      const list = out.get(r.event_file_id) ?? [];
+      list.push({ slotKey: r.asset_subtype, label: libraryPartLabel(r.asset_subtype, parts) ?? 'Inspiration' });
+      out.set(r.event_file_id, list);
+    }
   }
   return out;
 }

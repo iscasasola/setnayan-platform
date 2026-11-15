@@ -76,7 +76,7 @@ export default async function StampMakerPage({ params }: Props) {
     <section className="space-y-6">
       <Link
         href={`/dashboard/${eventId}/studio/save-the-date`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to Save the Date

@@ -113,7 +113,7 @@ export default async function EditorialEditorPage({
   });
   if (!gate.open) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-2xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
           {/*
             NO EYEBROW. A "Not yet" kicker above this headline only repeats the
@@ -354,11 +354,11 @@ export default async function EditorialEditorPage({
   }
 
   /*
-    ⚠ THE EVENT HUB PRO WALL IS RETIRED (owner 2026-08-21):
-    "make this feature part of free and not part of the event hub pro."
+    ⚠ THE EVENT PRO WALL IS RETIRED (owner 2026-08-21):
+    "make this feature part of free and not part of the Event Pro."
 
     A non-PRO couple with no saved editorial used to meet a WebsiteProLock here
-    reading "Author your front-page story … It's part of Event Hub PRO" — so the
+    reading "Author your front-page story … It's part of Event Pro" — so the
     story Setnayan had already written ABOUT THEM was visible to them only as a
     price.
 
@@ -581,10 +581,10 @@ export default async function EditorialEditorPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-[1010px] px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1010px] tab:max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/dashboard/${eventId}/launch`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        className="mb-6 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>Back to Event Hub</span>

@@ -83,6 +83,10 @@ test('the composer checks while typing and locks Send', () => {
   const src = code('app/(shell)/articles/_components/article-composer.tsx');
   assert.match(src, /from '@\/lib\/articles-links'/);
   assert.ok((src.match(/refusedLinks\(/g) ?? []).length >= 3, 'the line, New topic and the reply box each run the rule');
-  assert.match(src, /disabled=\{pending \|\| blocked/, 'Send is locked while a refused link is in the box');
+  assert.equal(
+    (src.match(/disabled=\{pending \|\| blocked/g) ?? []).length,
+    2,
+    'Post (New topic) AND Send (reply) are each locked while a refused link is in the box',
+  );
   assert.match(src, /Remove the link/);
 });

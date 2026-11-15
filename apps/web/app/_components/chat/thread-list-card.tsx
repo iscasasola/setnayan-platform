@@ -80,6 +80,11 @@ export function ThreadListCard({
   );
 }
 
+/** A stored asset ref (`r2://bucket/key`) — the database's value, never a loadable URL. */
+export function isStoredRef(value: string): boolean {
+  return /^r2:\/\//i.test(value.trim());
+}
+
 /**
  * <ThreadListAvatar> — the couple inbox's leading vendor avatar (logo or
  * initials), extracted alongside <ThreadListCard> so both the avatar markup
@@ -106,11 +111,15 @@ export function ThreadListAvatar({
           .join('');
   const box = size === 'lg' ? 'h-14 w-14' : 'h-10 w-10';
   const px = size === 'lg' ? 56 : 40;
-  if (logoUrl) {
+  // 🖼 A STORED ref (`r2://…`) is not an address a browser can load: handed to `/_next/image` it drew a broken image
+  // (W1, live 08b8522, RW-327). The page signs the logo (`displayLogoUrl`); an unsigned ref here is initials, never a
+  // broken picture. 🔒 lib/a-chat-avatar-never-draws-a-stored-ref.test.ts
+  const src = logoUrl && !isStoredRef(logoUrl) ? logoUrl : null;
+  if (src) {
     return (
       <span className={`inline-flex ${box} shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream`}>
         <Image
-          src={logoUrl}
+          src={src}
           alt=""
           width={px}
           height={px}

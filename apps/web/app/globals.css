@@ -10841,6 +10841,16 @@ html.dark .sn-acc-head[data-open] {
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] > aside { display: none; }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-takeover] { border: 0; border-radius: 0; }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-back] { display: none; }
+  /* ✍ THE MESSAGE BOX IS ALWAYS IN THE WINDOW (W1, live 08b8522, RW-327: the composer's foot at 916 in an 800 window,
+     supplier 1280). A busy thread's head, notice and pinned band plus the stream's 14rem floor outgrow a short window,
+     and the column scrolls itself (chat-thread-frame.tsx) — which carried the composer under the fold. It now holds the
+     column's foot while the rest scrolls above it. 🔒 lib/the-chat-composer-stays-in-the-window.test.ts */
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-composer-gutter] {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    background-color: rgb(var(--color-cream));
+  }
   [data-chat-panes] [data-supplier-cols-list] [data-chat-takeover] { border: 0; border-radius: 0; background-color: transparent; }
 }
 

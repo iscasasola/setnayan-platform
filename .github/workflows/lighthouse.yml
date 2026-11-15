@@ -24,7 +24,7 @@ name: lighthouse
 
 on:
   pull_request:
-    # Drafts skip every job (each carries the draft `if:`); marking a PR ready runs them all.
+    # Draft PRs: the heavy jobs skip (their `if:`) and the gate is RED; marking the PR ready runs everything.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 

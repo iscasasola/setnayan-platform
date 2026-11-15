@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM } from './lib/ci-shape.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -111,8 +111,8 @@ test('a NEW job nobody needs is caught', () => {
 });
 
 test('🚨 the gate without `if: always()` is caught — skipped would count as passed', () => {
-  mentions(problemsOf(broken(`    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n    if: \${{ always() && ${DRAFT_CLAUSE} }}\n`, '    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
-  mentions(problemsOf(broken(`    if: \${{ always() && ${DRAFT_CLAUSE} }}\n    steps:\n      - uses: actions/checkout@v4\n`, '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
+  mentions(problemsOf(broken('    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n    if: ${{ always() }}\n', '    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('    if: ${{ always() }}\n    steps:\n      - uses: actions/checkout@v4\n', '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
 });
 
 test('a gate that reads a hand-picked subset, or runs nothing, is caught', () => {
@@ -165,10 +165,30 @@ test('a needed job that can be skipped is caught', () => {
   mentions(problemsOf(broken('  eslint:\n    name: eslint\n', '  eslint:\n    name: eslint\n    needs: [typecheck]\n')), /"eslint" has its own `needs:`/);
 });
 
-test('📝 draft PRs skip: the ONE draft clause is the only job-level `if:` a gated job or the gate may add', () => {
-  // The committed workflow uses it and is sound (above). Any other condition is still caught:
-  mentions(problemsOf(broken(`if: \${{ always() && ${DRAFT_CLAUSE} }}`, "if: ${{ always() && github.event_name == 'push' }}")), /must be `if: \$\{\{ always\(\) \}\}`/);
-  mentions(problemsOf(broken(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`, `    name: typecheck\n    if: \${{ github.event.pull_request.draft == false }}\n`)), /"typecheck" has a job-level `if:`/);
+/* ── draft PRs ──────────────────────────────────────────────────────────────*/
+
+test('🚨 a DRAFT PR is red on the gate, even when every job it needs passed', () => {
+  const allGreen = JSON.stringify({ guards: { result: 'success' }, typecheck: { result: 'success' } });
+  assert.deepEqual(gateVerdict(allGreen, 'true'), { ok: false, rows: [], problems: [DRAFT_PR_PROBLEM] });
+  assert.equal(gateVerdict(allGreen, 'false').ok, true, 'a ready PR is judged on its jobs');
+  assert.equal(gateVerdict(allGreen, undefined).ok, true, 'push / workflow_dispatch: no pull request');
+  const run = spawnSync(process.execPath, [path.join(HERE, 'ci-gate.mjs')], { env: { ...process.env, NEEDS: allGreen, PR_DRAFT: 'true', GITHUB_STEP_SUMMARY: '' }, encoding: 'utf8' });
+  assert.equal(run.status, 1, 'the script exits red on a draft');
+  assert.match(run.stdout, /Draft PR: checks not run\. Mark ready to test\./);
+});
+
+test('🚨 the gate that gets the draft clause is caught — it would SKIP on a draft, and skipped counts as passed', () => {
+  mentions(problemsOf(broken('    if: ${{ always() }}\n', `    if: \${{ always() && ${DRAFT_CLAUSE} }}\n`)), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('    if: ${{ always() }}\n', `    if: \${{ ${DRAFT_CLAUSE} }}\n`)), /must be `if: \$\{\{ always\(\) \}\}`/);
+});
+
+test('🚨 a gate that is not told the PR is a draft is caught', () => {
+  mentions(problemsOf(broken(/ {10}PR_DRAFT: \$\{\{ github\.event\.pull_request\.draft == true \}\}\n/, '')), /must hand the script `PR_DRAFT:/);
+});
+
+test('the draft clause is the ONLY job-level `if:` a gated job may carry', () => {
+  assert.ok(CI.includes(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`), 'typecheck skips drafts');
+  mentions(problemsOf(broken(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`, '    name: typecheck\n    if: ${{ github.event.pull_request.draft == false }}\n')), /"typecheck" has a job-level `if:`/);
 });
 
 test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked ready would keep only skipped checks', () => {

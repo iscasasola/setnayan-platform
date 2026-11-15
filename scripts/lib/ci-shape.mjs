@@ -24,8 +24,14 @@
  * `skipped`, a missing result, an empty list and unreadable JSON are all red.
  * `skipped` is the one that matters: it is what a mis-edited `if:` or a failed
  * upstream job produces, and GitHub itself treats a skipped check as passed.
+ *
+ * 📝 `prDraft` is `${{ github.event.pull_request.draft == true }}` (env PR_DRAFT). A draft PR is RED, whatever its
+ * jobs did: its heavy jobs skip on a draft (DRAFT_CLAUSE), and a red required check is the fence that keeps
+ * auto-merge — armed on new PRs — from merging it. Marking the PR ready runs everything and this line goes away.
  */
-export function gateVerdict(needsJson) {
+export const DRAFT_PR_PROBLEM = 'Draft PR: checks not run. Mark ready to test.';
+export function gateVerdict(needsJson, prDraft) {
+  if (prDraft === 'true') return { ok: false, rows: [], problems: [DRAFT_PR_PROBLEM] };
   const problems = [];
   let needs;
   try {
@@ -71,11 +77,12 @@ export const REQUIRED_CONTEXTS = [
 export const GATE_NAME = 'typecheck + lint';
 
 /**
- * 📝 DRAFT PRs SKIP CI (owner, 16 Nov 2026 — runners are spent only on PRs that are ready). The ONE job-level `if:` a
- * gated job may carry, and the one addition the gate may carry beside `always()`. It is safe for exactly two reasons,
- * and rule (g) holds both: a draft cannot be merged, so its skipped checks can never let anything in; and a workflow
- * that uses it must list `ready_for_review` in its `pull_request` types, so marking a PR ready RUNS every job —
- * without that, a PR made ready would carry only the draft's skipped checks, which GitHub counts as passed.
+ * 📝 DRAFT PRs SKIP THE HEAVY JOBS (owner, 16 Nov 2026 — runners are spent on PRs that are ready). The ONE job-level
+ * `if:` a gated job may carry. Three rules keep it from opening a hole, because GitHub counts a skipped check as passed:
+ *   · the GATE never carries it (rule b: exactly `always()`), and it is RED on a draft (PR_DRAFT → gateVerdict), so
+ *     a draft can never merge — not by auto-merge, not by anyone;
+ *   · the gate is handed PR_DRAFT (rule h) — without it a draft's skipped jobs would be its only signal;
+ *   · a workflow that uses it lists `ready_for_review` (rule g), so marking a PR ready RUNS every job.
  * On `push` and `workflow_dispatch` there is no pull request, `draft` is null, and `null != true` — every job runs.
  */
 export const DRAFT_CLAUSE = 'github.event.pull_request.draft != true';
@@ -180,7 +187,7 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   const gate = gates[0];
   if (!gate) return [...problems, `no job in ci.yml is named "${GATE_NAME}"`];
   if (gate.needs.length === 0) problems.push(`"${GATE_NAME}" needs no jobs — it would pass while standing for nothing`);
-  if (gate.if !== '${{ always() }}' && gate.if !== `\${{ always() && ${DRAFT_CLAUSE} }}`) {
+  if (!/^\$\{\{\s*always\(\)\s*\}\}$/.test(gate.if ?? '')) {
     problems.push(`"${GATE_NAME}" must be \`if: \${{ always() }}\` — without it a failed dependency SKIPS the gate, and a skipped required check counts as passed`);
   }
   const gateRuns = gate.steps.flatMap(runLines);
@@ -220,6 +227,11 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     if (!pr || missing.length) {
       problems.push(`${file}: its jobs skip draft PRs, so its \`pull_request\` trigger must list \`types: [${PR_TYPES_NEEDED.join(', ')}]\` — missing ${missing.join(', ') || 'the trigger'}. Without \`ready_for_review\` a PR marked ready keeps only the draft's SKIPPED checks, which GitHub counts as passed.`);
     }
+  }
+
+  /* h · the gate is told when the PR is a draft — so a draft is red, never green-by-skipping */
+  if (!/PR_DRAFT:\s*\$\{\{\s*github\.event\.pull_request\.draft == true\s*\}\}/.test(gate.body)) {
+    problems.push(`"${GATE_NAME}" must hand the script \`PR_DRAFT: \${{ github.event.pull_request.draft == true }}\` — on a draft the heavy jobs are skipped, and without it the gate cannot say the PR is a draft and stay red`);
   }
 
   /* f · shards: the whole list, never cancelled early, exit code kept */

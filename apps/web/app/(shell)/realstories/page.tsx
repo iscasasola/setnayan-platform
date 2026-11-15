@@ -18,6 +18,7 @@ import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { publishedBlogArticles } from '@/lib/blog';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { actionButtonClass } from '@/components/action-button-class';
 
 
 // /realstories — THE single public stories hub. ONE SHELF, THREE VOICES
@@ -421,7 +422,7 @@ export default async function RealStoriesIndexPage() {
           />
         )}
 
-        <div className="mt-16 rounded-3xl border border-ink/10 bg-white/60 p-7 text-center sm:p-10">
+        <div className="mt-16 rounded-3xl p-7 text-center sm:p-10">
           <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
             Your story could be the next one here.
           </h2>
@@ -433,13 +434,13 @@ export default async function RealStoriesIndexPage() {
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               href="/signup"
-              className="button-primary inline-flex h-11 items-center justify-center px-6 text-sm font-semibold"
+              className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm font-semibold !h-11' })}
             >
               Start planning · free
             </Link>
             <Link
               href="/?browse=1"
-              className="inline-flex h-11 items-center justify-center rounded-md border border-ink/15 px-6 text-sm font-medium text-ink hover:bg-ink/5"
+              className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
             >
               Browse suppliers
             </Link>

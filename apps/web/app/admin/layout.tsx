@@ -362,7 +362,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {urgency.overdue > 0 ? (
         <Link
           href="/admin/work"
-          className="fd-urgency relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          className="fd-urgency sn-hit relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity hover:opacity-90"
           aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />

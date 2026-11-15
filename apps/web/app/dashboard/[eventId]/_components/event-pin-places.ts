@@ -45,6 +45,9 @@ export const EVENT_HELD_PAGE_WORDS: Readonly<Record<string, string>> = {
   // The page's own section heading — not "Galleries" (owner 2026-10-23: no "gallery" word in the UI), and not its
   // masthead "Memories", which the Memories row's own page already carries in the same ▾.
   galleries: 'More from your day',
+  // The page's own masthead / route word (lib/route-meta.ts).
+  sponsors: 'Sponsors',
+  manpower: 'Manpower',
 };
 
 /**

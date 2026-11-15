@@ -41,7 +41,8 @@ function walk(dir: string, out: string[] = []): string[] {
     if (name === 'node_modules' || name === '.next') continue;
     const full = path.join(dir, name);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (/\.(ts|tsx|mjs|js)$/.test(name) && !/\.test\.(ts|tsx|mjs)$/.test(name)) out.push(full);
+    // `.test.` is no page; `.lab.` pages exist in dev only (next.config `pageExtensions` drops them in production).
+    else if (/\.(ts|tsx|mjs|js)$/.test(name) && !/\.(test|lab)\.(ts|tsx|mjs)$/.test(name)) out.push(full);
   }
   return out;
 }

@@ -4,8 +4,11 @@
  * VERBATIM):
  *
  *   title  "You earned {Tier} {Badge}, {Shop}!"
- *   body   "Every family you served got you here. Thank you for making their day. Your {reward} is waiting — tap to
- *           claim it."
+ *   body   "Every family you served got you here. Thank you for making their day. Your {reward} is in your gifts."
+ *
+ * 🎟 Since 15 Nov the reward is CLAIMED AUTOMATICALLY (e5ec685d pick 2, superseding "tap to claim"), so the body says
+ * where it already is, and the notice opens TODAY — where the award plays — never Shop › Promote. Its button is
+ * "See it" (`BADGE_EARNED_CTA`).
  *
  * A once-badge (Verified, a first) and a monthly award have no tier: the title drops the {Tier} word. A shop with no
  * name drops ", {Shop}". ONE notice per sweep — the most valuable of what it paid (`pickBadgeToTell`) — so a shop
@@ -18,6 +21,12 @@ import type { RewardBadge } from '@/lib/badge-rewards';
 
 /** The badge's own name in the notice ("Gold Reviews", "Ruby Trusted by"). */
 export const BADGE_EARNED_NAME: Readonly<Record<RewardBadge, string>> = {
+  // ✅ The five shop badges — their names exactly (owner 15 Nov, a33fd894 + 068c8ed4).
+  completed_bookings: 'Completed bookings',
+  five_star_reviews: 'Five-star reviews',
+  gifts_given: 'Gifts given',
+  trusted_by: 'Trusted by',
+  invites: 'Invites',
   verified: 'SETNAYAN Verified',
   first_booking: 'First booking',
   first_review: 'First review',
@@ -31,7 +40,6 @@ export const BADGE_EARNED_NAME: Readonly<Record<RewardBadge, string>> = {
   branches: 'Branches',
   service_cards: 'Service cards',
   inspiration: 'Inspiration box',
-  trusted_by: 'Trusted by',
   award: 'Monthly award',
 };
 
@@ -47,8 +55,11 @@ export type EarnedInput = {
   reward: string;
 };
 
-/** Where the notice opens: the shop's gifts, where the reward waits with "Tap to claim" (gift moment, 14 Nov). */
-export const BADGE_EARNED_HREF = '/vendor-dashboard/shop/promote#gifts';
+/** Where the notice opens: Today, where the award plays (e5ec685d) — never Shop › Promote. */
+export const BADGE_EARNED_HREF = '/vendor-dashboard';
+
+/** The notice's (and the email's) one button. */
+export const BADGE_EARNED_CTA = 'See it';
 
 export function badgeEarnedNotice(i: EarnedInput): { title: string; body: string } {
   const name = i.badge === 'award' ? (AWARD_NAME[i.key.split(':')[1] ?? ''] ?? BADGE_EARNED_NAME.award) : BADGE_EARNED_NAME[i.badge];
@@ -56,7 +67,7 @@ export function badgeEarnedNotice(i: EarnedInput): { title: string; body: string
   const shop = i.shopName?.trim();
   return {
     title: `You earned ${what}${shop ? `, ${shop}` : ''}!`,
-    body: `Every family you served got you here. Thank you for making their day. Your ${i.reward} is waiting — tap to claim it.`,
+    body: `Every family you served got you here. Thank you for making their day. Your ${i.reward} is in your gifts.`,
   };
 }
 

@@ -11,7 +11,7 @@ import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { composeBadgeSocialPost } from '@/lib/social/badge-post';
 import { rewardWords } from '@/lib/badge-rewards';
 import { grantOwedBadgeRewards, readBadgeRewardFacts, readRewardNames, type GrantSweep } from '@/lib/badge-rewards.server';
-import { BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell } from '@/lib/badge-earned';
+import { BADGE_EARNED_CTA, BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell } from '@/lib/badge-earned';
 
 /**
  * 🏅 FIRING WHEN EARNED (owner 2026-11-15, DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS": *"run the same
@@ -93,7 +93,7 @@ export async function tellBadgesJustEarned(admin: SupabaseClient, vendorProfileI
       title: words.title,
       body: words.body,
       relatedUrl: BADGE_EARNED_HREF,
-      email: { ctaLabel: 'Tap to claim' },
+      email: { ctaLabel: BADGE_EARNED_CTA },
     });
   } catch (e) {
     console.error('[badge-earned] notice failed', e);
@@ -111,7 +111,8 @@ async function shopsWithMovedCounts(admin: SupabaseClient, sinceIso: string): Pr
     admin
       .from('event_vendors')
       .select('linked_vendor_profile_id, marketplace_vendor_id')
-      .in('status', ['delivered', 'complete'])
+      // Completed bookings and gift points move at delivered/complete; Trusted by at a second booking (contracted+).
+      .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])
       .gte('updated_at', sinceIso)
       .limit(1000),
     admin.from('vendor_reviews').select('vendor_profile_id').gte('created_at', sinceIso).limit(1000),

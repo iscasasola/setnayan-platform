@@ -127,3 +127,42 @@ export function tierForStep(step: number): Tier | null {
 export function stepGlyph(step: number): string {
   return step >= 1000 && step % 1000 === 0 ? `${step / 1000}K` : String(step);
 }
+
+/** The seven tiers in order, Bronze first. */
+export const TIER_KEYS: readonly TierKey[] = ['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6', 'tier7'];
+
+/**
+ * 🏅 THE FIVE TIERED SHOP BADGES AND THEIR OWN STEPS — the only shop badges Setnayan has (owner 15 Nov, 4b8cc3a3 "the
+ * badges we created will be the only badges we have"; prototype badge-milestones_v86). Each badge keeps ITS OWN steps,
+ * Bronze → Black Diamond (correction to e6cd652e):
+ *   Completed bookings  5 · 25 · 50 · 100 · 250 · 500 · 1,000            (the calendar-steps row)
+ *   Five-star reviews   50 · 250 · 500 · 1,000 · 2,500 · 5,000 · 10,000  (approved with the prototype set)
+ *   Gifts given         150 · 750 · 1,500 · 3,000 · 5,000 · 10,000 · 20,000 gift points (bc148e4e — replaces 7,500 ·
+ *                       15,000 · 30,000)
+ *   Trusted by          1 · 5 · 10 · 25 · 50 · 100 · 250 clients who booked the shop a second time (50566f42)
+ *   Invites             1 · 5 · 10 · 25 · 50 · 100 · 250 suppliers the shop added who have a completed booking (219fb192)
+ * Lifetime counts — they never reset (3cbf12c1). Seals are yearly and card badges rolling 30 days, by their own rows.
+ * ⚠ NOT `MILESTONE_THRESHOLDS`: that ladder still sizes the service-card record's milestone medals and many readers.
+ */
+export type ShopBadgeKey = 'completed_bookings' | 'five_star_reviews' | 'gifts_given' | 'trusted_by' | 'invites';
+
+export const SHOP_BADGE_KEYS: readonly ShopBadgeKey[] = ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'];
+
+export const SHOP_BADGE_STEPS: Readonly<Record<ShopBadgeKey, readonly number[]>> = {
+  completed_bookings: [5, 25, 50, 100, 250, 500, 1000],
+  five_star_reviews: [50, 250, 500, 1000, 2500, 5000, 10000],
+  gifts_given: [150, 750, 1500, 3000, 5000, 10000, 20000],
+  trusted_by: [1, 5, 10, 25, 50, 100, 250],
+  invites: [1, 5, 10, 25, 50, 100, 250],
+};
+
+/** The highest tier a count has reached on one badge's own ladder; null below Bronze or for an unread count. */
+export function shopBadgeTier(badge: ShopBadgeKey, count: number | null | undefined): TierKey | null {
+  if (count == null || !Number.isFinite(count)) return null;
+  const steps = SHOP_BADGE_STEPS[badge];
+  let reached = -1;
+  steps.forEach((s, i) => {
+    if (count >= s) reached = i;
+  });
+  return reached < 0 ? null : TIER_KEYS[reached]!;
+}

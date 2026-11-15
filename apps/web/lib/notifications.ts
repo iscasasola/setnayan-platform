@@ -629,7 +629,12 @@ export type NotificationType =
   /** Owner 2026-11-15 (SUPPLIER BADGES, SEALS AND REWARDS): a badge was just earned — "You earned {Tier} {Badge},
      {Shop}!" (lib/badge-earned.ts), sent once per new grant by lib/badge-earned.server.ts. 📧 On EMAIL_ENABLED_TYPES:
      the owner's ruling names "notification/email". ⚠ ENUM value in its own migration (notification_type_badge_earned). */
-  | 'badge_earned';
+  | 'badge_earned'
+  /** Badge build J0 (owner-approved prototypes 15 Nov): a shop was given a SEAL (sender: J2) · one of its service cards
+     earned a CARD BADGE (sender: J3). In-app + push only — NOT on EMAIL_ENABLED_TYPES (the owner ruled email for
+     badge_earned only). ⚠ ENUM values in their own migration (notification_types_seal_and_card_badge). */
+  | 'seal_awarded'
+  | 'card_badge_earned';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -778,6 +783,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   account_suspended: 'Your account is on hold',
   account_unsuspended: 'Your account is active again',
   badge_earned: 'You earned a badge',
+  seal_awarded: 'You were given a seal',
+  card_badge_earned: 'A service card earned a badge',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -1039,6 +1046,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   account_unsuspended: 'bg-sky-100 text-sky-800',
   // A badge earned — the celebratory green the booked/paid moments wear.
   badge_earned: 'bg-success-200 text-success-900',
+  seal_awarded: 'bg-success-200 text-success-900',
+  card_badge_earned: 'bg-success-200 text-success-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1359,6 +1368,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   review_request: 'star',
   review_received: 'star',
   badge_earned: 'gift',
+  seal_awarded: 'gift',
+  card_badge_earned: 'gift',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',

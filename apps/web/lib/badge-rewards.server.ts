@@ -7,7 +7,6 @@ import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
 import { alwaysAllowedPack, type ShopGiftPack } from '@/lib/shop-gifts';
-import { countTrustedBy } from '@/lib/vendor-trusted-by';
 import { AWARD_LABELS, currentPeriodMonth, type SpotlightAwardType } from '@/lib/spotlight-awards';
 import type { ShopBadgeFacts } from '@/lib/shop-badges';
 import {
@@ -15,6 +14,7 @@ import {
   FALLBACK_REWARD_NAMES,
   GRANTABLE_KINDS,
   PAPIC_PACK_CODE,
+  notYetPaid,
   rewardsOwed,
   type BadgeAward,
   type BadgeReward,
@@ -65,7 +65,7 @@ export async function readBadgeRewardFacts(
   /** The page's badge facts — or the promise of them: this function's own reads start at once, beside that read. */
   badgeIn: BadgeIn | PromiseLike<BadgeIn>,
 ): Promise<BadgeRewardFacts> {
-  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, trustedBy] = await Promise.all([
+  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, giftPoints] = await Promise.all([
     badgeIn,
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
@@ -142,12 +142,13 @@ export async function readBadgeRewardFacts(
           periodMonth: String(a.period_month),
         }));
       }),
-    // 🔁 Booked Loop (THE ONE BUILD spec §9 #11): C2's counter, on the admin client (service_role only). null = unread.
+    // 🛡 Trusted by (owner 15 Nov, 50566f42): clients who booked the shop a second time — C2's `shop_booked_loop_count`,
+    // which the ruling names as exactly this count. Admin client (service_role only). null = unread.
     readShopBookedLoopCount(admin, vendorProfileId),
     // ⭐ 5★ reviews under the trusted-review rule (owner 2026-11-15) — `shop_trusted_five_star_count`. null = unread.
     readFiveStarCount(admin, vendorProfileId),
-    // 🤝 Suppliers who recommend the shop (owner 2026-11-15) — accepted, active partnerships. null = unread.
-    countTrustedBy(admin, vendorProfileId),
+    // 🎁 Gifts given (owner 15 Nov): gift points for gifts given on completed events — `shop_gift_points`. null = unread.
+    readGiftPoints(admin, vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -162,8 +163,22 @@ export async function readBadgeRewardFacts(
     awards,
     bookedLoops,
     fiveStarReviews,
-    trustedBy,
+    trustedBy: bookedLoops,
+    giftPoints,
+    // 🤝 Invites: no counter exists yet (nothing records one supplier adding another) — "Not counted yet".
+    invites: null,
   };
+}
+
+/** The shop's gift points (`shop_gift_points`); null on a refused read — never 0. */
+export async function readGiftPoints(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  const { data, error } = await admin.rpc('shop_gift_points', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    logQueryError('badgeRewards.giftPoints', error, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const n = typeof data === 'number' ? data : Number(data);
+  return data !== null && Number.isFinite(n) && n >= 0 ? Math.trunc(n) : null;
 }
 
 /** The shop's 5★ reviews by the public stars' own rule; null on a refused read (never 0). */
@@ -252,9 +267,13 @@ async function grantOwedGiftRewards(
       return out;
     }
     const have = new Set(((data ?? []) as Array<{ reward_key: string }>).map((r) => r.reward_key));
-    const missing = owed.filter((o) => !have.has(o.key));
+    // 🔑 Never a key twice, and never a TIER twice — an old payment for the same tier blocks it (3cbf12c1).
+    const missing = notYetPaid(owed, have);
     out.already = owed.length - missing.length;
-    if (missing.length === 0) return out;
+    if (missing.length === 0) {
+      await autoClaimBadgeRewards(admin, vendorProfileId);
+      return out;
+    }
 
     // Papic credits per pack, READ now from the catalogue — the smallest pack, or the pack the reward names by code.
     const packs = missing.some((m) => m.reward.kind === 'papic') ? await fetchShopGiftPacks(admin) : null;
@@ -295,11 +314,28 @@ async function grantOwedGiftRewards(
       } else if (status === 'already') out.already += 1;
       else out.failed += 1;
     }
+    // 🎟 A badge reward is claimed AUTOMATICALLY (owner 15 Nov, e5ec685d pick 2) — every reward of the shop, through
+    // the same once-only claim key, so it never counts twice.
+    await autoClaimBadgeRewards(admin, vendorProfileId);
   } catch (e) {
     console.error('[badge-rewards] grant sweep failed', e);
     out.failed += 1;
   }
   return out;
+}
+
+/**
+ * Claims every unclaimed badge reward of the shop (`shop_badge_rewards_auto_claim`) — the same `gift_moment_claims`
+ * key a press would use, so a repeat is a no-op. Never throws; answers how many it claimed (null when refused).
+ */
+export async function autoClaimBadgeRewards(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  const { data, error } = await admin.rpc('shop_badge_rewards_auto_claim', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    logQueryError('badgeRewards.autoClaim', error, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const n = Number(data);
+  return Number.isFinite(n) ? n : null;
 }
 
 type RewardRow = {

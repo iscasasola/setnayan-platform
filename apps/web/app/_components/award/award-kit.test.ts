@@ -487,7 +487,11 @@ test('10 · the No. 1 seal option draws, carries the year it is given, and stays
 
 test('17 · ONE ✕ for every full screen: only award-close draws it; top LEFT, 44px, dark glass, ivory ring', () => {
   const draws = KIT.filter((f) => /from 'lucide-react'/.test(readFileSync(join(DIR, f), 'utf8')) && /\bX\b[,} ]/.test(readFileSync(join(DIR, f), 'utf8').match(/import \{([^}]*)\} from 'lucide-react'/)?.[1] ?? ''));
-  assert.deepEqual(draws, ['award-close.tsx'], 'no screen imports its own ✕');
+  // A POP-UP is not a full screen: v86's rules pop-up (#cbDlg .vrp) draws its own small ✕ top right, like the Verified
+  // pop-up it copies. The one-✕ ruling is for full screens; this is the only pop-up in the kit, named so a second is seen.
+  const POPUPS = ['card-badge-rules.tsx'];
+  assert.deepEqual(draws.filter((f) => !POPUPS.includes(f)), ['award-close.tsx'], 'no full screen imports its own ✕');
+  assert.match(stripComments(readFileSync(join(DIR, 'card-badge-congrats.tsx'), 'utf8')), /<AwardClose\b/, 'the card congratulations full screen uses the shared ✕');
   for (const f of ['badge-fullscreen.tsx', 'seal-plaque.tsx', 'verified-fullscreen.tsx']) {
     assert.match(stripComments(readFileSync(join(DIR, f), 'utf8')), /<AwardClose\b/, `${f} uses the shared ✕`);
   }

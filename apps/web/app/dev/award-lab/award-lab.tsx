@@ -10,6 +10,8 @@ import {
   type StoryInput,
   type TicketKind,
 } from '@/app/_components/award';
+import { CardBadgeCongrats } from '@/app/_components/award/card-badge-congrats';
+import { CardBadgeRules } from '@/app/_components/award/card-badge-rules';
 import { TIERS } from '@/lib/badge-tiers';
 
 /** A plain sample badge and seal — drawn here in the current colour, so the lab needs no real shop's art and no colour of its own. */
@@ -32,8 +34,17 @@ const FAMILIES = [
 ] as const;
 type Family = (typeof FAMILIES)[number][0];
 
+/** A sample card badge for the service-card screens — a plain star in the current colour; the real badges are J3's data. */
+const SAMPLE_CARD_ICON = (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21l2-7.5L2 9h7z" />
+  </svg>
+);
+const SAMPLE_CARD = 'Full-day photo & video';
+const SAMPLE_CARD_COLOUR = 'darkgoldenrod';
+
 export function AwardLab() {
-  const [open, setOpen] = useState<null | 'badge' | 'seal'>(null);
+  const [open, setOpen] = useState<null | 'badge' | 'seal' | 'top' | 'congrats' | 'rules'>(null);
   const [story, setStory] = useState<StoryInput | null>(null);
   const [family, setFamily] = useState<Family | undefined>(undefined);
   const [tierIx, setTierIx] = useState(3);
@@ -63,7 +74,21 @@ export function AwardLab() {
         <button type="button" className="fd-btn-quiet" onClick={() => setOpen('seal')} data-award-lab-open="seal">
           Open a seal
         </button>
+        <button type="button" className="fd-btn-quiet" onClick={() => setOpen('top')} data-award-lab-open="top">
+          Open the top seal
+        </button>
       </div>
+
+      <section className="space-y-2" aria-label="Service-card badges">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="fd-btn-quiet" onClick={() => setOpen('congrats')} data-award-lab-open="congrats">
+            Card congratulations
+          </button>
+          <button type="button" className="fd-btn-quiet" onClick={() => setOpen('rules')} data-award-lab-open="rules">
+            Card badge rules
+          </button>
+        </div>
+      </section>
 
       <section className="space-y-2" aria-label="Tap shows">
         <label className="block text-sm">
@@ -94,6 +119,27 @@ export function AwardLab() {
         </div>
       </section>
 
+      {open === 'congrats' ? (
+        <CardBadgeCongrats
+          cardName={SAMPLE_CARD}
+          badgeName="Sample badge"
+          tag="SAMPLE"
+          rule="A sample rule, filled in by the card-badge build"
+          color={SAMPLE_CARD_COLOUR}
+          icon={SAMPLE_CARD_ICON}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
+      {open === 'rules' ? (
+        <CardBadgeRules
+          cardLine={`${SAMPLE_CARD} · ${SHOP}`}
+          badges={[
+            { key: 'a', name: 'Sample badge', held: `Held since ${AWARDED}`, rule: 'A sample rule, filled in by the card-badge build.', color: SAMPLE_CARD_COLOUR, icon: SAMPLE_CARD_ICON },
+            { key: 'b', name: 'Second sample', held: `Held since ${AWARDED}`, rule: 'Another sample rule.', color: SAMPLE_CARD_COLOUR, icon: SAMPLE_CARD_ICON },
+          ]}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
       {open === 'badge' ? (
         <BadgeFullscreen
           art={SAMPLE_BADGE}
@@ -118,6 +164,20 @@ export function AwardLab() {
           shopName={SHOP}
           awardedOn={AWARDED}
           onShare={(svg) => setStory({ svg, word: 'SEAL', tone: toneForTier(3), shopName: SHOP, line1: 'Setnayan Verified', line2: `Awarded on ${AWARDED}` })}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
+
+      {open === 'top' ? (
+        // the No. 1 plaque: no `seal` handed in, so the kit fetches its art (import()) on this tap, for this year
+        <SealPlaque
+          variant="no1"
+          year={2026}
+          eyebrow="Setnayan · 2026"
+          title="No. 1 Supplier of the Year"
+          shopName={SHOP}
+          awardedOn={AWARDED}
+          onShare={(svg) => setStory({ svg, word: 'SEAL', tone: toneForTier(3), shopName: SHOP, line1: 'No. 1 Supplier of the Year', line2: `Awarded on ${AWARDED}`, reveal: true })}
           onClose={() => setOpen(null)}
         />
       ) : null}

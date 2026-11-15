@@ -6,10 +6,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments as strip } from '@/lib/strip-comments';
 
 const DIR = __dirname;
 const read = (f: string) => readFileSync(join(DIR, f), 'utf8');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 test('congratulations: v86 words verbatim, the shared ✕, tap anywhere closes', () => {
   const src = read('card-badge-congrats.tsx');

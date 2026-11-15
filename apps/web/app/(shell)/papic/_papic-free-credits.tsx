@@ -54,7 +54,7 @@ export function PapicFreeCreditBadge({ read }: { read: PapicFreeGrantRead }) {
   const promise = papicFreeCreditPromise(read);
   if (!promise) return null;
   return (
-    <p className="absolute bottom-3 left-3 rounded-lg bg-black/75 px-2.5 py-1.5 font-mono text-xs text-[var(--m-paper)] backdrop-blur">
+    <p className="absolute bottom-3 left-3 rounded-lg bg-black/75 px-2.5 py-1.5 tabular-nums text-xs text-[var(--m-paper)] backdrop-blur">
       <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--m-mulberry)] align-middle" />
       {promise.size}
     </p>
@@ -67,7 +67,7 @@ export function PapicFreeCreditFact({ read }: { read: PapicFreeGrantRead }) {
   if (!promise) return null;
   return (
     <Fact>
-      <span className="font-mono tabular-nums text-[var(--m-ink)]">{promise.count}</span>{' '}
+      <span className="tabular-nums text-[var(--m-ink)]">{promise.count}</span>{' '}
       {promise.rest}
     </Fact>
   );
@@ -79,7 +79,7 @@ export function PapicFreeCreditClosing({ read }: { read: PapicFreeGrantRead }) {
   if (!promise) return null;
   return (
     <p className="font-serif text-2xl leading-snug tracking-tight text-[var(--m-ink)] sm:text-3xl">
-      <span className="font-mono tabular-nums">{promise.count}</span> {promise.rest}.
+      <span className="tabular-nums">{promise.count}</span> {promise.rest}.
     </p>
   );
 }

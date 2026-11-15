@@ -28,10 +28,17 @@
  * refuses going online with EVERY missing item and going offline while a booking is open) instead of `action`, and no
  * `share` — its Share is drawn WAITING until a bundle can be posted into a client's chat. Same row, same switch.
  *
+ * ⚡ THE SWITCH FLIPS THE MOMENT IT IS PRESSED (owner 15 Nov: *"pressing online offline takes too long to update"*). It
+ * draws `shown` — the state it is going to (`pendingTo`) while the save is on its way, the server's `isActive` otherwise
+ * — with one line under the row saying it is saving ("Going online…"). Every server gate still runs; a REFUSAL flips it
+ * straight back (`onRefused`) and prints under the row as before; a landed save hands back to `isActive`, so the switch
+ * never keeps a state the server did not save. A bundle flips its own `live` the same way (`shop-bundle-card.tsx`).
+ *
+ * 🔒 app/vendor-dashboard/services/the-online-switch-flips-at-once.test.ts
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
  * 🔒 app/vendor-dashboard/shop/bundle-cards-wear-the-card-row.test.ts
  */
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Pencil, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StayForm, type StaySave } from '@/app/_components/stay-form';
@@ -66,6 +73,14 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
   const formId = `card-online-${uid}`;
   const shareTitleId = `card-share-${uid}`;
   const [sharing, setSharing] = useState(false);
+  /* ⚡ Where the switch is going while its save is on its way (null = nothing pending; the server's `isActive` rules). */
+  const [pendingTo, setPendingTo] = useState<boolean | null>(null);
+  // The page re-rendered with the saved state — the press is done.
+  useEffect(() => {
+    if (pendingTo !== null && isActive === pendingTo) setPendingTo(null);
+  }, [isActive, pendingTo]);
+  const shown = pendingTo ?? isActive;
+  const saving = pendingTo !== null || toggling;
 
   return (
     <div data-card-menu={vendorServiceId}>
@@ -90,18 +105,21 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             type="submit"
             form={formId}
             role="switch"
-            aria-checked={isActive}
-            aria-label={isActive ? `${cardName} is online — turn it offline` : `${cardName} is offline — turn it online`}
+            aria-checked={shown}
+            aria-busy={saving || undefined}
+            aria-label={shown ? `${cardName} is online — turn it offline` : `${cardName} is offline — turn it online`}
             className={SWITCH_BUTTON}
             disabled={toggling}
-            data-card-online={isActive ? '1' : '0'}
+            onClick={action && pendingTo === null ? () => setPendingTo(!isActive) : undefined}
+            data-card-online={shown ? '1' : '0'}
+            data-card-online-saving={saving ? '1' : undefined}
           >
-            <SwitchTrack on={isActive} words={{ on: 'Online', off: 'Offline' }} />
+            <SwitchTrack on={shown} words={{ on: 'Online', off: 'Offline' }} />
           </button>
         )}
       </div>
       {held ? null : action ? (
-        <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} className="hidden">
+        <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} onSaved={() => setPendingTo(null)} onRefused={() => setPendingTo(null)} className="hidden">
           <input type="hidden" name="vendor_service_id" value={vendorServiceId} />
           <input type="hidden" name="is_active" value={isActive ? 'false' : 'true'} />
         </StayForm>
@@ -114,6 +132,11 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             onToggle();
           }}
         />
+      ) : null}
+      {!held && saving ? (
+        <p role="status" className="text-[12.5px] leading-snug text-ink/70" data-card-online-saving-line="">
+          {shown ? 'Going online…' : 'Going offline…'}
+        </p>
       ) : null}
       {share ? (
         <ServiceCardShareSheet

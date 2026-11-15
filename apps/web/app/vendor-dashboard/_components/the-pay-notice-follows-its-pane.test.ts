@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '../../../lib/strip-comments';
-import { BY_ITS_OWN_WIDTH } from '../../_components/notices/inline-notice';
+import { BY_ITS_OWN_WIDTH } from '../../_components/notices/notice-styles';
 
 const NUDGE = stripComments(readFileSync(join(__dirname, 'payout-method-nudge.tsx'), 'utf8'));
 

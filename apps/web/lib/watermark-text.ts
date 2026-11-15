@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 /**
  * THE ONE STRING BOTH MARKERS MARK WITH (MB27).
  *
@@ -57,5 +58,5 @@ export const MARK_CAPS = 'SETNAYAN';
 export const MARK_CAPS_VERIFIED = 'SETNAYAN VERIFIED';
 export const MARK_ADDRESS = 'setnayan.com';
 export function markVerifiedAddress(slug: string): string {
-  return `${MARK_ADDRESS}/v/${slug}`;
+  return `${MARK_ADDRESS}${shopPath(slug)}`;
 }

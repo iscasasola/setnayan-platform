@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import { papicCardHref } from '@/lib/papic-home-href';
 
 /**
@@ -495,7 +496,7 @@ export const routes = {
     howItWorks: () => `/tl/features`,
   },
   v: {
-    detail: (slug: string) => `/v/${slug}`,
+    detail: (slug: string) => `${shopPath(slug)}`,
   },
   vendor: {
     claim: {

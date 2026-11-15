@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 
 import { realNameOrNull } from '@/lib/no-name';
@@ -279,7 +280,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
       id: v.vendor_profile_id,
       name: v.business_name,
       logoUrl: logoUrls[i] ?? null,
-      publicHref: v.business_slug ? `/v/${encodeURIComponent(v.business_slug)}` : null,
+      publicHref: v.business_slug ? `${shopPath(encodeURIComponent(v.business_slug))}` : null,
       owned: v.owned,
     })),
   };

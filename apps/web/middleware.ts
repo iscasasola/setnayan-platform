@@ -15,10 +15,12 @@ import {
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 import { userNestingRewritePath } from '@/lib/u-nesting';
+import { legacyShopInviteRedirect, legacyShopRedirect, shopSubPageRewrite } from '@/lib/shop-address';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
-import { hubViewRewritePath } from '@/lib/hub-view-route';
+import { bareWordIsNoEvent, hubViewRewritePath } from '@/lib/hub-view-route';
 import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
 import { SHOP_VIEW_SEGMENT, isShopViewPath, shopRequestShape } from '@/lib/shop-view';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -348,6 +350,32 @@ async function middlewareCore(request: NextRequest) {
     }
   }
 
+  // 🔗 THE ADDRESS MOVE — SHOPS (owner 2026-11-15 · specs DECISION_LOG d7910b5d · lib/shop-address.ts).
+  // A shop lives at `/{shop}`. The old `/v/{shop}` (and its dates / booth / review / guest-review pages) answer with a
+  // 307 for now — the map's first step; a 308 comes later, once the move has settled. Reads only: a POST (a Server
+  // Action posted from an old page) must never be redirected. The internal cached copy (`/v/{shop}/cached`) and any
+  // other `/v/` sub-page are left alone. The subdomain and custom-domain rewrites above target `/v/` internally and
+  // never reach this line (a rewrite does not re-run the middleware).
+  if ((request.method === 'GET' || request.method === 'HEAD') && pathname.startsWith('/v/')) {
+    const bare = legacyShopRedirect(pathname);
+    if (bare) return NextResponse.redirect(new URL(`${bare}${search}`, request.url), 307);
+  }
+  // `/vendor-invite/{shop}` → `/{shop}/invite`, 308 (permanent): it is printed on the shop's QR codes.
+  if (pathname.startsWith('/vendor-invite/')) {
+    const invite = legacyShopInviteRedirect(pathname);
+    if (invite) return NextResponse.redirect(new URL(`${invite}${search}`, request.url), 308);
+  }
+  // `/{shop}/dates` (and booth / review / guest-review) render from the route files at `/v/{shop}/…`. No event has a
+  // sub-page by these names, and a word that is not a shop 404s there exactly as `/v/{word}/dates` always did.
+  {
+    const sub = shopSubPageRewrite(pathname, (w) => RESERVED_SLUGS.has(w));
+    if (sub) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = sub;
+      return NextResponse.rewrite(rewrite);
+    }
+  }
+
   // /vendors/* → /explore rename (permanent · owner directive 2026-06-14). The
   // public marketplace moved from /vendors/* to /explore; redirect the old
   // marketplace SUBPATHS (with query strings) so bookmarks, shared links, and
@@ -482,6 +510,28 @@ async function middlewareCore(request: NextRequest) {
     rewrite.pathname = `/v/${shopView.slug}/${SHOP_VIEW_SEGMENT}`;
     for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
     return NextResponse.rewrite(rewrite);
+  }
+
+  // 🔗 THE ADDRESS MOVE (owner 2026-11-15 · lib/shop-address.ts) — a shop lives at `/{shop}` now, so a stranger's
+  // bare shop address is answered from the same cached copy — but ONLY when the word is clearly NOT an event (the
+  // stamp read just above came back clean and empty). An event's word never takes this branch; an uncertain read
+  // takes the live render, which decides event / forward / shop as it always has.
+  if (!envFlagEnabled(process.env.SHOP_CACHE_DISABLED) && /^\/[a-z0-9][a-z0-9-]{0,62}\/?$/i.test(pathname)) {
+    const bareShop = shopRequestShape({
+      method: request.method,
+      pathname: `/v${pathname}`,
+      searchParams: request.nextUrl.searchParams,
+      cookieNames: request.cookies.getAll().map((c) => c.name),
+      clientTypeCookie: request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value ?? null,
+      userAgent: request.headers.get('user-agent'),
+      isServerAction: request.headers.has('next-action'),
+    });
+    if (bareShop && (await bareWordIsNoEvent(request))) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = `/v/${bareShop.slug}/${SHOP_VIEW_SEGMENT}`;
+      for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
+      return NextResponse.rewrite(rewrite);
+    }
   }
 
   // The path the person asked for, for layouts that must send them to sign in

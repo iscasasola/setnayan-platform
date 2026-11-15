@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import type { ShowcaseVendorCredit } from '@/lib/showcase-db';
 
@@ -29,7 +30,7 @@ export function VendorCreditChip({
 }) {
   return (
     <Link
-      href={srcTag ? `/v/${vendor.slug}?src=${encodeURIComponent(srcTag)}` : `/v/${vendor.slug}`}
+      href={srcTag ? `${shopPath(vendor.slug)}?src=${encodeURIComponent(srcTag)}` : `${shopPath(vendor.slug)}`}
       className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-white hover:text-ink"
     >
       {vendor.logoUrl ? (

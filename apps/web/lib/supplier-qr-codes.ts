@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { VendorDay } from '@/lib/vendor-day-picker';
 
 /**
@@ -74,7 +75,7 @@ export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = 
 
 /** The page "My page" opens. `origin` has no trailing slash (`siteOrigin()`). */
 export function myPagePath(slug: string): string {
-  return `/v/${encodeURIComponent(slug)}`;
+  return `${shopPath(encodeURIComponent(slug))}`;
 }
 export function myPageUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${myPagePath(slug)}`;

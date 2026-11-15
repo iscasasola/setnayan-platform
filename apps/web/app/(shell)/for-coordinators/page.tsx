@@ -35,6 +35,7 @@
  * runs full-bleed (`DOORWAY_BLEED_PATHS`). Look: `_for-coordinators.css`, the prototype's CSS on the app's tokens.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import type { ReactElement } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -1160,7 +1161,7 @@ export default async function ForCoordinatorsPage() {
               </Link>
             </div>
             <div>
-              <Link className="fc-realshop" href={`/v/${SAMPLE_SHOP.slug}`}>
+              <Link className="fc-realshop" href={`${shopPath(SAMPLE_SHOP.slug)}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a 44 px SVG mark; next/image adds nothing */}
                 <img className="fc-mark" src={`${SHOT6}/sw-logo-round-dark.svg`} alt="" width={44} height={44} />
                 <span className="fc-t">

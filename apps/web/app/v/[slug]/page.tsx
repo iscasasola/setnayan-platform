@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
@@ -960,8 +961,19 @@ export async function renderVendorBySlug({
   // Only on the genuine miss (`!vendor`) — a hidden or archived shop must keep
   // 404ing rather than disclose that it exists, so the visibility check below is
   // deliberately NOT part of this branch.
+  //
+  // 🔗 EVERY KIND OF RENAMED WORD, since the address move (owner 2026-11-15): a shop lives at the bare `/{shop}` now,
+  // and the middleware answers a stranger's bare word that is clearly NOT an event from this page's cached copy. A
+  // renamed event's or person's OLD word is exactly such a word (no event has it any more), so this page must forward
+  // it as the bare root's dispatcher always did (`app/[slug]/page.tsx`, `resolveRenamedPath(admin, slug)`) — or a
+  // printed save-the-date QR would 404 here. Same function, same rules (it refuses a word that is live elsewhere).
   if (!vendor) {
-    const movedTo = await resolveRenamedPath(createAdminClient(), slug, ['vendor']);
+    let movedTo: string | null = null;
+    try {
+      movedTo = await resolveRenamedPath(createAdminClient(), slug);
+    } catch {
+      // a failed forwarding read is still a 404 for a word that matches nothing, as at the bare root
+    }
     if (movedTo) redirect(movedTo);
   }
 
@@ -2254,7 +2266,7 @@ export async function renderVendorBySlug({
   // 📅 "THEIR REAL CALENDAR" — the peek in the calling card. Verified + bookable only (owner 13 Nov "date check only for
   // verified"), from the one read behind /v/[slug]/dates, so the two can never disagree. Anything but `ok` draws no
   // days: a failed read never paints a closed day open.
-  const checkDateHref = withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival);
+  const checkDateHref = withShopArrival(`${shopPath(vendor.business_slug ?? slug)}/dates`, shopArrival);
   let peekDays: PeekDay[] = [];
   if (cinematicHero && bookable) {
     const dates = await readCheckADate(vendor.business_slug ?? slug).catch(() => null);
@@ -2756,14 +2768,14 @@ export async function renderVendorBySlug({
                     never a date check or a booking (DECISION_LOG 2026-11-07). */}
                 {bookable ? (
                   <CheckADateLink
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {bookable && canShowBooth ? (
                   <Link
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/booth`, shopArrival)}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}/booth`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   >
                     Walk into my booth
@@ -3506,7 +3518,7 @@ export async function renderVendorBySlug({
           <CheckADateOverShop
             slug={vendor.business_slug ?? slug}
             logoUrl={logoDisplayUrl}
-            shopHref={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival)}
+            shopHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival)}
             search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
           />
         </Suspense>

@@ -5614,7 +5614,6 @@
         "archiveVendor",
         "demoteVendor",
         "grantVerificationBypass",
-        "liftFindLock",
         "markVendorContactConfirmed",
         "openApplicationDocument",
         "rejectApplication",

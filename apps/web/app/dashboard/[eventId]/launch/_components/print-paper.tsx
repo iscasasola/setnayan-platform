@@ -219,7 +219,7 @@ export function StudioChartBody({ chart }: { chart: StudioChartInput }) {
   return (
     <div data-print-piece="seating-chart" className="flex flex-col items-center gap-2">
       <PrintPreview src={at.preview} alt={`${chart.title} — ${spec.label}`} label="seating chart" aspect={spec.aspect} />
-      <p className="text-xs text-ink/60">
+      <p className="text-[13px] text-ink/70">
         {spec.label} · {spec.mm} · {chart.layouts.find((l) => l.key === pick.layout)?.label}
       </p>
     </div>

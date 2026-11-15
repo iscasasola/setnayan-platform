@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1885
+# ledger: 1886
 # tables: 504
-# columns: 6107
-# notnull: 3681
+# columns: 6108
+# notnull: 3682
 [ledger]
 20260512000000
 20260513000000
@@ -1896,6 +1896,7 @@
 20271346335702
 20271346561709
 20271347531019
+20271347719658
 20271348041863
 [columns]
 account_deletion_requests.admin_note
@@ -7356,6 +7357,7 @@ vendor_profiles.pending_tier_scheduled_at
 vendor_profiles.pending_tier_sku_code
 vendor_profiles.portfolio_photo_allowance
 vendor_profiles.portfolio_r2_keys
+vendor_profiles.portfolio_section_order
 vendor_profiles.presentation_pattern
 vendor_profiles.public_id
 vendor_profiles.public_visibility
@@ -11285,6 +11287,7 @@ vendor_profiles.microsite_featured_editorial_ids
 vendor_profiles.microsite_featured_service_ids
 vendor_profiles.microsite_sections
 vendor_profiles.portfolio_r2_keys
+vendor_profiles.portfolio_section_order
 vendor_profiles.public_id
 vendor_profiles.public_visibility
 vendor_profiles.registration_number_needs_review

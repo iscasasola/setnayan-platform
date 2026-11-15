@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { ActionButton } from '@/components/action-button';
 
@@ -92,14 +93,16 @@ export function VenueMatchCard({
 
   return (
     <section className="mt-5" data-venue-match-card>
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">
-        Weddings you’re a fit for (optional)
-      </h3>
-      <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">
+      <InfoTip
+        label="Weddings you’re a fit for (optional)"
+        labelAs="h3"
+        labelClassName="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
+        align="start"
+      >
         Couples searching for their kind of wedding see you first. Tick nothing and you
         show up for <strong className="font-semibold text-ink">every</strong> venue and ceremony —
         ticking is how you narrow, not how you appear.
-      </p>
+      </InfoTip>
 
       <CheckGroup
         legend="Venues you work"

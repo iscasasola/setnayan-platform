@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronDown, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Tag, Trash2, Upload } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Tag, Trash2, Upload, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
@@ -437,18 +437,18 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
             <span className="min-w-0 flex-1 text-[14px] font-medium text-ink">
               {picked.length ? `${formatCount(picked.length)} ${picked.length === 1 ? 'photo' : 'photos'}` : 'Pick photos'}
             </span>
-            <button type="button" onClick={stopSelecting} className="min-h-11 rounded-full bg-ink/[0.05] px-4 text-[14px] font-medium text-ink/75">
-              Cancel
-            </button>
-            <button
-              type="button"
+            <ActionButton tone="neutral" onClick={stopSelecting} icon={X} label="Cancel" />
+            <ActionButton
+              tone="brand"
+              filled
+              caret
               disabled={picked.length === 0}
               onClick={() => setTagSheet(true)}
-              className="inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-4 text-[14px] font-medium text-cream disabled:opacity-40"
+              icon={Tag}
+              label="Tag to inspiration"
+              aria-haspopup="dialog"
               data-files-select-tag=""
-            >
-              Tag to inspiration <ChevronDown className="h-4 w-4" aria-hidden />
-            </button>
+            />
           </div>
         </>
       ) : null}
@@ -898,9 +898,7 @@ function TagPicker({
             <span>{RIGHTS_WARRANTY_TEXT}</span>
           </label>
           <div className="flex gap-2">
-            <button type="button" onClick={close} className="min-h-11 rounded-full bg-ink/[0.05] px-4 text-[14px] font-medium text-ink/75">
-              Cancel
-            </button>
+            <ActionButton tone="neutral" onClick={close} icon={X} label="Cancel" />
             <ActionButton
               tone="brand"
               main

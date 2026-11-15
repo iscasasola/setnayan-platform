@@ -1,5 +1,6 @@
 import { Trophy, X, MessageSquareOff } from 'lucide-react';
 import type { VendorOutcomeRollup, OutcomeState } from '@/lib/inquiry-outcomes';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Won & Lost Reasons roll-up (Wave 6) — the vendor's own outcome breakdown,
@@ -101,10 +102,15 @@ export function InquiryOutcomesRollup({
         })}
       </div>
 
-      <p className="mt-3 text-[13px] leading-relaxed text-[color:var(--m-slate-2)]">
-        Self-reported by you. “Won” means the couple booked you — Setnayan
-        settles off-platform, so it’s your signal, not a verified payment.
-      </p>
+      <InfoTip
+        label="Self-reported by you."
+        labelAs="p"
+        className="mt-3"
+        labelClassName="text-[13px] text-[color:var(--m-slate-2)]"
+        align="start"
+      >
+        “Won” means the couple booked you — Setnayan settles off-platform, so it’s your signal, not a verified payment.
+      </InfoTip>
     </section>
   );
 }

@@ -258,7 +258,7 @@ export default function ThreeDPlanLandingPage() {
           Walk your reception before it’s built.
         </h1>
         <Reveal>
-          <figure className="relative mt-6 overflow-hidden rounded-2xl border border-[var(--m-line)]">
+          <figure className="relative mt-6 overflow-hidden rounded-2xl">
             <KenBurns
               src="/demo/maria-jose/reception.webp"
               alt="A Filipino wedding reception, laid and lit before the guests arrive"
@@ -289,7 +289,7 @@ export default function ThreeDPlanLandingPage() {
           surface — this section shows the parts it stands the room up from,
           each as a recording of the real app. */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="What the room is built from">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Nothing new to build
         </p>
         <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
@@ -309,7 +309,7 @@ export default function ThreeDPlanLandingPage() {
           Below the room on purpose: having just stood in it, the contrast is
           something they felt rather than something we claimed. */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="What 3D Plan gives beyond a printed seat plan">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.14em] text-[var(--m-orange-2)]">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Beyond a printed seat plan
         </p>
         <h2 className="mt-2 font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">
@@ -338,7 +338,7 @@ export default function ThreeDPlanLandingPage() {
         <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {STEPS.map((s, i) => (
             <Reveal key={s.n} delay={i * 90}>
-              <li className="pa3d-lift h-full overflow-hidden rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)]">
+              <li className="pa3d-lift h-full overflow-hidden rounded-2xl bg-[var(--m-paper)]">
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <Image
                     src={s.img}
@@ -349,7 +349,7 @@ export default function ThreeDPlanLandingPage() {
                   />
                 </div>
                 <div className="px-4 pb-5 pt-3.5">
-                  <span className="font-mono text-xs text-[var(--m-orange-2)]">{s.n}</span>
+                  <span className="tabular-nums text-xs text-[var(--m-orange-2)]">{s.n}</span>
                   <h3 className="mt-1 font-serif text-[1.05rem] text-[var(--m-ink)]">{s.t}</h3>
                   <p className="mt-1 text-[0.9rem] text-[var(--m-slate-2)]">{s.d}</p>
                 </div>
@@ -363,7 +363,7 @@ export default function ThreeDPlanLandingPage() {
           The half a static page cannot show. Picture-led, two lines. */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="What your guests get">
         <Reveal>
-          <figure className="relative overflow-hidden rounded-2xl border border-[var(--m-line)]">
+          <figure className="relative overflow-hidden rounded-2xl">
             <div className="relative aspect-[16/10]">
               <Image
                 src="/demo/maria-jose/toast.webp"
@@ -396,7 +396,7 @@ export default function ThreeDPlanLandingPage() {
             <details key={f.q} className="border-b border-[var(--m-line)]">
               <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 py-3.5 text-[0.98rem] font-semibold text-[var(--m-ink)] [&::-webkit-details-marker]:hidden">
                 {f.q}
-                <span aria-hidden className="flex-none font-mono text-[var(--m-orange-2)]">
+                <span aria-hidden className="flex-none tabular-nums text-[var(--m-orange-2)]">
                   +
                 </span>
               </summary>

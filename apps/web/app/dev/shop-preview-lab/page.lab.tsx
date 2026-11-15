@@ -24,6 +24,7 @@ import { shopBadges } from '@/lib/shop-badges';
 import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
 import { GrownOwnerLab } from './grown-owner-lab';
+import { publicBadgeView } from '@/lib/public-badges';
 import { PhotosByServiceLab } from './photos-by-service-lab';
 import { LAB_GROWN_CARD, LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
 import { LAB_COUPLE_EVENT_WORK } from '../card-albums-lab-fixture/fixture';
@@ -74,6 +75,16 @@ export default async function ShopPreviewLabPage({
     return (
       <main className="min-h-dvh bg-cream" data-lab-grown-owner="">
         <GrownOwnerLab card={LAB_GROWN_CARD} hidden={['photo:r2://lab/g2.jpg', 'event:Debut|Aug 2026|100–199 pax#1']} />
+      </main>
+    );
+  }
+  if (sp.view === 'card-badges') {
+    /* 🏅 J6 — the grown card as a COUPLE sees it, badges from the one adapter (lib/public-badges.ts) with the only fact
+       that has a source today: the shop is verified (&verified=0 — an unverified shop: no check, no medal). */
+    const view = publicBadgeView({ verified: sp.verified !== '0' });
+    return (
+      <main className="min-h-dvh bg-cream" data-lab-card-badges="">
+        <GrownOwnerLab card={LAB_GROWN_CARD} hidden={[]} badges={view} asOwner={false} />
       </main>
     );
   }

@@ -129,6 +129,13 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: mobileAppAnswer(),
       },
       {
+        // 🏅 The public badges (owner 2026-11-15, specs 4b8cc3a3 · 7fbff0cd). Names only — no counts or steps here, so this
+        // answer never claims a tier the app does not draw.
+        slug: 'what-supplier-badges-mean',
+        title: 'What do the badges on a supplier mean?',
+        body: 'Setnayan Verified means Setnayan checked the owner, the business papers and the work — it shows beside the shop’s name and on each of its service cards. A shop that is not verified shows its real name, without the check. Suppliers also earn badges as their work is counted — Completed bookings, Five-star reviews, Gifts given, Trusted by and Invites — and seals such as Verified Partner or Top 10 Supplier, and a service card can hold medals such as Hot Booking or Rave Reviews. A badge only appears once Setnayan has counted it; none is shown on a guess.',
+      },
+      {
         slug: 'how-are-vendors-verified',
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',

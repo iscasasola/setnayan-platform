@@ -2166,7 +2166,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'suppliers-segments',
           title: 'Find · Build · Booked',
-          body: 'Find suppliers, build your set with its total, and see who you booked.',
+          // 🏅 J6 (2026-11-15): the one badge a couple meets on a supplier today is Setnayan Verified.
+          body: 'Find suppliers, build your set with its total, and see who you booked. The check beside a name means Setnayan Verified.',
         },
         {
           anchor: 'suppliers-category',

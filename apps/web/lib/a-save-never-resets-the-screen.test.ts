@@ -173,7 +173,7 @@ test('(3) the registry is the allow-list — each name runs the action it names;
   assert.deepEqual(wrong, [], 'A door asks the limited-helper gate about a different area than its action does.');
   const form = stripComments(readFileSync(join(WEB, 'app/_components/stay-form.tsx'), 'utf8'));
   assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
-  assert.match(form, /save: StaySave = saveInPlace\)/, 'the stay form no longer saves through the door by default');
+  assert.match(form, /save: StaySave = saveInPlace[,)]/, 'the stay form no longer saves through the door by default');
   assert.match(form, /await save\(door, fd\)/);
   assert.match(form, /role="alert"[^>]*data-stay-error/, 'a refusal is not said on the row');
   assert.match(form, /action=\{action as/, 'the plain action is no longer the no-JavaScript path');

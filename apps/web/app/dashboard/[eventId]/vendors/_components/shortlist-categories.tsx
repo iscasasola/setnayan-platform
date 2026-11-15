@@ -299,7 +299,7 @@ import {
 import type { RequirementField } from '@/lib/requirements-capture';
 import { shopInitials } from '@/lib/shop-initials';
 import { benchCardImage } from '@/lib/bench-card-image';
-import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { NEW_TO_SETNAYAN_LABEL, NO_REVIEWS_YET_LABEL } from '@/lib/reviews';
 import {
   loadCategoryRequirements,
   saveCategoryRequirements,
@@ -1610,7 +1610,8 @@ function VendorCard({
           // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
           // number for a marketplace-linked vendor (never an off-platform /
           // manual pick, which carries no enrichment at all).
-          <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
+          // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
+          <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
         ) : null}
         {v.isVerified || v.isSetnayan ? (
           <span className="badges">
@@ -2054,7 +2055,7 @@ function InlineMoreCard({
             ) : null}
             {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
             {v.rating == null && typeof v.reviewCount === 'number' ? (
-              <span className="text-xs text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+              <span className="text-xs text-[var(--m-slate-2)]">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
             ) : null}
             {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
             {sunk ? (

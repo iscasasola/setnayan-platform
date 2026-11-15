@@ -10,6 +10,7 @@
 /dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/dev/account-lab	# first run 2026-11-12 · internal (dev, prototypes) · lane 6 (plan D5) account-chrome lab; 404 in production, reached only by typing its address
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-people-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the four People records on fixtures; reached by typing its address
@@ -100,3 +101,4 @@
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address

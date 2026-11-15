@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7874
+# facts: 7884
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     639
-#   col       5667
-#   policy    1156
+#   tpriv     640
+#   col       5674
+#   policy    1157
 #   view      10
-#   func      398
+#   func      399
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -441,6 +441,7 @@ tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
+tpriv	public.shop_award_flow_progress|authenticated	S
 tpriv	public.shop_badge_rewards|authenticated	S
 tpriv	public.shop_badge_upgrades|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
@@ -4443,6 +4444,13 @@ col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_tl	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.group_name	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
+col	public.shop_award_flow_progress.finished_at	anon=- authenticated=S
+col	public.shop_award_flow_progress.flow_key	anon=- authenticated=S
+col	public.shop_award_flow_progress.opened_at	anon=- authenticated=S
+col	public.shop_award_flow_progress.step	anon=- authenticated=S
+col	public.shop_award_flow_progress.total_steps	anon=- authenticated=S
+col	public.shop_award_flow_progress.updated_at	anon=- authenticated=S
+col	public.shop_award_flow_progress.vendor_profile_id	anon=- authenticated=S
 col	public.shop_badge_rewards.badge	anon=- authenticated=S
 col	public.shop_badge_rewards.granted_at	anon=- authenticated=S
 col	public.shop_badge_rewards.note	anon=- authenticated=S
@@ -7119,6 +7127,7 @@ policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERM
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.shop_award_flow_progress|shop_award_flow_progress_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -7672,6 +7681,7 @@ func	public.get_vendor_seat_plan(p_event_id uuid)	secdef=yes exec=authenticated 
 func	public.gift_moment_claim(p_source text, p_ref uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.gift_moments_for_event(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.gift_moments_for_shop(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.gift_points_for_price(p_price numeric)	secdef=no exec=anon,authenticated search_path=public
 func	public.godchildren_with_birthday_soon(p_today date, p_within integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.guest_link_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zone, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public

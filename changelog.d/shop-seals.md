@@ -3,7 +3,7 @@
 The badge build's seals (owner-approved prototypes 15 Nov, DECISION_LOG 7d6c8129; contract `badge-milestones_v86`).
 Engine only: no UI, no new server action, no new route.
 
-- **Migration `20271348504364`** (adds only): `shop_seals` — once per shop + seal + year; Verified Partner once per
+- **Migration `20271349936814`** (adds only): `shop_seals` — once per shop + seal + year; Verified Partner once per
   shop for life; one No. 1 a year; RLS at create (the shop's own members read, admins read and write, the engine writes
   with the service role). Setnayan Verified is NOT stored — it is read live from the shop's verification. Two
   service-role counting functions: `shop_seal_year_facts(from, to)` (one read for the platform: events completed that year,
@@ -36,3 +36,5 @@ Engine only: no UI, no new server action, no new route.
   sabotage-checked. `tests/db/ugat-both-ends.baseline.txt` gains one named row (`seal_awarded`, paid down by J4).
 
 SPEC IMPACT: None — implements the 15 Nov rulings as written; the open points are listed for the owner in the PR body.
+
+- **One import rule (controller, 16 Nov).** The seals engine no longer defines its own two-argument `shop_booking_is_import`; it calls the one definition `shop_booking_is_import(uuid, uuid, text)` from the badge ladder (#7753, migration `20271349129379`), which now carries this engine's claimed-Booking-QR and source `website` rules. The seals migration moved to `20271349936814` so it replays after that definition — **#7753 must merge first** (this branch has it merged in).

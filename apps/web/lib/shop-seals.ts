@@ -1,7 +1,7 @@
 /**
  * shop-seals.ts — THE SEALS: who is given which seal, as one rule set. Pure (no Supabase, no Next), so every rule is
  * executed by `lib/shop-seals.test.ts`. The reads and the writer are `lib/shop-seals.server.ts`; the table is
- * `shop_seals` (migration 20271348504364).
+ * `shop_seals` (migration 20271349936814).
  *
  * Contract: the owner-approved prototypes of 15 Nov (DECISION_LOG 7d6c8129) — `badge-milestones_v86` AWARD_TXT — and
  * the rows that rule them: 6373 (Top 10 / No. 1), 4b8cc3a3 (the seals replace the monthly Spotlight awards),
@@ -102,7 +102,8 @@ export const SHOP_CANCELLATION_SOURCE = "vendor_schedule_pool_bookings.release_r
  * 🚫 IMPORTS NEVER COUNT AS COMPLETED BOOKINGS (owner 16 Nov, DECISION_LOG fd5814dc (3); the controller applies it to
  * every badge, seal and Most Booked count). A booking whose `event_vendors.source` is one of these — or onto which a
  * Booking QR token was claimed — is left out of completed events, second bookings and Verified Partner's ₱ total. The
- * SQL definition is `shop_booking_is_import` (migration 20271348504364); this list mirrors it and a test holds them equal.
+ * SQL definition is `shop_booking_is_import(uuid, uuid, text)` (migration 20271349129379, PR #7753 — the one
+ * definition for every badge and seal; this engine calls it); this list mirrors it and a test holds them equal.
  * ⚠ Verified Partner rules 4–6 still COUNT the website / QR import / Booking QR channels by name (3077c9b3) — the
  * two rulings overlap there, and the PR names it for the owner.
  */

@@ -230,7 +230,7 @@ test('the retired Spotlight awards keep their data: no seal migration writes or 
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const dir = join(process.cwd(), '..', '..', 'supabase', 'migrations');
-  for (const f of ['20271348504364_shop_seals_the_yearly_and_lifetime_seals.sql', '20271348269771_notification_type_seal_awarded.sql']) {
+  for (const f of ['20271349936814_shop_seals_the_yearly_and_lifetime_seals.sql', '20271348269771_notification_type_seal_awarded.sql']) {
     const sql = readFileSync(join(dir, f), 'utf8').replace(/--.*$/gm, '');
     assert.doesNotMatch(sql, /(INSERT\s+INTO|UPDATE|DELETE\s+FROM|DROP\s+TABLE|TRUNCATE|ALTER\s+TABLE)\s+(IF\s+EXISTS\s+)?(public\.)?vendor_spotlight_awards/i, f);
   }
@@ -240,10 +240,16 @@ test('the import list here is exactly the SQL definition shop_booking_is_import 
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const sql = readFileSync(
-    join(process.cwd(), '..', '..', 'supabase', 'migrations', '20271348504364_shop_seals_the_yearly_and_lifetime_seals.sql'),
+    join(process.cwd(), '..', '..', 'supabase', 'migrations', '20271349936814_shop_seals_the_yearly_and_lifetime_seals.sql'),
     'utf8',
   );
-  const m = /FUNCTION public\.shop_booking_is_import[\s\S]*?p_source IN \(([^)]*)\)/.exec(sql);
+  // ONE definition (controller, 16 Nov): it lives in the badge ladder's migration; the seals engine only calls it.
+  const def = readFileSync(
+    join(process.cwd(), '..', '..', 'supabase', 'migrations', '20271349129379_award_flow_gift_points_and_auto_claim.sql'),
+    'utf8',
+  );
+  assert.doesNotMatch(sql, /FUNCTION public\.shop_booking_is_import/, 'the seals engine redefined shop_booking_is_import');
+  const m = /FUNCTION public\.shop_booking_is_import\(\s*p_vendor_profile_id UUID,\s*p_event_id UUID,\s*p_source TEXT\s*\)[\s\S]*?p_source IN \(([^)]*)\)/.exec(def);
   assert.ok(m, 'shop_booking_is_import lost its source list');
   const inSql = m![1]!.split(',').map((x) => x.trim().replace(/'/g, ''));
   assert.deepEqual(inSql, [...IMPORT_SOURCES]);

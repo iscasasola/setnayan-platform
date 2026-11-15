@@ -5,26 +5,34 @@
  *
  * The badge page and the granting BOTH read `BADGE_REWARDS` — so what a row promises is what is paid.
  *
- *   ⚖ THE APPROVED PER-STEP TABLE (owner 8 Nov 2026, "Rewards yes" — corpus SUPPLIER_DASHBOARD_BUILD_PLAN_2026-11-08
- *   "Owner answers, 8 Nov (second batch)"). Every rank earns at least a Papic 150; bigger steps earn instead:
- *   Events on Setnayan: 10 → Event Plus · 50 → Event Plus · 100 → 2 × Event Plus · 500 → Event Pro ·
- *                       1,000 · 5,000 · 10,000 → a FREE BOOKING FEE on the next customer (one booking each)
- *   Reviews 5·10·25·50·100·250·500 → Papic 150 each (at 5 also 4 weeks AI Chatbot — `lib/badge-upgrades.ts`)
- *   Booked Loop 1·5·10·25·50·100·250 → Event Plus each
- *   1st Pick 1·5·10 → Papic 150 · 25·50·100·250 → Event Plus (per LADDER STEP, never per booking)
- *   Service cards 3·6·10·20 · Inspiration box 10·25·50·100·250 · Branches 2·3·5·10 → Papic 150 each step
- *   Firsts — first booking · first review · first 5★ review · first Booked Loop · first 1st Pick → Papic 150 each
- *            (the first booking also 4 weeks 3D Booth; Papic Challenges for a Free or Verified shop — badge-upgrades)
- *   Verified (once) → Papic 150 (+ 4 weeks Papic Challenges — badge-upgrades)
- *   Monthly awards, once per award per month: Most Booked / Top Pick → Event Plus (+ one 4-week upgrade of choice) ·
- *                                             Rising → Event Plus
+ *   ⚖ ONE LADDER FOR EVERY BADGE (owner 2026-11-15, DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS — THE OWNER'S
+ *   RULINGS OF 15 NOV", verbatim: *"bronze - papic 150 · silver - papic 150 · gold - papic 1000 · ruby - papic 3000 ·
+ *   emerald - event plus · diamond - event pro · black diamond - event ultra"*). A ladder's step pays by its TIER — its
+ *   position on that badge's own ladder (`tierKeyAt`, `lib/badge-tiers.ts`): first step Bronze, second Silver …
+ *   (`TIER_REWARDS`). ⚠ This SUPERSEDES the 8 Nov per-step table (Events 10/50 → Event Plus, 100 → 2 × Event Plus,
+ *   500 → Event Pro, 1,000+ → a free booking fee; Reviews → Papic 150 each; Booked Loop → Event Plus each …). Each step
+ *   still pays ONCE, under the SAME key — a step already paid under the 8 Nov table is never paid again, and a free
+ *   booking fee already earned stays (no new one is earned).
+ *   Laddered: Events on Setnayan · Reviews · 1st Pick · Booked Loop · Branches · Service cards · Inspiration box ·
+ *             Trusted by (1·5·10·25·50·100·250, owner 15 Nov: *"Keep it"*).
+ *   Once (unchanged): Verified · first booking · first review · first 5★ review · first Booked Loop · first 1st Pick →
+ *            Papic 150 each (the first booking also 4 weeks 3D Booth; Papic Challenges for a Free or Verified shop —
+ *            badge-upgrades). Verified also 4 weeks Papic Challenges.
+ *   Monthly awards (unchanged), once per award per month: Most Booked / Top Pick → Event Plus (+ one 4-week upgrade of
+ *                                             choice) · Rising → Event Plus
  *   No reward: Years in business · Rating · Plan / Founding / Member since · Yearly awards.
  *   Each step pays once, never expires, a regained rank does not pay twice, and sits outside the 40% gift limit.
- *   (Supersedes 6 Nov's "each new branch" / "each card's first booking" / "Inspiration top steps only".)
+ *
+ * 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, "Event ultra"). The plan approved 13 Nov
+ * (`EVENT_ULTRA_SKU`, lib/event-ultra.ts) lands in the shop's gift stock as one 'event_ultra' unlock, goes on a quote
+ * like Event Pro, and at the couple's first payment unlocks EVENT_ULTRA on their event with the catalogue row's included
+ * Papic credits (migration 20271348181787). A shop may also BUY it as a gift, at its list price (owner 15 Nov).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
- * (`alwaysAllowedPack`, `lib/shop-gifts.ts`) — its credits and its title are read when a reward is granted or drawn,
- * never typed. A reward is a COUNT of packs / unlocks / free fees.
+ * (`alwaysAllowedPack`, `lib/shop-gifts.ts`); "Papic 1000" and "Papic 3000" are the catalogue packs NAMED by their
+ * product code (`PAPIC_PACK_CODE` — the same codes `lib/iap/products.ts` sells; a code is an identity, not a size).
+ * Their credits and titles are read when a reward is granted or drawn, never typed; a pack the catalogue does not hold
+ * pays nothing until it does. A reward is a COUNT of packs / unlocks / free fees.
  *
  * 🔑 EXACTLY ONCE: every reward has a KEY naming its badge and its step or period (`rewardKey`). The database holds
  * the key UNIQUE per shop (`shop_badge_rewards_once`), so a re-run, or a badge lost and earned again, never pays twice.
@@ -38,22 +46,68 @@
 
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { stepName, type ShopBadge, type TrackerRow } from '@/lib/shop-badges';
+import { SHOP_BADGE_STEPS, TIER_KEYS, tierKeyAt, tierName, type ShopBadgeKey, type TierKey } from '@/lib/badge-tiers';
 import type { SpotlightAwardType } from '@/lib/spotlight-awards';
 import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
-/** What a reward is: gift-stock packs / unlocks, or a free booking fee. */
-export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'fee_waiver';
+/**
+ * What a reward is: gift-stock packs / unlocks (Papic · Event Plus · Event Pro · Event Ultra), or a free booking fee.
+ */
+export type BadgeRewardKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra' | 'fee_waiver';
 
-/** A reward: how many of one kind ("2 × Papic 150" = { papic, 2 }). */
-export type BadgeReward = { kind: BadgeRewardKind; units: number };
+/** The kinds the grant door lands (`shop_badge_rewards_reward_kind_allowed`) — every kind, Event Ultra since 15 Nov. */
+export const GRANTABLE_KINDS: ReadonlySet<BadgeRewardKind> = new Set([
+  'papic',
+  'event_plus',
+  'event_pro',
+  'event_ultra',
+  'fee_waiver',
+]);
+
+/** Which Papic pack a Papic reward is: the smallest on the catalogue, or a pack named by its code. */
+export type PapicPack = 'smallest' | 'papic_1000' | 'papic_3000';
+
+/**
+ * The two bigger packs, by their catalogue code — the codes `lib/iap/products.ts` sells as "Papic 1000" / "Papic
+ * 3000" (`PAPIC_PACKS`). Identities, never sizes: the credits and the title are read from the catalogue
+ * (`fetchShopPapicPacks`). Guarded against drift by `badge-rewards.test.ts`.
+ */
+export const PAPIC_PACK_CODE: Readonly<Record<Exclude<PapicPack, 'smallest'>, string>> = {
+  papic_1000: 'PAPIC_GUEST_1K',
+  papic_3000: 'PAPIC_GUEST',
+};
+
+/** A reward: how many of one kind ("2 × Papic 150" = { papic, 2 }); a Papic reward may name a bigger pack. */
+export type BadgeReward = { kind: BadgeRewardKind; units: number; pack?: PapicPack };
 
 const papic = (units = 1): BadgeReward => ({ kind: 'papic', units });
+const papicPack = (pack: Exclude<PapicPack, 'smallest'>): BadgeReward => ({ kind: 'papic', units: 1, pack });
 const plus = (units = 1): BadgeReward => ({ kind: 'event_plus', units });
 const pro = (units = 1): BadgeReward => ({ kind: 'event_pro', units });
-const freeFee = (): BadgeReward => ({ kind: 'fee_waiver', units: 1 });
+const ultra = (): BadgeReward => ({ kind: 'event_ultra', units: 1 });
+
+/** ⚖ THE OWNER'S ONE LADDER (2026-11-15) — what each tier pays, on every laddered badge. */
+export const TIER_REWARDS: Readonly<Record<TierKey, BadgeReward>> = {
+  tier1: papic(1), // Bronze — Papic 150
+  tier2: papic(1), // Silver — Papic 150
+  tier3: papicPack('papic_1000'), // Gold — Papic 1000
+  tier4: papicPack('papic_3000'), // Ruby — Papic 3000
+  tier5: plus(1), // Emerald — Event Plus
+  tier6: pro(1), // Diamond — Event Pro
+  tier7: ultra(), // Black Diamond — the real Event Ultra (owner 15 Nov)
+};
+
+/** A badge's own steps, each paying its tier's reward from the one ladder. */
+function tierLadder(steps: readonly number[]): RewardStep[] {
+  return steps.map((step, i) => ({ step, tier: tierKeyAt(i), reward: TIER_REWARDS[tierKeyAt(i)] }));
+}
 
 /** The badges that pay a reward. */
 export type RewardBadge =
+  | 'completed_bookings'
+  | 'five_star_reviews'
+  | 'gifts_given'
+  | 'invites'
   | 'verified'
   | 'first_booking'
   | 'first_review'
@@ -67,33 +121,29 @@ export type RewardBadge =
   | 'branches'
   | 'service_cards'
   | 'inspiration'
+  | 'trusted_by'
   | 'award';
 
-/** One step of a counted badge, and what reaching it pays (null = the step pays nothing). */
-export type RewardStep = { step: number; reward: BadgeReward | null };
+/** One step of a counted badge, its tier on that badge's ladder, and what reaching it pays (null = nothing). */
+export type RewardStep = { step: number; tier?: TierKey; reward: BadgeReward | null };
 
 type Base = {
   badge: RewardBadge;
   title: string;
   /** False ⇒ no counter exists in the code yet: drawn, never granted. */
   measured: boolean;
+  /**
+   * 🗄 RETIRED AS A BADGE (owner 15 Nov, 4b8cc3a3 "the badges we created will be the only badges we have", and the
+   * retired-ladders row): NOTHING new is ever granted for it; what it already paid stays paid and keeps reading as
+   * what it was (3cbf12c1). Kept in the table only for that.
+   */
+  retired?: boolean;
 };
 
 export type BadgeRewardRule =
   | (Base & { shape: 'once'; reward: BadgeReward })
   | (Base & { shape: 'ladder'; unit: readonly [singular: string, plural: string]; steps: readonly RewardStep[] })
   | (Base & { shape: 'period'; rewards: Readonly<Record<SpotlightAwardType, BadgeReward>> });
-
-/** Events on Setnayan — keyed by the SHIPPED ladder (`MILESTONE_THRESHOLDS`), so a step can never lose its reward. */
-export const EVENTS_STEP_REWARDS: Readonly<Record<number, BadgeReward>> = {
-  10: plus(1),
-  50: plus(1),
-  100: plus(2),
-  500: pro(1),
-  1000: freeFee(),
-  5000: freeFee(),
-  10000: freeFee(),
-};
 
 /**
  * Reviews' steps — the spec's list (`SUPPLIER_BADGES_AND_AWARDS_2026-11-03.md` §B). ⚖ Owner ruled 2026-11-05 (on the
@@ -113,92 +163,123 @@ export const INSPIRATION_STEPS: readonly number[] = [10, 25, 50, 100, 250];
 /** Branches' steps (spec §B, approved 8 Nov). */
 export const BRANCH_STEPS: readonly number[] = [2, 3, 5, 10];
 
+/** Trusted by — clients who booked the shop on a second completed event (owner 15 Nov, 50566f42). */
+export const TRUSTED_BY_STEPS: readonly number[] = SHOP_BADGE_STEPS.trusted_by;
+
 const firstOnce = (badge: RewardBadge, title: string, measured: boolean): BadgeRewardRule => ({
   badge,
   title,
   measured,
+  retired: true,
   shape: 'once',
   reward: papic(1),
 });
 
+/** One of the five tiered shop badges: its own steps (lib/badge-tiers.ts), each paying its tier from the one ladder. */
+const shopLadder = (
+  badge: ShopBadgeKey,
+  title: string,
+  unit: readonly [string, string],
+  measured: boolean,
+): BadgeRewardRule => ({ badge, title, measured, shape: 'ladder', unit, steps: tierLadder(SHOP_BADGE_STEPS[badge]) });
+
 export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
+  /** Bookings whose event happened and was delivered (`vendor_public_completed_events_stats`). */
+  completed_bookings: shopLadder('completed_bookings', 'Completed bookings', ['completed booking', 'completed bookings'], true),
+  /** 5★ reviews under the trusted-review rule (`shop_trusted_five_star_count`). */
+  five_star_reviews: shopLadder('five_star_reviews', 'Five-star reviews', ['five-star review', 'five-star reviews'], true),
+  /** Gift points for gifts given on completed events (`shop_gift_points`, lib/gift-points.ts). */
+  gifts_given: shopLadder('gifts_given', 'Gifts given', ['gift point', 'gift points'], true),
+  /**
+   * Suppliers the shop imported onto Setnayan, each counted once, at the imported supplier's first COMPLETED event
+   * (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" (3): "successful booking" = the event is completed — the same
+   * test as Completed bookings). ⚠ NOT COUNTED YET: nothing records one supplier importing another — the import door
+   * and its address are unbuilt and unruled (`/[slug]/invite` is the couple's guest invitation; `vendor_invites` is the
+   * couple's invite; `vendor_partnerships` needs both shops to exist already). Ships showing "Not counted yet"; the
+   * door's build supplies `BadgeRewardFacts.invites`.
+   */
+  invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], false),
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },
   first_booking: firstOnce('first_booking', 'First booking', true),
   first_review: firstOnce('first_review', 'First review', true),
-  /** No 5★ count exists yet (`vendor_trusted_review_stats` holds an average and a count only): drawn, never granted. */
-  first_five_star: firstOnce('first_five_star', 'First 5★ review', false),
+  /** MEASURED since 2026-11-15: `shop_trusted_five_star_count` — 5★ reviews under the trusted-review rule. */
+  first_five_star: firstOnce('first_five_star', 'First 5★ review', true),
   /** ⚖ THE ONE BUILD (spec §9 #11): counted since C2's `shop_booked_loop_count` — the first family who came back. */
   first_loop: firstOnce('first_loop', 'First Booked Loop', true),
   first_first_pick: firstOnce('first_first_pick', 'First 1st Pick', false),
   events: {
     badge: 'events',
+    retired: true,
     title: 'Milestone · events on Setnayan',
     measured: true,
     shape: 'ladder',
     unit: ['event', 'events'],
-    steps: MILESTONE_THRESHOLDS.map((step) => ({ step, reward: EVENTS_STEP_REWARDS[step] ?? null })),
+    steps: tierLadder(MILESTONE_THRESHOLDS),
   },
   reviews: {
     badge: 'reviews',
+    retired: true,
     title: 'Reviews',
     measured: true,
     shape: 'ladder',
     unit: ['review', 'reviews'],
-    steps: REVIEW_STEPS.map((step) => ({ step, reward: papic(1) })),
+    steps: tierLadder(REVIEW_STEPS),
   },
   first_pick: {
     badge: 'first_pick',
+    retired: true,
     title: '1st Pick',
     measured: false,
     shape: 'ladder',
     unit: ['booking', 'bookings'],
-    steps: [
-      { step: 1, reward: papic(1) },
-      { step: 5, reward: papic(1) },
-      { step: 10, reward: papic(1) },
-      { step: 25, reward: plus(1) },
-      { step: 50, reward: plus(1) },
-      { step: 100, reward: plus(1) },
-      { step: 250, reward: plus(1) },
-    ],
+    steps: tierLadder(LOOP_LADDER),
   },
   /**
-   * "Booked Loop → Event Plus" at EVERY step of its ladder. ⚖ Owner ruled 2026-11-05 (on the draft PR). MEASURED since
+   * The Booked Loop climbs the one tier ladder (owner 2026-11-15; was Event Plus at every step, 5 Nov). MEASURED since
    * THE ONE BUILD (spec §9 #11): C2's `shop_booked_loop_count(vendor)` — families who booked the shop on 2+ events
    * (`lib/shop-booked-loops.server.ts`); an unread count pays nothing and the badge is hidden.
    */
   booked_loop: {
     badge: 'booked_loop',
+    retired: true,
     title: 'Booked Loop',
     measured: true,
     shape: 'ladder',
     unit: ['family who came back', 'families who came back'],
-    steps: LOOP_LADDER.map((step) => ({ step, reward: plus(1) })),
+    steps: tierLadder(LOOP_LADDER),
   },
   branches: {
     badge: 'branches',
+    retired: true,
     title: 'Branches',
     measured: true,
     shape: 'ladder',
     unit: ['branch', 'branches'],
-    steps: BRANCH_STEPS.map((step) => ({ step, reward: papic(1) })),
+    steps: tierLadder(BRANCH_STEPS),
   },
   service_cards: {
     badge: 'service_cards',
+    retired: true,
     title: 'Service cards',
     measured: true,
     shape: 'ladder',
     unit: ['card', 'cards'],
-    steps: SERVICE_CARD_STEPS.map((step) => ({ step, reward: papic(1) })),
+    steps: tierLadder(SERVICE_CARD_STEPS),
   },
   inspiration: {
     badge: 'inspiration',
+    retired: true,
     title: 'Inspiration box',
     measured: true,
     shape: 'ladder',
     unit: ['photo', 'photos'],
-    steps: INSPIRATION_STEPS.map((step) => ({ step, reward: papic(1) })),
+    steps: tierLadder(INSPIRATION_STEPS),
   },
+  /**
+   * Clients who booked the shop on a second completed event — each client once, at the second booking (50566f42).
+   * Counted by `shop_booked_loop_count` (lib/shop-booked-loops.server.ts), which the ruling names as exactly this count.
+   */
+  trusted_by: shopLadder('trusted_by', 'Trusted by', ['client who came back', 'clients who came back'], true),
   award: {
     badge: 'award',
     title: 'Monthly awards',
@@ -235,7 +316,7 @@ export function rewardKey(badge: RewardBadge, part?: string | number): string {
 /**
  * What the shop's badges measure today. `null` = the read failed or the badge has no counter: NOTHING is granted for
  * it (never a zero, never a guess). 1st Pick, Booked Loop, and the firsts that hang off them (first loop, first 1st
- * Pick) and the first 5★ review are deliberately absent — no counter exists for them in the code.
+ * Pick) are deliberately absent — no counter exists for them in the code.
  */
 export type BadgeRewardFacts = {
   verified: boolean | null;
@@ -258,42 +339,104 @@ export type BadgeRewardFacts = {
    * = not read: nothing is granted and the Booked Loop badge is hidden (never "not yet reached").
    */
   bookedLoops?: number | null;
+  /** ⭐ 5★ reviews under the trusted-review rule (`shop_trusted_five_star_count`). Absent or null = unread. */
+  fiveStarReviews?: number | null;
+  /**
+   * ✅ Completed bookings — the shop's delivered/complete bookings WITHOUT imports (`shop_completed_bookings_count`;
+   * owner 16 Nov: imports never count toward a booking badge). Absent/null = unread. Not `completedEvents`, the public
+   * completed-events number other screens show.
+   */
+  completedBookings?: number | null;
+  /**
+   * 🛡 Trusted by — clients who booked the shop a second time, imports left out (`shop_trusted_by_count`, 50566f42 +
+   * owner 16 Nov). Absent/null = unread.
+   */
+  trustedBy?: number | null;
+  /** 🎁 Gift points for gifts given on completed events, never a gift paid from badge-reward stock (`shop_gift_points`). Absent/null = unread. */
+  giftPoints?: number | null;
+  /** 🤝 Suppliers the shop added who have a completed booking. Always absent today: no counter exists (Not counted yet). */
+  invites?: number | null;
 };
 
-export type OwedReward = { key: string; badge: RewardBadge; reward: BadgeReward; note: string };
+export type OwedReward = { key: string; badge: RewardBadge; reward: BadgeReward; note: string; tier?: TierKey; step?: number };
 
 const COUNT = new Intl.NumberFormat('en-PH');
 
-function ladderOwed(badge: RewardBadge, count: number | null, note: (step: number) => string): OwedReward[] {
-  const rule = BADGE_REWARDS[badge];
-  if (rule.shape !== 'ladder' || !rule.measured || count === null || !Number.isFinite(count)) return [];
-  return rule.steps
-    .filter((s) => s.reward && s.step <= count)
-    .map((s) => ({ key: rewardKey(badge, s.step), badge, reward: s.reward!, note: note(s.step) }));
+/**
+ * 🔑 A TIERED SHOP BADGE PAYS EACH TIER ONCE, EVER (owner 15 Nov, 3cbf12c1) — keyed by the TIER, never the step:
+ * `completed_bookings:tier3`. So a step number moved later can never pay a tier twice.
+ */
+export function tierRewardKey(badge: ShopBadgeKey, tier: TierKey): string {
+  return rewardKey(badge, tier);
 }
 
-/** Every reward the shop's MEASURED badges have earned, each with its exactly-once key. Granted already or not. */
+/**
+ * 🗄 OLD PAYMENTS ALL COUNT (3cbf12c1): a reward paid under an old key blocks the tier it was told it earned on the
+ * badge that took over its count — `events:<step>` (the old Events ladder) → Completed bookings, `reviews:<step>` →
+ * Five-star reviews — by the step's position on its OLD ladder (both frozen ladders, not the new steps). The
+ * step-keyed `trusted_by:<step>` of this PR's first slice never reached production, so it maps to nothing. A retired badge with no successor (Booked Loop, 1st Pick, Branches, Service
+ * cards, Inspiration box, the Firsts) blocks nothing: what it paid stays paid (the retired-ladders row).
+ */
+const LEGACY_LADDERS: ReadonlyArray<{ prefix: string; successor: ShopBadgeKey; steps: readonly number[] }> = [
+  { prefix: 'events', successor: 'completed_bookings', steps: MILESTONE_THRESHOLDS },
+  { prefix: 'reviews', successor: 'five_star_reviews', steps: REVIEW_STEPS },
+];
+
+/** Every (badge, tier) a shop's existing reward keys have already paid — new keys and legacy keys alike. */
+export function paidTiers(keys: Iterable<string>): Set<string> {
+  const out = new Set<string>();
+  for (const key of keys) {
+    const [head, part] = key.split(':');
+    if (!head || !part) continue;
+    if ((TIER_KEYS as readonly string[]).includes(part)) {
+      out.add(`${head}:${part}`);
+      continue;
+    }
+    const legacy = LEGACY_LADDERS.find((l) => l.prefix === head);
+    const step = Number(part);
+    if (!legacy || !Number.isFinite(step)) continue;
+    const i = legacy.steps.indexOf(step);
+    if (i >= 0) out.add(`${legacy.successor}:${tierKeyAt(i)}`);
+  }
+  return out;
+}
+
+const SHOP_BADGE_FACT: Readonly<Record<ShopBadgeKey, (f: BadgeRewardFacts) => number | null>> = {
+  completed_bookings: (f) => f.completedBookings ?? null,
+  five_star_reviews: (f) => f.fiveStarReviews ?? null,
+  gifts_given: (f) => f.giftPoints ?? null,
+  trusted_by: (f) => f.trustedBy ?? null,
+  invites: (f) => f.invites ?? null,
+};
+
+/** One tiered shop badge's owed rewards: every tier its count has reached, keyed by tier. Unread or unmeasured = none. */
+function shopBadgeOwed(badge: ShopBadgeKey, f: BadgeRewardFacts): OwedReward[] {
+  const rule = BADGE_REWARDS[badge];
+  const count = SHOP_BADGE_FACT[badge](f);
+  if (rule.shape !== 'ladder' || !rule.measured || count === null || !Number.isFinite(count)) return [];
+  return rule.steps
+    .filter((s) => s.reward && s.tier && s.step <= count)
+    .map((s) => ({
+      key: tierRewardKey(badge, s.tier!),
+      badge,
+      reward: s.reward!,
+      tier: s.tier,
+      step: s.step,
+      note: `Badge reward · ${rule.title} · ${tierName(s.tier!)}`,
+    }));
+}
+
+/**
+ * Every reward the shop's MEASURED badges have earned, each with its exactly-once key. Granted already or not.
+ * Since 15 Nov (4b8cc3a3) only the approved set pays: Setnayan Verified (a seal with its gift) · the five tiered shop
+ * badges · and the monthly awards, which stay as they are until the seals replace them (J2). A retired badge pays
+ * nothing new. Filter what is already paid with `notYetPaid`.
+ */
 export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
   const out: OwedReward[] = [];
   if (f.verified === true) out.push({ key: rewardKey('verified'), badge: 'verified', reward: papic(1), note: 'Badge reward · SETNAYAN Verified' });
-  if (f.firstSourcedBooking === true) {
-    out.push({ key: rewardKey('first_booking'), badge: 'first_booking', reward: papic(1), note: 'Badge reward · first booking through Setnayan' });
-  }
-  out.push(
-    ...ladderOwed('events', f.completedEvents, (s) => `Badge reward · ${COUNT.format(s)} events${stepName(s) ? ` · ${stepName(s)}` : ''}`),
-  );
-  out.push(...ladderOwed('reviews', f.trustedReviews, (s) => `Badge reward · ${COUNT.format(s)} reviews`));
-  if (f.trustedReviews !== null && Number.isFinite(f.trustedReviews) && f.trustedReviews >= 1) {
-    out.push({ key: rewardKey('first_review'), badge: 'first_review', reward: papic(1), note: 'Badge reward · first review' });
-  }
-  const branches = f.branchIds === null ? null : new Set(f.branchIds).size;
-  out.push(...ladderOwed('branches', branches, (s) => `Badge reward · ${COUNT.format(s)} branches`));
-  out.push(...ladderOwed('service_cards', f.serviceCards, (s) => `Badge reward · ${COUNT.format(s)} service cards`));
-  out.push(...ladderOwed('inspiration', f.inspirationPhotos, (s) => `Badge reward · ${COUNT.format(s)} inspiration photos`));
-  const loops = f.bookedLoops ?? null;
-  out.push(...ladderOwed('booked_loop', loops, (s) => `Badge reward · Booked Loop · ${COUNT.format(s)} ${s === 1 ? 'family' : 'families'}`));
-  if (loops !== null && Number.isFinite(loops) && loops >= 1) {
-    out.push({ key: rewardKey('first_loop'), badge: 'first_loop', reward: papic(1), note: 'Badge reward · first Booked Loop' });
+  for (const badge of ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'] as const) {
+    out.push(...shopBadgeOwed(badge, f));
   }
   const award = BADGE_REWARDS.award;
   if (award.shape === 'period') {
@@ -309,28 +452,55 @@ export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
   return out;
 }
 
+/** What of `owed` is still unpaid, given the shop's existing reward keys: never a key twice, never a tier twice. */
+export function notYetPaid(owed: readonly OwedReward[], existingKeys: Iterable<string>): OwedReward[] {
+  const keys = new Set(existingKeys);
+  const tiers = paidTiers(keys);
+  return owed.filter((o) => !keys.has(o.key) && !(o.tier && tiers.has(`${o.badge}:${o.tier}`)));
+}
+
 const AWARD_WORD: Record<SpotlightAwardType, string> = { top_pick: 'Top Pick', most_booked: 'Most Booked', rising: 'Rising' };
 
 /* ── words ────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** The products' names as the catalogue titles them (the smallest Papic pack, Event Plus, Event Pro). */
-export type RewardNames = Readonly<Record<'papic' | 'event_plus' | 'event_pro', string>>;
+/**
+ * The products' names as the catalogue titles them: the smallest Papic pack, Event Plus, Event Pro — and (2026-11-15)
+ * the two bigger Papic packs, Event Ultra, and every live Papic pack's title by its credits (`papicByCredits`), so a
+ * reward already granted reads as the pack it actually was. The optional ones fall back to product words.
+ */
+export type RewardNames = Readonly<Record<'papic' | 'event_plus' | 'event_pro', string>> & {
+  readonly papic_1000?: string;
+  readonly papic_3000?: string;
+  readonly event_ultra?: string;
+  readonly papicByCredits?: Readonly<Record<number, string>>;
+};
 
 /** When the catalogue could not be read — product words, never a size or a price. */
-export const FALLBACK_REWARD_NAMES: RewardNames = { papic: 'Papic pack', event_plus: 'Event Plus', event_pro: 'Event Pro' };
+export const FALLBACK_REWARD_NAMES: RewardNames = { papic: 'Papic pack', event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' };
 
-/** The first Events step that pays a free booking fee — read from the table, so the line can never disagree with it. */
+/** The first Events step that pays a free booking fee — read from the table (0 since 15 Nov: no step earns one now). */
 export const FIRST_FREE_FEE_STEP: number =
-  MILESTONE_THRESHOLDS.find((s) => EVENTS_STEP_REWARDS[s]?.kind === 'fee_waiver') ?? 0;
+  MILESTONE_THRESHOLDS.find((s) => {
+    const r = BADGE_REWARDS.events;
+    return r.shape === 'ladder' && r.steps.find((x) => x.step === s)?.reward?.kind === 'fee_waiver';
+  }) ?? 0;
 
-/** The free booking fee's row in the gifts list (owner's words: "Free booking fee · your next customer · from 1,000 events"). */
+/**
+ * The free booking fee's row in the gifts list. Since 2026-11-15 no badge earns a NEW one (the one ladder replaced
+ * 1,000+ events → free fee), but every one already earned still waits for its customer — so the row stays and says
+ * only what it does.
+ */
 export const FREE_FEE_TITLE = 'Free booking fee';
-export const FREE_FEE_SUBLINE = `Your next customer · from ${new Intl.NumberFormat('en-PH').format(FIRST_FREE_FEE_STEP)} events`;
+export const FREE_FEE_SUBLINE =
+  FIRST_FREE_FEE_STEP > 0 ? `Your next customer · from ${new Intl.NumberFormat('en-PH').format(FIRST_FREE_FEE_STEP)} events` : 'Your next customer';
 export const FREE_FEE_LINE = `${FREE_FEE_TITLE} · ${FREE_FEE_SUBLINE.charAt(0).toLowerCase()}${FREE_FEE_SUBLINE.slice(1)}`;
 
 /** Which badge a reward came from, as the gifts list reads it: "50 events · Silver" · "Most Booked · Nov 2026". */
 export function rewardSourceWords(key: string): string {
   const [head, a, b] = key.split(':');
+  if ((TIER_KEYS as readonly string[]).includes(a ?? '') && head && head in SHOP_BADGE_STEPS) {
+    return `${BADGE_REWARDS[head as ShopBadgeKey].title} · ${tierName(a as TierKey)}`;
+  }
   switch (head) {
     case 'verified':
       return 'SETNAYAN Verified';
@@ -360,6 +530,8 @@ export function rewardSourceWords(key: string): string {
       return `Branches · ${COUNT.format(Number(a) || 0)}`;
     case 'service_cards':
       return `Service cards · ${COUNT.format(Number(a) || 0)}`;
+    case 'trusted_by':
+      return `Trusted by · ${COUNT.format(Number(a) || 0)}`;
     case 'award': {
       const word = AWARD_WORD[a as SpotlightAwardType] ?? 'Monthly award';
       const d = b ? new Date(`${b.slice(0, 10)}T00:00:00Z`) : null;
@@ -371,10 +543,28 @@ export function rewardSourceWords(key: string): string {
   }
 }
 
-/** "Papic 150" · "2 × Event Plus" · "Free booking fee · your next customer". */
-export function rewardWords(r: BadgeReward, names: RewardNames = FALLBACK_REWARD_NAMES): string {
+/** A reward's product name: the pack it names, or — for a granted Papic reward — the pack its credits were. */
+export function rewardName(r: BadgeReward & { creditsEach?: number | null }, names: RewardNames = FALLBACK_REWARD_NAMES): string {
+  switch (r.kind) {
+    case 'papic': {
+      if (r.creditsEach && names.papicByCredits?.[r.creditsEach]) return names.papicByCredits[r.creditsEach]!;
+      if (r.pack === 'papic_1000') return names.papic_1000 ?? FALLBACK_REWARD_NAMES.papic;
+      if (r.pack === 'papic_3000') return names.papic_3000 ?? FALLBACK_REWARD_NAMES.papic;
+      return names.papic;
+    }
+    case 'event_ultra':
+      return names.event_ultra ?? 'Event Ultra';
+    case 'fee_waiver':
+      return 'Free booking fee';
+    default:
+      return names[r.kind];
+  }
+}
+
+/** "Papic 150" · "Papic 1000" · "2 × Event Plus" · "Free booking fee · your next customer". */
+export function rewardWords(r: BadgeReward & { creditsEach?: number | null }, names: RewardNames = FALLBACK_REWARD_NAMES): string {
   if (r.kind === 'fee_waiver') return 'Free booking fee · your next customer';
-  const name = names[r.kind];
+  const name = rewardName(r, names);
   return r.units > 1 ? `${r.units} × ${name}` : name;
 }
 
@@ -389,6 +579,8 @@ export type GrantedReward = {
   units: number;
   grantedAt: string;
   revokedAt: string | null;
+  /** A Papic reward: the credits ONE of its packs held when granted (stock_delta ÷ units) — which pack it was. */
+  creditsEach?: number | null;
   /** A free booking fee: the booking it paid, when it did. */
   usedAt: string | null;
   usedOn: { coupleName: string | null; wouldHaveBeenPhp: number | null } | null;
@@ -408,7 +600,7 @@ function gaveLine(granted: readonly GrantedReward[] | null, badge: RewardBadge, 
     .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
   const last = mine[0];
   if (!last) return null;
-  return `Gave you: ${rewardWords({ kind: last.kind, units: last.units }, names)} · in your gifts`;
+  return `Gave you: ${rewardWords({ kind: last.kind, units: last.units, creditsEach: last.creditsEach }, names)} · in your gifts`;
 }
 
 /**
@@ -444,7 +636,7 @@ export function rewardLineFor(
       }
       const next = paying.find((s) => s.step > count);
       if (!next) return { gave, next: null };
-      const tier = badge === 'events' ? stepName(next.step) : null;
+      const tier = badge === 'events' ? stepName(next.step) : next.tier ? tierName(next.tier) : null;
       return {
         gave,
         next: `Next: ${COUNT.format(next.step)} ${unitOf(next.step)}${tier ? ` · ${tier}` : ''} · ${COUNT.format(next.step - count)} to go → ${rewardWords(next.reward!, names)}`,
@@ -463,7 +655,7 @@ export function awardGaveLine(
   if (!granted) return null;
   const key = rewardKey('award', `${type}:${periodMonth.slice(0, 10)}`);
   const g = granted.find((x) => x.key === key && !x.revokedAt);
-  return g ? `Gave you: ${rewardWords({ kind: g.kind, units: g.units }, names)} · in your gifts` : null;
+  return g ? `Gave you: ${rewardWords({ kind: g.kind, units: g.units, creditsEach: g.creditsEach }, names)} · in your gifts` : null;
 }
 
 /* ── the gifts list ───────────────────────────────────────────────────────────────────────────────────────────── */
@@ -562,7 +754,7 @@ function rewardBadge(key: string, glyph: string | null, label: string): ShopBadg
 
 const NOT_COUNTED_LINE = 'Setnayan doesn’t count this one yet';
 
-type CountedBadge = 'reviews' | 'branches' | 'service_cards' | 'inspiration' | 'booked_loop';
+type CountedBadge = 'reviews' | 'branches' | 'service_cards' | 'inspiration' | 'booked_loop' | 'trusted_by';
 
 function countedRow(
   badge: CountedBadge,
@@ -595,7 +787,7 @@ function countedRow(
   };
 }
 
-type UncountedBadge = 'first_pick' | 'first_five_star' | 'first_first_pick';
+type UncountedBadge = 'first_pick' | 'first_first_pick';
 
 function notCountedRow(badge: UncountedBadge, glyph: string, r: TrackerRewardInput): TrackerRow {
   const rule = BADGE_REWARDS[badge];
@@ -614,7 +806,7 @@ function notCountedRow(badge: UncountedBadge, glyph: string, r: TrackerRewardInp
 
 /** A one-time first: earned · not yet · unread — from one measured yes/no. */
 function firstRow(
-  badge: 'first_booking' | 'first_review' | 'first_loop',
+  badge: 'first_booking' | 'first_review' | 'first_five_star' | 'first_loop',
   glyph: string,
   earned: boolean | null,
   lines: { unread: string; earned: string; notYet: string },
@@ -685,7 +877,14 @@ function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {
       notYet: 'Your first review from a booked couple',
     }, r),
   );
-  rows.push(notCountedRow('first_five_star', '5★', r));
+  const fives = f.fiveStarReviews ?? null;
+  rows.push(
+    firstRow('first_five_star', '5★', fives === null || !Number.isFinite(fives) ? null : fives >= 1, {
+      unread: 'Your 5★ reviews couldn’t be counted just now',
+      earned: 'Your first 5★ review from a booked couple',
+      notYet: 'Your first 5★ review from a booked couple',
+    }, r),
+  );
   const loops = f.bookedLoops ?? null;
   rows.push(
     firstRow('first_loop', '↻', loops === null || !Number.isFinite(loops) ? null : loops >= 1, {
@@ -705,5 +904,72 @@ function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {
 
   rows.push(notCountedRow('first_pick', '1st', r));
   rows.push(countedRow('booked_loop', BADGE_REWARDS.booked_loop.title, '↻', loops, ['family who came back', 'families who came back'], r));
+  rows.push(
+    countedRow('trusted_by', BADGE_REWARDS.trusted_by.title, '❖', f.trustedBy ?? null, ['supplier who recommends you', 'suppliers who recommend you'], r),
+  );
   return rows;
+}
+
+/* ── award dates (owner 2026-11-15: "seal shows awarded on X") ───────────────────────────────────────────────── */
+
+/**
+ * One earned badge step as the badge UI draws it: the date it was AWARDED (the grant IS the earning — DECISION_LOG
+ * 2026-11-15 (5)), the reward it gave, and whether the shop has pressed "Tap to claim". `rewardId` is the claim's
+ * ref: `POST /api/unwrap {source:'badge_reward', ref: rewardId}` (`gift_moment_claim` — the first press is the claim,
+ * a repeat answers the same claim; a claim moves nothing, the reward landed in the gift stock at the grant).
+ */
+export type BadgeAward = {
+  rewardId: string;
+  /** The exactly-once key: 'events:50' · 'trusted_by:5' · 'verified' · 'award:rising:2026-11-01'. */
+  key: string;
+  /** The badge family: 'events' · 'reviews' · 'trusted_by' · 'verified' · 'first_five_star' · 'award' … */
+  badge: string;
+  /** The ladder step reached (50 events), or null for a once-badge or an award. */
+  step: number | null;
+  /** The tier that step wears on ITS badge's ladder (tier1 … tier7), or null for a once-badge or an award. */
+  tier: TierKey | null;
+  /** "Gold" — the tier's name; null when there is no tier. */
+  tierName: string | null;
+  /** Which badge, in words: "50 events · Silver" · "Trusted by · 5" · "SETNAYAN Verified". */
+  badgeLabel: string;
+  /** What it gave, in words: "Papic 1000" · "Event Plus" · "Free booking fee · your next customer". */
+  rewardLabel: string;
+  kind: BadgeRewardKind;
+  units: number;
+  /** ISO — when it was awarded ("Awarded 12 Jan 2026"). */
+  grantedAt: string;
+  /** ISO — when the shop pressed Tap to claim; null = still waiting. */
+  claimedAt: string | null;
+};
+
+/** The tier a reached step wears on its own badge's ladder. Null for a key that is not a ladder step. */
+export function tierOfRewardKey(key: string): { step: number; tier: TierKey } | null {
+  const [head, part] = key.split(':');
+  const rule = (BADGE_REWARDS as Readonly<Record<string, BadgeRewardRule>>)[head ?? ''];
+  if (!rule || rule.shape !== 'ladder') return null;
+  // A tier-keyed reward (`completed_bookings:tier3`, 15 Nov): its tier, and the step that tier sits at.
+  const byTier = rule.steps.find((s) => s.tier === part);
+  if (byTier && byTier.tier) return { step: byTier.step, tier: byTier.tier };
+  const step = Number(part);
+  const i = rule.steps.findIndex((s) => s.step === step);
+  return i < 0 ? null : { step, tier: rule.steps[i]!.tier ?? tierKeyAt(i) };
+}
+
+/** Shape a granted reward and its claim for the UI. Pure. */
+export function badgeAwardOf(g: GrantedReward, claimedAt: string | null, names: RewardNames = FALLBACK_REWARD_NAMES): BadgeAward {
+  const t = tierOfRewardKey(g.key);
+  return {
+    rewardId: g.rewardId,
+    key: g.key,
+    badge: g.badge,
+    step: t?.step ?? null,
+    tier: t?.tier ?? null,
+    tierName: t ? tierName(t.tier) : null,
+    badgeLabel: rewardSourceWords(g.key),
+    rewardLabel: rewardWords({ kind: g.kind, units: g.units, creditsEach: g.creditsEach }, names),
+    kind: g.kind,
+    units: g.units,
+    grantedAt: g.grantedAt,
+    claimedAt,
+  };
 }

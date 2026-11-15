@@ -1,5 +1,5 @@
 /**
- * THE SEALS ARE COUNTED RIGHT, AND GIVEN ONCE (test:db) — the badge build, J2 (migration 20271348504364).
+ * THE SEALS ARE COUNTED RIGHT, AND GIVEN ONCE (test:db) — the badge build, J2 (migration 20271349936814).
  *
  * The yearly seals rank shops against each other, so a wrong count gives one shop's seal to another. Each case is a
  * way the counts or the table could be wrong:

@@ -24,7 +24,7 @@ import {
 
 /**
  * shop-seals.server.ts — the seals engine's reads and its one writer (the badge build, J2). The rules are pure, in
- * `lib/shop-seals.ts`; the table and the two counting functions are migration 20271348504364.
+ * `lib/shop-seals.ts`; the table and the two counting functions are migration 20271349936814.
  *
  * It EXTENDS the monthly Spotlight engine rather than running beside it (4b8cc3a3): the same verified pool, the same
  * review score (`topPickScore`) and the same top-10% rule (`MOST_BOOKING_PERCENTILE`), read once a YEAR into

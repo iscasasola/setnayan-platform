@@ -3,10 +3,13 @@
  * the ladder itself: *"like youtube … 10,50,100,500,1000,5000,10000?"*). The SAME pill at every step; the MATERIAL
  * climbs — one tier per step of `MILESTONE_THRESHOLDS`, in order:
  *
- *   10 Bronze · 50 Silver · 100 Gold · 500 Platinum · 1,000 Diamond · 5,000 Ruby · 10,000 Black Diamond (+ laurel)
+ *   10 Bronze · 50 Silver · 100 Gold · 500 Ruby · 1,000 Emerald · 5,000 Diamond · 10,000 Black Diamond (+ laurel)
  *
- * The NAMES were approved by the owner on 2026-10-28 and are shown on the badge, under the number ("SILVER · ON
- * SETNAYAN"). The keys stay positional (`tier1` … `tier7`) so a renamed material never renames data. A tier is a pure function of the step reached (`tierForStep`), so it upgrades itself the moment the live
+ * The NAMES are the owner's of 2026-11-15 (DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS": *"bronze … silver …
+ * gold … ruby … emerald … diamond … black diamond"*), superseding 2026-10-28's Platinum · Diamond · Ruby: Platinum goes,
+ * Emerald comes in, Ruby moves below Diamond. Shown on the badge, under the number ("SILVER · ON SETNAYAN"). The keys
+ * stay positional (`tier1` … `tier7`) so a renamed material never renames data — and every ladder's reward follows
+ * the KEY (`TIER_REWARDS`, `lib/badge-rewards.ts`). A tier is a pure function of the step reached (`tierForStep`), so it upgrades itself the moment the live
  * count crosses a step and steps down with a voided booking. Nothing is stored.
  *
  * 🔑 EVERY TIER READS AT WCAG AA, ON A LIGHT GROUND AND A DARK ONE. The foil is a gradient, so "the text's colour" is
@@ -70,24 +73,26 @@ const MATERIALS: Array<Omit<Tier, 'step'>> = [
   },
   {
     key: 'tier4',
-    name: 'Platinum',
-    laurel: false,
-    light: { bg: '#F4F6F8', fg: '#1F2328', mk: '#FFFFFF', mkc: '#3E4A55', foil: ['#3E4A55', '#55616C', '#46525D'], edge: ['#7d8790', '#eef2f5', '#a9b3bc', '#ffffff', '#7d8790'] },
-    dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#E4E9EE', foil: ['#DDE3E8', '#FFFFFF', '#C3CCD4'], edge: ['#7d8790', '#eef2f5', '#a9b3bc', '#ffffff', '#7d8790'] },
-  },
-  {
-    key: 'tier5',
-    name: 'Diamond',
-    laurel: false,
-    light: { bg: '#F3F8FC', fg: '#14212B', mk: '#FFFFFF', mkc: '#1F4E6B', foil: ['#1F4E6B', '#2A6386', '#1B4560'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
-    dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#A9D8F4', foil: ['#9FD3F2', '#E8F6FF', '#7FC0E6'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
-  },
-  {
-    key: 'tier6',
     name: 'Ruby',
     laurel: false,
     light: { bg: '#FFF6F7', fg: '#2A1418', mk: '#FFFFFF', mkc: '#8E1B2E', foil: ['#8E1B2E', '#A3243A', '#7A1626'], edge: ['#7a1626', '#e0566c', '#a3243a', '#f3a6b2', '#7a1626'] },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#F29AA9', foil: ['#F08A9B', '#F8B9C3', '#EC7A8D'], edge: ['#7a1626', '#e0566c', '#a3243a', '#f3a6b2', '#7a1626'] },
+  },
+  {
+    // Emerald — the prototype's stone (`badge-milestones_v35.html`: #0f8a4e · #08603a · #46d494 · #b8f5d4), deepened
+    // for the lettering on a light ground so every foil stop still reads at AA.
+    key: 'tier5',
+    name: 'Emerald',
+    laurel: false,
+    light: { bg: '#F3FBF7', fg: '#10241A', mk: '#FFFFFF', mkc: '#08603A', foil: ['#08603A', '#0B6E42', '#065230'], edge: ['#032a18', '#46d494', '#0f8a4e', '#b8f5d4', '#032a18'] },
+    dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#7FE3B0', foil: ['#6FDCA4', '#B8F5D4', '#46D494'], edge: ['#032a18', '#46d494', '#0f8a4e', '#b8f5d4', '#032a18'] },
+  },
+  {
+    key: 'tier6',
+    name: 'Diamond',
+    laurel: false,
+    light: { bg: '#F3F8FC', fg: '#14212B', mk: '#FFFFFF', mkc: '#1F4E6B', foil: ['#1F4E6B', '#2A6386', '#1B4560'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
+    dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#A9D8F4', foil: ['#9FD3F2', '#E8F6FF', '#7FC0E6'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
   },
   {
     key: 'tier7',
@@ -102,6 +107,17 @@ const MATERIALS: Array<Omit<Tier, 'step'>> = [
 /** One tier per step of the shipped ladder. A ladder that grows past the materials reuses the top material. */
 export const TIERS: readonly Tier[] = MILESTONE_THRESHOLDS.map((step, i) => ({ ...MATERIALS[Math.min(i, MATERIALS.length - 1)]!, step }));
 
+/** The tier at a position on ANY badge's ladder (0 = its first step); a ladder longer than seven tops out at tier7. */
+export function tierKeyAt(index: number): TierKey {
+  const i = Math.min(Math.max(0, Math.trunc(index)), MATERIALS.length - 1);
+  return MATERIALS[i]!.key;
+}
+
+/** A tier's name by key ("Gold"). */
+export function tierName(key: TierKey): string {
+  return MATERIALS.find((m) => m.key === key)!.name;
+}
+
 /** The tier a reached step wears; null for a number that is not a step. */
 export function tierForStep(step: number): Tier | null {
   return TIERS.find((t) => t.step === step) ?? null;
@@ -110,4 +126,44 @@ export function tierForStep(step: number): Tier | null {
 /** The number for the circle: 1,000 → 1K, 10,000 → 10K — the line beside it says it in full. */
 export function stepGlyph(step: number): string {
   return step >= 1000 && step % 1000 === 0 ? `${step / 1000}K` : String(step);
+}
+
+/** The seven tiers in order, Bronze first. */
+export const TIER_KEYS: readonly TierKey[] = ['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6', 'tier7'];
+
+/**
+ * 🏅 THE FIVE TIERED SHOP BADGES AND THEIR OWN STEPS — the only shop badges Setnayan has (owner 15 Nov, 4b8cc3a3 "the
+ * badges we created will be the only badges we have"; prototype badge-milestones_v86). Each badge keeps ITS OWN steps,
+ * Bronze → Black Diamond (correction to e6cd652e). ⚖ THE STEP NUMBERS LIVE IN `SHOP_BADGE_STEPS` BELOW AND NOWHERE
+ * ELSE — no comment, test or reader repeats them; every reader and test reads this table (controller 15 Nov: the owner
+ * is re-setting them). What each badge counts:
+ *   Completed bookings  completed events (the calendar-steps row)
+ *   Five-star reviews   trusted five-star reviews
+ *   Gifts given         gift points, 1 per ₱10 of each gift's regular price, on completed events (bc148e4e)
+ *   Trusted by          clients who booked the shop a second time (50566f42)
+ *   Invites             suppliers the shop imported, each at its first completed event (owner 15 Nov, open item 3)
+ * Lifetime counts — they never reset (3cbf12c1). Seals are yearly and card badges rolling 30 days, by their own rows.
+ * ⚠ NOT `MILESTONE_THRESHOLDS`: that ladder still sizes the service-card record's milestone medals and many readers.
+ */
+export type ShopBadgeKey = 'completed_bookings' | 'five_star_reviews' | 'gifts_given' | 'trusted_by' | 'invites';
+
+export const SHOP_BADGE_KEYS: readonly ShopBadgeKey[] = ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'];
+
+export const SHOP_BADGE_STEPS: Readonly<Record<ShopBadgeKey, readonly number[]>> = {
+  completed_bookings: [5, 25, 50, 100, 250, 500, 1000],
+  five_star_reviews: [50, 250, 500, 1000, 2500, 5000, 10000],
+  gifts_given: [150, 750, 1500, 3000, 5000, 10000, 20000],
+  trusted_by: [1, 5, 10, 25, 50, 100, 250],
+  invites: [1, 5, 10, 25, 50, 100, 250],
+};
+
+/** The highest tier a count has reached on one badge's own ladder; null below Bronze or for an unread count. */
+export function shopBadgeTier(badge: ShopBadgeKey, count: number | null | undefined): TierKey | null {
+  if (count == null || !Number.isFinite(count)) return null;
+  const steps = SHOP_BADGE_STEPS[badge];
+  let reached = -1;
+  steps.forEach((s, i) => {
+    if (count >= s) reached = i;
+  });
+  return reached < 0 ? null : TIER_KEYS[reached]!;
 }

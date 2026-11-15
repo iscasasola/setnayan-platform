@@ -100,27 +100,12 @@ COMMENT ON TABLE public.shop_seals IS
   'Seals given to a shop (badge build J2, owner 15 Nov): yearly no1/top10/most_in_demand/clients_choice once per shop+seal+year; verified_partner once per shop for life (3077c9b3). Setnayan Verified is read live from vendor_profiles, never stored here. Written by the service role (lib/shop-seals.server.ts).';
 
 -- ── 1b · an IMPORT never counts as a completed booking ──────────────────────
--- Owner, 16 Nov (DECISION_LOG fd5814dc (3)), applied by the controller to every badge, seal and Most Booked count:
--- a booking the supplier brought in themselves — QR import ('vendor_invite'), the Booking QR ('vendor_locked_qr', or
--- any booking a locked-QR token was claimed onto, since that claim keeps an earlier source), a reused booking
--- ('reuse_accept'), or an own-link arrival ('website', the ?src=own door) — is never a completed booking for a seal.
--- ONE definition, read by both counting functions below; lib/shop-seals.ts IMPORT_SOURCES mirrors the list (guarded).
-CREATE OR REPLACE FUNCTION public.shop_booking_is_import(p_event_vendor_id UUID, p_source TEXT)
-RETURNS BOOLEAN
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = public
-AS $$
-  SELECT COALESCE(p_source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'website'), false)
-      OR EXISTS (SELECT 1 FROM public.vendor_locked_qr_tokens t WHERE t.claimed_event_vendor_id = p_event_vendor_id);
-$$;
-
-REVOKE ALL ON FUNCTION public.shop_booking_is_import(UUID, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.shop_booking_is_import(UUID, TEXT) TO service_role;
-
-COMMENT ON FUNCTION public.shop_booking_is_import(UUID, TEXT) IS
-  'Seals engine (J2): true when a booking was brought in by the supplier (QR import, Booking QR — by source or a claimed locked-QR token — reuse, or an own-link arrival). Imports never count as completed bookings for any badge or seal (owner 16 Nov, fd5814dc). service_role only.';
+-- Owner, 16 Nov (DECISION_LOG fd5814dc (3)), applied by the controller to every badge, seal and Most Booked count.
+-- The ONE definition is public.shop_booking_is_import(vendor_profile_id, event_id, source), migration 20271349129379
+-- (PR #7753): a QR import ('vendor_invite'), the Booking QR ('vendor_locked_qr', or a Booking QR token of the shop
+-- claimed onto the booking, since that claim keeps an earlier source), a reused booking ('reuse_accept'), or an
+-- own-link arrival (source 'website', or the couple's chat arrived through the shop's own link). This engine CALLS it
+-- and must never redefine it (controller, 16 Nov: two copies gave two answers to one question).
 
 -- ── 2 · the yearly facts, one read for every shop ───────────────────────────
 -- The seal year (owner, 11d044c0 (1)): 18 Dec last year → 17 Dec this year, given on 18 Dec; the first year runs
@@ -153,7 +138,7 @@ AS $$
            ev.vendor_id,
            ev.event_id,
            ev.status,
-           public.shop_booking_is_import(ev.vendor_id, ev.source) AS is_import,
+           public.shop_booking_is_import(COALESCE(ev.linked_vendor_profile_id, ev.marketplace_vendor_id), ev.event_id, ev.source) AS is_import,
            COALESCE(e.event_date, ev.event_date_at_delete) AS d
       FROM public.event_vendors ev
       LEFT JOIN public.events e ON e.event_id = ev.event_id
@@ -281,7 +266,7 @@ SET search_path = public
 AS $$
   WITH booked AS (
     SELECT ev.vendor_id, ev.event_id, ev.source, ev.status, ev.total_cost_php,
-           public.shop_booking_is_import(ev.vendor_id, ev.source) AS is_import
+           public.shop_booking_is_import(p_vendor_profile_id, ev.event_id, ev.source) AS is_import
       FROM public.event_vendors ev
      WHERE (ev.marketplace_vendor_id = p_vendor_profile_id
             OR ev.linked_vendor_profile_id = p_vendor_profile_id)

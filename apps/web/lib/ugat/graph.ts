@@ -2363,6 +2363,23 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'shop_gift_purchases', column: 'bundle_code' },
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_of_service_code' },
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_quantity' },
+      // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the gifts a supplier PICKS for the couple's event when they agree to
+      // a booking — one row per Papic pack or plan, its list price frozen at the yes. A stock line holds stock and is
+      // given by the shop gift doors at the couple's first payment; a bought line rides the booking-fee charge
+      // (charge_id; the charge's gift_centavos) and lands when that bill is paid. Written only by booking_gift_pick.
+      { kind: 'table', table: 'booking_gift_lines' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'charge_id', references: 'booking_fee_charges' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'from_stock' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'price_centavos' },
+      {
+        kind: 'check',
+        table: 'booking_gift_lines',
+        name: 'booking_gift_lines_bought_rides_a_bill',
+        mentions: 'charge_id',
+      },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },

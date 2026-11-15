@@ -52,19 +52,22 @@ const PACKS: ShopGiftPack[] = [
   { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 1 },
 ];
 
-test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {
+test('1 · the dropdown: No gift · the shop’s packs, a short pack listed with "buy first" (the photo gift retired 2026-11-15)', () => {
   const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 1 } }, GIFT_NONE, true);
-  assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
+  assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, 'PAPIC_GUEST', 'EVENT_PLUS']);
   assert.equal(menu[0]!.label, 'No gift');
-  assert.equal(menu[1]!.label, 'Setnayan gift');
-  assert.equal(menu[2]!.disabledNote, undefined, 'a pack the stock covers must be pickable');
-  assert.equal(menu[3]!.disabledNote, 'Not enough in your stock · buy first');
+  assert.equal(menu[1]!.disabledNote, undefined, 'a pack the stock covers must be pickable');
+  assert.equal(menu[2]!.disabledNote, 'Not enough in your stock · buy first');
   // Unreadable stock is said as unreadable, never as empty.
-  for (const o of giftMenu(PACKS, null, GIFT_NONE, true).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
+  for (const o of giftMenu(PACKS, null, GIFT_NONE, true).slice(1)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
   // A saved card's own pack stays pickable whatever the stock says — opening it never strands its gift.
-  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
-  // Unread catalogue: only the two answers that need no catalogue.
-  assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
+  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} }, 'EVENT_PLUS', true)[2]!.disabledNote, undefined);
+  // Unread catalogue: only the answer that needs no catalogue.
+  assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE]);
+  // 🎁 A card saved with the retired photo gift keeps its value, said as retired — never stranded, never re-offered.
+  const saved = giftMenu(null, null, GIFT_SETNAYAN);
+  assert.deepEqual(saved.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
+  assert.match(saved[1]!.hint ?? '', /^Retired/);
 });
 
 test('2 · one value, two columns — and a code that cannot be gifted is refused', () => {
@@ -134,13 +137,13 @@ test('7 · 🚧 shop packs are not offered while they reach nobody — and are o
   // The default follows the switch: hidden while false, listed while true.
   const def = giftMenu(PACKS, free).map((o) => o.key);
   if (SHOP_PACK_GIFTS_DELIVER) {
-    assert.deepEqual(def, [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
+    assert.deepEqual(def, [GIFT_NONE, 'PAPIC_GUEST', 'EVENT_PLUS']);
   } else {
-    assert.deepEqual(def, [GIFT_NONE, GIFT_SETNAYAN], 'a pack is offered that would reach no quote and no couple');
+    assert.deepEqual(def, [GIFT_NONE], 'a pack is offered that would reach no quote and no couple');
     assert.equal(giftTip('card').length, 1, 'the ⓘ promises own gifts that are not offered');
   }
-  assert.deepEqual(keys(false), [GIFT_NONE, GIFT_SETNAYAN]);
-  assert.deepEqual(keys(true), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
+  assert.deepEqual(keys(false), [GIFT_NONE]);
+  assert.deepEqual(keys(true), [GIFT_NONE, 'PAPIC_GUEST', 'EVENT_PLUS']);
   assert.ok(giftTip('card', true).length > 1);
   // The save refuses a pack while the switch is off (a crafted post cannot save a gift that reaches nobody).
   assert.match(read(ACTIONS), /if \(code && !SHOP_PACK_GIFTS_DELIVER\) return back\(/);

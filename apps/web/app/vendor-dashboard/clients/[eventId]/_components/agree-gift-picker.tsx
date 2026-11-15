@@ -51,12 +51,12 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
   return (
     <div data-agree-gift="" className="mb-3">
       {ok ? codes.map((c, i) => <input key={`${c}-${i}`} type="hidden" name="gift" value={c} />) : null}
-      <dl className="divide-y divide-ink/10 rounded-2xl border border-ink/10 text-[14px]">
-        <div className="flex items-baseline justify-between gap-3 px-4 py-3">
+      <dl className="divide-y divide-ink/10 border-y border-ink/10 text-[14px]">
+        <div className="flex items-baseline justify-between gap-3 py-3">
           <dt className="text-ink/70">Booking fee</dt>
           <dd className="tabular-nums text-ink">{pesoFromCentavos(fee)}</dd>
         </div>
-        <div className="px-4 py-3">
+        <div className="py-3">
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -77,7 +77,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
             <span className="flex-none tabular-nums text-ink">{items && ok ? pesoFromCentavos(giftOnBill) : 'Add ›'}</span>
           </button>
         </div>
-        <div className="flex items-baseline justify-between gap-3 px-4 py-3 font-medium">
+        <div className="flex items-baseline justify-between gap-3 py-3 font-medium">
           <dt className="text-ink">You pay if you agree</dt>
           <dd className="tabular-nums text-ink" data-agree-gift-total="">{pesoFromCentavos(fee + giftOnBill)}</dd>
         </div>
@@ -96,7 +96,7 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="min-h-11 rounded-full bg-ink px-5 text-[14px] font-medium text-white"
+              className="min-h-11 rounded-full border border-ink/20 px-5 text-[14px] font-medium text-ink"
             >
               Done
             </button>
@@ -138,11 +138,11 @@ export function AgreeGiftPicker({ basis }: { basis: AgreeGiftBasis }) {
               <li key={o.pack.code} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="text-[14px] font-medium text-ink">{o.pack.title}</p>
-                  <p className="text-[12.5px] text-ink/60">
+                  <span className="block text-[12.5px] text-ink/60">
                     {pesoFromCentavos(o.pack.srpCentavos)} each
                     {o.inStock && o.inStock > 0 ? ` · In your stock (${o.inStock})` : ''}
                     {!o.canAdd && o.count === 0 && o.why ? ` · ${o.why}` : ''}
-                  </p>
+                  </span>
                 </div>
                 <div className="flex flex-none items-center gap-1">
                   <button

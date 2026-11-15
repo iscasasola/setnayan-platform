@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7857
+# facts: 7872
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     637
-#   col       5656
-#   policy    1151
+#   tpriv     638
+#   col       5669
+#   policy    1152
 #   view      10
 #   func      399
 #
@@ -43,6 +43,7 @@ tpriv	public.booking_fee_charges|anon	SIUD
 tpriv	public.booking_fee_charges|authenticated	SIUD
 tpriv	public.booking_fee_disputes|authenticated	S
 tpriv	public.booking_fee_ledger|authenticated	SIUD
+tpriv	public.booking_gift_lines|authenticated	S
 tpriv	public.booking_handovers|anon	SIUD
 tpriv	public.booking_handovers|authenticated	SIUD
 tpriv	public.budget_allocation_config|anon	SIUD
@@ -833,6 +834,19 @@ col	public.booking_fee_ledger.ledger_id	anon=- authenticated=SIU
 col	public.booking_fee_ledger.source	anon=- authenticated=SIU
 col	public.booking_fee_ledger.updated_at	anon=- authenticated=SIU
 col	public.booking_fee_ledger.vendor_profile_id	anon=- authenticated=SIU
+col	public.booking_gift_lines.charge_id	anon=- authenticated=S
+col	public.booking_gift_lines.created_at	anon=- authenticated=S
+col	public.booking_gift_lines.credits	anon=- authenticated=S
+col	public.booking_gift_lines.event_id	anon=- authenticated=S
+col	public.booking_gift_lines.event_vendor_id	anon=- authenticated=S
+col	public.booking_gift_lines.from_stock	anon=- authenticated=S
+col	public.booking_gift_lines.gift_kind	anon=- authenticated=S
+col	public.booking_gift_lines.given_at	anon=- authenticated=S
+col	public.booking_gift_lines.line_id	anon=- authenticated=S
+col	public.booking_gift_lines.price_centavos	anon=- authenticated=S
+col	public.booking_gift_lines.service_code	anon=- authenticated=S
+col	public.booking_gift_lines.title	anon=- authenticated=S
+col	public.booking_gift_lines.vendor_profile_id	anon=- authenticated=S
 col	public.booking_handovers.couple_acknowledged_at	anon=SIU authenticated=SIU
 col	public.booking_handovers.created_at	anon=SIU authenticated=SIU
 col	public.booking_handovers.delivered_at	anon=SIU authenticated=SIU
@@ -6351,6 +6365,7 @@ policy	public.booking_fee_disputes|booking_fee_disputes_admin_read	mode=PERMISSI
 policy	public.booking_fee_disputes|booking_fee_disputes_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.booking_fee_ledger|booking_fee_ledger_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.booking_fee_ledger|booking_fee_ledger_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.booking_gift_lines|booking_gift_lines_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.booking_handovers|booking_handovers_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.booking_handovers|booking_handovers_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'delivered'::text))
 policy	public.booking_handovers|booking_handovers_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL

@@ -183,7 +183,7 @@ export function LockRequestAnswer({
           // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
           <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
         ) : (
-          <form action={agreeLock} className={giftBasis ? 'w-full' : undefined}>
+          <form action={agreeLock}>
             <input type="hidden" name="vendor_id" value={eventVendorId} />
             <input type="hidden" name="return_to" value={returnTo} />
             {giftBasis ? <AgreeGiftPicker basis={giftBasis} /> : null}

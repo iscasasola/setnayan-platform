@@ -21,7 +21,6 @@ import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
-import { Wordmark } from '@/app/_components/brand-marks';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -116,7 +115,10 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
-import { arrivalParams, shopBackDoor, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { ShopTopBar } from './_components/shop-top-bar';
+import { awardFact } from '@/lib/shop-award-fact';
+import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { actionButtonClass } from '@/components/action-button-class';
 import { BackButton } from '@/app/_components/back-button';
 import {
   SHOP_ARTICLE_WIDTH,
@@ -2340,26 +2342,41 @@ export async function renderVendorBySlug({
   // stamps down, the circles pop — prototype motion 3), in the calm header for an unverified one. Same circles, same
   // gates, same `title`s as before — only where it sits changed (owner-approved 13 Nov 2026).
   const shopBadgesRow = (
-      <div data-shop-hero-badges="" className="flex flex-wrap items-center gap-2">
-      {vendor.verification_state === 'verified' ? (
-        <>
-          {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
-          <HeroBadge
-            badge={verifiedBadge()}
-            title="Setnayan reviewed this shop’s business documents before it went public."
-            drawn
-          />
-          <SealCaption />
-        </>
-      ) : null}
+      <div data-shop-hero-badges="" className="grid gap-3">
+      {/* 🏅 AWARDS (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE AWARDS ROW: THE BADGE + ONE PLAIN FACT"): the row's
+          heading is just "Awards" — never instruction wording ("tap one", "Earned on Setnayan") — and each award is
+          its badge + ONE plain fact (`awardFact`, lib/shop-award-fact.ts). The tier name and the award date belong to
+          the full-screen view, never to this row. */}
+      {vendor.verification_state === 'verified' || performancePills.length > 0 ? (
+        <div data-shop-awards="" className="grid gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            {vendor.verification_state === 'verified' ? (
+              <li id="shop-verified-award" tabIndex={-1} className="flex items-center gap-2 outline-none">
+                {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
+                <HeroBadge
+                  badge={verifiedBadge()}
+                  title="Setnayan reviewed this shop’s business documents before it went public."
+                  drawn
+                />
+                <SealCaption />
+              </li>
+            ) : null}
       {/* 🏅 THE PERFORMANCE BADGES (circles since 12 Nov; pills from 2026-10-28) — the milestone medal from the SAME
           public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
           in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
           booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-      {performancePills.map((b) => (
-        <HeroBadge key={b.key} badge={b} title={b.label} />
-      ))}
+            {performancePills.map((b) => (
+              <li key={b.key} className="flex items-center gap-2" data-shop-award-fact="">
+                <HeroBadge badge={b} title={b.label} />
+                <span className="text-sm leading-snug">{awardFact(b)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
       {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
           subtle violet chip stating how many finalized bookings flowed
           through Setnayan. The profile keeps the honest "New to Setnayan"
@@ -2416,11 +2433,13 @@ export async function renderVendorBySlug({
         </p>
       ) : null}
       </div>
+      </div>
   );
 
   return (
     <main
       id="shop-top"
+      style={{ ['--shop-bar-h' as string]: '3.5rem' }}
       className={`min-h-dvh bg-page ${canMessage ? 'pb-24 md:pb-0' : ''} ${cinematicHero ? shopMotion.verified : ''}`}
     >
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
@@ -2432,35 +2451,50 @@ export async function renderVendorBySlug({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <header className="border-b border-ink/5">
-        <div className={`mx-auto flex w-full ${SHOP_ARTICLE_WIDTH} items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8`}>
-          {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
-              system. Wordmark from @/app/_components/brand-marks is the
-              canonical brand mark across /, /vendors, /login, /signup,
-              /vendors, and all dashboard chromes after V2 cutover Phase B
-              (PRs #560-#564 + #572-#580). Matches the marketplace overlay
-              pattern from PR #580. */}
-          <div className="flex items-center gap-3">
-            {/* ‹ ONE WAY BACK, AT THE TOP LEFT, FOR EVERYONE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
-                PROTOTYPE APPROVED"; owner: "when we enter a shop, event or anything, we should be able to go back to
-                home"). The shipped BackButton, returning in place; the page itself is not redrawn. */}
-            <BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />
-            <Link href="/" className="flex items-center text-ink">
-              <Wordmark size={22} />
-            </Link>
-          </div>
-          {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
-              shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
-          {user ? (
+      {/* 🧭 THE TOP BAR (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE TOP BAR, ONCE SCROLLED"): sticky; ‹ back named for
+          where the visitor came from (`shopTopBack`) + SETNAYAN, an absolute link to www.setnayan.com; once the shop's
+          name scrolls under it, the shop's own logo + name (back to the top) and, verified, the blue check. Share + the
+          heart (Add to event) join it only after the page's own buttons have scrolled away. */}
+      <ShopTopBar
+        widthClass={SHOP_ARTICLE_WIDTH}
+        back={<BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />}
+        backCompact={<BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />}
+        shopName={displayLabel}
+        logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
+        verified={vendor.verification_state === 'verified'}
+        acts={
+          canMessage ? (
+            <>
+              <ShareButton title={displayLabel} iconOnly className={actionButtonClass('neutral', { iconOnly: true, quiet: true })} />
+              <SaveVendorButton
+                vendorProfileId={vendor.vendor_profile_id}
+                initiallySaved={false}
+                variant="profile"
+                label="Add to your event"
+                icon="heart"
+                iconOnly
+                className={actionButtonClass('neutral', { iconOnly: true, quiet: true })}
+                events={
+                  inquireEventState?.signedIn && inquireEventState.options.length >= 2
+                    ? inquireEventState.options.map(({ eventId, title, kindWord, dateISO }) => ({ eventId, title, kindWord, dateISO }))
+                    : []
+                }
+              />
+            </>
+          ) : null
+        }
+        end={
+          /* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). Inquire is the one ask. */
+          user ? (
             <Link
               href="/dashboard"
               className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
             >
               Return to Dashboard
             </Link>
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
       {/* 🌄 THE VERIFIED SHOP'S HERO — full-bleed, the name on the photo, the seal and badge circles on it; no buttons on
           the photo (the calling card below carries Inquire). Every verified plan alike (owner-approved 13 Nov 2026). */}
@@ -2724,6 +2758,7 @@ export async function renderVendorBySlug({
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
+                data-shop-quick=""
               >
                 {/* ✅ THE ONE INQUIRE (owner 2026-11-13: "Yes, one main button" · "Yes, only one"): filled, in the card, on
                     every look — and the ONLY Inquire on the page (no tab, no foot section, no hero button). It opens the
@@ -2740,6 +2775,7 @@ export async function renderVendorBySlug({
                   initiallySaved={false}
                   variant="profile"
                   label="Add to your event"
+                  icon="heart"
                   className="button-secondary inline-flex items-center gap-2"
                   events={
                     inquireEventState?.signedIn && inquireEventState.options.length >= 2
@@ -3441,7 +3477,9 @@ export async function renderVendorBySlug({
                 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED": "The low button stays for cold arrivals"):
                 with an arrival the top-left ‹ IS the way back, so this foot door is drawn only cold — never two
                 "Back"s on one page. */}
-            {!shopBack.back ? (
+            {/* 🚪 Owner 15 Nov 2026: only a visitor from OUTSIDE — the supplier's own QR / link (`?src=own`) or a typed
+                address — gets this door (`shopColdDoorShows`). */}
+            {shopColdDoorShows(shopArrival) ? (
               <Link href={shopBack.href} className="button-secondary" data-shop-back="cold">
                 {shopBack.label}
               </Link>
@@ -3455,14 +3493,19 @@ export async function renderVendorBySlug({
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-6 text-xs text-ink/50">
           {/* Setnayan brand mark — visible on every vendor site, every tier
               (owner 2026-07-03), incl. Enterprise custom domains. */}
-          <p>
-            Powered by{' '}
-            <span className="font-semibold tracking-wide text-ink/70">SETNAYAN</span>{' '}
-            <span className="italic">· Set na &lsquo;yan</span>
-          </p>
-          <p>
-            Supplier ID · <span className="font-mono">{vendor.public_id}</span>
-          </p>
+          <div className="grid gap-1">
+            <p>
+              Powered by{' '}
+              {/* 🌐 An ABSOLUTE address (owner 15 Nov 2026): on a shop's own domain a "/" would stay on the shop. */}
+              <a href={SETNAYAN_HOME_URL} className="font-semibold tracking-wide text-ink/70 hover:text-ink">
+                SETNAYAN
+              </a>{' '}
+              <span className="italic">· Set na &lsquo;yan</span>
+            </p>
+            <p>
+              Supplier ID · <span className="font-mono">{vendor.public_id}</span>
+            </p>
+          </div>
           {/*
             🔴 A COUPLE HAD NO WAY TO REPORT A SHOP — CTRL-B3 build 9, 2026-09-22.
             `PublicPageActions` carries Share + Report on the celebration page
@@ -3488,12 +3531,14 @@ export async function renderVendorBySlug({
             light and dark (live walk 2026-11-01, /setnaprod and /v/setnaprod).
             Held by `no-block-inside-a-paragraph.test.ts`.
           */}
+          {/* ⚑ ITS OWN BUTTON (owner 15 Nov 2026, "fix this also · report this shop"): outlined, 44 px, after the two
+              lines — no longer an underlined link wedged between them. */}
           <div className="pt-1">
             <ReportPageButton
               targetType="vendor"
               targetId={vendor.vendor_profile_id}
               label="Report this shop"
-              className="inline-flex min-h-[44px] items-center text-ink/45 hover:text-ink/70"
+              triggerClassName={actionButtonClass('neutral', { extra: 'min-h-11' })}
             />
           </div>
         </footer>
@@ -3599,6 +3644,27 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
     .join('');
   return (
     <span className="inline-flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-terracotta/15 text-xl font-semibold text-terracotta-700">
+      {initials || '?'}
+    </span>
+  );
+}
+
+/** The shop's own small round logo for the top bar (initials when it has none). */
+function TopBarLogo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; frame?: LogoFrame }) {
+  if (logoUrl) {
+    return (
+      <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
+        <Image src={logoUrl} alt="" width={28} height={28} className="h-full w-full object-cover" style={logoFrameStyle(frame)} />
+      </span>
+    );
+  }
+  const initials = name
+    .split(/\s+/)
+    .map((p) => p.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
+  return (
+    <span aria-hidden className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-[11px] font-semibold text-terracotta-700">
       {initials || '?'}
     </span>
   );

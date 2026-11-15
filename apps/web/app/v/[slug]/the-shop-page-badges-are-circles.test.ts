@@ -13,7 +13,11 @@ const page = readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8');
 test('the hero badges sit in one flex row with a gap', () => {
   const start = page.indexOf('data-shop-hero-badges=""');
   assert.ok(start > 0, 'the hero badge row is gone');
-  assert.match(page.slice(start, start + 120), /className="flex flex-wrap items-center gap-2"/);
+  // 15 Nov 2026 ("SHOP WEBSITE AWARDS ROW"): the awards sit in their own spaced list under the "Awards" label, and the
+  // other chips in a spaced row after it.
+  const row0 = page.slice(start, page.indexOf('<ShopSinceLine', start));
+  assert.match(row0, /<ul className="flex flex-wrap items-center gap-x-5 gap-y-3">/);
+  assert.match(row0, /<div className="flex flex-wrap items-center gap-2">/);
   const row = page.slice(start, page.indexOf('<ShopSinceLine', start));
   for (const b of ['badge={verifiedBadge()}', 'performancePills.map', 'badge={ratingPill!}']) {
     assert.ok(row.includes(b), `${b} left the spaced row`);

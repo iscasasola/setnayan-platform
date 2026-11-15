@@ -64,7 +64,7 @@ export function shopReachLine(reach: ShopReach, city: string | null | undefined)
 }
 
 /**
- * "Also in Lipa · Batangas City" — the shop's OTHER branches, under the reach line (owner 2026-11-13, verbatim:
+ * "Also in Lipa, Batangas City" — the shop's OTHER branches, under the reach line (owner 2026-11-13, verbatim:
  * *"Show the branches as needed"*). The cities come from the shop's paid, live branches (`fetchPublicVendorBranches`,
  * `lib/vendor-branches.ts` — Pro and Ultra include them, `TIER_CAPS[t].branchesIncluded`). "As needed" = a shop with
  * no branch, or none with a city, gets NO line at all: never an empty "Also in", never a teaser for a lower plan.
@@ -85,8 +85,16 @@ export function shopAlsoInLine(
     seen.add(k);
     cities.push(c);
   }
-  return cities.length > 0 ? `Also in ${cities.join(' · ')}` : null;
+  if (cities.length === 0) return null;
+  // 🏬 A 10-BRANCH SHOP (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE: A 10-BRANCH SHOP …"): the line names the first
+  // three and counts the rest — "Also in Makati, Quezon City, Muntinlupa and 7 more" — so it stays one line.
+  const shown = cities.slice(0, SHOP_ALSO_IN_NAMED);
+  const rest = cities.length - shown.length;
+  return `Also in ${shown.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`;
 }
+
+/** How many branch cities the "Also in" line names before it counts the rest. */
+export const SHOP_ALSO_IN_NAMED = 3;
 
 /**
  * The shop's own web address, shown "sampaguitatable.com → this page" (approved Q4 = A: the shop's own domain pointing

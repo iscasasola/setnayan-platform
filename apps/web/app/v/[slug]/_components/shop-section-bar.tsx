@@ -172,7 +172,8 @@ export function ShopSectionBar({
     const sec = sectionIn(scroller, id);
     if (!sec) return; // let the anchor do its plain job
     e.preventDefault();
-    const navH = nav.getBoundingClientRect().height;
+    // The bar sits under the shop page's sticky top bar (`--shop-bar-h`); its own sticky offset is part of the landing.
+    const navH = nav.getBoundingClientRect().height + (parseFloat(getComputedStyle(nav).top) || 0);
     holdUntil.current = performance.now() + (reducedMotion() ? 150 : 1000);
     setCurrent(id);
     scroller.to(sec.getBoundingClientRect().top - scroller.viewTop() + scroller.top() - navH - 6, !reducedMotion());
@@ -192,7 +193,7 @@ export function ShopSectionBar({
       ref={navRef}
       aria-label="On this page"
       data-shop-section-bar=""
-      className="sticky top-0 z-20 -mx-4 flex items-center gap-1 overflow-x-auto border-b border-ink/10 bg-page/95 px-3 backdrop-blur [scrollbar-width:none] sm:-mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      className="sticky top-[var(--shop-bar-h,0px)] z-20 -mx-4 flex items-center gap-1 overflow-x-auto border-b border-ink/10 bg-page/95 px-3 backdrop-blur [scrollbar-width:none] sm:-mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map((t) => (
         <a

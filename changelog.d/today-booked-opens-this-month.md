@@ -18,3 +18,6 @@ the bookings from outside Setnayan.
   Today's link back to `?door=booked`, the tile printing its own lanes, and a short read counting 0.
 
 No server actions, no migration. SPEC IMPACT: None. The DECISION_LOG row already records the ruling.
+- Two source guards on the Clients page (`the-clients-list-is-v113` tile words, `clients-is-one-screen` pinned row)
+  matched the literal `'booked'` / `booked ·`; they now also accept the one ruled variation, "booked this month"
+  under `?within=month`, and still hold the four tiles in order and the exact to-collect figure (each sabotaged once).

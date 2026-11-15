@@ -88,3 +88,14 @@ test('the words stay pure — no server-only import, no server action', () => {
   const lib = code('lib/booking-fee-dispute.ts');
   assert.doesNotMatch(lib, /server-only|['"]use server['"]/);
 });
+
+test('the surface words are the labels couples saw — editorial reads "Articles", never "Real Stories"', () => {
+  assert.equal(FOUND_SURFACE_WORDS.editorial, 'Articles');
+  assert.equal(foundYouLine('2026-11-02T17:30:00Z', 'editorial'), 'Found you on Setnayan · from Articles, 3 Nov');
+  for (const [code, words] of Object.entries(FOUND_SURFACE_WORDS)) {
+    assert.doesNotMatch(words, /real\s*stories/i, `${code} still names the retired Real Stories section`);
+  }
+  assert.equal(FOUND_SURFACE_WORDS.auto_build, '“Reach my best matches”');
+  assert.equal(FOUND_SURFACE_WORDS.influencer, '“Book through this chapter”');
+  assert.equal(FOUND_SURFACE_WORDS.favorites, 'Saved suppliers');
+});

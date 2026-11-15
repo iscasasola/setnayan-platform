@@ -117,14 +117,16 @@ export function disputeOpenedAdminNotice(shopName: string | null): { title: stri
  * not listed here prints no surface at all — never a raw code.
  */
 export const FOUND_SURFACE_WORDS: Readonly<Record<string, string>> = {
-  explore: 'Discover',
+  // Each value is the label the COUPLE saw on that surface in the shipped UI (controller 16 Nov); a pressed button is
+  // quoted. Where no shipped screen names the surface, the plain word stays.
+  explore: 'Discover', // account bottom nav tab
   search: 'Search',
-  shortlist: 'Shortlist',
-  first_pick: 'First Pick',
-  favorites: 'Favorites',
-  auto_build: 'Best matches',
-  editorial: 'Real Stories',
-  influencer: 'a shared story',
+  shortlist: 'Shortlist', // supplier-prints.ts "Shortlist · Scan to save us"; the button is "Ask for a quote"
+  first_pick: 'First Pick', // no shipped screen stamps it today — the plain word
+  favorites: 'Saved suppliers', // the Library tab (library-views.ts) holding the "Contact" link
+  auto_build: '“Reach my best matches”', // the sign-up option (onboarding-shell.tsx)
+  editorial: 'Articles', // owner 16 Nov (DECISION_LOG a4f97598): posts are Articles; Real Stories comes down (R1)
+  influencer: '“Book through this chapter”', // the button on a storyteller's chapter page
   shop_page: 'your Setnayan page',
 };
 

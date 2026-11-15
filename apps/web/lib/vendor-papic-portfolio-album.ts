@@ -22,6 +22,8 @@ export type PortfolioPhoto = {
   r2Key: string;
   creditsSpent: number;
   importedAt: string | null;
+  /** 🎬 A video (owner 2026-11-13) — `r2Key` is then its screened still. Absent = a photo. */
+  isVideo?: boolean;
 };
 
 type Row = {
@@ -32,6 +34,7 @@ type Row = {
   created_at: string | null;
   hidden_at: string | null;
   nsfw_checked: boolean | null;
+  media_kind?: string | null;
 };
 
 /**
@@ -51,6 +54,7 @@ export function visiblePortfolioPhotos(rows: ReadonlyArray<Row>): PortfolioPhoto
       r2Key: r.r2_object_key,
       creditsSpent: Math.max(1, Math.floor(Number(r.credits_spent)) || 1),
       importedAt: r.created_at,
+      ...(r.media_kind === 'video' ? { isVideo: true } : {}),
     });
   }
   return out;
@@ -59,7 +63,13 @@ export function visiblePortfolioPhotos(rows: ReadonlyArray<Row>): PortfolioPhoto
 /** The one-line summary above the album grid. Counts what is SHOWN, never the raw rows. */
 export function portfolioAlbumSummary(photos: ReadonlyArray<PortfolioPhoto>): string {
   if (photos.length === 0) return 'Nothing imported yet.';
-  return `${formatCount(photos.length)} photo${photos.length === 1 ? '' : 's'}`;
+  const videos = photos.filter((p) => p.isVideo).length;
+  const stills = photos.length - videos;
+  const parts = [
+    stills > 0 || videos === 0 ? `${formatCount(stills)} photo${stills === 1 ? '' : 's'}` : null,
+    videos > 0 ? `${formatCount(videos)} video${videos === 1 ? '' : 's'}` : null,
+  ];
+  return parts.filter(Boolean).join(' · ');
 }
 
 /**

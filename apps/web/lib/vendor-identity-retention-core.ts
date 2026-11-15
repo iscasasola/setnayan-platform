@@ -66,7 +66,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  *
  *   government ID        → government_id      (RETIRED 2026-07-03; legacy rows)
  *   selfie + liveness    → live_selfie        (RETIRED 2026-07-03; legacy rows)
- *   bank micro-deposit   → bank_account_proof (LIVE)
+ *   bank micro-deposit   → bank_account_proof (RETIRED 2026-11-14; legacy rows)
  *   portfolio            → portfolio_samples  (LIVE)
  */
 export const IDENTITY_DOC_SLOTS = [
@@ -85,7 +85,8 @@ export const SEVEN_YEAR_DOC_SLOTS = ['dti_certificate', 'bir_2303', 'mayors_perm
 
 /**
  * Columns on `vendor_verifications` holding raw identity uploads. `government_id_r2_key`
- * is the retired-but-still-present one; the bank proof is live.
+ * and `bank_account_proof_r2_key` are retired-but-still-present (2026-07-03,
+ * 2026-11-14) — old uploads still ride the 90-day clock.
  *
  * ⛔ The three permit columns on that same table are NOT here, for the same
  * reason as above: seven years.

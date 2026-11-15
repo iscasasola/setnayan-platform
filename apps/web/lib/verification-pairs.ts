@@ -3,23 +3,27 @@
  *
  * Ported from the binding drawing
  * `prototypes/shop_verification_2026-09-09.html` ("Papers Beside the Fields").
- * It does NOT introduce a new screen: it re-shapes the four REQUIRED slots of
+ * It does NOT introduce a new screen: it re-shapes the three REQUIRED slots of
  * the shipped My Shop → Get verified section so each document sits beside the
  * details it proves, and every line reports on its own.
  *
  * ── WHAT THIS MODULE IS AND IS NOT ──────────────────────────────────────────
  * It is the MODEL: which paper proves which typed field, what state each of
- * the eight checks is in, and how the tally adds up. It is pure — no Supabase,
+ * the seven checks is in, and how the tally adds up. It is pure — no Supabase,
  * no React — so the screen and the guards read the same rules.
  *
- * It is NOT the automation. Reading a document, resolving the QR, and calling
- * DTI's or SEC's registry are a separate build. This module defines the SEAM
+ * It is NOT the automation. Reading a document (`verification-paper-read.ts`,
+ * 2026-11-14), resolving the QR, and calling DTI's or SEC's registry live
+ * elsewhere. This module defines the SEAM
  * they attach through ({@link PaperRead}) and behaves correctly while that seam
  * is empty — which is what production looks like today.
  *
  * ── OWNER RULINGS THIS ENCODES (DECISION_LOG 2026-09-09) ────────────────────
  * · Verification needs BIR (Form 2303) + Business Permit + DTI **or** SEC, and
  *   a complete profile.
+ * · (2026-11-14, DECISION_LOG f69ec167) THREE papers, not four — the bank
+ *   proof pair, its read-only `bank_account_name` line and the `bank` registry
+ *   are retired: "delete bank account proof. we do not need that. just the 3."
  * · DTI or SEC, NEVER BOTH — and never as two slots. There is ONE registration
  *   paper and it takes either. The document itself says which registry it
  *   belongs to, so the supplier is NEVER asked to declare their legal form.
@@ -45,7 +49,7 @@ import {
 } from '@/lib/vendor-corrections';
 
 // ---------------------------------------------------------------------------
-// The six columns, plus the two lines that prove something without storing it
+// The six columns, plus the line that proves something without storing it
 // ---------------------------------------------------------------------------
 
 /**
@@ -71,12 +75,7 @@ export type PairFieldKey =
   | PairColumn
   // Read-only. The permit's address line confirms `registered_address`; it is
   // not a second address to keep.
-  | 'permit_address'
-  // Read-only. The bank proof's whole job is one sentence — the account name is
-  // one of the two names already on the papers above. Inventing a box for it
-  // would be a fifth thing to type that we then compare against a screenshot of
-  // itself (the drawing's own reasoning).
-  | 'bank_account_name';
+  | 'permit_address';
 
 export type PairField = {
   key: PairFieldKey;
@@ -96,11 +95,11 @@ export type PairField = {
   registryBacked?: boolean;
 };
 
-/** The four papers, in the drawn order. Slot keys are the SHIPPED ones. */
+/** The three papers (owner 2026-11-14, DECISION_LOG f69ec167), in the drawn order. Slot keys are the SHIPPED ones. */
 export type VerificationPair = {
   /** `DOC_SLOTS` key — unchanged, so every existing upload keeps working. */
-  slotKey: 'dti_certificate' | 'bir_2303' | 'mayors_permit' | 'bank_account_proof';
-  number: 1 | 2 | 3 | 4;
+  slotKey: 'dti_certificate' | 'bir_2303' | 'mayors_permit';
+  number: 1 | 2 | 3;
   title: string;
   hint: string;
   /** Why this paper is slower, said once, in plain words. Never "manual check". */
@@ -167,24 +166,9 @@ export const VERIFICATION_PAIRS: readonly VerificationPair[] = [
       },
     ],
   },
-  {
-    slotKey: 'bank_account_proof',
-    number: 4,
-    title: 'Bank account proof',
-    hint: 'So money meant for you cannot land somewhere else.',
-    fields: [
-      {
-        key: 'bank_account_name',
-        column: null,
-        label: 'What this proves',
-        purpose:
-          'The name on the account is your registered business name or the owner’s name — the two names on your papers above. Nothing to type here.',
-      },
-    ],
-  },
 ] as const;
 
-/** Every check on the page, flattened. The drawing counts EIGHT. */
+/** Every check on the page, flattened. SEVEN since the bank pair was retired (2026-11-14). */
 export const PAIR_CHECK_KEYS: readonly PairFieldKey[] = VERIFICATION_PAIRS.flatMap((p) =>
   p.fields.map((f) => f.key),
 );
@@ -202,7 +186,7 @@ export const PAIR_SLOT_KEYS: ReadonlySet<string> = new Set(
  * supplier is never asked. `unreadable` is a real answer: it parks the pair with
  * a person rather than becoming a question.
  */
-export type PaperRegistry = 'dti' | 'sec' | 'bir' | 'lgu' | 'bank' | 'unreadable';
+export type PaperRegistry = 'dti' | 'sec' | 'bir' | 'lgu' | 'unreadable';
 
 /**
  * What happened when we asked the registry about this paper.
@@ -226,8 +210,12 @@ export type RegistryOutcome = 'agreed' | 'not_found' | 'unreachable' | 'no_regis
  * That location was chosen so the automation needs NO migration, NO new grant
  * and NO second write path: `isSlotComplete` reads `r2_key` and ignores every
  * other key, so an application carrying a `read` block behaves exactly as one
- * without it. Until something writes it, {@link parsePaperRead} returns null
- * everywhere and every filled line honestly reads "with a person at Setnayan".
+ * without it. Where nothing has written it, {@link parsePaperRead} returns null
+ * and the filled line honestly reads "with a person at Setnayan".
+ *
+ * WRITER (2026-11-14): `lib/verification-paper-read.server.ts` reads the
+ * uploaded PDF / picture after upload and writes ONLY this block. Calling a
+ * registry is still a separate build, so `registryOutcome` stays `no_registry`.
  *
  * 🔒 A `read` block is EVIDENCE, never an instruction: nothing here may write a
  * profile column on its own. A supplier chooses, on the mismatch, which value
@@ -245,6 +233,22 @@ export type PaperRead = {
   unreadable: readonly PairFieldKey[];
   registryOutcome: RegistryOutcome;
   readAt: string | null;
+  /**
+   * The paper's printed expiry, ISO `YYYY-MM-DD` — null when it prints none
+   * (a BIR 2303 usually does not). Never a default. EVIDENCE only: it is
+   * offered to the reviewer beside the approval's permit date, never written to
+   * a column (`verification-paper-read.ts`, owner 2026-11-14).
+   */
+  expiresOn: string | null;
+  /**
+   * 🔳 The text in the paper's QR, exactly as decoded — usually a link to the
+   * registry's own page for this certificate. ADMIN ONLY, never opened by the
+   * server (the admin taps it). Null when nothing was decoded, or on a block
+   * written before the QR was read.
+   */
+  qrText: string | null;
+  /** True when the reader looked for a QR and got nothing out. False on old blocks. */
+  qrUnreadable: boolean;
 };
 
 const REGISTRIES: ReadonlySet<string> = new Set([
@@ -252,7 +256,6 @@ const REGISTRIES: ReadonlySet<string> = new Set([
   'sec',
   'bir',
   'lgu',
-  'bank',
   'unreadable',
 ]);
 const OUTCOMES: ReadonlySet<string> = new Set([
@@ -262,6 +265,15 @@ const OUTCOMES: ReadonlySet<string> = new Set([
   'no_registry',
 ]);
 const FIELD_KEYS: ReadonlySet<string> = new Set(PAIR_CHECK_KEYS);
+
+/** A real `YYYY-MM-DD`, or null — a malformed date is a date we do not have. */
+function parseIsoDay(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+  if (!m) return null;
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return dt.getUTCDate() === Number(m[3]) && dt.getUTCMonth() === Number(m[2]) - 1 ? m[0] : null;
+}
 
 /**
  * Read a `read` block off a stored slot value. Defensive on every field: a
@@ -306,6 +318,9 @@ export function parsePaperRead(entry: unknown): PaperRead | null {
     unreadable,
     registryOutcome,
     readAt: typeof r.readAt === 'string' && r.readAt.trim() ? r.readAt.trim() : null,
+    expiresOn: parseIsoDay(r.expiresOn),
+    qrText: typeof r.qrText === 'string' && r.qrText.trim() ? r.qrText.trim().slice(0, 2000) : null,
+    qrUnreadable: r.qrUnreadable === true,
   };
 }
 

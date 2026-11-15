@@ -85,7 +85,7 @@ import { formatCount } from '@/lib/format-number';
 /* ── the list ──────────────────────────────────────────────────────────── */
 
 /** The pill's width in a list — one of a few standard sizes (owner: "should dropdown have a consistent width?"). */
-export const FORM_PILL_WIDTH = { short: 'w-[150px]', wide: 'w-[200px]', auto: 'w-auto max-w-full' } as const;
+export const FORM_PILL_WIDTH = { narrow: 'w-[120px]', short: 'w-[150px]', wide: 'w-[200px]', auto: 'w-auto max-w-full' } as const;
 export type FormPillWidth = keyof typeof FORM_PILL_WIDTH;
 
 /** The white pill an answer wears (the dropdown button's own shape: a full pill, 40 px, the mark pinned right). In dark mode it
@@ -135,6 +135,11 @@ export function FormRows({
       </div>
     </RowsContext.Provider>
   );
+}
+
+/** The list's one-open-at-a-time, for a row drawn in its own file (`form-row-line.tsx`) — null outside a list. */
+export function useRowsOpen(): { open: string | null; setOpen: (id: string | null) => void } | null {
+  return useContext(RowsContext);
 }
 
 /** The width every pill of the list this row sits in wears — for a row drawn in its own file (`form-row-date.tsx`). */
@@ -263,7 +268,7 @@ export function FormRow({
  * The pill's words. When they fit they are simply shown; when they do not they are cut with "…" and — on screen, the
  * row not being edited, motion allowed — ride their own strip to their end and back (`longAnswerPlan`).
  */
-function PillWords({ text, quiet }: { text: string; quiet: boolean }) {
+export function PillWords({ text, quiet }: { text: string; quiet: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   const strip = useRef<HTMLSpanElement>(null);
   const [moving, setMoving] = useState(false);

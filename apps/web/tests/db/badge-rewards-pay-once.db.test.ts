@@ -68,8 +68,8 @@ async function newShop(): Promise<{ userId: string; shop: string }> {
   );
   const shop = await one<string>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1,'Badge Studio','Manila',ARRAY['photography']::text[],'verified',NOW())
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
+     VALUES ($1,'Badge Studio','Manila',ARRAY['photography']::text[],'verified',NOW(), 'verified')
      RETURNING vendor_profile_id AS v`,
     [userId],
   );

@@ -5,6 +5,7 @@ import { Camera, CameraOff, Check, Gift, Search, Undo2 } from 'lucide-react';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { markSouvenirReceived, undoSouvenirReceived } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Souvenir-table desk (owner 2026-06-28). Same scan-or-search → confirm flow as
@@ -236,18 +237,18 @@ export function SouvenirDesk({
   return (
     <div className="space-y-5">
       {/* Progress */}
-      <div className="flex items-center justify-between rounded-xl border border-ink/10 bg-cream px-4 py-3">
+      <div className="flex items-center justify-between rounded-2xl bg-[var(--m-paper-2)] px-4 py-3">
         <p className="inline-flex items-center gap-2 text-sm font-medium text-ink">
           <Gift aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
           Souvenirs given
         </p>
-        <p className="font-mono text-sm tabular-nums text-ink/70">
-          {received} <span className="text-ink/40">/ {formatCount(total)}</span>
+        <p className="text-sm tabular-nums text-ink/70">
+          <span className="text-xl font-bold text-ink">{received}</span> <span className="text-ink/70">/ {formatCount(total)}</span>
         </p>
       </div>
 
       {/* Scanner */}
-      <section aria-label="QR scanner" className="overflow-hidden rounded-xl border border-ink/10">
+      <section aria-label="QR scanner" className="overflow-hidden rounded-2xl">
         {scanning ? (
           <div className="relative bg-ink">
             <video
@@ -265,16 +266,10 @@ export function SouvenirDesk({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={startScanner}
-            className="flex w-full items-center justify-center gap-2 bg-mulberry px-4 py-4 text-sm font-semibold text-cream transition hover:bg-mulberry-600"
-          >
-            <Camera className="h-5 w-5" strokeWidth={1.75} /> Scan a guest QR
-          </button>
+          <ActionButton tone="brand" main icon={Camera} label="Scan a guest QR" onClick={startScanner} className="w-full" />
         )}
         {cameraError ? (
-          <p className="bg-terracotta/10 px-4 py-2 text-xs text-terracotta-700">{cameraError}</p>
+          <p className="py-2 text-sm text-warn-800">{cameraError}</p>
         ) : null}
       </section>
 
@@ -283,7 +278,7 @@ export function SouvenirDesk({
         <label className="relative block">
           <Search
             aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/70"
             strokeWidth={1.75}
           />
           <input
@@ -294,17 +289,17 @@ export function SouvenirDesk({
               setSelectedId(null);
             }}
             placeholder="…or find a guest by name"
-            className="w-full rounded-xl border border-ink/15 bg-cream py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            className="min-h-12 w-full rounded-xl border border-ink/15 bg-cream py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
           />
         </label>
         {matches.length > 0 ? (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 divide-y divide-ink/10">
             {matches.map((g) => (
               <li key={g.guestId}>
                 <button
                   type="button"
                   onClick={() => setSelectedId(g.guestId)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-ink/10 bg-cream px-3 py-2 text-left text-sm hover:border-terracotta"
+                  className="flex min-h-14 w-full items-center justify-between gap-2 px-1 py-2 text-left text-sm hover:bg-ink/[0.03]"
                 >
                   <span className="truncate text-ink">{g.name}</span>
                   {claims.has(g.guestId) ? (
@@ -312,7 +307,7 @@ export function SouvenirDesk({
                       <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Given
                     </span>
                   ) : g.tableLabel ? (
-                    <span className="shrink-0 text-xs text-ink/45">{g.tableLabel}</span>
+                    <span className="shrink-0 text-xs text-ink/70">{g.tableLabel}</span>
                   ) : null}
                 </button>
               </li>
@@ -322,14 +317,14 @@ export function SouvenirDesk({
       </div>
 
       {notice ? (
-        <p className="rounded-lg border border-warn-300 bg-warn-50 px-3 py-2 text-sm text-warn-900">
+        <p role="status" className="border-l-2 border-warn-600 py-1 pl-3 text-sm text-warn-900">
           {notice}
         </p>
       ) : null}
 
       {/* Selected guest action card */}
       {selected ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm">
+        <div className="border-l-2 border-terracotta py-1 pl-4">
           <div className="flex items-center gap-3">
             {selected.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -348,7 +343,7 @@ export function SouvenirDesk({
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-ink">{selected.name}</p>
               {selected.tableLabel ? (
-                <p className="text-xs text-ink/55">{selected.tableLabel}</p>
+                <p className="text-xs text-ink/70">{selected.tableLabel}</p>
               ) : null}
             </div>
           </div>
@@ -360,25 +355,18 @@ export function SouvenirDesk({
                   <Check className="h-4 w-4" strokeWidth={2.5} />
                   Souvenir given{selectedClaimedAt ? ` · ${timeLabel(selectedClaimedAt)}` : ''}
                 </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => doUndo(selected.guestId)}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink/80 disabled:opacity-50"
-                >
-                  <Undo2 className="h-3.5 w-3.5" strokeWidth={2} /> Undo
-                </button>
+                <ActionButton tone="neutral" icon={Undo2} label="Undo" disabled={busy} onClick={() => doUndo(selected.guestId)} />
               </div>
             ) : (
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Gift}
+                label="Confirm souvenir given"
                 disabled={busy}
                 onClick={() => doMark(selected.guestId, scanning ? 'qr_scan' : 'manual_search')}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-3 text-sm font-semibold text-cream transition hover:bg-mulberry-600 disabled:opacity-50"
-              >
-                <Gift className="h-4 w-4" strokeWidth={1.75} />
-                Confirm souvenir given
-              </button>
+                className="w-full"
+              />
             )}
           </div>
         </div>

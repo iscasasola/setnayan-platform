@@ -24,7 +24,7 @@
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, ChevronRight, Circle, Eraser, Loader2, Save } from 'lucide-react';
+import { Bookmark, ChevronRight, Circle, Eraser, Save } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useConfirm } from '@/app/_components/confirm-dialog';
@@ -262,10 +262,10 @@ export function TeamSavePlan({
         <ActionButton
           tone="brand"
           main
-          icon={pending ? <Loader2 className="animate-spin" aria-hidden /> : Save}
+          icon={Save}
           label={overwriteId ? 'Save' : 'Save plan'}
           onClick={onSaveNamed}
-          disabled={pending}
+          waiting={pending}
         />
       </div>
       {!err ? (
@@ -358,7 +358,7 @@ export function TeamDecisionDoorway({
       }}
       className="flex min-h-[56px] w-full items-center gap-2 px-1 py-2 text-left transition hover:bg-ink/5"
     >
-      <Circle className="h-3 w-3 shrink-0 text-ink/45" strokeWidth={2} aria-hidden />
+      <Circle className="h-3 w-3 shrink-0 text-ink/70" strokeWidth={2} aria-hidden />
       <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{label}</span>
       {meta ? <span className="shrink-0 text-[13px] text-ink/70">{meta}</span> : null}
       <ChevronRight className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} aria-hidden />

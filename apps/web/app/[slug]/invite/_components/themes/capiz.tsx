@@ -4,7 +4,7 @@ import { SealMark } from './seal-mark';
 import styles from './capiz.module.css';
 
 /**
- * CAPIZ — the Elegant invite theme (Event Hub Pro). See capiz.module.css.
+ * CAPIZ — the Elegant invite theme (Event Pro). See capiz.module.css.
  *
  * The photo is painted as a CSS background whose URL goes through
  * `JSON.stringify` — a quoted, escaped CSS string — so a presigned URL's `&`,

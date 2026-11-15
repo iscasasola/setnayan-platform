@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { recoverStaleTab } from '@/lib/stale-bundle';
 
 /**
@@ -90,7 +91,7 @@ export default function VendorDashboardError({ error, reset }: Props) {
   return (
     <div className="min-h-screen bg-page text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
+        <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-6">
           Setnayan · Shop console
         </p>
         <div className="flex justify-center mb-6">
@@ -103,29 +104,21 @@ export default function VendorDashboardError({ error, reset }: Props) {
         <h1 className="font-display italic text-3xl sm:text-4xl leading-tight text-ink mb-6">
           Your shop console is temporarily unavailable.
         </h1>
-        <p className="font-sans text-base sm:text-lg text-ink/70 leading-relaxed mb-10 max-w-md mx-auto">
-          We hit a transient error loading your supplier dashboard. Try again in
-          a moment — fresh deploys sometimes need a beat to settle. If it
-          keeps happening, switch to your customer view and we&rsquo;ll dig in
-          on our end.
-        </p>
+        <div className="mb-10 flex justify-center">
+          <InfoTip
+            label="We hit a transient error loading your supplier dashboard."
+            labelClassName="text-base text-[color:var(--m-slate-2)]"
+          >
+            Try again in a moment — fresh deploys sometimes need a beat to settle. If it keeps happening, switch to
+            your customer view and we&rsquo;ll dig in on our end.
+          </InfoTip>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
-          <button
-            type="button"
-            onClick={() => reset()}
-            className="inline-flex items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm"
-          >
-            Try again
-          </button>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"
-          >
-            Switch to customer view
-          </Link>
+          <ActionButton tone="brand" main onClick={() => reset()} icon={RotateCcw} label="Try again" />
+          <ActionButton tone="neutral" href="/dashboard" icon={ArrowLeftRight} label="Switch to customer view" />
         </div>
         {error?.digest && (
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30 mt-10">
+          <p className="text-xs text-[color:var(--m-slate-2)] mt-10">
             Reference: {error.digest}
           </p>
         )}

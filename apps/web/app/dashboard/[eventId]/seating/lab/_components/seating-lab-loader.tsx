@@ -31,7 +31,7 @@ const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
   loading: () => (
     <div
-      className="flex h-[80vh] w-full items-center justify-center rounded-2xl border border-ink/10 bg-ink/[0.03] text-sm text-ink/55"
+      className="flex h-[80vh] w-full items-center justify-center rounded-2xl bg-ink/[0.03] text-sm text-ink/70"
       role="status"
       aria-live="polite"
     >

@@ -620,7 +620,7 @@ export default async function ForCoordinatorsPage() {
                   {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303, permit and bank proof are approved) puts you in search{' '}
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
                   {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
                   and branches. See Plans below.
                 </p>
@@ -1089,7 +1089,7 @@ export default async function ForCoordinatorsPage() {
                 <p className="fc-pzero">{pesoWords(TIER_PRICE_PHP.verified.monthly)}, once your papers are approved</p>
                 <p>Couples can find you.</p>
                 <p className="fc-spec">{verifiedSpec()}</p>
-                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit · Bank proof</p>
+                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit</p>
               </div>
               <div className="fc-planstep fc-grow">
                 <span className="fc-n">STEP 3</span>

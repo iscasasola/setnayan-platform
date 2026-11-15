@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
 import {
   AtSign,
   BookImage,
@@ -16,6 +16,7 @@ import {
   Send,
   Share,
   Sparkles,
+  Star,
   Users,
 } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
@@ -29,6 +30,9 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 import { AddTile, EmptyRail, MorePill, MorePills, PortfolioSection, Rail, Tile, type Door, type GroupRise } from './portfolio-sections';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { AlbumGrids, OpenedCollection, PhotoGrid, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from './portfolio-groups';
+import { ReorderSections } from './reorder-sections';
+import { bestWorkLine, type BestWorkPhoto } from '@/lib/portfolio-best-work';
+import { orderPortfolioSections, type PortfolioSectionKey } from '@/lib/portfolio-section-order';
 
 /**
  * 🖼 PORTFOLIO — THE COLLECTIONS, AS THE CONTENT ITSELF (owner 9 Nov: *"Shouldnt this be in settings?"* · *"we need to
@@ -56,12 +60,30 @@ import { AlbumGrids, OpenedCollection, PhotoGrid, SONG_BANK_HREF, VideoLinks, ty
  *              Instagram's OAuth callback open.
  *
  * 🔑 NO NEW READ AND NO NEW TABLE — every tile is a store `collections-data.ts` already reads. 🔑 A REFUSED READ SAYS
- * "Couldn't load" and never wears an Example. Deferred, as the approval flags them NEW: "Your best work" (per-photo view
- * counts) and Reorder (a stored section order).
+ * "Couldn't load" and never wears an Example.
+ *   BEST WORK  (ruling 5940) the FIRST section: the page photos couples opened most (`lib/portfolio-best-work.ts`, the
+ *              shipped view counter). Empty = its title, the placeholder tile and the Upload door.
+ *   REORDER    (ruling 5940) the closing row under More: ↑ ↓ per section, stored as `portfolio_section_order`
+ *              (`reorder-sections.tsx`, `lib/portfolio-section-order.ts`). No stored order can hide a section.
  * 🔒 collections/the-portfolio-is-collections.test.ts
  */
 
 const SECTION_NAME = COLLECTION_SECTION_NAME;
+
+/** Every orderable section's title, as its head says it — the Reorder sheet's rows. */
+const SECTION_TITLE: Record<PortfolioSectionKey, string> = {
+  best: 'Your best work',
+  page: SECTION_NAME.page,
+  cards: SECTION_NAME.cards,
+  albums: SECTION_NAME.albums,
+  own: SECTION_NAME.own,
+  delivered: SECTION_NAME.delivered,
+  instagram: SECTION_NAME.instagram,
+  moodboard: SECTION_NAME.moodboard,
+  songs: 'Song bank',
+  stories: 'Stories couples published',
+  video: 'Video links',
+};
 
 type Open = { kind: 'photos'; key: string; photos: OpenedPhotos; origin: HTMLElement | null } | { kind: 'video'; origin: HTMLElement | null };
 
@@ -81,6 +103,8 @@ export function CollectionsList({
   songs = 'off',
   uploadFacts = null,
   order = 'listed',
+  best = [],
+  sectionOrder = null,
 }: {
   input: CollectionsInput;
   /** The shipped gallery editors (portfolio · videos · Instagram), mounted in the Add photos fold. */
@@ -100,8 +124,14 @@ export function CollectionsList({
   uploadFacts?: PortfolioUploadFacts | null;
   /** Sort (the thumb row's ⇅): each rail as listed, or its tiles by name. */
   order?: 'listed' | 'name';
+  /** ⭐ Your best work — most viewed first; `null` = the count could not be read. */
+  best?: BestWorkPhoto[] | null;
+  /** 🖼 The supplier's stored section order; `null`/absent = the shipped order. */
+  sectionOrder?: readonly string[] | null;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
+  // The stored order, kept here so a Reorder save redraws at once (the server revalidates behind it).
+  const [sectionOrderNow, setSectionOrderNow] = useState<readonly string[] | null>(sectionOrder);
   const frame = useRef<HTMLElement | null>(null);
   const rootRef = (el: HTMLDivElement | null) => {
     if (el) frame.current = el.closest('[data-portfolio-tab],[data-portfolio-tab-lab]');
@@ -136,6 +166,33 @@ export function CollectionsList({
         <Rail data="page">
           {allPhotos.slice(0, 12).map((u, i) => (
             <Tile key={`${i}-${u}`} name={i === 0 ? 'Latest' : ''} sub={i === 0 ? rows.page?.line : null} photo={u} open={openPhotos('page', pagePhotos)} data="page" />
+          ))}
+        </Rail>
+      )}
+    </PortfolioSection>
+  );
+
+  /* ── ⭐ YOUR BEST WORK — the page photos couples opened most (ruling 5940) ──── */
+  const bestPhotos: OpenedPhotos = {
+    title: 'Your best work',
+    sub: 'Most viewed first',
+    urls: (best ?? []).map((p) => p.url),
+    total: best?.length ?? 0,
+    href: null,
+  };
+  const bestSection = (
+    <PortfolioSection
+      id="best"
+      title="Your best work"
+      countLabel={best && best.length > 0 ? 'most viewed first' : null}
+      rise={riseOf(best && best.length > 0 ? 'Most viewed first' : 'Nothing yet', best && best.length > 0 ? <PhotoGrid photos={bestPhotos} data="best" /> : null)}
+    >
+      {best === null || best.length === 0 ? (
+        <EmptyRail id="best" line="Nothing yet · your most-viewed photos gather here" door={pageDoor} icon={ic(Star)} unread={best === null} />
+      ) : (
+        <Rail data="best">
+          {best.map((p, i) => (
+            <Tile key={p.key} name="" sub={bestWorkLine(p.views, i === 0, formatCount)} photo={p.url} open={openPhotos('best', bestPhotos)} data="best" hero />
           ))}
         </Rail>
       )}
@@ -355,10 +412,11 @@ export function CollectionsList({
     </PortfolioSection>
   );
 
-  return (
-    <div ref={rootRef} className="pb-2" data-collections-list="" data-tour="collections-list">
-      {onMyPage}
-      {albumSection(
+  /* ── THE ORDER (ruling 5940): every section this shop draws, in the supplier's stored order, More last ──────── */
+  const sections: Partial<Record<PortfolioSectionKey, ReactNode>> = {
+    best: bestSection,
+    page: onMyPage,
+    cards: albumSection(
         'cards',
         sorted(groups.services, (a) => a.title),
         '/vendor-dashboard/shop#services',
@@ -366,8 +424,8 @@ export function CollectionsList({
         { kind: 'link', label: 'Add a cover', href: '/vendor-dashboard/shop#services', icon: LayoutGrid },
         ic(LayoutGrid),
         groups.services && groups.services.length > 0 ? n(groups.services.length, 'card', 'cards') : null,
-      )}
-      {albumSection(
+      ),
+    albums: albumSection(
         'albums',
         sorted(groups.events, (a) => a.title),
         '/vendor-dashboard/collections/albums',
@@ -375,29 +433,38 @@ export function CollectionsList({
         { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: Users },
         ic(BookImage),
         groups.events && groups.events.length > 0 ? n(groups.events.length, 'event', 'events') : null,
-      )}
-      {countSection(
+      ),
+    own: countSection(
         'own',
         '/vendor-dashboard/on-the-day',
         own && own.items > 0 ? n(own.items, 'shot', 'shots') : null,
         'Nothing yet · what you shoot with Papic at an event lands here',
         { kind: 'link', label: 'Open On the day', href: '/vendor-dashboard/on-the-day', icon: Camera },
         ic(Camera),
-      )}
-      {countSection(
+      ),
+    delivered: countSection(
         'delivered',
         '/vendor-dashboard/customers',
         delivered && delivered.items > 0 ? n(delivered.couples, 'couple', 'couples') : null,
         'Nothing yet · what you send a couple lands here',
         { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: Send },
         ic(Send),
-      )}
-      {igSection}
-      {moodboardSection}
-      {songsSection}
-      {storiesSection}
-      {videoSection}
+      ),
+    instagram: igSection,
+    moodboard: moodboardSection,
+    songs: songsSection,
+    stories: storiesSection,
+    video: videoSection,
+  };
+  const present = (Object.keys(sections) as PortfolioSectionKey[]).filter((k) => sections[k] != null);
+
+  return (
+    <div ref={rootRef} className="pb-2" data-collections-list="" data-tour="collections-list">
+      {orderPortfolioSections(sectionOrderNow, present).map((k) => (
+        <Fragment key={k}>{sections[k]}</Fragment>
+      ))}
       {more}
+      <ReorderSections order={orderPortfolioSections(sectionOrderNow, present)} names={SECTION_TITLE} onSaved={setSectionOrderNow} />
 
       <div className="mx-4 mt-6 border-t border-ink/10 pt-1">
         <Fold anchor="gallery-media" data="collections-add" title="Add photos" line="Your page's photos · videos · Instagram">

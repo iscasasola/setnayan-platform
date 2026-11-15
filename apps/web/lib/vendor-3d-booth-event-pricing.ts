@@ -41,12 +41,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *  migration 20271205905484 as `vendor_addon_per_event`. */
 export const VENDOR_3D_BOOTH_EVENT_SKU_CODE = 'vendor_3d_booth_event';
 
-/**
- * Last-resort price when the catalogue row is missing/unreadable. ⛔ A SECOND
- * COPY OF A CATALOGUE PRICE — moves in the same change as the row, and the db
- * test above holds it there.
+/*
+ * 💰 NO TYPED PRICE (truth sweep, owner 2026-11-13). The `VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP` (₱500) that stood in
+ * for an unread row is deleted: it was shown on a client's booth section ("₱500, one-time") and charged by the buy
+ * action. The reader now returns null for a missing, retired, unpriced or unreadable row, and both callers already
+ * treat null as "temporarily unavailable" — no figure, no sale.
  */
-export const VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP = 500;
 
 /** The SECURITY DEFINER read of "who is branded here" (migration 20271205905484). */
 export const EVENT_BRANDED_BOOTH_VENDOR_IDS_RPC = 'event_branded_booth_vendor_ids';
@@ -83,26 +83,24 @@ export function boothEventOrderState(statuses: readonly (string | null | undefin
   return pending ? 'pending' : 'none';
 }
 
-function coercePrice(value: unknown, fallback: number): number {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-/** The live ₱500 from the admin-managed catalogue; fallback when missing.
- *  Returns null when the row exists but is RETIRED (is_active = false) — the
- *  caller must refuse the sale, never quote the fallback for a product that
- *  is off sale. */
+/** The live per-event price from the admin-managed catalogue — or null when the row is missing, RETIRED
+ *  (is_active = false), unpriced or unreadable. The caller refuses the sale and shows no figure on null. */
 export async function fetchVendor3dBoothEventPricePhp(
   supabase: SupabaseClient,
 ): Promise<number | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vendor_billing_catalog')
     .select('price_php, is_active')
     .eq('sku_code', VENDOR_3D_BOOTH_EVENT_SKU_CODE)
     .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-3d-booth-event-pricing: price unread', error);
+    return null;
+  }
   const row = data as { price_php?: number | string | null; is_active?: boolean | null } | null;
-  if (row && row.is_active === false) return null;
-  return coercePrice(row?.price_php, VENDOR_3D_BOOTH_EVENT_FALLBACK_PHP);
+  if (!row || row.is_active === false) return null;
+  const n = Number(row.price_php);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**

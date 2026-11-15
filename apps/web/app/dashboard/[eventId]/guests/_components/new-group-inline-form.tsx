@@ -5,6 +5,9 @@ import { useGuestActions } from './guest-actions-context';
 import { StayForm } from '@/app/_components/stay-form';
 import { TEAM_SIDE_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
+import { Plus, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PostedPick } from '../../_components/posted-pick';
 
 export function NewGroupInlineForm({
   eventId,
@@ -33,7 +36,7 @@ export function NewGroupInlineForm({
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
       ))}
       <div className="flex-1 min-w-[200px]">
-        <label className="block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+        <label className="block text-xs font-medium uppercase tracking-[0.12em] text-ink/70">
           Group name
         </label>
         <input
@@ -53,40 +56,20 @@ export function NewGroupInlineForm({
        *  shorter vertically + matches the form's other dropdowns. */}
       {hasSides ? (
       <div>
-        <label
-          htmlFor="new-group-team-side"
-          className="block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55"
-        >
-          Team side
-        </label>
-        <select
-          id="new-group-team-side"
+        {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 4): the ▾ picker, posting the same `team_side` field. */}
+        <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Team side</span>
+        <PostedPick
           name="team_side"
-          defaultValue="both"
-          className="mt-1 h-9 w-full appearance-none rounded-md border border-ink/20 bg-cream px-2 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-        >
-          {(['bride', 'groom', 'both'] as GuestGroupTeamSide[]).map((side) => (
-            <option key={side} value={side}>
-              {TEAM_SIDE_LABELS[side]}
-            </option>
-          ))}
-        </select>
+          label="Team side"
+          initial="both"
+          options={(['bride', 'groom', 'both'] as GuestGroupTeamSide[]).map((side) => ({ key: side, label: TEAM_SIDE_LABELS[side] }))}
+          className="mt-1 block"
+        />
       </div>
       ) : null}
       <div className="flex gap-2">
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center rounded-md bg-mulberry px-3 text-xs font-medium text-cream hover:bg-mulberry-600"
-        >
-          Create + Add {selectedIds.length}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-9 items-center rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/70 hover:border-ink/40"
-        >
-          Cancel
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={Plus} label={`Create + Add ${selectedIds.length}`} />
+        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} />
       </div>
     </StayForm>
   );

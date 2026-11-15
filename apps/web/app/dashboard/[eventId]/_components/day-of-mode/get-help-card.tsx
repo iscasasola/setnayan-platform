@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShopLink } from '@/app/_components/shop-link';
 import { LifeBuoy, ChevronRight, MapPin } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -74,9 +74,9 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
               return (
                 <li key={v.vendorProfileId}>
                   {href ? (
-                    <Link href={href} className="flex min-h-14 items-center justify-between gap-3 py-2">
+                    <ShopLink href={href} className="flex min-h-14 items-center justify-between gap-3 py-2">
                       {inner}
-                    </Link>
+                    </ShopLink>
                   ) : (
                     <div className="flex min-h-14 items-center justify-between gap-3 py-2">{inner}</div>
                   )}

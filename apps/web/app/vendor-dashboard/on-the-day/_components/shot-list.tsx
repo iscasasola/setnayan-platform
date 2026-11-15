@@ -25,6 +25,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Check, CloudOff, Plus, RotateCcw, Users } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { shopEmptyInlineClass } from '../../_components/kit';
 import {
@@ -205,17 +207,17 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
   const loading = source === 'loading';
 
   return (
-    <div className="sn-tile p-4 sm:p-6">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> Shot list
         </h2>
-        <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <Badge tone="quiet">
           {formatCount(doneCount)}/{formatCount(shots.length)} captured
-        </span>
+        </Badge>
       </div>
-      <p className="mt-2 text-sm text-ink/65">
-        Your must-get shots for <span className="font-medium text-ink/80">{eventName}</span>. Tap to
+      <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
+        Your must-get shots for <span className="font-medium text-ink">{eventName}</span>. Tap to
         check them off as you go.
       </p>
 
@@ -226,7 +228,7 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
         onSave={() => void saveWhole(shotsRef.current)}
       />
 
-      <ul className="mt-4 space-y-1.5" aria-busy={loading}>
+      <ul className="mt-4 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]" aria-busy={loading}>
         {shots.map((s) => (
           <SwipeToDelete
             key={s.id}
@@ -238,7 +240,7 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
             radiusClass="rounded-xl"
             surfaceClass="bg-white"
           >
-          <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5" data-shot-row="">
+          <div className="flex min-h-14 items-center gap-3 bg-white px-1 py-2.5" data-shot-row="">
             <button
               type="button"
               onClick={() => toggle(s.id)}
@@ -283,22 +285,8 @@ export function ShotList({ eventId, eventName }: { eventId: string; eventName: s
           disabled={loading}
           className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
-        <button
-          type="button"
-          onClick={add}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-sm font-medium text-cream transition hover:bg-ink/90"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add
-        </button>
-        <button
-          type="button"
-          onClick={reset}
-          disabled={loading || saving}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/60 transition hover:bg-cream"
-        >
-          <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Reset
-        </button>
+        <ActionButton tone="brand" onClick={add} disabled={loading} icon={Plus} label="Add" />
+        <ActionButton tone="neutral" onClick={reset} disabled={loading || saving} icon={RotateCcw} label="Reset" />
       </div>
     </div>
   );
@@ -340,14 +328,13 @@ function ShotListStatus({
           : 'Not shared yet — this list is only on this device. The couple sees it once you save it.'}
         {error ? ` (${error})` : null}
       </span>
-      <button
-        type="button"
+      <ActionButton
+        tone="brand"
         onClick={onSave}
         disabled={saving}
-        className="rounded-md bg-ink px-2.5 py-1 font-medium text-cream transition hover:bg-ink/90 disabled:opacity-60"
-      >
-        {saving ? 'Saving…' : offline ? 'Save again' : 'Share with the couple'}
-      </button>
+        icon={offline ? CloudOff : Users}
+        label={saving ? 'Saving…' : offline ? 'Save again' : 'Share with the couple'}
+      />
     </div>
   );
 }

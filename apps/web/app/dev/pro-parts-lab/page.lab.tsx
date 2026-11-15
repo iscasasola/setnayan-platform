@@ -4,6 +4,7 @@ import { ProPartsBody } from '@/app/dashboard/[eventId]/studio/website-pro/_comp
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 import { formatPhp } from '@/lib/php';
 import { LabFrame } from './lab-client';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
 /**
  * 🧪 /dev/pro-parts-lab — "Event Pro, part by part" (owner 2026-10-22), frame by frame of
@@ -64,6 +65,7 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
     return (
       <div className="min-h-dvh bg-cream">
         <ProPartsBody
+          planName={PLAN_NAME.pro}
           eventId="00000000-0000-4000-8000-000000000000"
           title="Event Pro"
           back={{ href: '/dev/pro-parts-lab', label: 'Back to the Maker' }}

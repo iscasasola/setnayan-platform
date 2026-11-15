@@ -208,9 +208,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     <section className="sn-col space-y-6 pb-12">
       <Link
         href={`/dashboard/${eventId}`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        // 📐 Design template (rules 1 · 3): a page opened from somewhere else keeps its way back — a 44-px link, not a pill.
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
         Back to {eventName}
       </Link>
 

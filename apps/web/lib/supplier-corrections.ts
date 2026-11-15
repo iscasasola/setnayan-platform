@@ -25,7 +25,8 @@
  *
  * 🛑 CONTACT DETAILS ONLY. A price, or the services on the couple's booking or package, is never part of this — a change
  * to what they BOUGHT reaches them only as an amendment through the shipped flow (`proposal_amendments`,
- * `createAmendmentFromChat` in `app/_components/negotiation-actions.ts`). Services a supplier adds to their own shop
+ * `createAmendmentFromChat` in `app/_components/negotiation-actions.ts`) — staged at the claim finish and delivered on
+ * Approve by `lib/supplier-purchase-change.ts`. Services a supplier adds to their own shop
  * stay on the shop and do not touch the couple (owner 2026-11-07).
  *
  * Pure: no imports besides the phone rule, so the action, the page and the tests share one rule.

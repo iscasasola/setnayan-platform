@@ -36,7 +36,8 @@ import { InSheet } from '@/app/_components/sheet';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
-import { riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
+import { closeWindow, growPlan, riseOriginNow, riseScreenMotion, watchRiseOrigins, type GrowPlan, type GrowWindow, type RiseRect } from '@/lib/rise-screen';
+import { EASE_EMPHASIZED } from '@/lib/motion-table';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
@@ -51,6 +52,92 @@ function rectOf(el: HTMLElement | null): RiseRect | null {
 }
 
 const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
+
+/** The tapped thing's own corner — the shape grows from IT, not from a fixed 14 px. */
+function radiusOf(el: HTMLElement | null): number {
+  if (!el || !el.isConnected) return 14;
+  const n = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return Number.isFinite(n) ? n : 14;
+}
+
+/**
+ * 🎞 THE GROW'S PARTS (approved grow-full-screen-fable.html, "Rules for the build"): the page behind steps back under a
+ * light dim · the content arrives in three steps · ✕ and the bar arrive last. Transform and opacity only; every
+ * animation here holds nothing once it ends (no `fill: forwards` on the open), because a kept transform on an ancestor
+ * traps every `position: fixed` child. Opening: `out = false`; closing: the same windows mirrored at 80 % (`closeWindow`).
+ */
+function playGrowParts(root: HTMLElement, plan: GrowPlan, out: boolean): Animation[] {
+  const anims: Animation[] = [];
+  const win = (w: GrowWindow) => (out ? closeWindow(w, plan) : w);
+  const go = (el: Element | null, frames: Keyframe[], w: GrowWindow) => {
+    if (!el || typeof (el as HTMLElement).animate !== 'function' || w.duration <= 0) return;
+    const at = win(w);
+    anims.push(
+      (el as HTMLElement).animate(frames, {
+        duration: at.duration,
+        delay: at.delay,
+        easing: EASE_EMPHASIZED,
+        direction: out ? 'reverse' : 'normal',
+        // Open: hidden until its step (backwards), then nothing held. Close: stays gone until the screen leaves.
+        fill: out ? 'forwards' : 'backwards',
+      }),
+    );
+  };
+  const rise = [{ opacity: 0, transform: `translateY(${plan.stepRisePx}px)` }, { opacity: 1, transform: 'none' }];
+  // Three steps: the head's words · the body's first block · the rest of the first screenful.
+  const blocks = Array.from(root.querySelector('[data-rise-body] > div')?.children ?? []);
+  const vh = window.innerHeight;
+  const onScreen = blocks.filter((b) => b.getBoundingClientRect().top < vh);
+  go(root.querySelector('[data-rise-title]'), rise, plan.steps[0]!);
+  go(onScreen[0] ?? null, rise, plan.steps[1]!);
+  for (const b of onScreen.slice(1)) go(b, rise, plan.steps[2]!);
+  // ✕ and ⓘ, then the bar — last.
+  for (const c of Array.from(root.querySelectorAll('[data-rise-close], [data-rise-info-button]'))) {
+    go(c, [{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'none' }], plan.chrome);
+  }
+  go(root.querySelector('[data-rise-thumb]'), [{ transform: 'translateY(100%)' }, { transform: 'none' }], plan.bar);
+  return anims;
+}
+
+/**
+ * The page behind steps back to 0.96 under a light dim while the shape opens (and comes forward while it closes). Each
+ * of <body>'s other children is scaled about the middle of the SCREEN, so a long page recedes towards where you are
+ * looking. Nothing is held: the transform is gone when the animation ends (the screen covers the page by then).
+ */
+function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): Animation[] {
+  const anims: Animation[] = [];
+  const at = out ? closeWindow(plan.behind, plan) : plan.behind;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  for (const el of Array.from(document.body.children) as HTMLElement[]) {
+    if (el === screen || el.contains(screen) || el.tagName === 'SCRIPT' || el.dataset.riseDim !== undefined) continue;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0) || typeof el.animate !== 'function') continue;
+    el.style.transformOrigin = `${vw / 2 - r.left}px ${vh / 2 - r.top}px`;
+    const a = el.animate([{ transform: 'none' }, { transform: `scale(${plan.behind.scale})` }], {
+      duration: at.duration,
+      delay: at.delay,
+      easing: EASE_EMPHASIZED,
+      direction: out ? 'reverse' : 'normal',
+    });
+    a.finished.then(() => (el.style.transformOrigin = ''), () => (el.style.transformOrigin = ''));
+    anims.push(a);
+  }
+  const dim = document.createElement('div');
+  dim.dataset.riseDim = '';
+  dim.setAttribute('aria-hidden', 'true');
+  dim.style.cssText = 'position:fixed;inset:0;pointer-events:none;background:#000;opacity:0;z-index:var(--sn-z-pop)';
+  screen.before(dim);
+  const d = dim.animate([{ opacity: 0 }, { opacity: plan.behind.dim }], {
+    duration: at.duration,
+    delay: at.delay,
+    easing: EASE_EMPHASIZED,
+    direction: out ? 'reverse' : 'normal',
+  });
+  d.finished.then(() => dim.remove(), () => dim.remove());
+  anims.push(d);
+  return anims;
+}
 
 export type RiseScreenProps = {
   /** The head's name (the settings prototype: bold, over one short line). Absent: the body draws its own heading — pass
@@ -100,8 +187,15 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     const el = rootRef.current;
     if (!el || !host) return;
     originRef.current = riseOriginNow();
-    const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
+    const reduced = prefersReducedMotion();
+    const m = riseScreenMotion(rectOf(originRef.current), viewport(), reduced, radiusOf(originRef.current));
     if (m && typeof el.animate === 'function') el.animate(m.frames, m.timing);
+    // 🎞 The grow's parts — only when it grows from a press (a deep link simply appears, as before).
+    const plan = m && !reduced ? growPlan(reduced, true) : null;
+    if (plan && typeof el.animate === 'function') {
+      playBehind(el, plan, false);
+      playGrowParts(el, plan, false);
+    }
     // Once, when the portal lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
@@ -112,9 +206,18 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     closingRef.current = true;
     const done = () => onCloseRef.current();
     const el = rootRef.current;
-    const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
+    const reduced = prefersReducedMotion();
+    const m = riseScreenMotion(rectOf(originRef.current), viewport(), reduced, radiusOf(originRef.current));
     if (!el || !m || typeof el.animate !== 'function') return done();
-    el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' }).finished.then(done, done);
+    // ⤵ Every window mirrored at 80 %: the chrome and the steps leave first, then the shape closes into the thing you
+    // tapped while the page behind comes forward. The caller unmounts once the shape has landed.
+    const plan = !reduced ? growPlan(reduced, true) : null;
+    if (plan) {
+      playGrowParts(el, plan, true);
+      playBehind(el, plan, true);
+    }
+    const shapeDelay = plan ? closeWindow(plan.shape, plan).delay : 0;
+    el.animate(m.frames, { ...m.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' }).finished.then(done, done);
   }, []);
 
   // ← The phone's Back closes the screen, not the page; ✕ and Esc step back through the same entry.
@@ -151,7 +254,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
           <span className="inline-flex shrink-0" data-rise-close="">
             <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} />
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1" data-rise-title="">
             {title ? (
               <>
                 <b id={headingId} className="block truncate text-[17px] font-bold leading-tight text-ink">

@@ -3587,12 +3587,33 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
   /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: the close
      the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH is the family speed — owner 2026-11-10
-     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*): Rise full screen runs 0.7 s, so it reads `--sn-pill-dur` and has no
-     number of its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it
-     is a 120 ms cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts */
-  --sn-dur-rise:    var(--sn-pill-dur);
-  --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
+     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*) was REPLACED 13 Nov 2026 ("motion approved"): the rise is the grow's
+     SHAPE, 360 ms on the emphasized curve, after a 120 ms press — it reads the timing table below and has no number of
+     its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it is a 120 ms
+     cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts (kept by name; it now holds the grow's numbers) */
+  --sn-dur-rise:    var(--sn-m-grow-shape);
+  --sn-ease-rise:   var(--sn-m-ease-emph);
   --sn-dur-rise-reduced: 120ms;
+  /* 🎞 THE ONE TIMING TABLE (owner 13 Nov 2026, "motion approved" — grow-full-screen-fable.html § 6; DECISION_LOG
+     2026-11-13 "Motion system approved": the faster numbers REPLACE the 0.7 s rise and the 0.7 s press family). Two
+     curves only: emphasized for what travels or opens, the house spring for what lets go. Mirrored for the Web
+     Animations API by `lib/motion-table.ts`; 🔒 lib/the-motion-table-is-one.test.ts keeps the two equal. */
+  --sn-m-ease-emph:     cubic-bezier(.2,0,0,1);
+  --sn-m-ease-emph-rev: cubic-bezier(1,0,.8,1);
+  --sn-m-press-in:      100ms;
+  --sn-m-release:       280ms;
+  --sn-m-ripple:        520ms;
+  --sn-m-toggle:        260ms;
+  --sn-m-toggle-tick:   140ms;
+  --sn-m-chip-in:       220ms;
+  --sn-m-chip-out:      180ms;
+  --sn-m-field-grow:    280ms;
+  --sn-m-field-label:   200ms;
+  --sn-m-field-line:    260ms;
+  --sn-m-row-open:      320ms;
+  --sn-m-row-shut:      260ms;
+  --sn-m-grow-press:    120ms;
+  --sn-m-grow-shape:    360ms;
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
      under it stands at `top: var(--sn-pin-h)`. 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts */
   --sn-pin-h:       44px;
@@ -5462,7 +5483,9 @@ html.dark [data-art='candlelight'] {
    (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
 .sn-switch {
   background-color: rgb(var(--color-ink) / 0.2);
-  transition: background-color var(--sn-pill-dur) var(--sn-ease);
+  /* 🎞 13 Nov 2026 (motion approved, timing table "Toggle"): the fill and the knob take 260 ms; the knob lands with the
+     house spring's overshoot. Reduced: jumps (below). */
+  transition: background-color var(--sn-m-toggle) var(--sn-m-ease-emph);
 }
 /* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
    track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
@@ -5475,7 +5498,7 @@ html.dark [data-art='candlelight'] {
 }
 .sn-switch::after,
 .sn-switch > .sn-switch-knob {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-m-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -5485,6 +5508,46 @@ html.dark [data-art='candlelight'] {
     transition: none !important;
   }
 }
+/* 🎞 ROWS THAT OPEN (owner 13 Nov 2026, "motion approved" — grow-full-screen-fable.html "Rows that open" + timing table
+   "Row expands"): the height eases open on grid rows in 320 ms and shuts in 260 ms, both on the emphasized curve; the
+   chevron turns with it; the inside arrives in three small steps, 40 ms apart, each rising a little. One open at a time
+   is the shipped `useOneOpen` (lib/one-open.ts) every Fold already joins. Reduced motion: opens at once, a 120 ms fade.
+   🔒 lib/the-motion-table-is-one.test.ts */
+[data-fold-body] {
+  transition-duration: var(--sn-m-row-shut);
+  transition-timing-function: var(--sn-m-ease-emph);
+}
+[data-fold-open] > [data-fold-body] {
+  transition-duration: var(--sn-m-row-open);
+}
+[data-fold-inner] {
+  transition-duration: var(--sn-m-row-shut);
+  transition-timing-function: var(--sn-m-ease-emph);
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] {
+  transition-duration: var(--sn-m-row-open);
+}
+[data-fold-chevron] {
+  transition-duration: var(--sn-m-row-shut);
+  transition-timing-function: var(--sn-m-ease-emph);
+}
+[data-fold-open] [data-fold-chevron] {
+  transition-duration: var(--sn-m-row-open);
+}
+@keyframes sn-row-step {
+  from { opacity: 0; transform: translateY(6px); }
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(-n + 3) {
+  animation: sn-row-step 180ms var(--sn-m-ease-emph) backwards;
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(2) { animation-delay: 40ms; }
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(3) { animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-fold-body] { transition: none !important; }
+  [data-fold-inner] { transition-duration: 120ms !important; }
+  [data-fold-open] > [data-fold-body] > [data-fold-inner] > * { animation: none !important; }
+}
+
 /* 🟢 The WORDED switch (owner 2026-11-10: "online green and greyed out to offline") — `SWITCH_TRACK_WORDED` in
    `app/_components/switch-track.tsx`. Declared AFTER the shared rules so, at the same weight, green/grey win here only. */
 .sn-switch--worded {
@@ -10189,7 +10252,7 @@ input.sn-switch:focus-visible {
    weigh more than one utility; it says the same two things that rule says. WHAT moves (`left`, `transform`) stays
    each drawing's own — this never names a transition-property, or a knob moved by the other one would stop moving. */
 .sn-switch.sn-switch::after {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-m-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 

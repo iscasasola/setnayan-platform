@@ -7,15 +7,18 @@
  * part that does not follow our rules is their customized event hub"* · *"0.7 seconds"* · *"switch is teracota or
  * greyed out"*.
  *
- *   (1) THE PRESS — every button and every `.sn-press` card dips to .93 under the finger and springs back with an
- *       overshoot, at the family's one speed — played by ONE delegated listener (`app/_components/press-feel.tsx`),
- *       so it composes with any `transition-*` a control carries; the stylesheet's own scale is off there (the two
- *       never double); a second press mechanism is the bug this guards.
+ *   (1) THE PRESS — since 13 Nov 2026 (owner "motion approved", grow-full-screen-fable.html "Touch feel"; it REPLACES
+ *       the 8 Oct 0.7 s dip): every button and `.sn-press` card goes IN on touch-down (100 ms ease-out to 0.97, a row
+ *       0.985) and springs back on LIFT (280 ms, the house spring); the row's main button also sends a ripple from the
+ *       touch point (520 ms). Played by ONE delegated set of document listeners (`app/_components/press-feel.tsx`) —
+ *       never one per element — so it composes with any `transition-*` a control carries; the stylesheet's own scale
+ *       is off there (the two never double); a second press mechanism is the bug this guards.
  *   (2) THE EXEMPTION — nothing inside the guest shell (`.sn-editorial`, the root `GuestLookScope` puts around every
  *       guest page) is touched: an EXCLUSION, never a list of surfaces.
  *   (3) THE RING — opt-in (`sn-press-ring`), drawn by the same listener as a transient element (no `::after`),
  *       transform and opacity only, never in the guest shell.
- *   (4) THE SPEED — `--sn-pill-dur` is declared once; the press, the pill and the switch all read it.
+ *   (4) THE SPEED — the press, the switch and the ripple read the ONE timing table's tokens (`--sn-m-*`, mirrored by
+ *       `lib/motion-table.ts`); `--sn-pill-dur` is still declared once and still paces the pill selector's thumb.
  *   (5) THE SWITCH — the Maker's four switches wear ONE look (`.sn-switch`): grey off, terracotta on, the knob
  *       landing with the spring. No green, no red.
  */
@@ -53,17 +56,28 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   // The same seven the stylesheet's universal press names.
   assert.deepEqual(PRESS_TARGETS.split(',').map((x) => x.trim()), ['button', "[role='button']", 'a.button', '.sn-press', "input[type='submit']", "input[type='button']", 'summary']);
   const src = read('app/_components/press-feel.tsx');
-  // ONE delegated listener on the document — never one per element — and it is taken off again.
-  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 1, 'more than one listener');
-  assert.match(src, /document\.addEventListener\('pointerdown', onDown, true\);\s*return \(\) => document\.removeEventListener\('pointerdown', onDown, true\);/);
-  assert.doesNotMatch(src, /querySelectorAll\([^)]*\)\.forEach|\.addEventListener\('(?:click|pointerup|touchstart)/, 'a listener per element, or a second trigger');
-  // The dip and the spring: Web Animations (it composes with a control's own `transition-colors` — nothing snaps).
-  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale: 0\.93, offset: 0\.35 \}, \{ scale: 1 \}\], \{ duration: ms, easing: SPRING \}\);/);
+  // ONE delegated set of listeners on the document (down · up · cancel) — never one per element — all taken off again.
+  assert.equal((src.match(/document\.addEventListener\(/g) ?? []).length, 3, 'the document listeners are not exactly down · up · cancel');
+  assert.equal((src.match(/document\.removeEventListener\(/g) ?? []).length, 3, 'a document listener is never taken off');
+  assert.equal((src.match(/(?<!document)\.addEventListener\(/g) ?? []).length, 0, 'a listener on an element (one per control)');
+  for (const ev of ['pointerdown', 'pointerup', 'pointercancel']) assert.match(src, new RegExp(`document\\.addEventListener\\('${ev}', on(?:Down|Up), true\\);`), `${ev} is not delegated`);
+  assert.doesNotMatch(src, /querySelectorAll\([^)]*\)\.forEach|\.addEventListener\('(?:click|touchstart)/, 'a listener per element, or a second trigger');
+  // IN on touch-down — fast, ease-out, held — to 0.97 (a row 0.985); OUT on lift on the house spring; nothing held after.
+  assert.match(src, /const to = el\.matches\(ROW_PRESS_TARGETS\) \? 0\.985 : 0\.97;/, 'a press does not go in to 0.97 (a row 0.985)');
+  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale: to \}\], \{ duration: token\('--sn-m-press-in', 100\), easing: PRESS_IN_EASE, fill: 'forwards' \}\)/);
+  assert.match(src, /el\.animate\(\[\{ scale: to \}, \{ scale: 1 \}\], \{ duration: token\('--sn-m-release', 280\), easing: SPRING \}\);\s*press\.cancel\(\);\s*back\.onfinish = \(\) => back\.cancel\(\);/, 'the release does not spring back, or leaves a transform held');
   assert.match(src, /const SPRING = 'cubic-bezier\(\.34,1\.56,\.64,1\)';/);
-  // At the family's ONE speed, read from the token — never a number of its own.
-  assert.match(src, /const ms = pressMs\(getComputedStyle\(document\.documentElement\)\.getPropertyValue\('--sn-pill-dur'\)\);/);
-  assert.deepEqual([pressMs('700ms'), pressMs(' 700ms '), pressMs('0.7s'), pressMs('460ms'), pressMs(''), pressMs('none')], [700, 700, 700, 460, 700, 700]);
-  // No timer, no dependency, no state: a few hundred bytes in the root layout.
+  assert.match(src, /const PRESS_IN_EASE = 'ease-out';/);
+  // The numbers are the table's tokens, never numbers of its own — and the tokens are the approved table's.
+  assert.match(css, /--sn-m-press-in:\s*100ms;/);
+  assert.match(css, /--sn-m-release:\s*280ms;/);
+  assert.match(css, /--sn-m-ripple:\s*520ms;/);
+  assert.deepEqual([pressMs('280ms'), pressMs(' 280ms '), pressMs('0.28s'), pressMs('460ms'), pressMs(''), pressMs('none'), pressMs('', 100)], [280, 280, 280, 460, 280, 280, 100]);
+  // 💧 The ripple: the main button only, from the real touch point, clipped to its shape, removed when done.
+  assert.match(src, /if \(el\.matches\('\[data-main\]'\) && !el\.matches\(ROW_PRESS_TARGETS\)\)/, 'every button ripples (or none does)');
+  assert.match(src, /e\.clientX - r\.left - d \/ 2/, 'the ripple does not start at the touch point');
+  assert.match(src, /\.onfinish = \(\) => clip\.remove\(\);/, 'a ripple is left in the page');
+  // No timer, no dependency: a few hundred bytes in the root layout.
   assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|useState|framer-motion/);
   // + the one list of what a scrim is (owner 2026-10-29: a scrim is never dipped) — a string constant, no code.
   assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim']);
@@ -118,7 +132,7 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.match(src, /position:fixed;pointer-events:none;/);
   assert.match(src, /border:2px solid rgb\(var\(--sn-accent\) \/ \.45\);border-radius:\$\{getComputedStyle\(ringed\)\.borderRadius\}/);
   assert.match(src, /\.onfinish = \(\) => ring\.remove\(\);/, 'a ring is left in the page after it fades');
-  assert.match(src, /ring\.animate\(\[\{ opacity: 1, transform: 'scale\(1\)' \}, \{ opacity: 0, transform: `scale\(\$\{1 \+ 20 \/ r\.width\}, \$\{1 \+ 20 \/ r\.height\}\)` \}\], \{ duration: ms \* 1\.3, easing: 'ease-out' \}\)/);
+  assert.match(src, /ring\.animate\(\[\{ opacity: 1, transform: 'scale\(1\)' \}, \{ opacity: 0, transform: `scale\(\$\{1 \+ 20 \/ rr\.width\}, \$\{1 \+ 20 \/ rr\.height\}\)` \}\], \{ duration: token\('--sn-m-ripple', 520\), easing: 'ease-out' \}\)/);
   assert.doesNotMatch(src, /boxShadow|box-shadow/, 'the ring animates paint');
   // No `::after` any more — so a control that already draws with ::after can wear it (the ⓘ's halo, a clipped card).
   assert.doesNotMatch(css, /\.sn-press-ring[^{]*::(?:after|before)/, 'the ring is drawn twice (CSS and the listener)');
@@ -130,13 +144,18 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
   assert.ok(STUDIO_SWITCH_TRACK.split(/\s+/).includes('sn-press-ring'));
 });
 
-test('(4) ONE speed for the family, declared once — 0.7 seconds', () => {
+test('(4) the press family reads the ONE timing table — the switch 260 ms, the press 100 / 280; the pill keeps the family speed', () => {
   assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
-  assert.match(css, /--sn-pill-dur:\s*700ms;/, 'the speed is not the owner’s 0.7 seconds');
-  // The press, the pill thumb's pulse and the switch all read it — none carries a number of its own.
-  for (const reader of [rule('.sn-pill-thumb[data-pulse]'), rule('.sn-switch'), rule('.sn-switch > .sn-switch-knob')]) {
-    assert.match(reader, /var\(--sn-pill-dur\)/, 'a member of the family has its own speed');
+  // Each timing-table token is declared once.
+  for (const t of ['--sn-m-press-in', '--sn-m-release', '--sn-m-ripple', '--sn-m-toggle', '--sn-m-ease-emph']) {
+    assert.equal((css.match(new RegExp(`${t}:`, 'g')) ?? []).length, 1, `${t} is declared more than once (or not at all)`);
   }
+  assert.match(css, /--sn-m-toggle:\s*260ms;/, 'the toggle is not the approved 260 ms');
+  // The switch's fill and knob read the table — none carries a number of its own.
+  assert.match(rule('.sn-switch'), /transition: background-color var\(--sn-m-toggle\) var\(--sn-m-ease-emph\);/, 'the switch’s fill keeps a speed of its own');
+  assert.match(rule('.sn-switch > .sn-switch-knob'), /transition-duration: var\(--sn-m-toggle\);/, 'the knob keeps a speed of its own');
+  // The pill selector's thumb is not in the table — it keeps the family speed it had.
+  assert.match(rule('.sn-pill-thumb[data-pulse]'), /var\(--sn-pill-dur\)/, 'the pill thumb lost its speed');
 });
 
 test('(5) the Maker’s four switches wear ONE look — grey off, terracotta on, the knob landing with the spring', () => {
@@ -146,7 +165,7 @@ test('(5) the Maker’s four switches wear ONE look — grey off, terracotta on,
   assert.match(on, /background-color: rgb\(var\(--sn-accent\)\);/, 'a switch that is on is not the accent');
   assert.deepEqual(selectorsBefore('.peer:checked ~ .sn-switch'), [".sn-switch[data-on='true']", '.peer:checked ~ .sn-switch'], 'a switch can be on another way');
   const knob = rule('.sn-switch > .sn-switch-knob');
-  assert.match(knob, /transition-duration: var\(--sn-pill-dur\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
+  assert.match(knob, /transition-duration: var\(--sn-m-toggle\);\s*transition-timing-function: var\(--sn-pill-spring\);/);
   // The four: each wears the class, none keeps a colour of its own (no green, no red, no second terracotta).
   const OWN = /bg-success-\d+|--sp-ok|bg-emerald|bg-green|bg-red|bg-danger|peer-checked:bg-|aria-checked:bg-/;
   assert.ok(STUDIO_SWITCH_TRACK.split(/\s+/).includes('sn-switch'), 'StudioSwitch');

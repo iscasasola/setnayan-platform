@@ -329,7 +329,15 @@ test('(9) the fold opens downward, its arrow turns, one is open at a time — an
   const src = read(FOLD);
   assert.match(src, /const scope = useOneOpen\(open, setOpen\);/, 'opening one fold does not close another');
   assert.match(src, /<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/, 'a dropdown opened inside the fold would close it');
-  assert.match(src, /duration-sn-pill/);
+  // 🎞 13 Nov 2026 (motion approved, timing table "Row expands"): 320 ms open · 260 ms shut on the emphasized curve,
+  // the chevron with it, the inside in three steps — the table's tokens, read by the fold's own parts.
+  assert.match(src, /data-fold-chevron=""/, 'the chevron is not the one the timing table turns');
+  assert.match(src, /data-fold-inner=""/, 'the inside is not the one the timing table steps in');
+  const css = read('app/globals.css');
+  assert.match(css, /\[data-fold-open\] > \[data-fold-body\] \{\s*transition-duration: var\(--sn-m-row-open\);\s*\}/, 'the row does not open in 320 ms');
+  assert.match(css, /\[data-fold-body\] \{\s*transition-duration: var\(--sn-m-row-shut\);\s*transition-timing-function: var\(--sn-m-ease-emph\);\s*\}/, 'the row does not shut in 260 ms on the emphasized curve');
+  assert.match(css, /--sn-m-row-open:\s*320ms;/);
+  assert.match(css, /--sn-m-row-shut:\s*260ms;/);
 });
 
 test('(9b) an answer made of parts is ONE row whose pill opens them under it — mounted while shut, out of reach', async () => {

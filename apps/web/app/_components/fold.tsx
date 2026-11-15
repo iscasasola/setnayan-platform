@@ -351,7 +351,7 @@ export function Fold({
       {rises ? (
         <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
       ) : (
-        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+        <ChevronDown aria-hidden data-fold-chevron="" className={`h-4 w-4 flex-none text-sn-accent transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       )}
     </button>
   );
@@ -395,11 +395,11 @@ export function Fold({
         id={id}
         data-fold-body=""
         inert={!open}
-        className={`grid transition-[grid-template-rows] duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid transition-[grid-template-rows] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
         {/* min-w-0: once a `popovers` fold stops clipping, its widest row must not widen the fold past the screen. */}
-        <div className={`-mx-1 min-h-0 min-w-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`-mx-1 min-h-0 min-w-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity ${open ? 'opacity-100' : 'opacity-0'}`} data-fold-inner="">
           <FoldClips.Provider value={!(popovers && open && settled)}>
           <FoldDepth.Provider value={open ? depth + 1 : depth}>
             <OneOpenScope id={scope}>{children}</OneOpenScope>

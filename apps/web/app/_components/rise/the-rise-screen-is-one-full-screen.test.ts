@@ -79,11 +79,17 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.doesNotMatch(SCREEN, /lockScroll: false/, 'the page under it is not held — ✕ would not return to the same scroll');
   assert.match(SCREEN, /const close = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
   assert.match(SCREEN, /riseOriginNow\(\)/, 'the screen does not rise out of what was tapped');
-  assert.equal([...SCREEN.matchAll(/riseScreenMotion\(rectOf\(originRef\.current\), viewport\(\), prefersReducedMotion\(\)\)/g)].length, 2, 'the open and the close are not the same motion');
-  assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
+  // 🎞 13 Nov 2026 (motion approved): the shape grows from the tapped thing's own corner, and the close plays the SAME
+  // frames backwards, mirrored at 80 % (`closeTiming`), after the chrome and the steps have left.
+  assert.equal([...SCREEN.matchAll(/riseScreenMotion\(rectOf\(originRef\.current\), viewport\(\), reduced, radiusOf\(originRef\.current\)\)/g)].length, 2, 'the open and the close are not the same motion');
+  assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
+  // The grow's parts play on the way in AND mirrored on the way out — the page behind, the steps, the chrome last.
+  assert.equal([...SCREEN.matchAll(/playBehind\(el, plan, (?:false|true)\);/g)].length, 2, 'the page behind does not step back and forward again');
+  assert.equal([...SCREEN.matchAll(/playGrowParts\(el, plan, (?:false|true)\);/g)].length, 2, 'the content steps / chrome do not play both ways');
   assert.match(SCREEN, /window\.addEventListener\(TAB_RESELECT_EVENT, on\)/, 'a tab re-tap no longer gets past an open screen');
   // The head: ✕ first (left), the title over its one line, the ⓘ last (the settings prototype's `.fs-head`).
-  const head = SCREEN.slice(SCREEN.indexOf('data-rise-head'), SCREEN.indexOf('data-rise-body'));
+  // (the JSX attributes — the grow's helpers name the same parts as selectors higher up the file)
+  const head = SCREEN.slice(SCREEN.indexOf('data-rise-head=""'), SCREEN.indexOf('data-rise-body=""'));
   assert.ok(head.indexOf('data-rise-close') < head.indexOf('{title ?'), '✕ is not at the head’s left');
   assert.ok(head.indexOf('{title ?') < head.indexOf('data-rise-info-button'), 'ⓘ is not at the head’s right');
 });

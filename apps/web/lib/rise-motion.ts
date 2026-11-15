@@ -2,8 +2,8 @@
  * rise-motion.ts — ⤴ THE RISE: the ONE open/close motion of a picked row or a sheet (THE ONE BUILD F1, spec §0.6 and
  * §9 #16, 8 Nov 2026).
  *
- * The measured rules (spec §0.6): open 700 ms on `cubic-bezier(.2,.8,.2,1)` (owner 2026-11-10, DECISION_LOG "SIX ANSWERS"
- * (2), *"0.7s"* — was 520 ms; 700 is the family speed `--sn-pill-dur`, which `--sn-dur-rise` reads); the close is the
+ * The measured rules (spec §0.6, numbers since 13 Nov 2026 from the approved grow — see `RISE_MS` below; the 700 ms of
+ * 10 Nov and the 520 ms before it are retired); the close is the
  * EXACT reverse (the same frames played backwards from the same origin rect); no jump over 40 px and no pause over 90 ms — a single transform
  * animation from the tapped row's rect to the sheet's own rect gives both. Under reduced motion it is a 120 ms
  * cross-fade (no movement). The numbers are tokens too (`--sn-dur-rise`, `--sn-ease-rise`, `--sn-dur-rise-reduced` in
@@ -15,9 +15,20 @@
  * 🔒 lib/the-rise-is-0-7s.test.ts (700 ms, one number, nobody keeps their own)
  */
 
-export const RISE_MS = 700;
-export const RISE_EASE = 'cubic-bezier(.2,.8,.2,1)';
-export const RISE_REDUCED_MS = 120;
+import { EASE_EMPHASIZED, MOTION_TABLE } from '@/lib/motion-table';
+
+/**
+ * ⏱ 13 Nov 2026 — the 0.7 s rise is REPLACED by the approved grow (owner "motion approved", grow-full-screen-fable.html
+ * § "Why these numbers"; DECISION_LOG 2026-11-13 "Motion system approved"): the SHAPE opens in 360 ms on the emphasized
+ * curve after the 120 ms press, and the close plays the same frames backwards at 80 % (288 ms) — played in reverse, the
+ * emphasized curve IS the table's reversed curve `(1,0,.8,1)`. The numbers live in `lib/motion-table.ts`; these names
+ * stay so every caller keeps reading the one rise.
+ */
+export const RISE_MS = MOTION_TABLE.growShapeMs;
+export const RISE_EASE = EASE_EMPHASIZED;
+/** The close: every window mirrored, at 80 % of the open. */
+export const RISE_CLOSE_MS = Math.round(MOTION_TABLE.growShapeMs * MOTION_TABLE.growCloseFactor);
+export const RISE_REDUCED_MS = MOTION_TABLE.reducedFadeMs;
 
 export type RiseRect = { left: number; top: number; width: number; height: number };
 
@@ -74,5 +85,5 @@ export function riseFromRect(el: HTMLElement, from: RiseRect, { reverse = false 
   }
   const to = el.getBoundingClientRect();
   el.style.transformOrigin = '0 0';
-  return el.animate(riseFrames(from, to), { duration: RISE_MS, easing: RISE_EASE, direction: reverse ? 'reverse' : 'normal', fill: 'both' });
+  return el.animate(riseFrames(from, to), { duration: reverse ? RISE_CLOSE_MS : RISE_MS, easing: RISE_EASE, direction: reverse ? 'reverse' : 'normal', fill: 'both' });
 }

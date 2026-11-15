@@ -8,6 +8,9 @@
  *     link (an 18-px line) and the Search field (42 tall). Each box is 44 now, from the shared profile header and the
  *     section's shared find row — no hand-made button.
  *
+ *  3. (RW-311) the Shop cover said "0 events" beside "6 bookings" — it counts events FINISHED on Setnayan, and now says so.
+ *  5. (RW-312) /dashboard/[eventId]/manpower had the generic tab title; it reads "Manpower · Setnayan" now.
+ *
  * SABOTAGE: put the old 55-character label back → 1 is RED; a 26-px pen box, a 42-px field, or the handle link without
  * its 44 floor → 2 is RED.
  */
@@ -56,4 +59,17 @@ test('2 · /dashboard: the pens, the handle link and the Search field each press
   const input = css.match(/\.find input \{([^}]*)\}/)?.[1] ?? '';
   const h = Number(input.match(/\bheight:\s*(\d+)px/)?.[1]);
   assert.ok(h >= 44, `the Search field is ${h} px tall`);
+});
+
+test('3 · RW-311: the Shop cover says its events are the FINISHED ones — never a bare "0 events" beside open bookings', () => {
+  const page = read('app/vendor-dashboard/shop/page.tsx');
+  assert.match(
+    page,
+    /events: facts\?\.completedEvents == null \? null : `\$\{formatCount\(facts\.completedEvents\)\} \$\{facts\.completedEvents === 1 \? 'event' : 'events'\} done`,/,
+    'the cover counts finished events but no longer says so',
+  );
+});
+
+test('5 · RW-312: the Manpower tab reads "Manpower · Setnayan"', () => {
+  assert.match(read('app/dashboard/[eventId]/manpower/page.tsx'), /export const metadata = \{\s*title: 'Manpower',\s*\};/);
 });

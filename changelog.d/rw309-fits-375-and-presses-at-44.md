@@ -1,4 +1,4 @@
-## 2026-11-15 · fix(layout): RW-309 — Live Studio fits a 375 phone; /dashboard's pens, handle link and Search press at 44
+## 2026-11-15 · fix(layout): RW-309/311/312 — Live Studio fits a 375 phone; /dashboard presses at 44; shop cover says "events done"; Manpower tab title
 
 W1's walk on 4c094d4:
 
@@ -9,6 +9,12 @@ W1's walk on 4c094d4:
   handle's link ("Choose your @handle" / the public address) has a 44-px floor (was an 18-px line); the section's
   Search field is 44 tall (was 42). All three in the shared pieces (`ProfileHeader`'s pen and handle,
   `HomeFindRow`) — no hand-made buttons.
+- **Shop cover** (RW-311): the cover's "N events" counts events FINISHED on Setnayan (the Events badge's own number), so a
+  new shop read "0 events" beside its open bookings. It now says "0 events done".
+- **Manpower** (RW-312): `/dashboard/[eventId]/manpower` gets its own tab title, "Manpower · Setnayan", like Sponsors.
+- Not changed (RW-311 item 4): the tour bubble's Skip and Next are already `min-height: 44px`
+  (`spotlight-tour.tsx`); its pop-in starts at `scale(.94)`, and 44 × 0.94 ≈ 41 — the walk's 41 px reads as a
+  mid-animation measurement.
 - Guard: `lib/rw309-fits-375-and-presses-at-44.test.ts` (every `.ab` label on the Live Studio page fits 343 px; the
   pen box, the handle link and the field are 44).
 

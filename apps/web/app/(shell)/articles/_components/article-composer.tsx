@@ -6,6 +6,8 @@ import { Plus, X } from 'lucide-react';
 import { ThumbDock } from '@/components/thumb-dock';
 import { ThumbRow } from '@/components/thumb-row';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ARTICLES_LINK_REFUSED_LINE, findArticleLinks, refusedLinks } from '@/lib/articles-links';
 
 /**
@@ -20,10 +22,9 @@ import { ARTICLES_LINK_REFUSED_LINE, findArticleLinks, refusedLinks } from '@/li
  * Both post to the one write route, `POST /api/articles` — no server action.
  */
 
-const FIELD =
-  'w-full rounded-xl border border-ink/15 bg-ink/[0.03] px-3 py-2.5 text-[15px] text-ink placeholder:text-ink/55 focus:border-terracotta/50 focus:outline-none';
-const SELECT =
-  'h-11 w-full appearance-none rounded-xl border border-ink/15 bg-ink/[0.03] px-3 text-[15px] text-ink focus:border-terracotta/50 focus:outline-none';
+/** The reply box's own face — a chat composer, not a form row (see `ReplyComposer`). */
+const REPLY_BOX =
+  'w-full min-h-11 resize-none rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[15px] text-ink placeholder:text-ink/55 focus:outline-none focus:ring-2 focus:ring-terracotta/40';
 
 const ERROR_WORDS: Record<string, string> = {
   sign_in: 'Sign in to post.',
@@ -63,7 +64,7 @@ export function LinkRefusedLine({ text, onRemove }: { text: string; onRemove: ()
   const refused = useMemo(() => refusedLinks(text), [text]);
   if (refused.length === 0) return null;
   return (
-    <div role="alert" data-article-link-refused="" className="rounded-xl border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-sm text-terracotta-800">
+    <div role="alert" data-article-link-refused="" className="rounded-xl bg-terracotta/10 px-3 py-2 text-sm text-terracotta-800">
       <p>{ARTICLES_LINK_REFUSED_LINE}</p>
       <button
         type="button"
@@ -154,37 +155,45 @@ export function NewTopic({
                   <p className="font-semibold text-ink">You post as “{postAs}”</p>
                   <p>Readers never see your name. Setnayan knows it is you, so it can act on reports.</p>
                 </div>
-                <label className="block text-sm font-medium text-ink">
-                  Title
-                  <input
+                <FormRows width="wide">
+                  <TypedRow
+                    name="Title"
+                    boxed
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    maxLength={120}
+                    empty="Is a first look worth it?"
                     placeholder="Is a first look worth it?"
-                    className={`${FIELD} mt-1 h-11`}
+                    maxLength={120}
+                    required
+                    check={(t) => (refusedLinks(t).length ? ARTICLES_LINK_REFUSED_LINE : null)}
+                    onType={setTitle}
+                    onKeep={(t) => setTitle(t)}
+                    data="article-title"
                   />
-                </label>
-                <label className="block text-sm font-medium text-ink">
-                  Event
-                  <select value={eventType} onChange={(e) => setEventType(e.target.value)} className={`${SELECT} mt-1`}>
-                    <option value="">Any event</option>
-                    {events.map((ev) => (
-                      <option key={ev.key} value={ev.key}>
-                        {ev.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm font-medium text-ink">
-                  Say more
-                  <textarea
+                  <TypedRow
+                    name="Say more"
+                    boxed
+                    long
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    empty="Say more"
+                    placeholder="We’re split. Did a first look change your day, or take something away?"
                     maxLength={4000}
-                    rows={6}
-                    className={`${FIELD} mt-1`}
+                    check={(t) => (refusedLinks(t).length ? ARTICLES_LINK_REFUSED_LINE : null)}
+                    onType={setBody}
+                    onKeep={(t) => setBody(t)}
+                    data="article-body"
                   />
-                </label>
+                </FormRows>
+                <div className="space-y-1">
+                  <span className="block text-sm font-medium text-ink">Event</span>
+                  <PickMenu
+                    label="Event"
+                    value={eventType}
+                    options={[{ key: '', label: 'Any event' }, ...events]}
+                    onPick={setEventType}
+                    dataAttr="data-article-event"
+                    className="w-full !min-h-11"
+                  />
+                </div>
                 <LinkRefusedLine
                   text={`${title}\n${body}`}
                   onRemove={() => {
@@ -241,7 +250,7 @@ export function ReplyComposer({ topic, postAs }: { topic: string; postAs: string
       <LinkRefusedLine text={body} onRemove={() => setBody((b) => removeRefused(b))} />
       {error && <p className="text-sm font-medium text-terracotta-700">{error}</p>}
       <div className="flex items-end gap-2">
-        <textarea
+        <textarea // field-ok: a chat composer (Enter sends · Shift+Enter makes a new line — prototype screen 3)
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {
@@ -254,7 +263,7 @@ export function ReplyComposer({ topic, postAs }: { topic: string; postAs: string
           maxLength={4000}
           placeholder="Reply…"
           aria-label="Reply"
-          className={`${FIELD} min-h-11 resize-none`}
+          className={REPLY_BOX}
         />
         <button
           type="button"

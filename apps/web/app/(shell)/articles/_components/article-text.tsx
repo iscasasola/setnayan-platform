@@ -18,7 +18,7 @@ export function ArticleText({ text, muted = false }: { text: string; muted?: boo
             key={i}
             href={p.href}
             data-article-link-card=""
-            className="my-2 flex min-h-11 flex-col justify-center rounded-xl border border-ink/15 bg-ink/[0.03] px-3 py-2 not-italic no-underline hover:bg-ink/[0.06]"
+            className="my-2 flex min-h-11 flex-col justify-center rounded-xl bg-ink/[0.05] px-3 py-2 not-italic no-underline hover:bg-ink/[0.06]"
           >
             <span className="text-sm font-medium text-ink">{p.path === '/' ? 'Setnayan' : p.path}</span>
             <span className="text-xs text-ink/65">setnayan.com</span>

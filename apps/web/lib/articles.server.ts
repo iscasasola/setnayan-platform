@@ -24,8 +24,10 @@ import { refusedLinks } from '@/lib/articles-links';
  * `lib/guests.ts` · `guests-read-is-honest.test.ts`).
  */
 
+import { articleLabel, type ArticleAuthorKind } from '@/lib/articles-names';
+
+export { articleLabel, type ArticleAuthorKind };
 export type ArticleSort = 'newest' | 'replies';
-export type ArticleAuthorKind = 'guest' | 'supplier';
 
 export type ArticleTopicCard = {
   publicId: string;
@@ -65,10 +67,6 @@ export const ARTICLE_BODY_MAX = 4000;
 /** One page of topics. A list, not an archive: search narrows the rest. */
 const LIST_LIMIT = 50;
 
-/** "Guest · 3F" / "Supplier · 7K" — the only name a reader is ever shown. */
-export function articleLabel(kind: ArticleAuthorKind, code: string): string {
-  return `${kind === 'supplier' ? 'Supplier' : 'Guest'} · ${code}`;
-}
 
 /** The marker readers see where a removed post was (prototype screen 6). */
 export const ARTICLE_REMOVED_LINE = 'Removed by Setnayan — it broke the house rules.';

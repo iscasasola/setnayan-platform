@@ -77,7 +77,8 @@ async function deliveredGift(
   }
   await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'guest')`, [eventId, guest]);
   await db.query(
-    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, 'papic', 5000, 'bought')`,
+    // 🔢 G1 (#7678): Papic stock is counted in PACKS — the same 5,000 credits as 5 × Papic 1000, as a purchase lands them.
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, pack_code, packs) VALUES ($1, 'papic', 5000, 'bought', 'PAPIC_GUEST_1K', 5)`,
     [shop],
   );
   const eventVendorId = await one<string>(

@@ -72,7 +72,7 @@ export const DOORWAY_BLEED_PATHS = [
   '/for-suppliers',
   '/for-coordinators',
   '/features',
-  '/blog',
+  // '/blog' left 2026-11-16 — retired, it forwards to /features.
   '/download',
   // Joined 2026-11-12 with the last old-shell pages: each draws its own
   // full-width bands and caps its own content width.

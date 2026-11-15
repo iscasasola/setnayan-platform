@@ -10,3 +10,5 @@ Owner, Nov 2026, on the approved service-icons prototype: *"they change color wh
 - Not in this change: badges, seals, ribbons (their own design track), menu icons, the fold chevron. The prototype's "Shoes & Footwear" drawing has no app tile yet, so it is not wired.
 
 SPEC IMPACT: The service icons are no longer lucide. That narrows the Explore Replan line "the icons are Lucide" (`Explore_Replan_BUILD_SPEC_2026-07-27.md` §3 PR-B) for folders and services. The owner approved it on the prototype. It is flagged for the change tracker rather than edited silently.
+
+**Taxonomy guard (2026-11-15).** `lib/no-taxonomy-literals.test.ts` read `SERVICE_TILE_ART` (drawing data keyed by tile) as a new hard-coded copy of the service taxonomy. It is the owner-approved art per tile, the same shape as `lib/taxonomy-icons.ts`'s seed glyphs, which the baseline already carries. So, as the guard instructs for a deliberate design choice, it takes ONE hand-written line in `lib/no-taxonomy-literals.baseline.txt` with that reason. The baseline grows by that one line; the guard itself is unchanged. A tile with no drawing keeps its lucide glyph, so a new admin category is never blank.

@@ -30,7 +30,7 @@ export const GREEN_READ_CAP = 200;
 
 const PAYMENT_COLS =
   'payment_id, order_id, amount_php, channel, reference_number, screenshot_url, created_at, ' +
-  'order:orders(public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key, status), ' +
+  'order:orders!inner(public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key, status), ' +
   'user:users!payments_user_id_fkey(email, display_name)';
 
 type PendingJoined = {
@@ -71,6 +71,8 @@ export async function readPaymentLights(
   if (!src) return { ok: false };
   let q = src
     .filter(admin.from(src.table).select(PAYMENT_COLS, { count: 'exact' }), { nowIso: new Date().toISOString() })
+    // An order already paid is not waiting on anyone — the same exclusion the queue's count makes (queue-counts.ts).
+    .neq('order.status', 'paid')
     .order('created_at', { ascending: true })
     .limit(GREEN_READ_CAP);
   if (opts.paymentIds) q = q.in('payment_id', [...opts.paymentIds]);

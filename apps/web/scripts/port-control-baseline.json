@@ -1938,6 +1938,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "ShopLink",
         "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
@@ -5997,6 +5998,7 @@
         "PageMasthead",
         "Phase",
         "PostedPick",
+        "ShopLink",
         "StayForm",
         "SubmitButton",
         "TeaserGenerator",
@@ -6025,7 +6027,6 @@
         "/dashboard/[seg]/memories",
         "/dashboard/create-event",
         "/dashboard/life-flash",
-        "/v/[seg]",
         "/v/[seg]?src=favorites"
       ],
       "actions": [
@@ -7140,6 +7141,7 @@
         "ShareCreditMode",
         "Sheet",
         "Shell",
+        "ShopLink",
         "SidebarItem",
         "SidebarSection",
         "Sk",
@@ -8587,6 +8589,7 @@
         "AnswerPicker",
         "At",
         "AutoDraft",
+        "Badge",
         "Bar",
         "BeforeWeStartScreen",
         "BlockAnimateRows",
@@ -10486,6 +10489,7 @@
         "SharePhotoSheet",
         "ShareWithVendorsButton",
         "Sheet",
+        "ShopLink",
         "Slider",
         "SlotTile",
         "Spotlight",
@@ -13856,6 +13860,7 @@
         "ReportPageButton",
         "ScaledTileList",
         "SectionBar",
+        "ShopLink",
         "ViewBeacon",
         "WhoWasThereBand"
       ]
@@ -14806,6 +14811,7 @@
         "PaymentPage",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PayoutReadiness",
         "PeekToast",
         "PendingPaymentAnswer",
         "Peso",

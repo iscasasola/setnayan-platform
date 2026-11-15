@@ -109,7 +109,7 @@ test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) �
   assert.equal(f.oweTimes, 2, 'a booked supplier named on nothing is not counted (or a named one is)');
   const week = (days: number, pro: boolean) =>
     homeControlTiles(fixtureControl('e1', { countdown: { ...fixtureControl('e1').countdown, days }, schedule: { ...f, pro } })).tiles.find((t) => t.key === 'sched')!;
-  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['2 to approve', 'Release', '1 need you', '2 owe times']);
+  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['2 to approve', 'Release', '1 need you', '2 suppliers without a time']);
   assert.equal(week(7, false).doors!.find((d) => d.id === 'release')!.pro, true, 'Release on Free wears no ◆ PRO');
   assert.equal(week(7, true).doors!.find((d) => d.id === 'release')!.pro, false, 'Release on Pro wears ◆ PRO');
   assert.ok(!week(40, false).doors!.some((d) => d.id === 'release'), 'Release shows 40 days out');

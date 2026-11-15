@@ -164,8 +164,10 @@ test('the palette actually uses the map', () => {
     /function destinations\s*\(/,
     'the palette grew a second, local destination list — one list or they drift',
   );
+  // The scorer moved to lib/admin-map/palette-score.ts (ASK-BRAIN, 14 Nov 2026) so the box and its guards share it.
+  assert.match(palette, /rankPalette\(/, 'the palette stopped ranking through the shared function');
   assert.match(
-    palette,
+    readFileSync(join(HERE, '..', '..', '..', 'lib', 'admin-map', 'palette-score.ts'), 'utf8'),
     /source === 'map'/,
     'the palette no longer bands map hits below the curated menu',
   );

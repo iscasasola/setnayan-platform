@@ -30,8 +30,9 @@
 --      (owner 15 Nov: "keep them at 3 months").
 --      Canvas prints need no SQL: lib/event-ultra-gates.ts asks
 --      eventSkuActive(EVENT_ULTRA), which reads event_has_comp_for_sku.
--- Not here: selling Ultra to shops as a bought gift — its catalogue row has no
--- gift price, so the app keeps it earned-only (lib/shop-gifts.ts).
+-- A shop may also BUY Ultra as a gift (the CHECKs above take it): its catalogue row has no
+-- gift price, so a shop that BUYS it pays its list price (owner 15 Nov, "Event Ultra may be a supplier gift at its
+-- ₱9,990 list price until a gift price is set"; lib/shop-gifts.ts `giftUnitPrice`).
 --
 -- KEEP IDEMPOTENT. 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file.
 -- ============================================================================

@@ -206,7 +206,7 @@ export function papicPackFor(packs: readonly ShopGiftPack[], reward: BadgeReward
 
 /** The products' names from the live catalogue: every reward the one ladder can pay, and each Papic pack by credits. */
 export async function readRewardNames(admin: SupabaseClient): Promise<RewardNames> {
-  // Event Ultra is one of the gift packs since 15 Nov (earned only), so its catalogue title comes with them.
+  // Event Ultra is one of the gift packs since 15 Nov, so its catalogue title comes with them.
   const packs = await fetchShopGiftPacks(admin);
   if (!packs) return FALLBACK_REWARD_NAMES;
   const papicByCredits: Record<number, string> = {};

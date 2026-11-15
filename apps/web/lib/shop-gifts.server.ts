@@ -8,7 +8,6 @@ import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import {
-  SHOP_GIFT_EARNED_ONLY_CODE,
   SHOP_GIFT_KINDS,
   SHOP_GIFT_PLAN_CODE,
   SHOP_GIFT_UNLOCK_CODE,
@@ -88,9 +87,6 @@ export async function fetchShopGiftPacks(admin: SupabaseClient): Promise<ShopGif
   ]);
   return papic && unlocks ? shopGiftPacksFrom([...papic, ...unlocks]) : null;
 }
-
-/** The codes a shop holds only by earning them (Event Ultra) — for a buy list to leave out. */
-export const SHOP_GIFT_EARNED_ONLY_CODES: readonly string[] = Object.values(SHOP_GIFT_EARNED_ONLY_CODE);
 
 /**
  * The shop's gift stock, every kind: balance and what live quotes hold (Papic in credits, Event Plus / Pro in units).

@@ -193,11 +193,14 @@ describe('💎 Event Ultra — Black Diamond\'s reward, earned never bought (own
     { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
   ]);
   const big = 100_000_00;
-  it('is a giftable kind that can never be a gift ORDER', () => {
+  it('is a gift a shop can BUY, at its list price while it has no gift price (owner 15 Nov)', () => {
     assert.equal(shopGiftKindOf('EVENT_ULTRA'), 'event_ultra');
-    assert.equal(shopGiftBuyable('EVENT_ULTRA'), false);
+    assert.equal(shopGiftBuyable('EVENT_ULTRA'), true);
     assert.equal(shopGiftBuyable('COUPLE_WEBSITE_PRO'), true);
-    assert.equal(shopGiftCodeOf('vendor_gift__EVENT_ULTRA'), null, 'an Ultra gift order would mint stock nobody priced');
+    assert.equal(shopGiftCodeOf('vendor_gift__EVENT_ULTRA'), 'EVENT_ULTRA', 'an Ultra gift order activates into stock');
+    const ultra = WITH_ULTRA.find((p) => p.code === 'EVENT_ULTRA')!;
+    assert.equal(ultra.giftPriceCentavos, null);
+    assert.deepEqual(giftUnitPrice(ultra, true), { centavos: 999_000, basis: 'list' }, 'even a Verified shop pays ₱9,990');
     assert.deepEqual(WITH_ULTRA.map((p) => p.kind), ['papic', 'event_plus', 'event_pro', 'event_ultra']);
   });
   it('goes on a quote from its own (reward) stock, outside the limit', () => {

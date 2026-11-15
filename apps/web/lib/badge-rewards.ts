@@ -26,7 +26,7 @@
  * 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, "Event ultra"). The plan approved 13 Nov
  * (`EVENT_ULTRA_SKU`, lib/event-ultra.ts) lands in the shop's gift stock as one 'event_ultra' unlock, goes on a quote
  * like Event Pro, and at the couple's first payment unlocks EVENT_ULTRA on their event with the catalogue row's included
- * Papic credits (migration 20271348181787). It is earned only — a shop cannot buy it (`shopGiftBuyable`).
+ * Papic credits (migration 20271348181787). A shop may also BUY it as a gift, at its list price (owner 15 Nov).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`); "Papic 1000" and "Papic 3000" are the catalogue packs NAMED by their

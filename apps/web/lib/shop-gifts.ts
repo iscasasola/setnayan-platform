@@ -47,25 +47,19 @@ export type ShopGiftUnlockKind = Exclude<ShopGiftKind, 'papic'>;
 export const SHOP_GIFT_UNLOCK_KINDS: readonly ShopGiftUnlockKind[] = ['event_plus', 'event_pro', 'event_ultra'];
 
 /**
- * The couple products a shop can BUY as gifts (a `platform_retail_catalog_v2.service_code`). Event Ultra is not one:
- * its catalogue row has no gift price and nobody has priced it as a bought gift, so it reaches a shop only as Black
- * Diamond's badge reward (`SHOP_GIFT_EARNED_ONLY_CODE`).
+ * The couple products a shop can BUY as gifts (a `platform_retail_catalog_v2.service_code`) — every plan gift.
+ * 💎 Event Ultra included (owner 15 Nov, DECISION_LOG "GIFT FOR SERVICES DESIGN — DECISIONS": *"Event Ultra may be a
+ * supplier gift at its ₱9,990 list price until a gift price is set"*): with no `gift_price_php` it is bought at its list
+ * price (`giftUnitPrice` falls back to `retail_price_php`), and it is still Black Diamond's badge reward.
  */
-export const SHOP_GIFT_UNLOCK_CODE: Readonly<Record<'event_plus' | 'event_pro', string>> = {
+export const SHOP_GIFT_UNLOCK_CODE: Readonly<Record<ShopGiftUnlockKind, string>> = {
   event_plus: EVENT_PLUS_SKU,
   event_pro: FULL_PRO_SKU,
-};
-
-/** 💎 Unlocks a shop can hold and GIVE but never buy — earned as a badge reward only. */
-export const SHOP_GIFT_EARNED_ONLY_CODE: Readonly<Record<'event_ultra', string>> = {
   event_ultra: EVENT_ULTRA_SKU,
 };
 
 /** Every unlock kind's couple product — the plan the event receives. */
-export const SHOP_GIFT_PLAN_CODE: Readonly<Record<ShopGiftUnlockKind, string>> = {
-  ...SHOP_GIFT_UNLOCK_CODE,
-  ...SHOP_GIFT_EARNED_ONLY_CODE,
-};
+export const SHOP_GIFT_PLAN_CODE: Readonly<Record<ShopGiftUnlockKind, string>> = SHOP_GIFT_UNLOCK_CODE;
 
 /** The kind of a giftable product code (one a shop can put on a quote), or null when it cannot be gifted. */
 export function shopGiftKindOf(code: string | null | undefined): ShopGiftKind | null {
@@ -77,10 +71,9 @@ export function shopGiftKindOf(code: string | null | undefined): ShopGiftKind | 
   return null;
 }
 
-/** Can a shop BUY this code as a gift? Never an earned-only unlock (Event Ultra). */
+/** Can a shop BUY this code as a gift? Every giftable kind, Event Ultra included (owner 15 Nov, at its list price). */
 export function shopGiftBuyable(code: string | null | undefined): boolean {
-  const kind = shopGiftKindOf(code);
-  return kind !== null && kind !== 'event_ultra';
+  return shopGiftKindOf(code) !== null;
 }
 
 /**
@@ -100,7 +93,7 @@ export function shopGiftServiceKey(code: string): string {
 export function shopGiftCodeOf(serviceKey: string | null | undefined): string | null {
   if (typeof serviceKey !== 'string' || !serviceKey.startsWith(SHOP_GIFT_KEY_PREFIX)) return null;
   const code = serviceKey.slice(SHOP_GIFT_KEY_PREFIX.length);
-  // Only a code a shop can BUY is ever a gift ORDER — an earned-only unlock (Event Ultra) never mints or activates one.
+  // Only a code a shop can BUY is ever a gift ORDER.
   return shopGiftBuyable(code) ? code : null;
 }
 

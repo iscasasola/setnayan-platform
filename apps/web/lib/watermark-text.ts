@@ -65,7 +65,16 @@ export function markVerifiedAddress(slug: string): string {
   return `${MARK_ADDRESS}${shopPath(slug)}`;
 }
 
-/** The URL the photo-mark QR encodes (owner 2026-11-15) — the same address as the line, with its scheme and host. */
+/**
+ * The material tag the photo-mark QR carries (owner 16 Nov, DECISION_LOG b8d39503) — it says WHICH Setnayan material a
+ * scan came from. It is NOT `src`: a photo is Setnayan's, so no `?src=own` (DECISION_LOG b95998b3) and the booking fee
+ * still applies.
+ */
+export const MARK_QR_VIA = 'photo';
+/**
+ * The URL the photo-mark QR encodes — the same address as the line, with its scheme and host, plus `?via=photo`.
+ * NEVER `?src=own` (owner 16 Nov: "The qr codes on photos will have the no tag. Because this is from setnayan").
+ */
 export function markQrUrl(slug: string): string {
-  return `https://www.${MARK_ADDRESS}${shopPath(slug)}`;
+  return `https://www.${MARK_ADDRESS}${shopPath(slug)}?via=${MARK_QR_VIA}`;
 }

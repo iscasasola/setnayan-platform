@@ -26,6 +26,7 @@ import { markOverlaySvgForLayout, markPhotoBytes, serverMeasure } from './photo-
 import { shopMarkFromRow } from './supplier-mark-spec.server';
 import { markQr } from './photo-mark-qr';
 import { markVerifiedAddress, markQrUrl } from './watermark-text';
+import { myPageUrl, ownPageUrl } from './supplier-qr-codes';
 
 const NOW = new Date('2026-11-15T00:00:00Z');
 const row = (over: Record<string, string | null> = {}) => ({
@@ -38,7 +39,7 @@ const row = (over: Record<string, string | null> = {}) => ({
 });
 const VERIFIED = shopMarkFromRow(row(), NOW).spec;
 const UNVERIFIED = shopMarkFromRow(row({ verification_state: 'unverified' }), NOW).spec;
-const URL = 'https://www.setnayan.com/testnayanw1lights';
+const URL = 'https://www.setnayan.com/testnayanw1lights?via=photo';
 
 async function flat(w: number, h: number): Promise<Buffer> {
   return sharp({ create: { width: w, height: h, channels: 3, background: { r: 128, g: 128, b: 128 } } }).jpeg({ quality: 95 }).toBuffer();
@@ -136,15 +137,48 @@ test('§4 the shop’s logo circle is verified-only — from the shop’s own ro
   assert.ok(u.qr && v.qr, 'both get the QR');
 });
 
-test('§5 the address reads setnayan.com/{slug} for EVERY shop — no /v/ — and matches the QR', () => {
+test('§5 the address reads setnayan.com/{slug} for EVERY shop — no /v/ — and the QR opens that address', () => {
   assert.equal(markVerifiedAddress('bloom'), 'setnayan.com/bloom');
-  assert.equal(markQrUrl('bloom'), 'https://www.setnayan.com/bloom');
+  assert.equal(markQrUrl('bloom'), 'https://www.setnayan.com/bloom?via=photo');
   for (const spec of [VERIFIED, UNVERIFIED]) {
     const l = layoutMark(1600, 1200, spec, serverMeasure) as RowLayout;
     assert.equal(l.address.text, 'setnayan.com/testnayanw1lights');
     assert.equal(l.qr!.url, URL);
   }
   assert.doesNotMatch(stripComments(read('lib/watermark-text.ts')), /\/v\/\$\{slug\}/, 'the mark’s address went back to /v/');
+});
+
+test('§5b the photo QR is ?via=photo and carries NO src tag — a scan from a photo is Setnayan-sourced (owner 16 Nov, DECISION_LOG b95998b3 + b8d39503)', async () => {
+  // Owner, verbatim: "The qr codes on photos will have the no tag. Because this is from setnayan". A couple who scans a
+  // shop's photo arrives untagged by src → shop_page → the booking fee applies and the booking counts. It carries
+  // via=photo (which material), never ?src=own; the shop's OWN codes (QR, door sticker, Share link) stay ?src=own via
+  // ownPageUrl, and the photo mark must never use it.
+  const origin = 'https://www.setnayan.com';
+  const check = (url: string) => {
+    const u = new globalThis.URL(url);
+    assert.equal(u.searchParams.get('via'), 'photo', `the photo QR names its material: ${url}`);
+    assert.equal(u.searchParams.has('src'), false, `the photo QR carries src: ${url}`);
+    assert.deepEqual([...u.searchParams.keys()], ['via'], `only via, nothing else: ${url}`);
+  };
+  for (const slug of ['bloom', 'testnayanw1lights', 'bloom-vine']) {
+    const url = markQr(slug).url;
+    check(url);
+    const u = new globalThis.URL(url);
+    assert.equal(`${u.origin}${u.pathname}`, myPageUrl(origin, slug), 'the photo QR opens the plain myPageUrl page');
+    assert.notEqual(url, ownPageUrl(origin, slug));
+  }
+  // …and the burned pixels agree: what a phone reads off the photo is via=photo with no src.
+  for (const spec of [VERIFIED, UNVERIFIED]) {
+    const out = await markPhotoBytes(await flat(1600, 1200), spec, { logoPng: null });
+    const scanned = await decodeQrPayloadFromImage(new Uint8Array(out.bytes));
+    assert.ok(scanned, 'the burned QR decodes');
+    check(scanned!);
+  }
+  // …and nothing on the photo-mark path can reach the supplier's own tagged link.
+  for (const f of ['lib/photo-mark-qr.ts', 'lib/watermark-text.ts', 'lib/supplier-mark-spec.server.ts', 'lib/photo-mark-geometry.ts', 'lib/photo-mark-server.ts', 'lib/photo-mark-canvas.ts']) {
+    const src = stripComments(read(f));
+    assert.doesNotMatch(src, /\bownPageUrl\b|\bOWN_LINK_SRC\b|src=own/, `${f} reaches the supplier's own ?src=own link`);
+  }
 });
 
 test('§6 a row on a fade — no plate, no shop-name line, no SETNAYAN VERIFIED', async () => {

@@ -177,5 +177,5 @@ test('the photo mark prints the shop address from shopPath — the line and the 
     assert.doesNotMatch(body, /\/\$\{slug\}|\/v\//, `${fn} types the shop path by hand`);
   }
   assert.equal(markVerifiedAddress('bloom-vine'), `setnayan.com${shopPath('bloom-vine')}`);
-  assert.equal(markQrUrl('bloom-vine'), `https://www.setnayan.com${shopPath('bloom-vine')}`);
+  assert.equal(markQrUrl('bloom-vine'), `https://www.setnayan.com${shopPath('bloom-vine')}?via=photo`);
 });

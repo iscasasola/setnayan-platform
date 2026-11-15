@@ -26,3 +26,10 @@ SPEC IMPACT: Applies the owner's address ruling (DECISION_LOG d7910b5d) — no n
 - **Folded in #7818 (the supplier photo mark — address + QR on every shop; one PR per area, 16 Nov).** The mark's
   address line (`markVerifiedAddress`) and its QR (`markQrUrl`) both build the address with `shopPath(slug)`, never a
   typed `/${slug}`. `lib/shop-address.test.ts` holds that, and goes red if the QR is retyped by hand.
+- **The photo-mark QR is `setnayan.com/{shop}?via=photo` and carries NO `?src` tag** (owner 16 Nov, DECISION_LOG
+  b95998b3: *"The qr codes on photos will have the no tag. Because this is from setnayan"*; `via=photo` per b8d39503).
+  A couple who scans a shop's photo arrives as `shop_page` — the booking fee applies and the booking counts. It is the
+  plain `myPageUrl` page, never `ownPageUrl`; the shop's own QR, door sticker and Share link stay `?src=own`. Only the
+  photo QR's tag is built here — the other material tags and their carry-through are a separate build. Guard §5b in
+  `lib/the-supplier-photo-mark-is-in-the-bytes.test.ts` checks the URL (via=photo present, src absent), the QR decoded
+  from the burned pixels, and that no photo-mark module reaches `ownPageUrl`.

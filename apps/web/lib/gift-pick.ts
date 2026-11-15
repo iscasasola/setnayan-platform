@@ -61,14 +61,17 @@ export function giftColumns(gift: GiftPick | null | undefined): GiftColumns | nu
 /** 🚧 Off until the owner rules how a card's own pack reaches the quote and the couple (open, same as bundle PR #7367). */
 export const SHOP_PACK_GIFTS_DELIVER = false;
 
-/** The Setnayan gift's line under the dropdown — the card maker's shipped fold sentence, without the noun. */
+/**
+ * The Setnayan gift's line under the dropdown. 🎁 The photo gift is RETIRED (owner 2026-11-15): a card saved with it
+ * keeps the value, and is told where the gift lives now — the Agree step.
+ */
 export const SETNAYAN_GIFT_HINT =
-  'Free Papic photos for the couple, sized to the booking. Added to your booking fee bill — never more than 40% of that fee.';
+  'Retired — you now pick the couple’s gift (Papic or an Event plan) when you agree to their booking.';
 
 /** What the ⓘ beside "Gift" says — the card's shipped words and the shop-gift rulings (DECISION_LOG 2026-11-04 / 05). */
 export function giftTip(host: GiftHost, deliver: boolean = SHOP_PACK_GIFTS_DELIVER): readonly string[] {
   const all = [
-    `Setnayan gift — couples who book this get free Papic photos, sized to the booking. It is added to your booking fee bill — never more than 40% of that fee. Your ${host} shows either way.`,
+    `Setnayan gift — when you agree to a booking you can pick Papic packs or an Event plan for the couple’s event, within your gift limit. It is added to your booking fee bill; what is in your stock costs nothing more. Your ${host} shows either way.`,
     'Your own gifts — Papic packs, Event Plus, Event Pro or Event Ultra from your stock (Shop › Promote › Your gifts · buy first). They leave your stock when the couple’s first payment clears and land on their event.',
     'On one booking your gifts are capped at 40% of its fee; the smallest Papic pack is always allowed.',
     'A second Event Plus on an event that already holds Plus unlocks Event Pro instead.',
@@ -92,9 +95,10 @@ export function giftMenu(
   current: GiftPick = GIFT_NONE,
   deliver: boolean = SHOP_PACK_GIFTS_DELIVER,
 ): GiftOption[] {
+  // 🎁 The photo gift is retired (2026-11-15): offered no more; a card saved with it keeps it, said as retired.
   const out: GiftOption[] = [
     { key: GIFT_NONE, label: 'No gift' },
-    { key: GIFT_SETNAYAN, label: 'Setnayan gift', hint: SETNAYAN_GIFT_HINT },
+    ...(current === GIFT_SETNAYAN ? [{ key: GIFT_SETNAYAN, label: 'Setnayan gift', hint: SETNAYAN_GIFT_HINT }] : []),
   ];
   // 🚧 `SHOP_PACK_GIFTS_DELIVER`: no pack row while a picked pack would reach nobody.
   for (const p of deliver ? (packs ?? []) : []) {

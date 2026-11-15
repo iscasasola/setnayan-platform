@@ -47,6 +47,7 @@ import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 import { isOwnClock } from '@/lib/supplier-own-times';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { recordAgreeGifts } from '@/lib/agree-gifts.server';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -1497,6 +1498,18 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // ── 2b · 🎁 THE GIFT PICKED WITH THE YES (gift for services, owner 2026-11-15). The picker on the Agree step posts
+  // one `gift` field per pack; the SQL door re-prices and re-judges every one from a fresh read (the limit at list
+  // price, stock first, the rest added to THIS bill) — AFTER the mint, because the gift is sized on the billed fee.
+  // On `ok` only, never throws: the booking is already made, and the answer is said back on the card (`gift=`).
+  let giftStatus: string | null = null;
+  if (!error && env.status === 'ok' && eventId) {
+    const giftCodes = formData.getAll('gift').filter((v): v is string => typeof v === 'string');
+    if (giftCodes.length > 0) {
+      giftStatus = await recordAgreeGifts(createAdminClient(), { eventVendorId, codes: giftCodes });
+    }
+  }
+
   // ── 3 · TELL THE COUPLE — on a FRESH agreement only (a re-call answers
   // 'already' and stays silent). Best-effort: the booking is already made and a
   // notification hiccup must never roll it back.
@@ -1631,7 +1644,8 @@ export async function vendorAgreeToLock(formData: FormData) {
   // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
   // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
   const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
-  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
+  const gift = giftStatus && giftStatus !== 'none' ? `&gift=${encodeURIComponent(giftStatus)}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}${gift}`);
 }
 
 /**

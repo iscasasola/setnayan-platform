@@ -348,7 +348,9 @@ export async function collectBookingFeeAtLock(
   const eventId = chargeRow.event_id ?? null;
   const vendorProfileId = chargeRow.vendor_profile_id ?? null;
   const giftCredits = Math.max(0, Math.trunc(Number(chargeRow.gift_credits) || 0));
-  const giftCentavos = giftCredits > 0 ? Math.max(0, Math.round(Number(chargeRow.gift_centavos) || 0)) : 0;
+  // 🎁 Gift for services (2026-11-15): a gift picked at the yes can be a PLAN with no Papic credits, so the gift's
+  // money no longer waits on credits — whatever `gift_centavos` the charge carries is on the bill.
+  const giftCentavos = Math.max(0, Math.round(Number(chargeRow.gift_centavos) || 0));
 
   let payerUserId: string | null = null;
   if (vendorProfileId) {
@@ -393,8 +395,16 @@ export async function collectBookingFeeAtLock(
   // The gift's clause (" ₱2,500 + your Setnayan gift for your couple: 1,429
   // free Papic photos, ₱1,000") sits between the schedule and the SLA, and is
   // '' when there is no gift — so a gift-free bill reads exactly as before.
-  const giftClause =
-    giftCredits > 0 ? setnayanGiftBillClause(feeCentavos, giftCredits, giftCentavos) : '';
+  // 🎁 The clause names what the gift IS — the picked items ("1 × Papic 1000 · Event Pro"), or the retired photo gift
+  // on a charge that still carries it — through the SAME SQL the bill re-pricer uses (`booking_gift_bill_clause`).
+  // A failed read falls back to the photo clause only where it is true, and otherwise mints no clause: the AMOUNT is
+  // still fee + gift, so a missing sentence never changes what is owed.
+  let giftClause = '';
+  if (giftCentavos > 0) {
+    const { data: clause, error: clauseError } = await admin.rpc('booking_gift_bill_clause', { p_charge_id: chargeId });
+    if (!clauseError && typeof clause === 'string') giftClause = clause;
+    else if (giftCredits > 0) giftClause = setnayanGiftBillClause(feeCentavos, giftCredits, giftCentavos);
+  }
 
   const { data: orderRow, error: oErr } = await admin
     .from('orders')

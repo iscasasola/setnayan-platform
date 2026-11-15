@@ -44,6 +44,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookingFeePhp } from '../../lib/booking-fee';
 import { bookingFeeLockServiceKey } from '../../lib/booking-fee-lock';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { asRaisedBeforeTheRetirement } from './a-charge-from-before-the-photo-gift-retired';
 
 /* ── The two seams that let a PRODUCTION module run inside node:test ─────────
  * Both live in ./supabase-over-pglite:
@@ -707,6 +708,10 @@ test('a card that said YES to the gift → the order is fee + gift and names the
     evId,
     card.rows[0]!.vendor_service_id,
   ]);
+  // 🎁 The photo gift retired 2026-11-15: only a charge raised BEFORE then still carries it. Open the charge, make it
+  // one of those, and let the shipped minter bill it — the bill must still name the photos it was promised.
+  const opened = await db.query<{ v: { charge_id?: string } }>(`SELECT public.booking_fee_open_lock_charge($1) AS v`, [evId]);
+  await asRaisedBeforeTheRetirement(db, opened.rows[0]!.v.charge_id);
 
   const res = await collect(evId);
   assert.equal(res.status, 'ordered');

@@ -5,7 +5,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { fetchGiftLadder } from '@/lib/setnayan-gift.server';
-import { giftLadderIsPriceable, type GiftQuoteBasis } from '@/lib/setnayan-gift';
+import { giftLadderIsPriceable, SETNAYAN_PHOTO_GIFT_RETIRED, type GiftQuoteBasis } from '@/lib/setnayan-gift';
 import { standingForGiftArm, type PapicQuoteStanding } from '@/lib/papic-on-a-quote';
 
 /**
@@ -57,6 +57,8 @@ export async function resolvePapicQuoteStanding(
   admin: SupabaseClient,
   args: { eventId: string | null | undefined; vendorProfileId: string | null | undefined },
 ): Promise<PapicQuoteStanding> {
+  // 🎁 The photo gift is retired (2026-11-15): a quote no longer promises it — the gift is picked at the yes.
+  if (SETNAYAN_PHOTO_GIFT_RETIRED) return { kind: 'silent' };
   if (!isBookingFeeEnabled()) return { kind: 'silent' };
   if (!args.eventId || !args.vendorProfileId) return { kind: 'silent' };
 

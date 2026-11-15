@@ -40,6 +40,7 @@ import {
   type GiftTierRow,
 } from '../../lib/setnayan-gift';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { asRaisedBeforeTheRetirement } from './a-charge-from-before-the-photo-gift-retired';
 
 /** The top Papic pack on sale (owner 2026-11-03) — the cap the gift reaches. Its PRICE is always read from the catalog. */
 const TOP_PACK_CREDITS = 3_000;
@@ -158,11 +159,17 @@ async function newBooking(
 
 type OpenResult = { charge_id?: string; status?: string; skipped?: string };
 
+/**
+ * 🎁 Every charge this file opens stands in for one raised BEFORE the photo gift retired (2026-11-15): the file pins
+ * how such a charge is sized, billed, frozen and granted, which is exactly what still happens to them. A NEW charge is
+ * never offered the photo gift — `a-gift-is-picked-when-the-supplier-agrees.db.test.ts` ① pins that.
+ */
 async function openCharge(evId: string): Promise<OpenResult> {
   const r = await db.query<{ result: OpenResult }>(
     `SELECT public.booking_fee_open_lock_charge($1) AS result`,
     [evId],
   );
+  await asRaisedBeforeTheRetirement(db, r.rows[0]!.result?.charge_id);
   return r.rows[0]!.result;
 }
 

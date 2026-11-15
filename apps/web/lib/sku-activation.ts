@@ -399,6 +399,71 @@ async function grantSetnayanGiftForBookingFee(
 }
 
 /**
+ * 🎁 THE BOUGHT-PLAN DOOR (gift for services, owner 2026-11-15). Runs INSIDE the `vendor_booking_fee__{id}` hook, after
+ * the Papic gift door. What the event already holds is answered by the app's entitlement chain, approved only (the
+ * same reader the stock door uses), and handed to `booking_gift_give_bought_plans` — which gives each bought plan once,
+ * Ultra first, and keeps in the shop's stock a plan the event already holds. A refusal is an answer; an `error` is
+ * reported and the order stays recoverable by a re-approval.
+ */
+async function giveBoughtGiftPlansForBookingFee(ctx: ActivationContext, chargeId: string): Promise<void> {
+  try {
+    const { data: charge, error: chargeError } = await ctx.admin
+      .from('booking_fee_charges')
+      .select('event_id')
+      .eq('charge_id', chargeId)
+      .maybeSingle();
+    if (chargeError) {
+      reportActivationFault('activate:gift_bought_plans', ctx, chargeError);
+      return;
+    }
+    const eventId = (charge as { event_id?: string | null } | null)?.event_id ?? null;
+    if (!eventId) return;
+    const { data: lines, error: linesError } = await ctx.admin
+      .from('booking_gift_lines')
+      .select('line_id')
+      .eq('charge_id', chargeId)
+      .eq('from_stock', false)
+      .neq('gift_kind', 'papic')
+      .is('given_at', null)
+      .limit(1);
+    if (linesError) {
+      reportActivationFault('activate:gift_bought_plans', ctx, linesError);
+      return;
+    }
+    if (!lines || lines.length === 0) return; // no plan bought on this bill
+    const { fetchEventGiftHolds } = await import('@/lib/shop-gifts.server');
+    const eventHas = await fetchEventGiftHolds(ctx.admin, eventId, 'active');
+    const { data, error } = await ctx.admin.rpc('booking_gift_give_bought_plans', {
+      p_charge_id: chargeId,
+      p_order_id: ctx.orderId,
+      p_event_has: eventHas,
+    });
+    if (error) {
+      reportActivationFault('activate:gift_bought_plans', ctx, error);
+      return;
+    }
+    const res = (data ?? {}) as { status?: string; given?: Array<{ unlocks_sku?: string }>; kept_in_stock?: number };
+    if (res.status !== 'ok' && res.status !== 'kept_in_stock') return;
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        booking_fee_charge_id: chargeId,
+        event_id: eventId,
+        gift_plans_given: (res.given ?? []).map((g) => g.unlocks_sku ?? null),
+        gift_plans_kept_in_stock: res.kept_in_stock ?? 0,
+      },
+    });
+  } catch (e) {
+    console.error('[sku-activation] bought gift plans threw (non-fatal):', e);
+    reportActivationFault('activate:gift_bought_plans', ctx, e);
+  }
+}
+
+/**
  * The pack door — 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS
  * credits into the SHOP WALLET (owner 2026-10-23, option A: *"one shop
  * wallet"* — packs go into one shop balance, spendable on the portfolio or on
@@ -2240,6 +2305,10 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // not `settled` flipped just now, and the database refuses a second
       // landing for the same order.
       await grantSetnayanGiftForBookingFee(ctx, chargeId);
+      // 🎁 GIFT FOR SERVICES (owner 2026-11-15): an Event Plus / Pro / Ultra the supplier BOUGHT on this bill as the
+      // couple's gift lands now — the bill is what was paid. (Bought Papic landed on the line above: it is the charge's
+      // gift_credits.) Once per line; a plan the event already holds stays in the shop's stock.
+      await giveBoughtGiftPlansForBookingFee(ctx, chargeId);
 
       // 📅 THE DATE IS HELD (owner 2026-09-18, CTRL-B2 build 7): *a lock on the
       // vendor's schedule … upon the vendor paying their booking fee.* Until

@@ -43,6 +43,8 @@ import type { DayCheckRead } from '@/lib/day-check';
 import { DayCheckLine } from './day-check-line';
 import { WaitlistForm } from './waitlist-form';
 import { TopUpCarryOver, type CarryOverTopUp } from './top-up-carry-over';
+import { AgreeGiftPicker } from './agree-gift-picker';
+import type { AgreeGiftBasis } from '@/lib/agree-gifts';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -75,6 +77,7 @@ export function LockRequestAnswer({
   now = new Date(),
   layout = 'panel',
   carryOver = null,
+  giftBasis = null,
 }: {
   eventVendorId: string;
   expiresAt: string | null;
@@ -117,6 +120,12 @@ export function LockRequestAnswer({
    * held service keep their shipped single answer. `panel` (default) is the shipped layout, unchanged.
    */
   layout?: 'panel' | 'blocker';
+  /**
+   * 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree — fee · gift · "You pay if you agree" — whose picks
+   * post with the yes (`gift`, one per pack) to `vendorAgreeToLock`. `fetchAgreeGiftBasis`; null when the yes raises no
+   * bill (free, promo, badge reward) or a read failed — then Agree looks exactly as before.
+   */
+  giftBasis?: AgreeGiftBasis | null;
 }) {
   // The deadline is the one the DATABASE stamped and the sweep enforces —
   // never a window recomputed here.
@@ -174,9 +183,10 @@ export function LockRequestAnswer({
           // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
           <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
         ) : (
-          <form action={agreeLock}>
+          <form action={agreeLock} className={giftBasis ? 'w-full' : undefined}>
             <input type="hidden" name="vendor_id" value={eventVendorId} />
             <input type="hidden" name="return_to" value={returnTo} />
+            {giftBasis ? <AgreeGiftPicker basis={giftBasis} /> : null}
             <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
           </form>
         )}

@@ -324,52 +324,34 @@ test('7 · a booking cancelled before its day gives its free booking fee back (o
   assert.equal(next.badge_reward_id, fw.reward_id, 'the returned free fee did not pay the next booking');
 });
 
-test('8 · a badge-paid booking still gives the couple the Setnayan gift, and the quote says so (owner 2026-11-05)', async () => {
+test('8 · a badge-paid booking: the free fee pays it — and the RETIRED photo gift is no longer given (owner 2026-11-15)', async () => {
+  // ⚖ Owner 2026-11-05 had the couple still receive the automatic photo gift on a badge-paid booking ("the gift
+  // belongs with the booking, not the bill"). Owner 2026-11-15 (gift for services) RETIRED that automatic gift: the
+  // supplier now picks the couple's gift when they agree. A new charge is never offered it, so the badge door gives
+  // none — and nothing is billed either way.
   const { shop } = await newShop();
   await openCharge((await newBooking(shop)).eventVendorId); // the free first booking
   const fw = await grant(shop, 'events:1000', 'fee_waiver', 1, null);
 
   const b = await newBooking(shop);
-  // The supplier's accepted quote carries the gift switch ON.
+  // The supplier's accepted quote carries the old gift switch ON.
   await db.query(
     `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos, includes_setnayan_gift)
      VALUES ($1, $2, 'Quote', 'accepted', NOW(), 5000000, TRUE)`,
     [shop, b.eventId],
   );
-  const before = await one<string>(`SELECT public.setnayan_gift_quote_applies($1, $2) AS v`, [b.eventId, shop]);
-  assert.equal(before, 'badge_reward', 'the quote of a booking a free fee will pay does not promise the gift');
-
   const paid = await openCharge(b.eventVendorId);
-  assert.equal(paid.badge_reward_id, fw.reward_id);
-  assert.equal(paid.amount_charged_centavos, 0, 'the gift was billed');
-  const reward = await db.query<{ setnayan_gift_credits: number | null; setnayan_gift_grant_id: string | null }>(
-    `SELECT setnayan_gift_credits, setnayan_gift_grant_id FROM public.shop_badge_rewards WHERE reward_id = $1`,
-    [fw.reward_id],
-  );
-  const credits = Number(reward.rows[0]!.setnayan_gift_credits ?? 0);
-  assert.ok(credits > 0, 'the couple got no Setnayan gift on a badge-paid booking');
-  const pool = await db.query<{ points: number; event_id: string }>(
-    `SELECT points, event_id FROM public.papic_event_point_grants WHERE grant_id = $1`,
-    [reward.rows[0]!.setnayan_gift_grant_id],
-  );
-  assert.equal(pool.rows[0]!.event_id, b.eventId, 'the gift landed on another event');
-  assert.equal(Number(pool.rows[0]!.points), credits);
-  assert.equal(await one<string>(`SELECT public.setnayan_gift_quote_applies($1, $2) AS v`, [b.eventId, shop]), 'badge_reward');
-
-  // A re-lock gives nothing twice.
-  await openCharge(b.eventVendorId);
+  assert.equal(paid.badge_reward_id, fw.reward_id, 'the free fee still pays this booking');
+  assert.equal(paid.amount_charged_centavos, 0, 'nothing is billed');
+  const credits = await one<number | null>(`SELECT setnayan_gift_credits AS v FROM public.shop_badge_rewards WHERE reward_id = $1`, [
+    fw.reward_id,
+  ]);
+  assert.equal(credits, null, 'the retired photo gift was given on a new booking');
   const grants = await one<string>(
     `SELECT COUNT(*)::text AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'comp'`,
     [b.eventId],
   );
-  assert.equal(Number(grants), 1, 'the gift was given twice');
-
-  // A booking whose quote and card say no carries no gift — the free fee alone.
-  const fw2 = await grant(shop, 'events:5000', 'fee_waiver', 1, null);
-  const plain = await openCharge((await newBooking(shop)).eventVendorId);
-  assert.equal(plain.badge_reward_id, fw2.reward_id);
-  const plainGift = await one<number | null>(`SELECT setnayan_gift_credits AS v FROM public.shop_badge_rewards WHERE reward_id = $1`, [fw2.reward_id]);
-  assert.equal(plainGift, null, 'a gift nobody offered was given');
+  assert.equal(Number(grants), 0, 'photos landed from the retired gift');
 });
 
 test('6 · 🚨 RLS: own rewards only; no session writes a reward or calls the doors', async () => {

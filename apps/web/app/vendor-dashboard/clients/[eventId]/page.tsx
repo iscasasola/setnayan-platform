@@ -128,6 +128,8 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { fetchAgreeGiftBasis } from '@/lib/agree-gifts.server';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -584,6 +586,8 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -990,6 +994,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree — read beside the forecast, null when no bill.
+  const giftBasisP = lockRequest?.event_vendor_id
+    ? startRead(fetchAgreeGiftBasis(admin, {
+        vendorProfileId: profile.vendor_profile_id,
+        eventVendorId: lockRequest.event_vendor_id,
+      }))
+    : null;
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
   const clientWaivedP = startRead(fetchWaivedFeeCharges(
     admin,
@@ -1083,6 +1094,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ? await askReadsP!
     : [null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
+  const giftBasis = giftBasisP ? await giftBasisP : null;
+  const giftOutcome = agreeGiftOutcomeLine(typeof search.gift === 'string' ? search.gift : null);
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1921,6 +1934,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           server actions, no second state machine. */}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
+      {giftOutcome ? <LockAnswerLine notice={giftOutcome} /> : null}
       {lockRequest ? (
         <LockRequestAnswer
           eventVendorId={lockRequest.event_vendor_id}
@@ -1934,6 +1948,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          giftBasis={giftBasis}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />

@@ -24,6 +24,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { asRaisedBeforeTheRetirement } from './a-charge-from-before-the-photo-gift-retired';
 
 /** The booking fee on a ₱50,000 booking, in centavos — the figure a charge carries. */
 const FEE_ON_50K = 250_000;
@@ -95,7 +96,11 @@ async function openCharge(b: { eventId: string; vendorProfileId: string; eventVe
     // proposal_amount_centavos is the BOOKING; amount_charged_centavos is the
     // FEE on it — the gift is 40% of the second, never of the first.
     [ledgerId, b.eventId, b.vendorProfileId, b.eventVendorId, 5_000_000, centavos],
-  );
+  ).then(async (chargeId) => {
+    // 🎁 A charge raised BEFORE the photo gift retired (2026-11-15) — the only kind that still carries it.
+    await asRaisedBeforeTheRetirement(db, chargeId);
+    return chargeId;
+  });
 }
 
 const stamp = (id: string, confirm: boolean) =>

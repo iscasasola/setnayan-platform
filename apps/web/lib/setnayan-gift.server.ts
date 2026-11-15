@@ -8,6 +8,7 @@ import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import {
   giftLadderFrom,
   giftLadderIsPriceable,
+  SETNAYAN_PHOTO_GIFT_RETIRED,
   setnayanGiftForFee,
   type GiftCatalogRow,
   type GiftRung,
@@ -115,6 +116,7 @@ export async function quoteSetnayanGift(
     quoteSwitch?: boolean | null;
   },
 ): Promise<(SetnayanGift & { freeWithBadge?: true }) | null> {
+  if (SETNAYAN_PHOTO_GIFT_RETIRED) return null; // 🎁 retired 2026-11-15 — the gift is picked at the yes now
   if (!isBookingFeeEnabled()) return null; // no fee is ever billed ⇒ no gift
   if (!Number.isFinite(args.amountCentavos) || args.amountCentavos <= 0) return null;
 

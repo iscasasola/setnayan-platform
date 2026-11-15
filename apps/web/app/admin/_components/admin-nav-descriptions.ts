@@ -125,7 +125,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Curated location and figure imagery for the 3-pillar mood board. Manage palettes and tags.',
   'social-queue':
     'Ready-to-post couple creations and supplier features, plus take-downs.',
-  'spotlight-awards': 'The supplier Spotlight Awards program — nominate and feature.',
+  badges: 'Badges & seals — every badge reward, the yearly seals, and the monthly Spotlight Awards.',
   'journal-spotlights': 'Journal Spotlight features — curate and order.',
   'discount-codes': 'Promo and discount codes — create, cap, and expire.',
   referrals: 'The referral program — invites, rewards, and payouts.',

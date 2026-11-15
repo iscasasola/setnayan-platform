@@ -3,7 +3,7 @@
 //
 // Every place inside /admin a person can land, scanned from the route tree.
 // 103 destinations (67 real pages, 36 redirect stubs)
-// as of 833b4b09. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// as of f4c3d631. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 
@@ -60,7 +60,7 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "path": "/admin/badges",
     "kind": "page",
     "redirectsTo": null,
-    "inMenuSource": false
+    "inMenuSource": true
   },
   {
     "path": "/admin/booking-fees",

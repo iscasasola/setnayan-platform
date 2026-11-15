@@ -528,16 +528,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/social-queue',
       },
       {
-        // Repointed to the Studio Studio Spotlight Awards tab (slice 3).
-        // matchPrefix keeps this item lit on the legacy /admin/spotlight-awards
-        // path (which now redirects in).
-        key: 'spotlight-awards',
-        label: 'Spotlight Awards',
-        href: '/admin/studio?tab=spotlight-awards',
-        icon: Trophy,
-        matchPrefix: '/admin/spotlight-awards',
-      },
-      {
         // Repointed to the Studio Studio Journal Spotlights tab (slice 3).
         // matchPrefix keeps this item lit on the legacy
         // /admin/journal-spotlights path (which now redirects in).
@@ -922,6 +912,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Receipts',
         href: '/admin/receipts',
         icon: Receipt,
+      },
+      {
+        // 🏅 Badges & seals (controller 15 Nov 2026). The monthly Spotlight Awards fold in here (DECISION_LOG
+        // dd7d05f1), so this item replaces their Studio entry and stays lit on the legacy /admin/spotlight-awards.
+        key: 'badges',
+        label: 'Badges & seals',
+        href: '/admin/badges',
+        icon: Trophy,
+        matchPrefix: '/admin/spotlight-awards',
       },
       {
         // Canonical home stays with money config (the data IS money — vendor

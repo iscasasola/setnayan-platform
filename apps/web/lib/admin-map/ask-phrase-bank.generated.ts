@@ -174,10 +174,6 @@ social queue	/admin/studio?tab=social-queue	page
 open social queue	/admin/studio?tab=social-queue	page
 where is social queue	/admin/studio?tab=social-queue	page
 hanapin social queue	/admin/studio?tab=social-queue	page
-spotlight awards	/admin/studio?tab=spotlight-awards	page
-open spotlight awards	/admin/studio?tab=spotlight-awards	page
-where is spotlight awards	/admin/studio?tab=spotlight-awards	page
-hanapin spotlight awards	/admin/studio?tab=spotlight-awards	page
 journal spotlights	/admin/studio?tab=journal-spotlights	page
 open journal spotlights	/admin/studio?tab=journal-spotlights	page
 where is journal spotlights	/admin/studio?tab=journal-spotlights	page
@@ -318,6 +314,10 @@ receipts	/admin/receipts	page
 open receipts	/admin/receipts	page
 where is receipts	/admin/receipts	page
 hanapin receipts	/admin/receipts	page
+badges & seals	/admin/badges	page
+open badges & seals	/admin/badges	page
+where is badges & seals	/admin/badges	page
+hanapin badges & seals	/admin/badges	page
 payment methods	/admin/settings/payment-methods	page
 open payment methods	/admin/settings/payment-methods	page
 where is payment methods	/admin/settings/payment-methods	page
@@ -343,18 +343,18 @@ open supplier recommendations	/admin/vendor-recommendations	page
 where is supplier recommendations	/admin/vendor-recommendations	page
 hanapin supplier recommendations	/admin/vendor-recommendations	page
 account hold	/admin/accounts?tab=users	job
-add award manually	/admin/studio?tab=spotlight-awards	job
-create award manually	/admin/studio?tab=spotlight-awards	job
-new award manually	/admin/studio?tab=spotlight-awards	job
-make award manually	/admin/studio?tab=spotlight-awards	job
-start award manually	/admin/studio?tab=spotlight-awards	job
-invite award manually	/admin/studio?tab=spotlight-awards	job
-setup award manually	/admin/studio?tab=spotlight-awards	job
-gawa award manually	/admin/studio?tab=spotlight-awards	job
-gumawa award manually	/admin/studio?tab=spotlight-awards	job
-magdagdag award manually	/admin/studio?tab=spotlight-awards	job
-dagdag award manually	/admin/studio?tab=spotlight-awards	job
-idagdag award manually	/admin/studio?tab=spotlight-awards	job
+add award manually	/admin/badges	job
+create award manually	/admin/badges	job
+new award manually	/admin/badges	job
+make award manually	/admin/badges	job
+start award manually	/admin/badges	job
+invite award manually	/admin/badges	job
+setup award manually	/admin/badges	job
+gawa award manually	/admin/badges	job
+gumawa award manually	/admin/badges	job
+magdagdag award manually	/admin/badges	job
+dagdag award manually	/admin/badges	job
+idagdag award manually	/admin/badges	job
 add eligible user	/admin/studio?tab=discount-codes	job
 create eligible user	/admin/studio?tab=discount-codes	job
 new eligible user	/admin/studio?tab=discount-codes	job
@@ -576,7 +576,7 @@ relabel faith vocab	/admin/categories	job
 relabel leaf attribute field	/admin/categories	job
 release payout hold	/admin/payments	job
 remap canonical	/admin/categories	job
-remove award	/admin/studio?tab=spotlight-awards	job
+remove award	/admin/badges	job
 remove eligible user	/admin/studio?tab=discount-codes	job
 remove merchant qr	/admin/business	job
 rename canonical service	/admin/categories	job
@@ -657,7 +657,7 @@ settle verification from work list	/admin/verify	job
 set vendor founding supplier	/admin/accounts?tab=vendors	job
 set vendor tier	/admin/accounts?tab=vendors	job
 take ownership	/admin/force-majeure	job
-toggle homepage featured	/admin/studio?tab=spotlight-awards	job
+toggle homepage featured	/admin/badges	job
 toggle team member	/admin/accounts?tab=users	job
 unblacklist email	/admin/accounts?tab=users	job
 unsuspend vendor	/admin/fraud	job

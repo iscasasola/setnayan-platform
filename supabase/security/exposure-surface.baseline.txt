@@ -3,20 +3,22 @@
 # Every line is one capability held by `anon` or `authenticated` — the two
 # principals any browser can act as, because the Supabase anon key is public
 # by design. Regenerate with:
+#
 #   pnpm --filter @setnayan/web exposure:baseline
+#
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
-# facts: 7849
-# facts: 7848
+#
+# facts: 7850
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     637
-#   col       5649
-#   col       5648
+#   col       5650
 #   policy    1151
 #   view      10
 #   func      398
+#
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
 schema	public	usage=anon,authenticated

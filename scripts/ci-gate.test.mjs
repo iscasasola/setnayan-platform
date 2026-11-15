@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE } from './lib/ci-shape.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -111,8 +111,8 @@ test('a NEW job nobody needs is caught', () => {
 });
 
 test('🚨 the gate without `if: always()` is caught — skipped would count as passed', () => {
-  mentions(problemsOf(broken('    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n    if: ${{ always() }}\n', '    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
-  mentions(problemsOf(broken('    if: ${{ always() }}\n    steps:\n      - uses: actions/checkout@v4\n', '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
+  mentions(problemsOf(broken(`    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n    if: \${{ always() && ${DRAFT_CLAUSE} }}\n`, '    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken(`    if: \${{ always() && ${DRAFT_CLAUSE} }}\n    steps:\n      - uses: actions/checkout@v4\n`, '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
 });
 
 test('a gate that reads a hand-picked subset, or runs nothing, is caught', () => {
@@ -163,6 +163,23 @@ test('🚨 the shard flag placed after the globs is caught — node ignores it t
 test('a needed job that can be skipped is caught', () => {
   mentions(problemsOf(broken('  eslint:\n    name: eslint\n', "  eslint:\n    name: eslint\n    if: ${{ github.event_name == 'pull_request' }}\n")), /"eslint" has a job-level `if:`/);
   mentions(problemsOf(broken('  eslint:\n    name: eslint\n', '  eslint:\n    name: eslint\n    needs: [typecheck]\n')), /"eslint" has its own `needs:`/);
+});
+
+test('📝 draft PRs skip: the ONE draft clause is the only job-level `if:` a gated job or the gate may add', () => {
+  // The committed workflow uses it and is sound (above). Any other condition is still caught:
+  mentions(problemsOf(broken(`if: \${{ always() && ${DRAFT_CLAUSE} }}`, "if: ${{ always() && github.event_name == 'push' }}")), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`, `    name: typecheck\n    if: \${{ github.event.pull_request.draft == false }}\n`)), /"typecheck" has a job-level `if:`/);
+});
+
+test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked ready would keep only skipped checks', () => {
+  const types = '    types: [opened, synchronize, reopened, ready_for_review]\n';
+  assert.ok(CI.includes(types), 'ci.yml lists the four pull_request types');
+  mentions(problemsOf(broken(types, '    types: [opened, synchronize, reopened]\n')), /ci\.yml: its jobs skip draft PRs[\s\S]*missing ready_for_review/);
+  mentions(problemsOf(broken(types, '')), /ci\.yml: its jobs skip draft PRs/);
+  for (const f of ['e2e.yml', 'lighthouse.yml']) {
+    assert.ok(others[f].includes(DRAFT_CLAUSE) && others[f].includes(types), `${f} skips drafts and lists the four types`);
+    mentions(problemsOf(CI, webPackage, { ...others, [f]: others[f].replace(types, '') }), new RegExp(`${f.replace('.', '\\.')}: its jobs skip draft PRs`));
+  }
 });
 
 /* ── a shard's log ──────────────────────────────────────────────────────────*/

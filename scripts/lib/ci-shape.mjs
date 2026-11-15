@@ -71,6 +71,18 @@ export const REQUIRED_CONTEXTS = [
 export const GATE_NAME = 'typecheck + lint';
 
 /**
+ * 📝 DRAFT PRs SKIP CI (owner, 16 Nov 2026 — runners are spent only on PRs that are ready). The ONE job-level `if:` a
+ * gated job may carry, and the one addition the gate may carry beside `always()`. It is safe for exactly two reasons,
+ * and rule (g) holds both: a draft cannot be merged, so its skipped checks can never let anything in; and a workflow
+ * that uses it must list `ready_for_review` in its `pull_request` types, so marking a PR ready RUNS every job —
+ * without that, a PR made ready would carry only the draft's skipped checks, which GitHub counts as passed.
+ * On `push` and `workflow_dispatch` there is no pull request, `draft` is null, and `null != true` — every job runs.
+ */
+export const DRAFT_CLAUSE = 'github.event.pull_request.draft != true';
+const DRAFT_IF = `\${{ ${DRAFT_CLAUSE} }}`;
+const PR_TYPES_NEEDED = ['opened', 'synchronize', 'reopened', 'ready_for_review'];
+
+/**
  * What the gate stood for when it was one job. Each must still be run by a job
  * the gate needs — splitting the job must not have quietly dropped a step.
  */
@@ -168,7 +180,7 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   const gate = gates[0];
   if (!gate) return [...problems, `no job in ci.yml is named "${GATE_NAME}"`];
   if (gate.needs.length === 0) problems.push(`"${GATE_NAME}" needs no jobs — it would pass while standing for nothing`);
-  if (!/^\$\{\{\s*always\(\)\s*\}\}$/.test(gate.if ?? '')) {
+  if (gate.if !== '${{ always() }}' && gate.if !== `\${{ always() && ${DRAFT_CLAUSE} }}`) {
     problems.push(`"${GATE_NAME}" must be \`if: \${{ always() }}\` — without it a failed dependency SKIPS the gate, and a skipped required check counts as passed`);
   }
   const gateRuns = gate.steps.flatMap(runLines);
@@ -188,7 +200,7 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   /* d · a needed job that can be skipped makes the gate red for no fault — or tempts someone to loosen it */
   for (const id of gate.needs) {
     const j = byId.get(id);
-    if (j?.if) problems.push(`job "${id}" has a job-level \`if:\` — where it is false the job is skipped and the gate is (correctly) red. Make the job run everywhere; do not teach the gate that skipped is fine.`);
+    if (j?.if && j.if !== DRAFT_IF) problems.push(`job "${id}" has a job-level \`if:\` — where it is false the job is skipped and the gate is (correctly) red. Make the job run everywhere; do not teach the gate that skipped is fine.`);
     if (j && j.needs.length) problems.push(`job "${id}" has its own \`needs:\` — if that dependency fails this job is SKIPPED rather than failed. Keep the gated jobs independent of each other.`);
   }
 
@@ -196,6 +208,18 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   const gatedRuns = gate.needs.flatMap((id) => (byId.get(id)?.steps ?? []).flatMap(runLines));
   for (const [label, re] of GATED_COMMANDS) {
     if (!gatedRuns.some((r) => re.test(r))) problems.push(`${label} is not run by any job the gate needs — the split dropped it`);
+  }
+
+  /* g · a workflow whose jobs skip drafts must run them when the PR is marked ready (see DRAFT_CLAUSE) */
+  for (const [file, text] of [['ci.yml', ci], ...Object.entries(others)]) {
+    if (!text.includes(DRAFT_CLAUSE)) continue;
+    const pr = /^ {2}pull_request:[^\n]*\n((?: {4}[^\n]*\n)*)/m.exec(text);
+    const types = pr ? /^ {4}types:\s*\[([^\]]*)\]/m.exec(pr[1]) : null;
+    const have = types ? types[1].split(',').map((x) => x.trim()) : [];
+    const missing = PR_TYPES_NEEDED.filter((t) => !have.includes(t));
+    if (!pr || missing.length) {
+      problems.push(`${file}: its jobs skip draft PRs, so its \`pull_request\` trigger must list \`types: [${PR_TYPES_NEEDED.join(', ')}]\` — missing ${missing.join(', ') || 'the trigger'}. Without \`ready_for_review\` a PR marked ready keeps only the draft's SKIPPED checks, which GitHub counts as passed.`);
+    }
   }
 
   /* f · shards: the whole list, never cancelled early, exit code kept */

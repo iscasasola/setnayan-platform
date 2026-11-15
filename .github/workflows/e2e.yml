@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # Drafts skip every job (each carries the draft `if:`); marking a PR ready runs them all.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # Same rule as ci.yml: a newer push to the SAME pull request cancels the older
@@ -16,6 +18,7 @@ concurrency:
 jobs:
   playwright:
     name: playwright e2e (chromium)
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     # Critical-path E2E tests (Task #35) — homepage renders, health
     # endpoints respond, signup routing works, 404 surface ships

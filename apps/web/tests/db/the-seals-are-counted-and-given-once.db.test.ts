@@ -231,6 +231,12 @@ test('shop_seals: once per shop + seal + year, Verified Partner once for life, o
     db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year) VALUES ($1, 'verified', 2026)`, [b.vpid]),
     'Setnayan Verified is read live, never stored',
   );
+  // No. 1's free plan year is recorded owed on the No. 1 row — and only there.
+  await db.query(`UPDATE public.shop_seals SET plan_gift_state = 'owed' WHERE vendor_profile_id = $1 AND seal = 'no1'`, [a.vpid]);
+  await assert.rejects(
+    db.query(`INSERT INTO public.shop_seals (vendor_profile_id, seal, award_year, plan_gift_state) VALUES ($1, 'top10', 2030, 'owed')`, [b.vpid]),
+    'only No. 1 carries the free plan year',
+  );
 });
 
 test('shop_seals has RLS, and a signed-in session cannot write it', async () => {

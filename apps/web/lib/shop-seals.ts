@@ -28,9 +28,10 @@
  *     who-cancelled column ⇒ a partial source (SHOP_CANCELLATION_SOURCE).
  *   · The yearly rating: trusted review stats exist for a shop's whole life only, not per year — Top 10 ranks on the
  *     lifetime score, as the monthly Top Pick it replaces does.
- *   · Verified Partner rule 10 (suppliers invited): NO counter exists ⇒ always "unread" ⇒ never awarded until one does.
- *   · Verified Partner rules 9 and 10 are READINGS awaiting the owner's confirmation — swappable in ONE place:
- *     `PARTNER_RULES_AWAITING_OWNER`.
+ *   · Verified Partner rule 10 (suppliers invited, ruled 7fbff0cd): the supplier-import door is not built, so NO
+ *     counter exists ⇒ always "unread" ⇒ never awarded until one does. Rules 9 and 10 live in `PARTNER_RULES_9_AND_10`.
+ *   · No. 1's free plan year (7fbff0cd (6)) is given through G3's gift-to-shop flow (#7674, not merged): until then
+ *     the seal row records it as owed (`NO1_PLAN_GIFT`).
  *
  * 🔑 A FAILED READ IS NEVER A ZERO. Every count arrives as `number | null`; null makes the rule "unread", and an
  * unread rule never awards — and never reads as "not met" either.
@@ -123,6 +124,13 @@ export function pickTop10(candidates: ReadonlyArray<SealYearCandidate>): RankedS
     .slice(0, TOP10_SIZE)
     .map((x, i) => ({ vendorProfileId: x.c.vendorProfileId, rank: i + 1, score: x.score }));
 }
+
+/**
+ * 🎁 No. 1's prize beyond the seal (7fbff0cd (6)): ONE FREE YEAR of the shop's CURRENT supplier plan, through the
+ * existing Setnayan gift-to-shop flow (G3, #7674) — never a new money path. The engine only records it 'owed' on the
+ * No. 1 row, with the plan the shop was on when the seal was given; G3's flow gives it and marks it 'given'.
+ */
+export const NO1_PLAN_GIFT = { months: 12, via: 'G3 gift-to-shop flow (#7674)', recordedAs: 'owed' } as const;
 
 /** No. 1 = the first of the Top 10 (6373). None when the Top 10 is empty. */
 export function pickNo1(top10: ReadonlyArray<RankedShop>): RankedShop | null {
@@ -221,13 +229,14 @@ export type PartnerRule = {
 const atLeast = (v: number | null, min: number): RuleState => (v === null ? 'unread' : v >= min ? 'met' : 'unmet');
 
 /**
- * ⏳ RULES 9 AND 10 ARE READINGS AWAITING THE OWNER'S CONFIRMATION (3077c9b3: "read as …"). Swap a reading HERE —
- * this is the one place the engine takes them from.
- *   9 · "Has 10 suppliers recommending them"  → 10 ACCEPTED, active partnerships recommending the shop.
- *  10 · "Has invited 10 supplier"              → 10 counted Invites (imported suppliers with a completed booking) —
- *                                                 no counter exists today, so this rule is always unread.
+ * ✅ RULES 9 AND 10, AS RULED (owner 15 Nov, DECISION_LOG 7fbff0cd (1)(2)) — kept in this one list so a later ruling
+ * changes them in one place:
+ *   9 · "Has 10 suppliers recommending them"  = 10 ACCEPTED, active vendor_partnerships recommending the shop.
+ *  10 · "Has invited 10 supplier"              = 10 counted Invites: suppliers the shop imported whose event is
+ *                                                 COMPLETED (7fbff0cd (3)). The import door is not built yet, so no
+ *                                                 counter exists: this rule reads "unread" ("Not counted yet", 6439 (4)).
  */
-export const PARTNER_RULES_AWAITING_OWNER: ReadonlyArray<PartnerRule> = [
+export const PARTNER_RULES_9_AND_10: ReadonlyArray<PartnerRule> = [
   { n: 9, key: 'recommend', label: '10 suppliers recommend you', check: (f) => atLeast(f.recommenders, 10) },
   { n: 10, key: 'invite', label: '10 suppliers invited', check: (f) => atLeast(f.invites, 10) },
 ];
@@ -262,7 +271,7 @@ export const VERIFIED_PARTNER_RULES: ReadonlyArray<PartnerRule> = [
           : 'unmet',
   },
   { n: 8, key: 'replaces_verified', label: 'Kept for life: it replaces Setnayan Verified', check: () => 'met' },
-  ...PARTNER_RULES_AWAITING_OWNER,
+  ...PARTNER_RULES_9_AND_10,
 ];
 
 export type PartnerVerdict = {

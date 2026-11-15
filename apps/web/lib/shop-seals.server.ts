@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import {
+  NO1_PLAN_GIFT,
   STORED_SEALS,
   displayedSeals,
   judgeVerifiedPartner,
@@ -82,11 +83,11 @@ async function inChunks<T>(
 async function readPoolFacts(
   admin: SupabaseClient,
   ids: ReadonlyArray<string>,
-): Promise<Map<string, { listedVerified: boolean; avg: number | null; count: number | null }> | null> {
+): Promise<Map<string, { listedVerified: boolean; plan: string | null; avg: number | null; count: number | null }> | null> {
   const profiles = await inChunks<Record<string, unknown>>(ids, async (chunk) => {
     const { data, error } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, verification_state, is_demo')
+      .select('vendor_profile_id, verification_state, is_demo, tier_state')
       .in('vendor_profile_id', chunk);
     return { data: (data ?? null) as Record<string, unknown>[] | null, error };
   });
@@ -111,7 +112,7 @@ async function readPoolFacts(
       byId.set(s.vendor_profile_id, { avg: num(s.trusted_avg_rating), count: num(s.trusted_review_count) });
     }
   }
-  const out = new Map<string, { listedVerified: boolean; avg: number | null; count: number | null }>();
+  const out = new Map<string, { listedVerified: boolean; plan: string | null; avg: number | null; count: number | null }>();
   for (const p of profiles) {
     if (typeof p.vendor_profile_id !== 'string') continue;
     // A shop with no trusted reviews has no stats row: that is a real 0, not an unread one.
@@ -119,6 +120,7 @@ async function readPoolFacts(
     out.set(p.vendor_profile_id, {
       // The pool of the monthly Spotlight awards these seals replace: verification_state = 'verified', never demo.
       listedVerified: p.verification_state === 'verified' && p.is_demo !== true,
+      plan: typeof p.tier_state === 'string' ? p.tier_state : null,
       avg: s.avg,
       count: s.count,
     });
@@ -127,7 +129,10 @@ async function readPoolFacts(
 }
 
 /** Every candidate for one year. null = a read failed (the run must not go on). */
-export async function readSealYearCandidates(admin: SupabaseClient, year: number): Promise<SealYearCandidate[] | null> {
+export async function readSealYearCandidates(
+  admin: SupabaseClient,
+  year: number,
+): Promise<Array<SealYearCandidate & { plan: string | null }> | null> {
   const facts = await readSealYearFacts(admin, year);
   if (!facts) return null;
   const pool = await readPoolFacts(admin, facts.map((f) => f.vendorProfileId));
@@ -137,13 +142,21 @@ export async function readSealYearCandidates(admin: SupabaseClient, year: number
     return {
       ...f,
       verified: p?.listedVerified ?? false,
+      plan: p?.plan ?? null,
       trustedAvgRating: p ? p.avg : null,
       trustedReviewCount: p ? p.count : null,
     };
   });
 }
 
-type SealRow = { vendor_profile_id: string; seal: StoredSeal; award_year: number; facts: Record<string, unknown> };
+type SealRow = {
+  vendor_profile_id: string;
+  seal: StoredSeal;
+  award_year: number;
+  facts: Record<string, unknown>;
+  /** No. 1 only: its free plan year, owed until G3's gift-to-shop flow gives it (NO1_PLAN_GIFT). */
+  plan_gift_state?: 'owed';
+};
 
 /**
  * The ONE writer. An award once given is never rewritten: a repeat run meets the UNIQUE keys and adds nothing
@@ -198,7 +211,20 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
       facts: factsOf(r.vendorProfileId, { rank: r.rank, score: r.score }),
     })),
     ...(picks.no1
-      ? [{ vendor_profile_id: picks.no1.vendorProfileId, seal: 'no1' as const, award_year: year, facts: factsOf(picks.no1.vendorProfileId, { score: picks.no1.score }) }]
+      ? [
+          {
+            vendor_profile_id: picks.no1.vendorProfileId,
+            seal: 'no1' as const,
+            award_year: year,
+            // The free year is of the plan the shop is on NOW (7fbff0cd (6)) — recorded so G3 gives the right one.
+            facts: factsOf(picks.no1.vendorProfileId, {
+              score: picks.no1.score,
+              plan_at_award: byId.get(picks.no1.vendorProfileId)!.plan,
+              plan_gift: NO1_PLAN_GIFT,
+            }),
+            plan_gift_state: NO1_PLAN_GIFT.recordedAs,
+          },
+        ]
       : []),
     ...picks.mostInDemand.map((id) => ({ vendor_profile_id: id, seal: 'most_in_demand' as const, award_year: year, facts: factsOf(id) })),
   ];
@@ -211,10 +237,10 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
 // ── Verified Partner ────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Rule 10's reading ("10 counted Invites"). ⚠ NO SOURCE: nothing in the schema records a shop importing another
- * supplier (vendor_invites is a COUPLE inviting a supplier; vendor-activity's referral score is a TODO). It answers
- * null — "unread" — so Verified Partner cannot be given until a counter exists. Swap the reading here and in
- * PARTNER_RULES_AWAITING_OWNER together.
+ * Rule 10 (ruled 7fbff0cd): suppliers the shop IMPORTED whose event is COMPLETED. ⚠ NO SOURCE YET: the supplier-
+ * import door is not built (6439 (4): until it is, Invites ships "Not counted yet"), and nothing in the schema records
+ * a shop importing another supplier (vendor_invites is a COUPLE inviting a supplier). It answers null — "unread" — so
+ * Verified Partner cannot be given until the door and its counter exist; this function is where that counter plugs in.
  */
 async function readCountedInvites(_admin: SupabaseClient, _vendorProfileId: string): Promise<number | null> {
   return null;

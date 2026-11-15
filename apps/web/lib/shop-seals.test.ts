@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import {
   CLIENTS_CHOICE_WINNER_RULE,
   FIRST_SEAL_YEAR,
-  PARTNER_RULES_AWAITING_OWNER,
+  NO1_PLAN_GIFT,
+  PARTNER_RULES_9_AND_10,
   RETIRED_SPOTLIGHT_AWARDS,
   SEAL_LABEL,
   STORED_SEALS,
@@ -168,9 +169,13 @@ test('a rule that could not be read is "unread" — it never earns and never rea
   }
 });
 
-test('rules 9 and 10 come from ONE swappable place, awaiting the owner', () => {
-  assert.deepEqual(PARTNER_RULES_AWAITING_OWNER.map((r) => r.n), [9, 10]);
-  for (const r of PARTNER_RULES_AWAITING_OWNER) assert.ok(VERIFIED_PARTNER_RULES.includes(r), `rule ${r.n} is read from the swappable list`);
+test('rules 9 and 10, as ruled (7fbff0cd), come from ONE place', () => {
+  assert.deepEqual(PARTNER_RULES_9_AND_10.map((r) => r.n), [9, 10]);
+  for (const r of PARTNER_RULES_9_AND_10) assert.ok(VERIFIED_PARTNER_RULES.includes(r), `rule ${r.n} is read from the one list`);
+});
+
+test('No. 1 is owed one free year of its plan, through G3 — recorded, never paid here', () => {
+  assert.deepEqual(NO1_PLAN_GIFT, { months: 12, via: 'G3 gift-to-shop flow (#7674)', recordedAs: 'owed' });
 });
 
 test('today rule 10 has no source, so no shop can be given Verified Partner yet', () => {

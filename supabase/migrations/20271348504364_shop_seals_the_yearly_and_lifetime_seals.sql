@@ -20,6 +20,10 @@
 --      read live; a stored copy would be a second source of truth for one fact.
 --      `facts` freezes the numbers the plaque speaks with (6451: "filled per shop
 --      by the server"), as they stood when the seal was given.
+--      `plan_gift_state` — No. 1's prize (7fbff0cd (6)): the seal, its full screen
+--      and ONE FREE YEAR of the shop's current supplier plan, given through the
+--      existing Setnayan gift-to-shop flow (G3, #7674). No money path here: the
+--      row only records the year as 'owed' until that flow gives it ('given').
 --      RLS at create: the shop's own members read their rows; admins read and
 --      write; nobody writes from a session — the engine writes with the service
 --      role. The public page reads what it shows through the server (admin
@@ -54,8 +58,11 @@ CREATE TABLE IF NOT EXISTS public.shop_seals (
   awarded_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   awarded_by        TEXT NOT NULL DEFAULT 'auto' CHECK (awarded_by IN ('auto', 'admin')),
   facts             JSONB NOT NULL DEFAULT '{}'::jsonb,
+  plan_gift_state   TEXT CHECK (plan_gift_state IN ('owed', 'given')),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT shop_seals_once_per_year UNIQUE (vendor_profile_id, seal, award_year)
+  CONSTRAINT shop_seals_once_per_year UNIQUE (vendor_profile_id, seal, award_year),
+  -- Only No. 1 carries the free plan year.
+  CONSTRAINT shop_seals_plan_gift_is_no1s CHECK (plan_gift_state IS NULL OR seal = 'no1')
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS shop_seals_partner_for_life

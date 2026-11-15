@@ -33,17 +33,23 @@ test('1 · the switch draws where it is going, not only the server’s isActive'
   assert.match(sw, /aria-checked=\{shown\}/, 'the switch’s checked state reads the server alone');
   assert.match(sw, /<SwitchTrack on=\{shown\}/, 'the drawn track reads the server alone');
   assert.doesNotMatch(sw, /on=\{isActive\}|aria-checked=\{isActive\}/, 'part of the switch still waits for the server');
-  assert.match(sw, /onClick=\{action && pendingTo === null \? \(\) => setPendingTo\(!isActive\) : undefined\}/, 'the press does not flip it at once');
+  assert.match(sw, /onClick=\{\s*action && pendingTo === null\s*\? \(\) => \{\s*setLanded\(false\);\s*setPendingTo\(!isActive\);\s*\}\s*: undefined\s*\}/, 'the press does not flip it at once');
   // A press shows what is loading: one line under the row while it saves.
   assert.match(ROW, /\{!held && saving \? \(\s*<p role="status"[^>]*data-card-online-saving-line=""[^>]*>\s*\{shown \? 'Going online…' : 'Going offline…'\}/);
 });
 
-test('2 · a refusal flips it back, and a landed save hands back to the server’s state', () => {
+test('2 · a refusal flips it back; a landed save keeps the new state until the page’s isActive catches up', () => {
   const form = ROW.slice(ROW.indexOf('<StayForm'), ROW.indexOf('</StayForm>'));
   assert.match(form, /door="svServices\.toggleVendorServiceActive"/, 'the switch left the shipped door (and its gates)');
-  assert.match(form, /onRefused=\{\(\) => setPendingTo\(null\)\}/, 'a refused save keeps the flipped switch');
-  assert.match(form, /onSaved=\{\(\) => setPendingTo\(null\)\}/, 'a landed save keeps the local state instead of the server’s');
-  assert.match(ROW, /if \(pendingTo !== null && isActive === pendingTo\) setPendingTo\(null\);/);
+  assert.match(form, /onRefused=\{\(\) => \{ setPendingTo\(null\); setLanded\(false\); \}\}/, 'a refused save keeps the flipped switch');
+  // A landed save only stops the saving line. It must NOT hand `shown` back to `isActive`: the state update after the
+  // save's await is outside the transition, so it could commit before the new props and flash the OLD state.
+  const onSaved = form.match(/onSaved=\{\(\) => [^}]*\}/)?.[0] ?? '';
+  assert.match(onSaved, /^onSaved=\{\(\) => setLanded\(true\)\}$/, 'a landed save does more than mark it landed');
+  assert.doesNotMatch(onSaved, /setPendingTo/, 'a landed save resets the switch to the (stale) isActive — it flashes the old state');
+  assert.match(ROW, /const saving = \(pendingTo !== null && !landed\) \|\| toggling;/, 'the saving line outlives the save');
+  // Only the page's own isActive arriving ends the pending state.
+  assert.match(ROW, /if \(pendingTo !== null && isActive === pendingTo\) \{\s*setPendingTo\(null\);\s*setLanded\(false\);\s*\}/);
   // StayForm calls onRefused on every refusal, including a send that failed.
   assert.match(STAY, /if \(!r\.ok\) \{\s*setError\(r\.error\);\s*onRefused\?\.\(\);/, 'StayForm does not report a refusal');
   assert.match(STAY, /await save\(door, fd\)\.catch\(\(\) => \(\{ ok: false as const, error: COULD_NOT_SAVE \}\)\)/, 'a failed send is not a refusal');

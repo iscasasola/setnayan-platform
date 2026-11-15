@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import {
@@ -29,8 +30,9 @@ import {
  * review score (`topPickScore`) and the same top-10% rule (`MOST_BOOKING_PERCENTILE`), read once a YEAR into
  * `shop_seals`. `vendor_spotlight_awards` is not read, written or dropped here.
  *
- * Every function takes the ADMIN client (service role): `shop_seals` takes no session writes, and both counting
- * functions are service_role only. Callers gate first (an admin action, a periodic job, a shop's own facts door).
+ * Every read and write runs on the SERVICE ROLE, created here (`createAdminClient`): `shop_seals` takes no session
+ * writes, and both counting functions are service_role only. Callers gate first (an admin action, a periodic job, a
+ * shop's own facts door).
  *
  * 🔑 A FAILED READ SAYS SO. Each reader returns null on a refused read — never [] and never 0 — and the run stops
  * there: a yearly list picked from half the platform would give a real shop's seal to the wrong shop.
@@ -49,10 +51,10 @@ function num(v: unknown): number | null {
  * activity in it. null = the read failed.
  */
 export async function readSealYearFacts(
-  admin: SupabaseClient,
   year: number,
 ): Promise<Array<Omit<SealYearCandidate, 'verified' | 'trustedAvgRating' | 'trustedReviewCount'>> | null> {
   const win = sealWindow(year);
+  const admin = createAdminClient();
   const { data, error } = await admin.rpc('shop_seal_year_facts', { p_from: win.from, p_to: win.to });
   if (error) {
     logQueryError(`${SITE}: shop_seal_year_facts`, error, { year }, 'graceful_degrade');
@@ -144,11 +146,11 @@ async function readPoolFacts(
 
 /** Every candidate for one year. null = a read failed (the run must not go on). */
 export async function readSealYearCandidates(
-  admin: SupabaseClient,
   year: number,
 ): Promise<Array<SealYearCandidate & { plan: string | null }> | null> {
-  const facts = await readSealYearFacts(admin, year);
+  const facts = await readSealYearFacts(year);
   if (!facts) return null;
+  const admin = createAdminClient();
   const pool = await readPoolFacts(admin, facts.map((f) => f.vendorProfileId));
   if (!pool) return null;
   return facts.map((f) => {
@@ -197,10 +199,10 @@ export type YearlyRunResult =
  * Gives one seal year's seals: Top 10, No. 1, Most In-Demand and Clients' Choice. Refuses to run before 18 Dec (Manila)
  * of that year, or for a year before the first. Idempotent.
  */
-export async function runYearlySeals(admin: SupabaseClient, year: number, now: Date = new Date()): Promise<YearlyRunResult> {
+export async function runYearlySeals(year: number, now: Date = new Date()): Promise<YearlyRunResult> {
   const may = yearlySealsMayRun(year, now);
   if (!may.ok) return { ran: false, why: may.why };
-  const candidates = await readSealYearCandidates(admin, year);
+  const candidates = await readSealYearCandidates(year);
   if (!candidates) return { ran: false, why: 'a read failed — nothing was given' };
 
   const picks = pickYearlySeals(candidates);
@@ -246,7 +248,7 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
       ? [{ vendor_profile_id: picks.clientsChoice, seal: 'clients_choice' as const, award_year: year, facts: factsOf(picks.clientsChoice) }]
       : []),
   ];
-  const given = await giveSeals(admin, rows);
+  const given = await giveSeals(createAdminClient(), rows);
   if (given === null) return { ran: false, why: 'the write was refused — nothing was given' };
   return { ran: true, year, picks, given };
 }
@@ -259,12 +261,13 @@ export async function runYearlySeals(admin: SupabaseClient, year: number, now: D
  * a shop importing another supplier (vendor_invites is a COUPLE inviting a supplier). It answers null — "unread" — so
  * Verified Partner cannot be given until the door and its counter exist; this function is where that counter plugs in.
  */
-async function readCountedInvites(_admin: SupabaseClient, _vendorProfileId: string): Promise<number | null> {
+async function readCountedInvites(_vendorProfileId: string): Promise<number | null> {
   return null;
 }
 
 /** Everything the ten rules read, for one shop. Each part that fails is null, never 0. */
-export async function readPartnerFacts(admin: SupabaseClient, vendorProfileId: string): Promise<PartnerFacts> {
+export async function readPartnerFacts(vendorProfileId: string): Promise<PartnerFacts> {
+  const admin = createAdminClient();
   const [profile, stats, counters, invites] = await Promise.all([
     admin
       .from('vendor_profiles')
@@ -277,7 +280,7 @@ export async function readPartnerFacts(admin: SupabaseClient, vendorProfileId: s
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(),
     admin.rpc('shop_verified_partner_facts', { p_vendor_profile_id: vendorProfileId }),
-    readCountedInvites(admin, vendorProfileId),
+    readCountedInvites(vendorProfileId),
   ]);
 
   if (profile.error) logQueryError(`${SITE}: vendor_profiles (partner)`, profile.error, { vendorProfileId }, 'graceful_degrade');
@@ -313,13 +316,13 @@ export async function readPartnerFacts(admin: SupabaseClient, vendorProfileId: s
  * met", 6451). Returns the verdict either way, so a caller can show which rules are still open.
  */
 export async function awardVerifiedPartnerIfEarned(
-  admin: SupabaseClient,
   vendorProfileId: string,
   now: Date = new Date(),
 ): Promise<PartnerVerdict & { given: boolean }> {
-  const facts = await readPartnerFacts(admin, vendorProfileId);
+  const facts = await readPartnerFacts(vendorProfileId);
   const verdict = judgeVerifiedPartner(facts);
   if (!verdict.earned) return { ...verdict, given: false };
+  const admin = createAdminClient();
   const { error } = await admin.from('shop_seals').insert({
     vendor_profile_id: vendorProfileId,
     seal: 'verified_partner',
@@ -350,10 +353,10 @@ export async function awardVerifiedPartnerIfEarned(
  * null = the read failed: the caller shows nothing about seals, never "no seals".
  */
 export async function readShopSeals(
-  admin: SupabaseClient,
   vendorProfileId: string,
   holdsVerifiedBadge: boolean,
 ): Promise<{ seals: SealKey[]; rows: Array<{ seal: StoredSeal; award_year: number; awarded_at: string }> } | null> {
+  const admin = createAdminClient();
   const { data, error } = await admin
     .from('shop_seals')
     .select('seal, award_year, awarded_at')

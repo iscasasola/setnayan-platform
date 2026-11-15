@@ -40,6 +40,7 @@
  * unread rule never awards — and never reads as "not met" either.
  */
 import { MOST_BOOKING_PERCENTILE, topPickScore } from '@/lib/vendor-badges';
+import { formatCount } from '@/lib/format-number';
 
 // ── The vocabulary ─────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -299,7 +300,7 @@ export const PARTNER_MIN_RATING = 4.7;
  */
 export const VERIFIED_PARTNER_RULES: ReadonlyArray<PartnerRule> = [
   { n: 1, key: 'verified', label: 'Setnayan Verified first', check: (f) => (f.verified === null ? 'unread' : f.verified ? 'met' : 'unmet') },
-  { n: 2, key: 'booked_total', label: '₱1,000,000 in bookings in total', check: (f) => atLeast(f.bookedTotalPhp, PARTNER_BOOKED_TOTAL_PHP) },
+  { n: 2, key: 'booked_total', label: `₱${formatCount(PARTNER_BOOKED_TOTAL_PHP)} in bookings in total`, check: (f) => atLeast(f.bookedTotalPhp, PARTNER_BOOKED_TOTAL_PHP) },
   { n: 3, key: 'find', label: '10 bookings found through Suppliers › Find', check: (f) => atLeast(f.findBookings, PARTNER_CHANNEL_MIN) },
   { n: 4, key: 'website', label: '10 bookings found through your website', check: (f) => atLeast(f.websiteBookings, PARTNER_CHANNEL_MIN) },
   { n: 5, key: 'qr_import', label: '10 bookings found through QR import', check: (f) => atLeast(f.qrImportBookings, PARTNER_CHANNEL_MIN) },

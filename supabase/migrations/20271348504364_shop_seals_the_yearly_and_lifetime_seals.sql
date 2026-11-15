@@ -78,6 +78,11 @@ CREATE INDEX IF NOT EXISTS shop_seals_year_idx
 
 ALTER TABLE public.shop_seals ENABLE ROW LEVEL SECURITY;
 
+-- Least reach: a stranger reads nothing; a signed-in session may only READ (and RLS narrows that to its own shop or an
+-- admin). Every write is the engine's, on the service role.
+REVOKE ALL ON public.shop_seals FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.shop_seals FROM authenticated;
+
 DROP POLICY IF EXISTS shop_seals_own_read ON public.shop_seals;
 CREATE POLICY shop_seals_own_read ON public.shop_seals
   FOR SELECT

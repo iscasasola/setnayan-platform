@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1887
-# tables: 504
-# columns: 6108
-# notnull: 3682
+# ledger: 1888
+# tables: 505
+# columns: 6116
+# notnull: 3687
 [ledger]
 20260512000000
 20260513000000
@@ -1884,6 +1884,7 @@
 20271344732290
 20271344860040
 20271345020514
+20271345189965
 20271345220516
 20271345227050
 20271345334309
@@ -6826,6 +6827,11 @@ vendor_event_access_grants.granted_by
 vendor_event_access_grants.grantee_user_id
 vendor_event_access_grants.revoked_at
 vendor_event_access_grants.vendor_profile_id
+vendor_event_album_shares.asked_at
+vendor_event_album_shares.event_id
+vendor_event_album_shares.shared
+vendor_event_album_shares.updated_at
+vendor_event_album_shares.vendor_profile_id
 vendor_event_set_songs.created_at
 vendor_event_set_songs.position
 vendor_event_set_songs.set_id
@@ -7155,10 +7161,13 @@ vendor_papic_portfolio_photos.created_at
 vendor_papic_portfolio_photos.credits_spent
 vendor_papic_portfolio_photos.event_id
 vendor_papic_portfolio_photos.hidden_at
+vendor_papic_portfolio_photos.media_kind
 vendor_papic_portfolio_photos.nsfw_checked
 vendor_papic_portfolio_photos.photo_id
 vendor_papic_portfolio_photos.r2_object_key
+vendor_papic_portfolio_photos.size_bytes
 vendor_papic_portfolio_photos.vendor_profile_id
+vendor_papic_portfolio_photos.video_r2_key
 vendor_partnerships.accepted_at
 vendor_partnerships.additional_fee_centavos
 vendor_partnerships.admin_verified
@@ -10982,6 +10991,10 @@ vendor_event_access_grants.event_id
 vendor_event_access_grants.grant_id
 vendor_event_access_grants.grantee_user_id
 vendor_event_access_grants.vendor_profile_id
+vendor_event_album_shares.event_id
+vendor_event_album_shares.shared
+vendor_event_album_shares.updated_at
+vendor_event_album_shares.vendor_profile_id
 vendor_event_set_songs.created_at
 vendor_event_set_songs.position
 vendor_event_set_songs.set_id
@@ -11190,6 +11203,7 @@ vendor_papic_portfolio_credit_grants.vendor_profile_id
 vendor_papic_portfolio_photos.created_at
 vendor_papic_portfolio_photos.credits_spent
 vendor_papic_portfolio_photos.event_id
+vendor_papic_portfolio_photos.media_kind
 vendor_papic_portfolio_photos.nsfw_checked
 vendor_papic_portfolio_photos.photo_id
 vendor_papic_portfolio_photos.r2_object_key

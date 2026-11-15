@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7847
+# facts: 7850
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     637
-#   col       5647
+#   col       5650
 #   policy    1151
 #   view      10
 #   func      398
@@ -5674,6 +5674,8 @@ col	public.vendor_profiles.microsite_video_ids	anon=- authenticated=SIU
 col	public.vendor_profiles.name_revealed_at	anon=- authenticated=SIU
 col	public.vendor_profiles.next_renewal_due_at	anon=- authenticated=IU
 col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
+col	public.vendor_profiles.papers_current	anon=S authenticated=SIU
+col	public.vendor_profiles.papers_lapsed_at	anon=- authenticated=SIU
 col	public.vendor_profiles.papic_challenge_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier_billing_cycle	anon=- authenticated=SIU
@@ -5683,6 +5685,7 @@ col	public.vendor_profiles.pending_tier_scheduled_at	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier_sku_code	anon=- authenticated=SIU
 col	public.vendor_profiles.portfolio_photo_allowance	anon=- authenticated=SIU
 col	public.vendor_profiles.portfolio_r2_keys	anon=- authenticated=SIU
+col	public.vendor_profiles.portfolio_section_order	anon=- authenticated=SIU
 col	public.vendor_profiles.presentation_pattern	anon=- authenticated=SIU
 col	public.vendor_profiles.public_id	anon=S authenticated=SIU
 col	public.vendor_profiles.public_visibility	anon=S authenticated=SIU

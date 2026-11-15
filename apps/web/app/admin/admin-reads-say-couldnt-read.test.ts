@@ -81,7 +81,8 @@ test('Verify: a refused shop read skips the checks and says so', () => {
   assert.match(s, /const checkReports = vendorReadFailed \? \[\] : await Promise\.all\(/, 'the checks must not run on blank shops');
   assert.match(s, /\{vendorReadFailed \? \(\s*<FormFlash tone="error">/);
   // The contradiction (error banner + "No applications" together) is gone.
-  assert.match(s, /\{appErr \? null : fullRows\.length === 0 && demotedFallback\.length === 0 \? \(/);
+  // (`shownRows` since 2026-11-14: the Verified-automatically tab filters `fullRows` — same guard.)
+  assert.match(s, /\{appErr \? null : shownRows\.length === 0 && demotedFallback\.length === 0 \? \(/);
 });
 
 // ── row 12 · Force majeure ──────────────────────────────────────────────────

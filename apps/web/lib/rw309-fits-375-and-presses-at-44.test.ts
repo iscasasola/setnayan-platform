@@ -1,0 +1,118 @@
+/**
+ * RW-309 (W1's walk, 15 Nov 2026, on 4c094d4) — two live faults that must not come back.
+ *
+ *  1. /dashboard/[eventId]/studio/live-studio-control was 400 px wide at a 375 viewport: the free-controller doorway is
+ *     an ActionButton (`.ab` — one line, `white-space: nowrap`, 13 px, 14 px padding each side) and its label ran off
+ *     the edge. Every `.ab` label on that page must fit the 343 px a 375 phone leaves inside its 16 px gutters.
+ *  2. /dashboard drew three controls under the 44 px floor: the profile pens (a 26 × 26 box), the "Choose your @handle"
+ *     link (an 18-px line) and the Search field (42 tall). Each box is 44 now, from the shared profile header and the
+ *     section's shared find row — no hand-made button.
+ *
+ *  3. (RW-311) the Shop cover said "0 events" beside "6 bookings" — it counts events FINISHED on Setnayan, and now says so.
+ *  5. (RW-312) /dashboard/[eventId]/manpower had the generic tab title; it reads "Manpower · Setnayan" now.
+ *
+ * SABOTAGE: put the old 55-character label back → 1 is RED; a 26-px pen box, a 42-px field, or the handle link without
+ * its 44 floor → 2 is RED.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { stripComments } from './strip-comments';
+
+const WEB = join(import.meta.dirname, '..');
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+/** A generous width for 13-px sans: no glyph in a plain sentence averages wider than 7.2 px. */
+const PX_PER_CHAR = 7.2;
+/** `.ab`: 14 px padding each side, a 16 px icon and its 7 px gap. */
+const AB_CHROME = 14 * 2 + 16 + 7;
+/** A 375 phone, less 16 px gutters each side. */
+const ROOM = 375 - 16 * 2;
+
+test('1 · every ActionButton label on the Live Studio page fits a 375 phone', () => {
+  const page = read('app/dashboard/[eventId]/studio/live-studio-control/page.tsx');
+  const css = read('app/globals.css');
+  const ab = css.match(/(?:^|\n)\.ab \{([^}]*)\}/)?.[1] ?? '';
+  assert.match(ab, /white-space: nowrap;/, 'the .ab rule changed — re-measure this guard');
+  assert.match(ab, /font-size: 13px;/, 'the .ab rule changed — re-measure this guard');
+  const labels = [...page.matchAll(/<Link[^>]*className="ab\b[^"]*"[^>]*>\s*([^<{]+?)\s*</g)].map((m) => m[1]!.trim());
+  assert.ok(labels.length >= 1, 'no .ab link found on the page — did the doorway move?');
+  for (const label of labels) {
+    const width = label.length * PX_PER_CHAR + AB_CHROME;
+    assert.ok(width <= ROOM, `"${label}" is ~${Math.round(width)} px on one line — wider than the ${ROOM} px a 375 phone has`);
+  }
+  assert.doesNotMatch(page, /Open the controller — go live with one camera, included/);
+});
+
+test('2 · /dashboard: the pens, the handle link and the Search field each press at 44', () => {
+  const header = read('app/u/_components/profile-header.tsx');
+  const pen = header.match(/\n {2}\.uprof-pen \{([^}]*)\}/)?.[1] ?? '';
+  assert.match(pen, /width: 44px;/, 'the profile pen box is under 44 wide');
+  assert.match(pen, /height: 44px;/, 'the profile pen box is under 44 tall');
+  assert.match(pen, /min-height: 44px;/);
+  assert.match(header, /\.uprof-head\[data-layout='home'\] \.uprof-handle a \{[^}]*min-height: 44px;/, 'the handle link is an 18-px line again');
+  const home = read('app/dashboard/(launcher)/_components/home-profile.tsx');
+  assert.match(home, /className="uprof-pen"/, 'Home draws its own pen — use the shared one');
+  const css = readFileSync(join(WEB, 'app/dashboard/(launcher)/_components/home-profile.module.css'), 'utf8');
+  const input = css.match(/\.find input \{([^}]*)\}/)?.[1] ?? '';
+  const h = Number(input.match(/\bheight:\s*(\d+)px/)?.[1]);
+  assert.ok(h >= 44, `the Search field is ${h} px tall`);
+});
+
+test('3 · RW-311: the Shop cover says its events are the FINISHED ones — never a bare "0 events" beside open bookings', () => {
+  const page = read('app/vendor-dashboard/shop/page.tsx');
+  assert.match(
+    page,
+    /events: facts\?\.completedEvents == null \? null : `\$\{formatCount\(facts\.completedEvents\)\} \$\{facts\.completedEvents === 1 \? 'event' : 'events'\} done`,/,
+    'the cover counts finished events but no longer says so',
+  );
+});
+
+test('5 · RW-312: the Manpower tab reads "Manpower · Setnayan"', () => {
+  assert.match(read('app/dashboard/[eventId]/manpower/page.tsx'), /export const metadata = \{\s*title: 'Manpower',\s*\};/);
+});
+
+test('6 · RW-314: Story, Invitation and the Shop cover — each named control has the 44-px floor', () => {
+  assert.match(read('app/dashboard/[eventId]/story/page.tsx'), /className="mb-6 inline-flex min-h-11 items-center[^"]*"\s*>\s*<ArrowLeft[^>]*\/>\s*<span>Back to Event Hub<\/span>/, 'Back to Event Hub');
+  const inv = read('app/dashboard/[eventId]/invitation/page.tsx');
+  assert.match(inv, /className="inline-flex min-h-11 [^"]*bg-mulberry[^"]*"\s*>\s*Preview as guest/, 'Preview as guest');
+  assert.match(inv, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/\$\{guest\.guest_id\}`\}\s*className="inline-flex min-h-11 items-center/, 'the guest-name chip');
+  assert.match(read('app/_components/qr-actions.tsx'), /className="inline-flex min-h-11 items-center[^"]*"/, 'Download PNG (the shared QR actions)');
+  const reissue = read('app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx');
+  assert.match(reissue, /className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap[^"]*"\s*>\s*<RefreshCw[^>]*\/>\s*Re-issue/, 'Re-issue wraps or is short');
+  const cover = read('app/vendor-dashboard/shop/_components/shop-cover.tsx');
+  assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">/, 'the Verified link');
+  assert.match(cover, /<a href="#plan" className="inline-flex min-h-11 items-center[^"]*" data-shop-plan="">/, 'the plan link');
+});
+
+test('8 · admin walk: the Studio section tabs (Moodboard library …) press at 44', () => {
+  assert.match(read('app/admin/studio/page.tsx'), /className=\{`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2/);
+});
+
+test('9 · admin walk: a record’s inline text links use the shared RECORD_LINK (44)', () => {
+  const kit = read('app/admin/_components/record-kit.tsx');
+  assert.match(kit, /export const RECORD_LINK = 'inline-flex min-h-11 items-center [^']*';/);
+  for (const rel of ['app/admin/users/[userId]/page.tsx', 'app/admin/vendors/[vendorProfileId]/page.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /className="font-semibold text-mulberry underline-offset-2 hover:underline"/, `${rel}: an 18-px record link`);
+    assert.match(src, /className=\{RECORD_LINK\}/, rel);
+  }
+});
+
+test('10 · admin walk: Problems › What mends a stored "IIndalecio" on display', async () => {
+  const { mendAction } = await import('./telemetry/problem-line');
+  assert.equal(mendAction('/dashboard · IIndalecio Casasola'), '/dashboard · Indalecio Casasola');
+  assert.equal(mendAction('IIndigo'), 'Indigo');
+  assert.equal(mendAction('/v/x · OK · GCash'), '/v/x · OK · GCash', 'a real acronym is kept');
+  assert.match(read('app/admin/app-performance/_surfaces/problems-list.tsx'), /\{mendAction\(issue\.action\)\}/);
+});
+
+test('11–13 · RW-315: the venue upload is the template piece; Save the Date and Story Assignments back links press at 44', () => {
+  const venue = read('app/dashboard/[eventId]/launch/_components/details-your-event.tsx');
+  assert.match(venue, /label="Upload a photo of the place"[\s\S]{0,200}thumb=\{\{ add: 'Upload a photo', replace: 'Replace photo' \}\}/, 'the venue upload is a dashed drop box again');
+  assert.match(read('app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx'), /className="inline-flex min-h-11 items-center[^"]*"\s*>\s*<ArrowLeft[^>]*\/>\s*Back to Save the Date/);
+  assert.match(read('app/dashboard/[eventId]/alaala/assignments/page.tsx'), /className="inline-flex min-h-11 items-center[^"]*"[\s\S]{0,80}← Memories/);
+  assert.match(read('lib/customer-menu.ts'), /alsoMatch: \[`\$\{base\}\/galleries`, `\$\{base\}\/alaala`, `\$\{base\}\/alaala\/assignments`\]/, 'the alaala pages left Memories');
+});

@@ -1987,9 +1987,9 @@ export function ChatMessageStream({
                           href={`/proposals/${card.publicId}`}
                           className={
                             quoteState.primary.kind === 'review_accept' && !quoteState.offerAcceptUpdate
-                              ? actionButtonClass('brand', { filled: true })
+                              ? actionButtonClass('brand', { filled: true, extra: 'min-h-11' })
                               : actionButtonClass('neutral', {
-                                  extra: quoteState.offerAcceptUpdate ? 'flex-1 justify-center whitespace-nowrap !px-2' : '',
+                                  extra: `min-h-11${quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''}`,
                                 })
                           }
                         >
@@ -2028,7 +2028,7 @@ export function ChatMessageStream({
                         */}
                         {quoteState.offerLock && lockTarget && !bookingsOpen ? (
                           <p role="status" data-bookings-open-soon="" className="text-sm text-ink/70">
-                            <span className="inline-flex h-9 items-center rounded-lg bg-ink/[0.06] px-4 font-medium text-ink/60">
+                            <span className="inline-flex min-h-11 items-center rounded-lg bg-ink/[0.06] px-4 font-medium text-ink/60">
                               {BOOKINGS_OPEN_SOON}
                             </span>
                             <span className="mt-1.5 block">{BOOKINGS_CLOSED_COUPLE_MESSAGE}</span>
@@ -2053,7 +2053,7 @@ export function ChatMessageStream({
                           ) : (
                             <Link
                               href={lockTarget.benchHref}
-                              className={actionButtonClass('brand', { filled: true })}
+                              className={actionButtonClass('brand', { filled: true, extra: 'min-h-11' })}
                             >
                               Book on your Suppliers page
                             </Link>
@@ -2087,7 +2087,7 @@ export function ChatMessageStream({
                         {quoteState.offerRevise && reviseHref ? (
                           <Link
                             href={reviseHref}
-                            className={actionButtonClass('brand')}
+                            className={actionButtonClass('brand', { extra: 'min-h-11' })}
                           >
                             {quoteState.reviseLabel}
                           </Link>
@@ -2115,7 +2115,7 @@ export function ChatMessageStream({
                           quoteState.offerCounter ? (
                             <Link
                               href={counterHref}
-                              className={actionButtonClass('brand')}
+                              className={actionButtonClass('brand', { extra: 'min-h-11' })}
                             >
                               Counter-offer
                             </Link>

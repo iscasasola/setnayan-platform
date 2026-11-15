@@ -167,6 +167,13 @@ export function InquireSheet({
   const close = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    // 📨 OWN-02 (live 14 Nov): closing during "Sending in N s…" used to drop the ask in silence — the timer was
+    // cleared, nothing was sent, and the sheet's last words were "Sending". Undo is the one way not to send; closing
+    // SENDS NOW and the sheet stays to say whether it went.
+    if (step === 'sending') {
+      void fire();
+      return;
+    }
     setStep(null);
     setNote(null);
     const cleared = inquireClearedHref(window.location.href);

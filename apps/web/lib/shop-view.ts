@@ -33,7 +33,12 @@ export function isShopViewPath(pathname: string): boolean {
  * came from and the back door `src`, a chapter referral). ⚠ The guard test reads the page's `search.*` reads and
  * fails when one is neither here nor in `SHOP_BEACON_PARAMS`.
  */
-export const SHOP_LIVE_PARAMS: readonly string[] = ['reviewsPage', 'wl', 'service', 'event', 'src', 'ref_chapter'];
+export const SHOP_LIVE_PARAMS: readonly string[] = [
+  'reviewsPage', 'wl', 'service', 'event', 'src', 'ref_chapter',
+  // SHOP-02 v7: Check a date opens OVER the shop on `?dates` (with the day, services and step it resumes on) — read
+  // live, never answered from a stranger's cached copy.
+  'dates', 'd', 's', 'step',
+];
 
 /**
  * The query the page reads ONLY to attribute the view (the funnel's VIEWS stage) — it draws nothing from them. On the

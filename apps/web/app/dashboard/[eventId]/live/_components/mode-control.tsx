@@ -64,10 +64,10 @@ export function WallModeControl({
           className="border border-ink/15"
         />
         {pending ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/40" strokeWidth={2} />
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/70" strokeWidth={2} />
         ) : null}
       </div>
-      <p className="mt-1.5 text-xs text-ink/55">
+      <p className="mt-1.5 text-xs text-ink/70">
         Showing now: <span className="font-medium text-ink/80">{resolved.replace('_', '-')}</span>
         {override === null ? ' (auto)' : ' (manual override)'}
       </p>

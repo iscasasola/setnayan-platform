@@ -187,7 +187,7 @@ test('every public route the audit knows is listed in a sitemap', () => {
 
 /* ── 6 ──────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-// SABOTAGE: put "Event Hub Pro’s Logo & QR part" back in the homepage featureList → RED.
+// SABOTAGE: put "Event Pro’s Logo & QR part" back in the homepage featureList → RED.
 test('the homepage structured data names no retired product', () => {
   const src = code('app/page.tsx');
   const start = src.indexOf('const softwareAppJsonLd');

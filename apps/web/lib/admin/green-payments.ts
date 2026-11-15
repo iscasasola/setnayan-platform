@@ -119,6 +119,13 @@ export type PaymentLightRow = {
   light: PaymentLight;
   /** The receipt read's line — DISPLAY only, added after sorting (payment-verdicts.server.ts). */
   verdict?: string;
+  /** DISPLAY only (admin request cards, walk RW-301): the order's public id (its record), the order's own status (an
+   *  order already `paid` is said, not offered again), the payer's name, and whether a picture was sent. None of these
+   *  feeds `paymentLight` — the green rule above reads only what it always read. */
+  orderPublicId?: string | null;
+  orderStatus?: string | null;
+  payerName?: string | null;
+  hasScreenshot?: boolean;
 };
 
 /** The ids a green batch may submit — re-checked on the server, never trusted. */

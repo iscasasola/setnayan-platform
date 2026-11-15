@@ -198,13 +198,13 @@ const REQUIRED_RETAIL = [
   // not theoretical — it happened in production hours earlier when
   // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
   // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
-  // Logo & QR part of Event Hub PRO then (2026-10-26: Event Hub PRO, sold whole). 🪤 Entry and prose went together.
+  // Logo & QR part of Event Pro then (2026-10-26: Event Pro, sold whole). 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
   // 💎 Event Ultra (owner 2026-11-13, migration 20271344860040_event_ultra_plan) — the third event plan. Its price is
   // the row, read by R('EVENT_ULTRA'); its grants are `EVENT_ULTRA_GRANTS` (lib/event-ultra.ts).
   'EVENT_ULTRA',
-  // COUPLE_HUB_PART_* (the eleven Event Hub Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
-  // event hub pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
+  // COUPLE_HUB_PART_* (the eleven Event Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
+  // Event Pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
   // together: a quoted retired row throws and drops the whole file to its stub.
   // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
   // its prose line went with it. 🪤 THE DEACTIVATION ALONE WOULD HAVE BEEN A
@@ -261,7 +261,7 @@ const REQUIRED_RETAIL = [
   // The fourteen other rungs left this list the same day, with their prose: they are off sale.
   'PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', // gitleaks:allow — catalog service_codes, not secrets
   // CUSTOM_QR_GUEST left this list 2026-09-28: the "Custom QR per guest"
-  // product folded into Event Hub Pro (owner 2026-09-27) and its row is off
+  // product folded into Event Pro (owner 2026-09-27) and its row is off
   // sale. A retired code kept here throws MissingSkuError and drops this whole
   // document to its stub — the PAPIC_ADDON_STORIES lesson.
 ] as const;

@@ -31,6 +31,8 @@ import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { readLaunchOffer } from '@/lib/launch-offer.server';
+import { launchOfferFeesLine } from '@/lib/launch-offer';
 
 export const metadata = { title: 'Booking fees · Supplier' };
 
@@ -84,6 +86,8 @@ export default async function VendorBookingFeesPage() {
 
   // The owner's LIVE rate for the fee line below — null prints no rate, never the code default.
   const feeSchedule = await getLiveBookingFeeSchedule();
+  // 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings, never typed.
+  const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -98,6 +102,12 @@ export default async function VendorBookingFeesPage() {
       <PageMasthead
         title="Booking fees"
       />
+
+      {launchLine ? (
+        <p className="mt-3 text-sm text-ink/70" data-fees-launch-offer="">
+          {launchLine}
+        </p>
+      ) : null}
 
       {due.length > 0 ? (
         <div className="mt-4 rounded-lg border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">

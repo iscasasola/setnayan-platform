@@ -8,7 +8,7 @@ export function VipMark() {
   return (
     <span
       data-seat-vip-mark=""
-      className="font-mono text-[9px] font-bold uppercase leading-none tracking-wider text-mulberry"
+      className="text-xs font-bold uppercase leading-none tracking-[0.06em] text-mulberry"
     >
       VIP
     </span>

@@ -34,10 +34,10 @@ export function SchedulePeople({ needs }: { needs: ReactNode }) {
         onClick={() => ch.setLens({ kind: 'supplier', vendorId: id, crew: null })}
         className="sn-press flex min-h-12 w-full items-center gap-2.5 border-b border-ink/10 py-2 text-left disabled:cursor-default"
       >
-        <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-ink/[0.07] text-[10.5px] font-semibold text-ink/75">{initialsOf(name)}</span>
+        <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-ink/[0.07] text-xs font-semibold text-ink/75">{initialsOf(name)}</span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-semibold text-ink">{name}</span>
-          <span className="block truncate text-[12px] text-ink/55">{line}</span>
+          <span className="block truncate text-xs text-ink/70">{line}</span>
         </span>
       </button>
     </li>
@@ -46,17 +46,17 @@ export function SchedulePeople({ needs }: { needs: ReactNode }) {
   return (
     <div className="space-y-5 font-sans" data-schedule-people-pane="">
       <section>
-        <h3 className="pb-1 text-[11px] uppercase tracking-[0.12em] text-gold-deep">Needs you</h3>
-        {needs ?? <p className="text-[13px] text-ink/55">Nothing is waiting on you right now.</p>}
+        <h3 className="pb-1 text-xs uppercase tracking-[0.06em] text-gold-deep">Needs you</h3>
+        {needs ?? <p className="text-[13px] text-ink/70">Nothing is waiting on you right now.</p>}
       </section>
       <section>
-        <h3 className="pb-1 text-[11px] uppercase tracking-[0.12em] text-gold-deep">Suppliers and their chapters</h3>
-        {plain.length === 0 ? <p className="text-[13px] text-ink/55">No supplier is booked yet.</p> : null}
+        <h3 className="pb-1 text-xs uppercase tracking-[0.06em] text-gold-deep">Suppliers and their chapters</h3>
+        {plain.length === 0 ? <p className="text-[13px] text-ink/70">No supplier is booked yet.</p> : null}
         <ul>{plain.map((s) => row(s.id, s.name, served.get(s.id)?.join(' · ') || 'Needs a chapter', 'sup'))}</ul>
       </section>
       {onEvery.length > 0 || hostIds.size > 0 ? (
         <section>
-          <h3 className="pb-1 text-[11px] uppercase tracking-[0.12em] text-gold-deep">Coordinator and Host / MC</h3>
+          <h3 className="pb-1 text-xs uppercase tracking-[0.06em] text-gold-deep">Coordinator and Host / MC</h3>
           <ul>
             {onEvery.map((s) => row(s.id, s.name, 'Coordinator · every chapter', 'coord'))}
             {ch.suppliers.filter((s) => hostIds.has(s.id)).map((s) => row(s.id, s.name, 'Host / MC', 'host'))}
@@ -64,7 +64,7 @@ export function SchedulePeople({ needs }: { needs: ReactNode }) {
         </section>
       ) : null}
       <section>
-        <h3 className="pb-1 text-[11px] uppercase tracking-[0.12em] text-gold-deep">Release</h3>
+        <h3 className="pb-1 text-xs uppercase tracking-[0.06em] text-gold-deep">Release</h3>
         <button type="button" onClick={() => ch.openSettings()} data-people-release="" className="sn-press flex min-h-12 w-full items-center justify-between border-b border-ink/10 text-left text-[14px] text-ink">
           <span>Each guest’s full schedule</span>
           <span className="text-sn-accent">Release ›</span>

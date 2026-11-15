@@ -16,7 +16,7 @@ import { crewElsewhere, type CrewClash, type CrewStint } from '@/lib/crew-elsewh
  * at Mia & Paolo's in Tagaytay the same day — Team A without time for the drive, the second shooter at the same time; the
  * real rule, `crewElsewhere`, at a lab speed of 30 km/h) · `clashfail` (the other events couldn't be checked). 📍 Where (owner 2026-11-04): every state shows Lumina's
  * own Where dropdown; `wherewait` (their pick waits for the host · Take back) · `askedwhere` (the host asked them to serve
- * the Reception) · `unlinked` (on no chapter: the trade's usual chapters start the dropdown).
+ * the Reception) · `unlinked` (on no chapter: the trade's usual chapters start the dropdown). 🕕 `noprogram` (cut 5): the hosts have no program yet — Your times.
  */
 const ME = 'ev-lumina';
 const T = (hhmm: string, day = '2026-12-18') => `${day}T${hhmm}:00.000Z`;
@@ -124,7 +124,7 @@ export function ScheduleLab({ state }: { state?: string }) {
       <SupplierSchedule
         eventId="lab"
         lab
-        day={state === 'fail' ? null : day}
+        day={state === 'fail' ? null : state === 'noprogram' ? { ...day, chapters: [] } : day}
         autoAgree={state === 'auto'}
         marks={{ seenAt, confirmedAt: state === 'confirmed' ? T('12:00', '2026-12-12') : null, lockedAt: state === 'locked' ? T('03:00', '2026-11-02') : null }}
         changed={changedSinceSeen(day.stamps, seenAt)}
@@ -134,6 +134,9 @@ export function ScheduleLab({ state }: { state?: string }) {
         asked={state === 'asked' ? ASKED : state === 'askedwhere' ? askedWhere : state === 'askedfail' ? null : []}
         elsewhere={state === 'clash' ? labElsewhere() : state === 'clashfail' ? null : {}}
         where={state === 'fail' ? null : where}
+        // 🕕 `&state=noprogram` (cut 5): no chapters yet — Your times, already kept.
+        ownTimes={state === 'noprogram' ? { call: '06:00', arrive: '07:30', done: '23:00', filedAt: null } : undefined}
+        eventDate="2026-12-12"
       />
     </main>
   );

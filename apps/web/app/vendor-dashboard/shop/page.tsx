@@ -102,8 +102,8 @@ type ShopData = {
   verify: {
     status: VerifyStatus;
     requiredDocsIn: boolean;
-    emailConfirmedAt: string | null;
-    phoneConfirmedAt: string | null;
+    /** How many of the required papers are in (the cover's "n of 3 papers"). */
+    requiredIn: number;
   };
   /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
@@ -433,8 +433,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
-      emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
-      phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
+      requiredIn: countCompleteRequiredSlots(verifyUploads),
     },
     serviceRows,
     scanSettings,
@@ -442,7 +441,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // Honest zero: no trusted review → no rating word; unread → "—" (null).
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
-    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
+    // RW-311: this counts events FINISHED on Setnayan (the Events badge's own number) — said so, so "0 events done"
+    // next to the shop's open bookings never reads as a contradiction (a booked event is not done until its day).
+    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'} done`,
     analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:
@@ -615,7 +616,8 @@ async function ShopHome({
     verified: {
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
-      stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
+      papersIn: data.verify.requiredIn,
+      papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
     reviews: data.reviews,

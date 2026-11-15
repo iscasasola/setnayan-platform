@@ -39,9 +39,17 @@ export async function setReferralProgramEnabled(formData: FormData) {
     .update({ referral_program_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  // The master switch is also drawn on Switches (avatar › Switches, 2026-11-14); a flip from there lands back there.
+  // Allow-listed — never an open redirect.
+  const fromSwitches = formData.get('back') === '/admin/switches';
   if (error) {
-    return redirect(`/admin/referrals?error=${encodeURIComponent(error.message)}`);
+    return redirect(
+      fromSwitches
+        ? `/admin/switches?error=${encodeURIComponent('Couldn’t save the referral switch. Try again.')}`
+        : `/admin/referrals?error=${encodeURIComponent(error.message)}`,
+    );
   }
   revalidatePath('/admin/referrals');
-  redirect('/admin/referrals?saved=1');
+  revalidatePath('/admin/switches');
+  redirect(fromSwitches ? '/admin/switches?saved=referrals' : '/admin/referrals?saved=1');
 }

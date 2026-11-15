@@ -68,8 +68,8 @@ export type ServicesStepSelection = {
    */
   ai: boolean;
   /**
-   * Event Hub Pro (`COUPLE_WEBSITE_PRO`), added at onboarding (owner 2026-09-25:
-   * *"there are 3 things they can purchase Papic, Setnayan AI, Event Hub Pro."*).
+   * Event Pro (`COUPLE_WEBSITE_PRO`), added at onboarding (owner 2026-09-25:
+   * *"there are 3 things they can purchase Papic, Setnayan AI, Event Pro."*).
    * A plain yes/no for the same reason as `ai`: there is one unlock per event.
    *
    * ⚠ NO PRICE RIDES WITH IT either. The server re-reads the catalog row, the
@@ -187,7 +187,7 @@ export function quoteServicesStepSelection(
    */
   aiPricePhp: number | null = null,
   /**
-   * Event Hub Pro's sign-up price (view.hubPro.pricePhp). Null / 0 when the card
+   * Event Pro's sign-up price (view.hubPro.pricePhp). Null / 0 when the card
    * is not offered — a type with no Event Hub, or an unpriced catalog row.
    */
   hubProPricePhp: number | null = null,
@@ -255,7 +255,7 @@ export function setAi(
   return { ...selection, ai };
 }
 
-/** Toggle Event Hub Pro. Its own setter, so the Pro card touches nothing else. */
+/** Toggle Event Pro. Its own setter, so the Pro card touches nothing else. */
 export function setHubPro(
   selection: ServicesStepSelection,
   hubPro: boolean,

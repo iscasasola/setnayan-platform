@@ -41,10 +41,10 @@ export function CreatorBadge({
         padding: md ? '0.3em 0.72em' : '0.22em 0.6em',
         borderRadius: 'var(--m-r-full, 999px)',
         border:
-          '1px solid color-mix(in srgb, var(--m-orange, #A9834B) 45%, transparent)',
+          '1px solid color-mix(in srgb, var(--m-orange) 45%, transparent)',
         background:
-          'color-mix(in srgb, var(--m-orange, #A9834B) 12%, transparent)',
-        color: 'var(--m-orange-2, #8A6B39)',
+          'color-mix(in srgb, var(--m-orange) 12%, transparent)',
+        color: 'var(--m-orange-2)',
         fontFamily:
           "var(--font-mono-marketing), var(--font-mono), 'JetBrains Mono', ui-monospace, monospace",
         fontSize: md ? '0.7rem' : '0.62rem',
@@ -61,7 +61,7 @@ export function CreatorBadge({
         viewBox="0 0 24 24"
         width={md ? 13 : 11}
         height={md ? 13 : 11}
-        fill="var(--m-orange, #A9834B)"
+        fill="var(--m-orange)"
         style={{ flex: '0 0 auto', display: 'block' }}
       >
         {/* Four-point sparkle — a soft star, not a checkmark. */}

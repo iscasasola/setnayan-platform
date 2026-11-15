@@ -3,6 +3,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { waitingOnMe, type ConnRead } from '@/lib/person-page-facts';
 
 /**
  * profile-viewer.ts — who is looking at an account page, as far as that page is allowed to know.
@@ -36,6 +37,13 @@ export type ProfileViewer = {
   connected: boolean;
   /** A connection asked, by either side, not answered yet. */
   pending: boolean;
+  /**
+   * 🤝 THEY ASKED YOU (walk 13 Nov 2026, F-W3-06: a pending person's page had no Accept / Decline). The pending
+   * connection's id when it is waiting on the VIEWER's answer (from their person → to yours), so the page can offer the
+   * shipped `confirmConnection` / `declineConnection` — the same two answers People's Requests row gives. Null when
+   * nothing waits on you (you asked them, or nothing is pending).
+   */
+  answerConnectionId: string | null;
   youFollow: boolean;
   followsYou: boolean;
 };
@@ -45,6 +53,7 @@ const NOBODY: ProfileViewer = {
   isHolder: false,
   connected: false,
   pending: false,
+  answerConnectionId: null,
   youFollow: false,
   followsYou: false,
 };
@@ -110,22 +119,24 @@ export async function readProfileViewer(targetUserId: string): Promise<ProfileVi
 
     let connected = false;
     let pending = false;
+    let answerConnectionId: string | null = null;
     if (mine.length > 0 && theirs.length > 0) {
       const { data: conns, error: connError } = await admin
         .from('person_connections')
-        .select('status')
+        .select('connection_id, status, from_person_id, to_person_id')
         .or(
           `and(from_person_id.in.(${mine.join(',')}),to_person_id.in.(${theirs.join(',')})),and(from_person_id.in.(${theirs.join(',')}),to_person_id.in.(${mine.join(',')}))`,
         )
         .in('status', ['pending', 'confirmed'])
         .is('deleted_at', null);
       if (connError) logQueryError('readProfileViewer.connections', connError, {}, 'graceful_degrade');
-      for (const c of (connError ? [] : (conns ?? [])) as Array<{ status: string }>) {
+      for (const c of (connError ? [] : (conns ?? [])) as ConnRead[]) {
         if (c.status === 'confirmed') connected = true;
         else if (c.status === 'pending') pending = true;
       }
+      answerConnectionId = connected ? null : waitingOnMe((connError ? [] : (conns ?? [])) as ConnRead[], mine, theirs);
     }
-    return { signedIn: true, isHolder: false, connected, pending: pending && !connected, youFollow, followsYou };
+    return { signedIn: true, isHolder: false, connected, pending: pending && !connected, answerConnectionId, youFollow, followsYou };
   } catch {
     return { ...NOBODY, signedIn: true };
   }

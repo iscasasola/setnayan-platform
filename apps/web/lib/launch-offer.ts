@@ -184,3 +184,16 @@ export function freeFeeWindowReason(
   }
   return { ok: true, reason };
 }
+
+/**
+ * 🎁 F-W1-30 (supplier walk, 14 Nov 2026): the one line the supplier's Booking fees page shows while the launch offer
+ * runs — the quote notices' own words ("Setnayan's first N bookings are free — the launch offer"), plus how many places
+ * are left. Null when the offer is closed or its numbers are not set: the page then says nothing about it, never a
+ * guess about money.
+ */
+export function launchOfferFeesLine(s: LaunchOfferSettings | null, nowMs: number): string | null {
+  if (!s || !launchOfferIsOpen(s, nowMs) || s.cap === null || !(s.cap > 0)) return null;
+  const left = Math.max(0, s.cap - s.used);
+  if (left === 0) return null;
+  return `Launch offer · Setnayan's first ${formatLaunchCap(s.cap)} bookings are free — ${formatLaunchCap(left)} still open. A booking that takes a place costs you no booking fee.`;
+}

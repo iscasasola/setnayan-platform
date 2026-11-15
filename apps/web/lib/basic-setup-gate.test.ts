@@ -61,10 +61,10 @@ test('1 · an incomplete shop is held on the shop pages — services, the shop p
   assert.equal(basicSetupLine(NO_ADDRESS!), 'Left: Company address.');
 });
 
-test('1 · 🖼 the logo gates going live, not the shop pages — owner 2026-11-06, "Yes, logo gates live"', () => {
+test('1 · 🖼 the logo never holds the shop pages — owner 2026-11-06 (and, since 2026-11-14, it no longer gates going live either)', () => {
   // Only the logo missing → NOT held anywhere: a brand-new shop reaches Shop and makes its first service card.
   const onlyLogo = shop({ logo_url: null });
-  assert.equal(businessProfileChecklist(onlyLogo).complete, false, 'the checklist still counts the logo (going live reads it)');
+  assert.equal(businessProfileChecklist(onlyLogo).complete, false, 'the checklist still counts the logo');
   assert.equal(holdFor(onlyLogo), null, 'a shop missing only its logo is held');
   for (const p of ['/vendor-dashboard/shop', '/vendor-dashboard/services/new', '/vendor-dashboard/website']) {
     assert.equal(pageIsHeld(p, holdFor(onlyLogo)), false, `${p} is held over the logo alone`);
@@ -77,11 +77,15 @@ test('1 · 🖼 the logo gates going live, not the shop pages — owner 2026-11-
   assert.equal(basicSetupLine(noPhone!), 'Left: Contact number.');
 });
 
-test('1 · 🖼 going live still asks for the logo — verification reads the WHOLE checklist', () => {
+// SUPERSEDED 2026-11-14 — owner, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT": *"submit the 3 documents
+// and press submit. that's it. no other steps needed."* and, on the profile gate, *"Yes, remove it"* — neither Submit nor
+// the admin's approval may be blocked by the shop profile. The 2026-11-06 "logo gates live" coupling to verification is
+// therefore gone; the logo stays on the checklist (and on Today) as a profile item, never as a verification gate.
+test('1 · 🖼 going live no longer reads the profile — verification asks for the three papers only (2026-11-14)', () => {
   const verification = src('lib/vendor-verification.ts');
-  assert.match(verification, /if \(!input\.profileComplete\) missing\.push\(input\.onlyLogoMissing \? 'Add your logo' : 'Finish your business profile'\);/);
+  assert.doesNotMatch(verification, /input\.profileComplete|Finish your business profile|'Add your logo'/, 'the submit gate reads the business profile again');
   const firstSteps = src('lib/vendor-first-steps.server.ts');
-  assert.match(firstSteps, /profileComplete: profileChecklist\.complete,/, 'going live stopped reading the whole checklist');
+  assert.doesNotMatch(firstSteps, /profileComplete: profileChecklist\.complete,/, 'Today feeds the profile into the submit gate again');
   assert.match(src('lib/vendor-profile.ts'), /\{ key: 'logo', label: L\.logo, surface: 'profile', ok: !!profile\?\.logo_url\?\.trim\(\) \}/);
 });
 

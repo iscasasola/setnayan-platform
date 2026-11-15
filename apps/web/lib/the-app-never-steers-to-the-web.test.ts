@@ -136,7 +136,10 @@ test('no string the app can show steers to the web (every app/ and lib/ file rea
         // Imports and module paths are not words anyone reads.
         const isModulePath = ts.isStringLiteral(n) && (ts.isImportDeclaration(n.parent) || ts.isExportDeclaration(n.parent) || (ts.isCallExpression(n.parent) && /^(?:import|require)$/.test(n.parent.expression.getText(sf))));
         if (!isModulePath && STEERS.test(words.replace(/\s+/g, ' ')) && !hiddenInApp(n)) {
-          if (NEVER_IN_THE_APP.has(rel)) listedHits++;
+          // help split 2026-11-14: the answers moved from lib/help.ts into lib/help/*.ts — the 'lib/help.ts' row's reason
+          // and gate (`helpBodyFor`, which lives in lib/help.ts) cover every file of that prose, and the test below reads
+          // each answer the app shows through that same function.
+          if (NEVER_IN_THE_APP.has(rel) || rel.startsWith('lib/help/')) listedHits++;
           else {
             const { line } = sf.getLineAndCharacterOfPosition(n.getStart(sf));
             offenders.push(`${rel}:${line + 1} "${words.trim().replace(/\s+/g, ' ').slice(0, 80)}"`);

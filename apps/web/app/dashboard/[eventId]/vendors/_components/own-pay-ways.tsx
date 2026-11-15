@@ -16,7 +16,7 @@ import { ActionButton } from '@/components/action-button';
 import { GuestPopup } from '../../guests/_components/guest-popup';
 import { payWayLabel, type PayWayView } from '@/lib/self-added-pay-ways';
 
-const K2 = 'text-[12px] uppercase tracking-[0.14em] text-ink/55';
+const K2 = 'text-xs uppercase tracking-[0.06em] text-ink/70';
 
 export function OwnPayWays({ vendorName, ways }: { vendorName: string; ways: PayWayView[] | 'unreadable' }) {
   const [big, setBig] = useState<PayWayView | null>(null);
@@ -41,7 +41,7 @@ export function OwnPayWays({ vendorName, ways }: { vendorName: string; ways: Pay
           We couldn&apos;t load how to pay {vendorName} just now. Refresh to try again.
         </p>
       ) : ways.length === 0 ? (
-        <p className="text-[13px] leading-snug text-ink/60">
+        <p className="text-[13px] leading-snug text-ink/70">
           You haven&apos;t added how to pay {vendorName} yet — add their QR or account details in your record.
         </p>
       ) : (

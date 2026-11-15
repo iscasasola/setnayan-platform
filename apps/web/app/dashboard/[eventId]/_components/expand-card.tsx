@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /**
@@ -94,7 +94,7 @@ export function ExpandCard({
             <ChevronDown
               aria-hidden
               strokeWidth={2.25}
-              className={`ml-auto h-4 w-4 flex-none text-ink/40 transition-transform duration-200 ${
+              className={`ml-auto h-4 w-4 flex-none text-ink/70 transition-transform duration-[var(--sn-dur-control)] ${
                 open ? 'rotate-180' : ''
               }`}
             />
@@ -116,11 +116,12 @@ export function ExpandCard({
       {fullHref ? (
         <Link
           href={fullHref}
-          className="mt-2.5 inline-flex items-center gap-1 border-t border-ink/5 pt-2 text-xs font-bold transition-colors hover:opacity-80"
-          style={{ color: 'var(--sn-gold-700)' }}
+          className="mt-2.5 flex min-h-11 items-center gap-1 border-t border-ink/10 pt-2 text-[13px] font-semibold text-terracotta-700 hover:underline"
         >
+          {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 13 · 15): the door is 13 px in the CTA ink at the 44 px floor (no small
+              gold words); the chevron turns at the house control speed, not a typed one. */}
           {fullLabel}
-          <span aria-hidden>→</span>
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       ) : null}
     </article>

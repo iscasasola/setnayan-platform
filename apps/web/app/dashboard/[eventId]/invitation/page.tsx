@@ -98,7 +98,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // 🔌 A refused guest read is never a page of nobody (reads-are-honest, 2026-11-02 audit #14).
   if (!guestsRead.measured) {
     return (
-      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+      <section className="mx-auto w-full max-w-3xl tab:max-w-3xl px-4 py-6">
         <ReadRefusedNotice what="your guest list" />
       </section>
     );
@@ -113,7 +113,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   // THE LOOK every code on this page wears (owner 2026-09-27, lib/qr-look.ts):
   // the Setnayan mark in the centre for a free event; the couple's own logo,
-  // shape, pattern and palette ink on Event Hub Pro. The old "Custom QR per
+  // shape, pattern and palette ink on Event Pro. The old "Custom QR per
   // guest" product (palette-tinted modules behind its own SKU) folded into Pro,
   // so there is no second branch here any more — one look, one renderer.
   //
@@ -210,7 +210,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const defaultDerived = deriveMonogram(event.display_name);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 tab:mx-auto tab:w-full tab:max-w-3xl">
       <PageMasthead
         titleNode={
           <>
@@ -347,7 +347,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               href={publicLandingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               Preview as guest
               <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -541,7 +541,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 <div className="min-w-0">
                   <Link
                     href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-                    className="font-medium text-ink hover:text-terracotta"
+                    className="inline-flex min-h-11 items-center font-medium text-ink hover:text-terracotta"
                   >
                     {guestDisplayName(guest)}
                   </Link>

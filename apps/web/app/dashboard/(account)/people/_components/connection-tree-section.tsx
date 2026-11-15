@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getKinFor, namesForKin } from '@/lib/kinship-read-core';
@@ -41,14 +42,14 @@ export async function ConnectionTreeSection({ userId, bare = false }: { userId: 
   if (!measured) {
     return (
       <Frame>
-        <div className={`${bare ? 'py-3' : 'sn-tile'} flex items-start gap-3`}>
-          <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
+        <div className="flex items-start gap-3 py-3" data-tree-refused="">
+          <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-[rgb(var(--color-warn))]" strokeWidth={1.75} />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-ink">We couldn’t work out your tree just now.</p>
+            <p className="text-sm font-medium text-[rgb(var(--color-warn))]">We couldn’t work out your tree just now.</p>
             {/* ⚠ NOT "you have no relatives". We do not know — and saying the
                 one when we mean the other is the defect this whole section was
                 written under. */}
-            <p className="text-sm text-ink/65">
+            <p className="text-sm text-ink/70">
               This is a problem on our side, not an empty family. Your connections are safe — please
               refresh in a moment.
             </p>
@@ -61,10 +62,15 @@ export async function ConnectionTreeSection({ userId, bare = false }: { userId: 
   if (tree.total === 0) {
     return (
       <Frame>
-        <p className={`${bare ? 'py-2' : 'sn-tile'} text-sm text-ink/65`}>
-          Once you and your closest people confirm each other, the rest works itself out — lolo and
-          lola, tito and tita, pinsan and apo appear here on their own. You never add them.
-        </p>
+        <div className="py-2">
+          <InfoTip
+            label="Once you and your closest people confirm each other, the rest works itself out."
+            labelClassName="text-sm text-ink/70"
+            align="start"
+          >
+            Lolo and lola, tito and tita, pinsan and apo appear here on their own. You never add them.
+          </InfoTip>
+        </div>
       </Frame>
     );
   }
@@ -83,7 +89,7 @@ export async function ConnectionTreeSection({ userId, bare = false }: { userId: 
 function BareFrame({ children }: { children: React.ReactNode }) {
   return (
     <div id="connection-tree" className="scroll-mt-24 pb-3" data-connection-tree="">
-      <p className="mb-2 text-[13px] text-ink/60">
+      <p className="mb-2 text-[13px] text-ink/70">
         Worked out from the people you’ve both confirmed — never from a request still waiting on an answer.
       </p>
       {children}
@@ -96,16 +102,17 @@ function FramedFrame({ children }: { children: React.ReactNode }) {
     <section id="connection-tree" className="mt-10 scroll-mt-24" aria-labelledby="connection-tree-heading">
       {/* The People page's ONE heading style (owner 2026-09-28 redesign,
           problem 5: four heading styles lived on one page). */}
-      <h2
-        id="connection-tree-heading"
-        className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55"
-      >
-        Your connection tree
-      </h2>
-      <p className="mb-4 text-sm text-ink/60">
-        Worked out from the people you’ve both confirmed — never from a request still waiting on an
-        answer.
-      </p>
+      <div className="mb-3">
+        <InfoTip
+          label="Your connection tree"
+          labelAs="h2"
+          labelId="connection-tree-heading"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--sn-ink-500)]"
+          align="start"
+        >
+          Worked out from the people you’ve both confirmed — never from a request still waiting on an answer.
+        </InfoTip>
+      </div>
       {children}
     </section>
   );
@@ -128,9 +135,9 @@ function Layer({ layer }: { layer: KinLayer }) {
     <div>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h3 className="text-sm font-semibold text-ink">{layer.title}</h3>
-        <span className="text-xs text-ink/50">{layer.people.length}</span>
+        <span className="text-xs font-semibold tabular-nums text-ink/70">{layer.people.length}</span>
       </div>
-      <p className="mb-3 text-sm text-ink/60">{layer.blurb}</p>
+      <p className="mb-3 text-sm text-ink/70">{layer.blurb}</p>
       <ul>
         {shown.map((p) => (
           <li key={`${p.personId}-${p.kind}`}>
@@ -142,7 +149,7 @@ function Layer({ layer }: { layer: KinLayer }) {
         <details className="mt-2 group">
           {/* The remainder is COUNTED, never silently dropped — volume is
               managed, not hidden. */}
-          <summary className="cursor-pointer list-none text-sm font-medium text-ink/70 hover:text-ink">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-ink/75 hover:text-ink">
             Show {hidden.length} more {hidden.length === 1 ? 'person' : 'people'}
           </summary>
           <ul className="mt-2">
@@ -172,8 +179,8 @@ function Layer({ layer }: { layer: KinLayer }) {
  */
 function Person({ person }: { person: KinPerson }) {
   return (
-    <div className="flex min-h-[56px] flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-ink/10 py-2.5">
-      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chipTint(person)}`}>
+    <div className="flex min-h-14 flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-ink/10 py-2.5">
+      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${chipTint(person)}`}>
         {person.label}
       </span>
       {person.name ? (
@@ -183,9 +190,9 @@ function Person({ person }: { person: KinPerson }) {
            word is "placeholder, never a name" — so we describe the relationship
            and say plainly why the name is absent. An id or an email here would
            break the rule the placeholder exists to keep. */
-        <span className="text-sm italic text-ink/50">Name shown once you’re connected</span>
+        <span className="text-sm italic text-ink/70">Name shown once you’re connected</span>
       )}
-      <span className="ml-auto text-[13px] text-ink/60">through {person.via}</span>
+      <span className="ml-auto text-[13px] text-ink/70">through {person.via}</span>
     </div>
   );
 }
@@ -195,10 +202,10 @@ function chipTint(person: KinPerson): string {
     case 'blood':
       return 'bg-ink/10 text-ink';
     case 'ritual':
-      return 'bg-terracotta/15 text-terracotta-700';
+      return 'bg-terracotta/15 text-[color:var(--sn-gold-700)]';
     case 'courtesy':
       // Deliberately the lightest of the three: present in full, never louder
       // than blood.
-      return 'border border-ink/15 bg-transparent text-ink/70';
+      return 'bg-ink/[0.04] text-ink/75';
   }
 }

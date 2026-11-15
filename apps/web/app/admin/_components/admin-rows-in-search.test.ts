@@ -73,7 +73,13 @@ test('the link and the element it points at come from ONE helper', () => {
     'the row editor stopped importing the shared helper',
   );
   const reader = readFileSync(join(WEB, 'lib/admin-map/admin-row-index.ts'), 'utf8');
-  assert.match(reader, /skuAnchorId\(code\)/, 'the href stopped using the shared helper');
+  // The row is built by `priceRowFor` (2026-11-14 — shared with the ⌘K box's guards), which uses the helper.
+  assert.match(reader, /priceRowFor\(r\)/, 'the reader stopped building price rows with the shared builder');
+  assert.match(
+    readFileSync(join(WEB, 'lib/admin-map/sku-anchor.ts'), 'utf8'),
+    /skuAnchorId\(code\)/,
+    'the href stopped using the shared helper',
+  );
   // And the id it produces is a legal HTML id every time.
   for (const code of ['PAPIC_GUEST_10K', 'COUPLE_WEBSITE_PRO', 'SDE']) {
     assert.match(skuAnchorId(code), /^sku-[a-z0-9-]+$/);
@@ -141,7 +147,8 @@ test('the reader shows RETIRED prices, unlike the customer catalog', () => {
 
 test('the layout actually hands the rows to the palette', () => {
   const layout = readFileSync(join(WEB, 'app/admin/layout.tsx'), 'utf8');
-  assert.match(layout, /await fetchAdminRows\(\)/, 'the layout stopped fetching rows');
+  // Read side by side with what the box has learned (ASK-BRAIN, 14 Nov 2026) — still awaited before the box renders.
+  assert.match(layout, /await Promise\.all\(\[fetchAdminRows\(\), fetchLearnedPicks\(\)\]\)/, 'the layout stopped fetching rows');
   assert.match(layout, /<AdminCommandPalette rows=\{/, 'the palette stopped receiving them');
 });
 

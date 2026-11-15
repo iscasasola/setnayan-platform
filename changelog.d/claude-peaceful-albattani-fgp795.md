@@ -8,6 +8,9 @@ Cut (2) of the supplier cuts (specs DECISION_LOG 93ed7cd0), on top of #7624 (the
   - A number the parser cannot make out is not claimed, and the claim never refuses a Submit that already landed.
 - **No VALIDATE email or text.** The supplier side went in #7627. This removes the admin half: the "Contact confirmation" block on /admin/verify, its "Mark email received / Mark text received" buttons, the `markVendorContactConfirmed` action (one fewer server action), the "VALIDATE message marked as received" notice, and the stamps as reviewer-check facts, which no check read any more.
   - Stamps already stored on old applications are kept; nothing is deleted. The VALIDATE contact settings in Avatar › Switches are not touched.
+- **The database function `mark_vendor_contact_confirmed` is dropped** (migration `20271348945775_drop_retired_vendor_contact_validate_rpc.sql`, applied by the pipeline, never by hand). Removing the action left it with no caller, which the required `ugat-both-ends` guard refuses. The owner approved dropping it over baselining it (2026-11-15).
+  - No data is touched: the four stamp columns and the stamps already on old applications stay.
+  - `supabase/security/exposure-surface.baseline.txt` is regenerated; it narrows by that one function.
 - **No call.** The Meet step, the call check and the call copy were already gone in #7627. The admin help answer "How do I verify a supplier?" no longer says "confirm the call yourself and record the contact check". It now describes the send-back that names its paper.
 - **Bank proof** stays fully dropped (#7627). Nothing moved to payment setup.
 - **Guard:** `lib/verify-cut-the-paper-is-the-only-input.test.ts`. It fails if:
@@ -18,6 +21,6 @@ Cut (2) of the supplier cuts (specs DECISION_LOG 93ed7cd0), on top of #7624 (the
   - Proved by mutation: exporting the claim, or feeding it a form field, each turns it red.
 - Regenerated: `scripts/port-control-baseline.json` (the three removals, deliberate), `lib/admin-map/admin-jobs.generated.ts` and `admin-routes.generated.ts`.
 
-No migration. No production writes. Design unchanged: this extends the approved v10 upload only.
+One migration, which only drops an uncalled function. No production writes. Design unchanged: this extends the approved v10 upload only.
 
 SPEC IMPACT: None. This implements the existing ruling (DECISION_LOG 93ed7cd0, cut 2) and adds no new decision.

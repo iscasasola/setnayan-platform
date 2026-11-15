@@ -2561,6 +2561,7 @@
         "/admin/approvals",
         "/admin/ask",
         "/admin/background-videos",
+        "/admin/badges",
         "/admin/booking-fees",
         "/admin/budget-planner",
         "/admin/business",
@@ -2611,7 +2612,6 @@
         "/admin/studio?tab=reveal-studio",
         "/admin/studio?tab=social-queue",
         "/admin/studio?tab=songs",
-        "/admin/studio?tab=spotlight-awards",
         "/admin/studio?tab=website",
         "/admin/subscriptions",
         "/admin/switches",
@@ -17460,6 +17460,26 @@
         "TileGrid",
         "WallClaim",
         "WallProjection"
+      ]
+    },
+    "/admin/badges": {
+      "files": [
+        "admin/badges/not-yet-built.ts",
+        "admin/badges/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     }
   }

@@ -51,7 +51,7 @@ test('2 · from 701 a door is the 440px right panel over a dimmed Shop page', ()
           thumb: React.createElement('a', { href: '/y', 'data-door-thumb': '' }, 'Go'),
           onClose: () => {},
           data: 'shop-share',
-        },
+        } as React.ComponentProps<typeof ShopDoorPanel>,
         React.createElement('p', null, 'rows'),
       ),
     ),

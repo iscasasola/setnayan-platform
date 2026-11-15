@@ -7,7 +7,8 @@
  *   (2) only the adapter reaches into the parallel jobs' helpers — no page file imports them directly;
  *   (3) the five badges, exactly, and seven tiers Bronze → Black Diamond;
  *   (4) an award fact names the STEP REACHED, never the running count;
- *   (5) locked says what it takes; an unread count says so — never locked, never zero.
+ *   (5) locked says what it takes; an unread count says so — never locked, never zero;
+ *   (6) the page says what does not count (owner 16 Nov): imports, and gifts a badge reward paid for.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +17,7 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierName } from './badge-sources';
-import { awardFact, badgeCard, badgePage } from './badge-page-model';
+import { BADGE_WORDS, awardFact, badgeCard, badgePage } from './badge-page-model';
 
 const HERE = __dirname;
 const WEB = join(HERE, '..', '..', '..', '..', '..');
@@ -64,4 +65,9 @@ test('(5) locked says what it takes; unread says so — never locked, never zero
   const unread = badgeCard('five_star_reviews', null);
   assert.equal(unread.state, 'unread');
   assert.doesNotMatch(unread.line, /\b0\b|Bronze at/, 'an unread count reads as zero or as locked');
+});
+
+test('(6) the page says what does not count: imports, and gifts a badge reward paid for', () => {
+  assert.match(BADGE_WORDS.completed_bookings.counts, /Bookings you import don’t count\./, 'imported bookings read as counting');
+  assert.match(BADGE_WORDS.gifts_given.counts, /A gift your badge reward paid for doesn’t count\./, 'a reward-paid gift reads as counting');
 });

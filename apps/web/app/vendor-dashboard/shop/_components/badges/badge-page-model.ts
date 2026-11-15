@@ -9,7 +9,9 @@
  *     "Gold · 50", not "63"): the count moves every week, the award does not;
  *   · a badge not yet earned shows LOCKED, with what it takes ("Bronze at 5 bookings"); only the shop sees it — the
  *     couples' pages never draw a locked badge;
- *   · a count that could not be read says so (`unread`), never "locked" and never zero.
+ *   · a count that could not be read says so (`unread`), never "locked" and never zero;
+ *   · the page SAYS what does not count (owner 16 Nov): imported bookings never count toward Completed bookings, and a
+ *     gift a badge reward paid for never counts toward Gifts given. The counting itself is J0's (#7753) readers'.
  *
  * PURE — no I/O, no clock.
  */
@@ -20,7 +22,8 @@ export const BADGE_WORDS: Readonly<Record<ShopBadgeKey, { name: string; unit: (n
   completed_bookings: {
     name: 'Completed bookings',
     unit: (n) => (n === 1 ? 'booking' : 'bookings'),
-    counts: 'Counts a booking only once it is complete: the event happened and was delivered. One wedding is one booking.',
+    // Owner, 16 Nov (DECISION_LOG fd5814dc): imports never count — a booking that came in as an import is not one.
+    counts: 'Counts a booking only once it is complete: the event happened and was delivered. One wedding is one booking. Bookings you import don’t count.',
     locked: 'Bronze at 5 bookings',
   },
   five_star_reviews: {
@@ -32,7 +35,9 @@ export const BADGE_WORDS: Readonly<Record<ShopBadgeKey, { name: string; unit: (n
   gifts_given: {
     name: 'Gifts given',
     unit: (n) => (n === 1 ? 'point' : 'points'),
-    counts: 'Counts gift points, and only once the event the gift was for is complete. Each gift is worth points by its kind.',
+    // Owner, 16 Nov: a gift a badge reward paid for never counts (a reward must not earn the next reward); a gift the
+    // shop paid for does — including the Setnayan gift on every own client (183dcf14 · ebcad7fd).
+    counts: 'Counts gift points, and only once the event the gift was for is complete. Each gift is worth points by its kind. A gift your badge reward paid for doesn’t count.',
     locked: 'Bronze at 150 points',
   },
   trusted_by: {

@@ -9,3 +9,9 @@ Controller job J4, the supplier badge page (prototypes `supplier_badges_2026-11-
 No UI, no route, no server action, no schema in this slice.
 
 SPEC IMPACT: None.
+
+## 2026-11-16 · feat(badges): J4 — the page says what does not count (owner rules, 16 Nov)
+
+Controller comment on #7807, owner-approved 16 Nov: imports never count toward Completed bookings (DECISION_LOG fd5814dc), and a gift a badge reward paid for never counts toward Gifts given (it would pay for the gift that earns the next reward); a gift the shop paid for does — including the Setnayan gift on every own client (183dcf14 · ebcad7fd). The counting itself lives in J0's readers (#7753); the badge page's own words now say both exclusions ("Bookings you import don't count." · "A gift your badge reward paid for doesn't count."), held by a sixth guard.
+
+SPEC IMPACT: None.

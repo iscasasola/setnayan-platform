@@ -8,6 +8,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { useSaveLoader } from '@/components/sd-loader';
 import { MERGE_BASE_FIELD, formFieldsOf } from '@/lib/event-details-merge';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * DetailsForm — edits the governance-free basics on the Personalization page:
  * couple names + the curated match criteria (region, mood/feel, budget) the
@@ -301,7 +302,7 @@ export function DetailsForm({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-ink/50">Where your wedding is — helps us match suppliers near you.</p>
+        <p className="text-[12px] text-ink/70">Where your wedding is — helps us match suppliers near you.</p>
       </div>
 
       <div className="space-y-1.5">
@@ -324,7 +325,7 @@ export function DetailsForm({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-ink/50">The overall look you&apos;re going for.</p>
+        <p className="text-[12px] text-ink/70">The overall look you&apos;re going for.</p>
       </div>
 
       {mayEditBudget ? (
@@ -344,7 +345,7 @@ export function DetailsForm({
             placeholder="e.g. 800,000"
             className={selectClass}
           />
-          <p className="text-[11px] text-ink/50">A working figure — refine it anytime. Leave blank if undecided.</p>
+          <p className="text-[12px] text-ink/70">A working figure — refine it anytime. Leave blank if undecided.</p>
         </div>
       ) : null}
 
@@ -393,7 +394,7 @@ export function DetailsForm({
             <option value="couple">A couple</option>
             <option value="multiple">Several people</option>
           </select>
-          <p className="text-[11px] text-ink/50">
+          <p className="text-[12px] text-ink/70">
             Changes how your guests are spoken to.
           </p>
         </div>
@@ -426,7 +427,7 @@ export function DetailsForm({
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-ink/50">
+              <p className="text-[12px] text-ink/70">
                 We bring it back on your year, quietly — we never create it for you.
               </p>
             </>
@@ -441,17 +442,15 @@ export function DetailsForm({
           for a real date specialist. */}
       {showBaziBirthData ? (
         <fieldset className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.03] p-4">
-          <legend className="px-1 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+          <legend className="px-1 text-[12px] uppercase tracking-[0.18em] text-terracotta">
             Birth details for your date reading (optional)
           </legend>
-          <p className="text-xs leading-relaxed text-ink/65">
-            Many Tsinoy families settle the wedding day with a Four Pillars (BaZi)
-            reading, which weighs each partner&apos;s birth date and time of birth.
+          <InfoTip labelAs="p" label="Many Tsinoy families settle the wedding day with a Four Pillars (BaZi) reading, which weighs each partner&apos;s birth date and time of birth." labelClassName="text-xs leading-relaxed text-ink/70" align="start">
             It&apos;s a blessing a Chinese-almanac or feng-shui specialist gives —
             we never calculate compatibility or a date &ldquo;score&rdquo; for you.
             Sharing these here is <strong>optional</strong>; we keep them only so
             you can hand them to a specialist. You can clear them anytime.
-          </p>
+          </InfoTip>
 
           <label className="flex items-start gap-2.5 rounded-xl border border-ink/10 bg-paper px-3 py-2.5">
             <input
@@ -522,7 +521,7 @@ export function DetailsForm({
               />
             </div>
           </div>
-          <p className="text-[11px] text-ink/50">
+          <p className="text-[12px] text-ink/70">
             Tick the box above to fill these in. Date and time of birth are both
             useful — share whatever you know.
           </p>
@@ -539,7 +538,7 @@ export function DetailsForm({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center justify-center rounded-xl bg-mulberry px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="ab ab-brand ab-main"
         >
           {pending ? 'Saving…' : 'Save basics'}
         </button>

@@ -108,3 +108,11 @@ test('10 · admin walk: Problems › What mends a stored "IIndalecio" on display
   assert.equal(mendAction('/v/x · OK · GCash'), '/v/x · OK · GCash', 'a real acronym is kept');
   assert.match(read('app/admin/app-performance/_surfaces/problems-list.tsx'), /\{mendAction\(issue\.action\)\}/);
 });
+
+test('11–13 · RW-315: the venue upload is the template piece; Save the Date and Story Assignments back links press at 44', () => {
+  const venue = read('app/dashboard/[eventId]/launch/_components/details-your-event.tsx');
+  assert.match(venue, /label="Upload a photo of the place"[\s\S]{0,200}thumb=\{\{ add: 'Upload a photo', replace: 'Replace photo' \}\}/, 'the venue upload is a dashed drop box again');
+  assert.match(read('app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx'), /className="inline-flex min-h-11 items-center[^"]*"\s*>\s*<ArrowLeft[^>]*\/>\s*Back to Save the Date/);
+  assert.match(read('app/dashboard/[eventId]/alaala/assignments/page.tsx'), /className="inline-flex min-h-11 items-center[^"]*"[\s\S]{0,80}← Memories/);
+  assert.match(read('lib/customer-menu.ts'), /alsoMatch: \[`\$\{base\}\/galleries`, `\$\{base\}\/alaala`, `\$\{base\}\/alaala\/assignments`\]/, 'the alaala pages left Memories');
+});

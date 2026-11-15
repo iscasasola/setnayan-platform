@@ -18,6 +18,14 @@ W1's walk on 4c094d4:
 - **Admin walk**: the Studio section tabs (Moodboard library and the rest) press at 44 (were 36); a record's inline
   text links (Person, Shop) use the new shared `RECORD_LINK` in `record-kit` (were 17–18 px lines); Problems › the
   expanded "What" mends a stored pre-#7768 "IIndalecio" on display (`mendAction`) — no stored row is rewritten.
+- **RW-315**: Details › Venues — the venue photo upload is the template's thumb-and-button piece (was a dashed "Drop a
+  file" box); the wax-seal page's "Back to Save the Date" presses at 44 and its pinned row reads "Today · Save the Date"
+  (pages inside the `studio` family that no catalogue row names get their own word, `EVENT_FAMILY_PAGE_WORDS`);
+  /alaala and /alaala/assignments are Memories pages now — they light Memories and wear its pinned row ("Memories ·
+  Story Assignments"), and "← Memories" presses at 44.
+- Not changed (RW-315 item 14): the Maker's ＋ "Add below" is as tall as the gap to the next part (26–44 px) by owner
+  ruling 2026-10-07 — its tap must stop where the neighbour's words begin (`partFrameEdges`, held by
+  `the-stages-panel-is-the-prototypes.test.ts`). Raising it to 44 would put it over the next part.
 - Not changed (RW-311 item 4): the tour bubble's Skip and Next are already `min-height: 44px`
   (`spotlight-tour.tsx`); its pop-in starts at `scale(.94)`, and 44 × 0.94 ≈ 41 — the walk's 41 px reads as a
   mid-animation measurement.

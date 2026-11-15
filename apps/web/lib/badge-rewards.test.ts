@@ -40,6 +40,8 @@ import {
   rewardLineFor,
   rewardSourceWords,
   rewardWords,
+  notYetPaid,
+  paidTiers,
   rewardsOwed,
   type BadgeRewardFacts,
   type GrantedReward,
@@ -148,7 +150,7 @@ describe('the one table is the ruling', () => {
     assert.equal(byName('Papic 3000'), PAPIC_PACK_CODE.papic_3000);
   });
 
-  it('the monthly awards, the once-badges, and which badges have no counter yet', () => {
+  it('the monthly awards, Verified, and the one badge with no counter yet (Invites)', () => {
     const a = BADGE_REWARDS.award;
     assert.equal(a.shape, 'period');
     if (a.shape === 'period') {
@@ -159,28 +161,63 @@ describe('the one table is the ruling', () => {
       });
     }
     assert.deepEqual(BADGE_REWARDS.verified.shape === 'once' && BADGE_REWARDS.verified.reward, { kind: 'papic', units: 1 });
-    assert.deepEqual(BADGE_REWARDS.first_booking.shape === 'once' && BADGE_REWARDS.first_booking.reward, { kind: 'papic', units: 1 });
-    const unmeasured = Object.values(BADGE_REWARDS).filter((r) => !r.measured).map((r) => r.badge).sort();
-    // 15 Nov: the first 5★ review is counted (`shop_trusted_five_star_count`); 1st Pick still has no counter.
-    assert.deepEqual(unmeasured, ['first_first_pick', 'first_pick']);
+    const unmeasured = Object.values(BADGE_REWARDS).filter((r) => !r.measured && !r.retired).map((r) => r.badge).sort();
+    // Invites ships "Not counted yet": nothing records one supplier adding another (219fb192).
+    assert.deepEqual(unmeasured, ['invites']);
   });
 
-  it('the five firsts still pay Papic 150 each (once-rewards are not on the ladder)', () => {
-    for (const b of ['first_booking', 'first_review', 'first_five_star', 'first_loop', 'first_first_pick'] as const) {
-      const r = BADGE_REWARDS[b];
-      assert.equal(r.shape, 'once', `${b} is not a one-time first`);
-      assert.deepEqual(r.shape === 'once' && r.reward, { kind: 'papic', units: 1 }, `${b} does not pay Papic 150`);
+  it('🏅 the five shop badges and their own steps, exactly (v86 · bc148e4e · 50566f42)', () => {
+    const steps = (b: keyof typeof BADGE_REWARDS) => ladderOf(b).map((x) => x[0]);
+    assert.deepEqual(steps('completed_bookings'), [5, 25, 50, 100, 250, 500, 1000]);
+    assert.deepEqual(steps('five_star_reviews'), [50, 250, 500, 1000, 2500, 5000, 10000]);
+    assert.deepEqual(steps('gifts_given'), [150, 750, 1500, 3000, 5000, 10000, 20000]);
+    assert.deepEqual(steps('trusted_by'), [1, 5, 10, 25, 50, 100, 250]);
+    assert.deepEqual(steps('invites'), [1, 5, 10, 25, 50, 100, 250]);
+    for (const b of ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'] as const) {
+      assert.deepEqual(
+        ladderOf(b).map((x) => x[1]),
+        ['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6', 'tier7'],
+        `${b} climbs Bronze → Black Diamond`,
+      );
     }
+  });
+
+  it('🗄 every other badge is retired (4b8cc3a3): nothing new is ever granted for it', () => {
+    const retired = Object.values(BADGE_REWARDS).filter((r) => r.retired).map((r) => r.badge).sort();
+    assert.deepEqual(retired, [
+      'booked_loop',
+      'branches',
+      'events',
+      'first_booking',
+      'first_first_pick',
+      'first_five_star',
+      'first_loop',
+      'first_pick',
+      'first_review',
+      'inspiration',
+      'reviews',
+      'service_cards',
+    ]);
+    const everything = rewardsOwed({
+      ...NONE,
+      verified: false,
+      firstSourcedBooking: true,
+      completedEvents: 4,
+      trustedReviews: 900,
+      branchIds: ['b1', 'b2', 'b3'],
+      serviceCards: 20,
+      inspirationPhotos: 250,
+      bookedLoops: 0,
+      fiveStarReviews: 49,
+    });
+    assert.deepEqual(everything, [], 'a retired ladder pays nothing, however high its count');
   });
 });
 
 describe('exactly-once keys', () => {
-  it('name the badge and its step, period or item — distinct, stable', () => {
+  it('a tiered badge is keyed by its TIER; a period by its month', () => {
     assert.equal(rewardKey('verified'), 'verified');
-    assert.equal(rewardKey('events', 50), 'events:50');
-    assert.equal(rewardKey('branches', 2), 'branches:2');
-    assert.equal(rewardKey('service_cards', 3), 'service_cards:3');
-    assert.equal(rewardKey('first_review'), 'first_review');
+    assert.equal(rewardKey('completed_bookings', 'tier3'), 'completed_bookings:tier3');
     const owed = rewardsOwed({
       ...NONE,
       awards: [
@@ -191,64 +228,72 @@ describe('exactly-once keys', () => {
     });
     assert.deepEqual(owed.map((o) => o.key), ['award:rising:2026-10-01', 'award:rising:2026-11-01'], 'one per award per month');
   });
+
+  it('♾ a tier pays ONCE, EVER — an existing row blocks it, an old-ladder row blocks the tier it was told (3cbf12c1)', () => {
+    const owed = rewardsOwed({ ...NONE, completedEvents: 60, fiveStarReviews: 260 });
+    assert.deepEqual(owed.map((o) => o.key), [
+      'completed_bookings:tier1',
+      'completed_bookings:tier2',
+      'completed_bookings:tier3',
+      'five_star_reviews:tier1',
+      'five_star_reviews:tier2',
+    ]);
+    // The same tier already paid under its own key — never again.
+    assert.deepEqual(
+      notYetPaid(owed, ['completed_bookings:tier1']).map((o) => o.key),
+      ['completed_bookings:tier2', 'completed_bookings:tier3', 'five_star_reviews:tier1', 'five_star_reviews:tier2'],
+    );
+    // An OLD payment: `events:50` was Silver on the old Events ladder → Silver Completed bookings is spent;
+    // `reviews:5` was Bronze on the old Reviews ladder → Bronze Five-star reviews is spent.
+    assert.deepEqual(
+      notYetPaid(owed, ['events:50', 'reviews:5']).map((o) => o.key),
+      ['completed_bookings:tier1', 'completed_bookings:tier3', 'five_star_reviews:tier2'],
+    );
+    // A retired badge with no successor blocks nothing (what it paid simply stays).
+    assert.equal(notYetPaid(owed, ['booked_loop:1', 'service_cards:3', 'first_loop', 'verified']).length, owed.length);
+    assert.deepEqual([...paidTiers(['events:10', 'events:999', 'trusted_by:5', 'gifts_given:tier7'])].sort(), [
+      'completed_bookings:tier1',
+      'gifts_given:tier7',
+      'trusted_by:tier2',
+    ]);
+  });
 });
 
 describe('what a shop is owed', () => {
   it('nothing for an unread or unmeasured badge — never a zero, never a guess', () => {
     assert.deepEqual(rewardsOwed(NONE), []);
-    // 🔁 THE ONE BUILD (spec §9 #11): the Booked Loop pays Event Plus at each step reached, and its first Papic 150 —
-    // only from a READ count; unread (null or absent) pays nothing.
-    const loop = rewardsOwed({ ...NONE, bookedLoops: 5 });
-    assert.deepEqual(loop.map((o) => o.key).sort(), ['booked_loop:1', 'booked_loop:5', 'first_loop']);
-    assert.ok(loop.filter((o) => o.badge === 'booked_loop').every((o) => o.reward.kind === 'papic'), 'Bronze and Silver pay Papic 150');
-    // ⭐ 15 Nov: the first 5★ review and Trusted by — only from a READ count.
-    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: null, trustedBy: null }), []);
-    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0 }), []);
-    const fresh = rewardsOwed({ ...NONE, fiveStarReviews: 3, trustedBy: 12 });
-    assert.deepEqual(fresh.map((o) => o.key).sort(), ['first_five_star', 'trusted_by:1', 'trusted_by:10', 'trusted_by:5']);
-    assert.deepEqual(fresh.find((o) => o.key === 'trusted_by:10')!.reward, { kind: 'papic', units: 1, pack: 'papic_1000' });
-    assert.equal(fresh.find((o) => o.key === 'trusted_by:10')!.tier, 'tier3');
-    assert.deepEqual(rewardsOwed({ ...NONE, bookedLoops: null }), []);
-    assert.deepEqual(rewardsOwed({ ...NONE, bookedLoops: 0 }), []);
-    assert.deepEqual(rewardsOwed({ ...NONE, verified: false, firstSourcedBooking: false, completedEvents: 9, trustedReviews: 0, serviceCards: 2, inspirationPhotos: 9, branchIds: ['b1'] }), []);
-    // ⚖ 8 Nov: 4 reviews is below the Reviews ladder, but the FIRST review already paid.
-    assert.deepEqual(rewardsOwed({ ...NONE, trustedReviews: 4 }).map((o) => o.key), ['first_review']);
+    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: null, trustedBy: null, giftPoints: null, invites: null }), []);
+    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0, giftPoints: 0, completedEvents: 0 }), []);
+    // Invites has no counter yet: even a count handed in pays nothing.
+    assert.deepEqual(rewardsOwed({ ...NONE, invites: 250 }), []);
   });
 
-  it('every reached step, each with its own reward', () => {
-    const owed = rewardsOwed({
-      ...NONE,
-      verified: true,
-      firstSourcedBooking: true,
-      completedEvents: 1200,
-      trustedReviews: 12,
-      branchIds: ['b1', 'b1', 'b2'],
-      serviceCards: 6,
-      inspirationPhotos: 30,
-    });
+  it('every reached tier, each paying the one ladder', () => {
+    const owed = rewardsOwed({ ...NONE, verified: true, completedEvents: 1200, giftPoints: 1500, trustedBy: 12 });
     const byKey = Object.fromEntries(owed.map((o) => [o.key, o.reward]));
     assert.deepEqual(Object.keys(byKey).sort(), [
-      'branches:2',
-      'events:10',
-      'events:100',
-      'events:1000',
-      'events:50',
-      'events:500',
-      'first_booking',
-      'first_review',
-      'inspiration:10',
-      'inspiration:25',
-      'reviews:10',
-      'reviews:5',
-      'service_cards:3',
-      'service_cards:6',
+      'completed_bookings:tier1',
+      'completed_bookings:tier2',
+      'completed_bookings:tier3',
+      'completed_bookings:tier4',
+      'completed_bookings:tier5',
+      'completed_bookings:tier6',
+      'completed_bookings:tier7',
+      'gifts_given:tier1',
+      'gifts_given:tier2',
+      'gifts_given:tier3',
+      'trusted_by:tier1',
+      'trusted_by:tier2',
+      'trusted_by:tier3',
       'verified',
     ]);
-    for (const k of ['branches:2', 'service_cards:6', 'inspiration:25', 'first_review']) assert.deepEqual(byKey[k], { kind: 'papic', units: 1 });
-    assert.deepEqual(byKey['events:100'], { kind: 'papic', units: 1, pack: 'papic_1000' });
-    assert.deepEqual(byKey['events:500'], { kind: 'papic', units: 1, pack: 'papic_3000' });
-    assert.deepEqual(byKey['events:1000'], { kind: 'event_plus', units: 1 }, 'Emerald — no longer a free booking fee');
-    assert.equal(owed.find((o) => o.key === 'events:50')!.note, 'Badge reward · 50 events · Silver');
+    assert.deepEqual(byKey['completed_bookings:tier1'], { kind: 'papic', units: 1 });
+    assert.deepEqual(byKey['gifts_given:tier3'], { kind: 'papic', units: 1, pack: 'papic_1000' });
+    assert.deepEqual(byKey['completed_bookings:tier4'], { kind: 'papic', units: 1, pack: 'papic_3000' });
+    assert.deepEqual(byKey['completed_bookings:tier5'], { kind: 'event_plus', units: 1 });
+    assert.deepEqual(byKey['completed_bookings:tier6'], { kind: 'event_pro', units: 1 });
+    assert.deepEqual(byKey['completed_bookings:tier7'], { kind: 'event_ultra', units: 1 });
+    assert.equal(owed.find((o) => o.key === 'gifts_given:tier2')!.note, 'Badge reward · Gifts given · Silver');
   });
 });
 
@@ -270,7 +315,8 @@ describe('the badge page lines', () => {
     assert.equal(rewardLineFor('inspiration', null, null, [], NAMES).next, 'First reward: 10 photos → Papic 150');
     assert.equal(rewardLineFor('inspiration', 12, null, [], NAMES).next, 'Next: 25 photos · Silver · 13 to go → Papic 150');
     assert.equal(rewardLineFor('branches', 1, null, [], NAMES).next, 'Next: 2 branches · Bronze · 1 to go → Papic 150');
-    assert.equal(rewardLineFor('trusted_by', 7, null, [], NAMES).next, 'Next: 10 suppliers who recommend you · Gold · 3 to go → Papic 1000');
+    assert.equal(rewardLineFor('trusted_by', 7, null, [], NAMES).next, 'Next: 10 clients who came back · Gold · 3 to go → Papic 1000');
+    assert.equal(rewardLineFor('gifts_given', 100, null, [], NAMES).next, 'Next: 150 gift points · Bronze · 50 to go → Papic 150');
     assert.equal(rewardLineFor('first_five_star', null, null, null, NAMES).next, 'When you earn it → Papic 150');
   });
 
@@ -449,5 +495,13 @@ describe('🏅 owner 2026-11-05 on the draft — the gift stays, a cancelled boo
     assert.equal(s.history[0]!.state, 'waiting');
     assert.equal(s.history[0]!.line, '1,000 events · earned Nov 5 · back Nov 8');
     assert.match(s.history[1]!.sentence, /your couple still got the Setnayan gift, 1,000 Papic photos$/);
+  });
+});
+
+describe('🏅 a tier-keyed reward reads its tier and step (award dates)', () => {
+  it('completed_bookings:tier3 is Gold at 50', () => {
+    assert.deepEqual(tierOfRewardKey('completed_bookings:tier3'), { step: 50, tier: 'tier3' });
+    assert.deepEqual(tierOfRewardKey('gifts_given:tier7'), { step: 20000, tier: 'tier7' });
+    assert.equal(rewardSourceWords('five_star_reviews:tier2'), 'Five-star reviews · Silver');
   });
 });

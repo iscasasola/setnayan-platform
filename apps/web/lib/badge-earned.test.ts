@@ -1,21 +1,23 @@
 /**
- * 🏅💌 "You earned …" — the owner's warm copy, verbatim (controller build map 2026-11-15, "Make the suppliers feel
- * loved"), and ONE notice per sweep. Sabotage seen red: swap "tap to claim it" for "claim it" → red; pick the first
- * paid instead of the highest tier → red.
+ * 🏅💌 "You earned …" — the owner's warm copy (controller build map 2026-11-15, "Make the suppliers feel loved"), and
+ * ONE notice per sweep. Since the reward is claimed AUTOMATICALLY (e5ec685d pick 2) the body says it is in the shop's
+ * gifts, the button is "See it", and it opens Today — never Shop › Promote. Sabotage seen red: put "tap to claim" back
+ * → red; point the notice at /shop/promote → red; pick the first paid instead of the highest tier → red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell } from './badge-earned';
+import { BADGE_EARNED_CTA, BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell } from './badge-earned';
 
 const BODY = (r: string) =>
-  `Every family you served got you here. Thank you for making their day. Your ${r} is waiting — tap to claim it.`;
+  `Every family you served got you here. Thank you for making their day. Your ${r} is in your gifts.`;
 
 test('a laddered badge: "You earned {Tier} {Badge}, {Shop}!" and the body verbatim', () => {
-  const n = badgeEarnedNotice({ key: 'events:100', badge: 'events', tier: 'tier3', shopName: 'Lumen Studio', reward: 'Papic 1000' });
-  assert.equal(n.title, 'You earned Gold Events, Lumen Studio!');
+  const n = badgeEarnedNotice({ key: 'completed_bookings:tier3', badge: 'completed_bookings', tier: 'tier3', shopName: 'Lumen Studio', reward: 'Papic 1000' });
+  assert.equal(n.title, 'You earned Gold Completed bookings, Lumen Studio!');
+  assert.doesNotMatch(n.body, /tap to claim/i, 'the reward is claimed automatically — nothing to tap');
   assert.equal(n.body, BODY('Papic 1000'));
   assert.equal(
-    badgeEarnedNotice({ key: 'trusted_by:5', badge: 'trusted_by', tier: 'tier2', shopName: 'Lumen', reward: 'Papic 150' }).title,
+    badgeEarnedNotice({ key: 'trusted_by:tier2', badge: 'trusted_by', tier: 'tier2', shopName: 'Lumen', reward: 'Papic 150' }).title,
     'You earned Silver Trusted by, Lumen!',
   );
 });
@@ -36,6 +38,21 @@ test('one notice per sweep: the highest tier it paid', () => {
   assert.equal(pickBadgeToTell(onceOnly)!.key, 'verified');
 });
 
-test('it opens where the reward waits to be claimed', () => {
-  assert.equal(BADGE_EARNED_HREF, '/vendor-dashboard/shop/promote#gifts');
+test('it opens Today, where the award plays — never Shop › Promote — and its button is "See it"', () => {
+  assert.equal(BADGE_EARNED_HREF, '/vendor-dashboard');
+  assert.doesNotMatch(BADGE_EARNED_HREF, /promote/);
+  assert.equal(BADGE_EARNED_CTA, 'See it');
+});
+
+test('the five shop badges carry their names exactly (a33fd894) — never "Events", "Reviews" or "Gift points"', () => {
+  for (const [badge, name] of [
+    ['completed_bookings', 'Completed bookings'],
+    ['five_star_reviews', 'Five-star reviews'],
+    ['gifts_given', 'Gifts given'],
+    ['trusted_by', 'Trusted by'],
+    ['invites', 'Invites'],
+  ] as const) {
+    const t = badgeEarnedNotice({ key: `${badge}:tier1`, badge, tier: 'tier1', shopName: null, reward: 'Papic 150' }).title;
+    assert.equal(t, `You earned Bronze ${name}!`);
+  }
 });

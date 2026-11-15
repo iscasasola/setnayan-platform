@@ -70,7 +70,9 @@ function functionBodies(code: string): Map<string, string> {
  * on purpose, with its volatility checked, or the guard goes red.
  */
 // + shop_trusted_five_star_count (2026-11-15): a STABLE SQL count, no write (migration a_shop_counts_its_five_star_reviews).
-const READ_ONLY_RPCS = ['shop_booked_loop_count', 'shop_trusted_five_star_count'];
+// + shop_gift_points (2026-11-15, J0): a STABLE SQL sum, no write (migration 20271349129379_award_flow_gift_points_and_auto_claim).
+// ⛔ NOT shop_badge_rewards_auto_claim — that one WRITES claims and is called only from the grant sweep.
+const READ_ONLY_RPCS = ['shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points'];
 const WRITE = new RegExp(String.raw`\.(insert|update|upsert|delete)\s*\(|\bgrantOwed\w*\s*\(|\.rpc\(\s*(?!'(?:${READ_ONLY_RPCS.join('|')})')`);
 
 test('1 · the badge tracker, and every reader it reaches, never writes', () => {

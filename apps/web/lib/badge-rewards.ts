@@ -938,6 +938,9 @@ export function tierOfRewardKey(key: string): { step: number; tier: TierKey } | 
   const [head, part] = key.split(':');
   const rule = (BADGE_REWARDS as Readonly<Record<string, BadgeRewardRule>>)[head ?? ''];
   if (!rule || rule.shape !== 'ladder') return null;
+  // A tier-keyed reward (`completed_bookings:tier3`, 15 Nov): its tier, and the step that tier sits at.
+  const byTier = rule.steps.find((s) => s.tier === part);
+  if (byTier && byTier.tier) return { step: byTier.step, tier: byTier.tier };
   const step = Number(part);
   const i = rule.steps.findIndex((s) => s.step === step);
   return i < 0 ? null : { step, tier: rule.steps[i]!.tier ?? tierKeyAt(i) };

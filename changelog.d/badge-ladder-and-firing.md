@@ -13,3 +13,37 @@ Owner rulings of 15 Nov (corpus DECISION_LOG 2026-11-15, "SUPPLIER BADGES, SEALS
 Migrations: `20271346425846_notification_type_badge_earned` (enum value, its own file) · `20271347341362_a_shop_counts_its_five_star_reviews` (read-only function, service_role only) · `20271348181787_black_diamond_gives_event_ultra` (Ultra gift path).
 
 SPEC IMPACT: None new — implements DECISION_LOG 2026-11-15 as written. Flagged for the owner in the PR: Event Ultra is earned-only (not sold to shops as a bought gift — no gift price set); canvas prints still open for an admin comp of Ultra (a deliberate full-plan grant at every gate), while the photo hold does not; one notice per sweep (the highest tier).
+
+## 2026-11-15 · feat(badges): J0 — five shop badges by tier, gift points, rewards claimed at the grant, the award queue and its resume point
+
+Controller's J0 brief on the later 15 Nov rulings (corpus DECISION_LOG 2026-11-15, e5ec685d · bc148e4e · 4b8cc3a3). Supersedes two lines of the block above: **Trusted by is no longer partnerships**, and **there is no claim step**.
+
+- **The five shop badges** (`SHOP_BADGE_STEPS` in `lib/badge-tiers.ts`, one per tier Bronze → Black Diamond):
+  - **Completed bookings** — 5 · 25 · 50 · 100 · 250 · 500 · 1,000
+  - **Five-star reviews** — 50 · 250 · 500 · 1,000 · 2,500 · 5,000 · 10,000
+  - **Gifts given** — 150 · 750 · 1,500 · 3,000 · 5,000 · 10,000 · 20,000 points
+  - **Trusted by** — 1 · 5 · 10 · 25 · 50 · 100 · 250 clients who booked the shop again for another event, each counted once (`shop_booked_loop_count`)
+  - **Invites** — the same steps. It ships as "Not counted yet", because no record of a supplier bringing in another supplier exists.
+  - `MILESTONE_THRESHOLDS` is untouched; its readers are unchanged.
+- **Retired ladders grant nothing new, and keep what they gave**: Booked Loop · 1st Pick · Service cards · Inspiration box · Branches · the Firsts · the old Reviews and Events ladders. This is code only, so no row is revoked.
+  - A new reward key is `badge:tierN`.
+  - A step already paid on the old Events, Reviews or Trusted-by ladder blocks the same tier on the new ladder, so nothing pays twice.
+- **Gift points** (`lib/gift-points.ts` + SQL twin `gift_points_for_price`): one point per ₱10 of the gift's regular price, rounded off to one significant figure. ₱99 → 10 · ₱499 → 50 · ₱999 → 100 · ₱2,990 → 300 · ₱5,690 → 600 · ₱9,990 → 1,000.
+  - `shop_gift_points(shop)` (service role only) counts a gift only once it was given, and only on an event whose booking with the shop is delivered or complete.
+  - Prices come from `platform_retail_catalog_v2` only.
+- **Rewards are claimed at the grant**: `shop_badge_rewards_auto_claim(shop)` claims every unclaimed reward through the same once-only key (`gift_moment_claims_once`). It runs after every grant sweep. A second run claims nothing, and no stock moves.
+- **"See it", not "tap to claim"**: the notice and email button reads See it and opens Today. It never links to Promote.
+- **The award queue** (`lib/award-queue.ts`, pure): No. 1 → the other seals → badges in the order earned.
+  - One Today line: News until opened.
+  - A flow left midway becomes a To do, "Continue … · 4 of 9", and resumes at that exact step (`shop_award_flow_progress`, RLS at create; the shop reads its own; no session writes it).
+  - Both are written and read through the existing `/api/vendor/badges` (GET `?view=awards`, POST `{flow, step, total, done}`). No new route and no new server action.
+- **New notice types** `seal_awarded` and `card_badge_earned`, in the enum and the TS union. They are named debt in `ugat-both-ends.baseline.txt` until J4 (the seal player) and J3 (the service-card badges) emit them. Today's grant keeps sending `badge_earned`, which is the one on the email allowlist.
+- A read that fails answers null, never 0: the gift-points read, the queue and the flow progress.
+
+Migrations: `20271348804021_notification_types_seal_and_card_badge` (enum values, their own file) · `20271349129379_award_flow_gift_points_and_auto_claim` (add-only).
+
+SPEC IMPACT: None new — implements the controller's J0 brief from DECISION_LOG 2026-11-15. Flagged for the owner in the PR:
+- Event Ultra's gift points use its regular price (₱9,990 → 1,000, as ruled); the brief had said to leave it empty.
+- Trusted by counts a returning client from their second booking (contracted or later), not only once the second event is complete.
+- A Booked Loop reward already given does not block Trusted by Bronze.
+- Invites is not counted yet.

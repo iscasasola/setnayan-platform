@@ -14405,10 +14405,10 @@
         "bookingFeeDispute"
       ],
       "blocks": [
+        "ActionButton",
         "CopyButton",
         "DetailPageSkeleton",
         "DisputeNoteField",
-        "Link",
         "PageMasthead",
         "PaymentChannelName",
         "ShopNotice",
@@ -14993,9 +14993,10 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ContractCard",
         "ContractsEmptyState",
-        "Link"
+        "InfoTip"
       ]
     },
     "/vendor-dashboard/contracts/[contractId]": {
@@ -15279,8 +15280,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "InfoTip",
         "ListPageSkeleton",
-        "ShopCard",
         "SignalTile"
       ]
     },

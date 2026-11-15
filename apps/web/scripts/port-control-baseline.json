@@ -13898,6 +13898,9 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/check-a-date-link.tsx",
+        "v/[slug]/_components/check-a-date-over-shop-view.tsx",
+        "v/[slug]/_components/check-a-date-over-shop.tsx",
+        "v/[slug]/_components/check-a-date-sheet.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
@@ -13949,7 +13952,12 @@
         "CardPortfolioSection",
         "CardRecordSection",
         "CardReviewsBlock",
+        "CheckADateCalendar",
         "CheckADateLink",
+        "CheckADateOverShop",
+        "CheckADateOverShopView",
+        "CheckADateSheet",
+        "CheckADateUnreadableView",
         "ChosenRow",
         "ComingSoonBanner",
         "DemoOnlyMarker",
@@ -13982,6 +13990,7 @@
         "Name",
         "NotYetVerifiedNotice",
         "OpenDatesPeek",
+        "OverlayBackdrop",
         "PackageCard",
         "PeekDay",
         "PhotosByServiceRow",
@@ -14031,6 +14040,7 @@
         "Step",
         "StorytellerTile",
         "SubmitButton",
+        "Suspense",
         "SwitchRow",
         "TeamPreviewBanner",
         "Tile",
@@ -14085,6 +14095,7 @@
     "/v/[slug]/dates": {
       "files": [
         "v/[slug]/dates/_components/check-a-date-calendar.tsx",
+        "v/[slug]/dates/_components/seat-months.tsx",
         "v/[slug]/dates/page.tsx"
       ],
       "destinations": [
@@ -14094,12 +14105,11 @@
       "actions": [],
       "blocks": [
         "ActionButton",
-        "CalendarGrid",
-        "CheckADateCalendar",
         "ChosenRow",
         "DemoOnlyMarker",
         "FormRows",
-        "Metadata",
+        "HTMLDivElement",
+        "SeatMonths",
         "Sheet",
         "SignInHereLink",
         "Step",

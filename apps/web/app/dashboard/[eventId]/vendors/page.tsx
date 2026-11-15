@@ -183,7 +183,7 @@ import {
   formatDayKey,
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
-import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { CONFIRMED_VENDOR_STATUSES, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
@@ -730,7 +730,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -814,7 +814,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .eq('event_id', eventId)
         .eq('kind', 'claim')
         .eq('status', 'answered'),
+      // 📖 CYC-15b (owner 2026-11-15, DECISION_LOG e8650540): each picked shop's confirmed bookings on Setnayan, so a
+      // shop with bookings and no reviews reads "No reviews yet", never "New to Setnayan". Same round trip; one column.
+      enrichmentAdmin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .in('marketplace_vendor_id', marketplaceIds)
+        .in('status', [...CONFIRMED_VENDOR_STATUSES]),
     ]);
+    // A refused read is UNKNOWN (null), never 0 — 0 would call an established shop "New".
+    if (bookedRes.error) logQueryError('dashboard/[eventId]/vendors/page.tsx: booked counts', bookedRes.error, { event_id: eventId });
+    const bookedByProfile = bookedRes.error ? null : new Map<string, number>();
+    for (const r of ((bookedRes.data as { marketplace_vendor_id: string | null }[] | null) ?? [])) {
+      if (bookedByProfile && r.marketplace_vendor_id) bookedByProfile.set(r.marketplace_vendor_id, (bookedByProfile.get(r.marketplace_vendor_id) ?? 0) + 1);
+    }
     if (claimAsksRes.error) {
       // Refused → nobody is revealed and nothing is marked: the anonymous name is the safe side to fail on.
       logQueryError('dashboard/[eventId]/vendors/page.tsx: answered claim asks', claimAsksRes.error, { event_id: eventId });
@@ -1018,6 +1031,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
+        booked_count: bookedByProfile ? (bookedByProfile.get(pid) ?? 0) : null,
         // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
         // deadline (hasVerifiedBadge), separate from public_visibility
         // (listing/bookability, untouched — stays listed past the deadline).

@@ -30,6 +30,8 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const LIST = 'app/(shell)/articles/page.tsx';
 const TOPIC = 'app/(shell)/articles/[topicId]/page.tsx';
+/** What the topic page draws (shared with the dev lab). */
+const VIEW = 'app/(shell)/articles/_components/thread-view.tsx';
 
 test('the topic list is inside the account', () => {
   const src = code(LIST);
@@ -46,22 +48,28 @@ test("a topic's exact link opens read-only when signed out", () => {
   assert.ok(!/\bredirect\(/.test(src), 'the topic page must never send a signed-out reader away');
   assert.match(src, /getCurrentUser\(\)/);
   assert.match(src, /readArticleThread\(topicId, user\?\.id \?\? null\)/, 'it reads the topic for anyone');
+  assert.match(src, /signedIn=\{signedIn\}/, 'the view is told whether the reader is signed in');
+  assert.match(src, /const signedIn = Boolean\(user\);/);
   // The composer lives only on the signed-in branch, after the signed-out one.
-  const signedOut = src.indexOf('!signedIn ? (');
-  const composer = src.indexOf('<ReplyComposer');
+  const view = code(VIEW);
+  const signedOut = view.indexOf('!signedIn ? (');
+  const composer = view.indexOf('<ReplyComposer');
   assert.ok(signedOut > 0 && composer > signedOut, 'ReplyComposer must sit behind the signed-out branch');
-  assert.match(src, /Sign in to reply/);
+  assert.match(view, /Sign in to reply/);
   // Report is offered only to a signed-in reader.
-  for (const m of src.matchAll(/<ReportPageButton/g)) {
-    const before = src.slice(Math.max(0, (m.index ?? 0) - 200), m.index);
+  let reports = 0;
+  for (const m of view.matchAll(/<ReportPageButton/g)) {
+    reports++;
+    const before = view.slice(Math.max(0, (m.index ?? 0) - 200), m.index);
     assert.match(before, /signedIn &&/, 'Report must be signed-in only');
   }
+  assert.equal(reports, 2, 'a topic and each reply carry Report');
   // The desktop list pane is signed-in only too (the list is inside the account).
   assert.match(src, /signedIn \? listArticleTopics\(/);
 });
 
 test('report reuses the shipped sheet and the one queue', () => {
-  const topic = code(TOPIC);
+  const topic = code(VIEW);
   assert.match(topic, /import \{ ReportPageButton \} from '@\/app\/_components\/report-page-button'/);
   assert.match(topic, /targetType="article_topic"/);
   assert.match(topic, /kind="article_reply"/);

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, Layers, PenLine, Plus, Search } from 'lucide-react';
 
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { Badge } from '@/app/_components/badge';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, X } from 'lucide-react';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { InfoTip } from '@/app/_components/info-tip';
 import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { CardPick } from '../../services/requests/_components/card-pick';

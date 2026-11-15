@@ -7,7 +7,7 @@ import {
 } from '@/lib/reviews';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TemplateEmpty } from '@/app/_components/template-rows';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { formatCount } from '@/lib/format-number';
 import { postVendorReply, submitFlagAsFake } from '../../reviews/actions';
 import { FlagReasonPick } from './flag-reason-pick';

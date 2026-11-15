@@ -19,7 +19,8 @@ import { formatEventDate } from '@/lib/events';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   TEMPLATE_MONEY,
   TEMPLATE_SUBLINE,

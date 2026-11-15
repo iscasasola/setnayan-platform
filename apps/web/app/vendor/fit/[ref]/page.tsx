@@ -26,7 +26,8 @@ import { categoryForTile } from '@/lib/shortlist-taxonomy';
 import type { WeddingTile } from '@/lib/taxonomy';
 import { formatPhpRounded } from '@/lib/php';
 import { computeVendorFit, type FitCheck } from '@/lib/vendor-fit-qr';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { Badge } from '@/app/_components/badge';
 import {
   TEMPLATE_MONEY,

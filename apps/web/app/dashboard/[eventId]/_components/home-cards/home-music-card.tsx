@@ -80,7 +80,7 @@ export async function HomeMusicCard({ eventId, name, brand }: { eventId: string;
             control={
               <Link
                 href={`/dashboard/${eventId}/website/editor?open=music`}
-                className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink"
+                className="inline-flex items-center gap-1 text-[13px] font-medium text-ink/75 hover:text-ink"
                 data-home-music-source=""
               >
                 Change

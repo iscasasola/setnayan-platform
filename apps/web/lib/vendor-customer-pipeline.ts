@@ -188,6 +188,12 @@ export type PipelineInput = {
    */
   descriptor: string;
   eventDate: string | null;
+  /**
+   * 📅 F-W1-47: no day fixed, but the couple named exactly ONE candidate day (`events.date_candidates`) — the day the
+   * list files the client under (Group by day / Sort by date), so a client is not listed under "No date yet" beside a
+   * row that names its day. The row's own words still say the day is not set.
+   */
+  onlyCandidateDate?: string | null;
   /** Venue name. Shown on every lane, like the name. */
   place: string | null;
   /**
@@ -234,6 +240,12 @@ export type PipelineCustomer = {
    */
   identityRevealed: boolean;
   eventDate: string | null;
+  /**
+   * 📅 F-W1-47: no day fixed, but the couple named exactly ONE candidate day (`events.date_candidates`) — the day the
+   * list files the client under (Group by day / Sort by date), so a client is not listed under "No date yet" beside a
+   * row that names its day. The row's own words still say the day is not set.
+   */
+  onlyCandidateDate?: string | null;
   place: string | null;
   threadId: string | null;
   eventVendorId: string | null;
@@ -371,6 +383,7 @@ export function customerLaneOf(
     title: name ?? input.descriptor,
     identityRevealed,
     eventDate: input.eventDate,
+    onlyCandidateDate: input.eventDate ? null : (input.onlyCandidateDate ?? null),
     place: input.place,
     threadId: thread?.threadId ?? null,
     eventVendorId: booking?.eventVendorId ?? null,
@@ -470,4 +483,16 @@ export function waitingDays(since: string | null, now: number): number | null {
   const t = Date.parse(since);
   if (!Number.isFinite(t)) return null;
   return Math.max(0, Math.floor((now - t) / 86_400_000));
+}
+
+/** 📅 F-W1-47: the day a client files under — its fixed day, else its one candidate day, else none. */
+export function clientFilingDate(r: { eventDate: string | null; onlyCandidateDate?: string | null }): string | null {
+  return r.eventDate ?? r.onlyCandidateDate ?? null;
+}
+
+/** 📅 The one candidate day of an event with no fixed day — null for none, several, or anything that is not a day. */
+export function onlyCandidateDay(candidates: unknown): string | null {
+  if (!Array.isArray(candidates) || candidates.length !== 1) return null;
+  const v = candidates[0];
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.slice(0, 10)) ? v.slice(0, 10) : null;
 }

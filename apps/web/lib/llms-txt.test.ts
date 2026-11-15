@@ -207,19 +207,19 @@ test('the retired subdomain is gone from the rendered file', () => {
 test('the monogram no longer promises the LED background — and is no longer sold on its own', () => {
   const out = renderLlmsTxt(INPUT);
   // The standalone Animated Monogram was retired from sale on 2026-10-22 (#6781, migration
-  // 20271283592608): the animation is Event Hub PRO's Logo & QR part. Its last mention — the
+  // 20271283592608): the animation is Event Pro's Logo & QR part. Its last mention — the
   // /palogo link label — read as a product a model would recommend buying (live check 2026-10-23).
   // SABOTAGE: put "[Animated Monogram](…/palogo)" back in lib/llms-txt.ts → RED.
   assert.ok(
     !/Animated Monogram/.test(out),
     'llms.txt still names the Animated Monogram, which is no longer sold — the animation is ' +
-      "Event Hub PRO's Logo & QR part. Name /palogo \"Logo Maker\".",
+      "Event Pro's Logo & QR part. Name /palogo \"Logo Maker\".",
   );
   assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
-  // 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the animation's
-  // home is Event Hub PRO itself, named on the Monogram Maker's own line.
+  // 2026-10-26 (owner, "just have the upgrade Event Pro"): the Logo & QR part is off sale too — the animation's
+  // home is Event Pro itself, named on the Monogram Maker's own line.
   assert.match(out, /\*\*Monogram Maker\*\* — free\.[^\n]*Event Pro animates it/, "the animation's real home (Event Pro) must still be named");
-  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Hub PRO part by part');
+  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Pro part by part');
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +

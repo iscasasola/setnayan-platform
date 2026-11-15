@@ -1035,7 +1035,10 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     };
     const visit = (n: import('typescript').Node) => {
       const says =
-        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && SELLS.test(n.text);
+        // The fixed text of a template counts too (RW-306, 2026-11-14): `Unlock ${planName}` sells exactly as
+        // 'Unlock Event Pro' did, and a scan that skipped templates would go blind the moment a name is read, not typed.
+        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) &&
+        SELLS.test(n.text);
       if (says && inJsx(n)) {
         if (isGated(n)) gated++;
         else if (DECIDED_ELSEWHERE.has(rel)) listed++;

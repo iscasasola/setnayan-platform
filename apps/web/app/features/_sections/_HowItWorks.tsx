@@ -5,7 +5,7 @@ import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 // How it works — who's who on Setnayan and how the flow connects.
 //
 // 🧾 BUILD 6 LANE J (owner 10 Nov: "/features Fix this as well") — four claims corrected, both locales:
-//   · the host's add-ons named the retired "Event Hub Pro" and sold Setnayan AI on its own (it comes inside Event
+//   · the host's add-ons named the retired "Event Pro" and sold Setnayan AI on its own (it comes inside Event
 //     Plus and Event Pro since 4 Nov) → the two plans + the add-ons that are sold;
 //   · the supplier was "Free profile, optional paid tier" → Free · Verified · Solo · Pro · Ultra;
 //   · "Reply-only chat — hosts reach out" → suppliers bring and import their own clients and chat with them;

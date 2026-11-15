@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
+import { readAlbumTags } from '@/lib/inspiration-tags.server';
+import { albumInspirations } from '@/lib/inspiration-tags';
 import { ALBUM_STRIP_MAX, albumLine, bookedOnRows, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { TheirWorkList, type TheirOwnUploadsView } from './their-work-list';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -40,6 +42,14 @@ export default async function TheirWorkPage() {
     readShopWork(createAdminClient(), { vendorProfileId: profile.vendor_profile_id }).catch(() => null),
     readOwnUploads(supabase, profile.vendor_profile_id),
   ]);
+  // 🏷 Frame 7 (DECISION_LOG 2026-11-14): the inspirations each album's photos are in. Unread → no row, never a wrong one.
+  const tags = work
+    ? await readAlbumTags(
+        createAdminClient(),
+        profile.vendor_profile_id,
+        work.albums.flatMap((a) => a.photos.filter((ph) => ph.from === 'files').map((ph) => ph.key.slice('files:'.length))),
+      )
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6" data-their-work="">
@@ -63,6 +73,7 @@ export default async function TheirWorkPage() {
                   urls,
                   more: Math.max(0, a.photos.length - urls.length),
                   bookedOn: rows.map((r) => ({ ...r, href: `/vendor-dashboard/services/${r.serviceId}` })),
+                  inspirations: tags ? albumInspirations(a.photos.map((ph) => ph.key), tags).map((i) => i.label) : [],
                 };
               })
         }

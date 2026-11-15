@@ -70,7 +70,7 @@ async function newVendor(
     `UPDATE public.vendor_profiles
         SET business_name = 'Challenge Test Shop', location_city = 'Manila',
             services = ARRAY['photography']::text[],
-            verification_state = 'verified', last_verified_at = NOW(),
+            verification_state = 'verified', public_visibility = 'verified', last_verified_at = NOW(),
             tier_state = $2
       WHERE vendor_profile_id = $1`,
     [vendorProfileId, tier],

@@ -59,7 +59,7 @@ export function ShareWithVendorsButton({
 
   if (!hasVendors) {
     return (
-      <p className="text-sm text-ink/55">
+      <p className="text-sm text-ink/70">
         Once you’ve booked suppliers on Setnayan, you can share this mood board with
         them here so they can match your palette and reception design.
       </p>
@@ -73,7 +73,7 @@ export function ShareWithVendorsButton({
         onClick={share}
         disabled={pending}
         aria-busy={pending}
-        className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="ab ab-neutral disabled:cursor-not-allowed"
       >
         {pending ? (
           <>
@@ -90,7 +90,7 @@ export function ShareWithVendorsButton({
           </>
         )}
       </button>
-      <p className="text-xs text-ink/55">
+      <p className="text-xs text-ink/70">
         {doneCount !== null && doneCount > 0
           ? 'Your booked suppliers have been notified — they can open your board any time.'
           : `Notify your ${formatCount(bookedVendorCount)} booked ${

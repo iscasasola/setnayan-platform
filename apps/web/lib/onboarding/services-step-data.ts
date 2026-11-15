@@ -97,7 +97,7 @@ export type AiCardView = {
 };
 
 /**
- * Card 3 · Event Hub Pro (`COUPLE_WEBSITE_PRO`, owner 2026-09-25). Shaped like
+ * Card 3 · Event Pro (`COUPLE_WEBSITE_PRO`, owner 2026-09-25). Shaped like
  * `AiCardView` on purpose — a yes/no with a price — plus the existing Pro offer
  * sentence, already split for the card (lib/onboarding-hub-pro.ts).
  */
@@ -115,7 +115,7 @@ export type HubProCardView = {
   /** What Pro adds, behind the (i). Null ⇒ the (i) is not rendered. */
   detail: string | null;
   /**
-   * 💎 The cheapest Event Hub Pro part, read from the catalogue (owner 2026-10-22) — the (i) adds "or buy it part by
+   * 💎 The cheapest Event Pro part, read from the catalogue (owner 2026-10-22) — the (i) adds "or buy it part by
    * part later, from ₱500". Sign-up still sells ONE offer: Full Pro. Null ⇒ the sentence is not said.
    */
   partsFromPhp?: number | null;
@@ -200,7 +200,7 @@ export function buildServicesStepView(input: {
    *  sign-up one, which is the truth for a type with no discount. */
   aiListPricePhp?: number | null;
   /**
-   * Event Hub Pro's inputs, all measured server-side. Absent / null ⇒ no card.
+   * Event Pro's inputs, all measured server-side. Absent / null ⇒ no card.
    * `websiteEnabled` is `surfaceEnabled(profile, 'website')` for this type;
    * `copy` is the existing Pro offer (`addOnHeroCopy('website-pro')`).
    */
@@ -277,7 +277,7 @@ export function buildServicesStepView(input: {
 }
 
 /**
- * PURE. The Event Hub Pro card, or null. Three ways to null, all of them "do not
+ * PURE. The Event Pro card, or null. Three ways to null, all of them "do not
  * render": no Event Hub on this type, no trustworthy catalog price, no offer
  * copy to say what it is. A card that cannot say what it sells or what it costs
  * is not shown half-built.

@@ -41,13 +41,14 @@
  */
 'use client';
 
-import { EVENT_DATE_FLOOR_MESSAGE, FIRST_EVENT_DAY, eventDateMinFor } from '@/lib/event-date-floor';
+import { EVENT_DATE_FLOOR_MESSAGE, EVENT_DATE_FLOOR_ON, FIRST_EVENT_DAY, eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
 import { CalendarRange, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StepPick } from '@/app/onboarding/_shared/step-field';
 import { countNoun } from '@/lib/format-number';
+import { heatTier } from '@/lib/hot-date';
 import {
   asksHowManyDays,
   clampDays,
@@ -92,25 +93,9 @@ const fmtFull = (d: Date) => `${M_FULL[d.getMonth()]} ${d.getDate()}, ${d.getFul
 const fmtShort = (d: Date) => `${(M_FULL[d.getMonth()] ?? '').slice(0, 3)} ${d.getDate()}`;
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / DAY);
 
-/* ── predicted demand "heat" (deterministic · cold-start-safe · spec Date-Aligner §L.1).
-   Stacks the calendar signals (peak month · weekday ·
-   repeating/symbolic) into a 0–4 tier driving the cell colour ramp. This is the PREDICTED half only — the observed
-   inquiry/relative-to-supply escalation (§L.2) is deferred until the marketplace has
-   inquiry data (founder-only today → it would be dead code). Mirrors the verified
-   prototype Hot_Date_Heat_Calendar_Prototype_2026-06-09.html. */
-const HEAT_PEAK: Record<number, number> = { 11: 2, 0: 2, 1: 2, 10: 2, 3: 1, 4: 1, 9: 1 }; // getMonth() idx: Dec/Jan/Feb/Nov=2 · Apr/May/Oct=1
-export function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
-  const m = d.getMonth();
-  const dow = d.getDay();
-  const n = d.getDate();
-  let s = HEAT_PEAK[m] ?? 0;
-  if (dow === 6) s += 2; // Saturday — the prime wedding day
-  else if (dow === 5 || dow === 0) s += 1; // Friday / Sunday
-  if (m + 1 === n) s += 2; // repeating MM·DD (12/12, 11/11…)
-  if (m === 1 && n === 14) s += 2; // Valentine's
-  if (dow === 6 && m + 1 === n) s += 1; // Saturday + repeating combo
-  return s <= 0 ? 0 : s <= 2 ? 1 : s === 3 ? 2 : s <= 5 ? 3 : 4;
-}
+/* ── predicted demand "heat" — MOVED to `lib/hot-date.ts` (SHOP-02, 14 Nov 2026) so the shop's Check a date uses the
+   same rule. Re-exported here so every existing caller is unchanged. */
+export { heatTier } from '@/lib/hot-date';
 
 /* ── DATE CALENDAR — port of the prototype initCal() IIFE ──
  * Working state (multi / window / view month) lives locally; the captured
@@ -248,7 +233,7 @@ export function DateCalendar({
   /* The floor disabled a day in view: a normal account, the floor still ahead of today, and the floor's own month on
      screen past its 1st (months before it cannot be reached — Previous stops at `atMin`). */
   const floorInView =
-    sayFloor && !dateExempt && toISO(minD) === FIRST_EVENT_DAY && atMin && minD.getDate() > 1;
+    EVENT_DATE_FLOOR_ON && sayFloor && !dateExempt && toISO(minD) === FIRST_EVENT_DAY && atMin && minD.getDate() > 1;
   const atMax = view.y === maxD.getFullYear() && view.m === maxD.getMonth();
 
   /* push captured values up (persist + Phase-4 commit). */

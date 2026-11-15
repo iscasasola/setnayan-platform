@@ -89,19 +89,20 @@ test('the notifier reaches every admin, and cannot roll back the payment', () =>
   );
 });
 
-test('the alert can actually LEAVE the app', () => {
-  const src = read('lib/notification-emit.ts');
-  const list = src.slice(src.indexOf('EMAIL_ENABLED_TYPES'), src.indexOf('EMAIL_ENABLED_TYPES') + 1400);
-  assert.match(
-    list,
-    /'order_awaiting_reconciliation'/,
-    'without the allowlist entry this is a tray badge only — nobody away from the console is told',
-  );
+test('the alert can actually LEAVE the app — on the phone, not in the mail', () => {
+  // 📥 Owner 2026-11-15: "1 email a day. not every notification". Per-event admin notices are no longer EMAILED
+  // (`lib/admin/admin-notices-stay-in-the-app.ts`), so what carries "you have been paid" to someone away from the
+  // console is the phone: the type pushes as URGENT (never held for quiet hours, never bell-only). The two halves of
+  // the mechanism are now the admin notice and its push level — having only one is still having neither.
+  const levels = read('lib/push-levels.ts');
+  assert.match(levels, /order_awaiting_reconciliation: 'urgent'/, 'the payment alert is a bell badge only — nobody away from the console is told');
+  assert.match(read('lib/order-admin-notify.ts'), /emitAdminNotice\(\{\s*userId: row\.user_id as string,\s*type: 'order_awaiting_reconciliation'/);
 });
 
 test('the digest is still there as the net beneath it, not the alert itself', () => {
   // If someone later deletes the digest thinking this replaced it, the
   // "nobody was looking for three days" case comes back.
+  // 📥 2026-11-15: the digest is the admin's ONE email a day ("morning digest is fine. 1 email a day").
   const digest = read('lib/admin/digest-flush.ts');
   assert.match(digest, /admin_digest_enabled/, 'the daily net must survive');
 });

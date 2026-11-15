@@ -15,7 +15,7 @@ import { OVERSIZED_BYTES, WEB_LONG_EDGE, formatBytes } from '@/lib/old-photo-cop
 import { listStrandedDriveCopies } from '@/lib/papic-drive-copy-retry';
 import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { Facts, Sec } from '@/app/admin/app-performance/_components/insights-parts';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { formatCount } from '@/lib/format-number';
 
@@ -170,7 +170,7 @@ export default async function PapicStoragePage() {
   const oldPhotos = await listOldPhotos(admin).catch((e: unknown): OldPhotoList => ({ ok: false, error: e instanceof Error ? e.message : String(e) }));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
         title="Papic storage telemetry"
       />
@@ -180,13 +180,11 @@ export default async function PapicStoragePage() {
           into that and the 1280px display copy is ~4x heavier than the tile
           needs. Rows captured before 2026-08-13 have no tile and fall back to
           display, so this is where they get one. */}
-      <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-ink">Memory lane copies</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          The 640px copy Memory lane renders. Photos taken before it existed fall
-          back to the full-view copy — sharp, but about four times heavier than the
-          tile needs.
-        </p>
+      <section data-papic-memory-lane="">
+        <Sec
+          title="Memory lane copies"
+          about="The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Runs up to 40 per press — press again if more remain."
+        />
         <BackfillTilesButton pending={pendingTiles} />
       </section>
 
@@ -194,66 +192,65 @@ export default async function PapicStoragePage() {
           served at full size — 4.3 MB on the live Discover page that day. The count is the DRY RUN (a HEAD per object,
           nothing written); the button writes a web-size copy beside each original and points the cover at it. The
           original is never deleted, and prints keep using it. */}
-      <section className="border-t border-ink/10 pt-5" data-old-photos="">
-        <h2 className="text-base font-semibold text-ink">Make small copies of old photos</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Event covers over {formatBytes(OVERSIZED_BYTES)} get a {WEB_LONG_EDGE}px copy beside the original, and the
-          cover shows the copy. The original stays; prints still use it.
-        </p>
+      <section data-old-photos="">
+        <Sec
+          title="Small copies of old photos"
+          about={`Event covers over ${formatBytes(OVERSIZED_BYTES)} get a ${WEB_LONG_EDGE}px copy beside the original, and the cover shows the copy. The original stays; prints still use it.`}
+        />
         {!oldPhotos.ok ? (
-          <p className="mt-2 text-sm text-ink/70" role="alert">The covers could not be read just now: {oldPhotos.error}</p>
+          <p className="border-t border-ink/10 py-2.5 text-sm text-[var(--sn-warning-deep)]" role="alert">
+            The covers could not be read just now: {oldPhotos.error}
+          </p>
         ) : (
-          <>
-            <p className="mt-2 text-sm text-ink" data-old-photos-count="">
+          <OldPhotosButton oversized={oldPhotos.oversized.length}>
+            <span className="block text-[15px] font-semibold leading-tight text-ink" data-old-photos-count="">
               {oldPhotos.oversized.length === 0
                 ? `No oversized covers — ${oldPhotos.candidates} checked.`
                 : `${oldPhotos.oversized.length} oversized cover${oldPhotos.oversized.length === 1 ? '' : 's'} · ${formatBytes(oldPhotos.oversizedBytes)} in all · ${oldPhotos.candidates} checked`}
               {oldPhotos.unsized > 0 ? ` · ${oldPhotos.unsized} could not be sized` : ''}
-            </p>
+            </span>
             {oldPhotos.oversized.length > 0 ? (
-              <ul className="mt-2 space-y-1 text-xs text-ink/60">
-                {oldPhotos.oversized.slice(0, 5).map((p) => (
-                  <li key={p.originalRef}>
-                    {formatBytes(p.bytes ?? 0)} · {p.originalRef.split('/').pop()}
-                  </li>
-                ))}
-              </ul>
+              <span className="mt-px block truncate text-[13px] text-ink/65">
+                {oldPhotos.oversized
+                  .slice(0, 5)
+                  .map((p) => `${formatBytes(p.bytes ?? 0)} · ${p.originalRef.split('/').pop()}`)
+                  .join(' · ')}
+              </span>
             ) : null}
-            <OldPhotosButton oversized={oldPhotos.oversized.length} />
-          </>
+          </OldPhotosButton>
         )}
       </section>
 
       {/* Local `Tile` RETIRED — it was one of the 22 hand-rolled stat tiles in
           the admin tree, and it could not render "unknown": it took a string, so
           a refused read reached it already formatted as "0.0%" / "0.00 GB".
-          KpiStatCard takes `null` and renders an em-dash, which is the whole
+          The four numbers are now read-only `Facts` (no frames, T18): `null`
+          renders an em-dash in the warning colour, which is the whole
           difference between "we measured nothing" and "there is nothing". */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiStatCard
-          label="Real web-copy ratio"
-          value={rows === null ? null : pct(portfolioRatio)}
-          hint={`compare with the plan's modelled ratio · over ${measuredStills.toLocaleString()} stills`}
+      <section data-papic-measured="">
+        <Sec
+          title="Measured"
+          about="Compare the real web-copy ratio with the plan's modelled ratio. Lock the numbers once at least 50 events have data. No event should ever go over the web-copy ceiling."
         />
-        <KpiStatCard
-          label="Events with data"
-          value={perEvent === null ? null : perEvent.length}
-          hint="target ≥ 50 to lock"
-        />
-        <KpiStatCard
-          label="Total web copy hosted"
-          value={rows === null ? null : gb(totalWebBytes)}
-          hint="forever, on our R2"
-        />
-        <KpiStatCard
-          label={`Events over ${formatCount(DEFAULT_WEB_COPY_CEILING_GB)} GB`}
-          value={overCeiling}
-          hint="should stay 0"
+        <Facts
+          data="papic-measured"
+          rows={[
+            [
+              'Real web-copy ratio',
+              rows === null ? null : `${pct(portfolioRatio)} · over ${measuredStills.toLocaleString()} stills`,
+            ],
+            ['Events with data', perEvent === null ? null : `${formatCount(perEvent.length)} · target ≥ 50 to lock`],
+            ['Total web copy hosted', rows === null ? null : `${gb(totalWebBytes)} · forever, on our R2`],
+            [
+              `Events over ${formatCount(DEFAULT_WEB_COPY_CEILING_GB)} GB`,
+              overCeiling === null ? null : `${formatCount(overCeiling)} · should stay 0`,
+            ],
+          ]}
         />
       </section>
 
       {capped ? (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-xs text-[var(--sn-warning-deep)]">
           ⚠ Readout capped at {ROW_CAP.toLocaleString()} rows/table — numbers are a
           lower bound. Add a SQL-aggregation RPC before this many captures exist.
         </p>
@@ -262,7 +259,7 @@ export default async function PapicStoragePage() {
       {eventNamesUnresolved ? (
         <p
           role="alert"
-          className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-xs text-[var(--sn-warning-deep)]"
         >
           Event names could not be looked up, so the first column below reads as
           dashes. Every byte figure on this page is still measured and still
@@ -270,6 +267,7 @@ export default async function PapicStoragePage() {
         </p>
       ) : null}
 
+      <Sec title="Per-event storage" count={perEvent === null ? null : perEvent.length} />
       <ConsoleTable
         rows={perEvent}
         readPermitted
@@ -321,7 +319,7 @@ export default async function PapicStoragePage() {
             align: 'right',
             mono: true,
             cell: (e) => (
-              <span className={e.summary.overWebCopyCeiling ? 'font-semibold text-warn-900' : 'font-medium text-ink'}>
+              <span className={e.summary.overWebCopyCeiling ? 'font-semibold text-[var(--sn-warning-deep)]' : 'font-medium text-ink'}>
                 {pct(e.summary.webCopyRatio)}
               </span>
             ),
@@ -329,19 +327,12 @@ export default async function PapicStoragePage() {
         ]}
       />
 
-      <section className="space-y-3">
-        <header className="flex items-center gap-2">
-          <CloudOff className="h-5 w-5 text-ink/70" aria-hidden />
-          <div>
-            <h2 className="text-base font-semibold text-ink">Stranded Drive copies</h2>
-            <p className="text-sm text-ink/70">
-              Full-res originals that never reached the couple&rsquo;s Google Drive after{' '}
-              {DRIVE_COPY_RETRY_CEILING}+ retries. The retry sweep has given up (no hot loop),
-              and the full-res drop is deferring each one&rsquo;s raw indefinitely. Reconnect the
-              couple&rsquo;s Drive or hand off the originals to clear them.
-            </p>
-          </div>
-        </header>
+      <section data-papic-stranded="">
+        <Sec
+          title="Stranded Drive copies"
+          count={stranded ? stranded.total : null}
+          about={`Full-res originals that never reached the couple’s Google Drive after ${DRIVE_COPY_RETRY_CEILING}+ retries. The retry sweep has given up (no hot loop), and the full-res drop is deferring each one’s raw indefinitely. Reconnect the couple’s Drive or hand off the originals to clear them.`}
+        />
 
         <ConsoleTable
           rows={stranded ? stranded.rows : null}

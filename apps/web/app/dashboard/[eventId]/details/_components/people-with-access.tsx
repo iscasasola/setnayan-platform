@@ -246,7 +246,7 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
         >
           {COORDINATOR_SWITCH_WHY}
         </InfoTip>
-        <span className="flex shrink-0 items-center gap-2 text-[12.5px] text-ink/60">
+        <span className="flex shrink-0 items-center gap-2 text-[12.5px] text-ink/70">
           {row.ended ? 'Off' : on ? 'On' : 'Off'}
           <button
             type="button"
@@ -310,7 +310,7 @@ function CoordinatorLevelPick({ eventId, row }: { eventId: string; row: PersonRo
           compact
         />
         {error ? (
-          <span role="alert" className="max-w-[16rem] text-right text-[11px] text-terracotta-700">
+          <span role="alert" className="max-w-[16rem] text-right text-[12px] text-terracotta-700">
             {error}
           </span>
         ) : null}
@@ -326,7 +326,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   if (!row.access || !row.guestId) return null;
   const guestId = row.guestId;
   if (row.access.lock || row.isViewer) {
-    return <span className="text-sm text-ink/60">{accessWordFor(row.access)}</span>;
+    return <span className="text-sm text-ink/70">{accessWordFor(row.access)}</span>;
   }
   const pick = (key: string) => {
     const next = key as GuestAccessLevel;
@@ -354,7 +354,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
         compact
       />
       {error ? (
-        <span role="alert" className="max-w-[16rem] text-right text-[11px] text-terracotta-700">
+        <span role="alert" className="max-w-[16rem] text-right text-[12px] text-terracotta-700">
           {error}
         </span>
       ) : null}
@@ -374,7 +374,7 @@ function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: P
         type="button"
         aria-expanded={asking}
         onClick={() => setAsking((v) => !v)}
-        className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1 text-[12.5px] text-ink/60 hover:text-terracotta-700"
+        className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1 text-[12.5px] text-ink/70 hover:text-terracotta-700"
         data-person-remove-open=""
       >
         <UserMinus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -458,9 +458,9 @@ function PersonItem({
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
             {row.name}
-            {row.isViewer ? <span className="font-normal text-ink/50"> · you</span> : null}
+            {row.isViewer ? <span className="font-normal text-ink/70"> · you</span> : null}
           </p>
-          <p className="text-[12px] text-ink/55">
+          <p className="text-[12px] text-ink/70">
             {row.roleWord}
             {row.kind === 'co_host' ? ' · every part, Edit' : ''}
             {!row.live ? ' · waiting to join' : ''}
@@ -532,14 +532,14 @@ export function PeopleWithAccess({
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
-      <p className="pb-1 text-[12.5px] text-ink/60">Who can open this event, and what each person can change.</p>
+      <p className="pb-1 text-[12.5px] text-ink/70">Who can open this event, and what each person can change.</p>
       {claims && !claims.measured ? (
         <p className="py-2.5 text-sm text-terracotta-700" data-claim-asks-refused="">
           We could not check for suppliers who joined from your link. Reload to try again.
         </p>
       ) : claims && claims.asks.length > 0 ? (
         <div className="pb-3" data-access-group="waiting">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-terracotta-700">Waiting for you</h3>
+          <h3 className="text-[12px] uppercase tracking-[0.16em] text-terracotta-700">Waiting for you</h3>
           <ul className="divide-y divide-ink/5">
             {claims.asks.map((a) => (
               <ClaimAccessCard key={a.requestId} eventId={eventId} ask={a} />
@@ -564,12 +564,12 @@ export function PeopleWithAccess({
             if (readOnly && inGroup.length === 0) return null;
             return (
               <div key={g.key} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0" data-access-group={g.key}>
-                <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60">{g.title}</h3>
+                <h3 className="text-[12px] uppercase tracking-[0.16em] text-ink/70">{g.title}</h3>
                 {g.key === 'suppliers' && inGroup.length > 0 ? (
-                  <p className="pt-1 text-[12px] text-ink/55">{SUPPLIERS_BY_CATEGORY}</p>
+                  <p className="pt-1 text-[12px] text-ink/70">{SUPPLIERS_BY_CATEGORY}</p>
                 ) : null}
                 {inGroup.length === 0 ? (
-                  <p className="py-2.5 text-sm text-ink/55">{g.empty}</p>
+                  <p className="py-2.5 text-sm text-ink/70">{g.empty}</p>
                 ) : (
                   <ul className="divide-y divide-ink/5">
                     {inGroup.map((row) => (

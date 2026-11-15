@@ -104,7 +104,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
 
   return (
     <div className="mx-auto min-h-screen max-w-2xl bg-white px-8 py-12 text-center text-ink print:px-0 print:py-0">
-      <p className="text-xs uppercase tracking-[0.3em] text-ink/50">Be our photographer</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-ink/70">Be our photographer</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">
         {eventName ?? 'Our event'}
       </h1>
@@ -119,7 +119,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />
 
-      <p className="mx-auto mt-6 max-w-md text-sm text-ink/60">
+      <p className="mx-auto mt-6 max-w-md text-sm text-ink/70">
         Every photo lands in our Memories. Shoot anything — the candids are the
         ones we&rsquo;ll never get otherwise.
       </p>
@@ -127,9 +127,9 @@ export default async function PapicPoolPosterPage({ params }: Props) {
       {/* The URL in text, for anyone whose camera will not scan. Small, and the
           only place the capability appears in readable form — which is exactly
           why the poster should not be left anywhere it is not meant to be. */}
-      <p className="mt-8 break-all text-[11px] text-ink/35 print:mt-6">{joinUrl}</p>
+      <p className="mt-8 break-all text-[12px] text-ink/35 print:mt-6">{joinUrl}</p>
 
-      <p className="mt-10 text-xs text-ink/40 print:hidden">
+      <p className="mt-10 text-xs text-ink/70 print:hidden">
         Print this page, or save it as a PDF. One code — everyone scans the same
         one.
       </p>

@@ -63,3 +63,17 @@ test('the words of the picker and the tile', () => {
   assert.equal(tagButtonWords(2), 'Tag to 2 inspirations');
   assert.deepEqual(tagCountsByFile([{ fileId: 'a' }, { fileId: 'a' }, { fileId: 'b' }]), { a: 2, b: 1 });
 });
+
+test('frames 6–7: an album counts the inspirations of its FILES photos only, in first-seen order', async () => {
+  const { albumInspirations, inspirationChipWords } = await import('@/lib/inspiration-tags');
+  const tags = new Map([
+    ['f1', [{ slotKey: 'flowers', label: 'Bridal bouquet' }, { slotKey: 'entourage', label: 'Entourage bouquets' }]],
+    ['f2', [{ slotKey: 'flowers', label: 'Bridal bouquet' }]],
+    // A Papic photo id that happens to collide with a file id is never read as one.
+    ['p1', [{ slotKey: 'cake', label: 'Cake' }]],
+  ]);
+  const got = albumInspirations(['files:f1', 'files:f2', 'papic:p1', 'files:f3'], tags);
+  assert.deepEqual(got.map((i) => [i.slotKey, i.count]), [['flowers', 2], ['entourage', 1]]);
+  assert.equal(inspirationChipWords(got[0]!), 'Bridal bouquet · 2');
+  assert.deepEqual(albumInspirations(['papic:p1'], tags), []);
+});

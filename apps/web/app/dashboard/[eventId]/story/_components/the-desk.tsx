@@ -29,7 +29,9 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
-import { Check, Loader2, Lock, Pencil, Undo2, X } from 'lucide-react';
+import { Check, Lock, Pencil, Undo2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
 import {
   deskCounts,
   heldBackSentence,
@@ -114,7 +116,7 @@ export function TheDesk({
         </p>
       ) : null}
       {lettersDark ? (
-        <p className="mt-2 text-xs text-ink/50">
+        <p className="mt-2 text-xs text-ink/75">
           Letters are switched off for this event.
         </p>
       ) : null}
@@ -126,7 +128,7 @@ export function TheDesk({
             type="button"
             onClick={() => setFilter(f.key)}
             aria-pressed={filter === f.key}
-            className={`rounded-full border px-3 py-1.5 text-xs transition ${
+            className={`min-h-11 rounded-full border px-3 py-1.5 text-[13px] transition ${
               filter === f.key
                 ? 'border-mulberry bg-mulberry/10 text-mulberry'
                 : 'border-ink/15 text-ink/70 hover:border-ink/30'
@@ -138,28 +140,26 @@ export function TheDesk({
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-xs text-terracotta">
+        <p role="alert" className="mt-3 text-[13px] font-semibold text-danger-700">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 divide-y divide-ink/10">
         {shown.map((item) => {
           const key = `${item.source}:${item.id}`;
           const held = item.heldBack !== null;
           return (
             <article
               key={key}
-              className={`rounded-xl border p-4 ${
-                held ? 'border-ink/10 bg-ink/[0.03]' : 'border-ink/10 bg-cream/40'
-              }`}
+              className={held ? 'border-l-2 border-terracotta py-4 pl-3' : 'py-4'}
             >
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full bg-ink/5 px-2 py-0.5 font-medium text-ink/70">
                   {SOURCE_LABEL[item.source]}
                 </span>
-                {item.byline ? <span className="text-ink/60">{item.byline}</span> : null}
-                <span className="ml-auto text-ink/45">→ {item.landsIn}</span>
+                {item.byline ? <span className="text-ink/75">{item.byline}</span> : null}
+                <span className="ml-auto text-ink/75">→ {item.landsIn}</span>
               </div>
 
               <h3 className="mt-2 text-sm font-medium text-ink">{item.title}</h3>
@@ -179,7 +179,7 @@ export function TheDesk({
               {/* ⚑ the one thing the host must know about this item */}
               <p
                 className={`mt-3 flex gap-2 text-xs ${
-                  held ? 'text-terracotta' : 'text-ink/55'
+                  held ? 'text-terracotta' : 'text-ink/75'
                 }`}
               >
                 <span aria-hidden="true">{held ? '⚠' : '✓'}</span>
@@ -191,63 +191,51 @@ export function TheDesk({
                   /* ⛔ NOT a disabled Accept. A held-back item is not a decision
                      the host has yet to make — it is one that is not theirs, and
                      a greyed button invites them to keep trying. */
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-3 py-1.5 text-xs text-ink/60">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-3 py-1.5 text-xs text-ink/75">
                     <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Held back
                   </span>
                 ) : item.status === 'pending' ? (
                   <>
-                    <button
-                      type="button"
-                      disabled={pending}
+                    {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 5 · 6 · 15): the shared pills (green Accept · grey Edit ·
+                        red Reject), a grey "waiting" pill instead of a spinner; the outcome is the shared soft Badge. */}
+                    <ActionButton
+                      tone="ok"
+                      icon={Check}
+                      label="Accept"
+                      waiting={pending}
                       onClick={() => run(() => decideDeskItem(eventId, item.source, item.id, 'accepted'))}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs text-white disabled:opacity-50"
-                    >
-                      {pending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      )}
-                      Accept
-                    </button>
+                    />
                     {item.editable ? (
-                      <button
-                        type="button"
+                      <ActionButton
+                        tone="neutral"
+                        icon={Pencil}
+                        label="Edit"
                         disabled={pending}
                         onClick={() => {
                           setEditing(key);
                           setDraft(item.body);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs text-ink/70"
-                      >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
-                      </button>
+                      />
                     ) : null}
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="danger"
+                      icon={X}
+                      label="Reject"
                       disabled={pending}
                       onClick={() => run(() => decideDeskItem(eventId, item.source, item.id, 'rejected'))}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs text-ink/70"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" /> Reject
-                    </button>
+                    />
                   </>
                 ) : (
                   <>
-                    <span
-                      className={`rounded-full px-3 py-1.5 text-xs ${
-                        item.status === 'accepted'
-                          ? 'bg-mulberry/10 text-mulberry'
-                          : 'bg-ink/5 text-ink/60'
-                      }`}
-                    >
+                    <Badge tone={item.status === 'accepted' ? 'ok' : 'quiet'}>
                       {item.status === 'accepted' ? '✓ In the story' : '✕ Left out'}
-                    </span>
+                    </Badge>
                     {/* Undo, at any time. A rejection is silent and never final. */}
                     <button
                       type="button"
                       disabled={pending}
                       onClick={() => run(() => decideDeskItem(eventId, item.source, item.id, 'pending'))}
-                      className="inline-flex items-center gap-1.5 text-xs text-ink/55 underline underline-offset-2"
+                      className="inline-flex min-h-11 items-center gap-1.5 text-[13px] text-ink/75 underline underline-offset-2"
                     >
                       <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> undo
                     </button>
@@ -256,18 +244,17 @@ export function TheDesk({
 
                 {editing === key ? (
                   <>
-                    <button
-                      type="button"
-                      disabled={pending}
+                    <ActionButton
+                      tone="brand"
+                      icon={Check}
+                      label="Save the words"
+                      waiting={pending}
                       onClick={() => run(() => editDeskItem(eventId, item.source, item.id, draft))}
-                      className="rounded-full bg-ink px-3 py-1.5 text-xs text-white disabled:opacity-50"
-                    >
-                      Save the words
-                    </button>
+                    />
                     <button
                       type="button"
                       onClick={() => setEditing(null)}
-                      className="text-xs text-ink/55 underline underline-offset-2"
+                      className="min-h-11 text-[13px] text-ink/75 underline underline-offset-2"
                     >
                       cancel
                     </button>
@@ -280,7 +267,7 @@ export function TheDesk({
       </div>
 
       {shown.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/55">
+        <p className="mt-4 py-2 text-sm text-ink/75">
           {items.length === 0
             ? 'Nothing yet. Anything your guests or suppliers send lands here.'
             : 'Nothing left under this filter.'}

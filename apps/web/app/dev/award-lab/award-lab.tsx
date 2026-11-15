@@ -22,10 +22,23 @@ const SHOP = 'Petal & Pine';
 const AWARDED = '12 Jan 2026';
 /** The third rung of the shop's own ladder — the name comes from `lib/badge-tiers.ts`, never typed here. */
 const TIER = TIERS[2]!;
+/** The five tiered families, each with its owner-given badge name (its tap show plays as the badge lands). */
+const FAMILIES = [
+  ['calendar', 'Completed bookings'],
+  ['bubble', 'Five-star reviews'],
+  ['giftbox', 'Gifts given'],
+  ['shield', 'Trusted by'],
+  ['invite', 'Invites'],
+] as const;
+type Family = (typeof FAMILIES)[number][0];
 
 export function AwardLab() {
   const [open, setOpen] = useState<null | 'badge' | 'seal'>(null);
   const [story, setStory] = useState<StoryInput | null>(null);
+  const [family, setFamily] = useState<Family | undefined>(undefined);
+  const [tierIx, setTierIx] = useState(3);
+  const famName = FAMILIES.find(([k]) => k === family)?.[1] ?? 'Completed bookings';
+  const tierName = TIERS[tierIx - 1]?.name ?? TIER.name;
   const kinds = Object.keys(TICKET_SPECS) as TicketKind[];
 
   return (
@@ -52,15 +65,48 @@ export function AwardLab() {
         </button>
       </div>
 
+      <section className="space-y-2" aria-label="Tap shows">
+        <label className="block text-sm">
+          Tier{' '}
+          <select value={tierIx} onChange={(e) => setTierIx(Number(e.target.value))} data-award-lab-tier="">
+            {TIERS.slice(0, 7).map((t, i) => (
+              <option key={i} value={i + 1}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {FAMILIES.map(([k, name]) => (
+            <button
+              key={k}
+              type="button"
+              className="fd-btn-quiet"
+              data-award-lab-show={k}
+              onClick={() => {
+                setFamily(k);
+                setOpen('badge');
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {open === 'badge' ? (
         <BadgeFullscreen
           art={SAMPLE_BADGE}
-          tier={{ index: 3, name: TIER.name }}
-          title="Completed bookings"
+          tier={{ index: tierIx, name: tierName }}
+          title={famName}
+          family={family}
           shopName={SHOP}
           awardedOn={AWARDED}
-          onShare={(svg) => setStory({ svg, word: 'BADGE', tone: toneForTier(3), shopName: SHOP, line1: `${TIER.name} · Completed bookings`, line2: `Awarded on ${AWARDED}` })}
-          onClose={() => setOpen(null)}
+          onShare={(svg) => setStory({ svg, word: 'BADGE', tone: toneForTier(tierIx), shopName: SHOP, line1: `${tierName} · ${famName}`, line2: `Awarded on ${AWARDED}` })}
+          onClose={() => {
+            setOpen(null);
+            setFamily(undefined);
+          }}
         />
       ) : null}
 

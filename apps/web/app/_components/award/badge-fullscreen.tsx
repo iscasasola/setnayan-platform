@@ -56,6 +56,12 @@ export type BadgeFullscreenProps = {
   onClose: () => void;
   /** The element the badge flies out of and back into (it is hidden while the badge is out). */
   origin?: HTMLElement | null;
+  /**
+   * 🎆 The tiered badge's family — plays its TAP SHOW as the badge lands (v86 `bzOpen`): calendar = Completed
+   * bookings · bubble = Five-star reviews · giftbox = Gifts given · shield = Trusted by · invite = Invites. The show's
+   * code is fetched only through `import()` when a badge opens; reduced motion plays nothing.
+   */
+  family?: 'calendar' | 'bubble' | 'giftbox' | 'shield' | 'invite';
 };
 
 type Live = {
@@ -77,7 +83,7 @@ type Live = {
   py: number;
 };
 
-export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, achievedAfterDays, onShare, onClose, origin }: BadgeFullscreenProps) {
+export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, achievedAfterDays, onShare, onClose, origin, family }: BadgeFullscreenProps) {
   const tone = tier.tone ?? toneForTier(tier.index);
   const live = useRef<Live>({ on: false, sz: 0, cx: 0, cy: 0, rx: 0, ry: 0, vx: 0, vy: 0, tx: null, ty: null, t0: 0, raf: 0, land: 0, drag: false, px: 0, py: 0 });
   const closing = useRef(false);
@@ -93,6 +99,8 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
   const rm = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  /** Stops the tap show and clears every piece it threw (v86 `gunClear`). */
+  const stopShow = useRef<(() => void) | null>(null);
 
   const home = useCallback(() => {
     const b = live.current;
@@ -113,6 +121,8 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
     b.on = false;
     cancelAnimationFrame(b.raf);
     window.clearTimeout(b.land);
+    stopShow.current?.();
+    stopShow.current = null;
     dlg.current?.classList.remove(s.on!);
     const done = () => onCloseRef.current();
     if (rm.current || !origin || !stage.current) {
@@ -241,7 +251,41 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
         ],
         { duration: 720, easing: 'cubic-bezier(.2,.8,.3,1)' },
       );
-      b.land = window.setTimeout(burst, 560);
+      // the tap show's code arrives while the badge is in flight — never in the page's first load
+      const show = family ? import('./tap-shows') : null;
+      show
+        ?.then((m) => {
+          if (b.on) m.primeTapShow(family, tier.index, artHost.current?.querySelector('svg'), rm.current);
+        })
+        .catch(() => {
+          /* no show; the badge still lands */
+        });
+      b.land = window.setTimeout(() => {
+        burst();
+        if (!show || !family) return;
+        show
+          .then((m) => {
+            const host = fx.current;
+            if (!b.on || !host) return;
+            stopShow.current?.();
+            stopShow.current = m.playTapShow({
+              family,
+              tier: tier.index,
+              svg: artHost.current?.querySelector('svg') ?? null,
+              host,
+              under: stage.current,
+              pulse: float.current,
+              sz: b.sz,
+              cx: b.cx,
+              cy: b.cy,
+              alive: () => live.current.on,
+              reducedMotion: rm.current,
+            });
+          })
+          .catch(() => {
+            /* no show; the badge has landed */
+          });
+      }, 560);
     }
     b.t0 = performance.now();
     b.raf = requestAnimationFrame(frame);
@@ -258,6 +302,8 @@ export function BadgeFullscreen({ art, tier, title, lines, shopName, awardedOn, 
       cancelAnimationFrame(b.raf);
       window.clearTimeout(b.land);
       window.clearTimeout(focusT);
+      stopShow.current?.();
+      stopShow.current = null;
       window.removeEventListener('resize', onResize);
       document.documentElement.style.overflow = prevOverflow;
       if (origin) {

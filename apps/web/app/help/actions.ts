@@ -8,6 +8,8 @@ import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VENDOR_TIERS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { logHelpAsk, type HelpAskCoverage } from '@/lib/help-asks.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { HELP_TOPICS } from '@/lib/help';
+import { askHelp, askTopicsFor, topicsForCoverage, type HelpCoverage } from '@/lib/help-ask-core';
 
 const ASK_COVERAGES: ReadonlyArray<HelpAskCoverage> = ['user', 'guest', 'supplier', 'public', 'team'];
 
@@ -82,6 +84,40 @@ async function recordAnswered(formData: FormData): Promise<void> {
   });
 }
 
+/** The helps a visitor can ask in (the team's own help asks through app/admin/help/actions.ts). */
+const PUBLIC_COVERAGES: ReadonlyArray<HelpCoverage> = ['user', 'guest', 'supplier', 'public'];
+
+/**
+ * ❓ THE ASK rides THIS action (`intent=ask`), not a new export (the server-action budget is full). The ask box POSTs
+ * here; the answer is found again here (the same pure ranking the page draws — lib/help-ask-core.ts), ONE `help_asks`
+ * row is written, and the person lands on `/help?q=…` as before. 🔒 This is the ONLY public writer of an ask: the
+ * page itself never writes one, so a crawler, a link prefetch or a shared `?q=` URL writes nothing; and
+ * `logHelpAsk` keeps at most one row per words + account + outcome per hour.
+ */
+async function recordAsk(formData: FormData): Promise<void> {
+  const words = trimmed(formData.get('q'), 120);
+  const f = formData.get('for');
+  const refer = formData.get('refer');
+  const params = new URLSearchParams();
+  if (f === 'guest' || f === 'shop') params.set('for', f);
+  if (typeof refer === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(refer)) params.set('refer', refer);
+  if (words) params.set('q', words);
+  const coverage = formData.get('coverage');
+  if (words && typeof coverage === 'string' && (PUBLIC_COVERAGES as ReadonlyArray<string>).includes(coverage)) {
+    const storeShell = await isStoreShellRequest();
+    const ask = askHelp(words, askTopicsFor(topicsForCoverage(HELP_TOPICS, coverage as HelpCoverage), storeShell));
+    await logHelpAsk({
+      words,
+      coverage: coverage as HelpCoverage,
+      surface: storeShell ? 'app' : 'web',
+      outcome: ask.outcome,
+      articleSlug: ask.best?.slug ?? null,
+    });
+  }
+  const qs = params.toString();
+  redirect(qs ? `/help?${qs}` : '/help');
+}
+
 /** Back to the Help this message was sent from — only ever a /help address with its own account (`for`). */
 function helpBack(formData: FormData): string {
   const f = formData.get('for');
@@ -90,6 +126,7 @@ function helpBack(formData: FormData): string {
 
 export async function submitHelpMessage(formData: FormData) {
   if (formData.get('intent') === 'answered') return recordAnswered(formData);
+  if (formData.get('intent') === 'ask') return recordAsk(formData);
   const back = helpBack(formData);
   const email = trimmed(formData.get('sender_email'), 160);
   const name = trimmed(formData.get('sender_name'), 128);

@@ -482,6 +482,7 @@
         "BestAnswer",
         "Field",
         "HelpAskCoverage",
+        "HelpCoverage",
         "HowSearchField",
         "HowSearchResults",
         "Link",

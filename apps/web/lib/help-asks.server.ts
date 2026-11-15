@@ -8,7 +8,8 @@ import type { AskOutcome, HelpCoverage } from '@/lib/help-ask-core';
  * THE HELP'S OWN LOG — `public.help_asks` (migration 20271344889246). What people asked, which account's help, web or
  * app, and what it found; no name, no email, no user id. Service-role only (RLS on, no policy, grants revoked).
  *
- *   write  every ask (so "People ask" can count the questions that found an answer) and every Yes / No press;
+ *   write  every ask a person PRESSES (never a page render) and every Yes / No press — one row per words + account +
+ *          outcome per hour, so "People ask" counts the hours a question was asked in;
  *   read   the team's "No answer yet" (closest · near · none · No — most-asked first) and the "People ask" chips.
  *
  * A write never throws and never blocks the page: losing one log row must not cost a person their answer.
@@ -29,6 +30,9 @@ export function normalizeAskWords(words: string): string {
   return words.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 120);
 }
 
+/** One row per words + account + outcome per this window. */
+export const ASK_BUCKET_MS = 60 * 60 * 1000;
+
 export async function logHelpAsk(row: {
   words: string;
   coverage: HelpAskCoverage;
@@ -39,7 +43,26 @@ export async function logHelpAsk(row: {
   const words = normalizeAskWords(row.words);
   if (!words) return;
   try {
-    const { error } = await createAdminClient()
+    const admin = createAdminClient();
+    // 🔒 BOUNDED: at most ONE row per words + account + outcome per hour. A repeat inside the hour adds nothing, so a
+    // loop of the same ask cannot fill the table (prod is on the free plan). The outcome is in the key so a "Yes" /
+    // "No" press still lands after the ask it answers. A failed check skips the write — losing a log row is cheaper
+    // than an unbounded insert. (Guard: lib/help-asks-are-written-only-when-asked.test.ts.)
+    const since = new Date(Date.now() - ASK_BUCKET_MS).toISOString();
+    const { data: seen, error: seenError } = await admin
+      .from('help_asks')
+      .select('ask_id')
+      .eq('words', words)
+      .eq('coverage', row.coverage)
+      .eq('outcome', row.outcome)
+      .gte('created_at', since)
+      .limit(1);
+    if (seenError) {
+      logQueryError('logHelpAsk (help_asks bucket check)', seenError);
+      return;
+    }
+    if ((seen ?? []).length > 0) return;
+    const { error } = await admin
       .from('help_asks')
       .insert({
         words,

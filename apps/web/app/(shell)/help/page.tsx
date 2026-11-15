@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { after } from 'next/server';
 import { Mail } from 'lucide-react';
 import { HELP_TOPICS, helpTopicsFor } from '@/lib/help';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { topicsForCoverage, type HelpCoverage } from '@/lib/help-ask-core';
-import { logHelpAsk, readPeopleAsk } from '@/lib/help-asks.server';
+import { readPeopleAsk } from '@/lib/help-asks.server';
 import { AnswerRows, AnswerWays, BestAnswer, NoAnswer, type AnswerCtx } from '@/app/_components/help-ask/help-ask-view';
 import { TopicTiles } from '@/app/_components/help-ask/topic-tiles';
 import { helpDoorFor, tilesFor } from '@/app/_components/help-ask/help-ask-places';
@@ -141,12 +140,8 @@ export default async function HelpPage({ searchParams }: Props) {
   const found = q ? await runHowSearch(q, { coverage }) : null;
   const ask = found?.ask ?? null;
 
-  // What we could not answer is kept (§ 09) — after the page is sent, never in its way. No name, no email.
-  if (q && ask) {
-    after(() =>
-      logHelpAsk({ words: q, coverage, surface: storeShell ? 'app' : 'web', outcome: ask.outcome, articleSlug: ask.best?.slug ?? null }),
-    );
-  }
+  // What we could not answer is kept (§ 09) — but by the ASK, not by this render: the box POSTs to the help's action
+  // (`intent=ask`, app/help/actions.ts), which writes the row and redirects here. A GET of `?q=` writes nothing.
   const peopleAsk = q ? [] : await readPeopleAsk(coverage);
 
   const ctx: AnswerCtx = {
@@ -238,7 +233,7 @@ export default async function HelpPage({ searchParams }: Props) {
           {q ? null : <p className="mt-1 text-base text-ink/65">Type it your way. English or Tagalog.</p>}
 
           <div className="mt-4">
-            <HowSearchField q={q} action="/help" keep={keep} at="top" clearHref={here} />
+            <HowSearchField q={q} action="/help" keep={keep} at="top" clearHref={here} ask={{ action: submitHelpMessage, coverage }} />
           </div>
           <p className="mt-2 text-sm text-ink/60" data-help-account="">
             {ACCOUNT_LINE[coverage]}

@@ -32,6 +32,7 @@ export function HowSearchField({
   keep = {},
   at = 'foot',
   clearHref,
+  ask,
 }: {
   q: string;
   /** This page's own path — the words stay on it (the no-script form). */
@@ -46,8 +47,10 @@ export function HowSearchField({
   at?: 'foot' | 'top';
   /** `top` only: this page without the words (the box's ✕). */
   clearHref?: string;
+  /** `top` only: the help's own action — the ask POSTs there and is logged (see AskBox). */
+  ask?: { action: (formData: FormData) => Promise<void>; coverage: string };
 }) {
-  if (at === 'top') return <AskBox q={q} action={action} keep={keep} clearHref={clearHref ?? action} />;
+  if (at === 'top') return <AskBox q={q} action={action} keep={keep} clearHref={clearHref ?? action} ask={ask} />;
   return (
     <>
       <HowSearchRow key={q} q={q} />

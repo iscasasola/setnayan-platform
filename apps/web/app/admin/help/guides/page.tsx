@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { after } from 'next/server';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { ADMIN_HELP_TOPICS } from '@/lib/help-admin';
 import { askHelp } from '@/lib/help-ask-core';
-import { logHelpAsk, readNoAnswerYet, type HelpAskCoverage, type HelpAskOutcome } from '@/lib/help-asks.server';
+import { readNoAnswerYet, type HelpAskCoverage, type HelpAskOutcome } from '@/lib/help-asks.server';
 import { AskBox } from '@/app/_components/help-ask/ask-box';
+import { setHelpMessageStatus } from '@/app/admin/help/actions';
 import { AnswerRows, BestAnswer, NoAnswer, type AnswerCtx } from '@/app/_components/help-ask/help-ask-view';
 import { TopicTiles } from '@/app/_components/help-ask/topic-tiles';
 import { helpDoorFor, tilesFor } from '@/app/_components/help-ask/help-ask-places';
@@ -44,9 +44,6 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
   const { q: rawQ } = await searchParams;
   const q = (rawQ ?? '').trim().slice(0, 120);
   const ask = q ? askHelp(q, ADMIN_HELP_TOPICS) : null;
-  if (q && ask) {
-    after(() => logHelpAsk({ words: q, coverage: 'team', surface: 'web', outcome: ask.outcome, articleSlug: ask.best?.slug ?? null }));
-  }
   const noAnswer = await readNoAnswerYet();
 
   const ctx: AnswerCtx = {
@@ -74,7 +71,8 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6" data-help-coverage="team">
       <div>
-        <AskBox q={q} action="/admin/help/guides" clearHref="/admin/help/guides" />
+        {/* The team's ask rides the admin Help's own action (`intent=ask`) — it writes the row; this render never does. */}
+        <AskBox q={q} action="/admin/help/guides" clearHref="/admin/help/guides" ask={{ action: setHelpMessageStatus, coverage: 'team' }} />
       </div>
       <p className="mt-2 text-sm text-ink/60" data-help-account="">
         Answers for the team

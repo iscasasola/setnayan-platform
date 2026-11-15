@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
+import { InfoTip } from '@/app/_components/info-tip';
 /**
  * "GUESTS CHIPPED IN" — the host is NOTIFIED, not asked (owner-locked
  * 2026-07-29).
@@ -46,31 +47,31 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
   // nothing. Say we could not look instead.
   if (rows === CONTRIBUTIONS_UNREADABLE) {
     return (
-      <section className="space-y-1.5 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+      <section className="border-t border-ink/10 space-y-1.5 bg-surface py-5 sm:p-6">
         <p className="flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
           <HandHeart aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
           Guests chipped in
         </p>
-        <p className="text-sm text-ink/70">
-          We couldn&rsquo;t check for guest contributions right now. Refresh in a
+        <InfoTip labelAs="p" label="We couldn&rsquo;t check for guest contributions right now." labelClassName="text-sm text-ink/70" align="start">
+          Refresh in a
           moment to see whether anyone bought extra shots.
-        </p>
+        </InfoTip>
       </section>
     );
   }
   if (rows.length === 0) return null;
 
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+    <section className="border-t border-ink/10 space-y-3 bg-surface py-5 sm:p-6">
       <div className="space-y-1.5">
         <p className="flex items-center gap-2 text-base font-semibold tracking-tight text-ink">
           <HandHeart aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
           Guests chipped in
         </p>
-        <p className="text-sm text-ink/70">
-          People at your event bought extra credits. Nothing here needs anything from
+        <InfoTip labelAs="p" label="People at your event bought extra credits." labelClassName="text-sm text-ink/70" align="start">
+          Nothing here needs anything from
           you — the credits land the moment we confirm their payment.
-        </p>
+        </InfoTip>
       </div>
       <ul className="space-y-1.5 text-sm">
         {rows.map((r) => (
@@ -83,7 +84,7 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
               className={
                 r.settled
                   ? 'text-xs font-medium text-emerald-700'
-                  : 'text-xs font-medium text-ink/50'
+                  : 'text-xs font-medium text-ink/70'
               }
             >
               {r.settled ? 'live' : 'waiting for payment'}

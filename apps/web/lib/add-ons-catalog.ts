@@ -386,7 +386,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0024',
     status: 'live',
     category: 'photography',
-    blurb: 'A save-the-date film that plays itself, in your colors — free; add the cinematic reveal with Event Hub PRO.',
+    blurb: 'A save-the-date film that plays itself, in your colors — free; add the cinematic reveal with Event Pro.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
     // The content film is FREE; the cinematic openings are a paid in-surface
@@ -502,7 +502,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // /studio/editorial-pro buy surface stays but upsells Website PRO for
   // non-owners (never posts the retired EDITORIAL_PRO SKU).
   {
-    // Event Hub PRO — the UMBRELLA unlock, and (2026-07-22) the ONLY way to get
+    // Event Pro — the UMBRELLA unlock, and (2026-07-22) the ONLY way to get
     // the Save-the-Date Cinematic Reveal. serviceKey COUPLE_WEBSITE_PRO.
     // opensDirect → its own /studio/website-pro buy surface.
     //
@@ -517,7 +517,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     tags: ['Event Hub', 'Upgrade', 'Popular'],
     surface: 'website',
     opensDirect: true,
-    label: 'Event Hub PRO',
+    label: 'Event Pro',
     Icon: Globe2,
     iteration: '0002',
     status: 'live',
@@ -526,7 +526,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
     // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
     blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own photos and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
-    cta: 'Unlock Event Hub PRO',
+    cta: 'Unlock Event Pro',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
     poster: {
@@ -643,8 +643,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone Animated Monogram is retired).
-    blurb: 'Your monogram, drawn to life on your QR, page, and signage. Event Hub Pro’s Logo & QR adds the animation.',
+    // 💎 2026-10-22: the animation is Event Pro's Logo & QR part (the standalone Animated Monogram is retired).
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. Event Pro’s Logo & QR adds the animation.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is

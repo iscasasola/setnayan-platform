@@ -33,16 +33,8 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import {
-  Check,
-  ChevronDown,
-  Loader2,
-  MapPin,
-  Plus,
-  Search,
-  Sparkles,
-  Star,
-} from 'lucide-react';
+import { Check, ChevronDown, MapPin, Plus, Search, Sparkles, Star } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { proposeBuildFromQuotes } from '../build-3state-actions';
 import {
   findBuildFallbackSuggestions,
@@ -112,15 +104,15 @@ export function QuoteFillRow({
   // those categories from being fillable again).
   if (result) {
     return (
-      <div className="space-y-2.5 rounded-xl border border-ink/10 bg-cream px-4 py-3">
-        <p className="text-sm text-ink/80">
+      <div className="space-y-2.5 py-1" data-quote-fill="result">
+        <p className="text-[15px] font-semibold text-ink">
           {result.filled > 0
             ? `Added ${result.filled} pick${result.filled === 1 ? '' : 's'} to your build.`
             : 'Nothing could be added from your quotes yet.'}
         </p>
         {result.unfilled.length > 0 ? (
           <>
-            <p className="text-xs text-ink/55">
+            <p className="text-[13px] text-ink/70">
               {budgetPhp != null
                 ? `Couldn’t fit ${result.unfilled.map((u) => u.label).join(', ')} within your ${peso(budgetPhp)} budget:`
                 : `Couldn’t fill ${result.unfilled.map((u) => u.label).join(', ')} from your quotes:`}
@@ -130,7 +122,7 @@ export function QuoteFillRow({
             ))}
           </>
         ) : null}
-        {err ? <p className="text-xs text-danger-700">{err}</p> : null}
+        {err ? <p role="alert" className="text-[13px] font-semibold text-danger-700">{err}</p> : null}
       </div>
     );
   }
@@ -149,9 +141,10 @@ export function QuoteFillRow({
     : null;
 
   return (
-    <div className="space-y-1.5 rounded-xl border border-terracotta/25 bg-terracotta/[0.04] px-4 py-3">
+    // 📐 The one next thing on the screen — the only block here that may wear a frame (design template rule 2).
+    <div className="space-y-1.5 rounded-2xl bg-[var(--m-paper-2)] px-4 py-3" data-quote-fill="next">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <p className="min-w-0 flex-1 text-sm text-ink/80">
+        <p className="min-w-0 flex-1 text-[15px] text-ink">
           <Sparkles
             className="mr-1.5 inline h-3.5 w-3.5 shrink-0 text-terracotta"
             strokeWidth={1.9}
@@ -169,21 +162,20 @@ export function QuoteFillRow({
             <>Quotes are in for {fillable.length} categories.</>
           )}
         </p>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Plus}
+          label={pending ? 'Adding…' : single ? 'Add to your build' : 'Fill your build from your quotes'}
           onClick={run}
           disabled={pending}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-          {single ? '＋ Add to your build' : 'Fill your build from your quotes'}
-        </button>
+        />
       </div>
 
       {/* Only the multi-category call to action needs explaining — the single
           one already names the vendor, the category and the price. */}
       {!single ? (
-        <p className="text-xs text-ink/55">
+        <p className="text-[13px] text-ink/70">
           {budgetPhp != null ? (
             <>
               Adds the best-priced quotes that fit — nothing is booked, and you can swap or remove
@@ -204,7 +196,7 @@ export function QuoteFillRow({
         </p>
       ) : null}
 
-      {err ? <p className="text-xs text-danger-700">{err}</p> : null}
+      {err ? <p role="alert" className="text-[13px] font-semibold text-danger-700">{err}</p> : null}
     </div>
   );
 }
@@ -279,77 +271,56 @@ function FallbackPanel({
   const canExpand = opened && suggestions.length < total;
 
   return (
-    <div className="rounded-xl border border-ink/10 bg-paper px-3 py-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs font-medium text-ink/75">{group.label}</span>
+    <div className="border-t border-ink/10 py-2.5" data-quote-fill="fallback">
+      <div className="flex min-h-11 items-center justify-between gap-2">
+        <span className="truncate text-[15px] font-semibold text-ink">{group.label}</span>
         {!opened ? (
-          <button
-            type="button"
+          <ActionButton
+            tone="info"
+            icon={Search}
+            label={pending ? 'Finding…' : 'Find more options'}
             onClick={() => load(10)}
             disabled={pending}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/[0.03] disabled:opacity-50"
-          >
-            {pending ? (
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            ) : (
-              <Search className="h-3 w-3" strokeWidth={2} aria-hidden />
-            )}
-            Find more options
-          </button>
+          />
         ) : null}
       </div>
 
       {opened && suggestions.length === 0 && !pending ? (
-        <p className="mt-2 text-[11px] italic text-ink/50">
-          No other suppliers found for this category right now.
-        </p>
+        <p className="mt-1 text-[14px] text-ink/70">No other suppliers found for this category right now.</p>
       ) : null}
 
       {suggestions.length > 0 ? (
-        <ul className="mt-2.5 space-y-1 border-t border-ink/8 pt-2.5">
+        <ul className="mt-1 divide-y divide-ink/10">
           {suggestions.map((s) => {
             const isAdded = s.alreadyAdded || added.has(s.vendorProfileId);
             return (
-              <li key={s.vendorProfileId}>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-ink/12 bg-cream px-3 py-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm text-ink">{s.name}</div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink/55">
-                      {s.city ? <span className="truncate">{s.city}</span> : null}
-                      {hasCoords && s.distanceKm != null ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <MapPin className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
-                          {Math.round(s.distanceKm)} km
-                        </span>
-                      ) : null}
-                      {s.rating != null && s.reviewCount ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <Star className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
-                          {s.rating.toFixed(1)}
-                        </span>
-                      ) : null}
-                    </div>
+              <li key={s.vendorProfileId} className="flex min-h-[56px] items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <div className="truncate text-[15px] font-semibold text-ink">{s.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-ink/70">
+                    {s.city ? <span className="truncate">{s.city}</span> : null}
+                    {hasCoords && s.distanceKm != null ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        <MapPin className="h-3 w-3" strokeWidth={2} aria-hidden />
+                        {Math.round(s.distanceKm)} km
+                      </span>
+                    ) : null}
+                    {s.rating != null && s.reviewCount ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Star className="h-3 w-3" strokeWidth={2} aria-hidden />
+                        {s.rating.toFixed(1)}
+                      </span>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => add(s.vendorProfileId)}
-                    disabled={isAdded || addingId === s.vendorProfileId}
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
-                      isAdded
-                        ? 'border-mulberry/40 bg-mulberry/10 text-mulberry'
-                        : 'border-ink/15 text-ink/70 hover:bg-ink/[0.03]'
-                    }`}
-                  >
-                    {addingId === s.vendorProfileId ? (
-                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                    ) : isAdded ? (
-                      <Check className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-                    ) : (
-                      <Plus className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-                    )}
-                    {isAdded ? 'Added' : 'Add'}
-                  </button>
                 </div>
+                <ActionButton
+                  tone={isAdded ? 'ok' : 'neutral'}
+                  icon={isAdded ? Check : Plus}
+                  label={addingId === s.vendorProfileId ? 'Adding…' : isAdded ? 'Added' : 'Add'}
+                  name={isAdded ? `${s.name} added` : `Add ${s.name}`}
+                  onClick={() => add(s.vendorProfileId)}
+                  disabled={isAdded || addingId === s.vendorProfileId}
+                />
               </li>
             );
           })}
@@ -357,22 +328,18 @@ function FallbackPanel({
       ) : null}
 
       {canExpand ? (
-        <button
-          type="button"
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={ChevronDown}
+          label={pending ? 'Loading…' : `Show ${FALLBACK_EXPAND_STEP} more`}
           onClick={() => load(limit + FALLBACK_EXPAND_STEP)}
           disabled={pending}
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-ink/60 hover:text-ink/80 disabled:opacity-50"
-        >
-          {pending ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-          ) : (
-            <ChevronDown className="h-3 w-3" strokeWidth={2} aria-hidden />
-          )}
-          Show {FALLBACK_EXPAND_STEP} more
-        </button>
+          className="mt-2"
+        />
       ) : null}
 
-      {err ? <p className="mt-1.5 text-[11px] text-danger-700">{err}</p> : null}
+      {err ? <p role="alert" className="mt-1.5 text-[13px] font-semibold text-danger-700">{err}</p> : null}
     </div>
   );
 }

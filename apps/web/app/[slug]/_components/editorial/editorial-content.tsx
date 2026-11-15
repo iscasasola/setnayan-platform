@@ -110,8 +110,8 @@ const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan
  *  and the colophon link that AIMS at it cannot drift apart. */
 const WATCH_FILM_ANCHOR_ID = 'watch-the-film';
 
-/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Two slots in this
- *  file are Title Case headings ("The Wedding Day (Live)"), so the event word
+/** 'wedding' → 'Wedding'; 'gender reveal' → 'Gender Reveal'. Title Case slots in this
+ *  file ("From The Couple"), so the event word
  *  has to be capitalised per word rather than lower-cased into them. */
 function capitaliseWords(s: string): string {
   return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
@@ -1112,7 +1112,7 @@ export async function EditorialContent({
                       style={styleOf('gallery')!}
                       photos={data.galleryPhotos}
                       captures={data.galleryCaptures}
-                      total={data.metrics.photos ?? data.galleryPhotos.length}
+                      total={typeof data.galleryDayTotal === 'number' ? Math.max(data.galleryDayTotal, data.galleryPhotos.length) : (data.metrics.photos ?? data.galleryPhotos.length)}
                       names={data.firstNames}
                       words={wordsOf('gallery')}
                     />
@@ -1218,17 +1218,15 @@ export async function EditorialContent({
                   {waitingScene('videos', 'Videos', true)}
                 </Fragment>
               ) : null,
-            // What they said (reviews). Renders even when empty (empty state).
-            reviews: isOn('reviews') ? (
-              <div key="reviews" data-story-screen="">
-                <SectionRule title="What They Said" />
-                {data.reviews.length ? (
+            // What they said (reviews). 📖 RW-167 (re-walk 14 Nov 2026): never an empty scene (the F-W2-53 rule) — with no
+            // review yet the scene is not drawn, rather than a "Reviews … will appear here" plate on the recap.
+            reviews:
+              isOn('reviews') && data.reviews.length ? (
+                <div key="reviews" data-story-screen="">
+                  <SectionRule title="What They Said" />
                   <ReviewsWall reviews={data.reviews} />
-                ) : (
-                  <ReviewsEmptyState />
-                )}
-              </div>
-            ) : null,
+                </div>
+              ) : null,
             // Powered by Setnayan — the in-app services the couple availed.
             poweredBy:
               isOn('poweredBy') && data.servicesAvailed.length ? (
@@ -1732,14 +1730,6 @@ function SectionRule({ title }: { title: string }): ReactElement {
 }
 
 
-function ReviewsEmptyState(): ReactElement {
-  return (
-    <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/70">
-      Reviews from guests and suppliers will appear here.
-    </p>
-  );
-}
-
 /**
  * "From the Day" — shared photo gallery (events.our_photos). A newspaper photo
  * spread: a larger lead frame + a tight grid. Raw <img> (presigned/relative
@@ -2109,7 +2099,8 @@ function Colophon({
               href={`/${slug}/hub`}
               className="border-b border-terracotta pb-0.5 text-ink no-underline"
             >
-              The {capitaliseWords(w.eventWord)} Day (Live)
+              {/* 🏷 Plain words after the day (F-W2-52): the day's page is a record now, never "(Live)". */}
+              The day as it happened
             </a>
           ) : null}
           {watchFilmShown ? (

@@ -50,7 +50,8 @@ export type DaySheetData = {
   /** The day, schedule by schedule. One schedule → one group, drawn without its heading. */
   groups: DayGroup[];
   /** Couples in an open conversation about an unbooked event on this day. */
-  holders: { threadId: string; title: string; line: string }[];
+  /** `agreed`: the shop said yes, the first payment is not in yet — Booked, never asking (F-W1-68). */
+  holders: { threadId: string; title: string; line: string; agreed?: boolean }[];
   /** The holders read reached the end — else the count says "at least". */
   holdersMeasured: boolean;
   /** The ceiling on couples holding one date (`whitelistPerDate`, the same on every plan since 2026-10-23, read live); null = no limit. */
@@ -99,7 +100,7 @@ export function DaySheet({
   const single = data.closures.length === 1 ? data.closures[0]! : null;
   const blockedOn = data.closures.length > 0;
   const many = data.groups.length > 1;
-  const holding = data.holders.length + data.waiting;
+  const holding = data.holders.filter((h) => !h.agreed).length + data.waiting;
 
   return (
     <div data-dates-day={day}>
@@ -184,9 +185,9 @@ export function DaySheet({
           <DatesRow
             key={h.threadId}
             data="holder"
-            title={`${h.title} asking`}
+            title={h.agreed ? h.title : `${h.title} asking`}
             line={h.line}
-            badge={{ tone: 'wait', word: 'Asking' }}
+            badge={h.agreed ? { tone: 'ok', word: 'Booked' } : { tone: 'wait', word: 'Asking' }}
             end={<ActionButton tone="info" icon={<MessageSquare aria-hidden strokeWidth={1.9} />} label="Chat" href={`/vendor-dashboard/messages/${h.threadId}`} />}
           />
         ))}

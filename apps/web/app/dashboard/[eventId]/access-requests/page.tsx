@@ -157,7 +157,7 @@ export default async function AccessRequestsPage({
       {dataError ? (
         <ReadRefusedNotice what="the access requests" className="mt-6" />
       ) : pending.length === 0 && !(claimsRead.measured && claimsRead.asks.length > 0) ? (
-        <p className="sn-tile mt-6 p-6 text-center text-sm text-ink/55">
+        <p className="sn-tile mt-6 p-6 text-center text-sm text-ink/70">
           Nothing waiting on you.
         </p>
       ) : pending.length === 0 ? null : (
@@ -172,7 +172,7 @@ export default async function AccessRequestsPage({
           Event Details › People with access (owner 2026-10-03). This page
           answers asks; it no longer sets access (replace means remove: the
           "Granted now · Take back" list and `revokeArea` moved there). */}
-      <p className="mt-6 text-sm text-ink/65">
+      <p className="mt-6 text-sm text-ink/70">
         <Link href={peopleWithAccessHref(eventId)} className="underline underline-offset-2 hover:text-ink">
           See and change what each person can open
         </Link>
@@ -181,20 +181,20 @@ export default async function AccessRequestsPage({
       {answered.length > 0 ? (
         <section className="mt-10">
           <h2 className="sn-sec">Already answered</h2>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-3 divide-y divide-ink/10">
             {answered.map((r) => {
               const asked = r.requested_areas as DelegateArea[];
               const outcome = summarizeDecisions(asked, r.decisions ?? {});
               return (
                 <li
                   key={r.request_id}
-                  className="rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
+                  className="min-h-14 py-2.5 text-sm"
                 >
                   <span className="font-medium text-ink">
                     {(r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'A supplier'}
                   </span>
-                  <span className="ml-2 text-ink/60">{OUTCOME_COPY[outcome]}</span>
-                  <span className="mt-1 block text-xs text-ink/45">
+                  <span className="ml-2 text-ink/70">{OUTCOME_COPY[outcome]}</span>
+                  <span className="mt-1 block text-xs text-ink/70">
                     {lineByLine(asked, r.decisions)}
                   </span>
                 </li>

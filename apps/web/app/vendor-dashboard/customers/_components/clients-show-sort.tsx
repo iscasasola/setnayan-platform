@@ -176,7 +176,7 @@ export function ClientsShowSort({
             dataAttr="data-clients-client"
           />
           {agent ? (
-            <p className="border-t border-ink/10 py-3 text-[14px]" data-clients-seat="agent">
+            <p className="border-t border-ink/10 py-3 text-[15px]" data-clients-seat="agent">
               <span className="font-semibold text-ink">Your clients only</span>
               <span className="block text-[13px] text-ink/70">You see the clients the shop gave you. The owner sees every seat.</span>
             </p>

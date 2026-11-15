@@ -235,7 +235,7 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
           ...(o.paidByHand ? [PLANNER_PAYMENT] : []),
         ] as PaymentMoneyRow[]).filter((p) => inSeed(o, p.vendor_id)),
     orders: o.fail === 'orders' ? [] : [
-      { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
+      { order_id: 'o1', description: 'Event Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'paid', created_at: '2026-09-14T03:00:00Z' },
     ],
     costs: [],
     pricing: new Map(),

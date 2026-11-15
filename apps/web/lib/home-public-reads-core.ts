@@ -29,7 +29,7 @@ import type { DiscoverEventRow } from '@/lib/discover-events-core';
  *   name still travels only with a public profile because that rule is applied
  *   AFTER this read, on every view.
  * • …AND TWO FACTS ABOUT AN EVENT, which are not rows but are just as public
- *   and just as viewer-free: does it own Event Hub Pro, is its logo animation
+ *   and just as viewer-free: does it own Event Pro, is its logo animation
  *   on (`CoverFacts`). They are the REAL answers — the gate every write uses —
  *   read once for everybody instead of once per card per view.
  * • ROWS, NOT ADDRESSES. A picture's stored ref is remembered; its signed

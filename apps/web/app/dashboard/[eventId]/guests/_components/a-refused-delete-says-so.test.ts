@@ -41,7 +41,7 @@ test('(1) the hook ends its pending state on every path, rolls the hide back, an
 test('(2) the toast host is mounted where the delete is — the real pages and the lab', () => {
   assert.match(read(HERE, '..', 'page.tsx'), /<UndoToastHost \/>/, 'the guests page has no toast host');
   assert.match(read(HERE, '..', '[guestId]', 'page.tsx'), /<UndoToastHost \/>/, 'the card page has no toast host');
-  assert.match(read(APP, 'dev', 'guests-lab', 'page.tsx'), /<UndoToastHost \/>/, 'the lab draws a toast nobody can see');
+  assert.match(read(APP, 'dev', 'guests-lab', 'page.lab.tsx'), /<UndoToastHost \/>/, 'the lab draws a toast nobody can see');
 });
 
 test('(3) the heading keeps the name the sheet opened with', () => {
@@ -55,7 +55,7 @@ test('(4) the lab\'s delete and undo are stand-ins that never reach the database
   const lab = read(APP, 'dev', 'guests-lab', 'lab-guest-actions.tsx');
   assert.match(lab, /GuestRemovalActionsContext\.Provider value=\{stand\}/);
   assert.doesNotMatch(lab, /groups-actions|bulkSoftDeleteGuestsForUndo\(|restoreDeletedGuests\(/, 'the lab stand-in calls the real action');
-  assert.match(read(APP, 'dev', 'guests-lab', 'page.tsx'), /<LabGuestActions refuse=\{sp\.refuse === '1'\}[^>]*>[\s\S]*<GuestsScreen/, 'the lab screen is outside the stand-ins');
+  assert.match(read(APP, 'dev', 'guests-lab', 'page.lab.tsx'), /<LabGuestActions refuse=\{sp\.refuse === '1'\}[^>]*>[\s\S]*<GuestsScreen/, 'the lab screen is outside the stand-ins');
   /* The real app never provides the context — the default is the shipped actions. */
   assert.match(DEL, /useContext\(GuestRemovalActionsContext\) \?\? REAL_REMOVAL_ACTIONS/);
   assert.match(DEL, /\{ bulkSoftDeleteGuestsForUndo, restoreDeletedGuests \}/);

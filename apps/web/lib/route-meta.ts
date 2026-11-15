@@ -258,7 +258,7 @@ export const routeMeta = {
     guest: { icon: Camera, label: 'Be a candid camera' },
   },
   siteEditor: {
-    detail: { icon: Globe, label: 'Website' },
+    detail: { icon: Globe, label: 'Event Hub' },
   },
   vendorDashboard: {
     index: { icon: Home, label: 'Home / Overview' },

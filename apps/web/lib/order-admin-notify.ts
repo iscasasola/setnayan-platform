@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { emitAdminNotice } from '@/lib/notification-emit';
 import { composeFormalName } from '@/lib/formal-name';
 import { ONBOARDING_SERVICES_SKU, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from '@/lib/orders';
@@ -30,7 +30,7 @@ import {
  * `order_awaiting_reconciliation` (added 2026-06-24) — NOT the borrowed
  * `vendor_token_purchase_pending`. The tray renders the TYPE as its badge, so
  * the old reuse made a couple's PHP order read "TOKEN PURCHASE AWAITING
- * PAYMENT" (wrong — the customer token wallet is retired; couples pay PHP
+ * PAYMENT" (wrong — the customer token balance is retired; couples pay PHP
  * direct). The dedicated type renders "Awaiting reconciliation". Deep-link
  * points at /admin/payments FILTERED TO THIS ORDER (adminOrderDeepLink).
  *
@@ -75,7 +75,7 @@ export async function notifyAdminsOrderAwaitingReconciliation(args: {
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'order_awaiting_reconciliation',
           title: alert?.title ?? `New order awaiting reconciliation · ${peso(amountPhp)}`,
@@ -169,7 +169,7 @@ export async function notifyAdminsPaymentProofSubmitted(args: {
 
     await Promise.all(
       admins.map((row) =>
-        emitNotification({
+        emitAdminNotice({
           userId: row.user_id as string,
           type: 'order_awaiting_reconciliation',
           title: alert?.title ?? `Payment logged · ${peso(amountPhp)} — confirm it`,

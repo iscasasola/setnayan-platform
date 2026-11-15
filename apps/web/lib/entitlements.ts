@@ -276,7 +276,7 @@ async function readCompActiveSkus(supabase: SupabaseClient, eventId: string): Pr
  * buy them. These aliases become the sole purchase→ownership path.
  *
  * ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A then"):
- * Event Hub Pro also unlocks the logo animation, so a Pro couple is never
+ * Event Pro also unlocks the logo animation, so a Pro couple is never
  * asked for the ₱500 again. The standalone SKU keeps selling to couples who
  * only want the animated logo. Not a bundle — COUPLE_WEBSITE_PRO is a bundle
  * CHILD, so this alias map is the only place the grant can live (see above).
@@ -349,14 +349,14 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
     // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A
-    // then"): Event Hub Pro ALSO unlocks the logo animation. The standalone
+    // then"): Event Pro ALSO unlocks the logo animation. The standalone
     // ANIMATED_MONOGRAM row stays on sale for couples who only want the
     // animated logo — no bundle, no price change. One-directional like its
-    // siblings: buying the animation does NOT confer Event Hub Pro. Read side
+    // siblings: buying the animation does NOT confer Event Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
     ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU]),
-    // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the
+    // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Pro, part by part", Q2 "yes"): the
     // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
     // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the
     // part's buyers own the animation (the line above). Read side only: past AND pending orders, no backfill.
@@ -797,7 +797,7 @@ async function basketGrantsSku(
  * 🔒 SCOPE, AND IT IS NARROW BY CONSTRUCTION. This key has exactly THREE
  * readers — the buy surface, the editor's `isPro`, and `saveEditorial`'s
  * server-side re-check — all through `isEditorialProActive`. Every OTHER Event
- * Hub PRO perk, the no-watermark included, gates on `eventCoupleWebsiteProActive`
+ * Event Pro perk, the no-watermark included, gates on `eventCoupleWebsiteProActive`
  * reading COUPLE_WEBSITE_PRO, which is untouched and still on sale.
  * ⛔ Do not "tidy" the two helpers into one: that would hand the watermark away.
  *
@@ -836,7 +836,7 @@ export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   //
   // ⚠ CORRECTED 2026-09-28 — THE PRODUCT IS RETIRED, THE KEY IS NOT. The
   // "Custom QR per guest" PRODUCT (palette-tinted guest codes) folded into
-  // Event Hub Pro (owner 2026-09-27); its catalogue row is off sale (migration
+  // Event Pro (owner 2026-09-27); its catalogue row is off sale (migration
   // `_custom_qr_guest_folds_into_event_hub_pro`), it left `REQUIRED_RETAIL` in
   // llms-txt.ts, and no QR surface reads this SKU any more — the QR's look is
   // decided by `eventCoupleWebsiteProActive` (lib/qr-look.server.ts).
@@ -1165,7 +1165,7 @@ async function eventOrdersForGate(
 }
 
 /**
- * 💎 THE EVENT'S ORDER ROWS, for the Event Hub Pro cap (`lib/hub-parts.ts`
+ * 💎 THE EVENT'S ORDER ROWS, for the Event Pro cap (`lib/hub-parts.ts`
  * `hubOwnershipFrom`) — the cap is a SUM over paid part orders, so it needs the
  * rows, not a yes/no per product.
  *
@@ -1203,7 +1203,7 @@ export async function eventOrderRowsFor(
 
 /**
  * 💎 Every line that buys one of `codes` on this event — its own order (`service_key`) AND a line inside a
- * multi-product bill (`onboarding_order_items`, e.g. several Event Hub Pro parts bought in one press), each with its
+ * multi-product bill (`onboarding_order_items`, e.g. several Event Pro parts bought in one press), each with its
  * order's status. In a render it is the entitlement facts every gate already shares (orders + basket lines, one RPC);
  * outside it, the orders read plus the basket RPC per code. Fails CLOSED to "no lines".
  */

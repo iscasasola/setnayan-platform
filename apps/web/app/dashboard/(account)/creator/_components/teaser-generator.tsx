@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Clapperboard,
   Share,
-  Loader2,
   Music2,
   RotateCcw,
   Sparkles,
@@ -31,6 +30,8 @@ import {
 } from '@/lib/creator-teaser-shared';
 import { prepareChapterTeaser, finalizeChapterTeaser } from '../actions';
 import { OpenFileLink } from '@/app/_components/open-file-link';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { saveFileToDevice } from '@/lib/save-to-device';
 
 type Phase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'error';
@@ -202,22 +203,27 @@ export function TeaserGenerator({
     const r = await saveFileToDevice(file);
     setSaveNote(r === 'expired' ? 'expired' : r === 'failed' ? 'failed' : null);
   };
-  const downloadClass =
-    'inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry';
+  const downloadClass = actionButtonClass('neutral', { extra: 'inline-flex min-h-11 items-center justify-center gap-1.5' });
 
   return (
-    <section className="space-y-3 rounded-tile border border-ink/10 bg-ink/[0.02] p-4">
+    <section className="space-y-3 border-t border-ink/10 pt-3">
       <div className="space-y-1">
-        <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <Clapperboard aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
-          Owned-music teaser
-        </h3>
-        <p className="text-[11px] text-ink/55">
-          A short Setnayan-hosted clip from this chapter’s Papic Memories, set to a
-          Setnayan-owned track — the “made with Setnayan” hook you share. Renders
-          in your browser; keep this tab open. Your full edit stays embedded on
-          your own platform.
-        </p>
+        <InfoTip
+          label="Owned-music teaser"
+          labelNode={
+            <span className="inline-flex items-center gap-1.5">
+              <Clapperboard aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+              Owned-music teaser
+            </span>
+          }
+          labelAs="h3"
+          labelClassName="text-sm font-semibold text-ink"
+          align="start"
+        >
+          A short Setnayan-hosted clip from this chapter’s Papic Memories, set to a Setnayan-owned track — the “made with
+          Setnayan” hook you share. Renders in your browser; keep this tab open. Your full edit stays embedded on your own
+          platform.
+        </InfoTip>
       </div>
 
       {activeUrl && !busy ? (
@@ -229,8 +235,7 @@ export function TeaserGenerator({
 
       {busy ? (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-ink/70">
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+          <div className="flex items-center gap-2 text-xs text-ink/75">
             {phase === 'preparing'
               ? 'Gathering photos + a Setnayan-owned track…'
               : phase === 'rendering'
@@ -239,7 +244,7 @@ export function TeaserGenerator({
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
             <div
-              className="h-full rounded-full bg-mulberry transition-[width] duration-200"
+              className="h-full rounded-full bg-mulberry transition-[width] duration-sn-control"
               style={{ width: `${phase === 'uploading' ? 100 : pct}%` }}
             />
           </div>
@@ -247,7 +252,7 @@ export function TeaserGenerator({
       ) : null}
 
       {reason && !busy ? (
-        <p className="rounded-tile border border-dashed border-ink/15 p-2.5 text-[11px] text-ink/60">
+        <p className="text-xs text-ink/70">
           {reason}
         </p>
       ) : null}
@@ -255,7 +260,7 @@ export function TeaserGenerator({
       {phase === 'error' && errorMsg ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-tile border border-danger-300/70 bg-danger-50 px-3 py-2 text-xs text-danger-900"
+          className="inline-flex items-start gap-2 text-xs text-[rgb(var(--color-danger))]"
         >
           <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           {errorMsg}
@@ -263,26 +268,22 @@ export function TeaserGenerator({
       ) : null}
 
       {musicLabel && phase === 'done' ? (
-        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-          <Music2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        <p className="inline-flex items-center gap-1.5 text-xs text-ink/70">
+          <Music2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {musicLabel} · owned catalogue
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
           onClick={run}
           disabled={busy}
-          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
-        >
-          {activeUrl ? (
-            <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          ) : (
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          )}
-          {activeUrl ? 'Regenerate teaser' : 'Generate teaser'}
-        </button>
+          waiting={busy}
+          icon={activeUrl ? RotateCcw : Sparkles}
+          label={activeUrl ? 'Regenerate teaser' : 'Generate teaser'}
+        />
         {activeUrl && !busy ? (
           storedUrl ? (
             <OpenFileLink
@@ -292,19 +293,19 @@ export function TeaserGenerator({
               rel="noopener noreferrer"
               className={downloadClass}
             >
-              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Download
             </OpenFileLink>
           ) : (
             <button type="button" onClick={() => void saveRendered()} className={downloadClass}>
-              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {saveNote === 'expired' ? 'Tap to save' : 'Download'}
             </button>
           )
         ) : null}
       </div>
       {saveNote === 'failed' ? (
-        <p role="alert" className="text-[11px] text-danger-700">
+        <p role="alert" className="text-xs text-[rgb(var(--color-danger))]">
           The teaser could not be saved to this device. Nothing was downloaded.
         </p>
       ) : null}

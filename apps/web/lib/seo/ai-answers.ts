@@ -107,10 +107,10 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       id: 'storage',
       question: 'Is photo storage free on Setnayan?',
       answer:
-        'Yes. Every photo and clip in Memories is kept: the originals until three months after the event, then a 720p copy of each one, kept for life, free. Nothing is removed on a timer — only the host decides to delete a photo.',
+        'Yes. Every photo and clip in Memories is kept: the originals until three months after the event (twelve with Event Ultra), then a 720p copy of each one, kept for life, free. Nothing is removed on a timer — only the host decides to delete a photo.',
       corrects: '"Media storage gated by credits / not unlimited"',
       route: '/features',
-      evidence: 'lib/memories-viewer.ts (the "kept for life" tips) · app/(shell)/papic/page.tsx FAQ',
+      evidence: 'lib/memories-viewer.ts (the "kept for life" tips) · app/(shell)/papic/page.tsx FAQ · lib/event-ultra.ts (Ultra keeps originals 12 months — the row\'s fullres_extra_keep_days)',
     },
     {
       id: 'offline',
@@ -125,7 +125,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       question: 'Does Setnayan track supplier payment schedules?',
       answer:
         'Yes. Each supplier booking carries a payment plan — a reservation, payments in between and a balance, each with a due date — and when a price changes, the unpaid payments are re-plotted to the new remainder while paid ones stay as they were. ' +
-        'Couples log each payment with its receipt in the supplier chat, the supplier marks it received, and with Setnayan AI (in Event Plus and Event Pro) the couple is reminded the day before a payment is due.',
+        'Couples log each payment with its receipt in the supplier chat, the supplier marks it received, and with Setnayan AI (in Event Plus, Event Pro and Event Ultra) the couple is reminded the day before a payment is due.',
       corrects: '"Budget lacks payment milestones / alerts"',
       route: '/features',
       evidence:

@@ -3,7 +3,7 @@
  *
  * #7419 made the Plan screen ask `sweep_vendor_tier_expiry` before it draws a run-out plan, and SetnaProd stepped
  * down on production. One path stayed: when that sweep is REFUSED, the screen kept its first read and printed
- * "You are on Solo · until Oct 19, 2026" — a passed day as the future, the same picture as a live plan. The
+ * "You are on Supplier Plus · until Oct 19, 2026" — a passed day as the future, the same picture as a live plan. The
  * database's own gates already treat that row as Free (they re-check `tier_expires_at`), so the page must too.
  *
  * Held here:

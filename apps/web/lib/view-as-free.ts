@@ -45,7 +45,7 @@ export const VIEW_AS_FREE_LABEL = 'View as a free couple';
 export const VIEW_AS_FREE_ON_LABEL = 'You’re seeing the free version';
 export const VIEW_AS_FREE_STOP_LABEL = 'Back to Pro';
 export const VIEW_AS_FREE_HELP =
-  'Only you see this — the Maker as a couple without Event Hub Pro sees it. Nothing you saved changes, and Apply still acts as your own account. It switches off when you leave the Maker.';
+  'Only you see this — the Maker as a couple without Event Pro sees it. Nothing you saved changes, and Apply still acts as your own account. It switches off when you leave the Maker.';
 
 /** Does the cookie's raw value say "on"? */
 export function viewAsFreeCookieOn(value: string | null | undefined): boolean {

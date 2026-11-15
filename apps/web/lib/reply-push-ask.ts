@@ -11,8 +11,9 @@
  *   · only once there is a reply to be told about (never on an empty list);
  *   · inside the iPhone app it is the NATIVE ask (APNs) — only on a build with the
  *     push plugin, and only while iOS has not been answered;
- *   · an answer — Yes OR Not now — is remembered, and asked again at most after
- *     30 days (no server field exists for it, so it is kept per device);
+ *   · an answer — Yes OR Not now — is remembered by the ONE notice memory
+ *     (owner approved 14 Nov 2026); the per-device key below is only READ, as
+ *     that notice's legacy, so an earlier answer still holds;
  *   · a device already subscribed, or one that has blocked notifications (which
  *     no code can re-open), is never asked;
  *   · iPhone Safari outside the Home Screen has no Web Push at all, so it is not
@@ -81,15 +82,6 @@ export function readLastAnswer(storage: Pick<Storage, 'getItem'> | null): number
     return Number.isFinite(n) && n > 0 ? n : null;
   } catch {
     return null;
-  }
-}
-
-/** Remembers an answer (Yes, Not now, or Got it). A blocked storage is shrugged off. */
-export function rememberAnswer(storage: Pick<Storage, 'setItem'> | null, nowMs: number): void {
-  try {
-    storage?.setItem(REPLY_ASK_KEY, String(nowMs));
-  } catch {
-    /* private browsing — worst case the ask may come back next visit, still once */
   }
 }
 

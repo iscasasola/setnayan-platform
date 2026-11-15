@@ -177,7 +177,7 @@ type UnexpectedChargeSource = Exclude<
   | 'package_catalog'
   | 'setnayan_ai_event_type'
   | 'setnayan_ai_comeback'
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — catalogue figures only, summed and capped at the rest.
+  // 💎 Event Pro, part by part (owner 2026-10-22) — catalogue figures only, summed and capped at the rest.
   | 'hub_parts'
   // 💳 Event Ultra upgrade (owner 2026-11-13, "Pay the difference") — Ultra's row less the paid plan's row, both catalogue reads.
   | 'event_ultra_upgrade'

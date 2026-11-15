@@ -91,13 +91,13 @@ test('(3) nothing but the lab provides the context — and both lab entries are 
     ['dashboard/[eventId]/launch/_components/print-fetch-context.tsx', 'dev/budget-lab/lab-budget-files.tsx', 'dev/details-lab/lab-studio-actions.tsx'],
     'the app provides a stand-in for the Prints file fetch',
   );
-  assert.match(read(join(HERE, 'page.tsx')), /<LabStudioActions>\s*<LookLab>[\s\S]*<\/LookLab>\s*<\/LabStudioActions>/, 'the details lab is drawn outside the stand-ins');
+  assert.match(read(join(HERE, 'page.lab.tsx')), /<LabStudioActions>\s*<LookLab>[\s\S]*<\/LookLab>\s*<\/LabStudioActions>/, 'the details lab is drawn outside the stand-ins');
   assert.match(read(join(APP, 'dev', 'maker-lab', 'maker-lab-shell.tsx')), /<LabStudioActions draft=\{labDraft as never\}>\s*<MakerShell[\s\S]*<\/MakerShell>\s*<\/LabStudioActions>/, 'the Maker lab is drawn outside the stand-ins');
   /* The real default: the shipped actions, and NO storage stand-in. */
   const ctx = read(join(LAUNCH, 'studio-actions-context.tsx'));
   assert.match(ctx, /qrUploadSend: undefined,/, 'the app’s QR upload has a stand-in storage by default');
   /* …and the lab routes still 404 in production. */
-  assert.match(read(join(HERE, 'page.tsx')), /if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
+  assert.match(read(join(HERE, 'page.lab.tsx')), /if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
 });
 
 test('(4) the stand-ins answer like the real ones, locally — and ?refuse=1 refuses in database words the page never prints', async () => {

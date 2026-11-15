@@ -96,7 +96,7 @@ export async function startAppStorePurchase(input: {
 
   // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits (Papic) are
   // consumable and always buyable; Pro, Live Watch and every 'event-unlock' are one per event.
-  // ⛔ Event Hub Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade event hub pro"): the part products are
+  // ⛔ Event Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade Event Pro"): the part products are
   // retired out of `IAP_PRODUCTS`, so one is an unknown product above. "Everything" is not sold in the app once ANY
   // part is owned (it would charge the full Apple price for what is less on the web, and the app may not say so);
   // such an event finishes on the web.

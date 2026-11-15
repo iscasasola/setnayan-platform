@@ -56,7 +56,7 @@ export function venueMapOfRow(row: { config_json?: unknown } | null | undefined)
 
 /**
  * 🎬 HAS THIS SCENE AN ENTRANCE OF ITS OWN? — an Animate choice (`canvas.in` other than None, or a motion preset
- * other than Still), which is Event Hub Pro ◆ at ✓ Apply (`HUB_CANVAS_LOOK_KEYS`). A look's own choreography (the
+ * other than Still), which is Event Pro ◆ at ✓ Apply (`HUB_CANVAS_LOOK_KEYS`). A look's own choreography (the
  * Love Story's bubbles landing a beat apart, owner 2026-10-17) plays only then — "every entrance is Animate ◆ Pro"
  * (owner 2026-10-16) — so a free event's page is complete at rest, with the theme's own motion only.
  */

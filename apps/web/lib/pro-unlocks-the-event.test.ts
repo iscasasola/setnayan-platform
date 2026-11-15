@@ -170,7 +170,7 @@ test('the defect, reproduced: through her OWN session, co-host B reads the event
 test('⚖ co-host B sees Pro and the hosted channel for an event whose orders host A placed', async () => {
   const { attempt } = await resolveAs(COHOST_B);
   const ent = await attempt;
-  assert.equal(await eventCoupleWebsiteProActive(ent, EVENT), true, 'Event Hub Pro belongs to the EVENT');
+  assert.equal(await eventCoupleWebsiteProActive(ent, EVENT), true, 'Event Pro belongs to the EVENT');
   assert.equal(await eventSkuActive(ent, EVENT, LIVE_STUDIO_HOSTED_CHANNEL_SKU), true);
 });
 
@@ -257,7 +257,7 @@ const READERS = [
   'eventOwnsCustomQrGuest',
   'eventOwnsCoupleWebsitePro',
   'eventCoupleWebsiteProActive',
-  // 💎 Event Hub Pro, part by part (2026-10-22) — the same question, asked of one part.
+  // 💎 Event Pro, part by part (2026-10-22) — the same question, asked of one part.
   'eventHubPartActive',
   'eventOwnsHubPart',
   'eventHubOwnership',

@@ -27,6 +27,7 @@
  */
 import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
+import { BOOKED_DATE_HELD_LINE } from './booking-ask-words';
 import { blockOnDay, DAY_PART_SHORT, DAY_PART_WORDS, repeatWords, type DayPart, type RepeatRule } from './not-available';
 
 /** Kind 31's state for one day of the month, or null for a quiet one (drawn as a plain day). */
@@ -44,6 +45,14 @@ export function dayStateOf(
   const part = day.partBlocked === true;
   if (dots.length === 0 && !full && !part) return null;
   return { ...(dots.length > 0 ? { dots } : {}), ...(full ? { full } : {}), ...(part ? { part } : {}) };
+}
+
+/** 📅 A day with an agreed, not-yet-paid booking wears the Booked dot (F-W1-68) — added to what `dayStateOf` drew. */
+export function withAgreedDot(state: CalendarDayState | null, agreed: boolean): CalendarDayState | null {
+  if (!agreed) return state;
+  const dots = state?.dots ?? [];
+  if (dots.includes('booked')) return state;
+  return { ...(state ?? {}), dots: (['booked', ...dots] as CalendarDot[]).slice(0, 3) };
 }
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -201,6 +210,9 @@ export function dayRowsOf(
     blocks: readonly DatesBlock[];
     holds: readonly DatesHold[];
     asking: number;
+    /** 📅 The agreed, not-yet-paid bookings on this day (their names) — Booked, the date held once the first payment
+     *  is in (owner 13 Nov 2026, F-W1-68). */
+    agreed?: readonly string[];
     waiting: number;
   },
 ): DayRow[] {
@@ -271,6 +283,9 @@ export function dayRowsOf(
         badge: null,
       }),
     );
+  (input.agreed ?? []).forEach((name, i) =>
+    rows.push({ key: `agreed-${i}`, kind: 'booked', title: name, line: BOOKED_DATE_HELD_LINE, badge: { tone: 'ok', word: 'Booked' } }),
+  );
   if (input.asking > 0) {
     rows.push({
       key: 'asking',
@@ -568,12 +583,22 @@ export function seatLine(seats: SeatsByPool, poolId: string | null, date: string
  * never from the thread's `event` embed, which is ALWAYS NULL for a supplier (no `events` RLS; `lib/chat.ts`). The
  * shipped month counted that embed, so its "N asking" mark could never appear.
  */
-export type DatesAsk = { threadId: string; eventId: string; date: string; name: string | null; askedAt: string };
+export type DatesAsk = {
+  threadId: string;
+  eventId: string;
+  date: string;
+  name: string | null;
+  askedAt: string;
+  /** 📅 The supplier already said yes (the booking row is `contracted` / `deposit_paid`) but no first payment holds the
+   *  date yet — Booked, never Asking (owner 13 Nov 2026; `BOOKED_DATE_HELD`). */
+  agreed: boolean;
+};
 
 export function openAsksOf(
   threads: readonly { thread_id: string; event_id: string; inquiry_status: string | null; created_at: string }[],
   events: ReadonlyMap<string, { date: string | null; name: string | null }>,
   bookedEventIds: ReadonlySet<string>,
+  agreedEventIds: ReadonlySet<string> = new Set(),
 ): DatesAsk[] {
   const seen = new Set<string>();
   const out: DatesAsk[] = [];
@@ -584,14 +609,24 @@ export function openAsksOf(
     const date = ev?.date ? String(ev.date).slice(0, 10) : null;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     seen.add(t.event_id);
-    out.push({ threadId: t.thread_id, eventId: t.event_id, date, name: ev?.name?.trim() || null, askedAt: t.created_at });
+    out.push({ threadId: t.thread_id, eventId: t.event_id, date, name: ev?.name?.trim() || null, askedAt: t.created_at, agreed: agreedEventIds.has(t.event_id) });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.askedAt.localeCompare(b.askedAt));
 }
 
-/** The month's amber marks: how many couples hold each date (a count only crosses to the browser). */
-export function asksByDate(asks: readonly Pick<DatesAsk, 'date'>[]): { requestedDate: string; count: number }[] {
-  const by = new Map<string, number>();
-  for (const a of asks) by.set(a.date, (by.get(a.date) ?? 0) + 1);
-  return [...by.entries()].map(([requestedDate, count]) => ({ requestedDate, count })).sort((a, b) => a.requestedDate.localeCompare(b.requestedDate));
+/** One date's marks as they cross to the browser: how many couples are ASKING (amber), and the names of the agreed,
+ *  not-yet-paid bookings on it (`agreed` — drawn Booked, "date held once the first payment is in"). */
+export type DatesInquiry = { requestedDate: string; count: number; agreed?: string[] };
+
+/** The month's amber marks: how many couples hold each date (a count only crosses to the browser) — and, apart from
+ *  them, the agreed-but-unpaid bookings, which are never counted as asking (owner 13 Nov 2026, F-W1-68). */
+export function asksByDate(asks: readonly Pick<DatesAsk, 'date' | 'agreed' | 'name'>[]): DatesInquiry[] {
+  const by = new Map<string, DatesInquiry>();
+  for (const a of asks) {
+    const at = by.get(a.date) ?? { requestedDate: a.date, count: 0 };
+    if (a.agreed) at.agreed = [...(at.agreed ?? []), a.name ?? 'A couple'];
+    else at.count += 1;
+    by.set(a.date, at);
+  }
+  return [...by.values()].sort((a, b) => a.requestedDate.localeCompare(b.requestedDate));
 }

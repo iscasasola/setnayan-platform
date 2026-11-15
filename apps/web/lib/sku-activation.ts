@@ -156,7 +156,7 @@ type ActivationHook = (ctx: ActivationContext) => Promise<void>;
  * ⚠ `allTiersAllowed` — pass TRUE for an add-on whose BUY path is open to every
  * tier, and the TIER half of this assertion is skipped (verification still
  * required, always). Under the 2026-07-25 tiered add-on model the Papic Challenge
- * (#3692/#3697) and 3D Plan Ads (#3699) buy actions sell to Free/Solo at the entry
+ * (#3692/#3697) and 3D Plan Ads (#3699) buy actions sell to Free/Supplier Plus at the entry
  * price; without this, that vendor pays and then activation THROWS here on admin
  * approval — money taken, entitlement never granted. The tier floor must move in
  * lock-step with the buy gate, so both read the same
@@ -951,7 +951,7 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
 
-  // (2b) S2 — re-assert Solo+ & verified on the paying vendor (defence in depth).
+  // (2b) S2 — re-assert Supplier Plus and up & verified on the paying vendor (defence in depth).
   await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
 
   // (3) Current window + trial marker → the new (stacked) expiry.
@@ -1078,10 +1078,10 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (booth branding is a
   // Pro perk; defence in depth against a comp/self-comp bypass). The tier floor
   // LIFTS in lock-step with the buy gate (#3699 sells 3D Plan Ads to every tier
-  // when the tiered add-on model is on) — otherwise a Free/Solo vendor pays and
+  // when the tiered add-on model is on) — otherwise a Free/Supplier Plus vendor pays and
   // this throws on approval. Verified is still required either way.
   // ⚠ NO LONGER LIFTED BY THE TIERED-PRICING FLAG. Owner 2026-08-29: the 3D
-  // Booth is for paid plans, Solo and up. It must match the BUY gate exactly or
+  // Booth is for paid plans, Supplier Plus and up. It must match the BUY gate exactly or
   // a shop pays and this throws on approval — money taken, add-on not turned on.
   await assertVendorAddonActivationEligible(ctx, vendorProfileId, BOOTH_BRANDING_MIN_TIER);
 
@@ -1179,7 +1179,7 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   //
   // ⚠ NO LONGER LIFTED BY THE TIERED-PRICING FLAG. Owner 2026-08-29: *"they can
   // only buy if they are solo, pro, enterprise, custom. but not when they are
-  // free"*. The floor is Solo, unconditionally, on both sides.
+  // free"*. The floor is Supplier Plus, unconditionally, on both sides.
   await assertVendorAddonActivationEligible(
     ctx,
     vendorProfileId,
@@ -1402,7 +1402,7 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
   const requestedByUserId = (order as { user_id?: string | null } | null)?.user_id ?? null;
   if (!vendorProfileId) return;
 
-  // (2b) S2 — re-assert Solo+ & verified on the paying vendor BEFORE the costly
+  // (2b) S2 — re-assert Supplier Plus and up & verified on the paying vendor BEFORE the costly
   // web+AI run (defence in depth against a comp/self-comp bypass).
   await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
 
@@ -1884,7 +1884,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
 /**
  * Basket items that are SWITCHED ON BY THE ORDER ITSELF and so need no hook.
  *
- * Event Hub Pro (`COUPLE_WEBSITE_PRO`, on the onboarding bill since 2026-09-25)
+ * Event Pro (`COUPLE_WEBSITE_PRO`, on the onboarding bill since 2026-09-25)
  * has never had an activation hook, and a direct Pro order does not need one:
  * every Pro gate asks `eventSkuActive`, which reads the order's status live —
  * and, since the basket landed, reads the basket's items too (`basketGrantsSku`).

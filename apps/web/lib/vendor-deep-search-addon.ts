@@ -47,7 +47,7 @@ function coercePrice(value: number | null | undefined, fallback: number): number
 // ── Eligibility gate ─────────────────────────────────────────────────────────
 
 export type DeepSearchDenyReason =
-  /** Tier below Solo (Free/Verified) — a PAID-tier add-on. */
+  /** Tier below Supplier Plus (Free/Verified) — a PAID-tier add-on. */
   | 'tier_too_low'
   /** Paid tier but the shop is not verified yet. */
   | 'unverified';
@@ -77,7 +77,7 @@ export type DeepSearchEligibility =
  * rejects, so the surfaced reason always matches what a submit would return:
  * tier → verification.
  *
- * "Paid tiers only" is `isTierAtLeast('solo')`, so Solo, Pro and Ultra
+ * "Paid tiers only" is `isTierAtLeast('solo')`, so Supplier Plus, Pro and Ultra
  * (`enterprise`) pass — Free and Verified (the two free tiers)
  * do not. This mirrors the AI-addon gate.
  */

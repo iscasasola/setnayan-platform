@@ -194,7 +194,7 @@ const ORDER_MINTERS: Record<string, string> = {
     'or a non-positive price refuses the sale (no code fallback). The form carries a cycle and a pay ' +
     'channel only. Service-role (`createMoneyWriterClient`). Authorized by fetchOwnVendorProfile + ' +
     'resolveVendorRoleForProfile + canManageVendor + specializedToolsPurchaseEligibility (verified, ' +
-    'Verified/Solo; Pro/Ultra refused as already included) + one pending order per shop across both cycles.',
+    'Verified/Supplier Plus; Pro/Ultra refused as already included) + one pending order per shop across both cycles.',
   'app/vendor-dashboard/subscription/booth-addon-actions.ts':
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +

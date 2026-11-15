@@ -87,6 +87,7 @@ export function ServiceFace({
   coverCorner,
   discount = null,
   path = null,
+  pathLead = null,
   shop,
   lines,
   city = null,
@@ -118,6 +119,12 @@ export function ServiceFace({
   discount?: string | null;
   /** "Mobile Bar · Booths, carts & bars" — what the service is. */
   path?: string | null;
+  /**
+   * 📸 PHOTOS BY SERVICE (owner 2026-11-14, way in Ⓐ): the SERVICE named at the head of the path line, pressable —
+   * "Lights & Sound · Reception", where "Lights & Sound" opens every photo of that service. Lifted above the door
+   * (z-10) and its sibling, never inside it — the same rule as the shop line. Absent → the path line as it was.
+   */
+  pathLead?: { label: string; onPress: () => void; ariaLabel: string } | null;
   /** The shop this card belongs to. OMIT on the shop's own surfaces. */
   shop?: ServiceFaceShop;
   /** Extra short lines a surface must say about the SUPPLIER (Find: "Real name shown after they reply", date fit). */
@@ -189,7 +196,22 @@ export function ServiceFace({
               </span>
             ) : null}
           </span>
-          {path ? <span className="truncate text-[11px] leading-snug text-[var(--m-slate-2)]">{path}</span> : null}
+          {pathLead ? (
+            <span className="relative z-10 truncate text-[11px] leading-snug text-[var(--m-slate-2)]" data-service-face-path="">
+              <button
+                type="button"
+                onClick={pathLead.onPress}
+                aria-label={pathLead.ariaLabel}
+                className="font-medium text-link underline-offset-2 hover:underline"
+                data-photos-by-service-open=""
+              >
+                {pathLead.label}
+              </button>
+              {path ? ` · ${path}` : null}
+            </span>
+          ) : path ? (
+            <span className="truncate text-[11px] leading-snug text-[var(--m-slate-2)]">{path}</span>
+          ) : null}
           {shop ? <ShopLine shop={shop} /> : null}
           {lines}
           {city || rating ? (

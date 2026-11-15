@@ -97,7 +97,7 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     { key: 'reach', title: 'How far you reach', line: reach },
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
+      // 💾 Owner 2026-11-13 "plan storage": Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
       // what they had — no limit. GB of 1e9 bytes, the GB `storageWords` prints (lib/supplier-storage.ts).
       key: 'storage',
       title: 'Storage for your event files',

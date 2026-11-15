@@ -1,7 +1,7 @@
 /**
  * apps/web/lib/hub-fonts.ts
  *
- * THE COUPLE'S OWN TYPEFACE — a fixed list, on Event Hub Pro.
+ * THE COUPLE'S OWN TYPEFACE — a fixed list, on Event Pro.
  *
  * Owner's Pro list: *"Reveal, Custom Background, Custom Fonts, Custom
  * Background Music, Manual Uploads, E-Gifts"*. Uploads turned out to be free

@@ -1,6 +1,6 @@
 /**
  * Vendor-benefits catalog for the "For vendors" overlay — organized BY ACCOUNT
- * TYPE (owner 2026-07-01): Free → Solo → Pro → Ultra, each tier
+ * TYPE (owner 2026-07-01): Free → Supplier Plus → Pro → Ultra, each tier
  * showing what it ADDS on top of the one below. Mirrors the tier ladder on
  * /vendors and the hybrid gating decision in VENDOR_TIERS_AND_BENEFITS.md
  * (§2 allocation + §6 as-built). `soon` = not yet live end-to-end; it clears as

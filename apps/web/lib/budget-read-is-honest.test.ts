@@ -108,7 +108,7 @@ const DENIED: Result = { data: null, error: { message: 'permission denied for ta
 
 const PAID_ORDER = {
   order_id: 'o1',
-  description: 'Event Hub Pro',
+  description: 'Event Pro',
   service_key: 'EVENT_HUB_PRO',
   requested_total_php: 2499,
   confirmed_total_php: 2499,

@@ -16,7 +16,7 @@ import { guestQrFileName } from '@/app/api/guest/qr/route';
  * ── THE LOOK, NOT A PRODUCT (owner 2026-09-27) ─────────────────────────────
  * Until this build the route served the "Custom QR per guest" product — the
  * couple's palette in the modules — and was GATED on that SKU
- * (`CUSTOM_QR_GUEST`). That product folded into Event Hub Pro: a free event's
+ * (`CUSTOM_QR_GUEST`). That product folded into Event Pro: a free event's
  * code carries the Setnayan mark; a Pro event's carries the couple's logo,
  * shape, pattern and palette ink. `resolveEventQrLook` decides, so this route
  * no longer asks about any SKU — it draws whatever the event's look is, which

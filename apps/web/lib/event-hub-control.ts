@@ -746,6 +746,7 @@ export function resolveHubRoleView(input: {
         ],
         previewHref: at(ownDoor),
         previewLabel: 'Open your page',
+        // ⏳ PINNED: app/dashboard/[eventId]/launch/_components/view-as-reaches-the-render.test.ts (not T3's folder) pins "edit the site" — rename with that test.
         footnote: 'The only role that may edit the site.',
       };
 

@@ -83,8 +83,10 @@ export const RETAIL: RetailRow[] = [
   // both). Moves in the SAME PR as the catalogue migration — re-check with the select above.
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5690, is_active: true },
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
-  // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
+  // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.
+  { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
+  // 💎 Event Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
+  // (owner: "just have the upgrade Event Pro" — migration 20271290543004). Re-check with the select above.
   { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
   { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: false },
   { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: false },
@@ -183,7 +185,7 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
   // CUSTOM_QR_GUEST is OFF SALE since 2026-09-28: the "Custom QR per guest"
-  // product folded into Event Hub Pro (owner 2026-09-27), deactivated in prod by
+  // product folded into Event Pro (owner 2026-09-27), deactivated in prod by
   // the `_custom_qr_guest_folds_into_event_hub_pro` migration. Kept listed,
   // inactive, so the change is legible here — the KWENTO convention above.
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: false },

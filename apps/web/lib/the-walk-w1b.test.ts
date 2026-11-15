@@ -1,0 +1,89 @@
+/**
+ * the-walk-w1b.test.ts — the W1 walk's booking round (13 Nov 2026): what each fix holds.
+ *
+ * SABOTAGE: drop the /vendor-dashboard/portfolio redirect → RED; start the "Also mark delivered" box ticked again
+ * (`useState(canAdvanceToDelivered)`) → RED; offer it before the day (drop `dayHasPassed`) → RED; put the handover back
+ * under Payment → RED; write a picked tab with `window.history.state` → RED.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+
+const WEB = join(import.meta.dirname, '..');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+test('F-W1-64 · /vendor-dashboard/portfolio goes to the Portfolio', () => {
+  assert.match(code('next.config.ts'), /\{ source: '\/vendor-dashboard\/portfolio', destination: '\/vendor-dashboard\/collections', permanent: false \}/);
+});
+
+test('F-W1-72 · "Also mark this supplier delivered" starts unticked and waits for the day', () => {
+  const inbox = code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx');
+  assert.match(inbox, /const \[advance, setAdvance\] = useState\(false\);/);
+  const page = code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
+  assert.match(page, /const dayHasPassed = deliverEventDate !== null && deliverEventDate\.slice\(0, 10\) < manilaToday\(\);/);
+  assert.match(page, /const canAdvanceToDelivered = dayHasPassed && /);
+});
+
+test('F-W1-70 · a contracted booking is booked on the couple’s row, pool hold or not', () => {
+  const src = code('lib/conversation-list.ts');
+  const fn = src.slice(src.indexOf('async function readCoupleStageFacts'), src.indexOf('export const SUPPLIER_NAME_UNREADABLE'));
+  assert.match(fn, /r\.status === 'contracted' \|\| r\.status === 'deposit_paid'\)\) \{\s*facts\.booked\.add\(r\.marketplace_vendor_id\);/);
+});
+
+test('F-W1-71 · the handover sits in Files, once, and its notice opens Files', () => {
+  const page = code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
+  assert.equal(page.split('<HandoverInbox').length - 1, 1, 'the handover is drawn once');
+  const files = page.slice(page.indexOf('files: ('), page.indexOf('inspiration: inspirationSection'));
+  assert.match(files, /<HandoverInbox/, 'the handover is on the Files page');
+  const status = page.slice(page.indexOf('const statusSection = ('), page.indexOf('const documentsSection = ('));
+  assert.doesNotMatch(status, /<HandoverInbox/, 'the handover is no longer under Payment');
+  const send = code('app/vendor-dashboard/clients/[eventId]/actions.ts');
+  // The notice's link (its `related` URL) opens Files.
+  assert.match(send, /title: `\$\{vendorName\} delivered your handover`,[\s\S]{0,200}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=files`/);
+  assert.match(code('app/dashboard/[eventId]/_components/event-dashboard.tsx'), /\/vendors\/\$\{latestHandover\.event_vendor_id\}\/workspace\?tab=files`/);
+});
+
+test('F-W1-67/73 · a tab switch on the picked screen is written so the router keeps it', () => {
+  const shell = code('app/_components/picked/picked-shell.tsx');
+  const writes = [...shell.matchAll(/window\.history\.replaceState\(([^,]+),/g)].map((m) => m[1]!.trim());
+  assert.ok(writes.length >= 2, `the picked shell writes its page into the address (${writes.length} writes)`);
+  for (const w of writes) assert.equal(w, 'null', 'a write with window.history.state is ignored by Next’s router, which then writes the old ?tab= back');
+});
+
+test('F-W1-69 · "Send link" sends once per press and says it was sent', () => {
+  const stay = code('app/_components/stay-form.tsx');
+  assert.match(stay, /if \(inFlight\.current\) return;\s*inFlight\.current = true;/, 'a second press while sending is ignored');
+  assert.match(stay, /finally \{\s*inFlight\.current = false;/);
+  assert.match(stay, /if \(r\.note\) setNote\(r\.note\);/);
+  assert.match(stay, /\{sayNote \? stay\.saved : null\}/);
+  assert.match(code('app/_actions/stay-registry/supClients.ts'), /note: \(q\) => \(q\.get\('handover'\) === 'sent' \? HANDOVER_SENT : null\)/);
+  const page = code('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  const forms = [...page.matchAll(/<StayForm door="supClients\.vendorPostHandover"[^>]*>/g)].map((m) => m[0]);
+  assert.ok(forms.length >= 3, `the handover forms (${forms.length})`);
+  for (const f of forms) assert.match(f, /\bsayNote\b/, 'a handover form that does not say "sent"');
+});
+
+test('F-W1-68 · an agreed booking waiting on its first payment reads Booked, never Asking', async () => {
+  const { asksByDate, openAsksOf, dayRowsOf, withAgreedDot } = await import('@/lib/vendor-dates');
+  const { BOOKED_DATE_HELD, BOOKED_DATE_HELD_LINE } = await import('@/lib/booking-ask-words');
+  assert.equal(BOOKED_DATE_HELD, 'Booked · date held once the first payment is in');
+  const threads = [
+    { thread_id: 't1', event_id: 'e1', inquiry_status: 'accepted', created_at: '2026-11-01T00:00:00Z' },
+    { thread_id: 't2', event_id: 'e2', inquiry_status: 'pending', created_at: '2026-11-02T00:00:00Z' },
+  ];
+  const events = new Map([
+    ['e1', { date: '2027-05-12', name: 'Debut 18' }],
+    ['e2', { date: '2027-05-12', name: 'Other' }],
+  ]);
+  const asks = openAsksOf(threads, events, new Set(), new Set(['e1']));
+  assert.deepEqual(asksByDate(asks), [{ requestedDate: '2027-05-12', count: 1, agreed: ['Debut 18'] }], 'the agreed one is not counted as asking');
+  const rows = dayRowsOf('2027-05-12', { today: '2026-11-13', poolIds: new Set(), poolLabel: () => '', namePools: false, bookings: [], blocks: [], holds: [], asking: 1, agreed: ['Debut 18'], waiting: 0 });
+  const agreedRow = rows.find((r) => r.title === 'Debut 18');
+  assert.equal(agreedRow?.line, BOOKED_DATE_HELD_LINE);
+  assert.equal(agreedRow?.badge?.word, 'Booked');
+  assert.deepEqual(withAgreedDot(null, true), { dots: ['booked'] });
+  const src = code('app/vendor-dashboard/customers/open-asks.ts');
+  assert.match(src, /\.eq\('marketplace_vendor_id', vendorProfileId\)\s*\.in\('status', \['contracted', 'deposit_paid'\]\)/);
+});

@@ -18,6 +18,7 @@ import {
   type RawGalleryRow,
 } from '@/lib/moodboard-gallery';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readTagEventLines } from '@/lib/inspiration-tags.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { sanitizeRolePalette, type PaletteKey, type RolePalette } from '@/lib/mood-board';
 import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
@@ -871,8 +872,19 @@ export async function fetchGalleryAssets(input: {
   if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as unknown as RawGalleryRow[];
-  const { assets, withheld } = shapeGalleryPage(query.slotKey, rows, parts);
+  const shaped = shapeGalleryPage(query.slotKey, rows, parts);
+  const { withheld } = shaped;
   const total = count ?? 0;
+  // 🏷 A photo tagged from Files carries its event as type · venue · month (ruling 4) — through the one narrow read
+  // that answers only for a tag shown right now; never the event id. A refused read leaves the tile without a line.
+  const lines = await readTagEventLines(
+    supabase,
+    shaped.assets.filter((a) => a.isEventLinked).map((a) => a.assetId),
+  );
+  const assets = shaped.assets.map((a) => {
+    const l = lines.get(a.assetId);
+    return l ? { ...a, eventLine: l.line, alsoIn: l.alsoIn } : a;
+  });
 
   return {
     assets,

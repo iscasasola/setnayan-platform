@@ -31,7 +31,7 @@ import {
 const rec = (n: number): MeterService[] => Array.from({ length: n }, () => ({ categoryId: 'reception', categoryLabel: 'Reception' }));
 const acc: MeterService = { categoryId: 'accommodation', categoryLabel: 'Accommodation' };
 
-test('the owner’s own example: four Reception venues + a hotel is NOT "Free and Verified" — Solo, split per category', () => {
+test('the owner’s own example: four Reception venues + a hotel is NOT "Free and Verified" — Supplier Plus, split per category', () => {
   // v7 read "1 category · 4 services — Free and Verified cover this" for four venues; the owner: "the rule is wrong".
   const four = rec(4);
   assert.notEqual(firstPlanThatHolds(four), 'free');
@@ -63,10 +63,10 @@ test('past what Free holds, the explainer is due — and its line is the v16 one
 
 test('the plan is the FIRST where categories AND services per category both fit — read from TIER_CAPS', () => {
   const solo = TIER_CAPS.solo;
-  // Solo's categories but one category over Solo's per-category count → the next plan.
+  // Supplier Plus's categories but one category over Supplier Plus's per-category count → the next plan.
   assert.equal(firstPlanThatHolds(rec(solo.servicesPerLeaf)), 'solo');
   assert.equal(firstPlanThatHolds(rec(solo.servicesPerLeaf + 1)), 'pro');
-  // One category more than Solo holds, one service each → the next plan.
+  // One category more than Supplier Plus holds, one service each → the next plan.
   const many = Array.from({ length: solo.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
   assert.equal(firstPlanThatHolds(many), 'pro');
   // Past the top plan: no Custom plan (retired from the app) — the line says what stays after the first booking, in
@@ -81,7 +81,7 @@ test('the plan is the FIRST where categories AND services per category both fit 
   assert.match(coverageLine(rec(TIER_CAPS.pro.servicesPerLeaf + 1)).verdict, /^Supplier Ultra covers this/);
 });
 
-test('the ladder (Free · Verified → Solo → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
+test('the ladder (Free · Verified → Supplier Plus → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
   const l = planLadder();
   assert.deepEqual(
     l.map((r) => r.name),

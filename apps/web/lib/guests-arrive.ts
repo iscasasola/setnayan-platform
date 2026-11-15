@@ -34,7 +34,7 @@
  * Pure and client-safe: the Studio, Event Details, the guest's Me and the guard all call these.
  * Held by `lib/guests-have-one-arrival-time.test.ts`.
  */
-import { sortScheduleBlocks } from '@/lib/schedule';
+import { DEFAULT_CHAPTER_LABELS, sortScheduleBlocks } from '@/lib/schedule';
 import { formatWallClock, toDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 
 /** The columns this reads — a structural subset of `ScheduleBlockRow`, so a page's own rows and a fixture both fit. */
@@ -74,6 +74,18 @@ export function guestsMoments<T extends ArriveBlock>(blocks: readonly T[]): T[] 
 }
 
 /** ⏰ THE guests' arrival moment — the invitation's first moment, when it is an arrival of its own; else null. */
+/**
+ * 🎴 THE COVER'S MOMENT (walk F-W2-40, 14 Nov 2026): the first moment a guest sees, but never the Prep chapter. Every
+ * event starts with a public "Prep" chapter at 7 AM (DECISION_LOG 3 Nov, the four default chapters), so the cover used
+ * to read "Prep 7:00 AM" — the hosts' getting-ready hour, printed as when the event happens. The cover shows the event's
+ * own first moment instead ("Ceremony 1:30 PM"). The Prep chapter is the top-level chapter the seed names Prep.
+ * Nothing else changes: Prep stays public in the schedule.
+ */
+export function coverMoment<T extends ArriveBlock>(blocks: readonly T[]): T | null {
+  const prep = DEFAULT_CHAPTER_LABELS.prep.toLowerCase();
+  return guestsMoments(blocks).find((b) => !(b.parent_block_id === null && b.label.trim().toLowerCase() === prep)) ?? null;
+}
+
 export function guestsArriveMoment<T extends ArriveBlock>(blocks: readonly T[]): T | null {
   const first = guestsMoments(blocks)[0] ?? null;
   if (!first || first.parent_block_id) return null;

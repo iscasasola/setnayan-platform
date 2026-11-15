@@ -44,7 +44,7 @@ import type { BookingMoney } from '@/lib/vendor-cashflow';
 import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/vendor-payment-live';
 import { BookingMoneySummary } from './booking-money-summary';
 
-const H = 'text-[12px] uppercase tracking-[0.08em] text-ink/55';
+const H = 'text-xs uppercase tracking-[0.08em] text-ink/70';
 const V = 'mt-0.5 text-[22px] font-medium leading-tight tabular-nums';
 
 /** "Oct 3" — the Manila day the couple logged it. */
@@ -105,7 +105,7 @@ export function CustomerMoneyFold({
           <div className="grid grid-cols-2 gap-x-5" data-customer-money-figures="">
             <div className="min-w-0">
               <div className={H}>Paid</div>
-              <div className={`${V} text-[rgb(var(--color-ok))]`}>
+              <div className={`${V} text-success-700`}>
                 <Peso value={figures.paid} id={`cm-paid-${eventId}`} />
               </div>
             </div>
@@ -120,9 +120,9 @@ export function CustomerMoneyFold({
             <>
               {/* Kind 32's meter: received of the total, no frame. */}
               <div className="relative h-1.5 overflow-hidden rounded-full bg-ink/10" role="presentation">
-                <Fill value={pct} id={`cm-meter-${eventId}`} className="absolute inset-y-0 left-0 bg-[rgb(var(--color-ok))]" />
+                <Fill value={pct} id={`cm-meter-${eventId}`} className="absolute inset-y-0 left-0 bg-success-600" />
               </div>
-              <p className="text-[12.5px] text-ink/60">received of {formatPhp(figures.total)}</p>
+              <p className="text-[13px] text-ink/70">received of {formatPhp(figures.total)}</p>
             </>
           ) : null}
         </>
@@ -135,7 +135,7 @@ export function CustomerMoneyFold({
       ) : ledgerMoney.rows.length > 0 ? (
         <BookingMoneySummary money={ledgerMoney} />
       ) : (
-        <p className="text-[14px] text-ink/60">No payment plan on this booking yet.</p>
+        <p className="text-sm text-ink/70">No payment plan on this booking yet.</p>
       )}
 
       {pending.length > 0 ? (
@@ -144,16 +144,16 @@ export function CustomerMoneyFold({
           <ul role="list">
             {pending.map((p) => (
               <li key={p.paymentId} className="border-t border-ink/10 py-3 first:border-t-0" data-customer-money-pending={p.paymentId}>
-                <p className="text-[14px] text-ink">
+                <p className="text-sm text-ink">
                   <b className="font-semibold tabular-nums">{formatPhp(p.amountPhp)}</b>
                   {p.installmentLabel ? ` · ${p.installmentLabel}` : p.isDepositRecord ? ' · first payment' : ''}
-                  <span className="text-ink/55"> · logged {loggedDay(p.paidAt)}</span>
+                  <span className="text-ink/70"> · logged {loggedDay(p.paidAt)}</span>
                 </p>
                 {p.method || p.reference ? (
-                  <p className="text-[12.5px] text-ink/55">{[p.method, p.reference].filter(Boolean).join(' · ')}</p>
+                  <p className="text-[13px] text-ink/70">{[p.method, p.reference].filter(Boolean).join(' · ')}</p>
                 ) : null}
                 {p.proofUrl ? (
-                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-[12.5px] text-sn-accent underline-offset-2 hover:underline">
+                  <a href={p.proofUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent underline-offset-2 hover:underline">
                     Their receipt
                   </a>
                 ) : null}

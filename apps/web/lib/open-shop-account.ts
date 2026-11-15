@@ -102,3 +102,43 @@ export function signUpSaysEmailTaken(result: {
   if (result.error) return /already (registered|exists)/i.test(result.error.message ?? '');
   return Array.isArray(result.identities) && result.identities.length === 0;
 }
+
+/**
+ * 🔁 THE PREFILLED EMAIL BELONGS TO THE ACCOUNT THAT SUBMITS (walk 13 Nov 2026, F-W1-13).
+ *
+ * Signed in, step 5's company email is prefilled with the ACCOUNT's email. The wizard keeps its state across a change
+ * of account (the sign-in pane, another tab), so the box could still hold the OLD account's address when "Open my
+ * shop" is pressed — and the shop saved it. The form now posts what it was prefilled with
+ * (`PREFILLED_ACCOUNT_EMAIL_FIELD`); an address that is still exactly that prefill was never chosen by the person, so it
+ * is re-read from the account that actually submits. An address they typed themselves is kept as typed.
+ */
+export const PREFILLED_ACCOUNT_EMAIL_FIELD = 'prefilled_account_email';
+
+export function accountEmailAtSubmit(input: {
+  /** The email the form posted (already cleaned). */
+  posted: string | null;
+  /** What the box was prefilled with from the account the page was drawn for (already cleaned), or null. */
+  prefilled: string | null;
+  /** The email of the account that is submitting, or null (signed out). */
+  sessionEmail: string | null;
+}): string | null {
+  const { posted, prefilled, sessionEmail } = input;
+  if (!posted || !prefilled || !sessionEmail) return posted;
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  return same(posted, prefilled) && !same(prefilled, sessionEmail) ? sessionEmail.trim().toLowerCase() : posted;
+}
+
+/**
+ * 🪪 THE TYPED NAME WINS (owner 13 Nov 2026, the open question on #7613 / walk F-W1-02). When the name a supplier typed
+ * on "About you" differs from the name on the Google, Apple or other account they open the shop with, the TYPED name is
+ * the shop owner's name — the account's name never overwrites it. The account name is only a fallback when nothing was
+ * typed. (This reverses the 2026-08-10 "the account name wins, read-only" lock.)
+ *
+ * 🔒 app/open-shop/the-walk-round-1.test.ts
+ */
+export function shopOwnerNameOf(typed: string | null | undefined, account: string | null | undefined): string | null {
+  const t = (typed ?? '').trim();
+  if (t) return t;
+  const a = (account ?? '').trim();
+  return a || null;
+}

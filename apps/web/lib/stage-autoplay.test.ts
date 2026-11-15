@@ -209,7 +209,7 @@ test('7 · each scene holds for its OWN clock, and a mark never goes inside a pi
   assert.equal(stageSceneHoldMs({ transition: 'scrub', speed: 'normal' }), STAGE_AUTO_HOLD_MS);
 
   const list = stageList(widgets, 'anonymous');
-  // Countdown set to Auto · Slow: with Event Hub Pro it is an Auto run.
+  // Countdown set to Auto · Slow: with Event Pro it is an Auto run.
   const auto = withCanvas(list, { countdown: { transition: 'auto', autoSpeed: 'slow' } });
   const pro = await renderScenes(auto, { scrubAllowed: true, stageMarks: true });
   assert.deepEqual(marksIn(pro.html), ['w:countdown', 'w:our_love_story']);

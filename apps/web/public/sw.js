@@ -1317,11 +1317,25 @@ self.addEventListener('message', (event) => {
       data.type === 'OFFLINE_SAVE'
         ? withOfflineLock(() => saveOfflineCopies(data))
         : data.type === 'OFFLINE_FORGET'
-          ? withOfflineLock(() => forgetOfflineCopies().then(() => ({ ok: true })))
+          ? withOfflineLock(() =>
+              // 🔒 F-W1-82: a signed-out page's wipe erases the day-of guest pages too, never only the saved copies.
+              Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined)]).then(() => ({ ok: true })),
+            )
           : withOfflineLock(async () => {
+              /* 🔒 ONE VIEWER AT A TIME — FOR EVERY CACHE THAT HOLDS A PERSON'S PAGES (walk 13 Nov 2026, F-W1-82: after an
+                 account switch the day-of cache still held four other logins' Event Hub pages). The viewer is recorded on
+                 EVERY signed-in load now, not only when a copy is saved — so a switch is always seen — and a different
+                 viewer, or an unknown one (nothing on record yet), erases the saved copies AND the day-of guest pages. */
               const reg = await loadOfflineRegistry();
               const viewer = typeof data.viewer === 'string' ? data.viewer : '';
-              if (reg.viewer && reg.viewer !== viewer) await forgetOfflineCopies();
+              if (!viewer) return { ok: true };
+              if (reg.viewer !== viewer) {
+                await forgetOfflineCopies();
+                await forgetGuestPages(null).catch(() => undefined);
+                offlineRegistry = emptyOfflineRegistry();
+                offlineRegistry.viewer = viewer;
+                await writeOfflineRegistry().catch(() => undefined);
+              }
               return { ok: true };
             });
     event.waitUntil(work.then(reply, () => reply({ ok: false, savedAt: null, failed: [] })));

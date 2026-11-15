@@ -109,12 +109,12 @@ export async function SupplierFormsCard({
                 {titles.get(formId) ?? `${shopName}’s form`}
               </h2>
               {c.total > 0 ? (
-                <span className="text-[13px] text-ink/60">
+                <span className="text-[13px] text-ink/70">
                   {c.answered === c.total ? 'All answered' : `${formatCount(c.answered)} of ${formatCount(c.total)} answered`}
                 </span>
               ) : null}
             </div>
-            <p className="text-[14px] text-ink/70">From {shopName}. Only the two of you and {shopName} read your answers.</p>
+            <p className="text-sm text-ink/70">From {shopName}. Only the two of you and {shopName} read your answers.</p>
             {its
               .filter((i) => i.item_kind !== 'question')
               .map((i) =>
@@ -122,7 +122,7 @@ export async function SupplierFormsCard({
                   <VideoItem key={i.question_id} title={i.prompt} url={i.video_url} />
                 ) : (
                   <div key={i.question_id} className="space-y-2">
-                    <p className="text-[14px] text-ink/80">{i.prompt}</p>
+                    <p className="text-sm text-ink/80">{i.prompt}</p>
                     <ul className="flex flex-wrap gap-2">
                       {(i.media_keys ?? []).map((k, n) => {
                         const url = mediaUrls.get(k);
@@ -135,7 +135,7 @@ export async function SupplierFormsCard({
                                 <img src={url} alt={`${i.prompt} · ${n + 1}`} className="h-20 w-20 rounded-lg object-cover" />
                               </a>
                             ) : (
-                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[14px] text-sn-accent underline underline-offset-4">
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-sn-accent underline underline-offset-4">
                                 Open file {n + 1}
                               </a>
                             )}
@@ -172,8 +172,8 @@ export async function SupplierFormsCard({
 
 function Unread({ shopName }: { shopName: string }) {
   return (
-    <p role="alert" className="text-sm text-ink/70">
-      <strong className="text-ink">We couldn&rsquo;t load {shopName}&rsquo;s forms.</strong> Anything you already answered is safe. Reload in a moment.
+    <p role="alert" className="py-2 text-sm text-warn-800">
+      Couldn&rsquo;t load {shopName}&rsquo;s forms — anything you already answered is safe. Reload in a moment.
     </p>
   );
 }
@@ -188,7 +188,7 @@ function VideoItem({ title, url }: { title: string; url: string }) {
   if (v?.kind === 'iframe' && v.embedUrl) {
     return (
       <div className="space-y-1.5">
-        <p className="text-[14px] text-ink/80">{title}</p>
+        <p className="text-sm text-ink/80">{title}</p>
         <div className="relative aspect-video overflow-hidden rounded-xl bg-ink/5">
           <iframe
             src={v.embedUrl}
@@ -204,7 +204,7 @@ function VideoItem({ title, url }: { title: string; url: string }) {
     );
   }
   return (
-    <p className="text-[14px]">
+    <p className="text-sm">
       <a href={url} target="_blank" rel="noopener noreferrer" className="text-sn-accent underline underline-offset-4">
         ▶ {title} · {v?.label ?? 'Video'}
       </a>

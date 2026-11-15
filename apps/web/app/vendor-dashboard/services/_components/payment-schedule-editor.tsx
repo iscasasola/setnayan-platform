@@ -21,9 +21,14 @@
  */
 
 import { useState } from 'react';
-import { CalendarClock, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { CalendarClock, Check, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+// Aliased, not relative: the field-parity scan (`canvas-field-parity.test.ts`) walks relative imports, and this shared
+// button's own `name={name}` is supplied at a call site, never a field of the schedule.
+import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { setServicePaymentSchedule } from '../actions';
 import {
   MAX_SCHEDULE_ITEMS,
@@ -45,6 +50,21 @@ type Row = {
   refund_window_days: string;
   no_show_forfeit: boolean;
 };
+
+/** Rule 2's section label — small grey capitals, no box. */
+const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]';
+/** A field's own label. */
+const FIELD_LABEL = 'block text-sm font-medium text-ink';
+
+/**
+ * When a payment is due — the ▾ list (template rule 4: a native select became the shared PickMenu). `none` stands for
+ * the old empty option; the row still posts `item_due_anchor` as '' for it, through a hidden input.
+ */
+const DUE_OPTIONS = [
+  { key: 'none', label: 'No fixed due date' },
+  { key: 'on_lock', label: 'After booking is locked' },
+  { key: 'before_event', label: 'Before the event' },
+] as const;
 
 function draftToRow(d: ScheduleItemDraft): Row {
   return {
@@ -138,60 +158,39 @@ export function PaymentScheduleEditor({
         <>
           <input type="hidden" name="vendor_service_id" value={serviceId} />
           <div className="flex items-center gap-1.5">
-            <CalendarClock aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
-            <p className="text-sm font-medium text-ink">Payment schedule</p>
+            <CalendarClock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
+            <InfoTip label="Payment schedule" labelAs="p" labelClassName="text-sm font-semibold text-ink" align="start">
+              Lay out how a couple pays — a first payment plus follow-on payments. Each one can be a % of the total or
+              a fixed peso amount, with a due date anchored to booking or the event.
+            </InfoTip>
           </div>
-          <p className="text-xs text-ink/55">
-            Optional. Lay out how a couple pays — a first payment plus follow-on
-            payments. Each one can be a % of the total or a fixed peso amount, with a
-            due date anchored to booking or the event. The couple sees this on their
-            plan.
-          </p>
+          <p className="text-sm text-[color:var(--m-slate-2)]">Optional. The couple sees this on their plan.</p>
         </>
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-ink/15 px-3 py-3 text-xs text-ink/45">
+        <p className="py-2 text-sm text-[color:var(--m-slate-2)]">
           No schedule yet. Add a first payment to get started.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-[color:var(--m-line)]">
           {rows.map((r, i) => (
-            <li
-              key={i}
-              className="rounded-lg border border-ink/10 bg-white/60 p-3"
-            >
+            <li key={i} className="min-h-14 py-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <span className={SECTION_LABEL}>
                   {i === 0 ? 'First payment' : `Payment ${i}`}
                 </span>
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => move(i, -1)}
-                    disabled={i === 0}
-                    aria-label="Move up"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    type="button"
+                  <ActionButton tone="neutral" quiet iconOnly icon={ArrowUp} label="Move up" onClick={() => move(i, -1)} disabled={i === 0} className="!h-11 !w-11" />
+                  <ActionButton
+                    tone="neutral"
+                    quiet
+                    iconOnly
+                    icon={ArrowDown}
+                    label="Move down"
                     onClick={() => move(i, 1)}
-                    disabled={i === rows.length - 1}
-                    aria-label="Move down"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(i)}
-                    aria-label="Remove payment"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
+                    disabled={i === rows.length - 1} className="!h-11 !w-11" />
+                  <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove payment" onClick={() => remove(i)} className="!h-11 !w-11" />
                 </div>
               </div>
 
@@ -200,7 +199,7 @@ export function PaymentScheduleEditor({
 
               <div className="space-y-2">
                 <label className="block space-y-1">
-                  <span className="block text-xs font-medium text-ink/75">Label</span>
+                  <span className={FIELD_LABEL}>Label</span>
                   <input
                     name="item_label"
                     type="text"
@@ -225,7 +224,7 @@ export function PaymentScheduleEditor({
                     </PillButton>
                   </PillTrack>
                   <label className="block space-y-1">
-                    <span className="block text-xs font-medium text-ink/75">
+                    <span className={FIELD_LABEL}>
                       {r.amount_kind === 'percent' ? 'Percent (0–100)' : 'Amount (PHP)'}
                     </span>
                     <input
@@ -238,29 +237,27 @@ export function PaymentScheduleEditor({
                       value={r.value}
                       onChange={(e) => update(i, { value: e.target.value })}
                       placeholder={r.amount_kind === 'percent' ? 'e.g. 50' : 'e.g. 10000'}
-                      className="input-field"
+                      className="input-field font-bold tabular-nums"
                     />
                   </label>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2 sm:items-end">
+                  <div className="block space-y-1">
+                    <span className={FIELD_LABEL}>Due (optional)</span>
+                    {/* The posted value — one per row, in row order, '' for "No fixed due date" (was the select's own). */}
+                    <input type="hidden" name="item_due_anchor" value={r.due_anchor} />
+                    <PickMenu
+                      label="When this payment is due"
+                      value={r.due_anchor || 'none'}
+                      options={DUE_OPTIONS}
+                      onPick={(k) => update(i, { due_anchor: k === 'none' ? '' : (k as DueAnchor) })}
+                      dataAttr="data-payment-due-anchor"
+                      className="!min-h-11"
+                    />
+                  </div>
                   <label className="block space-y-1">
-                    <span className="block text-xs font-medium text-ink/75">Due (optional)</span>
-                    <select
-                      name="item_due_anchor"
-                      value={r.due_anchor}
-                      onChange={(e) =>
-                        update(i, { due_anchor: e.target.value as '' | DueAnchor })
-                      }
-                      className="input-field cursor-pointer"
-                    >
-                      <option value="">No fixed due date</option>
-                      <option value="on_lock">After booking is locked</option>
-                      <option value="before_event">Before the event</option>
-                    </select>
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="block text-xs font-medium text-ink/75">Days</span>
+                    <span className={FIELD_LABEL}>Days</span>
                     <input
                       name="item_due_offset_days"
                       type="number"
@@ -270,7 +267,7 @@ export function PaymentScheduleEditor({
                       onChange={(e) => update(i, { due_offset_days: e.target.value })}
                       disabled={r.due_anchor === ''}
                       placeholder={r.due_anchor === 'before_event' ? 'e.g. 30' : 'e.g. 7'}
-                      className="input-field disabled:cursor-not-allowed disabled:opacity-50"
+                      className="input-field tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </label>
                 </div>
@@ -300,49 +297,44 @@ export function PaymentScheduleEditor({
                   value={i === 0 && r.no_show_forfeit ? '1' : ''}
                 />
                 {i === 0 ? (
-                  <div className="space-y-2 rounded-lg border border-terracotta/25 bg-terracotta/[0.04] p-3">
+                  <div className="space-y-2 border-t border-[color:var(--m-line)] pt-3" data-no-show-terms="">
                     <div className="flex items-center gap-1.5">
                       <ShieldCheck
                         aria-hidden
-                        className="h-3.5 w-3.5 text-terracotta"
+                        className="h-4 w-4 text-terracotta"
                         strokeWidth={1.75}
                       />
-                      <p className="text-xs font-semibold text-ink">
-                        No-show protection (reservation terms)
-                      </p>
+                      <InfoTip label="No-show protection (reservation terms)" labelAs="p" labelClassName={SECTION_LABEL} align="start">
+                        Spell out your cancellation / no-show terms for this first payment. The couple must tick
+                        &ldquo;I understand&rdquo; before they can lock, and we freeze these exact words as proof if a
+                        forfeit is ever disputed. Setnayan never holds the money — you collect it directly.
+                      </InfoTip>
                     </div>
-                    <p className="text-[11px] leading-snug text-ink/55">
-                      Spell out your cancellation / no-show terms for this
-                      first payment. The couple must tick &ldquo;I understand&rdquo; before
-                      they can lock, and we freeze these exact words as proof if a
-                      forfeit is ever disputed. Setnayan never holds the money — you
-                      collect it directly.
-                    </p>
 
-                    <label className="flex items-start gap-2 text-xs text-ink/80">
+                    <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
                       <input
                         type="checkbox"
                         checked={r.downpayment_non_refundable}
                         onChange={(e) =>
                           update(i, { downpayment_non_refundable: e.target.checked })
                         }
-                        className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                        className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta focus:ring-terracotta"
                       />
                       <span>First payment is non-refundable</span>
                     </label>
 
-                    <label className="flex items-start gap-2 text-xs text-ink/80">
+                    <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
                       <input
                         type="checkbox"
                         checked={r.no_show_forfeit}
                         onChange={(e) => update(i, { no_show_forfeit: e.target.checked })}
-                        className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+                        className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta focus:ring-terracotta"
                       />
                       <span>A no-show forfeits the first payment</span>
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="block text-xs font-medium text-ink/75">
+                      <span className={FIELD_LABEL}>
                         Refundable up to (days after booking · optional)
                       </span>
                       <input
@@ -353,12 +345,12 @@ export function PaymentScheduleEditor({
                         value={r.refund_window_days}
                         onChange={(e) => update(i, { refund_window_days: e.target.value })}
                         placeholder="e.g. 7 — leave blank for none"
-                        className="input-field"
+                        className="input-field tabular-nums"
                       />
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="block text-xs font-medium text-ink/75">
+                      <span className={FIELD_LABEL}>
                         Cancellation terms (shown to the couple verbatim)
                       </span>
                       <textarea
@@ -385,23 +377,15 @@ export function PaymentScheduleEditor({
         </ul>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ActionButton
+          tone="neutral"
+          icon={Plus}
+          label={rows.length === 0 ? 'Add first payment' : 'Add payment'}
           onClick={add}
-          disabled={rows.length >= MAX_SCHEDULE_ITEMS}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {rows.length === 0 ? 'Add first payment' : 'Add payment'}
-        </button>
+          disabled={rows.length >= MAX_SCHEDULE_ITEMS} className="!h-11" />
         {bare ? null : (
-          <SubmitButton
-            className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
-            pendingLabel="Saving…"
-          >
-            Save schedule
-          </SubmitButton>
+          <SupplierSubmit tone="brand" icon={<Check aria-hidden strokeWidth={1.9} />} label="Save schedule" pendingLabel="Saving…" />
         )}
       </div>
     </Shell>

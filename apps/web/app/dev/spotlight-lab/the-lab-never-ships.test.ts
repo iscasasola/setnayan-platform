@@ -12,8 +12,8 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 for (const [file, fn] of [
-  ['layout.tsx', 'export default function SpotlightLabLayout('],
-  ['[[...page]]/page.tsx', 'export default async function SpotlightLabPage('],
+  ['layout.lab.tsx', 'export default function SpotlightLabLayout('],
+  ['[[...page]]/page.lab.tsx', 'export default async function SpotlightLabPage('],
 ] as const) {
   test(`${file} calls notFound() in production, before anything else`, () => {
     const src = stripComments(readFileSync(join(HERE, file), 'utf8'));

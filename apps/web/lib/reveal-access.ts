@@ -44,7 +44,7 @@ export const REVEAL_NONE = 'none' as const;
 export type RevealDecision = RevealTemplateId | typeof REVEAL_NONE;
 
 export type RevealAccessInput = {
-  /** The event holds Event Hub Pro (STD_PREMIUM_OPENINGS, active). */
+  /** The event holds Event Pro (STD_PREMIUM_OPENINGS, active). */
   ownsPro: boolean;
   /** events.std_reveal_template, coerced: an id · 'none' · null (not chosen). */
   chosenTemplate: RevealDecision | null | undefined;

@@ -55,6 +55,7 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 
+import { InfoTip } from '@/app/_components/info-tip';
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
 // secrets — the camera claim_qr_token (a per-camera seat-hijack credential) and
 // the screen pairing_code — before this data crosses into the 'use client'
@@ -509,7 +510,7 @@ export function PanoodControlRoom({
             href={`/dashboard/${eventId}/studio/panood/setup`}
             aria-label="Back to Live Watch setup"
             title="Back to Live Watch setup"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/70 hover:bg-ink/5 hover:text-ink"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
@@ -518,20 +519,20 @@ export function PanoodControlRoom({
         <span className="min-w-0 truncate text-xs font-medium text-ink/70">{eventName}</span>
 
         {!owned && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[12px] uppercase tracking-[0.16em] text-terracotta">
             <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Watch')} size="xs" tone="current" />
             Preview
           </span>
         )}
         {!streamingOn && (
-          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+          <span className="shrink-0 text-[12px] uppercase tracking-[0.16em] text-ink/70">
             No video yet
           </span>
         )}
 
         <span
-          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
-            live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/60'
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.15em] ${
+            live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/70'
           }`}
         >
           <span
@@ -545,7 +546,7 @@ export function PanoodControlRoom({
           href={`/dashboard/${eventId}/studio/panood/cameras`}
           aria-label="Connect cameras"
           title="Connect cameras — send a link to each phone"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/70 hover:bg-ink/5 hover:text-ink"
         >
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
@@ -556,7 +557,7 @@ export function PanoodControlRoom({
             onClick={openProgramPopout}
             aria-label="Pop out for OBS"
             title="Opens a clean window with no controls — add it to OBS as a Window Capture."
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/70 hover:bg-ink/5 hover:text-ink"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -570,7 +571,7 @@ export function PanoodControlRoom({
             onClick={() => chooseLayout(layout === 'board' ? 'compact' : 'board')}
             aria-label={layout === 'board' ? 'Switch to compact console' : 'Switch to director board'}
             title={layout === 'board' ? 'Switch to compact console' : 'Switch to director board'}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/70 hover:bg-ink/5 hover:text-ink"
           >
             {layout === 'board' ? (
               <Rows3 aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -673,7 +674,7 @@ export function PanoodControlRoom({
         {/* Swipeable camera strip — always visible above the tabs */}
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {cameras.length === 0 ? (
-            <p className="px-2 py-3 text-xs text-ink/55">
+            <p className="px-2 py-3 text-xs text-ink/70">
               No cameras provisioned yet — add them in Live Watch setup.
             </p>
           ) : (
@@ -755,7 +756,7 @@ export function PanoodControlRoom({
               className={`flex items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-medium ${
                 mobileTab === t.key
                   ? 'bg-ink text-cream'
-                  : 'text-ink/65 hover:bg-ink/5'
+                  : 'text-ink/70 hover:bg-ink/5'
               }`}
             >
               <t.Icon aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -839,7 +840,7 @@ function ProgramMonitor({
   return (
     <section aria-label="Program monitor" className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/70">
           Program
         </h2>
         <div className="flex items-center gap-2">
@@ -848,15 +849,15 @@ function ProgramMonitor({
             type="button"
             onClick={onPopout}
             title="Opens a clean window with no controls — add it to OBS as a Window Capture, then stream to your own YouTube or Facebook."
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-2.5 py-1 text-[12px] font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
           >
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Pop out for OBS
           </button>
         )}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
-            live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/60'
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.15em] ${
+            live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/70'
           }`}
         >
           <span
@@ -903,14 +904,14 @@ function ProgramMonitor({
             <div className="relative text-center">
               <Tv aria-hidden className="mx-auto h-8 w-8 text-cream/60" strokeWidth={1.5} />
               <p className="mt-2 text-sm font-medium text-cream">{label}</p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cream/55">
+              <p className="mt-1 text-[12px] uppercase tracking-[0.2em] text-cream/55">
                 preview — live video arrives with the streaming rollout
               </p>
             </div>
           </>
         )}
         {signalLost && (
-          <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-center gap-2 bg-danger-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cream">
+          <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-center gap-2 bg-danger-600 px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-cream">
             <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
             Signal lost — pick another camera
           </div>
@@ -919,7 +920,7 @@ function ProgramMonitor({
         {overlay && <SetnayanOverlay size="monitor" reason={overlayReason} />}
       </div>
       {overlay && overlayReason && (
-        <p className="text-[11px] leading-relaxed text-ink/55">
+        <p className="text-[12px] leading-relaxed text-ink/70">
           <span className="font-semibold uppercase tracking-[0.14em] text-ink/70">
             {WATERMARK_COPY[overlayReason].badge}
           </span>{' '}
@@ -1089,19 +1090,19 @@ function SourceTileBody({
           <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
         )}
         {lost && (
-          <span className="absolute inset-x-0 bottom-0 z-20 bg-danger-600/90 px-1.5 py-0.5 text-center font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-cream">
+          <span className="absolute inset-x-0 bottom-0 z-20 bg-danger-600/90 px-1.5 py-0.5 text-center text-[12px] font-bold uppercase tracking-[0.1em] text-cream">
             Dropped
           </span>
         )}
         {/* Thumbnails carry the paywall too — one uncovered video surface is the whole bypass. */}
         {overlay && stream && <SetnayanOverlay size="thumb" />}
         {onAir && (
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-danger-600 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-cream">
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-danger-600 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.1em] text-cream">
             On air
           </span>
         )}
         {status && (
-          <span className="absolute right-1.5 top-1.5 rounded-full bg-ink/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-cream/80">
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-ink/60 px-1.5 py-0.5 text-[12px] uppercase tracking-[0.1em] text-cream/80">
             {status}
           </span>
         )}
@@ -1138,21 +1139,21 @@ function SourcesRail({
   return (
     <section
       aria-label="Sources"
-      className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4"
+      className="border-t border-ink/10 space-y-3 py-4"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/70">
           Sources
         </h2>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-ink/45">
+          <span className="text-[12px] text-ink/70">
             {onToggleSplit ? 'Tap to put on air · “Split” to pair beside it' : 'Tap to put on air'}
           </span>
           {/* The moment an operator sees a camera they expected is missing, this is where they
               look — so the doorway belongs here, not only in the page header. */}
           <Link
             href={`/dashboard/${eventId}/studio/panood/cameras`}
-            className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-terracotta hover:underline"
+            className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-terracotta hover:underline"
           >
             <Camera aria-hidden className="h-3 w-3" strokeWidth={2.5} />
             Connect a camera
@@ -1197,7 +1198,7 @@ function SourcesRail({
                       ? 'Remove this camera from the split'
                       : 'Show this camera beside the program source'
                   }
-                  className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                  className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-[0.1em] transition-colors ${
                     isSplit
                       ? 'bg-terracotta text-cream'
                       : 'bg-ink/70 text-cream/90 hover:bg-ink'
@@ -1228,7 +1229,7 @@ function SourcesRail({
       </div>
 
       {cameras.length === 0 && (
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           No cameras provisioned yet. Add camera operators in Live Watch setup — they’ll
           appear here as live sources.
         </p>
@@ -1260,12 +1261,12 @@ function MomentDirector({
           Moment director
         </h2>
       </div>
-      <p className="text-xs text-ink/60">
+      <p className="text-xs text-ink/70">
         One tap recomposes the whole shot — the easiest way to run the show.
       </p>
 
       {moments.length === 0 ? (
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           Your moment rail is being set up — refresh in a moment.
         </p>
       ) : (
@@ -1291,7 +1292,7 @@ function MomentDirector({
                 />
                 <span className="text-xs font-semibold leading-tight">{m.label}</span>
                 {active && (
-                  <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-cream/80">
+                  <span className="text-[12px] uppercase tracking-[0.12em] text-cream/80">
                     Live
                   </span>
                 )}
@@ -1316,9 +1317,9 @@ function GoLivePanel({
   return (
     <section
       aria-label="Broadcast controls"
-      className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4"
+      className="border-t border-ink/10 space-y-3 py-4"
     >
-      <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/70">
         Broadcast
       </h2>
       <button
@@ -1350,20 +1351,20 @@ function ScreensManager({
   return (
     <section
       aria-label="Venue screens"
-      className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4"
+      className="border-t border-ink/10 space-y-3 py-4"
     >
       <div className="flex items-center gap-2">
         <MonitorPlay aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/70">
           Venue screens
         </h2>
       </div>
 
       {screens.length === 0 ? (
-        <p className="text-xs text-ink/55">
-          No venue screens registered yet. Register displays in Live Watch setup to route
+        <InfoTip labelAs="p" label="No venue screens registered yet." labelClassName="text-xs text-ink/70" align="start">
+          Register displays in Live Watch setup to route
           photos, a mirror of the broadcast, or your live background to each one.
-        </p>
+        </InfoTip>
       ) : (
         <ul className="space-y-3">
           {screens.map((screen) => {
@@ -1371,10 +1372,10 @@ function ScreensManager({
             return (
               <li
                 key={screen.id}
-                className="rounded-xl border border-ink/10 bg-cream/60 p-3"
+                className="border-t border-ink/10 py-3"
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <Video aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={2} />
+                  <Video aria-hidden className="h-3.5 w-3.5 text-ink/70" strokeWidth={2} />
                   <span className="text-sm font-medium text-ink">
                     {screen.name?.trim() || `Screen ${screen.screen_index}`}
                   </span>

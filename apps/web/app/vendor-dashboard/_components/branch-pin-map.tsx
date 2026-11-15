@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
+import { ActionButton } from '@/components/action-button';
+
 const TILE = 256;
 const HEIGHT = 260;
 const MIN_ZOOM = 4;
@@ -212,11 +214,10 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
   return (
     <div
       ref={wrapRef}
-      className="relative w-full touch-none overflow-hidden rounded-xl border"
+      className="relative w-full touch-none overflow-hidden rounded-xl"
       style={{
         height: H,
-        borderColor: 'var(--m-line)',
-        background: '#e6ebed',
+        background: 'var(--m-paper-2)',
         cursor: drag ? 'grabbing' : 'grab',
       }}
       onPointerDown={onPointerDown}
@@ -243,7 +244,8 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
         />
       ))}
 
-      {/* Fixed centre pin (the "dropped" pin is always the viewport centre). */}
+      {/* Fixed centre pin (the "dropped" pin is always the viewport centre) — the same accent + on-accent pair as
+          ReachMap's HQ pin, so the two maps draw one pin. */}
       <svg
         width={W || 1}
         height={H}
@@ -254,43 +256,28 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
           cx={(W || 2) / 2}
           cy={H / 2 - 9}
           r={8}
-          style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
-          stroke="#fff"
+          style={{ fill: 'rgb(var(--sn-accent))' }}
+          stroke="rgb(var(--sn-on-accent))"
           strokeWidth={2}
         />
         <path
           d={`M ${(W || 2) / 2 - 7} ${H / 2 - 5} L ${(W || 2) / 2} ${H / 2 + 6} L ${(W || 2) / 2 + 7} ${H / 2 - 5} Z`}
-          style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
+          style={{ fill: 'rgb(var(--sn-accent))' }}
         />
-        <circle cx={(W || 2) / 2} cy={H / 2 - 9} r={2.5} fill="#fff" />
+        <circle cx={(W || 2) / 2} cy={H / 2 - 9} r={2.5} style={{ fill: 'rgb(var(--sn-on-accent))' }} />
       </svg>
 
       {/* Zoom controls */}
-      <div className="absolute right-2 top-2 flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm" style={{ borderColor: 'var(--m-line)' }}>
-        <button
-          type="button"
-          onClick={() => bumpZoom(1)}
-          aria-label="Zoom in"
-          className="flex h-8 w-8 items-center justify-center text-ink/70 hover:bg-ink/5"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
-        <span className="h-px w-full" style={{ background: 'var(--m-line)' }} aria-hidden />
-        <button
-          type="button"
-          onClick={() => bumpZoom(-1)}
-          aria-label="Zoom out"
-          className="flex h-8 w-8 items-center justify-center text-ink/70 hover:bg-ink/5"
-        >
-          <Minus className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
+      <div className="absolute right-2 top-2 flex flex-col gap-1">
+        <ActionButton tone="neutral" filled iconOnly icon={Plus} label="Zoom in" onClick={() => bumpZoom(1)} className="!h-11 !w-11" />
+        <ActionButton tone="neutral" filled iconOnly icon={Minus} label="Zoom out" onClick={() => bumpZoom(-1)} className="!h-11 !w-11" />
       </div>
 
       <a
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
         rel="noreferrer"
-        className="absolute bottom-0 right-0 bg-white/75 px-1 text-[10px] leading-tight text-ink/60 hover:underline"
+        className="absolute bottom-0 right-0 bg-white/75 px-1 text-xs leading-tight text-ink-on-light hover:underline"
       >
         © OpenStreetMap
       </a>

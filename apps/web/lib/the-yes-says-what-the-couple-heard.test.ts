@@ -28,7 +28,8 @@ test('1 · a held-back yes says so and names the fee as the way to tell the coup
   const held = lockAgreeNotice('ok', { feeHeld: true })!;
   assert.equal(held.tone, 'ok');
   assert.doesNotMatch(held.text, /has been told/i, 'the supplier is told the couple knows while the news is held back');
-  assert.match(held.text, /Pay the booking fee/);
+  // RW-38 (walk 13 Nov 2026): the booking stands for the couple; the door is "Pay the booking fee" (below).
+  assert.match(held.text, /it stands for the couple whatever happens/);
   assert.match(held.text, /tell the couple their booking is confirmed/);
   assert.deepEqual(held.door, { label: 'Pay the booking fee', href: '/vendor-dashboard/booking-fees' });
   for (const told of [lockAgreeNotice('ok', { feeHeld: false })!, lockAgreeNotice('ok')!]) {

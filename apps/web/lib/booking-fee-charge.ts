@@ -71,7 +71,7 @@ export type SettleChargeResult = { settled: boolean; error: string | null };
 
 /**
  * Mark a pending charge paid + roll it into the ledger (from the gateway/admin
- * confirmation path — the same shape as the retired token wallet's
+ * confirmation path — the same shape as the retired token balance's
  * approve_vendor_token_purchase). Idempotent: a non-pending charge is a
  * no-op. Service-role only.
  *

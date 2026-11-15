@@ -100,6 +100,12 @@ import { readCoordinatorPrices } from './_prices.server';
 import { addonLines } from '@/app/for-suppliers/_components/plan-table-data';
 import { SupplierPlanTable } from '@/app/for-suppliers/_components/supplier-plan-table';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
+import { PlanPagePreview } from '@/app/for-suppliers/_components/plan-page-preview';
+import {
+  SampleShopPage,
+  samplePlanBranchCities,
+  samplePlanCaption,
+} from '@/app/v/[slug]/_components/sample-shop-page';
 
 import './_for-coordinators.css';
 
@@ -614,7 +620,7 @@ export default async function ForCoordinatorsPage() {
                   {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303, permit and bank proof are approved) puts you in search{' '}
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
                   {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
                   and branches. See Plans below.
                 </p>
@@ -666,6 +672,12 @@ export default async function ForCoordinatorsPage() {
                     Your page is your marketing tool. <Pill kind="free">Free</Pill>
                   </h3>
                   <p>Verified seal, photos, service cards, reviews and badges in one link. Put it on your posts, your booth, your table.</p>
+                  {/* 🪞 THE PAGE ITSELF, not a picture of it (owner 13 Nov 2026, DECISION_LOG "THREE PUBLIC PAGES APPROVED —
+                      AND THE FRONT PAGES FOLLOW"): the Verified shop page drawn from the shipped pieces (`SampleShopPage`),
+                      in the same miniature row /for-suppliers puts under each plan, opening full screen. */}
+                  <PlanPagePreview plan="verified" label={planName('verified')} caption={samplePlanCaption('verified')} ownTokens>
+                    <SampleShopPage plan="verified" branchCities={samplePlanBranchCities('verified')} />
+                  </PlanPagePreview>
                 </div>
               </div>
               <div className="fc-media">
@@ -1077,7 +1089,7 @@ export default async function ForCoordinatorsPage() {
                 <p className="fc-pzero">{pesoWords(TIER_PRICE_PHP.verified.monthly)}, once your papers are approved</p>
                 <p>Couples can find you.</p>
                 <p className="fc-spec">{verifiedSpec()}</p>
-                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit · Bank proof</p>
+                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit</p>
               </div>
               <div className="fc-planstep fc-grow">
                 <span className="fc-n">STEP 3</span>

@@ -286,7 +286,7 @@ export function HubScenes({
   /** Stamp the stage Auto's stops (see the docblock). Off everywhere but the
    *  Save the Date for guests and the preview tab. */
   stageMarks?: boolean;
-  /** Event Hub Pro, resolved once by the page. Without it every section
+  /** Event Pro, resolved once by the page. Without it every section
    *  scrolls — Scrub AND Auto (the name predates Auto). */
   scrubAllowed: boolean;
   children: React.ReactNode;

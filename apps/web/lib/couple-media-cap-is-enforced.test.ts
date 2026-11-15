@@ -1,6 +1,6 @@
 /**
  * couple-media-cap-is-enforced.test.ts — THE ALLOWANCE IS A CAP (FREE 10 MB ·
- * EVENT HUB PRO 500 MB), A REMOVED PICTURE GIVES ITS BYTES BACK, AND THE METER
+ * EVENT PRO 500 MB), A REMOVED PICTURE GIVES ITS BYTES BACK, AND THE METER
  * SITS WHERE THE UPLOADS HAPPEN.
  *
  * DECISION_LOG 2026-09-25: *"that means they can only upload a total of 100MB
@@ -165,11 +165,11 @@ test('3 · the refusal is the plain reason, names the room left, and names THIS 
   // FREE: 10 MB, then ONE line about Pro — a ◆, never a padlock.
   assert.equal(
     coupleMediaFullMessage(coupleMediaCapBytes(false), 2 * MB, false),
-    'This event has used its 10 MB of uploads. Remove a photo or video to add more. ◆ Event Hub Pro gives you 500 MB of uploads.',
+    'This event has used its 10 MB of uploads. Remove a photo or video to add more. ◆ Event Pro gives you 500 MB of uploads.',
   );
   assert.equal(
     coupleMediaFullMessage(6 * MB, 12 * MB, false),
-    'This file is 12 MB, and this event has 4 MB of its 10 MB of uploads left. Remove a photo or video to make room, or pick a smaller file. ◆ Event Hub Pro gives you 500 MB of uploads.',
+    'This file is 12 MB, and this event has 4 MB of its 10 MB of uploads left. Remove a photo or video to make room, or pick a smaller file. ◆ Event Pro gives you 500 MB of uploads.',
   );
   assert.doesNotMatch(coupleMediaFullMessage(10 * MB, MB, false), /🔒|lock/i, 'Pro marks itself with ◆ and never blocks with a padlock');
   assert.equal(COUPLE_MEDIA_FULL_CODE, 'event_media_full');
@@ -277,13 +277,13 @@ test('4a · a FREE couple reads 10 MB, and at the cap sees one ◆ Pro line with
   assert.doesNotMatch(meter(part), /Unlock Pro/, 'the Pro line waits until the allowance is used');
   const full = meter(await paintRow({ ownsPro: false, mediaUsedBytes: coupleMediaCapBytes(false) }));
   assert.match(full, /10 MB of 10 MB/);
-  assert.match(full, /◆ Event Hub Pro gives you 500 MB\./, 'ONE line, the Pro mark, the Pro number');
+  assert.match(full, /◆ Event Pro gives you 500 MB\./, 'ONE line, the Pro mark, the Pro number');
   assert.match(full, new RegExp(`href="/dashboard/${E}/studio/website-pro"[^>]*>Unlock Pro<`), 'Unlock Pro goes to the existing upgrade path');
   assert.doesNotMatch(full, /🔒|padlock/i, 'never a padlock');
   // A couple already OVER the new Free number (files are never deleted): full, nothing removed, still just one line.
   const over = meter(await paintRow({ ownsPro: false, mediaUsedBytes: 40 * MB }));
   assert.match(over, /40 MB of 10 MB/);
-  assert.equal((over.match(/Event Hub Pro gives you/g) ?? []).length, 1);
+  assert.equal((over.match(/Event Pro gives you/g) ?? []).length, 1);
 });
 
 test('4b · the Main background shows it too, and both stay in the lazy Maker chunk', () => {
@@ -426,7 +426,7 @@ test('4c · R2 · Unlock Pro is 12 px words pressed at 44+', async () => {
   const a = /<a [^>]*>Unlock Pro<\/a>/.exec(full)?.[0] ?? '';
   assert.match(a, /class="[^"]*\bsn-hit\b[^"]*"/, 'the shared 46 px press');
   assert.match(a, /class="[^"]*\btext-xs\b[^"]*"/, '12 px words');
-  const line = /<p class="([^"]*)">◆ Event Hub Pro gives you/.exec(full)?.[1] ?? '';
+  const line = /<p class="([^"]*)">◆ Event Pro gives you/.exec(full)?.[1] ?? '';
   assert.match(line, /\btext-xs\b/);
   assert.doesNotMatch(line, /text-\[10px\]/);
 });

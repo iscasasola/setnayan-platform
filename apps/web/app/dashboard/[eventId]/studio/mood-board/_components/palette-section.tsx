@@ -93,8 +93,8 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 bg-cream p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
+      <div className="border-t border-ink/10 flex flex-wrap items-center gap-2 py-3">
+        <span className="text-[12px] uppercase tracking-[0.2em] text-ink/70">
           Palette style
         </span>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Palette style">
@@ -107,14 +107,14 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                 board.style === s.key
                   ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
-                  : 'border-ink/15 text-ink/65 hover:border-terracotta/40'
+                  : 'border-ink/15 text-ink/70 hover:border-terracotta/40'
               }`}
             >
               {s.label}
             </button>
           ))}
         </div>
-        <span className="w-full text-xs text-ink/55 sm:w-auto">
+        <span className="w-full text-xs text-ink/70 sm:w-auto">
           {PALETTE_STYLES.find((s) => s.key === board.style)?.gloss}
         </span>
       </div>
@@ -143,7 +143,7 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
           ))}
         </PaletteGroup>
       ) : (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-xs text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-xs text-ink/70">
           Add guests with roles (sponsors, bearers, officiants, wedding party) and their palette
           sections will appear here.
         </p>
@@ -155,7 +155,7 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
             const overridden = board.roomDressingOverride[field] != null;
             const value = board.roomDressing[field];
             return (
-              <div key={field} className="flex items-center gap-3 rounded-lg border border-ink/10 bg-white p-3">
+              <div key={field} className="border-t border-ink/10 flex items-center gap-3 py-3">
                 <input
                   type="color"
                   aria-label={`${label} color — ${value}`}
@@ -168,20 +168,20 @@ export function PaletteSection({ visibleKeys, venueLabel }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-ink">{label}</span>
                     <span
-                      className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${
-                        overridden ? 'bg-terracotta/10 text-terracotta-700' : 'bg-ink/5 text-ink/50'
+                      className={`rounded-full px-1.5 py-0.5 text-[12px] uppercase tracking-[0.15em] ${
+                        overridden ? 'bg-terracotta/10 text-terracotta-700' : 'bg-ink/5 text-ink/70'
                       }`}
                     >
                       {overridden ? 'Custom' : 'Derived'}
                     </span>
                   </div>
-                  <p className="text-xs text-ink/55">{hint}</p>
+                  <p className="text-xs text-ink/70">{hint}</p>
                 </div>
                 {overridden ? (
                   <button
                     type="button"
                     onClick={() => board.resetRoomDressing(field)}
-                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:bg-ink/5 hover:text-terracotta"
+                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5 hover:text-terracotta"
                   >
                     Use derived
                   </button>
@@ -213,11 +213,11 @@ function PaletteGroup({
 }) {
   return (
     <details className="group rounded-xl border border-ink/10 bg-white" open={defaultOpen}>
-      <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <summary className="cursor-pointer list-none px-4 py-3 text-[12px] uppercase tracking-[0.2em] text-ink/70">
         {title}
       </summary>
       <div className="space-y-3 border-t border-ink/10 p-4">
-        {note ? <p className="text-xs text-ink/55">{note}</p> : null}
+        {note ? <p className="text-xs text-ink/70">{note}</p> : null}
         {children}
       </div>
     </details>
@@ -235,7 +235,7 @@ function ReceptionMirror() {
   const board = usePaletteBoard()!;
   const colors = board.palette.reception ?? [];
   return (
-    <section className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
+    <section className="border-t border-ink/10 space-y-2 py-4">
       {colors.length > 0 ? (
         <div className="flex flex-wrap gap-1.5" aria-hidden="true">
           {colors.map((hex, i) => (
@@ -246,11 +246,11 @@ function ReceptionMirror() {
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">
           Reception{' '}
-          <span className="rounded-full bg-terracotta/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+          <span className="rounded-full bg-terracotta/10 px-1.5 py-0.5 text-[12px] uppercase tracking-[0.15em] text-terracotta-700">
             your main colours
           </span>
         </p>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           {colors.length > 0
             ? 'Your main colours — every role here follows them.'
             : 'Your main colours — none picked yet.'}{' '}
@@ -274,14 +274,14 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
   const isOfficiants = paletteKey === 'officiants';
 
   return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <section className="border-t border-ink/10 space-y-3 py-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <h3 className="text-sm font-semibold text-ink">
             {label}
             {touched ? (
               <span
-                className="ml-1.5 rounded-full bg-ink/5 px-1.5 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55"
+                className="ml-1.5 rounded-full bg-ink/5 px-1.5 py-0.5 align-middle text-[12px] uppercase tracking-[0.15em] text-ink/70"
                 title="Set by you — a change to your main colours won’t touch it"
               >
                 yours
@@ -289,11 +289,11 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
             ) : null}
           </h3>
           {isOfficiants ? (
-            <p className="text-xs text-ink/55">
+            <p className="text-xs text-ink/70">
               Follows the church’s own calendar — not set by your theme.
             </p>
           ) : (
-            <p className="text-xs text-ink/55">{limits.hint}</p>
+            <p className="text-xs text-ink/70">{limits.hint}</p>
           )}
         </div>
         {/* 👗 THE PERSON IN THESE COLOURS (owner 2026-09-27): the role drawn in
@@ -318,7 +318,7 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
           {colors.map((hex, i) => (
             <li key={`${paletteKey}-${i}`} className="flex flex-col items-stretch gap-1">
               {limits.slotLabels?.[i] ? (
-                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                <span className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
                   {limits.slotLabels[i]}
                 </span>
               ) : null}
@@ -340,7 +340,7 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
               onClick={() => board.addRoleColor(paletteKey)}
               disabled={atMax}
               aria-label={`Add another ${label} colour`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-ink/20 text-ink/50 transition hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-ink/20 text-ink/70 transition hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -353,7 +353,7 @@ function RoleCard({ paletteKey, label }: { paletteKey: PaletteKey; label: string
           type="button"
           onClick={() => board.releaseRole(paletteKey)}
           title={`Let ${label} follow your five main colours again`}
-          className="text-xs font-medium text-ink/60 underline underline-offset-2 hover:text-terracotta"
+          className="text-xs font-medium text-ink/70 underline underline-offset-2 hover:text-terracotta"
         >
           ↺ Match my main colours
         </button>
@@ -369,8 +369,8 @@ function CustomRolesEditor() {
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Custom roles</h2>
-        <p className="text-xs text-ink/55">
+        <h2 className="text-[12px] uppercase tracking-[0.2em] text-ink/70">Custom roles</h2>
+        <p className="text-xs text-ink/70">
           Anyone or anything the fixed list above doesn&rsquo;t cover — a ring bearer&rsquo;s dog, a
           family pet, a specific relative. Give it a name and its own colors.
         </p>
@@ -379,7 +379,7 @@ function CustomRolesEditor() {
       {roles.length > 0 ? (
         <div className="space-y-4">
           {roles.map((role, index) => (
-            <section key={index} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+            <section key={index} className="border-t border-ink/10 space-y-3 py-4">
               <header className="flex flex-wrap items-center justify-between gap-2">
                 <input
                   type="text"
@@ -390,7 +390,7 @@ function CustomRolesEditor() {
                   className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-sm font-medium text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
                 />
                 {role.label.trim() ? (
-                  <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-ink/35 sm:inline">
+                  <span className="hidden text-[12px] uppercase tracking-[0.1em] text-ink/35 sm:inline">
                     {slugifyCustomRoleKey(role.label)}
                   </span>
                 ) : null}
@@ -398,7 +398,7 @@ function CustomRolesEditor() {
                   type="button"
                   onClick={() => board.removeCustomRole(index)}
                   aria-label={`Remove custom role ${role.label || index + 1}`}
-                  className="shrink-0 rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
+                  className="shrink-0 rounded-md p-1.5 text-ink/70 hover:bg-ink/5 hover:text-danger-700"
                 >
                   <X className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
@@ -408,7 +408,7 @@ function CustomRolesEditor() {
               <ul className="flex flex-wrap items-end gap-2">
                 {role.colors.map((c, ci) => (
                   <li key={ci} className="flex flex-col items-stretch gap-1">
-                    <div className="flex items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-1.5 pr-1.5">
+                    <div className="border-t border-ink/10 flex items-center gap-1.5 p-1.5 pr-1.5">
                       <input
                         type="color"
                         aria-label={`${role.label || 'Custom role'} color ${ci + 1} — ${c}`}
@@ -421,7 +421,7 @@ function CustomRolesEditor() {
                         type="button"
                         onClick={() => board.removeCustomRoleColor(index, ci)}
                         aria-label={`Remove color ${c}`}
-                        className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
+                        className="rounded-md p-1 text-ink/70 hover:bg-ink/5 hover:text-danger-700"
                       >
                         <X className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
@@ -433,7 +433,7 @@ function CustomRolesEditor() {
                     type="button"
                     onClick={() => board.addCustomRoleColor(index)}
                     disabled={role.colors.length >= MAX_CUSTOM_ROLE_COLORS}
-                    className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/70 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                     Add color
@@ -449,13 +449,13 @@ function CustomRolesEditor() {
         type="button"
         onClick={() => board.addCustomRole()}
         disabled={roles.length >= MAX_CUSTOM_ROLES}
-        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 py-2 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2} />
         Add a custom role
       </button>
 
-      <div aria-live="polite" className="text-xs text-ink/55">
+      <div aria-live="polite" className="text-xs text-ink/70">
         {board.saveStatus === 'saving'
           ? 'Saving…'
           : board.saveStatus === 'saved'

@@ -145,7 +145,9 @@ function frontMeta(f: FrontPageFacts): string {
   const bits: string[] = [];
   const where = [f.venueName, f.venueCity].filter(Boolean).join(', ');
   if (where) bits.push(where);
-  if (f.saidYes > 0) bits.push(`${fmt(f.saidYes)} guests`);
+  /* 👥 "said yes", never "guests" (F-W2-45, the live walk after #7596: the cover said "3 guests" beside a guest list of
+     4). This number is the replies that said yes; "guests" is the list's own count — the magazine cover's word. */
+  if (f.saidYes > 0) bits.push(`${fmt(f.saidYes)} said yes`);
   else if (f.invited > 0) bits.push(`${fmt(f.invited)} invited`);
   if (f.photos && f.photos > 0) bits.push(`${fmt(f.photos)} photos`);
   if (f.chapters && f.chapters > 0) bits.push(`${fmt(f.chapters)} ${f.chapters === 1 ? 'chapter' : 'chapters'}`);
@@ -257,7 +259,12 @@ export function FrontPageScene({
       )}
       <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/25 via-transparent to-ink/75" />
       <div className="absolute inset-x-6 bottom-16 z-[1] text-cream">
-        <p className={EYEBROW_ON_PHOTO}>{say(words, 'label', f.dateDots ? `Post Event · ${f.dateDots}` : 'Post Event')}</p>
+        {/* 📅 The words in their own span (F-W2-51, the live walk after #7596): a bare text node was a shrinkable flex
+            item beside the eyebrow's gold rule, so the date line wrapped and the rule ran through it. A span is held
+            whole (`.pahina-eyebrow > span`, globals.css) and the rule gives way. */}
+        <p className={EYEBROW_ON_PHOTO}>
+          <span>{say(words, 'label', f.dateDots ? `Post Event · ${f.dateDots}` : 'Post Event')}</span>
+        </p>
         <span className="mt-2 block font-script text-4xl leading-none text-cream/90">the day after</span>
         <h1 className="mb-2.5 mt-1.5 font-serif text-[3.4rem] leading-[0.98] text-cream sm:text-[5rem]">{say(words, 'heading', f.names)}</h1>
         {meta || words.body ? <p className="m-0 text-[0.95rem] text-cream/85">{say(words, 'body', meta)}</p> : null}

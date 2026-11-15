@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, CameraOff, Loader2, Nfc, ScanLine } from 'lucide-react';
+import { Camera, CameraOff, Nfc, ScanLine } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { Explain } from '@/app/_components/explain';
 import { ActionButton } from '@/components/action-button';
@@ -161,8 +161,8 @@ export function SupplierClaimScanner({
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-[15px] font-medium text-ink">
-          {service.label} <span className="text-ink/60">· {scanModeLabel(service.mode)}</span>
+        <p className="min-w-0 truncate text-base font-semibold text-ink">
+          {service.label} <span className="font-normal text-[color:var(--m-slate-2)]">· {scanModeLabel(service.mode)}</span>
         </p>
         <Explain title="Scanner" label="About the scanner">
           Each guest you scan gets the next number — the same number shows on the guests’ page. In Once, a guest is
@@ -182,9 +182,9 @@ export function SupplierClaimScanner({
             <span className="block font-pahina text-4xl font-light tabular-nums text-ink">
               {tally ? (tally.lastNumber > 0 ? scanNumberLabel(tally.lastNumber) : '—') : '—'}
             </span>
-            <span className="block text-[12.5px] text-ink/60">{tally ? (tally.lastNumber > 0 ? 'last' : 'no scans yet') : 'couldn’t load'}</span>
+            <span className="block text-sm text-[color:var(--m-slate-2)]">{tally ? (tally.lastNumber > 0 ? 'last' : 'no scans yet') : 'couldn’t load'}</span>
           </p>
-          <p className="text-right text-[14px] text-ink/70">
+          <p className="text-right text-sm font-medium text-ink">
             {tally ? tallyWords(service.mode, tally) : 'Count couldn’t load'}
           </p>
         </div>
@@ -194,17 +194,17 @@ export function SupplierClaimScanner({
         <div className="relative overflow-hidden rounded-xl bg-black">
           <video ref={videoRef} playsInline muted className="aspect-[3/4] w-full object-cover" />
           <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
-            <span className="rounded-full bg-black/55 px-3 py-1 text-[12.5px] text-white">
+            <span className="rounded-full bg-black/55 px-3 py-1 text-xs text-white">
               {service.label} · {scanModeLabel(service.mode)}
             </span>
             {nfc.listening ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-3 py-1 text-[12.5px] text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-3 py-1 text-xs text-white">
                 <Nfc aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> NFC on
               </span>
             ) : null}
           </div>
           {tally ? (
-            <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-right text-[13px] text-white">
+            <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-right text-sm text-white">
               {tallyWords(service.mode, tally)}
             </p>
           ) : null}
@@ -212,32 +212,35 @@ export function SupplierClaimScanner({
       ) : null}
 
       {/* The ONE result line (frame C′). */}
-      <div aria-live="polite" className="min-h-[52px]" data-supplier-scan-answer={answer?.outcome ?? ''}>
+      <div aria-live="polite" className="min-h-14" data-supplier-scan-answer={answer?.outcome ?? ''}>
         {busy ? (
-          <p className="flex items-center gap-2 py-2 text-[14px] text-ink/60">
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.8} /> Checking…
+          // The house shimmer in the result line's own shape — never a spinner.
+          <p className="py-1" aria-busy="true">
+            <span className="sr-only">Checking…</span>
+            <span aria-hidden className="block h-5 w-48 animate-pulse rounded-md bg-ink/10" />
+            <span aria-hidden className="mt-1.5 block h-4 w-32 animate-pulse rounded-md bg-ink/[0.06]" />
           </p>
         ) : words ? (
           <p className="py-1">
             <span
-              className={`block text-[17px] font-semibold ${
-                words.tone === 'ok' ? 'text-[rgb(var(--color-ok))]' : words.tone === 'warn' ? 'text-[rgb(var(--color-warn))]' : 'text-ink/80'
+              className={`block text-lg font-semibold ${
+                words.tone === 'ok' ? 'text-success-700' : words.tone === 'warn' ? 'text-warn-700' : 'text-ink'
               }`}
             >
               {words.title}
             </span>
-            {words.line ? <span className="block text-[13.5px] text-ink/65">{words.line}</span> : null}
+            {words.line ? <span className="block text-sm text-[color:var(--m-slate-2)]">{words.line}</span> : null}
           </p>
         ) : null}
       </div>
 
       {cameraError ? (
-        <p role="alert" className="text-[13.5px] text-[rgb(var(--color-warn))]">
+        <p role="alert" className="text-sm text-warn-700">
           {cameraError}
         </p>
       ) : null}
       {nfc.failure ? (
-        <p role="alert" className="text-[13.5px] text-[rgb(var(--color-warn))]">
+        <p role="alert" className="text-sm text-warn-700">
           {nfcReadFailureCopy(nfc.failure)}
         </p>
       ) : null}
@@ -318,8 +321,8 @@ export function SupplierClaimScanner({
 
       {/* QR vs NFC, said by the screen itself — only what works on THIS phone, the device table behind the ⓘ. */}
       <div className="flex items-start gap-2" data-supplier-scan-nfc-line={place}>
-        <ScanLine aria-hidden className="mt-0.5 h-4 w-4 flex-none text-ink/45" strokeWidth={1.8} />
-        <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-ink/60">{nfcLine(place)}</p>
+        <ScanLine aria-hidden className="mt-0.5 h-4 w-4 flex-none text-terracotta" strokeWidth={1.8} />
+        <p className="min-w-0 flex-1 text-sm leading-snug text-[color:var(--m-slate-2)]">{nfcLine(place)}</p>
         <Explain title="QR and NFC" label="About QR and NFC">
           {NFC_DEVICE_TABLE}
         </Explain>

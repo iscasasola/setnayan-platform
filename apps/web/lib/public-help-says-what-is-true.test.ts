@@ -136,11 +136,25 @@ function sources(dir: string, acc: string[] = []): string[] {
 test('only /admin may import the operations guides (B3)', () => {
   const files = sources(join(WEB, 'app')).concat(sources(join(WEB, 'lib')), sources(join(WEB, 'components')));
   const importers = files.filter((f) => /['"](?:@\/lib\/|\.{1,2}\/(?:[\w-]+\/)*)help-admin['"]/.test(stripComments(readFileSync(f, 'utf8'))));
+  // The answer slots (help split, 2026-11-14) import only the AdminHelpTopic TYPE from lib/help-admin.ts, which
+  // carries no words; they sit behind the same wall (the next test), so they are not a way out.
   const outside = importers
     .map((f) => relative(WEB, f))
-    .filter((rel) => !rel.startsWith('app/admin/'));
+    .filter((rel) => !rel.startsWith('app/admin/') && !rel.startsWith('lib/help-admin/'));
   console.log(`[public-help] ${importers.length} importer(s) of help-admin, ${outside.length} outside app/admin`);
   assert.deepEqual(outside, [], 'A non-admin file imports lib/help-admin.ts — the operations guides would reach the public:\n  ' + outside.join('\n  '));
+});
+
+test('only lib/help-admin.ts may import the admin answer slots in lib/help-admin/ (help split, 2026-11-14)', () => {
+  const files = sources(join(WEB, 'app')).concat(sources(join(WEB, 'lib')), sources(join(WEB, 'components')));
+  const slotImport = /['"](?:@\/lib\/|\.{1,2}\/(?:[\w-]+\/)*)help-admin\/[\w-]+['"]/;
+  const importers = files.filter((f) => slotImport.test(stripComments(readFileSync(f, 'utf8')))).map((f) => relative(WEB, f));
+  console.log(`[public-help] ${importers.length} importer(s) of lib/help-admin/*: ${importers.join(', ')}`);
+  assert.deepEqual(importers, ['lib/help-admin.ts'], 'An admin answer slot is imported by something other than lib/help-admin.ts — the wall has a side door');
+  // …and the public corpus never reaches the slots by any path: lib/help.ts and lib/help/* import none of them.
+  for (const rel of ['lib/help.ts', ...readdirSync(join(WEB, 'lib/help')).map((n) => `lib/help/${n}`)]) {
+    assert.doesNotMatch(stripComments(readFileSync(join(WEB, rel), 'utf8')), /help-admin/, `${rel} reaches the admin help`);
+  }
 });
 
 test('public help and llms.txt never talk about a future (A3)', () => {

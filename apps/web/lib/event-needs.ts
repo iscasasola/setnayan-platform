@@ -27,9 +27,12 @@
 export const NEED_PRESETS = ['simple', 'open', 'list', 'full'] as const;
 export type NeedPreset = (typeof NEED_PRESETS)[number];
 
-/** The dropdown's words (prototype frame 3: "Simple event · Papic + one QR"). */
+/**
+ * The dropdown's words. RW-65 (walk 13 Nov 2026): the first was the prototype's working name ("Simple event · Papic +
+ * one QR"), an internal label — it now says what the person gets, in plain words.
+ */
 export const NEED_PRESET_LABEL: Readonly<Record<NeedPreset, string>> = {
-  simple: 'Simple event · Papic + one QR',
+  simple: 'Just photos and one QR for everyone',
   open: 'Open event · one QR',
   list: 'Guest list + replies',
   full: 'Fully planned',

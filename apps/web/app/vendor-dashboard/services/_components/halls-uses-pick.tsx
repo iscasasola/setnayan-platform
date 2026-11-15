@@ -33,16 +33,16 @@ export function HallsUsesPick({
   const changed = picked.length !== uses.length || picked.some((p) => !uses.includes(p));
   const words = picked.length > 0 ? `${halls.filter((h) => picked.includes(h.poolId)).map((h) => h.name).join(' · ')}${picked.length > 1 ? ' · joined' : ''}` : 'Which halls this card books';
   return (
-    <StayForm door="supCalendar.setServiceHalls" action={action} className="flex min-h-[60px] flex-wrap items-center gap-3 border-t border-ink/10 py-2" data-halls-uses={serviceId}>
+    <StayForm door="supCalendar.setServiceHalls" action={action} className="flex min-h-14 flex-wrap items-center gap-3 border-t border-[color:var(--m-line)] py-2" data-halls-uses={serviceId}>
       <input type="hidden" name="vendor_service_id" value={serviceId} />
       <input type="hidden" name="return_to" value="shop" />
       {picked.map((id) => (
         <input key={id} type="hidden" name="pool_ids" value={id} />
       ))}
-      <MapPin aria-hidden className="h-5 w-5 flex-none text-ink/60" strokeWidth={1.75} />
+      <MapPin aria-hidden className="h-5 w-5 flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-ink">Uses</span>
-        <span className="block truncate text-[13px] text-ink/60">{words}</span>
+        <span className="block text-base font-semibold text-ink">Uses</span>
+        <span className="block truncate text-sm text-[color:var(--m-slate-2)]">{words}</span>
       </span>
       <PickMenu
         label="Uses which halls"
@@ -54,7 +54,7 @@ export function HallsUsesPick({
         dataAttr="data-halls-uses-pick"
         className="!min-h-11"
       />
-      {changed ? <SupplierSubmit tone="brand" main icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Save" pendingLabel="Saving…" /> : null}
+      {changed ? <SupplierSubmit tone="brand" main icon={<Check aria-hidden strokeWidth={1.9} />} label="Save" pendingLabel="Saving…" /> : null}
     </StayForm>
   );
 }

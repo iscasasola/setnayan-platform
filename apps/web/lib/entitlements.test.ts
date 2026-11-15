@@ -665,17 +665,17 @@ test('umbrella: the standalone SKUs still confer only themselves (no reverse gra
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// ⭐ EVENT HUB PRO ANIMATES THE LOGO (owner ruling 2026-09-24, "A then").
+// ⭐ EVENT PRO ANIMATES THE LOGO (owner ruling 2026-09-24, "A then").
 // A COUPLE_WEBSITE_PRO order confers ANIMATED_MONOGRAM; the ₱500 standalone
 // still sells to couples who only want the animated logo. No bundle.
 // ──────────────────────────────────────────────────────────────────────────
 
-test('hub pro: a COUPLE_WEBSITE_PRO owner OWNS the animated monogram (no second ₱500 offer)', async () => {
+test('Event Pro: a COUPLE_WEBSITE_PRO owner OWNS the animated monogram (no second ₱500 offer)', async () => {
   const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted');
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), true);
 });
 
-test('hub pro: a PAID COUPLE_WEBSITE_PRO order plays the animation; a pending one waits', async () => {
+test('Event Pro: a PAID COUPLE_WEBSITE_PRO order plays the animation; a pending one waits', async () => {
   assert.equal(
     await eventSkuActive(makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'paid'), 'evt_1', 'ANIMATED_MONOGRAM'),
     true,
@@ -687,7 +687,7 @@ test('hub pro: a PAID COUPLE_WEBSITE_PRO order plays the animation; a pending on
   );
 });
 
-test('hub pro: a couple WITHOUT Pro does not own the animated monogram', async () => {
+test('Event Pro: a couple WITHOUT Pro does not own the animated monogram', async () => {
   const none = makeOwnedSupabase(new Set());
   assert.equal(await eventOwnsSku(none, 'evt_1', 'ANIMATED_MONOGRAM'), false);
   assert.equal(await eventSkuActive(none, 'evt_1', 'ANIMATED_MONOGRAM'), false);
@@ -696,7 +696,7 @@ test('hub pro: a couple WITHOUT Pro does not own the animated monogram', async (
   assert.equal(await eventOwnsSku(other, 'evt_1', 'ANIMATED_MONOGRAM'), false);
 });
 
-test('hub pro: buying the ₱500 animation does NOT confer Event Hub Pro (one-directional)', async () => {
+test('Event Pro: buying the ₱500 animation does NOT confer Event Pro (one-directional)', async () => {
   const supabase = makeOwnedSupabase(new Set(['ANIMATED_MONOGRAM']));
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), true);
   assert.equal(await eventOwnsSku(supabase, 'evt_1', 'COUPLE_WEBSITE_PRO'), false);
@@ -735,7 +735,7 @@ test('eventActiveSkus: a paid COUPLE_WEBSITE_PRO order fans out to BOTH aliased 
   assert.equal(active.has('STD_PREMIUM_OPENINGS'), true, 'second aliased canonical granted (the overwrite regression)');
   // 2026-09-24: the store grid's Monogram tile reads this set, so a Pro couple
   // sees it Active rather than being sold the ₱500 again.
-  assert.equal(active.has('ANIMATED_MONOGRAM'), true, 'third aliased canonical granted (Event Hub Pro animates the logo)');
+  assert.equal(active.has('ANIMATED_MONOGRAM'), true, 'third aliased canonical granted (Event Pro animates the logo)');
   assert.equal(pending.size, 0);
 });
 
@@ -769,8 +769,8 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
   // 2026-07-25 Live Studio consolidation: LIVE_STUDIO via either Cast device tier.
   // 2026-08-11: LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE with the LED wall
   // backdrop it unlocked (owner: "remove wall backdrop").
-  // 2026-09-24 (owner, "A then"): ANIMATED_MONOGRAM via Event Hub Pro.
-  // 2026-10-22 (owner, "Event Hub Pro, part by part", Q2 "yes"): the retired ANIMATED_MONOGRAM and the Logo & QR part
+  // 2026-09-24 (owner, "A then"): ANIMATED_MONOGRAM via Event Pro.
+  // 2026-10-22 (owner, "Event Pro, part by part", Q2 "yes"): the retired ANIMATED_MONOGRAM and the Logo & QR part
   // are one thing — each confers the other.
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'ANIMATED_MONOGRAM',

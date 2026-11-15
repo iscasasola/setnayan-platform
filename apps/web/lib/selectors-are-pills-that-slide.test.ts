@@ -516,7 +516,6 @@ const PILL_WATCH_BASELINE: readonly { file: string; has: string; why: string }[]
   //    VALUES, which the house rule makes a dropdown, not a pill selector (INTERACTION_RULES § 2) — so it was LISTED
   //    for the controller's decision instead of being converted. Deciding one removes its line.
   { file: 'app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', has: 'inline-flex rounded-xl border border-ink/15 bg-cream p-1', why: 'LISTED: Save the Date › Readability picks one of 3 values (Auto · Lighten · Darken) — a dropdown by the house rule; the controller’s decision' },
-  { file: 'app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx', has: 'aria-label="Item type"', why: 'LISTED: a preparation item’s Type picks one of 3 values (a radio group) — a dropdown by the house rule; the controller’s decision' },
 ];
 
 /**

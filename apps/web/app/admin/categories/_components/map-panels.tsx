@@ -213,7 +213,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
                 </span>
               ))}
             </div>
-            <p className="text-xs text-ink/70">Styles couples pick — read-only here; they ship in lib/attire-designs.ts.</p>
+            <p className="text-xs text-ink/70">Styles couples pick — read-only here; they come with the app.</p>
           </>
         ) : null}
         <PartHiddenSwitch slotKey={part.key} hidden={part.hidden} />

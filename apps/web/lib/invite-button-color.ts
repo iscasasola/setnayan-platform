@@ -4,7 +4,7 @@
  *
  * Owner, 2026-09-11 (Q2 = A, DECISION_LOG "the seven invite-theme questions"):
  * on a PRO invite theme the single action on doors 01–03 takes the couple's own
- * button colour — `events.site_button_color`, the Event Hub Pro item already
+ * button colour — `events.site_button_color`, the Event Pro item already
  * named "Button color" — *"with a safety floor: it falls back to Setnayan
  * terracotta #C24E25 whenever the couple's colour cannot be read."* House keeps
  * terracotta.

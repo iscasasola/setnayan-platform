@@ -160,16 +160,16 @@ export async function resolveOrderChargeCentavos(
   // branch only refused when the catalog lookup missed — had anyone ever seeded
   // a `SETNAYAN_AI_SUB` retail row it would have started selling again.
 
-  // ── (1b) 💎 Event Hub Pro, part by part (owner 2026-10-22) ───────────────
+  // ── (1b) 💎 Event Pro, part by part (owner 2026-10-22) ───────────────
   // A part, several parts, or everything once a part is paid: priced from the catalogue against what THIS event
   // already holds — never above the rest to everything, never twice. Full Pro with nothing paid toward it falls
   // through to the catalogue exactly as before (and the onboarding price there).
   // ⛔ A PART is never priced by the retail catalogue below (it does not read `is_active`): with no event it is
   // refused here, and with one `resolveHubProCharge` refuses it while it is off sale — every part since 2026-10-26
-  // (owner: "just have the upgrade event hub pro" … "no more by part as well on the website").
+  // (owner: "just have the upgrade Event Pro" … "no more by part as well on the website").
   const partKey = serviceKey === HUB_PARTS_ORDER_KEY || hubPartOfSku(serviceKey) !== null;
   if (partKey && !eventId) {
-    return { ok: false, refusal: 'no_price_source', detail: 'an Event Hub Pro part is sold for an event only' };
+    return { ok: false, refusal: 'no_price_source', detail: 'an Event Pro part is sold for an event only' };
   }
   if (eventId && (serviceKey === FULL_PRO_SKU || partKey)) {
     const hub = await resolveHubProCharge(admin, eventId, serviceKey, input.hubParts ?? []);
@@ -361,7 +361,7 @@ export async function resolveOrderChargeCentavos(
 }
 
 /**
- * 💎 The Event Hub Pro charge (owner 2026-10-22, "never charge above the rest"). Null = not ours to price: Full Pro on
+ * 💎 The Event Pro charge (owner 2026-10-22, "never charge above the rest"). Null = not ours to price: Full Pro on
  * an event that has paid nothing toward it (the catalogue row, as before). Reads with the service-role client: what
  * the EVENT holds, counting an order still under review (`'owned'`), so a couple mid-review is never charged twice.
  */

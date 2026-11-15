@@ -265,7 +265,7 @@ export type NotificationType =
   // subscription purchases). Both previously borrowed
   // 'vendor_token_purchase_pending', which made a couple's PHP order and a
   // vendor subscription both render the badge "TOKEN PURCHASE AWAITING PAYMENT"
-  // (wrong — the customer token wallet is retired; a subscription isn't a token
+  // (wrong — the customer token balance is retired; a subscription isn't a token
   // pack). Its own type lets the badge read "Awaiting reconciliation".
   | 'order_awaiting_reconciliation'
   // Added 2026-06-24 (same migration). Fired (vendor-recipient) from

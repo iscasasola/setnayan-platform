@@ -14449,6 +14449,7 @@
     "/vendor-dashboard/@rise": {
       "files": [
         "vendor-dashboard/@rise/default.tsx",
+        "vendor-dashboard/@rise/loading.tsx",
         "vendor-dashboard/@rise/page.tsx"
       ],
       "destinations": [],

@@ -1938,6 +1938,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "ShopLink",
         "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
@@ -2520,6 +2521,8 @@
         "admin/_components/admin-search-open-event.ts",
         "admin/_components/admin-tab-rows.tsx",
         "admin/_components/ask-actions.ts",
+        "admin/_components/avatar-confirm.tsx",
+        "admin/_components/avatar-screen.tsx",
         "admin/_components/console-table.tsx",
         "admin/_components/field-pick.tsx",
         "admin/_components/focus-card-sheet.tsx",
@@ -2560,6 +2563,7 @@
         "/admin/background-videos",
         "/admin/booking-fees",
         "/admin/budget-planner",
+        "/admin/business",
         "/admin/categories",
         "/admin/chat-flags",
         "/admin/colours",
@@ -2570,6 +2574,7 @@
         "/admin/demand",
         "/admin/disputes",
         "/admin/editorial-review",
+        "/admin/email-delivery",
         "/admin/event-deletions",
         "/admin/force-majeure",
         "/admin/founder-seats",
@@ -2595,10 +2600,7 @@
         "/admin/search-memory",
         "/admin/secrets",
         "/admin/settings/payment-methods",
-        "/admin/settings?tab=compliance",
-        "/admin/settings?tab=demo-mode",
         "/admin/settings?tab=notifications",
-        "/admin/settings?tab=settings",
         "/admin/studio?tab=discount-codes",
         "/admin/studio?tab=journal-spotlights",
         "/admin/studio?tab=moodboard-library",
@@ -2612,6 +2614,7 @@
         "/admin/studio?tab=spotlight-awards",
         "/admin/studio?tab=website",
         "/admin/subscriptions",
+        "/admin/switches",
         "/admin/ugat/map",
         "/admin/ugat?tab=brain",
         "/admin/ugat?tab=menus",
@@ -2627,9 +2630,12 @@
         "/dashboard",
         "/dashboard/profile"
       ],
-      "actions": [],
+      "actions": [
+        "action"
+      ],
       "blocks": [
         "AccountSwitcher",
+        "ActionButton",
         "AdminAskPill",
         "AdminBottomNav",
         "AdminCommandPalette",
@@ -2642,6 +2648,8 @@
         "AppRailShell",
         "AskAnswer",
         "BottomNav",
+        "ConfirmChoice",
+        "ConfirmDialog",
         "CountUp",
         "EmptyState",
         "ErrorState",
@@ -2650,8 +2658,10 @@
         "Fold",
         "GuidedTour",
         "HTMLDivElement",
+        "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
+        "InfoTip",
         "LandingCard",
         "Link",
         "MenuSettingsButton",
@@ -3008,6 +3018,40 @@
         "InfoTip",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/business": {
+      "files": [
+        "admin/business/_components/business-identity-form.tsx",
+        "admin/business/page.tsx"
+      ],
+      "destinations": [
+        "/admin/settings/payment-methods",
+        "/admin/ugat?tab=onboarding"
+      ],
+      "actions": [
+        "removeBrandIcon",
+        "saveBusinessIdentity"
+      ],
+      "blocks": [
+        "ActionButton",
+        "AvatarScreen",
+        "BrandIconUploadForm",
+        "BusinessIdentityForm",
+        "ComplianceSurface",
+        "ConfirmButton",
+        "ConfirmLines",
+        "FactRow",
+        "FormRows",
+        "LoaderAppearanceCard",
+        "PageMasthead",
+        "SentrySmokeTestButton",
+        "SettingRow",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TypedRow"
       ]
     },
     "/admin/categories": {
@@ -3395,7 +3439,7 @@
         "admin/compliance/data-sheet/page.tsx"
       ],
       "destinations": [
-        "/admin/settings?tab=compliance"
+        "/admin/business"
       ],
       "actions": [],
       "blocks": [
@@ -3756,6 +3800,27 @@
         "SubmitButton"
       ]
     },
+    "/admin/email-delivery": {
+      "files": [
+        "admin/email-delivery/page.tsx"
+      ],
+      "destinations": [
+        "/admin/integrations"
+      ],
+      "actions": [],
+      "blocks": [
+        "AvatarScreen",
+        "NotificationsSurface",
+        "PageMasthead",
+        "SettingRow",
+        "SettingValue",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TestResendButton"
+      ]
+    },
     "/admin/event-deletions": {
       "files": [
         "admin/event-deletions/actions.ts",
@@ -4046,6 +4111,7 @@
         "setAiPaywall"
       ],
       "blocks": [
+        "ActionButton",
         "BuildTimeStatus",
         "KnownHashCard",
         "Link",
@@ -4791,7 +4857,8 @@
         "admin/secrets/page.tsx"
       ],
       "destinations": [
-        "/admin/ugat"
+        "/admin/integrations",
+        "/admin/live-studio-channels"
       ],
       "actions": [
         "clearDbSecret",
@@ -4801,9 +4868,15 @@
         "updateVercelSecret"
       ],
       "blocks": [
+        "AppleSecretReminder",
+        "AvatarScreen",
+        "ConfirmButton",
         "ConfirmForm",
+        "ConfirmLines",
         "EncryptionKeyCard",
+        "Fold",
         "HTMLInputElement",
+        "InfoTip",
         "Link",
         "PageMasthead",
         "PasswordField",
@@ -4811,7 +4884,11 @@
         "ReencryptPanel",
         "SecretRow",
         "SecretValueInput",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/seo": {
@@ -4837,17 +4914,15 @@
         "admin/settings/_surfaces/notifications-surface.tsx",
         "admin/settings/_surfaces/settings-surface.tsx",
         "admin/settings/actions.ts",
-        "admin/settings/loading.tsx",
         "admin/settings/page.tsx"
       ],
       "destinations": [
         "/?browse=1",
+        "/admin/compliance/data-sheet",
         "/admin/demo-vendors",
+        "/admin/email-delivery",
         "/admin/settings/payment-methods",
-        "/admin/settings?tab=[seg]",
-        "/admin/settings?tab=notifications",
-        "/admin/ugat?tab=onboarding",
-        "/sample"
+        "/admin/ugat?tab=onboarding"
       ],
       "actions": [
         "markAllNotificationsRead",
@@ -4863,37 +4938,36 @@
         "BrandIconCard",
         "BrandIconUploadForm",
         "ComplianceForm",
-        "ComplianceSurface",
-        "CountCard",
-        "DemoModeSurface",
+        "ConfirmButton",
+        "ConfirmLines",
         "EmailDeliverySection",
         "Field",
         "File",
         "FireResult",
         "FormFlash",
-        "FormPageSkeleton",
-        "GridPageSkeleton",
         "HTMLFormElement",
         "HTMLInputElement",
-        "Icon",
+        "InfoTip",
         "Link",
-        "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
         "Mode",
         "MorningDigestCard",
-        "NotificationsSurface",
         "PageMasthead",
         "PickMenu",
         "PreviewSwatch",
         "ProcessStatus",
         "PushToggle",
         "SDLoader",
-        "SampleEventSwitch",
         "SentrySmokeTestButton",
-        "SettingsSurface",
+        "SettingRow",
         "SubmitButton",
-        "Suspense",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TinInput"
       ]
     },
@@ -5100,6 +5174,36 @@
         "Link",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/switches": {
+      "files": [
+        "admin/switches/page.tsx"
+      ],
+      "destinations": [
+        "/admin/business",
+        "/admin/email-delivery",
+        "/admin/switches",
+        "/sample"
+      ],
+      "actions": [
+        "setAiPaywall",
+        "setReferralProgramEnabled"
+      ],
+      "blocks": [
+        "AvatarScreen",
+        "ConfirmButton",
+        "ConfirmLines",
+        "ConfirmPick",
+        "DemoModeSurface",
+        "PageMasthead",
+        "SampleEventSwitch",
+        "SettingRow",
+        "SettingValue",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/ugat": {
@@ -5894,6 +5998,7 @@
         "PageMasthead",
         "Phase",
         "PostedPick",
+        "ShopLink",
         "StayForm",
         "SubmitButton",
         "TeaserGenerator",
@@ -5922,7 +6027,6 @@
         "/dashboard/[seg]/memories",
         "/dashboard/create-event",
         "/dashboard/life-flash",
-        "/v/[seg]",
         "/v/[seg]?src=favorites"
       ],
       "actions": [
@@ -7037,6 +7141,7 @@
         "ShareCreditMode",
         "Sheet",
         "Shell",
+        "ShopLink",
         "SidebarItem",
         "SidebarSection",
         "Sk",
@@ -8484,6 +8589,7 @@
         "AnswerPicker",
         "At",
         "AutoDraft",
+        "Badge",
         "Bar",
         "BeforeWeStartScreen",
         "BlockAnimateRows",
@@ -10385,6 +10491,7 @@
         "SharePhotoSheet",
         "ShareWithVendorsButton",
         "Sheet",
+        "ShopLink",
         "Slider",
         "SlotTile",
         "Spotlight",
@@ -13755,6 +13862,7 @@
         "ReportPageButton",
         "ScaledTileList",
         "SectionBar",
+        "ShopLink",
         "ViewBeacon",
         "WhoWasThereBand"
       ]
@@ -14705,6 +14813,7 @@
         "PaymentPage",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
+        "PayoutReadiness",
         "PeekToast",
         "PendingPaymentAnswer",
         "Peso",

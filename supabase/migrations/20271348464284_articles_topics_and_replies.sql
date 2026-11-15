@@ -78,8 +78,8 @@ CREATE INDEX IF NOT EXISTS article_topics_author_idx
 DROP POLICY IF EXISTS article_topics_admin_only ON public.article_topics;
 CREATE POLICY article_topics_admin_only ON public.article_topics
   FOR ALL TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
 COMMENT ON TABLE public.article_topics IS
   'Articles (DECISION_LOG 2026-11-16): a topic anyone signed in starts. RLS is '
@@ -110,8 +110,8 @@ CREATE INDEX IF NOT EXISTS article_topic_codes_user_idx
 DROP POLICY IF EXISTS article_topic_codes_admin_only ON public.article_topic_codes;
 CREATE POLICY article_topic_codes_admin_only ON public.article_topic_codes
   FOR ALL TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
 COMMENT ON TABLE public.article_topic_codes IS
   'The one code a person wears inside one Articles topic ("Guest · 3F" / '
@@ -147,8 +147,8 @@ CREATE INDEX IF NOT EXISTS article_replies_author_idx
 DROP POLICY IF EXISTS article_replies_admin_only ON public.article_replies;
 CREATE POLICY article_replies_admin_only ON public.article_replies
   FOR ALL TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
 COMMENT ON TABLE public.article_replies IS
   'A reply inside an Articles topic. Admin-only RLS (Pattern F) for the same '
@@ -204,8 +204,8 @@ ALTER TABLE public.article_posting_pauses ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS article_posting_pauses_admin_only ON public.article_posting_pauses;
 CREATE POLICY article_posting_pauses_admin_only ON public.article_posting_pauses
   FOR ALL TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
 COMMENT ON TABLE public.article_posting_pauses IS
   'An account paused from posting in Articles by a moderator (Admin › User '

@@ -6371,10 +6371,10 @@ policy	public.app_telemetry_logs|app_telemetry_logs: admin reads all	mode=PERMIS
 policy	public.app_telemetry_logs|app_telemetry_logs: admin updates	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.account_type = 'admin'::account_type) OR u.is_internal OR u.is_team_member)))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.account_type = 'admin'::account_type) OR u.is_internal OR u.is_team_member))))
 policy	public.appointment_type_catalog|admin_writes_appointment_type_catalog	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.appointment_type_catalog|read_appointment_type_catalog	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
-policy	public.article_posting_pauses|article_posting_pauses_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.article_replies|article_replies_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.article_topic_codes|article_topic_codes_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
-policy	public.article_topics|article_topics_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.article_posting_pauses|article_posting_pauses_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.article_replies|article_replies_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.article_topic_codes|article_topic_codes_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.article_topics|article_topics_admin_only	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.blacklisted_emails|blacklisted_emails: admin delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.blacklisted_emails|blacklisted_emails: admin insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.blacklisted_emails|blacklisted_emails: admin select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=NULL

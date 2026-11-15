@@ -47,7 +47,7 @@ type Props = {
   /** Fires with the upload payload (or null on clear) when a video is uploaded. */
   onUploadVideo: (payload: StdVideoUpload | null) => void;
   /** When set, shown IN PLACE of the video uploader — the couple's own film is
-   *  Event Hub Pro (owner 2026-09-24). A video they already have stays, with
+   *  Event Pro (owner 2026-09-24). A video they already have stays, with
    *  its play-mode toggle; the gallery ending stays free. */
   uploadLock?: React.ReactNode;
 };

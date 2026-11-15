@@ -36,6 +36,8 @@ const HUB = join(WEB, 'app', '[slug]');
 /** The shared presses the Hub mounts for a guest (directions, the photo viewer, the pass, sheets, Share · Report). */
 const SHARED = [
   'app/_components/nav-links.tsx',
+  'app/_components/get-directions.tsx',
+  'app/_components/map-card-chrome.tsx',
   'app/_components/gallery/gallery-lightbox.tsx',
   'app/_components/save-pass-card-button.tsx',
   'app/_components/sheet.tsx',
@@ -142,8 +144,8 @@ test('the rule can see a small press (it is not reading nothing)', () => {
   assert.ok(FILES.length > 100, `read ${FILES.length} files — expected the whole Hub tree`);
   const all = FILES.flatMap(presses);
   assert.ok(all.length > 300, `found ${all.length} presses — the tag reader is not reading`);
-  const directions = all.filter((p) => p.file.endsWith('nav-links.tsx'));
-  assert.ok(directions.length >= 2, 'the shared Directions dropdown (its summary and its row) is read');
+  const directions = all.filter((p) => p.file.endsWith('get-directions.tsx'));
+  assert.ok(directions.length >= 4, 'the shared Get directions button, its sheet rows, ✕ and Close are read');
 });
 
 test('every press the guest Event Hub draws is at least 44 px in every axis its classes size', () => {
@@ -154,22 +156,26 @@ test('every press the guest Event Hub draws is at least 44 px in every axis its 
   assert.deepEqual([...new Set(bad)], [], 'a guest presses these with a thumb; give each a 44 px floor (min-h-[44px] / h-11 w-11)');
 });
 
-/* ▾ THE MAP APPS ARE ONE DROPDOWN ON EVERY VENUE CARD (controller ruling 2026-10-21, from the owner's "any set of
-   choices is a dropdown"): the plain card and the full-photo card drew Google Maps · Waze · Apple Maps as three
-   side-by-side chips (`NavLinksRow`, 26 px tall when the walk measured them); the journey card already drew ONE
-   "Directions ▾" (`DirectionsMenu`). Every venue card now reuses that one component, whose summary and rows are each
-   a 44 px press. Since 2026-10-22 it lives in `app/_components/nav-links.tsx` (where `NavLinksRow` was) and The Day,
-   the Live hub and the supplier profile mount it too — see the next test. SABOTAGE: `<NavLinksRow …>` put back on
-   the plain card → RED; the menu's rows at `min-h-9` → RED. */
+/* 🧭 THE MAP APPS ARE ONE "GET DIRECTIONS" BUTTON ON EVERY VENUE CARD. History: three side-by-side chips
+   (`NavLinksRow`, 26 px tall when the walk measured them) → ONE "Directions ▾" dropdown (controller ruling 2026-10-21,
+   from the owner's "any set of choices is a dropdown") → since 2026-11-14 ONE "Get directions" button whose sheet,
+   named after the place, lists the map apps (map card + Get directions, owner "Yes, approved",
+   `prototypes/map_card_open_in_maps_2026-11-14_fable.html`). The choices still live in ONE place, never side by side.
+   `DirectionsMenu` (`app/_components/nav-links.tsx`) builds the links and mounts the one button (`GetDirections`,
+   `app/_components/get-directions.tsx`); every venue card, The Day, the Live hub and the supplier page mount
+   `DirectionsMenu` — see the next test. SABOTAGE: `<NavLinksRow …>` put back on the plain card → RED; the sheet's app
+   rows at `min-h-9` → RED; the couple button's `min-h-12` removed → RED. */
 const SHARED_DIRECTIONS = 'app/_components/nav-links.tsx';
+const SHEET_DIRECTIONS = 'app/_components/get-directions.tsx';
 const directionsMenuSource = (): string => {
   const src = stripComments(readFileSync(join(WEB, SHARED_DIRECTIONS), 'utf8'));
   const at = src.indexOf('export function DirectionsMenu(');
   assert.ok(at >= 0, `DirectionsMenu is the exported, shared component in ${SHARED_DIRECTIONS}`);
   return src.slice(at, src.indexOf('\n}\n', at));
 };
+const getDirectionsSource = (): string => stripComments(readFileSync(join(WEB, SHEET_DIRECTIONS), 'utf8'));
 
-test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 44 px rows — never a row of chips', () => {
+test('every venue card offers the map apps as ONE "Get directions" button whose sheet rows are 44 px presses — never a row of chips', () => {
   const cards = ['venue-widget.tsx', 'venue-styles.tsx'].map((f) => [f, stripComments(readFileSync(join(HUB, '_components', f), 'utf8'))] as const);
   for (const [f, src] of cards) {
     assert.doesNotMatch(src, /<NavLinksRow(?![\w.])/, `${f}: a venue card draws the map apps as a row of chips again`);
@@ -177,22 +183,25 @@ test('every venue card offers the map apps as ONE "Directions ▾" dropdown of 4
   const mounts = cards.reduce((n, [, src]) => n + (src.match(/<DirectionsMenu(?![\w.])/g) ?? []).length, 0);
   assert.ok(mounts >= 3, `the plain, full-photo and journey cards each mount DirectionsMenu (found ${mounts})`);
   const menu = directionsMenuSource();
-  assert.match(menu, /<details\b/, 'a native <details> — one dropdown, no script on the guest page');
-  const summary = /<summary className="([^"]*)"/.exec(menu)?.[1] ?? '';
-  const row = /<a href=\{a\.href\}[^>]*className="([^"]*)"/.exec(menu)?.[1] ?? '';
-  assert.ok(summary && row, 'the summary and the rows are found');
-  assert.deepEqual(undersized('summary', summary), [], 'the "Directions" summary is a 44 px press');
+  assert.equal((menu.match(/<GetDirections(?![\w.])/g) ?? []).length, 1, 'DirectionsMenu mounts ONE Get directions button');
+  const sheet = getDirectionsSource();
+  const coupleButton = /look === 'template' \?[\s\S]*?<button[\s\S]*?className=\{`([^`]*)`\}/.exec(sheet)?.[1] ?? '';
+  const row = /<a\b[^>]*?href=\{a\.href\}[\s\S]*?className="([^"]*)"/.exec(sheet)?.[1] ?? '';
+  assert.ok(coupleButton && row, 'the button and the app rows are found');
+  assert.deepEqual(undersized('button', coupleButton.replace(/\$\{[^}]*\}/g, ' ')), [], 'the "Get directions" button is a 44 px press');
+  assert.match(coupleButton, /min-h-(11|12|\[4[4-9]px\])/, 'the button carries its own floor');
   assert.deepEqual(undersized('a', row), [], 'each map app row is a 44 px press');
-  assert.match(row, /min-h-(11|\[44px\])/, 'each row carries its own 44 px floor');
+  assert.match(row, /min-h-(11|12|\[\d+px\])/, 'each row carries its own floor');
 });
 
 /* ▾ NO SURFACE DRAWS THE MAP APPS AS SEPARATE BUTTONS — ANYWHERE IN THE APP (owner, standing: "any set of choices is a
    dropdown"; 2026-10-22, the follow-up #6751 named: The Day's directions card and the Live hub still drew three chips,
-   and so did a supplier's public profile, all through `NavLinksRow`).
+   and so did a supplier's public profile, all through `NavLinksRow`). Since 2026-11-14 the one place is the "Get
+   directions" sheet (see above): the links are built in `DirectionsMenu`, the sheet only lists them.
 
    THE PROPERTY: a Waze or Apple Maps link — a call to `wazeNavUrl` / `appleMapsUrl`, or the host written out
    (`waze.com`, `maps.apple.com`, `waze://`, `maps://`) — is built in exactly ONE component, the shared
-   `DirectionsMenu`, and only inside its `<details>` list, which draws its rows from one `<a>` in a `.map`. Any other
+   `DirectionsMenu`, which hands them to the ONE sheet (`GetDirections`), whose rows are one `<a>` in a `.map`. Any other
    file that builds one is a second way to draw the map apps, and a second way is how three chips come back. The URL
    builders' own definitions (`lib/geo.ts`) are the only other place the hosts may appear.
    Every surface that offers directions is then a mount of the one component, counted per file.
@@ -241,15 +250,18 @@ test('no surface draws Google Maps · Waze · Apple Maps as separate buttons —
     builtInMenu += inMenu;
     if (inMenu !== hits.length) elsewhere.push(`${rel}: a map-app link is built outside DirectionsMenu`);
   }
-  assert.deepEqual(elsewhere, [], 'the map apps are ONE "Directions ▾" dropdown — mount DirectionsMenu, never a row of chips');
+  assert.deepEqual(elsewhere, [], 'the map apps are ONE "Get directions" sheet — mount DirectionsMenu, never a row of chips');
   assert.ok(builtInMenu >= 2, `anti-vacuity: the shared menu builds the Waze and Apple Maps links (found ${builtInMenu})`);
 
-  // Inside the one component: one <details>, and its rows come from ONE <a> in a .map — never three written out.
+  // Inside the one component: it draws no link itself and mounts ONE sheet button; the sheet's app rows come from ONE
+  // <a> in a .map over the device's list — never three written out.
   const menu = directionsMenuSource();
-  assert.equal((menu.match(/<details\b/g) ?? []).length, 1, 'DirectionsMenu draws one <details>');
-  assert.equal((menu.match(/<a\b/g) ?? []).length, 1, 'DirectionsMenu draws its rows from ONE <a> — three written-out <a>s are three buttons');
-  assert.match(menu, /\.map\(\(a\) => \([\s\S]*<a href=\{a\.href\}/, 'the rows are the apps list, mapped');
-  assert.ok(menu.indexOf('<details') < menu.indexOf('<a '), 'the rows sit inside the dropdown, not beside it');
+  assert.equal((menu.match(/<a\b/g) ?? []).length, 0, 'DirectionsMenu draws no link of its own — the sheet lists them');
+  assert.equal((menu.match(/<GetDirections(?![\w.])/g) ?? []).length, 1, 'DirectionsMenu mounts ONE Get directions button');
+  const sheet = getDirectionsSource();
+  assert.equal((sheet.match(/<a\b/g) ?? []).length, 1, 'the sheet draws its app rows from ONE <a> — three written-out <a>s are three buttons');
+  assert.match(sheet, /apps\.map\(\(a\) => \{[\s\S]*<a\b[^>]*?href=\{a\.href\}/, 'the rows are the device\'s apps list, mapped');
+  assert.match(sheet, /<Sheet\b[\s\S]*apps\.map\(/, 'the rows sit inside the sheet, not beside the button');
 
   // Every surface that offers directions mounts it (a surface that drops it would pass the check above by drawing nothing).
   for (const rel of DIRECTION_SURFACES) {

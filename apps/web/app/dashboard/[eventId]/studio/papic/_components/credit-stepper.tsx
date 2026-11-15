@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 export type StepperRung = {
   serviceCode: string;
@@ -84,18 +85,19 @@ export function CreditStepper({
   const atFloor = at === 0;
   const atCeiling = at === rungs.length - 1;
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 4 · 13 · 14): a number setting is − / + pills around the figure — no
+  // boxes. The two presses are the shared pill (`ActionButton`, 44 px floor); the figure sits on the page in full ink.
   return (
     <div className="space-y-2">
-      <div className="flex items-stretch gap-2">
-        <button
-          type="button"
+      <div className="flex items-center gap-3">
+        <ActionButton
+          tone="brand"
+          iconOnly
+          icon={Minus}
+          label="Less"
           onClick={() => setI(at - 1)}
           disabled={atFloor}
-          aria-label="Less"
-          className="inline-flex h-[60px] w-12 shrink-0 items-center justify-center rounded-2xl border border-ink/15 text-mulberry transition-transform active:scale-95 disabled:cursor-not-allowed disabled:text-ink/40 disabled:opacity-50"
-        >
-          <Minus aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
+        />
 
         {/* ⚠ aria-live, because the two buttons never change their own labels —
             without it a screen-reader user presses "More" and is told nothing at
@@ -103,26 +105,25 @@ export function CreditStepper({
         <div
           id={liveId}
           aria-live="polite"
-          className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center px-2.5 py-1.5 text-center"
         >
-          <span className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-ink">
+          <span className="text-2xl font-bold leading-tight tracking-tight tabular-nums text-ink">
             {rung.priceLabel ?? peso(rung.pricePhp)}
           </span>
-          <span className="whitespace-nowrap text-[12.5px] text-ink/65">
+          <span className="whitespace-nowrap text-[13px] text-ink/75">
             adds {rung.points.toLocaleString('en-PH')} credits
             {rung.priceLabel === undefined && rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
           </span>
         </div>
 
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          iconOnly
+          icon={Plus}
+          label="More"
           onClick={() => setI(at + 1)}
           disabled={atCeiling}
-          aria-label="More"
-          className="inline-flex h-[60px] w-12 shrink-0 items-center justify-center rounded-2xl border border-ink/15 text-mulberry transition-transform active:scale-95 disabled:cursor-not-allowed disabled:text-ink/40 disabled:opacity-50"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
+        />
       </div>
 
       <input type="hidden" name="service_code" value={rung.serviceCode} />

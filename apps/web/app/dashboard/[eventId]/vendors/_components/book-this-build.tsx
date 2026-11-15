@@ -177,7 +177,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
               const price = prices.get(p.vendorId);
               return (
                 <li key={p.vendorId} className="flex items-baseline justify-between gap-3 py-2.5 text-sm" data-book-ask-row={p.tile}>
-                  <span className="text-ink/60">{p.category}</span>
+                  <span className="text-ink/70">{p.category}</span>
                   <b className="min-w-0 text-right font-semibold text-ink">
                     {p.name}
                     {price != null ? ` · ${formatPhp(price)}` : ''}
@@ -242,7 +242,7 @@ function BookSheet({
         {rows.map(({ pick, outcome }) => (
           <li key={pick.vendorId} className="py-2.5" data-book-row={outcome?.kind ?? 'waiting'}>
             <p className="text-sm font-medium text-ink">{pick.name}</p>
-            <p className="text-xs uppercase tracking-[0.08em] text-ink/55">{pick.category}</p>
+            <p className="text-xs uppercase tracking-[0.06em] text-ink/70">{pick.category}</p>
             {outcome?.kind === 'done' ? <p className="mt-1 text-[13px] text-success-700">{DONE_WORDS[outcome.how]}</p> : null}
             {outcome?.kind === 'confirm' ? (
               <div className="mt-1 text-[13px] text-ink/75">

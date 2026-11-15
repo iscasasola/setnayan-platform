@@ -630,7 +630,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
-  /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Hub Pro (as the viewer is shown it) and each
+  /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Pro (as the viewer is shown it) and each
      part's catalogue price — the quiet line's facts and the Studio cards' Pro lines. Never typed; none in the store
      shell (no web price there). */
   const [proOwn, proPrices] = await Promise.all([

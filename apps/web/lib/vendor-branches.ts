@@ -30,29 +30,13 @@ import { tierCaps } from './vendor-tier-caps';
  * order; auto-charge is N/A in the apply-then-pay model (no card on file).
  */
 
-/**
- * Additional-Branch fee FALLBACK (owner-locked 2026-06-05 · ₱999 charm).
- *
- * The canonical, admin-managed price now lives in the `vendor_billing_catalog`
- * row `vendor_additional_branch` (price stored in PHP — owner rule 2026-06-19
- * "prices are admin-managed"). Read it server-side with `fetchBranchFeePhp()`.
- * This literal is the BACKWARD-COMPATIBLE fallback used when the catalog row is
- * missing (e.g. the seeding migration hasn't been applied yet) — so the branch
- * flow keeps working regardless of migration state. The UI still imports this
- * for static copy; the order-creation path resolves the live price.
- *
- * 🚨 IT IS ALSO A BACK DOOR UNDER THE PRICE, and it was one: this read ₱999 for
- * the whole day the owner raised `vendor_additional_branch` to ₱1,000
- * (2026-08-27). Any failed or pre-migration catalog read would have quietly
- * charged yesterday's price while the catalog looked correct — the same shape
- * as the Custom-base fallback found the same day, which would have put a whole
- * tier back below Enterprise. ⛔ THIS NUMBER IS A SECOND COPY OF A CATALOG
- * PRICE: move it in the SAME change as the migration.
- * `custom-sits-above-enterprise.db.test.ts` now compares every declared fallback
- * against its live catalog row and fails the build on drift.
+/*
+ * 💰 NO TYPED BRANCH FEE (truth sweep, owner 2026-11-13: the site carries no typed prices). The Additional-Branch
+ * fee is the `vendor_billing_catalog` row `vendor_additional_branch`, read by `fetchBranchFeePhp()`. The
+ * `BRANCH_FEE_PHP` literal that stood in for an unread row is deleted — it had already been a back door under the
+ * price once (it read ₱999 for the whole day the row said ₱1,000, 2026-08-27), and it was both shown on the Purchase
+ * button and minted into the order. An unread row now shows no figure and the sale is refused.
  */
-export const BRANCH_FEE_PHP = 990; // fallback only — the catalogue row wins (owner 2026-11-06 "ULTRA ADD-ON PRICES": ₱990, was ₱1,990)
-export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
 
 /** The catalog sku_code the branch fee is read from (seeded by migration). */
 export const BRANCH_SKU_CODE = 'vendor_additional_branch';
@@ -88,18 +72,12 @@ export function branchIdFromServiceKey(serviceKey: string): string | null {
 }
 
 /**
- * Resolve the live Additional-Branch fee (in PHP) from the admin-managed
- * catalog, falling back to the {@link BRANCH_FEE_PHP} literal when the
- * `vendor_additional_branch` row is missing or unreadable. Mirrors how every
- * other vendor SKU is read (vendor_billing_catalog · `Number(price_php)`).
- *
- * Backward-compatible by construction: if the seeding migration hasn't been
- * applied yet (or RLS hides the row), the order is still created at ₱999. Any
- * non-positive / non-finite price is treated as missing and falls back too.
+ * The live Additional-Branch fee (in PHP) from the admin-managed catalog — or null when the
+ * `vendor_additional_branch` row is missing, inactive, unpriced or unreadable. Null means "no figure, no sale".
  */
 export async function fetchBranchFeePhp(
   supabase: SupabaseClient,
-): Promise<number> {
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
@@ -108,14 +86,14 @@ export async function fetchBranchFeePhp(
       .eq('is_active', true)
       .maybeSingle();
     if (error) {
-      console.error('[supabase-error] vendor-branches: branch fee (using fallback)', error);
-      return BRANCH_FEE_PHP;
+      console.error('[supabase-error] vendor-branches: branch fee unread', error);
+      return null;
     }
-    if (!data) return BRANCH_FEE_PHP;
+    if (!data) return null;
     const price = Number((data as { price_php: number | string }).price_php);
-    return Number.isFinite(price) && price > 0 ? price : BRANCH_FEE_PHP;
+    return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
-    return BRANCH_FEE_PHP;
+    return null;
   }
 }
 

@@ -383,7 +383,8 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
 const RECORD_PAGES: Array<{ file: string; keepsVisible: RegExp; why: string }> = [
   {
     file: 'users/[userId]/page.tsx',
-    keepsVisible: /<p className="truncate font-serif text-2xl text-ink">\{displayName\}<\/p>/,
+    // 📇 People record (14 Nov 2026): the visible name is the record head's big line.
+    keepsVisible: /<RecordHead[\s\S]*?name=\{displayName\}/,
     why: 'whose account this is',
   },
   {

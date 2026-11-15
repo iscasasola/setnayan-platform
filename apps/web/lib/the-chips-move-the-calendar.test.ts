@@ -153,7 +153,8 @@ test('a seeded answer never overwrites one already there', () => {
   const src = stripComments(read(WIZARD));
   assert.match(
     src,
-    /const holes = keys\.filter\(\(k\) => v\[k\] === undefined \|\| v\[k\] === null \|\| v\[k\] === ''\)/,
+    // CYC-02: …or a value THIS flow filled in itself (`lastDerived`) that a newer fact replaces — never a typed one.
+    /const holes = keys\.filter\(\s*\(k\) => v\[k\] === undefined \|\| v\[k\] === null \|\| v\[k\] === '' \|\| \(k in before && v\[k\] === before\[k\] && v\[k\] !== derivedSpecialty\[k\]\),?\s*\)/,
     'only an answer-shaped hole may be filled — a draft or a typed value wins',
   );
 });

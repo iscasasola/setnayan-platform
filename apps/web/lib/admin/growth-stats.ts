@@ -167,13 +167,22 @@ async function entityCountBefore(
   return count ?? 0;
 }
 
-/** Converted-guest base query — a guest-list row linked to a real account. */
+/**
+ * Converted-guest base query — a guest-list row linked to a real account.
+ *
+ * ⚖ AW-8 (admin walk 14 Nov 2026): the rate is "converted ÷ all non-removed guests", so BOTH sides count the SAME
+ * guests. The numerator used to count every account-linked membership, including guests since removed from their
+ * list, while the denominator (`entityBase('guests')`) counted only the non-removed ones — two different sets in one
+ * fraction. The inner join on `guests` with `deleted_at IS NULL` is the denominator's own filter, so the converted
+ * figure is now a subset of the total it is divided by. Same number of queries; each stays a head count.
+ */
 function conversionBase(admin: Admin) {
   return admin
     .from('event_members')
-    .select('*', HEAD)
+    .select('guest_id, guests!inner(deleted_at)', HEAD)
     .eq('member_type', 'guest')
-    .not('guest_id', 'is', null);
+    .not('guest_id', 'is', null)
+    .is('guests.deleted_at', null);
 }
 
 async function conversionCountBefore(admin: Admin, beforeIso: string): Promise<number> {
@@ -293,13 +302,12 @@ async function medianDaysToConvert(
   }
 }
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  wedding: 'Weddings',
-  birthday: 'Birthdays',
-  celebration: 'Celebrations',
-  travel: 'Travel',
-  corporate: 'Corporate',
-};
+/** The admin-managed event-type name for a key (`lib/admin/event-type-names.server.ts`). */
+async function eventTypeNamer(): Promise<(key: string) => string> {
+  const { readEventTypeNames } = await import('@/lib/admin/event-type-names.server');
+  const name = await readEventTypeNames();
+  return (key) => (key === 'unknown' ? 'No type set' : name(key));
+}
 
 /** Display label for an events.region slug (lowercase key, e.g. 'ncr'). */
 function regionLabel(slug: string | null): string {
@@ -340,7 +348,11 @@ async function fetchBreakdowns(admin: Admin): Promise<Breakdowns> {
         .map(([key, count]) => ({ key, label: labelFn(key), count }))
         .sort((a, b) => b.count - a.count);
     return {
-      eventsByType: toRows(byType, (k) => EVENT_TYPE_LABELS[k] ?? k),
+      // 🏷 AW-8 / F-A-15: an event type reads by its admin-managed name ("Get-together"), never its raw key
+      // ("simple_event", "debut", "date") — the one shared reader every admin page uses (cached `getEventTypeVocab`,
+      // no extra round trip once the vocab is read). Imported lazily: it is `server-only`, and this module's range
+      // options are also imported by a page drawn in a plain test.
+      eventsByType: toRows(byType, await eventTypeNamer()),
       eventsByRegion: toRows(byRegion, (k) =>
         regionLabel(k === '__none__' ? null : k),
       ),

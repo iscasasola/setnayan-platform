@@ -32,6 +32,11 @@ test('1 · Today’s setup has no "How many a day" row — the checklist stays t
 
 test('2 · each service card asks its own daily limit, on its own column', () => {
   const maker = code('app/vendor-dashboard/services/_components/canvas-maker.tsx');
-  assert.match(maker, /label="How many events a day can this service take\?"\s*htmlFor="daily_capacity"/);
+  /* 🔁 RE-AIMED 2026-11-14 (merge of #7553, owner "more settings." — DECISION_LOG 2026-11-13 "CARD MAKER SAME-DAY ROW →
+     MORE SETTINGS"): the question is asked by the one form's row (`SameDayRow`, a −/＋ stepper under More settings ›
+     Booking terms) instead of a bare number box. The claim is unchanged: each card asks its OWN daily limit, in these
+     words, on its own column. */
+  assert.match(maker, /export const SAME_DAY_QUESTION = 'How many events a day can this service take\?';/);
+  assert.match(maker, /<FormRow name=\{SAME_DAY_QUESTION\}/);
   assert.match(maker, /name="daily_capacity"/);
 });

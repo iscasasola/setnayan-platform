@@ -42,6 +42,7 @@ import {
   finalizePatiktokRenderJob,
 } from '../actions';
 
+import { InfoTip } from '@/app/_components/info-tip';
 type Phase =
   | 'idle'
   | 'preparing'
@@ -216,15 +217,15 @@ export function ReelRenderer({
 
       {phase === 'idle' ? (
         <>
-          <p className="text-sm text-ink/65">
-            Your reel renders right here in this browser — no server, no wait
+          <InfoTip labelAs="p" label="Your reel renders right here in this browser" labelClassName="text-sm text-ink/70" align="start">
+            no server, no wait
             queue. Keep this tab open while it works ({/* */}best on a laptop or
             a recent phone).
-          </p>
+          </InfoTip>
           <button
             type="button"
             onClick={run}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+            className="ab ab-brand ab-main"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Render now
@@ -303,7 +304,7 @@ export function ReelRenderer({
               The reel could not be saved to this device. Nothing was downloaded — try again.
             </p>
           ) : null}
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+          <p className="text-[12px] uppercase tracking-[0.15em] text-ink/70">
             Saved to your Memories{renderMode ? ` · ${renderMode.replace('client_', '')}` : ''}
           </p>
         </div>
@@ -330,7 +331,7 @@ export function ReelRenderer({
           <button
             type="button"
             onClick={run}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+            className="ab ab-brand ab-main"
           >
             <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Try again
@@ -372,19 +373,18 @@ function PreviewPanel({
           onContextMenu={(e) => e.preventDefault()}
         />
       </div>
-      <p className="text-sm text-ink/70">
-        This is your preview — free to watch here, with a light preview mark.
+      <InfoTip labelAs="p" label="This is your preview" labelClassName="text-sm text-ink/70" align="start">
+        free to watch here, with a light preview mark.
         Saving it, downloading it and sharing it come with Patiktok.
-      </p>
+      </InfoTip>
       {checkout && !checkout.storeShell ? (
         checkout.pending ? (
-          <p
-            role="status"
-            className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
-          >
-            Your Patiktok payment is being confirmed. Once it is, open this reel
-            from &ldquo;Your renders&rdquo; and it saves without the mark.
-          </p>
+          <div role="status">
+            <InfoTip labelAs="p" label="Your Patiktok payment is being confirmed." labelClassName="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70" align="start">
+              Once it is, open this reel
+              from &ldquo;Your renders&rdquo; and it saves without the mark.
+            </InfoTip>
+          </div>
         ) : (
           <div className="space-y-2">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-ink">
@@ -400,10 +400,10 @@ function PreviewPanel({
               triggerLabel={priceLabel ? `Save & share · ${priceLabel}` : 'Save & share'}
               triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
             />
-            <p className="text-[11px] text-ink/55">
-              This reel waits in &ldquo;Your renders&rdquo; — once Patiktok is
+            <InfoTip labelAs="p" label="This reel waits in &ldquo;Your renders&rdquo;" labelClassName="text-[12px] text-ink/70" align="start">
+              once Patiktok is
               confirmed, open it there and it saves without the mark.
-            </p>
+            </InfoTip>
           </div>
         )
       ) : null}

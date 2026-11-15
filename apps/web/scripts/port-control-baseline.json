@@ -6786,6 +6786,7 @@
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
         "dashboard/[eventId]/_components/venue-pin-part.tsx",
         "dashboard/[eventId]/_components/view-only-line.tsx",
+        "dashboard/[eventId]/_components/watch-fold.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -6985,6 +6986,7 @@
         "GuestsGetIn",
         "GuestsSeeWrites",
         "HTMLAnchorElement",
+        "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -7221,6 +7223,7 @@
         "VendorLogo",
         "ViewOnlyLine",
         "VoucherBlock",
+        "WatchFold",
         "Watermark",
         "Way",
         "WhatsHappeningCard",
@@ -9265,6 +9268,7 @@
     "/dashboard/[eventId]/messages": {
       "files": [
         "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
+        "dashboard/[eventId]/messages/_components/chat-panes.tsx",
         "dashboard/[eventId]/messages/_components/couple-chats-empty.tsx",
         "dashboard/[eventId]/messages/_components/event-groups.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
@@ -9284,12 +9288,15 @@
       "blocks": [
         "ChatInbox",
         "ChatOriginMark",
+        "ChatPanes",
         "CoupleChatsEmpty",
         "EventGroups",
         "FeedPageSkeleton",
         "Filter",
         "GroupsList",
+        "HTMLAnchorElement",
         "HTMLDivElement",
+        "HTMLElement",
         "Icon",
         "LeftChatRow",
         "Link",
@@ -9300,7 +9307,9 @@
         "Sheet",
         "StartThreadPicker",
         "SubmitButton",
+        "SupplierColumns",
         "ThreadArchiveToggle",
+        "ThreadArrival",
         "ThreadListAvatar",
         "ThumbDock",
         "ThumbRow"
@@ -9318,6 +9327,7 @@
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
         "dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body.tsx",
+        "dashboard/[eventId]/messages/[threadId]/layout.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
@@ -9334,6 +9344,7 @@
         "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
+        "ChatPanes",
         "ChatPinRead",
         "ChatPrivacyTip",
         "ChatSafetyBanner",
@@ -9343,6 +9354,7 @@
         "ChatThreadMenu",
         "ConversationColumn",
         "CoordinatorAgreeButton",
+        "CoupleMessagesPage",
         "CoupleThreadPage",
         "CoupleThreadToolsSheet",
         "Link",
@@ -9350,6 +9362,7 @@
         "NegotiationComposerMenu",
         "NotYetVerifiedThreadLine",
         "SubmitButton",
+        "Suspense",
         "ThreadInterestChips",
         "ThreadToolPanel"
       ]
@@ -15650,6 +15663,7 @@
       "blocks": [
         "BackButton",
         "ChatInbox",
+        "ChatPanes",
         "Icon",
         "InfoTip",
         "LiveInboxRefresh",
@@ -15657,6 +15671,7 @@
         "SupplierChats",
         "SupplierChatsRead",
         "ThreadArchiveToggle",
+        "ThreadArrival",
         "TimelineReadProblem"
       ]
     },
@@ -15685,6 +15700,7 @@
         "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
         "vendor-dashboard/messages/[threadId]/_lib/outcome-notice.ts",
         "vendor-dashboard/messages/[threadId]/actions.ts",
+        "vendor-dashboard/messages/[threadId]/layout.tsx",
         "vendor-dashboard/messages/[threadId]/loading.tsx",
         "vendor-dashboard/messages/[threadId]/outcome-actions.ts",
         "vendor-dashboard/messages/[threadId]/page.tsx",
@@ -15730,6 +15746,7 @@
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
+        "ChatPanes",
         "ChatPinRead",
         "ChatPrivacyNotice",
         "ChatPrivacyTip",
@@ -15778,7 +15795,9 @@
         "SnapRow",
         "StayForm",
         "SubmitButton",
+        "SupplierChatsPage",
         "SupplierSubmit",
+        "Suspense",
         "TemplateEmpty",
         "TemplateFail",
         "TemplateSection",

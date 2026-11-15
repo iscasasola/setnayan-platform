@@ -28,6 +28,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 
 type Row = { sender_role: string; sender_user_id: string | null };
 
+/** "Liwanag · Ana" — the shop, then the person; the person alone when the shop's name is not at hand. */
+export function shopSignature(shopName: string | null | undefined, first: string): string {
+  const shop = (shopName ?? '').trim();
+  return shop ? `${shop} · ${first}` : first;
+}
+
 export async function readThreadReceipts(
   admin: SupabaseClient,
   args: {
@@ -38,6 +44,8 @@ export async function readThreadReceipts(
     messages: readonly Row[];
     /** Couple side only: may a shop member's name be shown (the shop's own name is revealed)? */
     revealed?: boolean;
+    /** Couple side only: the shop's name as the couple sees it — a member's reply is signed "Shop · Name". */
+    shopName?: string | null;
   },
 ): Promise<{ theirLastReadAt: string | null; senderNames: Record<string, string> }> {
   const otherRole = args.viewerRole === 'couple' ? 'vendor' : 'couple';
@@ -77,7 +85,10 @@ export async function readThreadReceipts(
     if (users.error) logQueryError('readThreadReceipts.names', users.error, { thread_id: args.threadId }, 'graceful_degrade');
     for (const u of (users.data ?? []) as Array<{ user_id: string; first_name: string | null; display_name: string | null }>) {
       const first = u.first_name?.trim() || (u.display_name ?? '').trim().split(/\s+/)[0];
-      if (first) senderNames[u.user_id] = first;
+      if (!first) continue;
+      // ✍ CYC-16 (owner 2026-11-15, DECISION_LOG e8650540 "C2's SIX OPEN QUESTIONS — ANSWERED"): a shop member's reply
+      // is signed "Shop · Name" ("Liwanag · Ana") — replacing the 28 Oct name-only rule. A co-host keeps their name.
+      senderNames[u.user_id] = senders.has(u.user_id) ? shopSignature(args.shopName, first) : first;
     }
   }
 

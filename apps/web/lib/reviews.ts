@@ -720,6 +720,9 @@ export function formatStarRating(value: number): string {
  */
 export const NEW_TO_SETNAYAN_LABEL = 'New to Setnayan';
 
+/** A shop WITH bookings but no reviews yet (owner 2026-11-15, DECISION_LOG e8650540, CYC-15b). */
+export const NO_REVIEWS_YET_LABEL = 'No reviews yet';
+
 /**
  * True when a shop has nothing to average yet: no rating, a non-positive
  * rating, or no (or unknown) reviews. Every surface that renders a shop's

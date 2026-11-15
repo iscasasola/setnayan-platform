@@ -347,7 +347,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               href={publicLandingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               Preview as guest
               <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -541,7 +541,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 <div className="min-w-0">
                   <Link
                     href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-                    className="font-medium text-ink hover:text-terracotta"
+                    className="inline-flex min-h-11 items-center font-medium text-ink hover:text-terracotta"
                   >
                     {guestDisplayName(guest)}
                   </Link>

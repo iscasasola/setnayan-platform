@@ -21,12 +21,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from '@/lib/customer-menu';
 import {
   EVENT_FAMILY_CLAIMS,
+  EVENT_FAMILY_PAGE_WORDS,
   EVENT_HELD_PAGE_WORDS,
   eventPinFace,
   eventPinPlaceOf,
@@ -93,4 +94,16 @@ test('every fixed page the tree claims has a word, and no word names an unclaime
     assert.ok(EVENT_HELD_PAGE_WORDS[c], `the menu holds /${c} but the pinned row has no word for it`);
   }
   for (const w of Object.keys(EVENT_HELD_PAGE_WORDS)) assert.ok(claimed.has(w), `"${w}" names a page the menu does not hold`);
+});
+
+test('RW-315 · a page inside the studio family is named by its own word — the wax seal reads "Today · Save the Date"', () => {
+  for (const r of Object.keys(EVENT_FAMILY_PAGE_WORDS)) {
+    assert.ok(EVENT_FAMILY_CLAIMS.some((f) => r.startsWith(`${f}/`)), `${r} is not under a family claim`);
+    assert.ok(existsSync(join(HERE, r, 'page.tsx')), `${r} is no page`);
+  }
+  const face = (p: string) => { const at = eventPinPlaceOf(table, p); return at ? eventPinFace(at) : null; };
+  assert.equal(face(`${B}/studio/save-the-date/stamp`), 'Today · Save the Date');
+  assert.equal(face(`${B}/studio/save-the-date`), 'Today · Save the Date');
+  assert.equal(face(`${B}/alaala/assignments`), 'Memories · Story Assignments', 'Story Assignments wears the Memories row');
+  assert.equal(face(`${B}/alaala`), 'Memories · Kept alive');
 });

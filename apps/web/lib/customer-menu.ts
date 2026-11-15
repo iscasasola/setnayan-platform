@@ -425,7 +425,9 @@ export function buildEventMenuSections(
     label: 'Memories',
     href: `${base}/memories`,
     icon: PILLAR_TAB_ICON.memories,
-    alsoMatch: [`${base}/galleries`],
+    // RW-315: the living-memory page and its Story Assignments are Memories pages — they light Memories and wear its
+    // pinned row (they lit nothing and drew no row).
+    alsoMatch: [`${base}/galleries`, `${base}/alaala`, `${base}/alaala/assignments`],
   });
 
   // MORE SERVICES — the menu of the five services (it was a page, /suite,

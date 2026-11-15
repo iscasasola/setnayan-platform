@@ -11,6 +11,11 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { StayForm } from '@/app/_components/stay-form';
 import { InfoTip } from '@/app/_components/info-tip';
 
+// RW-312: the tab reads "Manpower · Setnayan" (the root template adds the brand), like Sponsors.
+export const metadata = {
+  title: 'Manpower',
+};
+
 /**
  * V2 Phase F · Host-side manpower surface.
  *

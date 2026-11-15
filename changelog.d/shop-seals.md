@@ -1,0 +1,27 @@
+## 2026-11-15 · feat(badges): J2 — the seals engine (shop_seals, the yearly picks, Verified Partner's ten rules)
+
+The badge build's seals (owner-approved prototypes 15 Nov, DECISION_LOG 7d6c8129; contract `badge-milestones_v86`).
+Engine only: no UI, no new server action, no new route.
+
+- **Migration `20271348504364`** (adds only): `shop_seals` — once per shop + seal + year; Verified Partner once per
+  shop for life; one No. 1 a year; RLS at create (the shop's own members read, admins read and write, the engine writes
+  with the service role). Setnayan Verified is NOT stored — it is read live from the shop's verification. Two
+  service-role counting functions: `shop_seal_year_facts(year)` (one read for the platform: events completed that year,
+  refunded, recorded shop cancellations, inquiries; never a demo shop) and `shop_verified_partner_facts(shop)` (booking
+  total, bookings by Find / website / QR import, Booking QR events from the claimed token, accepted recommenders). A
+  "real booking" is `shop_booked_loop_count`'s, copied.
+- **Migration `20271348269771`**: `seal_awarded` added IF NOT EXISTS (J0, #7753, adds it too — whichever lands first wins).
+- **`lib/shop-seals.ts`** (pure) + **`lib/shop-seals.server.ts`**: Top 10 (≥ 10 events that year, none cancelled by the
+  shop, the ten highest review scores) · No. 1 (the first of them) · Most In-Demand (top 10% by completed bookings,
+  refunds not counted) · Verified Partner (ten rules; rules 9 and 10 swappable in `PARTNER_RULES_AWAITING_OWNER`) ·
+  `displayedSeals` (Verified Partner permanently replaces Setnayan Verified). They extend the Spotlight engine: same
+  pool, same score (`topPickScore`, now exported from `lib/vendor-badges.ts`), same top-10% rule. `RETIRED_SPOTLIGHT_AWARDS`
+  names the three monthly awards the seals replace; `vendor_spotlight_awards` is not touched.
+- **Named gaps (nothing invented):** the first award year (`FIRST_SEAL_YEAR = null` ⇒ the yearly run gives nothing) ·
+  the award date / year window (calendar year, ended in Manila) · the Clients' Choice winner rule and its yearly count
+  (no booked-at date) · "cancelled by the shop" (recorded only for schedule-pool bookings) · the yearly rating (trusted
+  stats are lifetime) · rule 10's invites counter (none exists ⇒ Verified Partner cannot be given yet).
+- Tests: `lib/shop-seals.test.ts` (22) and `tests/db/the-seals-are-counted-and-given-once.db.test.ts` (7), each claim
+  sabotage-checked. `tests/db/ugat-both-ends.baseline.txt` gains one named row (`seal_awarded`, paid down by J4).
+
+SPEC IMPACT: None — implements the 15 Nov rulings as written; the open points are listed for the owner in the PR body.

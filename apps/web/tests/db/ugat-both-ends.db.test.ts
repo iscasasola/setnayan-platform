@@ -102,7 +102,7 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // 42 → 46 on 2026-11-09 (Supplier Build 3 · lane B): current_thread_ids paid down (migration 20271330575424 gave it a
 // body and the chat policies call it), and five lane-B RPCs ranked in one commit ahead of the UI that calls them —
 // each with its named payer in the baseline's header. Each .rpc() that lands takes its row out and this down by one.
-const EXPECTED_BASELINE_ROWS = 46;
+const EXPECTED_BASELINE_ROWS = 47;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

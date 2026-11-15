@@ -61,3 +61,17 @@ Controller 15 Nov: the owner is re-setting all five badges' steps. `SHOP_BADGE_S
 - The frozen OLD ladders that old payments map from (`MILESTONE_THRESHOLDS`, `REVIEW_STEPS`, the retired Booked Loop ladder) are history, not these badges' steps.
 
 SPEC IMPACT: None.
+
+## 2026-11-16 · fix(badges): reward-paid gifts and imports stay out of the badge counts (owner-approved rules)
+
+The controller posted the owner's 16 Nov rules on #7753:
+- **1 · A gift paid from badge-reward stock never counts toward Gifts given**, which would otherwise be a loop. `shop_gift_points` now counts per quote line, every kind (Papic and Event Plus / Pro / Ultra), and skips any line marked `from_badge_reward`.
+- **2 · Imports never count toward Completed bookings or Trusted by** (DECISION_LOG fd5814dc). New `shop_booking_is_import`: an import is a booking with source `vendor_invite` / `vendor_locked_qr` / `reuse_accept`, or a couple whose chat with the shop arrived through the shop's own link (`?src=own` → inquiry source `website`).
+  - New badge-only counters: `shop_completed_bookings_count` (the public completed-events rules, minus imports) and `shop_trusted_by_count` (`shop_booked_loop_count`'s body, minus imports).
+  - The public completed-events number (`vendor_public_completed_events_stats`) and the shared `shop_booked_loop_count` are untouched.
+  - The app reads the new counts as `completedBookings` / `trustedBy`. A refused read is null, never 0.
+- **3 · Gifts on an own client's event DO count toward Gifts given.** Gift points only ask that the event's booking with the shop is complete, whatever its source.
+- All three functions: service-role only.
+- DB tests: a reward-paid line adds 0; each import kind and the own-link arrival add 0 to Completed bookings; an all-import repeat client is not Trusted by; a gift on an imported event counts. Sabotage (drop both filters) turns both tests red.
+
+SPEC IMPACT: None — implements the controller's "owner-approved badge rules (16 Nov)" as written.

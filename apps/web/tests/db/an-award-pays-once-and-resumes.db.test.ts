@@ -215,3 +215,90 @@ test('5 · a flow resumes at its exact step; only the shop reads it; no session 
   const rls = await one<boolean>(`SELECT relrowsecurity AS v FROM pg_class WHERE oid = 'public.shop_award_flow_progress'::regclass`);
   assert.equal(rls, true);
 });
+
+/* ── 16 Nov owner-approved rules (controller, PR #7753) ─────────────────────────────────────────────────────────── */
+
+/** A booking of `shop` for `couple` at `status`, from `source` (an import or not); optional own-link chat. */
+async function booking(
+  shop: string,
+  couple: string,
+  status: 'contracted' | 'delivered' | 'complete',
+  source: string | null,
+  ownLinkChat = false,
+): Promise<string> {
+  n += 1;
+  const eventId = await one<string>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id AS v`, [`booking ${n}`]);
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, couple]);
+  await db.query(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id, source)
+     VALUES ($1, 'photographer', 'Count Shop', $2, $3, $3, $4)`,
+    [eventId, status, shop, source],
+  );
+  if (ownLinkChat) {
+    await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source) VALUES ($1, $2, 'website')`, [eventId, shop]);
+  }
+  return eventId;
+}
+
+test('16 Nov · 1 · a gift paid from BADGE-REWARD stock never counts toward Gifts given', async () => {
+  const before = await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shopA]);
+  const eventId = await giftedEvent(shopA, 'complete', [{ code: 'PAPIC_GUEST_1K', kind: 'papic', credits: 1000 }]);
+  const paid = await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shopA]);
+  assert.ok(paid > before, 'a bought gift on a completed event counts');
+  // The same gift again, but its quote line was paid from the shop's badge-reward stock.
+  const proposalId = await one<string>(
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos)
+     VALUES ($1, $2, 'Reward quote', 'accepted', NOW(), 5000000) RETURNING proposal_id AS v`,
+    [shopA, eventId],
+  );
+  await db.query(
+    `INSERT INTO public.vendor_proposal_shop_gifts (proposal_id, vendor_profile_id, service_code, gift_kind, credits, srp_php, title, from_badge_reward)
+     VALUES ($1, $2, 'PAPIC_GUEST_1K', 'papic', 1000, 1, 'Papic 1000', TRUE)`,
+    [proposalId, shopA],
+  );
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id) VALUES ($1, 'papic', -1000, 'given', $2, $3)`,
+    [shopA, eventId, proposalId],
+  );
+  assert.equal(await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shopA]), paid, 'a reward-paid gift counted');
+});
+
+test('16 Nov · 2 · imports never count toward Completed bookings or Trusted by; 3 · their gifts still count', async () => {
+  const owner = await newUser('award-c@test.test', 'vendor');
+  const shop = await shopOf(owner, 'Award Shop C');
+  await db.query(`UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW(), public_visibility = 'verified' WHERE vendor_profile_id = $1`, [shop]);
+  const c1 = await newUser('award-c1@test.test', 'customer');
+  const c2 = await newUser('award-c2@test.test', 'customer');
+  const c3 = await newUser('award-c3@test.test', 'customer');
+  const completed = () => one<number>(`SELECT public.shop_completed_bookings_count($1) AS v`, [shop]);
+  const trusted = () => one<number>(`SELECT public.shop_trusted_by_count($1) AS v`, [shop]);
+
+  await booking(shop, c1, 'complete', null);
+  assert.equal(await completed(), 1, 'a booking Setnayan made counts');
+  for (const src of ['vendor_invite', 'vendor_locked_qr', 'reuse_accept']) {
+    await booking(shop, c2, 'complete', src);
+    assert.equal(await completed(), 1, `a ${src} import counted`);
+  }
+  await booking(shop, c3, 'complete', null, true);
+  assert.equal(await completed(), 1, 'an own-link (?src=own) arrival counted');
+  // The public completed-events number is untouched by this rule.
+  assert.ok(Number(await one<string>(`SELECT count(*)::text AS v FROM public.event_vendors WHERE linked_vendor_profile_id = $1 AND status = 'complete'`, [shop])) >= 5);
+
+  // Trusted by: c2 booked the shop on four events, every one an import → not trusted. c1 comes back without an import.
+  assert.equal(await trusted(), 0);
+  await booking(shop, c1, 'contracted', null);
+  assert.equal(await trusted(), 1, 'a client who came back counts once');
+  await booking(shop, c1, 'contracted', null);
+  assert.equal(await trusted(), 1, 'a third booking adds nothing');
+
+  // Rule 3: a gift given on an imported client's completed event DOES count toward Gifts given.
+  const imported = await giftedEvent(shop, 'complete', [{ code: 'PAPIC_GUEST_150', kind: 'papic', credits: 150 }]);
+  await db.query(`UPDATE public.event_vendors SET source = 'vendor_invite' WHERE event_id = $1`, [imported]);
+  assert.equal(await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shop]), giftPointsForPrice(await price('PAPIC_GUEST_150')));
+
+  for (const fn of ['shop_completed_bookings_count(uuid)', 'shop_trusted_by_count(uuid)', 'shop_booking_is_import(uuid, uuid, text)']) {
+    for (const role of ['anon', 'authenticated']) {
+      assert.equal(await one<boolean>(`SELECT has_function_privilege($1, $2, 'EXECUTE') AS v`, [role, `public.${fn}`]), false, `${role} can call ${fn}`);
+    }
+  }
+});

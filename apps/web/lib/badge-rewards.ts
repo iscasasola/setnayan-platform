@@ -342,11 +342,17 @@ export type BadgeRewardFacts = {
   /** ⭐ 5★ reviews under the trusted-review rule (`shop_trusted_five_star_count`). Absent or null = unread. */
   fiveStarReviews?: number | null;
   /**
-   * 🛡 Trusted by — clients who booked the shop a second time (`shop_booked_loop_count`, 50566f42). Absent/null = unread.
-   * The same number as `bookedLoops`; the Booked Loop badge itself is retired.
+   * ✅ Completed bookings — the shop's delivered/complete bookings WITHOUT imports (`shop_completed_bookings_count`;
+   * owner 16 Nov: imports never count toward a booking badge). Absent/null = unread. Not `completedEvents`, the public
+   * completed-events number other screens show.
+   */
+  completedBookings?: number | null;
+  /**
+   * 🛡 Trusted by — clients who booked the shop a second time, imports left out (`shop_trusted_by_count`, 50566f42 +
+   * owner 16 Nov). Absent/null = unread.
    */
   trustedBy?: number | null;
-  /** 🎁 Gift points for gifts given on completed events (`shop_gift_points`). Absent/null = unread. */
+  /** 🎁 Gift points for gifts given on completed events, never a gift paid from badge-reward stock (`shop_gift_points`). Absent/null = unread. */
   giftPoints?: number | null;
   /** 🤝 Suppliers the shop added who have a completed booking. Always absent today: no counter exists (Not counted yet). */
   invites?: number | null;
@@ -396,7 +402,7 @@ export function paidTiers(keys: Iterable<string>): Set<string> {
 }
 
 const SHOP_BADGE_FACT: Readonly<Record<ShopBadgeKey, (f: BadgeRewardFacts) => number | null>> = {
-  completed_bookings: (f) => f.completedEvents,
+  completed_bookings: (f) => f.completedBookings ?? null,
   five_star_reviews: (f) => f.fiveStarReviews ?? null,
   gifts_given: (f) => f.giftPoints ?? null,
   trusted_by: (f) => f.trustedBy ?? null,

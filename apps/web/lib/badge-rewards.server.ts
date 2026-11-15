@@ -65,7 +65,7 @@ export async function readBadgeRewardFacts(
   /** The page's badge facts — or the promise of them: this function's own reads start at once, beside that read. */
   badgeIn: BadgeIn | PromiseLike<BadgeIn>,
 ): Promise<BadgeRewardFacts> {
-  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, giftPoints] = await Promise.all([
+  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, giftPoints, completedBookings, trustedBy] = await Promise.all([
     badgeIn,
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
@@ -142,13 +142,16 @@ export async function readBadgeRewardFacts(
           periodMonth: String(a.period_month),
         }));
       }),
-    // 🛡 Trusted by (owner 15 Nov, 50566f42): clients who booked the shop a second time — C2's `shop_booked_loop_count`,
-    // which the ruling names as exactly this count. Admin client (service_role only). null = unread.
+    // 🔁 Families who booked again — C2's `shop_booked_loop_count`, kept for the retired Booked Loop row's history.
+    // (Trusted by reads `shop_trusted_by_count` below: the same count with imports left out, owner 16 Nov.)
     readShopBookedLoopCount(admin, vendorProfileId),
     // ⭐ 5★ reviews under the trusted-review rule (owner 2026-11-15) — `shop_trusted_five_star_count`. null = unread.
     readFiveStarCount(admin, vendorProfileId),
     // 🎁 Gifts given (owner 15 Nov): gift points for gifts given on completed events — `shop_gift_points`. null = unread.
     readGiftPoints(admin, vendorProfileId),
+    // ✅ Completed bookings and 🛡 Trusted by, imports left out (owner 16 Nov). null = unread.
+    readBadgeCount(admin, 'shop_completed_bookings_count', vendorProfileId),
+    readBadgeCount(admin, 'shop_trusted_by_count', vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -163,12 +166,28 @@ export async function readBadgeRewardFacts(
     awards,
     bookedLoops,
     fiveStarReviews,
-    trustedBy: bookedLoops,
+    completedBookings,
+    trustedBy,
     giftPoints,
     // 🤝 Invites: no counter exists yet (nothing records one supplier importing another) — "Not counted yet". When the
     // import door lands: count each imported supplier once, at its first COMPLETED event (owner 15 Nov, open item 3).
     invites: null,
   };
+}
+
+/** A badge counter RPC's answer (`shop_completed_bookings_count`, `shop_trusted_by_count`); null on a refused read. */
+async function readBadgeCount(
+  admin: SupabaseClient,
+  fn: 'shop_completed_bookings_count' | 'shop_trusted_by_count',
+  vendorProfileId: string,
+): Promise<number | null> {
+  const { data, error } = await admin.rpc(fn, { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    logQueryError(`badgeRewards.${fn}`, error, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const n = typeof data === 'number' ? data : Number(data);
+  return data !== null && Number.isFinite(n) && n >= 0 ? Math.trunc(n) : null;
 }
 
 /** The shop's gift points (`shop_gift_points`); null on a refused read — never 0. */

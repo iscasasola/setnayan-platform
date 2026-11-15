@@ -205,7 +205,8 @@ describe('the one table is the ruling', () => {
       ...NONE,
       verified: false,
       firstSourcedBooking: true,
-      completedEvents: SHOP_BADGE_STEPS.completed_bookings[0]! - 1,
+      completedEvents: 10_000, // the retired Events ladder pays nothing, however high
+      completedBookings: SHOP_BADGE_STEPS.completed_bookings[0]! - 1,
       trustedReviews: 900,
       branchIds: ['b1', 'b2', 'b3'],
       serviceCards: 20,
@@ -236,7 +237,7 @@ describe('exactly-once keys', () => {
     // Counts taken from the table: Completed bookings at its 3rd step, Five-star reviews at its 2nd.
     const owed = rewardsOwed({
       ...NONE,
-      completedEvents: SHOP_BADGE_STEPS.completed_bookings[2]!,
+      completedBookings: SHOP_BADGE_STEPS.completed_bookings[2]!,
       fiveStarReviews: SHOP_BADGE_STEPS.five_star_reviews[1]!,
     });
     assert.deepEqual(owed.map((o) => o.key), [
@@ -270,7 +271,9 @@ describe('what a shop is owed', () => {
   it('nothing for an unread or unmeasured badge — never a zero, never a guess', () => {
     assert.deepEqual(rewardsOwed(NONE), []);
     assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: null, trustedBy: null, giftPoints: null, invites: null }), []);
-    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0, giftPoints: 0, completedEvents: 0 }), []);
+    assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0, giftPoints: 0, completedBookings: 0 }), []);
+    // ✅ Completed bookings reads its OWN import-free count, never the public completed-events number (owner 16 Nov).
+    assert.deepEqual(rewardsOwed({ ...NONE, completedEvents: 10_000, completedBookings: null }), []);
     // Invites has no counter yet: even a count handed in pays nothing.
     assert.deepEqual(rewardsOwed({ ...NONE, invites: SHOP_BADGE_STEPS.invites[SHOP_BADGE_STEPS.invites.length - 1]! }), []);
   });
@@ -281,7 +284,7 @@ describe('what a shop is owed', () => {
     const owed = rewardsOwed({
       ...NONE,
       verified: true,
-      completedEvents: S.completed_bookings[S.completed_bookings.length - 1]!,
+      completedBookings: S.completed_bookings[S.completed_bookings.length - 1]!,
       giftPoints: S.gifts_given[2]!,
       trustedBy: S.trusted_by[2]!,
     });

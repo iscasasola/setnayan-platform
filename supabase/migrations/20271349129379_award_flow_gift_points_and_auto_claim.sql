@@ -53,6 +53,11 @@ COMMENT ON FUNCTION public.gift_points_for_price(NUMERIC) IS
   '(owner 15 Nov: ₱99→10 · ₱499→50 · ₱999→100 · ₱2,990→300 · ₱5,690→600 · ₱9,990→1,000). NULL when no price.';
 
 -- ── 2 · the Gifts given counter ─────────────────────────────────────────────
+-- Counted per QUOTE LINE (every kind: Papic packs and Event Plus / Pro / Ultra), on a quote whose gifts of that
+-- kind were GIVEN (a 'given' stock entry) on an event whose booking with the shop is delivered/complete.
+-- ⛔ A line paid from BADGE-REWARD stock (`from_badge_reward`) never counts (owner 16 Nov, controller's
+-- "owner-approved badge rules" 1): a reward paying for a gift that earns the next reward is a loop.
+-- ✅ Imported / own-client events DO count (owner 16 Nov rule 3: their Setnayan gift was paid for by the supplier).
 CREATE OR REPLACE FUNCTION public.shop_gift_points(p_vendor_profile_id UUID)
 RETURNS INTEGER
 LANGUAGE sql
@@ -68,45 +73,166 @@ AS $$
        AND ev.status IN ('delivered', 'complete')
        AND ev.voided_by_fraud IS NOT TRUE
        AND ev.event_id IS NOT NULL
-  ),
-  given AS (
-    SELECT e.gift_kind, e.proposal_id, (-e.delta) AS amount
-      FROM public.shop_gift_stock_entries e
-     WHERE e.vendor_profile_id = p_vendor_profile_id
-       AND e.kind = 'given'
-       AND e.event_id IN (SELECT d.event_id FROM done_events d)
-  ),
-  unlock_code(gift_kind, service_code) AS (
-    VALUES ('event_plus'::TEXT, 'EVENT_PLUS'::TEXT),
-           ('event_pro', 'COUPLE_WEBSITE_PRO'),
-           ('event_ultra', 'EVENT_ULTRA')
-  ),
-  unlock_points AS (
-    SELECT SUM(g.amount * public.gift_points_for_price(c.retail_price_php)) AS pts
-      FROM given g
-      JOIN unlock_code u ON u.gift_kind = g.gift_kind
-      JOIN public.platform_retail_catalog_v2 c ON c.service_code = u.service_code
-  ),
-  papic_points AS (
-    SELECT SUM(public.gift_points_for_price(c.retail_price_php)) AS pts
-      FROM public.vendor_proposal_shop_gifts l
-      JOIN public.platform_retail_catalog_v2 c ON c.service_code = l.service_code
-     WHERE l.vendor_profile_id = p_vendor_profile_id
-       AND l.gift_kind = 'papic'
-       AND l.proposal_id IN (SELECT g.proposal_id FROM given g
-                              WHERE g.gift_kind = 'papic' AND g.proposal_id IS NOT NULL)
   )
-  SELECT (COALESCE((SELECT pts FROM unlock_points), 0)
-          + COALESCE((SELECT pts FROM papic_points), 0))::INTEGER;
+  SELECT COALESCE(SUM(public.gift_points_for_price(c.retail_price_php)), 0)::INTEGER
+    FROM public.vendor_proposal_shop_gifts l
+    JOIN public.platform_retail_catalog_v2 c ON c.service_code = l.service_code
+   WHERE l.vendor_profile_id = p_vendor_profile_id
+     AND l.from_badge_reward IS NOT TRUE
+     AND EXISTS (
+       SELECT 1
+         FROM public.shop_gift_stock_entries e
+        WHERE e.vendor_profile_id = p_vendor_profile_id
+          AND e.kind = 'given'
+          AND e.proposal_id = l.proposal_id
+          AND e.gift_kind = l.gift_kind
+          AND e.event_id IN (SELECT d.event_id FROM done_events d)
+     );
 $$;
 
 REVOKE ALL ON FUNCTION public.shop_gift_points(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shop_gift_points(UUID) TO service_role;
 
 COMMENT ON FUNCTION public.shop_gift_points(UUID) IS
-  'Gifts given badge counter (owner 15 Nov): gift points for every gift this shop gave on an event whose booking '
-  'with it is delivered/complete — one point per ₱10 of the gift''s regular price, rounded off '
-  '(gift_points_for_price), prices from platform_retail_catalog_v2 only. service_role only.';
+  'Gifts given badge counter (owner 15 Nov): gift points for every quote-line gift this shop gave on an event whose '
+  'booking with it is delivered/complete — one point per ₱10 of the gift''s regular price, rounded off '
+  '(gift_points_for_price), prices from platform_retail_catalog_v2 only. A line paid from badge-reward stock '
+  '(from_badge_reward) never counts (owner 16 Nov). Imported clients'' events count. service_role only.';
+
+-- ── 2b · imports never count toward a booking badge (owner 16 Nov, controller's rule 2 / DECISION_LOG fd5814dc) ──
+-- An import is a booking the supplier brought: event_vendors.source vendor_invite · vendor_locked_qr · reuse_accept,
+-- or the couple's chat with the shop arrived through the supplier's OWN link (`?src=own` → inquiry_source 'website',
+-- lib/supplier-qr-codes.ts arrivalInquirySourceOf). Not booking_fee_attribution_for: that fails SAFE to 'import' for
+-- the fee, which would drop real bookings from a badge.
+CREATE OR REPLACE FUNCTION public.shop_booking_is_import(
+  p_vendor_profile_id UUID,
+  p_event_id UUID,
+  p_source TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(p_source, '') IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept')
+      OR EXISTS (
+           SELECT 1 FROM public.chat_threads t
+            WHERE t.event_id = p_event_id
+              AND t.vendor_profile_id = p_vendor_profile_id
+              AND t.inquiry_source = 'website'
+         );
+$$;
+
+REVOKE ALL ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) TO service_role;
+
+COMMENT ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) IS
+  'TRUE when a shop''s booking on an event is an IMPORT (owner 16 Nov: imports never count toward Completed bookings, '
+  'Trusted by, a seal or Most Booked): source vendor_invite / vendor_locked_qr / reuse_accept, or the couple''s chat '
+  'with the shop arrived through the shop''s own link (inquiry_source ''website''). service_role only.';
+
+-- ── 2c · Completed bookings, for the badge: the public completed-events rules, minus imports ──
+-- `vendor_public_completed_events_stats` (the shop page's public number) is untouched; this is the badge's own count.
+CREATE OR REPLACE FUNCTION public.shop_completed_bookings_count(p_vendor_profile_id UUID)
+RETURNS INTEGER
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT count(ev.vendor_id)::INTEGER
+    FROM public.vendor_profiles vp
+    JOIN public.event_vendors ev ON ev.linked_vendor_profile_id = vp.vendor_profile_id
+   WHERE vp.vendor_profile_id = p_vendor_profile_id
+     AND ev.status IN ('delivered', 'complete')
+     AND ev.voided_by_fraud IS NOT TRUE
+     AND (ev.event_id IS NULL OR EXISTS (SELECT 1 FROM public.events e WHERE e.event_id = ev.event_id))
+     AND NOT public.shop_booking_is_import(vp.vendor_profile_id, ev.event_id, ev.source)
+     AND NOT EXISTS (
+           SELECT 1 FROM public.event_members em
+            WHERE em.event_id = ev.event_id AND em.member_type = 'couple' AND em.user_id = vp.user_id)
+     AND NOT EXISTS (
+           SELECT 1 FROM public.event_members em
+             JOIN public.vendor_team_members vtm
+               ON vtm.user_id = em.user_id AND vtm.vendor_profile_id = vp.vendor_profile_id
+            WHERE em.event_id = ev.event_id AND em.member_type = 'couple')
+     AND NOT EXISTS (
+           SELECT 1 FROM public.comp_grants cg
+            WHERE cg.vendor_profile_id = vp.vendor_profile_id
+              AND cg.source = 'vendor_self_comp'
+              AND (cg.order_id = ev.vendor_id OR EXISTS (
+                    SELECT 1 FROM public.event_members em3
+                     WHERE em3.event_id = ev.event_id AND em3.member_type = 'couple'
+                       AND em3.user_id = cg.created_by_user_id)));
+$$;
+
+REVOKE ALL ON FUNCTION public.shop_completed_bookings_count(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_completed_bookings_count(UUID) TO service_role;
+
+COMMENT ON FUNCTION public.shop_completed_bookings_count(UUID) IS
+  'Completed bookings badge counter (owner 15/16 Nov): the shop''s delivered/complete bookings under the public '
+  'completed-events rules (no fraud, no self-dealing, no self-comp), WITHOUT imports (shop_booking_is_import). '
+  'service_role only.';
+
+-- ── 2d · Trusted by, for the badge: clients who booked the shop a second time, imports left out ──
+-- `shop_booked_loop_count` (C2, shared) is untouched; this is its body with imports removed from the bookings.
+CREATE OR REPLACE FUNCTION public.shop_trusted_by_count(p_vendor_profile_id UUID)
+RETURNS INTEGER
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  WITH booked AS (
+    SELECT DISTINCT ev.event_id
+      FROM public.event_vendors ev
+     WHERE (ev.marketplace_vendor_id = p_vendor_profile_id
+            OR ev.linked_vendor_profile_id = p_vendor_profile_id)
+       AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
+       AND ev.archived_at IS NULL
+       AND ev.voided_by_fraud IS NOT TRUE
+       AND NOT public.shop_booking_is_import(p_vendor_profile_id, ev.event_id, ev.source)
+       AND NOT EXISTS (
+         SELECT 1 FROM public.comp_grants cg
+          WHERE cg.vendor_profile_id = p_vendor_profile_id
+            AND cg.source = 'vendor_self_comp'
+            AND (cg.order_id = ev.vendor_id
+                 OR EXISTS (SELECT 1 FROM public.event_members em3
+                             WHERE em3.event_id = ev.event_id
+                               AND em3.member_type = 'couple'
+                               AND em3.user_id = cg.created_by_user_id)))
+  ),
+  people AS (
+    SELECT em.user_id, b.event_id, e.event_date
+      FROM booked b
+      JOIN public.event_members em
+        ON em.event_id = b.event_id AND em.member_type = 'couple' AND em.user_id IS NOT NULL
+      LEFT JOIN public.events e ON e.event_id = b.event_id
+     WHERE NOT EXISTS (SELECT 1 FROM public.vendor_profiles vp
+                        WHERE vp.vendor_profile_id = p_vendor_profile_id
+                          AND vp.user_id = em.user_id)
+       AND NOT EXISTS (SELECT 1 FROM public.vendor_team_members vtm
+                        WHERE vtm.vendor_profile_id = p_vendor_profile_id
+                          AND vtm.user_id = em.user_id)
+  ),
+  repeaters AS (
+    -- One per FAMILY: two partners of one couple share their first event, so it counts once.
+    SELECT p.user_id,
+           (array_agg(p.event_id ORDER BY p.event_date NULLS LAST, p.event_id))[1] AS first_event_id
+      FROM people p
+     GROUP BY p.user_id
+    HAVING count(DISTINCT p.event_id) >= 2
+  )
+  SELECT count(DISTINCT r.first_event_id)::INTEGER FROM repeaters r;
+$$;
+
+REVOKE ALL ON FUNCTION public.shop_trusted_by_count(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_trusted_by_count(UUID) TO service_role;
+
+COMMENT ON FUNCTION public.shop_trusted_by_count(UUID) IS
+  'Trusted by badge counter (owner 15 Nov 50566f42; 16 Nov imports rule): clients who booked the shop on a second '
+  'event, each counted once, imports left out (shop_booking_is_import). shop_booked_loop_count is untouched. '
+  'service_role only.';
 
 -- ── 3 · where a shop is in an award flow ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.shop_award_flow_progress (

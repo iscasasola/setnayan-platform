@@ -72,7 +72,6 @@ import { buildServesLine } from '@/lib/service-serves-line';
 import {
   fetchTrustedByVendors,
   TRUSTED_BY_UNREADABLE,
-  type TrustedByVendor,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
 import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
@@ -131,6 +130,13 @@ import {
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
+// 🤝 The page's new ending (owner 2026-11-14, DECISION_LOG "A SHOP PAGE ENDS WITH ITS PARTNERS, THEN SIMILAR SHOPS
+// NEARBY — APPROVED AS DRAWN"): Trusted by as an endless row of shop photos, then "More <kind of work> near <area>".
+import { TrustedByCarousel, type TrustedByTile } from './_components/trusted-by-carousel';
+import { SimilarShopsRow } from './_components/similar-shops-row';
+import './_components/shop-end.css';
+import { rememberedSimilarShopRows, type SimilarShopRow } from '@/lib/similar-shops.server';
+import { shopInitials } from '@/lib/shop-initials';
 import { parseVideoLink } from '@/lib/video-embed';
 import { videoTitlesOf } from '@/lib/video-link-titles';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
@@ -200,6 +206,7 @@ import {
   type StorytellerTileItem,
 } from '@/lib/storytellers';
 import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import { featuredStoryLink } from '@/lib/ultra-story-pages';
 import {
   fetchVendorMicrosite,
   isSectionVisible,
@@ -1118,6 +1125,14 @@ export async function renderVendorBySlug({
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
   // A REFUSED read is not the same [] — say we couldn't check instead of
   // silently reading as "nobody endorsed this shop" (S41, reads-are-honest).
+  // 🏪 "More <kind of work> near <area>" — its ONE remembered read starts here, beside Trusted by's, and is awaited
+  // where the row draws (`SimilarShopsRow`). Keyed on (kind of work, demo) only, so every shop of that kind shares it.
+  const similarService = vendor.services[0] ?? null;
+  const similarRows: Promise<SimilarShopRow[] | null> = similarService
+    ? rememberedSimilarShopRows(similarService, vendor.is_demo === true)
+    : Promise.resolve(null);
+  // Handled where it is awaited; this only stops a refusal that lands first from counting as unhandled.
+  similarRows.catch(() => undefined);
   /* ⚡ "Trusted by", the typical price, the favourites count and the awards each need only the shop row and the batch
      above — they START together here and are still awaited where they were (speed pass 2026-11-14: they ran one after
      another before this page's first byte). Same reads, same fail-softs, same "couldn't check" markers. */
@@ -1464,6 +1479,21 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
+  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
+  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  const trustedByTiles: TrustedByTile[] = showTrustedBy
+    ? await Promise.all(
+        trustedBy.map(async (v) => ({
+          id: v.vendorProfileId,
+          name: v.displayName,
+          href: v.href,
+          kindLabel: PARTNERSHIP_PUBLIC_LABEL[v.relationshipType],
+          kindHint: PARTNERSHIP_PUBLIC_HINT[v.relationshipType],
+          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          initials: shopInitials(v.displayName, 2, 'SN'),
+        })),
+      )
+    : [];
   // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
   // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
   const distinctServiceKeys = distinctShopServices(
@@ -3040,13 +3070,7 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {showTrustedBy ? (
-          <TrustedBySection
-            vendors={trustedBy}
-            businessName={displayLabel}
-            unreadable={trustedByUnreadable}
-          />
-        ) : null}
+        {/* 🤝 Trusted by MOVED to the end of the page (owner 2026-11-14) — just before "See more suppliers". */}
         </div>
 
         {/* ── SERVICES: the cards, the typical price, the packages (Lock lives on each package card, nowhere else). */}
@@ -3250,10 +3274,15 @@ export async function renderVendorBySlug({
             </h2>
             {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
-              {featuredEditorials.map((story, idx) => (
+              {featuredEditorials.map((story, idx) => {
+                // ULTRA STORY PAGES (owner 2026-11-14, item 8): on Ultra the card opens the shop's OWN page for that
+                // event on the shop's address; Free · Plus · Pro keep "Read their story" (lib/ultra-story-pages.ts).
+                const storyLink = featuredStoryLink({ tier: effectiveTierState, shopSlug: vendor.business_slug, eventSlug: story.slug });
+                return (
                 <a
                   key={story.eventId}
-                  href={`/${story.slug}`}
+                  href={storyLink.own ? storyLink.href : `/${story.slug}`}
+                  data-story-link={storyLink.own ? 'own' : 'couple'}
                   className={`group flex flex-col justify-between rounded-2xl border border-ink/10 bg-cream/50 p-5 transition-colors hover:border-terracotta/40 ${
                     idx === 0 ? 'sm:col-span-3 sm:flex-row sm:items-end sm:gap-6' : ''
                   }`}
@@ -3274,11 +3303,12 @@ export async function renderVendorBySlug({
                     </p>
                   </div>
                   <span className="mt-3 inline-flex shrink-0 items-center gap-1 text-sm font-medium text-terracotta group-hover:underline sm:mt-0">
-                    Read their story
+                    {storyLink.label}
                     <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                   </span>
                 </a>
-              ))}
+                );
+              })}
             </div>
             ) : null}
             {/* Storyteller chapters crediting this vendor — their own tile
@@ -3436,6 +3466,31 @@ export async function renderVendorBySlug({
               events={inquireEvents}
               inquirySource={arrivalInquirySource}
               referringChapterPublicId={arrivalChapter}
+            />
+          ) : null}
+
+          {/* 🤝 THE PAGE'S ENDING (owner 2026-11-14, "shop ending page approved"): the shop's partners — still the shop's
+              own choice to show (`trusted_by`) — then up to four similar shops nearby, then the door below, unchanged. */}
+          {showTrustedBy ? (
+            <TrustedBySection
+              vendors={trustedByTiles}
+              businessName={displayLabel}
+              unreadable={trustedByUnreadable}
+            />
+          ) : null}
+          {similarService ? (
+            <SimilarShopsRow
+              rows={similarRows}
+              service={similarService}
+              kindLabel={displayServiceLabel(similarService)}
+              self={{
+                vendorProfileId: vendor.vendor_profile_id,
+                city: vendor.location_city,
+                latitude: vendor.hq_latitude,
+                longitude: vendor.hq_longitude,
+              }}
+              excludeIds={trustedBy.map((v) => v.vendorProfileId)}
+              arrival={shopArrival}
             />
           ) : null}
 
@@ -3884,7 +3939,8 @@ function TrustedBySection({
   businessName,
   unreadable,
 }: {
-  vendors: ReadonlyArray<TrustedByVendor>;
+  /** The partners as tiles, strongest kind first (`trustedByTiles`). */
+  vendors: ReadonlyArray<TrustedByTile>;
   businessName: string;
   /** true = the vendor_profiles half of the read was refused; `vendors` is []
    *  because nothing was read, not because nobody endorsed this shop. */
@@ -3903,8 +3959,10 @@ function TrustedBySection({
     );
   }
   if (vendors.length === 0) return null;
+  // 🤝 Each partner as its round shop photo, name and kind, in an endless row (owner 2026-11-14, "carousel
+  // infinity") — `TrustedByCarousel` swipes, wraps last → first, and draws arrows only on a computer when they overflow.
   return (
-    <section className="space-y-4 border-b border-ink/10 py-8">
+    <section className="space-y-4 border-b border-ink/10 py-8" data-trusted-by="">
       <header className="space-y-1">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Trusted by
@@ -3913,35 +3971,7 @@ function TrustedBySection({
           Fellow suppliers who endorsed {businessName} — each one confirmed it.
         </p>
       </header>
-      <ul className="flex flex-wrap gap-2">
-        {vendors.map((v) => {
-          const body = (
-            <>
-              <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
-              <span className="font-medium text-ink">{v.displayName}</span>
-              <span className="text-ink/45" title={PARTNERSHIP_PUBLIC_HINT[v.relationshipType]}>
-                · {PARTNERSHIP_PUBLIC_LABEL[v.relationshipType]}
-              </span>
-            </>
-          );
-          return (
-            <li key={v.vendorProfileId}>
-              {v.href ? (
-                <a
-                  href={v.href}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70 transition-colors hover:border-success-300/60 hover:text-ink"
-                >
-                  {body}
-                </a>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70">
-                  {body}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <TrustedByCarousel tiles={vendors} label={`Suppliers who trust ${businessName}`} />
     </section>
   );
 }

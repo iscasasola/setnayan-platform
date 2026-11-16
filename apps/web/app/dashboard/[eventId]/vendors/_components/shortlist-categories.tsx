@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
@@ -1746,7 +1747,15 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    return v.buildFit === 'clash' || unavailable ? <div className="vcw is-dim">{card}</div> : card;
+    const told = v.notYetVerified ? <NotYetVerifiedThreadLine /> : null;
+    return v.buildFit === 'clash' || unavailable || told ? (
+      <div className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}`}>
+        {card}
+        {told}
+      </div>
+    ) : (
+      card
+    );
   }
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
@@ -1816,6 +1825,9 @@ function VendorCard({
         </div>
       ) : null}
       {card}
+      {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line, under the card (its ⓘ
+          is a button, so it cannot sit inside the card's link). */}
+      {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
       <BenchVendorActions
         actions={actions}
         eventId={eventId}

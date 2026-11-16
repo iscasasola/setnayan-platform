@@ -630,9 +630,15 @@ export type MoneyStep =
     }
   | { kind: 'paid_in_full'; paidCentavos: number };
 
+/**
+ * The first payment's name, as the plan writes it. No "· books the date": every caller is `moneyStep`, which only
+ * answers for a BOOKED event (`input.booked`) — the date is already held (DECISION_LOG 2026-11-04: book on accept), so
+ * that tag told a booked couple their payment would book a date they already had (CHAT-10, W1 walk 16 Nov 2026:
+ * "DUE NOW · books the date" after booking). The public proposal, read BEFORE accepting, keeps its own tag.
+ */
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · books the date`;
+  return row?.label || 'First payment';
 }
 
 function laterStep(

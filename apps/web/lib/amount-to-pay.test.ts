@@ -174,7 +174,8 @@ test('booked, nothing paid → the first payment, at the requested minimum', () 
   assert.equal(s.action, 'record_deposit');
   assert.equal(s.amountCentavos, 335000);
   assert.equal(s.minimumCentavos, 335000);
-  assert.equal(s.label, 'First payment · books the date');
+  // Booked already (book on accept), so the label never says the payment books the date (CHAT-10).
+  assert.equal(s.label, 'First payment');
   assert.equal(moneyStepLine(s, 'couple', 'Saysay'), 'First payment ₱3,350 — due now');
   assert.equal(moneyStepLine(s, 'vendor', 'the couple'), 'Waiting for the ₱3,350 first payment');
 });

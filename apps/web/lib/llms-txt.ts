@@ -601,7 +601,7 @@ ${featurePagesSection()}
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
-- [Supplier pages](${url('/v/')}) — Each supplier has a public page at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and plan badge.
+- [Supplier pages](${url('/v/')}) — Each supplier has a public page at setnayan.com/[slug] (the old /v/[slug] address forwards there) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
 - [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.

@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -112,5 +113,5 @@ async function postGuestReviewReply(reviewId: string, reply: string) {
   if (!posted.ok) throw new Error(posted.message);
 
   revalidatePath('/vendor-dashboard/website');
-  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
+  if (profile.business_slug) revalidatePath(`${shopPath(profile.business_slug)}`);
 }

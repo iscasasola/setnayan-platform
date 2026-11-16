@@ -516,6 +516,15 @@ function surfaceOf(text: string): DoorSurface {
   return 'both';
 }
 
+/**
+ * 🔗 THE ADDRESS MOVE (2026-11-15) — `${shopPath(x)}` (lib/shop-address.ts) is a door to the shop screen. The bare
+ * `/{shop}` it builds is served by the shop's route (`app/v/[slug]`, which the middleware rewrites onto and which
+ * `app/[slug]` falls through to), so the map reads it as `/v/${x}`, the address the same door was written as before.
+ */
+export function shopPathAsShopRoute(src: string): string {
+  return src.replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}');
+}
+
 /* ═══════════════════════════ builders ═══════════════════════════ */
 
 /** `routes.a.b` → the pattern its builder produces (args become `[p]`). */
@@ -630,7 +639,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
     if (stripped.has(rel)) return stripped.get(rel)!;
     let s: string | null = null;
     try {
-      s = stripComments(readFileSync(join(webRoot, rel), 'utf8'));
+      s = shopPathAsShopRoute(stripComments(readFileSync(join(webRoot, rel), 'utf8')));
     } catch {
       s = null;
     }

@@ -1,23 +1,12 @@
 /**
- * /dev/find-lock-lab — DECISION_LOG 2026-11-07 "🔎 AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST INQUIRY", on
- * fixture data. No sign-in, no database. DEV-ONLY: production builds 404 this route first thing. It mounts the REAL
- * pieces, so what it shows is what ships:
+ * /dev/find-lock-lab — fixture data, no sign-in, no database. DEV-ONLY: production builds 404 this route first thing.
  *
- *   ?f=admin   Admin › Verify › Visibility: the REAL `FindLine` (app/admin/verify/_components/find-line.tsx) on the
- *              four lock states `findLockState` returns — locked by an inquiry (with the green "Lift the lock" pill),
- *              locked by an import, findable until its first inquiry, verified. Its form posts to the real
- *              `liftFindLock`, which refuses here (no admin session): open the dialog, press Cancel.
- *   ?f=shop    The shop page a couple sees on a shop Setnayan has not verified yet — the REAL
- *              `NotYetVerifiedNotice`, then the page's identity block: Inquire + Share (messaging open), no Check a
- *              date (booking shut), each door decided by the REAL `isBookable` + `shopTakesMessages`.
- *              `&locked=1` after its first inquiry (own link/QR) · `&verified=1` the verified shop, for comparison.
- *              The couple's chat line is drawn on /dev/chat-lab/t/<id>?unverified=1.
- *
- * The supplier's own notice ("You’ve had your first inquiry — get verified to be found again" + Verify) is drawn on
- * the real Today screen at /dev/supplier-lab?easy=findlock. The database half (the stamp, the lock surviving a
- * deleted inquiry, the lift, a shop unable to unlock itself) is
- * `tests/db/an-unverified-shop-is-findable-until-its-first-inquiry.db.test.ts` — this page is the picture, that
- * test is the proof.
+ * ⚠ 15 Nov SUPERSEDES the 2026-11-07 "findable until its first inquiry" rule this lab was built for: an unverified
+ * shop is in no list at all ("Verified only"), and it is messaged AND booked on its own page ("We allow booking").
+ * The first-inquiry lock still stamps but decides nothing, so the admin line no longer has a lift. This lab now
+ * draws the REAL `FindLine` per state and the unverified shop page's identity block; it is kept until the lock
+ * machinery itself is retired. The proof is
+ * `tests/db/an-unverified-shop-is-booked-on-its-page-and-found-only-once-verified.db.test.ts`.
  */
 import { shopPath } from '@/lib/shop-address';
 import { notFound } from 'next/navigation';

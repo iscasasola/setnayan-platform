@@ -586,7 +586,9 @@ export function ServiceDetailsSheet({
     });
   }
 
-  const roundBtn = `sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
+  // ✖️ 44px round, top left — the ONE close button for every full screen (DECISION_LOG 2026-11-15 "ONE CLOSE BUTTON FOR
+  // EVERY FULL SCREEN: A 44px ROUND ✕, TOP LEFT"). The bar's other round buttons share the size, so the row stays even.
+  const roundBtn = `sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
     pinned ? 'border-ink/10 bg-[var(--m-paper)] text-ink' : 'border-white/30 bg-[rgba(20,18,14,.38)] text-white backdrop-blur-md'
   }`;
 

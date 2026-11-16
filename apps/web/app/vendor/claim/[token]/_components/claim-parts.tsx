@@ -305,7 +305,7 @@ export function SupplierInviteDoor({
     >
       <article className="space-y-6" data-claim-door="supplier-invite">
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">What you get</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">What you get</p>
           <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>

@@ -12,7 +12,7 @@ import { cleanInviteSlug, supplierInvitePath } from '@/lib/supplier-invite';
 import { joinSupplierInvite } from './actions';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'You’re invited · Setnayan', robots: { index: false } };
+export const metadata = { title: 'You’re invited', robots: { index: false } };
 
 /**
  * 🤝 `/i/<slug>` — ANOTHER SUPPLIER'S INVITE LINK (Invite a supplier v3, owner 16 Nov 2026; specs cb1affde frame 3).

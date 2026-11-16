@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { Search, Send, UserPlus, QrCode } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrCard } from '@/app/_components/qr-card';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -74,14 +75,8 @@ export function PreferredSupplierCard({
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" className="button-primary inline-flex items-center gap-2" onClick={() => setOpen('add')}>
-          <UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Add
-        </button>
-        {invite ? (
-          <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setOpen('invite')}>
-            <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Invite
-          </button>
-        ) : null}
+        <ActionButton tone="brand" main icon={UserPlus} label="Add" onClick={() => setOpen('add')} />
+        {invite ? <ActionButton tone="brand" icon={QrCode} label="Invite" onClick={() => setOpen('invite')} /> : null}
       </div>
       {joinedLine ? (
         <p className="mt-3 text-xs text-ink/55" data-joined-through-link="">

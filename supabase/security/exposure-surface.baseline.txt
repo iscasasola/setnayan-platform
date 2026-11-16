@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7874
+# facts: 7877
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     639
-#   col       5666
+#   col       5668
 #   policy    1156
 #   view      10
-#   func      399
+#   func      400
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -5513,11 +5513,13 @@ col	public.vendor_papic_portfolio_photos.video_r2_key	anon=- authenticated=SI
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.admin_verified	anon=SIU authenticated=SIU
+col	public.vendor_partnerships.brought_new_shop	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.covered_plan_groups	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.created_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.discount_pct	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.is_active	anon=SIU authenticated=SIU
+col	public.vendor_partnerships.origin	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommended_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommending_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.relationship_type	anon=SIU authenticated=SIU
@@ -7693,6 +7695,7 @@ func	public.is_couple_member(p_event_id uuid)	secdef=yes exec=anon,authenticated
 func	public.is_event_member(p_event_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.is_limited_helper(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.join_entourage_line(p_event_id uuid, p_anchor uuid, p_joiner uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.join_supplier_invite(p_inviter_slug text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated search_path=public

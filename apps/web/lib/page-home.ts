@@ -141,6 +141,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/u/[userSlug]/c/[chapterId]': { home: '/u/[userSlug]', label: 'Profile' },
   // The claim link is made and shared from People; the issuer who opens it lands back there (audit ⚠, kept).
   '/claim/[token]': { home: '/dashboard?seg=people' },
+  // 🤝 Another supplier's invite link (Invite a supplier v3): a door reached from a shared link or QR — like the
+  // supplier claim door, its way out is signing in.
+  '/i/[slug]': { home: '/login' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).

@@ -20,20 +20,28 @@
  */
 import type { MarkSpec } from './photo-mark-geometry';
 
+/**
+ * What a public copy carries:
+ *   'setnayan' · 'verified'          the Seal and plate (2026-11-04) — a shop not verified / verified
+ *   'row' · 'row-verified'           🔏 THE NEW SUPPLIER PHOTO MARK (owner-approved 2026-11-15: the bottom row, the QR on
+ *                                    every shop) — not verified / verified (the shop's logo circle)
+ * Only the two 'row' kinds are ever DESIRED now, so every photo still carrying the Seal and plate is pending and is
+ * re-marked from its clean copy into the new mark — the 5892 re-mark path, no second mechanism.
+ */
+export type MarkKind = 'setnayan' | 'verified' | 'row' | 'row-verified';
+
 export type OriginalRow = {
   id: number;
   vendor_profile_id: string;
   public_ref: string;
   original_ref: string;
   frame: unknown;
-  mark_kind: 'setnayan' | 'verified';
+  mark_kind: MarkKind;
 };
 
-export type MarkKind = OriginalRow['mark_kind'];
-
-/** What the public copy SHOULD carry, from the shop's spec now. */
+/** What the public copy SHOULD carry, from the shop's spec now — always the 2026-11-15 row. */
 export function desiredMarkKind(spec: Extract<MarkSpec, { kind: 'supplier' }>): MarkKind {
-  return spec.verified ? 'verified' : 'setnayan';
+  return spec.verified ? 'row-verified' : 'row';
 }
 
 /** The rows whose public copy disagrees with their shop's state — pure. */

@@ -28,6 +28,7 @@
  * would then re-request rows already seen and stall short of the end.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import { useCallback, useEffect, useId, useState, useTransition } from 'react';
 import { ShopLink } from '@/app/_components/shop-link';
 import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
@@ -375,7 +376,7 @@ export function GalleryPicker({
               {/* 🛍 Shop › — the photo's shop, in its own tab so the Maker stays where it is. */}
               {studio && asset.shopSlug ? (
                 <ShopLink
-                  href={`/v/${asset.shopSlug}`}
+                  href={`${shopPath(asset.shopSlug)}`}
                   target="_blank"
                   rel="noopener"
                   className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[12px] font-semibold text-ink/70 hover:bg-ink/5"
@@ -403,7 +404,7 @@ export function GalleryPicker({
                 <dt className="w-28 flex-none text-ink/70">From</dt>
                 <dd className="min-w-0 text-ink">
                   {opened.shopSlug ? (
-                    <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                    <ShopLink href={`${shopPath(opened.shopSlug)}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                       {opened.credit} ›
                     </ShopLink>
                   ) : (
@@ -416,7 +417,7 @@ export function GalleryPicker({
                   <dt className="w-28 flex-none text-ink/70">From this event</dt>
                   <dd className="min-w-0 text-ink">
                     {opened.shopSlug ? (
-                      <ShopLink href={`/v/${opened.shopSlug}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                      <ShopLink href={`${shopPath(opened.shopSlug)}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
                         {opened.eventLine} ›
                       </ShopLink>
                     ) : (

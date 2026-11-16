@@ -201,3 +201,9 @@ a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:gene
 # (Build 6 Lane L): the selected identifiers are storage-path column names, not
 # credentials. Pinned by its introducing commit, as above.
 63ac7474edd36172ce3ebf93da9966c7b7c8260a:apps/web/scripts/remark-supplier-photos.ts:generic-api-key:68
+# #7842 (test-purchase delete): generic-api-key flagged catalogue SKU codes
+# (service_code values such as the Papic / Setnayan AI product codes already in
+# lib/v2-catalog.ts) used to seed and match test orders — product identifiers,
+# not credentials. Pinned by the introducing commit.
+38e24802ad6d257b3f4cada74e65dac30eb27da4:apps/web/tests/db/every-test-purchase-is-deleted-cale-ice-keeps-its-credits.db.test.ts:generic-api-key:113
+38e24802ad6d257b3f4cada74e65dac30eb27da4:supabase/migrations/20271348457307_delete_every_test_purchase_cale_ice_keeps_its_credits.sql:generic-api-key:92

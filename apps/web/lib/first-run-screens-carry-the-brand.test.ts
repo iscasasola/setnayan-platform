@@ -147,7 +147,7 @@ test('4 · "Then" is the rail’s next two steps, then the approval', () => {
   assert.deepEqual(firstStepsThen(s4).map((s) => `${s.n} · ${s.title}`), [
     '4 · Send your documents',
     '5 · Mark the days you are not available',
-    '8 · Setnayan approves you — you go live',
+    '8 · Setnayan verifies you — Discover lists you',
   ]);
   // S5: a service too → the Next card is "Send your documents".
   const s5 = rail({ serviceCount: 1 });

@@ -19,7 +19,7 @@ test('the page draws the since line, fed by the by-kind counter', () => {
   assert.doesNotMatch(PAGE, /\+ weddings</, 'the old "N+ weddings" pill came back beside the events count');
 });
 
-test('Check a date sits in the action row, after Add to your event and before Share, inside the bookable gate', () => {
+test('Check a date sits in the action row, after Add to your event and before Share, inside the verified-only gate', () => {
   // Order (prototype public_pages_three_2026-11-13, owner 13 Nov): Inquire · Add to your event, then Check a date · Share.
   // Distances are measured with whitespace (and the blanked comments) collapsed, so a comment never counts as distance.
   const FLAT = PAGE.replace(/\s+/g, ' ');
@@ -31,9 +31,12 @@ test('Check a date sits in the action row, after Add to your event and before Sh
   const share = FLAT.indexOf('<ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />');
   assert.ok(share > door && share - door < 600, 'Share does not follow Check a date');
   // The row itself opens on `canMessage` since an unverified shop takes messages (DECISION_LOG 2026-11-07, #7373), so
-  // the `bookable` gate is no longer the ROW's — it is the door's own, and it must sit between Add and the door.
-  const gate = FLAT.lastIndexOf('{bookable ? (', door);
-  assert.ok(gate > add && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
+  // the gate is the door's own, and it must sit between Add and the door. 15 Nov ("AN UNVERIFIED SHOP HAS THE SAME
+  // WEBSITE AS A VERIFIED ONE"): an unverified shop is now `bookable`, but Check a date stays verified-only — so the
+  // door's gate is `dateCheckable` (verified visibility AND bookable), never plain `bookable`.
+  const gate = FLAT.lastIndexOf('{dateCheckable ? (', door);
+  assert.ok(gate > add && gate < door, 'Check a date is not inside its own dateCheckable gate — an unverified shop would show it');
+  assert.match(PAGE, /const dateCheckable = isBookable\(visibility\) && bookable;/, 'dateCheckable no longer requires a verified shop');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((FLAT.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
   // Walk 14 Nov 2026: the About panel ("What their own website can't do") drew a second Check a date under the header one.

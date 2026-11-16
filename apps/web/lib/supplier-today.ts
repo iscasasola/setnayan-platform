@@ -825,9 +825,9 @@ export function shopPillOf(input: { verified: boolean; findable: boolean }): Sho
   return input.findable ? 'Live' : 'Not yet';
 }
 
-/** "couples can find you" · "send your documents to go live" · "Setnayan is checking your documents" · "not shown yet". */
+/** "couples can find you" · "send your documents to get Verified" · "Setnayan is checking your documents" · "not shown yet". */
 export function shopStateWords(input: { pill: ShopPill; docsWithSetnayan: boolean }): string {
-  if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to go live';
+  if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to get Verified';
   return input.pill === 'Live' ? 'couples can find you' : 'not shown yet';
 }
 

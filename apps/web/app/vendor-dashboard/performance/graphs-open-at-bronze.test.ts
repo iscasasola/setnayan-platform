@@ -46,7 +46,8 @@ test('3 · decided on the server from the one unlock read; the gifts graph is re
   // The counts are main's own counters — no second count (the audit removed one).
   assert.match(SECTION, /readFiveStarCount\(bookingsAdmin, profile\.vendor_profile_id\)/);
   assert.match(SECTION, /readGiftPoints\(bookingsAdmin, profile\.vendor_profile_id\)/);
-  assert.match(SECTION, /readBadgeCount\(bookingsAdmin, 'shop_trusted_by_count', profile\.vendor_profile_id\)/);
+  // Trusted by opens no graph yet (BADGE_GRAPHS.trusted_by = []), so its count is not read on every load.
+  assert.doesNotMatch(SECTION, /shop_trusted_by_count/);
   assert.doesNotMatch(SECTION, /trustedBy: unlockFacts|unlockFacts\.trustedBy/);
   assert.match(SECTION, /gifts=\{giftsOpen \? \{ '30': gifts30, '12': gifts12 \} : null\}/);
   // The unlock read sits AFTER the Verified lock's early return — an unverified shop reads none of it.

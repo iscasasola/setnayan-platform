@@ -265,6 +265,8 @@
 [data-growth] .ag-leg { display: flex; gap: 14px; font-size: 12px; color: var(--m-slate-2); margin-top: 4px; }
 [data-growth] .ag-leg-mul { color: rgb(var(--color-mulberry)); }
 [data-growth] .ag-leg-ok { color: var(--m-orange-2); }
+/* the legend of the completed bar (.ag-cbar) — the same token, so the key matches its bar */
+[data-growth] .ag-leg-done { color: rgb(var(--color-ok)); }
 [data-growth] .ag-cap { font-size: 12px; color: var(--m-slate-2); margin: 6px 0 0; }
 [data-growth] .ag-rv { display: grid; gap: 10px; }
 [data-growth] .ag-rv-k { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-bottom: 4px; }

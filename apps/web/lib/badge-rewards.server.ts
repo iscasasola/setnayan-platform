@@ -176,7 +176,7 @@ export async function readBadgeRewardFacts(
 }
 
 /** A badge counter RPC's answer (`shop_completed_bookings_count`, `shop_trusted_by_count`); null on a refused read. */
-export async function readBadgeCount(
+async function readBadgeCount(
   admin: SupabaseClient,
   fn: 'shop_completed_bookings_count' | 'shop_trusted_by_count',
   vendorProfileId: string,

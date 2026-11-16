@@ -8,8 +8,8 @@ import type { GraphSpec } from './graph-tile';
  *
  * ⏸ NOT COUNTED YET. Nothing records which shop imported which supplier — the add-a-supplier door is not built (owner
  * 6439 (4): "Until the add/invite door is built, the Invites badge ships showing 'Not counted yet'"). So the section
- * hands this graph no data and its card is never drawn; the badge's line under the carousel says "not counted yet"
- * (lib/graph-unlocks.ts). When the door records imports, its read feeds `invitesSpec` and nothing here changes.
+ * hands this graph no data and its card is never drawn, and the Invites badge prints no line under the carousel
+ * (`notCountedYet` hides it, lib/graph-unlocks.ts). When the door records imports, its read feeds `invitesSpec` and nothing here changes.
  * 🔒 lib/graph-unlocks.test.ts · performance/graphs-open-at-bronze.test.ts
  */
 export const INVITES_TITLE = 'Suppliers you invited';
@@ -53,7 +53,7 @@ export function InvitesPic({ months }: { months: readonly InviteMonth[] }) {
       <p className="ag-leg">
         <span>Invited</span>
         <span className="ag-leg-ok">Booked</span>
-        <span className="ag-leg-mul">Completed an event</span>
+        <span className="ag-leg-done">Completed an event</span>
       </p>
     </>
   );

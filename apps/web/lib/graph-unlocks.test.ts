@@ -4,6 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   BADGE_GRAPHS,
@@ -64,10 +65,18 @@ test('at Bronze the graphs open — the step is the badge’s OWN first step', (
   assert.ok(justBelow.hidden.has('slow'));
 });
 
+test('earnedBronze is main’s paidTiers, never a second reading of the keys', () => {
+  const src = readFileSync(new URL('./graph-unlocks.ts', import.meta.url), 'utf8');
+  assert.match(src, /const paid = paidTiers\(earned\);/);
+  assert.doesNotMatch(src, /head === 'events'|head === 'reviews'/);
+});
+
 test('keep what you had: a Bronze once earned keeps its graphs when the count dips — J0 keys and main’s legacy keys', () => {
   assert.equal(badgeGate('five_star_reviews', facts({ earned: ['five_star_reviews:tier1'] })), 'open');
   assert.equal(badgeGate('gifts_given', facts({ earned: ['gifts_given:tier3'] })), 'open');
   assert.equal(badgeGate('completed_bookings', facts({ earned: ['events:10'] })), 'open', 'main’s first events step is above Bronze');
+  assert.equal(badgeGate('five_star_reviews', facts({ earned: ['reviews:5'] })), 'open', 'main’s legacy reviews steps count too (paidTiers)');
+  assert.equal(badgeGate('five_star_reviews', facts({ earned: ['reviews:7'] })), 'locked', 'a legacy step main never paid opens nothing');
   assert.equal(badgeGate('five_star_reviews', facts({ earned: ['gifts_given:tier1'] })), 'locked', 'another badge’s step opens nothing here');
 });
 

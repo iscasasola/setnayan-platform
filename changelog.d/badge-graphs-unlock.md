@@ -48,3 +48,5 @@ SPEC IMPACT: None — builds the approved badge-unlock_v6. Gaps named in the PR:
   ("More graphs open as you earn badges" + each badge's line); the invented "N more … to go" copy is removed.
 
 SPEC IMPACT: None — implements badge-unlock_v6 as drawn.
+
+- 2026-11-17 re-audit: `earnedBronze` is now main's `paidTiers` (so legacy `reviews:<step>` keys count too, not only `events:*`); the Trusted-by count is no longer read on every load (it opens no graph until its ruling closes); the Invites legend's "Completed an event" uses the same `--color-ok` token as its bar; the Invites docblock now says the badge prints no line while not counted.

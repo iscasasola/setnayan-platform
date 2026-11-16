@@ -81,7 +81,7 @@ import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
 import { badgeGate, graphUnlocks, type UnlockFacts } from '@/lib/graph-unlocks';
 import { readGiftPointExamples, readGiftsToBookings, readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
-import { readBadgeCount, readFiveStarCount, readGiftPoints } from '@/lib/badge-rewards.server';
+import { readFiveStarCount, readGiftPoints } from '@/lib/badge-rewards.server';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 
 
@@ -239,7 +239,6 @@ export async function OneAnalyticsSection({
   const unlockRead = safeRead(readGraphUnlockFacts(bookingsAdmin, profile.vendor_profile_id), null, 'graph_unlocks');
   const fiveStarRead = safeRead(readFiveStarCount(bookingsAdmin, profile.vendor_profile_id), null, 'badge_five_star');
   const giftPointsRead = safeRead(readGiftPoints(bookingsAdmin, profile.vendor_profile_id), null, 'badge_gift_points');
-  const trustedByRead = safeRead(readBadgeCount(bookingsAdmin, 'shop_trusted_by_count', profile.vendor_profile_id), null, 'badge_trusted_by');
 
   const pinNowRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
   const pinYearRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
@@ -631,10 +630,10 @@ export async function OneAnalyticsSection({
   });
 
   // 🏅 J5 — EACH BADGE'S BRONZE OPENS ITS OWN GRAPHS (badge-unlock_v6). Completed bookings is the count the page already
-  // read (badge facts); five-star reviews, gift points and Trusted by are main's counters. A refused read is `null` — the
+  // read (badge facts); five-star reviews and gift points are main's counters (Trusted by is not read: it opens no graph until its ruling closes). A refused read is `null` — the
   // adapter keeps those graphs showing ("Couldn’t load") rather than calling a shop "below Bronze" on a count it could
   // not read. Invites waits while it is not counted (`notCountedYet`, BADGE_REWARDS.invites.measured).
-  const [unlockFacts, fiveStars, giftPoints, trustedBy] = await Promise.all([unlockRead, fiveStarRead, giftPointsRead, trustedByRead]);
+  const [unlockFacts, fiveStars, giftPoints] = await Promise.all([unlockRead, fiveStarRead, giftPointsRead]);
   const facts: UnlockFacts = {
     kept: unlockFacts ? unlockFacts.kept : null,
     earned: unlockFacts ? unlockFacts.earned : null,
@@ -642,7 +641,6 @@ export async function OneAnalyticsSection({
       completed_bookings: badgeFacts ? badgeFacts.completedEvents : null,
       five_star_reviews: fiveStars,
       gifts_given: giftPoints,
-      trusted_by: trustedBy,
     },
   };
   const unlocks = graphUnlocks(facts);

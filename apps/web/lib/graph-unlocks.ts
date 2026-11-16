@@ -25,15 +25,15 @@
  *
  * 🔑 MAIN'S PIECES, NEVER A COPY: the badges, their Bronze (`SHOP_BADGE_STEPS[b][0]`) and tier names are
  * lib/badge-tiers.ts; the names and "is it counted" are `BADGE_REWARDS` (lib/badge-rewards.ts); the counts are main's
- * readers (badge-rewards.server.ts). `earnedBronze` accepts the reward keys (`<badge>:tier1`…`tier7`) and main's legacy
- * completed-bookings keys (`events:<step>`).
+ * readers (badge-rewards.server.ts). `earnedBronze` is main's `paidTiers` (new `<badge>:tierN` keys and the legacy
+ * `events:<step>` / `reviews:<step>` keys), never a second reading of them.
  *
  * PURE: no I/O, no React. 🔒 lib/graph-unlocks.test.ts
  */
 import type { GrowthRec } from './vendor-growth-recs';
 import { formatCount } from './format-number';
 import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierName, type ShopBadgeKey } from './badge-tiers';
-import { BADGE_REWARDS } from './badge-rewards';
+import { BADGE_REWARDS, paidTiers } from './badge-rewards';
 
 /** The five shop badges — J0's `ShopBadgeKey` itself (lib/badge-tiers.ts), never a second list. */
 export type UnlockBadge = ShopBadgeKey;
@@ -90,13 +90,10 @@ export type BadgeGate = 'open' | 'locked' | 'unknown';
 /** Has this badge EVER been earned at Bronze or above (keep what you had)? null = the earned list was not read. */
 export function earnedBronze(badge: UnlockBadge, earned: readonly string[] | null): boolean | null {
   if (earned === null) return null;
-  return earned.some((key) => {
-    const [head, part] = key.split(':');
-    if (head === badge && part !== undefined && (TIER_KEYS as readonly string[]).includes(part)) return true;
-    // main's legacy completed-bookings steps ('events:<n>') start above Bronze — so any one at or over it is Bronze.
-    if (badge === 'completed_bookings' && head === 'events' && part !== undefined && Number(part) >= BRONZE_STEP.completed_bookings) return true;
-    return false;
-  });
+  // main's ONE rule for what a shop's reward keys have paid — new `<badge>:tierN` keys and the legacy
+  // `events:<step>` / `reviews:<step>` keys alike (lib/badge-rewards.ts `paidTiers`). Any tier paid = Bronze reached.
+  const paid = paidTiers(earned);
+  return TIER_KEYS.some((t) => paid.has(`${badge}:${t}`));
 }
 
 /**

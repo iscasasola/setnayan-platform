@@ -189,7 +189,11 @@ export function staleTabAction(input: {
 
 /** What covers the page: an open modal (Sheet · RiseScreen · blockers · dialogs) or the phone's full-screen thread. */
 export const MODAL_LAYER = '[aria-modal="true"]';
-export const LAYER_OVER_THE_PAGE = `${MODAL_LAYER}, [data-chat-takeover]`;
+/** The guest send-run screen (owner ruling 10, 17 Nov): fixed over everything at z 110, and not aria-modal. */
+export const SEND_RUN_LAYER = '[data-send-run]';
+export const LAYER_OVER_THE_PAGE = `${MODAL_LAYER}, [data-chat-takeover], ${SEND_RUN_LAYER}`;
+/** The chat thread's own head band (‹ back · the name): the lifted notice sits BELOW it, never over it (ruling 9). */
+export const THREAD_HEAD = '[data-chat-thread-head]';
 /** The attributes whose change can open or close such a layer without a node being added or removed. */
 export const LAYER_ATTRIBUTES: readonly string[] = ['aria-modal', 'data-chat-takeover', 'hidden'];
 
@@ -202,6 +206,10 @@ export type DrawnLayer = {
   visibility: string;
   width: number;
   height: number;
+  /** The guest send-run screen (`SEND_RUN_LAYER`). */
+  sendRun?: boolean;
+  /** A chat thread's head band, where the thread has one: its bottom edge on screen, in px. */
+  headBottom?: number | null;
 };
 
 /** Is the page covered right now? A modal that is drawn covers it; the chat thread covers it only while fixed. */
@@ -214,4 +222,26 @@ export function aLayerCoversThePage(layers: readonly DrawnLayer[]): boolean {
       l.height > 0 &&
       (l.modal || l.position === 'fixed'),
   );
+}
+
+/** Where the lifted notice goes: which element it is drawn on, and how far from the top of the screen. */
+export type LiftPlace = { host: 'body' | 'send-run'; top: number | null };
+
+/** The gap between a thread's head and the lifted notice under it, in px. */
+export const UNDER_THE_HEAD_GAP = 8;
+
+/**
+ * 🧭 OWNER RULINGS 8–10 (17 Nov 2026) — where the lifted notice stands while a layer covers the page:
+ *   8 · over a Sheet / RiseScreen / blocker: fixed on top, on the peek toast's place (as built).
+ *   9 · over the phone's full-screen chat thread: BELOW the thread's head, never over its ‹ back or the name.
+ *  10 · over the guest send-run screen (z 110, above the toast layer): drawn INSIDE that screen, so it is on top of it.
+ * Null when nothing covers the page (the notice stays in the flow). Pure — `the-update-notice-is-on-top.test.ts`.
+ */
+export function whereTheNoticeLifts(layers: readonly DrawnLayer[]): LiftPlace | null {
+  const covering = layers.filter((l) => aLayerCoversThePage([l]));
+  if (covering.length === 0) return null;
+  if (covering.some((l) => l.sendRun)) return { host: 'send-run', top: null };
+  if (covering.some((l) => l.modal)) return { host: 'body', top: null };
+  const heads = covering.map((l) => l.headBottom).filter((b): b is number => typeof b === 'number' && b > 0);
+  return { host: 'body', top: heads.length > 0 ? Math.max(...heads) + UNDER_THE_HEAD_GAP : null };
 }

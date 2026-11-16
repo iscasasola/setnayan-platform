@@ -21,3 +21,5 @@ notice, so the one person it was for never saw it. Its wrapper was also a second
   `/api/health` stubbed to a newer version, text typed in the composer).
 
 SPEC IMPACT: None.
+
+- **Owner rulings 8–10 (17 Nov):** (8) over a Sheet / RiseScreen the lifted notice keeps the top place, as built; (9) over the phone's chat thread it now stands BELOW the thread's head band (`data-chat-thread-head`), never over ‹ back or the name; (10) the guest send-run screen (`data-send-run`, z 110, above the toast layer) now counts as covering the page, and the notice is drawn inside it. Pure rule `whereTheNoticeLifts` in `lib/build-version.ts`, held by `the-update-notice-is-on-top.test.ts` § 3b/3c.

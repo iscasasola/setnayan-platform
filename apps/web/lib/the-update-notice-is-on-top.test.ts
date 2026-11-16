@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { LAYER_OVER_THE_PAGE, aLayerCoversThePage, type DrawnLayer } from '@/lib/build-version';
+import { LAYER_OVER_THE_PAGE, UNDER_THE_HEAD_GAP, aLayerCoversThePage, whereTheNoticeLifts, type DrawnLayer } from '@/lib/build-version';
 import { PEEK_TOAST_PLACE } from '@/app/_components/toast/peek-toast';
 
 const WEB = join(__dirname, '..');
@@ -67,7 +67,7 @@ test('1c · one live region: NoticeLine is the role="status", the wrappers are n
 });
 
 test('1d · flow OR top layer, never both: the lifted branch returns before the flow one', () => {
-  const lifted = NOTICE.search(/if \(covered\) \{[\s\S]*?return \([\s\S]*?<StaleTabNoticeLift>\{notice\}<\/StaleTabNoticeLift>/);
+  const lifted = NOTICE.search(/if \(lift\) \{[\s\S]*?return \([\s\S]*?<StaleTabNoticeLift host=\{lift\.host\} top=\{lift\.top\}>\s*\{notice\}\s*<\/StaleTabNoticeLift>/);
   const flow = NOTICE.search(/return \(\s*<div data-app-chrome="" data-stale-tab-notice=""[^>]*>\s*\{notice\}/);
   assert.ok(lifted > 0, 'no lifted branch — the notice stays in the flow under a sheet');
   assert.ok(flow > lifted, 'the flow copy is not the fallthrough after the lifted return');
@@ -98,8 +98,9 @@ test('2a · the top notification layer is above the rise, the Sheet, the side pa
 
 test('2b · lifted, it is portalled to <body> on that layer — not a layer of its own', () => {
   assert.match(LIFT, /import \{ PEEK_TOAST_PLACE \} from '\.\/toast\/peek-toast';/);
-  assert.match(LIFT, /createPortal\(\s*<div data-app-chrome="" data-stale-tab-lift="" className=\{PEEK_TOAST_PLACE\}>/);
-  assert.match(LIFT, /document\.body,?\s*\)/, 'the lift is not drawn on <body> — a transformed page would trap it');
+  assert.match(LIFT, /createPortal\(\s*<div data-app-chrome="" data-stale-tab-lift="" className=\{PEEK_TOAST_PLACE\} style=\{top === null \? undefined : \{ top \}\}>/);
+  // <body>, or — only over the guest send-run, which stands above the toast layer — inside that screen (ruling 10).
+  assert.match(LIFT, /host \?\? document\.body,?\s*\)/, 'the lift is not drawn on <body> — a transformed page would trap it');
   assert.doesNotMatch(LIFT, /\bz-\[|\bz-\d|zIndex|z-index/, 'the lift sets a z of its own — use the top layer');
   assert.match(LIFT, /pointer-events-auto/, 'the top layer takes no tap; Reload and Hide must');
   // Lazily — the root layout's client tree is the shared chunk.
@@ -109,9 +110,9 @@ test('2b · lifted, it is portalled to <body> on that layer — not a layer of i
 
 test('2c · the cover is measured with the shared rule, and only while the notice is up', () => {
   assert.match(NOTICE, /document\.querySelectorAll\(LAYER_OVER_THE_PAGE\)/);
-  assert.match(NOTICE, /return aLayerCoversThePage\(layers\);/);
+  assert.match(NOTICE, /const place = whereTheNoticeLifts\(layers\);/);
   assert.match(NOTICE, /const showing = stale && Boolean\(servingVersion\);/);
-  assert.match(NOTICE, /if \(!showing\) \{\s*setCovered\(false\);\s*return;\s*\}/, 'the observer runs on a tab with nothing to say');
+  assert.match(NOTICE, /if \(!showing\) \{\s*setLift\(null\);\s*return;\s*\}/, 'the observer runs on a tab with nothing to say');
   assert.match(NOTICE, /watch\.disconnect\(\)/);
 });
 
@@ -133,10 +134,31 @@ test('3a · what covers the page', () => {
 });
 
 test('3b · the selector matches the marks the real layers carry', () => {
-  assert.equal(LAYER_OVER_THE_PAGE, '[aria-modal="true"], [data-chat-takeover]');
+  assert.equal(LAYER_OVER_THE_PAGE, '[aria-modal="true"], [data-chat-takeover], [data-send-run]');
+  assert.match(NOTICE, /sendRun: el\.matches\(SEND_RUN_LAYER\)/, 'the send-run test drifted from the selector');
+  assert.match(NOTICE, /headBottom: el\.querySelector\(THREAD_HEAD\)\?\.getBoundingClientRect\(\)\.bottom \?\? null/, 'the thread head is not measured');
+  assert.match(code('app/dashboard/[eventId]/guests/send/_components/send-run.tsx'), /fixed inset-0 z-\[110\][^"]*"[\s\S]{0,80}data-send-run=""/, 'the send-run screen lost its mark or its z — re-check ruling 10');
+  assert.match(code('app/_components/chat/chat-box.tsx'), /border-b border-ink\/10 py-1 pl-1 pr-2 sm:gap-2\.5" data-chat-thread-head=""/, 'the thread head band lost its mark — the notice would cover ‹ back and the name');
   assert.match(NOTICE, /modal: el\.matches\(MODAL_LAYER\)/, 'the modal test drifted from the selector');
   assert.match(code('app/_components/rise/rise-screen.tsx'), /aria-modal="true"/, 'the RiseScreen is no longer aria-modal');
   assert.match(code('app/_components/sheet.tsx'), /aria-modal="true"/, 'the Sheet is no longer aria-modal');
   assert.match(code('app/_components/chat/chat-box.tsx'), /data-chat-takeover=""/, 'the thread lost its takeover mark');
   assert.match(code('app/_components/chat/chat-blocker.tsx'), /aria-modal="true"/, 'the chat blocker is no longer aria-modal');
+});
+
+test('3c · rulings 8–10 (17 Nov): where the lifted notice stands', () => {
+  const thread = (headBottom: number | null) => drawn({ position: 'fixed', headBottom });
+  assert.equal(whereTheNoticeLifts([]), null, 'a plain page — the notice stays in the flow');
+  assert.equal(whereTheNoticeLifts([drawn({ position: 'static', headBottom: 60 })]), null, 'the thread as a column — not covered');
+  // 8 · over a Sheet / RiseScreen: the peek toast's own place.
+  assert.deepEqual(whereTheNoticeLifts([drawn({ modal: true })]), { host: 'body', top: null });
+  // 9 · over the phone's thread: BELOW its head, never over ‹ back / the name.
+  assert.deepEqual(whereTheNoticeLifts([thread(60)]), { host: 'body', top: 60 + UNDER_THE_HEAD_GAP });
+  assert.deepEqual(whereTheNoticeLifts([thread(null)]), { host: 'body', top: null }, 'a takeover with no head band (a chat list)');
+  assert.deepEqual(whereTheNoticeLifts([thread(null), thread(112)]), { host: 'body', top: 112 + UNDER_THE_HEAD_GAP }, 'a thread inside the list takeover');
+  // A sheet opened over the thread covers its head too — the notice goes back to the top.
+  assert.deepEqual(whereTheNoticeLifts([thread(60), drawn({ modal: true })]), { host: 'body', top: null });
+  // 10 · the guest send-run (z 110, above the toast layer, not aria-modal): drawn inside it.
+  assert.deepEqual(whereTheNoticeLifts([drawn({ position: 'fixed', sendRun: true })]), { host: 'send-run', top: null });
+  assert.equal(whereTheNoticeLifts([drawn({ position: 'fixed', sendRun: true, display: 'none' })]), null, 'a hidden send-run');
 });

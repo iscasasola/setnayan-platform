@@ -42,8 +42,10 @@ import {
   LAYER_OVER_THE_PAGE,
   LOADED_BUILD_VERSION,
   MODAL_LAYER,
+  SEND_RUN_LAYER,
   SELF_UPDATE_KEY_PREFIX,
-  aLayerCoversThePage,
+  THREAD_HEAD,
+  whereTheNoticeLifts,
   claimSelfUpdate,
   hasUnsavedTyping,
   servingVersionFrom,
@@ -53,22 +55,34 @@ import {
 /** The notice on the app's top notification layer, while a sheet or the full-screen thread covers the page. */
 const StaleTabNoticeLift = lazy(() => import('./stale-tab-notice-lift'));
 
-/** Is a Sheet, a RiseScreen, a blocker or the phone's full-screen thread over the page right now? */
-function pageIsCovered(): boolean {
-  const layers = Array.from(document.querySelectorAll(LAYER_OVER_THE_PAGE), (el) => {
+/** Where the notice stands on the screen while it is lifted: the element it is drawn on, and its top in px (null = the
+ *  peek toast's own place). */
+type Lifted = { host: Element | null; top: number | null };
+
+/** Is a Sheet, a RiseScreen, a blocker, the phone's full-screen thread or the guest send-run over the page right now —
+ *  and if so, where does the notice go (`whereTheNoticeLifts`, owner rulings 8–10)? Null = the page is not covered. */
+function whereToLift(): Lifted | null {
+  const els = Array.from(document.querySelectorAll(LAYER_OVER_THE_PAGE));
+  const layers = els.map((el) => {
     const cs = window.getComputedStyle(el);
     const r = el.getBoundingClientRect();
     return {
       modal: el.matches(MODAL_LAYER),
+      sendRun: el.matches(SEND_RUN_LAYER),
       position: cs.position,
       display: cs.display,
       visibility: cs.visibility,
       width: r.width,
       height: r.height,
+      headBottom: el.querySelector(THREAD_HEAD)?.getBoundingClientRect().bottom ?? null,
     };
   });
-  return aLayerCoversThePage(layers);
+  const place = whereTheNoticeLifts(layers);
+  if (!place) return null;
+  return { host: place.host === 'send-run' ? (els.find((el) => el.matches(SEND_RUN_LAYER)) ?? null) : null, top: place.top };
 }
+
+const samePlace = (a: Lifted | null, b: Lifted | null) => a === b || (!!a && !!b && a.host === b.host && a.top === b.top);
 
 function tabStorage(): Storage | null {
   try {
@@ -104,7 +118,7 @@ export function StaleTabNotice() {
   const [stale, setStale] = useState(false);
   const [servingVersion, setServingVersion] = useState<string | null>(null);
   /** A layer is over the page — the notice is drawn on the top notification layer instead of the flow. */
-  const [covered, setCovered] = useState(false);
+  const [lift, setLift] = useState<Lifted | null>(null);
   /** A served version this tab should take silently on its next in-app link press. */
   const armed = useRef<string | null>(null);
   /** Fields the person typed into — React keeps a controlled field's default in step, so value≠default is not enough. */
@@ -191,7 +205,7 @@ export function StaleTabNotice() {
   const showing = stale && Boolean(servingVersion);
   useEffect(() => {
     if (!showing) {
-      setCovered(false);
+      setLift(null);
       return;
     }
     let frame = 0;
@@ -199,7 +213,8 @@ export function StaleTabNotice() {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        setCovered(pageIsCovered());
+        const next = whereToLift();
+        setLift((was) => (samePlace(was, next) ? was : next));
       });
     };
     measure();
@@ -239,12 +254,14 @@ export function StaleTabNotice() {
       onClose={() => setStale(false)}
     />
   );
-  if (covered) {
+  if (lift) {
     // A sheet or the full-screen thread is over the page: the flow is underneath it, so the notice rides the app's
     // top notification layer until that layer goes (`stale-tab-notice-lift.tsx`).
     return (
       <Suspense fallback={null}>
-        <StaleTabNoticeLift>{notice}</StaleTabNoticeLift>
+        <StaleTabNoticeLift host={lift.host} top={lift.top}>
+          {notice}
+        </StaleTabNoticeLift>
       </Suspense>
     );
   }

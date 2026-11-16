@@ -83,7 +83,7 @@ test('a saved Admin › Colours set cannot show through on a supplier page', () 
   const missing = written.filter((k) => valueOf(k) === undefined);
   assert.deepEqual(missing, [], 'a token a saved set writes is not held by the supplier scope');
   // The keys the blue look does not recolour sit at the code default (or `initial` where the default is unset).
-  const BLUE = new Set(['--sn-page-bg', '--sn-band-from', '--sn-band-to', '--sn-frame-bg', '--sn-frame-radius', '--sn-frame-shadow', '--sn-accent', '--sn-on-accent']);
+  const BLUE = new Set(['--sn-page-bg', '--sn-band-from', '--sn-band-to', '--sn-band-angle', '--sn-on-band', '--sn-frame-bg', '--sn-frame-radius', '--sn-frame-shadow', '--sn-accent', '--sn-on-accent']);
   const UNSET = new Set(['--sn-decision', '--sn-decision-600', '--sn-decision-word', '--sn-on-decision']);
   const def = appColourTokens(APP_COLOURS_DEFAULT);
   for (const k of written) {
@@ -91,6 +91,20 @@ test('a saved Admin › Colours set cannot show through on a supplier page', () 
     assert.equal(valueOf(k), UNSET.has(k) ? 'initial' : def[k], `${k} drifted from its default`);
   }
   assert.equal(valueOf('--sn-accent'), '34 114 230', 'the toggle is not the blue');
+  assert.equal(valueOf('--sn-on-band'), '255 255 255', 'the blue band’s words are not white (ink on the blue is ~3.2:1)');
+});
+
+test('the clean warm look’s new tokens (#7888) are re-pointed to the drawing — the supplier side never goes warm', () => {
+  // The secondary button is the drawing's blue ghost with ink words, no outline (`.btn`: --ghost #E8F0FA).
+  assert.equal(valueOf('--sn-btn-secondary-bg'), 'var(--m-paper-2)');
+  assert.equal(valueOf('--m-paper-2'), '#e8f0fa');
+  assert.equal(valueOf('--sn-btn-secondary-bg-hover'), 'var(--surface-soft)');
+  assert.equal(valueOf('--sn-btn-secondary-border'), 'transparent');
+  assert.equal(valueOf('--sn-btn-secondary-fg'), 'var(--color-ink)');
+  // The floating bar's lift is the drawing's cool one — a blue-grey shadow, never the warm rgba(30, 26, 18, …).
+  const lift = valueOf('--sn-dock-lift') ?? '';
+  assert.match(lift, /rgba\(30, 60, 110, 0\.16\)/);
+  assert.doesNotMatch(lift, /30, 26, 18/);
 });
 
 test('the ground and the lift are tokens in globals.css, and the lift spares the focus ring', () => {

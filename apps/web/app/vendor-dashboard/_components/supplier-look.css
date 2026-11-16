@@ -78,7 +78,18 @@ html:not(.dark):has([data-supplier-look]) {
   /* the main button's soft blue lift (16 Nov adjustment; solid fill, no gradient) */
   --sn-forward-lift: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
 
+  /* ── THE CLEAN WARM LOOK'S NEW TOKENS (#7888), re-pointed to the drawing so the supplier side never goes warm ──
+     the secondary button is the drawing's blue ghost (`.btn`: --ghost #E8F0FA, ink words 15.0:1; hover the #DCE6F2
+     wash, 13.6:1), no outline; the floating bar's lift is the drawing's cool `--lift`, not the warm one. */
+  --sn-btn-secondary-bg: var(--m-paper-2);
+  --sn-btn-secondary-bg-hover: var(--surface-soft);
+  --sn-btn-secondary-border: transparent;
+  --sn-btn-secondary-fg: var(--color-ink);
+  --sn-dock-lift: 0 8px 24px -12px rgba(30, 60, 110, 0.16), 0 1px 4px -1px rgba(30, 60, 110, 0.06);
+
   /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
+  /* the band's angle and its WHITE words are the blue look's own (white on #2272E6 4.55:1 AA) — never the clean warm
+     look's ink-on-peach default, which would read ~3.2:1 on the blue */
   --sn-band-angle: 135deg;
   --sn-on-band: 255 255 255;
   --color-ok: 43 116 74; /* #2B744A — also the drawing's ok */

@@ -12,3 +12,9 @@ SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECI
   - **Drawing colours.** Tiles, washes and pills are #DCE6F2, and warn is #8A5A00.
   - **Tokens only.** The glow and the button lift are tokens (`--sn-ambient`, `--sn-forward-lift`), read in globals.css at zero specificity. The lift never covers the keyboard focus ring.
   - **No Admin › Colours leak.** The supplier scope now holds every token a saved set writes. Guards: `the-blue-look-is-tokens-only.test.ts` and `shop/promote/prints-are-the-drawn-seven-rows.test.ts`.
+- **Ready for #7888 (the clean warm look), which ships first.** The supplier scope re-points its new tokens to the drawing, so the supplier side never goes warm.
+  - The secondary button (`--sn-btn-secondary-*`) is the blue ghost #E8F0FA with ink words (15.0:1). Hover is the #DCE6F2 wash. There is no outline.
+  - The floating bar's `--sn-dock-lift` is the drawing's cool shadow.
+  - The blue band keeps white words (`--sn-on-band`, 4.55:1). Ink on the blue would read about 3.2:1.
+  - The guard holds each value. It also passes against #7888's `app-colours.ts`.
+- **Template ratchet.** The cover's Prints tile is a wash tile (`--surface-soft`) with no bordered card, so Shop stays at its baseline.

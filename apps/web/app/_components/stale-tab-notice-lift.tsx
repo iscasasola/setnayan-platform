@@ -1,0 +1,32 @@
+'use client';
+
+/**
+ * stale-tab-notice-lift.tsx — "Setnayan was updated" while a layer covers the page (walk RW-7853-a, 16 Nov 2026).
+ *
+ * `StaleTabNotice` draws its notice in the page flow. While a Sheet, a RiseScreen, a blocker or the phone's
+ * full-screen chat thread covers the page (`aLayerCoversThePage`, `lib/build-version.ts`), the flow is underneath —
+ * so for that time it hands the SAME notice here, and this draws it on <body> in the peek toast's place: the app's top
+ * notification layer (`PEEK_TOAST_PLACE`, z 100), above every sheet and rise. No layer of its own; nothing is
+ * duplicated — the notice is drawn here OR in the flow, never both.
+ *
+ * Loaded lazily by `StaleTabNotice`: the root layout's client tree is the SHARED chunk (202.3 KB budget), and this is
+ * needed only by a stale tab holding typing with a sheet open.
+ */
+
+import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { PEEK_TOAST_PLACE } from './toast/peek-toast';
+
+export default function StaleTabNoticeLift({ children }: { children: ReactNode }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div data-app-chrome="" data-stale-tab-lift="" className={PEEK_TOAST_PLACE}>
+      {/* The live notice's tint is see-through (it was drawn for the page's ground); over a sheet it needs a ground of
+          its own, or the sheet's head reads through it. The page's cream, and the peek toast's lift. */}
+      <div className="pointer-events-auto w-full max-w-[640px] rounded-md bg-cream shadow-[0_14px_30px_-12px_rgba(0,0,0,.5)]">
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}

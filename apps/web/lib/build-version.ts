@@ -174,3 +174,41 @@ export function staleTabAction(input: {
   if (input.typing || input.selfUpdateUsed) return 'notice';
   return 'update';
 }
+
+/* ── THE NOTICE IS NEVER UNDER A SHEET (walk RW-7853-a, 16 Nov 2026) ─────────────────────────────────────────────
+ *
+ * The notice above speaks ONLY to a page holding typing — and the place people type most is the full-screen chat
+ * thread, which on a phone fixes itself over the page at z 45 (globals.css "AN OPEN CHAT THREAD IS FULL SCREEN ON A
+ * PHONE"). The notice stood in the page's flow at the top, so it was drawn UNDER the thread: the one person it was for
+ * never saw it. Same under every Sheet (z 50), RiseScreen (pop, 40) and blocker.
+ *
+ * So: on a plain page it stays where the one notice system put it — in the flow, at the very top, never fixed over the
+ * page. While a layer covers the page, it moves onto the app's top notification layer (the peek toast's place,
+ * `PEEK_TOAST_PLACE`, z 100 — "over everything, it is a notification") until that layer goes. No new layer.
+ */
+
+/** What covers the page: an open modal (Sheet · RiseScreen · blockers · dialogs) or the phone's full-screen thread. */
+export const LAYER_OVER_THE_PAGE = '[aria-modal="true"], [data-chat-takeover]';
+
+/** One element `LAYER_OVER_THE_PAGE` matched, as the browser draws it. */
+export type DrawnLayer = {
+  /** True for `[aria-modal]`; false for the chat takeover, which is a layer only where it fixes itself (a phone). */
+  modal: boolean;
+  position: string;
+  display: string;
+  visibility: string;
+  width: number;
+  height: number;
+};
+
+/** Is the page covered right now? A modal that is drawn covers it; the chat thread covers it only while fixed. */
+export function aLayerCoversThePage(layers: readonly DrawnLayer[]): boolean {
+  return layers.some(
+    (l) =>
+      l.display !== 'none' &&
+      l.visibility !== 'hidden' &&
+      l.width > 0 &&
+      l.height > 0 &&
+      (l.modal || l.position === 'fixed'),
+  );
+}

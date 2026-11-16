@@ -33,6 +33,7 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
 import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
+import { inboxFor } from '@/lib/reset-sent';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
@@ -141,6 +142,7 @@ export function SignInCard({
   const [reset, sendReset] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
   // W1-B24 — "Send a new link" for a dead email link: the SAME action again, intent=relink, its own state.
   const [relink, sendRelink] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
+  const [relinkTo, setRelinkTo] = useState('');
   // The address typed above — tracked live, and carried across the route's
   // full-page redirect on a failed attempt, so the button needs no second input.
   const [typed, setTyped] = useState(prefilledEmail);
@@ -218,13 +220,27 @@ export function SignInCard({
           failed and spent itself; the second open showed SDK text and no way forward. Now: plain words, and a button
           that mails a new link that works on ANY device (`intent=relink`, /auth/confirm). */}
       {linkExpired && !shownError ? (
-        <form action={sendRelink} className="hr-si-form" data-dead-link="">
+        <form
+          action={sendRelink}
+          className="hr-si-form"
+          data-dead-link=""
+          onSubmit={(e) => setRelinkTo(String(new FormData(e.currentTarget).get('email') ?? '').trim())}
+        >
           <input type="hidden" name="intent" value="relink" />
           <input type="hidden" name="next" value={next} />
           <TurnstileField action="password_reset" />
           {relink.resetSent ? (
+            // W1-B5: the sent page's own words — where it went, and the inbox to open (`lib/reset-sent.ts`).
             <p role="status" className="hr-si-banner">
-              {DEAD_LINK_WORDS.sent}
+              <span className="hr-si-banner-em">Sent to {relinkTo || 'your email'}</span> · {DEAD_LINK_WORDS.sent}
+              {inboxFor(relinkTo) ? (
+                <>
+                  {' '}
+                  <a href={inboxFor(relinkTo)!} target="_blank" rel="noopener noreferrer">
+                    Open your email
+                  </a>
+                </>
+              ) : null}
             </p>
           ) : (
             <>

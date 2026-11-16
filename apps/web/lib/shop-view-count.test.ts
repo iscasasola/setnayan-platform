@@ -26,6 +26,7 @@ const PHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKi
 const SHOP = 'vp-1';
 const OWNER = 'u-owner';
 const HELPER = 'u-helper';
+const STAFF = 'u-setnayan-admin';
 
 /** A service-role stand-in: the owner owns SHOP, HELPER holds a seat, every insert is kept. */
 function admin(opts: { refuseSeats?: boolean } = {}) {
@@ -42,6 +43,9 @@ function admin(opts: { refuseSeats?: boolean } = {}) {
         const hit =
           filters.vendor_profile_id === SHOP &&
           ((table === 'vendor_profiles' && filters.user_id === OWNER) || (table === 'vendor_team_members' && filters.user_id === HELPER));
+        if (table === 'users') {
+          return Promise.resolve({ count: filters.user_id === STAFF && filters.account_type === 'admin' ? 1 : 0, error: null }).then(resolve);
+        }
         return Promise.resolve({ count: hit ? 1 : 0, error: null }).then(resolve);
       };
       return q;
@@ -77,6 +81,12 @@ test('2 · the shop’s own account and its team are never recorded; a couple is
   const couple = admin();
   assert.equal(await recordShopViewWith(couple.client, { vendorProfileId: SHOP }, stranger({ userId: 'u-couple' })), true);
   assert.equal(couple.inserts.length, 1);
+});
+
+test('2b · a Setnayan admin opening the shop is not a couple (owner "Yes, all 8", 16 Nov 2026)', async () => {
+  const { client, inserts } = admin();
+  assert.equal(await recordShopViewWith(client, { vendorProfileId: SHOP }, stranger({ userId: STAFF })), false, 'an admin counted as a couple');
+  assert.equal(inserts.length, 0);
 });
 
 test('3 · one device is one couple: distinct visitors, never rows', async () => {

@@ -87,3 +87,42 @@ export function RememberResetEmail() {
   }, []);
   return <span ref={ref} hidden />;
 }
+
+/**
+ * 🔁 THE EXPIRED LINK SENDS A NEW ONE, IN PLACE (walker W1-B5, 16 Nov 2026). `/reset-password` with a used or expired
+ * link said "Request a fresh one" and its button only went back to the form — together with B6 the flow trapped
+ * itself. Now the expired screen carries the SAME send the sent page uses (`requestPasswordReset`, its bot check, its
+ * rate limit, its neutral answer), the address this tab typed already in the box, and lands on that sent page.
+ */
+export function ExpiredResend({
+  requestPasswordReset,
+}: {
+  requestPasswordReset: (formData: FormData) => Promise<void>;
+}) {
+  const [email, setEmail] = useState('');
+  useEffect(() => setEmail(readResetEmail() ?? ''), []);
+  return (
+    <form action={requestPasswordReset} className="space-y-3" data-expired-resend="">
+      <RememberResetEmail />
+      <label className="block space-y-1">
+        <span className="block text-sm font-medium text-ink">Email</span>
+        <input
+          // field-ok: the door's own email box (DoorShell), the same shape as /forgot-password's
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          inputMode="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@email.com"
+          className="input-field"
+        />
+      </label>
+      <TurnstileField action="password_reset" />
+      <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
+        Send a new link
+      </SubmitButton>
+    </form>
+  );
+}

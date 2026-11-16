@@ -37,4 +37,12 @@ One batch for the 16 Nov supplier walk (W1). The other items in this PR have the
   badge counted every `inquiry_status = 'pending'` thread. One rule now (`lib/new-inquiry.ts` `isNewInquiry`): new only
   while pending, unanswered (`vendor_first_reply_at` null) and not booked with this shop — read by both surfaces.
 
-SPEC IMPACT: None for the code. The template re-paste is an owner action (Supabase dashboard), not a spec edit.
+- **Owner "Yes, all 8" (16 Nov 2026)** — **ruling 16 / W1-B8**: ceremonies start BLANK (`{}`, matches nobody in Find).
+  Migration `20271350210033` sets the column default to `'{}'` and resets rows still holding the exact old seed
+  (`catholic, civil, christian`); unticking every ceremony now saves `[]`, never NULL ("serves every ceremony").
+  **B29**: the Clients tile and the client header read "Meetings". **B15**: Setnayan admins are not counted as couples.
+- **W1-B5** — both expired-link screens send a new link in place: `/reset-password` (no session) posts the sent
+  page's own `requestPasswordReset` (`ExpiredResend`) and lands on its "Sent to …" page; `/login?link=expired` says
+  "Sent to … · Open your email" like it.
+
+SPEC IMPACT: Owner decisions of 16 Nov ("Yes, all 8") are logged by the controller in DECISION_LOG. None otherwise for the code. The template re-paste is an owner action (Supabase dashboard), not a spec edit.

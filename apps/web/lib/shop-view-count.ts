@@ -56,14 +56,19 @@ export type ShopViewAdmin = {
   from: (table: string) => any;
 };
 
-/** Is this signed-in user the shop's owner or on its team? A refused read answers "yes" — an absence must not COUNT. */
+/**
+ * Is this signed-in user the shop's owner, on its team, or a Setnayan admin? A refused read answers "yes" — an absence
+ * must not COUNT. Admins: owner "Yes, all 8" (16 Nov 2026, B15) — the same `account_type = 'admin'` rule the portfolio
+ * photo counter's SQL function applies (`record_portfolio_photo_view`).
+ */
 export async function viewerIsShopPeople(admin: ShopViewAdmin, vendorProfileId: string, userId: string): Promise<boolean> {
-  const [own, seat] = await Promise.all([
+  const [own, seat, staff] = await Promise.all([
     admin.from('vendor_profiles').select('vendor_profile_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).eq('user_id', userId),
     admin.from('vendor_team_members').select('vendor_team_member_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).eq('user_id', userId),
+    admin.from('users').select('user_id', { count: 'exact', head: true }).eq('user_id', userId).eq('account_type', 'admin'),
   ]);
-  if (own.error || seat.error || own.count == null || seat.count == null) return true;
-  return own.count > 0 || seat.count > 0;
+  if (own.error || seat.error || staff.error || own.count == null || seat.count == null || staff.count == null) return true;
+  return own.count > 0 || seat.count > 0 || staff.count > 0;
 }
 
 export type ShopViewRow = {

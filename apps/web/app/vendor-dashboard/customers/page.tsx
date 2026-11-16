@@ -958,7 +958,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
+    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];

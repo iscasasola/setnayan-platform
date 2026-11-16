@@ -47,7 +47,7 @@ export type DetailsNumbersInput = {
 
 /** Not booked: the Schedules cell — this client's meetings to come, never a hard-coded "none yet" over a real one. */
 function schedulesCell(meetings: number | null | undefined): DetailsNumber {
-  const base = { key: 'schedules' as const, label: 'Schedules', page: 'schedule' as const };
+  const base = { key: 'schedules' as const, label: 'Meetings', page: 'schedule' as const };
   if (meetings === null) return { ...base, value: '—', sub: 'couldn’t load' };
   if (!meetings) return { ...base, value: '—', sub: 'none yet' };
   return { ...base, value: meetings.toLocaleString('en-PH'), sub: 'coming up' };

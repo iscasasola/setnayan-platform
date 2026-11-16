@@ -66,7 +66,7 @@ test('the dead-link screen has a "Send a new link" button that re-sends — thro
   const card = read('app/login/_components/sign-in-card.tsx');
   const form = card.slice(card.indexOf('{linkExpired && !shownError ? ('), card.indexOf('{shownError ? ('));
   assert.ok(form.length > 0, 'the dead-link form is gone');
-  assert.match(form, /<form action=\{sendRelink\}/);
+  assert.match(form, /<form\s+action=\{sendRelink\}/);
   assert.match(form, /name="intent" value="relink"/);
   assert.match(form, /name="email"/);
   assert.match(form, /\{DEAD_LINK_WORDS\.button\}/);
@@ -94,4 +94,22 @@ test('W1-B25 · a link with no destination lands a SUPPLIER on the shop — from
   assert.match(confirm, /NextResponse\.redirect\(new URL\(landingForAccount\(next, accountType\), url\.origin\)\)/);
   const callback = stripComments(read('app/auth/callback/route.ts'));
   assert.match(callback, /if \(rawNext === '\/' && accountType === 'vendor'\) landing = landingForAccount\(rawNext, accountType\);/);
+});
+
+test('W1-B5 · both expired screens send a NEW link in place — the sent page\'s path and words', () => {
+  // Confirm-email expired (/login?link=expired): "Send a new link", then "Sent to <email>" + "Open your email".
+  const card = read('app/login/_components/sign-in-card.tsx');
+  const form = card.slice(card.indexOf('{linkExpired && !shownError ? ('), card.indexOf('{shownError ? ('));
+  assert.match(form, /Sent to \{relinkTo \|\| 'your email'\}/);
+  assert.match(form, /inboxFor\(relinkTo\)/);
+  // Reset-password expired (/reset-password, no session): the in-place form posts the SENT PAGE's own action.
+  const reset = stripComments(read('app/reset-password/page.tsx'));
+  assert.match(reset, /<ExpiredResend requestPasswordReset=\{requestPasswordReset\} \/>/, 'the expired reset screen lost its own send');
+  assert.doesNotMatch(reset, /href="\/forgot-password" className="button-primary"/, 'the expired screen only links back to an empty form again');
+  const sent = read('app/forgot-password/_components/reset-sent.tsx');
+  const expired = sent.slice(sent.indexOf('export function ExpiredResend'));
+  assert.match(expired, /<form action=\{requestPasswordReset\}/);
+  assert.match(expired, /<TurnstileField action="password_reset" \/>/, 'the expired send lost its bot check');
+  assert.match(expired, /<RememberResetEmail \/>/, 'the sent page would not know where it went');
+  assert.match(expired, /Send a new link/);
 });

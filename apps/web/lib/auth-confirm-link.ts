@@ -137,7 +137,7 @@ export const DEAD_LINK_WORDS = {
   line: 'That link has expired or was already used. Send yourself a new one — it opens on any device.',
   button: 'Send a new link',
   pending: 'Sending…',
-  sent: 'Sent. Open the newest email from Setnayan — its link works on your phone or your computer.',
+  sent: 'Open the newest email from Setnayan — its link works on your phone or your computer.',
   needEmail: 'Type the email you signed up with.',
 } as const;
 

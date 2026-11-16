@@ -3240,7 +3240,7 @@ ul.fd-grid {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   background: var(--fd-wash);
 }
 .fd-insp-cap {

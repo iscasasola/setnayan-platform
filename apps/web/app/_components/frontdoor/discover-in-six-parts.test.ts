@@ -31,7 +31,8 @@ import {
   signedOutRedirect,
   STORIES_SEE_ALL_HREF,
 } from '@/lib/discover-six-parts';
-import { DISCOVER_SHOP_GATE, LIVE_SHOP_GATE } from '@/lib/live-shops';
+import * as LIVE_SHOPS from '@/lib/live-shops';
+import { isShopFindable } from '@/lib/findable-shop';
 import { DISCOVER_SUPPLIER_PARAM_KEYS } from '@/lib/discover-suppliers';
 
 // The components compile with the classic JSX runtime under tsx — the house idiom (an-empty-shelf-is-one-line).
@@ -46,6 +47,7 @@ const SHELVES = src('app/_components/frontdoor/discover-six-parts.tsx');
 const DATA = src('app/_components/frontdoor/discover-six-parts-data.ts');
 const VIEW = src('app/(shell)/explore/_lib/marketplace-view.tsx');
 const DRAWER = src('app/(shell)/explore/_components/filter-drawer.tsx');
+const CARDS = src('lib/marketplace-service-cards.ts');
 
 // ── 1 · SIGNED OUT ────────────────────────────────────────────────────────────
 
@@ -119,16 +121,23 @@ test('3 · the See-all doors open on `/`, on keys the supplier view never reads'
 
 // ── 4 · VERIFIED ONLY ─────────────────────────────────────────────────────────
 
-test('4 · Discover is verified-only everywhere it lists a shop', () => {
-  for (const [k, v] of Object.entries(LIVE_SHOP_GATE)) {
-    assert.equal((DISCOVER_SHOP_GATE as Record<string, unknown>)[k], v, `Discover's gate dropped ${k}`);
+test('4 · Discover is verified-only through the ONE findable fact — no Discover-only copy of it', () => {
+  // The fact itself: `is_findable` (and its twin) means verified AND listed (15 Nov, #7828).
+  assert.equal(isShopFindable({ public_visibility: 'verified', verification_state: 'verified', papers_current: true }), true);
+  assert.equal(isShopFindable({ public_visibility: 'verified', verification_state: 'unverified', papers_current: true }), false,
+    'an undecided shop is findable — Discover would list it');
+  // One source: no second gate re-types it for Discover.
+  const discoverGates = Object.keys(LIVE_SHOPS).filter((k) => /^DISCOVER_/.test(k));
+  assert.deepEqual(discoverGates, [], `a Discover-only shop gate is back: ${discoverGates.join(', ')}`);
+  for (const [name, body] of [['Discover data', DATA], ['service card read', CARDS]] as const) {
+    // A filter on it, not a read of it (the card's Verified pill still reads the column).
+    assert.doesNotMatch(body, /\.(?:eq|in|match)\(\s*['"][\w.]*verification_state['"]|verification_state['"]?\s*:\s*['"]verified['"]/, `${name} re-types "verified" instead of reading is_findable`);
   }
-  assert.equal(DISCOVER_SHOP_GATE.verification_state, 'verified');
-  assert.match(DATA, /fetchMarketplaceServiceCards\(admin, \{ limit, verifiedOnly: true \}\)/, 'service cards: not verified-only');
-  assert.match(DATA, /\.match\(gate\)/, 'inspiration: the shop gate is not applied');
-  assert.match(DATA, /DISCOVER_SHOP_GATE\)\.map\(\(\[k, v\]\) => \[`shop\.\$\{k\}`, v\]\)/, 'inspiration: not Discover\'s gate');
-  assert.match(VIEW, /verifiedOnly: surface === 'discover'/, 'the supplier view\'s cards are not verified-only on Discover');
-  assert.match(VIEW, /if \(filters\.verifiedOnly \|\| surface === 'discover'\)/, 'the supplier view\'s shops are not verified-only on Discover');
+  assert.doesNotMatch(CARDS, /verifiedOnly/, 'the service card read grew its own verified-only switch again');
+  // Every Discover read asks the findable fact.
+  assert.match(DATA, /fetchMarketplaceServiceCards\(admin, \{ limit \}\)/, 'service cards: not the findable card read');
+  assert.match(DATA, /\.match\(findableShopGate\('shop'\)\)/, 'inspiration: the findable gate is not applied to the shop');
+  assert.doesNotMatch(VIEW, /surface === 'discover'\s*\)?\s*[|&]{0,2}[^\n]*verified|verifiedOnly: surface/, 'the supplier view grew a Discover-only verified rule');
 });
 
 test('4b · Discover\'s Filters no longer offers "Verified only" — it is always on there', () => {

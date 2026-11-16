@@ -14,6 +14,7 @@
  */
 import Link from 'next/link';
 import { ServiceCardView } from '@/app/_components/service-card-view';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { EmptyShelf } from './empty-shelf';
 import { StoryCard } from './front-door-feed';
 import type {
@@ -106,7 +107,8 @@ export function EventStoriesShelf({ stories }: { stories: FrontDoorStory[] | nul
 
 export function ArticlesShelf() {
   return (
-    <section data-discover-part="articles">
+    // Hidden in the store app until the articles return (`data-coming-soon`, the store-shell rule).
+    <section data-discover-part="articles" data-coming-soon="">
       <h2 className="fd-sechead">
         <span>Articles</span>
       </h2>
@@ -186,37 +188,43 @@ function BackToDiscover() {
   );
 }
 
-/** A plain GET form — a dropdown and a Go button, no script, no server action. */
-function PickForm({
-  hidden,
-  selects,
+/**
+ * The See-all page's choices — the shared dropdown (`LinkPickMenu`, the house rule: never a raw select element), one per
+ * choice. Each option is a plain page ADDRESS on `/`, so the view stays server-rendered and survives a refresh; picking
+ * one keeps every other choice as it is. No server action.
+ */
+function PickLinks({
+  fixed,
+  picks,
 }: {
-  hidden: Array<[string, string]>;
-  selects: Array<{ name: string; label: string; value: string; options: Array<{ value: string; label: string }> }>;
+  /** Query pairs every address keeps (which view this is). */
+  fixed: Array<[string, string]>;
+  picks: Array<{ name: string; label: string; value: string; options: Array<{ value: string; label: string }> }>;
 }) {
+  const hrefFor = (name: string, value: string) => {
+    const q = new URLSearchParams(fixed);
+    for (const p of picks) {
+      const v = p.name === name ? value : p.value;
+      if (v) q.set(p.name, v);
+    }
+    return `/?${q.toString()}`;
+  };
   return (
-    <form method="get" action="/" className="mb-4 flex flex-wrap items-end gap-2" data-discover-pick="">
-      {hidden.map(([k, v]) => (
-        <input key={k} type="hidden" name={k} value={v} />
+    <div className="mb-4 flex flex-wrap items-center gap-2" data-discover-pick="">
+      {picks.map((p) => (
+        <LinkPickMenu
+          key={p.name}
+          label={p.label}
+          value={p.value || ALL}
+          options={p.options.map((o) => ({ key: o.value || ALL, label: o.label, href: hrefFor(p.name, o.value) }))}
+        />
       ))}
-      {selects.map((s) => (
-        <label key={s.name} className="flex flex-col gap-1 text-xs text-ink/70">
-          {s.label}
-          <select name={s.name} defaultValue={s.value} className="rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink">
-            {s.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
-      <button type="submit" className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink">
-        Show
-      </button>
-    </form>
+    </div>
   );
 }
+
+/** The key of an "All …" option — a PickMenu key is never empty. */
+const ALL = 'all';
 
 export function EventStoriesView({
   stories,
@@ -239,9 +247,9 @@ export function EventStoriesView({
       <h2 className="fd-sechead">
         <span>Event stories</span>
       </h2>
-      <PickForm
-        hidden={[['stories', '1']]}
-        selects={[
+      <PickLinks
+        fixed={[['stories', '1']]}
+        picks={[
           {
             name: 'occasion',
             label: 'Event type',
@@ -283,9 +291,9 @@ export function InspirationView({
         <span>Inspiration</span>
       </h2>
       {shelf.parts.length > 0 ? (
-        <PickForm
-          hidden={[['inspiration', '1']]}
-          selects={[
+        <PickLinks
+          fixed={[['inspiration', '1']]}
+          picks={[
             {
               name: 'part',
               label: 'Parts',

@@ -1578,7 +1578,7 @@ export async function MarketplaceView({
     identifier, revertible in one line.
   */
   const listedServiceCards = isLandingView
-    ? await fetchMarketplaceServiceCards(admin, { limit: 24, verifiedOnly: surface === 'discover' }).catch(() => null)
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
     : null;
   /*
     ═ WE ONLY SHOW WHAT FITS (owner 13 Nov 2026, 6134) ═
@@ -1832,8 +1832,7 @@ export async function MarketplaceView({
   } else {
     query = query.match(FINDABLE_SHOP_GATE);
     // "Verified only" is a real narrowing again now that unverified shops list.
-    // ✅ Discover shows verified shops only, always (owner 15–16 Nov, "Discover in six parts").
-    if (filters.verifiedOnly || surface === 'discover') {
+    if (filters.verifiedOnly) {
       query = query.in('public_visibility', allowedVisibilities as readonly string[]).eq('verification_state', 'verified');
     }
   }
@@ -3404,7 +3403,7 @@ export async function MarketplaceView({
     if (filters.city) summary.push(filters.city);
     if (shownEventType) summary.push(shownEventType);
     if (filters.faithFilter) summary.push(FAITH_KEY_TO_LABEL[filters.faithFilter]);
-    // "Verified only" is not a filter on Discover — it is always on there (owner 15–16 Nov).
+    // "Verified only" is not a filter on Discover: every list reads `is_findable`, which is verified and listed.
     if (filters.matchEvent) summary.push('Matches your event');
     if (filters.offSeason) summary.push('Off-season savings');
     const filterCount = [

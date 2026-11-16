@@ -170,7 +170,7 @@ test('both shop readers share one visibility gate', () => {
   // for a file that stopped gating altogether.
   assert.match(
     src,
-    /import \{[^}]*(LIVE|DISCOVER)_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
+    /import \{[^}]*LIVE_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
     'the shared live-shop gate is no longer imported — this reader stopped ' +
       'asking whether a shop may be shown',
   );
@@ -185,25 +185,18 @@ test('both shop readers share one visibility gate', () => {
   const shelf = stripComments(read('lib/home-public-reads-core.ts'));
   assert.match(
     shelf,
-    /import \{[^}]*(LIVE|DISCOVER)_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
+    /import \{[^}]*LIVE_SHOP_GATE[^}]*\} from '@\/lib\/live-shops'/,
     'the remembered shelf read no longer imports the shared live-shop gate',
   );
   assert.equal((shelf.match(/\.eq\('public_visibility'/g) ?? []).length, 0);
   assert.equal((shelf.match(/public_visibility:\s*'verified'/g) ?? []).length, 0);
   assert.equal(
-    (src.match(/\.match\((LIVE|DISCOVER)_SHOP_GATE\)/g) ?? []).length +
-      (shelf.match(/\.match\((LIVE|DISCOVER)_SHOP_GATE\)/g) ?? []).length,
+    (src.match(/\.match\(LIVE_SHOP_GATE\)/g) ?? []).length +
+      (shelf.match(/\.match\(LIVE_SHOP_GATE\)/g) ?? []).length,
     3,
     'expected exactly three reads behind the gate — the shelf COUNT, the shelf ' +
       'ROWS and the search. A new read must apply the gate too; a dropped one ' +
       'is a reader that stopped asking whether a shop may be shown',
-  );
-  // 🔄 2026-11-16 (owner, "Discover in six parts"): Discover reads through DISCOVER_SHOP_GATE — the live-shop gate
-  // PLUS verified — so it can never show a shop the live gate would hide.
-  assert.match(
-    stripComments(read('lib/live-shops.ts')),
-    /export const DISCOVER_SHOP_GATE = \{\s*\.\.\.LIVE_SHOP_GATE,\s*verification_state: 'verified',?\s*\} as const;/,
-    'Discover\'s gate is no longer the live-shop gate plus verified',
   );
   // The search must not out-reach the shelf's own tokenizer.
   assert.match(

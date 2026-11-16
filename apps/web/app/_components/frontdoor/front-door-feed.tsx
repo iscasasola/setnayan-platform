@@ -303,7 +303,7 @@ export function FrontDoorFeed({
           {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
           <h2 className="fd-sechead">
             {/* 🏷 "Suppliers" — Discover's part 2 (owner 16 Nov, "Discover in six parts"); verified shops only
-                (`DISCOVER_SHOP_GATE`). It replaced "Trending shops" / "The first shops" / "Shops". */}
+                (`LIVE_SHOP_GATE`, which reads `is_findable` — verified and listed). It replaced "Trending shops" / "The first shops" / "Shops". */}
             <span>Suppliers</span>
             {/* 🛒 More shops are open than the shelf shows → the door to every supplier, on this page (the
                 supplier view, 2026-11-12). `liveShopCount` decides it and is never printed. */}

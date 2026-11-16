@@ -240,7 +240,7 @@ test('demo shops never move a real number on the public pages that list them', (
   assert.match(explore, /badgesFor\(visible\.filter\(\(v\) => v\.is_demo !== true\)\)/, 'real cards are ranked among real cards');
   assert.match(explore, /badgesFor\(visible\.filter\(\(v\) => v\.is_demo === true\)\)/, 'demo cards among demo cards');
   // 🔄 2026-11-16 (owner, "Discover in six parts"): Discover's shelf is "Suppliers", verified only — its heading no longer
-  // earns "Trending" from a count. The real count is still read apart from the demo one, through Discover's gate.
-  assert.match(read('lib/home-public-reads-core.ts'), /\.match\(DISCOVER_REAL_SHOP_GATE\)/, 'the front page reads a real count');
+  // earns "Trending" from a count. The real count is still read apart from the demo one.
+  assert.match(read('lib/home-public-reads-core.ts'), /\.match\(REAL_SHOP_GATE\)/, 'the front page reads a real count');
   assert.doesNotMatch(read('app/_components/frontdoor/front-door-feed.tsx'), /liveShops: liveShopCount/, 'the front page heading counts demo shops');
 });

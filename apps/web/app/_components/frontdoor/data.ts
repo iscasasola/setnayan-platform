@@ -37,7 +37,7 @@ import 'server-only';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
-import { DISCOVER_SHOP_GATE } from '@/lib/live-shops';
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayLogoUrl } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -450,8 +450,7 @@ export async function searchLiveShops(
     return [];
   }
 
-  // ✅ Discover's search finds verified shops only (DISCOVER_SHOP_GATE, owner 15–16 Nov).
-  let q = admin.from('vendor_profiles').select(shopColumns()).match(DISCOVER_SHOP_GATE);
+  let q = admin.from('vendor_profiles').select(shopColumns()).match(LIVE_SHOP_GATE);
   for (const token of tokens) {
     // The same `%token%` shape the marketplace uses, on the two columns this
     // reader can honestly claim. `escaped` keeps a typed comma or parenthesis

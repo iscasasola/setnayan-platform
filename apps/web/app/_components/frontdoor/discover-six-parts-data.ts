@@ -8,8 +8,9 @@ import 'server-only';
  * viewer only (`front-door.tsx`). Each degrades on its own: a refused read is `unavailable` and the shelf SAYS it
  * could not load — never an empty shelf that reads as "nothing here".
  *
- * Both are VERIFIED-SHOP-ONLY (Discover's rule, `DISCOVER_SHOP_GATE`):
- *   · Service cards — the marketplace's own card read (`fetchMarketplaceServiceCards`, `verifiedOnly`), drawn with
+ * Both are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
+ * Discover-only copy of it):
+ *   · Service cards — the marketplace's own card read (`fetchMarketplaceServiceCards`, findable), drawn with
  *     the shipped `ServiceCardView` from the supplier view's own faces (`readMarketplaceCardFaces`): prices from the
  *     card, never typed, and hidden for a shop that hides them publicly, exactly as on its own page.
  *   · Inspiration — only photos a verified shop ALREADY SHOWS on its own shop (the shop page's own predicates:
@@ -23,7 +24,7 @@ import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { readMarketplaceCardFaces, type MarketplaceCardFace } from '@/lib/marketplace-service-card-faces';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { shopAddress } from '@/lib/service-card-address';
-import { DISCOVER_SHOP_GATE } from '@/lib/live-shops';
+import { findableShopGate } from '@/lib/findable-shop';
 import { galleryImageUrl } from '@/lib/moodboard-gallery';
 import { libraryPartLabel } from '@/lib/moodboard-gallery-upload';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -44,7 +45,7 @@ export async function loadDiscoverServiceCards(limit = 8): Promise<Shelf<Discove
   try {
     const admin = createAdminClient();
     const [cards, vocab] = await Promise.all([
-      fetchMarketplaceServiceCards(admin, { limit, verifiedOnly: true }),
+      fetchMarketplaceServiceCards(admin, { limit }),
       getEventTypeVocab(),
     ]);
     const faceFor = await readMarketplaceCardFaces(admin, cards, new Map(vocab.map((t) => [t.key, t.label])), new Date());
@@ -98,7 +99,6 @@ export async function loadDiscoverInspiration(
   const narrowTo = part && parts.some((p) => p.key === part) ? part : null;
   try {
     const admin = createAdminClient();
-    const gate = Object.fromEntries(Object.entries(DISCOVER_SHOP_GATE).map(([k, v]) => [`shop.${k}`, v]));
     let q = admin
       .from('moodboard_library_assets')
       // never source_event_id / source_suggestion_id; event_file_id only for the listing gate below
@@ -107,7 +107,7 @@ export async function loadDiscoverInspiration(
       .not('approved_at', 'is', null)
       .is('retired_at', null)
       .is('rejected_at', null)
-      .match(gate);
+      .match(findableShopGate('shop'));
     if (narrowTo) q = q.eq('asset_subtype', narrowTo);
     // Over-read a little: a Files tag whose photo is not listed is dropped below, never shown.
     const { data, error } = await q.order('created_at', { ascending: false }).order('asset_id').limit(limit * 2);

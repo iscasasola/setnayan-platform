@@ -2751,7 +2751,7 @@ async function VendorCompletionCard({
    */
   notice?: string | null;
 }) {
-  // CHAT-30 (walk 16 Nov 2026): a birthday client read "Wrapped up this wedding?". The event's own type word, read
+  // CHAT-30 (walk 16 Nov 2026): a birthday client was asked about "this wedding". The event's own type word, read
   // only here (the brief RPC carries no type), through the ONE badge map (`eventTypeBadge`: "birthday", "debut",
   // "get-together"). The page already proved this shop may see the event (`get_vendor_event_brief`), and only the
   // type leaves the read. A refused read says "event" — never a guessed "wedding".

@@ -22,6 +22,7 @@ import {
   EVENT_TYPE_TERMS,
   eventSearchTerms,
   eventTypeBadge,
+  eventTypeWord,
   parseEventDate,
 } from './event-vocabulary';
 

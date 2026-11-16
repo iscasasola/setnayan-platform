@@ -68,7 +68,7 @@ test('4 · from 1600: the 440px side column, cards 3 across', () => {
 test('5 · the thumb row starts right of the side column, from the same tokens (owner 17 Nov audit, item 2)', () => {
   const rule = WIDE.match(/html:has\(\[data-shop-desk\]\) \[data-supplier-thumb='services'\]:not\(\[data-thumb-up\]\)\s*\{([^}]*)\}/);
   assert.ok(rule, 'the Shop thumb row no longer moves beside the side column from 1280');
-  assert.match(rule[1], /left:\s*calc\(var\(--thumb-left, 0px\) \+ var\(--shop-desk-side\) \+ var\(--shop-desk-gap\)\)/);
+  assert.match(rule[1] ?? '', /left:\s*calc\(var\(--thumb-left, 0px\) \+ var\(--shop-desk-side\) \+ var\(--shop-desk-gap\)\)/);
   const thumb = readFileSync(join(import.meta.dirname, '_components/shop-services-thumb.tsx'), 'utf8');
   assert.match(thumb, /<SupplierThumbRow\s+name="services"/, 'the row this rule moves is not the Shop’s');
 });

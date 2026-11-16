@@ -65,9 +65,9 @@ test('3 · below 1280 the pane is contents and its own parts hidden; from 1280 i
   const wide = CSS.slice(CSS.indexOf('@media (min-width: 1280px)'));
   const rule = wide.match(/\[data-today-first-screen\] > \[data-today-side\]\s*\{([^}]*)\}/);
   assert.ok(rule, 'no 1280 rule for the side pane');
-  assert.match(rule[1], /grid-column:\s*2/);
-  assert.match(rule[1], /position:\s*sticky/);
-  assert.match(rule[1], /top:\s*0/);
+  assert.match(rule[1] ?? '', /grid-column:\s*2/);
+  assert.match(rule[1] ?? '', /position:\s*sticky/);
+  assert.match(rule[1] ?? '', /top:\s*0/);
   assert.match(wide, /\[data-today-first-screen\] > \[data-today-top-only\]\s*\{\s*display:\s*none;/, 'the top copy must step aside from 1280');
 });
 

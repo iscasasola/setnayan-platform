@@ -45,6 +45,8 @@ const ANCHORS: Record<string, RegExp> = {
   event_members: new RegExp(String.raw`\.eq\(\s*'user_id'\s*,\s*(${UID}|userId)\s*\)`),
   events_host: /\.in\(\s*'event_id'\s*,\s*ids\s*\)/, // ids = coupleEventIds (pinned below)
   vendor_profiles: eqUid('user_id'),
+  // the person's own sign-up attribution row (which shop/piece brought them) — one row, keyed on the person
+  signup_attributions: eqUid('user_id'),
   // two reads: the lines the subject WROTE, and (RA 10173 access right, Build 3 lane B round 3) the private
   // lines sent TO them — recipient_user_id is the person a private line is about, as much as its sender.
   // 💬 2026-11-12 (20271340374819): a private line may go to SEVERAL people, so the received read is

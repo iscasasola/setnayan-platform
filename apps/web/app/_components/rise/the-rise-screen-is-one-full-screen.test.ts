@@ -213,3 +213,21 @@ test('7 · every avatar row rises its page — one screen, the same page, the sh
     'the sheet draws over the risen page',
   );
 });
+
+// ⤴ 16 Nov (W1 walk): the two sheets still rising half height — Discover's Filters and the chat ＋ — rise through the ONE
+// screen. Discover keeps the shipped form (`FilterDrawerForm`, the same fields `/explore`'s drawer draws), framed by the
+// risen screen; the ＋ keeps its rows. 🛡 SABOTAGE (seen RED, then restored): `<RiseScreen` → `<Sheet open` in
+// thread-tools-sheet.tsx; `<FilterDrawer {...drawer} open` back in discover-filter-sheet.tsx.
+test('7 · Discover Filters and the chat ＋ rise full screen — no half-height sheet', () => {
+  const filters = code('app/_components/frontdoor/discover-filter-sheet.tsx');
+  assert.match(filters, /<RiseScreen title="Filters" fill onClose=\{onClose\} data="discover-filters">/, 'Discover Filters does not rise');
+  assert.match(filters, /<FilterDrawerForm \{\.\.\.drawer\}/, 'Discover Filters is not the shipped filter form');
+  assert.doesNotMatch(filters, /<FilterDrawer\b(?!Form)|createPortal/, 'Discover Filters still opens the half-height drawer');
+  const drawer = code('app/(shell)/explore/_components/filter-drawer.tsx');
+  assert.match(drawer, /export function FilterDrawerForm\(/);
+  assert.equal([...drawer.matchAll(/name="city"/g)].length, 1, 'the filter fields were copied — one form, two frames');
+  const plus = code('app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx');
+  assert.match(plus, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/);
+  assert.match(plus, /const sheet = open \? \(\s*<RiseScreen\s+title="Add to the chat"/, 'the chat ＋ does not rise');
+  assert.doesNotMatch(plus, /<Sheet\b/, 'the chat ＋ still opens the half-height sheet');
+});

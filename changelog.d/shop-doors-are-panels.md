@@ -11,3 +11,5 @@ Guards: the rise guard is narrowed to "rises below 701" (kept, not deleted); a n
 SPEC IMPACT: None in the corpus beyond the owner's DECISION_LOG row (already written by the controller).
 
 The port baseline is regenerated in this PR: `/vendor-dashboard/shop` and `/vendor-dashboard/performance` now draw `<ShopDoorScreen>` where they drew `<RiseScreen>`. Nothing was lost; below 701px `ShopDoorScreen` IS `RiseScreen` with the same props. That swap is the baseline's only removal.
+
+- **Narrowing below 701 while a door is open closes it** (controller, 17 Nov): the panel shuts itself through its own `open`, so its Sheet takes its history entry off and no dead Back step is left; a door that opened as the panel is never swapped to the full-screen rise mid-open. Held by `each-shop-door-is-the-panel-from-701.test.ts` § 4.

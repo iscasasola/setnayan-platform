@@ -139,7 +139,9 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   // Below 701 every door IS the ONE risen screen: it opens through `ShopDoorScreen`, whose phone branch is `RiseScreen`
   // with the very props it was handed, and whose server render (the phone's first paint) is that branch.
   const door = code('app/vendor-dashboard/_components/shop-door-screen.tsx');
-  assert.match(door, /if \(!panel\) return <RiseScreen \{\.\.\.props\} \/>;/, 'below 701 a Shop door no longer rises');
+  // (A door that OPENED as the 701+ panel stays the panel until it closes itself — it never becomes a full-screen door
+  // mid-open; held by each-shop-door-is-the-panel-from-701.test.ts § 4.)
+  assert.match(door, /if \(!panel(?: && !wasPanel)?\) return <RiseScreen \{\.\.\.props\} \/>;/, 'below 701 a Shop door no longer rises');
   assert.match(door, /const panelOnServer = \(\) => false;/, 'the server (a phone’s first paint) no longer draws the risen screen');
   for (const [name, src] of Object.entries(files)) {
     assert.match(src, /import \{ ShopDoorScreen \} from '@\/app\/vendor-dashboard\/_components\/shop-door-screen';/, `${name} does not open the ONE risen screen`);

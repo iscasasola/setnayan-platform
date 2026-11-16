@@ -38,7 +38,14 @@ const panelOnServer = () => false;
 /** A Shop door's screen. Same props as `RiseScreen` (no ⓘ — no Shop door carries one). */
 export function ShopDoorScreen(props: Omit<RiseScreenProps, 'info'>) {
   const panel = useSyncExternalStore(subscribe, panelNow, panelOnServer);
-  if (!panel) return <RiseScreen {...props} />;
+  /* ↘ A door that opened as the panel STAYS the panel until it closes: when the window narrows below 701 the panel
+     shuts itself (below), so its Sheet takes its own history entry off and the caller unmounts the door. Swapping to
+     RiseScreen mid-open would hand that entry to a full-screen door the supplier never opened. */
+  const [wasPanel, setWasPanel] = useState(false);
+  useEffect(() => {
+    if (panel) setWasPanel(true);
+  }, [panel]);
+  if (!panel && !wasPanel) return <RiseScreen {...props} />;
   return <ShopDoorPanel {...props} />;
 }
 
@@ -53,6 +60,16 @@ export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill 
     if (!open) onCloseRef.current();
   }, [open]);
   const shut = () => setOpen(false);
+  /* ↘ The window narrowed below 701 while the panel was open → close it the ordinary way (no back-button entry is
+     left behind; the caller's onClose runs once the Sheet has taken its entry off). */
+  useEffect(() => {
+    const mql = window.matchMedia(SHOP_DOOR_PANEL_QUERY);
+    const onChange = () => {
+      if (!mql.matches) setOpen(false);
+    };
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
 
   return (
     <Sheet

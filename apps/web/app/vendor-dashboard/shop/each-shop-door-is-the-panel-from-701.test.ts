@@ -87,3 +87,12 @@ test('3 · every Shop door opens through the door, none past it', () => {
   for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
   for (const src of [cover, badges, tiles]) assert.doesNotMatch(src, /<RiseScreen\b/, 'a door rises past the Shop door');
 });
+
+test('4 · narrowing below 701 while the panel is open closes it — no back-button entry is left behind', () => {
+  const door = code('app/vendor-dashboard/_components/shop-door-screen.tsx');
+  const panel = fn(door, 'ShopDoorPanel');
+  assert.match(panel, /window\.matchMedia\(SHOP_DOOR_PANEL_QUERY\)/, 'the panel does not watch the 701 line');
+  assert.match(panel, /if \(!mql\.matches\) setOpen\(false\)/, 'narrowing below 701 does not shut the panel through its own open');
+  const screen = fn(door, 'ShopDoorScreen');
+  assert.match(screen, /if \(!panel && !wasPanel\) return <RiseScreen/, 'a door that opened as the panel is swapped to RiseScreen mid-open');
+});

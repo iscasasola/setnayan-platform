@@ -14,8 +14,9 @@
  *
  * PURE — no database, no `server-only`.
  */
-import { formatLongTimestamp } from './format-date';
+import { dayMonth, formatLongTimestamp } from './format-date';
 import { formatCount } from './format-number';
+import { manilaDayOf } from './not-available';
 
 export type BookingFeeDisputeStatus = 'auto_accepted' | 'under_review' | 'accepted' | 'rejected';
 
@@ -109,11 +110,52 @@ export function disputeOpenedAdminNotice(shopName: string | null): { title: stri
   };
 }
 
-/** One line of receipts for the admin: when the couple first opened the shop here, and how often. */
-export function foundReceiptLine(firstFoundAt: string | null, viewCount: number | null): string {
+/**
+ * 🕵️ WHERE A COUPLE FOUND THE SHOP, in the words a person reads (owner 16 Nov 2026, DECISION_LOG e5d166cd (2):
+ * suppliers see "Found you on Setnayan · from Search, 3 Nov"). Keyed by `event_vendor_found.first_source`, whose values
+ * are the Setnayan surfaces `booking_fee_is_sourced_surface` admits (mirrored by `SOURCED_INQUIRY_SOURCES`). A value
+ * not listed here prints no surface at all — never a raw code.
+ */
+export const FOUND_SURFACE_WORDS: Readonly<Record<string, string>> = {
+  // Each value is the label the COUPLE saw on that surface in the shipped UI (controller 16 Nov); a pressed button is
+  // quoted. Where no shipped screen names the surface, the plain word stays.
+  explore: 'Discover', // account bottom nav tab
+  search: 'Search',
+  shortlist: 'Shortlist', // supplier-prints.ts "Shortlist · Scan to save us"; the button is "Ask for a quote"
+  first_pick: 'First Pick', // no shipped screen stamps it today — the plain word
+  favorites: 'Saved suppliers', // the Library tab (library-views.ts) holding the "Contact" link
+  auto_build: '“Reach my best matches”', // the sign-up option (onboarding-shell.tsx)
+  editorial: 'Articles', // owner 16 Nov (DECISION_LOG a4f97598): posts are Articles; Real Stories comes down (R1)
+  influencer: '“Book through this chapter”', // the button on a storyteller's chapter page
+  shop_page: 'your Setnayan page',
+};
+
+function foundSurface(firstSource: string | null | undefined): string | null {
+  return firstSource ? (FOUND_SURFACE_WORDS[firstSource] ?? null) : null;
+}
+
+/**
+ * One line of receipts for the admin: where and when the couple first opened the shop here, and how often.
+ * `firstSource` is optional so a caller that never read it keeps the line it had.
+ */
+export function foundReceiptLine(firstFoundAt: string | null, viewCount: number | null, firstSource?: string | null): string {
   if (!firstFoundAt) return 'No record of the couple opening this shop on Setnayan.';
   const n = viewCount && viewCount >= 1 ? (viewCount === 1 ? 'once' : `${formatCount(viewCount)} times`) : 'an unknown number of times';
-  return `The couple first opened this shop here on ${formatLongTimestamp(firstFoundAt)}, ${n} before it joined their event.`;
+  const where = foundSurface(firstSource);
+  return `The couple first opened this shop here${where ? ` from ${where}` : ''} on ${formatLongTimestamp(firstFoundAt)}, ${n} before it joined their event.`;
+}
+
+/**
+ * The SUPPLIER's line, from the same found-record: "Found you on Setnayan · from Search, 3 Nov". Shown on their client
+ * card and on the fee bill (DECISION_LOG e5d166cd (2)). The date is the Manila day the couple first opened the shop.
+ * No record (or an unreadable date) → null: the caller draws nothing, never a guess.
+ */
+export function foundYouLine(firstFoundAt: string | null | undefined, firstSource: string | null | undefined): string | null {
+  if (!firstFoundAt || Number.isNaN(new Date(firstFoundAt).getTime())) return null;
+  const day = dayMonth(manilaDayOf(firstFoundAt));
+  if (!day) return null;
+  const where = foundSurface(firstSource);
+  return `Found you on Setnayan · ${where ? `from ${where}, ` : ''}${day}`;
 }
 
 /** Longest reason or note kept (the database refuses longer). */

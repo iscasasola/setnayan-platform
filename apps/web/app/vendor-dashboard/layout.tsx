@@ -94,8 +94,12 @@ import './_components/supplier-frame.css';
  */
 export default async function VendorDashboardLayout({
   children,
+  rise,
 }: {
   children: React.ReactNode;
+  /** ⤴ A page reached by a soft tap (the avatar sheet's rows), risen full screen OVER `children` — `@rise/(.)…`
+   *  (build-sessions/RISE-AUDIT-2026-11-13.md § H). Null when nothing is risen. */
+  rise: React.ReactNode;
 }) {
   const user = await getCurrentUser();
   // Keep the page they asked for — a deep link to a chat or a booking must
@@ -676,6 +680,7 @@ export default async function VendorDashboardLayout({
                 Today, whose top sits under the photo (badge-earned-line.tsx). */}
             <VendorNoticeTop />
             <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
+            {rise}
             {/* Live vendor deal — an OFFER, registered for the END of the page (one notice system). Self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS vendor right now. */}
             <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />

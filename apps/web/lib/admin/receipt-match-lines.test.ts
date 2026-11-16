@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { receiptMatchLines } from './receipt-match-lines';
+import { stripComments } from '@/lib/strip-comments';
 
 const base = { status: 'ok' as const, seen_references: ['9031 2284 117'], seen_amounts: [1990] };
 
@@ -28,7 +29,7 @@ test('2 · a field the reader could not answer is never a mismatch, and a failed
 });
 
 test('3 · the lines decide nothing — the helper imports no action and confirms nothing', () => {
-  const src = readFileSync(path.join(import.meta.dirname, 'receipt-match-lines.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const src = stripComments(readFileSync(path.join(import.meta.dirname, 'receipt-match-lines.ts'), 'utf8'));
   assert.doesNotMatch(src, /import\s/);
   assert.doesNotMatch(src, /approve|confirm\(/i);
 });

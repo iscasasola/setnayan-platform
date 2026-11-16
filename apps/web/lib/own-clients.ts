@@ -21,6 +21,7 @@
  * needs an accepted quote) — so this module never lists one as pickable.
  */
 import { giftCount, type FreeByKind, type ShopGiftPack } from './shop-gifts';
+import { shopInvitePath } from './shop-address';
 
 /** One gift line on an own client, as stored (`vendor_client_invites.gift_lines`, `vendor_own_link_gifts`). */
 export type OwnGiftLine = { service_code: string; title: string; kind: 'papic'; credits: number };
@@ -200,7 +201,7 @@ export function ownLinkGiftLineOf(row: { service_code?: unknown; title?: unknown
 
 /* ── the invite ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** The query key an Add-a-client invite rides on (`/vendor-invite/<slug>?ci=<token>`). */
+/** The query key an Add-a-client invite rides on (`/<shop>/invite?ci=<token>` — `shopInvitePath`). */
 export const CLIENT_INVITE_PARAM = 'ci';
 
 export const CLIENT_INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -209,9 +210,9 @@ export function clientInviteTokenOf(raw: unknown): string | null {
   return typeof raw === 'string' && CLIENT_INVITE_TOKEN_RE.test(raw) ? raw : null;
 }
 
-/** The invite link: the shop's Shortlist link, carrying this client's token. */
+/** The invite link: the shop's invite door (`shopInvitePath` — the address move), carrying this client's token. */
 export function clientInviteUrl(origin: string, slug: string, token: string): string {
-  return `${origin.replace(/\/$/, '')}/vendor-invite/${encodeURIComponent(slug)}?${CLIENT_INVITE_PARAM}=${encodeURIComponent(token)}`;
+  return `${origin.replace(/\/$/, '')}${shopInvitePath(encodeURIComponent(slug))}?${CLIENT_INVITE_PARAM}=${encodeURIComponent(token)}`;
 }
 
 /** What the share sheet says with the link — from the shop, in the supplier's own voice. */

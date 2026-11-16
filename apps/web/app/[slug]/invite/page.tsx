@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import VendorInvitePage from '@/app/vendor-invite/[slug]/page';
 import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -75,7 +76,19 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     //
     // The screen is still right for its real case — the event EXISTS and its
     // join token is missing, revoked or expired, which is checked below.
-    notFound();
+    //
+    // 🔗 THE WORD DECIDES (the address move, owner 2026-11-15). No event has this
+    // word, so it may be a SHOP: `/{shop}/invite` is the shop's couple-invite
+    // door (was `/vendor-invite/{shop}`, which now 308s here). That page reads the
+    // shop and 404s itself when there is none or it is not live, so a junk word
+    // is still a 404. An event's word never reaches this line — guests keep the
+    // guest invite exactly as before.
+    return (
+      <>
+        <meta name="robots" content="noindex, nofollow" />
+        <VendorInvitePage params={params} searchParams={searchParams as Promise<{ status?: string; et?: string; cat?: string; ci?: string }>} />
+      </>
+    );
   }
 
   // 🔒 A PRIVATE EVENT IS PRIVATE HERE TOO (added 2026-08-06).

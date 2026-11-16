@@ -7,6 +7,7 @@
  * 2026-06-30 — see lib/vendor-couple-invite.ts.
  */
 
+import { shopInvitePath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -21,7 +22,7 @@ import { fetchClientInvite, giveOwnClientGift, markOwnClientRow } from '@/lib/ow
 
 function backToInvite(slug: string, status: string, scope = ''): never {
   const sep = scope ? `&${scope}` : '';
-  redirect(`/vendor-invite/${encodeURIComponent(slug)}?status=${status}${sep}`);
+  redirect(`${shopInvitePath(encodeURIComponent(slug))}?status=${status}${sep}`);
 }
 
 export async function claimVendorInviteToEvent(formData: FormData): Promise<void> {
@@ -47,7 +48,7 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   } = await supabase.auth.getUser();
   if (!user) {
     // Round-trip through sign-in, then back to the (scoped) invite page.
-    const next = `/vendor-invite/${slug}${scope ? `?${scope}` : ''}`;
+    const next = `${shopInvitePath(slug)}${scope ? `?${scope}` : ''}`;
     redirect(`/signup?as=couple&next=${encodeURIComponent(next)}`);
   }
 

@@ -124,7 +124,7 @@
 
 import sharp from 'sharp';
 import { WATERMARK_TEXT } from './watermark-text';
-import type { MarkSpec } from './photo-mark-geometry';
+import { isRowLayout, rowParts, type MarkSpec } from './photo-mark-geometry';
 import { markOverlaySvgForLayout, serverMarkLayout } from './photo-mark-server';
 
 /**
@@ -256,14 +256,11 @@ export async function watermarkImageBytes(
       .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
       .jpeg({ quality: 86 })
       .toBuffer();
-    const plate = layout.plate;
-    return {
-      bytes,
-      contentType: 'image/jpeg',
-      width,
-      height,
-      geometry: { variant, plate, ink: layout.lines.map((l) => ({ left: l.x, top: l.y, width: Math.min(l.width, plate.width), height: l.px })) },
-    };
+    // The supplier row (2026-11-15) has no plate — only a fade — so its ink is each part of the row.
+    const geometry: MarkGeometry = isRowLayout(layout)
+      ? { variant, plate: null, ink: rowParts(layout) }
+      : { variant, plate: layout.plate, ink: layout.lines.map((l) => ({ left: l.x, top: l.y, width: Math.min(l.width, layout.plate.width), height: l.px })) };
+    return { bytes, contentType: 'image/jpeg', width, height, geometry };
   }
   const mark =
     variant === 'seal'

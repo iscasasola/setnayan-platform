@@ -73,7 +73,7 @@ test('the words the drawing uses', () => {
 });
 
 test('the invite link and its token', () => {
-  assert.equal(clientInviteUrl('https://www.setnayan.com/', 'liwanag', 'abcdefghijklmnop'), 'https://www.setnayan.com/vendor-invite/liwanag?ci=abcdefghijklmnop');
+  assert.equal(clientInviteUrl('https://www.setnayan.com/', 'liwanag', 'abcdefghijklmnop'), 'https://www.setnayan.com/liwanag/invite?ci=abcdefghijklmnop');
   assert.equal(clientInviteTokenOf('short'), null);
   assert.equal(clientInviteTokenOf('a'.repeat(24)), 'a'.repeat(24));
   assert.equal(clientInviteTokenOf("x'; drop table"), null);

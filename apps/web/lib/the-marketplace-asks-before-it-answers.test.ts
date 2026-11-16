@@ -60,7 +60,7 @@ test('they are NATIVE selects in a GET form, not a JS-only widget', () => {
   // Submits without JavaScript, keyboard- and screen-reader-native, and on a
   // phone it opens the platform picker instead of a twenty-target tap area.
   assert.match(hero, /<select\b/, 'the filters stopped being native selects');
-  assert.match(hero, /method="get"[\s\S]{0,80}action="\/explore"/, 'the filter form stopped being a plain GET to /explore');
+  assert.match(hero, /method="get"[\s\S]{0,80}action="\/"/, 'the filter form stopped being a plain GET to / (where /explore forwards)');
 });
 
 test('services and occasions stay SEPARATE questions', () => {

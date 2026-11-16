@@ -103,6 +103,10 @@ const FILES = scannedFiles();
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'app/vendor-invite/[slug]/actions.ts',
+    { count: 1, why: 'Own clients v4 claim (owner 2026-11-16, "UNVERIFIED SHOPS DO GET THE QR"): whether an Add-a-client join may be marked the shop\'s own client (no booking fee) — an unverified shop\'s imports always pay the flat 5%. A fee-eligibility gate, never a rendered Verified badge.' },
+  ],
+  [
     'lib/bundle-cards.server.ts',
     { count: 1, why: "readLockShop (Build 6 Lane D): the shop's OWN feature gate — whether canUse('bundleMaker') lets this shop make bundles (lib/locks.ts, the same question every lock asks). Feeds the lock row and savePackage's refusal, never a rendered Verified badge." },
   ],

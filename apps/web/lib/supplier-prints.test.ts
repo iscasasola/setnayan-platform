@@ -35,8 +35,8 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = path.join(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(WEB, rel), 'utf8');
-const SHOP: PrintShop = { name: 'Setnayan Productions', line: 'Weddings & Events', ini: 'SP', handle: 'setnayan.com/v/setnaprod', verified: true, rating: { avg: 4.9, count: 32 }, badges: [] };
-const QR = { mode: 'dates' as const, url: 'https://www.setnayan.com/v/setnaprod/dates' };
+const SHOP: PrintShop = { name: 'Setnayan Productions', line: 'Weddings & Events', ini: 'SP', handle: 'setnayan.com/setnaprod', verified: true, rating: { avg: 4.9, count: 32 }, badges: [] };
+const QR = { mode: 'dates' as const, url: 'https://www.setnayan.com/setnaprod/dates' };
 
 test('the 15 approved looks, in the prototype’s order and names', () => {
   assert.deepEqual(
@@ -76,7 +76,7 @@ test('the printed words are the prototype’s — copied, never invented', () =>
   // the words are outlined, so the test reads the renderer's source for them
   const src = stripComments(read('lib/supplier-prints-svg.ts'));
   for (const w of ["'We are part of'", "'Setnayan Verified'", "'Setnayan'"]) assert.ok(src.includes(w), `the renderer lost ${w}`);
-  assert.ok(svg.includes('data-print-qr="https://www.setnayan.com/v/setnaprod/dates"'));
+  assert.ok(svg.includes('data-print-qr="https://www.setnayan.com/setnaprod/dates"'));
 });
 
 test('SAVE GIVES A PRINT-READY FILE PER PIECE — exact size + 3 mm bleed, type outlined, a name of its own', () => {
@@ -119,7 +119,7 @@ test('the facts are the shop’s own: name, services in its words, today’s bad
   assert.equal(printLine(['photo_video', 'sound', 'lights', 'host'], 'We make memories', label), 'Photo & video · Sound · Lights');
   assert.equal(printLine([], 'We make memories', label), 'We make memories');
   assert.equal(printLine([], null, label), '', 'no services and no tagline print nothing — never a filler');
-  assert.equal(printHandle('https://www.setnayan.com', 'setnaprod'), 'setnayan.com/v/setnaprod');
+  assert.equal(printHandle('https://www.setnayan.com', 'setnaprod'), 'setnayan.com/setnaprod');
   const shop = printShopFrom({
     name: 'Saysay Live Band & Hosting',
     slug: 'saysay',

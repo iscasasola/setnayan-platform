@@ -61,7 +61,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'A free checklist keeps your December timeline honest from day one.',
-        href: '/blog/what-to-do-12-months-before-your-philippine-wedding',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -323,7 +323,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See what your parish will need before you set the date.',
-        href: '/blog/catholic-wedding-requirements-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],

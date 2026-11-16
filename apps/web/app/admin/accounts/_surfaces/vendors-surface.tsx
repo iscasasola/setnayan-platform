@@ -609,7 +609,7 @@ export async function VendorsSurface({
                     />
                     {v.business_slug ? (
                       <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        /v/{v.business_slug}
+                        /{v.business_slug}
                       </p>
                     ) : null}
                   </div>

@@ -71,7 +71,7 @@ test('a service with no title is named by its category, never "Untitled service"
   const out = decideOfferedServiceCard(input({ title: null, category: 'live_band' }));
   assert.equal(out.status, 'ok');
   if (out.status !== 'ok') return;
-  assert.equal(out.card.name, 'Live Band');
+  assert.equal(out.card.name, 'Live Band & Singers'); // T1 part 2: the category's name
   assert.notEqual(out.card.name, SNAP.name);
   assert.ok(
     !/untitled/i.test(out.card.name),
@@ -86,14 +86,14 @@ test('a title the supplier set wins over the category', () => {
   assert.equal(out.status, 'ok');
   if (out.status !== 'ok') return;
   assert.equal(out.card.name, 'Full Band · 5 hours');
-  assert.equal(out.card.categoryLabel, 'Live Band', 'the category becomes the subtitle');
+  assert.equal(out.card.categoryLabel, 'Live Band & Singers', 'the category becomes the subtitle');
 });
 
 test('the category is not printed twice when it IS the name', () => {
   const out = decideOfferedServiceCard(input({ title: null, category: 'live_band' }));
   assert.equal(out.status, 'ok');
   if (out.status !== 'ok') return;
-  assert.equal(out.card.name, 'Live Band');
+  assert.equal(out.card.name, 'Live Band & Singers'); // T1 part 2: the category's name
   assert.equal(out.card.categoryLabel, null);
 });
 

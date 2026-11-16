@@ -118,6 +118,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     'lib/offer-maker.server.ts',
     { count: 1, why: 'readOfferShop: the Offer Maker LOCK (canUse("offerMaker") — the shop\'s papers are approved), the same read as the Plan screen; a gate, never a rendered Verified badge (Build 6 Lane D).' },
   ],
+  [
+    'lib/shop-seals.server.ts',
+    { count: 1, why: "readPoolFacts (badge build J2): who may COMPETE for a yearly seal — the listed-verified pool of the monthly Spotlight awards the seals replace (spotlight-awards.ts reads verification_state = 'verified' the same way). Never a rendered Verified badge: Setnayan Verified on a shop is hasVerifiedBadge, read in the same file (readPartnerFacts)." },
+  ],
   ['lib/vendor-tier-lapse.ts', { count: 1, why: 'endedPlanReadsFree: an ended paid plan falls back to the PLAN STATE "verified" vs "free" (the tier the gates enforce), not a rendered Verified badge' }],
   [
     'lib/admin/supplier-work.server.ts',

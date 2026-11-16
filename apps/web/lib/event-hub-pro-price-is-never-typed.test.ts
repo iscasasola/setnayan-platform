@@ -63,9 +63,10 @@ function walk(dir: string, out: string[] = []): string[] {
 /** Code only — the repo's one string-aware stripper, never a local regex. */
 const code = (src: string): string => stripComments(src);
 
-/** A figure as a peso amount or a bare number, with or without a thousands comma. */
+/** A figure as a peso amount or a bare number, with or without a thousands comma. Not one glued to an identifier:
+ *  `papic_3000` is a Papic pack's catalogue key (the badge ladder's Ruby reward), not Event Pro's ₱3,000. */
 const figure = (n: string) =>
-  new RegExp(`(?<![\\d.,])${n.slice(0, -3)},?${n.slice(-3)}(?![\\d])`);
+  new RegExp(`(?<![\\w.,])${n.slice(0, -3)},?${n.slice(-3)}(?![\\d])`);
 
 function findTypedProFigures(files: readonly string[]): string[] {
   const hits: string[] = [];
@@ -104,5 +105,7 @@ test('the guard can actually hit (a planted figure is caught, a comment is not)'
   assert.deepEqual(hitsPeso, ['3500'], 'the typed figure is caught; the commented one is not');
   assert.ok(figure('2000').test('price: 2000,'), 'a bare number counts too');
   assert.ok(!figure('2000').test('20000'), 'a longer number is not a match');
+  assert.ok(!figure('3000').test("papicPack('papic_3000')"), 'a pack key is not a price');
+  assert.ok(figure('3000').test('₱3,000') && figure('3000').test('(3000)'), 'a peso figure still counts');
   assert.ok(FILES.length > 500, `the walk found only ${FILES.length} files — wrong directory?`);
 });

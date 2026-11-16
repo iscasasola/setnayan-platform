@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1908
-# tables: 509
-# columns: 6146
-# notnull: 3711
+# ledger: 1909
+# tables: 510
+# columns: 6148
+# notnull: 3713
 [ledger]
 20260512000000
 20260513000000
@@ -1905,6 +1905,7 @@
 20271348041863
 20271348170528
 20271348181787
+20271348267938
 20271348269771
 20271348281460
 20271348331884
@@ -6931,6 +6932,8 @@ vendor_forms.retired_at
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_graph_unlocks_kept.kept_at
+vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivered_by
@@ -11107,6 +11110,8 @@ vendor_forms.public_id
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_graph_unlocks_kept.kept_at
+vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivery_id

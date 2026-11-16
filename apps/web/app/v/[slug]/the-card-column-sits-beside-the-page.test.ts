@@ -25,7 +25,8 @@ test('the two columns are drawn for every verified plan — the look is the gate
   assert.ok(at > 0, 'the column grid is gone');
   const tag = PAGE.slice(at, PAGE.indexOf('>', at));
   assert.match(tag, /className=\{cinematicHero \? SHOP_COLUMNS_CLASS : SHOP_CALM_COLUMN_CLASS\}/);
-  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
+  // The one exception is a lapsed shop's papers (papers renewal §4: the calm page), never a plan.
+  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified'(?: && !renewing)?;/);
   assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[300px_minmax\(0,1fr\)\]/);
   assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[360px_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(tag, /premiumLayout/, 'the columns went back behind the Pro plan');

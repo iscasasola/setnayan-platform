@@ -55,7 +55,8 @@ test('the ✓ Verified chip is gated on verification_state === "verified", stric
   const block = verifiedChipBlock();
   assert.match(
     block,
-    /\{vendor\.verification_state === 'verified' \? \(/,
+    // `&& !renewing` (papers renewal §4): a verified shop whose papers lapsed wears no badge. Strict equality stays.
+    /\{vendor\.verification_state === 'verified'(?: && !renewing)? \? \(/,
     'the ✓ Verified chip is no longer gated on a strict equality against the enum value ' +
       "'verified'. A truthiness check or `!== 'unverified'` would light the chip up for " +
       'pending_review, demoted and rejected shops on the admin-demo and vendor-self-preview ' +

@@ -23,10 +23,12 @@
  *     circle on a white chip ≥ 3; words on the page and in a frame ≥ 4.5; a toggle's knob ≥ 3 and a picked pill's
  *     words ≥ 4.5; the private strip's words on its wash ≥ 4.5 and its outline on the frame ≥ 3; each tile glyph on
  *     its 12% tint ≥ 3.
- *   · THE BAND IS MEASURED AT ITS LIGHTEST POINT. CSS blends the two stops in sRGB; we sample the blend at 21 points
- *     and test WHITE words against the lightest one — text that passes there passes everywhere. The band's words are
- *     always white (owner rule 12 Nov: "a pale band stop is darkened until white words read"; the band's buttons are
- *     white chips), so a pale stop is refused and the one-tap fix darkens it.
+ *   · THE BAND IS MEASURED AT ITS HARDEST POINT. CSS blends the two stops in sRGB; we sample the blend at 21 points.
+ *     The band's words are WHITE on a dark band and INK on a pale one (`bandWords`): white is tested against the
+ *     LIGHTEST sample, ink against the DARKEST — words that pass there pass everywhere. ✨ Rewritten for the clean warm
+ *     look (owner 16 Nov 2026, DECISION_LOG "THE CLEAN WARM LOOK IS APPROVED": "header band = pale peach #FAE0D1 →
+ *     white with ink words"), which superseded the 12 Nov rule "a pale band stop is darkened until white words read".
+ *     A band that NEITHER reads on (a mid tone) is still refused, and the one-tap fix darkens it for white words.
  *   · TWO BUTTON KINDS THAT LOOK ALIKE REFUSE SAVE. Money, decision and the private Send are all filled buttons in a
  *     frame; if two of them sit closer than `LOOK_ALIKE_DELTA_E` (CIE76 ΔE*ab, `lib/color-space.ts`), people cannot
  *     tell "pay" from "next", so the set is refused. Toggle "on" is not a button: a toggle that matches a button is a
@@ -55,11 +57,15 @@ export const FRAME_LIFT_LABEL: Record<FrameLift, string> = {
   medium: 'Medium',
   strong: 'Strong',
 };
-/** The frame's lift, as a box-shadow (the prototype's `.pv[data-sh]` steps). `none` draws a line instead (wave 2). */
+/**
+ * The frame's lift, as a box-shadow (the prototype's `.pv[data-sh]` steps). `none` draws a line instead (wave 2).
+ * `medium` IS `--m-shadow-md` (clean warm look, 16 Nov 2026: "frames = pure white + soft lift (`--m-shadow-md`)") — one
+ * value for the shipped default and the admin's "Medium", so the two can never drift.
+ */
 export const FRAME_LIFT_SHADOW: Record<FrameLift, string> = {
   none: 'none',
   soft: '0 1px 2px rgb(44 42 41 / 0.04), 0 8px 20px -14px rgb(44 42 41 / 0.25)',
-  medium: '0 2px 4px rgb(44 42 41 / 0.04), 0 14px 34px -14px rgb(44 42 41 / 0.32)',
+  medium: 'var(--m-shadow-md)',
   strong: '0 2px 6px rgb(44 42 41 / 0.06), 0 22px 48px -16px rgb(44 42 41 / 0.4)',
 };
 export const FRAME_RADIUS_MIN = 8;
@@ -97,15 +103,18 @@ export type AppColours = {
 /** The colour keys a picker edits (tiles are addressed as `tiles.<key>`). */
 export type ColourKey = 'page' | 'bandFrom' | 'bandTo' | 'frameFill' | 'money' | 'decision' | 'private' | 'toggle';
 
-/** TODAY'S EXACT VALUES — the "Current" mood. Every one is a value globals.css paints now. */
+/**
+ * TODAY'S EXACT VALUES — the "Current" mood. Every one is a value globals.css paints now: since 16 Nov 2026 the clean
+ * warm look (owner "yes the template looks good" · page #F7F5F4 "so framed can be white").
+ */
 export const APP_COLOURS_DEFAULT: AppColours = Object.freeze({
-  page: '#FFFFFF', // --sn-page-bg 255 255 255
-  bandFrom: '#C24E25', // --color-mulberry, flat
-  bandTo: '#C24E25',
-  bandAngle: '135deg',
-  frameFill: '#FFFFFF', // --m-paper
+  page: '#F7F5F4', // --sn-page-bg 247 245 244 (owner 16 Nov, "netural background color f7f5f4")
+  bandFrom: '#FAE0D1', // --sn-band-from — pale peach
+  bandTo: '#FFFFFF', // --sn-band-to
+  bandAngle: '180deg', // top to bottom
+  frameFill: '#FFFFFF', // --sn-frame-bg — the white card
   frameRadius: 14, // --m-r-md
-  frameLift: 'none', // .sn-tile today: a line, not a float
+  frameLift: 'medium', // --sn-frame-shadow = --m-shadow-md, no line
   money: '#2B744A', // --color-ok 43 116 74
   decision: '#C24E25', // --color-mulberry 194 78 37
   private: '#0284C7', // --color-private 2 132 199
@@ -123,8 +132,22 @@ const DECISION_DEFAULT_WORD = '#9D3F1E';
 
 export type Mood = { id: 'current' | 'sunrise' | 'ocean' | 'dusk'; name: string; why: string; colours: AppColours };
 
-const BASE = {
+/**
+ * THE GUEST ISLANDS' VALUES — what the app painted before 16 Nov 2026, kept for the guest Event Hub and the pieces of
+ * a guest page drawn in a dashboard (`GUEST_ISLANDS`), which wear the couple's look, never the admin's. globals.css
+ * declares the same values on the islands; `appColoursToCss` hands them back inside the islands.
+ */
+export const GUEST_ISLAND_COLOURS: AppColours = Object.freeze({
+  ...APP_COLOURS_DEFAULT,
   page: '#FFFFFF',
+  bandFrom: '#C24E25',
+  bandTo: '#C24E25',
+  bandAngle: '135deg',
+  frameLift: 'none',
+}) as AppColours;
+
+const BASE = {
+  page: APP_COLOURS_DEFAULT.page,
   frameFill: '#FFFFFF',
   private: '#0284C7',
   tiles: APP_COLOURS_DEFAULT.tiles,
@@ -136,7 +159,7 @@ export const MOODS: readonly Mood[] = [
   {
     id: 'current',
     name: 'Current',
-    why: 'The app today: white page, white cards with a line, flat terracotta band, toggle “on” the same terracotta as the decision button.',
+    why: 'The app today: a soft grey page, white cards that float with no line, a pale peach band with ink words, toggle “on” the same terracotta as the decision button.',
     colours: APP_COLOURS_DEFAULT,
   },
   {
@@ -311,6 +334,32 @@ export function lightestPoint(a: string, b: string): string {
   return best;
 }
 
+/** The darkest of 21 samples along the band's blend — where INK words are hardest to read. */
+export function darkestPoint(a: string, b: string): string {
+  let best = a;
+  let bl = 2;
+  for (let i = 0; i <= 20; i++) {
+    const c = mixHex(a, b, i / 20);
+    const l = luminance(c);
+    if (l < bl) {
+      bl = l;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/** The band's words: WHITE where white reads at the lightest point (a dark band), else INK (a pale band). */
+export function bandWords(a: string, b: string): string {
+  return wcagRatio(WHITE, lightestPoint(a, b)) >= 4.5 ? WHITE : INK;
+}
+
+/** The ratio the band's words read at, measured where they are hardest to read. */
+export function bandWordsRatio(a: string, b: string): number {
+  const words = bandWords(a, b);
+  return words === WHITE ? wcagRatio(WHITE, lightestPoint(a, b)) : wcagRatio(INK, darkestPoint(a, b));
+}
+
 /** Walk `start` toward `toward` in 2% steps; the first shade every test accepts (or `toward` itself). */
 export function nearestShade(start: string, tests: ReadonlyArray<(c: string) => boolean>, toward = BLACK): string {
   for (let i = 0; i <= 50; i++) {
@@ -388,9 +437,9 @@ export function readabilityChecks(c: AppColours): ColourCheck[] {
   const out: ColourCheck[] = [];
   // Page
   out.push(check('page', 'Words on the page', wcagRatio(INK, c.page), 4.5, () => ({ page: nearestShade(c.page, [(x) => wcagRatio(INK, x) >= 4.5], WHITE) })));
-  // Band — white words at the lightest point
+  // Band — white words at its lightest point, or ink words at its darkest (16 Nov: a pale band carries ink)
   const L = lightestPoint(c.bandFrom, c.bandTo);
-  const bandR = wcagRatio(WHITE, L);
+  const bandR = bandWordsRatio(c.bandFrom, c.bandTo);
   const fixBand = (): ColourFix => {
     const t = (x: string) => wcagRatio(WHITE, x) >= 4.5;
     return { bandFrom: nearestShade(c.bandFrom, [t]), bandTo: nearestShade(c.bandTo, [t]) };
@@ -399,7 +448,10 @@ export function readabilityChecks(c: AppColours): ColourCheck[] {
   out.push(check('band', 'Big number on the band (≥24px bold)', bandR, 3, fixBand));
   // Frame
   out.push(check('frame', 'Words on the frame', wcagRatio(INK, c.frameFill), 4.5, () => ({ frameFill: nearestShade(c.frameFill, [(x) => wcagRatio(INK, x) >= 4.5], WHITE) })));
-  out.push(check('frame', 'Frame shows against the band', wcagRatio(c.frameFill, L), 1.5, () => ({ frameFill: WHITE }), true));
+  // A white frame on a white-ended band shows by its LIFT, not its fill (16 Nov) — so with a lift this soft check
+  // measures the band's start, where the frame's edge meets colour; without one it measures the lightest point.
+  const frameAgainst = c.frameLift === 'none' ? L : darkestPoint(c.bandFrom, c.bandTo);
+  out.push(check('frame', 'Frame shows against the band', wcagRatio(c.frameFill, frameAgainst), c.frameLift === 'none' ? 1.5 : 1.15, () => ({ frameFill: WHITE }), true));
   // Money
   const moneyFix = (): ColourFix => ({ money: nearestShade(c.money, [(x) => wcagRatio(WHITE, x) >= 4.5, (x) => wcagRatio(x, tintOf(x, 0.09)) >= 4.5]) });
   out.push(check('money', 'White words on it', wcagRatio(WHITE, c.money), 4.5, moneyFix));
@@ -521,7 +573,7 @@ export function appColourTokens(c: AppColours): Record<string, string> {
     '--sn-band-from': tripleOf(c.bandFrom),
     '--sn-band-to': tripleOf(c.bandTo),
     '--sn-band-angle': c.bandAngle,
-    '--sn-on-band': tripleOf(WHITE),
+    '--sn-on-band': tripleOf(bandWords(c.bandFrom, c.bandTo)),
     '--sn-frame-bg': tripleOf(c.frameFill),
     '--sn-frame-radius': `${c.frameRadius}px`,
     '--sn-frame-shadow': FRAME_LIFT_SHADOW[c.frameLift],
@@ -571,7 +623,7 @@ export function appColoursToCss(input: AppColours): string {
   const c = parseAppColours(input);
   if (isDefaultAppColours(c)) return '';
   const set = appColourTokens(c);
-  const back = appColourTokens(APP_COLOURS_DEFAULT);
+  const back = appColourTokens(GUEST_ISLAND_COLOURS);
   const decl = (o: Record<string, string>, reset: boolean) =>
     Object.entries(o)
       .map(([k, v]) => `${k}:${reset && UNSET_BY_DEFAULT.has(k) ? 'initial' : v}`)

@@ -22,7 +22,7 @@ type SubscriptionRow = {
   purchase_id: string;
   vendor_id: string;
   sku_code: string;
-  tier: 'pro' | 'enterprise' | 'free' | 'verified';
+  tier: string;
   billing_cycle: 'monthly' | 'annual' | null;
   amount_php: number | string | null;
   reference_code: string | null;
@@ -34,7 +34,7 @@ type SubscriptionRow = {
 };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
-const TIER_LABEL: Record<string, string> = { pro: 'Supplier Pro', enterprise: 'Supplier Ultra' };
+const TIER_LABEL: Record<string, string> = { pro: 'Pro', enterprise: 'Ultra' };
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
@@ -145,6 +145,25 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
     }
   }
 
+  // 🏷 AW-9 (admin walk 14 Nov 2026): the plan's NAME, read from the catalog the supplier bought from
+  // (`vendor_billing_catalog.title`, e.g. "Supplier Plus (4 weeks)") — the row's raw `tier · billing_cycle`
+  // printed "solo · monthly". Names only; no price is read here. A refused read falls back to words, never a code.
+  const skus = Array.from(new Set([...pending, ...recent].map((p) => p.sku_code).filter(Boolean)));
+  const planTitle = new Map<string, string>();
+  if (skus.length > 0) {
+    const { data: plans, error: plansErr } = await admin
+      .from('vendor_billing_catalog')
+      .select('sku_code, title')
+      .in('sku_code', skus);
+    if (plansErr) logQueryError('admin/subscriptions: plan names', plansErr);
+    for (const pl of (plans ?? []) as { sku_code: string; title: string | null }[]) {
+      if (pl.title?.trim()) planTitle.set(pl.sku_code, pl.title.trim());
+    }
+  }
+  const planName = (p: SubscriptionRow): string =>
+    planTitle.get(p.sku_code) ??
+    `${TIER_LABEL[p.tier] ?? 'Supplier plan'}${p.billing_cycle === 'annual' ? ' · yearly' : p.billing_cycle === 'monthly' ? ' · 4 weeks' : ''}`;
+
   const pendingTotal = pending.reduce((s, p) => s + Number(p.amount_php ?? 0), 0);
 
   return (
@@ -176,7 +195,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
           }
         />
         <p className="max-w-prose text-sm text-ink/70">
-          Suppliers upgrade to Supplier Pro / Supplier Ultra apply-then-pay: they pay our BDO /
+          Suppliers upgrade to Pro / Ultra apply-then-pay: they pay our BDO /
           GCash account with the reference code, then you confirm here. Confirming
           activates the plan and nothing else — it is safe to press twice, a
           repeat is a no-op.
@@ -235,7 +254,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
           <ul className="space-y-4">
             {pending.map((p) => {
               const v = nameById.get(p.vendor_id);
-              const tier = TIER_LABEL[p.tier] ?? p.tier;
+              const tier = planName(p);
               return (
                 <li
                   key={p.purchase_id}
@@ -252,7 +271,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-ink">
-                        {tier} · {p.billing_cycle ?? '—'} · ₱
+                        {tier} · ₱
                         {NUMBER.format(Number(p.amount_php ?? 0))}
                       </p>
                       <p className="mt-0.5 text-[11px] text-ink/50">
@@ -322,7 +341,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
             {recent.map((p) => {
               const v = nameById.get(p.vendor_id);
               const paid = p.status === 'paid';
-              const tier = TIER_LABEL[p.tier] ?? p.tier;
+              const tier = planName(p);
               return (
                 <li
                   key={p.purchase_id}
@@ -348,7 +367,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                           : 'bg-ink/5 text-ink/55')
                       }
                     >
-                      {paid ? `${tier} · ${p.billing_cycle ?? '—'}` : String(p.status).replace(/_/g, ' ')}
+                      {paid ? tier : String(p.status).replace(/_/g, ' ')}
                     </span>
                     <p className="mt-0.5 text-[11px] text-ink/45">
                       {fmtDate(p.paid_at ?? p.created_at)}

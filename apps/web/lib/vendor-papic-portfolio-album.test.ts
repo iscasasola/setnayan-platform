@@ -85,3 +85,13 @@ test('a taken-down import does not count toward spend', () => {
 test('spend on an empty ledger is zero, not a garbled default', () => {
   assert.equal(portfolioCreditsSpent([]), 0);
 });
+
+test('🎬 a video row is marked and counted as a video (owner 2026-11-13)', () => {
+  const row = (id: string, kind: string | null) => ({
+    photo_id: id, event_id: 'e', r2_object_key: `r2://setnayan-media/k/${id}.jpg`, credits_spent: 1, created_at: null, hidden_at: null, nsfw_checked: true, media_kind: kind,
+  });
+  const shown = visiblePortfolioPhotos([row('a', 'photo'), row('b', 'video'), row('c', null)]);
+  assert.equal(shown.filter((p) => p.isVideo).length, 1);
+  assert.equal(portfolioAlbumSummary(shown), '2 photos · 1 video');
+  assert.equal(portfolioAlbumSummary(shown.filter((p) => p.isVideo)), '1 video');
+});

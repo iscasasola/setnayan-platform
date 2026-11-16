@@ -16,7 +16,7 @@ at once. Stacks on the token layer (PR 7733).
   `Sheet` loses its 1 px line and header rules and reads the sheet-shadow tokens; its close chip floats. The bottom bar
   is a floating white pill 14 px off the edge, and its active item is a filled terracotta pill (same tabs, same words).
   `TemplateRows` and `TemplateNums` sit in one lifted frame with no line between rows. The door shell's page reads
-  `bg-page` and its card is the frame. The collapsing top paints the page colour. The Home plain cover is the band, and
+  `bg-page`. Its card stays as it was, because it is also the guest Hub's RSVP card on the couple's paper. The collapsing top paints the page colour. The Home plain cover is the band, and
   the countdown is set in the app font.
 - **Admin › Colours (`lib/app-colours.ts`).** The "Current" set is now these values. The band gate picks ink words on
   a pale band and white on a dark one, measuring each where it is hardest to read. "Medium" lift is `--m-shadow-md`.

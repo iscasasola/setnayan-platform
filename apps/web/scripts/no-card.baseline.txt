@@ -4,7 +4,7 @@
 # GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 522 files · 1298 lines
+# 523 files · 1299 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 4 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -29,6 +29,7 @@
 1 apps/web/app/_components/collection-card.tsx
 1 apps/web/app/_components/confirm-dialog.tsx
 2 apps/web/app/_components/contracts/contract-card.tsx
+1 apps/web/app/_components/door/door-shell.tsx
 3 apps/web/app/_components/drive-connect-card.tsx
 3 apps/web/app/_components/encoder-key-panel.tsx
 2 apps/web/app/_components/explain-open.tsx

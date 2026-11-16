@@ -323,8 +323,10 @@ export function DoorShell({
 
         <div
           className={[
-            // ✨ The frame (16 Nov 2026): white, the soft lift from the token, no 1 px line. The 3 px edge below stays.
-            'relative rounded-2xl bg-frame p-6 shadow-sn-frame sm:p-8',
+            // ⚠ NOT moved onto the frame tokens (16 Nov 2026 clean look): this card is ALSO the guest Event Hub's RSVP
+            // door, where `bg-surface` is the couple's own paper (the skin sets `--surface`) — the house white would
+            // paint over it. Moving the public doors needs a split by scope; a later batch.
+            'relative rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
             // Only what you can ACT on carries the action colour — the card
             // itself stays paper, exactly as the sign-in panel's own note says
             // ("repainting the whole surface would read as a different

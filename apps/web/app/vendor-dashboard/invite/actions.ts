@@ -18,7 +18,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
 import { fetchVendorServices } from '@/lib/vendor-services';
-import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { lockedQrCategoryOf } from '@/lib/locked-qr-category';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { lockQuoteTotalPhp, sanitizeLockQuoteLines, sanitizeLockSchedule, type LockQuoteLine } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
@@ -125,19 +126,18 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const activeServices = (await fetchVendorServices(supabase, vendorProfileId).catch(() => [])).filter(
     (s) => s.is_active,
   );
+  // 🔳 RW-378: a service's `category` is a TAXONOMY id (tile or leaf), not the enum — resolved through the ONE source
+  // (`service_categories.coarse_category`, `getTaxonomy()`), never compared by spelling (`lib/locked-qr-category.ts`).
+  // A matched service is the vendor's OWN row (fetchVendorServices is vendor-scoped); the fallback key is re-checked
+  // against coverage. The token stores the resolved enum — the couple's scan casts it into `event_vendors.category`.
+  const tax = await getTaxonomy();
   const resolved = serviceRefs.map((ref) => {
     const svc = activeServices.find((s) => s.vendor_service_id === ref) ?? null;
-    return { ref, svc, category: svc ? svc.category : ref };
+    return { ref, svc, category: lockedQrCategoryOf(ref, activeServices, coverage, tax) };
   });
-  // Every selected category must be a real vendor_category enum. A matched leaf
-  // is the vendor's OWN row (fetchVendorServices is vendor-scoped) so it's
-  // trusted; the fallback category-key path is re-checked against coverage.
-  for (const r of resolved) {
-    if (!VENDOR_CATEGORIES.includes(r.category as VendorCategory)) fail('category');
-    if (!r.svc && !coverage.includes(r.category as VendorCategory)) fail('category');
-  }
+  for (const r of resolved) if (r.category === null) fail('category');
   const primary = resolved[0]!;
-  const category = primary.category;
+  const category = primary.category!; // non-null: every null was refused above
   const vendorServiceId = primary.svc?.vendor_service_id ?? null;
   const vendorServiceIds = resolved
     .map((r) => r.svc?.vendor_service_id)

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1892
-# tables: 505
-# columns: 6116
-# notnull: 3687
+# ledger: 1895
+# tables: 506
+# columns: 6124
+# notnull: 3694
 [ledger]
 20260512000000
 20260513000000
@@ -1897,12 +1897,15 @@
 20271346335702
 20271346481550
 20271346561709
+20271346711828
 20271347531019
 20271347719658
 20271348041863
 20271348170528
+20271348281460
 20271348421195
 20271348457307
+20271348490157
 20271349022603
 [columns]
 account_deletion_requests.admin_note
@@ -6849,6 +6852,12 @@ vendor_event_sets.set_id
 vendor_event_sets.slot_type
 vendor_event_sets.updated_at
 vendor_event_sets.vendor_profile_id
+vendor_event_story_notes.body
+vendor_event_story_notes.created_at
+vendor_event_story_notes.event_id
+vendor_event_story_notes.note_id
+vendor_event_story_notes.updated_at
+vendor_event_story_notes.vendor_profile_id
 vendor_event_unlocks.band
 vendor_event_unlocks.comp_reason
 vendor_event_unlocks.event_id
@@ -7742,6 +7751,7 @@ vendor_service_time_slots.vendor_service_id
 vendor_services.added_pax_block
 vendor_services.added_pax_price_php
 vendor_services.base_pax
+vendor_services.branch_copy_of
 vendor_services.branch_id
 vendor_services.category
 vendor_services.category_request_id
@@ -7842,6 +7852,7 @@ vendor_team_members.updated_at
 vendor_team_members.user_id
 vendor_team_members.vendor_profile_id
 vendor_team_members.vendor_team_member_id
+vendor_team_members.whole_branch_keys
 vendor_tier_history.admin_user_id
 vendor_tier_history.application_id
 vendor_tier_history.created_at
@@ -11012,6 +11023,12 @@ vendor_event_sets.set_id
 vendor_event_sets.slot_type
 vendor_event_sets.updated_at
 vendor_event_sets.vendor_profile_id
+vendor_event_story_notes.body
+vendor_event_story_notes.created_at
+vendor_event_story_notes.event_id
+vendor_event_story_notes.note_id
+vendor_event_story_notes.updated_at
+vendor_event_story_notes.vendor_profile_id
 vendor_event_unlocks.event_id
 vendor_event_unlocks.tokens_burned
 vendor_event_unlocks.unlock_id
@@ -11610,6 +11627,7 @@ vendor_team_members.updated_at
 vendor_team_members.user_id
 vendor_team_members.vendor_profile_id
 vendor_team_members.vendor_team_member_id
+vendor_team_members.whole_branch_keys
 vendor_tier_history.created_at
 vendor_tier_history.tier_history_id
 vendor_tier_history.to_state

@@ -4,7 +4,8 @@
  * of the search bar"*).
  *
  * It was the retired phone card grid for the Accounts group. It now draws People's head numbers and its group cards
- * (shared `TabLanding`), then the Ask bar with the Show & sort icon on its right, then EVERYONE — the shipped Look up
+ * (shared `TabLanding`), then the Ask bar with the Show & sort icon on its right (on the phone: the ONE search, the thumb
+ * row, carries the icon — `AdminThumbRow`), then EVERYONE — the shipped Look up
  * list, mounted unchanged (`merged-view.ts`). The Show choice picks which shipped list answers:
  *   Everyone · People · Suppliers · Events → the Look up page's own tabs (`accounts/page.tsx`)
  *   To verify → the Papers page · Documents → ID documents · Needs my decision → Approvals
@@ -50,7 +51,7 @@ export default async function AdminPeopleLanding({ searchParams }: { searchParam
   return (
     <>
       <TabLanding tab="people" />
-      <div className="mx-auto flex w-full max-w-[1120px] items-center gap-2 px-4 sm:px-6" data-people-askrow="">
+      <div className="mx-auto hidden w-full max-w-[1120px] items-center gap-2 px-4 sm:px-6 lg:flex" data-people-askrow="">
         <div className="min-w-0 flex-1">
           <AdminAskPill place="top" />
         </div>

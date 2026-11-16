@@ -151,7 +151,8 @@ export function AdminRailContext({
                   <Link
                     key={p.key}
                     href={p.href!}
-                    className="fd-row hidden pl-11 text-[13px] xl:flex"
+                    className="fd-row hidden text-[13px] xl:flex"
+                    style={{ paddingInlineStart: 52 }}
                     data-on={herePage === p.key ? 'true' : 'false'}
                     aria-current={herePage === p.key ? 'page' : undefined}
                     data-admin-rail-page={p.key}

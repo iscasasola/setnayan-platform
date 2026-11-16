@@ -44,6 +44,7 @@ import {
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 import { useAdminAddress } from './admin-address';
 import css from './admin-tab-rows.module.css';
+import { PeopleShowSort } from '../directory/_components/people-show-sort';
 
 /** A read that failed is never a 0. */
 export const COUNT_REFUSED = 'Couldn’t count — not the same as none';
@@ -203,6 +204,7 @@ function TabSettingsRows({ tab, current, onGo }: { tab: AdminTab; current: strin
 
 export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
   const place = useAdminPlace(at);
+  const { params } = useAdminAddress(at);
   if (!place || (place.kind !== 'tab' && place.kind !== 'landing')) return null;
   const { tab } = place;
   return (
@@ -227,7 +229,15 @@ export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
               </button>
             ),
           }}
-          action={tab.create ? { icon: Plus, label: tab.create.label, href: tab.create.href } : null}
+          action={
+            // ➕ v10 (owner 17 Nov): on People the round right of the ONE search is the Show & sort icon — the shipped
+            // sheet, as on Guests. Add a venue stays one tap away in Look up › Venues.
+            tab.key === 'people' && place.kind === 'landing'
+              ? { node: <PeopleShowSort show={params?.get('show') ?? 'everyone'} /> }
+              : tab.create
+                ? { icon: Plus, label: tab.create.label, href: tab.create.href }
+                : null
+          }
         />
       </ThumbDock>
     </div>

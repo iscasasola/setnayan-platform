@@ -92,7 +92,10 @@ export default async function AdminShellLab({
   const unreadable = sp.counts === 'fail' ? Object.keys(BUSY).length : 0;
   const [path, q] = at.split('?');
   const place = adminShellPlaceFor(path!, new URLSearchParams(q ?? ''));
-  const digest: AdminQueueDigest = Object.fromEntries(Object.entries(counts).map(([k, c]) => [k, { count: c, oldestAt: c ? new Date(Date.now() - 31 * 3_600_000).toISOString() : null }]));
+  // Every queue the console counts is in the fixture (0 unless BUSY says otherwise), so the dashboard never reads "—" for a
+  // queue the fixture simply forgot.
+  const allCounts: AdminQueueCounts = { ...Object.fromEntries(Object.keys(ADMIN_QUEUE_META).map((k) => [k, sp.counts === 'fail' ? null : 0])), ...counts };
+  const digest: AdminQueueDigest = Object.fromEntries(Object.entries(allCounts).map(([k, c]) => [k, { count: c, oldestAt: c ? new Date(Date.now() - 31 * 3_600_000).toISOString() : null }]));
   const avatarRows = ADMIN_SETUP_PAGES.flatMap((p) => (p.href ? [{ key: p.key, href: p.href, label: p.label }] : []));
   const overdue = sp.counts === 'fail' || sp.counts === 'empty' ? 0 : 1;
 

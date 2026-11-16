@@ -20,6 +20,10 @@ import { ThreadToolPanel } from '../app/_components/chat/thread-tool-panel';
 
 (globalThis as { React?: typeof React }).React = React;
 
+// `children` arrives as the third argument; the cast only relaxes the prop type's required `children`
+// (react/no-children-prop forbids passing it as a prop) — the same shape as element-style.test.ts.
+const Panel = ThreadToolPanel as unknown as React.FC<Omit<React.ComponentProps<typeof ThreadToolPanel>, 'children'> & { children?: React.ReactNode }>;
+
 const read = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
 
 test('1 · the booking ask is the panel that rises; the other tools keep the tray', () => {
@@ -34,13 +38,13 @@ test('2 · the supplier thread page passes it through', () => {
 
 test('3 · a rising panel draws no tray body — only the hidden reveal target, and the rise uses the one RiseScreen', () => {
   const html = renderToStaticMarkup(
-    React.createElement(ThreadToolPanel, { id: 'booking-ask', label: 'Answer their booking ask', hint: 'Agree', rise: true, children: 'BODY' }),
+    React.createElement(Panel, { id: 'booking-ask', label: 'Answer their booking ask', hint: 'Agree', rise: true }, 'BODY'),
   );
   assert.match(html, /id="booking-ask"/, 'revealThreadTool has nothing to open');
   assert.match(html, /data-thread-tool-rise/);
   assert.doesNotMatch(html, /max-h-\[55dvh\]/, 'the booking ask is drawn in the half-height tray again');
   assert.doesNotMatch(html, /BODY/, 'the form is drawn under the composer while closed');
-  const tray = renderToStaticMarkup(React.createElement(ThreadToolPanel, { id: 'x', label: 'X', hint: 'h', children: 'BODY' }));
+  const tray = renderToStaticMarkup(React.createElement(Panel, { id: 'x', label: 'X', hint: 'h' }, 'BODY'));
   assert.match(tray, /max-h-\[55dvh\]/);
   const rise = read('app', '_components', 'chat', 'thread-tool-rise.tsx');
   assert.match(rise, /<RiseScreen\b/);

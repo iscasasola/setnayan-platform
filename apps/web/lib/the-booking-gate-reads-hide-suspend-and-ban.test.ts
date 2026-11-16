@@ -30,6 +30,7 @@ const LIVE = {
   public_visibility: 'verified',
   fraud_suspended_at: null,
   fraud_banned_at: null,
+  paused_at: null,
 };
 
 test('1 · only a verified, listed shop with no fraud stamp is bookable', () => {
@@ -43,6 +44,9 @@ test('1 · only a verified, listed shop with no fraud stamp is bookable', () => 
     'banned',
   );
   assert.equal(shopBookingRefusal({ ...LIVE, verification_state: 'demoted' }), 'not_verified');
+  // ⏸ 16 Nov: a paused shop takes nothing new (migration 20271350091032) — fraud still outranks it.
+  assert.equal(shopBookingRefusal({ ...LIVE, paused_at: '2026-11-16T00:00:00Z' }), 'paused');
+  assert.equal(shopBookingRefusal({ ...LIVE, paused_at: '2026-11-16T00:00:00Z', fraud_suspended_at: '2026-11-10T00:00:00Z' }), 'suspended');
   assert.equal(shopBookingRefusal(null), 'missing');
   // 📄 Owner 2026-11-14 (DECISION_LOG 481b9b6b): a lapsed papers stamp only drops the shop from the lists — the
   // booking gate does NOT read it (the inquired-before-lapse path is unconfirmed, so it stays as it is today).
@@ -84,7 +88,7 @@ test('3 · the latest definition of the DB trigger function asks all four column
   const sql = readFileSync(join(MIGRATIONS, latest!), 'utf8');
   const body = sql.slice(sql.search(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_booking_requires_verified_vendor/i));
   const fnBody = body.slice(0, body.indexOf('$$;'));
-  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at']) {
+  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at', 'paused_at']) {
     assert.ok(fnBody.includes(col), `${latest} must read vendor_profiles.${col}`);
   }
   // 2026-11-14 ("Yes, block them"): the database refuses every shop that is not LISTED — hidden and archived alike —

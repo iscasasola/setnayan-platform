@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { Camera, Check, ChevronRight, ExternalLink, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { PRINTS_LINE } from '@/lib/prints-line';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
@@ -329,6 +330,16 @@ export function ShopCover({
             Cover
           </button>
         </div>
+        {/* 🪪 The Prints tile (drawing `supplier_shop_clean_2026-11-16`, the quick row under the doors): the same line as
+            the Promote section (`PRINTS_LINE`), opening the shipped Promote sheet — whose body starts at Prints. */}
+        <button type="button" onClick={() => openSheet('promote')} className="sn-press flex min-h-[56px] w-full items-center gap-3 rounded-2xl border border-ink/10 bg-raised px-3 py-2 text-left" data-shop-quick="prints">
+          <IdCard aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />
+          <span className="min-w-0 flex-1">
+            <b className="block text-[14.5px] font-semibold leading-tight text-ink">Prints</b>
+            <small className="block truncate text-[12.5px] text-ink/60">{PRINTS_LINE}</small>
+          </span>
+          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+        </button>
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}

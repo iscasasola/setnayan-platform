@@ -70,7 +70,7 @@ export function TeamPart({ lines, unread }: { lines: readonly TeamLine[]; unread
       <div className="flex min-h-9 items-center gap-2">
         <h2 className="text-base font-semibold text-ink">On the desk</h2>
         <span className="rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-bold text-success-800">
-          {lines.filter((l) => l.active).length}
+          {lines.length}
         </span>
       </div>
       {unread ? (

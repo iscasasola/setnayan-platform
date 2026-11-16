@@ -290,7 +290,7 @@ export const PROFILE_HEADER_CSS = `
     background: rgb(var(--color-terracotta));
     border: 2px solid rgb(var(--color-cream));
   }
-  .uprof-avwrap > .uprof-pen { position: absolute; left: -6px; top: -6px; }
+  .uprof-avwrap > .uprof-pen { position: absolute; left: -15px; top: -15px; margin: 0; }
   .uprof-head[data-layout='home'] .uprof-hname { min-width: 0; flex: 1; }
   .uprof-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .uprof-head[data-layout='home'] .uprof-name {
@@ -302,18 +302,18 @@ export const PROFILE_HEADER_CSS = `
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* v3 .pen: a 26-px circle (the 44-px floor would make it an oval — house memory), its touch target 44 via ::before. */
+  /* v3 .pen: a 26-px circle DRAWN inside a 44 × 44 box (RW-309, walk 15 Nov 2026: the box measured 26 × 26 — the press
+     is the box now, not an invisible ::before). The circle is ::before; the negative margin keeps the row as drawn. */
   .uprof-pen {
     position: relative;
-    width: 26px;
-    height: 26px;
-    min-height: 26px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin: -9px;
     flex: 0 0 auto;
     display: inline-grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid var(--sn-hair);
-    background: var(--surface);
     color: rgb(var(--color-link));
     transition: transform .06s, filter .06s;
   }
@@ -321,11 +321,14 @@ export const PROFILE_HEADER_CSS = `
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
-    width: 44px;
-    height: 44px;
+    width: 26px;
+    height: 26px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
+    border: 1px solid var(--sn-hair);
+    background: var(--surface);
   }
+  .uprof-pen svg { position: relative; }
   .uprof-pen:active { filter: brightness(.93); transform: scale(.985); }
   .uprof-pen svg { width: 13px; height: 13px; }
   .uprof-line { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; font-size: 14px; }
@@ -342,6 +345,8 @@ export const PROFILE_HEADER_CSS = `
   .uprof-handle a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); }
   .uprof-head[data-layout='home'] .uprof-handle { color: rgb(var(--ink-soft)); }
   .uprof-head[data-layout='home'] .uprof-handle a { text-decoration: none; }
+  /* RW-309: the handle's link ("Choose your @handle", the public address) presses at 44 — its own box, not a 18-px line. */
+  .uprof-head[data-layout='home'] .uprof-handle a { display: inline-flex; align-items: center; min-height: 44px; vertical-align: middle; }
   .uprof-doors {
     display: flex;
     flex-wrap: wrap;

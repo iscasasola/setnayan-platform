@@ -166,7 +166,7 @@ export function AnalyticsCarousel(props: Props) {
           Analytics
         </h2>
         <span className="text-xs text-ink/70">
-          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'} · swipe · tap one
+          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
         </span>
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}

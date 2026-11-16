@@ -501,6 +501,8 @@ export type ShortlistVendor = {
   city: string | null;
   rating: number | null;
   reviewCount: number | null;
+  /** Confirmed bookings on Setnayan; null = unknown (CYC-15b). */
+  bookedCount?: number | null;
   isVerified: boolean;
   isSetnayan: boolean;
   href: string;
@@ -901,6 +903,7 @@ export function buildShortlistFolders(args: {
       city: v.marketplace_city ?? null,
       rating: ext?.rating ?? null,
       reviewCount: ext?.review_count ?? null,
+      bookedCount: ext?.booked_count ?? null,
       isVerified: ext?.is_verified ?? false,
       isSetnayan: ext?.is_setnayan_service ?? false,
       // Canonical per-service room (33-call-site convention). A bare

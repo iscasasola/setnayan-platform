@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { SquarePen } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
@@ -17,6 +18,7 @@ import { messengerOrder, NEEDS_YOU_DOT_LABEL, type ChatsRowNeedsYou } from '@/li
 import { rememberPickedOrigin } from '@/app/_components/picked/picked-motion';
 import type { ChatLeftRead } from '@/lib/chat-members';
 import { LeftChatRow } from '@/app/_components/chat/left-chat-row';
+import { CHAT_PANES_FROM } from './chat-panes';
 
 /**
  * THE CHATS INBOX, MESSENGER-SHAPED (owner 2026-10-27, *"look and feel like Messenger"*; chat prototype 2026-10-28,
@@ -47,6 +49,11 @@ import { LeftChatRow } from '@/app/_components/chat/left-chat-row';
  * A row that opens a PICKED page (`opensPicked` — the supplier's picked client on Chat, the host's picked supplier on
  * Chat) records where it was tapped, so that page rises from the row and ✕ is the exact reverse back into it.
  * 🚦 A row may carry a "needs you" level (DECISION_LOG 2026-11-09): a dot, the blocker's stronger than due-now.
+ *
+ * 🖥 FROM 701 A ROW OPENS BESIDE THE LIST (owner 2026-11-13, D3 — `./chat-panes.tsx`): a row's `paneHref` is its thread
+ * route, which draws this list on the left and the thread on the right. Below 701 the row's own `href` (the full-screen
+ * thread, or the picked page) is unchanged. The row open on the right is marked (`aria-current`, the system's opened-row
+ * wash) and reads as read — it is on screen.
  */
 
 export type InboxRow = {
@@ -72,6 +79,8 @@ export type InboxRow = {
    * when the inbox is handed `join`.
    */
   left?: ChatLeftRead | null;
+  /** 🖥 The thread route this row opens in the right column from 701 (`ChatPanes`). Absent = the row's `href` at every width. */
+  paneHref?: string;
 };
 
 type Filter = 'all' | 'unread' | 'suppliers';
@@ -110,6 +119,16 @@ export function ChatInbox({
   const [composing, setComposing] = useState(false);
   const [mounted, setMounted] = useState(false);
   const headingId = useId();
+  const router = useRouter();
+  const pathname = usePathname();
+  // 🖥 From 701 a row with a thread route opens it beside this list; a modified click keeps the browser's own meaning.
+  const openInPane = (e: MouseEvent<HTMLAnchorElement>, paneHref: string | undefined): boolean => {
+    if (!paneHref || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
+    if (!window.matchMedia(CHAT_PANES_FROM).matches) return false;
+    e.preventDefault();
+    router.push(paneHref, { scroll: false });
+    return true;
+  };
   useEffect(() => {
     setMounted(true);
     // The thread's instant open paints remembered messages only for the viewer this page has marked.
@@ -156,21 +175,33 @@ export function ChatInbox({
     </button>
   );
 
-  const renderRow = (r: InboxRow) =>
-    r.left && join ? (
+  const renderRow = (r: InboxRow) => {
+    const isOpen = Boolean(r.paneHref) && pathname === r.paneHref;
+    const unread = r.unread && !isOpen;
+    return r.left && join ? (
       <LeftChatRow key={r.threadId} threadId={r.threadId} href={r.href} name={r.name} logoUrl={r.logoUrl} preview={r.preview} timeLabel={r.timeLabel} left={r.left} join={join} />
     ) : (
     <li
       key={r.threadId}
       className="flex items-center"
-      data-inbox-row={r.unread ? 'unread' : 'read'}
+      data-inbox-row={unread ? 'unread' : 'read'}
       {...(r.needsYou ? { 'data-inbox-needs-you': r.needsYou } : {})}
+      {...(isOpen ? { 'data-open-row': '', 'data-open-current': '' } : {})}
     >
       <Link
         href={r.href}
         prefetch
+        aria-current={isOpen ? 'page' : undefined}
         className="sn-press flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-2"
-        onClickCapture={r.opensPicked ? (e) => rememberPickedOrigin(e.currentTarget.closest('li'), r.href.split('?')[0]!) : undefined}
+        onClick={r.paneHref ? (e) => void openInPane(e, r.paneHref) : undefined}
+        onClickCapture={
+          r.opensPicked
+            ? (e) => {
+                if (r.paneHref && window.matchMedia(CHAT_PANES_FROM).matches) return;
+                rememberPickedOrigin(e.currentTarget.closest('li'), r.href.split('?')[0]!);
+              }
+            : undefined
+        }
       >
         {/* 🚦 Needs you — a badge on the avatar's corner, apart from the unread dot at the row's end (two meanings, two
             places). The blocker's is the stronger: larger, danger, ringed; due-now is the smaller amber one. */}
@@ -186,7 +217,7 @@ export function ChatInbox({
           <span className="flex items-baseline gap-1.5">
             {/* With an event line beside it the name keeps 70 %; a name that IS the event line (the supplier's chat title,
                 "Ana's Wedding (Dec 12)") takes the whole width, so its date is not the part that gets cut. */}
-            <span className={`min-w-0 ${r.eventLine ? 'shrink-0' : 'shrink'} truncate text-[16px] text-ink ${r.unread ? 'font-bold' : 'font-medium'}`} style={r.eventLine ? { maxWidth: '70%' } : undefined}>{r.name}</span>
+            <span className={`min-w-0 ${r.eventLine ? 'shrink-0' : 'shrink'} truncate text-[16px] text-ink ${unread ? 'font-bold' : 'font-medium'}`} style={r.eventLine ? { maxWidth: '70%' } : undefined}>{r.name}</span>
             {/* Frame L (owner 2026-10-28, "i want isolation per event"): each row says WHICH event — "· Dec 18 · …". */}
             {r.eventLine ? (
               <span className="min-w-0 shrink truncate text-[11px] font-semibold text-sn-accent" data-inbox-event-line="">
@@ -194,15 +225,16 @@ export function ChatInbox({
               </span>
             ) : null}
           </span>
-          <span className={`block truncate text-[14px] ${r.unread ? 'font-bold text-ink' : 'text-ink/60'}`}>
+          <span className={`block truncate text-[14px] ${unread ? 'font-bold text-ink' : 'text-ink/60'}`}>
             {r.preview} · {r.timeLabel}
           </span>
         </span>
-        {r.unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}
+        {unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}
       </Link>
       {r.archive}
     </li>
     );
+  };
 
   const sheet = (
     <Sheet open={composing} onClose={() => setComposing(false)} labelledById={headingId} rise>

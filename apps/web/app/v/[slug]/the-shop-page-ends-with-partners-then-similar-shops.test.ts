@@ -90,7 +90,7 @@ test('the similar row draws Discover\'s SHIPPED card and grid words, with no bad
 });
 
 test('"See more suppliers" is unchanged', () => {
-  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: '\/explore', label: 'See more suppliers', back: false \};/);
+  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: '\/', label: 'See more suppliers', back: false \};/);
   assert.match(PAGE, /\{!shopBack\.back \? \(\s*<Link href=\{shopBack\.href\} className="button-secondary" data-shop-back="cold">/);
 });
 

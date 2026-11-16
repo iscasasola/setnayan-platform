@@ -46,6 +46,15 @@ export type DeliveryVerdict =
   | 'not_sent'
   | 'cancelled'
   | 'waiting'
+  /**
+   * 📨 SENT, DELIVERY NOT CONFIRMED (controller, 15 Nov 2026). Resend ACCEPTED the email (`outcome = 'accepted'`, a
+   * provider id) but no status ever came back, an hour on. That is a fact about OUR status check, not about the mail:
+   * measured in production, all 58 rows of a week were accepted and none had a `last_event`, because the live Resend
+   * key is send-only ("restricted to only send emails") and so cannot read an email back. Counting them as "Waiting"
+   * read as "mail is not going out", which is false. They are still re-checked (`isSettled` is false for them), so
+   * the moment a key that can read is installed they turn into real answers.
+   */
+  | 'unconfirmed'
   | 'unknown';
 
 /** Resend `last_event` values that mean the message reached the mail server. */
@@ -63,6 +72,12 @@ const FAILED_EVENTS = new Set<string>(FAILED_DELIVERY_EVENTS);
 export const STOP_ASKING_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Not asked again sooner than this (Resend's API allows ~2 requests/second). */
+/**
+ * How long a freshly accepted email may honestly be "waiting" for its first status. The checker runs every
+ * `RECHECK_AFTER_MS`, so an hour with no answer at all means the check cannot read it back (see `unconfirmed`).
+ */
+export const UNCONFIRMED_AFTER_MS = 60 * 60 * 1000;
+
 export const RECHECK_AFTER_MS = 10 * 60 * 1000;
 
 /** The window the owner-facing summary covers. */
@@ -79,7 +94,10 @@ export function verdictOf(
   if (FAILED_EVENTS.has(ev)) return 'failed';
   if (ev === 'canceled' || ev === 'cancelled') return 'cancelled';
   const clockStart = Date.parse(row.scheduled_for ?? row.created_at);
-  if (Number.isFinite(clockStart) && now - clockStart > STOP_ASKING_AFTER_MS) return 'unknown';
+  const age = now - clockStart;
+  if (Number.isFinite(clockStart) && age > STOP_ASKING_AFTER_MS) return 'unknown';
+  // No status at all, an hour on: Resend took it, but this page cannot ask whether it arrived.
+  if (ev === '' && Number.isFinite(clockStart) && age > UNCONFIRMED_AFTER_MS) return 'unconfirmed';
   return 'waiting';
 }
 
@@ -89,7 +107,8 @@ export function isSettled(
   now: number = Date.now(),
 ): boolean {
   const v = verdictOf(row, now);
-  return v !== 'waiting';
+  // An unconfirmed email is NOT settled: it is asked about again, so a key that can read turns it into an answer.
+  return v !== 'waiting' && v !== 'unconfirmed';
 }
 
 /**
@@ -144,6 +163,7 @@ export function summarize(
     not_sent: 0,
     cancelled: 0,
     waiting: 0,
+    unconfirmed: 0,
     unknown: 0,
     total: 0,
   };
@@ -209,5 +229,6 @@ export const VERDICT_LABEL: Record<DeliveryVerdict, string> = {
   not_sent: 'Not sent',
   cancelled: 'Cancelled',
   waiting: 'Waiting',
+  unconfirmed: 'Sent · not confirmed',
   unknown: 'No answer',
 };

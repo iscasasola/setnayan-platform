@@ -26,6 +26,7 @@ import { ShopServicesThumb } from '@/app/vendor-dashboard/shop/_components/shop-
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { php } from '@/lib/service-card-snapshot';
 import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/portfolio-view';
+import { LabPortfolioChats } from './portfolio-chats-lab';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
 import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
@@ -247,6 +248,7 @@ function portfolioLab(fail: boolean, none: boolean) {
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-portfolio-tab-lab="">
       <div className="mx-auto w-full max-w-3xl">
+        <LabPortfolioChats unread={fail}>
         <PortfolioView
           vendorId="lab"
           input={input}
@@ -267,7 +269,11 @@ function portfolioLab(fail: boolean, none: boolean) {
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
+          // ⭐ Your best work — sample views (fixtures, never a measured figure); `&unread=1` = the count refused.
+          best={fail ? null : none ? [] : [PHOTOS[4]!, PHOTOS[1]!, PHOTOS[7]!, PHOTOS[2]!].map((url, i) => ({ key: `lab-${i}`, url, views: [212, 96, 41, 12][i]! }))}
+          sectionOrder={null}
         />
+        </LabPortfolioChats>
       </div>
       {bar}
     </div>

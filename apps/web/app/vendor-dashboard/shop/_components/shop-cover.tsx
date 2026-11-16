@@ -228,7 +228,7 @@ export function ShopCover({
               type="button"
               onClick={openGear}
               aria-label="Shop settings"
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
+              className="sn-hit-2d grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
               data-shop-cover-gear=""
               data-tour="shop-gear"
             >
@@ -240,14 +240,14 @@ export function ShopCover({
           sub={
             <>
               {d.verified.isVerified ? (
-                <a href="#docs" className="inline-flex items-center gap-1 font-semibold">
+                <a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">
                   <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                   Verified
                 </a>
               ) : d.verified.inReview ? (
-                <a href="#docs">Verification in review</a>
+                <a href="#docs" className="inline-flex min-h-11 items-center">Verification in review</a>
               ) : (
-                <a href="#docs" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                <a href="#docs" className="sn-hit inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   Get verified · {formatCount(d.verified.papersIn)} of {formatCount(d.verified.papersOf)} papers
                 </a>
@@ -261,7 +261,7 @@ export function ShopCover({
                 </Link>
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
-              <a href="#plan" className="inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
+              <a href="#plan" className="inline-flex min-h-11 items-center gap-0.5 text-white/75" data-shop-plan="">
                 {d.planLabel} plan
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
               </a>

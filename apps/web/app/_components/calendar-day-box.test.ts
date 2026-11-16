@@ -64,13 +64,23 @@ test('box: ONE picked mark — the number in its ink box, dots kept, a blocked d
   assert.match(blocked, /line-through/);
   assert.doesNotMatch(blocked, /background-image/, 'a blocked day is hatched again — a second filled day');
   assert.match(cell(html, '2026-11-08'), /ring-\[1\.5px\] ring-inset/);
-  // #28 ONE FILLED DAY ONLY: no other day carries a fill — not today, not a part-booked day, not a blocked one.
+  // #28 ONE PICKED MARK, re-coloured by the owner's 14 Nov ruling (CLIENTS-CAL, "we just wanted to fix the color
+  // coding"): the ink box is still the ONE picked mark, and a day's only fill is a SEAT from the one token set Check a
+  // date uses — seat green when it can still take a booking, an outlined near-white seat when it cannot. Never the
+  // accent, never ink, never a hatch, never a hand-typed colour.
   for (const day of ['2026-11-08', '2026-11-16', '2026-11-20']) {
     const t = tag(html, day);
     assert.ok(t.startsWith('<button') && t.includes(day), `could not read ${day}'s cell`);
-    assert.doesNotMatch(t, /style="[^"]*background|bg-sn-accent|bg-ink(?![/\w-])/, `${day} is filled — only the picked day may be`);
+    assert.doesNotMatch(t, /bg-sn-accent|bg-ink(?![/\w-])|background-image|#[0-9A-Fa-f]{3,6}/, `${day} wears a fill that is not a seat`);
     assert.doesNotMatch(cell(html, day), /data-calendar-dn="on"/);
   }
+  assert.match(tag(html, '2026-11-08'), /style="background:var\(--seat-top\);color:var\(--seat-ink\)"/, 'an open day is not the seat green');
+  assert.match(tag(html, '2026-11-20'), /background:var\(--seat-top\)/, 'a part-booked day that can still take a booking is not the seat green');
+  assert.match(
+    tag(html, '2026-11-16'),
+    /style="background:var\(--seat-out\);box-shadow:inset 0 0 0 1px var\(--seat-out-line\)"/,
+    'a blocked day is not the outlined near-white seat',
+  );
 });
 
 test('circle (every other calendar) is untouched', () => {

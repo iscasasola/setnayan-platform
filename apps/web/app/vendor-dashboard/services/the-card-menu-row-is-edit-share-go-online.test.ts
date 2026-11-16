@@ -98,7 +98,7 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const sw = line.indexOf('role="switch"');
   assert.ok(edit > 0 && share > edit && sw > share, 'the row is not Edit · Share · switch, in that order');
   assert.equal((line.match(/role="switch"/g) ?? []).length, 1, 'the row holds one switch');
-  assert.match(line, /<SwitchTrack on=\{isActive\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
+  assert.match(line, /<SwitchTrack on=\{shown\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
   assert.match(line, /className=\{SWITCH_BUTTON\}/, 'the switch is not the shipped SWITCH_BUTTON');
   assert.match(line, /\{held \? \(\s*<PlanHoldTag \/>/, 'a card the plan holds no longer shows "On hold" in place of the switch');
   assert.doesNotMatch(line, /Go online|Go offline/, 'a worded Go online button is back in place of the switch');

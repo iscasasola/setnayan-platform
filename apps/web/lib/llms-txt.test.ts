@@ -291,7 +291,7 @@ function withFeeFlag<T>(value: string | undefined, fn: () => T): T {
 
 /** The supplier-facing stretch: the tier table through "Answering couples". */
 function supplierSection(body: string): string {
-  const start = body.indexOf('## Supplier plans — Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
+  const start = body.indexOf('## Supplier plans — Free · Plus · Pro · Ultra');
   const end = body.indexOf('## Capabilities behind sign-in');
   assert.ok(start >= 0 && end > start, 'the supplier section moved — re-point this guard');
   return body.slice(start, end);

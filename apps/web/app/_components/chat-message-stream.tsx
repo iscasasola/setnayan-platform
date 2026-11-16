@@ -2040,6 +2040,7 @@ export function ChatMessageStream({
                               groupLabel={lockTarget.groupLabel}
                               vendorId={lockTarget.vendorId}
                               vendorName={counterpartyLabel}
+                              isVerified={lockTarget.notYetVerified ? false : undefined}
                               label={
                                 isLockHandshakeEnabled()
                                   ? `Ask ${counterpartyLabel} to confirm your booking`

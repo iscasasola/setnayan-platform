@@ -8,7 +8,9 @@ import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import {
+  SHOP_GIFT_EARNED_ONLY_CODE,
   SHOP_GIFT_KINDS,
+  SHOP_GIFT_PLAN_CODE,
   SHOP_GIFT_UNLOCK_CODE,
   freeByKind,
   judgeQuoteGifts,
@@ -39,8 +41,8 @@ export type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
  */
 export async function fetchShopGiftUnlockRows(
   admin: SupabaseClient,
+  codes: readonly string[] = Object.values(SHOP_GIFT_UNLOCK_CODE),
 ): Promise<Array<{ code: string; title: string; credits: number; pricePhp: number; giftPricePhp: number | null }> | null> {
-  const codes = Object.values(SHOP_GIFT_UNLOCK_CODE);
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
@@ -78,9 +80,17 @@ export async function fetchShopGiftUnlockRows(
  * 🔒 `admin` MUST be the service-role client — the gift price is withheld from a session (G6, see above).
  */
 export async function fetchShopGiftPacks(admin: SupabaseClient): Promise<ShopGiftPack[] | null> {
-  const [papic, unlocks] = await Promise.all([fetchShopPapicPacks(admin), fetchShopGiftUnlockRows(admin)]);
+  // 💎 Event Ultra (owner 15 Nov, Black Diamond's reward) is a pack a shop can PUT ON A QUOTE from its earned stock —
+  // never one it can buy: the buy door reads `fetchShopGiftUnlockRows` with its default (buyable) codes only.
+  const [papic, unlocks] = await Promise.all([
+    fetchShopPapicPacks(admin),
+    fetchShopGiftUnlockRows(admin, Object.values(SHOP_GIFT_PLAN_CODE)),
+  ]);
   return papic && unlocks ? shopGiftPacksFrom([...papic, ...unlocks]) : null;
 }
+
+/** The codes a shop holds only by earning them (Event Ultra) — for a buy list to leave out. */
+export const SHOP_GIFT_EARNED_ONLY_CODES: readonly string[] = Object.values(SHOP_GIFT_EARNED_ONLY_CODE);
 
 /**
  * The shop's gift stock, every kind: balance and what live quotes hold (Papic in credits, Event Plus / Pro in units).
@@ -156,13 +166,14 @@ export async function fetchEventGiftHolds(
   eventId: string,
   mode: 'owned' | 'active',
 ): Promise<EventHolds> {
-  const [hub, plus] = await Promise.all([
+  const holds = (code: string) =>
+    mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code);
+  const [ultra, hub, plus] = await Promise.all([
+    holds(SHOP_GIFT_PLAN_CODE.event_ultra),
     eventHubOwnership(admin, eventId, mode),
-    mode === 'active'
-      ? eventSkuActive(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus)
-      : eventOwnsSku(admin, eventId, SHOP_GIFT_UNLOCK_CODE.event_plus),
+    holds(SHOP_GIFT_PLAN_CODE.event_plus),
   ]);
-  return hub.full ? 'pro' : plus ? 'plus' : 'none';
+  return ultra ? 'ultra' : hub.full ? 'pro' : plus ? 'plus' : 'none';
 }
 
 /** One row of the supplier's "Bought" list, newest first. */
@@ -416,7 +427,7 @@ export async function deliverShopGiftsForBooking(
 }
 
 /**
- * 💎 Give the booking's Event Plus / Event Pro gifts to the couple's event (slice 2), beside the Papic door. What the
+ * 💎 Give the booking's Event Plus / Event Pro / Event Ultra gifts to the couple's event (slice 2), beside the Papic door. What the
  * event already holds is answered here by the full entitlement chain, approved only, and handed to the SQL door —
  * which upgrades a second Event Plus to Event Pro (owner 2026-11-05) and gives nothing to an event that already has
  * Event Pro (the unit stays in the shop's stock). Never throws; idempotent.
@@ -527,9 +538,10 @@ export type ShopGiftHoldRow = {
   status: string;
   /** Papic credits still promised. */
   credits: number;
-  /** Event Plus / Event Pro still promised. */
+  /** Event Plus / Event Pro / Event Ultra still promised. */
   plus: number;
   pro: number;
+  ultra: number;
 };
 
 /** Gift lines on quotes still live (sent · viewed · accepted), newest first (admin). Null on a read failure. */
@@ -584,10 +596,12 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
       credits: 0,
       plus: 0,
       pro: 0,
+      ultra: 0,
       key: `${r.vendor_profile_id}:${r.vendor_proposals?.event_id ?? ''}`,
     };
     if (r.gift_kind === 'event_plus') h.plus += r.credits;
     else if (r.gift_kind === 'event_pro') h.pro += r.credits;
+    else if (r.gift_kind === 'event_ultra') h.ultra += r.credits;
     else h.credits += r.credits;
     byQuote.set(r.proposal_id, h);
   }
@@ -596,7 +610,8 @@ export async function fetchShopGiftHolds(admin: SupabaseClient, limit = 100): Pr
       credits: Math.max(0, h.credits - (givenBy.get(`${key}:papic`) ?? 0)),
       plus: Math.max(0, h.plus - (givenBy.get(`${key}:event_plus`) ?? 0)),
       pro: Math.max(0, h.pro - (givenBy.get(`${key}:event_pro`) ?? 0)),
+      ultra: Math.max(0, h.ultra - (givenBy.get(`${key}:event_ultra`) ?? 0)),
     };
-    return left.credits + left.plus + left.pro > 0 ? [{ ...h, ...left }] : [];
+    return left.credits + left.plus + left.pro + left.ultra > 0 ? [{ ...h, ...left }] : [];
   });
 }

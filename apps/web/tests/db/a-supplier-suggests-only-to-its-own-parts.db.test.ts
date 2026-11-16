@@ -199,7 +199,8 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
       WHERE NOT COALESCE(marketplace_hidden, FALSE)
         AND (tile_id = 'filipiniana_barongs' OR 'filipiniana_barongs' = ANY (COALESCE(secondary_tiles, ARRAY[]::TEXT[])))`,
   )).rows.map((r) => r.k).sort();
-  assert.equal(fb.length, 10, `the cross-view should hold its ten services on the seed, got ${fb.length}`);
+  // Nine since T1 (20271349668764): `inc_modest_bridal` folded into `muslim_modest_bridal` ("Modest bridal (INC, Muslim)").
+  assert.equal(fb.length, 9, `the cross-view should hold its nine services on the seed, got ${fb.length}`);
   assert.deepEqual(fb, fbRows, 'inspiration_category_service_pairs() disagrees with the Filipiniana & Barongs rows');
   const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.inspiration_category_service_pairs()'::regprocedure) AS d`)).rows[0]!.d;
   assert.ok(!/filipiniana_terno|barong_tagalog_rental/.test(def), 'inspiration_category_service_pairs() names cross-view services by hand again — cross-list through secondary_tiles');

@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import type { ReactNode } from 'react';
@@ -662,7 +663,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
   // of them must never be guessed wrong. Encoded server-side; the fullscreen/print actions are a small client component.
   const reviewSlug = profile.business_slug;
   const reviewUrl = reviewSlug
-    ? `${SITE_URL}/v/${reviewSlug}/guest-review?event=${encodeURIComponent(booking.eventId)}`
+    ? `${SITE_URL}${shopPath(reviewSlug)}/guest-review?event=${encodeURIComponent(booking.eventId)}`
     : null;
   const reviewQrSvg = reviewUrl
     ? await QRCode.toString(reviewUrl, {

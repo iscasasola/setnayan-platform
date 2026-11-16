@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -278,7 +279,7 @@ export default async function ChapterDetailPage({ params }: Props) {
                     const promo = audienceRates.get(v.vendorProfileId) ?? null;
                     return (
                       <li key={v.vendorProfileId} className="uchap-vendor-cell">
-                        <Link href={`/v/${v.slug}`} className="uchap-vendor">
+                        <Link href={`${shopPath(v.slug)}`} className="uchap-vendor">
                           {v.logoUrl ? (
                             <span className="uchap-vendor-logo">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -317,7 +318,7 @@ export default async function ChapterDetailPage({ params }: Props) {
                             </p>
                           ) : null}
                           <Link
-                            href={`/v/${v.slug}?ref_chapter=${chapter.public_id}`}
+                            href={`${shopPath(v.slug)}?ref_chapter=${chapter.public_id}`}
                             className="uchap-vendor-book-cta"
                           >
                             Book through this chapter

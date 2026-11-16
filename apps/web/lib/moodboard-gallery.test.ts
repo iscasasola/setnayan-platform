@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
-import { WEDDING_TILE_LABEL } from './taxonomy';
+import { WEDDING_TILE_LABEL, forwardTile } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import {
   GALLERY_MAX_LIMIT,
@@ -64,7 +64,8 @@ test('a tile that resolves to NO canonical service would silently empty a picker
   for (const [slot, tiles] of Object.entries(MOODBOARD_SLOT_TRADES)) {
     for (const tile of tiles) {
       assert.ok(
-        canonicalServicesForTile(tile).length > 0,
+        // …once forwarded: a category T1 part 2 merged away is read as the one it went into.
+        canonicalServicesForTile(forwardTile(tile) as never).length > 0,
         `${slot} → ${tile} covers zero canonical services`,
       );
     }

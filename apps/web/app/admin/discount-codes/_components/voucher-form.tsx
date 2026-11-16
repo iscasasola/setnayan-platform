@@ -599,7 +599,7 @@ export function VoucherForm({
           {submitLabel}
         </SubmitButton>
         <Link
-          href="/admin/discount-codes"
+          href="/admin/studio?tab=discount-codes"
           className="text-sm underline-offset-2 hover:underline"
           style={{ color: 'var(--m-slate)' }}
         >

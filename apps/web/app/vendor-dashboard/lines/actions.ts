@@ -38,7 +38,7 @@ async function ownProfileOrRedirect() {
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=${BACK}`);
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard/verify');
+  if (!profile) redirect('/vendor-dashboard/profile#docs');
   return { supabase, profile };
 }
 

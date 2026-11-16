@@ -58,7 +58,8 @@ test('the Taglish/English switch and the help/article top bars press at 44', () 
     assert.ok(!/text-\[11px\][^"]*hrefLang|hrefLang[^>]*text-\[11px\]/.test(read(f)), `${f} carries its own 11px switch again — use LOCALE_SWITCH_CLASS`);
     assert.ok(read(f).includes('LOCALE_SWITCH_CLASS'), `${f} no longer uses LOCALE_SWITCH_CLASS`);
   }
-  for (const f of ['app/help/[slug]/page.tsx', 'app/blog/[slug]/page.tsx']) {
+  // app/blog/[slug]/page.tsx left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
+  for (const f of ['app/help/[slug]/page.tsx']) {
     const src = read(f);
     assert.ok(src.includes('className="-my-1.5 flex min-h-[44px] items-center text-ink"'), `${f}: the top-bar logo link is not 44px`);
     assert.ok(/sm:min-h-\[44px\]/.test(src), `${f}: the top-bar "All …" link is not 44px`);

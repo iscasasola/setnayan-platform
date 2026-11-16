@@ -98,6 +98,13 @@ export type PickedShellProps<P extends string> = {
   tours?: ReadonlyArray<{ id: P; tour: string }>;
   /** The side's own reading of a raw `?tab=` / legacy `#hash` (its alias table); absent = the page ids only. */
   pageOf?: (raw: string) => P | null;
+  /**
+   * ‹ A NAMED WAY BACK beside ✕ (owner rule "never lose the back button", DECISION_LOG 17 Nov). The SAME close, drawn
+   * as icon + word ("‹ Calendar"). CSS decides which one shows (`data-picked-close-as` is hidden unless a page's own
+   * rule shows it, as Clients does on a computer, `supplier-frame.css`). Absent = only today's ✕, unchanged: the couple
+   * side never passes it.
+   */
+  closeAs?: { label: string; icon: LucideIcon } | null;
 };
 
 export function PickedShell<P extends string>({
@@ -117,6 +124,7 @@ export function PickedShell<P extends string>({
   badges = {},
   tours = [],
   pageOf,
+  closeAs = null,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -357,6 +365,9 @@ export function PickedShell<P extends string>({
             <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
+          ) : null}
+          {closeAs ? (
+            <ActionButton tone="neutral" icon={closeAs.icon} label={closeAs.label} onClick={close} data-testid="picked-close-as" data-picked-close-as="" />
           ) : null}
           <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} data-testid="picked-close" />
         </div>

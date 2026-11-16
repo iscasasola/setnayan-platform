@@ -224,3 +224,20 @@
     bottom: 0;
   }
 }
+
+/* ‹ The named way back ("‹ Calendar", owner 17 Nov — "never lose the back button"). The shell draws it beside ✕ only
+   when a side asks (`closeAs`); it is hidden everywhere unless shown here — over the Clients month from 1280, the same
+   place the event spans columns 2 + 3 — where it replaces ✕ (both run the one close). */
+/* (0,2,0) — above the button's own one-class `display` utility, whichever stylesheet loads last. */
+[data-picked-client] [data-picked-close-as] {
+  display: none;
+}
+@media (min-width: 1280px) {
+  html:has([data-dates-month='clients']) [data-picked-client] [data-picked-close-as] {
+    display: inline-flex;
+    order: -1;
+  }
+  html:has([data-dates-month='clients']) [data-picked-client] [data-testid='picked-close'] {
+    display: none;
+  }
+}

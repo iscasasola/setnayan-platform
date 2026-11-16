@@ -21,9 +21,11 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 test('(1) the sign-up kind is read, listed as covered, and never asked about', () => {
   const ctx = read('lib/service-card-maker.server.ts');
   assert.match(ctx, /from\('vendor_profiles'\)\.select\('tier_state, is_founder, services'\)/, 'the sign-up services are not read');
-  assert.match(ctx, /const signupLeaves = \(tierRow\?\.services \?\? \[\]\)\.filter\(/);
-  assert.match(ctx, /leaves\.label\.has\(s\)/, 'a sign-up service that is no live leaf would be offered');
-  assert.match(ctx, /const coveredLeafSet = new Set\(\[\.\.\.vendorCoverages\.map\(\(c\) => c\.canonical_service\), \.\.\.signupLeaves\]\);/, 'the sign-up kind is asked about again');
+  /* Re-aimed 2026-11-16 (walk step 3): the sign-up entries resolve through `signupCoveredLeaves` — the coarse one too
+     (lib/the-signup-service-is-never-asked.test.ts tests that rule on every coarse category). */
+  assert.match(ctx, /const signup = signupCoveredLeaves\(tierRow\?\.services, leaves, /);
+  assert.match(ctx, /const signupLeaves = signup\.listed;/, 'a sign-up service that is no live leaf would be offered');
+  assert.match(ctx, /const coveredLeafSet = new Set\(\[\.\.\.vendorCoverages\.map\(\(c\) => c\.canonical_service\), \.\.\.signup\.covered\]\);/, 'the sign-up kind is asked about again');
   assert.match(ctx, /coverageKindOptions\.push\(\.\.\.signupKindOptions\);/, 'the sign-up kind is not listed under "What you cover"');
   /* The rule that decides the question: a covered leaf is never asked. */
   const leaves = { label: new Map([['florals', 'Florals']]), folder: new Map([['florals', 'flowers']]) } as unknown as Parameters<typeof coverageAskFor>[1];

@@ -241,6 +241,44 @@ export function coverageLeafForKind(kind: string, leaves: LeafIndex): string | n
 }
 
 /**
+ * 🧰 THE SERVICES PICKED AT SIGN-UP, AS LEAVES (cut 3, widened 2026-11-16 — walk step 3 "Add Florals to what you do?").
+ *
+ * Sign-up stores `vendor_profiles.services` as the COARSE category first, then the picked leaf
+ * (`app/open-shop/actions.ts`: `[coarseService, pickedLeaf, ...added]`). Reading only the entries that are themselves
+ * live leaves dropped the coarse one, while a card of that coarse kind resolves through `coverageLeafForKind` to its
+ * tile's leaf — so the shop was asked to "add" the very service it signed up with. Every entry now goes through the
+ * SAME resolution the question uses:
+ *
+ *   · `covered` — every leaf a sign-up entry resolves to (never asked about);
+ *   · `listed`  — what "What you cover" shows: the entries that ARE live leaves; only when there are none, the leaves
+ *                 the coarse entries resolve to (so a coarse-only shop still opens on its own service, and a shop that
+ *                 picked a leaf is not shown a second, broader row beside it).
+ *
+ * Coverage rows are left out of both (they are listed and counted already). Read only — nothing is written.
+ */
+export function signupCoveredLeaves(
+  services: readonly string[] | null | undefined,
+  leaves: LeafIndex,
+  coverageLeaves: ReadonlySet<string>,
+): { listed: string[]; covered: string[] } {
+  const direct: string[] = [];
+  const viaCoarse: string[] = [];
+  for (const s of services ?? []) {
+    if (!s) continue;
+    const isLeaf = leaves.label.has(s);
+    const leaf = isLeaf ? s : coverageLeafForKind(s, leaves);
+    if (!leaf || coverageLeaves.has(leaf)) continue;
+    if (direct.includes(leaf)) continue;
+    if (isLeaf) {
+      const at = viaCoarse.indexOf(leaf);
+      if (at >= 0) viaCoarse.splice(at, 1);
+      direct.push(leaf);
+    } else if (!viaCoarse.includes(leaf)) viaCoarse.push(leaf);
+  }
+  return { listed: direct.length > 0 ? direct : viaCoarse, covered: [...direct, ...viaCoarse] };
+}
+
+/**
  * Does creating a card of this kind ask the 🏷 question? Only when the kind resolves to a leaf the shop does NOT
  * already cover. Returns the leaf to add (and its label) or null.
  */

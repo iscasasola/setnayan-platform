@@ -11157,3 +11157,13 @@ html[data-tour-running] [data-notice-slot='top'] {
   }
 }
 
+
+/* 🧰 THE CARD MAKER'S FIELDS NEVER SIT UNDER ITS CANCEL · CREATE ROW (walk step 3, 2026-11-16). The row is fixed at the
+   foot of the screen (`supplier-thumb-row.tsx`, ~130 px from the bottom edge with its gap), so a field brought into
+   view — focused, typed into, a new line added — must stop above it, on the page and inside Today's New service
+   sheet alike. scroll-padding on the box that scrolls does it for every field at once.
+   🔒 app/vendor-dashboard/services/the-maker-fields-clear-the-bar.test.ts */
+html:has([data-card-maker]),
+[data-sheet-panel] > .overflow-y-auto:has([data-card-maker]) {
+  scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
+}

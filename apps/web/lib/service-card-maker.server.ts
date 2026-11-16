@@ -26,6 +26,7 @@ import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import {
   coverageAskFor,
+  signupCoveredLeaves,
   supplierTypeForShop,
   type SupplierType,
 } from '@/lib/service-card-maker';
@@ -87,6 +88,12 @@ export type MakerContext = {
    * nothing were there. The picker says so and offers nothing (`AddServicePicker`).
    */
   ownKinds: string[] | null;
+  /**
+   * 🧰 The services the shop already does — its coverage rows and the services picked at sign-up, as live leaves (the
+   * "What you cover" rows the maker lists, in that order). The Add-a-service picker opens with the ones that have no
+   * card yet already picked (walk step 3, 2026-11-16: "open on the shop's own service(s) first").
+   */
+  shopServices: string[];
   /**
    * A card's bookings per date, inside the plan (owner 2026-11-06): `cap` = the plan's number plus any bought
    * "+1 booking per date"; `help` = the words beside the field. Set on every plan (Free · Verified 1, owner 2026-11-06);
@@ -167,10 +174,11 @@ export async function loadMakerContext(
      when services were ADDED), so the maker opened on the whole catalogue and then asked "Add Florals to what you
      do?". Its live leaves now stand beside the coverage rows: listed under "What you cover", pre-picked when it is
      the shop's one kind, and never asked about. Nothing is written — the read only. */
-  const signupLeaves = (tierRow?.services ?? []).filter(
-    (s, i, all) => leaves.label.has(s) && all.indexOf(s) === i && !vendorCoverages.some((c) => c.canonical_service === s),
-  );
-  const coveredLeafSet = new Set([...vendorCoverages.map((c) => c.canonical_service), ...signupLeaves]);
+  /* 🧰 …and the coarse category sign-up stores FIRST counts too (walk step 3, 2026-11-16): each entry resolves through
+     `coverageLeafForKind`, the same rule the question asks with (`signupCoveredLeaves`). */
+  const signup = signupCoveredLeaves(tierRow?.services, leaves, new Set(vendorCoverages.map((c) => c.canonical_service)));
+  const signupLeaves = signup.listed;
+  const coveredLeafSet = new Set([...vendorCoverages.map((c) => c.canonical_service), ...signup.covered]);
   const existingParents = new Set<string>([
     ...ownCategories.flatMap((c) => parentsOfKind(c, leaves)),
     ...[...coveredLeafSet].map((l) => leaves.folder.get(l)).filter((f): f is string => Boolean(f)),
@@ -351,6 +359,7 @@ export async function loadMakerContext(
     leaves,
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
     ownKinds: ownRowsRes.error ? null : Array.from(new Set(ownCategories)),
+    shopServices: coveredChoices.map((o) => o.value),
     bookingsPerDate,
     kindLabel,
     giftPacks,

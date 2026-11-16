@@ -14,7 +14,7 @@ import {
   type SpecialtyField,
   type SpecialtyPicks,
 } from '@/app/open-shop/_components/service-cards';
-import { cardMakerQueueHref, CARD_QUEUE_MAX } from '@/lib/card-queue';
+import { cardMakerQueueHref, CARD_QUEUE_MAX, shopServicesPicked } from '@/lib/card-queue';
 import { countNoun } from '@/lib/format-number';
 
 /**
@@ -35,6 +35,10 @@ import { countNoun } from '@/lib/format-number';
  *     Details fold, and are saved only with that card;
  *   · 📏 THE PLAN METER — the sign-up's own line (`CoverageMeter`): the shop's services plus the new ones, the plan that
  *     holds them named from `TIER_CAPS` (never a typed number). A meter, not a gate — nothing here refuses a pick;
+ *   · 🧰 IT OPENS ON THE SHOP'S OWN SERVICES (walk step 3, 2026-11-16): the services the shop already does
+ *     (`shopServices` — its coverages and what it picked at sign-up) that have no card yet arrive ALREADY PICKED, so a
+ *     florist who signed up as a florist sees "Florals · Make 1 card" first, never the whole catalogue venues-first. The
+ *     catalogue stays right under them; the house swipe removes a pick. Nothing is written for a pick;
  *   · 🔒 HONEST READS — if the shop's own services could not be read (`onShop === null`) the picker is NOT drawn: it
  *     says so, with Try again, rather than offer what may already be on the shop as if nothing were there. If the tree
  *     could not be read (`tree` empty — the live taxonomy is never empty) it says so too, never a blank picker.
@@ -46,6 +50,7 @@ export function AddServicePicker({
   tree,
   specialties = {},
   onShop,
+  shopServices = [],
   maker,
   startOnMaker = false,
 }: {
@@ -54,12 +59,16 @@ export function AddServicePicker({
   specialties?: Record<string, SpecialtyField[]>;
   /** Service keys that already have a card on this shop — `null` = that read was refused (said, never shown as none). */
   onShop: readonly string[] | null;
+  /** The services the shop already does (`MakerContext.shopServices`) — the ones with no card yet open already picked. */
+  shopServices?: readonly string[];
   /** The shipped Card Maker, drawn — the blank-card door. */
   maker: ReactNode;
   startOnMaker?: boolean;
 }) {
   const router = useRouter();
-  const [picked, setPicked] = useState<{ key: string; label: string; path: string }[]>([]);
+  const [picked, setPicked] = useState<{ key: string; label: string; path: string }[]>(() =>
+    shopServicesPicked(tree, shopServices, onShop),
+  );
   const [showMaker, setShowMaker] = useState(startOnMaker);
   const [going, setGoing] = useState(false);
   const [picks, setPicks] = useState<SpecialtyPicks>({});
@@ -223,3 +232,4 @@ export function AddServicePicker({
     </div>
   );
 }
+

@@ -21,6 +21,8 @@
  *   &host=add                     ➕ the dashboard's New service as it opens now (ruling 5820): THE ONE Add-a-service picker
  *                                 on this lab's tree, the shop's own card kinds "On your shop", "Make N cards", the maker
  *                                 behind "Start a blank card"; each pick's "+ Specialties (optional)" and the plan meter
+ *   &host=add&cards=0             🧰 …for a shop with NO cards yet: its own services (what it signed up with) open already
+ *                                 picked, the catalogue under them (walk step 3, 2026-11-16)
  *   &host=add&read=shop           🔒 …when the shop's own services could not be read: the line + Try again, no picker
  *   &host=add&read=tree           🔒 …when the service list could not be read: the line + Try again, never a blank picker
  *   &portfolio=albums|none|unread 🃏📸 the edit sheet's Portfolio fold as it reads with the card-record flag ON (frames 72 · 74 · 75):
@@ -434,7 +436,8 @@ export default async function CardMakerLabPage({
         <AddServicePicker
           tree={sp.read === 'tree' ? [] : pickerTree}
           specialties={LAB_PICKER_SPECIALTIES}
-          onShop={sp.read === 'shop' ? null : shop.covered.map((c) => c.value)}
+          onShop={sp.read === 'shop' ? null : sp.cards === '0' ? [] : shop.covered.map((c) => c.value)}
+          shopServices={shop.covered.map((c) => c.value)}
           maker={maker}
         />
       </div>

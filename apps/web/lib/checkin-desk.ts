@@ -179,7 +179,7 @@ export type BoardLine = {
 
 export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
-  const letters = (words.length > 1 ? [words[0], words[words.length - 1]] : words).map((w) => w[0] ?? '');
+  const letters = (words.length > 1 ? [words[0], words[words.length - 1]] : words).map((w) => w?.[0] ?? '');
   return letters.join('').toUpperCase() || '·';
 }
 

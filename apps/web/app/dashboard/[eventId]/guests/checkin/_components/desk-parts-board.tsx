@@ -5,6 +5,8 @@
  */
 import type { BoardLine, TeamLine } from '@/lib/checkin-desk';
 import { ARRIVAL_VERDICT_WORD } from '@/lib/checkin-desk';
+import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
 
 const verdictTone: Record<BoardLine['verdict'], string> = {
   on_time: 'bg-success-50 text-success-800',
@@ -29,17 +31,16 @@ export function SuppliersPart({ lines, here, unread }: { lines: readonly BoardLi
   return (
     <section aria-label="Suppliers" className="rounded-2xl bg-[var(--m-paper-2)] px-4 py-3">
       <div className="flex min-h-9 items-center gap-2">
-        <h2 className="text-base font-semibold text-ink">Suppliers</h2>
+        <InfoTip label="Suppliers" labelAs="h2" labelClassName="text-base font-semibold text-ink" align="start">
+          Each supplier marks &ldquo;On site&rdquo;. The desk checks it against the time they said they arrive, and
+          &ldquo;Packed up&rdquo; against when they said they are done.
+        </InfoTip>
         {lines.length ? (
           <span className="rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-bold text-success-800">
-            {here} of {lines.length} here
+            {formatCount(here)} of {formatCount(lines.length)} here
           </span>
         ) : null}
       </div>
-      <p className="text-sm text-ink/70">
-        Each supplier marks &ldquo;On site&rdquo;. The desk checks it against the time they said they arrive, and
-        &ldquo;Packed up&rdquo; against when they said they are done.
-      </p>
       {unread ? (
         <p className="mt-2 text-sm text-warn-800">Couldn&rsquo;t load your suppliers&rsquo; updates just now — this refreshes on its own.</p>
       ) : lines.length === 0 ? (
@@ -70,7 +71,7 @@ export function TeamPart({ lines, unread }: { lines: readonly TeamLine[]; unread
       <div className="flex min-h-9 items-center gap-2">
         <h2 className="text-base font-semibold text-ink">On the desk</h2>
         <span className="rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-bold text-success-800">
-          {lines.length}
+          {formatCount(lines.length)}
         </span>
       </div>
       {unread ? (

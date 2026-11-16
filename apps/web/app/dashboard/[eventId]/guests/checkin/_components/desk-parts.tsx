@@ -15,6 +15,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { Settings } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SidePanel } from '@/app/_components/side-panel';
+import { ActionButton } from '@/components/action-button';
 import {
   DESK_PARTS,
   DESK_PART_LABEL,
@@ -73,14 +74,7 @@ export function DeskParts({
         {parts.length > 1 ? <span className="text-xs text-ink/70">{partsWords(parts)}</span> : null}
         <span className="flex-1" />
         {isHost ? (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Who runs the desk"
-            className="grid h-11 w-11 place-items-center rounded-full bg-ink/5 text-ink hover:bg-ink/10"
-          >
-            <Settings aria-hidden className="h-5 w-5" strokeWidth={1.9} />
-          </button>
+          <ActionButton tone="neutral" icon={Settings} iconOnly label="Who runs the desk" onClick={() => setOpen(true)} />
         ) : null}
       </div>
 

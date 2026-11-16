@@ -32,6 +32,7 @@
 /dev/chat-cards-c-lab	# first run 2026-11-09 · internal (dev, prototypes) · lane C card lab; 404 in production, reached only by typing its address
 /dev/chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/check-a-date-lab	# 2026-11-14 · internal (dev, prototypes) · SHOP-02 v7 Check a date over a drawn shop, fixture data; 404 in production, reached only by typing its address
+/dev/checkin-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/clients-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/collapsing-top-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

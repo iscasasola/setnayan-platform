@@ -15,7 +15,7 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('RW-22 · the supplier record an inquiry writes carries the thread’s source', () => {
   const src = code('app/v/[slug]/inquiry-actions.ts');
-  assert.match(src, /\.from\('chat_threads'\)\s*\.select\('inquiry_source'\)\s*\.eq\('thread_id', threadId\)/);
+  assert.match(src, /\.from\('chat_threads'\)\s*\.select\('inquiry_source(?:, inquiry_via, inquiry_utm)?'\)\s*\.eq\('thread_id', threadId\)/);
   assert.match(src, /\.\.\.\(threadSource \? \{ source: threadSource \} : \{\}\)/, 'the insert carries it');
   assert.match(src, /if \(!\(evRow as \{ source\?: string \| null \}\)\.source && threadSource\) patch\.source = threadSource;/, 'an existing row only while empty');
   const page = code('app/vendor-dashboard/clients/[eventId]/page.tsx');

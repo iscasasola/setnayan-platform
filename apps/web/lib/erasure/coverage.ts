@@ -1458,6 +1458,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s own asks for an event type we do not have (“Can’t find yours? Ask us to add it”, 2026-10-28) — what they typed, theirs alone; no audit, money or shared-record role. The type an admin made from it lives on in event_type_vocab, which carries no trace of who asked.',
   },
   {
+    table: 'signup_attributions',
+    column: 'user_id',
+    why: '🏷 Which shop and printed piece brought the subject’s sign-up (owner 2026-11-16, migration 20271349425906) — one row about this person and nobody else; CASCADE on auth.users covers a hard delete, this is the erasure half. The shop keeps nothing but the aggregate count it already lost the row for.',
+  },
+  {
     table: 'notifications',
     column: 'user_id',
     why: 'The subject’s own notification feed — titles/bodies quote payment amounts and deep-link into their dashboard.',

@@ -60,5 +60,7 @@ test('the eight doors that sent no origin now send one', () => {
     assert.doesNotMatch(src, /<(?:Link|a)\s+href=\{`\/v\/\$\{[\w.]+\}`\}/, `${f}: a bare /v/<slug> link is back`);
   }
   // The shop page reads both new halves of the arrival.
-  assert.match(code('app/v/[slug]/page.tsx'), /q: arrivalParams\(search\)\.q, from: arrivalParams\(search\)\.from \}/);
+  // (2026-11-16: read once into `arrivalTags`, which also carries the material tag — lib/material-tags.ts.)
+  assert.match(code('app/v/[slug]/page.tsx'), /const arrivalTags = arrivalParams\(search\);/);
+  assert.match(code('app/v/[slug]/page.tsx'), /q: arrivalTags\.q, from: arrivalTags\.from,/);
 });

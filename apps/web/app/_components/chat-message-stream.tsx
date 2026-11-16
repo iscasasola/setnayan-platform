@@ -89,7 +89,7 @@ import {
 import { ChatPins } from './chat/chat-pins';
 import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
 import { PlusDraft } from './chat/plus-draft';
-import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
+import { MONEY_STEP_ANCHOR, pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
 import { HOSTS_ONLY } from '@/lib/money-mask';
 import { PLUS_CARD_TITLE, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
@@ -2140,7 +2140,8 @@ export function ChatMessageStream({
                       card.status === 'accepted' &&
                       bookedStep &&
                       bookedStep.kind !== 'not_booked' ? (
-                        <div className="mt-3 space-y-2 border-t border-terracotta/20 pt-2">
+                        // 💳 The money pins jump here ("Due now · Answer ›", CHAT-27).
+                        <div id={MONEY_STEP_ANCHOR} className="mt-3 scroll-mt-3 space-y-2 border-t border-terracotta/20 pt-2">
                           <p className="text-sm font-medium text-ink">
                             {moneyStepLine(bookedStep, viewerRole, counterpartyLabel)}
                           </p>

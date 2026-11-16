@@ -7,9 +7,15 @@ import { quoteSummary, type QuoteCard } from '@/lib/shop-quote';
 
 /**
  * 🧾 THE QUOTE ON THE SHOP PAGE (v16 S3) — the card's two buttons and the tray. State lives in `ServicesGallery` (one
- * list, in the order picked); both Inquire doors are the page's own `#get-in-touch` links, which the ONE Inquire
- * pop-up catches (inquire-sheet.tsx) and opens with the named services picked — no second inquiry path, no new server
- * action. Words and order are v16's (`.sc .ft`, `.dock .q`).
+ * list, in the order picked) and is mirrored where the ONE Inquire reads it (`shop-quote-store.ts`).
+ *
+ * 🔑 ONE INQUIRE (owner 13 Nov, "Yes, only one" — `one-inquire-button.test.ts`). v16 draws "Inquire" on each card and in
+ * the dock; on the shipped page the dock's Inquire IS the page's one Inquire, which already floats on a phone, and a
+ * card's door already reads "Choose this service" (the grown card's words). So this realigns, never adds a second:
+ *   · the card's door says "Choose this service" — a `#get-in-touch` link the pop-up catches, this card picked;
+ *   · the tray is v16's `.dock .q` — "N services · from ₱X", the names and Clear — and the page's one Inquire, floating
+ *     beside it, opens with every service in the quote picked.
+ * No second inquiry path and no new server action.
  */
 export function CardQuoteActions({ card, inQuote, onToggle }: { card: { id: string; label: string }; inQuote: boolean; onToggle: () => void }) {
   return (
@@ -28,17 +34,17 @@ export function CardQuoteActions({ card, inQuote, onToggle }: { card: { id: stri
         href="#get-in-touch"
         // The shop's Inquire pop-up catches this press and opens with THIS card picked.
         data-inquire-service={card.id}
-        aria-label={`Inquire about ${card.label}`}
+        aria-label={`Choose ${card.label}`}
         className={actionButtonClass('neutral', { quiet: true, extra: 'w-full justify-center !min-h-11' })}
       >
         <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Inquire
+        Choose this service
       </a>
     </div>
   );
 }
 
-/** The tray: what is in the quote, Clear, and Inquire for exactly those services. Drawn only while something is in it. */
+/** The tray (v16 `.dock .q`): what is in the quote, and Clear. Drawn only while something is in it. */
 export function QuoteTray({ picked, cards, onClear }: { picked: readonly string[]; cards: readonly QuoteCard[]; onClear: () => void }) {
   const sum = quoteSummary(picked, cards);
   const trayRef = useRef<HTMLDivElement | null>(null);
@@ -61,27 +67,18 @@ export function QuoteTray({ picked, cards, onClear }: { picked: readonly string[
       role="region"
       aria-label="Your quote"
       data-quote-tray=""
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-page/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur"
+      // z-20: under the page's one Inquire, which floats over the tray's right end on a phone (`max-md:z-30`); the
+      // tray leaves that end clear for it (`max-md:pr-40`).
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-page/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur max-md:min-h-[4.75rem] max-md:pr-40"
     >
-      <div className="mx-auto grid w-full max-w-3xl gap-2">
-        <div className="flex items-center justify-between gap-3 text-sm" aria-live="polite">
-          <p className="min-w-0">
-            <b className="font-semibold text-ink" data-quote-head="">{sum.head}</b>{' '}
-            <span className="text-ink/65" data-quote-names="">{sum.names}</span>
-          </p>
-          <button type="button" onClick={onClear} className="min-h-11 shrink-0 font-semibold text-sn-accent">
-            Clear
-          </button>
-        </div>
-        <a
-          href="#get-in-touch"
-          // Every picked service, in the order picked: the pop-up opens with all of them chosen.
-          data-inquire-service={picked.join(',')}
-          className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
-        >
-          <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Inquire
-        </a>
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 text-sm" aria-live="polite">
+        <p className="min-w-0">
+          <b className="font-semibold text-ink" data-quote-head="">{sum.head}</b>{' '}
+          <span className="text-ink/65" data-quote-names="">{sum.names}</span>
+        </p>
+        <button type="button" onClick={onClear} className="min-h-11 shrink-0 font-semibold text-sn-accent">
+          Clear
+        </button>
       </div>
     </div>
   );

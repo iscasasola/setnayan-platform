@@ -35,6 +35,7 @@ import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
 import { CardQuoteActions, QuoteTray } from './shop-quote';
+import { setShopQuote } from './shop-quote-store';
 import { toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 
 export type ServiceGroup = {
@@ -196,6 +197,10 @@ export function ServicesGallery({
 
   // 🧾 The quote — on the device only, in the order picked (prototype `ST.svc`); the tray's Inquire sends it.
   const [picked, setPicked] = useState<string[]>([]);
+  // The ONE Inquire reads the quote when its button names no card (v16 `inquire()` opens with the quote picked).
+  useEffect(() => {
+    setShopQuote(picked);
+  }, [picked]);
 
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;

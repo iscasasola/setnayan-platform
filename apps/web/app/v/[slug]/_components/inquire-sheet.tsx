@@ -8,6 +8,7 @@ import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { startServiceInquiry, type StartServiceInquiryResult } from '@/app/v/[slug]/inquiry-actions';
+import { shopQuote } from './shop-quote-store';
 import {
   INQUIRE_UNDO_MS,
   inquireClearedHref,
@@ -109,10 +110,11 @@ export function InquireSheet({
       const a = (e.target as Element | null)?.closest?.('a[href="#get-in-touch"]');
       if (!a) return;
       e.preventDefault();
-      // A service card's "Choose this service" / "Inquire" names its card, so the pop-up opens with it picked; the
-      // quote tray names every card in the quote, comma-separated, in the order picked (v16 S3).
+      // A service card's "Choose this service" names its card, so the pop-up opens with it picked.
       const svc = a.getAttribute('data-inquire-service');
-      const picks = svc ? svc.split(',').filter(Boolean) : undefined;
+      // The page's one Inquire names no card: it opens with the couple's quote picked, when there is one (v16 S3).
+      const quoted = shopQuote();
+      const picks = svc ? [svc] : quoted.length > 0 ? [...quoted] : undefined;
       if (!signedIn) {
         // The sign-in sheet first; the ask waits in the address (a Google sign-in comes back to it).
         window.history.replaceState(window.history.state, '', inquireResumeHref(window.location.href, picks ?? []));

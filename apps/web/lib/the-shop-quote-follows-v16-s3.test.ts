@@ -24,11 +24,12 @@ const CARDS = [
   { id: 'c', label: 'Drone', fromPhp: null },
 ];
 
-// Sabotage: drop the toggle's aria-pressed / rename "Add to quote" / point Inquire at no card → red.
-test('each card: "Add to quote" (pressed → "In your quote") and "Inquire" for that card', () => {
+// Sabotage: drop the toggle's aria-pressed / rename "Add to quote" / point the card's door at no card → red.
+test('each card: "Add to quote" (pressed → "In your quote") and "Choose this service" for that card', () => {
   assert.match(QUOTE, /onClick=\{onToggle\}\s*aria-pressed=\{inQuote\}/);
   assert.match(QUOTE, /\{inQuote \? 'In your quote' : 'Add to quote'\}/);
-  assert.match(QUOTE, /<a\s+href="#get-in-touch"\s+data-inquire-service=\{card\.id\}[\s\S]{0,300}Inquire\s*<\/a>/);
+  // 13 Nov "Yes, only one": the card's door into the ONE Inquire reads the shipped words, never a second "Inquire".
+  assert.match(QUOTE, /<a\s+href="#get-in-touch"\s+data-inquire-service=\{card\.id\}[\s\S]{0,300}Choose this service\s*<\/a>/);
   assert.match(GALLERY, /\{quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
   assert.match(GALLERY, /data-in-quote=\{picked\.includes\(c\.id\) \? '' : undefined\}/, 'a card in the quote is not marked');
 });
@@ -52,11 +53,14 @@ test('the sum reads the same starting price the card shows (`starting_price_php`
   assert.match(PAGE, /fromPhp: row \? quotePriceOf\(row, props\.hidePrices\) : null/);
 });
 
-// Sabotage: send the tray through a new action / drop Clear / name only the first pick → red.
-test('the tray: Clear, and ONE Inquire for every service in the quote — through the shop’s one Inquire pop-up', () => {
+// Sabotage: give the tray its own Inquire / drop Clear / stop the one Inquire reading the quote → red.
+test('the tray is v16’s `.dock .q` (count, names, Clear); the page’s ONE Inquire opens with every service in the quote', () => {
   assert.match(QUOTE, /<button type="button" onClick=\{onClear\}[^>]*>\s*Clear\s*<\/button>/);
-  assert.match(QUOTE, /data-inquire-service=\{picked\.join\(','\)\}/);
-  assert.match(SHEET, /const picks = svc \? svc\.split\(','\)\.filter\(Boolean\) : undefined;/, 'the pop-up does not open with every pick');
+  const tray = QUOTE.slice(QUOTE.indexOf('export function QuoteTray'));
+  assert.doesNotMatch(tray, /get-in-touch|Inquire/, 'the tray grew a second Inquire');
+  assert.match(GALLERY, /useEffect\(\(\) => \{\s*setShopQuote\(picked\);\s*\}, \[picked\]\);/);
+  assert.match(SHEET, /const quoted = shopQuote\(\);\s*const picks = svc \? \[svc\] : quoted\.length > 0 \? \[\.\.\.quoted\] : undefined;/, 'the one Inquire does not open with the quote');
+  assert.match(QUOTE, /className="fixed inset-x-0 bottom-0 z-20[^"]*max-md:pr-40"/, 'the tray covers the floating Inquire on a phone');
   assert.doesNotMatch(QUOTE, /from '@\/app\/[^']*actions'|'use server'|startServiceInquiry/, 'the quote has its own send');
   assert.match(GALLERY, /\{quote \? <QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} \/> : null\}/);
 });

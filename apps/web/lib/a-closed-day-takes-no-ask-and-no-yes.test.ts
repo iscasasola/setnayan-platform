@@ -136,7 +136,7 @@ function stubAdmin() {
   b.select = () => b;
   b.eq = () => b;
   b.maybeSingle = async () => ({
-    data: { verification_state: 'verified', public_visibility: 'verified', fraud_suspended_at: null, fraud_banned_at: null },
+    data: { verification_state: 'verified', public_visibility: 'verified', fraud_suspended_at: null, fraud_banned_at: null, paused_at: null },
     error: null,
   });
   return { from: () => b, rpc: async () => ({ data: null, error: null }) } as unknown as SupabaseClient;

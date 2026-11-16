@@ -1605,7 +1605,6 @@ export function FrontDoorShell({
                     the-app-footer-names-no-paid-door.test.ts. */}
                 <Link href="/pricing" data-web-only="">Pricing</Link>
                 <Link href="/help">Help</Link>
-                <Link href="/blog">Articles</Link>
                 {/*
                   🔴 DOWNLOAD (AND REFUNDS) LIVE HERE BECAUSE THE CONVERSION TOOK THE FOOTER AWAY AND
                   NOBODY MEASURED IT. Leaving `NAV_ROUTES` also leaves

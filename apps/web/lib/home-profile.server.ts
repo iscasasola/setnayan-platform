@@ -79,11 +79,12 @@ export async function readHomeHandle(userId: string): Promise<HomeHandle> {
       after(async () => {
         try {
           const db = await createClient();
-          await db
+          const { error: stampError } = await db
             .from('users')
             .update({ username_minted_seen_at: new Date().toISOString() })
             .eq('user_id', userId)
             .is('username_minted_seen_at', null);
+          if (stampError) logQueryError('Home.readHomeHandle · seen stamp', stampError, {}, 'graceful_degrade');
         } catch {
           // A missed stamp shows the line once more — never an error.
         }

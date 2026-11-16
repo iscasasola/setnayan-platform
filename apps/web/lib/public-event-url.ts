@@ -40,7 +40,9 @@ export function isUserNestingCutoverEnabled(): boolean {
  *   • cutover ON  + ownerSlug known → `/{ownerSlug}/{slug}` (the address move, 2026-11-15 — was `/u/{ownerSlug}/{slug}`)
  *   • cutover OFF or ownerSlug null → `/{slug}` (legacy bare root)
  */
-export function publicEventPath(slug: string, ownerSlug?: string | null): string {
+export function publicEventPath(slug: string | null | undefined, ownerSlug?: string | null): string {
+  // A missing slug reads exactly as the hand-typed `/${slug}` it replaced did — callers already guard it.
+  if (!slug) return `/${slug ?? ''}`;
   const owner = ownerSlug?.trim();
   // 🔗 THE ADDRESS MOVE (owner 2026-11-15): `/{username}/{event}` — no `/u/`. An event whose own word is one of an
   // event's / shop's page words keeps the bare address (`nestableEventSlug`): its nested form could never be told

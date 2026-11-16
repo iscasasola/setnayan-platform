@@ -48,6 +48,7 @@
  * Every other eligible event goes on the SECOND, region first, then soonest.
  * An event never appears on both.
  */
+import { publicEventPath } from '@/lib/public-event-url';
 import { listablePublicly } from './event-visibility';
 import { resolveEffectiveVisibility } from './launch-save-the-date';
 import { isFinishedEvent } from './event-board';
@@ -359,7 +360,7 @@ function toCard(
   const mono = (e.monogram_text ?? '').trim();
   return {
     key: e.event_id,
-    href: `/${e.slug}`,
+    href: `${publicEventPath(e.slug)}`,
     title,
     typeLabel: e.event_type ? (input.typeLabels?.get(e.event_type) ?? null) : null,
     datePlate: datePlate(e.event_date, e.event_date_precision, input.todayISO),

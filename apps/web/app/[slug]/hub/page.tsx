@@ -73,7 +73,7 @@ import {
 } from '@/lib/watch-live-links';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
-import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { resolveEventOwnerSlug, publicEventPath } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { DirectionsMenu } from '@/app/_components/nav-links';
 import { venueIsOpen } from '@/lib/venue-disclosure';
@@ -694,7 +694,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const header = (
     <div className="mx-auto flex max-w-md items-center justify-between gap-3">
       <Link
-        href={`/${event.slug}`}
+        href={`${publicEventPath(event.slug)}`}
         aria-label="Back to the event page"
         className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-cream text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
       >
@@ -758,7 +758,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             {seatLabel ?? (seatingPublished ? (seatUnreadable ? 'Couldn’t load your seat' : 'Not yet assigned') : 'On the day')}
           </h3>
           {!seatLabel && seatingPublished && seatUnreadable ? (
-            <Link href={`/${event.slug}/hub`} className="inline-flex min-h-11 items-center text-sm text-terracotta underline-offset-2 hover:underline">
+            <Link href={`${publicEventPath(event.slug)}/hub`} className="inline-flex min-h-11 items-center text-sm text-terracotta underline-offset-2 hover:underline">
               Reload
             </Link>
           ) : arrived && seatLabel ? (
@@ -767,7 +767,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </p>
           ) : seatLabel ? (
             <Link
-              href={`/${event.slug}/find-my-table`}
+              href={`${publicEventPath(event.slug)}/find-my-table`}
               className="inline-flex items-center gap-1 text-sm text-terracotta underline-offset-2 hover:underline"
             >
               See the venue map →

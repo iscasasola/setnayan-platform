@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -88,5 +89,5 @@ export default async function HostEventPageRedirect({
   // The signed-in host passes the slug page's private gate (isAuthedHost) and
   // sees the full live event page — the same one their guests see. Opens in the
   // same tab; the dashboard back-stack returns them here.
-  redirect(`/${event.slug}`);
+  redirect(`${publicEventPath(event.slug)}`);
 }

@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import {
@@ -106,7 +107,7 @@ export async function RealStoriesSurface({
         return (
           <div id={`rs-${r.eventId}`}>
             <Link
-              href={`/${r.slug}`}
+              href={`${publicEventPath(r.slug)}`}
               className="font-medium text-ink hover:text-mulberry hover:underline"
             >
               {r.coupleNames}

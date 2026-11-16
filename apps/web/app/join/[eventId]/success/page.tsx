@@ -8,6 +8,7 @@
  * has just joined needs to see WHICH event they joined above everything else —
  * they may have been sent three links in one week.
  */
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -100,7 +101,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
             Your invitation is ready — your QR and everything shared with
             guests are waiting on it.
           </p>
-          <Link className="button-primary w-full sm:w-auto" href={`/${event.slug}`}>
+          <Link className="button-primary w-full sm:w-auto" href={`${publicEventPath(event.slug)}`}>
             Open your invitation
           </Link>
         </>

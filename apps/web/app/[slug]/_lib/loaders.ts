@@ -117,7 +117,7 @@ import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-pu
 import { fetchGuestPickCameras, shouldOfferGuestPick } from '@/lib/live-studio-guest-pick';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
-import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { resolveEventOwnerSlug, publicEventPath } from '@/lib/public-event-url';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import type { DayOfPhase } from '@/lib/day-of-mode';
@@ -1316,7 +1316,7 @@ export const loadLiveLayer = cache(
     // The live-wall branch is untouched: during the day "Photos" anchors to the
     // wall mirrored inline on this page, which is a different destination.
     const publicAlbumHref = liveWall
-      ? `/${event.slug}#live-photo-wall`
+      ? `${publicEventPath(event.slug)}#live-photo-wall`
       : ((await (albumDoorAhead ?? resolveAlbumDoor(event)))?.href ?? null);
 
     return {

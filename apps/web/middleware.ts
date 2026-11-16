@@ -14,13 +14,19 @@ import {
   resolveCustomDomainPath,
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
-import { userNestingRewritePath } from '@/lib/u-nesting';
+import {
+  bareChapterRewrite,
+  bareNestingRewrite,
+  legacyUserPrefixRedirect,
+  userNestingRewritePath,
+} from '@/lib/u-nesting';
+import { isUserNestingCutoverEnabled } from '@/lib/public-event-url';
 import { legacyShopInviteRedirect, legacyShopRedirect, shopSubPageRewrite } from '@/lib/shop-address';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
-import { bareWordIsNoEvent, hubViewRewritePath } from '@/lib/hub-view-route';
+import { bareWordIsNoEvent, bareWordIsPerson, hubViewRewritePath } from '@/lib/hub-view-route';
 import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
 import { SHOP_VIEW_SEGMENT, isShopViewPath, shopRequestShape } from '@/lib/shop-view';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -154,7 +160,13 @@ async function activatePassForEvent(
   const book = request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value;
   if (!book) return null;
   const { pathname } = request.nextUrl;
-  const path = pathname.startsWith('/u/') ? (userNestingRewritePath(pathname) ?? pathname) : pathname;
+  // 🔗 The address move: under the cutover an event lives at `/{username}/{event}` (bareNestingRewrite); before it, at
+  // `/u/{username}/{event}`. Either way the pass that opens is the one for the EVENT the address names.
+  const path = isUserNestingCutoverEnabled()
+    ? (bareNestingRewrite(pathname, (w) => RESERVED_SLUGS.has(w))?.eventPath ?? pathname)
+    : pathname.startsWith('/u/')
+      ? (userNestingRewritePath(pathname) ?? pathname)
+      : pathname;
   const swap = await passSwapForPath({
     jar: { active: request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value, book },
     pathname: path,
@@ -333,7 +345,48 @@ async function middlewareCore(request: NextRequest) {
   // made a storyteller's own story page 404 — it had NEVER been reachable in
   // prod. `userNestingRewritePath` owns the decision and returns null for a real
   // /u subtree; see lib/u-nesting.ts.
-  if (pathname.startsWith('/u/')) {
+  // 🔗 THE ADDRESS MOVE — EVENTS (owner 2026-11-15 · specs DECISION_LOG d7910b5d · lib/u-nesting.ts). While the
+  // cutover switch is on (the owner's to flip, `NEXT_PUBLIC_U_NESTING_CUTOVER`), an event lives at
+  // `/{username}/{event}` with no `/u/`, and the person's page at `/{username}`:
+  //   · the old `/u/{username}[/rest]` 308s to `/{username}[/rest]` (it was never on, so nothing printed carries it);
+  //   · `/{username}/c/{id}` (a chapter) renders from its route at `/u/{username}/c/{id}`;
+  //   · `/{username}/{event}[/rest]` renders from the event's route tree at `/{event}[/rest]`, marked as nested so
+  //     the page does not bounce it back, and named with the owner it was asked under so the page can send a wrong
+  //     or renamed owner to the real address. A guest's or a stranger's open of the event's own page is answered
+  //     from the cached Event Hub exactly as `/{event}` was (the event-day load rule — EV1).
+  // The bare `/{event}` itself is forwarded by the page (it knows the creator); `/{event}/{rest}` by the event's
+  // layout. Switch off → everything below the `else` is exactly what ran before.
+  if (isUserNestingCutoverEnabled()) {
+    const reservedWord = (w: string) => RESERVED_SLUGS.has(w);
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      const unprefixed = legacyUserPrefixRedirect(pathname);
+      if (unprefixed) return NextResponse.redirect(new URL(`${unprefixed}${search}`, request.url), 308);
+    }
+    const chapter = bareChapterRewrite(pathname, reservedWord);
+    if (chapter) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = chapter;
+      return NextResponse.rewrite(rewrite);
+    }
+    const nestedEvent = bareNestingRewrite(pathname, reservedWord);
+    if (nestedEvent) {
+      if (process.env.HUB_VIEW_LAB_DIRECT !== '1') {
+        const hubView = await hubViewRewritePath(request, fetch, { pathname: nestedEvent.eventPath });
+        if (hubView) {
+          const rewrite = request.nextUrl.clone();
+          rewrite.pathname = hubView;
+          for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
+          return NextResponse.rewrite(rewrite);
+        }
+      }
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = nestedEvent.eventPath;
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-sn-u-nesting', '1');
+      requestHeaders.set('x-sn-u-owner', nestedEvent.owner.toLowerCase());
+      return NextResponse.rewrite(rewrite, { request: { headers: requestHeaders } });
+    }
+  } else if (pathname.startsWith('/u/')) {
     const nested = userNestingRewritePath(pathname);
     if (nested) {
       const rewrite = request.nextUrl.clone();
@@ -528,6 +581,12 @@ async function middlewareCore(request: NextRequest) {
       isServerAction: request.headers.has('next-action'),
     });
     if (bareShop && (await bareWordIsNoEvent(request))) {
+      // 🔗 Under the events cutover a word that is no event may be a PERSON: their page is `/{username}`.
+      if (isUserNestingCutoverEnabled() && (await bareWordIsPerson(bareShop.slug))) {
+        const rewrite = request.nextUrl.clone();
+        rewrite.pathname = `/u/${bareShop.slug}`;
+        return NextResponse.rewrite(rewrite);
+      }
       const rewrite = request.nextUrl.clone();
       rewrite.pathname = `/v/${bareShop.slug}/${SHOP_VIEW_SEGMENT}`;
       for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);

@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import 'server-only';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
@@ -1016,7 +1017,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       id: e.public_id ?? e.event_id,
       type: 'event' as const,
       title: e.display_name || e.public_id || 'Event',
-      sub: e.slug ? `/${e.slug}` : (e.public_id ?? ''),
+      sub: e.slug ? `${publicEventPath(e.slug)}` : (e.public_id ?? ''),
       href: ugatRecordHref({
         kind: 'event',
         publicId: e.public_id ?? null,

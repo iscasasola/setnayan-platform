@@ -19,6 +19,7 @@
 // mulberry CTAs, hairline rules in ink/10..ink/80.
 // ============================================================================
 
+import { publicEventPath } from '@/lib/public-event-url';
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import { startAhead } from '@/lib/start-ahead';
@@ -325,7 +326,7 @@ export async function EditorialContent({
     share ??
     (data.slug
       ? {
-          url: `${SHARE_SITE_URL}/${data.slug}`,
+          url: `${SHARE_SITE_URL}${publicEventPath(data.slug)}`,
           title: `${data.displayName} — a Setnayan Real Story`,
           image: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`,
         }

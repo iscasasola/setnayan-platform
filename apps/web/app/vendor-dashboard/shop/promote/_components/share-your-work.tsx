@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
@@ -105,7 +106,7 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
                       kicker="Featured in Stories"
                       viewHref={`/${s.slug}`}
                       viewWord="View the story"
-                      pageUrl={`${SITE_URL}/${s.slug}`}
+                      pageUrl={`${SITE_URL}${publicEventPath(s.slug)}`}
                       ogImage={ogImage}
                       filenameBase={`${s.slug}-story`}
                       data="story"
@@ -146,9 +147,9 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
                         key={r.eventId}
                         row={r}
                         kicker="Published recap"
-                        viewHref={`/${r.slug}/recap`}
+                        viewHref={`${publicEventPath(r.slug)}/recap`}
                         viewWord="View the recap"
-                        pageUrl={`${SITE_URL}/${r.slug}/recap`}
+                        pageUrl={`${SITE_URL}${publicEventPath(r.slug)}/recap`}
                         ogImage={ogImage}
                         filenameBase={`${r.slug}-recap`}
                         data="recap"

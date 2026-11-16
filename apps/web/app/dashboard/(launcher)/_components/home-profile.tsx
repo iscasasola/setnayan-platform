@@ -5,6 +5,7 @@ import { CollapsingTop } from '@/app/_components/collapsing-top/collapsing-top';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ProfileHeader, PROFILE_HEADER_CSS, profileInitials } from '@/app/u/_components/profile-header';
 import { pictureFrameStyle } from '@/lib/picture-frame';
+import { personPath } from '@/lib/public-event-url';
 import type { HomeSeg } from '@/lib/home-segments';
 import type { HomeHandle } from '@/lib/home-profile.server';
 import { HomeSegBody, HomeSegMemory, HomeTabs } from './home-segment-bar';
@@ -116,10 +117,19 @@ export function HomeProfile({
               handle.slug ? (
                 <>
                   @{handle.slug} ·{' '}
-                  <Link href={`/u/${handle.slug}`} data-home-public-page="">
-                    {host}/u/{handle.slug}
+                  <Link href={personPath(handle.slug)} data-home-public-page="">
+                    {host}
+                    {personPath(handle.slug)}
                   </Link>
                   {handle.publicOn === false ? ' · off' : null}
+                  {/* 🔗 Said ONCE (lib/home-profile.server.ts `justMade`): the username Setnayan made from their name. */}
+                  {handle.justMade ? (
+                    <span data-home-username-made="">
+                      {' '}
+                      · We made this from your name.{' '}
+                      <Link href="/dashboard/profile#url-slug">Change it</Link>
+                    </span>
+                  ) : null}
                 </>
               ) : (
                 <Link href="/dashboard/profile#url-slug" data-home-public-page="">

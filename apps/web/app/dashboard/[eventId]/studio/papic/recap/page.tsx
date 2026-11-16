@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { notFound, redirect } from 'next/navigation';
@@ -67,7 +68,7 @@ export default async function CoupleRecapPage({
   // 📲 Guests' phone photos still waiting for the couple's check (guest upload v2). Null = unread — said, never "none".
   const phoneWaiting = await readWaitingPhoneUploads(eventId);
   const isPublished = summary.status === 'published';
-  const publicUrl = summary.slug ? `${SITE_URL}/${summary.slug}/recap` : null;
+  const publicUrl = summary.slug ? `${SITE_URL}${publicEventPath(summary.slug)}/recap` : null;
   const shareImage = summary.slug ? `${SITE_URL}/api/og/recap/${summary.slug}` : undefined;
 
   // "Save the originals to Drive" nudge — only when the recap has real content,

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ThreadToolRise } from './thread-tool-rise';
 
 /**
  * ONE CLOSED TOOL. Zero height until revealed; one open at a time.
@@ -26,14 +27,24 @@ export function ThreadToolPanel({
   label,
   hint,
   open = false,
+  rise = false,
   children,
 }: {
   id: string;
   label: string;
   hint: string;
   open?: boolean;
+  /** Rise full screen above the composer (a form to fill — CHAT-18), not open in the tray under it. */
+  rise?: boolean;
   children: ReactNode;
 }) {
+  if (rise) {
+    return (
+      <ThreadToolRise id={id} label={label} hint={hint} open={open}>
+        {children}
+      </ThreadToolRise>
+    );
+  }
   return (
     <details
       id={id}

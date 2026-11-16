@@ -1622,6 +1622,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             id={t.id}
             label={t.label}
             hint={t.hint}
+            rise={t.rise}
             // `?compose=deal` opens the deal panel; `?compose=quote` (S5) opens
             // Build a quote, seeded from the live quote — both on the server,
             // so the link lands on an OPEN panel, never a page that looks unchanged.

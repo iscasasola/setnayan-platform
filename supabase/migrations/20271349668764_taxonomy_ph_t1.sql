@@ -547,19 +547,21 @@ REVOKE ALL ON FUNCTION public.services_make_a_coordinator(text[]) FROM PUBLIC, a
 GRANT EXECUTE ON FUNCTION public.services_make_a_coordinator(text[]) TO service_role;
 
 -- 11c · Inspiration parts follow the tree (see step 0).
---   (a) a hand-picked link to a FOLDED service moves to the service it folded into — its shops moved there;
+--   (a) a hand-picked link to a service THIS migration folds moves to the service it folded into — its shops moved there;
 INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order)
 SELECT DISTINCT ON (l.slot_key, t.merged_into) l.slot_key, t.merged_into, l.sort_order
   FROM public.inspiration_part_services l
   JOIN public.canonical_service_taxonomy t ON t.canonical_service = l.canonical_service AND t.merged_into IS NOT NULL
- WHERE NOT EXISTS (SELECT 1 FROM t1_part_whole_categories w
+ WHERE t.canonical_service IN ('born_again_church_venue', 'accommodation', 'gender_separated_reception_coordinator', 'engagement_photographer', 'highlight_reel_specialist', 'drone', 'inc_modest_bridal', 'junior_groomsman', 'bridal_hair_stylist', 'maternity_bride_mua', 'mature_bride_mua', 'bridal_jewellery_rental', 'decorator_general', 'event_lights_rental', 'outdoor_lighting_specialist', 'outdoor_sound_system', 'tent_rental', 'band_live_music', 'pre_cana_dance_trainer', 'whiskey_cigar_bar', 'mocktail_booth_mini', 'mocktail_only_caterer', 'massage_therapist', 'foot_reflexology', 'aromatherapy_station', 'mehndi_artist', 'muslim_henna_artist', 'wedding_cards_designer', 'save_the_date_digital', 'place_card', 'van_rental', 'private_car_charter', 'orthodox_church_venue', 'buddhist_temple_venue', 'hindu_temple_venue', 'gurdwara_venue', 'synagogue_venue', 'lds_temple_venue', 'kingdom_hall_venue', 'sda_church_venue', 'cultural_ceremony_site')
+   AND NOT EXISTS (SELECT 1 FROM t1_part_whole_categories w
                     WHERE w.slot_key = l.slot_key AND (t.tile_id = w.category_id OR w.category_id = ANY (COALESCE(t.secondary_tiles, ARRAY[]::TEXT[]))))
 ORDER BY l.slot_key, t.merged_into, l.sort_order
 ON CONFLICT DO NOTHING;
---   (b) no part links a folded or hidden service (nobody can hold one any more);
+--   (b) no part links a service THIS migration folds (step 8) or hides (step 10) — nobody can hold one any more.
+--       Only these keys: a service hidden or merged by anyone else (Setnayan's own `pabati` and its parts, an older
+--       fold) is not this migration's to touch.
 DELETE FROM public.inspiration_part_services l
- USING public.canonical_service_taxonomy t
- WHERE t.canonical_service = l.canonical_service AND (t.merged_into IS NOT NULL OR COALESCE(t.marketplace_hidden, FALSE));
+ WHERE l.canonical_service IN ('born_again_church_venue', 'accommodation', 'gender_separated_reception_coordinator', 'engagement_photographer', 'highlight_reel_specialist', 'drone', 'inc_modest_bridal', 'junior_groomsman', 'bridal_hair_stylist', 'maternity_bride_mua', 'mature_bride_mua', 'bridal_jewellery_rental', 'decorator_general', 'event_lights_rental', 'outdoor_lighting_specialist', 'outdoor_sound_system', 'tent_rental', 'band_live_music', 'pre_cana_dance_trainer', 'whiskey_cigar_bar', 'mocktail_booth_mini', 'mocktail_only_caterer', 'massage_therapist', 'foot_reflexology', 'aromatherapy_station', 'mehndi_artist', 'muslim_henna_artist', 'wedding_cards_designer', 'save_the_date_digital', 'place_card', 'van_rental', 'private_car_charter', 'orthodox_church_venue', 'buddhist_temple_venue', 'hindu_temple_venue', 'gurdwara_venue', 'synagogue_venue', 'lds_temple_venue', 'kingdom_hall_venue', 'sda_church_venue', 'cultural_ceremony_site', 'boudoir_photographer', 'wedding_garter', 'bridal_dental', 'bridal_nutritionist', 'bridal_fitness', 'bridal_dermatology', 'chuppah_rental', 'bug_repellent_station', 'parasol_hat_rental', 'wedding_day_weather_forecaster', 'silhouette_artist', 'poetry_typewriter', 'visa_wedding_logistics', 'tarot_astrology', 'palmistry_reader');
 --   (c) a category a part linked whole is linked whole again — its new services join, after the part's last link.
 INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order)
 SELECT w.slot_key, pr.canonical_service,

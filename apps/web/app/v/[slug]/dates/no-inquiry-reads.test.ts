@@ -136,5 +136,5 @@ test('SHOP-02 v7 · the old address only forwards, and the shop mounts the walke
   assert.match(old, /redirect\(datesSheetHref\(slug, await searchParams\)\)/, 'the printed QR address no longer forwards to the sheet');
   assert.doesNotMatch(old, /readCheckADate|createClient|fetchUserEvents/, 'the forwarding address reads something again');
   const shop = stripComments(fs.readFileSync(path.join(WEB, 'app/v/[slug]/page.tsx'), 'utf8'));
-  assert.match(shop, /\{bookable && search\.dates === '1' \? \(\s*<Suspense fallback=\{null\}>\s*<CheckADateOverShop/, 'the shop no longer mounts the walked slot on ?dates (or mounts it for an unverified shop)');
+  assert.match(shop, /\{dateCheckable && search\.dates === '1' \? \(\s*<Suspense fallback=\{null\}>\s*<CheckADateOverShop/, 'the shop no longer mounts the walked slot on ?dates (or mounts it for an unverified shop)');
 });

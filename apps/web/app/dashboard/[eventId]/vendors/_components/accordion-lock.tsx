@@ -20,6 +20,9 @@ import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
+import { bookConfirmCopy } from '@/lib/explore-info-copy';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   finalizeVendor,
@@ -194,12 +197,10 @@ export function AccordionLockButton({
   className?: string;
   wrapperClassName?: string;
   /**
-   * Marketplace-vendor verification state (owner 2026-07-24 booking gate).
-   * `undefined` = off-platform / not-yet-enriched → no indicator, lock proceeds
-   * (server + DB still enforce). `false` = a marketplace vendor still verifying:
-   * shows a "Verifying" pill and the tap surfaces the friendly block WITHOUT a
-   * round-trip. `true` = verified → normal lock. This is a UX nicety only; the
-   * server gate + DB trigger are the real enforcement.
+   * Marketplace-vendor verification. It NEVER gates the press (2026-11-15, "We allow booking": the server and the DB
+   * trigger decide). `false` = not yet verified: the one confirm carries the shipped "Not yet verified by Setnayan"
+   * line (owner 16 Nov, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET VERIFIED"). `undefined` = off-platform
+   * or not read, so no line is drawn from an absence.
    */
   isVerified?: boolean;
 }) {
@@ -218,6 +219,8 @@ export function AccordionLockButton({
   // another card; a dismiss leaves it false, so "Not yet" really means not yet.
   const impactConfirmedRef = useRef(false);
   const save = useSaveLoader();
+  // 🛑 ONE CONFIRM BEFORE ANYTHING IS SENT (owner 2026-11-16; walk EB-175) — the shipped `useConfirm` box.
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -234,19 +237,9 @@ export function AccordionLockButton({
   // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
   // vast majority of vendors (no slots → no extra round-trip in the UI flow).
   const requestLock = () => {
-    // Booking-requires-verified gate (owner 2026-07-24) — fast client-side
-    // short-circuit when we already know this marketplace vendor is unverified,
-    // so the couple gets the explanation without a round-trip. `undefined`
-    // (off-platform / not-yet-enriched) still goes to the server, which is the
-    // authority (+ the DB trigger).
-    if (isVerified === false) {
-      setState({
-        kind: 'error',
-        message:
-          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.",
-      });
-      return;
-    }
+    // 2026-11-15 ("We allow booking"): an unverified shop CAN be booked, so there is no client short-circuit on
+    // verification any more. The server (`shopBookingRefusal`) and the DB trigger decide, and refuse only a rejected,
+    // demoted, archived or frozen shop.
     startTransition(async () => {
       let slots: VendorServiceTimeSlot[] = [];
       try {
@@ -507,31 +500,33 @@ export function AccordionLockButton({
 
   return (
     <div className={wrapperClassName}>
+      {confirmDialog}
       <button
         type="button"
         className={className}
         disabled={isPending}
-        onClick={() => {
+        onClick={async () => {
           haptic('confirm');
+          // Asked OUTSIDE any transition: in React 19 a state update inside an async `startTransition` is held until the
+          // action settles, so a confirm awaited in there never opens (bench-vendor-actions.tsx measured it, 2026-10-12).
+          const copy = bookConfirmCopy(vendorName);
+          // Told, never blocked: a shop we READ as not yet verified carries the shipped line under the ask.
+          const notYetVerified = isVerified !== undefined && !isVerified;
+          const body = notYetVerified ? (
+            <>
+              {copy.body}
+              <NotYetVerifiedThreadLine />
+            </>
+          ) : (
+            copy.body
+          );
+          if (!(await confirm({ ...copy, body }))) return;
           requestLock();
         }}
       >
         {icon}
         <span className="lbl">{isPending && state.kind === 'idle' ? pendingLabel : label}</span>
       </button>
-
-      {/* Booking-requires-verified indicator (owner 2026-07-24) — surfaces the
-          block BEFORE the tap so it isn't a surprise. Shown only for a known-
-          unverified marketplace vendor. */}
-      {isVerified === false ? (
-        <p
-          role="status"
-          className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-[rgb(var(--color-warn))]"
-        >
-          <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-          Verifying — can&apos;t book yet
-        </p>
-      ) : null}
 
       {state.kind === 'error' ? (
         <p role="alert" className="mt-2 text-xs text-[rgb(var(--color-danger))]">

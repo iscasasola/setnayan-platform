@@ -978,7 +978,7 @@ export default async function ForCoordinatorsPage() {
               <p>Climb a badge, and we reward you, free.</p>
               <InfoToggle id="fc-i11" label="Fees, badges and rewards">
                 <p>
-                  The fee counts only on couples Setnayan brings you. Your own clients, imported or returning, never carry a
+                  The fee counts only on couples Setnayan brings you. Clients who found you outside Setnayan never carry a
                   fee. Your first bookings through Setnayan are free.
                 </p>
                 <p>

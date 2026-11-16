@@ -1,3 +1,5 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import {
@@ -120,7 +122,7 @@ export async function RealStoriesSurface({
       header: 'Featured',
       cell: (r) =>
         r.featured ? (
-          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
+          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[12px] font-medium text-success-800">
             Featured
           </span>
         ) : (
@@ -142,7 +144,7 @@ export async function RealStoriesSurface({
                 `Most loved` is the tint with `mulberry-600` (4.76 light / 6.33
                 dark). What they were: gold-700 on a gold tint at 4.12:1, and
                 plain `mulberry` on a mulberry tint at 4.03:1 — both under 4.5. */}
-            <div className="text-[11px] font-medium uppercase tracking-wide">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
               {r.featureRank == null ? (
                 <span className="text-ink/70">Unranked</span>
               ) : r.featureRank === 0 ? (
@@ -220,13 +222,7 @@ export async function RealStoriesSurface({
       <PageMasthead
         title="Real Stories"
         actions={
-          <Link
-            href="/"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
-          >
-            <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
-            View on Discover
-          </Link>
+          <ActionButton tone="info" href="/" icon={<Sparkles aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />
@@ -250,16 +246,16 @@ export async function RealStoriesSurface({
 
       {migrationMissing ? (
         /* The featuring columns don't exist yet — name the exact fix. */
-        <div className="rounded-2xl border border-warn-200 bg-warn-50 p-6 text-sm text-warn-900">
+        <div className="border-warn-200 bg-warn-50 py-6 text-sm text-warn-900 border-t border-ink/10">
           <p className="font-semibold">Almost there — one database step left.</p>
           <p className="mt-2">
             The Real Stories featuring columns haven&rsquo;t been added to the database yet. Run
             the migration{' '}
-            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 text-[12px] tabular-nums">
               20261221000000_realstories_featuring.sql
             </code>{' '}
             (
-            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 text-[12px] tabular-nums">
               supabase db push --db-url &quot;$SUPABASE_DB_URL&quot;
             </code>
             ), then reload this page. Until then, /realstories keeps showing the sample showcase
@@ -294,25 +290,29 @@ export async function RealStoriesSurface({
           />
 
           {rows && rows.length > 0 ? (
-            <p className="mt-4 text-xs text-ink/70">
-              Lower order numbers show first; the lowest-numbered featured wedding is the hero.
+            <div className="mt-4">
+              <InfoTip label="About the order" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                Lower order numbers show first; the lowest-numbered featured wedding is the hero.
               Leave the order blank to let it sort after the numbered ones (then by
               most-recently featured). Unfeaturing also clears the order.
-            </p>
+              </InfoTip>
+            </div>
           ) : null}
         </>
       )}
 
       {/* Honesty note — the curated sample is not in this list. */}
-      <div className="mt-10 rounded-2xl border border-ink/10 bg-white/50 p-5 text-sm text-ink/70">
+      <div className="mt-10 py-5 text-sm text-ink/70 border-t border-ink/10">
         <p className="font-medium text-ink">About the sample showcase</p>
-        <p className="mt-1">
-          The &ldquo;Maria &amp; Juan&rdquo; entry on /realstories is a clearly labelled{' '}
+        <div className="mt-1">
+          <InfoTip label="About the sample entry" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            The &ldquo;Maria &amp; Juan&rdquo; entry on /realstories is a clearly labelled{' '}
           <strong className="font-semibold">sample</strong> — a built-in illustration of the
           format, not a real client — so it can&rsquo;t be featured here. It shows only while
           there are no real published Real Stories, and disappears on its own once a real one is
           featured.
-        </p>
+          </InfoTip>
+        </div>
       </div>
     </div>
   );

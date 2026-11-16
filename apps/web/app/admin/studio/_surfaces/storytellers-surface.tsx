@@ -1,3 +1,5 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { BookOpen, TrendingUp } from 'lucide-react';
 import {
@@ -142,7 +144,7 @@ export async function StorytellersSurface({
                 className="h-12 w-20 shrink-0 rounded-md border border-ink/10 object-cover"
               />
             ) : (
-              <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-ink/[0.03] text-center font-mono text-[9px] uppercase leading-tight tracking-wide text-ink/70">
+              <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-md border border-ink/10 bg-ink/[0.03] text-center leading-tight text-ink/70 text-[12px] font-bold">
                 {r.embedProvider ?? 'Written'}
               </span>
             )}
@@ -162,7 +164,7 @@ export async function StorytellersSurface({
                 <p className="mt-1">
                   <Link
                     href="/admin/user-reports"
-                    className="inline-flex items-center rounded-full bg-danger-100 px-2 py-0.5 text-[11px] font-medium text-danger-800 hover:underline"
+                    className="inline-flex items-center rounded-full bg-danger-100 px-2 py-0.5 text-[12px] font-medium text-danger-800 hover:underline"
                   >
                     {formatCount(r.openReportCount)} open{' '}
                     {r.openReportCount === 1 ? 'report' : 'reports'}
@@ -177,7 +179,7 @@ export async function StorytellersSurface({
                   sibling guard — because the sentence is what taught the wrong
                   thing. */}
               {!r.thumbUrl ? (
-                <p className="mt-1 text-[11px] text-ink/70">
+                <p className="mt-1 text-[12px] text-ink/70">
                   {r.excerpt
                     ? `Told in writing — the shelf tile will lead with: “${r.excerpt}”`
                     : 'Told in writing — the shelf tile leads with the story, not a thumbnail.'}
@@ -192,7 +194,7 @@ export async function StorytellersSurface({
       header: 'Featured',
       cell: (r) =>
         r.featured ? (
-          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
+          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[12px] font-medium text-success-800">
             Featured
           </span>
         ) : (
@@ -282,13 +284,7 @@ export async function StorytellersSurface({
       <PageMasthead
         title="Storytellers"
         actions={
-          <Link
-            href="/"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
-          >
-            <BookOpen aria-hidden className="h-4 w-4" strokeWidth={2} />
-            View on Discover
-          </Link>
+          <ActionButton tone="info" href="/" icon={<BookOpen aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />
@@ -317,16 +313,16 @@ export async function StorytellersSurface({
 
       {migrationMissing ? (
         /* The featuring columns don't exist yet — name the exact fix. */
-        <div className="rounded-2xl border border-warn-200 bg-warn-50 p-6 text-sm text-warn-900">
+        <div className="border-warn-200 bg-warn-50 py-6 text-sm text-warn-900 border-t border-ink/10">
           <p className="font-semibold">Almost there — one database step left.</p>
           <p className="mt-2">
             The chapter-featuring columns haven&rsquo;t been added to the database yet. Run the
             migration{' '}
-            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 text-[12px] tabular-nums">
               20270818771487_storytellers_chapter_featuring.sql
             </code>{' '}
             (
-            <code className="rounded bg-warn-100 px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-warn-100 px-1 py-0.5 text-[12px] tabular-nums">
               supabase db push --db-url &quot;$SUPABASE_DB_URL&quot;
             </code>
             ), then reload this page. Until then, /realstories renders exactly as before — no
@@ -361,12 +357,14 @@ export async function StorytellersSurface({
           />
 
           {rows && rows.length > 0 ? (
-            <p className="mt-4 text-xs text-ink/70">
-              Lower order numbers show first on the shelf. Leave the order blank to sort after the
+            <div className="mt-4">
+              <InfoTip label="About the order" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+                Lower order numbers show first on the shelf. Leave the order blank to sort after the
               numbered ones (then by most-recently featured). Unfeaturing also clears the order. A
               report resolved as &ldquo;hide&rdquo; in User Reports unfeatures the chapter
               automatically.
-            </p>
+              </InfoTip>
+            </div>
           ) : null}
         </>
       )}
@@ -407,9 +405,9 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
   ];
 
   return (
-    <section className="mb-8 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+    <section className="mb-8 py-5 sm:py-6 border-t border-ink/10">
       <header className="mb-4 space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/70">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Influencer analytics · platform-wide
         </p>
         <h2 className="text-lg font-semibold text-ink">How storytellers drive business</h2>
@@ -420,7 +418,7 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
            statement about the platform, and nothing was counted. */
         <div
           role="alert"
-          className="rounded-xl border border-danger-200 bg-danger-50 p-5 text-sm text-danger-800"
+          className="border-danger-200 bg-danger-50 py-5 text-sm text-danger-800 border-t border-ink/10"
         >
           <p className="font-semibold">Couldn&rsquo;t read the storyteller aggregate.</p>
           <p className="mt-1">
@@ -431,15 +429,17 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
         </div>
       ) : !a.unlocked ? (
         /* Gated "not enough activity yet" state — shows progress, no numbers. */
-        <div className="rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] p-5 text-sm text-ink/70">
+        <div className="border-dashed bg-ink/[0.02] py-5 text-sm text-ink/70 border-t border-ink/10">
           <p className="font-medium text-ink/80">Not enough activity yet.</p>
-          <p className="mt-1">
-            Influencer analytics unlock once storytellers have driven{' '}
+          <div className="mt-1">
+            <InfoTip label="About influencer analytics" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Influencer analytics unlock once storytellers have driven{' '}
             <strong className="text-ink">{ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}</strong>{' '}
             attributed, supplier-unlocked inquiries platform-wide. So far:{' '}
             <strong className="text-ink">{formatCount(a.totalInquiriesDriven)}</strong> of{' '}
             {ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
@@ -456,10 +456,12 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
               free since #3531 and creator outreach became free with the token
               retirement (2026-08-07), so the figure could only ever read 0 while
               implying outreach still costs something. */}
-          <p className="text-xs text-ink/70">
-            Reaching a storyteller and unlocking a creator-referred inquiry are both free.
+          <div>
+            <InfoTip label="About reaching storytellers" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Reaching a storyteller and unlocking a creator-referred inquiry are both free.
             Discounts settle off-platform and are never shown.
-          </p>
+            </InfoTip>
+          </div>
 
           {/* Top creators by inquiries driven — aggregate names only. */}
           <div>

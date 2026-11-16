@@ -2244,6 +2244,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       measured={asksMeasured}
       notice={askNotice}
       canAsk={isBooked}
+      // CHAT-32: the SAME accepted-quote row Details reads (`firstPaymentStatus`), so the two pages cannot disagree.
+      quoteAskLine={firstPaymentStatus?.line ?? null}
     />
   ) : null;
 

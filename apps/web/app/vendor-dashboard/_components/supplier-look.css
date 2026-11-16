@@ -59,6 +59,8 @@ html:not(.dark):has([data-supplier-look]) {
   --m-paper-2: #e8f0fa; /* the ghost / soft wash */
   --surface-soft: #e8f0fa;
   --sn-hair: rgb(16 27 48 / 0.08);
+  /* the glow's pale second light (owner pick, 16 Nov) — a token like the rest, so no colour is typed below */
+  --sn-glow-soft: 125 177 255;
 }
 
 /* The shell (bar · rail · bottom bar) keeps its own `--fd-*` set on `.fd` — re-pointed the same way. */
@@ -92,9 +94,9 @@ html:not(.dark):has([data-supplier-look]) body {
 html:not(.dark):has([data-supplier-look]) .sn-ambient {
   /* 🌤 the soft background glow (owner pick, 16 Nov) — three faint blue lights behind the floating cards */
   background:
-    radial-gradient(900px 520px at 88% -8%, rgba(34, 114, 230, 0.17), transparent 62%),
-    radial-gradient(720px 520px at -12% 34%, rgba(125, 177, 255, 0.16), transparent 60%),
-    radial-gradient(800px 600px at 60% 108%, rgba(34, 114, 230, 0.1), transparent 60%),
+    radial-gradient(900px 520px at 88% -8%, rgb(var(--color-mulberry) / 0.17), transparent 62%),
+    radial-gradient(720px 520px at -12% 34%, rgb(var(--sn-glow-soft) / 0.16), transparent 60%),
+    radial-gradient(800px 600px at 60% 108%, rgb(var(--color-mulberry) / 0.1), transparent 60%),
     rgb(var(--sn-page-bg));
   background-attachment: fixed;
 
@@ -103,7 +105,7 @@ html:not(.dark):has([data-supplier-look]) .sn-ambient {
 /* The main button wears the 16 Nov soft blue shadow (solid fill, no gradient). */
 html:not(.dark):has([data-supplier-look]) .button-primary,
 html:not(.dark):has([data-supplier-look]) .ab-brand {
-  box-shadow: 0 10px 22px -10px rgba(34, 114, 230, 0.75);
+  box-shadow: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
 }
 
 /* From 1100 the top bar is solid white (16 Nov adjustment), not frosted glass over the glow. */

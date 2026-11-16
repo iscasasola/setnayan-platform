@@ -5,3 +5,4 @@
 - **Shop › Promote › Prints row:** "Calling card + tarps" now reads "Marketing materials, printed out" (P1 drawing). The sheet, the 15 designs and the 7 pieces are unchanged.
 
 SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECISION_LOG. Nothing new is decided.
+- The glow and the main button's shadow now read the tokens (`--color-mulberry`, the new `--sn-glow-soft`) instead of typed rgba values. Guard: `_components/the-blue-look-is-tokens-only.test.ts`.

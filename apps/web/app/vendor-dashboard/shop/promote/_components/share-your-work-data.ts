@@ -7,6 +7,8 @@ import { loadVendorRecaps, type VendorRecap } from '@/lib/recap-vendor';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { effectiveSeoTier } from '@/lib/vendor-seo-tier';
+import { hasStoryPages } from '@/lib/ultra-story-pages';
 
 /**
  * 📣 SHARE YOUR WORK — the reads of Shop › Promote row 4 (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE
@@ -24,7 +26,32 @@ export type ShareYourWorkData = {
   recaps: VendorRecap[] | null;
   /** The plan gate is on and the shop's plan is below Solo — recap sharing is a Solo feature (unchanged rule). */
   recapsGated: boolean;
+  /**
+   * 📖 ULTRA STORY PAGES (owner 2026-11-14, item 8) — null unless the shop is on Ultra (effective tier). Then each
+   * story row gets its "In our words" note and a link to the shop's own page for it. `notes` is keyed by event id;
+   * a refused read is an empty map (the box opens empty — the page still shows nothing it should not).
+   */
+  ultra?: { shopSlug: string; notes: Record<string, string> } | null;
 };
+
+async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData['ultra']> {
+  const { data: shop, error } = await supabase
+    .from('vendor_profiles')
+    .select('business_slug, tier_state, tier_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) logQueryError('ShareYourWork.ultra', error, { vendorProfileId }, 'graceful_degrade');
+  const row = shop as { business_slug: string | null; tier_state: string | null; tier_expires_at: string | null } | null;
+  if (!row?.business_slug || !hasStoryPages(effectiveSeoTier(row))) return null;
+  const { data: noteRows, error: notesErr } = await supabase
+    .from('vendor_event_story_notes')
+    .select('event_id, body')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (notesErr) logQueryError('ShareYourWork.notes', notesErr, { vendorProfileId }, 'graceful_degrade');
+  const notes: Record<string, string> = {};
+  for (const n of (noteRows ?? []) as { event_id: string; body: string }[]) notes[n.event_id] = n.body;
+  return { shopSlug: row.business_slug, notes };
+}
 
 export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData> {
   const gatedRead = isVendorFeatureGateEnabled()
@@ -38,12 +65,13 @@ export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileI
   // reason, from the two retired pages, 2026-11-06.)
   const eventIdsRead = fetchVendorPoolBookings(supabase, vendorProfileId).then((bookings) => bookings.map((b) => b.eventId));
 
-  const [recapsGated, eventIds] = await Promise.all([
+  const [recapsGated, eventIds, ultra] = await Promise.all([
     gatedRead.catch(() => false),
     eventIdsRead.catch((err) => {
       logQueryError('ShareYourWork.bookings', err, { vendorProfileId }, 'graceful_degrade');
       return null;
     }),
+    loadUltraStoryNotes(supabase, vendorProfileId).catch(() => null),
   ]);
   if (eventIds === null) return { stories: null, recaps: null, recapsGated };
 
@@ -59,5 +87,5 @@ export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileI
           return null;
         }),
   ]);
-  return { stories, recaps, recapsGated };
+  return { stories, recaps, recapsGated, ultra };
 }

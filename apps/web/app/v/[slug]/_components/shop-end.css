@@ -1,0 +1,169 @@
+/*
+ * shop-end.css — the end of a shop's page (owner 2026-11-14, DECISION_LOG "A SHOP PAGE ENDS WITH ITS PARTNERS, THEN
+ * SIMILAR SHOPS NEARBY — APPROVED AS DRAWN"; prototype `shop_page_end_2026-11-14_fable.html`).
+ *
+ * 🃏 "More <kind of work> near <area>" draws Discover's SHIPPED shop card (`ShopCard`, front-door-feed.tsx), whose
+ * look lives in `front-door.css`. That sheet is ~40 KB gzipped and render-blocking, and the shop page does not load it
+ * — importing it whole for four cards at the foot of the page would slow every shop's first paint. So the CARD's own
+ * rules are carried here, scoped under `.sn-shopend`, WORD FOR WORD.
+ *
+ * 🔒 A COPY THAT CANNOT DRIFT: `app/v/[slug]/the-shop-page-ends-with-partners-then-similar-shops.test.ts` reads both
+ * sheets and fails when any card rule below differs from its original in `front-door.css` — change the card there,
+ * and this copy is told to follow. The grid is NOT copied: the drawing asks one row of four on a computer and two
+ * rows of two on a phone, inside the shop page's narrower column.
+ */
+
+/* The tokens the card reads — `.fd`'s own values, light then dark. */
+.sn-shopend {
+  --fd-ink: #2c2a29;
+  --fd-m2: #8a857b;
+  --fd-line: #e1dcd1;
+  --fd-wash: #f3ecdf;
+  --fd-logo-ground: #ffffff;
+  --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+html.dark .sn-shopend {
+  --fd-ink: #fbfaf7;
+  --fd-m2: #9a958c;
+  --fd-line: rgba(251, 250, 247, 0.16);
+  --fd-wash: #37301f;
+  --fd-logo-ground: #fbfaf7;
+}
+
+/* One row of four from 1024 (beside the calling card), two rows of two below. */
+.sn-shopend .sn-shopend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 1024px) {
+  .sn-shopend .sn-shopend-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+/* ── THE CARD, copied from front-door.css (guarded) ── */
+.sn-shopend .fd-item {
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.sn-shopend .fd-thumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--m-r-md);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e7decd, #d8cdb9);
+  display: grid;
+  place-items: center;
+  color: #b0a48a;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+.sn-shopend .fd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sn-shopend .fd-item:hover .fd-thumb {
+  filter: brightness(0.97);
+}
+.sn-shopend .fd-imeta {
+  display: flex;
+  gap: 12px;
+  padding-top: 11px;
+}
+.sn-shopend .fd-ava {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: 0 0 36px;
+  background: var(--fd-wash);
+  border: 1px solid var(--fd-line);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sn-initials-ink);
+  font-family: var(--fd-mono);
+}
+.sn-shopend .fd-itxt {
+  flex: 1;
+  min-width: 0;
+}
+.sn-shopend .fd-ttl {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin: 0 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.sn-shopend .fd-by {
+  font-size: 12px;
+  color: var(--fd-m2);
+  line-height: 1.45;
+  margin: 0;
+}
+.sn-shopend .fd-thumb-shop {
+  background: var(--fd-wash);
+}
+.sn-shopend .fd-thumb .fd-shopcover {
+  object-fit: cover;
+}
+.sn-shopend .fd-sample {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(30, 28, 26, 0.72);
+  color: #f5f1e8;
+  border-radius: var(--m-r-xs);
+  padding: 2px 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  font-family: var(--fd-sys);
+}
+.sn-shopend .fd-ava-logo {
+  background: var(--fd-logo-ground);
+}
+.sn-shopend .fd-ava-logo img {
+  object-fit: contain;
+  padding: 3px;
+}
+.sn-shopend .fd-itxt-shop {
+  display: block;
+  overflow: visible;
+}
+.sn-shopend .fd-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sn-shopend .fd-badge-img {
+  display: inline-flex;
+  line-height: 0;
+}
+/* Grouped rules in front-door.css, carried as one each. */
+.sn-shopend .fd-item {
+  position: relative;
+}
+.sn-shopend .fd-ava-logo,
+.sn-shopend .fd-ava-photo {
+  overflow: hidden;
+}
+.sn-shopend .fd-ava-logo img,
+.sn-shopend .fd-ava-photo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

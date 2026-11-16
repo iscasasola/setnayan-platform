@@ -1,32 +1,32 @@
 /**
- * HOLE 2 · THE PUBLIC INVITE ADDRESS LAUNDERS A COUPLE SETNAYAN ALREADY SHOWED THE SHOP — PROVEN OPEN
- * (controller sweep 2026-11-16).
+ * HOLE 2 · THE PUBLIC INVITE ADDRESS NO LONGER LAUNDERS A COUPLE SETNAYAN ALREADY SHOWED THE SHOP — CLOSED
+ * (controller sweep 2026-11-16; the proof was #7841's `hole-2-the-invite-address-launders-a-found-couple.db.test.ts`,
+ * every HOLE OPEN assertion flipped here to CLOSED).
  *
- * TESTS ONLY. Every assertion below PASSES WHILE THE HOLE IS OPEN. The fix PR
- * flips each `HOLE OPEN` assertion to its closed form and renames the file.
+ * Closed on `main` by #7844 (`81d37c37`, owner 2026-11-16, specs DECISION_LOG "THE SHORTLIST QR STAYS FREE BUT IS
+ * NOT AN IMPORT"): `/vendor-invite/<shop-slug>` → `claimVendorInviteToEvent` → `importVendorToEventShortlist` now
+ * writes `source = 'vendor_shortlist_qr'` (`SHORTLIST_QR_SOURCE`), which is a SAVE ON SETNAYAN
+ * (`SETNAYAN_SAVE_SOURCES`), never one of `SUPPLIER_BROUGHT_SOURCES`. So the public, tokenless address can no longer
+ * turn a couple into a free import — whether Setnayan showed them the shop first (2a) or another shop got there
+ * first (2b).
  *
- * `/vendor-invite/<shop-slug>` is public and tokenless (the shop's own slug).
- * `claimVendorInviteToEvent` (app/vendor-invite/[slug]/actions.ts) →
- * `importVendorToEventShortlist` (lib/vendor-couple-invite.ts) inserts, with the
- * service role, an `event_vendors` row with `source = 'vendor_invite'` — unless
- * the shop is ALREADY a marketplace row on the event. `vendor_invite` is in
- * `SUPPLIER_BROUGHT_SOURCES`, so `bookingFeeAttributionFromFacts` and its SQL
- * twin `booking_fee_attribution_for` answer 'import' (free forever) BEFORE they
- * look at any earlier Setnayan fact.
+ * 2b's target moved: #7841 expected "only the FIRST importer is free" (owner, earlier 16 Nov). The owner replaced that
+ * rule the same day — specs DECISION_LOG "EVERY SUPPLIER IMPORT CARRIES AT LEAST ONE SETNAYAN GIFT — REPLACES 'ONLY
+ * THE FIRST SUPPLIER IMPORTS FREE'". An own-client import is now one that carries a gift, and that door is not built;
+ * the public address is the Shortlist QR, which is never free. So BOTH shops' rows read 'sourced'.
  *
- * So a couple who FOUND the shop on Setnayan (a profile view from Find — which
- * also writes `event_vendor_found`) and never pressed Save can be sent the
- * shop's invite link, and the booking is free. A save from any other door with
- * the very same history is billable.
- *
- * Second half: the owner ruled only the FIRST importer is free. A SECOND shop's
- * invite link on a couple another shop already brought is ALSO 'import' today.
+ * Fixtures write exactly the row the importer writes (the constant it uses), and a source scan pins the importer to
+ * that constant — so the fixture cannot drift from the app.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 
-import { bookingFeeAttributionFromFacts } from '../../lib/booking-fee-gate';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { bookingFeeAttributionFromFacts, SHORTLIST_QR_SOURCE, SUPPLIER_BROUGHT_SOURCES } from '../../lib/booking-fee-gate';
+import { stripComments } from '../../lib/strip-comments';
 import { createReplayedDb, setAuthUid } from './replay-migrations';
 
 let db: PGlite;
@@ -87,10 +87,28 @@ async function foundOnSetnayan(shop: string, eventId: string, at: string): Promi
 async function importedByInviteLink(shop: string, eventId: string, at: string): Promise<void> {
   await db.query(
     `INSERT INTO public.event_vendors (event_id, marketplace_vendor_id, category, vendor_name, status, source, created_at)
-     VALUES ($1, $2, 'catering', 'Kusina', 'considering', 'vendor_invite', $3)`,
-    [eventId, shop, at],
+     VALUES ($1, $2, 'catering', 'Kusina', 'considering', $4, $3)`,
+    [eventId, shop, at, SHORTLIST_QR_SOURCE],
   );
 }
+
+const HERE = import.meta.dirname;
+const importerBody = (): string => {
+  const src = stripComments(readFileSync(path.join(HERE, '..', '..', 'lib', 'vendor-couple-invite.ts'), 'utf8'));
+  const at = src.indexOf('export async function importVendorToEventShortlist');
+  assert.ok(at >= 0, 'importVendorToEventShortlist is gone — re-read the hole before trusting this file');
+  const end = src.indexOf('\nexport ', at + 10);
+  return src.slice(at, end > at ? end : undefined);
+};
+
+test('CLOSED · the public invite address writes the Shortlist QR source, never a supplier-brought one', () => {
+  const body = importerBody();
+  assert.match(body, /source:\s*SHORTLIST_QR_SOURCE/, 'importVendorToEventShortlist stamps SHORTLIST_QR_SOURCE');
+  for (const s of SUPPLIER_BROUGHT_SOURCES) {
+    assert.ok(!body.includes(`'${s}'`), `importVendorToEventShortlist writes the supplier-brought source '${s}'`);
+  }
+  assert.ok(!SUPPLIER_BROUGHT_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR source is not a supplier-brought source');
+});
 
 async function attribution(shop: string, eventId: string): Promise<string> {
   const r = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for($1, $2) AS a`, [shop, eventId]);
@@ -113,7 +131,7 @@ test('control — the same history through any other door is billable (the hole 
   assert.equal(await attribution(shop, eventId), 'sourced');
 });
 
-test('HOLE OPEN · 2a — a couple Setnayan showed the shop to, then sent the shop\'s invite link, is the shop\'s free import', async () => {
+test('CLOSED · 2a — a couple Setnayan showed the shop to, then sent the shop\'s invite link, stays Setnayan-sourced', async () => {
   const shop = await newShop();
   const eventId = await newCoupleEvent();
   await foundOnSetnayan(shop, eventId, SEEN);
@@ -127,31 +145,32 @@ test('HOLE OPEN · 2a — a couple Setnayan showed the shop to, then sent the sh
 
   await importedByInviteLink(shop, eventId, LATER);
 
-  // HOLE OPEN: the invite row wins over the earlier find. Fix flips to: 'sourced'.
-  assert.equal(await attribution(shop, eventId), 'import', 'booking_fee_attribution_for — the found couple became a free import');
+  // CLOSED (was HOLE OPEN 'import'): the invite-address row is a Setnayan save, so the earlier find stands.
+  assert.equal(await attribution(shop, eventId), 'sourced', 'booking_fee_attribution_for — the found couple stays sourced');
   assert.equal(
     bookingFeeAttributionFromFacts({
       threadSources: [],
-      rowSource: 'vendor_invite',
+      rowSource: SHORTLIST_QR_SOURCE,
       rowIsManualRecord: false,
       recordTiedToShop: true,
       savesBefore: [],
       viewSourcesBefore: ['search'],
     }),
-    'import',
-    'bookingFeeAttributionFromFacts agrees — SUPPLIER_BROUGHT_SOURCES short-circuits before the view arm',
+    'sourced',
+    'bookingFeeAttributionFromFacts agrees — the Shortlist QR source is a Setnayan save',
   );
 });
 
-test('HOLE OPEN · 2b — a SECOND shop\'s invite link on a couple another shop already brought is also free', async () => {
+test('CLOSED · 2b — neither the first nor a second shop\'s invite link makes the couple a free import', async () => {
   const first = await newShop();
   const second = await newShop();
   const eventId = await newCoupleEvent();
 
   await importedByInviteLink(first, eventId, LATER);
-  assert.equal(await attribution(first, eventId), 'import', 'the FIRST importer is free — the owner ruled this stays');
+  // The public address is the Shortlist QR, not an own-client import (an import now needs a gift — 16 Nov, unbuilt).
+  assert.equal(await attribution(first, eventId), 'sourced', 'the first shop through the public address pays the fee');
 
   await importedByInviteLink(second, eventId, LATEST);
-  // HOLE OPEN: owner ruled only the FIRST importer is free. Fix flips to: 'sourced'.
-  assert.equal(await attribution(second, eventId), 'import', 'the second importer is free too');
+  // CLOSED (was HOLE OPEN 'import').
+  assert.equal(await attribution(second, eventId), 'sourced', 'a second shop through the public address pays the fee');
 });

@@ -118,7 +118,7 @@ import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
 import { ShopTopBar } from './_components/shop-top-bar';
 import { awardFact, awardsRowBadges } from '@/lib/shop-award-fact';
-import { publicBadgeView, sealsFromEngine } from '@/lib/public-badges';
+import { SHOP_BADGE_FAMILIES, publicBadgeView, sealYearsFromEngine, sealsFromEngine } from '@/lib/public-badges';
 import { readShopSeals } from '@/lib/shop-seals.server';
 import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
@@ -258,7 +258,8 @@ import {
 import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
-import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
+import { ShopHero, shopMotion } from './_components/shop-hero';
+import { VerifiedAwardButton } from './_components/verified-award-button';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
 
@@ -1226,16 +1227,21 @@ export async function renderVendorBySlug({
   // (`shopBadgeTier`, lib/badge-tiers.ts) from the SAME measured count the experience chip states — never from an
   // unread one. The retired monthly Spotlight awards are not badges any more (4b8cc3a3: the seals replace them).
   const shopSeals = await sealsP;
+  const BOOKINGS_FAMILY_NAME = SHOP_BADGE_FAMILIES.find((f) => f.key === 'bookings')!.name;
   const bookingsTier =
     bookingCountMeasured && finalizedBookingCount ? shopBadgeTier('completed_bookings', finalizedBookingCount) : null;
   const awardsView = publicBadgeView({
     verified: vendor.verification_state === 'verified',
     seals: sealsFromEngine(shopSeals?.seals),
     tiers: bookingsTier
-      ? [{ family: 'bookings', name: 'Completed bookings', tier: tierName(bookingsTier), count: finalizedBookingCount ?? 0 }]
+      ? [{ family: 'bookings', name: BOOKINGS_FAMILY_NAME, tier: tierName(bookingsTier), count: finalizedBookingCount ?? 0 }]
       : null,
   });
-  const awardsRow = awardsRowBadges(awardsView);
+  const awardsRow = awardsRowBadges(awardsView, sealYearsFromEngine(shopSeals?.rows));
+  // The full-screen Verified award's art: the row's own blue-check seal, larger (the top bar's check opens it too).
+  const verifiedFullArt = (
+    <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-full" size={168} label="Setnayan Verified" />
+  );
   const showsVerifiedSeal = awardsView.seals.some((seal) => seal.key === 'verified');
 
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
@@ -2406,21 +2412,25 @@ export async function renderVendorBySlug({
           <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
             {showsVerifiedSeal ? (
-              <li id="shop-verified-award" tabIndex={-1} className="flex items-center gap-2 outline-none">
-                {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
-                <HeroBadge
-                  badge={verifiedBadge()}
-                  title="Setnayan reviewed this shop’s business documents before it went public."
-                  drawn
-                />
-                <SealCaption />
+              <li id="shop-verified-award">
+                {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3).
+                    v16 `data-vr`: the item is a button that opens the full-screen Verified award (#7752), and its fact
+                    is the plain "Setnayan Verified" like every other award in the row. */}
+                <VerifiedAwardButton art={verifiedFullArt} shopName={displayLabel} className="flex min-h-11 items-center gap-2 text-left">
+                  <HeroBadge
+                    badge={verifiedBadge()}
+                    title="Setnayan reviewed this shop’s business documents before it went public."
+                    drawn
+                  />
+                  <span className="text-sm leading-snug">{awardFact(verifiedBadge())}</span>
+                </VerifiedAwardButton>
               </li>
             ) : null}
-      {/* 🏅 THE PERFORMANCE BADGES (circles since 12 Nov; pills from 2026-10-28) — the milestone medal from the SAME
-          public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
-          in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
-          booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
-          scan always shows today's badges. */}
+      {/* 🏅 THE SEALS, THEN THE TIERED BADGES (v16 order) — from the one adapter (`awardsRowBadges`): the seals the
+          shop holds (seals engine), then Completed bookings from the SAME public completed-events count the
+          experience chip states (`finalizedBookingCount`, measured only). Nothing is cached in the row, so a voided
+          booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a scan always
+          shows today's badges. */}
             {awardsRow.map((b) => (
               <li key={b.key} className="flex items-center gap-2" data-shop-award-fact="">
                 <HeroBadge badge={b} title={b.label} />
@@ -2516,7 +2526,7 @@ export async function renderVendorBySlug({
         shopName={displayLabel}
         logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
         verified={vendor.verification_state === 'verified'}
-        verifiedArt={<ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-full" size={168} label="Setnayan Verified" />}
+        verifiedArt={verifiedFullArt}
         acts={
           canMessage ? (
             <>

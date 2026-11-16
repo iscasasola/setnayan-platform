@@ -119,6 +119,21 @@ export function sealsFromEngine(keys: readonly EngineSealKey[] | null | undefine
   return keys.map((k) => ENGINE_SEAL[k]).filter((k): k is SealKey => k !== undefined);
 }
 
+/**
+ * The year each yearly seal was given for (`shop_seals.award_year`, the newest when held more than once), in this
+ * adapter's keys — so a row can name the seal's year ("Top 10 supplier of 2026") from the stored row, never a guess.
+ */
+export function sealYearsFromEngine(
+  rows: ReadonlyArray<{ seal: EngineSealKey; award_year: number }> | null | undefined,
+): Partial<Record<SealKey, number>> {
+  const out: Partial<Record<SealKey, number>> = {};
+  for (const r of rows ?? []) {
+    const k = ENGINE_SEAL[r.seal];
+    if (k && Number.isInteger(r.award_year) && r.award_year > (out[k] ?? 0)) out[k] = r.award_year;
+  }
+  return out;
+}
+
 const FAMILY_ORDER = SHOP_BADGE_FAMILIES.map((f) => f.key);
 
 /** Build the view. Order is the prototype's; a key it does not know is dropped (never drawn under a guessed name). */

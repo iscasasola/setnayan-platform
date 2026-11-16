@@ -11,7 +11,7 @@
  * 🔒 lib/shop-award-fact.test.ts
  */
 import type { ShopBadge } from './shop-badges';
-import type { PublicBadgeView } from './public-badges';
+import type { PublicBadgeView, SealKey as PublicSealKey } from './public-badges';
 import { SHOP_BADGE_STEPS, TIER_KEYS, stepGlyph, tierName } from './badge-tiers';
 
 const COUNT = new Intl.NumberFormat('en-PH');
@@ -29,16 +29,24 @@ export function awardFact(badge: ShopBadge): string {
 
 /**
  * 🏅 THE AWARDS ROW, FROM THE ONE ADAPTER (`publicBadgeView`, lib/public-badges.ts — #7807 / #7810): what the row draws
- * after Setnayan Verified (which keeps its own <li>, the one the top bar's check opens). In the adapter's order —
- * the tiered shop badges, then the seals the shop holds (the seals engine, #7825). Each comes back as the `ShopBadge`
- * the row's circle (`badgeImageOf`) already draws, and its `label` IS the one plain fact: no tier name, no date.
+ * after Setnayan Verified (which keeps its own item, the one the top bar's check also opens). In the v16 drawing's
+ * order — the seals the shop holds (the seals engine, #7825), then the tiered shop badges. Each comes back as the
+ * `ShopBadge` the row's circle (`badgeImageOf`) already draws, and its `label` IS the one plain fact: no tier name, no
+ * date. A seal's YEAR is part of its fact where the drawing shows one ("Top 10 supplier of 2026"), read from the stored
+ * row (`sealYearsFromEngine`); with no year read, the seal's plain name.
  *
  * Named gaps (never a guessed picture): of the five tiered badges only Completed bookings has a circle on this page
  * (the events hex); the other four, and each seal's own art, come with the badge graphs. A seal draws the shipped
  * award rosette until then.
  */
-export function awardsRowBadges(view: PublicBadgeView): ShopBadge[] {
+export function awardsRowBadges(view: PublicBadgeView, sealYears: Partial<Record<PublicSealKey, number>> = {}): ShopBadge[] {
   const out: ShopBadge[] = [];
+  for (const seal of view.seals) {
+    if (seal.key === 'verified') continue;
+    const year = sealYears[seal.key];
+    const fact = seal.key === 'top10' && year ? `Top 10 supplier of ${year}` : seal.name;
+    out.push({ key: `seal:${seal.key}`, kind: 'award', glyph: null, line1: 'SETNAYAN', line2: seal.name.toUpperCase(), label: fact });
+  }
   for (const t of view.shopBadges) {
     if (t.family !== 'bookings') continue;
     const i = TIER_KEYS.findIndex((k) => tierName(k) === t.tier);
@@ -46,10 +54,6 @@ export function awardsRowBadges(view: PublicBadgeView): ShopBadge[] {
     if (step === undefined) continue;
     const fact = `${COUNT.format(step)} booking${step === 1 ? '' : 's'} completed`;
     out.push({ key: `milestone:${step}`, kind: 'milestone', glyph: stepGlyph(step), line1: fact.toUpperCase(), line2: 'ON SETNAYAN', label: fact, tier: TIER_KEYS[i] });
-  }
-  for (const seal of view.seals) {
-    if (seal.key === 'verified') continue;
-    out.push({ key: `seal:${seal.key}`, kind: 'award', glyph: null, line1: 'SETNAYAN', line2: seal.name.toUpperCase(), label: seal.name });
   }
   return out;
 }

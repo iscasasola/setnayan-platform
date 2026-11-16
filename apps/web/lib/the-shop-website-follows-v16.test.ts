@@ -13,12 +13,13 @@ import { WEB } from '@/lib/design-rules-scan';
 import { SETNAYAN_HOME_URL, shopColdDoorShows } from '@/lib/shop-back';
 import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
 import { awardFact, awardsRowBadges } from '@/lib/shop-award-fact';
-import { publicBadgeView, sealsFromEngine } from '@/lib/public-badges';
+import { publicBadgeView, sealYearsFromEngine, sealsFromEngine } from '@/lib/public-badges';
 import { milestoneBadge, type ShopBadge } from '@/lib/shop-badges';
 
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const PAGE = src('app/v/[slug]/page.tsx');
 const BAR = src('app/v/[slug]/_components/shop-top-bar.tsx');
+const LAZY = src('app/v/[slug]/_components/verified-award-button.tsx');
 const SAVE = src('app/(shell)/explore/_components/save-vendor-button.tsx');
 
 // Sabotage: return true for every cold arrival (the old `!shopBack.back`) → the `journal` and `qr` cases go red.
@@ -62,10 +63,18 @@ test('once the name scrolls under the bar: the shop’s logo + name go to the to
 test('the blue check opens the award kit’s full-screen Verified award (#7752), loaded only on the tap', () => {
   assert.match(BAR, /const showVerified = \(\) => setVerifiedOpen\(true\);/);
   assert.doesNotMatch(BAR, /scrollIntoView/, 'the check scrolls instead of opening the award');
-  assert.match(BAR, /dynamic\(\(\) => import\('@\/app\/_components\/award\/verified-fullscreen'\)\.then\(\(m\) => m\.VerifiedFullscreen\)/);
-  assert.doesNotMatch(BAR, /^import[^;]*_components\/award/m, 'the award kit is in the page’s first load');
-  assert.match(BAR, /\{verified && verifiedOpen \? \(\s*<VerifiedFullscreen art=\{verifiedArt \?\? null\} shopName=\{shopName\} onClose=\{\(\) => setVerifiedOpen\(false\)\} \/>/);
-  assert.match(PAGE, /verifiedArt=\{<ImageBadge \{\.\.\.badgeImageOf\(verifiedBadge\(\)\)\}/, 'the full screen does not show the row’s blue-check seal');
+  assert.match(LAZY, /dynamic\(\s*\(\) => import\('@\/app\/_components\/award\/verified-fullscreen'\)\.then\(\(m\) => m\.VerifiedFullscreen\)/);
+  for (const [name, code] of [['top bar', BAR], ['row button', LAZY], ['page', PAGE]] as const) {
+    assert.doesNotMatch(code, /^import[^;]*_components\/award/m, `the award kit is in the ${name}’s first load`);
+  }
+  assert.match(BAR, /import \{ LazyVerifiedFullscreen \} from '\.\/verified-award-button';/);
+  assert.match(BAR, /\{verified && verifiedOpen \? \(\s*<LazyVerifiedFullscreen art=\{verifiedArt \?\? null\} shopName=\{shopName\} onClose=\{\(\) => setVerifiedOpen\(false\)\} \/>/);
+  assert.match(PAGE, /const verifiedFullArt = \(\s*<ImageBadge \{\.\.\.badgeImageOf\(verifiedBadge\(\)\)\}/, 'the full screen does not show the row’s blue-check seal');
+  assert.match(PAGE, /verifiedArt=\{verifiedFullArt\}/);
+  // v16 `data-vr`: the drawing's words for both doors, and the row's Verified item opens the same full screen.
+  assert.equal((BAR.match(/aria-label="Setnayan Verified — what it means"/g) ?? []).length, 1);
+  assert.match(LAZY, /<button type="button" onClick=\{\(\) => setOpen\(true\)\} aria-label="Setnayan Verified — what it means"/);
+  assert.match(PAGE, /<li id="shop-verified-award">[\s\S]{0,600}<VerifiedAwardButton art=\{verifiedFullArt\} shopName=\{displayLabel\}[\s\S]{0,400}\{awardFact\(verifiedBadge\(\)\)\}<\/span>\s*<\/VerifiedAwardButton>/);
 });
 
 // Sabotage: show `acts` unconditionally / observe nothing → red.
@@ -121,7 +130,8 @@ test('the section menu sits under the sticky top bar, and lands sections under b
 test('the Awards row reads the ONE adapter: Verified, the seals the shop holds (#7825), Completed bookings — badge + one fact', () => {
   assert.match(PAGE, /const awardsView = publicBadgeView\(\{[\s\S]{0,200}seals: sealsFromEngine\(shopSeals\?\.seals\),/);
   assert.match(PAGE, /const sealsP = startRead\(\s*readShopSeals\(vendor\.vendor_profile_id, vendor\.verification_state === 'verified'\)/);
-  assert.match(PAGE, /const awardsRow = awardsRowBadges\(awardsView\);/);
+  assert.match(PAGE, /const awardsRow = awardsRowBadges\(awardsView, sealYearsFromEngine\(shopSeals\?\.rows\)\);/);
+  assert.doesNotMatch(PAGE, /name: 'Completed bookings'/, 'a family name typed into the page');
   assert.match(PAGE, /\{awardsRow\.map\(\(b\) => \(/);
   assert.doesNotMatch(PAGE, /performancePills|fetchVendorCurrentAwards|AWARD_LABELS/, 'the row still reads the retired Spotlight awards');
   const view = publicBadgeView({
@@ -129,15 +139,19 @@ test('the Awards row reads the ONE adapter: Verified, the seals the shop holds (
     seals: sealsFromEngine(['no1', 'top10', 'clients_choice', 'most_in_demand', 'verified']),
     tiers: [{ family: 'bookings', name: 'Completed bookings', tier: 'Gold', count: 63 }],
   });
+  // v16 order: the seals, then the tiered badges.
   const row = awardsRowBadges(view);
   assert.deepEqual(row.map(awardFact), [
-    '50 bookings completed',
     'No. 1 Supplier of the Year',
     'Top 10 Supplier',
     "Clients' Choice",
     'Most In-Demand',
+    '50 bookings completed',
   ]);
   for (const b of row) assert.doesNotMatch(`${awardFact(b)} ${b.label}`, /Bronze|Silver|Gold|Ruby|Emerald|Diamond|20\d\d/, 'a tier name or a date in the row');
+  // The drawing's one dated-by-year fact, read from the stored row ("Top 10 supplier of 2026"), never typed.
+  const years = sealYearsFromEngine([{ seal: 'top10', award_year: 2025 }, { seal: 'top10', award_year: 2026 }]);
+  assert.equal(awardFact(awardsRowBadges(view, years).find((b) => b.key === 'seal:top10')!), 'Top 10 supplier of 2026');
   assert.ok(!row.some((b) => b.kind === 'verified'), 'Verified is drawn twice (it keeps its own <li>)');
   assert.equal(sealsFromEngine(null), null, 'a failed seal read became "no seals"');
   const partner = publicBadgeView({ verified: true, seals: sealsFromEngine(['verified_partner', 'verified']) });

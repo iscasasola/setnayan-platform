@@ -3,17 +3,13 @@
  * (controller sweep 2026-11-16; the proof was #7841's `hole-2-the-invite-address-launders-a-found-couple.db.test.ts`,
  * every HOLE OPEN assertion flipped here to CLOSED).
  *
- * Closed on `main` by #7844 (`81d37c37`, owner 2026-11-16, specs DECISION_LOG "THE SHORTLIST QR STAYS FREE BUT IS
- * NOT AN IMPORT"): `/vendor-invite/<shop-slug>` → `claimVendorInviteToEvent` → `importVendorToEventShortlist` now
- * writes `source = 'vendor_shortlist_qr'` (`SHORTLIST_QR_SOURCE`), which is a SAVE ON SETNAYAN
- * (`SETNAYAN_SAVE_SOURCES`), never one of `SUPPLIER_BROUGHT_SOURCES`. So the public, tokenless address can no longer
- * turn a couple into a free import — whether Setnayan showed them the shop first (2a) or another shop got there
- * first (2b).
- *
- * 2b's target moved: #7841 expected "only the FIRST importer is free" (owner, earlier 16 Nov). The owner replaced that
- * rule the same day — specs DECISION_LOG "EVERY SUPPLIER IMPORT CARRIES AT LEAST ONE SETNAYAN GIFT — REPLACES 'ONLY
- * THE FIRST SUPPLIER IMPORTS FREE'". An own-client import is now one that carries a gift, and that door is not built;
- * the public address is the Shortlist QR, which is never free. So BOTH shops' rows read 'sourced'.
+ * Closed, in two steps. #7844 (`81d37c37`) stopped `/vendor-invite/<shop-slug>` → `importVendorToEventShortlist` from
+ * writing `vendor_invite`; it writes `vendor_shortlist_qr` (`SHORTLIST_QR_SOURCE`). Then the owner ruled the rest the
+ * same day (specs DECISION_LOG 2026-11-16): the Shortlist QR is an IMPORT QR under the first-supplier rule (1abf35b,
+ * superseding d7f4b97f) and an earlier Setnayan contact makes it a Setnayan booking (d4899cd5 point 4, 9fe95ebe). So:
+ *   2a · a couple Setnayan showed the shop first stays SOURCED even when the shop then sends its address;
+ *   2b · through the public address only the FIRST shop on the event is the free import — a second shop pays (#7841's
+ *        "only the first importer is free", now the owner's d4899cd5 (3)).
  *
  * Fixtures write exactly the row the importer writes (the constant it uses), and a source scan pins the importer to
  * that constant — so the fixture cannot drift from the app.
@@ -54,7 +50,7 @@ async function newShop(): Promise<string> {
   const r = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
        (user_id, business_name, business_slug, location_city, services, verification_state, last_verified_at, public_visibility)
-     VALUES ($1, $2, $3, 'Manila', ARRAY['catering']::text[], 'verified', NOW(), 'verified')
+     VALUES ($1, $2, $3, 'Manila', ARRAY['catering']::text[], 'verified', TIMESTAMPTZ '2020-01-01', 'verified')
      RETURNING vendor_profile_id`,
     [owner, `Kusina ${n}`, `kusina-hole-2-${n}`],
   );
@@ -101,13 +97,12 @@ const importerBody = (): string => {
   return src.slice(at, end > at ? end : undefined);
 };
 
-test('CLOSED · the public invite address writes the Shortlist QR source, never a supplier-brought one', () => {
+test('CLOSED · the public invite address writes the Shortlist QR source — an import QR, never the own-client invite', () => {
   const body = importerBody();
   assert.match(body, /source:\s*SHORTLIST_QR_SOURCE/, 'importVendorToEventShortlist stamps SHORTLIST_QR_SOURCE');
-  for (const s of SUPPLIER_BROUGHT_SOURCES) {
-    assert.ok(!body.includes(`'${s}'`), `importVendorToEventShortlist writes the supplier-brought source '${s}'`);
-  }
-  assert.ok(!SUPPLIER_BROUGHT_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR source is not a supplier-brought source');
+  assert.ok(!body.includes(`'vendor_invite'`), 'importVendorToEventShortlist writes the own-client invite source');
+  // 1abf35b: the Shortlist QR is an import QR — supplier-brought, so the first-supplier rule decides it.
+  assert.ok(SUPPLIER_BROUGHT_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR is not treated as an import QR');
 });
 
 async function attribution(shop: string, eventId: string): Promise<string> {
@@ -145,7 +140,7 @@ test('CLOSED · 2a — a couple Setnayan showed the shop to, then sent the shop\
 
   await importedByInviteLink(shop, eventId, LATER);
 
-  // CLOSED (was HOLE OPEN 'import'): the invite-address row is a Setnayan save, so the earlier find stands.
+  // CLOSED (was HOLE OPEN 'import'): the earlier Setnayan find wins over the supplier's address (d4899cd5 point 4).
   assert.equal(await attribution(shop, eventId), 'sourced', 'booking_fee_attribution_for — the found couple stays sourced');
   assert.equal(
     bookingFeeAttributionFromFacts({
@@ -157,18 +152,18 @@ test('CLOSED · 2a — a couple Setnayan showed the shop to, then sent the shop\
       viewSourcesBefore: ['search'],
     }),
     'sourced',
-    'bookingFeeAttributionFromFacts agrees — the Shortlist QR source is a Setnayan save',
+    'bookingFeeAttributionFromFacts agrees — a Setnayan view before the import makes it sourced',
   );
 });
 
-test('CLOSED · 2b — neither the first nor a second shop\'s invite link makes the couple a free import', async () => {
+test('CLOSED · 2b — through the public address only the first shop is the free import; a second shop pays', async () => {
   const first = await newShop();
   const second = await newShop();
   const eventId = await newCoupleEvent();
 
   await importedByInviteLink(first, eventId, LATER);
-  // The public address is the Shortlist QR, not an own-client import (an import now needs a gift — 16 Nov, unbuilt).
-  assert.equal(await attribution(first, eventId), 'sourced', 'the first shop through the public address pays the fee');
+  // The first imported supplier on the event (d4899cd5 / 9fe95ebe; verified shop, imported after verification).
+  assert.equal(await attribution(first, eventId), 'import', 'the first shop through the public address is the free import');
 
   await importedByInviteLink(second, eventId, LATEST);
   // CLOSED (was HOLE OPEN 'import').

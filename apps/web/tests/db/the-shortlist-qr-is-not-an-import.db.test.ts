@@ -1,8 +1,9 @@
 /**
  * THE SHORTLIST QR IS NOT AN IMPORT · AN IMPORTED CLIENT IS NOT A COMPLETED BOOKING (owner 2026-11-16).
  *
- *  1 · d7f4b97f — a shop that reached the couple through its free Shortlist QR (`vendor_shortlist_qr`) is a
- *      SOURCED booking: the normal booking fee applies. Its own client (`vendor_invite`) stays an import.
+ *  1 · ⟲ SUPERSEDED the same day by 1abf35b: the Shortlist QR (`vendor_shortlist_qr`) is an IMPORT QR under the
+ *      first-supplier rule — like the shop's own invite (`vendor_invite`), the first imported supplier on an event
+ *      books free (verified shop, imported after verification). Was d7f4b97f "a booking from it pays the normal fee".
  *      (Every fee case, including the two new Shortlist QR ones, also runs in `add-your-own-fee-rule.db.test.ts`.)
  *  2 · fd5814dc (3) — a client the supplier brought in (`vendor_invite` · `vendor_locked_qr` · `reuse_accept`) does
  *      not count toward the Completed bookings badge (`vendor_public_completed_events_stats`), while the supplier's
@@ -40,7 +41,7 @@ async function newShop(): Promise<string> {
   const v = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
        (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
-     VALUES ($1, 'Shortlist QR Studio', 'Manila', ARRAY['photography']::text[], 'verified', NOW(), 'verified')
+     VALUES ($1, 'Shortlist QR Studio', 'Manila', ARRAY['photography']::text[], 'verified', TIMESTAMPTZ '2020-01-01', 'verified')
      RETURNING vendor_profile_id`,
     [userId],
   );
@@ -69,12 +70,12 @@ async function attribution(shop: string, eventId: string): Promise<string> {
   return r.rows[0]!.a;
 }
 
-test('a shop that came in through its free Shortlist QR is a sourced booking; its own invite stays an import', async () => {
+test('1abf35b — the Shortlist QR is an import QR: as the first import on an event it books free, like the own invite', async () => {
   const shop = await newShop();
   const viaShortlistQr = await rowFor(shop, 'vendor_shortlist_qr', 'considering');
   const viaOwnInvite = await rowFor(shop, 'vendor_invite', 'considering');
-  assert.equal(await attribution(shop, viaShortlistQr), 'sourced', 'the free Shortlist QR is still a back door around the fee');
-  assert.equal(await attribution(shop, viaOwnInvite), 'import', 'the supplier’s own client now pays the fee');
+  assert.equal(await attribution(shop, viaShortlistQr), 'import', 'the Shortlist QR is not an import QR');
+  assert.equal(await attribution(shop, viaOwnInvite), 'import', 'the supplier’s own invite pays the fee as a first import');
 });
 
 test('a client the supplier brought in does not count toward Completed bookings; the supplier’s own count keeps them', async () => {

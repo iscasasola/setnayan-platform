@@ -1,7 +1,7 @@
 /**
- * 🔖 THE SHORTLIST QR STAYS FREE BUT IS NOT AN IMPORT (owner 2026-11-16, specs DECISION_LOG d7f4b97f).
- * "A booking from it pays the normal booking fee." Until then `importVendorToEventShortlist` wrote `vendor_invite`
- * — an own client — so the free Shortlist QR was a back door around the import gift (183dcf14).
+ * 🔖 THE SHORTLIST QR IS AN IMPORT QR (owner 2026-11-16, specs DECISION_LOG 1abf35b — supersedes d7f4b97f "the
+ * Shortlist QR stays free but is not an import"). It writes its OWN source (`vendor_shortlist_qr`, never the own-client
+ * `vendor_invite`), and that source is supplier-brought: the first-supplier rule (d4899cd5 / 9fe95ebe) decides it in SQL.
  *
  * The bill itself is held by `tests/db/the-shortlist-qr-is-not-an-import.db.test.ts` and the two Shortlist QR rows of
  * `fee-rule-b-cases.ts` (run through BOTH the app rule and `booking_fee_attribution_for`). This file holds the app
@@ -17,19 +17,20 @@ import { stripComments } from './strip-comments';
 
 const read = (p: string) => stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
 
-test('the Shortlist QR writes its own source, and that source is a save on Setnayan, never an own client', () => {
+test('the Shortlist QR writes its own source, and that source is an import QR, never a save on Setnayan', () => {
   assert.equal(SHORTLIST_QR_SOURCE, 'vendor_shortlist_qr');
-  assert.ok(SETNAYAN_SAVE_SOURCES.has(SHORTLIST_QR_SOURCE), 'a booking from the Shortlist QR is free again');
-  assert.ok(!SUPPLIER_BROUGHT_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR makes an own client again');
+  assert.ok(!SETNAYAN_SAVE_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR reads as Setnayan finding the couple');
+  assert.ok(SUPPLIER_BROUGHT_SOURCES.has(SHORTLIST_QR_SOURCE), 'the Shortlist QR is not treated as an import QR');
   const src = read('lib/vendor-couple-invite.ts');
   const writer = src.slice(src.indexOf('export async function importVendorToEventShortlist'));
   assert.match(writer, /source: SHORTLIST_QR_SOURCE,/, 'the Shortlist QR no longer writes its own source');
   assert.doesNotMatch(writer, /'vendor_invite'/, 'the Shortlist QR writes an own-client source again');
 });
 
-test('booked with nothing else recorded, a Shortlist QR row pays the fee', () => {
+test('a Shortlist QR row reads like any import: no Setnayan fact first → import; a Setnayan view first → sourced', () => {
   const facts = { threadSources: [], rowIsManualRecord: false, recordTiedToShop: true, savesBefore: [], viewSourcesBefore: [] };
-  assert.equal(bookingFeeAttributionFromFacts({ ...facts, rowSource: SHORTLIST_QR_SOURCE }), 'sourced');
+  assert.equal(bookingFeeAttributionFromFacts({ ...facts, rowSource: SHORTLIST_QR_SOURCE }), 'import');
+  assert.equal(bookingFeeAttributionFromFacts({ ...facts, rowSource: SHORTLIST_QR_SOURCE, viewSourcesBefore: ['search'] }), 'sourced');
   assert.equal(bookingFeeAttributionFromFacts({ ...facts, rowSource: 'vendor_invite' }), 'import', 'the own-client invite changed too');
 });
 

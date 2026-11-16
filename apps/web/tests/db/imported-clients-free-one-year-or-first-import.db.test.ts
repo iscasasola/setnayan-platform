@@ -9,7 +9,11 @@
  *   (3) every other supplier on that event pays the normal fee, even when imported too;
  *   (4) an earlier Setnayan contact with the supplier makes it a Setnayan booking.
  *
- * The fix is migration 20271350679653 (`booking_fee_attribution_for` + `booking_fee_import_at` ·
+ * Also the later rulings of the same day: 34909f12 + 99b6ab50 (waivers only for a VERIFIED shop, and only for imports
+ * made after verification; an unverified shop always pays) · 993cdb9 (a cancelled first supplier still uses the free
+ * slot) · 1abf35b (the Shortlist QR is an import QR; a couple's own Find invite is free only when it created the shop).
+ *
+ * The fix is migrations 20271350679653 + 20271351371342 (`booking_fee_attribution_for` + `booking_fee_import_at` ·
  * `booking_fee_is_first_import` · `booking_fee_import_created_account`). Every fixture sets its own timestamps, so the
  * order of facts is the test, not the order the statements happen to run in.
  */
@@ -41,14 +45,15 @@ async function newUser(tag: string): Promise<string> {
   return r.rows[0]!.id;
 }
 
-async function newShop(): Promise<string> {
+/** A shop. Verified ~3 years ago by default, so every import in these fixtures lands after verification. */
+async function newShop(verified: 'verified' | 'unverified' = 'verified', since = ago(1000)): Promise<string> {
   const owner = await newUser('shop');
   const r = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
-       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
-     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', NOW(), 'verified')
+       (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility, created_at)
+     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], $3, $4, 'verified', $5)
      RETURNING vendor_profile_id`,
-    [owner, `Kusina ${n}`],
+    [owner, `Kusina ${n}`, verified, verified === 'verified' ? since : null, since],
   );
   return r.rows[0]!.vendor_profile_id;
 }
@@ -177,4 +182,77 @@ test('a booking with nothing from Setnayan and nothing imported still carries no
   const eventId = await newEvent(couple, ago(20));
   await row(eventId, shop, 'host_manual', ago(19));
   assert.equal(await fee(shop, eventId), 'import');
+});
+
+/* ── the later rulings of 16 Nov ── */
+
+test('99b6ab50 — an unverified shop pays on everything; once verified, its next first-import event is free', async () => {
+  const shop = await newShop('unverified');
+  const couple = await newUser('new-client');
+  const first = await newEvent(couple, ago(30));
+  await row(first, shop, 'vendor_locked_qr', ago(30 - 0.01));
+  assert.equal(await fee(shop, first), 'sourced', 'a QR import of a new couple by an unverified shop pays the flat 5%');
+  const outside = await newEvent(await newUser('outside'), ago(25));
+  await row(outside, shop, 'host_manual', ago(24));
+  assert.equal(await fee(shop, outside), 'sourced', 'even a booking found outside Setnayan pays while unverified');
+
+  // The shop is verified now (today); imports from here on qualify, the one made before does not.
+  await db.query(`UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = $2 WHERE vendor_profile_id = $1`, [shop, ago(5)]);
+  assert.equal(await fee(shop, first), 'sourced', 'the import made before verification keeps paying');
+  const next = await newEvent(await newUser('existing'), ago(3));
+  await row(next, shop, 'vendor_invite', ago(2));
+  assert.equal(await fee(shop, next), 'import', 'the next first-import event after verification is free');
+});
+
+test('993cdb9 (2) — the first imported supplier cancels: the slot is used up, the next import on that event pays', async () => {
+  const first = await newShop();
+  const next = await newShop();
+  const couple = await newUser('existing');
+  await newEvent(couple, ago(300));
+  const eventId = await newEvent(couple, ago(40));
+  await row(eventId, first, 'vendor_invite', ago(39));
+  assert.equal(await fee(first, eventId), 'import');
+  // Removing a supplier deletes its row (vendors/actions.ts) — the slot must outlive it.
+  await db.query(`DELETE FROM public.event_vendors WHERE event_id = $1 AND marketplace_vendor_id = $2`, [eventId, first]);
+  await row(eventId, next, 'vendor_locked_qr', ago(20));
+  assert.equal(await fee(next, eventId), 'sourced', 'no later supplier gets the cancelled one\'s free slot');
+});
+
+test('1abf35b (1) — the Shortlist QR is an import QR: the first shop through it is free, a second pays', async () => {
+  const a = await newShop();
+  const b = await newShop();
+  const couple = await newUser('existing');
+  await newEvent(couple, ago(300));
+  const eventId = await newEvent(couple, ago(40));
+  await row(eventId, a, 'vendor_shortlist_qr', ago(39));
+  await row(eventId, b, 'vendor_shortlist_qr', ago(38));
+  assert.equal(await fee(a, eventId), 'import');
+  assert.equal(await fee(b, eventId), 'sourced');
+});
+
+async function coupleInvite(eventId: string, shop: string, sentAt: string): Promise<void> {
+  const ev = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, source, linked_vendor_profile_id, created_at)
+     VALUES ($1, 'catering', 'Tita Baby', 'considering', 'host_manual', $2, $3) RETURNING vendor_id`,
+    [eventId, shop, sentAt],
+  );
+  const by = (await db.query<{ user_id: string }>(`SELECT user_id FROM public.event_members WHERE event_id = $1 LIMIT 1`, [eventId])).rows[0]!.user_id;
+  await db.query(
+    `INSERT INTO public.vendor_invites
+       (vendor_id, invited_by_user_id, email, business_name, claim_token, status, sent_at, expires_at, claimed_vendor_profile_id, claimed_at)
+     VALUES ($1, $2, $3, 'Tita Baby', $4, 'claimed', $5, $5::timestamptz + INTERVAL '90 days', $6, NOW())`,
+    [ev.rows[0]!.vendor_id, by, `tita-${++n}@imports.test`, `tok-${n}-xxxxxxxxxxxxxxxxxxxxxxxx`, sentAt, shop],
+  );
+}
+
+test('1abf35b (2) — the couple\'s own Find invite: a shop it CREATED books free; an EXISTING shop pays', async () => {
+  const couple = await newUser('inviter');
+  await newEvent(couple, ago(300));
+  const eventId = await newEvent(couple, ago(60));
+  const brandNew = await newShop('verified', ago(10)); // created after the invite went out
+  await coupleInvite(eventId, brandNew, ago(20));
+  assert.equal(await fee(brandNew, eventId), 'import');
+  const existing = await newShop(); // created ~3 years ago
+  await coupleInvite(eventId, existing, ago(15));
+  assert.equal(await fee(existing, eventId), 'sourced');
 });

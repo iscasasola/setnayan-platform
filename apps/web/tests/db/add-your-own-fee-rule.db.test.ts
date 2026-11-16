@@ -40,7 +40,7 @@ async function newShop(): Promise<string> {
   const uid = await newUser('shop');
   const r = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', TIMESTAMPTZ '2020-01-01') RETURNING vendor_profile_id`,
     [uid, `Kusina ${n}`],
   );
   return r.rows[0]!.vendor_profile_id;

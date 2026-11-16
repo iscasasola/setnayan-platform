@@ -171,14 +171,15 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
  * Fails SAFE to import.
  */
 /**
- * 🔖 THE SHORTLIST QR IS NOT AN IMPORT (owner 2026-11-16, DECISION_LOG d7f4b97f). Shop › Promote's free
- * "Shortlist" QR (`/vendor-invite/<slug>` → `importVendorToEventShortlist`) puts the shop on the couple's shortlist,
- * and a booking from it pays the normal booking fee — it is a save on Setnayan, not the supplier bringing an own
- * client. Until 16 Nov it wrote `vendor_invite` and was a free back door around the import gift (183dcf14).
+ * 🔖 THE SHORTLIST QR IS AN IMPORT QR (owner 2026-11-16, DECISION_LOG 1abf35b — supersedes d7f4b97f "the Shortlist QR
+ * stays free but is not an import"). Shop › Promote's "Shortlist" QR (`/vendor-invite/<slug>` →
+ * `importVendorToEventShortlist`) is one of the supplier's own QRs, so it follows the first-supplier rule
+ * (d4899cd5 / 9fe95ebe): a verified shop that is the first imported supplier on the event books it free; every other
+ * supplier on that event pays; an unverified shop always pays (99b6ab50). SQL decides that (`booking_fee_attribution_for`).
  */
 export const SHORTLIST_QR_SOURCE = 'vendor_shortlist_qr';
-export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize', SHORTLIST_QR_SOURCE]);
-export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize']);
+export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept', SHORTLIST_QR_SOURCE]);
 
 export type BookingAttributionFacts = {
   /** `inquiry_source` of every thread this event has with the shop. */

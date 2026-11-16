@@ -20,6 +20,15 @@
    - It reads only columns already on main (`event_vendors`, `event_members`, `events.created_at`, `chat_threads`, `vendor_profile_views`) and adds no schema. "The import created the account" is read structurally (the client's first event, and the import is the first thing on it), so it fails toward the fee.
    - Proof: `tests/db/imported-clients-free-one-year-or-first-import.db.test.ts`.
 
-No UI change and no typed price.
+6. **The later 16 Nov fee rulings** (specs `34909f1`, `99b6ab5`, `993cdb9`, `1abf35b`). Migration `20271351371342_verified_shops_shortlist_qr_and_the_event_free_slot.sql`:
+   - **Verified only:** an unverified shop pays on every booking. The free year and the first-import waiver count only for imports made after the shop was verified, dated from the newest approved initial or post-demotion verification.
+   - **Bookings already made** keep their waiver: `booking_fee_ledger` freezes the attribution at the lock.
+   - **The event's one free slot** is recorded in a new service-role-only table, `booking_fee_event_import_slots`, written by a trigger and backfilled. A first supplier who is removed (their row is hard-deleted) still uses the slot.
+   - **The Shortlist QR is an import QR.** It moves from the Setnayan-save lists to the supplier-brought ones in SQL, in `booking-fee-gate.ts` and in `contact-shortlist-vendor.ts`.
+   - **The couple's own Find invite** (`vendor_invites`) is free when claiming it created the shop, and pays the fee when an existing shop claimed it.
+   - #7844's Shortlist QR tests and the fee cases are flipped to the new ruling. Fixtures that backdate imports now verify their shops earlier.
+7. **Ultra while Pro is still being checked** (owner "Approved", 16 Nov): `readUltraUpgradeCharge` returns `plan_being_checked` for a `submitted` Pro, or a submitted Plus when no plan is paid, and the charge refuses it with one plain line (`plan_payment_being_checked`). Once Pro is verified, the difference is quoted as before.
+
+No typed price. The only new words a person sees are the one refusal line in item 7.
 
 SPEC IMPACT: None. The fixes implement existing rulings (DECISION_LOG 2026-11-16 d4899cd5 + 9fe95ebe "IMPORTED CLIENTS: A NEW ACCOUNT IS FREE FOR ONE YEAR…"; Vendor_Monetization_Model_LOCKED_2026-07-25 §3; DECISION_LOG 2026-11-13 "EVENT ULTRA UPGRADE — PAY THE DIFFERENCE"; 2026-11-16 "THE SHORTLIST QR STAYS FREE BUT IS NOT AN IMPORT" and "EVERY SUPPLIER IMPORT CARRIES AT LEAST ONE SETNAYAN GIFT").

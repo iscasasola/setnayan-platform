@@ -83,9 +83,11 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   // supplier then imports the couple. (Was 'import' — "free, even after a view" — until that ruling.)
   c('the supplier invited the couple after Setnayan showed them the shop → sourced', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
   c('the supplier invited the couple, nothing from Setnayan first → import (free only as the first import)', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none' }, 'import'),
-  // 🔖 owner 2026-11-16 (d7f4b97f): the free Shortlist QR is not an import — a booking from it pays the fee.
-  c('the shop came in through its free Shortlist QR → sourced, with nothing else recorded', { kind: 'saved', rowSource: 'vendor_shortlist_qr', tie: 'none' }, 'sourced'),
-  c('an earlier Shortlist QR row is a save on Setnayan → sourced', { tie: 'matched', saves: [{ source: 'vendor_shortlist_qr', when: 'before' }] }, 'sourced'),
+  // 🔖 owner 2026-11-16 (1abf35b, superseding d7f4b97f): the Shortlist QR is an import QR — the supplier's own, under
+  // the first-supplier rule. With nothing else recorded it is the event's first import, so free (on a verified shop).
+  c('the shop came in through its Shortlist QR, nothing else recorded → import (the first import on the event)', { kind: 'saved', rowSource: 'vendor_shortlist_qr', tie: 'none' }, 'import'),
+  c('an earlier Shortlist QR row is the supplier bringing them, not a save on Setnayan → free', { tie: 'matched', saves: [{ source: 'vendor_shortlist_qr', when: 'before' }] }, 'import'),
+  c('Setnayan showed the couple the shop before its Shortlist QR → sourced', { kind: 'saved', rowSource: 'vendor_shortlist_qr', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
   c('a legacy host_manual marketplace row with an Explore view before it → sourced', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
   c('a legacy host_manual marketplace row whose only view was the supplier’s own link → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'profile_direct', when: 'before' }] }, 'import'),
   c('a legacy host_manual marketplace row, nothing recorded → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none' }, 'import'),

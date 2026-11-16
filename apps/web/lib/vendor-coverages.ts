@@ -101,7 +101,8 @@ export const getCoverageTaxonomy = cache(async (): Promise<CoverageParent[]> => 
   const parents = cats.filter((c) => c.tier === 1 && isActive(c));
   const tiles = cats.filter((c) => c.tier === 2 && isActive(c));
   const tileById = new Map(tiles.map((t) => [t.id, t]));
-  const displayName = new Map(schemas.map((s) => [s.canonical_service, s.display_name_en ?? '']));
+  // W1-B22: the admin's name, with a seed's wrong words corrected for display only (`serviceDisplayName`).
+  const displayName = new Map(schemas.map((s) => [s.canonical_service, serviceDisplayName(s.canonical_service, s.display_name_en)]));
 
   const leavesByTile = new Map<string, CoverageLeaf[]>();
   for (const cs of canon) {

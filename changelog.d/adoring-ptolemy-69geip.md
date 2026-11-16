@@ -22,4 +22,15 @@ One batch for the 16 Nov supplier walk (W1). The other items in this PR have the
   (`signInInPlace` intent=relink → `sendSignInLink`, an admin-minted magic link to `/auth/confirm`). No new server action.
   ⚠ OWNER ACTION: re-paste `supabase/templates/confirm-signup.html` into Supabase › Auth › Email Templates.
 
+- **W1-B23** (walk 2, sign-up) — "Application error" right after "Open my shop — free" though the account and
+  email were made, and a reload drew fine. A submit from the wizard now never swaps the form for the sent screen in
+  place: the form stays drawn and the page loads afresh onto `?check_inbox=1` (the load the walker saw work).
+  Not reproduced off live (the lab's in-place swap did not crash) — the fix takes the known-good path.
+- **W1-B25** (walk 2) — the fault log's `SecurityError: … history.replaceState() more than 100 times per 10 seconds`
+  on /dashboard/create-event (build afcef1e): the board redirected a console user with no events to
+  /dashboard/create-event, which its own `@modal/(.)create-event` intercepts on a client navigation, re-rendering the
+  board, which redirected again. Now a supplier goes to /vendor-dashboard (an admin to /admin), and an email link with
+  no destination lands a supplier on the shop (`landingForAccount`, /auth/callback + /auth/confirm).
+- **W1-B9** — dropped: fixed on live (walkthrough 2).
+
 SPEC IMPACT: None for the code. The template re-paste is an owner action (Supabase dashboard), not a spec edit.

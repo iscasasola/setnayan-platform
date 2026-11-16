@@ -87,6 +87,7 @@ import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
 import { InquireSheet, type InquireEvent, type InquireService } from './_components/inquire-sheet';
+import { viewerBookedChatHref } from '@/lib/shop-booking.server';
 import { inquireServiceList } from '@/lib/shop-inquire';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -1802,6 +1803,9 @@ export async function renderVendorBySlug({
   /* ‹ THE TOP-LEFT BACK (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): where the arrival
      came from, returned to in place; cold, Discover signed out and Home signed in (lib/shop-back.ts `shopTopBack`). */
   const shopTop = shopTopBack(shopArrival, viewerSignedIn);
+  // 💬 CHAT-08: a couple already BOOKED with this shop has nothing to inquire about — their button opens the chat they
+  // already have (the door their Messages list opens). Null for everyone else, and the shipped Inquire stays.
+  const bookedChatHref = canMessage && viewerSignedIn && !viewerOwnsShop ? await viewerBookedChatHref(supabase, vendor.vendor_profile_id) : null;
   const inquireEventState = canMessage && viewerSignedIn ? await resolveAddShopToEvent(slug) : null;
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
@@ -2723,10 +2727,18 @@ export async function renderVendorBySlug({
                     every look — and the ONLY Inquire on the page (no tab, no foot section, no hero button). It opens the
                     pop-up. On a phone the card scrolls away, so this same button floats at the bottom-right to stay in
                     reach (one element, never a second copy); on a tablet+ the card itself is pinned beside the page. */}
-                <a href="#get-in-touch" className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="">
-                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire
-                </a>
+                {bookedChatHref === null ? (
+                  <a href="#get-in-touch" className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Inquire
+                  </a>
+                ) : (
+                  /* 💬 Booked (CHAT-08): the same button, in the same place, opens the conversation they already have. */
+                  <Link href={bookedChatHref} className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="" data-booked-chat="">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Message
+                  </Link>
+                )}
                 {/* ➕ ADD TO YOUR EVENT — beside it, quieter: puts the shop on the couple's event list, no message. The
                     shipped Save action (`saveVendorToPicks`), which asks which event when there are two or more ahead. */}
                 <SaveVendorButton

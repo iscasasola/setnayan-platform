@@ -66,3 +66,49 @@
 [data-pin-lead-hub]:has([data-hub-event-menu], [data-event-hub-bar]) > [data-supplier-page-menu='word'] {
   display: none;
 }
+
+/* ── 🖥 TODAY ON A COMPUTER (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED"; P1 drawing
+   `prototypes/supplier_desktop_main_2026-11-16/`, artifact YDmXjk2mRMYcnQg5pKGNqp). Same rows, words and buttons as the
+   phone — only where they sit. The cover, Next events, the five numbers and the thumb row keep the full width; from 1280
+   the work pane (Needs you today · Also today · Events you run · Coming up) and the Shop pane sit side by side; from 1600
+   the work pane splits again: Needs | Coming up. Below 1280 the two wrappers draw nothing (`display: contents`).
+   🔒 app/vendor-dashboard/_components/today-is-two-panes-on-a-computer.test.ts */
+[data-today-pane],
+[data-today-pane-needs] {
+  display: contents;
+}
+@media (min-width: 1280px) {
+  [data-today-first-screen] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+    column-gap: 28px;
+    align-items: start;
+  }
+  [data-today-first-screen] > * {
+    grid-column: 1 / -1;
+  }
+  [data-today-first-screen] > [data-today-pane='work'] {
+    display: block;
+    grid-column: 1;
+    min-width: 0;
+  }
+  [data-today-first-screen] > [data-today-shop] {
+    grid-column: 2;
+    min-width: 0;
+  }
+}
+@media (min-width: 1600px) {
+  [data-today-first-screen] > [data-today-pane='work'] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+  [data-today-pane='work'] > [data-today-pane-needs] {
+    display: block;
+    min-width: 0;
+  }
+  [data-today-pane='work'] > [data-today-coming-up] {
+    min-width: 0;
+  }
+}

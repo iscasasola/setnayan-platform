@@ -332,6 +332,12 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      {/* 🖥 THE DESKTOP PANES (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED"): the work pane (Needs you
+          today · Also today · Events you run · Coming up) and the Shop pane sit side by side from 1280; from 1600 the
+          work pane splits again (Needs | Coming up). Below 1280 both wrappers are `display: contents` — the phone and the
+          701 column draw exactly as before. The grid lives in `supplier-frame.css`. */}
+      <div data-today-pane="work">
+      <div data-today-pane-needs="">
       {/* 📋 NEEDS YOU TODAY — one row per thing waiting, in the app's words; EVERY row is ONE link to its page. */}
       <div data-today-needs="" data-tour="today-needs" id="whats-new">
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
@@ -414,6 +420,8 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      </div>
+
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
@@ -428,6 +436,8 @@ export function SupplierTodayFirstScreen({
             ))}
           </div>
         )}
+      </div>
+
       </div>
 
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}

@@ -53,6 +53,33 @@ export function shopHasWhere(place: {
   return pinned || Boolean(place.address?.trim()) || Boolean(place.city?.trim());
 }
 
+/** The line an unverified shop's Where section carries in place of its street. */
+export const EXACT_ADDRESS_ONCE_VERIFIED = 'The exact address shows once Setnayan verifies this shop.';
+
+/**
+ * 📍 WHAT A SHOP'S WHERE SECTION MAY SHOW. DECISION_LOG 2026-11-15 "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED
+ * ONE": the unverified page has *"no exact address"* — the approved prototype (`shop_website_two_looks_2026-11-15/site.html`)
+ * prints the city and "the exact address shows once verified", with no pin and no Get directions. So a shop Setnayan has
+ * not verified shows its CITY only: no pinned map (a pin is the street), no directions (they print and search the
+ * address). A verified shop keeps everything `shopHasWhere` allows.
+ */
+export function shopWhere(
+  place: { latitude: number | null | undefined; longitude: number | null | undefined; address: string | null | undefined; city: string | null | undefined },
+  verified: boolean,
+): { has: boolean; map: boolean; directionsQuery: string | null; addressNote: string | null } {
+  if (!verified) {
+    return { has: Boolean(place.city?.trim()), map: false, directionsQuery: null, addressNote: EXACT_ADDRESS_ONCE_VERIFIED };
+  }
+  const pinned =
+    place.latitude != null && place.longitude != null && Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
+  return {
+    has: shopHasWhere(place),
+    map: pinned,
+    directionsQuery: place.address?.trim() || place.city?.trim() || null,
+    addressNote: null,
+  };
+}
+
 /** The reach fact line's words. Null when there is no city to say it about. */
 export function shopReachLine(reach: ShopReach, city: string | null | undefined): string | null {
   const c = city?.trim();

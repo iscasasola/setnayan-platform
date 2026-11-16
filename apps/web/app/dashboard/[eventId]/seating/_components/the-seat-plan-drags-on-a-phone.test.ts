@@ -54,21 +54,21 @@ test('2 · the tray renders the drawing — and nothing when nobody is left to s
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SeatFaceTray } = await import('./seat-face-tray');
   const noop = () => {};
-  const faces = ['Tess Lim', 'Ben Cruz', 'Jun Reyes'].map((name, i) => ({ id: `g${i}`, name, initials: name.split(' ').map((w) => w[0]).join(''), photo: null }));
+  const faces = ['Tess Lim', 'Ben Cruz', 'Jun Reyes', 'Ana Dy', 'Rico Sy', 'Lea Tan', 'Mia Go', 'Noel Uy', 'Ivy Ong'].map((name, i) => ({ id: `g${i}`, name, initials: name.split(' ').map((w) => w[0]).join(''), photo: null }));
   const html = renderToStaticMarkup(
-    React.createElement(SeatFaceTray, { faces, more: 6, groups: [{ id: 'grp', label: 'Lim family', count: 4 }], canEdit: true, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }),
+    React.createElement(SeatFaceTray, { faces, groups: [{ id: 'grp', label: 'Lim family', count: 4 }], canEdit: true, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }),
   );
-  assert.match(html, /To seat · 9/, 'the count is the faces plus the rest');
+  assert.match(html, /To seat · 9/, 'the count is not everyone still to seat');
   assert.match(html, /Press and hold a face, then drag it to a chair\. Or tap · move\./);
-  assert.equal((html.match(/data-seat-tray-face=/g) ?? []).length, 3);
+  // Before the row is measured (here: the server) every face is drawn; the browser then keeps what fits.
+  assert.equal((html.match(/data-seat-tray-face=/g) ?? []).length, 9);
   assert.match(html, /class="[^"]*\bh-11 w-11\b/, 'a face is not 44 px');
-  assert.match(html, /data-seat-tray-more=""[^>]*>\+6</);
   assert.match(html, /data-seat-tray-group="grp"[^>]*class="[^"]*min-h-11/, 'the group chip is under 44 px');
   assert.match(html, /Lim family · 4/);
   assert.match(html, /touch-none/, 'a held face would scroll the page instead of lifting');
-  const locked = renderToStaticMarkup(React.createElement(SeatFaceTray, { faces, more: 0, groups: [], canEdit: false, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }));
+  const locked = renderToStaticMarkup(React.createElement(SeatFaceTray, { faces, groups: [], canEdit: false, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }));
   assert.match(locked, /Tap Edit first to seat them\./);
-  const empty = renderToStaticMarkup(React.createElement(SeatFaceTray, { faces: [], more: 0, groups: [], canEdit: true, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }));
+  const empty = renderToStaticMarkup(React.createElement(SeatFaceTray, { faces: [], groups: [], canEdit: true, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }));
   assert.equal(empty, '', 'an empty tray still draws');
 });
 
@@ -105,6 +105,21 @@ test('4 · every guest drop has ONE Undo line, and every Undo calls the latest m
     const undo = name === 'putBack' ? body : body.slice(body.indexOf('undo'));
     assert.doesNotMatch(undo, /(?<![.\w])(tradeSeats|seatGuestHere|unseat)\(/, `${name}: an Undo calls a move of the render it was made in (stale seats)`);
   }
+});
+
+test('2b · nothing typed: the faces that fit are measured, the "+N" is the rest, and every colour is a token', () => {
+  const tray = code('seat-face-tray.tsx');
+  assert.match(tray, /const slots = Math\.max\(1, Math\.floor\(\(row\.clientWidth \+ gap\) \/ \(face\.offsetWidth \+ gap\)\)\);/);
+  assert.match(tray, /const more = total - shown\.length;/);
+  assert.match(tray, /data-seat-tray-more=""/);
+  assert.doesNotMatch(tray, /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d/, 'a colour outside the tokens');
+  assert.doesNotMatch(code('seating-editor.tsx'), /TRAY_FACES|comingUnseated\.slice\(0,/, 'a typed face count');
+});
+
+test('4b · a failed save takes the drop’s line back — it never reads as done', () => {
+  const ed = code('seating-editor.tsx');
+  const gated = ed.slice(ed.indexOf('const runGated = '), ed.indexOf('const tradeSeats = '));
+  assert.match(gated, /catch \(err\) \{\s*if \(!handleLockLost\(err\)\) setNotice\(failed\);\s*setMoveNote\(null\);\s*return null;/);
 });
 
 test('5 · the gesture: the List hold, the house slop, the one edge rule — and the floor carries its data', async () => {

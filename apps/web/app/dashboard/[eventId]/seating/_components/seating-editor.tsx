@@ -1298,6 +1298,9 @@ export function SeatingEditor({
       return await fn();
     } catch (err) {
       if (!handleLockLost(err)) setNotice(failed);
+      /* ↩ A move's one line ("Andrea → Sponsors · seat 7 · Undo") is said as it is drawn, before the save answers; a
+         save that fails takes it back, so a failure never reads as done. */
+      setMoveNote(null);
       return null;
     }
   };
@@ -7039,8 +7042,8 @@ export function SeatingEditor({
     }
     if (dx || dy) applyView(zoomRef.current, { x: panRef.current.x - dx, y: panRef.current.y - dy });
   };
-  /* The tray: the first faces still to seat, "+N" for the rest (→ Seats › List, "To seat" open), and their groups. */
-  const TRAY_FACES = 5;
+  /* The tray: the faces still to seat (as many as fit its row, "+N" for the rest → Seats › List, "To seat" open), and
+     their groups. */
   const trayGroups = groups.flatMap((gr) => {
     const n = comingUnseated.filter((g) => g.group_id === gr.group_id).length;
     return n > 0 ? [{ id: gr.group_id, label: gr.label, count: n }] : [];
@@ -7048,8 +7051,7 @@ export function SeatingEditor({
   const seatTray =
     roomOnly && isPhone && comingUnseated.length > 0 ? (
       <SeatFaceTray
-        faces={comingUnseated.slice(0, TRAY_FACES).map((g) => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url }))}
-        more={Math.max(0, comingUnseated.length - TRAY_FACES)}
+        faces={comingUnseated.map((g) => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url }))}
         groups={trayGroups}
         canEdit={canEdit}
         onTapFace={openMove}

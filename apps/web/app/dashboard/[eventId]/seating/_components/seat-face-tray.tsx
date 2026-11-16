@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { UsersRound, X } from 'lucide-react';
 import { dragEdgeStep } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
@@ -76,7 +76,6 @@ export function chairToLand(chairs: readonly { dist: number; taken: boolean }[])
 
 export function SeatFaceTray({
   faces,
-  more,
   groups,
   canEdit,
   onTapFace,
@@ -84,10 +83,8 @@ export function SeatFaceTray({
   onDrop,
   onPan,
 }: {
-  /** The first few coming guests with no seat (the tray's faces). */
+  /** Every coming guest with no seat — the tray draws as many faces as its row holds, and "+N" for the rest. */
   faces: readonly TrayFace[];
-  /** How many more are still to seat beyond the faces drawn ("+6"). */
-  more: number;
   /** Groups with someone still to seat — "Lim family · 4". */
   groups: readonly TrayGroup[];
   /** Edit is held — without it the tray reads, and nothing on it lifts. */
@@ -100,8 +97,29 @@ export function SeatFaceTray({
   /** Pan the floor by (dx, dy) screen px — positive = show more to the right / below. */
   onPan: (dx: number, dy: number) => void;
 }) {
-  const total = faces.length + more;
+  const total = faces.length;
   const trayRef = useRef<HTMLDivElement>(null);
+  /* ↔ How many faces fit on the row — MEASURED (a face's own width and the row's gap), never a typed count; the last
+     slot goes to "+N" when some are left over. Before the first measure (and on the server) every face is drawn. */
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(total);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const measure = () => {
+      const face = row.querySelector<HTMLElement>('[data-seat-tray-face]');
+      if (!face) return;
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      const slots = Math.max(1, Math.floor((row.clientWidth + gap) / (face.offsetWidth + gap)));
+      setFit(slots >= total ? total : Math.max(1, slots - 1));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [total]);
+  const shown = faces.slice(0, fit);
+  const more = total - shown.length;
   const pending = useRef<Pending | null>(null);
   const drag = useRef<Drag | null>(null);
   const lit = useRef<{ table: HTMLElement | null; chair: HTMLElement | null }>({ table: null, chair: null });
@@ -175,7 +193,7 @@ export function SeatFaceTray({
     name.textContent = p.item.name;
     ghost.appendChild(name);
     ghost.className =
-      'pointer-events-none fixed left-0 top-0 z-[9999] inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink shadow-[0_14px_30px_rgba(44,42,41,.28)]';
+      'pointer-events-none fixed left-0 top-0 z-[9999] inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink shadow-[0_14px_30px_rgb(var(--color-ink)/0.28)]';
     document.body.appendChild(ghost);
     drag.current = { item: p.item, ghost, x, y, armed: false };
     place(drag.current);
@@ -283,15 +301,15 @@ export function SeatFaceTray({
           </button>
         </div>
       ) : null}
-      <div className="rounded-2xl bg-cream px-3.5 py-3 shadow-[0_8px_24px_-10px_rgba(30,26,18,.18),0_2px_6px_-2px_rgba(30,26,18,.08)]">
+      <div className="rounded-2xl bg-cream px-3.5 py-3 shadow-[0_8px_24px_-10px_rgb(var(--color-ink)/0.18),0_2px_6px_-2px_rgb(var(--color-ink)/0.08)]">
         <p className="flex items-baseline gap-2">
           <b className="shrink-0 text-[13.5px] font-semibold text-ink">To seat · {formatCount(total)}</b>
           <small className="min-w-0 text-xs text-ink/70" data-seat-tray-hint="">
             {canEdit ? 'Press and hold a face, then drag it to a chair. Or tap · move.' : 'Tap Edit first to seat them.'}
           </small>
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2" style={NO_CALLOUT}>
-          {faces.map((f) => {
+        <div ref={rowRef} className="mt-2 flex flex-wrap items-center gap-2" style={NO_CALLOUT}>
+          {shown.map((f) => {
             const item: TrayItem = { kind: 'guest', id: f.id, name: f.name };
             const lifted = held?.kind === 'guest' && held.id === f.id;
             return (

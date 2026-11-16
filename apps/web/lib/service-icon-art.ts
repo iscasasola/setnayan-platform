@@ -9,7 +9,8 @@
  */
 import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
 
-export const SERVICE_FOLDER_ART: Record<WeddingFolder, string> = {
+/** Groups without a drawing yet (T1's new Gifts group) stay on their lucide icon, like the tiles below. */
+export const SERVICE_FOLDER_ART: Partial<Record<WeddingFolder, string>> = {
   venue: "<g class=\"bd-all\"><path d=\"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16\"/><path d=\"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2\"/><path class=\"bd-door\" d=\"M14 21v-3a2 2 0 0 0-4 0v3\"/><path class=\"bd-w\" d=\"M10 8h4\"/><path class=\"bd-w q1\" d=\"M10 12h4\"/><path class=\"bd-g ghost q3\" d=\"M3.7 14h.6\"/><path class=\"bd-g ghost q5\" d=\"M3.7 17.4h.6\"/><path class=\"bd-g ghost q4\" d=\"M19.7 11h.6\"/><path class=\"bd-g ghost q3\" d=\"M19.7 14.4h.6\"/><path class=\"bd-g ghost q5\" d=\"M19.7 17.8h.6\"/></g>",
   planning: "<g class=\"cl-all\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/><path class=\"cl-ln\" d=\"M12 11h4\"/><path class=\"cl-ln q1\" d=\"M12 16h4\"/><path class=\"cl-dot\" d=\"M8 11h.01\"/><path class=\"cl-dot\" d=\"M8 16h.01\"/><path class=\"cl-tk ghost\" d=\"m6.9 11 .9.9 1.6-1.8\"/><path class=\"cl-tk ghost q1\" d=\"m6.9 16 .9.9 1.6-1.8\"/></g><rect class=\"cl-clip\" width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\"/>",
   feast: "<g class=\"ut-f\"><path d=\"m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8\"/><path d=\"m2.1 21.8 6.4-6.3\"/><path d=\"m19 5-7 7\"/></g><g class=\"ut-k\"><path d=\"M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7\"/></g><path class=\"ut-s ghost\" d=\"M10.6 5V3.2M8.4 5.6 7.4 4.2M12.6 5.6l.8-1.3\"/>",

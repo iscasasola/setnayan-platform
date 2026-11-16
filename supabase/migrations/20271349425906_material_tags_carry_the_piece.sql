@@ -55,6 +55,13 @@ COMMENT ON COLUMN public.event_vendors.source_via IS
 COMMENT ON COLUMN public.event_vendors.source_utm IS
   'The campaign tags carried from the inquiry thread (chat_threads.inquiry_utm), filled only while empty. Never read by the booking fee.';
 
+-- 2+3 · READ GRANTS. chat_threads and event_vendors hold SELECT as a COLUMN-LEVEL allow-list (only INSERT/UPDATE are
+-- table-level), so a new column there comes back writable but NOT readable — and PostgREST refuses the WHOLE select that
+-- names it (app/v/[slug]/inquiry-actions.ts reads event_vendors.source_via/_utm under the couple's own session). Mirror
+-- the siblings exactly: inquiry_source and source are SELECT for anon + authenticated, so the new columns are too.
+GRANT SELECT (inquiry_via, inquiry_utm) ON public.chat_threads TO anon, authenticated;
+GRANT SELECT (source_via, source_utm) ON public.event_vendors TO anon, authenticated;
+
 -- 4 · the sign-up ----------------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.signup_attributions (
   user_id           UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
@@ -82,6 +89,11 @@ BEGIN
      OR has_table_privilege('authenticated', 'public.signup_attributions', 'SELECT')
      OR has_table_privilege('authenticated', 'public.signup_attributions', 'INSERT') THEN
     RAISE EXCEPTION 'signup_attributions must be closed to anon and authenticated';
+  END IF;
+  IF NOT has_column_privilege('authenticated', 'public.event_vendors', 'source_via', 'SELECT')
+     OR NOT has_column_privilege('authenticated', 'public.event_vendors', 'source_utm', 'SELECT')
+     OR NOT has_column_privilege('authenticated', 'public.chat_threads', 'inquiry_via', 'SELECT') THEN
+    RAISE EXCEPTION 'the new columns must be readable like their siblings, or every select naming them is refused';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.signup_attributions'::regclass) THEN
     RAISE EXCEPTION 'signup_attributions must have RLS enabled';

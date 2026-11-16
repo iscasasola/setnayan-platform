@@ -6,7 +6,8 @@
  *   · `signup_attributions` is closed to every browser role (RLS on, grants revoked); the service role writes it; one
  *     row per user; it dies with the user and with the shop
  *
- * SABOTAGE (run once, reverted): drop the `REVOKE ALL … FROM anon, authenticated` line → the "closed" test goes RED.
+ * SABOTAGE (each run once, reverted): drop the `REVOKE ALL … FROM anon, authenticated` line → the "closed" test goes
+ * RED; drop the two `GRANT SELECT (…)` lines → the "readable" test goes RED (and the migration's own post-condition).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -61,6 +62,21 @@ test('every new column is nullable with no default — nothing was written into 
   for (const c of r.rows) {
     assert.equal(c.is_nullable, 'YES', `${c.table_name}.${c.column_name}`);
     assert.equal(c.column_default, null, `${c.table_name}.${c.column_name} must not default anything onto old rows`);
+  }
+});
+
+test('the new thread and booking columns are READABLE like their siblings — or every select naming them is refused', async () => {
+  await asRoot();
+  for (const [table, col] of [
+    ['chat_threads', 'inquiry_via'],
+    ['chat_threads', 'inquiry_utm'],
+    ['event_vendors', 'source_via'],
+    ['event_vendors', 'source_utm'],
+  ] as const) {
+    for (const role of ['anon', 'authenticated']) {
+      const r = await db.query<{ ok: boolean }>(`SELECT has_column_privilege($1, $2, $3, 'SELECT') AS ok`, [role, `public.${table}`, col]);
+      assert.equal(r.rows[0]!.ok, true, `${role} cannot read ${table}.${col}`);
+    }
   }
 });
 

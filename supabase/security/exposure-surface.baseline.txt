@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7862
+# facts: 7867
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     638
-#   col       5658
+#   col       5663
 #   policy    1154
 #   view      10
 #   func      398
@@ -1082,6 +1082,8 @@ col	public.chat_threads.group_name	anon=IU authenticated=SIU
 col	public.chat_threads.group_roles	anon=IU authenticated=SIU
 col	public.chat_threads.inquiry_source	anon=SIU authenticated=SIU
 col	public.chat_threads.inquiry_status	anon=SIU authenticated=SIU
+col	public.chat_threads.inquiry_utm	anon=SIU authenticated=SIU
+col	public.chat_threads.inquiry_via	anon=SIU authenticated=SIU
 col	public.chat_threads.is_returning	anon=SIU authenticated=SIU
 col	public.chat_threads.kind	anon=IU authenticated=SIU
 col	public.chat_threads.last_push_notified_at	anon=SIU authenticated=SIU
@@ -2424,7 +2426,9 @@ col	public.event_vendors.setnayan_gift_locked_at	anon=SIU authenticated=SIU
 col	public.event_vendors.setnayan_gift_offered_at_lock	anon=SIU authenticated=SIU
 col	public.event_vendors.source	anon=SIU authenticated=SIU
 col	public.event_vendors.source_category	anon=SIU authenticated=SIU
+col	public.event_vendors.source_utm	anon=SIU authenticated=SIU
 col	public.event_vendors.source_venue_directory_id	anon=SIU authenticated=SIU
+col	public.event_vendors.source_via	anon=SIU authenticated=SIU
 col	public.event_vendors.status	anon=SIU authenticated=SIU
 col	public.event_vendors.total_cost_php	anon=IU authenticated=IU
 col	public.event_vendors.transport_php	anon=IU authenticated=IU
@@ -5609,6 +5613,7 @@ col	public.vendor_profile_views.event_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.source	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.utm	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_profile_views.via	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.view_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewed_at	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewer_hash	anon=SIU authenticated=SIU

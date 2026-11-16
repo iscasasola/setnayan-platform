@@ -107,7 +107,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-setup.ts `title: 'Name your shop'` … `title: 'Download your QR'`, `setupHeadline`
         slug: 'supplier-setup-steps',
         title: 'Suppliers: what are the setup steps?',
-        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them before you go live) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
+        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them, then you get the Verified check) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
       },
       {
         // lib/supplier-setup.ts "a fold is never ticked by a press, only by the saved fact"

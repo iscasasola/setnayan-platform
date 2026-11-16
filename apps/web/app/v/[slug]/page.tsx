@@ -247,10 +247,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
 import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
-import { OpenDatesPeek, nextSaturdays, type PeekDay } from './_components/open-dates-peek';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
-import { readCheckADate } from '@/lib/check-a-date.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -2254,18 +2252,6 @@ export async function renderVendorBySlug({
     }
   }
 
-  // 📅 "THEIR REAL CALENDAR" — the peek in the calling card. Verified + bookable only (owner 13 Nov "date check only for
-  // verified"), from the one read behind /v/[slug]/dates, so the two can never disagree. Anything but `ok` draws no
-  // days: a failed read never paints a closed day open.
-  const checkDateHref = withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival);
-  let peekDays: PeekDay[] = [];
-  if (cinematicHero && bookable) {
-    const dates = await readCheckADate(vendor.business_slug ?? slug).catch(() => null);
-    if (dates && dates.kind === 'ok') {
-      peekDays = nextSaturdays(dates.today, { from: dates.from, to: dates.to }, dates.notBookable);
-    }
-  }
-
   // 🧭 The section bar's tabs — only sections that render. Verified: About · Services · Portfolio · Reviews.
   // Unverified: Services · Reviews · Where. NO Inquire tab (owner 13 Nov, "Yes, only one"): the bar carries the ONE
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
@@ -2726,9 +2712,9 @@ export async function renderVendorBySlug({
                 reason, and the button was missed. Share is NOT dropped: the
                 hero has no Share, so removing the whole row would leave an
                 Enterprise shop with no way to share it at all. */}
-            {/* 📅 THEIR REAL CALENDAR — the open-dates peek. Verified + bookable only (owner 13 Nov "date check only for
-                verified"); nothing at all when the dates could not be read. */}
-            {cinematicHero && bookable ? <OpenDatesPeek days={peekDays} checkHref={checkDateHref} /> : null}
+            {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
+                APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
+                stays the action row's door. */}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"

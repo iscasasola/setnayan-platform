@@ -2630,6 +2630,7 @@
         "OverlayBackdrop",
         "P",
         "PageMasthead",
+        "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
         "RequestCardView",
@@ -3630,6 +3631,7 @@
     "/admin/directory": {
       "files": [
         "admin/directory/_components/people-show-sort.tsx",
+        "admin/directory/_components/people-show.ts",
         "admin/directory/loading.tsx",
         "admin/directory/page.tsx"
       ],

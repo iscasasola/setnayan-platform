@@ -1,29 +1,28 @@
 /**
- * 💬 AN UNVERIFIED SHOP TAKES MESSAGES, NEVER BOOKINGS — DECISION_LOG 2026-11-07 rulings (1) and (4).
+ * 💬🧾 AN UNVERIFIED SHOP IS MESSAGED AND BOOKED ON ITS OWN PAGE — DECISION_LOG 2026-11-15 "🌐 AN UNVERIFIED SHOP HAS THE
+ * SAME WEBSITE AS A VERIFIED ONE — … INQUIRE, ADD TO EVENT AND BOOKING (WITH THE BOOKING FEE)", and the owner the same
+ * day: *"We allow booking. Since they can get bookings on their website"* · *"Yes, build booking"*. SUPERSEDES the
+ * 2026-11-07 half that kept booking verified-only (this file was `an-unverified-shop-takes-messages-not-bookings`).
  *
- * Owner: *"they will be found for their first inquiry"* — the first inquiry is a couple's first MESSAGE, so a shop
- * Setnayan has not decided yet must be message-able from its page — and *"When they chat the business. we will also
- * message them that this shop is not yet verified"*. Booking and payment stay verified-only.
- *
- * What this holds, so the two halves cannot drift into each other:
- *   1. `shopTakesMessages` opens messaging for an undecided shop (found in a list OR, once locked, by its own
- *      link/QR — ruling (3)), never for a demo, rejected, archived or fraud-frozen shop, and never widens booking;
- *   2. `isBookable` is still verified-only;
- *   3. on the shop page every MESSAGE door asks `canMessage`, and every BOOKING door (packages Lock, Check a date,
- *      the booth, the waitlist, package asks) still asks `bookable`;
- *   4. the couple's thread head carries the one quiet "not yet verified" line in the shipped head's `below` slot,
- *      drawn only from a READ row (an unreadable row draws nothing), and it is in-app only — no email;
- *   5. the server booking doors still refuse an unverified shop (`isMarketplaceVendorBookable`).
- * The database half — a real couple session messages, the lock is stamped, the booking is refused — is
- * `tests/db/an-unverified-shop-is-findable-until-its-first-inquiry.db.test.ts`.
+ * What this holds:
+ *   1. `shopTakesMessages` opens messaging for an undecided shop opened by its own link/QR, never for a demo,
+ *      rejected, archived or fraud-frozen shop;
+ *   2. `shopBookingRefusal` — the ONE booking rule every server door asks (`isMarketplaceVendorBookable`) — books an
+ *      undecided shop that is not archived and not fraud-frozen, and still refuses rejected and demoted ones;
+ *   3. on the shop page `bookable` IS that rule, every booking door (packages Lock, package asks, the waitlist, the
+ *      booth) asks it, and Check a date stays verified-only (`dateCheckable`, the 15 Nov row's "no Check a date");
+ *   4. the couple's thread head carries the one quiet "not yet verified" line, from a READ row, in-app only, and its ⓘ
+ *      no longer says booking waits for verification.
+ * The database half — the trigger books an undecided shop and refuses a rejected one — is
+ * `tests/db/an-unverified-shop-is-booked-on-its-page-and-found-only-once-verified.db.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { shopTakesMessages, threadShowsNotYetVerified, NOT_YET_VERIFIED_LINE } from './findable-shop';
-import { isBookable } from './vendor-visibility';
+import { shopTakesMessages, threadShowsNotYetVerified, NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from './findable-shop';
+import { isBookable, shopBookingRefusal } from './vendor-visibility';
 
 const WEB = join(import.meta.dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -53,11 +52,28 @@ test('shopTakesMessages: an undecided shop takes messages — locked or not — 
   assert.equal(shopTakesMessages(null, true), true);
 });
 
-test('isBookable is still verified-only — messaging never widened booking', () => {
+test('the one booking rule books an undecided shop that is open, and refuses the rest', () => {
+  const open = { public_visibility: 'hidden', verification_state: 'unverified', fraud_suspended_at: null, fraud_banned_at: null };
+  assert.equal(shopBookingRefusal(open), null, 'an unverified shop cannot be booked on its own page');
+  assert.equal(shopBookingRefusal({ ...open, verification_state: 'pending_review' }), null);
+  assert.equal(shopBookingRefusal({ ...open, public_visibility: 'archived' }), 'not_listed', 'a closed unverified shop can be booked');
+  assert.equal(shopBookingRefusal({ ...open, public_visibility: undefined }), 'not_listed', 'an unread visibility books');
+  assert.equal(shopBookingRefusal({ ...open, verification_state: 'rejected' }), 'not_verified');
+  assert.equal(shopBookingRefusal({ ...open, verification_state: 'demoted' }), 'not_verified');
+  assert.equal(shopBookingRefusal({ ...open, fraud_suspended_at: '2026-11-01T00:00:00Z' }), 'suspended');
+  assert.equal(shopBookingRefusal({ ...open, fraud_banned_at: '2026-11-01T00:00:00Z' }), 'banned');
+  assert.equal(shopBookingRefusal({ ...open, fraud_suspended_at: undefined }), 'suspended', 'an unread fraud column books');
+  // A verified shop still needs to be listed; `isBookable` (visibility only) is now the Check a date gate alone.
+  assert.equal(shopBookingRefusal({ ...open, verification_state: 'verified' }), 'not_listed');
+  assert.equal(shopBookingRefusal({ ...open, verification_state: 'verified', public_visibility: 'verified' }), null);
   assert.equal(isBookable('verified'), true);
-  for (const v of ['hidden', 'archived', 'coming_soon', null, undefined] as const) {
-    assert.equal(isBookable(v as never), false, `isBookable(${String(v)}) opened booking`);
-  }
+  assert.equal(isBookable('hidden'), false);
+});
+
+test('the ⓘ says an unverified shop can be booked — never that booking waits for verification', () => {
+  assert.doesNotMatch(NOT_YET_VERIFIED_INFO, /booking opens once|once Setnayan verifies them|can.t be booked/i);
+  assert.match(NOT_YET_VERIFIED_INFO, /book/i);
+  assert.match(NOT_YET_VERIFIED_INFO, /booking fee/i);
 });
 
 test('threadShowsNotYetVerified: only a read, non-demo, not-verified row draws the line', () => {
@@ -70,10 +86,11 @@ test('threadShowsNotYetVerified: only a read, non-demo, not-verified row draws t
   assert.equal(NOT_YET_VERIFIED_LINE, 'This shop is not yet verified by Setnayan');
 });
 
-test('the shop page: message doors ask canMessage, booking doors keep bookable', () => {
+test('the shop page: message doors ask canMessage, booking doors ask the one rule, Check a date stays verified', () => {
   const page = read('app/v/[slug]/page.tsx');
   assert.equal(count(page, 'const canMessage = shopTakesMessages(vendor, bookable);'), 1, 'canMessage is not derived from the one helper');
-  assert.equal(count(page, 'const bookable = isBookable(visibility);'), 1, 'bookable no longer comes from isBookable');
+  assert.equal(count(page, 'const bookable = isShopBookable(vendor);'), 1, 'bookable is not the one booking rule');
+  assert.equal(count(page, 'const dateCheckable = isBookable(visibility) && bookable;'), 1, 'Check a date left the verified gate');
 
   // MESSAGE doors.
   // The inline composers and the reads only they used are gone (13 Nov 2026); the pop-up's event list is on canMessage.
@@ -85,8 +102,9 @@ test('the shop page: message doors ask canMessage, booking doors keep bookable',
   assert.match(page, /\{canMessage \? \(\s*<div\s+className="flex flex-wrap items-center gap-2 pt-4"/, 'the primary actions row is not on canMessage');
 
   // BOOKING doors.
-  assert.match(page, /isComingSoon=\{isComingSoon \|\| !bookable\}/, 'the packages Lock button can show on an unverified shop');
-  assert.match(page, /\{bookable \? \(\s*<CheckADateLink/, 'Check a date is not on bookable');
+  assert.match(page, /isComingSoon=\{isComingSoon \|\| !bookable\}/, 'the packages Lock button left the booking rule');
+  assert.match(page, /\{dateCheckable \? \(\s*<CheckADateLink/, 'Check a date is not verified-only (15 Nov: no Check a date on the unverified page)');
+  assert.match(page, /\{dateCheckable && search\.dates === '1' \? \(/, 'the Check a date sheet opens for an unverified shop');
   assert.match(page, /\{bookable && canShowBooth \? \(/, 'the booth link is not on bookable');
   assert.match(page, /if \(detailsEnabled && bookable && coupleEventId\)/, 'package asks are not on bookable');
   assert.match(page, /user &&\s*bookable &&\s*coupleEventDate/, 'the waitlist is not on bookable');
@@ -128,7 +146,7 @@ test('the couple’s thread: the one quiet line rides the shipped head’s `belo
   }
 });
 
-test('the server booking doors still refuse an unverified shop', () => {
+test('the server booking doors ask the one booking rule', () => {
   for (const rel of [
     'app/dashboard/[eventId]/vendors/packages/actions.ts',
     'app/dashboard/[eventId]/vendors/actions.ts',
@@ -139,4 +157,13 @@ test('the server booking doors still refuse an unverified shop', () => {
   const inquiry = read('app/v/[slug]/inquiry-actions.ts');
   assert.match(inquiry, /status: 'considering',/, 'the inquiry no longer saves the shop as considering');
   assert.ok(!/status: '(contracted|deposit_paid|delivered|complete)'/.test(inquiry), 'the inquiry path writes a booking status');
+});
+
+test('the Book press asks the server — no client short-circuit refuses an unverified shop before it is asked', () => {
+  // AccordionLockButton (every card's Book) used to stop an unverified shop in the browser with "completing
+  // verification and can't be booked just yet" and draw a "Verifying — can't book yet" pill, never reaching the
+  // server that now books it.
+  const lock = read('app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx');
+  assert.doesNotMatch(lock, /isVerified === false/, 'the Book press refuses an unverified shop on the client again');
+  assert.doesNotMatch(lock, /Verifying — can/, 'the "can’t book yet" pill is back on the Book button');
 });

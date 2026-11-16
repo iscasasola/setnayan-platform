@@ -412,7 +412,7 @@ export function ThreadToolsSheet({
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote }), 'vendor', eventId, state.hasAgreement);
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement }), 'vendor', eventId, state.hasAgreement);
   return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
 }
 
@@ -425,17 +425,20 @@ export function CoupleThreadToolsSheet({
   eventId,
   threadId,
   canLogPayment = true,
+  booked = false,
 }: {
   dealReveal?: readonly string[] | null;
   eventId: string;
   threadId?: string;
   canLogPayment?: boolean;
+  /** 🔒 CHAT-19: booked at the accepted quote — "Counter with a price" is not drawn (`hostPlusRows`). */
+  booked?: boolean;
 }) {
   // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
   // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
   const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen }), 'couple', eventId, true).map((r) =>
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, true).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;

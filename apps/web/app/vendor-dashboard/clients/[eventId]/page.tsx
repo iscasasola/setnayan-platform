@@ -2702,7 +2702,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       scrollToScript={wantsScriptFold(rawTab) && showScript}
       settingsLine={{
-        line: 'Who looks after this client, and what reaches you.',
+        // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
+        // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.
+        // The line names what the sheet holds. A handler picker is an owner call, not built here.
+        line: 'The host’s setting for you, and your team’s notes.',
         tip: 'Settings for this client only. Your shop-wide settings stay in Clients ⚙.',
       }}
       settings={

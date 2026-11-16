@@ -62,6 +62,7 @@ const QUOTE: QuoteForCard = {
   ],
   pax: 150,
   requote: 'ok',
+  eventId: 'lab-event',
 };
 
 // 🤝 PR-3 negotiation fixture — ₱60,000, the first ₱30,000 paid; read against a fixed "today" so the shots are stable.

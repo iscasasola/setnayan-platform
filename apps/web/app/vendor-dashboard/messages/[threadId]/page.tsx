@@ -930,6 +930,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       vendorProfileId: profile.vendor_profile_id,
       date: String(ev.event_date).slice(0, 10),
       todayIso,
+      eventId: thread.event_id,
     });
   })();
 

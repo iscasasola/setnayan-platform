@@ -52,11 +52,7 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import {
-  VENDOR_CATEGORY_LABEL,
-  isCanonicalService,
-  type VendorCategory,
-} from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
 import { formatPhpRounded } from '@/lib/php';
 import {
   type VendorServiceRow,
@@ -474,9 +470,9 @@ function ServicesCard({
 
 function ServiceRow({ row }: { row: VendorServiceRow }) {
   const isCrewMeals = row.category === 'crew_meals';
-  const label = isCanonicalService(row.category)
-    ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
-    : row.category;
+  // CHAT-23 (walk 16 Nov 2026): a shop's service row stores a TAXONOMY tile (`lights_sound`), not only the
+  // VendorCategory enum — this printed the raw key once per row. `displayServiceLabel` reads both vocabularies.
+  const label = displayServiceLabel(row.category);
   const priceLabel =
     row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhpRounded(row.starting_price_php)}`

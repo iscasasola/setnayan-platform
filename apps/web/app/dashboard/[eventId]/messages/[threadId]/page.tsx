@@ -18,6 +18,7 @@ import { resolveLivePax } from '@/lib/pax';
 import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deriveThreadStage } from '@/lib/vendor-thread-stage';
+import { THREAD_STAGE_HAS_AGREEMENT } from '@/lib/vendor-thread-tools';
 import { buildSupplierStanding } from '@/lib/supplier-standing';
 import {
   fetchThreadPayments,
@@ -868,7 +869,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} />}
+                  lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} booked={THREAD_STAGE_HAS_AGREEMENT[threadStage]} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                 />

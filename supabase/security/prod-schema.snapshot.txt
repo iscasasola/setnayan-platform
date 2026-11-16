@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1906
-# tables: 508
-# columns: 6140
-# notnull: 3706
+# ledger: 1908
+# tables: 509
+# columns: 6146
+# notnull: 3711
 [ledger]
 20260512000000
 20260513000000
@@ -1911,7 +1911,9 @@
 20271348421195
 20271348457307
 20271348490157
+20271348664988
 20271348804021
+20271348906302
 20271349022603
 20271349129379
 20271349476485
@@ -6012,6 +6014,12 @@ seo_suggestions.reviewed_by
 seo_suggestions.route
 seo_suggestions.status
 seo_suggestions.suggested_value
+service_card_badge_holds.badge
+service_card_badge_holds.held_since
+service_card_badge_holds.hold_id
+service_card_badge_holds.lost_at
+service_card_badge_holds.vendor_profile_id
+service_card_badge_holds.vendor_service_id
 service_catalog.category
 service_catalog.created_at
 service_catalog.description
@@ -10493,6 +10501,11 @@ seo_suggestions.id
 seo_suggestions.route
 seo_suggestions.status
 seo_suggestions.suggested_value
+service_card_badge_holds.badge
+service_card_badge_holds.held_since
+service_card_badge_holds.hold_id
+service_card_badge_holds.vendor_profile_id
+service_card_badge_holds.vendor_service_id
 service_catalog.category
 service_catalog.created_at
 service_catalog.display_name

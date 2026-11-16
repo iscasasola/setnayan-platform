@@ -51,13 +51,13 @@ const EVENT = 'c0ffee00-0000-4000-8000-000000000001';
 const CASES: ReadonlyArray<[string, { src: string | null; eventId: string | null }, string, boolean]> = [
   ['Discover shelf', { src: 'discover', eventId: null }, '/', true],
   ['Discover search', { src: 'search', eventId: null }, '/', true],
-  ['the marketplace', { src: 'explore', eventId: null }, '/explore', true],
+  ['the marketplace (now inside Discover)', { src: 'explore', eventId: null }, '/', true],
   ['a saved supplier', { src: 'favorites', eventId: null }, '/dashboard?seg=memories&tab=vendors', true],
   ["an event's Suppliers", { src: null, eventId: EVENT }, `/dashboard/${EVENT}/vendors`, true],
-  ['the marketplace, then an event picked', { src: 'explore', eventId: EVENT }, '/explore', true],
+  ['the marketplace, then an event picked', { src: 'explore', eventId: EVENT }, '/', true],
   ['Discover, then an event picked', { src: 'discover', eventId: EVENT }, '/', true],
-  ['a Journal credit (no back of its own)', { src: 'editorial', eventId: null }, '/explore', false],
-  ['a shared link', { src: null, eventId: null }, '/explore', false],
+  ['a Journal credit (no back of its own)', { src: 'editorial', eventId: null }, '/', false],
+  ['a shared link', { src: null, eventId: null }, '/', false],
 ];
 
 for (const [who, arrival, href, back] of CASES) {
@@ -69,11 +69,14 @@ for (const [who, arrival, href, back] of CASES) {
   });
 }
 
-test('"Back" never lands on /explore unless the visit came from /explore', () => {
+test('no door goes to /explore (it only forwards to Discover), and a door named for a place lands on that place', () => {
   for (const s of [null, ...Object.values(SHOP_ARRIVAL_SRC), 'editorial', 'nonsense']) {
     for (const eventId of [null, EVENT]) {
       const door = shopBackDoor({ src: s, eventId });
-      if (door.back && door.href === '/explore') assert.equal(s, 'explore', `src=${s} event=${eventId}`);
+      assert.notEqual(door.href, '/explore', `src=${s} event=${eventId}`);
+      // W1 15 Nov: "Suppliers" landed on Discover. "Suppliers" now only ever opens an event's Suppliers.
+      if (/suppliers$/i.test(door.label) && door.back && !/saved/i.test(door.label)) assert.match(door.href, /^\/dashboard\/[^/]+\/vendors$/, `src=${s} event=${eventId}`);
+      if (/Discover$/.test(door.label)) assert.equal(door.href, '/', `src=${s} event=${eventId}`);
     }
   }
 });
@@ -186,7 +189,9 @@ test('‹ with an arrival goes to the SAME place as the arrival’s own door, na
     }
   }
   assert.equal(shopTopBack({ src: 'discover', eventId: null }, false).label, 'Discover');
-  assert.equal(shopTopBack({ src: 'explore', eventId: null }, true).label, 'Suppliers');
+  // W1 15 Nov: this read "Suppliers" and landed on Discover. The words and the place now agree.
+  assert.deepEqual(shopTopBack({ src: 'explore', eventId: EVENT }, true), { href: '/', label: 'Discover' });
+  assert.deepEqual(shopTopBack({ src: null, eventId: EVENT }, true), { href: `/dashboard/${EVENT}/vendors`, label: 'Suppliers' });
   assert.equal(shopTopBack({ src: 'favorites', eventId: null }, true).label, 'Saved suppliers');
 });
 

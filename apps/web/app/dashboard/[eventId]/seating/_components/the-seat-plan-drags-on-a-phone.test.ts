@@ -111,7 +111,7 @@ test('2b · nothing typed: the faces that fit are measured, the "+N" is the rest
   const tray = code('seat-face-tray.tsx');
   assert.match(tray, /const slots = Math\.max\(1, Math\.floor\(\(row\.clientWidth \+ gap\) \/ \(face\.offsetWidth \+ gap\)\)\);/);
   assert.match(tray, /const more = total - shown\.length;/);
-  assert.match(tray, /data-seat-tray-more=""/);
+  assert.match(tray, /data-seat-tray-more=""\s*\/>/);
   assert.doesNotMatch(tray, /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d/, 'a colour outside the tokens');
   assert.doesNotMatch(code('seating-editor.tsx'), /TRAY_FACES|comingUnseated\.slice\(0,/, 'a typed face count');
 });

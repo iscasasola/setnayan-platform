@@ -5,6 +5,7 @@ import { UsersRound, X } from 'lucide-react';
 import { dragEdgeStep } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 import { SEAT_HOLD_MS } from '@/lib/seat-list-drop';
 
 /**
@@ -193,7 +194,9 @@ export function SeatFaceTray({
     name.textContent = p.item.name;
     ghost.appendChild(name);
     ghost.className =
-      'pointer-events-none fixed left-0 top-0 z-[9999] inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink shadow-[0_14px_30px_rgb(var(--color-ink)/0.28)]';
+      'pointer-events-none inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink shadow-[0_14px_30px_rgb(var(--color-ink)/0.28)]';
+    /* Where it is drawn is the finger's (its transform), from the screen's corner — the List ghost's own way. */
+    Object.assign(ghost.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999', willChange: 'transform' });
     document.body.appendChild(ghost);
     drag.current = { item: p.item, ghost, x, y, armed: false };
     place(drag.current);
@@ -282,23 +285,22 @@ export function SeatFaceTray({
   return (
     <div ref={trayRef} data-seat-tray={held ? 'held' : ''} className="flex flex-col gap-2">
       {held ? (
-        <div data-seat-tray-held="" className="flex min-h-11 items-center gap-2 rounded-[22px] bg-ink py-1 pl-4 pr-1 text-sm text-cream">
+        <div data-seat-tray-held="" className="flex min-h-11 items-center gap-2 rounded-3xl bg-ink py-1 pl-4 pr-1 text-sm text-cream">
           {/* ✂ A guest's name wraps, never cut (owner v15). */}
           <span className="min-w-0 flex-1 py-1 leading-snug">
             <b className="block [overflow-wrap:anywhere]">Seating {held.name}</b>
             <span className="block text-[13px] text-cream/75">drop on a chair or a table</span>
           </span>
-          <button
-            type="button"
-            onPointerDown={(e) => {
+          {/* A second finger lands on Cancel while the first still holds the face — so the PRESS cancels (no click comes). */}
+          <span
+            className="inline-flex shrink-0"
+            onPointerDownCapture={(e) => {
               e.stopPropagation();
               handlers.current.end(false);
             }}
-            className="sn-press inline-flex h-11 shrink-0 items-center gap-1 rounded-full bg-cream/15 px-3.5 font-semibold text-cream"
           >
-            <X aria-hidden className="h-4 w-4" />
-            Cancel
-          </button>
+            <ActionButton tone="neutral" icon={X} label="Cancel" data-seat-tray-cancel="" />
+          </span>
         </div>
       ) : null}
       <div className="rounded-2xl bg-cream px-3.5 py-3 shadow-[0_8px_24px_-10px_rgb(var(--color-ink)/0.18),0_2px_6px_-2px_rgb(var(--color-ink)/0.08)]">
@@ -341,15 +343,14 @@ export function SeatFaceTray({
             );
           })}
           {more > 0 ? (
-            <button
-              type="button"
-              data-seat-tray-more=""
+            <ActionButton
+              tone="neutral"
+              icon={UsersRound}
+              label={`+${formatCount(more)}`}
+              name={`${formatCount(more)} more to seat — open the list`}
               onClick={onMore}
-              aria-label={`${formatCount(more)} more to seat — open the list`}
-              className="sn-press flex h-11 min-w-11 items-center justify-center rounded-full bg-ink/[0.06] px-2 text-[13px] font-bold text-ink/80"
-            >
-              +{formatCount(more)}
-            </button>
+              data-seat-tray-more=""
+            />
           ) : null}
           {groups.map((g) => {
             const lifted = held?.kind === 'group' && held.id === g.id;

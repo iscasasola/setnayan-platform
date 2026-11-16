@@ -9,7 +9,7 @@
  *   4. From 1600 the work pane splits: Needs | Coming up.
  *
  * Sabotage: move `data-today-shop` above the work pane (1 red) · put the `contents` rule inside a media query (2 red) ·
- * drop `grid-column: 2` (3 red) · drop the 1600 block (4 red).
+ * drop the side pane's `grid-column: 2` (3 red) · drop the 1600 block (4 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,7 +37,7 @@ test('1 · the work pane holds Needs → Also → Events you run → Coming up; 
 });
 
 test('2 · below 1280 the wrappers draw nothing — the phone is the shipped one column', () => {
-  const i = CSS.search(/\[data-today-pane\],\s*\[data-today-pane-needs\]\s*\{\s*display:\s*contents;/);
+  const i = CSS.search(/\[data-today-pane\],\s*\[data-today-pane-needs\][^{]*\{\s*display:\s*contents;/);
   assert.ok(i > 0, 'the `display: contents` rule for the Today panes is gone');
   const before = CSS.slice(0, i);
   const depth = (before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length;
@@ -49,7 +49,8 @@ test('3 · from 1280: a grid — work pane column 1, Shop column 2, the rest ful
   assert.match(b, /\[data-today-first-screen\]\s*\{[^}]*display:\s*grid/);
   assert.match(b, /\[data-today-first-screen\] > \*\s*\{\s*grid-column:\s*1 \/ -1;/);
   assert.match(b, /> \[data-today-pane='work'\]\s*\{[^}]*grid-column:\s*1;/);
-  assert.match(b, /> \[data-today-shop\]\s*\{[^}]*grid-column:\s*2;/);
+  // 17 Nov: the Shop block sits inside the side pane (`today-has-a-side-pane-on-a-computer.test.ts`), which is column 2.
+  assert.match(b, /> \[data-today-side\]\s*\{[^}]*grid-column:\s*2;/);
 });
 
 test('4 · from 1600: the work pane splits into Needs | Coming up', () => {

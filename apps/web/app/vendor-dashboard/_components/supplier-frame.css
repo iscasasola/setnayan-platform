@@ -74,8 +74,17 @@
    the work pane splits again: Needs | Coming up. Below 1280 the two wrappers draw nothing (`display: contents`).
    🔒 app/vendor-dashboard/_components/today-is-two-panes-on-a-computer.test.ts */
 [data-today-pane],
-[data-today-pane-needs] {
+[data-today-pane-needs],
+[data-today-top-only],
+[data-today-side] {
   display: contents;
+}
+/* The side pane's own parts (`supplier-today-first-screen.tsx`): a computer's only — the phone has them at the top, or
+   not at all (the drawing hides `.strip.ver` and the small cards on the phone). */
+[data-today-side-only],
+[data-today-side-minis],
+[data-today-side-verified] {
+  display: none;
 }
 @media (min-width: 1280px) {
   [data-today-first-screen] {
@@ -92,9 +101,20 @@
     grid-column: 1;
     min-width: 0;
   }
-  [data-today-first-screen] > [data-today-shop] {
+  [data-today-first-screen] > [data-today-side] {
+    display: block;
     grid-column: 2;
     min-width: 0;
+    position: sticky;
+    top: 0;
+  }
+  [data-today-first-screen] > [data-today-top-only] {
+    display: none;
+  }
+  [data-today-side-only],
+  [data-today-side-minis],
+  [data-today-side-verified] {
+    display: block;
   }
 }
 @media (min-width: 1600px) {

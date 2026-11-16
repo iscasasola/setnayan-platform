@@ -332,7 +332,7 @@ export function UnreadBellBadge({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         data-notification-bell=""
-        className="fd-round relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+        className="fd-round sn-hit-2d relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
       >
         <Bell className="h-4 w-4" strokeWidth={1.75} />
         {unread > 0 ? (

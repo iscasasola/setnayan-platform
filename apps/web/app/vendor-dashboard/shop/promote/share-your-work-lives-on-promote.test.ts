@@ -51,7 +51,10 @@ test('2 · the section reuses the shipped share + story-card buttons on the same
 });
 
 test('3 · the old routes only forward to #share', () => {
-  for (const r of ['vendor-dashboard/real-stories/page.tsx', 'vendor-dashboard/recaps/page.tsx']) {
+  // 🗞✂ 2026-11-16 — `/vendor-dashboard/real-stories` left this list: retired with Real Stories (owner, DECISION_LOG
+  // "THE BLOG AND REAL STORIES ARE RETIRED"), it is no page at all now — `lib/legacy-redirects.ts` forwards it
+  // (held by `lib/no-page-links-a-retired-page.test.ts`).
+  for (const r of ['vendor-dashboard/recaps/page.tsx']) {
     const src = read(r);
     assert.match(src, /redirect\('\/vendor-dashboard\/shop\/promote#share'\)/, `${r} does not forward`);
     assert.doesNotMatch(src, /fetchVendorPoolBookings|ShareButtons|createClient/, `${r} still draws or reads`);

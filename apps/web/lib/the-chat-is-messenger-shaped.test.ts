@@ -136,8 +136,8 @@ test('from 701 the list and the open thread stand side by side — the system’
   assert.match(panes, /if \(mq\.matches\) router\.replace\(latestHref/, 'the empty right column does not open the latest chat');
   assert.match(panes, /const splits = open \|\| Boolean\(latestHref\);/);
   assert.match(panes, /if \(!splits\) return <>\{list\}<\/>;/, 'a list with nothing to open splits around an empty pane');
-  // The pane ends at the window's foot where the page's column starts below the pin line (the couple's 24 px gutter).
-  assert.match(panes, /root\.style\.setProperty\('--sn-chat-pane-gap'/, 'the pane runs past the window and hides the composer');
+  // The pane ends at the window's foot, sized from its own top on screen (measured: tests/e2e/the-chat-box-is-in-the-window.spec.ts).
+  assert.match(panes, /return watchChatPane\(root\);/, 'the pane runs past the window and hides the composer');
   // Each tree: the list page hands the newest active chat and the arrival; each thread route draws the list page beside it.
   for (const [page, layout] of [
     ['app/dashboard/[eventId]/messages/page.tsx', 'app/dashboard/[eventId]/messages/[threadId]/layout.tsx'],

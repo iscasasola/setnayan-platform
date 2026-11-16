@@ -294,6 +294,8 @@ export type VendorEnrichment = {
   booked_count?: number | null;
   is_verified?: boolean;
   is_setnayan_service?: boolean;
+  /** 🛡 The shop's state was READ and it is not verified (not a demo) — owner 2026-11-16 (36d74d48). */
+  not_yet_verified?: boolean;
   distance_km?: number | null;
   /** km from the CEREMONY venue's pin (owner 2026-10-30, "Nearest to ceremony") — `distance_km` is the reception's. */
   ceremony_distance_km?: number | null;

@@ -373,7 +373,7 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
         ) : null}
       </>
     ),
-    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/customers?tab=calendar#calendar' },
   };
 
   const l = graphs.lost;
@@ -388,7 +388,7 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
     line: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
     problem: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
     rec: recOf('lost'),
-    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/customers?tab=calendar#calendar' },
   };
 
   const sm = graphs.slow;
@@ -403,7 +403,7 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
     line: smEmpty ? 'Fills in as couples book dates.' : slowLine(sm),
     problem: smEmpty ? 'Fills in as couples book dates.' : slowLine(sm),
     rec: recOf('slow'),
-    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/customers?tab=calendar#calendar' },
   };
 
   const repEmpty = view.rep.rating === null;

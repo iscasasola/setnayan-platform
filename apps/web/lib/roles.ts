@@ -85,7 +85,7 @@ export type VendorSwitchTarget = {
   vendor_profile_id: string;
   business_name: string;
   logo_url: string | null;
-  /** The shop's public address (`/v/<slug>`) — the avatar sheet's "View page ↗" row. Null = no page to open. */
+  /** The shop's public address (`/<slug>`) — the avatar sheet's "View page ↗" row. Null = no page to open. */
   business_slug: string | null;
   /** True for a shop this user OWNS; false for a helper (team-member) seat. */
   owned: boolean;

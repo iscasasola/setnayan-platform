@@ -25,6 +25,7 @@
  * Pure and dependency-free: the server page, the client check-a-date calendar and the guard all ask it.
  * 🔒 lib/shop-back.test.ts
  */
+import { shopPath } from '@/lib/shop-address';
 import { coldWayBack } from './discover-way-back';
 
 /** The arrival tags a door into a shop page may carry. Free text on the view row; these are the ones with a back. */
@@ -79,13 +80,17 @@ export type ShopBackDoor = {
   back: boolean;
 };
 
-export const SHOP_BACK_COLD: ShopBackDoor = { href: '/explore', label: 'See more suppliers', back: false };
+// `/` and never `/explore`: the marketplace moved inside Discover (12 Nov) and `/explore` only forwards there.
+export const SHOP_BACK_COLD: ShopBackDoor = { href: '/', label: 'See more suppliers', back: false };
 
 /** The one rule. An explicit origin wins over the event, which wins over nothing. */
 export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDoor {
   switch (src) {
     case SHOP_ARRIVAL_SRC.explore:
-      return { href: '/explore', label: 'Back to suppliers', back: true };
+      // 🧭 The words match where it lands (W1, 15 Nov; DECISION_LOG 2026-11-15 "ONE BACK BUTTON, NAMED FOR WHERE THE
+      // VISITOR CAME FROM"): `/explore` forwards to Discover (12 Nov, Find suppliers moved inside Discover), so a card
+      // still tagged `explore` goes back to Discover and says so — never "Suppliers" landing on Discover.
+      return { href: '/', label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.discover:
       return { href: '/', label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.search:
@@ -164,7 +169,7 @@ export function withShopArrival(
  * is the viewer's own, scopes Inquire to it, and its back door returns to that event's Suppliers.
  */
 export function shopHrefForEvent(slug: string, eventId: string, hash = ''): string {
-  return withShopArrival(`/v/${encodeURIComponent(slug)}${hash}`, { src: null, eventId });
+  return withShopArrival(`${shopPath(encodeURIComponent(slug))}${hash}`, { src: null, eventId });
 }
 
 /**

@@ -171,7 +171,7 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
           The account must already exist on Setnayan — they sign up first,
           then you add their email here.{' '}
           <Link
-            href="/admin/users"
+            href="/admin/accounts?tab=users"
             className="underline-offset-2 hover:underline"
           >
             Browse users →

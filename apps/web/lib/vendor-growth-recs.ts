@@ -25,7 +25,10 @@ export type GrowthRecKey =
   | 'add_team'
   | 'offer_on_card'
   | 'offer_for_month'
-  | 'requote_expired';
+  | 'requote_expired'
+  // J5 (owner 15 Nov, badge-unlock_v6 — the gifts graph's rule, settled): fed only by the Gifts given → bookings graph
+  // (`lib/graph-unlocks.ts` giftsRec), shown only once Gifts given Bronze opens that graph.
+  | 'give_gifts';
 
 /** Coarse expected-impact band → the chip label + tone. */
 export type GrowthImpact = 'high' | 'medium' | 'low';

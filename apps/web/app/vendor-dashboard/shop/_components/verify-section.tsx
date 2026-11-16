@@ -14,6 +14,8 @@ import {
   type SubmitResult,
 } from '../inline-docs-actions';
 import { DocsBody } from './docs-body';
+import { RenewalStateCard } from './renewal-state-card';
+import { renewalPageCard, type RenewalPageFacts } from '@/lib/papers-renewal';
 import { formatCount } from '@/lib/format-number';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots } from '@/lib/vendor-verification';
 
@@ -53,6 +55,8 @@ export type VerifySummary = {
   decisionReason: string | null;
   /** Server-computed submit blockers (empty = ready). ONE source of truth. */
   submitMissing: string[];
+  /** 📄 The renewal facts (`readRenewalView`) — absent/null = not read, and the page is drawn as it always was. */
+  renewal?: RenewalPageFacts | null;
 };
 
 export function VerifySection({
@@ -73,6 +77,8 @@ export function VerifySection({
   verify: VerifySummary;
 }) {
   const submitted = verify.status === 'pending_review' || verify.status === 'in_review';
+  // 📄 Papers renewal (approved design §3 · §6): the shop's state on top of the one upload place.
+  const renewalCard = isVerified ? renewalPageCard(verify.renewal, submitted, new Date()) : null;
   // The papers step starts OPEN while papers are still missing — the supplier lands on exactly what to do next.
   const [open, setOpen] = useState<boolean>(() => !verify.requiredDocsIn && !submitted);
 
@@ -96,6 +102,9 @@ export function VerifySection({
           deadline is set and the badge is never threatened. Submitting is safe for them by construction:
           `PENDING_REVIEW_ADVANCEABLE` deliberately excludes 'verified', so the badge stays through the review. ── */}
       {isVerified ? (
+        renewalCard && verify.renewal ? (
+          <RenewalStateCard card={renewalCard} facts={verify.renewal} />
+        ) : (
         <div
           className="flex items-start gap-3 rounded-2xl border p-5"
           style={{
@@ -119,6 +128,7 @@ export function VerifySection({
             </p>
           </div>
         </div>
+        )
       ) : null}
 
       <div className="sn-tile p-5">

@@ -235,6 +235,7 @@ import { NotYetVerifiedNotice } from './_components/not-yet-verified-notice';
 import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
+import { coupleShopRenewing } from '@/lib/papers-renewal';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
@@ -377,6 +378,11 @@ export type PublicVendorRow = {
   // badge.ts) wherever this row's badge is decided; never the public-
   // visibility gate above, which Q5 keeps on the raw state on purpose.
   next_renewal_due_at?: string | null;
+  /**
+   * 📄 False once the shop's papers lapsed after 30 March (`papers_lapsed_at IS NULL`, generated). A lapsed shop that
+   * WAS verified reads the renewing words (papers renewal ruling 4) and the calm page with no badge (§4 of the design).
+   */
+  papers_current?: boolean | null;
   // PR-B self-preview. `user_id` is the owning vendor account. When the
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
@@ -504,7 +510,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,papers_current,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -515,7 +521,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned|papers_current)/i.test(
       error.message,
     )
   ) {
@@ -1625,7 +1631,9 @@ export async function renderVendorBySlug({
   // the photo, the overlapping calling card and the motion. Was: Ultra (Enterprise) with a chosen hero photo only. The
   // name stays `cinematicHero` because every guard that keeps the name, the badges and Inquire from doubling reads it.
   // An unverified shop is the calm sibling: no hero, one column. Reach, branches and the own address stay per plan.
-  const cinematicHero = vendor.verification_state === 'verified';
+  // 📄 Papers renewal §4: a shop whose papers lapsed is drawn as the calm page — one column, no badge, no hero.
+  const renewing = coupleShopRenewing(vendor);
+  const cinematicHero = vendor.verification_state === 'verified' && !renewing;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
@@ -2335,7 +2343,7 @@ export async function renderVendorBySlug({
   // gates, same `title`s as before — only where it sits changed (owner-approved 13 Nov 2026).
   const shopBadgesRow = (
       <div data-shop-hero-badges="" className="flex flex-wrap items-center gap-2">
-      {vendor.verification_state === 'verified' ? (
+      {vendor.verification_state === 'verified' && !renewing ? (
         <>
           {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
           <HeroBadge
@@ -2490,9 +2498,9 @@ export async function renderVendorBySlug({
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app —
             since 13 Nov a soft card at the top of the calm column (prototype `.notice`), its ⓘ carrying the words. */}
-        {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
+        {teamPreview === null && !isDemoVendor && (vendor.verification_state !== 'verified' || renewing) ? (
           <div className={SHOP_CALM_COLUMN_CLASS}>
-            <NotYetVerifiedNotice />
+            <NotYetVerifiedNotice renewing={renewing} />
           </div>
         ) : null}
         {/* 🃏 THE CARD COLUMN BESIDE THE PAGE — every plan, tablet and up (supplier website by plan, owner-approved

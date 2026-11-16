@@ -534,7 +534,6 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         ? { startedAt: '12:00', next: { time: '3:30', label: 'Reception' }, line: '12:00 Ceremony · 3:30 Reception · 6:30 First dance', checkedIn: 118 }
         : null,
     // 📄 A9 — the permit row: inside its 60 days on an ordinary day (the prototype's "expires in 21 days").
-    renewalDueAt: moment === 'normal' ? new Date(NOW + 21 * 86_400_000 - 3_600_000).toISOString() : null,
     setupDrawn: setup,
     bookedThisMonth: setup ? null : 6,
     portfolio: undefined,

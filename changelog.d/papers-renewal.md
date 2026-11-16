@@ -1,0 +1,28 @@
+## 2026-11-16 · feat(verify): papers renewal — what a supplier, a couple and the admin see as 30 March comes and goes
+
+Builds the approved design `Setnayan-specs/prototypes/supplier_papers_renewal_2026-11-14_fable.html` (DECISION_LOG
+2026-11-14 "designs APPROVED") with the four renewal picks ruled the same day ("Fable's picks taken"). Extends the
+shipped one renewal day (#7535), one upload place (#7624) and three papers (#7627) — nothing re-drawn.
+
+- **§1 · Today** (`PapersRenewalLine`, one notice system): 60 and 30 days → a to-do with Not now; 7 days → a live band,
+  warning, no close word. Counted in Manila calendar days (29 Jan = 60 days). It replaces Today's old "Business permit
+  expires in N days" row (`permitNeed` and its read are gone — one fact, said once).
+- **§2 · the day after**: a live band, problem tone, no close word, with this shop's own numbers behind the ⓘ.
+- **§3 · the verification page**: a renewal draft KEEPS last year's papers that are still good (file + sealed read,
+  `seedRenewalDraft`), so the rows say "Still good · valid until …", the ended one says "Ended 31 Dec 2026 — upload this
+  year's", the count reads "2 of 3 still good" and the button "Upload this year's permit". Once all three are in and
+  clean the page presses the same Submit itself (one tap). State card on top: Free · Unverified / Waiting for Setnayan /
+  You're verified · Next renewal.
+- **§4 · couples**: a lapsed shop that was verified shows the calm page (no hero, no badge) and "Renewing their papers
+  with Setnayan" (ruling 4) in place of "not verified yet".
+- **§5 · admin**: Suppliers › Renewals filter (Free · Unverified · Due in 7 days · Renewed; state · why · papers) and a
+  Renewal fold on the shop record (why, verified window, bookings that carry on, papers, every reminder sent). Read-only.
+- **§6 · restored**: one news line "You're verified again — new couples can find you" (Got it).
+- **Ruling (2)**: a PAID plan's unused days wait — the lapse drops it to Free with its days left in its own audit row;
+  the approval gives the plan back with the same days, counted from the renewal.
+- **Ruling (1)** stays pinned (`papers-lapse.test.ts`); **(3)** tested: the lapse tells the shop only.
+- ⚠ One word differs from the drawing on purpose: it says a lapsed shop "can't take new bookings"; DECISION_LOG
+  481b9b6b and 15 Nov "UNVERIFIED SHOPS … BOOKABLE NOW" make that untrue, so every line says "can't find you".
+- Tests: `lib/papers-renewal.test.ts` (one per rule).
+
+SPEC IMPACT: None — builds the approved prototype; the "find, not book" wording is flagged to the owner in the PR.

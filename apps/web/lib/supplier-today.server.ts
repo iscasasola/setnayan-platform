@@ -46,32 +46,6 @@ export type TodayShopRow = {
   findLock?: FindLockState;
 };
 
-/**
- * 📄 THE BADGE'S PAPERS DEADLINE (THE ONE BUILD A9 — DL 2026-09-11 Q5) — `next_renewal_due_at`, read off
- * `vendor_profiles_self`, NEVER the table: it is on the tax-identity list `authenticated` may not SELECT (migration
- * 20271217955839), so naming it in the shop-row read above would make Postgres refuse that WHOLE read for a signed-in
- * supplier (🔒 `lib/security/shop-contact-is-not-session-readable.test.ts`). Its own read, beside the shop row (same
- * wave). `undefined` = refused → Today draws no permit row (never a guessed one); `null` = no deadline on record.
- * ⚠ Session client only — the view resolves `auth.uid()`.
- */
-export async function readTodayRenewal(supabase: SupabaseClient, vendorProfileId: string): Promise<string | null | undefined> {
-  try {
-    const { data, error } = await supabase
-      .from('vendor_profiles_self')
-      .select('next_renewal_due_at')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (error) {
-      logQueryError('supplier-today: renewal date', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-      return undefined;
-    }
-    if (!data) return undefined;
-    return (data as { next_renewal_due_at?: string | null }).next_renewal_due_at ?? null;
-  } catch {
-    return undefined;
-  }
-}
-
 /** ONE row read in place of three. Null when refused — each reader then degrades exactly as it did alone. */
 export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId: string): Promise<TodayShopRow | null> {
   try {

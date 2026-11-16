@@ -49,7 +49,8 @@ import { fileTypedValues, openSealedSlot, type IntakeReport, type IntakeSlot } f
 import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
 import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
 import { haversineKm } from '@/lib/geo';
-import { renewalUploadOpen } from '@/lib/verified-badge';
+import { manilaDateKey, renewalUploadOpen } from '@/lib/verified-badge';
+import { seedRenewalDraft } from '@/lib/papers-renewal';
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
@@ -371,8 +372,14 @@ async function resolveEditableDraft(
   // 📨 A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY (owner 2026-11-14, "Only the named one"): after a
   // send-back the new draft keeps every paper the admin did NOT name, exactly as it was, and carries the named
   // ones as markers with no file. A send-back made before that rule names nothing and starts empty, as before.
+  // 🔁 A RENEWAL KEEPS LAST YEAR'S PAPERS THAT ARE STILL GOOD (approved design "Papers renewal", §3: "The checklist
+  // already knows the DTI and BIR are still good, so the button asks for the permit only") — file, sealed read and
+  // all, so Submit re-runs every check on them. A paper that ran out leaves only its end date (`seedRenewalDraft`).
   const seed: DocUploadMap =
-    status === 'rejected' ? seedDraftAfterSendBack((app?.doc_uploads ?? {}) as DocUploadMap) : {};
+    status === 'rejected' ? seedDraftAfterSendBack((app?.doc_uploads ?? {}) as DocUploadMap)
+      : status === 'approved' && app
+        ? (seedRenewalDraft(app.doc_uploads as Record<string, unknown> | null, manilaDateKey(new Date()), app.application_id) as DocUploadMap)
+        : {};
   const { data: inserted, error } = await supabase
     .from('vendor_verification_applications')
     .insert({

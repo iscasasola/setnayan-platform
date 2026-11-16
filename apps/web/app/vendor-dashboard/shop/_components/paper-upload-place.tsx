@@ -11,9 +11,17 @@ import { formatLongDate } from '@/lib/format-date';
 import { formatCount } from '@/lib/format-number';
 import {
   saveVerificationIdentityField,
+  submitInlineForReview,
   updateDocUploadInline,
   type InlineDocsPayload,
 } from '../inline-docs-actions';
+import {
+  paperStanding,
+  renewalButtonLabel,
+  renewalCountLine,
+  renewalReadyToSend,
+  type RenewalSlotKey,
+} from '@/lib/papers-renewal';
 import { MAX_TRIES } from '@/lib/paper-intake-shared';
 import { sentBackOf, type DocUpload } from '@/lib/vendor-verification';
 import type { IntakeReport, IntakeSlot } from '@/lib/paper-intake';
@@ -148,6 +156,30 @@ export function PaperUploadPlace({
     [payload.docMap],
   );
   const inCount = ROWS.filter((r) => slots[r.slot]?.r2_key).length;
+  // 🔁 A RENEWAL (approved design "Papers renewal", §3): last year's papers that are still good were kept in the
+  // draft (`seedRenewalDraft`) — their rows say "Still good", the one that ran out says "Ended …", and the button
+  // asks for that paper only. The supplier can still drop all three.
+  const renewing = ROWS.some((r) => {
+    const raw = payload.docMap[r.slot] as { renewal?: unknown } | undefined;
+    return Boolean(raw && typeof raw === 'object' && raw.renewal);
+  });
+  const standings = ROWS.map((r) => paperStanding(r.slot, payload.docMap[r.slot], renewing));
+  const endedSlots = ROWS.filter((_, i) => standings[i]?.kind === 'ended').map((r) => r.slot as RenewalSlotKey);
+  const renewLabel = renewing ? renewalButtonLabel(endedSlots) : null;
+  // One tap: once every paper of the renewal is in and read clean, the page presses the SAME Submit itself, so clean
+  // papers restore the shop on the spot (§6). Only after an upload made here — never on a page load.
+  const uploadedHere = useRef(false);
+  const [sending, startSend] = useTransition();
+  const ready = renewing && payload.editable && payload.status === 'draft' && renewalReadyToSend(ROWS.map((r) => payload.docMap[r.slot]));
+  useEffect(() => {
+    if (!ready || !uploadedHere.current) return;
+    uploadedHere.current = false;
+    startSend(async () => {
+      const res = await submitInlineForReview(null, new FormData());
+      if (!res.ok) toast.error(res.error);
+      onSaved();
+    });
+  }, [ready, onSaved, toast]);
   // 🛡 THE PAPER THAT HOLDS THEM BACK (owner 2026-10-29, v13 note 4 — carried over from the retired pairs): an
   // unverified shop's FIRST missing paper is marked, and [Get verified] (`#docs`) brings it into view.
   const firstMissing = isVerified || locked ? null : (ROWS.find((r) => !slots[r.slot]?.r2_key)?.slot ?? null);
@@ -182,6 +214,7 @@ export function PaperUploadPlace({
         return;
       }
       setReports(res.reports ?? []);
+      uploadedHere.current = true;
       onSaved();
     });
   };
@@ -207,17 +240,27 @@ export function PaperUploadPlace({
             maxSizeMB={15}
             acceptedTypes={['image/png', 'image/jpeg', 'application/pdf']}
             variant="wide"
-            label="Upload your papers"
-            help="You can pick all three photos at once. A clear phone photo is fine. PDF / JPG / PNG up to 15 MB each."
-            disabled={pending}
+            label={renewLabel ?? 'Upload your papers'}
+            help={
+              renewLabel
+                ? 'The other two are still good. PDF / JPG / PNG up to 15 MB each.'
+                : 'You can pick all three photos at once. A clear phone photo is fine. PDF / JPG / PNG up to 15 MB each.'
+            }
+            disabled={pending || sending}
             onChange={(val) => save(Array.isArray(val) ? val : val ? [val] : [])}
           />
+          {sending ? (
+            <p className="inline-flex items-center gap-1.5 text-sm" role="status" style={{ color: 'var(--m-ink)' }}>
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+              Checking your papers…
+            </p>
+          ) : null}
           {pending && checking > 0 ? (
             <p className="inline-flex items-center gap-1.5 text-sm" role="status" style={{ color: 'var(--m-ink)' }}>
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
               Checking {checking} {checking === 1 ? 'paper' : 'papers'}…
               <span className="text-xs" style={{ color: MUTE }}>
-                Each one ticks as soon as we know what it is.
+                {renewing ? 'A few seconds. Your file is already saved.' : 'Each one ticks as soon as we know what it is.'}
               </span>
             </p>
           ) : null}
@@ -266,19 +309,23 @@ export function PaperUploadPlace({
         <h4 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           Your three papers
         </h4>
-        <span className="text-xs tabular-nums" style={{ color: MUTE }}>
-          {formatCount(inCount)} of 3
+        <span className="text-xs tabular-nums" style={{ color: MUTE }} data-renewal-count={renewing ? '' : undefined}>
+          {renewing ? renewalCountLine(standings) : `${formatCount(inCount)} of 3`}
         </span>
       </div>
 
       <ol className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
-        {ROWS.map((row) => {
+        {ROWS.map((row, rowIndex) => {
           const s = slots[row.slot];
+          const standing = standings[rowIndex];
           const model = s?.evidence?.model ?? null;
           let status: { icon: 'ok' | 'wait' | 'person' | 'none'; text: string };
           // The approved demo's words: Recognised · Reading… · Not clear enough — not kept · A person will check
           // this · Waiting for a photo.
           if (s?.r2_key && s.manual) status = { icon: 'person', text: 'A person will check this' };
+          else if (standing && standing.kind !== 'ended') status = { icon: 'ok', text: standing.line };
+          else if (standing?.kind === 'ended' && pending && checking > 0) status = { icon: 'wait', text: 'Checking…' };
+          else if (standing?.kind === 'ended' && !(s && s.attempts > 0)) status = { icon: 'wait', text: standing.line };
           else if (s?.r2_key && model) status = { icon: 'ok', text: 'Recognised' };
           else if (pending && checking > 0) status = { icon: 'wait', text: 'Reading…' };
           else if (s && s.attempts > 0)
@@ -325,7 +372,7 @@ export function PaperUploadPlace({
                 </span>
               </div>
 
-              {s?.r2_key && model && !s.manual ? (
+              {s?.r2_key && model && !s.manual && !standing ? (
                 <div className="mt-2 space-y-1 pl-9">
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                     {readLines(row.slot, model).map(([k, v]) => (

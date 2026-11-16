@@ -103,6 +103,14 @@ const FILES = scannedFiles();
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'lib/papers-renewal.ts',
+    { count: 1, why: 'coupleShopRenewing / renewalBucket (papers renewal build): "was this shop verified before its papers lapsed?" — it picks the renewing WORDS for a lapsed shop (ruling 4) and the admin Renewals chip, never a rendered Verified badge (the badge stays hasVerifiedBadge).' },
+  ],
+  [
+    'lib/papers-renewal.server.ts',
+    { count: 1, why: 'readRenewalView: a never-verified shop has no renewal at all, so the renewal notices and the verification-page state card are only computed for a verified shop. It decides which renewal words to say, never whether a badge is drawn.' },
+  ],
+  [
     'lib/bundle-cards.server.ts',
     { count: 1, why: "readLockShop (Build 6 Lane D): the shop's OWN feature gate — whether canUse('bundleMaker') lets this shop make bundles (lib/locks.ts, the same question every lock asks). Feeds the lock row and savePackage's refusal, never a rendered Verified badge." },
   ],

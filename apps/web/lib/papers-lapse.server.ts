@@ -9,6 +9,7 @@ import {
   papersLapseDue,
   type LapseCandidate,
 } from '@/lib/papers-lapse';
+import { planHoldAtLapse } from '@/lib/papers-renewal';
 
 /**
  * Stamp every shop whose renewal day passed with no renewed papers — the
@@ -18,7 +19,7 @@ import {
  * What a lapse DOES (owner DECISION_LOG 481b9b6b, correcting "block new"):
  *   · `papers_lapsed_at` is stamped → the shop leaves search, Discover and every
  *     couple-facing list (`FINDABLE_SHOP_GATE` reads `papers_current`);
- *   · a free "verified" plan becomes "free" (paid plans are left alone);
+ *   · a free "verified" plan becomes "free"; a paid plan becomes "free" with its days left held (ruling 2);
  *   · the supplier is told once, in-app and by email.
  * What it does NOT do: refuse any booking request (the app's booking gate and the
  * database trigger do not read the stamp — whether an event that inquired before
@@ -38,7 +39,7 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
   try {
     const { data, error } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, user_id, tier_state, verification_state, next_renewal_due_at, papers_lapsed_at')
+      .select('vendor_profile_id, user_id, tier_state, tier_expires_at, verification_state, next_renewal_due_at, papers_lapsed_at')
       .eq('verification_state', 'verified')
       .is('papers_lapsed_at', null)
       .not('next_renewal_due_at', 'is', null)
@@ -49,15 +50,20 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
       return 0;
     }
     let stamped = 0;
-    for (const row of (data ?? []) as Array<LapseCandidate & { vendor_profile_id: string; user_id: string | null; tier_state: string | null }>) {
+    for (const row of (data ?? []) as Array<LapseCandidate & { vendor_profile_id: string; user_id: string | null; tier_state: string | null; tier_expires_at?: string | null }>) {
       if (!papersLapseDue(row, now)) continue;
       const stampedAt = now.toISOString();
+      // ⏸ RULING (2), 14 Nov "Fable's picks taken": the shop drops to Free; a PAID plan's unused days WAIT (held in
+      // this lapse's audit row below) and come back on renewal (`heldPlanBack` in verification-decision.server.ts).
+      const plan = planHoldAtLapse(row, now);
       const { data: changed, error: stampErr } = await admin
         .from('vendor_profiles')
         .update({
           papers_lapsed_at: stampedAt,
-          // Free · Unverified: the free "verified" plan drops to "free". A paid plan is left as it is.
-          ...(row.tier_state === 'verified' ? { tier_state: 'free' } : {}),
+          // Free · Unverified: the free "verified" plan drops to "free"; a paid plan drops to "free" with its clock
+          // stopped (no end date while it waits — the days left are in the audit row).
+          ...(plan.kind === 'free_drop' ? { tier_state: 'free' } : {}),
+          ...(plan.kind === 'hold' ? { tier_state: 'free', tier_expires_at: null } : {}),
           updated_at: stampedAt,
         })
         .eq('vendor_profile_id', row.vendor_profile_id)
@@ -86,7 +92,8 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
           deadline: row.next_renewal_due_at,
           lapsed_at: stampedAt,
           tier_before: row.tier_state,
-          tier_after: row.tier_state === 'verified' ? 'free' : row.tier_state,
+          tier_after: plan.kind === 'none' ? row.tier_state : 'free',
+          ...(plan.kind === 'hold' ? { held_tier: plan.tier, held_ms: plan.heldMs, tier_expires_at_before: row.tier_expires_at ?? null } : {}),
           notified: Boolean(row.user_id),
         },
       });

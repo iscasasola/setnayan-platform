@@ -966,40 +966,6 @@ export function todayNeedOf(card: WhatsNewCard, now: number): TodayNeed {
   };
 }
 
-/**
- * 📄 THE BUSINESS PERMIT ROW (A9 — DL 2026-09-11 Q5 "a Mayor's Permit that runs out: a reminder 60 days ahead"): from
- * the badge's own deadline rule (`badgeDeadline`, `vendor_profiles.next_renewal_due_at`). Inside the 60 days → "Business
- * permit expires in N days"; passed → the badge came off (the shop stays listed). It opens the shipped papers page — the
- * same door the daily reminder email names (`verified-badge-sweep.ts` PAPERS_URL).
- */
-export const PERMIT_PAPERS_HREF = '/vendor-dashboard/profile#docs';
-
-export function permitNeed(deadline: { kind: 'none' } | { kind: 'ahead'; daysLeft: number } | { kind: 'reminder'; daysLeft: number } | { kind: 'lapsed'; daysOver: number }): TodayNeed | null {
-  if (deadline.kind === 'reminder') {
-    return {
-      key: 'renewal',
-      kind: 'documents',
-      label: `Business permit expires in ${formatCount(deadline.daysLeft)} day${deadline.daysLeft === 1 ? '' : 's'}`,
-      line: 'Keep your Verified badge — upload the new one',
-      icon: 'file',
-      lineTone: deadline.daysLeft <= 7 ? 'warn' : null,
-      target: { to: 'given', href: PERMIT_PAPERS_HREF },
-    };
-  }
-  if (deadline.kind === 'lapsed') {
-    return {
-      key: 'renewal',
-      kind: 'documents',
-      label: 'Business permit expired',
-      line: 'Your Verified badge is off until the new one is checked — your shop is still listed',
-      icon: 'file',
-      lineTone: 'danger',
-      target: { to: 'given', href: PERMIT_PAPERS_HREF },
-    };
-  }
-  return null;
-}
-
 /** A door (`supplierWaiting().doors`) → its row. Credit, gift and where-couples-pay are payments; the rest stand alone. */
 export function doorNeed(d: SupplierWaitingDoor): TodayNeed {
   const icon: Record<SupplierWaitingDoorId, TodayRowIcon> = { setup: 'check', findable: 'shop', credit: 'clock', gift: 'clock', payout: 'peso' };

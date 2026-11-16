@@ -34,6 +34,15 @@ import { formatCount } from '@/lib/format-number';
 import { RequestCardView } from '../queues/_components/request-card-view';
 import { SETTLE_NOTICES } from '../queues/_components/queues-triage-feed';
 import { AdminAskPill } from './admin-ask-pill';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readBadgeShopList, badgeTraceHref } from '../offers/_surfaces/badges-view';
+
+/** ➕ v10: what the Ask bar answers in place. A `queue` answer filters the Focus list to that queue. */
+export const FOCUS_ASK_ANSWERS: Record<string, { question: string; queue?: string; openHref: string; openLabel: string }> = {
+  badges: { question: 'suppliers badge progress', openHref: '/admin/offers?view=badges&show=shops', openLabel: 'Badges & seals' },
+  payments: { question: 'payments to confirm', queue: 'payments', openHref: '/admin/payments', openLabel: 'To approve · Payments' },
+  papers: { question: 'papers to verify', queue: 'verify', openHref: '/admin/verify', openLabel: 'Papers' },
+};
 import { FocusCardSheet } from './focus-card-sheet';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
@@ -61,8 +70,11 @@ export async function FocusHome({
   cardKey,
   settle,
   why,
+  ask,
 }: {
   viewerUserId: string;
+  /** ➕ v10: `?ask=<key>` — the Ask bar answered in place (`FOCUS_ASK_ANSWERS`). */
+  ask?: string;
   /** `?card=<queue>:<item id>` — the card opened over the list. */
   cardKey?: string;
   settle?: string;
@@ -125,6 +137,18 @@ export async function FocusHome({
     }
   }
 
+  // ➕ ADMIN REORG v10 (17 Nov 2026): the Ask bar answers in place — the question, a count, the SAME rows, and where
+  // the list lives. A queue answer is this list filtered to that queue; badge progress is the Badges & seals shop list.
+  const answer = ask ? FOCUS_ASK_ANSWERS[ask] : undefined;
+  let answerRows: FocusRow[] | null = null;
+  if (answer?.queue) answerRows = rows.filter((r) => r.key.startsWith(`${answer.queue}:`));
+  if (answer && !answer.queue) {
+    const { list, error } = await readBadgeShopList(createAdminClient());
+    answerRows = error
+      ? null
+      : list.map((s) => ({ key: `badges:${s.vendor_profile_id}`, kind: 'reply' as const, title: s.business_name ?? 'Unnamed shop', sub: 'Five badges · tap for the trace', href: badgeTraceHref(s.vendor_profile_id), late: false }));
+  }
+
   const groups = (['reply', 'fix', 'refresh'] as const)
     .map((k) => ({ kind: k, rows: rows.filter((r) => r.kind === k) }))
     .filter((g) => g.rows.length > 0);
@@ -173,7 +197,36 @@ export async function FocusHome({
         </p>
       ) : null}
 
-      {groups.map((g) => (
+      {answer ? (
+        <section aria-label="Your answer" className="mx-4 mt-3 flex flex-col gap-2" data-focus-ask={ask}>
+          <p className="text-[13px] text-[color:var(--sn-ink-500)]">You asked</p>
+          <p className="text-[18px] font-semibold text-[color:var(--sn-ink-900)]">“{answer.question}”</p>
+          <p className="text-[13px] text-[color:var(--sn-ink-500)]">
+            {answerRows === null ? 'Couldn’t read this just now — not the same as none.' : `${formatCount(answerRows.length)} · answered here`}
+          </p>
+          <ul>
+            {(answerRows ?? []).map((r) => (
+              <li key={r.key}>
+                <Link href={r.href} scroll={false} className="flex min-h-14 items-center gap-3 border-t py-2.5" style={{ borderColor: 'var(--sn-line)' }} data-focus-ask-row="">
+                  <span className="grid min-w-0 flex-1">
+                    <span className="truncate text-[15px] font-semibold text-[color:var(--sn-ink-900)]">{r.title}</span>
+                    <span className="truncate text-[13px] text-[color:var(--sn-ink-500)]">{r.sub}</span>
+                  </span>
+                  <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[color:var(--sn-ink-500)]" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link href={answer.openHref} className="text-sm font-medium text-[color:var(--sn-ink-900)]">
+            Open {answer.openLabel} ›
+          </Link>
+          <Link href="/admin" className="text-sm text-[color:var(--sn-ink-500)]">
+            ‹ Focus
+          </Link>
+        </section>
+      ) : null}
+
+      {!answer && groups.map((g) => (
         <section key={g.kind} aria-label={FOCUS_KIND_LABEL[g.kind]}>
           <p className="sn-eye mx-4 mb-1 mt-4">
             {FOCUS_KIND_LABEL[g.kind]} · {formatCount(g.rows.length)}

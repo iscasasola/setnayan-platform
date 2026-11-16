@@ -198,14 +198,7 @@ function NotYetBuilt() {
  */
 async function ShopBadges({ shopId }: { shopId: string | undefined }) {
   const admin = createAdminClient();
-  const { data: shops, error } = await admin
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_name')
-    .eq('is_demo', false)
-    .order('business_name', { ascending: true })
-    .limit(300);
-  if (error) logQueryError('BadgesView.shops', error, {}, 'graceful_degrade');
-  const list = (shops ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>;
+  const { list, error } = await readBadgeShopList(admin);
   const picked = shopId ? list.find((s) => s.vendor_profile_id === shopId) : undefined;
 
   let cards: ReturnType<typeof badgePage> | null = null;
@@ -243,7 +236,7 @@ async function ShopBadges({ shopId }: { shopId: string | undefined }) {
               <TemplateRow
                 key={sh.vendor_profile_id}
                 title={sh.business_name ?? 'Unnamed shop'}
-                href={`${HREF}&show=shops&shop=${encodeURIComponent(sh.vendor_profile_id)}`}
+                href={badgeTraceHref(sh.vendor_profile_id)}
                 line="Its five badges and what it has earned"
                 data={`badges-shop-row-${sh.vendor_profile_id}`}
               />
@@ -271,4 +264,21 @@ async function ShopBadges({ shopId }: { shopId: string | undefined }) {
       ) : null}
     </>
   );
+}
+
+/** The shops the badge list shows — real shops only (demo shops excluded). Also the Focus ask's rows. */
+export async function readBadgeShopList(admin: ReturnType<typeof createAdminClient>) {
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_name')
+    .eq('is_demo', false)
+    .order('business_name', { ascending: true })
+    .limit(300);
+  if (error) logQueryError('BadgesView.shops', error, {}, 'graceful_degrade');
+  return { list: (data ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>, error };
+}
+
+/** Where one shop's trace opens. */
+export function badgeTraceHref(vendorProfileId: string): string {
+  return `${HREF}&show=shops&shop=${encodeURIComponent(vendorProfileId)}`;
 }

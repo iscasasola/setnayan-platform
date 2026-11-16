@@ -27,7 +27,7 @@
  * a page (see `lib/legacy-redirects.test.ts`).
  *
  * ⚠ EXACT PATHS ONLY (a trailing slash is tolerated), plus the one pattern for
- * the three per-event-type pages. Any other child is a different URL and is
+ * the three per-event-type pages and the two retired subtrees (`RETIRED_TREES`). Any other child is a different URL and is
  * not forwarded.
  *
  * ⚠ ADDING A ROW to retire another stub: delete the page, add the pair, and
@@ -105,6 +105,9 @@ const FIXED: readonly (readonly [from: string, to: string])[] = [
   ['/admin/marketing', '/admin/studio'], //                       retired 2026-07-04
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'], // retired 2026-07-02
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'], //     retired 2026-05-29
+  // 🗞✂ The supplier-side Real Stories stub, retired with Real Stories (owner 2026-11-16, DECISION_LOG "THE BLOG AND
+  // REAL STORIES ARE RETIRED" + "RETIRED ADDRESSES FORWARD").
+  ['/vendor-dashboard/real-stories', '/vendor-dashboard'],
   // retired 2026-08-15 → /explore, which is itself retired since 2026-11-12 — so it lands where /explore now does.
   ['/explore/categories', '/'],
 ];
@@ -192,6 +195,34 @@ export function exploreRedirectTarget(search: string): string {
   return qs ? `/?${qs}` : '/';
 }
 
+/**
+ * 🗞✂ THE BLOG AND REAL STORIES ARE RETIRED (owner 2026-11-16, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED" ·
+ * "RETIRED ADDRESSES FORWARD": *"we retired these blogs already"*, then "YES" to /blog → /features and /realstories →
+ * Discover). Post-event stories (`/dashboard/[eventId]/story`) are the new stories. WHOLE SUBTREES, unlike every
+ * exact-path row above: `/blog`, `/blog/<anything>`, `/realstories`, `/realstories/<anything>` — saved and indexed
+ * article and story links never break. The query is dropped (the pages it addressed are gone).
+ *
+ * ⚠ A last segment with a dot is a FILE, not a page: `public/realstories/` still holds the sample photos and clips
+ * other screens show (`/realstories/maria-juan-tagaytay.jpg`, `/realstories/clips/….mp4`). The middleware matcher
+ * skips `.jpg`, but NOT `.mp4` — forwarding those would turn a video into the front page. Held by
+ * `lib/legacy-redirects.test.ts`.
+ */
+export const RETIRED_TREES: readonly (readonly [from: string, to: string])[] = [
+  ['/blog', '/features'],
+  ['/realstories', '/'],
+];
+
+function retiredTreeTarget(path: string): string | null {
+  for (const [from, to] of RETIRED_TREES) {
+    if (path === from) return to;
+    if (path.startsWith(`${from}/`)) {
+      const last = path.slice(path.lastIndexOf('/') + 1);
+      return last.includes('.') ? null : to;
+    }
+  }
+  return null;
+}
+
 const EVENT_SCOPED_RE: ReadonlyMap<string, string> = new Map(EVENT_SCOPED);
 const FIXED_MAP: ReadonlyMap<string, string> = new Map(FIXED);
 
@@ -202,6 +233,7 @@ export const LEGACY_REDIRECT_OLD_PATHS: readonly string[] = [
   ...[...KEEPS_QUERY.keys()],
   '/explore',
   '/dashboard/<eventId>/studio/papic',
+  ...RETIRED_TREES.flatMap(([from]) => [from, `${from}/<anything>`]),
   '/admin/event-types/<type>/categories',
   '/admin/event-types/<type>/profile',
   '/admin/event-types/<type>/onboarding',
@@ -218,6 +250,9 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
   if (fixed) return fixed;
 
   if (path === '/explore') return exploreRedirectTarget(search);
+
+  const tree = retiredTreeTarget(path);
+  if (tree) return tree;
 
   const keeps = KEEPS_QUERY.get(path);
   if (keeps) return search && search !== '?' ? `${keeps}${search.startsWith('?') ? search : `?${search}`}` : keeps;

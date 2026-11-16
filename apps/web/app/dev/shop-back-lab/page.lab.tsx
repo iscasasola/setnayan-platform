@@ -11,6 +11,7 @@
  *   ?from=discover|explore|search|favorites|event|cold   the shop, as reached from there
  *   &plan=free|verified|solo|pro|ultra           the plan pill (the back door does not depend on the plan — this proves it)
  */
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Send } from 'lucide-react';
@@ -95,7 +96,7 @@ export default async function ShopBackLabPage({
             Inquire
           </a>
           <CheckADateLink
-            href={withShopArrival(`/v/${SLUG}/dates`, arrival)}
+            href={withShopArrival(`${shopPath(SLUG)}/dates`, arrival)}
             className="button-secondary inline-flex items-center gap-2"
           />
         </div>

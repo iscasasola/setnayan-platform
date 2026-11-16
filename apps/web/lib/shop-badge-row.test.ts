@@ -152,7 +152,7 @@ test('1st Pick is shown but not counted; the Booked Loop is hidden while its cou
 test('reward words come from the engine rows, never from the row file', () => {
   const row = shopBadgeRow(input())!;
   const insp = row.find((t) => t.key === 'reward:inspiration')!;
-  assert.match(insp.row.reward?.next ?? '', /Next: 25 photos · 7 to go → /);
+  assert.match(insp.row.reward?.next ?? '', /Next: 25 photos · Silver · 7 to go → /);
   assert.doesNotMatch(SRC, /Papic 150|Event Plus|Event Pro|free booking fee/i);
   assert.ok(row.every((t) => !t.row.reward || t.row.reward === row.find((x) => x.key === t.key)!.row.reward));
 });

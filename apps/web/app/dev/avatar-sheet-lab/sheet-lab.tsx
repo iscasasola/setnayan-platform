@@ -8,8 +8,8 @@ import type { SheetUnread } from '@/lib/avatar-sheet-counts';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
-const SETNAPROD: SwitcherShop = { id: 'S89V-LAB0000001', name: 'SetnaProd', logoUrl: null, publicHref: '/v/setnaprod', owned: true };
-const BLOOM: SwitcherShop = { id: 'S89V-LAB0000002', name: 'Bloom & Vine Florals', logoUrl: null, publicHref: '/v/bloom-and-vine', owned: false };
+const SETNAPROD: SwitcherShop = { id: 'S89V-LAB0000001', name: 'SetnaProd', logoUrl: null, publicHref: '/setnaprod', owned: true };
+const BLOOM: SwitcherShop = { id: 'S89V-LAB0000002', name: 'Bloom & Vine Florals', logoUrl: null, publicHref: '/bloom-and-vine', owned: false };
 const LENS: SwitcherShop = { id: 'S89V-LAB0000003', name: 'Lens Lab Studio', logoUrl: null, publicHref: null, owned: false };
 
 function person(over: Partial<SwitcherData> & { shops?: SwitcherShop[]; isAdmin?: boolean; canOpenShop?: boolean }): SwitcherData {

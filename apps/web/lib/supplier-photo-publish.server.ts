@@ -26,6 +26,7 @@
  * as if they were the original (a double mark).
  */
 import type { MarkSpec } from './photo-mark-geometry';
+import { desiredMarkKind, type MarkKind } from './supplier-photo-remark.server';
 
 const MEDIA = 'setnayan-media';
 const ORIGINALS = 'setnayan-vendor-verification';
@@ -47,10 +48,10 @@ export type PublishDeps = {
   mark: (bytes: Uint8Array, spec: MarkSpec, logoPng: Buffer | null) => Promise<Buffer>;
   /** Web-size the clean copy (upright JPEG), the same size the public copy is drawn at. */
   normalise: (bytes: Uint8Array) => Promise<Buffer>;
-  pair: (row: { vendor_profile_id: string; public_ref: string; original_ref: string; mark_kind: 'setnayan' | 'verified' }) => Promise<void>;
+  pair: (row: { vendor_profile_id: string; public_ref: string; original_ref: string; mark_kind: MarkKind }) => Promise<void>;
 };
 
-export type Published = { publicRef: string; originalRef: string; markKind: 'setnayan' | 'verified'; source: 'stored-original' | 'given-bytes' };
+export type Published = { publicRef: string; originalRef: string; markKind: MarkKind; source: 'stored-original' | 'given-bytes' };
 
 /**
  * Mark `bytes` with the shop's Seal and plate and publish them at `publicKey`
@@ -84,7 +85,7 @@ export async function publishMarkedSupplierPhoto(
   await deps.putPublic(publicKey, marked);
   const publicRef = `r2://${MEDIA}/${publicKey}`;
   const originalRef = `r2://${ORIGINALS}/${originalKey}`;
-  const markKind = spec.verified ? 'verified' : 'setnayan';
+  const markKind = desiredMarkKind(spec);
   await deps.pair({ vendor_profile_id: vendorProfileId, public_ref: publicRef, original_ref: originalRef, mark_kind: markKind });
   return { publicRef, originalRef, markKind, source: stored ? 'stored-original' : 'given-bytes' };
 }

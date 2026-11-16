@@ -118,17 +118,17 @@ export async function BoothEventSection({
         /* CHAT-30 (walk 16 Nov 2026): "Per-event branding is temporarily unavailable" sat on a client's Details as a
            broken notice. Nothing is broken — no per-event price is set, so there is nothing to buy here and no
            number is guessed. Say what the couple sees; the 4-week cycle stays offered where it has a price. */
-        <p className="mt-1 text-xs text-ink/55">
-          Right now the couple sees a plain booth with your name.
+        <>
+          <p className="mt-1 text-xs text-ink/55">Right now the couple sees a plain booth with your name.</p>
           {cyclePricePhp != null && cyclePricePhp > 0 ? (
-            <>
-              {' '}The 3D Booth cycle brands every client&rsquo;s room for {peso(cyclePricePhp)} / 4 weeks.{' '}
+            <p className="mt-2 text-[11px] text-ink/45">
+              The 3D Booth cycle brands every client&rsquo;s room for {peso(cyclePricePhp)} / 4 weeks.{' '}
               <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
                 See plans
               </Link>
-            </>
+            </p>
           ) : null}
-        </p>
+        </>
       ) : (
         <>
           <p className="mt-1 text-xs text-ink/55">

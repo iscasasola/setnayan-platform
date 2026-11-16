@@ -126,7 +126,9 @@ async function sourcedEvent(shop: string, member: string, memberType: 'couple' |
   return eventId;
 }
 
-async function directEvent(shop: string, couple: string, at: string, source = 'host_manual'): Promise<string> {
+/** Event B, where the shop is the first import — free unless the same-couple arm (wrongly) carries a fee in. With
+ *  'host_manual' it would pay anyway since the owner's 16 Nov answer 3, which would make the guard cases vacuous. */
+async function directEvent(shop: string, couple: string, at: string, source = 'vendor_invite'): Promise<string> {
   const eventId = await newEventFor(couple);
   await db.query(
     `INSERT INTO public.event_vendors (event_id, marketplace_vendor_id, category, vendor_name, status, source, created_at)

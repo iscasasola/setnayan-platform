@@ -176,12 +176,12 @@ test('(4) a view AFTER the import does not take the free booking back', async ()
   assert.equal(await fee(shop, eventId), 'import');
 });
 
-test('a booking with nothing from Setnayan and nothing imported still carries no fee (unchanged)', async () => {
+test('owner answer 3 (16 Nov) — a booking with nothing from Setnayan and nothing imported now pays (the coordinator loophole)', async () => {
   const shop = await newShop();
   const couple = await newUser('outside');
   const eventId = await newEvent(couple, ago(20));
   await row(eventId, shop, 'host_manual', ago(19));
-  assert.equal(await fee(shop, eventId), 'import');
+  assert.equal(await fee(shop, eventId), 'sourced', 'a couple typing in a verified shop a coordinator named pays');
 });
 
 /* ── the later rulings of 16 Nov ── */
@@ -194,7 +194,7 @@ test('99b6ab50 — an unverified shop pays on everything; once verified, its nex
   assert.equal(await fee(shop, first), 'sourced', 'a QR import of a new couple by an unverified shop pays the flat 5%');
   const outside = await newEvent(await newUser('outside'), ago(25));
   await row(outside, shop, 'host_manual', ago(24));
-  assert.equal(await fee(shop, outside), 'sourced', 'even a booking found outside Setnayan pays while unverified');
+  assert.equal(await fee(shop, outside), 'sourced', 'a booking with nothing imported pays');
 
   // The shop is verified now (today); imports from here on qualify, the one made before does not.
   await db.query(`UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = $2 WHERE vendor_profile_id = $1`, [shop, ago(5)]);
@@ -255,4 +255,44 @@ test('1abf35b (2) — the couple\'s own Find invite: a shop it CREATED books fre
   const existing = await newShop(); // created ~3 years ago
   await coupleInvite(eventId, existing, ago(15));
   assert.equal(await fee(existing, eventId), 'sourced');
+});
+
+/* ── owner answer 1 (16 Nov): "the import created the account" reads the invite timestamp ── */
+
+async function lockedQrToken(shop: string, eventId: string, issuedAt: string): Promise<void> {
+  const by = (await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [shop])).rows[0]!.user_id;
+  await db.query(
+    `INSERT INTO public.vendor_locked_qr_tokens (token, vendor_profile_id, created_by_user_id, category, status, claimed_event_id, created_at)
+     VALUES ($1, $2, $3, 'catering', 'claimed', $4, $5)`,
+    [`lqr-${++n}-xxxxxxxxxxxxxxxxxxxx`, shop, by, eventId, issuedAt],
+  );
+}
+
+async function userMadeAt(at: string): Promise<string> {
+  const id = await newUser('timed');
+  await db.query(`UPDATE auth.users SET created_at = $2 WHERE id = $1`, [id, at]);
+  return id;
+}
+
+test('Q1 — a Locked QR issued BEFORE the client had an account: the import made the account → the free year', async () => {
+  const shop = await newShop();
+  const couple = await userMadeAt(ago(59));
+  const first = await newEvent(couple, ago(59));
+  await lockedQrToken(shop, first, ago(61));
+  await row(first, shop, 'vendor_locked_qr', ago(58));
+  const later = await newEvent(couple, ago(20));
+  await row(later, shop, 'host_marketplace_search', ago(19));
+  assert.equal(await fee(shop, later), 'import', 'free with that supplier for a year');
+});
+
+test('Q1 — a Locked QR issued AFTER the client already had an account: an existing client, no free year', async () => {
+  const shop = await newShop();
+  const couple = await userMadeAt(ago(400)); // on Setnayan long before, never made an event
+  const first = await newEvent(couple, ago(59));
+  await lockedQrToken(shop, first, ago(60));
+  await row(first, shop, 'vendor_locked_qr', ago(58));
+  assert.equal(await fee(shop, first), 'import', 'still the first imported supplier on that event');
+  const later = await newEvent(couple, ago(20));
+  await row(later, shop, 'host_marketplace_search', ago(19));
+  assert.equal(await fee(shop, later), 'sourced', 'no year: the account was older than the invite');
 });

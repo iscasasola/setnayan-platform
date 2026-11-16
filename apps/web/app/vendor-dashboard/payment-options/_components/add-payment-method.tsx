@@ -26,6 +26,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, Landmark, QrCode, Link2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { routes } from '@/lib/routes';
@@ -65,6 +66,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
   const [type, setType] = useState<PaymentMethodType>('bank');
   const [linkDraft, setLinkDraft] = useState('');
   const [provider, setProvider] = useState<string>('BDO');
+  const router = useRouter();
 
   if (!open) {
     return (
@@ -79,7 +81,16 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
     <StayForm
       door="supPayments.addPaymentMethod"
       action={addPaymentMethod}
-      onSaved={() => setOpen(false)}
+      onSaved={() => {
+        setOpen(false);
+        // 💳 THE SAVED OPTION SHOWS AT ONCE (walk W1-B9, 16 Nov 2026): after "Save payment option" the list above and
+        // Your details' "How clients pay you" row kept reading "Not yet · No payment options yet." until a reload, though
+        // the action revalidates both screens (why the in-place answer did not repaint was not reproduced off the live
+        // site). So the screen re-reads itself once the save has landed — a refresh, never a navigation: the scroll and
+        // the open fold stay (a save never resets the screen).
+        // 🔒 app/vendor-dashboard/payment-options/a-saved-option-shows-at-once.test.ts
+        router.refresh();
+      }}
       className="space-y-5 border-t border-[color:var(--m-line)] pt-4"
     >
       {returnTo ? (

@@ -49,6 +49,8 @@ const WEDDING_CATEGORIES_2026_10_02 = [
   // T1 part 2 (20271350082350; owner 16 Nov 2026, "yes"): Rentals & Special Effects took in Outdoor, Fireworks and
   // Dance Floor, and keeps every event they served — weddings included. A deliberate addition, so it is pinned here.
   'chairs_tents',
+  // …and Speakers & AV took in AV / Production, which served weddings (same rule, same migration).
+  'speaker_talent',
   'florist',
   'lights_sound',
   'dance_floor',

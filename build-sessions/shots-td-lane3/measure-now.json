@@ -1,0 +1,158 @@
+[
+ {
+  "side": "couple",
+  "w": 390,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 792,
+   "w": 358,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 390
+ },
+ {
+  "side": "couple",
+  "w": 768,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 768,
+   "h": 1024,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 972,
+   "w": 736,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 768
+ },
+ {
+  "side": "couple",
+  "w": 1280,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 272,
+   "y": 85,
+   "w": 976,
+   "h": 608,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 289,
+   "y": 640,
+   "w": 942,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 1280
+ },
+ {
+  "side": "supplier",
+  "w": 390,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 792,
+   "w": 358,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 390
+ },
+ {
+  "side": "supplier",
+  "w": 768,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 768,
+   "h": 1024,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 972,
+   "w": 736,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 768
+ },
+ {
+  "side": "supplier",
+  "w": 1280,
+  "label": "now",
+  "list": null,
+  "pane": null,
+  "box": {
+   "x": 272,
+   "y": 85,
+   "w": 976,
+   "h": 608,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 289,
+   "y": 640,
+   "w": 942,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": null,
+  "openRow": false,
+  "scrollW": 1280
+ }
+]

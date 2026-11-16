@@ -40,6 +40,7 @@ import {
 import { formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
+  isShopBookable,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -155,7 +156,7 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopReach, shopWhere } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -246,10 +247,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
 import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
-import { OpenDatesPeek, nextSaturdays, type PeekDay } from './_components/open-dates-peek';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
-import { readCheckADate } from '@/lib/check-a-date.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -993,11 +992,13 @@ export async function renderVendorBySlug({
   const teamPreview = gate.open === 'team' ? gate.reason : null;
 
   const visibility = parseVisibility(vendor.public_visibility);
-  const bookable = isBookable(visibility);
-  // 💬 DECISION_LOG 2026-11-07 rulings (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — found in a
-  // list or opened by its own link/QR — but not BOOK it. `canMessage` opens the Inquire doors only; every booking
-  // door (packages Lock, Check a date, the booth, the waitlist, package asks) stays on `bookable`, verified-only.
-  // The first message is the first inquiry, and the chat_messages trigger stamps the find lock.
+  // 🌐 15 Nov (DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE"; owner "We allow booking. Since
+  // they can get bookings on their website"): a shop Setnayan has not decided yet is BOOKED on its page — packages
+  // Lock, package asks, the waitlist, the booth — with the booking fee. `bookable` is the ONE booking rule
+  // (`isShopBookable`, the same one every server booking door and the database trigger ask). Check a date stays
+  // verified-only (`dateCheckable`): the 15 Nov row keeps "no Check a date" on the unverified page.
+  const bookable = isShopBookable(vendor);
+  const dateCheckable = isBookable(visibility) && bookable;
   const canMessage = shopTakesMessages(vendor, bookable);
   // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
   // here and threaded into every tier gate below (tierCaps, micrositeCan,
@@ -2251,18 +2252,6 @@ export async function renderVendorBySlug({
     }
   }
 
-  // 📅 "THEIR REAL CALENDAR" — the peek in the calling card. Verified + bookable only (owner 13 Nov "date check only for
-  // verified"), from the one read behind /v/[slug]/dates, so the two can never disagree. Anything but `ok` draws no
-  // days: a failed read never paints a closed day open.
-  const checkDateHref = withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival);
-  let peekDays: PeekDay[] = [];
-  if (cinematicHero && bookable) {
-    const dates = await readCheckADate(vendor.business_slug ?? slug).catch(() => null);
-    if (dates && dates.kind === 'ok') {
-      peekDays = nextSaturdays(dates.today, { from: dates.from, to: dates.to }, dates.notBookable);
-    }
-  }
-
   // 🧭 The section bar's tabs — only sections that render. Verified: About · Services · Portfolio · Reviews.
   // Unverified: Services · Reviews · Where. NO Inquire tab (owner 13 Nov, "Yes, only one"): the bar carries the ONE
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
@@ -2317,12 +2306,17 @@ export async function renderVendorBySlug({
     inspirationTiles.length > 0 ||
     hasPhotosByService;
   // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
-  const hasWhere = shopHasWhere({
-    latitude: vendor.hq_latitude,
-    longitude: vendor.hq_longitude,
-    address: vendor.hq_address,
-    city: vendor.location_city,
-  });
+  // An unverified shop shows its city only — no pin, no directions, no street (`shopWhere`, DECISION_LOG 2026-11-15).
+  const where = shopWhere(
+    {
+      latitude: vendor.hq_latitude,
+      longitude: vendor.hq_longitude,
+      address: vendor.hq_address,
+      city: vendor.location_city,
+    },
+    cinematicHero,
+  );
+  const hasWhere = where.has;
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2718,9 +2712,9 @@ export async function renderVendorBySlug({
                 reason, and the button was missed. Share is NOT dropped: the
                 hero has no Share, so removing the whole row would leave an
                 Enterprise shop with no way to share it at all. */}
-            {/* 📅 THEIR REAL CALENDAR — the open-dates peek. Verified + bookable only (owner 13 Nov "date check only for
-                verified"); nothing at all when the dates could not be read. */}
-            {cinematicHero && bookable ? <OpenDatesPeek days={peekDays} checkHref={checkDateHref} /> : null}
+            {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
+                APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
+                stays the action row's door. */}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
@@ -2751,10 +2745,9 @@ export async function renderVendorBySlug({
                     then Check a date · Share. */}
                 {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
-                    Available · Not bookable, nothing about other couples' asks. A BOOKING door, so it keeps `bookable`
-                    (verified only) while the row itself opens on `canMessage` — an unverified shop takes messages,
-                    never a date check or a booking (DECISION_LOG 2026-11-07). */}
-                {bookable ? (
+                    Available · Not bookable, nothing about other couples' asks. Verified only (`dateCheckable`): the
+                    unverified page has no Check a date (DECISION_LOG 2026-11-15). */}
+                {dateCheckable ? (
                   <CheckADateLink
                     href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
@@ -3319,8 +3312,9 @@ export async function renderVendorBySlug({
         />
         </div>
 
-        {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
-            pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
+        {/* 📍 WHERE — the unverified shop's own section (prototype: Services · Reviews · Where · Inquire): its CITY only.
+            No pinned map, no Get directions, no street — "no exact address" until verified (`shopWhere`, DECISION_LOG
+            2026-11-15). */}
         {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
@@ -3328,17 +3322,9 @@ export async function renderVendorBySlug({
               <p className="text-sm text-ink/70">
                 <ShopReachLine reach={reach} city={vendor.location_city ?? null} />
               </p>
-              <ShopReachMap
-                reach={reach}
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                city={vendor.location_city ?? null}
-              />
-              <DirectionsMenu
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                query={vendor.hq_address ?? vendor.location_city ?? null}
-              />
+              <p data-shop-exact-address-held="" className="text-[13px] text-ink/60">
+                {where.addressNote}
+              </p>
             </section>
           </div>
         )}
@@ -3500,8 +3486,8 @@ export async function renderVendorBySlug({
       </article>
       {/* 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026): the shop's own `?dates` address opens
           the sheet on top of it — the shop button above, the printed QR (`/v/<slug>/dates` forwards here) and the
-          sign-in resume all land here. Verified (bookable) shops only, the same rule as the door. */}
-      {bookable && search.dates === '1' ? (
+          sign-in resume all land here. Verified shops only (`dateCheckable`), the same rule as the door. */}
+      {dateCheckable && search.dates === '1' ? (
         <Suspense fallback={null}>
           <CheckADateOverShop
             slug={vendor.business_slug ?? slug}

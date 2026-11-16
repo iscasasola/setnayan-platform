@@ -471,6 +471,25 @@
   }
 
   /*
+   * 👆 `.sn-hit-2d` — `.sn-hit` in BOTH directions, for a small control that stands ALONE (an icon in a top bar, a
+   * tick, a ✕, a pager dot, a footer link) — never in a `useFitRow` row, whose width a sideways bleed would break.
+   * The same invisible `::after`, reaching 46 px across as well as tall around the control's centre; a control
+   * already 46 or larger on an axis is left as it is on that axis. The drawing does not change (controller round,
+   * 15 Nov 2026). Held by `lib/small-targets-press-at-44.test.ts`.
+   */
+  :where(.sn-hit-2d) {
+    position: relative;
+  }
+  .sn-hit-2d::after {
+    content: '';
+    position: absolute;
+    left: min(0px, calc((100% - 46px) / 2));
+    right: min(0px, calc((100% - 46px) / 2));
+    top: min(0px, calc((100% - 46px) / 2));
+    bottom: min(0px, calc((100% - 46px) / 2));
+  }
+
+  /*
    * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
    * buttons; no animation when pressed"; made universal 2026-06-13). We kill
    * the default mobile tap-highlight above, so every button-like control needs
@@ -3529,6 +3548,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --seat-hot-line: #A9834B;
   /* a day you can neither ask about nor book: filled grey, striped */
   --seat-off: #EEEAE3;  --seat-off-ink: #5B5752;  --seat-off-line: #D9D3C8;  --seat-off-hatch: #CFC8BC;
+  /* 📅 CLIENTS-CAL (owner 2026-11-14): the supplier's Clients calendar draws a day that cannot take a booking as an
+     OUTLINED near-white seat (Check a date greys it instead). Fable's values, approved in the ruling. */
+  --seat-out: #F7F5F1;  --seat-out-line: #A9A196;
 
   /* type — via next/font variables (see header note) */
   --sn-font: var(--font-hanken), system-ui, sans-serif;
@@ -3726,6 +3748,8 @@ html.dark {
   --seat-top: #B4E5AE;  --seat-bottom: #B4E5AE;  --seat-ink: #14281D;  --seat-shine: 0.14;
   --seat-hot-line: #A9834B;
   --seat-off: #2A2620;  --seat-off-ink: #CFCAC0;  --seat-off-line: #423D35;  --seat-off-hatch: #4A443B;
+  /* the outlined seat in dark: the dark seat-off ground, its hatch tone as the outline (no new colour) */
+  --seat-out: #2A2620;  --seat-out-line: #4A443B;
   --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
 
   --sn-glass-bg:   rgba(35,32,25,.5);
@@ -7264,8 +7288,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 /* 💬 AN OPEN CHAT THREAD DOES NOT RISE ON A PHONE (2026-10-29, one chat for both sides). The rise is a TRANSFORM, and
  * any transform on an ancestor is the containing block for a fixed child — so for those 400ms the thread's full-screen
  * takeover (`[data-chat-takeover]`, the open-thread rule further down) drew INSIDE the page, under
- * the top bar, then jumped to full screen. The thread arrives as the screen it is. */
-@media (max-width: 1023.98px) {
+ * the top bar, then jumped to full screen. The thread arrives as the screen it is. Below 701 only — the takeover's own
+ * line (owner 2026-11-13, D3). */
+@media (max-width: 700.98px) {
   .sn-page-enter:has([data-chat-takeover]) { animation: none; }
 }
 
@@ -10767,10 +10792,14 @@ html.dark .sn-acc-head[data-open] {
  * at rest, which makes it the containing block for a `position: fixed` child AND a stacking context below the top bar
  * (the trap the guests-glass and open-panel rules above record). So while a thread is open the name is off (it comes
  * back for the bottom-nav slide, `html[data-sn-nav-dir]`) and the page is lifted above the shell's chrome, and the
- * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it. From 1024 the thread stays in
- * the page's column with its own quiet frame. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
+ * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it.
+ *
+ * 🖥 THE LINE IS 701, THE SYSTEM'S (owner 2026-11-13, D3: *"chat shows the list and the open thread side by side from
+ * 701; the phone stays full-screen"*). It was 1024 until then, so a 768 tablet got the phone's full-screen thread beside
+ * the rail. From 701 the thread is the right column of the system's two (`.sn-cols`, `ChatPanes` — the rules after this
+ * block) and keeps a quiet frame anywhere else it stands. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
  */
-@media (max-width: 1023.98px) {
+@media (max-width: 700.98px) {
   html:not([data-sn-nav-dir]) .sn-vt-page:has([data-chat-takeover]) {
     view-transition-name: none;
     isolation: isolate;
@@ -10795,12 +10824,57 @@ html.dark .sn-acc-head[data-open] {
     z-index: var(--sn-z-raised);
   }
 }
-@media (min-width: 1024px) {
+@media (min-width: 701px) {
   [data-chat-takeover] {
     border: 1px solid rgb(var(--color-ink) / 0.1);
     border-radius: 1rem;
     background-color: rgb(var(--color-cream));
   }
+}
+
+/*
+ * 🖥 THE LIST BESIDE THE OPEN THREAD (owner 2026-11-13, D3; `messages/_components/chat-panes.tsx`). The two columns are
+ * the system's (`.sn-cols` in supplier-frame.css — from 701 1 : 1, from 1100 5 : 6, the right one sticky under the pin
+ * line and scrolling on its own); these rules only seat the chat in them.
+ *   · Below 701, while a thread is open, the list steps aside and the pane — which `.sn-cols` does not draw on a phone —
+ *     is drawn: the thread inside it is the full-screen takeover above, so the phone sees exactly what it saw before.
+ *   · From 701 the thread fills its column edge to edge (no card frame, no fixed `100dvh` guess): the column's height is
+ *     the window under the pin line (`.sn-cols-pane` is a flex column; the frame takes what is left). Its ‹ steps aside — the list it would go back to is already on the left — and the
+ *     thread's own xl conversation column (`ConversationColumn`) is not drawn a second time beside the real list.
+ *   · The supplier's list is itself a takeover on a phone (its full-screen Chats); in the left column it loses the frame.
+ */
+@media (max-width: 700.98px) {
+  [data-chat-panes][data-chat-open] [data-supplier-cols-list] { display: none; }
+  [data-chat-panes][data-chat-open] [data-supplier-cols-pane] { display: block; }
+}
+@media (min-width: 701px) {
+  /* The pane ends at the window's foot even where the page's column starts below the pin line (`ChatPanes` measures it). */
+  [data-chat-panes] [data-supplier-cols-pane] {
+    height: calc(100dvh - var(--sn-chat-pane-top, var(--sn-pin-top, var(--fd-bar, 0px))));
+  }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] { flex: 1 1 0; height: auto; min-height: 0; }
+  /* The supplier's thread page keeps its own gutter (its tree has no event column); in the pane it passes the height on. */
+  [data-chat-panes] [data-supplier-cols-pane] > div:has(> [data-chat-thread-frame]) {
+    display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; padding: 0.75rem 1rem 0;
+  }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] > aside { display: none; }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-takeover] { border: 0; border-radius: 0; }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-back] { display: none; }
+  [data-chat-panes] [data-supplier-cols-list] [data-chat-takeover] { border: 0; border-radius: 0; background-color: transparent; }
+}
+
+/* ✍ THE MESSAGE BOX IS ALWAYS IN THE WINDOW, AND ON TOP (W1, RW-327 → RW-330). Wherever the open thread scrolls as one
+   — the phone's full-screen takeover, the chat column from 701, a picked page's chat — a busy thread (head, notice, a
+   payment plan, the stream's 14rem floor) outgrows the window and the composer scrolled away with the rest: supplier
+   390 × 844, its foot at 879. It holds the scroller's foot instead while the rest scrolls above it. It sits on the
+   sticky layer: a message bubble is `relative z-10` (`swipe-to-delete.tsx`, `--sn-z-raised`) and drew OVER a composer
+   at z 1 (supplier 1280); menus and sheets (`--sn-z-pop` and up) still open over it.
+   🔒 tests/e2e/the-chat-box-is-in-the-window.spec.ts (measured) · lib/the-chat-composer-stays-in-the-window.test.ts */
+[data-chat-takeover] > [data-chat-composer-gutter] {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--sn-z-sticky);
+  background-color: rgb(var(--color-cream));
 }
 
 /* 📌 A CHAT INSIDE A PICKED PAGE IS IN FLOW (owner, 9 Nov: "the pinned on top should stay pinned"). The thread's phone

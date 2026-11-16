@@ -238,6 +238,16 @@ export function CalendarGrid({
           const stWords = dayStateWords(st);
           const box = mark === 'box';
           const struck = why !== null && !blocked;
+          /* 📅 CLIENTS-CAL (owner 2026-11-14, "we just wanted to fix the color coding"): the supplier calendar's
+             marks stay as they were — only its colours change, from the ONE seat token set Check a date uses. A day
+             that can still take a booking is a filled seat-green seat; a day that cannot (blocked, full, refused, or
+             already past) is an outlined near-white seat. */
+          const seatOpen = box && !look.out && !blocked && !struck && !st?.full && !(today && day < today);
+          const seatStyle = !box || look.out
+            ? undefined
+            : seatOpen
+              ? { background: 'var(--seat-top)', color: 'var(--seat-ink)' }
+              : { background: 'var(--seat-out)', boxShadow: 'inset 0 0 0 1px var(--seat-out-line)' };
           return (
             <button
               key={day}
@@ -259,7 +269,7 @@ export function CalendarGrid({
                  (kind 31) a blocked day's hatched square. The picked day is always the one circle. */
               /* #28 ONE FILLED DAY ONLY (box): the picked day is the only fill — a part-booked day keeps its dots and its
                  words (aria-label), a blocked day its strike; never a soft square of its own. */
-              style={box ? undefined : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
+              style={box ? seatStyle : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 box
                   ? `rounded-md ${look.out ? 'pointer-events-none text-ink/25' : blocked || struck ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`

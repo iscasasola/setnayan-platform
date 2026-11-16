@@ -40,7 +40,7 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const noComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
-const PAGE_RAW = read('app/admin/payments/page.tsx');
+const PAGE_RAW = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
 const PAGE = noComments(PAGE_RAW);
 const DESK = noComments(read('lib/admin-payment-desk.ts'));
 

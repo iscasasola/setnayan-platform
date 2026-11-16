@@ -1349,6 +1349,7 @@
         "[slug]/_components/story/story-lens.tsx",
         "[slug]/_components/story/story-light.tsx",
         "[slug]/_components/story/story-spine.tsx",
+        "[slug]/_components/story/story-suppliers.tsx",
         "[slug]/_components/story/were-you-there.tsx",
         "[slug]/_components/story/your-own-consent.tsx",
         "[slug]/_components/supplier-desk-anchor.ts",
@@ -1740,6 +1741,7 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "MapCard",
+        "Mark",
         "Marked",
         "MeGreeting",
         "MeKeepInvitation",
@@ -1793,6 +1795,7 @@
         "PassAction",
         "PatternGround",
         "PeWaiting",
+        "PeopleWhoMadeIt",
         "Person",
         "Photo",
         "PhotoGallery",
@@ -1969,14 +1972,17 @@
         "StoryRoom",
         "StorySpine",
         "StorySpineFacts",
+        "StorySupplierView",
         "StudioRevealPlayer",
         "Styled",
         "SubmitButton",
+        "SupplierCard",
         "SupplierDesk",
         "SupplierDeskModel",
         "SupplierGroup",
         "SupplierPageNoticeLine",
         "SupplierRibbon",
+        "SupplierSheet",
         "SupplierStoriesScene",
         "SupportingStrip",
         "SurfaceMaps",
@@ -1988,8 +1994,8 @@
         "TabGroup",
         "TakeItDown",
         "TakedownResult",
+        "Tap",
         "TeaCeremonyCard",
-        "TeamBehindTheDay",
         "TermsTick",
         "ThankYouScene",
         "TheirSong",
@@ -2000,6 +2006,7 @@
         "TierComparisonWidget",
         "ToolTile",
         "TypedRow",
+        "UltraSupplierScene",
         "UnnameResult",
         "UploadYourQr",
         "UseOnProfile",
@@ -2008,7 +2015,6 @@
         "VendorCapability",
         "VendorDoorway",
         "VendorLocationMap",
-        "VendorRow",
         "VendorsWeLoved",
         "Venue",
         "VenueFullPhoto",
@@ -4270,7 +4276,6 @@
         "Explain",
         "KpiStatCard",
         "Link",
-        "MobileLandingGrid",
         "RevenueSummary",
         "Row",
         "Suspense",
@@ -4462,6 +4467,8 @@
     "/admin/payments": {
       "files": [
         "admin/payments/_components/batch-approve-controls.tsx",
+        "admin/payments/_components/desk.tsx",
+        "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
         "admin/payments/actions.ts",
@@ -4469,11 +4476,7 @@
         "admin/payments/page.tsx"
       ],
       "destinations": [
-        "/admin/accounts?tab=events&q=[seg]",
-        "/admin/payments/supplier-refunds",
-        "/admin/payments?filter=[seg]",
-        "/admin/payments?filter=[seg]${platform ?",
-        "/admin/payments?filter=[seg]${target ?"
+        "/admin/accounts?tab=events&q=[seg]"
       ],
       "actions": [
         "action",
@@ -4488,20 +4491,30 @@
       "blocks": [
         "BatchApproveBar",
         "BatchApproveCheckbox",
+        "CalendarDay",
         "CelebrationLine",
         "ConfirmForm",
+        "DateRow",
+        "DeskHead",
         "DeskMoneyBlock",
+        "DeskNums",
+        "DeskNumsRead",
         "DuplicateExposureResult",
-        "FilterChip",
+        "Fold",
+        "FormDate",
+        "FormPick",
         "FormRows",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
+        "LinkPickMenu",
+        "OpenedPayment",
         "OrderEventInfoResult",
         "OrdersNeedingQuote",
         "PageMasthead",
+        "PaymentRow",
         "PaymentsList",
-        "PlatformChip",
+        "PendingDecision",
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
@@ -4510,8 +4523,13 @@
         "RefundForm",
         "RemedyReasonRow",
         "ServiceRemedyForms",
-        "Stat",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow"
       ]
     },
@@ -4521,15 +4539,19 @@
         "admin/payments/supplier-refunds/supplier-refunds-view.tsx"
       ],
       "destinations": [
-        "/admin/payments"
+        "/admin/approvals"
       ],
       "actions": [],
       "blocks": [
         "ConsoleTable",
-        "KpiStatCard",
-        "Link",
         "PageMasthead",
-        "SupplierRefundsView"
+        "SupplierRefundsView",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/payouts": {
@@ -5656,7 +5678,6 @@
         "archiveVendor",
         "demoteVendor",
         "grantVerificationBypass",
-        "liftFindLock",
         "markVendorContactConfirmed",
         "openApplicationDocument",
         "rejectApplication",
@@ -6792,6 +6813,7 @@
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
         "dashboard/[eventId]/_components/venue-pin-part.tsx",
         "dashboard/[eventId]/_components/view-only-line.tsx",
+        "dashboard/[eventId]/_components/watch-fold.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -6991,6 +7013,7 @@
         "GuestsGetIn",
         "GuestsSeeWrites",
         "HTMLAnchorElement",
+        "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -7227,6 +7250,7 @@
         "VendorLogo",
         "ViewOnlyLine",
         "VoucherBlock",
+        "WatchFold",
         "Watermark",
         "Way",
         "WhatsHappeningCard",
@@ -9271,6 +9295,8 @@
     "/dashboard/[eventId]/messages": {
       "files": [
         "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
+        "dashboard/[eventId]/messages/_components/chat-pane-fit.ts",
+        "dashboard/[eventId]/messages/_components/chat-panes.tsx",
         "dashboard/[eventId]/messages/_components/couple-chats-empty.tsx",
         "dashboard/[eventId]/messages/_components/event-groups.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
@@ -9290,12 +9316,15 @@
       "blocks": [
         "ChatInbox",
         "ChatOriginMark",
+        "ChatPanes",
         "CoupleChatsEmpty",
         "EventGroups",
         "FeedPageSkeleton",
         "Filter",
         "GroupsList",
+        "HTMLAnchorElement",
         "HTMLDivElement",
+        "HTMLElement",
         "Icon",
         "LeftChatRow",
         "Link",
@@ -9306,7 +9335,9 @@
         "Sheet",
         "StartThreadPicker",
         "SubmitButton",
+        "SupplierColumns",
         "ThreadArchiveToggle",
+        "ThreadArrival",
         "ThreadListAvatar",
         "ThumbDock",
         "ThumbRow"
@@ -9324,6 +9355,7 @@
     "/dashboard/[eventId]/messages/[threadId]": {
       "files": [
         "dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body.tsx",
+        "dashboard/[eventId]/messages/[threadId]/layout.tsx",
         "dashboard/[eventId]/messages/[threadId]/loading.tsx",
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
@@ -9340,6 +9372,7 @@
         "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
+        "ChatPanes",
         "ChatPinRead",
         "ChatPrivacyTip",
         "ChatSafetyBanner",
@@ -9349,6 +9382,7 @@
         "ChatThreadMenu",
         "ConversationColumn",
         "CoordinatorAgreeButton",
+        "CoupleMessagesPage",
         "CoupleThreadPage",
         "CoupleThreadToolsSheet",
         "Link",
@@ -9356,6 +9390,7 @@
         "NegotiationComposerMenu",
         "NotYetVerifiedThreadLine",
         "SubmitButton",
+        "Suspense",
         "ThreadInterestChips",
         "ThreadToolPanel"
       ]
@@ -13946,7 +13981,6 @@
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
-        "v/[slug]/_components/open-dates-peek.tsx",
         "v/[slug]/_components/photos-by-service.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
@@ -14031,10 +14065,8 @@
         "MessageDelivery",
         "Name",
         "NotYetVerifiedNotice",
-        "OpenDatesPeek",
         "OverlayBackdrop",
         "PackageCard",
-        "PeekDay",
         "PhotosByServiceRow",
         "PhotosByServiceSheet",
         "PinnedReviewCard",
@@ -14485,6 +14517,85 @@
         "ViewReport",
         "WhyRow"
       ]
+    },
+    "/vendor-dashboard/@rise": {
+      "files": [
+        "vendor-dashboard/@rise/default.tsx",
+        "vendor-dashboard/@rise/loading.tsx",
+        "vendor-dashboard/@rise/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
+    },
+    "/vendor-dashboard/@rise/(.)profile": {
+      "files": [
+        "vendor-dashboard/@rise/(.)profile/layout.tsx",
+        "vendor-dashboard/@rise/(.)profile/loading.tsx",
+        "vendor-dashboard/@rise/(.)profile/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)settings": {
+      "files": [
+        "vendor-dashboard/@rise/(.)settings/layout.tsx",
+        "vendor-dashboard/@rise/(.)settings/loading.tsx",
+        "vendor-dashboard/@rise/(.)settings/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ListPageSkeleton",
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)subscription": {
+      "files": [
+        "vendor-dashboard/@rise/(.)subscription/layout.tsx",
+        "vendor-dashboard/@rise/(.)subscription/loading.tsx",
+        "vendor-dashboard/@rise/(.)subscription/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)team": {
+      "files": [
+        "vendor-dashboard/@rise/(.)team/layout.tsx",
+        "vendor-dashboard/@rise/(.)team/loading.tsx",
+        "vendor-dashboard/@rise/(.)team/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)website": {
+      "files": [
+        "vendor-dashboard/@rise/(.)website/layout.tsx",
+        "vendor-dashboard/@rise/(.)website/loading.tsx",
+        "vendor-dashboard/@rise/(.)website/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/[...rest]": {
+      "files": [
+        "vendor-dashboard/@rise/[...rest]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/activities": {
       "files": [
@@ -15063,6 +15174,8 @@
         "vendor-dashboard/collections/_components/portfolio-show.tsx",
         "vendor-dashboard/collections/_components/portfolio-view.tsx",
         "vendor-dashboard/collections/_components/put-on-my-page-button.tsx",
+        "vendor-dashboard/collections/_components/reorder-sections.tsx",
+        "vendor-dashboard/collections/_components/send-photo-to-chat.tsx",
         "vendor-dashboard/collections/actions.ts",
         "vendor-dashboard/collections/collections-data.ts",
         "vendor-dashboard/collections/loading.tsx",
@@ -15092,6 +15205,7 @@
         "ExamplePreview",
         "Fold",
         "FormRows",
+        "Fragment",
         "GalleryMedia",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -15104,9 +15218,14 @@
         "MenuSettingsButton",
         "MorePill",
         "MorePills",
+        "OfferServiceResult",
         "Open",
         "OpenedCollection",
+        "PanelHead",
+        "PhotoChatContext.Provider",
+        "PhotoChatShare",
         "PhotoGrid",
+        "PhotoViewer",
         "PickMenu",
         "PinWord",
         "PortfolioSection",
@@ -15116,8 +15235,12 @@
         "PortfolioView",
         "PutOnPageResult",
         "Rail",
+        "ReorderSections",
         "RiseScreen",
         "SVGSVGElement",
+        "SendPhotoToChat",
+        "ShareTarget",
+        "ShareTargetList",
         "Sheet",
         "SupplierHero",
         "SupplierPageNoticeRow",
@@ -15127,6 +15250,7 @@
         "Tile",
         "TileFace",
         "TypedRow",
+        "UndoToastHost",
         "UploadDoor",
         "VideoLinks"
       ]
@@ -15600,6 +15724,7 @@
       "blocks": [
         "BackButton",
         "ChatInbox",
+        "ChatPanes",
         "Icon",
         "InfoTip",
         "LiveInboxRefresh",
@@ -15607,6 +15732,7 @@
         "SupplierChats",
         "SupplierChatsRead",
         "ThreadArchiveToggle",
+        "ThreadArrival",
         "TimelineReadProblem"
       ]
     },
@@ -15635,6 +15761,7 @@
         "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
         "vendor-dashboard/messages/[threadId]/_lib/outcome-notice.ts",
         "vendor-dashboard/messages/[threadId]/actions.ts",
+        "vendor-dashboard/messages/[threadId]/layout.tsx",
         "vendor-dashboard/messages/[threadId]/loading.tsx",
         "vendor-dashboard/messages/[threadId]/outcome-actions.ts",
         "vendor-dashboard/messages/[threadId]/page.tsx",
@@ -15679,6 +15806,7 @@
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
+        "ChatPanes",
         "ChatPinRead",
         "ChatPrivacyNotice",
         "ChatPrivacyTip",
@@ -15726,6 +15854,8 @@
         "SnapRow",
         "StayForm",
         "SubmitButton",
+        "SupplierChatsPage",
+        "Suspense",
         "ThreadAnswerLine",
         "ThreadAttribution",
         "ThreadDayAnswer",
@@ -15906,6 +16036,7 @@
     },
     "/vendor-dashboard/on-the-day/live/[eventId]": {
       "files": [
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/album-share-switch.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-bar.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-views.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock.tsx",
@@ -15952,6 +16083,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AlbumShareSwitch",
         "AnnounceButton",
         "AnnouncementsCard",
         "Answer",
@@ -16033,6 +16165,7 @@
         "SupplierSavedStrip",
         "Surface",
         "SwipeToDelete",
+        "SwitchTrack",
         "TierMeter",
         "UndoToastHost",
         "VendorSpecializationSet",
@@ -16605,6 +16738,7 @@
         "ServicesManagerSearch",
         "SetnayanGiftField",
         "SetnayanGiftLine",
+        "ShareTargetList",
         "Sheet",
         "SheetKey",
         "Shell",

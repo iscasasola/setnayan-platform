@@ -79,6 +79,8 @@ function writes(src: string): string[] {
 const STORES_THAT_ARE_NOT_NOTICES: Record<string, string> = {
   'app/vendor-dashboard/_components/badge-earned-line.tsx':
     'the badge line\'s "which rungs were announced" list, written on Got it beside the notice memory (foundation PR) — it decides WHICH rung is news, not whether the line is closed',
+  'app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx':
+    'the supplier chat\'s folded payment plan (DECISION_LOG 2026-11-16 CHAT-09) — the logged payments this device already showed, so a NEW one opens the row once (the due-now pins\' rule); a fold of a live record, not a notice',
   'app/dashboard/[eventId]/_components/home-parts.tsx': 'Home Today\'s "Later" fold — a list control the couple moves rows into, not a notice',
   'app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx': 'the budget coach\'s first-use hint inside the accordion — a field explanation, not a notice',
   'app/dashboard/[eventId]/vendors/_components/booked-where.tsx': '"Where was it?" skipped for this visit — an answer to a question on a booking row',

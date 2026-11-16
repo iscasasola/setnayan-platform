@@ -109,7 +109,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
         { key: 'booth', title: 'Photo booth', desc: 'Props, prints, instant memories.', adds: ['photo_booth'] },
         { key: 'games', title: 'Games corner', desc: 'Arcade and lawn games for all ages.', adds: ['arcade_games'] },
         { key: 'bar', title: 'Mobile bar', desc: 'Cocktails or mocktails on tap.', adds: ['mobile_bar'] },
-        { key: 'dessert', title: 'Dessert spread', desc: 'A sweets table beyond the cake.', adds: ['dessert'] },
+        { key: 'dessert', title: 'Dessert spread', desc: 'A sweets table beyond the cake.', adds: ['food_cart'] },
         { key: 'none', title: 'Just the essentials', desc: 'Keep it simple for now.', adds: [] },
       ],
     },
@@ -141,7 +141,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'catered', title: 'Full catering', desc: 'A proper sit-down or buffet meal.', adds: ['catering'] },
         { key: 'carts', title: 'Food carts & stations', desc: 'Grazing stations and street eats.', adds: ['food_cart', 'stations'] },
-        { key: 'sweets', title: 'Dessert-forward', desc: 'A dessert table front and center.', adds: ['dessert'] },
+        { key: 'sweets', title: 'Dessert-forward', desc: 'A dessert table front and center.', adds: ['food_cart'] },
         { key: 'drinks', title: 'A drinks bar', desc: 'Cocktails or mocktails on tap.', adds: ['mobile_bar'] },
       ],
     },
@@ -184,7 +184,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       question: 'How do you keep the energy up?',
       options: [
         { key: 'band', title: 'A live band', desc: 'Live music through the night.', adds: ['live_band'] },
-        { key: 'dj', title: 'DJ & dance floor', desc: 'Beats and a packed floor.', adds: ['dj', 'dance_floor'] },
+        { key: 'dj', title: 'DJ & dance floor', desc: 'Beats and a packed floor.', adds: ['dj', 'chairs_tents'] },
         { key: 'performers', title: 'Special performers', desc: 'A featured act or number.', adds: ['performers'] },
         { key: 'none', title: 'Keep it mellow', desc: 'Conversation over commotion.', adds: [] },
       ],
@@ -196,7 +196,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'The reveal',
       question: 'How will you reveal?',
       options: [
-        { key: 'smoke', title: 'Smoke or pyro', desc: 'Coloured smoke or a confetti cannon.', adds: ['fireworks'] },
+        { key: 'smoke', title: 'Smoke or pyro', desc: 'Coloured smoke or a confetti cannon.', adds: ['chairs_tents'] },
         { key: 'cake', title: 'Cake cut', desc: 'The colour hidden inside the cake.', adds: ['cake'] },
         { key: 'decor', title: 'Balloon & confetti', desc: 'A styled pop-and-drop reveal.', adds: ['stylist_decorator'] },
         { key: 'film', title: 'On camera', desc: 'Filmed for the keepsake video.', adds: ['photo_video'] },
@@ -226,8 +226,8 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'The treats',
       question: 'Anything sweet or special?',
       options: [
-        { key: 'sweets', title: 'Cake & dessert', desc: 'A cake and a little dessert table.', adds: ['cake', 'dessert'] },
-        { key: 'drinks', title: 'A mocktail bar', desc: 'Pink-and-blue drinks to match.', adds: ['mocktail'] },
+        { key: 'sweets', title: 'Cake & dessert', desc: 'A cake and a little dessert table.', adds: ['cake', 'food_cart'] },
+        { key: 'drinks', title: 'A mocktail bar', desc: 'Pink-and-blue drinks to match.', adds: ['mobile_bar'] },
         { key: 'decor', title: 'Balloon styling', desc: 'A styled backdrop and balloons.', adds: ['stylist_decorator'] },
         { key: 'none', title: 'Nothing extra', desc: 'Keep it simple.', adds: [] },
       ],
@@ -272,7 +272,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'play', title: 'A play area', desc: 'Games to keep little guests happy.', adds: ['arcade_games'] },
         { key: 'host', title: 'A host & program', desc: 'Someone to run a light program.', adds: ['host_mc'] },
-        { key: 'sweets', title: 'A dessert table', desc: 'Treats the kids will love.', adds: ['dessert'] },
+        { key: 'sweets', title: 'A dessert table', desc: 'Treats the kids will love.', adds: ['food_cart'] },
         { key: 'none', title: 'Not needed', desc: 'Keep it grown-up.', adds: [] },
       ],
     },
@@ -330,7 +330,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'awards', title: 'Awards & medals', desc: 'Trophies and a closing ceremony.', adds: ['trophies_awards'] },
         { key: 'stream', title: 'Livestream coverage', desc: 'Broadcast the games online.', adds: ['livestream'] },
-        { key: 'food', title: 'Food for players', desc: 'Catering or food trucks on-site.', adds: ['catering', 'food_truck'] },
+        { key: 'food', title: 'Food for players', desc: 'Catering or food trucks on-site.', adds: ['catering', 'food_cart'] },
         { key: 'hype', title: 'Hype & emcee', desc: 'A host and sound to drive the energy.', adds: ['host_mc', 'lights_sound'] },
       ],
     },
@@ -360,7 +360,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       eyebrow: 'On-site',
       question: 'Anything for players & crowd?',
       options: [
-        { key: 'trucks', title: 'Food trucks', desc: 'Eats parked on-site.', adds: ['food_truck'] },
+        { key: 'trucks', title: 'Food trucks', desc: 'Eats parked on-site.', adds: ['food_cart'] },
         { key: 'carts', title: 'Food carts', desc: 'Snacks and refreshments.', adds: ['food_cart'] },
         { key: 'wellness', title: 'Wellness & recovery', desc: 'Massage / fitness support.', adds: ['wellness_fitness'] },
         { key: 'none', title: 'Nothing extra', desc: 'Keep it lean.', adds: [] },
@@ -408,7 +408,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
         { key: 'booth', title: 'Photo booth', desc: 'Props, prints, instant memories.', adds: ['photo_booth'] },
         { key: 'music', title: 'Live music', desc: 'A band to set the mood.', adds: ['live_band'] },
         { key: 'bar', title: 'Mobile bar', desc: 'Cocktails or mocktails on tap.', adds: ['mobile_bar'] },
-        { key: 'dessert', title: 'Dessert spread', desc: 'A sweets table to remember.', adds: ['dessert'] },
+        { key: 'dessert', title: 'Dessert spread', desc: 'A sweets table to remember.', adds: ['food_cart'] },
         { key: 'none', title: 'Just the essentials', desc: 'Keep it simple for now.', adds: [] },
       ],
     },
@@ -427,7 +427,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       question: 'How do you set the mood?',
       options: [
         { key: 'band', title: 'A live band', desc: 'Live music all night.', adds: ['live_band'] },
-        { key: 'dj', title: 'DJ & dancing', desc: 'A floor that stays full.', adds: ['dj', 'dance_floor'] },
+        { key: 'dj', title: 'DJ & dancing', desc: 'A floor that stays full.', adds: ['dj', 'chairs_tents'] },
         { key: 'performers', title: 'Performers', desc: 'A featured act.', adds: ['performers'] },
         { key: 'none', title: 'Keep it mellow', desc: 'Easy background music.', adds: [] },
       ],
@@ -485,7 +485,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       options: [
         { key: 'catered', title: 'Full catering', desc: 'A proper sit-down or buffet.', adds: ['catering'] },
         { key: 'feast', title: 'A family feast', desc: 'Lechon and a big spread.', adds: ['catering', 'food_cart'] },
-        { key: 'dessert', title: 'Dessert & coffee', desc: 'A sweets and coffee corner.', adds: ['dessert', 'coffee_espresso'] },
+        { key: 'dessert', title: 'Dessert & coffee', desc: 'A sweets and coffee corner.', adds: ['food_cart', 'coffee_espresso'] },
         { key: 'toast', title: 'A toast bar', desc: 'Wine and cocktails for the toasts.', adds: ['mobile_bar'] },
       ],
     },
@@ -510,7 +510,7 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
         { key: 'lechon', title: 'Lechon & full spread', desc: 'The classic feast.', adds: ['catering'] },
         { key: 'carts', title: 'Food carts & stations', desc: 'Grazing stations and street eats.', adds: ['food_cart', 'stations'] },
         { key: 'buffet', title: 'Buffet catering', desc: 'A proper catered buffet.', adds: ['catering'] },
-        { key: 'sweets', title: 'Dessert & drinks', desc: 'A dessert table and a drinks corner.', adds: ['dessert', 'mobile_bar'] },
+        { key: 'sweets', title: 'Dessert & drinks', desc: 'A dessert table and a drinks corner.', adds: ['food_cart', 'mobile_bar'] },
       ],
     },
     {

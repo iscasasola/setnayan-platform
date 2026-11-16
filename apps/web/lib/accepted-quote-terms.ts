@@ -225,6 +225,17 @@ export function acceptedQuoteTerms(
   };
 }
 
+/**
+ * CHAT-24 (walk 16 Nov 2026) · the words after "Due" on a schedule row. A dated row whose day is already behind
+ * `today` (Manila 'YYYY-MM-DD') read "Final balance · due 7 days before the event (Nov 2)" on Nov 16, before the first
+ * payment was even made — a date in the past, said as if it were still ahead. The date is still named (it is the
+ * supplier's own term); the row now says that it has passed and the money is due now. `today` null = unknown → as written.
+ */
+export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>, today: string | null): string {
+  if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has passed, so it is due now`;
+  return row.dueText;
+}
+
 /** "First payment requested: ₱3,350 — due on lock", or null when none was requested. */
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;

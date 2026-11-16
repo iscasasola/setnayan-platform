@@ -91,7 +91,7 @@ import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
 import { PlusDraft } from './chat/plus-draft';
 import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
 import { HOSTS_ONLY } from '@/lib/money-mask';
-import type { RunningTopic } from '@/lib/chat-plus';
+import { PLUS_CARD_TITLE, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
@@ -1216,7 +1216,8 @@ export function ChatMessageStream({
     ? {
         key: 'draft',
         card: plusState.draft.kind,
-        title: plusState.draft.kind === 'meeting' ? 'Meeting' : plusState.draft.kind[0]!.toUpperCase() + plusState.draft.kind.slice(1),
+        // 🏷 CHAT-26 (walk 16 Nov 2026): the card's own title, never its kind capitalised ("Logpay").
+        title: PLUS_CARD_TITLE[plusState.draft.kind],
         by: 'you',
         status: 'draft',
         anchorId: PLUS_DRAFT_ANCHOR,

@@ -51,6 +51,7 @@ import {
   manualCostingEditorShown,
   paymentScheduleSource,
   paymentDoor,
+  scheduleDueText,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -1999,7 +2000,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   >
                     <span className="min-w-0">
                       <span className="block font-medium text-ink">{row.label}</span>
-                      <span className="block text-xs text-ink/60">Due {row.dueText}</span>
+                      <span className="block text-xs text-ink/60">Due {scheduleDueText(row, manilaToday())}</span>
                     </span>
                     <span className="shrink-0 font-mono text-sm font-semibold text-ink">
                       {pesoFromCentavos(row.amountCentavos)}

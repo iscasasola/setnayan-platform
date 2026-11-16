@@ -24,6 +24,7 @@ import {
   lineItemsPanelLead,
   manualCostingEditorShown,
   paymentScheduleSource,
+  scheduleDueText,
   supplierFirstPaymentStatus,
   type AcceptedQuoteRow,
 } from './accepted-quote-terms';
@@ -187,4 +188,13 @@ test('updateVendorCosts leaves the price columns alone when the quote settles th
     }
     assert.equal(totalChanged, false);
   }
+});
+
+test('CHAT-24 · a schedule row whose day has passed says so — never "due Nov 2" on Nov 16 as if still ahead', () => {
+  const row = { dueText: '7 days before the event (Nov 2)', dueOnISO: '2026-11-02' };
+  assert.equal(scheduleDueText(row, '2026-11-16'), '7 days before the event (Nov 2) — that day has passed, so it is due now');
+  assert.equal(scheduleDueText(row, '2026-11-01'), '7 days before the event (Nov 2)', 'still ahead — as written');
+  assert.equal(scheduleDueText(row, '2026-11-02'), '7 days before the event (Nov 2)', 'the day itself is not past');
+  assert.equal(scheduleDueText({ dueText: 'on booking', dueOnISO: null }, '2026-11-16'), 'on booking');
+  assert.equal(scheduleDueText(row, null), '7 days before the event (Nov 2)', 'an unknown day never claims "passed"');
 });

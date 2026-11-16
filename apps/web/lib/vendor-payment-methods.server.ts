@@ -92,8 +92,7 @@ export async function readPublishedMethodsForCouple(opts: {
     .select('vendor_profile_id, user_id')
     .eq('vendor_profile_id', marketplaceVendorId)
     .maybeSingle();
-  // Not confirmed yet: a failed read here says what it always said ("not confirmed yet"), never "unreadable".
-  if (vpError) return notYet ? { state: 'not_yet', methods: [] } : unreadable;
+  if (vpError) return unreadable;
   const vendorUserId = (vp as { user_id: string } | null)?.user_id ?? null;
   if (!vendorUserId) return { state: 'off_platform', methods: [] };
 
@@ -110,7 +109,7 @@ export async function readPublishedMethodsForCouple(opts: {
     .eq('moderation_status', 'approved')
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true });
-  if (rowsError) return notYet ? { state: 'not_yet', methods: [] } : unreadable;
+  if (rowsError) return unreadable;
 
   // 4. Tier gate: links only surface for active pro-tier vendors. The one rule,
   //    shared with the supplier's own "can a couple see this?" nudge.

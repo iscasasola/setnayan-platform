@@ -419,7 +419,8 @@ export default async function VendorOnTheDayPage({
           </div>
         ) : null}
         {setup}
-        <HubEyebrow>Crew for the day</HubEyebrow>
+        {/* CHAT-33 (walk 16 Nov 2026): no heading here — the crew body carries its own "Crew for the day" (CrewPanel's
+            head, or the no-day eyebrow), and a second one above it drew the heading twice. */}
         {crew}
         {pages}
         {undoHost}
@@ -997,6 +998,7 @@ function pagesBody({
   return (
     <div data-hub-pages="booked">
       <HubEyebrow about={about}>The event’s pages</HubEyebrow>
+      {/* CHAT-33 (walk 16 Nov 2026): said ONCE, here, for every row below — each row repeated it inside its fold. */}
       <p className="pb-1 text-[13.5px] text-ink/65">View only — ask the hosts for more.</p>
       <HubPageRows>
         {doors.map((d) => (
@@ -1007,7 +1009,6 @@ function pagesBody({
             label={d.label}
             line={d.key === 'run' && scheduleLine ? scheduleLine : d.line}
             href={d.href}
-            access="View only — ask the hosts for more."
           />
         ))}
       </HubPageRows>

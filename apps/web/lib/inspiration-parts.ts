@@ -72,12 +72,12 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ── what the room is dressed with ──
   backdrop: ['stylist_decorator', 'led_wall'],
   tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
+  stage: ['stylist_decorator', 'speaker_talent', 'lights_sound'],
   table: ['stylist_decorator', 'florist'],
   ceiling: ['stylist_decorator', 'lights_sound'],
   flowers: ['florist', 'stylist_decorator'],
-  cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
-  cake: ['cake', 'dessert'],
+  cocktail: ['mobile_bar', 'coffee_espresso'],
+  cake: ['cake', 'food_cart'],
   // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
   bridal_bouquet: ['florist'],
   centrepieces: ['florist', 'stylist_decorator', 'catering'],
@@ -94,9 +94,9 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ── what people wear. HMUA rides with `bride` because a bridal-hair photo
   //    and a gown photo are the same picture. ──
   bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
-  groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
-  principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  groom: ['grooms_attire', 'womens_attire', 'filipiniana_barongs'],
+  principal_sponsor: ['womens_attire', 'filipiniana_barongs'],
+  entourage: ['womens_attire', 'filipiniana_barongs'],
   // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
   // tiles and nothing invented: the women's half for the bridesmaids, the men's
   // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
@@ -106,11 +106,11 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
   // for a page boy and a flower girl too), as it does with the entourage.
   bridesmaids: ['womens_attire', 'filipiniana_barongs'],
-  groomsmen: ['mens_attire', 'filipiniana_barongs'],
+  groomsmen: ['womens_attire', 'filipiniana_barongs'],
   flower_girl: ['womens_attire', 'filipiniana_barongs'],
-  ring_bearer: ['mens_attire', 'filipiniana_barongs'],
-  parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  ring_bearer: ['womens_attire', 'filipiniana_barongs'],
+  parents: ['womens_attire', 'filipiniana_barongs'],
+  guests: ['womens_attire', 'filipiniana_barongs'],
 };
 
 

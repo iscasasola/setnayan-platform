@@ -103,7 +103,7 @@ export function PaymentPlanStepper({
       ) : null}
 
       {outOfOrder ? (
-        <p role="note" data-plan-dates-out-of-order="" className="rounded-lg border border-warn-400 bg-warn-50 px-3 py-2 text-[11px] text-warn-800">
+        <p role="note" data-plan-dates-out-of-order="" className="text-xs font-medium text-warn-800">
           These dates are out of order: {outOfOrder.later} is due {formatDueDate(outOfOrder.laterDue)}, before{' '}
           {outOfOrder.earlier} ({formatDueDate(outOfOrder.earlierDue)}). The plan is shown in the order it is paid.
         </p>

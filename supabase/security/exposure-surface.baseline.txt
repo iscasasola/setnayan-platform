@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7874
+# facts: 7909
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     639
-#   col       5666
-#   policy    1156
+#   tpriv     642
+#   col       5695
+#   policy    1159
 #   view      10
 #   func      399
 #
@@ -337,6 +337,7 @@ tpriv	public.onboarding_refinements|authenticated	SIUD
 tpriv	public.order_ledger|authenticated	SI
 tpriv	public.order_refunds|authenticated	SIUD
 tpriv	public.orders|authenticated	SU
+tpriv	public.own_client_gifts|authenticated	S
 tpriv	public.owner_alerts|anon	SIUD
 tpriv	public.owner_alerts|authenticated	SIUD
 tpriv	public.pakanta_intake_drafts|anon	SIUD
@@ -512,6 +513,7 @@ tpriv	public.vendor_calendar_blocks|authenticated	SIUD
 tpriv	public.vendor_calendar_day_states|authenticated	SIUD
 tpriv	public.vendor_change_orders|anon	SIUD
 tpriv	public.vendor_change_orders|authenticated	SIUD
+tpriv	public.vendor_client_invites|authenticated	S
 tpriv	public.vendor_client_notes|authenticated	SIUD
 tpriv	public.vendor_contracts|anon	SIUD
 tpriv	public.vendor_contracts|authenticated	SIUD
@@ -557,6 +559,7 @@ tpriv	public.vendor_locked_qr_tokens|authenticated	SIUD
 tpriv	public.vendor_member_token_wallets|authenticated	SIUD
 tpriv	public.vendor_offer_cards|authenticated	SIUD
 tpriv	public.vendor_offers|authenticated	SIUD
+tpriv	public.vendor_own_link_gifts|authenticated	S
 tpriv	public.vendor_package_item_options|anon	SIUD
 tpriv	public.vendor_package_item_options|authenticated	SIUD
 tpriv	public.vendor_package_items|anon	SIUD
@@ -3471,6 +3474,15 @@ col	public.orders.vendor_net_centavos	anon=- authenticated=SU
 col	public.orders.vendor_profile_id	anon=- authenticated=SU
 col	public.orders.voucher_code_applied	anon=- authenticated=SU
 col	public.orders.voucher_discount_centavos	anon=- authenticated=SU
+col	public.own_client_gifts.created_at	anon=- authenticated=S
+col	public.own_client_gifts.credits	anon=- authenticated=S
+col	public.own_client_gifts.event_id	anon=- authenticated=S
+col	public.own_client_gifts.gift_lines	anon=- authenticated=S
+col	public.own_client_gifts.invite_id	anon=- authenticated=S
+col	public.own_client_gifts.own_gift_id	anon=- authenticated=S
+col	public.own_client_gifts.pool_grant_id	anon=- authenticated=S
+col	public.own_client_gifts.vendor_profile_id	anon=- authenticated=S
+col	public.own_client_gifts.via	anon=- authenticated=S
 col	public.owner_alerts.acknowledged_at	anon=SIU authenticated=SIU
 col	public.owner_alerts.acknowledged_by	anon=SIU authenticated=SIU
 col	public.owner_alerts.alert_id	anon=SIU authenticated=SIU
@@ -4492,6 +4504,7 @@ col	public.shop_gift_stock_entries.gift_kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.own_client_gift_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
@@ -5025,6 +5038,18 @@ col	public.vendor_change_orders.status	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.title	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_client_invites.claimed_at	anon=- authenticated=S
+col	public.vendor_client_invites.claimed_event_id	anon=- authenticated=S
+col	public.vendor_client_invites.client_contact	anon=- authenticated=S
+col	public.vendor_client_invites.client_name	anon=- authenticated=S
+col	public.vendor_client_invites.client_note	anon=- authenticated=S
+col	public.vendor_client_invites.created_at	anon=- authenticated=S
+col	public.vendor_client_invites.created_by	anon=- authenticated=S
+col	public.vendor_client_invites.gift_lines	anon=- authenticated=S
+col	public.vendor_client_invites.invite_id	anon=- authenticated=S
+col	public.vendor_client_invites.status	anon=- authenticated=S
+col	public.vendor_client_invites.token	anon=- authenticated=S
+col	public.vendor_client_invites.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_client_notes.author_user_id	anon=- authenticated=SIU
 col	public.vendor_client_notes.body	anon=- authenticated=SIU
 col	public.vendor_client_notes.created_at	anon=- authenticated=SIU
@@ -5402,6 +5427,13 @@ col	public.vendor_offers.until_date	anon=- authenticated=SIU
 col	public.vendor_offers.updated_at	anon=- authenticated=SIU
 col	public.vendor_offers.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_offers.who	anon=- authenticated=SIU
+col	public.vendor_own_link_gifts.credits	anon=- authenticated=S
+col	public.vendor_own_link_gifts.gift_kind	anon=- authenticated=S
+col	public.vendor_own_link_gifts.service_code	anon=- authenticated=S
+col	public.vendor_own_link_gifts.set_by	anon=- authenticated=S
+col	public.vendor_own_link_gifts.title	anon=- authenticated=S
+col	public.vendor_own_link_gifts.updated_at	anon=- authenticated=S
+col	public.vendor_own_link_gifts.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_package_item_options.created_at	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.display_order	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.is_available	anon=SIU authenticated=SIU
@@ -6955,6 +6987,7 @@ policy	public.orders|orders_insert_status_guard	mode=RESTRICTIVE cmd=INSERT role
 policy	public.orders|orders_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin) OR ((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) AND ((user_id IS NULL) OR is_event_member(event_id, user_id)))) check=NULL
 policy	public.orders|orders_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.orders|orders_update_status_guard	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=((( SELECT auth.role() AS role) = 'service_role'::text) OR ( SELECT is_admin() AS is_admin) OR (status = ANY (ARRAY['draft'::order_status, 'submitted'::order_status, 'awaiting_payment'::order_status, 'cancelled'::order_status])))
+policy	public.own_client_gifts|own_client_gifts_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.owner_alerts|owner_alerts_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.owner_alerts|owner_alerts_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.pakanta_intake_drafts|lh_ro_del_pakanta_intake_drafts	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
@@ -7216,6 +7249,7 @@ policy	public.vendor_change_orders|vendor_change_orders_couple_read	mode=PERMISS
 policy	public.vendor_change_orders|vendor_change_orders_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((event_id IS NULL) OR (NOT (event_id IN ( SELECT money_hidden_event_ids() AS money_hidden_event_ids))) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
 policy	public.vendor_change_orders|vendor_change_orders_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (raised_by = 'vendor'::text) AND (status = 'proposed'::text) AND (proposed_by_user_id = ( SELECT auth.uid() AS uid)))
 policy	public.vendor_change_orders|vendor_change_orders_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=NULL
+policy	public.vendor_client_invites|vendor_client_invites_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_client_notes|vendor_client_notes_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_contracts|vendor_contracts_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_contracts|vendor_contracts_event_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = vendor_contracts.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
@@ -7315,6 +7349,7 @@ policy	public.vendor_offer_cards|vendor_offer_cards_vendor_all	mode=PERMISSIVE c
 policy	public.vendor_offers|vendor_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_console_admin() AS is_console_admin) check=( SELECT is_console_admin() AS is_console_admin)
 policy	public.vendor_offers|vendor_offers_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((is_on = true) AND (vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true)))) check=NULL
 policy	public.vendor_offers|vendor_offers_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_own_link_gifts|vendor_own_link_gifts_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type))))) check=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_package_item_options|vendor_package_item_options_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.is_active = true))) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))

@@ -309,7 +309,10 @@ export function AddClientBlock({ data, bookedHref }: { data: OwnGiftData; booked
             ) : pickable && picks.length > 0 ? (
               <SupplierSubmit tone="brand" main icon={<Plus aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Add" pendingLabel="Adding…" className="w-full" />
             ) : data.canBuy && buyPick ? (
-              <ActionButton tone="brand" main icon={Gift} label="Buy gifts" onClick={() => setBuying({ code: buyPick })} aria-haspopup="dialog" data-testid="own-gift-buy" />
+              // 🍎 Selling is web-only (store shell: `canBuy` is false there too, `shop-gifts-data.ts`).
+              <div data-web-only="">
+                <ActionButton tone="brand" main icon={Gift} label="Buy gifts" onClick={() => setBuying({ code: buyPick })} aria-haspopup="dialog" data-testid="own-gift-buy" />
+              </div>
             ) : null}
           </div>
         </form>
@@ -437,7 +440,7 @@ export function OwnLinkGift({ data, current }: { data: OwnGiftData; current: { c
               ) : null}
             </form>
           ) : data.canBuy ? (
-            <div className="mt-2">
+            <div className="mt-2" data-web-only="">
               <ActionButton tone="brand" icon={Gift} label="Buy gifts" onClick={() => setBuying(true)} aria-haspopup="dialog" data-testid="own-link-buy" />
             </div>
           ) : null}

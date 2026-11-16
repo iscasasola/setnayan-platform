@@ -116,7 +116,9 @@ export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /**
   const digest = given ?? (await getAdminQueueDigest());
   const nowMs = Date.now();
   const pages = pagesIn(tab);
-  const cards = pages.flatMap((p) => cardsFor(p, digest));
+  // People (owner, 17 Nov — DECISION_LOG): the Look up and Papers cards are REMOVED; People is the cards for counts, then
+  // the everyone list (its Show & sort holds both jobs). The pages stay in the picker and the rail.
+  const cards = pages.filter((p) => !(tab === 'people' && (p.key === 'look-up' || p.key === 'papers'))).flatMap((p) => cardsFor(p, digest));
   const allViews = pages.flatMap((p) => [...p.views]);
   const waiting = sum(allViews.map((vw) => countOf(vw, digest)));
   const q = (key: string) => {

@@ -115,3 +115,10 @@ test('5 · eighteen pages, seven places, and no view claimed twice', () => {
   const hrefs = ADMIN_MERGED_PAGES.flatMap((p) => p.views.map((v) => v.href));
   assert.deepEqual(hrefs.filter((h, i) => hrefs.indexOf(h) !== i), []);
 });
+
+test('6 · People has no Look up or Papers card (owner, 17 Nov) — its Show & sort holds both jobs', () => {
+  const src = readFileSync(path.join(WEB, 'app/admin/_components/tab-landing.tsx'), 'utf8');
+  assert.match(src, /tab === 'people' && \(p\.key === 'look-up' \|\| p\.key === 'papers'\)/);
+  const people = readFileSync(path.join(WEB, 'app/admin/directory/page.tsx'), 'utf8');
+  assert.match(people, /<PeopleShowSort /, 'the Show & sort sits right of the Ask bar');
+});

@@ -8,7 +8,7 @@
  * list, mounted unchanged (`merged-view.ts`). The Show choice picks which shipped list answers:
  *   Everyone · People · Suppliers · Events → the Look up page's own tabs (`accounts/page.tsx`)
  *   To verify → the Papers page · Documents → ID documents · Needs my decision → Approvals
- * Nothing is re-read or re-drawn here. The Look up and Papers cards stay as they are until the owner's answer (v10).
+ * Nothing is re-read or re-drawn here. The Look up and Papers CARDS are removed (owner, 17 Nov); their jobs are Show choices.
  */
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { TabLanding } from '../_components/tab-landing';

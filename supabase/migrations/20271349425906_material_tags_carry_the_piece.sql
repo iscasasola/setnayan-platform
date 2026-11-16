@@ -83,7 +83,7 @@ GRANT SELECT ON TABLE public.signup_attributions TO authenticated;
 DROP POLICY IF EXISTS signup_attributions_own_read ON public.signup_attributions;
 CREATE POLICY signup_attributions_own_read ON public.signup_attributions
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+  USING (user_id = (SELECT auth.uid()));  -- (SELECT …): asked once per statement, not per row
 CREATE INDEX IF NOT EXISTS signup_attributions_vendor_idx
   ON public.signup_attributions (vendor_profile_id, created_at DESC);
 

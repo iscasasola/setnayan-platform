@@ -14,6 +14,7 @@ import type { ShopBadge } from './shop-badges';
 import { FAMILY_LADDER, type PublicBadgeView, type SealGiven, type SealKey as PublicSealKey, type ShopBadgeFamily } from './public-badges';
 import { SHOP_BADGE_STEPS, TIER_KEYS, tierName } from './badge-tiers';
 import { LADDER_MATERIALS, faceNumber, type BadgeImage } from './shop-badge-row';
+import { formatCount } from './format-number';
 
 const COUNT = new Intl.NumberFormat('en-PH');
 
@@ -40,14 +41,14 @@ export type RowOpen =
 export type AwardRowItem = { key: string; fact: string; image: RowImage; open: RowOpen };
 
 /** Per tiered family: the fact's words for the step reached, the circle's word, the kit's tap show. */
-const FAMILY_ROW: Readonly<Record<ShopBadgeFamily, { fact: (n: string, step: number) => string; mini: string; family: 'calendar' | 'bubble' | 'giftbox' | 'shield' | 'invite' }>> = {
-  bookings: { fact: (n, step) => `${n} booking${step === 1 ? '' : 's'} completed`, mini: 'EVENTS', family: 'calendar' },
-  five_star: { fact: (n, step) => `${n} five-star review${step === 1 ? '' : 's'}`, mini: 'REVIEWS', family: 'bubble' },
+const FAMILY_ROW: Readonly<Record<ShopBadgeFamily, { fact: (step: number) => string; mini: string; family: 'calendar' | 'bubble' | 'giftbox' | 'shield' | 'invite' }>> = {
+  bookings: { fact: (step) => `${formatCount(step)} booking${step === 1 ? '' : 's'} completed`, mini: 'EVENTS', family: 'calendar' },
+  five_star: { fact: (step) => `${formatCount(step)} five-star review${step === 1 ? '' : 's'}`, mini: 'REVIEWS', family: 'bubble' },
   // The counter is GIFT POINTS (1 per ₱10 of each gift's price, bc148e4e) — said as points, never as a count of gifts.
-  gifts: { fact: (n) => `${n} gift points given`, mini: 'GIFTS', family: 'giftbox' },
+  gifts: { fact: (step) => `${formatCount(step)} gift points given`, mini: 'GIFTS', family: 'giftbox' },
   // `shop_trusted_by_count` counts CLIENTS who booked the shop again (50566f42) — said as clients, never as shops.
-  trusted_by: { fact: (n, step) => `Trusted by ${n} client${step === 1 ? '' : 's'}`, mini: 'TRUSTED', family: 'shield' },
-  invites: { fact: (n, step) => `${n} supplier${step === 1 ? '' : 's'} invited`, mini: 'INVITES', family: 'invite' },
+  trusted_by: { fact: (step) => `Trusted by ${formatCount(step)} client${step === 1 ? '' : 's'}`, mini: 'TRUSTED', family: 'shield' },
+  invites: { fact: (step) => `${formatCount(step)} supplier${step === 1 ? '' : 's'} invited`, mini: 'INVITES', family: 'invite' },
 };
 
 /** The award kit's seal art kind for each adapter seal (`SEAL_KINDS`, app/_components/award/award-copy.ts). */
@@ -99,7 +100,7 @@ export function awardsRowItems(view: PublicBadgeView, given: Partial<Record<Publ
     const row = FAMILY_ROW[t.family];
     out.push({
       key: `${t.family}:${step}`,
-      fact: row.fact(COUNT.format(step), step),
+      fact: row.fact(step),
       image: { shape: 'hex', face: LADDER_MATERIALS[Math.min(i, LADDER_MATERIALS.length - 1)]!, num: faceNumber(step), mini: row.mini },
       open: { kind: 'tier', tierIndex: i + 1, tierName: t.tier, title: t.name, family: row.family },
     });

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
+import { payPath } from '@/lib/pay-path';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
 import { mintedQrImage } from '@/lib/qr-image.server';
@@ -82,6 +83,26 @@ export default async function PayPage({ params, searchParams }: Props) {
   // a booking fee (guideline 3.1.1; lib/store-shell.ts). Desktop is unaffected.
   if (storeShellRefusesPayable(payable, await isStoreShellRequest())) {
     redirect(STORE_SHELL_WEB_ONLY_PATH);
+  }
+
+  // 🔒 COULDN'T CHECK IS NOT "PAY" (plan-purchase audit, 2026-11-16): a plan order whose plan row could not be read
+  // may already be confirmed, so it gets no QR — the honest sentence and a way to try again, on the closed tile. Returned BEFORE any code is minted.
+  // 🔒 lib/a-confirmed-plan-is-not-payable-again.test.ts
+  if (payable.status === 'unchecked') {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
+        <section className="sn-tile p-6 text-center" role="alert" data-pay-unchecked="">
+          <p className="sn-eye">Couldn&rsquo;t check</p>
+          <h1 className="mt-2 text-xl font-semibold text-ink">{payable.title}</h1>
+          <p className="mt-3 text-sm text-ink/65">
+            We couldn&rsquo;t check this payment just now, so please don&rsquo;t send anything yet. Try again in a moment.
+          </p>
+          <Link href={payPath(payable.reference)} className="button-primary mt-4 inline-flex items-center gap-1.5">
+            Try again
+          </Link>
+        </section>
+      </main>
+    );
   }
 
   const settings = await fetchPlatformSettings(supabase);

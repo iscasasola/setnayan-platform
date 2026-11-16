@@ -8,7 +8,8 @@ the four pure-code faults found, each held by a guard that goes red without its 
   that is really `rejected`. 🔒 `app/admin/subscriptions/a-reject-that-changed-nothing-says-so.test.ts`
 - **A plan confirmed or refused at /admin/subscriptions was still payable.** Its order stayed `awaiting_payment`, so
   `/pay/<ref>` drew a live QR. `planAwarePayableStatus` lets the plan row's final verdict settle or close it.
-  🔒 `lib/a-confirmed-plan-is-not-payable-again.test.ts`
+  A plan row that cannot be READ fails closed (`unchecked`): no QR, an honest "couldn't check, try again", and no
+  payment can be logged against it. 🔒 `lib/a-confirmed-plan-is-not-payable-again.test.ts`
 - **A lapsed plan kept its search reach.** Couple search sized reach and the true-name reveal off raw `tier_state`;
   the lapse sweep is login-driven, so an ended Ultra stayed nationwide. Search now reads `liveTierState`.
   🔒 `lib/search-reads-the-live-plan.test.ts`

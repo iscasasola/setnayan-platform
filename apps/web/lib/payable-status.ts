@@ -7,7 +7,12 @@
  * decision that says whether a payer is shown a live payment code.
  */
 
-export type PayableStatus = 'awaiting_payment' | 'settled' | 'closed';
+/**
+ * `unchecked` — the page could not confirm whether this bill still wants money (a plan order whose plan row could not
+ * be read). It never shows a payment code: a wrongly-live QR takes money twice, and "we couldn't check, try again" is
+ * the honest answer. Only `planAwarePayableStatus` produces it.
+ */
+export type PayableStatus = 'awaiting_payment' | 'settled' | 'closed' | 'unchecked';
 
 /**
  * Which order states still want money. Anything settled or dead renders the
@@ -42,6 +47,9 @@ export function statusOf(raw: string): PayableStatus {
   }
 }
 
+/** What reading the plan row gave: its status (null = no row this caller can see), or a refused read. */
+export type PlanRead = { read: 'ok'; status: string | null } | { read: 'refused' };
+
 /**
  * 🔁 A SHOP'S PLAN HAS TWO ROWS, AND THE PLAN'S OWN ROW CAN BE AHEAD (plan-purchase audit, 2026-11-16).
  *
@@ -51,14 +59,19 @@ export function statusOf(raw: string): PayableStatus {
  * /pay/<reference> kept drawing a live QR for a plan already switched on (pay twice) or already refused.
  *
  * So for a plan order, the plan row's verdict wins when it is final: `paid` → settled, `rejected` / `superseded` →
- * closed. `pending_payment`, an unread row (null) or a value this does not know leave the order's own answer
- * standing — never invent a settlement, never close a bill the plan still waits on.
+ * closed. `pending_payment`, no visible row, or a value this does not know leave the order's own answer standing.
+ *
+ * 🔒 A REFUSED READ FAILS CLOSED (independent audit, 2026-11-16). If the plan row could not be read, nobody knows
+ * whether the plan was already confirmed — and drawing the QR anyway is the exact pay-twice fault this exists to stop.
+ * An open plan order with a refused read is `unchecked`: no code, "we couldn't check, try again". An order that is
+ * already final on its own still says so — the plan row cannot make a finished order payable.
  * 🔒 lib/a-confirmed-plan-is-not-payable-again.test.ts
  */
-export function planAwarePayableStatus(orderStatus: string, planStatus: string | null): PayableStatus {
+export function planAwarePayableStatus(orderStatus: string, plan: PlanRead | null): PayableStatus {
   const own = statusOf(orderStatus);
-  if (own !== 'awaiting_payment') return own;
-  switch (planStatus) {
+  if (own !== 'awaiting_payment' || plan === null) return own;
+  if (plan.read === 'refused') return 'unchecked';
+  switch (plan.status) {
     case 'paid':
       return 'settled';
     case 'rejected':

@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
-import { planAwarePayableStatus, type PayableStatus } from './payable-status';
+import { planAwarePayableStatus, type PayableStatus, type PlanRead } from './payable-status';
 import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
@@ -125,21 +125,29 @@ const num = (v: number | string | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/** The plan row's status for a `vendor_subscription__<id>` order, or null when it cannot be read. */
-async function readPlanStatus(supabase: SupabaseClient, serviceKey: string | null): Promise<string | null> {
+/**
+ * The plan row behind a `vendor_subscription__<id>` order. A refused read is reported as refused — never as "no row"
+ * — because the page must then fail closed (`planAwarePayableStatus` → `unchecked`, no QR).
+ */
+async function readPlanStatus(supabase: SupabaseClient, serviceKey: string | null): Promise<PlanRead | null> {
   const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(serviceKey);
   if (!purchaseId) return null;
-  const { data, error } = await supabase
-    .from('vendor_subscriptions')
-    .select('status')
-    .eq('purchase_id', purchaseId)
-    .maybeSingle();
-  if (error) {
-    console.error('[supabase-error] payable-by-reference: plan status', error);
-    return null;
+  try {
+    const { data, error } = await supabase
+      .from('vendor_subscriptions')
+      .select('status')
+      .eq('purchase_id', purchaseId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] payable-by-reference: plan status', error);
+      return { read: 'refused' };
+    }
+    const st = (data as { status?: unknown } | null)?.status;
+    return { read: 'ok', status: typeof st === 'string' ? st : null };
+  } catch (err) {
+    console.error('[supabase-error] payable-by-reference: plan status threw', err);
+    return { read: 'refused' };
   }
-  const st = (data as { status?: unknown } | null)?.status;
-  return typeof st === 'string' ? st : null;
 }
 
 export async function fetchPayableByReference(

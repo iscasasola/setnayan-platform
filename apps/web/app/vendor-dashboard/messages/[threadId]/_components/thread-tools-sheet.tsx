@@ -33,7 +33,7 @@ import { coupleThreadTools } from '@/lib/chat-box-tools';
 import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
+import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
 import { pickedPageLabel } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
 /**
@@ -312,10 +312,13 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
                 const holds = Boolean(layerHolder(window.history.state));
                 setOpen(false);
                 patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
-                window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
-                // 📍 CHAT-25: the sheet's step back is a history traversal, and the browser restores the PAGE's scroll
-                // on it — which put the couple's new card back below the screen. Jump again once it has settled.
-                afterSheetStepsBack(() => jumpTo(PLUS_DRAFT_ANCHOR), holds);
+                // ⤴ A poll or decision rises full screen (CHAT-09) — the chat under it stays where it was.
+                if (!RISING_DRAFTS.has(row.card)) {
+                  window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                  // 📍 CHAT-25: the sheet's step back is a history traversal, and the browser restores the PAGE's scroll
+                  // on it — which put the couple's new card back below the screen. Jump again once it has settled.
+                  afterSheetStepsBack(() => jumpTo(PLUS_DRAFT_ANCHOR), holds);
+                }
                 return;
               }
               if (row.attach) {

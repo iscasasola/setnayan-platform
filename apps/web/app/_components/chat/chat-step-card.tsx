@@ -17,6 +17,7 @@ import { useCallback, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 
 export type ChatCardStep = {
   title: string;
@@ -101,6 +102,7 @@ export function ChatStepCard({
   onClose,
   anchorId,
   submitForm,
+  rise = null,
 }: {
   topic: ChatTopic;
   kicker: string;
@@ -114,6 +116,13 @@ export function ChatStepCard({
   anchorId?: string;
   /** The id of the `<form>` the last step submits (the card's own server action). */
   submitForm: string;
+  /**
+   * ⤴ RISE FULL SCREEN instead of a card in the chat (DECISION_LOG 2026-11-16 CHAT-09, amending the 11 Nov in-chat poll
+   * and decision card): the SAME steps, fields and words through the shared `RiseScreen` — ✕ top-left, the kicker and
+   * title in its head, `info` behind its ⓘ, and the count · Back · Next in its thumb zone (just above the keyboard).
+   * ✕ falls back to the chat (`onClose`); so does the last step's send (the caller's `onSent` unmounts it).
+   */
+  rise?: { info?: ReactNode } | null;
 }) {
   const n = steps.length;
   const s = Math.min(Math.max(step, 0), n - 1);
@@ -131,18 +140,67 @@ export function ChatStepCard({
     onStep(s + 1);
   }, [st.ok, last, submitForm, onStep, s]);
 
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (isStepEnter(e, e.target)) {
+      e.preventDefault();
+      next();
+    }
+  };
+  const sendButton = (
+    <ActionButton
+      tone="brand"
+      main
+      icon={Send}
+      label={sending ? 'Sending…' : sendLabel}
+      type="submit"
+      form={submitForm}
+      waiting={!st.ok || sending}
+    />
+  );
+
+  // One counter, drawn in the risen thumb row or the in-chat card's foot.
+  const stepOf = (
+    <span className="mr-auto text-[13px] tabular-nums text-ink/55" data-chat-step-count="">
+      {s + 1} of {n}
+    </span>
+  );
+
+  if (rise) {
+    return (
+      <RiseScreen
+        title={title}
+        line={kicker}
+        info={rise.info}
+        onClose={onClose ?? (() => {})}
+        data={`chat-step-${topic}`}
+        thumb={
+          <div className="flex items-center gap-2" data-chat-step-foot="">
+            {stepOf}
+            {n > 1 ? (
+              <ActionButton tone="neutral" quiet icon={ChevronLeft} label="Back" onClick={() => onStep(s - 1)} disabled={s === 0} />
+            ) : null}
+            {last ? sendButton : <ActionButton tone="brand" main icon={ChevronRight} label="Next" onClick={next} waiting={!st.ok} />}
+          </div>
+        }
+      >
+        <div ref={ref} className="grid gap-3 px-4 pt-4" data-chat-step={`${s + 1}/${n}`} onKeyDown={onKeyDown}>
+          <div className="grid gap-1">
+            <p className="text-[17px] font-semibold leading-snug text-ink">{st.title}</p>
+            {st.sub ? <p className="text-[14px] text-ink/65">{st.sub}</p> : null}
+          </div>
+          {st.body}
+        </div>
+      </RiseScreen>
+    );
+  }
+
   return (
     <ChatCardShell topic={topic} kicker={kicker} title={title} onClose={onClose} anchorId={anchorId}>
       <div
         ref={ref}
         className="grid gap-3"
         data-chat-step={`${s + 1}/${n}`}
-        onKeyDown={(e) => {
-          if (isStepEnter(e, e.target)) {
-            e.preventDefault();
-            next();
-          }
-        }}
+        onKeyDown={onKeyDown}
       >
         <div className="grid gap-1">
           <p className="text-[17px] font-semibold leading-snug text-ink">{st.title}</p>
@@ -150,22 +208,12 @@ export function ChatStepCard({
         </div>
         {st.body}
         <div className="flex items-center gap-2 border-t border-ink/10 pt-3">
-          <span className="mr-auto text-[13px] tabular-nums text-ink/55" data-chat-step-count="">
-            {s + 1} of {n}
-          </span>
+          {stepOf}
           {s > 0 ? (
             <ActionButton tone="neutral" quiet icon={ChevronLeft} label="Back" onClick={() => onStep(s - 1)} />
           ) : null}
           {last ? (
-            <ActionButton
-              tone="brand"
-              main
-              icon={Send}
-              label={sending ? 'Sending…' : sendLabel}
-              type="submit"
-              form={submitForm}
-              waiting={!st.ok || sending}
-            />
+            sendButton
           ) : (
             <ActionButton tone="brand" main icon={ChevronRight} label="Next" onClick={next} waiting={!st.ok} />
           )}

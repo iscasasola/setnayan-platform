@@ -289,7 +289,7 @@ export default async function PrivacyEditorPage({
             Save changes
           </SubmitButton>
           <Link
-            href={`/dashboard/${eventId}/website`}
+            href={`/dashboard/${eventId}/launch`}
             className="ab ab-neutral"
           >
             Back

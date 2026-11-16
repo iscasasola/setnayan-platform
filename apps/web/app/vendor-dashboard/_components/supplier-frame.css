@@ -145,12 +145,28 @@
 [data-shop-desk-side] {
   display: contents;
 }
+/* The side column's two numbers, said ONCE: the grid below and the thumb row (drawn on <body>, so it cannot read the
+   grid) both read them — the row starts where the service cards start (the drawing's `.thumb{left:540px}`, 580 at
+   1600 = the content edge + the side column + the gap). */
+:root {
+  --shop-desk-side: 400px;
+  --shop-desk-gap: 28px;
+}
+@media (min-width: 1600px) {
+  :root {
+    --shop-desk-side: 440px;
+  }
+}
 @media (min-width: 1280px) {
   [data-shop-desk] {
     display: grid;
-    grid-template-columns: 400px minmax(0, 1fr);
-    column-gap: 28px;
+    grid-template-columns: var(--shop-desk-side) minmax(0, 1fr);
+    column-gap: var(--shop-desk-gap);
     align-items: start;
+  }
+  /* 🔍 The Shop's thumb row (`ShopServicesThumb`) sits right of the side column, over the cards it searches. */
+  html:has([data-shop-desk]) [data-supplier-thumb='services']:not([data-thumb-up]) {
+    left: calc(var(--thumb-left, 0px) + var(--shop-desk-side) + var(--shop-desk-gap));
   }
   [data-shop-desk] > [data-shop-desk-side] {
     display: block;
@@ -190,9 +206,6 @@
   }
 }
 @media (min-width: 1600px) {
-  [data-shop-desk] {
-    grid-template-columns: 440px minmax(0, 1fr);
-  }
   [data-shop-desk] [data-shop-card-list] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

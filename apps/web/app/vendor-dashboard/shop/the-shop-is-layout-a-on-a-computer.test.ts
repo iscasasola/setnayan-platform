@@ -5,10 +5,11 @@
  *   1. One side column holds Analytics → Badges → Makers, in that order; the service list follows it inside one wrapper.
  *   2. Below 1280 both wrappers draw nothing (`display: contents` at the top level of the stylesheet).
  *   3. From 1280: side column 400px beside the cards; the analytics carousel is a grid; cards 2 across.
- *   4. From 1600: side column 440px; cards 3 across.
+ *   4. From 1600: side column 440px; cards 3 across. Both widths are ONE token (`--shop-desk-side`).
+ *   5. The thumb row starts right of the side column, from the same tokens.
  *
  * Sabotage: move `<ShopMakers` out of the side column (1 red) · wrap the `contents` rule in a media query (2 red) ·
- * drop the 2-across rule (3 red) · drop the 1600 block (4 red).
+ * drop the 2-across rule (3 red) · drop the 1600 block (4 red) · drop the thumb row's `left` (5 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,16 +37,38 @@ test('2 · below 1280 the wrappers draw nothing', () => {
   assert.equal((before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length, 0, 'the rule sits inside a media query');
 });
 
-test('3 · from 1280: 400px side column, analytics as a grid, cards 2 across', () => {
-  const b = SHOP.slice(SHOP.indexOf('@media (min-width: 1280px)'), SHOP.indexOf('@media (min-width: 1600px)'));
-  assert.match(b, /\[data-shop-desk\]\s*\{[^}]*grid-template-columns:\s*400px minmax\(0, 1fr\)/);
-  assert.match(b, /\[data-shop-analytics\] \[data-snap-track\]\s*\{[^}]*display:\s*grid/);
-  assert.match(b, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(b, /\[data-shop-card-group\]\s*\{\s*grid-column:\s*1 \/ -1;/, 'a group name does not span the row');
+const block = (from: string) => {
+  const i = SHOP.indexOf(from);
+  if (i < 0) return '';
+  let d = 0;
+  for (let j = SHOP.indexOf('{', i); j < SHOP.length; j++) {
+    if (SHOP[j] === '{') d++;
+    else if (SHOP[j] === '}' && --d === 0) return SHOP.slice(i, j + 1);
+  }
+  return '';
+};
+const WIDE = block('@media (min-width: 1280px)');
+const WIDER = SHOP.slice(SHOP.indexOf(WIDE) + WIDE.length);
+
+test('3 · from 1280: the 400px side column (one token), analytics as a grid, cards 2 across', () => {
+  assert.match(SHOP, /:root\s*\{\s*--shop-desk-side:\s*400px;\s*--shop-desk-gap:\s*28px;/, 'the side column is said once, as tokens');
+  assert.match(WIDE, /\[data-shop-desk\]\s*\{[^}]*grid-template-columns:\s*var\(--shop-desk-side\) minmax\(0, 1fr\)/);
+  assert.match(WIDE, /column-gap:\s*var\(--shop-desk-gap\)/);
+  assert.match(WIDE, /\[data-shop-analytics\] \[data-snap-track\]\s*\{[^}]*display:\s*grid/);
+  assert.match(WIDE, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(WIDE, /\[data-shop-card-group\]\s*\{\s*grid-column:\s*1 \/ -1;/, 'a group name does not span the row');
 });
 
-test('4 · from 1600: 440px side column, cards 3 across', () => {
-  const b = SHOP.slice(SHOP.indexOf('@media (min-width: 1600px)'));
-  assert.match(b, /grid-template-columns:\s*440px minmax\(0, 1fr\)/);
-  assert.match(b, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+test('4 · from 1600: the 440px side column, cards 3 across', () => {
+  assert.match(SHOP, /@media \(min-width: 1600px\)\s*\{\s*:root\s*\{\s*--shop-desk-side:\s*440px;/);
+  assert.match(WIDER, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(SHOP, /grid-template-columns:\s*4[04]0px/, 'the side column width is typed again instead of read');
+});
+
+test('5 · the thumb row starts right of the side column, from the same tokens (owner 17 Nov audit, item 2)', () => {
+  const rule = WIDE.match(/html:has\(\[data-shop-desk\]\) \[data-supplier-thumb='services'\]:not\(\[data-thumb-up\]\)\s*\{([^}]*)\}/);
+  assert.ok(rule, 'the Shop thumb row no longer moves beside the side column from 1280');
+  assert.match(rule[1], /left:\s*calc\(var\(--thumb-left, 0px\) \+ var\(--shop-desk-side\) \+ var\(--shop-desk-gap\)\)/);
+  const thumb = readFileSync(join(import.meta.dirname, '_components/shop-services-thumb.tsx'), 'utf8');
+  assert.match(thumb, /<SupplierThumbRow\s+name="services"/, 'the row this rule moves is not the Shop’s');
 });

@@ -80,7 +80,11 @@ export async function ownLinkArrivalIsOwnClient(admin: SupabaseClient, vendorPro
     .select('verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (shopErr || (shopRow as { verification_state?: string } | null)?.verification_state !== 'verified') return false;
+  if (shopErr) {
+    console.error('[supabase-error] own-clients: own-link shop verification read', shopErr);
+    return false;
+  }
+  if ((shopRow as { verification_state?: string } | null)?.verification_state !== 'verified') return false;
   const gift = await fetchOwnLinkGift(admin, vendorProfileId);
   if (gift === 'unread' || gift === null) {
     // A gift this event already got from this shop (an Add-a-client invite) still makes them an own client.

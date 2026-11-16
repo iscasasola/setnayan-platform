@@ -87,16 +87,8 @@ const KNOWN_UNFILLABLE: Record<string, string> = {
     'leaf event_insurance predates gala_night; its tile claims it.',
   'personal_accident_insurance:gala_night':
     'leaf personal_accident_insurance predates gala_night; its tile claims it.',
-  'event_medic:gala_night':
-    "leaf event_medic is scoped ['tournament','wedding','corporate']; its tile also claims gala_night.",
-  'speaker_talent:gala_night':
-    "leaf speaker_talent is scoped ['corporate']; its tile also claims gala_night.",
-
-  // ── kids_entertainer: the tile serves birthday + christening, the leaf only
-  // birthday. A christening host sees "Kids' Entertainer" and no vendor can
-  // ever fill it.
-  'kids_entertainer:christening':
-    "leaf kids_entertainer is scoped ['birthday']; its tile also claims christening.",
+  // event_medic, speaker_talent (gala_night) and kids_entertainer (christening) were removed by T1
+  // (20271349668764): its new services inherit their tile, so the pairs fill.
 
   // ── editorial: ZERO canonicals — already tracked, with its owner sign-off,
   // in lib/taxonomy-tile-reachability.test.ts KNOWN_DEAD_TILES. Listed here

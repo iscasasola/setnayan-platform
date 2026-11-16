@@ -3,6 +3,7 @@
 import { CHAT_ATTACH_INPUT_ID, CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
 import { useEffect, useId, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
   Camera,
@@ -15,7 +16,8 @@ import {
   Store,
   type LucideIcon,
 } from 'lucide-react';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
   THREAD_TOOL_GROUPS,
@@ -157,6 +159,8 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
     : plus.sent;
   const gate = plusGate(running ?? null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const headingId = useId();
   // ⌨ THE SLASH LIST IS THIS SHEET'S OWN CARD ROWS (owner 11 Nov: "/" shortcuts) — published for the composer, so a
   // typed "/poll" can never offer a row the (+) does not, nor drop one the (+) has greyed.
@@ -274,21 +278,18 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     );
   }
 
-  // ⤴ RISE FULL SCREEN (owner 2026-11-10 "fullscreen everything"; #7595's ONE screen): the ＋ list rises out of the ＋
-  // and falls back into it — no half-height sheet. The head is the screen's own (title · ⓘ); a row's tap closes it at once
-  // (it moves on: a card, a picker, a panel), ✕ / Esc / Back fall back into the ＋.
-  const sheet = open ? (
-    <RiseScreen
-      title="Add to the chat"
-      info="A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to — the same order as the menu above."
-      onClose={() => setOpen(false)}
-      data="thread-tools"
-    >
-      <div className="px-5 pb-5 pt-2" data-thread-tools-sheet={sheetMark}>
-        <ul>{items}</ul>
+  const sheet = (
+    <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+      <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
+        {/* ⓘ beside the title (house rule: title + one line visible, the rest in the ⓘ); `pr-12` keeps clear of the ✕. */}
+        <InfoTip label="Add to the chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
+          A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to —
+          the same order as the menu above.
+        </InfoTip>
+        <ul className="mt-2">{items}</ul>
       </div>
-    </RiseScreen>
-  ) : null;
+    </Sheet>
+  );
 
   return (
     <>
@@ -319,7 +320,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
           <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
         </span>
       </button>
-      {sheet}
+      {mounted ? createPortal(sheet, document.body) : null}
     </>
   );
 }

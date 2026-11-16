@@ -128,16 +128,12 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds resolveVendorDisplayName/isVendorNameRevealed only — the returned row carries no verified field.' },
   ],
   [
-    'lib/supplier-sheet-read.ts',
-    { count: 1, why: 'Feeds isVendorNameRevealed only (name-reveal): it decides whether the supplier sheet may show their photos and their Share link. The returned data carries no verified field — the sheet\'s badge comes from the pressed card.' },
-  ],
-  [
     'app/dashboard/[eventId]/vendors/_actions/category-search.ts',
     { count: 3, why: 'Two feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal); one feeds computeCompatScore (a ranking input, not the badge). The badge field itself (verified:) now calls hasVerifiedBadge.' },
   ],
   [
     'app/dashboard/[eventId]/vendors/page.tsx',
-    { count: 2, why: 'Both feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal). The badge field (enrichmentByVendorId.is_verified) now calls hasVerifiedBadge.' },
+    { count: 1, why: 'Feeds resolveVendorDisplayName (name-reveal). The badge field (enrichmentByVendorId.is_verified) now calls hasVerifiedBadge. (The logo-gate site left 2026-11-16 — ruling (15) shows every shop\'s logo.)' },
   ],
   [
     'lib/messages-team-picker.ts',

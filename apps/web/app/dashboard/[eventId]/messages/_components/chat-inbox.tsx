@@ -67,6 +67,8 @@ export type InboxRow = {
   /** "Dec 18 · Claire & Indalecio" — the event this one thread belongs to, beside the name (frame L). */
   eventLine: string;
   archived: boolean;
+  /** 👥 The other side's other names, for the search only (`InboxSearchRow.names`, CHAT-16). Never drawn. */
+  names?: string | null;
   /** Archive / unarchive — the shipped per-row form, drawn by the page. */
   archive: ReactNode;
   /** The row opens a picked page (`PickedShell`) over this list — its tap is recorded for the rise and the reverse. */

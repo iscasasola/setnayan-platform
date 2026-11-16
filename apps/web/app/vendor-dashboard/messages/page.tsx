@@ -167,6 +167,8 @@ async function readSupplierChats(
       href: `/vendor-dashboard/clients/${r.eventId}?tab=chat`,
       opensPicked: true,
       name,
+      // 👥 The couple's names as they wrote them ("Wanda & Indigo") — the title keeps one first name; search finds both.
+      names: inputs.customers.get(r.eventId)?.displayName ?? null,
       logoUrl: null,
       preview: r.preview,
       timeLabel: r.timeLabel,

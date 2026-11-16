@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { fitChatPane } from '../../app/dashboard/[eventId]/messages/_components/chat-pane-fit';
+import { fitChatPane, watchChatPane } from '../../app/dashboard/[eventId]/messages/_components/chat-pane-fit';
 
 /**
  * ✍ THE CHAT'S MESSAGE BOX IS IN THE WINDOW, AND NOTHING DRAWS OVER IT — measured, in both frames the thread opens in.
@@ -76,9 +76,31 @@ async function mount(page: Page, body: string) {
   });
 }
 
-/** Run the REAL `fitChatPane` on every chat root, as `ChatPanes` does on load / resize / scroll. */
-async function fit(page: Page) {
-  await page.evaluate(`document.querySelectorAll('[data-chat-panes]').forEach((r) => (${fitChatPane.toString()})(r))`);
+/**
+ * Start the REAL watcher on every chat root, exactly as `ChatPanes` does on mount (`watchChatPane` — which fits at once
+ * and re-fits on whatever moves the pane). Both functions go in as page script, so `watchChatPane` calls the shipped
+ * `fitChatPane` by name, as in the module.
+ */
+async function watch(page: Page) {
+  await page.addScriptTag({ content: `${fitChatPane.toString()}\n${watchChatPane.toString()}` });
+  await page.evaluate(() => {
+    const w = (window as unknown as { watchChatPane: (r: HTMLElement) => () => void }).watchChatPane;
+    document.querySelectorAll<HTMLElement>('[data-chat-panes]').forEach((r) => w(r));
+  });
+  await frames(page);
+}
+
+/** Let the page paint a few frames — the watcher re-fits on the next animation frame, never synchronously. */
+async function frames(page: Page, n = 3) {
+  await page.evaluate(
+    (count) =>
+      new Promise<void>((done) => {
+        let left = count;
+        const tick = () => (--left <= 0 ? done() : requestAnimationFrame(tick));
+        requestAnimationFrame(tick);
+      }),
+    n,
+  );
 }
 
 type Reading = { bottom: number; top: number; height: number; covered: string[] };
@@ -120,13 +142,70 @@ for (const vp of WIDE) {
     test(`chat · beside the list · ${vp.width}×${vp.height} · ${who} — the composer is in the window and on top`, async ({ page }) => {
       await page.setViewportSize(vp);
       await mount(page, TOP_BAR + ABOVE(strip) + MARKUP.panes + `<div style="height:600px"></div>`);
-      await fit(page);
+      await watch(page);
       expectInWindow('at load', await readComposer(page));
-      // Scrolled: the pane sticks under the pin line and grows to the window's foot.
+      // Scrolled: the pane sticks under the pin line and grows to the window's foot (the watcher's scroll re-fit).
       await page.evaluate(() => window.scrollTo(0, 200));
-      await fit(page);
+      await frames(page);
       expectInWindow('scrolled 200', await readComposer(page));
       await page.screenshot({ path: `test-results/chat-box-panes-${vp.width}-${strip ? 'couple' : 'supplier'}.png` });
+    });
+  }
+}
+
+/**
+ * 🕰 THE STRIP ARRIVES AFTER THE CHAT HAS PAINTED (W1 on live 1c8fe6b, after #7804). The couple's page draws the chat first;
+ * ~0.7 s later the notice slot fills with "Plan with peace of mind" ABOVE the pane, and nothing resizes the window. The
+ * fit was right but never re-ran: the pane moved 93 → 173 and the composer ended at 1093 / 869, the variable stayed 93
+ * for 5 s+, and any resize fixed it — a re-fit waiting on an animation frame that a non-painting tab never runs. This
+ * reproduces that load — render, paint, THEN insert the strip into the column above the chat, no resize — in a painting
+ * tab and in one that runs no frames, and measures after it.
+ * The column is the event layout's own shape (`dashboard/[eventId]/layout.tsx`: `.sn-ambient min-h-screen` › `<main>`
+ * › `[data-shell-main]` › the padded column holding the top notice slot, then the page).
+ */
+const COLUMN = (inner: string) =>
+  TOP_BAR +
+  `<div class="sn-ambient min-h-screen"><main class="sn-vt-page"><div data-shell-main>` +
+  `<div class="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">` +
+  `<div data-test-slot></div>` +
+  inner +
+  `</div></div></main></div>`;
+
+/** The notice slot fills — a node added above the pane; the window is not resized. */
+async function insertStrip(page: Page) {
+  await page.evaluate(() => {
+    const strip = document.createElement('div');
+    strip.className = 'mb-4';
+    strip.setAttribute('data-notice-slot', 'top');
+    strip.innerHTML = '<div style="height:80px">Plan with peace of mind</div>';
+    document.querySelector('[data-test-slot]')!.appendChild(strip);
+  });
+}
+
+const paneTop = (page: Page) =>
+  page.evaluate(() => (document.querySelector('[data-supplier-cols-pane]') as HTMLElement).getBoundingClientRect().top);
+
+/** Wait in the page by TIMER (not by frame), for the tab that runs no frames. */
+const waitMs = (page: Page, ms: number) => page.evaluate((t) => new Promise<void>((done) => setTimeout(done, t)), ms);
+
+for (const vp of WIDE) {
+  for (const painting of [true, false]) {
+    const tab = painting ? 'a painting tab' : 'a tab that runs no frames (background / hidden pane)';
+    test(`chat · beside the list · ${vp.width}×${vp.height} · the strip arrives after paint, ${tab} — the composer is still in the window`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await mount(page, COLUMN(ABOVE(false) + MARKUP.panes));
+      await watch(page);
+      expectInWindow('before the strip', await readComposer(page));
+      const before = await paneTop(page);
+      // W1's live readings (after #7804) were taken where frames did not run: the variable stuck for 5 s+, any resize freed it.
+      if (!painting) await page.evaluate(() => (window.requestAnimationFrame = () => 0));
+      await insertStrip(page);
+      if (painting) await frames(page);
+      else await waitMs(page, 400);
+      const after = await paneTop(page);
+      expect(after, 'the strip did not move the pane — this test would prove nothing').toBeGreaterThan(before + 40);
+      expectInWindow(`after the strip (pane ${Math.round(before)} → ${Math.round(after)})`, await readComposer(page));
+      await page.screenshot({ path: `test-results/chat-box-late-strip-${vp.width}-${painting ? 'painting' : 'noframes'}.png` });
     });
   }
 }

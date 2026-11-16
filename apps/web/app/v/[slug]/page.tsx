@@ -40,6 +40,7 @@ import {
 import { formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
+  isShopBookable,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -248,10 +249,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
 import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
-import { OpenDatesPeek, nextSaturdays, type PeekDay } from './_components/open-dates-peek';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
-import { readCheckADate } from '@/lib/check-a-date.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -995,11 +994,13 @@ export async function renderVendorBySlug({
   const teamPreview = gate.open === 'team' ? gate.reason : null;
 
   const visibility = parseVisibility(vendor.public_visibility);
-  const bookable = isBookable(visibility);
-  // 💬 DECISION_LOG 2026-11-07 rulings (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — found in a
-  // list or opened by its own link/QR — but not BOOK it. `canMessage` opens the Inquire doors only; every booking
-  // door (packages Lock, Check a date, the booth, the waitlist, package asks) stays on `bookable`, verified-only.
-  // The first message is the first inquiry, and the chat_messages trigger stamps the find lock.
+  // 🌐 15 Nov (DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE"; owner "We allow booking. Since
+  // they can get bookings on their website"): a shop Setnayan has not decided yet is BOOKED on its page — packages
+  // Lock, package asks, the waitlist, the booth — with the booking fee. `bookable` is the ONE booking rule
+  // (`isShopBookable`, the same one every server booking door and the database trigger ask). Check a date stays
+  // verified-only (`dateCheckable`): the 15 Nov row keeps "no Check a date" on the unverified page.
+  const bookable = isShopBookable(vendor);
+  const dateCheckable = isBookable(visibility) && bookable;
   const canMessage = shopTakesMessages(vendor, bookable);
   // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
   // here and threaded into every tier gate below (tierCaps, micrositeCan,
@@ -2267,18 +2268,6 @@ export async function renderVendorBySlug({
     }
   }
 
-  // 📅 "THEIR REAL CALENDAR" — the peek in the calling card. Verified + bookable only (owner 13 Nov "date check only for
-  // verified"), from the one read behind /v/[slug]/dates, so the two can never disagree. Anything but `ok` draws no
-  // days: a failed read never paints a closed day open.
-  const checkDateHref = withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival);
-  let peekDays: PeekDay[] = [];
-  if (cinematicHero && bookable) {
-    const dates = await readCheckADate(vendor.business_slug ?? slug).catch(() => null);
-    if (dates && dates.kind === 'ok') {
-      peekDays = nextSaturdays(dates.today, { from: dates.from, to: dates.to }, dates.notBookable);
-    }
-  }
-
   // 🧭 The section bar's tabs — only sections that render. Verified: About · Services · Portfolio · Reviews.
   // Unverified: Services · Reviews · Where. NO Inquire tab (owner 13 Nov, "Yes, only one"): the bar carries the ONE
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
@@ -2742,9 +2731,9 @@ export async function renderVendorBySlug({
                 reason, and the button was missed. Share is NOT dropped: the
                 hero has no Share, so removing the whole row would leave an
                 Enterprise shop with no way to share it at all. */}
-            {/* 📅 THEIR REAL CALENDAR — the open-dates peek. Verified + bookable only (owner 13 Nov "date check only for
-                verified"); nothing at all when the dates could not be read. */}
-            {cinematicHero && bookable ? <OpenDatesPeek days={peekDays} checkHref={checkDateHref} /> : null}
+            {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
+                APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
+                stays the action row's door. */}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
@@ -2775,10 +2764,9 @@ export async function renderVendorBySlug({
                     then Check a date · Share. */}
                 {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
-                    Available · Not bookable, nothing about other couples' asks. A BOOKING door, so it keeps `bookable`
-                    (verified only) while the row itself opens on `canMessage` — an unverified shop takes messages,
-                    never a date check or a booking (DECISION_LOG 2026-11-07). */}
-                {bookable ? (
+                    Available · Not bookable, nothing about other couples' asks. Verified only (`dateCheckable`): the
+                    unverified page has no Check a date (DECISION_LOG 2026-11-15). */}
+                {dateCheckable ? (
                   <CheckADateLink
                     href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
@@ -3517,8 +3505,8 @@ export async function renderVendorBySlug({
       </article>
       {/* 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026): the shop's own `?dates` address opens
           the sheet on top of it — the shop button above, the printed QR (`/v/<slug>/dates` forwards here) and the
-          sign-in resume all land here. Verified (bookable) shops only, the same rule as the door. */}
-      {bookable && search.dates === '1' ? (
+          sign-in resume all land here. Verified shops only (`dateCheckable`), the same rule as the door. */}
+      {dateCheckable && search.dates === '1' ? (
         <Suspense fallback={null}>
           <CheckADateOverShop
             slug={vendor.business_slug ?? slug}

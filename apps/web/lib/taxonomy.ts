@@ -1478,3 +1478,24 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   event_staff_ushers:                { folder: 'logistics_safety', tile: 'event_medic', phase: 'V1.2', ph: true },
   security_guards:                   { folder: 'logistics_safety', tile: 'event_medic', phase: 'V1.2', ph: true },
 };
+
+/**
+ * The services a part keeps through the T1 category merges — `null` when none of its seeded categories took part in
+ * one (then the part is its categories' expansion, as always). Otherwise every visible service FILED UNDER one of
+ * those categories BEFORE the merge (`mergedFrom`), or cross-listed to it, in the fallback buckets' order. Read by
+ * `fallbackInspirationParts()`; see the docblock there for why.
+ */
+export function servicesKeptThroughTheMerges(trades: readonly WeddingTile[]): readonly string[] | null {
+  const destinations = new Set<string>(Object.values(MERGED_TILES));
+  if (!trades.some((t) => t in MERGED_TILES || destinations.has(t))) return null;
+  const out: string[] = [];
+  for (const t of trades) {
+    for (const [key, e] of Object.entries(TAXONOMY_MAP)) {
+      // The fallback buckets' own rule (`deriveBuckets`): visible, filed under the tile or cross-listed to it.
+      if (e.marketplaceHidden) continue;
+      const filedUnder = e.mergedFrom ?? e.tile;
+      if ((filedUnder === t || (e.secondary_tiles ?? []).includes(t)) && !out.includes(key)) out.push(key);
+    }
+  }
+  return out;
+}

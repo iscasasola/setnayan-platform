@@ -24,7 +24,7 @@
  * read before and no caller changes. The fallback carries `services: null`: its categories are the consts, and
  * the server expands them (`canonicalServicesForSlot`) the way the backfill did.
  */
-import { MERGED_TILES, TAXONOMY_MAP, forwardTile, type WeddingTile } from './taxonomy';
+import { forwardTile, servicesKeptThroughTheMerges, type WeddingTile } from './taxonomy';
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 
 /** One part, as the table holds it. `slotKey` is permanent — the photos carry it. */
@@ -170,21 +170,6 @@ export const INSPIRATION_PART_FALLBACK: Readonly<
  * board to every dressmaker. The database keeps these parts' `inspiration_part_services` links unchanged (a service
  * changing category moves no link), which this reproduces. Every other part: `null`, its categories' expansion.
  */
-const MERGE_DESTINATIONS: ReadonlySet<string> = new Set(Object.values(MERGED_TILES));
-function servicesKeptThroughTheMerges(trades: readonly WeddingTile[]): readonly string[] | null {
-  if (!trades.some((t) => t in MERGED_TILES || MERGE_DESTINATIONS.has(t))) return null;
-  const out: string[] = [];
-  for (const t of trades) {
-    for (const [key, e] of Object.entries(TAXONOMY_MAP)) {
-      // The fallback buckets' own rule (`deriveBuckets`): visible, filed under the tile or cross-listed to it.
-      if (e.marketplaceHidden) continue;
-      const filedUnder = e.mergedFrom ?? e.tile;
-      if ((filedUnder === t || (e.secondary_tiles ?? []).includes(t)) && !out.includes(key)) out.push(key);
-    }
-  }
-  return out;
-}
-
 let fallbackMemo: InspirationPartsSnapshot | null = null;
 
 /** The consts as a snapshot — what the table was seeded with, byte for byte. */

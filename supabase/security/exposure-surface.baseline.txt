@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7867
+# facts: 7875
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     638
-#   col       5663
-#   policy    1154
+#   tpriv     639
+#   col       5669
+#   policy    1155
 #   view      10
 #   func      398
 #
@@ -446,6 +446,7 @@ tpriv	public.shop_badge_upgrades|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
+tpriv	public.signup_attributions|authenticated	S
 tpriv	public.site_visit_days|authenticated	S
 tpriv	public.site_widgets|anon	SIUD
 tpriv	public.site_widgets|authenticated	SIUD
@@ -4511,6 +4512,12 @@ col	public.shop_papic_wallet_entries.order_id	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.photos	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.spend_ref	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.vendor_profile_id	anon=- authenticated=S
+col	public.signup_attributions.created_at	anon=- authenticated=S
+col	public.signup_attributions.src	anon=- authenticated=S
+col	public.signup_attributions.user_id	anon=- authenticated=S
+col	public.signup_attributions.utm	anon=- authenticated=S
+col	public.signup_attributions.vendor_profile_id	anon=- authenticated=S
+col	public.signup_attributions.via	anon=- authenticated=S
 col	public.site_visit_days.country	anon=- authenticated=S
 col	public.site_visit_days.day	anon=- authenticated=S
 col	public.site_visit_days.device	anon=- authenticated=S
@@ -7119,6 +7126,7 @@ policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIV
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.signup_attributions|signup_attributions_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = auth.uid()) check=NULL
 policy	public.site_visit_days|site_visit_days_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.site_widgets|site_widgets_admin_write_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_admin_write_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

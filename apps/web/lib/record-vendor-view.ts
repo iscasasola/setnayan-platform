@@ -29,6 +29,7 @@ import { hashViewer } from '@/lib/vendor-funnel';
 import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
 import { recordServiceCardView } from '@/lib/record-service-card-view';
 import { materialViaOf, utmOf, viewCountsAsSignup } from '@/lib/material-tags';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /** Cookie that carries an opaque per-browser id for anonymous viewers. Set
  *  best-effort so repeat anonymous views from the same browser dedupe on the
@@ -133,9 +134,9 @@ export async function recordVendorProfileView(
     // 📝 THE SIGN-UP A PIECE BROUGHT (owner 2026-11-16; the QR-stats "Registered" column). Signing up from the shop —
     // the sign-in sheet over it, or the Google return — lands back on the same tagged address, so the first tagged
     // view of a just-made account names the piece. First one wins (primary key on the user; a later piece never
-    // rewrites it). Service role only — the table is closed to every browser role.
+    // rewrites it). Service role only — no browser role may write the table (a person may only read their own row).
     if (signedIn && viewCountsAsSignup({ accountCreatedAt: signedIn.createdAt, via, utm }, Date.now())) {
-      await admin.from('signup_attributions').upsert(
+      const { error: signupError } = await admin.from('signup_attributions').upsert(
         {
           user_id: signedIn.userId,
           vendor_profile_id: input.vendorProfileId,
@@ -145,6 +146,8 @@ export async function recordVendorProfileView(
         },
         { onConflict: 'user_id', ignoreDuplicates: true },
       );
+      // Best-effort like the view itself, but never silent: a lost sign-up attribution is reported.
+      if (signupError) logQueryError('recordVendorProfileView.signupAttribution', signupError, { vendorProfileId: input.vendorProfileId }, 'graceful_degrade');
     }
   } catch {
     // Fully best-effort — a failed view capture must never break a render.

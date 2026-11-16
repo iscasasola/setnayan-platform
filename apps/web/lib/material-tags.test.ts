@@ -232,7 +232,10 @@ test('(b) a sign-up a piece brought is written once, by the service role, only f
   assert.match(rec, /if \(user && !\(user\.is_anonymous \?\? false\)\) signedIn = \{ userId: user\.id, createdAt: user\.created_at \?\? null \};/, 'a guest pass is not a sign-up');
   assert.match(
     rec,
-    /if \(signedIn && viewCountsAsSignup\(\{ accountCreatedAt: signedIn\.createdAt, via, utm \}, Date\.now\(\)\)\) \{\s*await admin\.from\('signup_attributions'\)\.upsert\(/,
+    /if \(signedIn && viewCountsAsSignup\(\{ accountCreatedAt: signedIn\.createdAt, via, utm \}, Date\.now\(\)\)\) \{\s*const \{ error: signupError \} = await admin\.from\('signup_attributions'\)\.upsert\(/,
   );
   assert.match(rec, /\{ onConflict: 'user_id', ignoreDuplicates: true \}/, 'the FIRST piece wins; a later one never rewrites it');
+  assert.match(rec, /if \(signupError\) logQueryError\(/, 'a lost attribution is reported, never silent');
+  // RA 10173: the person's own row is in their data export.
+  assert.match(code('lib/personal-data-export.ts'), /\.from\('signup_attributions'\)\s*\.select\('vendor_profile_id, via, src, utm, created_at'\)\s*\.eq\('user_id', user\.id\)/);
 });

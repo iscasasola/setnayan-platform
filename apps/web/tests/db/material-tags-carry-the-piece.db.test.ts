@@ -3,11 +3,12 @@
  *
  *   · the four `via` columns take only the ten words (lib/material-tags.ts MATERIAL_VIAS) — a typo is refused, not kept
  *   · every new column is nullable with no default: adding it wrote nothing into an existing row
- *   · `signup_attributions` is closed to every browser role (RLS on, grants revoked); the service role writes it; one
- *     row per user; it dies with the user and with the shop
+ *   · `signup_attributions` is closed to anon and never written by a browser (RLS on, grants revoked); a signed-in
+ *     person reads only their OWN row (RA 10173 export); the service role writes it; one row per user; it dies with
+ *     the user and with the shop
  *
  * SABOTAGE (each run once, reverted): drop the `REVOKE ALL … FROM anon, authenticated` line → the "closed" test goes
- * RED; drop the two `GRANT SELECT (…)` lines → the "readable" test goes RED (and the migration's own post-condition).
+ * RED; widen the own-row policy to `USING (true)` → the "ONLY their own row" test goes RED; drop the two `GRANT SELECT (…)` lines → the "readable" test goes RED (and the migration's own post-condition).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -92,20 +93,23 @@ test('a view takes each of the ten pieces and refuses anything else', async () =
   );
 });
 
-test('signup_attributions is closed to anon and authenticated; RLS is on', async () => {
+test('signup_attributions: closed to anon, never written by a browser, and a person reads ONLY their own row', async () => {
   await asRoot();
   const rls = await db.query<{ relrowsecurity: boolean }>(`SELECT relrowsecurity FROM pg_class WHERE oid = 'public.signup_attributions'::regclass`);
   assert.equal(rls.rows[0]!.relrowsecurity, true);
-  for (const role of ['anon', 'authenticated']) {
-    for (const priv of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
-      const r = await db.query<{ ok: boolean }>(`SELECT has_table_privilege($1, 'public.signup_attributions', $2) AS ok`, [role, priv]);
-      assert.equal(r.rows[0]!.ok, false, `${role} must not ${priv} signup_attributions`);
-    }
-  }
-  const user = await newUser();
-  await setAuthUid(db, user);
+  const can = async (role: string, priv: string) =>
+    (await db.query<{ ok: boolean }>(`SELECT has_table_privilege($1, 'public.signup_attributions', $2) AS ok`, [role, priv])).rows[0]!.ok;
+  for (const priv of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) assert.equal(await can('anon', priv), false, `anon must not ${priv}`);
+  for (const priv of ['INSERT', 'UPDATE', 'DELETE']) assert.equal(await can('authenticated', priv), false, `authenticated must not ${priv}`);
+  const shop = await newShop();
+  const me = await newUser();
+  const other = await newUser();
+  await db.query(`INSERT INTO public.signup_attributions (user_id, vendor_profile_id, via) VALUES ($1, $3, 'card'), ($2, $3, 'tarp')`, [me, other, shop]);
+  await setAuthUid(db, me);
   await db.exec('SET ROLE authenticated');
-  await assert.rejects(db.query(`SELECT * FROM public.signup_attributions`), /permission denied/i);
+  const seen = await db.query<{ via: string }>(`SELECT via FROM public.signup_attributions`);
+  assert.deepEqual(seen.rows.map((r) => r.via), ['card'], 'a person sees their own row and nobody else’s');
+  await assert.rejects(db.query(`UPDATE public.signup_attributions SET via = 'photo' WHERE user_id = $1`, [me]), /permission denied/i);
   await asRoot();
 });
 

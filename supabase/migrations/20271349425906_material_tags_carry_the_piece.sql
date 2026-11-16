@@ -20,7 +20,8 @@
 --
 -- NO WRITES TO EXISTING ROWS. Every new column is NULLABLE with no default, so adding it touches no row; the new table
 -- starts empty. RLS on the new table is enabled at CREATE, and every browser role's grant is revoked: it is read and
--- written only through the service role (record-vendor-view.ts). The three column groups mirror their siblings'
+-- written only through the service role (record-vendor-view.ts); a signed-in person may READ their own row
+-- (own-row SELECT policy), so it can be exported to them. The three column groups mirror their siblings'
 -- exposure (inquiry_source / source / utm are table-level SIU for anon + authenticated): each row is already readable
 -- to whoever RLS admits, and the piece adds nothing that row does not already reveal.
 
@@ -76,19 +77,27 @@ CREATE TABLE IF NOT EXISTS public.signup_attributions (
 ALTER TABLE public.signup_attributions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.signup_attributions FROM anon, authenticated;
 GRANT ALL ON TABLE public.signup_attributions TO service_role;
+-- The ONE browser reach: a signed-in person reads their OWN row (RA 10173 — it is exported to them by
+-- lib/personal-data-export.ts under their own session). Never another person's; never a write.
+GRANT SELECT ON TABLE public.signup_attributions TO authenticated;
+DROP POLICY IF EXISTS signup_attributions_own_read ON public.signup_attributions;
+CREATE POLICY signup_attributions_own_read ON public.signup_attributions
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
 CREATE INDEX IF NOT EXISTS signup_attributions_vendor_idx
   ON public.signup_attributions (vendor_profile_id, created_at DESC);
 
 COMMENT ON TABLE public.signup_attributions IS
-  'Which shop and piece (?via= / utm) brought a just-made account: written once per user, by the service role, on that account''s first tagged shop view within an hour of sign-up (apps/web/lib/record-vendor-view.ts, lib/material-tags.ts viewCountsAsSignup). Feeds the QR-stats "Registered" count (prototype qr_code_stats_2026-11-16_fable, not built). Closed to anon and authenticated; RLS on with no policy. A user''s row dies with the user; a shop''s rows die with the shop.';
+  'Which shop and piece (?via= / utm) brought a just-made account: written once per user, by the service role, on that account''s first tagged shop view within an hour of sign-up (apps/web/lib/record-vendor-view.ts, lib/material-tags.ts viewCountsAsSignup). Feeds the QR-stats "Registered" count (prototype qr_code_stats_2026-11-16_fable, not built). Closed to anon; authenticated reads only its own row (RA 10173 export); writes are service-role only. A user''s row dies with the user; a shop''s rows die with the shop.';
 
 -- Post-conditions: the closed table stayed closed, and nothing was written into an existing row.
 DO $post$
 BEGIN
   IF has_table_privilege('anon', 'public.signup_attributions', 'SELECT')
-     OR has_table_privilege('authenticated', 'public.signup_attributions', 'SELECT')
-     OR has_table_privilege('authenticated', 'public.signup_attributions', 'INSERT') THEN
-    RAISE EXCEPTION 'signup_attributions must be closed to anon and authenticated';
+     OR has_table_privilege('authenticated', 'public.signup_attributions', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.signup_attributions', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.signup_attributions', 'DELETE') THEN
+    RAISE EXCEPTION 'signup_attributions must be closed to anon, and read-only (own row) for authenticated';
   END IF;
   IF NOT has_column_privilege('authenticated', 'public.event_vendors', 'source_via', 'SELECT')
      OR NOT has_column_privilege('authenticated', 'public.event_vendors', 'source_utm', 'SELECT')

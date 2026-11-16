@@ -17,6 +17,7 @@
  * row.
  */
 
+import { shopInvitePath } from '@/lib/shop-address';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isShopPaused } from '@/lib/shop-status';
 import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
@@ -41,7 +42,8 @@ export function buildVendorInviteUrl(
   opts?: { eventType?: string | null; category?: string | null },
 ): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
-  const base = `${appUrl.replace(/\/$/, '')}/vendor-invite/${slug}`;
+  // 🔗 The address move (owner 2026-11-15): the shop invite is `/{shop}/invite`; `/vendor-invite/{shop}` 308s there.
+  const base = `${appUrl.replace(/\/$/, '')}${shopInvitePath(slug)}`;
   const params = new URLSearchParams();
   if (opts?.eventType) params.set('et', opts.eventType);
   if (opts?.category) params.set('cat', opts.category);

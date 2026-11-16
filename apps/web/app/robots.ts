@@ -12,7 +12,8 @@ const ALLOWED_PATHS = [
   '/for-coordinators',
   '/creators',
   '/help',
-  '/realstories',
+  // '/realstories' and '/blog' left 2026-11-16: both are retired and forward (owner, DECISION_LOG "THE BLOG AND REAL
+  // STORIES ARE RETIRED") — a forward is not a page to allow.
   // Taglish locale SUBPATH (Taglish ≈ tl): /tl/about, /tl/features, /tl/features/<slug>.
   // ⚠ '/tl/' with the slash (2026-10-13): there is no bare /tl page — the corpus
   // keeps /tl as the locale prefix for twins, not a Tagalog home — and the bare
@@ -24,7 +25,6 @@ const ALLOWED_PATHS = [
   // shipped. Pre-allowing them avoids a robots.txt edit when they go live.
   '/supplies',
   '/suppliers',
-  '/blog',
 ];
 // /keynote + /proto were dated internal pitch/prototype decks (snapshot
 // 2026-05-28) that drifted from the live product — they carried retired

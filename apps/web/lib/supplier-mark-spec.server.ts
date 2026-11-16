@@ -6,7 +6,7 @@
  *             (verification_state = 'verified' and its deadline not passed),
  *             so the mark and the badge can never disagree.
  *   shopName  vendor_profiles.business_name
- *   slug      vendor_profiles.business_slug — the /v/<slug> address on the plate
+ *   slug      vendor_profiles.business_slug — setnayan.com/<slug> on the row, and the QR's address (every shop)
  *   logo      vendor_profiles.logo_url — read as bytes here and handed to the
  *             painter as a PNG (a presigned cross-origin URL would taint the
  *             browser canvas and make `toBlob` throw).
@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MarkSpec } from './photo-mark-geometry';
 import { hasVerifiedBadge } from './verified-badge';
+import { markQr } from './photo-mark-qr';
 
 export type ShopMarkFacts = {
   spec: Extract<MarkSpec, { kind: 'supplier' }>;
@@ -33,13 +34,16 @@ type Row = {
 export function shopMarkFromRow(row: Row, now: Date = new Date()): ShopMarkFacts {
   const verified = hasVerifiedBadge(row, now) && !!row.business_slug;
   const logoRef = row.logo_url?.trim() || null;
+  const slug = row.business_slug?.trim().toLowerCase() || null;
   return {
     spec: {
       kind: 'supplier',
       verified,
       shopName: row.business_name?.trim() || null,
-      slug: row.business_slug?.trim().toLowerCase() || null,
+      slug,
+      // The shop's logo circle is verified-only (owner 2026-11-15); the QR goes on every shop with an address.
       hasLogo: verified && !!logoRef,
+      qr: slug ? markQr(slug) : null,
     },
     logoRef,
   };

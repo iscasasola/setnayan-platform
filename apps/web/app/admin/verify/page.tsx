@@ -2577,7 +2577,7 @@ function VerifyCard({
             </p>
             {slug ? (
               <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                /v/{slug}
+                /{slug}
               </p>
             ) : null}
           </div>
@@ -2585,10 +2585,7 @@ function VerifyCard({
         <div className="flex flex-col items-end gap-1">
           <VisibilityBadge value={visibility} />
           {paused ? (
-            <span
-              data-shop-paused
-              className="inline-flex items-center rounded-full border border-ink/20 bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70"
-            >
+            <span data-shop-paused className="text-xs font-medium text-ink/70">
               Paused
             </span>
           ) : null}

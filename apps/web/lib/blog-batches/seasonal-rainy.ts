@@ -142,7 +142,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See how a free, self-updating planning checklist keeps your whole timeline honest, even when a date has to change.',
-        href: '/blog/what-to-do-12-months-before-your-philippine-wedding',
+        href: '/features',
         label: 'Read the 12-month countdown',
       },
     ],
@@ -560,7 +560,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Pair your plan with a printable countdown you can fill in by hand and pin to the fridge.',
-        href: '/blog/free-printable-wedding-checklist-philippines',
+        href: '/features',
         label: 'Get the free printable checklist',
       },
     ],

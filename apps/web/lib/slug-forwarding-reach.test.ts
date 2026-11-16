@@ -45,9 +45,11 @@ test('the legacy /v/[slug] shop route reaches forwarding', () => {
   const src = read('app/v/[slug]/page.tsx');
   assert.match(
     src,
-    /\bresolveRenamedPath\([\s\S]{0,120}?\['vendor'\]\s*\)/,
+    /\bresolveRenamedPath\(createAdminClient\(\), slug\)/,
     'a corrected shop address forwards on the bare root but 404s on /v/{slug} — the form the ' +
-      'shop was shared and indexed under before the bare-root cutover',
+      'shop was shared and indexed under before the bare-root cutover. Since the address move (2026-11-15) it ' +
+      'forwards EVERY kind of renamed word: the middleware answers a bare word that is not an event from this ' +
+      "page's cached copy, so a renamed event's old word lands here and must forward as the bare root does",
   );
 });
 

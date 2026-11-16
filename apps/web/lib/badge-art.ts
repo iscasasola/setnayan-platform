@@ -12,9 +12,11 @@ export const RIM: Readonly<Record<string, readonly string[]>> = {
   bronze: ['#4E2A10', '#E8B088', '#8C4F22', '#D08C5A', '#4E2A10'],
   silver: ['#4F555C', '#F7F9FB', '#8E959C', '#DCE0E4', '#4F555C'],
   plat: ['#35404A', '#F4F8FA', '#8A98A4', '#D8E0E6', '#35404A'],
-  // Diamond has no corpus face — its rim is the shipped tier's own edge (`lib/badge-tiers.ts`, tier5).
+  // Diamond has no corpus face — its rim is the shipped tier's own edge (`lib/badge-tiers.ts`, tier6).
   diamond: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'],
   ruby: ['#4E0A16', '#F7B9C3', '#A0203A', '#DC607A', '#4E0A16'],
+  // Emerald (owner 2026-11-15) — the approved prototype's stone (`badge-milestones_v35.html`, ri12_gold stops).
+  emerald: ['#032A18', '#B8F5D4', '#0F8A4E', '#46D494', '#032A18'],
   black: ['#8E949A', '#FFFFFF', '#5C6269', '#F0F2F4', '#8E949A'],
 };
 
@@ -26,9 +28,9 @@ export const PAINT: Readonly<Record<BadgeFace, Paint>> = {
   month: { face: ['#AA2539', '#520A18'], ink: '#FBEFC4', hl: '#000000', rim: 'gold', foilInk: true },
   bronze: { face: ['#F9E8D8', '#D09A70'], ink: '#4A2810', hl: '#FFF3E6', rim: 'bronze' },
   silver: { face: ['#FBFCFD', '#C0C6CC'], ink: '#363C43', hl: '#FFFFFF', rim: 'silver' },
-  plat: { face: ['#F5F8FB', '#B2C0CB'], ink: '#1F2A33', hl: '#FFFFFF', rim: 'plat' },
   diamond: { face: ['#F3F8FC', '#A8D4EE'], ink: '#1F4E6B', hl: '#FFFFFF', rim: 'diamond' },
   ruby: { face: ['#CF3552', '#560817'], ink: '#FFE6EA', hl: '#2A0309', rim: 'ruby' },
+  emerald: { face: ['#14A35E', '#03301A'], ink: '#EAFFF4', hl: '#021A0F', rim: 'emerald' },
   black: { face: ['#3E4047', '#08080A'], ink: '#F4F6F8', hl: '#000000', rim: 'black' },
 };
 

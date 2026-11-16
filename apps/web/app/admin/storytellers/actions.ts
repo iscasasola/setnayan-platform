@@ -153,7 +153,7 @@ async function notifyCreatorChapterFeatured(
       type: 'showcase_featured',
       title: 'Your chapter is featured on Stories',
       body: `“${title}” is now featured in the From Our Storytellers shelf on Setnayan’s Stories page.`,
-      relatedUrl: '/realstories#storytellers',
+      relatedUrl: '/',
     });
   } catch (e) {
     console.error('[storytellers] creator featured notify failed:', e);
@@ -195,7 +195,6 @@ export async function setChapterFeatured(formData: FormData) {
     if (!gate.wasAlreadyFeatured) {
       await notifyCreatorChapterFeatured(gate.userId, gate.title);
     }
-    revalidatePath('/realstories');
     revalidatePath('/admin/studio');
     redirectBack('ok', `“${gate.title}” is now featured in From Our Storytellers.`, publicId);
   }
@@ -228,7 +227,6 @@ export async function setChapterFeatured(formData: FormData) {
     after_json: { public_id: publicId, showcase_featured_at: null, showcase_feature_rank: null },
     actor_user_id: user.id,
   });
-  revalidatePath('/realstories');
   revalidatePath('/admin/studio');
   redirectBack(
     'ok',
@@ -282,7 +280,6 @@ export async function setChapterRank(formData: FormData) {
     after_json: { public_id: publicId, showcase_feature_rank: rank },
     actor_user_id: user.id,
   });
-  revalidatePath('/realstories');
   revalidatePath('/admin/studio');
   const name = ((ch.title as string | null) ?? '').trim() || 'This chapter';
   redirectBack(

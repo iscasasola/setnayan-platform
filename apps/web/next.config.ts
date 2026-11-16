@@ -721,7 +721,7 @@ const nextConfig: NextConfig = {
   // files in public/ are served directly by Next.js; the rewrite is a
   // URL-only remap so a deep-link in marketing email or social card lands
   // on the right slide deck without a 404 + redirect dance.
-  // 2026-06-14 — Real Weddings showcase renamed `/weddings` → `/realstories`
+  // 2026-06-14 — Real Weddings showcase renamed /weddings → /realstories (retired 2026-11-16, see below)
   // (owner "rename it as /realstories"). 301-redirect the old paths so the
   // already-indexed `/weddings` URLs consolidate their ranking to the new path
   // and any in-flight nav links still pointing at `/weddings` (the nav PR #1391
@@ -784,8 +784,10 @@ const nextConfig: NextConfig = {
         a page nobody can have linked to.
       */
       { source: '/why-setnayan', destination: '/features', permanent: true },
-      { source: '/weddings', destination: '/realstories', permanent: true },
-      { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+      // 2026-11-16 — the stories hub is retired and forwards to Discover (owner, DECISION_LOG "RETIRED ADDRESSES
+      // FORWARD"), so the older /weddings address goes STRAIGHT there: one hop, never via the stories hub.
+      { source: '/weddings', destination: '/', permanent: true },
+      { source: '/weddings/:slug', destination: '/', permanent: true },
       // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`
       // (owner routing change). Permanent (308) so already-indexed URLs,
       // bookmarks, email links, and QR codes carry their ranking to the new
@@ -812,7 +814,8 @@ const nextConfig: NextConfig = {
       // (307) on purpose: the verdict's Phase S4 leaves room for a future
       // standalone page once chapter volume outgrows the shelf — a permanent
       // redirect would be cached against that promotion.
-      { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
+      // 2026-11-16 — the stories hub it pointed into is retired (forwards to Discover), so it goes straight there.
+      { source: '/storytellers', destination: '/', permanent: false },
       // 2026-07-25 — Live Studio route rename: the customer-facing surface moved
       // from `/studio/live-studio-roam` → `/studio/live-studio-control` (owner:
       // "one unified controller, not Cast-vs-Roam"). Redirect the old path (detail

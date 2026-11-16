@@ -63,10 +63,10 @@ test('a tapped green day lists the shop\'s services at once, the ones that can t
 });
 
 test('the printed QR address opens the shop with the sheet up, keeping the day, services, step and arrival', () => {
-  assert.equal(datesSheetHref('tita', {}), '/v/tita?dates=1');
+  assert.equal(datesSheetHref('tita', {}), '/tita?dates=1');
   assert.equal(
     datesSheetHref('tita', { d: '2026-11-22', s: 'a,b', step: 'event', src: 'own' }),
-    '/v/tita?src=own&dates=1&d=2026-11-22&s=a%2Cb&step=event',
+    '/tita?src=own&dates=1&d=2026-11-22&s=a%2Cb&step=event',
   );
-  assert.equal(datesSheetHref('tita', { d: 'not-a-day' }), '/v/tita?dates=1', 'a malformed day is dropped');
+  assert.equal(datesSheetHref('tita', { d: 'not-a-day' }), '/tita?dates=1', 'a malformed day is dropped');
 });

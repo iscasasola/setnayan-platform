@@ -69,7 +69,11 @@ function functionBodies(code: string): Map<string, string> {
  * declared STABLE (migration 20271327129110) — a counter, it writes nothing. A new rpc on this path must be added here
  * on purpose, with its volatility checked, or the guard goes red.
  */
-const READ_ONLY_RPCS = ['shop_booked_loop_count'];
+// + shop_trusted_five_star_count (2026-11-15): a STABLE SQL count, no write (migration a_shop_counts_its_five_star_reviews).
+// + shop_gift_points (2026-11-15, J0): a STABLE SQL sum, no write (migration 20271349129379_award_flow_gift_points_and_auto_claim).
+// ⛔ NOT shop_badge_rewards_auto_claim — that one WRITES claims and is called only from the grant sweep.
+// + shop_completed_bookings_count, shop_trusted_by_count (2026-11-16): STABLE SQL counts, no write (same migration).
+const READ_ONLY_RPCS = ['shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points', 'shop_completed_bookings_count', 'shop_trusted_by_count'];
 const WRITE = new RegExp(String.raw`\.(insert|update|upsert|delete)\s*\(|\bgrantOwed\w*\s*\(|\.rpc\(\s*(?!'(?:${READ_ONLY_RPCS.join('|')})')`);
 
 test('1 · the badge tracker, and every reader it reaches, never writes', () => {

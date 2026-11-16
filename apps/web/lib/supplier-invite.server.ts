@@ -3,6 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { cleanInviteSlug } from '@/lib/supplier-invite';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * 🤝 INVITE A SUPPLIER — the reads and the one sign-up write (owner 16 Nov 2026, "Invite a supplier v3 APPROVED").
@@ -53,6 +54,7 @@ export async function recordNewShopInvite(
     return 'failed';
   }
   const out = String(data ?? '');
+  if (out === 'joined') revalidateShopPage(inviter.vendorProfileId, inviter.slug);
   return out === 'joined' || out === 'already' || out === 'self' || out === 'no_shop' ? out : 'failed';
 }
 

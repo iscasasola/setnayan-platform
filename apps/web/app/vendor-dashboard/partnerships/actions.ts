@@ -162,7 +162,7 @@ async function respondToPartnership(
     .eq('id', partnershipId)
     .eq('recommended_vendor_id', vendorProfileId)
     .eq('status', 'proposed')
-    .select('id')
+    .select('id, recommending_vendor_id')
     .maybeSingle();
 
   if (error) back(error.message);
@@ -171,6 +171,9 @@ async function respondToPartnership(
   }
 
   revalidateShopPage(vendorProfileId);
+  // 🤝 Trusted by reads a tie from BOTH pages, and the adder's page already showed the pending add (v3): an answer
+  // changes the proposer's page too — Accept confirms it there, Decline takes it off.
+  revalidateShopPage((data as { recommending_vendor_id?: string | null }).recommending_vendor_id ?? null);
   revalidatePath(PANEL_PATH);
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect(`${PANEL_PATH}?${next === 'accepted' ? 'accepted' : 'declined'}=1`);

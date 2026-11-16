@@ -110,6 +110,7 @@ import {
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
 // ⚡ The heavy client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
 // each in its own chunk — server-rendered and preloaded where they are on screen, so this page paints as before, and
 // out of the picked client's first load (Details' Decisions renders this page).
@@ -157,7 +158,8 @@ import {
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { QuestionsSendPanel } from './_components/questions-send-panel';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
-import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
+import { QuickReplies, quickRepliesFor, ThreadAnswerLine, ThreadAskRow } from './_components/thread-answer-line';
+import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
@@ -1709,15 +1711,22 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   /* THE ANSWER LINE — the couple's initials, their date and the day's answer (`ThreadAnswerLine`). */
   const eventDay = event?.event_date ? String(event.event_date).slice(0, 10) : null;
-  const answerLine = (
+  /* 📅 CHAT-09 (DECISION_LOG 2026-11-16): the date and the day's word sit UNDER THE TITLE in the head — the separate row
+     ("TW · Mon, Nov 16 · ✓ Free") goes. Inside the picked client they go into the shell's head line (`PickedHeadLine`);
+     full screen, the head's own line already says the date, so only the word joins it. While their booking ask is open,
+     "They asked to book" keeps a slim row of its own in the band (`askRow`). */
+  const answerInHead = (showDate: boolean) => (
     <ThreadAnswerLine
       initials={railInitials}
       eventDay={eventDay}
       todayIso={todayIso}
       answer={dayAnswer}
-      askOpen={askOpen && toolsMounted}
+      askOpen={false}
+      compact
+      showDate={showDate}
     />
   );
+  const askRow = askOpen && toolsMounted ? <ThreadAskRow /> : null;
 
   /* QUICK REPLIES — offered only while the couple spoke last, so they never sit over a conversation the supplier
      already answered; "Yes po, that day is free" only on an open day (`quickRepliesFor`). */
@@ -1820,6 +1829,21 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     THE CHAT PAGE (THE ONE BUILD, v111/v113 · B1 step 7) — the SAME box, drawn inside the picked client: no
     conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
   */
+  /* Pending payment confirms + per-booking plan progress — a live client component so the vendor's payment cards update
+     in real time (Realtime on the couple-RLS payment tables, gated by the vendor-read policy in 20270315091571). The
+     server still computes the initial state above and passes it in.
+     💳 IN THE CHAT IT IS FOLDED (DECISION_LOG 2026-11-16 CHAT-09 — "the supplier chat gives the messages room"): one
+     44 px row that opens in place; "Payment ›" opens the picked client's Payment page. The customer card's Payment tab
+     mounts it unfolded. */
+  const paymentLive = (
+    <VendorPaymentLive
+      threadId={threadId}
+      eventId={thread.event_id}
+      initialPending={pendingPayments}
+      initialPlans={planProgress}
+      fold={{ paymentHref: customerCardHref(thread.event_id, 'payments') }}
+    />
+  );
   const chatBox = (
         <ChatBox
           // THE ONE BUILD · inside the picked client the client's pinned row IS the head (and the hosts strip sits
@@ -1853,6 +1877,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : dateOptions ? <span>{dateOptions}</span> : null}
+                  {answerInHead(false)}
                   {guestCountLine(guestCounts) ? (
                     <span className="text-terracotta-700">
                       Planning for {guestCountLine(guestCounts)}
@@ -1914,7 +1939,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   ) : null}
                 </p>
               ) : null}
-              {answerLine}
+              {embedded ? <PickedHeadLine>{answerInHead(true)}</PickedHeadLine> : null}
+              {askRow}
               {embedded ? null : <ChatPrivacyNotice inBox viewer="vendor" />}
             </>
           }
@@ -2067,17 +2093,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       })}
       </div>
 
-      {/* Pending payment confirms + per-booking plan progress — moved into a
-          live client component so the vendor's payment cards update in real
-          time (Realtime on the couple-RLS payment tables, gated by the
-          vendor-read policy in 20270315091571). The server still computes the
-          initial state above and passes it in. */}
-      <VendorPaymentLive
-        threadId={threadId}
-        eventId={thread.event_id}
-        initialPending={pendingPayments}
-        initialPlans={planProgress}
-      />
+      {/* 💳 Full screen, the folded plan row stays in this band (the `#pending-payments` deep links land here); inside
+          the picked client it sits under the who's-here strip instead (the stream's `planRow`, CHAT-09). */}
+      {embedded ? null : paymentLive}
 
             </div>
           }
@@ -2349,6 +2367,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               eventId: thread.event_id,
               returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,
             }}
+            // 💳 Inside the picked client the folded plan row sits under the who's-here strip (CHAT-09).
+            {...(embedded ? { planRow: paymentLive } : {})}
             // 📞 Inside the picked client the routed head is not drawn — its Call · Video call stand in the picked head row
             // (title · 📞 · 🎥 · 📎 · ⚙ · ✕, v8.3), and the privacy words sit behind the strip's ⓘ instead of a notice row.
             // (Kept LAST: its JSX value closes with `/>`, and the guards that read this tag walk to the first `>`.)

@@ -20,6 +20,7 @@ import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type Promo
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
 import { OwnLinkGift } from '../../../invite/_components/own-client-gift';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { ownGiftDataOf, type OwnGiftLine } from '@/lib/own-clients';
 import { fetchOwnLinkGift } from '@/lib/own-clients.server';
 
@@ -126,6 +127,7 @@ export async function PromoteBody({
         myPage={{ url: pageUrl, svg: pageSvg, shopName }}
         ownLinkGift={
           <OwnLinkGift
+            verified={await isMarketplaceVendorBookable(supabase, profile.vendor_profile_id).catch(() => false)}
             data={ownGiftDataOf((await giftsPromise) ?? (await loadShopGiftsSection(supabase, profile.vendor_profile_id)))}
             current={ownLinkCurrent(await fetchOwnLinkGift(supabase, profile.vendor_profile_id))}
           />

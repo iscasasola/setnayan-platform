@@ -33,6 +33,8 @@ import {
   OWN_LINK_EACH_LINE,
   OWN_LINK_EMPTY,
   OWN_LINK_NOT_SET,
+  GET_VERIFIED_HREF,
+  GET_VERIFIED_LINE,
   TOO_LITTLE_STOCK_LINE,
   anyPackPickable,
   defaultOwnGift,
@@ -169,9 +171,20 @@ function BuyList({ data, chosen, setChosen, empty }: { data: OwnGiftData; chosen
   );
 }
 
+/* ── 🪪 an unverified shop: the owner's line ("UNVERIFIED SHOPS DO GET THE QR") ────────────────────────────── */
+
+function GetVerified() {
+  return (
+    <Link href={GET_VERIFIED_HREF} className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-ink underline underline-offset-2" data-own-clients-get-verified="">
+      <ShieldCheck aria-hidden className="h-4 w-4 flex-none text-[var(--sn-gold-800)]" strokeWidth={1.75} />
+      {GET_VERIFIED_LINE}
+    </Link>
+  );
+}
+
 /* ── Customers › QR codes · Add a client ───────────────────────────────────────────────────────────────────────── */
 
-export function AddClientBlock({ data, bookedHref }: { data: OwnGiftData; bookedHref: string }) {
+export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftData; bookedHref: string; verified: boolean }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -371,6 +384,7 @@ export function AddClientBlock({ data, bookedHref }: { data: OwnGiftData; booked
           <InfoTip label={OWN_CLIENT_PROMISE_LINE} labelClassName="text-[13px] text-ink/70" align="start">
             {OWN_CLIENT_PROMISE_TIP}
           </InfoTip>
+          {verified ? null : <GetVerified />}
         </div>
       </div>
       {mounted ? createPortal(sheet, document.body) : null}
@@ -400,7 +414,7 @@ function Row({ k, v, ok = false }: { k: string; v: string; ok?: boolean }) {
 
 /* ── Shop › Promote › My page · Gift with your link ────────────────────────────────────────────────────────────── */
 
-export function OwnLinkGift({ data, current }: { data: OwnGiftData; current: { code: string; title: string } | null | 'unread' }) {
+export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; current: { code: string; title: string } | null | 'unread'; verified: boolean }) {
   const toast = useToast();
   const [state, formAction] = useActionState(saveOwnClient, IDLE);
   const handled = useRef<OwnClientActionState | null>(null);
@@ -419,6 +433,7 @@ export function OwnLinkGift({ data, current }: { data: OwnGiftData; current: { c
   return (
     <div className="mt-3.5 border-t border-ink/10 pt-1" data-own-link-gift={saved ? 'set' : 'unset'}>
       <GiftHead title={GIFT_WITH_YOUR_LINK} />
+      {verified ? null : <GetVerified />}
       {current === 'unread' || data.credits === null || data.packs === null ? (
         <p role="alert" className="mt-2 text-[13.5px] text-ink/70">
           Your link’s gift couldn’t be read just now — reload to try again. Nothing is lost.

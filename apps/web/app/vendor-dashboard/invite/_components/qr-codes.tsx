@@ -6,7 +6,6 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
 import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
-import { NOT_YOUR_OWN_CLIENT, NOT_YOUR_OWN_CLIENT_LINE, NOT_YOUR_OWN_CLIENT_TIP } from '@/lib/own-clients';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { QrCodeList, type QrRow } from './qr-code-list';
@@ -184,13 +183,6 @@ export function QrCodes({
                     filename="setnayan-shortlist-qr.svg"
                     data="shortlist"
                   />
-                </div>
-                {/* 🔖 Own clients v4 part 3 (owner 16 Nov, d7f4b97f): the Shortlist QR is not an import — said on it. */}
-                <div className="mt-3 border-t border-ink/10 pt-2.5" data-shortlist-not-own="">
-                  <InfoTip label={NOT_YOUR_OWN_CLIENT} labelClassName="text-[14px] font-semibold text-ink" align="start">
-                    {NOT_YOUR_OWN_CLIENT_TIP}
-                  </InfoTip>
-                  <p className="mt-0.5 text-[13px] text-ink/65">{NOT_YOUR_OWN_CLIENT_LINE}</p>
                 </div>
               </>
             ) : null,

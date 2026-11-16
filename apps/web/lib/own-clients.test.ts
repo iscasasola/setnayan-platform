@@ -114,9 +114,18 @@ test('the own link is own only with its gift — the inquiry door asks before it
 });
 
 test('an import is an own client only as the 2026-11-16 ruling says (new account · or first import on the event)', () => {
-  assert.equal(importIsOwnClient({ accountNew: true, eventNew: false, firstImport: false }), true, '(1) the import made the account');
-  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: true }), true, '(2) first import on a new event');
-  assert.equal(importIsOwnClient({ accountNew: false, eventNew: false, firstImport: true }), true, '(2, amended 9fe95ebe) first import on an event already on Setnayan');
-  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: false }), false, '(3) a second supplier pays');
-  assert.equal(importIsOwnClient({ accountNew: null, eventNew: null, firstImport: false }), false, 'unknown is never free');
+  assert.equal(importIsOwnClient({ accountNew: true, eventNew: false, firstImport: false }, true), true, '(1) the import made the account');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: true }, true), true, '(2) first import on a new event');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: false, firstImport: true }, true), true, '(2, amended 9fe95ebe) first import on an event already on Setnayan');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: false }, true), false, '(3) a second supplier pays');
+  assert.equal(importIsOwnClient({ accountNew: null, eventNew: null, firstImport: false }, true), false, 'unknown is never free');
+});
+
+test('🪪 an unverified shop keeps the QR, but its import is never free, and its screens say why', () => {
+  assert.equal(importIsOwnClient({ accountNew: true, eventNew: true, firstImport: true }, false), false, 'unverified: the flat fee, always');
+  const block = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/own-client-gift.tsx'), 'utf8');
+  assert.match(block, /GET_VERIFIED_LINE/);
+  assert.doesNotMatch(block, /OwnClientsLocked/, 'nothing is locked — the ruling was reversed the same day');
+  const action = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/own-client-actions.ts'), 'utf8');
+  assert.doesNotMatch(action, /OWN_CLIENTS_LOCKED/, 'an unverified shop may still add clients');
 });

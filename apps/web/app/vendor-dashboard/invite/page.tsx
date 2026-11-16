@@ -204,8 +204,13 @@ export default async function VendorQrCodesPage({
 
   // 🎁 OWN CLIENTS v4 (owner 16 Nov, drawing part 1): "Add a client" sits above Booked and Crew. Its gift step reads the
   // SAME gift read Shop › Promote's "Your gifts" makes, so the two can never disagree about the stock.
+  // 🪪 Unverified shops keep it too ("UNVERIFIED SHOPS DO GET THE QR") — with the owner's get-verified line.
   const addClient = (
-    <AddClientBlock data={ownGiftDataOf(await loadShopGiftsSection(supabase, vendorProfileId))} bookedHref={`${QR_HREF}?mode=locked&open=1`} />
+    <AddClientBlock
+      data={ownGiftDataOf(await loadShopGiftsSection(supabase, vendorProfileId))}
+      bookedHref={`${QR_HREF}?mode=locked&open=1`}
+      verified={await isMarketplaceVendorBookable(supabase, vendorProfileId).catch(() => false)}
+    />
   );
 
   if (mode === 'crew') {

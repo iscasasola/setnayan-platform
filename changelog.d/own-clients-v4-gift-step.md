@@ -32,3 +32,19 @@ asked by the sheet and by `importExternalClient`: a posted schedule wins; none p
 one; never an empty pool. The "+ Add" button's look is unchanged (the v4 drawing does not draw it).
 
 SPEC IMPACT: None.
+
+## 2026-11-16 · feat(own-clients): the import records its fee facts; verified shops only
+
+- Import-fee ruling (specs d4899cd5, amended 9fe95ebe): `own_client_gifts` records, once and by the server,
+  `account_new_by_import` · `event_new_by_import` · `first_import_on_event`. An Add-a-client join is marked the
+  shop's own client only when the import created the client's account, or the shop is the event's first imported
+  supplier (`importIsOwnClient`). Everyone else still gets the gift and pays the normal fee. The 12-month window and
+  every other fee arm are the booking-fee logic's (`booking_fee_attribution_for`), not this PR's.
+- Unverified shops (DECISION_LOG "UNVERIFIED SHOPS DO GET THE QR", which reverses the same-day 34909f12 lock): they keep
+  Add a client and the own link, their imports and own-link asks are never fee-free, and both screens carry the owner's
+  line "Get verified to qualify for free bookings from your QR."
+- The Shortlist QR "Not your own client" label is removed: the Shortlist QR now follows the first-supplier rule (specs
+  1abf35b). Moving its booking source is left to the booking-fee logic.
+- DB test `an-own-client-gift-is-given-once.db.test.ts` (6 tests, two sabotages measured red).
+
+SPEC IMPACT: None — implements the 16 Nov rulings as recorded.

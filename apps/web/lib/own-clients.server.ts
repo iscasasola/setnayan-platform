@@ -73,6 +73,14 @@ export async function fetchOwnLinkGift(client: SupabaseClient, vendorProfileId: 
  * an error never makes a fee-free client without a gift.
  */
 export async function ownLinkArrivalIsOwnClient(admin: SupabaseClient, vendorProfileId: string, eventId: string): Promise<boolean> {
+  // 🪪 "UNVERIFIED SHOPS DO GET THE QR" (owner 2026-11-16): an unverified shop's link still works, but every booking pays
+  // the flat 5% — never an own client. A refused read fails closed the same way.
+  const { data: shopRow, error: shopErr } = await admin
+    .from('vendor_profiles')
+    .select('verification_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (shopErr || (shopRow as { verification_state?: string } | null)?.verification_state !== 'verified') return false;
   const gift = await fetchOwnLinkGift(admin, vendorProfileId);
   if (gift === 'unread' || gift === null) {
     // A gift this event already got from this shop (an Add-a-client invite) still makes them an own client.

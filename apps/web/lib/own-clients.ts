@@ -56,10 +56,14 @@ export const OWN_LINK_COVERS = 'The same gift goes with My page, Check a date an
 export const OWN_LINK_EMPTY =
   'Your stock is empty. Your link still works, but a couple who joins now is not yet your own client — buy more gifts.';
 export const OWN_LINK_NOT_SET = 'Not set yet. Until it is, a couple who joins through your link is not your own client.';
-export const NOT_YOUR_OWN_CLIENT = 'Not your own client';
-export const NOT_YOUR_OWN_CLIENT_LINE = 'If they book, the normal booking fee applies.';
-export const NOT_YOUR_OWN_CLIENT_TIP =
-  'To make a couple your own client, with no booking fee, use Add a client or your own link. Both come with a gift.';
+/**
+ * 🪪 UNVERIFIED SHOPS DO GET THE QR (owner 2026-11-16, DECISION_LOG "UNVERIFIED SHOPS DO GET THE QR", amending
+ * 34909f12): an unverified shop keeps Add a client and its own link, and its couples can join and book — but every
+ * booking pays the flat 5% (no free import, no free year). Its screens carry the owner's line, verbatim.
+ */
+export const GET_VERIFIED_LINE = 'Get verified to qualify for free bookings from your QR.';
+export const GET_VERIFIED_HREF = '/vendor-dashboard/profile#docs';
+
 
 /** "1 from your stock is used when the couple joins" — counted in gifts, never credits. */
 export function usedWhenJoinsLine(lines: number): string {
@@ -263,7 +267,9 @@ export type ImportFacts = { accountNew: boolean | null; eventNew: boolean | null
  * Unknown is never free. ⚠ "An earlier Setnayan contact with this supplier makes it a Setnayan booking" is the fee
  * logic's arm (it reads the thread, saves and views), not decided here.
  */
-export function importIsOwnClient(f: ImportFacts): boolean {
+export function importIsOwnClient(f: ImportFacts, shopVerified: boolean): boolean {
+  // An unverified shop's import is never free ("UNVERIFIED SHOPS DO GET THE QR": every booking pays the flat 5%).
+  if (!shopVerified) return false;
   if (f.accountNew === true) return true;
   return f.firstImport === true;
 }

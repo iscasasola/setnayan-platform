@@ -13,7 +13,7 @@ import {
 } from '@/lib/spotlight-awards';
 import { formatCount } from '@/lib/format-number';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
-import { composeBadgeSocialPost } from '@/lib/social/badge-post';
+import { tellBadgesJustEarned } from '@/lib/badge-earned.server';
 
 /**
  * Setnayan HQ · Spotlight Awards server actions — the ONLY write path into
@@ -182,10 +182,9 @@ export async function addAwardManually(formData: FormData): Promise<void> {
     inspirationPhotos: null,
     awards: [{ type: awardType, periodMonth: period }],
   });
-  // 📣 Lane S (2026-11-10): the award just earned composes ONE post for Setnayan's own Page, after the response
-  // (lib/social/badge-post.ts — gated, compose-once, never throws).
-  const earnedKeys = sweep.grantedKeys ?? [];
-  if (earnedKeys.length > 0) after(() => composeBadgeSocialPost(vendorId, earnedKeys));
+  // 📣 Lane S (2026-11-10): the award just earned composes ONE post for Setnayan's own Page — and (owner
+  // 2026-11-15) the shop is told (`badge_earned` notice + email). After the response; never throws.
+  if ((sweep.grantedKeys ?? []).length > 0) after(() => tellBadgesJustEarned(admin, vendorId, sweep));
 
   revalidateSurfaces();
   revalidateShopPage(vendorId);

@@ -80,8 +80,9 @@ test('a tile finer than every plan group still gets a real scope', () => {
   );
   assert.deepEqual(
     withoutCanonicals,
-    ['editorial'],
-    'only `editorial` has no canonical services; a new empty tile needs a decision, not a silent empty sheet',
+    // T1 (owner, 7 Nov ⛔): Tarot / palmistry is hidden and its services with it — an emptied, hidden tile.
+    ['editorial', 'tarot_astrology_palmistry'],
+    'only `editorial` (and the hidden Tarot tile) has no canonical services; a new empty tile needs a decision, not a silent empty sheet',
   );
 });
 

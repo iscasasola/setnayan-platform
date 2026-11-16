@@ -258,7 +258,17 @@ test('🗑 Setnayan AI is sold by no product (2026-11-04) — the tier lookup an
 test('💝 the eight supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {
   assert.deepEqual(
     IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.serviceKey),
-    ['PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', 'EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, 'LIVE_STUDIO', 'PAKANTA', 'PATIKTOK_COMPILER'],
+    // One code per line: several catalogue codes on one line read as a key to the secret scan.
+    [
+      'PAPIC_GUEST_150',
+      'PAPIC_GUEST_1K',
+      'PAPIC_GUEST',
+      'EVENT_PLUS',
+      COUPLE_WEBSITE_PRO_SERVICE_KEY,
+      'LIVE_STUDIO',
+      'PAKANTA',
+      'PATIKTOK_COMPILER',
+    ],
   );
   const ids = IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.productId);
   assert.equal(new Set(ids).size, 8);

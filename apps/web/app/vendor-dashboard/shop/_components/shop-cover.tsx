@@ -373,7 +373,7 @@ export function ShopCover({
 /** The cover's equal-weight doors: one row, equal widths, a 40 px pill with an icon and a word (the house rule). */
 /** The quick row's tile (drawing `.qk`): centred, the frame's white with its lift, no line. */
 const QUICK_TILE =
-  'sn-press relative flex min-h-[96px] min-w-0 flex-col items-center gap-0.5 rounded-[18px] bg-[rgb(var(--sn-frame-bg))] px-1.5 pb-2.5 pt-3 text-center shadow-[var(--sn-frame-shadow-tile)]';
+  'sn-press relative flex min-h-[96px] min-w-0 flex-col items-center gap-0.5 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-1.5 pb-2.5 pt-3 text-center shadow-[var(--sn-frame-shadow-tile)]';
 
 /** The tile's 40 px icon square on the wash (drawing `.qi`), the icon in the link colour. */
 function QuickIcon({ icon: I }: { icon: LucideIcon }) {

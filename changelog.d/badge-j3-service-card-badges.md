@@ -29,3 +29,19 @@ Badge build J3 (owner-approved prototypes 15 Nov: `prototypes/supplier_badges_20
 - Guards: `lib/card-badges.test.ts` (8) · `tests/db/service-card-badges.db.test.ts` (5) — each red on its sabotage.
 
 SPEC IMPACT: None — implements the approved v86 design and rulings 7fbff0cd · 11d044c0. Known gaps are named in the PR body.
+
+## 2026-11-17 · fix(badges): J3 audit fixes — the render reads, the sweep settles
+
+- **A render never writes.** `readCardBadges` (the public `/v/[slug]` read) now only reads: the facts (STABLE) and
+  the open holds. The settle and the Today notice moved to `settleCardBadges`, called only from `sweepShopBadges` —
+  after() on a moved count and the daily backstop, which now also visits every shop holding a card badge and every
+  shop asked about recently. `the-shop-render-never-writes` test 4 holds it (broken on purpose: red).
+- **Verified Partner** is read from `readShopSeals` (J2), not hard-coded `false`; a failed seals read is a failed badge read.
+- **One key list:** the keys and names come from `CARD_MEDALS` (lib/public-badges.ts); the holds' CHECK and the
+  settle now use those keys (`hot_booking`, `quick_responder`, `trending_now`, `rave_reviews`, `generous_giver`).
+- **Main's award kit, filled:** the rules pop-up is `CardBadgeRules` (the branch's explainer is deleted); the Today
+  line is `cardCongratsTodayLine` and links to `CardBadgeCongrats` (opened on Today from `?card_badge=`), with v86's tags.
+- **The row is on the full card too** (`ServiceDetailsSheet` `cardBadgeRow` slot).
+- **Colours are tokens** (`--sn-cb-*` in globals.css, light + `html.dark`); no hex left in `card-badges-art.ts`.
+
+SPEC IMPACT: None — implements v86 / DECISION_LOG rows already logged.

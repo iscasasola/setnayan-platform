@@ -310,6 +310,12 @@ export function ServicesGallery({
           shopName={shopName}
           from={originRef.current}
           owner={ownerFor(openCard.id)}
+          // 🏅 The same J3 row the card's face draws, on the full card too (layout D on every card).
+          cardBadgeRow={
+            cardBadges?.kind === 'ok' && (cardBadges.byCard[openCard.id]?.length ?? 0) > 0 ? (
+              <CardBadgeRow badges={cardBadges.byCard[openCard.id]!} cardName={openCard.label} shopName={shopName} now={badgesNow} />
+            ) : null
+          }
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

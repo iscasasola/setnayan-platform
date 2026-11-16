@@ -220,25 +220,25 @@ test('4 · settle announces a badge ONCE, keeps a lost one on record, lets it be
       )
     ).rows;
 
-  const first = await settle([{ card: film, badge: 'book' }, { card: theirs, badge: 'book' }, { card: film, badge: 'nope' }]);
-  assert.deepEqual(first.map((r) => [r.badge, r.is_new]), [['book', true]], 'one new hold — the stranger card and the bad key ignored');
+  const first = await settle([{ card: film, badge: 'hot_booking' }, { card: theirs, badge: 'hot_booking' }, { card: film, badge: 'nope' }]);
+  assert.deepEqual(first.map((r) => [r.badge, r.is_new]), [['hot_booking', true]], 'one new hold — the stranger card and the bad key ignored');
 
-  const again = await settle([{ card: film, badge: 'book' }]);
-  assert.deepEqual(again.map((r) => [r.badge, r.is_new]), [['book', false]], 'never announced twice');
+  const again = await settle([{ card: film, badge: 'hot_booking' }]);
+  assert.deepEqual(again.map((r) => [r.badge, r.is_new]), [['hot_booking', false]], 'never announced twice');
   assert.equal(String(again[0]!.held_since), String(first[0]!.held_since), 'the held time keeps running');
 
   assert.deepEqual(await settle([]), [], 'stopped passing → the medal leaves the row');
   const kept = await db.query<{ held_since: string; lost_at: string | null }>(
-    `SELECT held_since, lost_at FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'book'`,
+    `SELECT held_since, lost_at FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'hot_booking'`,
     [film],
   );
   assert.equal(kept.rows.length, 1, 'its time held stays in the shop’s record');
   assert.ok(kept.rows[0]!.lost_at, '…closed, not erased');
 
-  const back = await settle([{ card: film, badge: 'book' }]);
+  const back = await settle([{ card: film, badge: 'hot_booking' }]);
   assert.equal(back.length, 1);
   assert.equal(back[0]!.is_new, true, 'the card can earn it again — and is congratulated again');
-  const spans = await db.query(`SELECT 1 FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'book'`, [film]);
+  const spans = await db.query(`SELECT 1 FROM public.service_card_badge_holds WHERE vendor_service_id = $1 AND badge = 'hot_booking'`, [film]);
   assert.equal(spans.rows.length, 2, 'the old span and the new one, both on record');
 
   const stranger = await db.query(`SELECT 1 FROM public.service_card_badge_holds WHERE vendor_service_id = $1`, [theirs]);

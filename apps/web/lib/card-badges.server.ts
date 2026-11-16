@@ -2,9 +2,12 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { cardCongratsTodayLine } from '@/app/_components/award/card-congrats-words';
 import {
   CARD_BADGES,
   CARD_BADGE_KEYS,
+  CARD_BADGE_TAGS,
+  cardBadgeCongratsHref,
   cardBadgeRow,
   parseShopBadgeFacts,
   passingCardBadges,
@@ -13,17 +16,21 @@ import {
 } from '@/lib/card-badges';
 
 /**
- * 🏅 THE SERVICE-CARD BADGES, READ FOR ONE SHOP (badge build J3).
+ * 🏅 THE SERVICE-CARD BADGES, FOR ONE SHOP (badge build J3).
  *
- * 1 · `service_card_badge_facts` — the raw 30-day numbers per card (service role: it reads other couples' events).
- * 2 · `passingCardBadges` — the ONE rule (lib/card-badges.ts).
- * 3 · `service_card_badge_settle` — remembers since when each badge has been held; a badge no longer passing is
- *     forgotten (its time starts again). It answers which holds are NEW for exactly one caller, and that caller sends
- *     the shop the Today congratulations (`card_badge_earned`) — once per earning, however many pages open at once.
+ * TWO doors, and only one of them writes:
  *
- * ⚠ THE CHECK RUNS WHEN THE SHOP'S PAGE IS SHOWN, NOT ON A CLOCK. What a viewer sees is always computed from the last
- * 30 days at that moment, so a medal is never shown after it stopped passing. What is NOT continuous: the held time
- * resets only when a page is drawn while the badge fails — a gap nobody saw does not reset it. Named in the PR.
+ *   readCardBadges(...)    the PUBLIC render (`/v/[slug]`). READ-ONLY: `service_card_badge_facts` (the raw 30-day
+ *                          numbers) → `passingCardBadges` (the ONE rule) → the open holds, read for their `held_since`.
+ *                          A medal shows only while it passes NOW; its time comes from the open hold, or the name alone
+ *                          when no hold is open yet. 🔒 A render never writes — no settle, no notice, on any view.
+ *   settleCardBadges(...)  the WRITE path, run from `sweepShopBadges` (lib/badge-earned.server.ts) — i.e. from after()
+ *                          on the moments a count moves (booking delivered/complete, a review, a gift) and from the daily
+ *                          backstop `maybeRunBadgeRewardSweep`, which also visits every shop holding a card badge and
+ *                          every shop asked about recently, so each card is checked every day. It calls
+ *                          `service_card_badge_settle` (closes what stopped passing — its time starts again — opens
+ *                          what newly passes) and sends the shop ONE Today line per new hold:
+ *                          "Congratulations, your [card] service card earned [badge]" → the congratulations.
  *
  * Fails CLOSED and SAYS SO: a refused or malformed read is `{ kind: 'unreadable' }` — never an empty row that reads as
  * "this card has no badges".
@@ -33,40 +40,38 @@ export async function readCardBadges(
   args: {
     vendorProfileId: string;
     shopVerified: boolean;
-    /** The shop holds the Verified Partner seal — its cards' 6th medal reads "Verified Partner · for life". */
+    /** The shop holds the Verified Partner seal (`readShopSeals`) — its cards' 6th medal reads "Verified Partner · for life". */
     verifiedPartner: boolean;
   },
 ): Promise<CardBadgesRead> {
-  const { data, error } = await admin.rpc('service_card_badge_facts', { p_vendor_profile_id: args.vendorProfileId });
-  if (error) {
-    logQueryError('readCardBadges.facts', error, { vendorProfileId: args.vendorProfileId }, 'graceful_degrade');
+  const [factsRes, holdsRes] = await Promise.all([
+    admin.rpc('service_card_badge_facts', { p_vendor_profile_id: args.vendorProfileId }),
+    admin
+      .from('service_card_badge_holds')
+      .select('vendor_service_id, badge, held_since')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .is('lost_at', null),
+  ]);
+  if (factsRes.error) {
+    logQueryError('readCardBadges.facts', factsRes.error, { vendorProfileId: args.vendorProfileId }, 'graceful_degrade');
     return { kind: 'unreadable' };
   }
-  const facts = parseShopBadgeFacts(data);
+  if (holdsRes.error || !Array.isArray(holdsRes.data)) {
+    if (holdsRes.error) logQueryError('readCardBadges.holds', holdsRes.error, { vendorProfileId: args.vendorProfileId }, 'graceful_degrade');
+    return { kind: 'unreadable' };
+  }
+  const facts = parseShopBadgeFacts(factsRes.data);
   if (!facts) {
     console.error('[readCardBadges] facts unreadable or malformed', { vendorProfileId: args.vendorProfileId });
     return { kind: 'unreadable' };
   }
 
-  const now = Date.now();
-  const passing = facts.cards.flatMap((c) =>
-    passingCardBadges(c, facts.good_standing, now).map((badge) => ({ card: c.id, badge })),
-  );
-
-  const { data: held, error: settleError } = await admin.rpc('service_card_badge_settle', {
-    p_vendor_profile_id: args.vendorProfileId,
-    p_passing: passing,
-  });
-  if (settleError || !Array.isArray(held)) {
-    if (settleError) logQueryError('readCardBadges.settle', settleError, { vendorProfileId: args.vendorProfileId }, 'graceful_degrade');
-    return { kind: 'unreadable' };
+  const sinceOf = new Map<string, string>();
+  for (const h of holdsRes.data as Array<{ vendor_service_id: string; badge: string; held_since: string }>) {
+    sinceOf.set(`${h.vendor_service_id}.${h.badge}`, h.held_since);
   }
 
-  type Hold = { vendor_service_id: string; badge: string; held_since: string; is_new: boolean };
-  const holds = (held as Hold[]).filter((h): h is Hold & { badge: EarnedCardBadgeKey } =>
-    (CARD_BADGE_KEYS as readonly string[]).includes(h.badge),
-  );
-
+  const now = Date.now();
   const verified = {
     on: args.shopVerified && facts.good_standing,
     since: facts.verified_since,
@@ -75,19 +80,50 @@ export async function readCardBadges(
   const byCard: Record<string, ReturnType<typeof cardBadgeRow>> = {};
   for (const c of facts.cards) {
     if (!c.published) continue;
+    const passing = passingCardBadges(c, facts.good_standing, now);
     byCard[c.id] = cardBadgeRow(
-      holds.filter((h) => h.vendor_service_id === c.id),
+      passing.map((badge) => ({ badge, held_since: sinceOf.get(`${c.id}.${badge}`) ?? null })),
       verified,
     );
   }
-
-  const fresh = holds.filter((h) => h.is_new);
-  if (fresh.length > 0) await announce(admin, args.vendorProfileId, fresh);
-
   return { kind: 'ok', byCard };
 }
 
-/** "Your Wedding Film card earned Hot Booking" — one notice per new badge, to the shop's owner, on Today. */
+/**
+ * The write path (service role): work out what passes now, settle the holds, tell the shop about each NEW one. Called
+ * only from the sweep (`sweepShopBadges`) — never from a render. Answers how many holds were newly opened; null when a
+ * read or the settle failed (nothing is told then — the next sweep settles it).
+ */
+export async function settleCardBadges(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  const { data, error } = await admin.rpc('service_card_badge_facts', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    logQueryError('settleCardBadges.facts', error, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const facts = parseShopBadgeFacts(data);
+  if (!facts) return null;
+
+  const now = Date.now();
+  const passing = facts.cards.flatMap((c) =>
+    passingCardBadges(c, facts.good_standing, now).map((badge) => ({ card: c.id, badge })),
+  );
+  const { data: held, error: settleError } = await admin.rpc('service_card_badge_settle', {
+    p_vendor_profile_id: vendorProfileId,
+    p_passing: passing,
+  });
+  if (settleError || !Array.isArray(held)) {
+    if (settleError) logQueryError('settleCardBadges.settle', settleError, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  type Hold = { vendor_service_id: string; badge: string; is_new: boolean };
+  const fresh = (held as Hold[]).filter(
+    (h): h is Hold & { badge: EarnedCardBadgeKey } => h.is_new && (CARD_BADGE_KEYS as readonly string[]).includes(h.badge),
+  );
+  if (fresh.length > 0) await announce(admin, vendorProfileId, fresh);
+  return fresh.length;
+}
+
+/** "Congratulations, your Wedding Film service card earned Hot Booking" — one Today line per new hold, to the owner. */
 async function announce(
   admin: SupabaseClient,
   vendorProfileId: string,
@@ -102,22 +138,60 @@ async function announce(
   ]);
   const userId = (shop as { user_id?: string | null } | null)?.user_id ?? null;
   if (shopError || !userId) {
-    if (shopError) logQueryError('readCardBadges.announce.shop', shopError, { vendorProfileId }, 'graceful_degrade');
+    if (shopError) logQueryError('settleCardBadges.announce.shop', shopError, { vendorProfileId }, 'graceful_degrade');
     return;
   }
-  if (cardsError) logQueryError('readCardBadges.announce.cards', cardsError, { vendorProfileId }, 'graceful_degrade');
+  if (cardsError) {
+    // No card names = no line: the words name the card, and a nameless line is not the drawing's.
+    logQueryError('settleCardBadges.announce.cards', cardsError, { vendorProfileId }, 'graceful_degrade');
+    return;
+  }
   const titleOf = new Map(
     ((cards ?? []) as Array<{ vendor_service_id: string; title: string | null }>).map((c) => [c.vendor_service_id, c.title]),
   );
   for (const f of fresh) {
-    const badge = CARD_BADGES[f.badge];
     const title = titleOf.get(f.vendor_service_id)?.trim();
+    if (!title) continue;
+    const badge = CARD_BADGES[f.badge];
     await emitNotification({
       userId,
       type: 'card_badge_earned',
-      title: title ? `Your “${title}” card earned ${badge.name}` : `One of your cards earned ${badge.name}`,
+      title: cardCongratsTodayLine(title, badge.name),
       body: badge.rule,
-      relatedUrl: '/vendor-dashboard',
+      relatedUrl: cardBadgeCongratsHref(f.vendor_service_id, f.badge),
     });
   }
+}
+
+/** What the congratulations draws for one link — only for a card of THIS shop that holds that badge now. */
+export type CardBadgeCongratsRead = { cardName: string; badge: EarnedCardBadgeKey; name: string; tag: string; rule: string };
+export async function readCardBadgeCongrats(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  link: { vendorServiceId: string; badge: EarnedCardBadgeKey },
+): Promise<CardBadgeCongratsRead | null> {
+  const [{ data: hold, error: holdError }, { data: card, error: cardError }] = await Promise.all([
+    admin
+      .from('service_card_badge_holds')
+      .select('hold_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('vendor_service_id', link.vendorServiceId)
+      .eq('badge', link.badge)
+      .is('lost_at', null)
+      .maybeSingle(),
+    admin
+      .from('vendor_services')
+      .select('title')
+      .eq('vendor_service_id', link.vendorServiceId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+  ]);
+  if (holdError || cardError) {
+    logQueryError('readCardBadgeCongrats', (holdError ?? cardError)!, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const cardName = (card as { title?: string | null } | null)?.title?.trim();
+  if (!hold || !cardName) return null;
+  const def = CARD_BADGES[link.badge];
+  return { cardName, badge: link.badge, name: def.name, tag: CARD_BADGE_TAGS[link.badge], rule: def.rule };
 }

@@ -12,26 +12,30 @@ export function CardBadgeMedal({ badge, size, on = false }: { badge: CardBadgeKe
       className="card-badge-medal grid shrink-0 place-items-center rounded-full not-italic"
       style={{ width: size, height: size, background: art.fill }}
     >
-      <svg
-        viewBox="0 0 24 24"
-        width={Math.round(size * 0.6)}
-        height={Math.round(size * 0.6)}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-white"
-        aria-hidden
-      >
-        {art.icon.map((p, i) =>
-          'd' in p ? (
-            <path key={i} d={p.d} />
-          ) : (
-            <rect key={i} x={p.rect[0]} y={p.rect[1]} width={p.rect[2]} height={p.rect[3]} rx={p.rect[4]} />
-          ),
-        )}
-      </svg>
+      <CardBadgeIcon badge={badge} size={Math.round(size * 0.6)} className="text-white" />
     </i>
+  );
+}
+
+/** The badge's icon alone (v86 `awIcon`), drawn in currentColor — the medal's, and the rules / congratulations' icon. */
+export function CardBadgeIcon({ badge, size, className }: { badge: CardBadgeKey; size: number; className?: string }) {
+  const art = CARD_BADGE_ART[badge];
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      {art.icon.map((p, i) =>
+        'd' in p ? <path key={i} d={p.d} /> : <rect key={i} x={p.rect[0]} y={p.rect[1]} width={p.rect[2]} height={p.rect[3]} rx={p.rect[4]} />,
+      )}
+    </svg>
   );
 }

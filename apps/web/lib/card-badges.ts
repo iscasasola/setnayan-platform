@@ -11,51 +11,60 @@
  *
  * The database gathers the raw numbers (`service_card_badge_facts`); THIS module decides. Pure — no I/O — so the
  * thresholds are tested here and nowhere else holds a second copy.
+ *
+ * 🔑 THE KEYS AND NAMES ARE `CARD_MEDALS` (lib/public-badges.ts — the ONE adapter every public surface reads badges
+ * through). Nothing here re-lists them: the order, the keys and the names come from there; this adds the rules.
  */
+import { CARD_MEDALS, type CardMedalKey } from './public-badges';
 
-export const CARD_BADGE_KEYS = ['book', 'quick', 'trend', 'rave', 'gift'] as const;
-export type EarnedCardBadgeKey = (typeof CARD_BADGE_KEYS)[number];
+/** The five a CARD earns (Setnayan Verified is the shop's) — `CARD_MEDALS` minus Verified, in its order. */
+export type EarnedCardBadgeKey = Exclude<CardMedalKey, 'verified'>;
+export const CARD_BADGE_KEYS: readonly EarnedCardBadgeKey[] = CARD_MEDALS.map((m) => m.key).filter(
+  (k): k is EarnedCardBadgeKey => k !== 'verified',
+);
 /** `partner` is the shop's Verified Partner seal, drawn in Verified's slot IN PLACE of it (DECISION_LOG 11d044c0). */
-export type CardBadgeKey = EarnedCardBadgeKey | 'verified' | 'partner';
+export type CardBadgeKey = CardMedalKey | 'partner';
 
 /**
  * The display order — and the QUEUE order of the rotating label and award pop-ups (owner, DECISION_LOG 7fbff0cd): the
  * row's order, Setnayan Verified (or Verified Partner in its place) always last. Never sorted by anything else.
  */
-export const CARD_BADGE_ORDER: readonly Exclude<CardBadgeKey, 'partner'>[] = ['book', 'quick', 'trend', 'rave', 'gift', 'verified'];
+export const CARD_BADGE_ORDER: readonly CardMedalKey[] = CARD_MEDALS.map((m) => m.key);
 
 export type CardBadgeDef = { key: CardBadgeKey; name: string; rule: string };
 
-/** The names and rules, word for word from v86 (`AW` · `VBo`). */
+const medalName = (key: CardMedalKey): string => CARD_MEDALS.find((m) => m.key === key)!.name;
+
+/** The rules, word for word from v86 (`AW` · `VBo`); the names are `CARD_MEDALS`'. */
 export const CARD_BADGES: Record<CardBadgeKey, CardBadgeDef> = {
-  book: {
-    key: 'book',
-    name: 'Hot Booking',
+  hot_booking: {
+    key: 'hot_booking',
+    name: medalName('hot_booking'),
     rule: 'At least 5 paid bookings of this one service card in the last 30 days, from 5 different couples. Bookings of the shop’s other cards do not add up; a cancelled or refunded booking stops counting.',
   },
-  quick: {
-    key: 'quick',
-    name: 'Quick Responder',
+  quick_responder: {
+    key: 'quick_responder',
+    name: medalName('quick_responder'),
     rule: 'Every inquiry answered within 1 hour, at least 10 inquiries in the last 30 days. The clock runs 7am to 7pm Manila time, every day: an inquiry after 7pm is timed from 7am. Only the shop’s own reply counts, not an automatic one; an inquiry the couple withdraws before the hour is skipped.',
   },
-  trend: {
-    key: 'trend',
-    name: 'Trending Now',
+  trending_now: {
+    key: 'trending_now',
+    name: medalName('trending_now'),
     rule: 'At least 30 inquiries from different couples in the last 30 days, and at least 10 more than in the 30 days before.',
   },
-  rave: {
-    key: 'rave',
-    name: 'Rave Reviews',
+  rave_reviews: {
+    key: 'rave_reviews',
+    name: medalName('rave_reviews'),
     rule: 'At least 5 five-star reviews in the last 30 days, at most 2 counted from any one event, and no review under 4 stars in that time. Only reviews from completed bookings count.',
   },
-  gift: {
-    key: 'gift',
-    name: 'Generous Giver',
+  generous_giver: {
+    key: 'generous_giver',
+    name: medalName('generous_giver'),
     rule: 'Every paid booking of this card in the last 30 days received a gift from the shop, with at least 5 bookings. One booking without a gift and it comes off.',
   },
   verified: {
     key: 'verified',
-    name: 'Setnayan Verified',
+    name: medalName('verified'),
     rule: 'Setnayan checked the owner, the business papers and the work. A real business stands behind this name. It belongs to the shop, so every one of its cards shows it.',
   },
   partner: {
@@ -65,16 +74,45 @@ export const CARD_BADGES: Record<CardBadgeKey, CardBadgeDef> = {
   },
 };
 
+/**
+ * The short tag the congratulations draws in its pill under the words — v86 `AW[].mini`, word for word. Only the five a
+ * card earns: Setnayan Verified / Verified Partner are the shop's and have no card congratulations.
+ */
+export const CARD_BADGE_TAGS: Record<EarnedCardBadgeKey, string> = {
+  hot_booking: 'HOT BOOKING',
+  quick_responder: 'QUICK REPLY',
+  trending_now: 'TRENDING',
+  rave_reviews: 'RAVE REVIEWS',
+  generous_giver: 'GENEROUS',
+};
+
+/** The Today line's link: the shop's Today with the one card badge to congratulate (`cardBadgeCongratsParam`). */
+export const CARD_BADGE_CONGRATS_PARAM = 'card_badge';
+export function cardBadgeCongratsHref(vendorServiceId: string, badge: EarnedCardBadgeKey): string {
+  return `/vendor-dashboard?${CARD_BADGE_CONGRATS_PARAM}=${encodeURIComponent(`${vendorServiceId}.${badge}`)}`;
+}
+/** Read the link back; anything that is not one card id and one earned key is no congratulations. */
+export function parseCardBadgeCongratsParam(raw: string | null | undefined): { vendorServiceId: string; badge: EarnedCardBadgeKey } | null {
+  if (!raw) return null;
+  const dot = raw.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const vendorServiceId = raw.slice(0, dot);
+  const badge = raw.slice(dot + 1);
+  if (!/^[0-9a-f-]{36}$/i.test(vendorServiceId)) return null;
+  if (!(CARD_BADGE_KEYS as readonly string[]).includes(badge)) return null;
+  return { vendorServiceId, badge: badge as EarnedCardBadgeKey };
+}
+
 /** The words a held time is replaced with on a Verified Partner medal — it is kept for life (DECISION_LOG 11d044c0). */
 export const PARTNER_HELD_WORDS = 'for life';
 
 /** The thresholds, named — the guard reads these, the rules above say them in words. */
 export const CARD_BADGE_THRESHOLDS = {
-  book: { bookings: 5, couples: 5 },
-  quick: { inquiries: 10, minutes: 60 },
-  trend: { couples: 30, more: 10 },
-  rave: { fiveStars: 5, perEvent: 2, floorStars: 4 },
-  gift: { bookings: 5 },
+  hot_booking: { bookings: 5, couples: 5 },
+  quick_responder: { inquiries: 10, minutes: 60 },
+  trending_now: { couples: 30, more: 10 },
+  rave_reviews: { fiveStars: 5, perEvent: 2, floorStars: 4 },
+  generous_giver: { bookings: 5 },
 } as const;
 
 /** One inquiry about a card: when it was raised, the shop's first own reply after it, and whether it was withdrawn. */
@@ -128,7 +166,7 @@ export function inquiryVerdict(q: CardInquiry, nowMs: number): 'on_time' | 'late
   if (q.withdrawn) return 'skipped';
   const asked = Date.parse(q.asked_at);
   if (!Number.isFinite(asked)) return 'late';
-  const limit = CARD_BADGE_THRESHOLDS.quick.minutes;
+  const limit = CARD_BADGE_THRESHOLDS.quick_responder.minutes;
   if (q.replied_at) {
     const replied = Date.parse(q.replied_at);
     return Number.isFinite(replied) && clockMinutesBetween(asked, replied) <= limit ? 'on_time' : 'late';
@@ -141,15 +179,15 @@ export function passingCardBadges(card: CardBadgeFacts, goodStanding: boolean, n
   if (!card.published || !goodStanding) return [];
   const t = CARD_BADGE_THRESHOLDS;
   const out: EarnedCardBadgeKey[] = [];
-  if (card.paid_bookings >= t.book.bookings && card.paid_couples >= t.book.couples) out.push('book');
+  if (card.paid_bookings >= t.hot_booking.bookings && card.paid_couples >= t.hot_booking.couples) out.push('hot_booking');
 
   const verdicts = card.inquiries.map((q) => inquiryVerdict(q, nowMs));
   const counted = verdicts.filter((v) => v === 'on_time' || v === 'late');
-  if (counted.length >= t.quick.inquiries && counted.every((v) => v === 'on_time')) out.push('quick');
+  if (counted.length >= t.quick_responder.inquiries && counted.every((v) => v === 'on_time')) out.push('quick_responder');
 
-  if (card.couples_now >= t.trend.couples && card.couples_now - card.couples_before >= t.trend.more) out.push('trend');
-  if (card.five_star_capped >= t.rave.fiveStars && card.under_four === 0) out.push('rave');
-  if (card.paid_bookings >= t.gift.bookings && card.paid_with_gift === card.paid_bookings) out.push('gift');
+  if (card.couples_now >= t.trending_now.couples && card.couples_now - card.couples_before >= t.trending_now.more) out.push('trending_now');
+  if (card.five_star_capped >= t.rave_reviews.fiveStars && card.under_four === 0) out.push('rave_reviews');
+  if (card.paid_bookings >= t.generous_giver.bookings && card.paid_with_gift === card.paid_bookings) out.push('generous_giver');
   return out;
 }
 
@@ -178,7 +216,7 @@ export type CardBadgeView = { key: CardBadgeKey; since: string | null };
 
 /** The card's row, in display order, Verified last when the shop is verified. */
 export function cardBadgeRow(
-  holds: ReadonlyArray<{ badge: EarnedCardBadgeKey; held_since: string }>,
+  holds: ReadonlyArray<{ badge: EarnedCardBadgeKey; held_since: string | null }>,
   verified: { on: boolean; since: string | null; partner?: boolean },
 ): CardBadgeView[] {
   const byKey = new Map(holds.map((h) => [h.badge, h.held_since]));
@@ -193,6 +231,14 @@ export function cardBadgeRow(
     }
   }
   return row;
+}
+
+/** The rules pop-up's held line (`CardBadgeRules` `held`): "Held 4 mos · since 15 Jul 2026", "Held for life", or ''. */
+export function heldLine(b: CardBadgeView, nowMs: number): string {
+  if (b.key === 'partner') return `Held ${PARTNER_HELD_WORDS}`;
+  const t = b.since ? Date.parse(b.since) : NaN;
+  if (!Number.isFinite(t)) return '';
+  return `Held ${heldWords((nowMs - t) / DAY_MS)} · since ${sinceWords(b.since!)}`;
 }
 
 /** "Hot Booking · 4 mos" — or the name alone when the start is unknown. */

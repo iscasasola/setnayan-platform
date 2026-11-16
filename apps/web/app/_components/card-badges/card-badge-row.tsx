@@ -7,16 +7,17 @@
  * lifts with a gold rim and the label changes to that badge's name and time held, in that badge's colour. A card with
  * one badge shows its medal and its name · time, still. Reduced motion: nothing turns — the first badge stays named.
  *
- * The whole row is ONE button (44 px tall) that opens the rules explainer pop-up drawn in v86 (its `cbDlg` dialog), loaded on
- * the first tap so a page of cards carries no pop-up until somebody asks.
+ * The whole row is ONE button (44 px tall) that opens the rules pop-up drawn in v86 (`#cbDlg`) — main's award-kit shell
+ * `CardBadgeRules`, filled here from J3's data (names, held time, rules, colours, icons). It is loaded and mounted on the
+ * tap, so a page of cards carries no pop-up until somebody asks, and it unmounts when closed.
  */
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { CARD_BADGE_ART, CARD_BADGE_RIM } from '@/lib/card-badges-art';
-import { badgeLabel, CARD_BADGES, type CardBadgeView } from '@/lib/card-badges';
-import { CardBadgeMedal } from './card-badge-medal';
+import { badgeLabel, CARD_BADGES, heldLine, type CardBadgeView } from '@/lib/card-badges';
+import { CardBadgeIcon, CardBadgeMedal } from './card-badge-medal';
 
-const CardBadgesExplainer = dynamic(() => import('./card-badges-explainer').then((m) => m.CardBadgesExplainer), {
+const CardBadgeRules = dynamic(() => import('@/app/_components/award/card-badge-rules').then((m) => m.CardBadgeRules), {
   ssr: false,
 });
 
@@ -37,7 +38,6 @@ export function CardBadgeRow({
 }) {
   const [on, setOn] = useState(0);
   const [open, setOpen] = useState(false);
-  const [asked, setAsked] = useState(false);
   const n = badges.length;
 
   useEffect(() => {
@@ -57,10 +57,7 @@ export function CardBadgeRow({
         data-card-badge-row=""
         aria-haspopup="dialog"
         aria-label={`${cardName}: ${names}. Show what these badges mean`}
-        onClick={() => {
-          setAsked(true);
-          setOpen(true);
-        }}
+        onClick={() => setOpen(true)}
         className="relative flex min-h-[44px] w-full items-center gap-1.5 rounded-xl px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <span className="flex shrink-0 items-center" aria-hidden>
@@ -83,24 +80,28 @@ export function CardBadgeRow({
             <span
               key={b.key}
               data-card-badge-label={b.key}
-              className={`card-badge-label truncate text-[var(--bl)] [grid-area:1/1] dark:text-[var(--bld)] transition-opacity duration-300 motion-reduce:transition-none ${
+              className={`card-badge-label truncate [grid-area:1/1] transition-opacity duration-300 motion-reduce:transition-none ${
                 i === on ? 'opacity-100' : 'opacity-0'
               }`}
-              style={{ ['--bl' as string]: CARD_BADGE_ART[b.key].ink, ['--bld' as string]: CARD_BADGE_ART[b.key].inkDark }}
+              style={{ color: CARD_BADGE_ART[b.key].ink }}
             >
               {badgeLabel(b, now)}
             </span>
           ))}
         </span>
       </button>
-      {asked ? (
-        <CardBadgesExplainer
-          open={open}
+      {open ? (
+        <CardBadgeRules
+          cardLine={shopName ? `${cardName} · ${shopName}` : cardName}
+          badges={badges.map((b) => ({
+            key: b.key,
+            name: CARD_BADGES[b.key].name,
+            held: heldLine(b, now),
+            rule: CARD_BADGES[b.key].rule,
+            color: CARD_BADGE_ART[b.key].fill,
+            icon: <CardBadgeIcon badge={b.key} size={16} />,
+          }))}
           onClose={() => setOpen(false)}
-          badges={badges}
-          cardName={cardName}
-          shopName={shopName}
-          now={now}
         />
       ) : null}
     </>

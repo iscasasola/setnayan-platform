@@ -1,11 +1,10 @@
 /**
  * 🎨 THE CARD-BADGE MEDALS — colours and icons, copied from the approved design (v86 `AW` · `VBo`), never redrawn.
- * Kept in `lib/` because a medal's colour IS data (the same reason `lib/service-icon-art.ts` holds hex): the app's
- * raw-hex guard reads `.tsx` screens, and a medal's fill is not a screen colour choice.
  *
- * `ink` / `inkDark` are the LABEL colours (the design names each badge "in that badge's colour"). The medal fills are
- * the design's own; the label inks are the nearest tone of the same hue that reads at 4.5:1 on the card's paper in
- * light and dark — held by `card-badges.test.ts`, which measures them.
+ * The COLOURS are tokens in `app/globals.css` ("THE SERVICE-CARD BADGE MEDALS", `--sn-cb-*`, light + `html.dark`):
+ * this file only names them. `fill` is the medal; `ink` is the label "in that badge's colour", a token that already
+ * switches in dark. The ICONS are drawing data (24×24 strokes), so a screen draws them with real elements.
+ * 🔒 `card-badges.test.ts` § 7 measures each ink at 4.5:1 on the card, reading the values from globals.css.
  */
 import type { CardBadgeKey } from './card-badges';
 
@@ -13,67 +12,55 @@ import type { CardBadgeKey } from './card-badges';
 export type CardBadgeIconPart = { d: string } | { rect: readonly [number, number, number, number, number] };
 
 export type CardBadgeArt = {
-  /** The medal fill (v86 `ac`). */
+  /** The medal fill (v86 `ac`) — a `var(--sn-cb-*-fill)` token. */
   fill: string;
-  /** The label, light theme (≥ 4.5:1 on paper). */
+  /** The label colour — a `var(--sn-cb-*-ink)` token (≥ 4.5:1 on the card, light and dark). */
   ink: string;
-  /** The label, dark theme (≥ 4.5:1 on the dark card). */
-  inkDark: string;
   /** The icon, a 24×24 stroke drawing (v86 `ic`) — as data, so a screen draws it with real elements, never HTML text. */
   icon: ReadonlyArray<CardBadgeIconPart>;
 };
 
 export const CARD_BADGE_ART: Record<CardBadgeKey, CardBadgeArt> = {
-  book: {
-    fill: '#2F8F5B',
-    ink: '#1F6E43',
-    inkDark: '#4FB37A',
+  hot_booking: {
+    fill: 'var(--sn-cb-hot-booking-fill)',
+    ink: 'var(--sn-cb-hot-booking-ink)',
     icon: [{ rect: [3.5, 5, 17, 15, 2.5] }, { d: 'M3.5 10h17M8 3v4M16 3v4' }, { d: 'm8.6 14.6 2.3 2.2 4.6-4.6' }],
   },
-  quick: {
-    fill: '#2C5FC8',
-    ink: '#2C5FC8',
-    inkDark: '#7FA3E8',
+  quick_responder: {
+    fill: 'var(--sn-cb-quick-responder-fill)',
+    ink: 'var(--sn-cb-quick-responder-ink)',
     icon: [{ d: 'M13 2.5 5 13.5h6l-1 8 8-11h-6z' }],
   },
-  trend: {
-    fill: '#D9561E',
-    ink: '#B7330E',
-    inkDark: '#FF9A4D',
+  trending_now: {
+    fill: 'var(--sn-cb-trending-now-fill)',
+    ink: 'var(--sn-cb-trending-now-ink)',
     icon: [{ d: 'M12 21c-4 0-6.5-2.6-6.5-6 0-3 2-5.2 3.5-6.8.3 1.7 1.2 2.8 2.3 3.2C11 8 12.3 5 15 3c-.3 3 1.2 4.6 2.4 6.2 1 1.4 1.6 2.8 1.6 4.8 0 4-3 7-7 7z' }],
   },
-  rave: {
-    fill: '#B8871F',
-    ink: '#8A6410',
-    inkDark: '#FFE08A',
+  rave_reviews: {
+    fill: 'var(--sn-cb-rave-reviews-fill)',
+    ink: 'var(--sn-cb-rave-reviews-ink)',
     icon: [{ d: 'm12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.4l6.1-.8z' }],
   },
-  gift: {
-    fill: '#B03A78',
-    ink: '#B03A78',
-    inkDark: '#E07AB0',
+  generous_giver: {
+    fill: 'var(--sn-cb-generous-giver-fill)',
+    ink: 'var(--sn-cb-generous-giver-ink)',
     icon: [{ rect: [3.5, 9, 17, 11.5, 1.5] }, { d: 'M2.5 9h19v-3h-19zM12 6v14.5M12 6c-1.5-3-5.5-3.5-5.5-1S10 6 12 6zm0 0c1.5-3 5.5-3.5 5.5-1S14 6 12 6z' }],
   },
   verified: {
-    fill: '#1F4CBA',
-    ink: '#1F4CBA',
-    inkDark: '#8AB6FF',
+    fill: 'var(--sn-cb-verified-fill)',
+    ink: 'var(--sn-cb-verified-ink)',
     icon: [{ d: 'm5.5 12.5 4 4 9-9' }],
   },
-  // The Partner seal's dark gold (v86 seal "partner": its rim runs to #4a3208); the check, as it takes Verified's place.
   partner: {
-    fill: '#7A4E08',
-    ink: '#7A4E08',
-    inkDark: '#FFE27A',
+    fill: 'var(--sn-cb-partner-fill)',
+    ink: 'var(--sn-cb-partner-ink)',
     icon: [{ d: 'm5.5 12.5 4 4 9-9' }],
   },
 };
 
-/** The paper the label sits on, for the contrast check (ServiceFace `--m-paper`, light and dark). */
-export const CARD_PAPER = { light: ['#FFFFFF', '#F4F2EC'], dark: ['#232019', '#2C2820'] } as const;
 
 /** The medal's ring: the lifted one wears the design's gold rim (v86 `.awc i.on`); the rest a thin paper ring. */
 export const CARD_BADGE_RIM = {
-  on: '0 0 0 1.6px #e2be6e, 0 0 0 2.4px #6b4a10, 0 3px 5px rgba(0,0,0,.3)',
+  on: '0 0 0 1.6px var(--sn-cb-rim-gold), 0 0 0 2.4px var(--sn-cb-rim-edge), 0 3px 5px rgba(0,0,0,.3)',
   off: '0 0 0 1.5px var(--m-paper)',
 } as const;

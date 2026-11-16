@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.service_card_badge_holds (
   hold_id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   vendor_service_id UUID NOT NULL REFERENCES public.vendor_services (vendor_service_id) ON DELETE CASCADE,
   vendor_profile_id UUID NOT NULL REFERENCES public.vendor_profiles (vendor_profile_id) ON DELETE CASCADE,
-  badge             TEXT NOT NULL CHECK (badge IN ('book', 'quick', 'trend', 'rave', 'gift')),
+  badge             TEXT NOT NULL CHECK (badge IN ('hot_booking', 'quick_responder', 'trending_now', 'rave_reviews', 'generous_giver')),
   held_since        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- NULL while held. Set the moment the card stops qualifying: the span stays in the shop's record.
   lost_at           TIMESTAMPTZ,
@@ -229,7 +229,7 @@ BEGIN
     JOIN public.vendor_services vs
       ON vs.vendor_service_id = (x->>'card')::UUID
      AND vs.vendor_profile_id = p_vendor_profile_id
-   WHERE x->>'badge' IN ('book', 'quick', 'trend', 'rave', 'gift');
+   WHERE x->>'badge' IN ('hot_booking', 'quick_responder', 'trending_now', 'rave_reviews', 'generous_giver');
 
   -- Off the moment it is not true: the open span is CLOSED, never deleted — its time stays in the shop's record.
   UPDATE public.service_card_badge_holds h

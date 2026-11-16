@@ -245,6 +245,7 @@ import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { readCardBadges } from '@/lib/card-badges.server';
+import { readShopSeals } from '@/lib/shop-seals.server';
 import type { CardBadgesRead } from '@/lib/card-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
@@ -1157,13 +1158,19 @@ export async function renderVendorBySlug({
   /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
      blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
   const cardBadgesP = startRead(
-    readCardBadges(admin, {
-      vendorProfileId: vendor.vendor_profile_id,
-      shopVerified: vendor.verification_state === 'verified',
-      /* ⏳ The Verified Partner seal is badge build J2's and is stored nowhere yet — no shop holds it today. When J2
-         records the award, its read goes here; the card already draws "Verified Partner · for life" in Verified's slot. */
-      verifiedPartner: false,
-    }).catch((err: unknown): CardBadgesRead => {
+    (async (): Promise<CardBadgesRead> => {
+      const shopVerified = vendor.verification_state === 'verified';
+      /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
+         medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
+         never a quiet "not a partner". */
+      const shopSeals = await readShopSeals(vendor.vendor_profile_id, shopVerified);
+      if (!shopSeals) return { kind: 'unreadable' };
+      return readCardBadges(admin, {
+        vendorProfileId: vendor.vendor_profile_id,
+        shopVerified,
+        verifiedPartner: shopSeals.seals.includes('verified_partner'),
+      });
+    })().catch((err: unknown): CardBadgesRead => {
       console.error('[renderVendorBySlug] card badges unreadable', err);
       return { kind: 'unreadable' };
     }),

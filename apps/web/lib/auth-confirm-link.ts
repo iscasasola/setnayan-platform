@@ -88,3 +88,55 @@ export function buildConfirmUrl(params: {
   });
   return `${base}/auth/confirm?${q.toString()}`;
 }
+
+/**
+ * W1-B24 (walk 2, 16 Nov 2026) — THE SIGN-UP CONFIRMATION LINK, ON ANY DEVICE.
+ *
+ * A supplier signed up on a laptop and opened the confirmation mail on a phone. The "Confirm signup" template used
+ * `{{ .ConfirmationURL }}` — GoTrue's own verify, which SPENDS the token and then hands a PKCE `?code=` to
+ * /auth/callback, whose verifier cookie lives only on the laptop. The first open failed, the one-time token was gone,
+ * and the second open said "expired". The template now links here instead (`token_hash`, `type=email`), with
+ * `next={{ .RedirectTo | urlquery }}` — and `.RedirectTo` is the `emailRedirectTo` the sign-up passed, an ABSOLUTE
+ * `…/auth/callback?next=/x`. This unwraps it to `/x`; anything else is taken as a path. The caller still runs
+ * `safeNext` on the result, so the host inside the absolute URL is never trusted.
+ */
+export function confirmNextFrom(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!/^https?:\/\//i.test(s)) return s;
+  try {
+    const u = new URL(s);
+    return u.pathname === '/auth/callback' ? u.searchParams.get('next') : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The landing a dead link (expired, already used, or opened away from the PKCE browser) is sent to. */
+export const LINK_EXPIRED_PARAM = 'link';
+export const LINK_EXPIRED_VALUE = 'expired';
+
+/**
+ * Is this auth error a link that can no longer finish — expired, already spent, or a PKCE code opened in another
+ * browser? Those all get the same plain words and a "Send a new link" button, never the SDK's text.
+ */
+export function isDeadLinkError(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  return /code verifier|pkce|otp[_ ]expired|token has expired|invalid or has expired|expired or is invalid|already been used|flow state/i.test(raw);
+}
+
+/** `/login?link=expired` (+ `next`), the one landing for a dead link. */
+export function deadLinkLanding(next: string): string {
+  const q = new URLSearchParams({ [LINK_EXPIRED_PARAM]: LINK_EXPIRED_VALUE });
+  if (next && next !== '/') q.set('next', next);
+  return `/login?${q.toString()}`;
+}
+
+/** The sign-in card's words for a dead link — plain, and naming the one control that fixes it. */
+export const DEAD_LINK_WORDS = {
+  line: 'That link has expired or was already used. Send yourself a new one — it opens on any device.',
+  button: 'Send a new link',
+  pending: 'Sending…',
+  sent: 'Sent. Open the newest email from Setnayan — its link works on your phone or your computer.',
+  needEmail: 'Type the email you signed up with.',
+} as const;

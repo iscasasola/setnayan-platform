@@ -693,7 +693,7 @@ export function OpenShopWizard({
       // form owns are written back.
       write('contact_email', d.email);
       write('contact_position', d.position);
-      write('contact_name', d.name);
+      write('contact_name', d.name ?? '');
       return;
     }
     if (d.shopName) setShopName(d.shopName);

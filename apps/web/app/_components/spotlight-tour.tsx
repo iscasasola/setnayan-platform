@@ -202,13 +202,17 @@ const HAND =
   'M9 11V5.5a1.5 1.5 0 0 1 3 0V10l.5-.1a1.5 1.5 0 0 1 2 1.2l.1.4a1.5 1.5 0 0 1 2.4.9V13a1.4 1.4 0 0 1 2.5.9v2.6c0 3-2.4 5.5-5.4 5.5h-1.4a5.5 5.5 0 0 1-4.6-2.5L5.4 15a1.4 1.4 0 0 1 2.2-1.8L9 14.6';
 
 /* The sample's own CSS, scoped to `.sn-spot-*`. Colours come from the --m-* family so the tip
-   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both. */
+   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both.
+   🧱 THE CARD IS SOLID (walker W1-B14, 16 Nov 2026: "the tour card is see-through over text"): its fill is ONE
+   token, `--sn-spot-card` = the opaque paper (#FFFFFF light · #232019 dark), never a glass or scrim token, and it
+   takes no backdrop blur — the words under it never show through. 🔒 lib/the-supplier-tour-plays-once.test.ts */
 const CSS_TEXT = `
+[data-sn-spot]{--sn-spot-card:var(--m-paper,#fff)}
 .sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px var(--sn-scrim);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--sn-spot-card);-webkit-backdrop-filter:none;backdrop-filter:none;isolation:isolate;color:var(--m-ink);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-brand{margin-bottom:8px}

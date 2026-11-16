@@ -74,7 +74,11 @@ const SHOP_PAGE = 'app/v/[slug]/page.tsx';
 // ── § 1 · the cached route reads nothing from the request ────────────────────────────────────────────────────────
 
 /** Request reads the copy's tree reaches that are NOT behind `onTheCachedHub()`, with the reason they never run there. */
-const NEVER_ON_THE_CACHED_SHOP: Record<string, string> = {};
+const NEVER_ON_THE_CACHED_SHOP: Record<string, string> = {
+  // W1-B15: who is opening the page, read for the view count. The shop page calls it only inside `if (!cachedCopy)`
+  // (pinned by §4); the cached copy counts its opens through the beacon's server action instead.
+  'lib/shop-view-context.ts :: readShopViewContext': 'called by the live render only (`if (!cachedCopy)`) and by the view action',
+};
 
 const REQUEST_READ = /\bcookies\(\)|\bheaders\(\)|\bdraftMode\(\)|\bconnection\(\)|\bunstable_noStore\(|\bnoStore\(\)|\bcache:\s*['"]no-store['"]|\brevalidate:\s*0\b/g;
 
@@ -301,7 +305,8 @@ test('§3 · the route’s own address is refused from outside, and the rewrite 
 
 test('§4 · the live render counts with after(); a cached copy counts each open with the beacon', () => {
   const page = code(SHOP_PAGE);
-  assert.match(page, /if \(!cachedCopy\) \{\s*after\(\(\) =>\s*recordVendorProfileView\(/, 'the live render keeps its after() count');
+  // W1-B15: who is looking is read BEFORE after() — Next refuses request reads inside a render's after().
+  assert.match(page, /if \(!cachedCopy\) \{\s*const viewCtx = await readShopViewContext\(\);\s*after\(\(\) =>\s*recordShopViewWith\(/, 'the live render keeps its after() count');
   assert.match(page, /const countViewInBrowser = cachedCopy && !isDemoVendor && teamPreview === null;/);
   assert.match(page, /\{countViewInBrowser \? <ShopViewBeacon vendorProfileId=\{vendor\.vendor_profile_id\} \/> : null\}/);
   const beacon = code('app/v/[slug]/_components/shop-view-beacon.tsx');

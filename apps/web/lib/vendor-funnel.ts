@@ -86,6 +86,57 @@ export function minNOk(count: number | null | undefined, floor = FUNNEL_MIN_N): 
   return (count ?? 0) >= Math.max(floor, 1);
 }
 
+/**
+ * 👁 "COUPLES WHO OPENED YOUR PAGE" IS PEOPLE, NOT ROWS (walker W1-B15, 16 Nov 2026 · `lib/shop-view-count.ts`).
+ * Distinct visitors among the rows of a window. A row with no hash (written before the hash was kept) counts once. */
+export function countDistinctViewers(rows: ReadonlyArray<{ viewer_hash: string | null }>): number {
+  const seen = new Set<string>();
+  let unhashed = 0;
+  for (const r of rows) {
+    if (r.viewer_hash) seen.add(r.viewer_hash);
+    else unhashed += 1;
+  }
+  return seen.size + unhashed;
+}
+
+/** Rows per page, and a hard stop so a runaway window can never loop for ever (100k opens of one shop). */
+export const VIEW_PAGE = 1000;
+const MAX_PAGES = 100;
+
+/** The read shape — any postgrest-js client (RLS or service role). */
+export type ViewsClient = {
+  from: (table: string) => {
+    select: (cols: string) => any;
+  };
+};
+
+/**
+ * The couples who opened this shop's page since `sinceIso` — distinct visitors, never rows. `count: null` with the
+ * error when a page of the read was refused (a refusal is never a zero).
+ */
+export async function readCouplesWhoOpened(
+  client: ViewsClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<{ count: number | null; error: { message: string } | null }> {
+  const rows: { viewer_hash: string | null }[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * VIEW_PAGE;
+    const { data, error } = await client
+      .from('vendor_profile_views')
+      .select('view_id, viewer_hash')
+      .eq('vendor_profile_id', vendorProfileId)
+      .gte('viewed_at', sinceIso)
+      .order('view_id', { ascending: true })
+      .range(from, from + VIEW_PAGE - 1);
+    if (error) return { count: null, error: { message: String(error.message ?? error) } };
+    if (!Array.isArray(data)) return { count: null, error: { message: 'The views read returned no rows.' } };
+    rows.push(...(data as { viewer_hash: string | null }[]));
+    if (data.length < VIEW_PAGE) return { count: countDistinctViewers(rows), error: null };
+  }
+  return { count: countDistinctViewers(rows), error: null };
+}
+
 /** One funnel stage — a labeled count. */
 export type FunnelStep = {
   label: string;
@@ -137,11 +188,8 @@ export async function fetchVendorFunnelTotalsResult(
   error: { message: string } | null;
 }> {
   const [viewsRes, inquiriesRes, quotesRes, bookedRes] = await Promise.all([
-    client
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfileId)
-      .gte('viewed_at', sinceIso),
+    // 👁 Distinct visitors, never rows — the same phone opening the page five times is one couple (W1-B15).
+    readCouplesWhoOpened(client, vendorProfileId, sinceIso),
     client
       .from('chat_threads')
       .select('thread_id', { count: 'exact', head: true })

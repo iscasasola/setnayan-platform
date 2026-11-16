@@ -266,6 +266,8 @@ type Props = {
     utm_campaign?: string;
     utm?: string;
     src?: string;
+    /** 🏷 The material tag (`lib/material-tags.ts`) — which printed piece, sticker or link brought this visit. */
+    via?: string;
     // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
     // Server-validated in startServiceInquiry before any attribution stamp.
     ref_chapter?: string;
@@ -1788,7 +1790,9 @@ export async function renderVendorBySlug({
 
   /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
-  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId, q: arrivalParams(search).q, from: arrivalParams(search).from };
+  const arrivalTags = arrivalParams(search);
+  // 🏷 `via` + `utm` ride along too (owner 2026-11-16), so every inner door keeps the piece that brought the visit.
+  const shopArrival = { src: arrivalTags.src, eventId: arrivalEventId, q: arrivalTags.q, from: arrivalTags.from, via: arrivalTags.via, utm: arrivalTags.utm };
   const shopBack = shopBackDoor(shopArrival);
   /*
     💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
@@ -1840,6 +1844,9 @@ export async function renderVendorBySlug({
   // them"; walk F-W1-58). Every link the supplier hands out carries `?src=own` (`ownPageUrl`) → 'website', their own
   // client, an import. An arrival with NO tag found the shop on Setnayan → 'shop_page', SOURCED. It used to be null,
   // which is an import: a booking made wholly in the app read "This client did not come from Setnayan".
+  // 🖨💳 The plan half of the rule (only Ultra's PRINTS are own, owner 2026-11-16) is judged where the money is decided:
+  // `startServiceInquiry` re-runs `arrivalInquirySourceOf` with the piece (`inquiryVia`) and the shop's plan read at
+  // that moment. Here, without the plan, the address alone says what the 13 Nov rule says.
   const arrivalInquirySource = arrivalInquirySourceOf(search.src);
   const arrivalChapter =
     typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
@@ -2229,6 +2236,7 @@ export async function renderVendorBySlug({
           vendorProfileId: viewVendorProfileId,
           source: viewSource,
           utm: utmParam,
+          via: shopArrival.via,
           eventId: viewEventId,
         }),
       );
@@ -3396,6 +3404,7 @@ export async function renderVendorBySlug({
                     <input type="hidden" name="requested_date" value={waitlistDate} />
                     {/* Where this visit came from, so the page the join returns to keeps its back door. */}
                     {shopArrival.src ? <input type="hidden" name="src" value={shopArrival.src} /> : null}
+                    {shopArrival.via ? <input type="hidden" name="via" value={shopArrival.via} /> : null}
                     {shopArrival.eventId ? <input type="hidden" name="event" value={shopArrival.eventId} /> : null}
                     <SubmitButton
                       pendingLabel="Joining…"
@@ -3416,6 +3425,8 @@ export async function renderVendorBySlug({
               signedIn={viewerSignedIn}
               events={inquireEvents}
               inquirySource={arrivalInquirySource}
+              inquiryVia={shopArrival.via}
+              inquiryUtm={shopArrival.utm}
               referringChapterPublicId={arrivalChapter}
             />
           ) : null}
@@ -3493,7 +3504,7 @@ export async function renderVendorBySlug({
             slug={vendor.business_slug ?? slug}
             logoUrl={logoDisplayUrl}
             shopHref={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival)}
-            search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
+            search={{ d: search.d, s: search.s, step: search.step, src: search.src, via: shopArrival.via, utm: shopArrival.utm }}
           />
         </Suspense>
       ) : null}

@@ -574,7 +574,7 @@ export default async function VendorOverviewPage({
     if (details) {
       // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
       // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
-      const qrUrl = details.slug ? ownPageUrl(siteOrigin(), details.slug) : null; // 💳 the supplier's own code: ?src=own
+      const qrUrl = details.slug ? ownPageUrl(siteOrigin(), details.slug, 'link') : null; // 💳 the supplier's own code: ?src=own · 🏷 via=link (on screen)
       const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
       setup = (
         <SupplierSetupScreen

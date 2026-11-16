@@ -47,11 +47,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const member = piece.id === 'card' && sp.get('who') === 'me' ? printMemberFrom('Juan dela Cruz', long ? 'Head chef' : null) : null;
   if (all) {
     // Save all — the same seven files the real route zips (`/api/vendor/prints?piece=all`).
-    const qrAll = printQr(printQrMode(sp.get('qr')), origin, slug);
-    const zip = await zipFiles(PRINT_PIECES.map((p) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: full, qr: qrAll, for: 'print', hide: printHidden(sp.get('hide')) }) })));
+    const qrMode = printQrMode(sp.get('qr'));
+    const zip = await zipFiles(PRINT_PIECES.map((p) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: full, qr: printQr(qrMode, origin, slug, p.id), for: 'print', hide: printHidden(sp.get('hide')) }) })));
     return new NextResponse(new Uint8Array(zip), { headers: { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${printAllFilename(design)}"` } });
   }
-  const svg = renderPrint({ piece, design, shop: full, qr: printQr(printQrMode(sp.get('qr')), origin, slug), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
+  const svg = renderPrint({ piece, design, shop: full, qr: printQr(printQrMode(sp.get('qr')), origin, slug, piece.id), side: sp.get('side') === 'b' ? 'b' : 'f', for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
   return new NextResponse(svg, {
     headers: { 'content-type': 'image/svg+xml; charset=utf-8', ...(save ? { 'content-disposition': `attachment; filename="${printFilename(piece, design, member?.name)}"` } : {}) },
   });

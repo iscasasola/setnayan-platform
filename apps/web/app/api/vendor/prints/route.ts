@@ -67,10 +67,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       kindLabel,
       origin,
     });
-    const qr = printQr(printQrMode(sp.get('qr')), origin, slug);
+    const qrMode = printQrMode(sp.get('qr'));
     const hide = printHidden(sp.get('hide'));
+    // 🏷 Each piece's code names that piece (`?via=card`, `?via=tarp`, …) — one zip, seven different tags.
     const zip = await zipFiles(
-      PRINT_PIECES.map((p, i) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: { ...base, ...extras[i]! }, qr, for: 'print', hide }) })),
+      PRINT_PIECES.map((p, i) => ({ name: printFilename(p, design), body: renderPrint({ piece: p, design, shop: { ...base, ...extras[i]! }, qr: printQr(qrMode, origin, slug, p.id), for: 'print', hide }) })),
     );
     return new NextResponse(new Uint8Array(zip), {
       status: 200,
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }),
     ...extras,
   };
-  const svg = renderPrint({ piece, design, shop, qr: printQr(mode, origin, slug), side, for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
+  const svg = renderPrint({ piece, design, shop, qr: printQr(mode, origin, slug, piece.id), side, for: save ? 'print' : 'screen', hide: printHidden(sp.get('hide')), member });
   return new NextResponse(svg, {
     status: 200,
     headers: {

@@ -93,9 +93,9 @@ export async function PromoteBody({
     const selectedEt = search.et && eventTypes.some((t) => t.key === search.et) ? search.et : null;
     const shortUrl = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
     // 💳 The "My page" code is the supplier's own: ?src=own (owner 2026-11-13, F-W1-58) — its couples are theirs, no fee.
-    const pageUrl = ownPageUrl(origin, slug!);
+    const pageUrl = ownPageUrl(origin, slug!, 'link'); // 🏷 an on-screen code / copied link: via=link
     pageLink = pageUrl;
-    const reviewsUrl = printQrUrl('reviews', origin, slug!);
+    const reviewsUrl = printQrUrl('reviews', origin, slug!, 'link'); // 🏷 on screen, not printed: via=link
     const [dates, shortSvg, pageSvg, reviewsSvg] = await Promise.all([
       checkADateQr(slug!),
       renderUrlQrSvg(shortUrl, 220).catch(() => null),

@@ -596,7 +596,7 @@ async function ShopHome({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
-  const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug) : null; // 💳 shared BY the supplier: ?src=own
+  const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug, 'link') : null; // 💳 shared BY the supplier: ?src=own · 🏷 via=link
   const cover: CoverData = {
     name: data.businessName,
     initials: data.initials,

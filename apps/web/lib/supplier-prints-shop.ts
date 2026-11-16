@@ -7,6 +7,7 @@ import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
 import { yearsInBusiness } from '@/lib/vendor-experience';
 import type { PrintMember, PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
 import type { PrintQrMode } from '@/lib/supplier-prints';
+import type { MaterialVia, PrintVia } from '@/lib/material-tags';
 
 /**
  * 🖨 THE FACTS A PRINT CARRIES — every one READ, never typed (prototype "Your facts": "These come from your shop — change
@@ -89,14 +90,22 @@ export function printMemberFrom(displayName: string | null | undefined, teamLabe
   return { name, role: role || null };
 }
 
-/** The address the printed code opens — the shop's real one, from the helpers its Promote codes already use. */
-export function printQrUrl(mode: PrintQrMode, origin: string, slug: string): string {
+/**
+ * The address the printed code opens — the shop's real one, from the helpers its Promote codes already use.
+ *
+ * 🏷 `via` names the piece the code is printed on (owner 2026-11-16, "EVERY MATERIAL … CARRIES ITS OWN TAG"): the
+ * print's own id (`card` · `standee` · … — `PRINT_PIECES`), so a scan says which piece brought the couple, and — on a
+ * plan below Ultra — makes that scan Setnayan-sourced (`arrivalInquirySourceOf`). The same four codes drawn ON SCREEN
+ * pass `link`. ⚠ The Shortlist code opens the invite door (`/vendor-invite/<slug>`), not the shop page; nothing there
+ * reads a tag yet, so it is left unmarked rather than carrying a value nothing records.
+ */
+export function printQrUrl(mode: PrintQrMode, origin: string, slug: string, via: MaterialVia): string {
   if (mode === 'shortlist') return buildVendorInviteUrl(slug, { eventType: null, category: null });
-  if (mode === 'page') return ownPageUrl(origin, slug); // 💳 a printed code is the supplier's own: ?src=own
-  if (mode === 'reviews') return ownReviewsUrl(origin, slug); // 💳 RW-19: ?src=own
-  return ownDatesUrl(origin, slug); // 💳 RW-19: ?src=own
+  if (mode === 'page') return ownPageUrl(origin, slug, via); // 💳 a printed code is the supplier's own: ?src=own
+  if (mode === 'reviews') return ownReviewsUrl(origin, slug, via); // 💳 RW-19: ?src=own
+  return ownDatesUrl(origin, slug, via); // 💳 RW-19: ?src=own
 }
 
-export function printQr(mode: PrintQrMode, origin: string, slug: string): PrintQr {
-  return { mode, url: printQrUrl(mode, origin, slug) };
+export function printQr(mode: PrintQrMode, origin: string, slug: string, piece: PrintVia): PrintQr {
+  return { mode, url: printQrUrl(mode, origin, slug, piece) };
 }

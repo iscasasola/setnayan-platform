@@ -1,4 +1,5 @@
 import type { VendorDay } from '@/lib/vendor-day-picker';
+import { isPrintVia, materialViaOf, withVia, type MaterialVia } from '@/lib/material-tags';
 
 /**
  * 🔳 THE SHOP'S QR CODES — the choices of the "Which code ▾" dropdown. Since 2026-11-05 the list is split between two
@@ -86,27 +87,56 @@ export function myPageUrl(origin: string, slug: string): string {
  * supplier's QR, door sticker, print or share link is stamped `website` — their own client, no booking fee — while an
  * untagged arrival (somebody who found the shop on Setnayan) is `shop_page`, Setnayan-sourced. Every code or link the
  * SUPPLIER distributes is built here; a page Setnayan itself links to uses `myPageUrl`.
+ *
+ * 🏷 AND THE PIECE (owner 2026-11-16, DECISION_LOG "EVERY MATERIAL A SHOP HANDS OUT CARRIES ITS OWN TAG"): every own
+ * address also names the material it is on — `?src=own&via=card` (`lib/material-tags.ts`). `via` is REQUIRED here so
+ * no new code or link can be built without saying which piece it is.
  */
 export const OWN_LINK_SRC = 'own';
-export function ownPageUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`;
+export function ownPageUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`, via);
 }
 /** 💳 RW-19 (walk 13 Nov 2026): the supplier's own "Check a date" code — `/v/<slug>/dates`, tagged as theirs. */
-export function ownDatesUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`;
+export function ownDatesUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`, via);
 }
 /** 💳 RW-19: the supplier's own "Reviews" code — `/v/<slug>/review`, tagged as theirs (the door keeps the tag). */
-export function ownReviewsUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`;
+export function ownReviewsUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`, via);
+}
+
+/**
+ * 📸 THE PHOTO MARK'S QR (owner 2026-11-16, DECISION_LOG "THE QR ON A SHOP'S PHOTOS IS SETNAYAN'S"; verbatim *"The qr
+ * codes on photos will have the no tag. Because this is from setnayan"*): the PLAIN page — NO `src=own`, so a couple who
+ * scans it and books pays the booking fee and the booking counts for badges — named `via=photo` for the stats only.
+ * Built here for the photo-mark QR when it is drawn; never `ownPageUrl`.
+ */
+export function photoMarkPageUrl(origin: string, slug: string): string {
+  return withVia(myPageUrl(origin, slug), 'photo');
 }
 
 /**
  * 💳 THE ONE RULE for what an arrival on the shop (or its Check-a-date page) is stamped when it asks (owner 2026-11-13,
  * walk F-W1-58 · RW-19): `?src=own` — the supplier's own code or link — is 'website', their own client; a Setnayan
  * surface's tag is that surface; NO tag found the shop on Setnayan → 'shop_page', sourced.
+ *
+ * 🖨💳 EXCEPT A PRINT ON A PLAN BELOW ULTRA (owner 2026-11-16, DECISION_LOG "PRINTS OPEN TO EVERY SUPPLIER PLAN — BUT
+ * ONLY SUPPLIER ULTRA'S PRINTS ARE THE SHOP'S OWN"): an own code whose `via` is a PRINTED piece (`isPrintVia`) is the
+ * shop's own ONLY while the shop is on Ultra AT THE TIME OF THE INQUIRY (`shopOnUltraNow`) — a printed `?src=own` cannot
+ * be recalled, so a shop that drops from Ultra keeps its prints and its scans pay the fee. On any lower plan the scan
+ * is 'shop_page', Setnayan-sourced. `shopOnUltra` defaults to false: a caller that has not read the plan gets the fee,
+ * never a waiver. The door sticker, the shared link and the on-screen codes are not prints (that question is OPEN for
+ * the owner in the same row) and keep the 13 Nov rule.
+ *
+ * The shop page calls this for what it hands the sheet; `startServiceInquiry` calls it AGAIN with the plan read from
+ * the database before anything is stamped — the server's answer is the one that is kept.
  */
-export function arrivalInquirySourceOf(src: unknown): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
-  if (src === OWN_LINK_SRC) return 'website';
+export function arrivalInquirySourceOf(
+  src: unknown,
+  via: unknown = null,
+  shopOnUltra = false,
+): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
+  if (src === OWN_LINK_SRC) return isPrintVia(materialViaOf(via)) && !shopOnUltra ? 'shop_page' : 'website';
   if (src === 'editorial' || src === 'favorites' || src === 'explore' || src === 'search') return src;
   return 'shop_page';
 }

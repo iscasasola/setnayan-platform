@@ -19,7 +19,7 @@ export async function CheckADateOverShop({
   logoUrl: string | null;
   /** The shop page itself, carrying where the visit came from — where × lands on a cold arrival. */
   shopHref: string;
-  search: { d?: string; s?: string; step?: string; src?: string };
+  search: { d?: string; s?: string; step?: string; src?: string; via?: string | null; utm?: string | null };
 }) {
   const read = await readCheckADate(slug);
   if (read.kind === 'missing') return null;
@@ -35,7 +35,10 @@ export async function CheckADateOverShop({
       shopHref={shopHref}
       shop={read.shop}
       logoUrl={logoUrl}
+      // 🖨💳 The plan half (only Ultra's prints are own) is judged again at send, with the piece — see the shop page.
       inquirySource={arrivalInquirySourceOf(search.src)}
+      inquiryVia={search.via ?? null}
+      inquiryUtm={search.utm ?? null}
       services={read.services}
       today={read.today}
       to={read.to}

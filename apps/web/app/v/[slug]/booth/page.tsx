@@ -34,7 +34,7 @@ export const dynamic = 'force-dynamic';
  *  "Walk into my booth" link in lock-step. */
 export const PLAN3D_BOOTH_SHOWCASE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE);
 
-type Props = { params: Promise<{ slug: string }>; searchParams?: Promise<{ src?: string; event?: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams?: Promise<{ src?: string; event?: string; via?: string; utm?: string }> };
 
 type BoothVendorRow = {
   vendor_profile_id: string;

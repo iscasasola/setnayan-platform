@@ -49,6 +49,8 @@ export function CheckADateCalendar({
   logoUrl,
   onClose,
   inquirySource,
+  inquiryVia = null,
+  inquiryUtm = null,
   services,
   today,
   to,
@@ -67,6 +69,9 @@ export function CheckADateCalendar({
   onClose: () => void;
   /** 💳 RW-19: what an ask from here is stamped — the same rule as the shop page (`arrivalInquirySourceOf`). */
   inquirySource: string;
+  /** 🏷 The material tag and campaign tags of the arrival (owner 2026-11-16) — carried into the inquiry, never shown. */
+  inquiryVia?: string | null;
+  inquiryUtm?: string | null;
   services: Service[];
   today: string;
   to: string;
@@ -157,6 +162,8 @@ export function CheckADateCalendar({
         alsoServiceIds: also,
         requirements: { specialRequest: checkDateAskLine(day) },
         inquirySource,
+        inquiryVia,
+        inquiryUtm,
       });
       if (res.status === 'ok' || res.status === 'ok_build_not_sent') {
         setSent({ eventId: res.eventId, threadId: res.threadId });

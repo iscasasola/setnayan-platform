@@ -40,7 +40,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const code = doorStickerCodeOf(sp.get('code'));
   const size = doorStickerSizeOf(sp.get('size'));
   const format = doorStickerFormatOf(sp.get('format'));
-  const url = code === 'dates' ? ownDatesUrl(siteOrigin(), slug) : ownPageUrl(siteOrigin(), slug); // 💳 ?src=own
+  const url = code === 'dates' ? ownDatesUrl(siteOrigin(), slug, 'sticker') : ownPageUrl(siteOrigin(), slug, 'sticker'); // 💳 ?src=own · 🏷 via=sticker
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Our shop';
 
   const facts = await readShopBadgeFacts(createAdminClient(), (profile as { vendor_profile_id: string }).vendor_profile_id);

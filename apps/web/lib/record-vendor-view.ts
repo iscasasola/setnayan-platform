@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase/server';
 import { hashViewer } from '@/lib/vendor-funnel';
 import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
 import { recordServiceCardView } from '@/lib/record-service-card-view';
+import { materialViaOf, utmOf, viewCountsAsSignup } from '@/lib/material-tags';
 
 /** Cookie that carries an opaque per-browser id for anonymous viewers. Set
  *  best-effort so repeat anonymous views from the same browser dedupe on the
@@ -40,6 +41,11 @@ type RecordVendorViewInput = {
   source?: string | null;
   /** Raw UTM query string when present on the landing URL. */
   utm?: string | null;
+  /**
+   * 🏷 The material tag (`?via=card`, … — `lib/material-tags.ts`, owner 2026-11-16): which piece the shop handed out
+   * brought this view. Re-validated here — only a known piece is written.
+   */
+  via?: string | null;
   /** Couple-event context, when a signed-in couple with an active event views. */
   eventId?: string | null;
   /**
@@ -67,12 +73,14 @@ export async function recordVendorProfileView(
     // fall back to an opaque anon-browser cookie. Either way we only ever
     // store the hash.
     let rawViewerId: string | null = null;
+    let signedIn: { userId: string; createdAt: string | null } | null = null;
     try {
       const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) rawViewerId = `u:${user.id}`;
+      if (user && !(user.is_anonymous ?? false)) signedIn = { userId: user.id, createdAt: user.created_at ?? null };
     } catch {
       // auth read is best-effort
     }
@@ -110,14 +118,34 @@ export async function recordVendorProfileView(
 
     const viewerHash = rawViewerId ? hashViewer(rawViewerId) : null;
 
+    const via = materialViaOf(input.via);
+    const utm = utmOf(input.utm);
     const admin = createAdminClient();
     await admin.from('vendor_profile_views').insert({
       vendor_profile_id: input.vendorProfileId,
       event_id: input.eventId ?? null,
       source: input.source ?? null,
       utm: input.utm ?? null,
+      via,
       viewer_hash: viewerHash,
     });
+
+    // 📝 THE SIGN-UP A PIECE BROUGHT (owner 2026-11-16; the QR-stats "Registered" column). Signing up from the shop —
+    // the sign-in sheet over it, or the Google return — lands back on the same tagged address, so the first tagged
+    // view of a just-made account names the piece. First one wins (primary key on the user; a later piece never
+    // rewrites it). Service role only — the table is closed to every browser role.
+    if (signedIn && viewCountsAsSignup({ accountCreatedAt: signedIn.createdAt, via, utm }, Date.now())) {
+      await admin.from('signup_attributions').upsert(
+        {
+          user_id: signedIn.userId,
+          vendor_profile_id: input.vendorProfileId,
+          via,
+          src: typeof input.source === 'string' ? input.source.slice(0, 64) : null,
+          utm,
+        },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      );
+    }
   } catch {
     // Fully best-effort — a failed view capture must never break a render.
   }

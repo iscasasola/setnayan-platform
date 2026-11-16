@@ -228,7 +228,10 @@ export function checkDateAskLine(day: string): string {
 
 /** The shop with the Check a date sheet open — the day, services and step ride along (pure, so it is tested). SHOP-02 v7: the printed QR
  * address `/v/<slug>/dates` forwards here.. */
-export function datesSheetHref(slug: string, search: { d?: string; s?: string; step?: string; src?: string; event?: string }): string {
+export function datesSheetHref(
+  slug: string,
+  search: { d?: string; s?: string; step?: string; src?: string; event?: string; via?: string; utm?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string },
+): string {
   const extra: Record<string, string> = { dates: '1' };
   if (typeof search.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.d)) extra.d = search.d;
   if (typeof search.s === 'string' && search.s) extra.s = search.s;

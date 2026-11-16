@@ -474,7 +474,10 @@ export function CustomersCalendar({
         .filter((d) => d.date >= todayIso)
         .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
         .filter((g) => g.rows.length > 0);
-  const drawRow = (r: DayRow, day: CalendarDay) => {
+  /* 🗂 An event in This day (the picked day) opens ITS page — the picked client, over the still-mounted list (owner
+     17 Nov: on a computer it spans columns 2 + 3, rail and top bar kept — `supplier-frame.css`; the phone keeps the
+     full-screen rise). Every other row, and every row in the no-day list, still picks its day. */
+  const drawRow = (r: DayRow, day: CalendarDay, inPicked = false) => {
     const row = (
     <DatesRow
       key={r.key}
@@ -483,7 +486,7 @@ export function CustomersCalendar({
       line={r.line || undefined}
       line2={r.line2 || undefined}
       badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
-      href={onClients ? daySheetHref(day) : undefined}
+      href={onClients ? (inPicked && r.href ? r.href : daySheetHref(day)) : undefined}
       lead={
         r.kind === 'blocked' || r.kind === 'held' ? (
           // #28: the calendar draws a closure as the day's struck number (no hatch, no soft fill) — so does its row.
@@ -687,7 +690,7 @@ export function CustomersCalendar({
           </div>
           {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
           {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} onFlip={onFlip} /> : null}
-          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
+          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked, true))}</div>
         </div>
       ) : oneScreen ? null : (
         <div className="mt-4" data-dates-all-days="">

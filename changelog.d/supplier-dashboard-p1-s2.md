@@ -15,3 +15,4 @@ Slice 2 of the P1 supplier drawings. It stacks on #7898 (the W1 walk batch) and 
 
 SPEC IMPACT: None. Every move is a 16 Nov approval already in DECISION_LOG.
 - Clients on a computer (≥1280): once a day is picked, the picked day sits beside the month as the third column and the client list stays shown. It uses no extra read, because it reuses the month's own data. Phone unchanged. Guard: `customers/the-picked-day-is-column-three-on-a-computer.test.ts`.
+- Clients on a computer (≥1280): a booked event in This day opens its page through the one open path (`openClientHref`). That page is the shipped `PickedShell`, now starting right of the rail and under the top bar, so it spans columns 2 and 3. On the phone it still rises full screen. The event id comes from the month's own read (`PoolBookingEntry.eventId`), so there is no extra read. Guard: `customers/an-event-takes-columns-two-and-three.test.ts`.

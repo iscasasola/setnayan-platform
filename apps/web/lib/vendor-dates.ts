@@ -28,6 +28,7 @@
 import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
 import { BOOKED_DATE_HELD_LINE } from './booking-ask-words';
+import { openClientHref } from './upcoming-schedule-door';
 import { blockOnDay, DAY_PART_SHORT, DAY_PART_WORDS, repeatWords, type DayPart, type RepeatRule } from './not-available';
 
 /** Kind 31's state for one day of the month, or null for a quiet one (drawn as a plain day). */
@@ -145,6 +146,8 @@ export type DatesBooking = {
   poolId: string;
   bookedDate: string;
   eventName: string;
+  /** 🗂 The booked event (the month's own read, `PoolBookingEntry.eventId`) — a This day row opens its page. */
+  eventId?: string | null;
   /**
    * 🗓 SCHEDULES HAND-IN-HAND part (b) (owner 2026-11-12): the event's hours that day ("2:00 PM – 11:00 PM"), or — for a
    * hall — only the chapter held in THAT hall ("Reception · 6:00 PM – 11:00 PM"). Absent/null = not known.
@@ -189,6 +192,8 @@ export type DayRow = {
   line2?: string | null;
   /** 🗓 A booked row whose hours could not be read — drawn with "Couldn't read the hours · Try again". */
   unread?: boolean;
+  /** 🗂 A booked row's event page, through the one open path (`openClientHref`); absent = the row only picks its day. */
+  href?: string | null;
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -234,6 +239,7 @@ export function dayRowsOf(
         line: [b.hours ?? '', namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · ') || 'Booked here',
         line2: b.mine ?? null,
         ...(b.hoursUnread ? { unread: true } : {}),
+        ...(b.eventId ? { href: openClientHref(b.eventId, { booked: true, eventToday: day === today }) } : {}),
         badge: { tone: 'ok', word: 'Booked' },
       }),
     );

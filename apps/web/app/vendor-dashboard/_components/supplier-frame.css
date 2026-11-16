@@ -207,3 +207,20 @@
     display: block;
   }
 }
+
+/* 🗂 CLIENTS ON A COMPUTER — AN EVENT TAKES COLUMNS 2 + 3 (owner 17 Nov, DECISION_LOG; P1 drawing
+   `supplier_clients_clean_2026-11-16`: "the event page no longer covers the rail and the top bar"). The picked client
+   is the ONE shipped `PickedShell` (fixed, full screen, portalled to <body>), opened over the still-mounted Clients list.
+   While that list is on screen, from 1280 the same screen starts right of the rail and under the top bar instead of
+   covering them. The phone and a cold load of the client's own address (no list under it) keep the full-screen rise.
+   <body> sits outside `.fd`, so `--fd-rail` / `--fd-bar` cannot reach it: the two numbers are the shell's own ≥1280
+   values (`front-door.css`: `.fd { --fd-rail: 240px }` · `.fd[data-chrome='app'] { --fd-bar: 61px }`), and
+   `customers/an-event-takes-columns-two-and-three.test.ts` fails the day either drifts. */
+@media (min-width: 1280px) {
+  html:has([data-dates-month='clients']) [data-picked-client] {
+    top: 61px;
+    left: 240px;
+    height: auto;
+    bottom: 0;
+  }
+}

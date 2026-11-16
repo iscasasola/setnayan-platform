@@ -109,9 +109,10 @@ export function InquireSheet({
       const a = (e.target as Element | null)?.closest?.('a[href="#get-in-touch"]');
       if (!a) return;
       e.preventDefault();
-      // A service card's "Choose this service" names its card, so the pop-up opens with it picked.
+      // A service card's "Choose this service" / "Inquire" names its card, so the pop-up opens with it picked; the
+      // quote tray names every card in the quote, comma-separated, in the order picked (v16 S3).
       const svc = a.getAttribute('data-inquire-service');
-      const picks = svc ? [svc] : undefined;
+      const picks = svc ? svc.split(',').filter(Boolean) : undefined;
       if (!signedIn) {
         // The sign-in sheet first; the ask waits in the address (a Google sign-in comes back to it).
         window.history.replaceState(window.history.state, '', inquireResumeHref(window.location.href, picks ?? []));

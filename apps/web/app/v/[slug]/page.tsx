@@ -262,6 +262,7 @@ import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-
 import { ShopHero, shopMotion } from './_components/shop-hero';
 import { ShopHeroGallery } from './_components/shop-hero-gallery';
 import { HERO_PHOTO_COUNT } from '@/lib/shop-hero-photos';
+import { quotePriceOf } from '@/lib/shop-quote';
 import { VerifiedAwardButton } from './_components/verified-award-button';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
@@ -4025,6 +4026,18 @@ function buildServiceGroups({
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
   const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor } = props;
+  // 🧾 v16 S3: the quote rides on the page's ONE Inquire, so it is offered only where that pop-up is (`'anchor'`).
+  const quote =
+    inquireMode === 'anchor'
+      ? {
+          cards: groups.flatMap((g) =>
+            g.cards.map((c) => {
+              const row = props.services.find((r) => r.vendor_service_id === c.id);
+              return { id: c.id, label: c.label, fromPhp: row ? quotePriceOf(row, props.hidePrices) : null };
+            }),
+          ),
+        }
+      : null;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -4032,7 +4045,9 @@ function ServicesPricingSection(props: ServicesPricingProps) {
           Services &amp; pricing
         </h2>
         <p className="text-sm text-ink/65">
-          Starting prices set by {businessName}. Final quotes happen in chat.
+          {quote
+            ? `Starting prices set by ${businessName}. Add the ones you want to one quote — final quotes happen in chat.`
+            : `Starting prices set by ${businessName}. Final quotes happen in chat.`}
         </p>
       </header>
       <ServicesGallery
@@ -4044,6 +4059,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         shopName={businessName}
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
+        quote={quote}
       />
     </section>
   );

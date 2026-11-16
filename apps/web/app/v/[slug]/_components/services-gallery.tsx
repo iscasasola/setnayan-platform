@@ -34,6 +34,8 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
+import { CardQuoteActions, QuoteTray } from './shop-quote';
+import { toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 
 export type ServiceGroup = {
   key: string;
@@ -67,6 +69,7 @@ export function ServicesGallery({
   shopName = null,
   countOpensFor = null,
   ownerCheckFor = null,
+  quote = null,
 }: {
   /**
    * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
@@ -85,6 +88,11 @@ export function ServicesGallery({
   viewerSignedIn?: boolean;
   detailsEnabled?: boolean;
   inquireMode?: ServiceInquireMode;
+  /**
+   * 🧾 v16 S3 — "Add to quote" + "Inquire" under each card and the quote tray. The cards' shown starting prices,
+   * decided server-side (`quotePriceOf`). null = no quote (a page with no Inquire pop-up to send it through).
+   */
+  quote?: { cards: QuoteCard[] } | null;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -186,6 +194,9 @@ export function ServicesGallery({
         }
       : null;
 
+  // 🧾 The quote — on the device only, in the order picked (prototype `ST.svc`); the tray's Inquire sends it.
+  const [picked, setPicked] = useState<string[]>([]);
+
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;
     for (const g of groups) {
@@ -246,7 +257,11 @@ export function ServicesGallery({
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
         {visible.flatMap((g) =>
           g.cards.map((c) => (
-            <li key={c.id}>
+            <li
+              key={c.id}
+              data-in-quote={picked.includes(c.id) ? '' : undefined}
+              className={picked.includes(c.id) ? 'rounded-3xl ring-2 ring-sn-accent/40 ring-offset-2 ring-offset-page' : undefined}
+            >
               <ServiceCardView
                 card={withViewerLooks(c)}
                 path={g.label}
@@ -265,10 +280,15 @@ export function ServicesGallery({
                   setOpenCardId(c.id);
                 }}
               />
+              {quote ? (
+                <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+              ) : null}
             </li>
           )),
         )}
       </ul>
+
+      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} /> : null}
 
       <PhotosByServiceSheet
         view={photoServices.find((v) => v.key === openService) ?? null}

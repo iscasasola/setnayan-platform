@@ -68,8 +68,8 @@ export function QuoteTray({ picked, cards, onClear }: { picked: readonly string[
       aria-label="Your quote"
       data-quote-tray=""
       // z-20: under the page's one Inquire, which floats over the tray's right end on a phone (`max-md:z-30`); the
-      // tray leaves that end clear for it (`max-md:pr-40`).
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-page/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur max-md:min-h-[4.75rem] max-md:pr-40"
+      // tray leaves that end clear for it (10rem + the right inset). Both sides clear the device insets (`--sn-safe-l/r`).
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-page/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur max-md:min-h-[4.75rem] max-md:pr-[calc(10rem+var(--sn-safe-r))]"
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 text-sm" aria-live="polite">
         <p className="min-w-0">

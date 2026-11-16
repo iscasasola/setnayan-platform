@@ -51,3 +51,9 @@ Hotel stay keeps the wedding reach of the `accommodation` leaf it absorbed; `ser
 `COORDINATOR_TRADE_SERVICES` drop the folded `gender_separated_reception_coordinator`; three stale
 `KNOWN_UNFILLABLE` pairs now fill and leave the allowlist; tests that pinned "Host / MC", "Reception", the ten
 Filipiniana keys and the old Chairs & tents leaves pin T1's.
+
+**Audit follow-up (controller, same PR):** (1) a Hotel stay card is judged on every night of the stay ±1 like the
+`accommodation` it absorbed (`isAccommodationCategory` in `lib/bench-bookable-days.ts`, read by the bench server read
+and the category search) — keyed on the literal old key alone, a hotel booked one night of a multi-night event read as
+free on Find. (2) step 11c re-points and drops ONLY the part links of the services this migration folds or hides;
+Setnayan's own hidden `pabati` keeps its five parts (`tests/db/t1-touches-only-its-own-part-links.db.test.ts`).

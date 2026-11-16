@@ -24,9 +24,16 @@
 --      an invited row — only the definer function below (or an admin) can.
 --   4. public.supplier_invite_join(inviter, joiner, new_shop) — internal, service_role only: writes the one accepted
 --      'invited' row. public.join_supplier_invite(slug) — the signed-in existing shop's door (never counted).
---   5. public.shop_worked_with_counts(vendor) — service_role only: the shops a supplier served a past event with, and
---      how many events, for the shop page's "Trusted by" ("Worked together", automatic). Reads the ONE definition,
---      vendor_served_together_rows (20271329352320).
+--   5. public.shop_worked_with_counts(vendor) — service_role only: the VERIFIED shops a supplier served a past event
+--      with, and how many events, for the shop page's "Trusted by" ("Worked together", automatic). Reads the ONE
+--      definition, vendor_served_together_rows (20271329352320).
+--   6. public.vendor_trusted_by_hidden — each shop can hide any row from its OWN Trusted by (owner answer Q5,
+--      16 Nov). Hiding changes this shop's page only: the tie itself, and the other shop's page, are untouched.
+--
+-- ── OWNER ANSWERS (16 Nov, after the PR opened; DECISION_LOG) ──────────────
+--   Q1 one row per handshake, the unordered-pair UNIQUE stays · Q4 only VERIFIED shops can be added by hand (the
+--   database refuses an 'added' row naming an unverified shop) · Q5 "Worked together" is automatic for shops booked on
+--   the same past event, verified shops only, and each shop can hide any row.
 --
 -- ── ONE ROW PER HANDSHAKE, NOT TWO (a builder note, surfaced in the PR) ──────
 -- The prototype's builder note says "two accepted rows … one each way". The shipped schema forbids that:
@@ -106,7 +113,21 @@ AS $$
 BEGIN
   -- Invite a supplier v3 (owner 16 Nov): "+ Add" lifts the served-together check, and an invite is written on
   -- sign-up. Both are named ways in; the propose path keeps the check.
-  IF NEW.origin IN ('added', 'invited') THEN
+  -- Owner Q4 (16 Nov): only a VERIFIED shop can be added by hand.
+  IF NEW.origin = 'added' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.vendor_profiles vp
+       WHERE vp.vendor_profile_id = NEW.recommended_vendor_id
+         AND vp.public_visibility = 'verified'
+         AND vp.verification_state = 'verified'
+    ) THEN
+      RAISE EXCEPTION 'ADD_NEEDS_A_VERIFIED_SHOP'
+        USING ERRCODE = 'P0001',
+              HINT = 'Only a verified Setnayan shop can be added as a preferred supplier (owner 2026-11-16).';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.origin = 'invited' THEN
     RETURN NEW;
   END IF;
 
@@ -276,6 +297,10 @@ SET search_path = public, pg_temp
 AS $$
   SELECT r.other_vendor_profile_id, count(DISTINCT r.event_id) AS events
     FROM public.vendor_served_together_rows(p_vendor) r
+    JOIN public.vendor_profiles vp
+      ON vp.vendor_profile_id = r.other_vendor_profile_id
+   WHERE vp.public_visibility = 'verified'
+     AND vp.verification_state = 'verified'
    GROUP BY r.other_vendor_profile_id;
 $$;
 
@@ -283,7 +308,46 @@ REVOKE ALL ON FUNCTION public.shop_worked_with_counts(uuid) FROM PUBLIC, anon, a
 GRANT EXECUTE ON FUNCTION public.shop_worked_with_counts(uuid) TO service_role;
 
 COMMENT ON FUNCTION public.shop_worked_with_counts(uuid) IS
-  'The shops a supplier served a past event with, and how many events (never which events, never the couple) — the '
-  'automatic "Worked together" kind on the shop page''s Trusted by (owner 16 Nov). service_role only.';
+  'The VERIFIED shops a supplier served a past event with, and how many events (never which events, never the couple) '
+  '— the automatic "Worked together" kind on the shop page''s Trusted by (owner 16 Nov, Q5). service_role only.';
+
+-- ── 6 · a shop hides a row from its own Trusted by (owner Q5) ──────────────
+CREATE TABLE IF NOT EXISTS public.vendor_trusted_by_hidden (
+  vendor_profile_id        uuid NOT NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
+  hidden_vendor_profile_id uuid NOT NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (vendor_profile_id, hidden_vendor_profile_id),
+  CHECK (vendor_profile_id <> hidden_vendor_profile_id)
+);
+ALTER TABLE public.vendor_trusted_by_hidden ENABLE ROW LEVEL SECURITY;
+
+COMMENT ON TABLE public.vendor_trusted_by_hidden IS
+  'Owner Q5 (16 Nov, Invite a supplier v3): each shop can hide any row from its OWN "Trusted by". A row here hides '
+  'hidden_vendor_profile_id from vendor_profile_id''s shop page only — the partnership (if any) and the other shop''s '
+  'page are untouched. Read by lib/vendor-trusted-by.ts (service role); written by the shop''s own session.';
+
+REVOKE ALL ON public.vendor_trusted_by_hidden FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, DELETE ON public.vendor_trusted_by_hidden TO authenticated;
+
+DROP POLICY IF EXISTS "shop reads its own hidden trusted-by rows" ON public.vendor_trusted_by_hidden;
+CREATE POLICY "shop reads its own hidden trusted-by rows"
+  ON public.vendor_trusted_by_hidden
+  FOR SELECT
+  TO authenticated
+  USING (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
+
+DROP POLICY IF EXISTS "shop hides a row from its own trusted by" ON public.vendor_trusted_by_hidden;
+CREATE POLICY "shop hides a row from its own trusted by"
+  ON public.vendor_trusted_by_hidden
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
+
+DROP POLICY IF EXISTS "shop shows a hidden row again" ON public.vendor_trusted_by_hidden;
+CREATE POLICY "shop shows a hidden row again"
+  ON public.vendor_trusted_by_hidden
+  FOR DELETE
+  TO authenticated
+  USING (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
 
 COMMIT;

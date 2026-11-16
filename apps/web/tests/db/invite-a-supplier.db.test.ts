@@ -13,6 +13,9 @@
  *   5 · origin and brought_new_shop cannot be changed after insert.
  *   6 · supplier_invite_join and shop_worked_with_counts are not callable by a signed-in supplier.
  *   7 · joining answers a pending "+ Add" between the same two shops instead of colliding with it.
+ *   8 · owner Q4: "+ Add" naming an UNVERIFIED shop is refused (ADD_NEEDS_A_VERIFIED_SHOP).
+ *   9 · owner Q5: the automatic "Worked together" list holds verified shops only.
+ *  10 · owner Q5: a shop hides rows on its OWN Trusted by only — it cannot write or read another shop's.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -37,9 +40,9 @@ async function asOwner(): Promise<void> {
 }
 
 type Shop = { uid: string; vp: string; slug: string };
-const S: Record<'lights' | 'florist' | 'photo' | 'newbie' | 'caterer', Shop> = {} as never;
+const S: Record<'lights' | 'florist' | 'photo' | 'newbie' | 'caterer' | 'unverified', Shop> = {} as never;
 
-async function mkShop(email: string, name: string, slug: string): Promise<Shop> {
+async function mkShop(email: string, name: string, slug: string, verified = true): Promise<Shop> {
   const uid = (
     await db.query<{ id: string }>(
       `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
@@ -53,6 +56,14 @@ async function mkShop(email: string, name: string, slug: string): Promise<Shop> 
       [uid, name, slug],
     )
   ).rows[0]!.vendor_profile_id;
+  if (verified) {
+    await db.query(`UPDATE public.vendor_profiles SET public_visibility = 'verified' WHERE vendor_profile_id = $1`, [vp]);
+  } else {
+    await db.query(
+      `UPDATE public.vendor_profiles SET verification_state = 'unverified', public_visibility = 'hidden' WHERE vendor_profile_id = $1`,
+      [vp],
+    );
+  }
   return { uid, vp, slug };
 }
 
@@ -76,6 +87,7 @@ before(async () => {
   S.photo = await mkShop('photo@invite.test', 'Sample Photo', 'sample-photo');
   S.newbie = await mkShop('newbie@invite.test', 'Sample Newbie', 'sample-newbie');
   S.caterer = await mkShop('caterer@invite.test', 'Sample Caterer', 'sample-caterer');
+  S.unverified = await mkShop('unverified@invite.test', 'Sample Unverified', 'sample-unverified', false);
 });
 
 after(async () => {
@@ -206,3 +218,73 @@ test('7 · joining answers a pending "+ Add" between the same two shops', async 
   assert.equal(r[0]!.status, 'accepted');
   assert.equal(r[0]!.origin, 'invited');
 });
+
+test('8 · "+ Add" naming an unverified shop is refused (owner Q4)', async () => {
+  await asUser(S.caterer.uid);
+  try {
+    await assert.rejects(
+      db.query(
+        `INSERT INTO public.vendor_partnerships (recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active, origin)
+         VALUES ($1,$2,'general','proposed',true,'added')`,
+        [S.caterer.vp, S.unverified.vp],
+      ),
+      /ADD_NEEDS_A_VERIFIED_SHOP/,
+    );
+  } finally {
+    await asOwner();
+  }
+  assert.equal((await rowsBetween(S.caterer, S.unverified)).length, 0);
+});
+
+test('9 · "Worked together" lists verified shops only (owner Q5)', async () => {
+  const past = (
+    await db.query<{ event_id: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+       VALUES ('Private Couple', 'wedding', 'catholic', 'banquet_hall', '2024-03-15'::date, 'day') RETURNING event_id`,
+    )
+  ).rows[0]!.event_id;
+  for (const [shop, cat] of [[S.caterer, 'photographer'], [S.florist, 'florist'], [S.unverified, 'band_dj']] as const) {
+    await db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
+       VALUES ($1,$2,'x','contracted',10000,$3)`,
+      [past, cat, shop.vp],
+    );
+  }
+  const others = (
+    await db.query<{ other_vendor_profile_id: string; events: string }>(
+      `SELECT * FROM public.shop_worked_with_counts($1)`,
+      [S.caterer.vp],
+    )
+  ).rows.map((r) => r.other_vendor_profile_id);
+  assert.ok(others.includes(S.florist.vp), 'a verified shop booked on the same past event is listed');
+  assert.ok(!others.includes(S.unverified.vp), 'an unverified shop is never listed');
+});
+
+test('10 · a shop hides rows on its own Trusted by only (owner Q5)', async () => {
+  await asUser(S.caterer.uid);
+  try {
+    await db.query(
+      `INSERT INTO public.vendor_trusted_by_hidden (vendor_profile_id, hidden_vendor_profile_id) VALUES ($1,$2)`,
+      [S.caterer.vp, S.florist.vp],
+    );
+    await assert.rejects(
+      db.query(
+        `INSERT INTO public.vendor_trusted_by_hidden (vendor_profile_id, hidden_vendor_profile_id) VALUES ($1,$2)`,
+        [S.florist.vp, S.caterer.vp],
+      ),
+      /row-level security/,
+    );
+  } finally {
+    await asOwner();
+  }
+  await asUser(S.florist.uid);
+  try {
+    const seen = (await db.query(`SELECT * FROM public.vendor_trusted_by_hidden`)).rows.length;
+    assert.equal(seen, 0, "another shop's hidden rows are not readable");
+  } finally {
+    await asOwner();
+  }
+  const total = (await db.query(`SELECT count(*)::int AS n FROM public.vendor_trusted_by_hidden`)).rows[0] as { n: number };
+  assert.equal(total.n, 1);
+});
+

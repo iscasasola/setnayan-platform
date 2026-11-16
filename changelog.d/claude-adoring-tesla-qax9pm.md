@@ -28,3 +28,10 @@ directions; flagged for the owner in the PR.
 - **Fix (controller audit):** a refused "worked together" read (`shop_worked_with_counts`) now returns the
   UNREADABLE sentinel, so the shop page says it couldn't load Trusted by instead of drawing the list as empty. Held by
   a new case in `lib/s41c-supplier-batch-d-reads-are-honest.test.ts` (mutation-checked).
+- **Owner answers (16 Nov, after the PR opened):** Q1 one row per handshake, the unique index stays · Q4 "+ Add" takes
+  only VERIFIED shops (the search already did; the action and the database now refuse anything else,
+  `ADD_NEEDS_A_VERIFIED_SHOP`) · Q5 "Worked together" is automatic for shops booked on the same past event, verified
+  shops only (`shop_worked_with_counts`), and each shop can hide any row from its OWN Trusted by — new
+  `vendor_trusted_by_hidden` (RLS at create, owner-only), a Hide/Show toggle inside each row's existing fold in
+  Partnerships, +1 server action (`toggleTrustedByHidden`). Q3: the Invites count line WAITS ON the badge-rewards owner —
+  flipping `invites` to measured makes the reward ladder pay; `readInvitesCount` + `invitesCountLine` are ready.

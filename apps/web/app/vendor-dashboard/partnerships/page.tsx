@@ -20,6 +20,7 @@ import {
   declinePartnership,
   withdrawPartnership,
   changePartnershipKind,
+  toggleTrustedByHidden,
 } from './actions';
 import {
   PARTNERSHIP_KINDS,
@@ -55,6 +56,8 @@ type SearchParams = {
   removed?: string;
   joined?: string;
   already?: string;
+  hidden?: string;
+  shown?: string;
   /** 🤝 the Add sheet's search (a GET): `add=1&q=…` opens it on arrival with the results. */
   add?: string;
   q?: string;
@@ -168,6 +171,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     for (const r of served.partners) eventsWith.set(r.vendorProfileId, r.events.length);
   }
 
+  // 🙈 Owner Q5 (16 Nov): the rows this shop hid from its own Trusted by — each row's fold offers Hide / Show. A refused
+  // read draws no toggle at all (null) rather than offering "Hide" on a row that may already be hidden.
+  const { data: hiddenRows, error: hiddenError } = await supabase
+    .from('vendor_trusted_by_hidden')
+    .select('hidden_vendor_profile_id')
+    .eq('vendor_profile_id', myId);
+  if (hiddenError) logQueryError('VendorPartnershipsPage.hidden', hiddenError, { myId }, 'graceful_degrade');
+  const hiddenSet: Set<string> | null = hiddenError
+    ? null
+    : new Set(((hiddenRows ?? []) as { hidden_vendor_profile_id: string }[]).map((h) => h.hidden_vendor_profile_id));
+
   // ── 🤝 ADD A PREFERRED SUPPLIER (Invite a supplier v3, owner 16 Nov) ──────────────────────────────────────────
   const slug = (profile as { business_slug?: string | null }).business_slug ?? null;
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
@@ -244,6 +258,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         <FormFlash tone="success">You joined — you are each other&rsquo;s preferred supplier now.</FormFlash>
       ) : null}
       {sp.already ? <FormFlash tone="success">You two are partners already.</FormFlash> : null}
+      {sp.hidden ? <FormFlash tone="success">Hidden from your Trusted by. Your partnership is unchanged.</FormFlash> : null}
+      {sp.shown ? <FormFlash tone="success">Shown on your Trusted by again.</FormFlash> : null}
 
       {/* ── 🤝 ADD A PREFERRED SUPPLIER — at the top (Invite a supplier v3, owner 16 Nov) ─────────────────────── */}
       <PreferredSupplierCard
@@ -400,6 +416,10 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         They proposed this partnership, so only they can change how it&rsquo;s described.
                       </p>
                     )}
+                    <TrustedByToggle
+                      otherId={iProposed ? p.recommended_vendor_id : p.recommending_vendor_id}
+                      hidden={hiddenSet}
+                    />
                   </Fold>
                   </div>
                 </PartnerRemoveRow>
@@ -517,6 +537,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                       </p>
                     </div>
                   </StayForm>
+                  {/* Served together = automatic on your Trusted by (owner Q5) — hide it here if you'd rather not. */}
+                  {v.isLive ? <TrustedByToggle otherId={v.vendorProfileId} hidden={hiddenSet} /> : null}
                 </Fold>
               </li>
             ))}
@@ -524,5 +546,31 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * 🙈 Hide / Show one row on this shop's OWN Trusted by (owner Q5, 16 Nov). Inside the row's fold, never on the closed
+ * row. `hidden` null = the hidden-rows read failed: no toggle rather than a guess.
+ */
+function TrustedByToggle({ otherId, hidden }: { otherId: string; hidden: Set<string> | null }) {
+  if (!hidden) return null;
+  const isHidden = hidden.has(otherId);
+  return (
+    <StayForm door="svPartnerships.toggleTrustedByHidden" action={toggleTrustedByHidden} className="flex flex-col gap-1 pb-4">
+      <input type="hidden" name="other_vendor_id" value={otherId} />
+      <input type="hidden" name="hide" value={isHidden ? '0' : '1'} />
+      <div>
+        <SubmitButton
+          pendingLabel={isHidden ? 'Showing…' : 'Hiding…'}
+          className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+        >
+          {isHidden ? 'Show on your Trusted by' : 'Hide from your Trusted by'}
+        </SubmitButton>
+      </div>
+      <p className="text-xs text-ink/45">
+        {isHidden ? 'Hidden from your shop page. ' : ''}Only your page changes — the tie and their page stay as they are.
+      </p>
+    </StayForm>
   );
 }

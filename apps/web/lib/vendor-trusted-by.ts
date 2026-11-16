@@ -72,7 +72,7 @@ export async function fetchTrustedByVendors(
   //   · this shop's OWN pending hand adds ("on the adder's own Trusted by at once"; the other shop's page only after
   //     Accept; a decline removes it from both);
   //   · and, automatically, every shop it served a past event with (`shop_worked_with_counts`).
-  const [{ data: rows, error }, worked] = await Promise.all([
+  const [{ data: rows, error }, worked, hiddenRead] = await Promise.all([
     admin
       .from('vendor_partnerships')
       .select('recommending_vendor_id, recommended_vendor_id, relationship_type, status, origin')
@@ -91,6 +91,8 @@ export async function fetchTrustedByVendors(
       .order('recommending_vendor_id', { ascending: true })
       .order('relationship_type', { ascending: true }),
     admin.rpc('shop_worked_with_counts', { p_vendor: me }),
+    // 🙈 Owner Q5 (16 Nov): the rows this shop has hidden from its own Trusted by.
+    admin.from('vendor_trusted_by_hidden').select('hidden_vendor_profile_id').eq('vendor_profile_id', me),
   ]);
   if (error) {
     console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_partnerships.select', error);
@@ -104,6 +106,14 @@ export async function fetchTrustedByVendors(
     console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_worked_with_counts', worked.error);
     return TRUSTED_BY_UNREADABLE;
   }
+  // A refused hidden-rows read must not publish a row the shop chose to hide — and must not read as "nobody" either.
+  if (hiddenRead.error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_trusted_by_hidden.select', hiddenRead.error);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  const hidden = new Set(
+    ((hiddenRead.data ?? []) as { hidden_vendor_profile_id: string }[]).map((h) => h.hidden_vendor_profile_id),
+  );
   const eventsWith = new Map<string, number>();
   for (const w of ((worked.data ?? []) as { other_vendor_profile_id: string; events: number | string }[])) {
     const n = Number(w.events);
@@ -146,6 +156,10 @@ export async function fetchTrustedByVendors(
     if (vid === me || relByVendor.has(vid)) continue;
     relByVendor.set(vid, 'general');
     tieByVendor.set(vid, { origin: 'worked_together', direction: 'partner' });
+  }
+  for (const vid of hidden) {
+    relByVendor.delete(vid);
+    tieByVendor.delete(vid);
   }
   if (relByVendor.size === 0) return [];
 

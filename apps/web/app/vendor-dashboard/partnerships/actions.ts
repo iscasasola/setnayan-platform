@@ -64,6 +64,9 @@ function isNotServedTogether(error: { message?: string } | null): boolean {
   return /NOT_SERVED_TOGETHER/.test(error?.message ?? '');
 }
 
+/** Owner Q4 (16 Nov): the words for a hand add naming a shop that is not verified. */
+const ADD_NEEDS_VERIFIED_MESSAGE = 'Only a verified Setnayan shop can be added as a preferred supplier. Invite them instead.';
+
 function back(msg: string): never {
   redirect(`${PANEL_PATH}?error=${encodeURIComponent(msg)}`);
 }
@@ -97,6 +100,19 @@ export async function proposePartnership(formData: FormData) {
   // 🤝 OWNER 2026-11-06: "cannot link until they have served the same event." Asked of the one shared reader (the same
   // database definition the insert trigger enforces), so the words below and the trigger can never disagree. A read
   // that FAILED is not a "no" — it says so, rather than telling a supplier they never worked with someone they did.
+  // 🤝 Owner Q4 (16 Nov): only a VERIFIED shop can be added by hand. The database refuses it too
+  // (ADD_NEEDS_A_VERIFIED_SHOP); asked here first so the supplier reads a sentence, never a code.
+  if (added) {
+    const { data: target, error: targetErr } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('vendor_profile_id', recommendedId)
+      .eq('public_visibility', 'verified')
+      .eq('verification_state', 'verified')
+      .maybeSingle();
+    if (targetErr) back("We couldn't check that shop just now. Try again in a moment.");
+    if (!target) back(ADD_NEEDS_VERIFIED_MESSAGE);
+  }
   if (!added) {
     const servedTogether = await servedTogetherWith(supabase, vendorProfileId, recommendedId);
     if (servedTogether === null) {
@@ -127,6 +143,7 @@ export async function proposePartnership(formData: FormData) {
       );
     }
     if (isNotServedTogether(error)) back(NOT_SERVED_TOGETHER_MESSAGE);
+    if (/ADD_NEEDS_A_VERIFIED_SHOP/.test(error.message ?? '')) back(ADD_NEEDS_VERIFIED_MESSAGE);
     back(error.message);
   }
 
@@ -274,6 +291,41 @@ export async function removePartnership(formData: FormData) {
   revalidatePath(PANEL_PATH);
   revalidatePath('/');
   redirect(`${PANEL_PATH}?removed=1`);
+}
+
+// ---------------------------------------------------------------------------
+// hide / show a row on this shop's OWN Trusted by (owner Q5, 16 Nov)
+// ---------------------------------------------------------------------------
+
+/**
+ * 🙈 Each shop can hide any row from its own "Trusted by" — a partner or an automatic worked-together shop. It changes
+ * this shop's page only: the tie and the other shop's page are untouched. Through the shop's own session, so RLS on
+ * `vendor_trusted_by_hidden` (owner = `current_vendor_profile_ids()`) is the boundary; the shop id is never posted.
+ */
+export async function toggleTrustedByHidden(formData: FormData) {
+  const { supabase, vendorProfileId } = await ensureProfile();
+
+  const otherId = readString(formData, 'other_vendor_id');
+  if (!/^[0-9a-f-]{36}$/i.test(otherId) || otherId === vendorProfileId) back('Missing shop reference.');
+  const hide = readString(formData, 'hide') === '1';
+
+  const { error } = hide
+    ? await supabase
+        .from('vendor_trusted_by_hidden')
+        .upsert(
+          { vendor_profile_id: vendorProfileId, hidden_vendor_profile_id: otherId },
+          { onConflict: 'vendor_profile_id,hidden_vendor_profile_id', ignoreDuplicates: true },
+        )
+    : await supabase
+        .from('vendor_trusted_by_hidden')
+        .delete()
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('hidden_vendor_profile_id', otherId);
+  if (error) back(error.message);
+
+  revalidateShopPage(vendorProfileId);
+  revalidatePath(PANEL_PATH);
+  redirect(`${PANEL_PATH}?${hide ? 'hidden' : 'shown'}=1`);
 }
 
 // ---------------------------------------------------------------------------

@@ -116,13 +116,12 @@ const NAV_ROUTES = new Set<string>([
   // is bigger than it is.
 ]);
 
-// FOOTER-ONLY surfaces — the article/reading DETAIL pages (`/blog/[slug]`,
-// `/help/[slug]`, and the `/tour` sample walkthrough). They get the shared
+// FOOTER-ONLY surfaces — the reading DETAIL pages (`/help/[slug]`, and the `/tour` sample walkthrough; the blog's
+// article pages left 2026-11-16 with the blog). They get the shared
 // ReskinFooter (so the OLD `_SiteFooter` is fully retired site-wide) but KEEP
 // their own bespoke reading masthead / sample ribbon, so the floating glass
-// nav never doubles their header. `/realstories/[slug]` is excluded entirely:
-// its immersive edition design ships zero old-site chrome already.
-const FOOTER_ONLY_PREFIXES = ['/blog/', '/help/', '/tour'];
+// nav never doubles their header.
+const FOOTER_ONLY_PREFIXES = ['/help/', '/tour'];
 
 // Routes whose OWN sticky header owns the viewport top: the glass nav renders
 // in-flow there (scrolls away with the page) instead of fixed, so two pinned

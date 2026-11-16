@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { readInChunks } from '@/lib/read-all-pages';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
@@ -382,7 +383,8 @@ export async function readSupplierEventLines(
             title: [first.event?.display_name?.trim(), first.event?.event_type && first.event.event_type !== 'unspecified' ? eventTypeLabel(first.event.event_type) : null, eventDayWords(first.event?.event_date ?? null)]
               .filter(Boolean)
               .join(' · ') || 'Their first event',
-            href: `/vendor-dashboard/messages/${first.thread_id}`,
+            // The same chat address every supplier chat door uses (CHAT-07/15) — the picked client on Chat.
+            href: supplierChatHref(first.event_id, first.thread_id),
           }
         : null,
     });

@@ -2426,7 +2426,9 @@ export async function renderVendorBySlug({
         <div data-shop-awards="" className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            {showsVerifiedSeal ? (
+            {vendor.verification_state === 'verified' ? (
+              /* The strict gate stays first (identity-chips guard); a Verified Partner shows its own seal instead. */
+              showsVerifiedSeal ? (
               <li id="shop-verified-award">
                 {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3).
                     v16 `data-vr`: the item is a button that opens the full-screen Verified award (#7752), and its fact
@@ -2440,6 +2442,7 @@ export async function renderVendorBySlug({
                   <span className="text-sm leading-snug">{awardFact(verifiedBadge())}</span>
                 </VerifiedAwardButton>
               </li>
+              ) : null
             ) : null}
       {/* 🏅 THE SEALS, THEN THE TIERED BADGES (v16 order) — from the one adapter (`awardsRowItems`): the seals the
           shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each

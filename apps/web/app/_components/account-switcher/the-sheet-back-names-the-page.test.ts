@@ -20,12 +20,18 @@ import { sheetBackLabel } from '@/lib/sheet-back-label';
 const CODE = stripComments(readFileSync(join(import.meta.dirname, 'account-switcher.tsx'), 'utf8'));
 const panel = CODE.slice(CODE.indexOf('function renderPanel()'), CODE.indexOf('<SwitcherPanelBody', CODE.indexOf('function renderPanel()')));
 
-test('1 · the back names the page it opened over', () => {
-  assert.equal(sheetBackLabel('Budget · Setnayan'), 'Budget');
-  assert.equal(sheetBackLabel('Guests · Setnayan'), 'Guests');
-  assert.equal(sheetBackLabel('Setnayan'), 'Today', 'a page with no title of its own');
-  assert.equal(sheetBackLabel(''), 'Today');
-  assert.equal(sheetBackLabel(null), 'Today');
+test('1 · the back names the page it opened over — the page map first, then the title, then "Back"', () => {
+  // An event's tab title is the couple's names: the map says Today.
+  assert.equal(sheetBackLabel({ pathname: '/dashboard/S89E-ABC', title: 'Ana & Miguel · Setnayan' }), 'Today');
+  assert.equal(sheetBackLabel({ pathname: '/dashboard/S89E-ABC/guests', title: 'x' }), 'Guests');
+  assert.equal(sheetBackLabel({ pathname: '/', title: 'Setnayan' }), 'Discover', 'Discover has no Today');
+  assert.equal(sheetBackLabel({ pathname: '/dashboard', search: '?seg=memories' }), 'Memories', 'a query-string home');
+  assert.equal(sheetBackLabel({ pathname: '/dashboard' }), 'Home');
+  // Not in the map: the page's own title.
+  assert.equal(sheetBackLabel({ pathname: '/dashboard/S89E-ABC/budget', title: 'Budget · Setnayan' }), 'Budget');
+  // Neither: a plain back, never a page that is not there.
+  assert.equal(sheetBackLabel({ pathname: '/somewhere/else', title: 'Setnayan' }), 'Back');
+  assert.equal(sheetBackLabel({ pathname: '/somewhere/else', title: null }), 'Back');
 });
 
 test('2 · the phone sheet is the whole screen, with ‹ back and ✕, no grab bar', () => {

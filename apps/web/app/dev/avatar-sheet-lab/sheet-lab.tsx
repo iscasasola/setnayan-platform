@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { ChevronLeft, X } from 'lucide-react';
+import { sheetBackLabel } from '@/lib/sheet-back-label';
 import { SwitcherPanelBody, type SheetPlace } from '@/app/_components/account-switcher/account-switcher';
 import type { SwitcherData, SwitcherShop } from '@/app/_components/account-switcher/get-switcher-data';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
@@ -92,8 +94,14 @@ export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolea
       >
         {/* The phone's full-screen head (16 Nov 2026) — the lab's back and ✕ do nothing. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 lg:hidden" data-account-sheet-head="">
-          <span className="inline-flex min-h-[44px] items-center px-2 text-[15px] font-medium text-ink">‹ Today</span>
-          <span className="inline-flex min-h-[44px] items-center px-2 text-[15px] font-medium text-ink">Close</span>
+          <span data-account-sheet-back="" className="inline-flex min-h-[44px] min-w-0 items-center gap-1 rounded-full px-2 text-[15px] font-medium text-ink">
+            <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" strokeWidth={2} />
+            {/* The label comes from the shipped `sheetBackLabel`, fed this lab page's own title — never typed here. */}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{sheetBackLabel({ pathname: '/dev/avatar-sheet-lab', title: c.title })}</span>
+          </span>
+          <span aria-label="Close" data-account-sheet-close="" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink">
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+          </span>
         </div>
         <SwitcherPanelBody
           data={c.data}

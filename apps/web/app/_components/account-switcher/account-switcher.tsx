@@ -719,8 +719,8 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
   // ─── Inner panel content ────────────────────────────────────────────────
 
   function renderPanel() {
-    // Drawn only once open and mounted (the portal below), so this reads the tab's title in the browser, never on the server.
-    const backTo = sheetBackLabel(document.title);
+    // Drawn only once open and mounted (the portal below), so this reads the address and title in the browser, never on the server.
+    const backTo = sheetBackLabel({ pathname: window.location.pathname, search: window.location.search, title: document.title });
     return (
       <div
         ref={panelRef}

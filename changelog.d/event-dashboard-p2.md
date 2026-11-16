@@ -17,9 +17,15 @@ the layout and the shared menu.
 - **‹ Today on Your services, opened** (the Orders page had no way back), from the page-home map.
 
 Guards: `the-home-grid-reads-in-order` (2b, the board's column order), `the-sheet-back-names-the-page` (new),
-`the-memories-column-is-48rem` (1b), `gallery-zoom`; four Home guards that counted "two versions" now name the board
+`the-memories-stage-is-48rem-then-full-width` (1b), `gallery-zoom`; four Home guards that counted "two versions" now name the board
 as the third.
 
 SPEC IMPACT: None — builds the approved drawing; no decision changes. Flagged for the owner: DECISION_LOG 75a46e3c
 item 12 ("Memories on desktop is a 48rem column") and the later 16 Nov "Yes, all 8" row ("Memories full width") disagree;
 this follows the later row and the drawing.
+
+Audit fixes (controller, 17 Nov): the profile sheet's back names the page from the shipped route map (`pageOwnLabel` in
+`lib/page-home.ts`, via `lib/sheet-back-label.ts`), so Today reads "‹ Today", not the couple's names; the 1280 board
+carries `data-tour="home-tiles"`; board Count ids are suffixed `-board` so the count-up plays on the copy you see;
+`the-event-bar-never-remounts` test 1 now fails when the dock moves inside the swapping content (sabotage-run); the
+Memories guard is renamed to what it asserts; the sheet lab draws ✕ and the mapped back label, not typed text.

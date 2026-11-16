@@ -12,7 +12,8 @@
  * #5881 / #6772 / #6879 and `app/_components/nav/the-bar-outlives-the-slide.test.ts` hold the slide's paint order; this
  * one holds the lifecycle. (A static proof: it reads the files the router mounts, not a live browser.)
  *
- * Sabotage: render `<CustomerBottomNav>` from template.tsx (2 red) · `await` a read in HomeControlBoardColumn (3 red).
+ * Sabotage (run 17 Nov 2026): move `<BottomDock>…</BottomDock>` above `</AppRailShell>` (1 red) · render `<CustomerBottomNav>` from
+ * template.tsx (2 red) · `await` a read in HomeControlBoardColumn (3 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,13 +27,16 @@ const BARS = ['CustomerBottomNav', 'AccountSwitcher', 'CustomerSidebar', 'Sideba
 
 test('1 · the layout draws the bottom bar outside the content that swaps', () => {
   const layout = read('layout.tsx');
-  const kids = layout.lastIndexOf('{children}');
+  const kids = layout.indexOf('{children}');
+  const shellEnd = layout.indexOf('</AppRailShell>');
+  const dock = layout.indexOf('<BottomDock');
   const bar = layout.indexOf('<CustomerBottomNav');
-  assert.ok(kids > -1 && bar > -1, 'the layout lost {children} or the bottom bar');
-  const between = layout.slice(Math.min(kids, bar), Math.max(kids, bar));
-  // The bar is a sibling of the content's wrapper, never inside it.
-  assert.ok(!/<CustomerBottomNav[\s\S]*\{children\}/.test(layout.slice(bar, bar + 400)), 'the content renders inside the bar');
-  assert.ok(between.length > 0);
+  assert.ok(kids > -1 && shellEnd > -1 && dock > -1 && bar > -1, 'the layout lost {children}, the rail shell, the dock or the bar');
+  assert.equal(layout.indexOf('{children}', kids + 1), -1, 'the layout renders {children} twice');
+  // The content sits inside the rail shell; the dock and its bar come after the shell closes — a sibling, never inside.
+  assert.ok(kids < shellEnd, 'the content is outside the rail shell');
+  assert.ok(shellEnd < dock && dock < bar, 'the bottom bar is drawn inside the content area (it would scroll and swap with it)');
+  assert.equal((layout.match(/<CustomerBottomNav\b/g) ?? []).length, 1, 'a second bottom bar');
 });
 
 test('2 · the template — what remounts on each tab — wraps only the content and draws no bar', () => {

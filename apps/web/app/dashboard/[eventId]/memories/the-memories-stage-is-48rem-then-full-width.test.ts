@@ -1,5 +1,5 @@
 /**
- * 🖥 MEMORIES ON A DESK IS THE 48-REM READING COLUMN, CENTRED — AND THE PHONE IS UNTOUCHED.
+ * 🖥 MEMORIES IS THE 48-REM READING COLUMN ON A TABLET (701–1023), FULL WIDTH FROM 1024 — AND THE PHONE IS UNTOUCHED.
  *
  * Owner, 16 Nov 2026 (DECISION_LOG 75a46e3c, item 12, "a"): *Memories on desktop is a 48rem column*. W1 had measured the
  * event Memories page at 64rem on a 1280 desk (RW-343, "not the 48rem reading column … needs the owner's reading").

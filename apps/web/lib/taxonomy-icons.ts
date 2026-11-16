@@ -265,6 +265,7 @@ export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
   look: Shirt,
   booths: Tent,
   prints: Mail,
+  gifts_giveaways: Gift,
   transport: Car,
   experience: Compass,
   dining: Utensils,

@@ -83,7 +83,7 @@ const SHOWS: Record<PrintBlock, (d: { svg: string; text: string }) => boolean> =
   area: (d) => has(d.text, FULL.area!),
   photo: (d) => d.svg.includes('data-print-block="photo"'),
   about: (d) => d.svg.includes('data-print-block="about"'),
-  reach: (d) => d.svg.includes('data-print-block="reach"') || has(d.text, 'setnayan.com/v/casa-buenaventura'),
+  reach: (d) => d.svg.includes('data-print-block="reach"') || has(d.text, 'setnayan.com/casa-buenaventura'),
 };
 
 test('the block table is the prototype’s ten, minus prices — and `hide=` reads only those words', () => {
@@ -123,7 +123,7 @@ test('A MISSING FACT DROPS ITS BLOCK — never a zero, never an empty box', () =
   }
   // no own domain → the Setnayan address alone, never an empty line above it
   const t = draw(piece('tarp'), bare);
-  assert.ok(has(t.text, 'setnayan.com/v/casa-buenaventura'));
+  assert.ok(has(t.text, 'setnayan.com/casa-buenaventura'));
   assert.ok(!has(t.text, 'casabuenaventura.ph'));
 });
 

@@ -177,9 +177,12 @@ test('5 · the strip\'s order, "You" never twice, and the ＋ last only while a 
   );
   assert.match(missing, /data-chat-host-add-open=""/);
   assert.ok(missing.lastIndexOf('data-chat-host-face') < missing.indexOf('data-chat-host-add-open'), 'the ＋ is not last');
-  const you = missing.indexOf('>You<span class="sr-only">');
+  // CHAT-09 (DECISION_LOG 2026-11-16): the names under the faces left the row (they are in the ⓘ); each face keeps its
+  // name for a screen reader, so the drawn order is read off those.
+  const you = missing.indexOf('<span class="sr-only">You');
   assert.ok(missing.indexOf('Lumière') < you && you < missing.indexOf('Jose'), 'the drawn order is wrong');
   const full = renderToStaticMarkup(h(ChatHostStrip, { ...base, addable: { candidates: [], add: noop } }));
   assert.doesNotMatch(full, /data-chat-host-add-open/, 'the ＋ is drawn with every host already in');
-  assert.equal((full.match(/>You<span class="sr-only">/g) ?? []).length, 1, '"You" drawn twice');
+  assert.equal((full.match(/<span class="sr-only">You\b/g) ?? []).length, 1, '"You" drawn twice');
+  assert.equal((full.match(/aria-hidden="true">You</g) ?? []).length, 1, '"You" drawn twice');
 });

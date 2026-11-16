@@ -109,7 +109,9 @@ test('⭐ 1 · old = new for every part — the backfilled services are exactly 
     const part = inspirationPart(seed, slot)!;
     /* (b) what the pre-③a app answered: the TS expansion of the consts' categories. */
     const before = [...canonicalServicesForSlot(slot, seed)].sort();
-    const fromRows = [...new Set(partCategories(part).flatMap(byCategory))].sort();
+    // A part that keeps its own shops through the T1 category merges (FALLBACK_PART_SERVICES) is its services, not
+    // its categories' expansion — the merged "Entourage & Sponsors" would otherwise mix Bridesmaids and Groomsmen.
+    const fromRows = part.services !== null ? [...new Set(part.services)].sort() : [...new Set(partCategories(part).flatMap(byCategory))].sort();
     assert.deepEqual(now, before, `${slot}: the shops that may add a photo changed on ship day (TS expansion)`);
     assert.deepEqual(now, fromRows, `${slot}: the shops that may add a photo changed on ship day (the category rows)`);
     if (part.kind === 'part') assert.ok(now.length > 0, `${slot} lost every supplier`);

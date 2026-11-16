@@ -4,7 +4,7 @@
 # GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 523 files · 1299 lines
+# 504 files · 1227 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 4 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -117,6 +117,7 @@
 1 apps/web/app/[slug]/_components/story/story-clock.tsx
 1 apps/web/app/[slug]/_components/story/story-index.tsx
 1 apps/web/app/[slug]/_components/story/story-spine.tsx
+1 apps/web/app/[slug]/_components/story/story-suppliers.tsx
 2 apps/web/app/[slug]/_components/story/your-own-consent.tsx
 2 apps/web/app/[slug]/_components/ticket-popup.tsx
 1 apps/web/app/[slug]/_components/ticket-show.tsx
@@ -158,7 +159,6 @@
 1 apps/web/app/admin/corrections/page.tsx
 1 apps/web/app/admin/data-privacy/_components/control-actions.tsx
 1 apps/web/app/admin/data-privacy/_components/task-actions.tsx
-2 apps/web/app/admin/demo-vendors/inquiries/[threadId]/page.tsx
 2 apps/web/app/admin/disputes/_components/deposit-disputes-section.tsx
 1 apps/web/app/admin/disputes/_components/payment-disputes-section.tsx
 3 apps/web/app/admin/disputes/page.tsx
@@ -176,17 +176,13 @@
 6 apps/web/app/admin/integrations/page.tsx
 1 apps/web/app/admin/live-studio-channels/page.tsx
 4 apps/web/app/admin/loading.tsx
-3 apps/web/app/admin/menus/_components/menu-registry-editor.tsx
+1 apps/web/app/admin/menus/_components/menu-registry-editor.tsx
 2 apps/web/app/admin/money/_components/revenue-summary.tsx
 1 apps/web/app/admin/money/_components/transactions-ledger.tsx
 3 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
 2 apps/web/app/admin/moodboard-library/_components/screen-findings-panel.tsx
-2 apps/web/app/admin/pakanta/page.tsx
-1 apps/web/app/admin/pakanta/pakanta-deliver.tsx
 2 apps/web/app/admin/payment-options/page.tsx
-1 apps/web/app/admin/payments/_components/batch-approve-controls.tsx
 3 apps/web/app/admin/payments/_components/inbox-matcher.tsx
-6 apps/web/app/admin/payments/page.tsx
 1 apps/web/app/admin/payouts/page.tsx
 6 apps/web/app/admin/pricing/_components/ai-bands-editor.tsx
 3 apps/web/app/admin/pricing/_components/booking-fee-form.tsx
@@ -205,19 +201,11 @@
 2 apps/web/app/admin/settings/_components/loader-appearance-card.tsx
 1 apps/web/app/admin/settings/payment-methods/page.tsx
 3 apps/web/app/admin/spotlight-awards/_components/spotlight-actions.tsx
-5 apps/web/app/admin/studio/_surfaces/journal-spotlights-surface.tsx
 1 apps/web/app/admin/studio/_surfaces/moodboard-library-surface.tsx
-4 apps/web/app/admin/studio/_surfaces/real-stories-surface.tsx
-2 apps/web/app/admin/studio/_surfaces/recaps-surface.tsx
-1 apps/web/app/admin/studio/_surfaces/referrals-surface.tsx
-7 apps/web/app/admin/studio/_surfaces/social-queue-surface.tsx
-5 apps/web/app/admin/studio/_surfaces/spotlight-awards-surface.tsx
-6 apps/web/app/admin/studio/_surfaces/storytellers-surface.tsx
-1 apps/web/app/admin/studio/_surfaces/website-surface.tsx
+2 apps/web/app/admin/studio/_surfaces/real-stories-surface.tsx
+1 apps/web/app/admin/studio/_surfaces/social-queue-surface.tsx
+2 apps/web/app/admin/studio/_surfaces/storytellers-surface.tsx
 1 apps/web/app/admin/subscriptions/page.tsx
-2 apps/web/app/admin/ugat/_surfaces/brain-surface.tsx
-5 apps/web/app/admin/ugat/_surfaces/onboarding-surface.tsx
-2 apps/web/app/admin/vendor-recommendations/_editor.tsx
 1 apps/web/app/admin/vendors/_components/invite-vendor-form.tsx
 1 apps/web/app/admin/vendors/[vendorProfileId]/team/page.tsx
 1 apps/web/app/admin/venues/_components/venue-form.tsx
@@ -242,17 +230,14 @@
 1 apps/web/app/dashboard/[eventId]/_components/supplier-connect-panel.tsx
 5 apps/web/app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
 5 apps/web/app/dashboard/[eventId]/alaala/page.tsx
-1 apps/web/app/dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx
-1 apps/web/app/dashboard/[eventId]/clearance/page.tsx
-4 apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx
-4 apps/web/app/dashboard/[eventId]/date-selection/_components/date-picker.tsx
-4 apps/web/app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx
+1 apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx
+1 apps/web/app/dashboard/[eventId]/date-selection/_components/date-picker.tsx
+2 apps/web/app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx
 4 apps/web/app/dashboard/[eventId]/details/_components/details-form.tsx
 3 apps/web/app/dashboard/[eventId]/details/_components/governed-fields.tsx
 2 apps/web/app/dashboard/[eventId]/details/_components/pax-settings-card.tsx
 1 apps/web/app/dashboard/[eventId]/details/_components/record-field-sheet.tsx
 1 apps/web/app/dashboard/[eventId]/event-qr/page.tsx
-3 apps/web/app/dashboard/[eventId]/find-date/_components/find-your-date.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/guest-group-picker.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/guest-peek.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/guest-popup.tsx
@@ -286,11 +271,10 @@
 1 apps/web/app/dashboard/[eventId]/monogram/ink-compare.tsx
 2 apps/web/app/dashboard/[eventId]/monogram/mark-everywhere.tsx
 2 apps/web/app/dashboard/[eventId]/monogram/upload-mark.tsx
-3 apps/web/app/dashboard/[eventId]/orders/[orderId]/page.tsx
 5 apps/web/app/dashboard/[eventId]/pabuya/_components/pabuya-manager.tsx
 1 apps/web/app/dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx
 2 apps/web/app/dashboard/[eventId]/page.tsx
-4 apps/web/app/dashboard/[eventId]/paperwork/page.tsx
+1 apps/web/app/dashboard/[eventId]/paperwork/page.tsx
 1 apps/web/app/dashboard/[eventId]/schedule/_components/day-rail.tsx
 2 apps/web/app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
 1 apps/web/app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx
@@ -514,9 +498,6 @@
 4 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
 1 apps/web/app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx
-2 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
-2 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
-1 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx
 1 apps/web/app/vendor-dashboard/subscription/_components/plan-screen.tsx
 1 apps/web/app/vendor-dashboard/theft-watch/page.tsx
 1 apps/web/app/vendor-dashboard/track-record/page.tsx

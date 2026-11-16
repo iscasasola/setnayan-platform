@@ -30,6 +30,7 @@ import { Wallet } from 'lucide-react';
 import { Notice } from '@/app/_components/notices/notices';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
+import { BY_ITS_OWN_WIDTH } from '@/app/_components/notices/notice-styles';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 
 /**
@@ -69,6 +70,7 @@ export function payoutNudgeCopy(
  * 🔔 Inventory #4 — a To-do that blocks money (one notice system, owner approved 14 Nov 2026): "Couples can't see
  * anywhere to pay you yet ⓘ · Add a payment method · Not now". On Today it queues for the top; "on a client or quote
  * page it stays inline where it is" (prototype §4). The first sentence is the line, the rest is behind the ⓘ.
+ * Inline, it lays out by its OWN width (`BY_ITS_OWN_WIDTH`) — in the chat it stands in a narrow thread pane.
  */
 export function PayoutMethodNudge({
   readiness,
@@ -94,5 +96,5 @@ export function PayoutMethodNudge({
       </Link>
     ),
   };
-  return context === 'today' ? <Notice {...notice} /> : <InlineNotice {...notice} className="mt-3" />;
+  return context === 'today' ? <Notice {...notice} /> : <InlineNotice {...notice} className={`mt-3 ${BY_ITS_OWN_WIDTH}`} />;
 }

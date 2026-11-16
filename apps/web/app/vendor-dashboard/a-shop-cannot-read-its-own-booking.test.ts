@@ -405,7 +405,9 @@ test('lib: a SHOP reader is handed an admin client at every call, and the shop t
 test('lib: the three audit C2 families stay repaired', () => {
   // Named so a regression says WHICH one.
   const committed = firstArgsAtCalls('fetchVendorCommittedBookingCount');
-  assert.ok(committed.length >= 3, 'the first-booking-free count lost its callers — re-check the add-on pricing');
+  // 2 since 2026-11-14: the Plan screen stopped pricing the 3D booth / Papic Challenges cards (they folded into the
+  // plans, "SIMPLER SUPPLIER PLANS"); the buy actions that still read the count keep it.
+  assert.ok(committed.length >= 2, 'the first-booking-free count lost its callers — re-check the add-on pricing');
   for (const { file, arg } of committed) {
     assert.match(arg, /admin/i, `${file} prices an add-on off a session read of event_vendors — a silent 0 grants it at ₱0`);
   }

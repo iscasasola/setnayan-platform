@@ -1,10 +1,9 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Radio, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
 import { iapProductForServiceKey } from '@/lib/iap/products';
 import { buyWithApple } from '@/lib/iap/native-store';
 import { useAppStorePrices } from '@/lib/iap/use-app-store-prices';
@@ -53,14 +52,17 @@ export function IapLiveWatchSheet({
       setScreen(s);
     });
   };
-  const close = () => {
-    if (buying) return;
+  const closed = () => {
     setOpen(false);
     setScreen(null);
   };
 
+  // ⤴ RISE FULL SCREEN (owner 2026-11-10 "fullscreen everything"; build-sessions/RISE-AUDIT-2026-11-13.md batch 2): it
+  // rises out of the door you tapped and falls back into it; every inner close steps out the same way; while Apple is
+  // answering (`buying`) every way out waits.
   const sheet = open ? (
-    <Sheet open onClose={close} labelledById={headingId} rise>
+    <RiseScreen labelledById={headingId} onClose={closed} busy={buying} data="iap-live-watch">
+      <WithRiseClose fallback={closed}>{(close) => (
       <div className="px-4 pb-4 pt-3.5" data-iap-live-watch-sheet="">
         <h3 id={headingId} className="text-[19px] font-semibold tracking-tight text-ink">
           {screen?.kind === 'on' ? 'Live Watch is on' : screen?.kind === 'pending' ? IAP_COPY.pendingTitle : 'Live Watch'}
@@ -151,7 +153,8 @@ export function IapLiveWatchSheet({
           </>
         )}
       </div>
-    </Sheet>
+      )}</WithRiseClose>
+    </RiseScreen>
   ) : null;
 
   return (
@@ -165,7 +168,7 @@ export function IapLiveWatchSheet({
         aria-expanded={open}
         data-testid="iap-live-watch-activate"
       />
-      {sheet && typeof document !== 'undefined' ? createPortal(sheet, document.body) : null}
+      {sheet}
     </>
   );
 }

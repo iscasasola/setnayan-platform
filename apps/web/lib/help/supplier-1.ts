@@ -107,7 +107,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-setup.ts `title: 'Name your shop'` … `title: 'Download your QR'`, `setupHeadline`
         slug: 'supplier-setup-steps',
         title: 'Suppliers: what are the setup steps?',
-        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them before you go live) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
+        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them, then you get the Verified check) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
       },
       {
         // lib/supplier-setup.ts "a fold is never ticked by a press, only by the saved fact"
@@ -122,10 +122,10 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         body: 'On each service card, not in the setup steps — a photographer and a caterer can take a different number of events on the same day, so each card carries its own number. Open the card in Shop › Bundles and services and set How many events a day can this service take?',
       },
       {
-        // lib/findable-shop.ts "AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST INQUIRY"; for-suppliers plan-table-data.ts 'found until your first inquiry'
+        // lib/findable-shop.ts — DECISION_LOG 2026-11-15 "Verified only"; for-suppliers plan-table-data.ts FREE_FINDABLE
         slug: 'supplier-when-couples-find-you',
         title: 'Suppliers: when can couples find my shop?',
-        body: 'A new shop can be found in search until its first inquiry. After that it stays out of search until Setnayan verifies you, and deleting the inquiry does not change that. A verified shop always shows, with its verified mark.',
+        body: 'Before Setnayan verifies you, couples reach your shop by its own link and QR code — they can message and book you there. Once you are verified, your shop also shows in Discover and Suppliers › Find, with its verified mark.',
       },
     ],
   },

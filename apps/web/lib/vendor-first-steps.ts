@@ -219,7 +219,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       key: 'service_card',
       n: 3,
       title: 'Add what you offer',
-      body: 'Your first service — a photo, what it covers and a starting price. Couples do not see it until you are live.',
+      body: 'Your first service — a photo, what it covers and a starting price. Couples see it on your page once you switch it on.',
       // 🔴 THE WORST INSTANCE OF THE DEAD CREATE LINK, because of WHO sees it:
       // this step renders only while `serviceCount === 0`, and a vendor with
       // zero cards is exactly who the services screen lands on the Coverage tab
@@ -266,7 +266,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
           ? `Setnayan sent your papers back${rejectionReason ? `: ${rejectionReason}` : '.'} Fix what's noted and send them again.`
           : underReview
             ? 'Sent. Setnayan checks these within 5 working days and confirms.'
-            : 'DTI/SEC · BIR · permit · Setnayan checks them, then you are live.',
+            : 'DTI/SEC · BIR · permit · Setnayan checks them, then you get the Verified check.',
       href: '/vendor-dashboard/profile#docs',
       cta: docsStatus === 'rejected' ? 'Send them again' : 'Send documents',
       meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} required` : null,
@@ -318,8 +318,10 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     {
       key: 'go_live',
       n: 8,
-      title: 'Setnayan approves you — you go live',
-      body: 'The day your shop is approved, your page goes live at your own web address, your services become searchable to couples, and the subscription plans unlock. Nothing before this is visible to a stranger.',
+      title: 'Setnayan verifies you — Discover lists you',
+      // Not "you go live": an unverified shop is not hidden (DECISION_LOG 2026-11-15 "AN UNVERIFIED SHOP HAS THE SAME
+      // WEBSITE…") — its page opens by its link and QR and couples message it. Verified adds the check and Discover + Find.
+      body: 'The day Setnayan verifies your shop, it gets the Verified check and shows in Discover and Suppliers › Find. Before that, couples reach your page by its link or QR and can message you.',
       // Nothing to press — this one happens TO the vendor, not BY them.
       href: null,
       cta: null,
@@ -377,7 +379,7 @@ function toStep(
  * "THEN" — the short road under Today's Next card (owner 2026-10-21, prototype
  * `first_run_you_and_next_steps_2026-10-21.html` S4/S5: "the supplier sees the whole short road, not one card at
  * a time"). The next two steps still to do after the current one, then the approval — "3 · Send your documents ·
- * 4 · Mark the days you are not available · 7 · Setnayan approves you — you go live". The ORDER is the rail's
+ * 4 · Mark the days you are not available · 7 · Setnayan verifies you — Discover lists you". The ORDER is the rail's
  * own (details → what you offer → documents); nothing here reorders it. Empty when there is no current step.
  */
 export type FirstStepThen = { n: number; key: FirstStepKey; title: string; href: string | null };

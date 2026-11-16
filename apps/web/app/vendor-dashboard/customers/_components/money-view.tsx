@@ -11,6 +11,7 @@ import type { Paged } from '@/lib/paginate';
 import { ListPager } from '../../_components/list-pager';
 import { CustomersPick } from './customers-pick';
 import { DatesRow, RowTile } from './dates-row';
+import { RememberPickedOrigin } from './remember-picked-origin';
 import { MoneyFill } from './money-figures';
 import { InfoTip } from '@/app/_components/info-tip';
 
@@ -161,15 +162,17 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
               )
             ) : (
               rows.items.map((r) => (
-                <DatesRow
-                  key={r.key}
-                  data="money-row"
-                  title={r.title}
-                  line={r.line}
-                  strong={<span className="text-[15px]">{formatPhp(r.amountPhp)}</span>}
-                  badge={r.badge}
-                  href={data.rowHref(r.eventId)}
-                />
+                /* ↩ EB-246: the row records the list it opened from, so the client's ✕ goes back HERE. */
+                <RememberPickedOrigin key={r.key} to={data.rowHref(r.eventId)}>
+                  <DatesRow
+                    data="money-row"
+                    title={r.title}
+                    line={r.line}
+                    strong={<span className="text-[15px]">{formatPhp(r.amountPhp)}</span>}
+                    badge={r.badge}
+                    href={data.rowHref(r.eventId)}
+                  />
+                </RememberPickedOrigin>
               ))
             )}
           </div>
@@ -233,7 +236,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
               {year === 'locked' ? (
                 <div data-money-year-locked="">
                   <p className="py-2 text-[13px] text-ink/70">{data.lockedLine}</p>
-                  <DatesRow data="money-plans" title="See plans" line="Supplier Plus and Supplier Pro carry the year" href="/vendor-dashboard/subscription" />
+                  <DatesRow data="money-plans" title="See plans" line="Plus and Pro carry the year" href="/vendor-dashboard/subscription" />
                 </div>
               ) : year === null ? (
                 <p className="py-2 text-[13px] text-ink/70" role="status" data-money-year-unread="">
@@ -283,7 +286,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
 
 /** The year fold's one line — "₱186,000 received · 9 payments", or why there is no figure. */
 function yearLine(year: MoneyYear | null | 'locked'): string {
-  if (year === 'locked') return 'Comes with Supplier Plus';
+  if (year === 'locked') return 'Comes with Plus';
   if (year === null) return 'Couldn’t load';
   if (year.payments === 0) return 'Nothing confirmed yet';
   return `${formatPhp(year.receivedPhp)} received · ${formatCount(year.payments)} payment${year.payments === 1 ? '' : 's'}`;

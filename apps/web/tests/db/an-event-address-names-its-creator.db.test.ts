@@ -68,7 +68,7 @@ before(async () => {
   db = replay.db;
 });
 after(async () => {
-  await replay?.close?.();
+  await db?.close();
 });
 
 test('1 · the first couple member is the creator — a co-host added later never takes the address over', async () => {

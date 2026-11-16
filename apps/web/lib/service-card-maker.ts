@@ -55,7 +55,7 @@ export const SUPPLIER_TYPE_WORD: Record<SupplierType, string> = {
 const CHURCH_KINDS = new Set(['religious_venue', 'ceremony_venue', 'church_fees', 'officiant']);
 const PHOTOGRAPHER_KINDS = new Set(['photographer', 'pre_nup_photographer']);
 /** A feast-family kind that is a caterer's own (per guest). The code taxonomy's catering · crew_meals · stations tiles. */
-const CATERING_KIND_RE = /cater|lechon|lauriat|buffet|meal|station|banquet|food/;
+const CATERING_KIND_RE = /cater|lechon|lauriat|buffet|meal|station|banquet|food|_package$/; // `christening_package` (catering tile)
 
 /**
  * The supplier type a card's kind belongs to.

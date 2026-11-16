@@ -220,8 +220,9 @@ export async function FocusHome({
           <Link href={answer.openHref} className="text-sm font-medium text-[color:var(--sn-ink-900)]">
             Open {answer.openLabel} ›
           </Link>
-          <Link href="/admin" className="text-sm text-[color:var(--sn-ink-500)]">
-            ‹ Focus
+          {/* Focus is a bar root — no back link here (lib/page-home.ts); the full list is one plain link away. */}
+          <Link href="/admin" className="text-sm text-[color:var(--sn-ink-500)]" data-focus-ask-all="">
+            Everything that needs you
           </Link>
         </section>
       ) : null}

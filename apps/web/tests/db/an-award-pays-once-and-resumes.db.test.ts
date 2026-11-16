@@ -21,6 +21,11 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 import { giftPointsForPrice } from '../../lib/gift-points';
 
+/** After the badge counters start (badge_counts_start(): 18 Dec 2026, Manila) — what a counted fixture is dated. */
+const AFTER = '2026-12-20T12:00:00+08:00';
+/** Before the counters start: a test booking that must never count (owner 16 Nov). */
+const BEFORE = '2026-12-17T23:59:00+08:00';
+
 let replay: ReplayResult;
 let db: PGlite;
 let n = 0;
@@ -63,9 +68,9 @@ async function giftedEvent(
   n += 1;
   const eventId = await one<string>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id AS v`, [`gift pts ${n}`]);
   await db.query(
-    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id)
-     VALUES ($1, 'photographer', 'Gift Shop', $2, $3, $3)`,
-    [eventId, status, shop],
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id, created_at)
+     VALUES ($1, 'photographer', 'Gift Shop', $2, $3, $3, $4)`,
+    [eventId, status, shop, AFTER],
   );
   const proposalId = await one<string>(
     `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos)
@@ -82,14 +87,14 @@ async function giftedEvent(
   const papicCredits = lines.filter((l) => l.kind === 'papic').reduce((s, l) => s + l.credits, 0);
   if (papicCredits > 0) {
     await db.query(
-      `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id) VALUES ($1, 'papic', $2, 'given', $3, $4)`,
-      [shop, -papicCredits, eventId, proposalId],
+      `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id, created_at) VALUES ($1, 'papic', $2, 'given', $3, $4, $5)`,
+      [shop, -papicCredits, eventId, proposalId, AFTER],
     );
   }
   for (const l of lines.filter((x) => x.kind !== 'papic')) {
     await db.query(
-      `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id) VALUES ($1, $2, -1, 'given', $3, $4)`,
-      [shop, l.kind, eventId, proposalId],
+      `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id, created_at) VALUES ($1, $2, -1, 'given', $3, $4, $5)`,
+      [shop, l.kind, eventId, proposalId, AFTER],
     );
   }
   return eventId;
@@ -225,14 +230,15 @@ async function booking(
   status: 'contracted' | 'delivered' | 'complete',
   source: string | null,
   ownLinkChat = false,
+  createdAt: string = AFTER,
 ): Promise<string> {
   n += 1;
   const eventId = await one<string>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id AS v`, [`booking ${n}`]);
   await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, couple]);
   await db.query(
-    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id, source)
-     VALUES ($1, 'photographer', 'Count Shop', $2, $3, $3, $4)`,
-    [eventId, status, shop, source],
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id, source, created_at)
+     VALUES ($1, 'photographer', 'Count Shop', $2, $3, $3, $4, $5)`,
+    [eventId, status, shop, source, createdAt],
   );
   if (ownLinkChat) {
     await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source) VALUES ($1, $2, 'website')`, [eventId, shop]);
@@ -257,8 +263,8 @@ test('16 Nov · 1 · a gift paid from BADGE-REWARD stock never counts toward Gif
     [proposalId, shopA],
   );
   await db.query(
-    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id) VALUES ($1, 'papic', -1000, 'given', $2, $3)`,
-    [shopA, eventId, proposalId],
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id, created_at) VALUES ($1, 'papic', -1000, 'given', $2, $3, $4)`,
+    [shopA, eventId, proposalId, AFTER],
   );
   assert.equal(await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shopA]), paid, 'a reward-paid gift counted');
 });
@@ -295,12 +301,14 @@ test('16 Nov · 2 · imports never count toward Completed bookings or Trusted by
   // The public completed-events number is untouched by this rule.
   assert.ok(Number(await one<string>(`SELECT count(*)::text AS v FROM public.event_vendors WHERE linked_vendor_profile_id = $1 AND status = 'complete'`, [shop])) >= 7);
 
-  // Trusted by: c2 booked the shop on four events, every one an import → not trusted. c1 comes back without an import.
-  assert.equal(await trusted(), 0);
+  // Trusted by COUNTS imports (controller's audit of 923f981994: the 16 Nov rows rule imports out of Completed bookings
+  // only). c2 booked the shop on several events, every one an import → trusted. c1 then comes back → +1, once.
+  const t0 = await trusted();
+  assert.ok(t0 >= 1, 'a client whose repeat bookings are all imports is Trusted by');
   await booking(shop, c1, 'contracted', null);
-  assert.equal(await trusted(), 1, 'a client who came back counts once');
+  assert.equal(await trusted(), t0 + 1, 'a client who came back counts once');
   await booking(shop, c1, 'contracted', null);
-  assert.equal(await trusted(), 1, 'a third booking adds nothing');
+  assert.equal(await trusted(), t0 + 1, 'a third booking adds nothing');
 
   // Rule 3: a gift given on an imported client's completed event DOES count toward Gifts given.
   const imported = await giftedEvent(shop, 'complete', [{ code: 'PAPIC_GUEST_150', kind: 'papic', credits: 150 }]);
@@ -312,4 +320,27 @@ test('16 Nov · 2 · imports never count toward Completed bookings or Trusted by
       assert.equal(await one<boolean>(`SELECT has_function_privilege($1, $2, 'EXECUTE') AS v`, [role, `public.${fn}`]), false, `${role} can call ${fn}`);
     }
   }
+});
+
+test('16 Nov · the counters start on 18 Dec 2026 (Manila): a booking, gift or review before then never counts', async () => {
+  assert.equal(await one<string>(`SELECT to_char(public.badge_counts_start() AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD HH24:MI') AS v`), '2026-12-18 00:00');
+  const owner = await newUser('award-d@test.test', 'vendor');
+  const shop = await shopOf(owner, 'Award Shop D');
+  await db.query(`UPDATE public.vendor_profiles SET verification_state = 'verified', last_verified_at = NOW(), public_visibility = 'verified' WHERE vendor_profile_id = $1`, [shop]);
+  const c = await newUser('award-d1@test.test', 'customer');
+  const completed = () => one<number>(`SELECT public.shop_completed_bookings_count($1) AS v`, [shop]);
+  const trusted = () => one<number>(`SELECT public.shop_trusted_by_count($1) AS v`, [shop]);
+
+  // A test booking the minute before the counters start, completed, and the same client back again — none of it counts.
+  await booking(shop, c, 'complete', null, false, BEFORE);
+  await booking(shop, c, 'complete', null, false, BEFORE);
+  assert.equal(await completed(), 0, 'a booking before 18 Dec counted toward Completed bookings');
+  assert.equal(await trusted(), 0, 'bookings before 18 Dec counted toward Trusted by');
+  // A gift given on a test booking: no points.
+  const ev = await giftedEvent(shop, 'complete', [{ code: 'PAPIC_GUEST_150', kind: 'papic', credits: 150 }]);
+  await db.query(`UPDATE public.event_vendors SET created_at = $2 WHERE event_id = $1`, [ev, BEFORE]);
+  assert.equal(await one<number>(`SELECT public.shop_gift_points($1) AS v`, [shop]), 0, 'a gift on a pre-launch booking counted');
+  // The first booking after the start counts.
+  await booking(shop, c, 'complete', null);
+  assert.equal(await completed(), 1);
 });

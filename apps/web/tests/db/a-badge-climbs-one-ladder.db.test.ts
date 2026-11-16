@@ -107,9 +107,10 @@ async function review(shop: string, couple: string, rating: number, opts: { book
   const reviewId = await one<string>(
     `INSERT INTO public.vendor_reviews
        (vendor_profile_id, event_id, couple_user_id, rating_overall,
-        rating_communication, rating_quality, rating_value, rating_on_time, body)
-     VALUES ($1, $2, $3, $4, 5, 5, 5, 5, 'A lovely day.')
+        rating_communication, rating_quality, rating_value, rating_on_time, body, created_at)
+     VALUES ($1, $2, $3, $4, 5, 5, 5, 5, 'A lovely day.', '2026-12-20T12:00:00+08:00')
      RETURNING review_id AS v`,
+    // Dated after the badge counters start (badge_counts_start(), 18 Dec 2026) — before it, nothing counts.
     [shop, eventId, couple, rating],
   );
   if (opts.fraud) await db.query(`UPDATE public.vendor_reviews SET voided_by_fraud = TRUE WHERE review_id = $1`, [reviewId]);

@@ -143,13 +143,13 @@ export async function readBadgeRewardFacts(
         }));
       }),
     // 🔁 Families who booked again — C2's `shop_booked_loop_count`, kept for the retired Booked Loop row's history.
-    // (Trusted by reads `shop_trusted_by_count` below: the same count with imports left out, owner 16 Nov.)
+    // (Trusted by reads `shop_trusted_by_count` below: the same count, from the 18 Dec 2026 badge cut-off.)
     readShopBookedLoopCount(admin, vendorProfileId),
     // ⭐ 5★ reviews under the trusted-review rule (owner 2026-11-15) — `shop_trusted_five_star_count`. null = unread.
     readFiveStarCount(admin, vendorProfileId),
     // 🎁 Gifts given (owner 15 Nov): gift points for gifts given on completed events — `shop_gift_points`. null = unread.
     readGiftPoints(admin, vendorProfileId),
-    // ✅ Completed bookings and 🛡 Trusted by, imports left out (owner 16 Nov). null = unread.
+    // ✅ Completed bookings (imports left out) and 🛡 Trusted by (imports counted), both from 18 Dec 2026. null = unread.
     readBadgeCount(admin, 'shop_completed_bookings_count', vendorProfileId),
     readBadgeCount(admin, 'shop_trusted_by_count', vendorProfileId),
   ]);
@@ -229,7 +229,7 @@ export function papicPackFor(packs: readonly ShopGiftPack[], reward: BadgeReward
 
 /** The products' names from the live catalogue: every reward the one ladder can pay, and each Papic pack by credits. */
 export async function readRewardNames(admin: SupabaseClient): Promise<RewardNames> {
-  // Event Ultra is one of the gift packs since 15 Nov, so its catalogue title comes with them.
+  // Event Ultra is one of the gift packs since 15 Nov (earned only), so its catalogue title comes with them.
   const packs = await fetchShopGiftPacks(admin);
   if (!packs) return FALLBACK_REWARD_NAMES;
   const papicByCredits: Record<number, string> = {};

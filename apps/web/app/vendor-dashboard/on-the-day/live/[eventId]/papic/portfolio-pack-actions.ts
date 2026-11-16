@@ -109,9 +109,9 @@ export async function buyVendorPapicPortfolioPack(
   const forGift = String(formData.get('for') ?? '') === 'gift';
   const asked = String(formData.get('pack') ?? '').trim();
   const askedKind = shopGiftKindOf(asked);
-  const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro' || askedKind === 'event_ultra');
+  const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro');
 
-  // Owner 2026-10-25: "No. Papic needs to be on." — for Papic packs. Event Plus / Pro / Ultra gifts are not Papic.
+  // Owner 2026-10-25: "No. Papic needs to be on." — for Papic packs. Event Plus / Pro gifts are not Papic.
   if (!unlockGift) {
     if (!(await isVendorPapicCaptureEnabled())) {
       return err('Papic credit packs are not on sale right now.');

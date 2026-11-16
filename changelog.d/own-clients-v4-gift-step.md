@@ -48,3 +48,14 @@ SPEC IMPACT: None.
 - DB test `an-own-client-gift-is-given-once.db.test.ts` (6 tests, two sabotages measured red).
 
 SPEC IMPACT: None — implements the 16 Nov rulings as recorded.
+
+## 2026-11-16 · feat(own-clients): owner's copy answers + the own-link "add a gift" notice
+
+Owner, on #7889, verbatim "7. Yes 8. Yes":
+- The three drawing lines re-worded to the import-fee ruling: "Your clients can book you free." · "Clients new to
+  Setnayan book you free for a year. Each one comes with a Setnayan gift from you." · confirm Booking fee "None if they
+  are new to Setnayan, or you are the first supplier on their event".
+- A verified shop whose own link has no gift is told first, on every own code it can share (My page · Check a date ·
+  Reviews): "Add a gift to your link so your clients book free."
+
+SPEC IMPACT: None — the owner's answers, applied as given.

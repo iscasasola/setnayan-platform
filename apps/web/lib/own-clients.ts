@@ -35,11 +35,13 @@ export const OWN_GIFT_BUY_KEY = '__buy';
 
 export const ADD_CLIENT_TITLE = 'Add a client';
 export const ADD_CLIENT_ROW_LINE = 'Their invite comes with a Setnayan gift from you';
-export const OWN_CLIENT_PROMISE = 'Your clients pay no booking fee.';
+// Copy: owner 2026-11-16 ("7. Yes" on #7889) — the drawing's lines, re-worded to the import-fee ruling.
+export const OWN_CLIENT_PROMISE = 'Your clients can book you free.';
 export const OWN_CLIENT_PROMISE_LINE = 'Each one comes with at least one Setnayan gift from you';
 export const OWN_CLIENT_PROMISE_TIP =
   'Each client you add comes with a Setnayan gift from your stock — one is used when they join; an invite nobody uses costs nothing more. A client new to Setnayan books you with no booking fee for 12 months. A client already on Setnayan books free only for an event you are the first supplier to add them to. Gifts from a badge reward don’t count here.';
-export const ADD_CLIENT_LEAD = 'Clients you bring pay no booking fee. Each one comes with a Setnayan gift from you.';
+export const ADD_CLIENT_LEAD = 'Clients new to Setnayan book you free for a year. Each one comes with a Setnayan gift from you.';
+export const CONFIRM_BOOKING_FEE = 'None if they are new to Setnayan, or you are the first supplier on their event';
 export const GIFT_FROM_YOU = 'Gift from you';
 export const GIFT_WITH_YOUR_LINK = 'Gift with your link';
 export const AT_LEAST_ONE = 'At least one';
@@ -55,7 +57,11 @@ export const OWN_LINK_EACH_LINE = '1 from your stock is used for each couple who
 export const OWN_LINK_COVERS = 'The same gift goes with My page, Check a date and Reviews when you share them as your own.';
 export const OWN_LINK_EMPTY =
   'Your stock is empty. Your link still works, but a couple who joins now is not yet your own client — buy more gifts.';
-export const OWN_LINK_NOT_SET = 'Not set yet. Until it is, a couple who joins through your link is not your own client.';
+/**
+ * Owner 2026-11-16 ("8. Yes" on #7889): a VERIFIED shop sharing its own link with no gift on it is told FIRST — on every
+ * own code it can share (My page · Check a date · Reviews), before any ask through it is charged the fee.
+ */
+export const OWN_LINK_ADD_GIFT = 'Add a gift to your link so your clients book free.';
 /**
  * 🪪 UNVERIFIED SHOPS DO GET THE QR (owner 2026-11-16, DECISION_LOG "UNVERIFIED SHOPS DO GET THE QR", amending
  * 34909f12): an unverified shop keeps Add a client and its own link, and its couples can join and book — but every

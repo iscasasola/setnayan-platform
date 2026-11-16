@@ -129,3 +129,19 @@ test('🪪 an unverified shop keeps the QR, but its import is never free, and it
   const action = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/own-client-actions.ts'), 'utf8');
   assert.doesNotMatch(action, /OWN_CLIENTS_LOCKED/, 'an unverified shop may still add clients');
 });
+
+test('owner "7. Yes" / "8. Yes" (#7889): the three re-worded lines, and the own link tells a verified shop first', () => {
+  const lib = readFileSync(join(process.cwd(), 'lib/own-clients.ts'), 'utf8');
+  assert.match(lib, /OWN_CLIENT_PROMISE = 'Your clients can book you free\.'/);
+  assert.match(lib, /ADD_CLIENT_LEAD = 'Clients new to Setnayan book you free for a year\. Each one comes with a Setnayan gift from you\.'/);
+  assert.match(lib, /CONFIRM_BOOKING_FEE = 'None if they are new to Setnayan, or you are the first supplier on their event'/);
+  assert.match(lib, /OWN_LINK_ADD_GIFT = 'Add a gift to your link so your clients book free\.'/);
+  const block = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/own-client-gift.tsx'), 'utf8');
+  assert.match(block, /v=\{CONFIRM_BOOKING_FEE\}/);
+  assert.doesNotMatch(block, /None — your client/);
+  // Every own code's sheet carries the notice: My page · Check a date · Reviews.
+  const codes = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8');
+  assert.equal((codes.match(/\{ownLinkNotice\}/g) ?? []).length, 3);
+  const promote = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8');
+  assert.match(promote, /ownLinkNotice=\{ownVerified && ownLinkRead === null \? <OwnLinkAddGiftNotice \/> : null\}/);
+});

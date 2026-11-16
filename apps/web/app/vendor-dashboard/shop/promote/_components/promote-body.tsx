@@ -19,7 +19,7 @@ import { siteOrigin } from '@/lib/site-origin';
 import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
-import { OwnLinkGift } from '../../../invite/_components/own-client-gift';
+import { OwnLinkAddGiftNotice, OwnLinkGift } from '../../../invite/_components/own-client-gift';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { ownGiftDataOf, type OwnGiftLine } from '@/lib/own-clients';
 import { fetchOwnLinkGift } from '@/lib/own-clients.server';
@@ -119,6 +119,12 @@ export async function PromoteBody({
       return `${PROMOTE_HREF}?${q.toString()}`;
     };
     const etLabel = eventTypes.find((t) => t.key === selectedEt)?.label ?? null;
+    // 🎁 The own link's gift, read once: its block on My page, and the owner's notice ("8. Yes", 16 Nov) on every own
+    // code's sheet when a VERIFIED shop has none — told first, before any ask through it is charged the fee.
+    const [ownVerified, ownLinkRead] = await Promise.all([
+      isMarketplaceVendorBookable(supabase, profile.vendor_profile_id).catch(() => false),
+      fetchOwnLinkGift(supabase, profile.vendor_profile_id),
+    ]);
     body = (
       <QrCodes
         {...common}
@@ -127,11 +133,12 @@ export async function PromoteBody({
         myPage={{ url: pageUrl, svg: pageSvg, shopName }}
         ownLinkGift={
           <OwnLinkGift
-            verified={await isMarketplaceVendorBookable(supabase, profile.vendor_profile_id).catch(() => false)}
+            verified={ownVerified}
             data={ownGiftDataOf((await giftsPromise) ?? (await loadShopGiftsSection(supabase, profile.vendor_profile_id)))}
-            current={ownLinkCurrent(await fetchOwnLinkGift(supabase, profile.vendor_profile_id))}
+            current={ownLinkCurrent(ownLinkRead)}
           />
         }
+        ownLinkNotice={ownVerified && ownLinkRead === null ? <OwnLinkAddGiftNotice /> : null}
         reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
         shortlist={{
           url: shortUrl,

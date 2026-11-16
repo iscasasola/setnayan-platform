@@ -32,7 +32,8 @@ import {
   OWN_LINK_COVERS,
   OWN_LINK_EACH_LINE,
   OWN_LINK_EMPTY,
-  OWN_LINK_NOT_SET,
+  OWN_LINK_ADD_GIFT,
+  CONFIRM_BOOKING_FEE,
   GET_VERIFIED_HREF,
   GET_VERIFIED_LINE,
   TOO_LITTLE_STOCK_LINE,
@@ -345,7 +346,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
             <Row k="Invite" v="Your Shortlist link" />
             <Row k="Gift" v={`${confirm.gift} · your stock`} />
             <Row k="From your stock" v={`${confirm.lines} used when they join`} />
-            <Row k="Booking fee" v="None — your client" ok />
+            <Row k="Booking fee" v={CONFIRM_BOOKING_FEE} ok />
           </dl>
           <div className="mt-4 flex gap-2">
             <button type="button" onClick={() => setConfirm(null)} className="sn-press min-h-12 flex-1 rounded-full border border-ink/15 text-[15px] font-semibold text-ink" data-own-client-cancel="">
@@ -440,7 +441,7 @@ export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; cu
         </p>
       ) : (
         <>
-          {!saved ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]">{OWN_LINK_NOT_SET}</p> : null}
+          {!saved && verified ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]" data-own-link-add-gift="">{OWN_LINK_ADD_GIFT}</p> : null}
           {empty ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]" data-own-link-empty="">{OWN_LINK_EMPTY}</p> : null}
           {pickable && pick ? (
             <form action={formAction}>
@@ -466,5 +467,14 @@ export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; cu
         <BuyGiftsSheet open onClose={() => setBuying(false)} packs={ownGiftPacks(data.packs)} paysGiftPrice={data.paysGiftPrice} openRails={data.openRails} initialCode={pick} />
       ) : null}
     </div>
+  );
+}
+
+/** 🎁 The notice at the top of every own code's sheet (My page · Check a date · Reviews) — owner "8. Yes", 2026-11-16. */
+export function OwnLinkAddGiftNotice() {
+  return (
+    <p role="status" className="mt-2 rounded-lg bg-[var(--sn-gold-100)] px-3 py-2 text-[13.5px] font-medium text-ink" data-own-link-add-gift-notice="">
+      {OWN_LINK_ADD_GIFT}
+    </p>
   );
 }

@@ -98,7 +98,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           <h1 className="mt-2 text-xl font-semibold text-ink">{payable.title}</h1>
           <p className="mt-3 text-sm text-ink/65">We couldn&rsquo;t check this payment just now, so please don&rsquo;t send anything yet.</p>
           <div className="mt-4 flex justify-center">
-            <ActionButton tone="brand" main icon={RotateCw} label="Try again" href={payPath(payable.reference)} />
+            <ActionButton tone="brand" main icon={<RotateCw aria-hidden strokeWidth={1.9} />} label="Try again" href={payPath(payable.reference)} />
           </div>
         </section>
       </main>

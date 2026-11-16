@@ -18,6 +18,8 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { eventSkuActive } from '@/lib/entitlements';
+import { EVENT_PLUS_SKU } from '@/lib/hub-parts';
 import { STORY_PRO_EXTRA_KEYS, storyProExtrasOf, type StoryProExtras } from '@/lib/story-pro-extras';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { deskIsClear, percentDecided } from '@/lib/story-desk';
@@ -307,6 +309,14 @@ export default async function EditorialEditorPage({
     isPro = await isEditorialProActive(await eventEntitlementClient(eventId), eventId);
   } catch {
     isPro = false;
+  }
+  /* 📸 FREE ADDS EVENT PHOTOS ONE AT A TIME (owner 2026-11-13, specs DECISION_LOG "Story: Free adds event photos one
+     at a time"): Event Plus / Pro / Ultra add many at once. Plus is the shipped feature gate (`EVENT_PLUS_SKU`, the
+     same read the Setnayan mark asks); Ultra confers Pro. A read that fails keeps the Free behaviour — one at a time is
+     a slower path, never a lost photo. */
+  let addsManyAtOnce = isPro;
+  if (!addsManyAtOnce) {
+    addsManyAtOnce = await eventSkuActive(await eventEntitlementClient(eventId), eventId, EVENT_PLUS_SKU).catch(() => false);
   }
 
   /* 💎 TRIED FREE, ASKED AT APPLY. A couple without Pro who wrote a moment's
@@ -622,6 +632,7 @@ export default async function EditorialEditorPage({
         initial={initial}
         uploadDisplayUrls={uploadDisplayUrls}
         isPro={isPro}
+        addsManyAtOnce={addsManyAtOnce}
         heldForPro={heldForPro}
         chapterCards={chapterCards.cards}
         chapterOverrides={tried.chapterOverrides ?? chapterCards.overrides}

@@ -154,8 +154,17 @@ test('isMarketplaceVendorBookable: true only for a verified, listed, clean profi
   assert.equal(await isMarketplaceVendorBookable(stubClient(LIVE), 'vp-1'), true);
 });
 
-test('isMarketplaceVendorBookable: false for every non-verified state', async () => {
-  for (const s of ['unverified', 'pending_review', 'demoted', 'rejected']) {
+test('isMarketplaceVendorBookable: a not-yet-decided shop is bookable (15 Nov); demoted and rejected are not', async () => {
+  // DECISION_LOG 2026-11-15 + owner "We allow booking. Since they can get bookings on their website".
+  for (const s of ['unverified', 'pending_review']) {
+    assert.equal(await isMarketplaceVendorBookable(stubClient({ ...LIVE, public_visibility: 'hidden', verification_state: s }), 'vp-1'), true, `${s} must be bookable`);
+    assert.equal(
+      await isMarketplaceVendorBookable(stubClient({ ...LIVE, public_visibility: 'archived', verification_state: s }), 'vp-1'),
+      false,
+      `an archived ${s} shop must not be bookable`,
+    );
+  }
+  for (const s of ['demoted', 'rejected']) {
     assert.equal(
       await isMarketplaceVendorBookable(
         stubClient({ ...LIVE, verification_state: s }),

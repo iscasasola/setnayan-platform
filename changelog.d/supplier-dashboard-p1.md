@@ -6,3 +6,9 @@
 
 SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECISION_LOG. Nothing new is decided.
 - The glow and the main button's shadow now read the tokens (`--color-mulberry`, the new `--sn-glow-soft`) instead of typed rgba values. Guard: `_components/the-blue-look-is-tokens-only.test.ts`.
+- Audit fixes, 17 Nov:
+  - **Prints follows the shop drawing.** The "Prints" heading stays. Under it sits "Marketing materials, printed out" and its counts (derived from `PRINT_DESIGNS` / `PRINT_PIECES`, never typed). Then come seven piece rows (name · size, then their line), each opening the shipped sheet on that piece. The icon is a calling card (`IdCard`).
+  - **Shop's Prints tile.** The cover gains a Prints tile wearing the same `PRINTS_LINE`. It opens the shipped Promote sheet.
+  - **Drawing colours.** Tiles, washes and pills are #DCE6F2, and warn is #8A5A00.
+  - **Tokens only.** The glow and the button lift are tokens (`--sn-ambient`, `--sn-forward-lift`), read in globals.css at zero specificity. The lift never covers the keyboard focus ring.
+  - **No Admin › Colours leak.** The supplier scope now holds every token a saved set writes. Guards: `the-blue-look-is-tokens-only.test.ts` and `shop/promote/prints-are-the-drawn-seven-rows.test.ts`.

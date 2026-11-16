@@ -5919,7 +5919,9 @@ body {
  * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
  * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
 .sn-ambient {
-  background: #F7F5F0;
+  /* 🎨 A token, so a scope can repaint the ground (the supplier glow, owner 16 Nov) without a per-component rule;
+     unset = the warm white canvas, exactly as before. */
+  background: var(--sn-ambient, var(--sn-canvas, #F7F5F0));
   background-attachment: fixed;
 }
 /* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
@@ -11157,3 +11159,11 @@ html[data-tour-running] [data-notice-slot='top'] {
   }
 }
 
+
+/* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
+   Zero specificity (`:where`), so any shadow a component already gives the button still wins, and never while the
+   button shows its keyboard focus ring (`.button-primary`'s ring IS a box-shadow). The supplier blue look sets it
+   (`vendor-dashboard/_components/supplier-look.css`). */
+:where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand) {
+  box-shadow: var(--sn-forward-lift, none);
+}

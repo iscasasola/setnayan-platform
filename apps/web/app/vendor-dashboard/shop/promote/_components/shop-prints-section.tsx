@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Printer, Share } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, IdCard, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
@@ -28,6 +28,9 @@ import {
   groundCss,
   matrix3d,
   printDesign,
+  printsCountLine,
+  PRINTS_LINE,
+  PRINT_PIECE_COUNT,
   printAllFilename,
   printAllHref,
   printFilename,
@@ -90,7 +93,7 @@ const HOW =
 const FACTS_TIP =
   'These come from your shop — change them there and every print follows. Nothing on a print is typed or moved here. The seal, rating and badges print only if you have them; the switches below take the rating and badges off every print. On the calling card the rating and badges sit on the back.';
 const FITS_TIP =
-  'Every piece has one fixed layout that all 15 designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.';
+  `Every piece has one fixed layout that all ${PRINT_DESIGNS.length} designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.`;
 
 /** YOUR FACTS' first two rows: the shop's name and the line every print carries — read on the server, never typed. */
 export type PrintFacts = { name: string; line: string };
@@ -133,16 +136,38 @@ export function ShopPrintsSection({
       <InfoTip label="Prints" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         {HOW}
       </InfoTip>
-      <div className="mt-2">
+      {/* 🪪 The drawing's block (owner 16 Nov, `supplier_shop_clean_2026-11-16`): the line under "Prints", its counts (read
+          from the two tables, never typed), then ONE row per piece — each opens the shipped sheet straight on that
+          piece's big view, the same `big` the QR list's "Put it on…" uses. */}
+      <p className="mt-1 text-[13.5px] text-ink/70" data-shop-prints-line="">
+        <IdCard aria-hidden className="mr-1.5 inline h-[18px] w-[18px] align-[-4px] text-ink/55" strokeWidth={1.75} />
+        {PRINTS_LINE}
+        <small className="ml-1.5 text-[12.5px] text-ink/55">{printsCountLine()}</small>
+      </p>
+      <div className="mt-1 divide-y divide-ink/10">
         {canShare ? (
-          <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left" data-dates-row="shop-prints">
-            <Printer aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium leading-tight text-ink">Marketing materials, printed out</span>
-              <span className="mt-0.5 block truncate text-[13px] text-ink/60">15 designs · 7 pieces</span>
-            </span>
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-          </button>
+          PRINT_PIECES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                setBig({ kind: 'piece', piece: p });
+                setOpen(true);
+              }}
+              aria-haspopup="dialog"
+              className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left"
+              data-dates-row="shop-prints"
+              data-shop-prints-piece={p.id}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium leading-tight text-ink">
+                  {p.name} <i className="ml-1 text-[12.5px] font-normal not-italic text-ink/55">{p.size}</i>
+                </span>
+                <span className="mt-0.5 block truncate text-[13px] text-ink/60">{p.line}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+            </button>
+          ))
         ) : (
           <DatesRow data="shop-prints-no-address" title="Name your shop first" line="Your codes are built from your shop’s web address" href={setupHref} />
         )}
@@ -217,7 +242,7 @@ function PrintsSheet({
   const pickDesign = (k: string) => {
     if (k === designId) return;
     setDesignId(k);
-    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all 7 pieces and the photos updated`);
+    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all ${PRINT_PIECE_COUNT} pieces and the photos updated`);
   };
   const pickQr = (k: string) => {
     const m = k as PrintQrMode;
@@ -254,7 +279,7 @@ function PrintsSheet({
           <p className="truncate text-[12.5px] text-ink/60">{bigSub}</p>
         ) : (
           <span className="text-[12.5px] text-ink/60" data-prints-top="">
-            <InfoTip label={`${d.name} · 7 pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
+            <InfoTip label={`${d.name} · ${PRINT_PIECE_COUNT} pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
               {HOW}
             </InfoTip>
           </span>
@@ -362,7 +387,7 @@ function PrintsSheet({
             <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">One fixed layout per piece. A design changes only the look — your shop changes the facts.</p>
 
             <SecHead
-              label={`All 7 pieces · ${d.name}`}
+              label={`All ${PRINT_PIECE_COUNT} pieces · ${d.name}`}
               tip={`${d.name} — suits ${d.suits}. Tap any piece to see it big. Save gives a print-ready file with 3 mm bleed at this exact size.`}
               badge={`${PRINT_QR[qr].t} QR`}
             />

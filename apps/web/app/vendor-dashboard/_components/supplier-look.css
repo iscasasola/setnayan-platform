@@ -3,25 +3,29 @@
  * OWNER'S BLUE LOOK, LIGHT AND DARK — APPROVED ON CLIENTS, CARRIED TO EVERY SUPPLIER PAGE"; P1 drawings
  * `prototypes/supplier_*_clean_2026-11-16/`, one shared colour block, plus the 16 Nov colour adjustments and the glow).
  *
- * HOW: no component is recoloured by hand. The token layer in globals.css was built for exactly this ("if we change
- * our colour to blue, it will be easy to change the button colours") — this file RE-POINTS those tokens while a
- * supplier page is on screen. The supplier shell's template (`../template.tsx`) carries `data-supplier-look`; the
- * selector below is `html:not(.dark):has([data-supplier-look])`, so:
- *   • the tokens land on <html>, the same element the :root aliases live on (`--sn-accent: var(--color-mulberry)`,
- *     `--sn-surface-soft: var(--m-paper-2)` …) — every alias re-resolves to the blue values, none is frozen;
- *   • it outranks Admin › Colours' saved `html:not(.dark){…}` (0,1,1) by one class, so the couple side's colours
- *     can never leak onto a supplier page, and leaving the supplier area (the template unmounts) restores them;
+ * HOW: TOKENS ONLY. No component is recoloured by hand and no component rule lives here (owner 17 Nov, "no
+ * per-component overrides"): this file RE-POINTS the tokens in globals.css while a supplier page is on screen. The
+ * supplier shell's template (`../template.tsx`) carries `data-supplier-look`; the selector is
+ * `html:not(.dark):has([data-supplier-look])`, so:
+ *   • the tokens land on <html>, the same element the :root aliases live on — every alias re-resolves to the blue;
+ *   • it outranks Admin › Colours' saved `html:not(.dark){…}` (0,1,1) by one class, AND it declares EVERY token a saved
+ *     set writes (`appColourTokens`, lib/app-colours.ts) — the ones the blue look recolours as the blue, the rest as the
+ *     code default — so a saved colour set can never show through on a supplier page. Held by
+ *     `the-blue-look-is-tokens-only.test.ts`, which reads the list from `appColourTokens` itself;
+ *   • leaving the supplier area (the template unmounts) restores the couple side's colours;
  *   • a guest island / the couple's Event Hub never carries the attribute, so it is untouched.
+ * The ground (`.sn-ambient`) and the main button's lift read `--sn-ambient` / `--sn-forward-lift` in globals.css.
  *
- * LIGHT ONLY, ON PURPOSE. The ruling asks for a dark mode that follows the device. The app is light-locked
- * (globals.css, owner 2026-06-04) and the shell's rule is that dark follows the person's Appearance choice, never the
- * phone (`front-door.css` header) — and ~170 hand-typed `bg-white` surfaces in the supplier area would paint white
- * cards under pale dark-mode words. Dark is an owner question in the PR, not shipped here.
+ * LIGHT ONLY, ON PURPOSE (owner 17 Nov): dark follows the person's Appearance setting, light by default, and ships in a
+ * later slice after a sweep of every white surface. The drawing's dark set (amber #F2A93B for gold and warn) waits
+ * for it.
  *
- * Values are the ruling's (titles #101B30 · body #566275 · links #175AB9 · page #EEF2F8 · tiles #DCE6F2) with the
- * 16 Nov adjustments (solid #2272E6 main button + its soft blue shadow · pale ghost #E8F0FA · cool hairline).
+ * Values are the drawing's colour block (`supplier_shop_clean_2026-11-16`): page #EEF2F8 · titles #101B30 · body
+ * #566275 · links #175AB9 · tiles, washes, pills and the band #DCE6F2 · ghost #E8F0FA · lines #E1E7F0 / #CFD9E6 ·
+ * ok #2B744A · warn #8A5A00 · the main button #2272E6 with its soft blue lift.
  * Contrast, measured: white on #2272E6 4.55:1 AA · #101B30 on #EEF2F8 15.3:1 · #566275 on #FFFFFF 6.18:1 ·
- * #566275 on #EEF2F8 5.50:1 · #175AB9 on #FFFFFF 6.56:1 · #175AB9 on #EEF2F8 5.84:1.
+ * #566275 on #EEF2F8 5.50:1 · #175AB9 on #FFFFFF 6.56:1 · #175AB9 on #EEF2F8 5.84:1 · on the #DCE6F2 wash: #101B30
+ * 13.6:1 · #175AB9 5.20:1 · #566275 4.90:1 · warn #8A5A00 on #FFFFFF 5.93:1, on #EEF2F8 5.28:1.
  */
 
 html:not(.dark):has([data-supplier-look]) {
@@ -44,7 +48,10 @@ html:not(.dark):has([data-supplier-look]) {
   --color-terracotta-700: 17 70 150;
   --accent: #2272e6;
   --accent-deep: #1b66d2;
-  --accent-soft: #e8f0fa;
+  --accent-soft: #dce6f2; /* the drawing's --acc-soft */
+
+  /* status — the drawing's light warn */
+  --color-warn: 138 90 0; /* #8A5A00 */
 
   /* the band */
   --sn-band-from: 27 102 210;
@@ -56,56 +63,60 @@ html:not(.dark):has([data-supplier-look]) {
   --sn-frame-shadow: 0 1px 2px rgba(16, 27, 48, 0.04), 0 10px 26px -14px rgba(16, 27, 48, 0.18);
   --sn-frame-shadow-tile: 0 1px 2px rgba(16, 27, 48, 0.05), 0 6px 16px -10px rgba(16, 27, 48, 0.14);
   --m-line: #e1e7f0;
-  --m-paper-2: #e8f0fa; /* the ghost / soft wash */
-  --surface-soft: #e8f0fa;
+  --m-paper-2: #e8f0fa; /* the drawing's --ghost */
+  --surface-soft: #dce6f2; /* the drawing's --wash */
   --sn-hair: rgb(16 27 48 / 0.08);
-  /* the glow's pale second light (owner pick, 16 Nov) — a token like the rest, so no colour is typed below */
+
+  /* the ground: the soft background glow (owner pick, 16 Nov) — three faint blue lights over the page colour */
   --sn-glow-soft: 125 177 255;
+  --sn-ambient:
+    radial-gradient(900px 520px at 88% -8%, rgb(var(--color-mulberry) / 0.17), transparent 62%),
+    radial-gradient(720px 520px at -12% 34%, rgb(var(--sn-glow-soft) / 0.16), transparent 60%),
+    radial-gradient(800px 600px at 60% 108%, rgb(var(--color-mulberry) / 0.1), transparent 60%),
+    rgb(var(--sn-page-bg));
+
+  /* the main button's soft blue lift (16 Nov adjustment; solid fill, no gradient) */
+  --sn-forward-lift: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
+
+  /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
+  --sn-band-angle: 135deg;
+  --sn-on-band: 255 255 255;
+  --color-ok: 43 116 74; /* #2B744A — also the drawing's ok */
+  /* the forward step is unset by default (globals.css): `initial` hands every consumer back its fallback, which is the
+     blue above (`var(--sn-decision, var(--color-mulberry))`) */
+  --sn-decision: initial;
+  --sn-decision-600: initial;
+  --sn-decision-word: initial;
+  --sn-on-decision: initial;
+  --sn-accent: 34 114 230; /* the blue — the toggle "on" */
+  --color-private: 2 132 199;
+  --color-private-text: 3 105 161;
+  --color-private-tint: 224 242 254;
+  --sn-cat-booked: 22 107 74;
+  --sn-cat-schedule: 47 109 181;
+  --sn-cat-asked: 201 71 26;
+  --sn-cat-collect: 162 69 126;
 }
 
-/* The shell (bar · rail · bottom bar) keeps its own `--fd-*` set on `.fd` — re-pointed the same way. */
+/* The shell (bar · rail · bottom bar) keeps its own `--fd-*` set on `.fd` — re-pointed the same way. --fd-cream stays
+   WHITE: it is the bar/rail ground AND the label on a --fd-gold fill (white on #2272E6 4.55:1; the page colour on it
+   would be 4.05:1). The app shell's `.fd` is transparent, so the page ground shows through. */
 html:not(.dark):has([data-supplier-look]) .fd {
-  /* --fd-cream stays WHITE: it is the bar/rail ground AND the label on a --fd-gold fill (white on #2272E6 4.55:1;
-     the page colour on it would be 4.05:1). The page colour is painted by the background below instead. */
   --fd-ink: #101b30;
   --fd-gold: #2272e6;
   --fd-hi: #2272e6;
   --fd-gold-press: #1b66d2;
   --fd-link: #175ab9;
   --fd-line: #e1e7f0;
-  --fd-wash: #e8f0fa;
+  --fd-wash: #dce6f2;
   --fd-hover: #e8f0fa;
   --fd-field: #e8f0fa;
   --fd-note: #eef3fa;
-  --fd-chip: #e8f0fa;
-  --fd-chip-hover: #dce6f2;
+  --fd-chip: #dce6f2;
+  --fd-chip-hover: #cfd9e6;
   --fd-quiet: #e8f0fa;
   --fd-invite: #f4f7fc;
-  --fd-invite-line: #d3ddea;
-  background: rgb(var(--sn-page-bg));
-}
-
-/* The page colour under everything (the body shows past the shell on overscroll). */
-html:not(.dark):has([data-supplier-look]) body {
-  background-color: rgb(var(--sn-page-bg));
-}
-
-/* The supplier layout's own full-height wrapper (`.sn-ambient`, a hand-typed #F7F5F0 in globals.css) carries the glow. */
-html:not(.dark):has([data-supplier-look]) .sn-ambient {
-  /* 🌤 the soft background glow (owner pick, 16 Nov) — three faint blue lights behind the floating cards */
-  background:
-    radial-gradient(900px 520px at 88% -8%, rgb(var(--color-mulberry) / 0.17), transparent 62%),
-    radial-gradient(720px 520px at -12% 34%, rgb(var(--sn-glow-soft) / 0.16), transparent 60%),
-    radial-gradient(800px 600px at 60% 108%, rgb(var(--color-mulberry) / 0.1), transparent 60%),
-    rgb(var(--sn-page-bg));
-  background-attachment: fixed;
-
-}
-
-/* The main button wears the 16 Nov soft blue shadow (solid fill, no gradient). */
-html:not(.dark):has([data-supplier-look]) .button-primary,
-html:not(.dark):has([data-supplier-look]) .ab-brand {
-  box-shadow: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
+  --fd-invite-line: #cfd9e6;
 }
 
 /* From 1100 the top bar is solid white (16 Nov adjustment), not frosted glass over the glow. */

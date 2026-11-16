@@ -12,7 +12,8 @@ import { stripComments } from '@/lib/strip-comments';
 import { WEB } from '@/lib/design-rules-scan';
 import { SETNAYAN_HOME_URL, shopColdDoorShows } from '@/lib/shop-back';
 import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
-import { awardFact } from '@/lib/shop-award-fact';
+import { awardFact, awardsRowBadges } from '@/lib/shop-award-fact';
+import { publicBadgeView, sealsFromEngine } from '@/lib/public-badges';
 import { milestoneBadge, type ShopBadge } from '@/lib/shop-badges';
 
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -53,9 +54,18 @@ test('once the name scrolls under the bar: the shop’s logo + name go to the to
   assert.match(BAR, /const toTop = \(\) => window\.scrollTo\(\{ top: 0, behavior: smooth\(\) \}\);/);
   assert.match(BAR, /<button\s+type="button"\s+onClick=\{toTop\}[\s\S]{0,300}\{logo\}\s*<span className="truncate">\{shopName\}<\/span>/);
   assert.match(BAR, /\{verified \? \(\s*<button\s+type="button"\s+onClick=\{showVerified\}[^>]*className="inline-flex h-11 w-11/);
-  assert.match(BAR, /document\.getElementById\('shop-verified-award'\)/);
-  assert.match(PAGE, /<li id="shop-verified-award"/, 'the Verified award the check brings up is not on the page');
+  assert.match(PAGE, /<li id="shop-verified-award"/, 'the Verified award is not in the Awards row');
   assert.match(PAGE, /logo=\{<TopBarLogo logoUrl=\{logoDisplayUrl\}/, 'the top bar does not show the shop’s own logo');
+});
+
+// Sabotage: scroll to the row again / import a home-made full screen / load the kit statically / drop the row's art → red.
+test('the blue check opens the award kit’s full-screen Verified award (#7752), loaded only on the tap', () => {
+  assert.match(BAR, /const showVerified = \(\) => setVerifiedOpen\(true\);/);
+  assert.doesNotMatch(BAR, /scrollIntoView/, 'the check scrolls instead of opening the award');
+  assert.match(BAR, /dynamic\(\(\) => import\('@\/app\/_components\/award\/verified-fullscreen'\)\.then\(\(m\) => m\.VerifiedFullscreen\)/);
+  assert.doesNotMatch(BAR, /^import[^;]*_components\/award/m, 'the award kit is in the page’s first load');
+  assert.match(BAR, /\{verified && verifiedOpen \? \(\s*<VerifiedFullscreen art=\{verifiedArt \?\? null\} shopName=\{shopName\} onClose=\{\(\) => setVerifiedOpen\(false\)\} \/>/);
+  assert.match(PAGE, /verifiedArt=\{<ImageBadge \{\.\.\.badgeImageOf\(verifiedBadge\(\)\)\}/, 'the full screen does not show the row’s blue-check seal');
 });
 
 // Sabotage: show `acts` unconditionally / observe nothing → red.
@@ -105,4 +115,37 @@ test('the section menu sits under the sticky top bar, and lands sections under b
   assert.match(bar, /parseFloat\(getComputedStyle\(nav\)\.top\)/);
   assert.match(PAGE, /\['--shop-bar-h' as string\]: '3\.5rem'/);
   assert.match(BAR, /className="sticky top-0 z-30/);
+});
+
+// Sabotage: read `shopBadges`' milestone again / drop `sealsFromEngine` / let a seal or a tier keep its tier name → red.
+test('the Awards row reads the ONE adapter: Verified, the seals the shop holds (#7825), Completed bookings — badge + one fact', () => {
+  assert.match(PAGE, /const awardsView = publicBadgeView\(\{[\s\S]{0,200}seals: sealsFromEngine\(shopSeals\?\.seals\),/);
+  assert.match(PAGE, /const sealsP = startRead\(\s*readShopSeals\(vendor\.vendor_profile_id, vendor\.verification_state === 'verified'\)/);
+  assert.match(PAGE, /const awardsRow = awardsRowBadges\(awardsView\);/);
+  assert.match(PAGE, /\{awardsRow\.map\(\(b\) => \(/);
+  assert.doesNotMatch(PAGE, /performancePills|fetchVendorCurrentAwards|AWARD_LABELS/, 'the row still reads the retired Spotlight awards');
+  const view = publicBadgeView({
+    verified: true,
+    seals: sealsFromEngine(['no1', 'top10', 'clients_choice', 'most_in_demand', 'verified']),
+    tiers: [{ family: 'bookings', name: 'Completed bookings', tier: 'Gold', count: 63 }],
+  });
+  const row = awardsRowBadges(view);
+  assert.deepEqual(row.map(awardFact), [
+    '50 bookings completed',
+    'No. 1 Supplier of the Year',
+    'Top 10 Supplier',
+    "Clients' Choice",
+    'Most In-Demand',
+  ]);
+  for (const b of row) assert.doesNotMatch(`${awardFact(b)} ${b.label}`, /Bronze|Silver|Gold|Ruby|Emerald|Diamond|20\d\d/, 'a tier name or a date in the row');
+  assert.ok(!row.some((b) => b.kind === 'verified'), 'Verified is drawn twice (it keeps its own <li>)');
+  assert.equal(sealsFromEngine(null), null, 'a failed seal read became "no seals"');
+  const partner = publicBadgeView({ verified: true, seals: sealsFromEngine(['verified_partner', 'verified']) });
+  assert.deepEqual(partner.seals.map((x) => x.key), ['partner'], 'Verified Partner did not replace Setnayan Verified (3077c9b3 rule 8)');
+});
+
+test('the adapter lists the seals in the engine’s own order (SEAL_ORDER), each once', async () => {
+  const { SEAL_ORDER } = await import('@/lib/shop-seals');
+  const { SEALS } = await import('@/lib/public-badges');
+  assert.deepEqual(SEALS.map((x) => x.key), sealsFromEngine(SEAL_ORDER));
 });

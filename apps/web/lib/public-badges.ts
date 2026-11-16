@@ -20,6 +20,7 @@
  *
  * Pure: no I/O, no React. Held by `lib/public-badges.test.ts`.
  */
+import { SEAL_LABEL, type SealKey as EngineSealKey } from '@/lib/shop-seals';
 
 /** The retired explore pills — the old `VendorBadge` keys (`lib/vendor-badges.ts`) that no longer draw. */
 export const RETIRED_EXPLORE_PILLS = ['new', 'couple_trusted', 'most_booking', 'top_pick'] as const;
@@ -34,13 +35,17 @@ export const SHOP_BADGE_FAMILIES = [
 ] as const;
 export type ShopBadgeFamily = (typeof SHOP_BADGE_FAMILIES)[number]['key'];
 
-/** The seals named in the ruling (4b8cc3a3). Setnayan Verified is the one with a source today. */
+/**
+ * The seals named in the ruling (4b8cc3a3), plus Clients' Choice (11d044c0 (2)) — the names are the seals engine's own
+ * (`SEAL_LABEL`, lib/shop-seals.ts), never re-typed here, and listed in its `SEAL_ORDER` ("No. 1 → other seals").
+ */
 export const SEALS = [
-  { key: 'verified', name: 'Setnayan Verified' },
-  { key: 'partner', name: 'Verified Partner' },
-  { key: 'in_demand', name: 'Most In-Demand' },
-  { key: 'top10', name: 'Top 10 Supplier' },
-  { key: 'no1', name: 'No. 1 Supplier of the Year' },
+  { key: 'no1', name: SEAL_LABEL.no1 },
+  { key: 'top10', name: SEAL_LABEL.top10 },
+  { key: 'clients_choice', name: SEAL_LABEL.clients_choice },
+  { key: 'in_demand', name: SEAL_LABEL.most_in_demand },
+  { key: 'partner', name: SEAL_LABEL.verified_partner },
+  { key: 'verified', name: SEAL_LABEL.verified },
 ] as const;
 export type SealKey = (typeof SEALS)[number]['key'];
 
@@ -76,7 +81,7 @@ export type PublicBadgeView = {
  */
 export const PUBLIC_BADGE_GAPS: Readonly<Record<string, string>> = {
   shopBadges: 'J0 — the five ladders and their tier steps (v86 steps; main still holds the retired Events ladder)',
-  seals: 'J2 — the seals engine (shop_seals); only Setnayan Verified has a source today',
+  seals: 'J2 — wired (#7825): `sealsFromEngine` reads `readShopSeals`; the shop page passes it (app/v/[slug])',
   cardMedals: 'J3 — the card-badge holds (service_card_badge_holds); only Setnayan Verified has a source today',
   sheetVerified: 'the shop page passes no verification to the service card yet (app/v/[slug] — F2 / J3 own its callers)',
 };
@@ -95,12 +100,32 @@ export type PublicBadgeSource = {
   cardMedals?: readonly CardMedalKey[] | null;
 };
 
+/** The seals engine's keys (`shop_seals.seal`, lib/shop-seals.ts) → this adapter's. */
+const ENGINE_SEAL: Readonly<Record<EngineSealKey, SealKey>> = {
+  verified: 'verified',
+  verified_partner: 'partner',
+  most_in_demand: 'in_demand',
+  top10: 'top10',
+  no1: 'no1',
+  clients_choice: 'clients_choice',
+};
+
+/**
+ * 🏆 J2 WIRED (#7825): the seals a shop wears, as the engine reads them (`readShopSeals` → `displayedSeals`), in this
+ * adapter's keys. null in = the read failed = null out (the caller draws no seal, never "no seals").
+ */
+export function sealsFromEngine(keys: readonly EngineSealKey[] | null | undefined): SealKey[] | null {
+  if (!keys) return null;
+  return keys.map((k) => ENGINE_SEAL[k]).filter((k): k is SealKey => k !== undefined);
+}
+
 const FAMILY_ORDER = SHOP_BADGE_FAMILIES.map((f) => f.key);
 
 /** Build the view. Order is the prototype's; a key it does not know is dropped (never drawn under a guessed name). */
 export function publicBadgeView(src: PublicBadgeSource): PublicBadgeView {
   const sealKeys = new Set<SealKey>((src.seals ?? []).filter((k) => k !== 'verified'));
-  if (src.verified) sealKeys.add('verified');
+  // Verified Partner PERMANENTLY REPLACES Setnayan Verified (3077c9b3 rule 8 — the engine's `displayedSeals`).
+  if (src.verified && !sealKeys.has('partner')) sealKeys.add('verified');
   const medalKeys = new Set<CardMedalKey>((src.cardMedals ?? []).filter((k) => k !== 'verified'));
   if (src.verified) medalKeys.add('verified');
   return {

@@ -1,9 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { BadgeCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SETNAYAN_HOME_URL } from '@/lib/shop-back';
+
+/** The award kit's Verified full screen (#7752) — fetched only on the tap that opens it, never in the first load. */
+const VerifiedFullscreen = dynamic(() => import('@/app/_components/award/verified-fullscreen').then((m) => m.VerifiedFullscreen), {
+  ssr: false,
+});
 
 /**
  * 🧭 THE SHOP PAGE'S TOP BAR (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE TOP BAR, ONCE SCROLLED" and "SHOP WEBSITE:
@@ -14,8 +20,9 @@ import { SETNAYAN_HOME_URL } from '@/lib/shop-back';
  * served on its own domain. Once the shop's name (the page's <h1>) scrolls under the bar:
  *   · the back keeps only its chevron, and SETNAYAN gives way to the shop's OWN round logo + name — one button that
  *     brings the page back to the top;
- *   · on a verified shop the blue check beside the name is its own 44 px button that brings up the shop's Setnayan
- *     Verified award (the Awards row's first badge).
+ *   · on a verified shop the blue check beside the name is its own 44 px button that opens the shop's Setnayan
+ *     Verified award FULL SCREEN — the award kit's `VerifiedFullscreen` (app/_components/award, #7752), reused as
+ *     shipped, with the same blue-check seal the Awards row draws (`verifiedArt`). Its ✕, a tap or Esc closes it.
  * The Share + heart (Add to event) appear only once the page's own buttons have scrolled away (`[data-shop-quick]`),
  * so the same buttons are never on screen twice. Nothing here opens by itself.
  */
@@ -25,6 +32,7 @@ export function ShopTopBar({
   shopName,
   logo,
   verified,
+  verifiedArt,
   acts,
   end,
   widthClass,
@@ -37,6 +45,8 @@ export function ShopTopBar({
   /** The shop's own small round logo (or its initials). */
   logo: ReactNode;
   verified: boolean;
+  /** The Setnayan Verified seal as the Awards row draws it — the art the full-screen award shows. */
+  verifiedArt?: ReactNode;
   /** Share + Add to event — shown once the body's own buttons have scrolled away. Null = none on this page. */
   acts: ReactNode | null;
   /** Anything the bar always ends with (Return to Dashboard for a signed-in viewer). */
@@ -47,6 +57,7 @@ export function ShopTopBar({
   const barRef = useRef<HTMLElement | null>(null);
   const [named, setNamed] = useState(false);
   const [acted, setActed] = useState(false);
+  const [verifiedOpen, setVerifiedOpen] = useState(false);
   const hasActs = acts !== null;
 
   useEffect(() => {
@@ -75,12 +86,7 @@ export function ShopTopBar({
 
   const toTop = () => window.scrollTo({ top: 0, behavior: smooth() });
 
-  const showVerified = () => {
-    const award = document.getElementById('shop-verified-award');
-    if (!award) return;
-    award.scrollIntoView({ behavior: smooth(), block: 'center' });
-    award.focus({ preventScroll: true });
-  };
+  const showVerified = () => setVerifiedOpen(true);
 
   return (
     <header
@@ -127,6 +133,9 @@ export function ShopTopBar({
         ) : null}
         {end}
       </div>
+      {verified && verifiedOpen ? (
+        <VerifiedFullscreen art={verifiedArt ?? null} shopName={shopName} onClose={() => setVerifiedOpen(false)} />
+      ) : null}
     </header>
   );
 }

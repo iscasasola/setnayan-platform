@@ -117,7 +117,10 @@ import {
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
 import { ShopTopBar } from './_components/shop-top-bar';
-import { awardFact } from '@/lib/shop-award-fact';
+import { awardFact, awardsRowBadges } from '@/lib/shop-award-fact';
+import { publicBadgeView, sealsFromEngine } from '@/lib/public-badges';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
 import { actionButtonClass } from '@/components/action-button-class';
 import { BackButton } from '@/app/_components/back-button';
@@ -246,7 +249,6 @@ import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
-import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
 import {
@@ -1153,7 +1155,10 @@ export async function renderVendorBySlug({
       ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
       : Promise.resolve(null),
   );
-  const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  // 🏆 The seals the shop holds (the seals engine, #7825 — `readShopSeals`). null = the read failed: no seal is drawn.
+  const sealsP = startRead(
+    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
+  );
   const favoritesCountP = startRead((async () => {
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
@@ -1205,20 +1210,33 @@ export async function renderVendorBySlug({
   const finalizedBookingCount = finalizedBookingRead.count;
   const bookingCountMeasured = finalizedBookingRead.measured;
   const expTier = experienceTier(finalizedBookingCount);
-  // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
-  // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
-  // `fetchVendorCurrentAwards` contract).
-  const spotlightAwards = await awardsP;
+  // 🏅 The ★ pill (lib/shop-badges.ts) keeps the Free-tier star gate it always had. Verified has its own gate below (the
+  // route's strict `verification_state`), so it is left out here.
   const pagePills = shopBadges({
     verified: false,
     completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
     trusted: trustedReviewStats,
     inBusinessSinceYear: null,
-    awards: [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]),
+    awards: [],
     nowYear: new Date().getFullYear(),
   });
-  const performancePills = pagePills.filter((b) => b.kind === 'milestone' || b.kind === 'award');
   const ratingPill = pagePills.find((b) => b.kind === 'rating') ?? null;
+  // 🏅 THE AWARDS ROW READS THE ONE ADAPTER (`publicBadgeView`, lib/public-badges.ts — #7807 / #7810): Setnayan
+  // Verified from the route's gate, the seals from the seals engine (#7825), and Completed bookings on its own ladder
+  // (`shopBadgeTier`, lib/badge-tiers.ts) from the SAME measured count the experience chip states — never from an
+  // unread one. The retired monthly Spotlight awards are not badges any more (4b8cc3a3: the seals replace them).
+  const shopSeals = await sealsP;
+  const bookingsTier =
+    bookingCountMeasured && finalizedBookingCount ? shopBadgeTier('completed_bookings', finalizedBookingCount) : null;
+  const awardsView = publicBadgeView({
+    verified: vendor.verification_state === 'verified',
+    seals: sealsFromEngine(shopSeals?.seals),
+    tiers: bookingsTier
+      ? [{ family: 'bookings', name: 'Completed bookings', tier: tierName(bookingsTier), count: finalizedBookingCount ?? 0 }]
+      : null,
+  });
+  const awardsRow = awardsRowBadges(awardsView);
+  const showsVerifiedSeal = awardsView.seals.some((seal) => seal.key === 'verified');
 
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
   // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
@@ -2383,11 +2401,11 @@ export async function renderVendorBySlug({
           heading is just "Awards" — never instruction wording ("tap one", "Earned on Setnayan") — and each award is
           its badge + ONE plain fact (`awardFact`, lib/shop-award-fact.ts). The tier name and the award date belong to
           the full-screen view, never to this row. */}
-      {vendor.verification_state === 'verified' || performancePills.length > 0 ? (
+      {showsVerifiedSeal || awardsRow.length > 0 ? (
         <div data-shop-awards="" className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            {vendor.verification_state === 'verified' ? (
+            {showsVerifiedSeal ? (
               <li id="shop-verified-award" tabIndex={-1} className="flex items-center gap-2 outline-none">
                 {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
                 <HeroBadge
@@ -2403,7 +2421,7 @@ export async function renderVendorBySlug({
           in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
           booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-            {performancePills.map((b) => (
+            {awardsRow.map((b) => (
               <li key={b.key} className="flex items-center gap-2" data-shop-award-fact="">
                 <HeroBadge badge={b} title={b.label} />
                 <span className="text-sm leading-snug">{awardFact(b)}</span>
@@ -2498,6 +2516,7 @@ export async function renderVendorBySlug({
         shopName={displayLabel}
         logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
         verified={vendor.verification_state === 'verified'}
+        verifiedArt={<ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-full" size={168} label="Setnayan Verified" />}
         acts={
           canMessage ? (
             <>

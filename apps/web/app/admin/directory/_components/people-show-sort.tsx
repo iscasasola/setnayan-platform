@@ -19,16 +19,8 @@ import { useRouter } from 'next/navigation';
 import { ChosenRow } from '@/app/_components/form-row';
 import { ShowSortSheet, ShowSortTopic } from '@/app/_components/show-sort-sheet';
 import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
+import { PEOPLE_SHOW } from './people-show';
 
-export const PEOPLE_SHOW = [
-  { key: 'everyone', label: 'Everyone' },
-  { key: 'needs-decision', label: 'Needs my decision' },
-  { key: 'to-verify', label: 'To verify' },
-  { key: 'documents', label: 'Documents' },
-  { key: 'people', label: 'People' },
-  { key: 'suppliers', label: 'Suppliers' },
-  { key: 'events', label: 'Events' },
-] as const;
 
 export function PeopleShowSort({ show }: { show: string }) {
   const [open, setOpen] = useState(false);

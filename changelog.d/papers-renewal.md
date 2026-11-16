@@ -26,3 +26,8 @@ shipped one renewal day (#7535), one upload place (#7624) and three papers (#762
 - Tests: `lib/papers-renewal.test.ts` (one per rule).
 
 SPEC IMPACT: None — builds the approved prototype; the "find, not book" wording is flagged to the owner in the PR.
+
+- **Guard fix (16 Nov):** `lib/no-door-out-of-the-app.test.ts` lists `app/dev/papers-renewal-lab/` among the
+  staff/shop-own trees, like every other dev lab. The lab page is a route entry that draws the admin Renewals screens,
+  so the walk reached `lib/verification-checks-server.ts` from it. The earlier note that this guard "fails on main" was
+  wrong: it was this PR's new lab.

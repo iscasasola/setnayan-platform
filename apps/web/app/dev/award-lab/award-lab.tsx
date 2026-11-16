@@ -50,7 +50,7 @@ export function AwardLab() {
   const [family, setFamily] = useState<Family | undefined>(undefined);
   const [tierIx, setTierIx] = useState(3);
   const famName = FAMILIES.find(([k]) => k === family)?.[1] ?? 'Completed bookings';
-  const tierName = TIERS[tierIx - 1]?.name ?? TIER.name;
+  const shownTierName = TIERS[tierIx - 1]?.name ?? TIER.name;
   const kinds = Object.keys(TICKET_SPECS) as TicketKind[];
 
   return (
@@ -100,7 +100,7 @@ export function AwardLab() {
           options={TIERS.slice(0, 7).map((t, i) => ({ key: String(i + 1), label: t.name }))}
           onPick={(k) => setTierIx(Number(k))}
           dataAttr="data-award-lab-tier"
-          buttonText={`Tier · ${tierName}`}
+          buttonText={`Tier · ${shownTierName}`}
         />
         <div className="flex flex-wrap gap-2">
           {FAMILIES.map(([k, name]) => (
@@ -144,12 +144,12 @@ export function AwardLab() {
       {open === 'badge' ? (
         <BadgeFullscreen
           art={SAMPLE_BADGE}
-          tier={{ index: tierIx, name: tierName }}
+          tier={{ index: tierIx, name: shownTierName }}
           title={famName}
           family={family}
           shopName={SHOP}
           awardedOn={AWARDED}
-          onShare={(svg) => setStory({ svg, word: 'BADGE', tone: toneForTier(tierIx), shopName: SHOP, line1: `${tierName} · ${famName}`, line2: `Awarded on ${AWARDED}` })}
+          onShare={(svg) => setStory({ svg, word: 'BADGE', tone: toneForTier(tierIx), shopName: SHOP, line1: `${shownTierName} · ${famName}`, line2: `Awarded on ${AWARDED}` })}
           onClose={() => {
             setOpen(null);
             setFamily(undefined);

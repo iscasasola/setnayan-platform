@@ -51,12 +51,13 @@ test('scoped to wake · birthday · simple_event — never a wedding', async () 
 test('its services exist and INHERIT the tile scope', async () => {
   const r = await db.query<{ canonical_service: string; t: string[] | null }>(
     `SELECT canonical_service, applicable_event_types AS t
-       FROM public.canonical_service_taxonomy WHERE tile_id = 'chairs_tents'
+       FROM public.canonical_service_taxonomy WHERE tile_id = 'chairs_tents' AND merged_into IS NULL
       ORDER BY canonical_service`,
   );
+  // T1 (20271349668764): event_lights_rental folded into Lights & Sounds; the approved additions joined.
   assert.deepEqual(
     r.rows.map((x) => x.canonical_service),
-    ['chair_table_rental', 'event_lights_rental', 'tent_canopy_rental'],
+    ['chair_table_rental', 'cold_sparks', 'lounge_set_rental', 'ribbon_cutting_set', 'stage_truss', 'tent_canopy_rental'],
   );
   for (const x of r.rows) {
     assert.equal(x.t, null, `${x.canonical_service} overrides the tile — owner edits would stop reaching it`);

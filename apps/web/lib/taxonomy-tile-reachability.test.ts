@@ -72,6 +72,9 @@ import { canonicalServicesForTile } from './vendor-counts';
  * change that seeds its canonicals; this test will fail until you do.
  */
 const KNOWN_DEAD_TILES: Record<string, string> = {
+  // Booths › Tarot / Astrology / Palmistry. DEAD ON PURPOSE, OWNER-SIGNED: the approved Philippine
+  // taxonomy (TAXONOMY_PH_FULL_2026-11-07.md, T1) marks it ⛔ hidden — both its services and the shelf.
+  tarot_astrology_palmistry: 'hidden by the owner in T1 (⛔ Tarot / palmistry)',
   // Documentary › Editorial. STILL DEAD ON PURPOSE.
   //
   // The owner defined the CATEGORY on 2026-07-21 — magazines and content

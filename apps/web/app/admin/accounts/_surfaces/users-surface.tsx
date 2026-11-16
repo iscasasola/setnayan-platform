@@ -1012,8 +1012,8 @@ function CompGrantsPanel({
                 className="input-field"
               />
               <p className="mt-1 text-xs text-ink/55">
-                Optional but recommended for audit. Grants over ₱{formatCount(COMP_GRANT_CO_REVIEW_PESOS)} get
-                flagged for co-approval.
+                Optional but recommended for audit. A grant worth more than ₱{formatCount(COMP_GRANT_CO_REVIEW_PESOS)} still
+                goes through at once. Nobody else checks a customer comp yet, so tell the owner you gave it.
               </p>
             </div>
             <div>

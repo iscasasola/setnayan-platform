@@ -1,22 +1,18 @@
 /**
- * AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST INQUIRY — proved against the
- * replayed schema (DECISION_LOG 2026-11-07, migration 20271320303985).
+ * AN UNVERIFIED SHOP IS FOUND ONLY ONCE VERIFIED, AND IS BOOKED ON ITS OWN PAGE — proved against the replayed schema
+ * (DECISION_LOG 2026-11-15 + the owner's "Verified only" and "We allow booking", migration 20271348170528; it
+ * supersedes 2026-11-07 "findable until its first inquiry", migration 20271320303985, and this file's old name).
  *
  * What this pins, each case asserting a VALUE in both directions:
- *   · the one rule (`vendor_profiles.is_findable`) over every verification ×
- *     visibility corner, fraud and the lock — and that its verified half is
- *     EXACTLY the old live rule;
- *   · the TypeScript twin (`isShopFindable`, lib/findable-shop.ts) agrees with
- *     the column on every one of those rows — two definitions that cannot drift;
- *   · a couple's first message stamps the lock once; a vendor's message does not;
- *   · an imported customer (event_vendors.source = 'vendor_invite') stamps it
- *     too; a couple saving the shop ('host_manual') does not;
- *   · deleting the inquiry does NOT unlock the shop ("whether the inquiry
- *     books, ends or is deleted");
- *   · an admin lift makes it findable again, and the NEXT inquiry re-locks it;
- *   · the views carry the column (the Explore grid reads vendor_market_stats);
- *   · the shop's OWN signed-in session cannot clear or forge its lock
- *     (guard_vendor_profiles_find_lock) — and can still edit its own row.
+ *   · the one rule (`vendor_profiles.is_findable`) is verified-and-listed ONLY, over every verification × visibility
+ *     corner, fraud and the lock;
+ *   · the TypeScript twin (`isShopFindable`, lib/findable-shop.ts) agrees with the column on every one of those rows;
+ *   · the first-inquiry lock still stamps (a couple's first message, an imported customer; not a vendor's message,
+ *     not a save) and survives the inquiry's deletion — but it no longer changes is_findable;
+ *   · verifying a shop makes it findable; nothing writes is_findable by hand;
+ *   · the views carry the column (Discover reads vendor_market_stats);
+ *   · the shop's OWN signed-in session cannot clear or forge its lock — and can still edit its own row;
+ *   · a couple can message AND book an unverified shop; a rejected or archived one is still refused.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -95,17 +91,17 @@ async function message(vendorId: string, t: { eventId: string; threadId: string 
   return r.rows[0]!.id;
 }
 
-test('the one rule: verified always, undecided until locked, never rejected/demoted/archived/frozen', async () => {
+test('the one rule: verified and listed only — never undecided, rejected, demoted, archived or frozen', async () => {
   const cases: Array<{ name: string; fields: Record<string, unknown>; expect: boolean }> = [
     { name: 'verified + verified', fields: { public_visibility: 'verified', verification_state: 'verified' }, expect: true },
     { name: 'verified + verified + an old lock', fields: { public_visibility: 'verified', verification_state: 'verified', find_locked_at: '2026-11-01T00:00:00Z' }, expect: true },
-    { name: 'unverified, resting hidden', fields: { public_visibility: 'hidden', verification_state: 'unverified' }, expect: true },
-    { name: 'pending_review, resting hidden', fields: { public_visibility: 'hidden', verification_state: 'pending_review' }, expect: true },
+    { name: 'unverified, resting hidden', fields: { public_visibility: 'hidden', verification_state: 'unverified' }, expect: false },
+    { name: 'pending_review, resting hidden', fields: { public_visibility: 'hidden', verification_state: 'pending_review' }, expect: false },
     { name: 'unverified + locked', fields: { public_visibility: 'hidden', verification_state: 'unverified', find_locked_at: '2026-11-01T00:00:00Z' }, expect: false },
     { name: 'unverified + archived', fields: { public_visibility: 'archived', verification_state: 'unverified' }, expect: false },
     { name: 'rejected', fields: { public_visibility: 'hidden', verification_state: 'rejected' }, expect: false },
     { name: 'demoted', fields: { public_visibility: 'hidden', verification_state: 'demoted' }, expect: false },
-    { name: 'listed, documents not yet approved — the undecided half', fields: { public_visibility: 'verified', verification_state: 'unverified' }, expect: true },
+    { name: 'listed, documents not yet approved — the undecided half', fields: { public_visibility: 'verified', verification_state: 'unverified' }, expect: false },
     { name: 'approved but hidden by Setnayan', fields: { public_visibility: 'hidden', verification_state: 'verified' }, expect: false },
     { name: 'unverified + fraud suspended', fields: { public_visibility: 'hidden', verification_state: 'unverified', fraud_suspended_at: '2026-11-01T00:00:00Z' }, expect: false },
     { name: 'unverified + fraud banned', fields: { public_visibility: 'hidden', verification_state: 'unverified', fraud_banned_at: '2026-11-01T00:00:00Z' }, expect: false },
@@ -128,20 +124,20 @@ test('the verified half is exactly the old live rule (public_visibility AND veri
   assert.equal(r.rows[0]!.bad, '0', 'a verified shop is not findable');
 });
 
-test('a couple’s first message locks an unverified shop, once; a vendor’s message does not', async () => {
+test('a couple’s first message still stamps the lock, once; a vendor’s message does not; findable never', async () => {
   const id = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
   const t = await eventWithThread(id);
 
   await message(id, t, 'vendor');
   let r = await row(id);
   assert.equal(r.find_locked_at, null, 'the shop’s own message locked it');
-  assert.equal(r.is_findable, true);
+  assert.equal(r.is_findable, false, 'an unverified shop is findable (15 Nov: verified only)');
 
   await message(id, t, 'couple');
   r = await row(id);
   assert.ok(r.find_locked_at, 'the couple’s first message did not stamp the lock');
   assert.equal(r.find_lock_reason, 'inquiry');
-  assert.equal(r.is_findable, false, 'a locked unverified shop is still findable');
+  assert.equal(r.is_findable, false, 'an unverified shop is findable');
 
   const firstStamp = r.find_locked_at;
   await message(id, t, 'couple');
@@ -160,7 +156,7 @@ test('deleting the inquiry does not unlock the shop', async () => {
   assert.equal(r.is_findable, false);
 });
 
-test('an imported customer locks it; a couple saving the shop does not', async () => {
+test('an imported customer stamps the lock; a couple saving the shop does not', async () => {
   const saved = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
   const imported = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
   const eventId = (
@@ -174,7 +170,7 @@ test('an imported customer locks it; a couple saving the shop does not', async (
      VALUES ($1, 'photographer', 'Saved', 'considering', $2, 'host_manual')`,
     [eventId, saved],
   );
-  assert.equal((await row(saved)).is_findable, true, 'a save locked the shop — the ruling says "not a save"');
+  assert.equal((await row(saved)).find_locked_at, null, 'a save stamped the lock — the ruling says "not a save"');
 
   await db.query(
     `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, source)
@@ -183,27 +179,22 @@ test('an imported customer locks it; a couple saving the shop does not', async (
   );
   const r = await row(imported);
   assert.equal(r.find_lock_reason, 'import');
-  assert.equal(r.is_findable, false, 'an imported customer did not lock the shop');
+  assert.ok(r.find_locked_at, 'an imported customer did not stamp the lock');
+  assert.equal(r.is_findable, false);
 });
 
-test('an admin lift makes it findable; the next inquiry locks it again', async () => {
+test('the lock decides nothing: clearing it leaves an unverified shop out of Find', async () => {
   const id = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
   const t = await eventWithThread(id);
   await message(id, t, 'couple');
-  assert.equal((await row(id)).is_findable, false);
-
-  // The lift exactly as app/admin/verify/actions.ts `liftFindLock` writes it.
+  assert.ok((await row(id)).find_locked_at);
   await db.query(
     `UPDATE public.vendor_profiles
         SET find_locked_at = NULL, find_lock_reason = NULL, find_lock_lifted_at = NOW()
       WHERE vendor_profile_id = $1`,
     [id],
   );
-  assert.equal((await row(id)).is_findable, true, 'the lift did not make the shop findable');
-
-  await message(id, t, 'couple');
-  const r = await row(id);
-  assert.equal(r.is_findable, false, 'the next inquiry after a lift did not lock it again');
+  assert.equal((await row(id)).is_findable, false, 'clearing the lock made an unverified shop findable (7 Nov rule is back)');
 });
 
 test('verifying a locked shop brings it back; nothing writes is_findable by hand', async () => {
@@ -292,14 +283,14 @@ test('a shop’s own session cannot unlock itself — and can still edit its own
 });
 
 /**
- * 💬 RULINGS (1)+(4), round 2 — A COUPLE MAY MESSAGE AN UNVERIFIED SHOP, AND MAY NOT BOOK IT. Proved as a REAL
- * couple session (SET ROLE authenticated + JWT), the path `startServiceInquiry` takes: follow → open the thread →
- * send. The message lands and IS the first inquiry (the lock is stamped). Then the booking door is refused by
- * `event_vendors_require_verified_before_lock` — for the couple AND for the server's own (owner) session, so the
- * refusal is the verification rule, not RLS. Controls: saving the shop ('considering') still lands, and the SAME
- * booking on a verified shop lands — so "refused" means "not verified", nothing else.
+ * 💬 15 Nov — A COUPLE MAY MESSAGE AND BOOK AN UNVERIFIED SHOP on its own page ("We allow booking. Since they can
+ * get bookings on their website"). Proved as a REAL couple session (SET ROLE authenticated + JWT), the path
+ * `startServiceInquiry` takes: follow → open the thread → send. The message lands and stamps the lock. Then the
+ * booking lands too — for the couple AND the server's own session — while `enforce_booking_requires_verified_vendor`
+ * still refuses a rejected shop and an archived one. Controls: saving ('considering') lands, and so does the same
+ * booking on a verified shop.
  */
-test('a couple can message an unverified shop (the first message locks it) and cannot book it', async () => {
+test('a couple can message AND book an unverified shop; a rejected or archived one is still refused', async () => {
   const mk = async (email: string) =>
     (
       await db.query<{ id: string }>(
@@ -372,26 +363,30 @@ test('a couple can message an unverified shop (the first message locks it) and c
   assert.deepEqual(derived.rows.map((r) => r.sender_role), ['couple'], 'the message was not recorded as the couple’s');
   const locked = await row(unverified);
   assert.ok(locked.find_locked_at, 'the couple’s first message did not stamp the find lock');
-  assert.equal(locked.is_findable, false, 'the shop is still findable after its first inquiry');
+  assert.equal(locked.is_findable, false, 'an unverified shop is findable');
 
-  // ── BOOKING IS SHUT ──
+  // ── BOOKING IS OPEN (15 Nov: "We allow booking. Since they can get bookings on their website") ──
   const BOOK = `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
-                VALUES ($1, 'photographer', 'Message not book shop', $2::vendor_status, $3)`;
-  for (const status of ['contracted', 'deposit_paid'] as const) {
-    const byCouple = await asCouple(() => db.query(BOOK, [eventId, status, unverified]));
-    assert.match(byCouple.err ?? '', /vendor_not_verified/, `a couple booked an unverified shop as ${status}`);
-    const byServer = await asServer(BOOK, [eventId, status, unverified]);
-    assert.match(byServer ?? '', /vendor_not_verified/, `the server's own session booked an unverified shop as ${status}`);
+                VALUES ($1, $4, 'Message and book shop', $2::vendor_status, $3)`;
+  const byCouple = await asCouple(() => db.query(BOOK, [eventId, 'contracted', unverified, 'photographer']));
+  assert.doesNotMatch(byCouple.err ?? '', /vendor_not_verified/, `the trigger refused a couple booking an unverified shop: ${byCouple.err}`);
+  // One pick per shop per event (event_vendors_unique_marketplace_pick_per_event), so each booking below is its own shop.
+  const inReview = await shop({ public_visibility: 'hidden', verification_state: 'pending_review' });
+  const byServer = await asServer(BOOK, [eventId, 'deposit_paid', inReview, 'catering']);
+  assert.equal(byServer, null, `the server's own session could not book a shop in review: ${byServer}`);
+
+  // ── STILL SHUT: a rejected shop, and an unverified shop that is closed ──
+  const rejected = await shop({ public_visibility: 'hidden', verification_state: 'rejected' });
+  const closed = await shop({ public_visibility: 'archived', verification_state: 'unverified' });
+  for (const [label, id] of [['rejected', rejected], ['archived unverified', closed]] as const) {
+    const refused = await asServer(BOOK, [eventId, 'contracted', id, 'florist']);
+    assert.match(refused ?? '', /vendor_not_verified/, `a ${label} shop was booked`);
   }
-  const booked = await db.query<{ n: string }>(
-    `SELECT count(*)::text AS n FROM public.event_vendors WHERE marketplace_vendor_id = $1`,
-    [unverified],
-  );
-  assert.equal(booked.rows[0]!.n, '0', 'a booking row exists for the unverified shop');
 
   // ── CONTROLS: what must still work ──
-  const saved = await asCouple(() => db.query(BOOK, [eventId, 'considering', unverified]));
+  const another = await shop({ public_visibility: 'hidden', verification_state: 'unverified' });
+  const saved = await asCouple(() => db.query(BOOK, [eventId, 'considering', another, 'videographer']));
   assert.equal(saved.err, null, `saving an unverified shop to the event ('considering') was refused: ${saved.err}`);
-  const bookVerified = await asServer(BOOK, [eventId, 'contracted', verified]);
+  const bookVerified = await asServer(BOOK, [eventId, 'contracted', verified, 'florist']);
   assert.equal(bookVerified, null, `the same booking on a VERIFIED shop was refused: ${bookVerified}`);
 });

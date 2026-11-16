@@ -13,6 +13,7 @@ import type { LockQuoteLine, LockScheduleRow } from '@/lib/vendor-locked-qr';
 import { issueLockedQr } from '../actions';
 import { resolveVendorDateStatus } from '../date-status-actions';
 import { formatCount } from '@/lib/format-number';
+import { clearLockedQrDraft, draftStore, lockedQrInitialFromDraft, saveLockedQrDraft, takeLockedQrDraft } from '@/lib/locked-qr-draft';
 
 type Opt = { value: string; label: string };
 
@@ -149,9 +150,9 @@ async function presignAndUpload(file: File): Promise<string> {
 }
 
 /** One image upload slot (presign → PUT → ref), with its own busy/error state. */
-function useUploadSlot(initialRef = '') {
+function useUploadSlot(initialRef = '', keptLabel = 'Kept from the code you are changing') {
   const [ref, setRef] = useState(initialRef);
-  const [name, setName] = useState(initialRef ? 'Kept from the code you are changing' : '');
+  const [name, setName] = useState(initialRef ? keptLabel : '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -185,7 +186,36 @@ function useUploadSlot(initialRef = '') {
  * between today and the event), the balance fully scheduled (₱0 remaining), a
  * chosen contract, and the payment proof uploaded.
  */
-export function LockedQrGenerator({
+type GeneratorProps = Parameters<typeof LockedQrForm>[0] & {
+  /**
+   * 🔳 RW-378: the page arrived with a refusal (`?error=`). The form takes back what was typed before Generate
+   * (`lib/locked-qr-draft.ts`) instead of opening empty. Without it, any old draft is dropped.
+   */
+  refused?: boolean;
+};
+
+/**
+ * The Booked QR form, which keeps what was typed when Generate is refused (W1 RW-378): it writes the unsent draft as
+ * it submits, and a refused arrival opens the form filled from it — through the same `initial` a code being changed
+ * opens with, so every field (and both uploads) comes back the way it would for an edit.
+ */
+export function LockedQrGenerator({ refused = false, ...props }: GeneratorProps) {
+  const [kept, setKept] = useState<LockedQrInitial | null>(null);
+  useEffect(() => {
+    const store = draftStore();
+    if (!refused) {
+      clearLockedQrDraft(store);
+      return;
+    }
+    const d = takeLockedQrDraft(store, props.blockId ?? null, Date.now());
+    if (d) setKept(lockedQrInitialFromDraft(d));
+    // Once, on arrival — a refusal is a fresh page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return kept ? <LockedQrForm key="kept" {...props} initial={kept} keptFromRefusal /> : <LockedQrForm key="fresh" {...props} />;
+}
+
+function LockedQrForm({
   eventTypes,
   dateExempt = false,
   services,
@@ -194,7 +224,10 @@ export function LockedQrGenerator({
   blockId = null,
   initial = null,
   servicePrices = {},
+  keptFromRefusal = false,
 }: {
+  /** RW-378: `initial` is the draft taken back after a refusal (not a code being changed). */
+  keptFromRefusal?: boolean;
   /** #34: a waiting code being changed — the form opens filled, and saving voids it after the new one is made. */
   initial?: LockedQrInitial | null;
   /** #34: each service's starting price (₱), to price the line a picked service seeds. Missing = blank to fill. */
@@ -234,8 +267,9 @@ export function LockedQrGenerator({
   // Clean numeric strings (no separators) — displayed with thousands commas.
   const [total, setTotal] = useState(initial?.total ?? '');
   const [initialPaid, setInitialPaid] = useState(initial?.initialPaid ?? '');
-  const proof = useUploadSlot(initial?.proofRef ?? '');
-  const remembrance = useUploadSlot(initial?.remembranceRef ?? '');
+  const keptLabel = keptFromRefusal ? 'Kept from before' : undefined;
+  const proof = useUploadSlot(initial?.proofRef ?? '', keptLabel);
+  const remembrance = useUploadSlot(initial?.remembranceRef ?? '', keptLabel);
   // 🧾 #34 the quotation, built in place.
   const lineKey = useRef(0);
   const nextKey = () => `l${++lineKey.current}`;
@@ -401,7 +435,33 @@ export function LockedQrGenerator({
     : availableServices;
 
   return (
-    <form action={issueLockedQr} className="mt-6 space-y-5">
+    <form
+      action={issueLockedQr}
+      // 🔳 RW-378: keep what was typed — a refusal reopens the form from this, not empty.
+      onSubmit={() =>
+        saveLockedQrDraft(
+          draftStore(),
+          {
+            blockId: blockId ?? null,
+            replaces: initial?.replaces || null,
+            clientName,
+            eventType,
+            serviceRefs,
+            eventDate,
+            description: serviceDescription,
+            contractId,
+            total,
+            initialPaid,
+            schedule: rows.map((r) => ({ label: r.label, amount: r.amount, date: r.date })),
+            lines: lines.map((l) => ({ label: l.label, amount: l.amount })),
+            proofRef: proof.ref,
+            remembranceRef: remembrance.ref,
+          },
+          Date.now(),
+        )
+      }
+      className="mt-6 space-y-5"
+    >
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
       {blockId ? <input type="hidden" name="block_id" value={blockId} /> : null}
       <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />

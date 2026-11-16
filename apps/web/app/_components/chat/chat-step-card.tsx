@@ -158,6 +158,13 @@ export function ChatStepCard({
     />
   );
 
+  // One counter, drawn in the risen thumb row or the in-chat card's foot.
+  const stepOf = (
+    <span className="mr-auto text-[13px] tabular-nums text-ink/55" data-chat-step-count="">
+      {s + 1} of {n}
+    </span>
+  );
+
   if (rise) {
     return (
       <RiseScreen
@@ -168,9 +175,7 @@ export function ChatStepCard({
         data={`chat-step-${topic}`}
         thumb={
           <div className="flex items-center gap-2" data-chat-step-foot="">
-            <span className="mr-auto text-[13px] tabular-nums text-ink/55" data-chat-step-count="">
-              {s + 1} of {n}
-            </span>
+            {stepOf}
             {n > 1 ? (
               <ActionButton tone="neutral" quiet icon={ChevronLeft} label="Back" onClick={() => onStep(s - 1)} disabled={s === 0} />
             ) : null}
@@ -203,9 +208,7 @@ export function ChatStepCard({
         </div>
         {st.body}
         <div className="flex items-center gap-2 border-t border-ink/10 pt-3">
-          <span className="mr-auto text-[13px] tabular-nums text-ink/55" data-chat-step-count="">
-            {s + 1} of {n}
-          </span>
+          {stepOf}
           {s > 0 ? (
             <ActionButton tone="neutral" quiet icon={ChevronLeft} label="Back" onClick={() => onStep(s - 1)} />
           ) : null}

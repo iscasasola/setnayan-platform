@@ -1,3 +1,4 @@
+import { readSentTo } from '@/lib/open-shop-sent-to';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
@@ -201,6 +202,10 @@ export default async function OpenShopPage({
   ]);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
 
+  // W1-B4 (walk 16 Nov 2026): `?check_inbox=1` only says the screen is due — the address is this browser's cookie
+  // (`parkSentTo`). With no cookie (another browser) the screen still shows, naming no address.
+  const sentTo = checkInbox ? ((await readSentTo()) ?? 'your email') : null;
+
   if (claimToken && claimDoor?.open) {
     return (
       <ClaimDoor
@@ -215,7 +220,7 @@ export default async function OpenShopPage({
         declineAction={declineVendorInviteByToken}
         startOnEmail={way === 'email'}
         taken={taken === '1'}
-        sentTo={checkInbox ? checkInbox.slice(0, 254) : null}
+        sentTo={sentTo}
       />
     );
   }
@@ -261,12 +266,14 @@ export default async function OpenShopPage({
         '&as=vendor'
       }
       error={error}
+      // W1-B3: a fresh stamp per server render carrying a refusal — the wizard shows it even when not remounted.
+      refusalStamp={error ? Date.now() : 0}
       planCategories={categoryLadder()}
       specialties={specialties}
       // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
-      sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}
+      sentTo={guest ? sentTo : null}
       initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );

@@ -51,10 +51,11 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   assert.match(ACCOUNT, /mustConfirm \? confirmNext : '\/open-shop'/);
   assert.doesNotMatch(ACTIONS, /confirmNext/, 'the wizard no longer lands its link on the dashboard');
   assert.match(ACTIONS, /checkEmail = created\.user\.email;/);
-  assert.match(ACTIONS, /if \(checkEmail\) redirect\(`\/open-shop\?check_inbox=\$\{encodeURIComponent\(checkEmail\)\}`\);/);
+  // W1-B4 (walk 16 Nov 2026): the address is parked in a cookie; the URL carries only the flag.
+  assert.match(ACTIONS, /if \(checkEmail\) \{\s*await parkSentTo\(checkEmail\);\s*redirect\(`\/open-shop\?check_inbox=\$\{CHECK_INBOX_FLAG\}`\);/);
   // The shop is written for that account first: the check-email redirect is after the shop's own update.
-  assert.ok(ACTIONS.indexOf('if (checkEmail) redirect') > ACTIONS.indexOf('.update(patch)'));
-  assert.match(PAGE, /sentTo=\{guest && checkInbox \?/);
+  assert.ok(ACTIONS.indexOf('if (checkEmail) {') > ACTIONS.indexOf('.update(patch)'));
+  assert.match(PAGE, /sentTo=\{guest \? sentTo : null\}/);
   // `sent` is a global toast word (toast-from-params) — the landing must never use it.
   assert.doesNotMatch(ACTIONS, /open-shop\?sent=/);
   assert.match(WIZARD, /We sent a link to \{sentTo\} — tap it to finish/);

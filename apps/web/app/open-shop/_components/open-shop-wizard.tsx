@@ -14,7 +14,7 @@ import {
   OPEN_SHOP_PHONE_BOX_ERROR,
   isValidOpenShopEmail,
 } from '@/lib/open-shop-validation';
-import { openShopErrorField, openShopErrorWords, type OpenShopField } from '@/lib/open-shop-error-field';
+import { openShopErrorField, refusalStep, openShopErrorWords, type OpenShopField } from '@/lib/open-shop-error-field';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Fold } from '@/app/_components/fold';
 import { TakenSignIn } from './taken-sign-in';
@@ -121,6 +121,7 @@ export function OpenShopWizard({
   fairWords = null,
   defaults,
   error,
+  refusalStamp = 0,
   feeNotice = null,
   initialStep = 1,
   guest = false,
@@ -199,6 +200,9 @@ export function OpenShopWizard({
     contactEmail: string;
   };
   error?: string;
+  /** W1-B3 — a fresh value on every server render that carries `?error=` (the page stamps it), so a refusal that comes
+   *  back WITHOUT a remount (a server action's redirect is a soft navigation onto the same page) is still shown. */
+  refusalStamp?: number;
   /** The signed-in account's own name. Shown READ-ONLY when present (owner
    *  2026-08-10: "your name (automatic from their account)") — presented, not
    *  asked. Falls back to an editable input when the account has none, because
@@ -221,9 +225,7 @@ export function OpenShopWizard({
   // everything they typed on later steps gone.
   // F-W1-06: the roster with the supplier door's words ("Other events", never "Celebration") — keys unchanged.
   const eventTypeOptions = useMemo(() => supplierEventWords(rosterIn), [rosterIn]);
-  const [step, setStep] = useState<Step>(
-    initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
-  );
+  const [step, setStep] = useState<Step>(refusalStep(openShopErrorField(error), initialStep));
   /**
    * v19 MOTION (owner 7 Nov "make the signup fully animated"): the step SLIDES IN — from the right going forward, from
    * the left going back — on a step (or step-2 page) change ONLY. Null until the first move, so the page never slides
@@ -671,9 +673,8 @@ export function OpenShopWizard({
     window.location.reload();
   };
   const restoredRef = useRef(false);
-  useEffect(() => {
-    if (restoredRef.current || mode !== 'create') return;
-    restoredRef.current = true;
+  /** Put a parked draft back (`saveDraft`) — on mount, and again when a refusal comes back without a remount (W1-B3). */
+  const restoreParkedDraft = (boxesOnly = false) => {
     let raw: string | null = null;
     try {
       raw = sessionStorage.getItem(OPEN_SHOP_DRAFT_KEY);
@@ -683,6 +684,18 @@ export function OpenShopWizard({
     }
     const d = parseOpenShopDraft(raw);
     if (!d || !restoresOnThisLoad(d, Boolean(error))) return;
+    const write = (name: string, value: string) => {
+      const el = formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
+      if (el && value && !el.readOnly) el.value = value;
+    };
+    if (boxesOnly) {
+      // No remount: every picked/controlled value is still in state (the pin stays confirmed). Only the boxes the
+      // form owns are written back.
+      write('contact_email', d.email);
+      write('contact_position', d.position);
+      write('contact_name', d.name);
+      return;
+    }
     if (d.shopName) setShopName(d.shopName);
     if (d.service) {
       setService(d.service);
@@ -693,10 +706,6 @@ export function OpenShopWizard({
     if (d.evOff) setEvOff(d.evOff);
     if (d.specialties) setPicks(d.specialties);
     if (d.planAgreed) setPlanAgreed(true);
-    const write = (name: string, value: string) => {
-      const el = formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
-      if (el && value && !el.readOnly) el.value = value;
-    };
     if (d.phone) setPhoneDigits(phoneDigitsFromTyped(d.phone));
     write('contact_email', d.email);
     write('contact_position', d.position);
@@ -714,9 +723,34 @@ export function OpenShopWizard({
       setStep(d.step);
       if (d.step > 2) setPage2('events');
     }
+  };
+  useEffect(() => {
+    if (restoredRef.current || mode !== 'create') return;
+    restoredRef.current = true;
+    restoreParkedDraft();
     // Re-render dependencies are deliberately empty: this runs ONCE, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /**
+   * 🔁 W1-B3 (walk 16 Nov 2026) — A REFUSAL THAT ARRIVES AFTER THE FIRST RENDER IS SHOWN TOO. The submit is a server
+   * action; its `redirect('/open-shop?step=5&error=…')` (a breached password) is a SOFT navigation onto this same page,
+   * so the wizard is NOT remounted and the `useState` seeds never run again: the walker landed on another step with no
+   * sentence anywhere. Each server render that carries `?error=` stamps `refusalStamp`; a new stamp puts the refusal
+   * under its box, moves to the step that owns that box (`OPEN_SHOP_FIELD_STEP`) with Email open, and puts back what
+   * the form parked at submit (React resets an action form's boxes once the action settles).
+   */
+  const seenRefusal = useRef(refusalStamp);
+  useEffect(() => {
+    if (!error || seenRefusal.current === refusalStamp) return;
+    seenRefusal.current = refusalStamp;
+    if (mode === 'create') restoreParkedDraft(true);
+    setBanner(error);
+    const field = openShopErrorField(error);
+    setStep(refusalStep(field, initialStep));
+    if (field === 'events' || field === 'extras' || field === 'service') setPage2(pageOf(field));
+    if (field === 'contact_email' || field === 'password') setAcctEmail(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new server refusal is the only trigger
+  }, [error, refusalStamp]);
 
   // ✉ A1 — the shop is open on the new account, and the account waits for its email link (verification on).
   if (sentTo) {
@@ -737,7 +771,10 @@ export function OpenShopWizard({
           </p>
           <p className="mt-4 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Not there? Check your spam folder, or{' '}
-            <a href={`/login?check_email=${encodeURIComponent(sentTo)}&next=%2Fvendor-dashboard`} className="text-terracotta">
+            <a
+              href={sentTo.includes('@') ? `/login?check_email=${encodeURIComponent(sentTo)}&next=%2Fvendor-dashboard` : '/login?next=%2Fvendor-dashboard'}
+              className="text-terracotta"
+            >
               sign in
             </a>{' '}
             once you have tapped it.
@@ -1385,6 +1422,8 @@ export function OpenShopWizard({
                     className="input-field"
                     aria-invalid={errorFor('password') ? true : undefined}
                     aria-describedby={describedBy('password')}
+                    // W1-B3: the server's breach refusal turns the field's leak rule red ("Not a known leaked password").
+                    leaked={banner === OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked}
                   />
                   {fieldError('password')}
                 </label>

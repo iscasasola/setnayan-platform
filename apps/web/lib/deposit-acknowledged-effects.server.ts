@@ -7,6 +7,7 @@ import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import { deliverShopGiftUnlocksForBooking, deliverShopGiftsForBooking } from '@/lib/shop-gifts.server';
 import { sendLinkedFormsForBooking } from '@/lib/vendor-forms-on-booking.server';
+import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 import {
   judgeDepositEffects,
   type DepositEffectsDoor,
@@ -94,10 +95,10 @@ export async function runDepositAcknowledgedEffects(
   try {
     const { data: row, error } = await admin
       .from('event_vendors')
-      .select('event_id, deposit_acknowledged_at')
+      .select('event_id, deposit_acknowledged_at, marketplace_vendor_id')
       .eq('vendor_id', eventVendorId)
       .maybeSingle();
-    const r = (row ?? null) as { event_id: string | null; deposit_acknowledged_at: string | null } | null;
+    const r = (row ?? null) as { event_id: string | null; deposit_acknowledged_at: string | null; marketplace_vendor_id?: string | null } | null;
     if (error) outcome.thrown = `booking read failed: ${error.message}`;
     outcome.eventId = r?.event_id ?? null;
     outcome.acknowledged = !!r?.deposit_acknowledged_at;
@@ -133,14 +134,14 @@ export async function runDepositAcknowledgedEffects(
       // stock NOW — "they leave your stock only when that couple's first payment clears" — and land in the event's
       // Papic pool. Independent of the fee: a waived first-five booking still carries the shop's own gift. The SQL
       // door gives only what this event still lacks from this shop, so a repeat call is a no-op.
-      recordShopGiftDelivery(eventVendorId, door, await deliverShopGiftsForBooking(admin, eventVendorId));
+      const papicGift = await deliverShopGiftsForBooking(admin, eventVendorId);
+      recordShopGiftDelivery(eventVendorId, door, papicGift);
       // 💎 …and its Event Plus / Event Pro gifts unlock the event (slice 2; a second Plus becomes Pro, owner 2026-11-05).
-      recordShopGiftDelivery(
-        eventVendorId,
-        door,
-        await deliverShopGiftUnlocksForBooking(admin, eventVendorId, outcome.eventId),
-        'unlocks',
-      );
+      const unlockGift = await deliverShopGiftUnlocksForBooking(admin, eventVendorId, outcome.eventId);
+      recordShopGiftDelivery(eventVendorId, door, unlockGift, 'unlocks');
+      // 🏅 A gift was just GIVEN (this call delivered it, not a repeat) — the shop's badges are swept after the
+      // response (owner 2026-11-15, "firing when earned"). A repeat call answers 'already' and sweeps nothing.
+      if (papicGift.status === 'ok' || unlockGift.status === 'ok') sweepShopBadgesAfter(r?.marketplace_vendor_id ?? null);
       // 📋 FORMS LINKED TO A BOOKED CARD (THE ONE BUILD · Forms, v111 item 18): "sent to the couple automatically when
       // they book this service". Booked = this moment. Idempotent ((event, form) key); never throws; the outcome is
       // logged like the gift door's — a form that did not land is a couple who was never asked.

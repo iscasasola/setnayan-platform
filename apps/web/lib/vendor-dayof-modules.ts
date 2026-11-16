@@ -70,6 +70,7 @@ const FOLDER_FAMILY: Record<WeddingFolder, DayOfFamily> = {
   look: 'setup',
   booths: 'serve',
   prints: 'serve',
+  gifts_giveaways: 'serve',
   transport: 'setup',
   // Non-wedding event-type families (gap leaves, 2026-07-20): tours/dining
   // hand an experience to guests (serve); referees/medics run the floor

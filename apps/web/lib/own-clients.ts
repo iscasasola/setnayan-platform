@@ -16,18 +16,33 @@
  * nothing here types a number a customer pays. The one door the gift takes is `own_client_gift_give` (migration
  * `own_clients_carry_a_gift`); the I/O half is `lib/own-clients.server.ts`.
  *
- * 🔒 PAPIC ONLY, for now: the one door gives Papic credits into the couple's pool. Event Plus / Event Pro stock is not
- * offered as an own-client gift until a door gives an unlock without a quote (`shop_gift_deliver_unlocks_for_booking`
- * needs an accepted quote) — so this module never lists one as pickable.
+ * 🎁 EVERY GIFT KIND: Papic credits land in the couple's pool; an Event Plus / Pro / Ultra unlocks the event the way the
+ * quote door does (one unit each). Each kind is counted from its OWN bought stock — never pooled across kinds.
  */
-import { freeByKind, giftCount, type FreeByKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
+import { SHOP_GIFT_KINDS, freeByKind, giftCount, type FreeByKind, type ShopGiftKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
 import { shopInvitePath } from './shop-address';
 
 /** One gift line on an own client, as stored (`vendor_client_invites.gift_lines`, `vendor_own_link_gifts`). */
-export type OwnGiftLine = { service_code: string; title: string; kind: 'papic'; credits: number };
+export type OwnGiftLine = { service_code: string; title: string; kind: ShopGiftKind; credits: number };
 
-/** At most this many gift lines on one client (the migration's CHECK says the same). */
+/**
+ * At most this many gift lines on one client. ONE number, said twice on purpose and held equal by a guard
+ * (`lib/own-clients.test.ts` reads the migration): `vendor_client_invites_gift_lines_shape` and the door's own refusal.
+ */
 export const OWN_GIFT_MAX_LINES = 5;
+
+/* ── 🪪 verified: ONE test, shared by every screen and the server ─────────────────────────────────────────────── */
+
+/**
+ * Is this shop verified, for own-client purposes? `verification_state = 'verified'` — the SAME test the claim and the
+ * own-link door use, so a screen never promises what the server will not keep. (Not `isMarketplaceVendorBookable`:
+ * since 15 Nov an unverified shop is bookable, and its imports still pay the flat 5%.)
+ */
+export function shopIsVerified(verificationState: unknown): boolean {
+  return verificationState === 'verified';
+}
+export const COULD_NOT_CHECK_VERIFIED =
+  'We couldn’t check your verification just now — reload to see whether bookings from your QR can be free.';
 
 /** The menu key that opens "buy more" instead of picking a gift. */
 export const OWN_GIFT_BUY_KEY = '__buy';
@@ -44,6 +59,8 @@ export const OWN_CLIENT_PROMISE_TIP =
 export const ADD_CLIENT_LEAD = 'Clients new to Setnayan book you free for a year. Each one comes with a Setnayan gift from you.';
 export const CONFIRM_BOOKING_FEE = 'None if they are new to Setnayan, or you are the first supplier on their event';
 export const GIFT_FROM_YOU = 'Gift from you';
+/** The shipped Buy gifts sheet's added line on "Buy and add" (the drawing, part 2). */
+export const BUY_AND_ADD_NOTE = 'This client is added with one of them.';
 export const GIFT_WITH_YOUR_LINK = 'Gift with your link';
 export const AT_LEAST_ONE = 'At least one';
 export const GIFT_STEP_TIP =
@@ -83,87 +100,114 @@ export function fromStockLine(left: number | null): string {
   return left === null ? 'From your stock · couldn’t count it' : `From your stock · ${giftCount(left)} left`;
 }
 
-/* ── the stock, as gifts ───────────────────────────────────────────────────────────────────────────────────────── */
+/* ── the stock, as gifts (per kind) ───────────────────────────────────────────────────────────────────────────── */
+
+const ZERO: FreeByKind = Object.fromEntries(SHOP_GIFT_KINDS.map((k) => [k, 0])) as FreeByKind;
 
 /**
- * Papic credits free to give AS AN OWN-CLIENT GIFT: free to offer, less what is still badge reward (v4 answer 3). The
- * database door measures exactly this (`own_client_gift_give`). Null = the stock could not be read — never 0.
+ * What is free to give AS AN OWN-CLIENT GIFT, per kind: free to offer, less what is still badge reward (v4 answer 3).
+ * The database door measures exactly this (`own_client_gift_give`). Null = the stock could not be read — never 0.
  */
-export function boughtFreePapic(free: FreeByKind | null, rewardLeft: FreeByKind | null | undefined): number | null {
+export function boughtFreeByKind(free: FreeByKind | null, rewardLeft: FreeByKind | null | undefined): FreeByKind | null {
   if (!free) return null;
-  const reward = rewardLeft ? Math.max(0, Math.min(free.papic, rewardLeft.papic)) : 0;
-  return Math.max(0, free.papic - reward);
+  const out = { ...ZERO };
+  for (const k of SHOP_GIFT_KINDS) {
+    const reward = rewardLeft ? Math.max(0, Math.min(free[k], rewardLeft[k] ?? 0)) : 0;
+    out[k] = Math.max(0, free[k] - reward);
+  }
+  return out;
 }
 
-/** How many of one pack the credits cover ("7 left"). */
-export function packsLeft(credits: number | null, pack: Pick<ShopGiftPack, 'credits'>): number | null {
-  if (credits === null || !Number.isFinite(credits) || pack.credits <= 0) return null;
-  return Math.max(0, Math.floor(credits / pack.credits));
+/** How many of one pack a kind's stock covers ("7 left"). */
+export function packsLeft(units: number | null | undefined, pack: Pick<ShopGiftPack, 'credits'>): number | null {
+  if (units === null || units === undefined || !Number.isFinite(units) || pack.credits <= 0) return null;
+  return Math.max(0, Math.floor(units / pack.credits));
 }
 
-/** The Papic packs on sale — the only packs an own-client gift can be. Smallest first (the catalogue's order). */
+/** The packs on sale that can be an own-client gift — every kind, Papic first (the catalogue's order). */
 export function ownGiftPacks(packs: readonly ShopGiftPack[] | null): ShopGiftPack[] {
-  return (packs ?? []).filter((p) => p.kind === 'papic');
+  return [...(packs ?? [])];
 }
 
-/** Credits the picked codes need, each code read from the catalogue; null when any code is not a Papic pack on sale. */
-export function creditsFor(codes: readonly string[], packs: readonly ShopGiftPack[] | null): number | null {
+/** What the picked codes need, per kind, read from the catalogue; null when any code is not a pack on sale. */
+export function needByKind(codes: readonly string[], packs: readonly ShopGiftPack[] | null): FreeByKind | null {
   const on = ownGiftPacks(packs);
-  let total = 0;
+  const out = { ...ZERO };
   for (const c of codes) {
     const p = on.find((x) => x.code === c);
     if (!p) return null;
-    total += p.credits;
+    out[p.kind] += p.credits;
   }
-  return total;
+  return out;
+}
+
+/** Do the needs fit the stock, every kind? */
+export function fitsStock(need: FreeByKind | null, free: FreeByKind | null): boolean {
+  if (!need || !free) return false;
+  return SHOP_GIFT_KINDS.every((k) => need[k] <= free[k]);
+}
+
+/** The stock left for ONE line once every OTHER line is counted — two lines never promise the same unit twice. */
+export function roomForLine(
+  free: FreeByKind | null,
+  packs: readonly ShopGiftPack[] | null,
+  picks: readonly string[],
+  index: number,
+): FreeByKind | null {
+  if (!free) return null;
+  const others = needByKind(picks.filter((_, j) => j !== index), packs) ?? ZERO;
+  const out = { ...ZERO };
+  for (const k of SHOP_GIFT_KINDS) out[k] = Math.max(0, free[k] - others[k]);
+  return out;
 }
 
 /** One choice in the gift ▾ (the `PickMenu` shape: `disabledNote` = listed, not pickable, and why). */
 export type OwnGiftOption = { key: string; label: string; hint?: string; disabledNote?: string };
 
 /**
- * The gift ▾: YOUR STOCK ONLY. One row per Papic pack the shop's bought stock covers ("7 left"); a badge-reward row,
- * greyed, when the shop holds some; then "＋ Buy more for your stock". `credits` = what is free after the OTHER lines
- * already picked on this client, so two lines can never promise the same credits twice.
+ * The gift ▾: YOUR STOCK ONLY. One row per pack its kind's bought stock covers ("7 left"); a greyed badge-reward row
+ * per kind the shop holds some of; then "＋ Buy more for your stock".
  */
 export function ownGiftMenu(
   packs: readonly ShopGiftPack[] | null,
-  credits: number | null,
-  rewardLeftPapic: number,
+  room: FreeByKind | null,
+  rewardLeft: FreeByKind,
   canBuy: boolean,
 ): OwnGiftOption[] {
   const out: OwnGiftOption[] = [];
   for (const p of ownGiftPacks(packs)) {
-    const left = packsLeft(credits, p);
+    const left = room ? packsLeft(room[p.kind], p) : null;
     if (left === null) {
       out.push({ key: p.code, label: p.title, disabledNote: 'Couldn’t read your gift stock right now' });
     } else if (left > 0) {
       out.push({ key: p.code, label: p.title, hint: `${giftCount(left)} left` });
     }
   }
-  const smallest = ownGiftPacks(packs)[0];
-  if (rewardLeftPapic > 0 && smallest) {
-    out.push({ key: '__reward', label: `${smallest.title} · badge reward`, disabledNote: REWARD_DOES_NOT_COUNT });
+  for (const k of SHOP_GIFT_KINDS) {
+    const first = ownGiftPacks(packs).find((p) => p.kind === k);
+    if ((rewardLeft[k] ?? 0) > 0 && first) {
+      out.push({ key: `__reward_${k}`, label: `${first.title} · badge reward`, disabledNote: REWARD_DOES_NOT_COUNT });
+    }
   }
   if (canBuy) out.push({ key: OWN_GIFT_BUY_KEY, label: BUY_MORE, hint: BUY_MORE_LINE });
   return out;
 }
 
 /** Is any pack pickable at all? False ⇒ the step shows the buy list instead of the ▾. */
-export function anyPackPickable(packs: readonly ShopGiftPack[] | null, credits: number | null): boolean {
-  if (credits === null) return false;
-  return ownGiftPacks(packs).some((p) => (packsLeft(credits, p) ?? 0) > 0);
+export function anyPackPickable(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): boolean {
+  if (!free) return false;
+  return ownGiftPacks(packs).some((p) => (packsLeft(free[p.kind], p) ?? 0) > 0);
 }
 
 /** The first pack the stock covers — "one is picked for you from your stock". Null when none is. */
-export function defaultOwnGift(packs: readonly ShopGiftPack[] | null, credits: number | null): string | null {
-  if (credits === null) return null;
-  return ownGiftPacks(packs).find((p) => (packsLeft(credits, p) ?? 0) > 0)?.code ?? null;
+export function defaultOwnGift(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): string | null {
+  if (!free) return null;
+  return ownGiftPacks(packs).find((p) => (packsLeft(free[p.kind], p) ?? 0) > 0)?.code ?? null;
 }
 
 /**
- * The lines to STORE for the picked codes — titles and credits from the catalogue, never from the browser. Null when a
- * code is not a Papic pack on sale, there is none, or there are too many.
+ * The lines to STORE for the picked codes — titles, kinds and units from the catalogue, never from the browser. Null
+ * when a code is not a pack on sale, there is none, or there are too many.
  */
 export function ownGiftLinesOf(codes: readonly string[], packs: readonly ShopGiftPack[] | null): OwnGiftLine[] | null {
   if (codes.length < 1 || codes.length > OWN_GIFT_MAX_LINES) return null;
@@ -172,7 +216,7 @@ export function ownGiftLinesOf(codes: readonly string[], packs: readonly ShopGif
   for (const c of codes) {
     const p = on.find((x) => x.code === c);
     if (!p) return null;
-    out.push({ service_code: p.code, title: p.title, kind: 'papic', credits: p.credits });
+    out.push({ service_code: p.code, title: p.title, kind: p.kind, credits: p.credits });
   }
   return out;
 }
@@ -191,12 +235,14 @@ export function ownGiftWords(lines: readonly Pick<OwnGiftLine, 'title'>[]): stri
   return parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-/** A stored own-link gift row → its one line, or null when the row is not a Papic gift. */
+/** A stored gift row → its one line, or null when the row is not a gift kind the door gives. */
 export function ownLinkGiftLineOf(row: { service_code?: unknown; title?: unknown; gift_kind?: unknown; credits?: unknown } | null): OwnGiftLine | null {
-  if (!row || row.gift_kind !== 'papic' || typeof row.service_code !== 'string' || typeof row.title !== 'string') return null;
+  if (!row || typeof row.service_code !== 'string' || typeof row.title !== 'string') return null;
+  const kind = SHOP_GIFT_KINDS.find((k) => k === row.gift_kind);
+  if (!kind) return null;
   const credits = Number(row.credits);
-  if (!Number.isInteger(credits) || credits <= 0) return null;
-  return { service_code: row.service_code, title: row.title, kind: 'papic', credits };
+  if (!Number.isInteger(credits) || credits <= 0 || (kind !== 'papic' && credits !== 1)) return null;
+  return { service_code: row.service_code, title: row.title, kind, credits };
 }
 
 /* ── the invite ─────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -243,10 +289,12 @@ export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
 }) {
   // Every kind the catalogue knows (`freeByKind`, the shared reader) — a kind added later can never be missed here.
   const free = freeByKind(g.stock);
+  const rewardLeft = { ...ZERO };
+  if (free && g.rewards?.left) for (const k of SHOP_GIFT_KINDS) rewardLeft[k] = Math.max(0, Math.min(free[k], g.rewards.left[k] ?? 0));
   return {
     packs: g.packs,
-    credits: boughtFreePapic(free, g.rewards?.left ?? null),
-    rewardLeft: free && g.rewards?.left ? Math.max(0, Math.min(free.papic, g.rewards.left.papic)) : 0,
+    free: boughtFreeByKind(free, g.rewards?.left ?? null),
+    rewardLeft,
     canBuy: g.canBuy,
     paysGiftPrice: g.paysGiftPrice,
     openRails: g.openRails,

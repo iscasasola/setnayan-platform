@@ -216,3 +216,37 @@ test('5 · no session may call the door or write the tables', async () => {
     await setAuthUid(db, null);
   }
 });
+
+test('6 · an Event Plus own-client gift unlocks the event the way a quote gift does; a plan the event holds is never given', async () => {
+  const shopU = await shopOf(await newUser('own-unlock@test.test', 'vendor'), 'Own Unlock Shop');
+  await db.query(`INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, 'event_plus', 2, 'bought')`, [shopU]);
+  const plus = [{ service_code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1 }];
+  const eventId = await newEvent(oldCouple);
+  const res = await one<Give>(`SELECT public.own_client_gift_give($1, $2, 'own_link', NULL, $3::jsonb, NULL, 'none') AS v`, [shopU, eventId, JSON.stringify(plus)]);
+  assert.equal(res.status, 'ok');
+  // The quote door's own row shape — so every entitlement reader sees it with no change.
+  const row = await db.query<{ kind: string; unlocks_sku: string; own_client_gift_id: string | null; proposal_id: string | null }>(
+    `SELECT kind, unlocks_sku, own_client_gift_id, proposal_id FROM public.shop_gift_stock_entries WHERE event_id = $1 AND gift_kind = 'event_plus'`,
+    [eventId],
+  );
+  assert.equal(row.rows.length, 1);
+  assert.equal(row.rows[0]!.kind, 'given');
+  assert.equal(row.rows[0]!.unlocks_sku, 'EVENT_PLUS');
+  assert.equal(row.rows[0]!.own_client_gift_id, res.own_gift_id);
+  assert.equal(row.rows[0]!.proposal_id, null);
+  assert.equal(await one<boolean>(`SELECT public.event_has_comp_for_sku($1, 'EVENT_PLUS') AS v`, [eventId]), true, 'the event holds Event Plus now');
+  assert.equal(Number(await one<number>(`SELECT balance AS v FROM public.shop_gift_stock_status($1) WHERE gift_kind = 'event_plus'`, [shopU])), 1);
+  // An event that already holds Ultra takes nothing: the unit stays in stock, and no own-client row is made.
+  const ultraEvent = await newEvent(oldCouple);
+  const none = await one<Give>(`SELECT public.own_client_gift_give($1, $2, 'own_link', NULL, $3::jsonb, NULL, 'ultra') AS v`, [shopU, ultraEvent, JSON.stringify(plus)]);
+  assert.equal(none.status, 'nothing_to_give');
+  assert.equal(Number(await one<number>(`SELECT balance AS v FROM public.shop_gift_stock_status($1) WHERE gift_kind = 'event_plus'`, [shopU])), 1);
+  assert.equal(await one<number>(`SELECT count(*)::int AS v FROM public.own_client_gifts WHERE event_id = $1`, [ultraEvent]), 0);
+  // A plan unit is one unit, and a kind's stock is its own: Papic credits never pay for Event Plus.
+  const bad = await one<Give>(`SELECT public.own_client_gift_give($1, $2, 'own_link', NULL, $3::jsonb, NULL, 'none') AS v`, [
+    shopU,
+    await newEvent(oldCouple),
+    JSON.stringify([{ service_code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 2 }]),
+  ]);
+  assert.equal(bad.status, 'bad_input');
+});

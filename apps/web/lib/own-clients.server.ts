@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
-import { clientInviteTokenOf, ownLinkGiftLineOf, type ImportFacts, type OwnGiftLine } from '@/lib/own-clients';
+import { fetchEventGiftHolds } from '@/lib/shop-gifts.server';
+import { clientInviteTokenOf, ownLinkGiftLineOf, shopIsVerified, type ImportFacts, type OwnGiftLine } from '@/lib/own-clients';
 
 /**
  * 🎁 OWN CLIENTS — the I/O half of `lib/own-clients.ts`. Every read binds its `error`; a failure is said as a failure,
@@ -11,7 +12,24 @@ import { clientInviteTokenOf, ownLinkGiftLineOf, type ImportFacts, type OwnGiftL
 
 export type OwnGiftGiveResult =
   | { status: 'given' | 'already'; facts: ImportFacts }
-  | { status: 'short' | 'error' };
+  | { status: 'short' | 'nothing' | 'error' };
+
+/**
+ * 🪪 Is this shop verified (`shopIsVerified`, the ONE test)? `null` = the read failed — said as "couldn't check",
+ * never as "not verified" (and never as a promise).
+ */
+export async function fetchShopVerified(client: SupabaseClient, vendorProfileId: string): Promise<boolean | null> {
+  const { data, error } = await client
+    .from('vendor_profiles')
+    .select('verification_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] own-clients: shop verification read', error);
+    return null;
+  }
+  return shopIsVerified((data as { verification_state?: unknown } | null)?.verification_state);
+}
 
 /**
  * Give one own-client gift into the couple's event — exactly once per (shop, event), from BOUGHT stock only.
@@ -30,6 +48,16 @@ export async function giveOwnClientGift(
     userId?: string | null;
   },
 ): Promise<OwnGiftGiveResult> {
+  // 💎 What the event already holds, for an Event Plus / Pro / Ultra line — the quote door's own read (approved only).
+  let eventHas = 'none';
+  if (input.lines.some((l) => l.kind !== 'papic')) {
+    try {
+      eventHas = await fetchEventGiftHolds(admin, input.eventId, 'active');
+    } catch (e) {
+      console.error('[own-clients] event holds read', e);
+      return { status: 'error' };
+    }
+  }
   const { data, error } = await admin.rpc('own_client_gift_give', {
     p_vendor_profile_id: input.vendorProfileId,
     p_event_id: input.eventId,
@@ -37,6 +65,7 @@ export async function giveOwnClientGift(
     p_invite_id: input.inviteId,
     p_lines: input.lines,
     p_user_id: input.userId ?? null,
+    p_event_has: eventHas,
   });
   if (error) {
     console.error('[supabase-error] own-clients: own_client_gift_give', error);
@@ -48,6 +77,7 @@ export async function giveOwnClientGift(
   if (d.status === 'ok') return { status: 'given', facts };
   if (d.status === 'already') return { status: 'already', facts };
   if (d.status === 'short') return { status: 'short' };
+  if (d.status === 'nothing_to_give') return { status: 'nothing' };
   console.error('[own-clients] own_client_gift_give refused', data);
   return { status: 'error' };
 }
@@ -66,27 +96,24 @@ export async function fetchOwnLinkGift(client: SupabaseClient, vendorProfileId: 
   return ownLinkGiftLineOf(data as Record<string, unknown> | null);
 }
 
+/** What a first ask through the own link makes the couple: the shop's own client, not (yet), or not known. */
+export type OwnLinkArrival = 'own' | 'not_own' | 'unknown';
+
 /**
- * 🔗 A couple's FIRST ask through the shop's own link (`?src=own`): give the link's gift. Answers whether the couple is
- * now the shop's own client — `true` only when a gift was given now or already (v4 stock-first answer 2: with no gift
- * set, or too little stock, the link still works but the couple is not yet an own client). Fails CLOSED to "not own":
- * an error never makes a fee-free client without a gift.
+ * 🔗 A couple's FIRST ask through the shop's own link (`?src=own`): give the link's gift.
+ *   · 'own'     — a VERIFIED shop whose gift was given now or before (v4: the link's gift makes them its own client);
+ *   · 'not_own' — measured: an unverified shop ("UNVERIFIED SHOPS DO GET THE QR": the flat 5%), no gift set, too little
+ *                 stock, or every gift a plan the event already holds;
+ *   · 'unknown' — a read or the door FAILED. Not evidence of anything: the caller must not charge on it (controller
+ *                 audit, 16 Nov), so it keeps the arrival's own-link stamp and the fee stays the booking-fee logic's call.
  */
-export async function ownLinkArrivalIsOwnClient(admin: SupabaseClient, vendorProfileId: string, eventId: string): Promise<boolean> {
-  // 🪪 "UNVERIFIED SHOPS DO GET THE QR" (owner 2026-11-16): an unverified shop's link still works, but every booking pays
-  // the flat 5% — never an own client. A refused read fails closed the same way.
-  const { data: shopRow, error: shopErr } = await admin
-    .from('vendor_profiles')
-    .select('verification_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  if (shopErr) {
-    console.error('[supabase-error] own-clients: own-link shop verification read', shopErr);
-    return false;
-  }
-  if ((shopRow as { verification_state?: string } | null)?.verification_state !== 'verified') return false;
+export async function ownLinkArrival(admin: SupabaseClient, vendorProfileId: string, eventId: string): Promise<OwnLinkArrival> {
+  const verified = await fetchShopVerified(admin, vendorProfileId);
+  if (verified === null) return 'unknown';
+  if (!verified) return 'not_own';
   const gift = await fetchOwnLinkGift(admin, vendorProfileId);
-  if (gift === 'unread' || gift === null) {
+  if (gift === 'unread') return 'unknown';
+  if (gift === null) {
     // A gift this event already got from this shop (an Add-a-client invite) still makes them an own client.
     const { data, error } = await admin
       .from('own_client_gifts')
@@ -94,13 +121,18 @@ export async function ownLinkArrivalIsOwnClient(admin: SupabaseClient, vendorPro
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)
       .maybeSingle();
-    if (error) console.error('[supabase-error] own-clients: own_client_gifts', error);
-    return !error && Boolean(data);
+    if (error) {
+      console.error('[supabase-error] own-clients: own_client_gifts', error);
+      return 'unknown';
+    }
+    return data ? 'own' : 'not_own';
   }
+  // ⚠ The own link has no invite to measure "new account / new event" against: its facts are recorded as unknown and the
+  // booking-fee logic decides from them (2026-11-16 ruling).
   const res = await giveOwnClientGift(admin, { vendorProfileId, eventId, via: 'own_link', inviteId: null, lines: [gift] });
-  // ⚠ The own link has no invite to measure "new account / new event" against, so its facts are recorded as unknown
-  // and the fee logic decides from them (2026-11-16 ruling). Here it keeps the shipped own-link stamp once a gift is given.
-  return res.status === 'given' || res.status === 'already';
+  if (res.status === 'given' || res.status === 'already') return 'own';
+  if (res.status === 'error') return 'unknown';
+  return 'not_own';
 }
 
 export type ClientInviteRow = {

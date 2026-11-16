@@ -31,6 +31,7 @@ import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
 import { AddClientBlock } from './_components/own-client-gift';
 import { ownGiftDataOf } from '@/lib/own-clients';
+import { fetchShopVerified } from '@/lib/own-clients.server';
 import { loadShopGiftsSection } from '../shop/promote/_components/shop-gifts-data';
 
 export const metadata = { title: 'QR codes · Supplier' };
@@ -209,7 +210,8 @@ export default async function VendorQrCodesPage({
     <AddClientBlock
       data={ownGiftDataOf(await loadShopGiftsSection(supabase, vendorProfileId))}
       bookedHref={`${QR_HREF}?mode=locked&open=1`}
-      verified={await isMarketplaceVendorBookable(supabase, vendorProfileId).catch(() => false)}
+      // 🪪 The ONE verified test the claim uses (`fetchShopVerified`); a failed read says "couldn't check".
+      verified={await fetchShopVerified(supabase, vendorProfileId)}
     />
   );
 

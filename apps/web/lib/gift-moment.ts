@@ -72,7 +72,18 @@ export type GiftMomentView = {
   landedAt: string;
   /** null = waiting (not claimed). */
   claimedAt: string | null;
+  /**
+   * 🪪 The giving shop is not yet verified (owner 2026-11-16, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET
+   * VERIFIED"): the shipped line + its ⓘ — never hidden, never blocks. Absent for a verified shop and for Setnayan.
+   */
+  unverified?: { line: string; info: string } | null;
 };
+
+/**
+ * On an OWN CLIENT's gift the ⓘ says only this (Own clients v4 answer 2, 16 Nov): the shipped ⓘ's "booking fee applies
+ * as usual" is not true for a shop's own client.
+ */
+export const OWN_CLIENT_NOT_VERIFIED_INFO = 'Setnayan hasn’t checked this shop’s documents yet.';
 
 const COUNT = new Intl.NumberFormat('en-PH');
 

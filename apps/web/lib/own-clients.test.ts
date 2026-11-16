@@ -8,20 +8,24 @@ import { join } from 'node:path';
 import type { ShopGiftPack } from './shop-gifts';
 import {
   OWN_GIFT_BUY_KEY,
+  OWN_GIFT_MAX_LINES,
   REWARD_DOES_NOT_COUNT,
   anyPackPickable,
-  boughtFreePapic,
+  boughtFreeByKind,
   clientInviteTokenOf,
   clientInviteUrl,
-  creditsFor,
   defaultOwnGift,
+  fitsStock,
   importIsOwnClient,
   isEmailOrPhone,
+  needByKind,
   ownGiftDataOf,
   ownGiftLinesOf,
   ownGiftMenu,
   ownGiftWords,
   packsLeft,
+  roomForLine,
+  shopIsVerified,
   usedWhenJoinsLine,
 } from './own-clients';
 
@@ -29,41 +33,77 @@ import {
 const packs: ShopGiftPack[] = [
   { code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150, srpCentavos: 9900, giftPriceCentavos: null },
   { code: 'PAPIC_GUEST_1000', title: 'Papic 1000', kind: 'papic', credits: 1000, srpCentavos: 49900, giftPriceCentavos: null },
-  { code: 'COUPLE_WEBSITE_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900, giftPriceCentavos: null },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900, giftPriceCentavos: null },
 ];
+const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
 
-test('a badge reward never counts toward the gift (v4 answer 3)', () => {
-  assert.equal(boughtFreePapic({ papic: 1200, event_plus: 0, event_pro: 0, event_ultra: 0 }, { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 }), 900);
-  assert.equal(boughtFreePapic({ papic: 100, event_plus: 0, event_pro: 0, event_ultra: 0 }, { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 }), 0);
-  assert.equal(boughtFreePapic(null, null), null, 'an unread stock is null, never 0');
+test('a badge reward never counts toward the gift, per kind (v4 answer 3)', () => {
+  assert.deepEqual(boughtFreeByKind(stock(1200, 2), stock(300, 1)), stock(900, 1));
+  assert.deepEqual(boughtFreeByKind(stock(100), stock(300)), stock(0));
+  assert.equal(boughtFreeByKind(null, null), null, 'an unread stock is null, never 0');
 });
 
-test('the ▾ lists your stock only, greys a badge reward, and offers Buy more', () => {
-  const m = ownGiftMenu(packs, 1050, 150, true);
-  assert.deepEqual(m.map((o) => o.key), ['PAPIC_GUEST', 'PAPIC_GUEST_1000', '__reward', OWN_GIFT_BUY_KEY]);
+test('the ▾ lists your stock only — every kind — greys a badge reward, and offers Buy more', () => {
+  const m = ownGiftMenu(packs, stock(1050, 2), stock(150), true);
+  assert.deepEqual(m.map((o) => o.key), ['PAPIC_GUEST', 'PAPIC_GUEST_1000', 'EVENT_PLUS', '__reward_papic', OWN_GIFT_BUY_KEY]);
   assert.equal(m[0]!.hint, '7 left');
   assert.equal(m[1]!.hint, '1 left');
-  assert.equal(m[2]!.disabledNote, REWARD_DOES_NOT_COUNT);
-  assert.ok(!m.some((o) => o.key === 'COUPLE_WEBSITE_PLUS'), 'Event Plus is not an own-client gift (no door gives it without a quote)');
-  // A pack the stock cannot cover is not listed at all: stock only.
-  assert.deepEqual(ownGiftMenu(packs, 300, 0, false).map((o) => o.key), ['PAPIC_GUEST']);
+  assert.equal(m[2]!.hint, '2 left', 'Event Plus counts its own units, never Papic credits');
+  assert.equal(m[3]!.disabledNote, REWARD_DOES_NOT_COUNT);
+  // A pack its kind's stock cannot cover is not listed at all: stock only.
+  assert.deepEqual(ownGiftMenu(packs, stock(300), stock(0), false).map((o) => o.key), ['PAPIC_GUEST']);
+});
+
+test('two lines never promise the same unit twice; kinds never pool', () => {
+  const free = stock(300, 1);
+  assert.deepEqual(roomForLine(free, packs, ['PAPIC_GUEST', 'EVENT_PLUS'], 1), stock(150, 1));
+  assert.ok(fitsStock(needByKind(['PAPIC_GUEST', 'PAPIC_GUEST', 'EVENT_PLUS'], packs), free));
+  assert.ok(!fitsStock(needByKind(['EVENT_PLUS', 'EVENT_PLUS'], packs), free));
+  assert.ok(!fitsStock(needByKind(['PAPIC_GUEST'], packs), null), 'an unread stock never fits');
 });
 
 test('with no stock nothing is pickable, so the step lists what to buy', () => {
-  assert.equal(anyPackPickable(packs, 0), false);
+  assert.equal(anyPackPickable(packs, stock(0)), false);
   assert.equal(anyPackPickable(packs, null), false);
-  assert.equal(defaultOwnGift(packs, 0), null);
-  assert.equal(defaultOwnGift(packs, 150), 'PAPIC_GUEST');
+  assert.equal(defaultOwnGift(packs, stock(0)), null);
+  assert.equal(defaultOwnGift(packs, stock(150)), 'PAPIC_GUEST');
+  assert.equal(defaultOwnGift(packs, stock(0, 1)), 'EVENT_PLUS');
   assert.equal(packsLeft(149, packs[0]!), 0);
 });
 
-test('lines are read from the catalogue by code, at least one, Papic only', () => {
+test('lines are read from the catalogue by code, at least one, any kind', () => {
   assert.equal(ownGiftLinesOf([], packs), null, 'every own client carries at least one gift');
-  assert.equal(ownGiftLinesOf(['COUPLE_WEBSITE_PLUS'], packs), null);
   assert.equal(ownGiftLinesOf(['NOT_A_CODE'], packs), null);
-  assert.deepEqual(ownGiftLinesOf(['PAPIC_GUEST'], packs), [{ service_code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150 }]);
-  assert.equal(creditsFor(['PAPIC_GUEST', 'PAPIC_GUEST_1000'], packs), 1150);
-  assert.equal(ownGiftLinesOf(Array(6).fill('PAPIC_GUEST'), packs), null);
+  assert.deepEqual(ownGiftLinesOf(['PAPIC_GUEST', 'EVENT_PLUS'], packs), [
+    { service_code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150 },
+    { service_code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1 },
+  ]);
+  assert.equal(ownGiftLinesOf(Array(OWN_GIFT_MAX_LINES + 1).fill('PAPIC_GUEST'), packs), null);
+});
+
+test('ONE limit on gifts per client: the code and the migration say the same number', () => {
+  const sql = readFileSync(join(process.cwd(), '../../supabase/migrations/20271349849472_own_clients_carry_a_gift.sql'), 'utf8');
+  assert.match(sql, new RegExp(`jsonb_array_length\\(gift_lines\\) BETWEEN 1 AND ${OWN_GIFT_MAX_LINES}\\b`), 'the invites CHECK');
+  assert.match(sql, new RegExp(`jsonb_array_length\\(p_lines\\) > ${OWN_GIFT_MAX_LINES}\\b`), 'the door\'s refusal');
+});
+
+test('🪪 ONE verified test, the one the server uses', () => {
+  assert.equal(shopIsVerified('verified'), true);
+  assert.equal(shopIsVerified('unverified'), false);
+  assert.equal(shopIsVerified(null), false);
+  for (const f of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx']) {
+    const src = readFileSync(join(process.cwd(), f), 'utf8');
+    assert.match(src, /fetchShopVerified\(/, `${f} asks the shared verified test`);
+    assert.doesNotMatch(src, /verified=\{await isMarketplaceVendorBookable|isMarketplaceVendorBookable\([^)]*\)\.catch\(\(\) => false\),/, `${f} must not promise from "bookable"`);
+  }
+  const claim = readFileSync(join(process.cwd(), 'app/vendor-invite/[slug]/actions.ts'), 'utf8');
+  assert.match(claim, /importIsOwnClient\(gave\.facts, shopIsVerified\(/);
+});
+
+test('🔗 a failed own-link read is never charged (controller audit, 16 Nov)', () => {
+  const src = readFileSync(join(process.cwd(), 'app/v/[slug]/inquiry-actions.ts'), 'utf8');
+  assert.match(src, /const ownedSource = arrival === 'not_own' \? 'shop_page' : declaredSource;/);
+  assert.doesNotMatch(src, /ownLinkArrivalIsOwnClient\([^)]*\)\.catch\(\(\) => false\)/);
 });
 
 test('the words the drawing uses', () => {
@@ -95,9 +135,9 @@ test('the gift step reads the same stock read as Your gifts', () => {
     openRails: [{ id: 'gcash', label: 'GCash' }],
     rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0 } },
   });
-  assert.equal(d.credits, 1050);
-  assert.equal(d.rewardLeft, 150);
-  assert.equal(ownGiftDataOf({ stock: null, packs, paysGiftPrice: false, canBuy: true, openRails: [] }).credits, null);
+  assert.equal(d.free?.papic, 1050);
+  assert.equal(d.rewardLeft.papic, 150);
+  assert.equal(ownGiftDataOf({ stock: null, packs, paysGiftPrice: false, canBuy: true, openRails: [] }).free, null);
 });
 
 test('no price is typed in the own-client modules', () => {
@@ -109,8 +149,8 @@ test('no price is typed in the own-client modules', () => {
 
 test('the own link is own only with its gift — the inquiry door asks before it stamps website', () => {
   const src = readFileSync(join(process.cwd(), 'app/v/[slug]/inquiry-actions.ts'), 'utf8');
-  assert.match(src, /declaredSource === 'website'[\s\S]{0,120}ownLinkArrivalIsOwnClient/);
-  assert.match(src, /\? 'shop_page'/, 'without the gift the ask is a visit to the shop on Setnayan (the fee)');
+  assert.match(src, /declaredSource === 'website'[\s\S]{0,120}ownLinkArrival\(/);
+  assert.match(src, /'not_own' \? 'shop_page'/, 'without the gift the ask is a visit to the shop on Setnayan (the fee)');
 });
 
 test('an import is an own client only as the 2026-11-16 ruling says (new account · or first import on the event)', () => {
@@ -143,5 +183,5 @@ test('owner "7. Yes" / "8. Yes" (#7889): the three re-worded lines, and the own 
   const codes = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8');
   assert.equal((codes.match(/\{ownLinkNotice\}/g) ?? []).length, 3);
   const promote = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8');
-  assert.match(promote, /ownLinkNotice=\{ownVerified && ownLinkRead === null \? <OwnLinkAddGiftNotice \/> : null\}/);
+  assert.match(promote, /ownLinkNotice=\{ownVerified === true && ownLinkRead === null \? <OwnLinkAddGiftNotice \/> : null\}/);
 });

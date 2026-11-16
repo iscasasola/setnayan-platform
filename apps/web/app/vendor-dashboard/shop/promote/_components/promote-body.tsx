@@ -20,9 +20,8 @@ import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type Promo
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
 import { OwnLinkAddGiftNotice, OwnLinkGift } from '../../../invite/_components/own-client-gift';
-import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { ownGiftDataOf, type OwnGiftLine } from '@/lib/own-clients';
-import { fetchOwnLinkGift } from '@/lib/own-clients.server';
+import { fetchOwnLinkGift, fetchShopVerified } from '@/lib/own-clients.server';
 
 import { PromoteBridge } from './promote-bridge';
 import { ShopGiftsSection } from './shop-gifts-section';
@@ -122,7 +121,8 @@ export async function PromoteBody({
     // 🎁 The own link's gift, read once: its block on My page, and the owner's notice ("8. Yes", 16 Nov) on every own
     // code's sheet when a VERIFIED shop has none — told first, before any ask through it is charged the fee.
     const [ownVerified, ownLinkRead] = await Promise.all([
-      isMarketplaceVendorBookable(supabase, profile.vendor_profile_id).catch(() => false),
+      // 🪪 The ONE verified test the server uses; null = couldn't check (never "not verified", never a promise).
+      fetchShopVerified(supabase, profile.vendor_profile_id),
       fetchOwnLinkGift(supabase, profile.vendor_profile_id),
     ]);
     body = (
@@ -138,7 +138,7 @@ export async function PromoteBody({
             current={ownLinkCurrent(ownLinkRead)}
           />
         }
-        ownLinkNotice={ownVerified && ownLinkRead === null ? <OwnLinkAddGiftNotice /> : null}
+        ownLinkNotice={ownVerified === true && ownLinkRead === null ? <OwnLinkAddGiftNotice /> : null}
         reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
         shortlist={{
           url: shortUrl,

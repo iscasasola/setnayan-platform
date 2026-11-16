@@ -37,7 +37,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { ShieldAlert, X } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
@@ -250,6 +251,15 @@ export default function GiftMoment({ view, counter = null, startOpen = false, ch
             <p className="mt-1.5 text-[16px] leading-snug" data-gift-received="">
               {view.received}
             </p>
+            {view.unverified ? (
+              // 🪪 The giving shop is not yet verified — the shipped line, never hidden, never blocking (16 Nov).
+              <p className="mt-1.5 flex min-w-0 items-center gap-1 text-[13px] leading-tight text-warn-800" data-gift-not-yet-verified="">
+                <ShieldAlert aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                <InfoTip label={view.unverified.line} labelClassName="text-[13px] text-warn-800" align="start">
+                  {view.unverified.info}
+                </InfoTip>
+              </p>
+            ) : null}
             {view.badge ? (
               <div className="mt-3 flex flex-wrap items-center gap-2" data-gift-badge-step="">
                 {view.badge.from ? (

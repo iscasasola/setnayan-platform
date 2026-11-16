@@ -59,3 +59,20 @@ Owner, on #7889, verbatim "7. Yes 8. Yes":
   Reviews): "Add a gift to your link so your clients book free."
 
 SPEC IMPACT: None — the owner's answers, applied as given.
+
+## 2026-11-16 · fix(own-clients): the controller's audit — one verified test, no fee on an unknown, every gift kind
+
+- One verified test (`shopIsVerified` / `fetchShopVerified`) for the QR screens, the claim and the own-link door —
+  `isMarketplaceVendorBookable` (true for unverified shops since 15 Nov) no longer decides a promise. A failed read
+  says "couldn't check", never "not verified".
+- An own-link ask whose read FAILS keeps its own-link stamp (never charged on an unknown); only a measured "not own"
+  (unverified, no gift, short stock) is stamped `shop_page`.
+- Event Plus / Pro / Ultra can be own-client and own-link gifts: they unlock the event exactly as a quote gift does
+  (a `given` row carrying `unlocks_sku`, so every entitlement reader sees it), each kind from its own bought stock.
+- "Buy and add": the client is saved at once, the invite is sent, then the shipped Buy gifts sheet opens with "This
+  client is added with one of them."
+- The couple's gift moment carries "This shop is not yet verified by Setnayan" for an unverified giver; on an own
+  client its ⓘ says only "Setnayan hasn't checked this shop's documents yet."
+- One 5-gift limit: a guard holds `OWN_GIFT_MAX_LINES` equal to the migration's CHECK and the door's refusal.
+
+SPEC IMPACT: None.

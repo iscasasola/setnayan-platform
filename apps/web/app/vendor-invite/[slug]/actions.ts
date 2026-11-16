@@ -17,7 +17,7 @@ import {
   listHostEvents,
 } from '@/lib/vendor-couple-invite';
 import { isShopLive } from '@/lib/vendor-visibility';
-import { CLIENT_INVITE_PARAM, clientInviteTokenOf, importIsOwnClient } from '@/lib/own-clients';
+import { CLIENT_INVITE_PARAM, clientInviteTokenOf, importIsOwnClient, shopIsVerified } from '@/lib/own-clients';
 import { fetchClientInvite, giveOwnClientGift, markOwnClientRow } from '@/lib/own-clients.server';
 
 function backToInvite(slug: string, status: string, scope = ''): never {
@@ -99,7 +99,7 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
       // 🎟 Owner 2026-11-16 ("A NEW ACCOUNT IS FREE FOR ONE YEAR…"): the gift is given on every import, but the couple is
       // the shop's OWN client (no fee) only when the import created their account, or this shop is the event's FIRST
       // imported supplier (a new event or one already on Setnayan — amended 9fe95ebe). Anything else stays a normal booking (the fee) — `importIsOwnClient`.
-      if ((gave.status === 'given' || gave.status === 'already') && importIsOwnClient(gave.facts, vendor!.verification_state === 'verified')) source = 'vendor_invite';
+      if ((gave.status === 'given' || gave.status === 'already') && importIsOwnClient(gave.facts, shopIsVerified(vendor!.verification_state))) source = 'vendor_invite';
     }
   }
 

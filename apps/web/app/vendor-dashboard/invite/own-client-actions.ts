@@ -23,7 +23,9 @@ import { fetchShopGiftPacks, fetchShopGiftRewardStock, fetchShopGiftStock } from
 import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
 import {
   OWN_GIFT_MAX_LINES,
-  boughtFreePapic,
+  boughtFreeByKind,
+  fitsStock,
+  needByKind,
   clientInviteShareText,
   clientInviteUrl,
   isEmailOrPhone,
@@ -66,18 +68,23 @@ export async function saveOwnClient(_prev: OwnClientActionState, formData: FormD
   const lines = ownGiftLinesOf(codes, packs);
   if (!lines) return fail('Pick at least one gift from your stock.');
 
-  const [stock, reward] = await Promise.all([fetchShopGiftStock(supabase, shop, null), fetchShopGiftRewardStock(supabase, shop, null)]);
-  const credits = boughtFreePapic(freeByKind(stock), rewardFreeByKind(reward, freeByKind(stock)));
-  if (credits === null) return fail('Your gift stock couldn’t be read just now. Nothing was saved — try again.');
-  const wanted = lines.reduce((s, l) => s + l.credits, 0);
-  if (credits < wanted) return fail('Not enough in your stock for this gift. Buy more first — it goes into your stock.');
+  // 🛒 "Buy and add" (stock-first ruling 1, 16 Nov: the client is added at once, holding a gift from the order being
+  // paid now). Only the Add mode may skip the stock check, and nothing is given until the couple joins with the stock
+  // actually in hand — a payment that is refused leaves the invite waiting (the door answers 'short').
+  const buying = mode === 'add' && String(formData.get('buying') ?? '') === '1';
+  if (!buying) {
+    const [stock, reward] = await Promise.all([fetchShopGiftStock(supabase, shop, null), fetchShopGiftRewardStock(supabase, shop, null)]);
+    const free = boughtFreeByKind(freeByKind(stock), rewardFreeByKind(reward, freeByKind(stock)));
+    if (free === null) return fail('Your gift stock couldn’t be read just now. Nothing was saved — try again.');
+    if (!fitsStock(needByKind(codes, packs), free)) return fail('Not enough in your stock for this gift. Buy more first — it goes into your stock.');
+  }
 
   if (mode === 'own_link') {
     // One gift on the code (v4 answer 1) — the first line is the one kept.
     const line = lines[0];
     if (!line) return fail('Pick a gift from your stock.');
     const { error } = await admin.from('vendor_own_link_gifts').upsert(
-      { vendor_profile_id: shop, service_code: line.service_code, title: line.title, gift_kind: 'papic', credits: line.credits, set_by: user.id, updated_at: new Date().toISOString() },
+      { vendor_profile_id: shop, service_code: line.service_code, title: line.title, gift_kind: line.kind, credits: line.credits, set_by: user.id, updated_at: new Date().toISOString() },
       { onConflict: 'vendor_profile_id' },
     );
     if (error) {

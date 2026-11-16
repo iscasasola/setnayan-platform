@@ -13,7 +13,7 @@ import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-subm
 import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
-import { giftPackLine, giftUnitPrice, type ShopGiftPack } from '@/lib/shop-gifts';
+import { giftPackLine, giftUnitPrice, type FreeByKind, type ShopGiftPack } from '@/lib/shop-gifts';
 import {
   ADD_ANOTHER_GIFT,
   ADD_CLIENT_LEAD,
@@ -38,6 +38,11 @@ import {
   GET_VERIFIED_LINE,
   TOO_LITTLE_STOCK_LINE,
   anyPackPickable,
+  fitsStock,
+  needByKind,
+  roomForLine,
+  COULD_NOT_CHECK_VERIFIED,
+  BUY_AND_ADD_NOTE,
   defaultOwnGift,
   fromStockLine,
   isEmailOrPhone,
@@ -66,10 +71,10 @@ import { saveOwnClient, type OwnClientActionState } from '../own-client-actions'
 export type OwnGiftData = {
   /** null ⇒ the catalogue could not be read. */
   packs: ShopGiftPack[] | null;
-  /** Papic credits free to give as an own-client gift (bought, not badge reward). null ⇒ unread. */
-  credits: number | null;
-  /** Badge-reward Papic credits still held — listed greyed, never pickable. */
-  rewardLeft: number;
+  /** Free to give as an own-client gift, per kind (bought, not badge reward). null ⇒ unread. */
+  free: FreeByKind | null;
+  /** Badge-reward stock still held, per kind — listed greyed, never pickable. */
+  rewardLeft: FreeByKind;
   canBuy: boolean;
   paysGiftPrice: boolean;
   openRails: OpenRail[];
@@ -106,14 +111,12 @@ function GiftPicks({
   many: boolean;
 }) {
   const packs = ownGiftPacks(data.packs);
-  const creditsOf = (code: string) => packs.find((p) => p.code === code)?.credits ?? 0;
   return (
     <FormRows width="wide" data="own-gift-picks">
       {picks.map((code, i) => {
-        const others = picks.reduce((s, c, j) => (j === i ? s : s + creditsOf(c)), 0);
-        const room = data.credits === null ? null : Math.max(0, data.credits - others);
+        const room = roomForLine(data.free, data.packs, picks, i);
         const pack = packs.find((p) => p.code === code) ?? null;
-        const left = pack ? packsLeft(room, pack) : null;
+        const left = pack && room ? packsLeft(room[pack.kind], pack) : null;
         return (
           <ChosenRow
             key={`${i}-${code}`}
@@ -183,9 +186,20 @@ function GetVerified() {
   );
 }
 
+/** 🪪 Verified → nothing; not verified → the owner's line; couldn't check → said so, never "not verified". */
+function VerifiedLine({ verified }: { verified: boolean | null }) {
+  if (verified === true) return null;
+  if (verified === false) return <GetVerified />;
+  return (
+    <p role="status" className="mt-1 text-[13px] text-ink/70" data-own-clients-verified-unread="">
+      {COULD_NOT_CHECK_VERIFIED}
+    </p>
+  );
+}
+
 /* ── Customers › QR codes · Add a client ───────────────────────────────────────────────────────────────────────── */
 
-export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftData; bookedHref: string; verified: boolean }) {
+export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftData; bookedHref: string; verified: boolean | null }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -201,15 +215,16 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
   const [contact, setContact] = useState('');
   const [note, setNote] = useState('');
   const [dated, setDated] = useState<'no' | 'yes'>('no');
-  const first = defaultOwnGift(data.packs, data.credits);
+  const first = defaultOwnGift(data.packs, data.free);
   const [picks, setPicks] = useState<string[]>(first ? [first] : []);
-  const [buying, setBuying] = useState<{ code: string | null } | null>(null);
+  const [buying, setBuying] = useState<{ code: string | null; added?: boolean } | null>(null);
   const [buyPick, setBuyPick] = useState<string | null>(ownGiftPacks(data.packs)[0]?.code ?? null);
-  const pickable = anyPackPickable(data.packs, data.credits);
-  const packs = ownGiftPacks(data.packs);
-  const need = picks.reduce((s, c) => s + (packs.find((p) => p.code === c)?.credits ?? 0), 0);
-  const fits = data.credits !== null && picks.length > 0 && need <= data.credits;
-  const nextPack = defaultOwnGift(data.packs, data.credits === null ? null : data.credits - need);
+  // 🛒 "Buy and add" (stock-first ruling 1): after the invite is saved and sent, the Buy gifts sheet opens for this pack.
+  const [buyAfter, setBuyAfter] = useState<string | null>(null);
+  const pickable = anyPackPickable(data.packs, data.free);
+  const buyMode = !(pickable && picks.length > 0);
+  const fits = picks.length > 0 && fitsStock(needByKind(picks, data.packs), data.free);
+  const nextPack = defaultOwnGift(data.packs, roomForLine(data.free, data.packs, [...picks, ''], picks.length));
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -218,8 +233,17 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
     if (state.status === 'added') {
       setOpen(false);
       setConfirm(state);
+      if (buyMode && buyPick) setBuyAfter(buyPick);
     }
   }, [state, toast]);
+
+  const closeConfirm = () => {
+    setConfirm(null);
+    if (buyAfter) {
+      setBuying({ code: buyAfter, added: true });
+      setBuyAfter(null);
+    }
+  };
 
   const send = async (c: NonNullable<typeof confirm>) => {
     try {
@@ -229,7 +253,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
         await navigator.clipboard.writeText(`${c.shareText} ${c.url}`);
         toast.success('Invite link copied — paste it to them');
       }
-      setConfirm(null);
+      closeConfirm();
       setName('');
       setContact('');
       setNote('');
@@ -252,16 +276,19 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
           className="mt-3"
           onSubmit={(e) => {
             if (dated === 'yes') return e.preventDefault();
-            if (!name.trim() || !isEmailOrPhone(contact) || !fits) {
+            if (!name.trim() || !isEmailOrPhone(contact) || (buyMode ? !(data.canBuy && buyPick) : !fits)) {
               e.preventDefault();
               nudgeFormRows(form.current ?? undefined);
             }
           }}
         >
           <input type="hidden" name="mode" value="add" />
-          {picks.map((c, i) => (
-            <input key={`${i}-${c}`} type="hidden" name="gift" value={c} />
-          ))}
+          <input type="hidden" name="buying" value={buyMode ? '1' : ''} />
+          {buyMode
+            ? buyPick
+              ? <input type="hidden" name="gift" value={buyPick} />
+              : null
+            : picks.map((c, i) => <input key={`${i}-${c}`} type="hidden" name="gift" value={c} />)}
           <FormRows width="wide">
             <TypedRow name="Name" value={name} required maxLength={120} fieldName="client_name" autoCapitalize="words" empty="Their name" onKeep={(t) => setName(t)} />
             <TypedRow
@@ -295,7 +322,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
           ) : (
             <div data-own-gift-step="">
               <GiftHead title={GIFT_FROM_YOU} />
-              {data.credits === null || data.packs === null ? (
+              {data.free === null || data.packs === null ? (
                 <p role="alert" className="mt-2 text-[13.5px] text-ink/70">
                   Your gift stock couldn’t be read just now — reload to try again. Nothing is lost.
                 </p>
@@ -312,7 +339,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
                   </p>
                 </>
               ) : (
-                <BuyList data={data} chosen={buyPick} setChosen={setBuyPick} empty={(data.credits ?? 0) === 0} />
+                <BuyList data={data} chosen={buyPick} setChosen={setBuyPick} empty={!data.free || Object.values(data.free).every((n) => n === 0)} />
               )}
             </div>
           )}
@@ -325,7 +352,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
             ) : data.canBuy && buyPick ? (
               // 🍎 Selling is web-only (store shell: `canBuy` is false there too, `shop-gifts-data.ts`).
               <div data-web-only="">
-                <ActionButton tone="brand" main icon={Gift} label="Buy gifts" onClick={() => setBuying({ code: buyPick })} aria-haspopup="dialog" data-testid="own-gift-buy" />
+                <SupplierSubmit tone="brand" main icon={<Gift aria-hidden className="h-5 w-5" strokeWidth={1.9} />} label="Buy and add" pendingLabel="Adding…" className="w-full" />
               </div>
             ) : null}
           </div>
@@ -335,7 +362,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
   );
 
   const confirmSheet = (
-    <Sheet open={confirm !== null} onClose={() => setConfirm(null)} labelledById={confirmId}>
+    <Sheet open={confirm !== null} onClose={closeConfirm} labelledById={confirmId}>
       {confirm ? (
         <div className="px-5 pb-5 pt-5" data-own-client-confirm="">
           <h2 id={confirmId} className="pr-12 text-[17px] font-semibold text-ink">
@@ -349,7 +376,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
             <Row k="Booking fee" v={CONFIRM_BOOKING_FEE} ok />
           </dl>
           <div className="mt-4 flex gap-2">
-            <button type="button" onClick={() => setConfirm(null)} className="sn-press min-h-12 flex-1 rounded-full border border-ink/15 text-[15px] font-semibold text-ink" data-own-client-cancel="">
+            <button type="button" onClick={closeConfirm} className="sn-press min-h-12 flex-1 rounded-full border border-ink/15 text-[15px] font-semibold text-ink" data-own-client-cancel="">
               Cancel
             </button>
             <ActionButton tone="brand" main icon={Send} label="Send" onClick={() => void send(confirm)} data-testid="own-client-send" />
@@ -385,7 +412,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
           <InfoTip label={OWN_CLIENT_PROMISE_LINE} labelClassName="text-[13px] text-ink/70" align="start">
             {OWN_CLIENT_PROMISE_TIP}
           </InfoTip>
-          {verified ? null : <GetVerified />}
+          <VerifiedLine verified={verified} />
         </div>
       </div>
       {mounted ? createPortal(sheet, document.body) : null}
@@ -398,6 +425,7 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
           paysGiftPrice={data.paysGiftPrice}
           openRails={data.openRails}
           initialCode={buying.code}
+          note={buying.added ? BUY_AND_ADD_NOTE : undefined}
         />
       ) : null}
     </div>
@@ -415,14 +443,14 @@ function Row({ k, v, ok = false }: { k: string; v: string; ok?: boolean }) {
 
 /* ── Shop › Promote › My page · Gift with your link ────────────────────────────────────────────────────────────── */
 
-export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; current: { code: string; title: string } | null | 'unread'; verified: boolean }) {
+export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; current: { code: string; title: string } | null | 'unread'; verified: boolean | null }) {
   const toast = useToast();
   const [state, formAction] = useActionState(saveOwnClient, IDLE);
   const handled = useRef<OwnClientActionState | null>(null);
   const saved = current && current !== 'unread' ? current.code : null;
-  const [pick, setPick] = useState<string | null>(saved ?? defaultOwnGift(data.packs, data.credits));
+  const [pick, setPick] = useState<string | null>(saved ?? defaultOwnGift(data.packs, data.free));
   const [buying, setBuying] = useState(false);
-  const pickable = anyPackPickable(data.packs, data.credits);
+  const pickable = anyPackPickable(data.packs, data.free);
   useEffect(() => {
     if (state === handled.current) return;
     handled.current = state;
@@ -430,18 +458,18 @@ export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; cu
     if (state.status === 'set') toast.success(`${state.gift} goes with your link`);
   }, [state, toast]);
 
-  const empty = data.credits !== null && !pickable;
+  const empty = data.free !== null && !pickable;
   return (
     <div className="mt-3.5 border-t border-ink/10 pt-1" data-own-link-gift={saved ? 'set' : 'unset'}>
       <GiftHead title={GIFT_WITH_YOUR_LINK} />
-      {verified ? null : <GetVerified />}
-      {current === 'unread' || data.credits === null || data.packs === null ? (
+      <VerifiedLine verified={verified} />
+      {current === 'unread' || data.free === null || data.packs === null ? (
         <p role="alert" className="mt-2 text-[13.5px] text-ink/70">
           Your link’s gift couldn’t be read just now — reload to try again. Nothing is lost.
         </p>
       ) : (
         <>
-          {!saved && verified ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]" data-own-link-add-gift="">{OWN_LINK_ADD_GIFT}</p> : null}
+          {!saved && verified === true ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]" data-own-link-add-gift="">{OWN_LINK_ADD_GIFT}</p> : null}
           {empty ? <p className="mt-1 text-[13px] text-[rgb(var(--color-danger))]" data-own-link-empty="">{OWN_LINK_EMPTY}</p> : null}
           {pickable && pick ? (
             <form action={formAction}>

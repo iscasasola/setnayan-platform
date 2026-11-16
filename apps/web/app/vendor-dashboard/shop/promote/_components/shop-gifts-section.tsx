@@ -317,7 +317,10 @@ export function BuyGiftsSheet({
   paysGiftPrice,
   openRails,
   initialCode,
+  note,
 }: {
+  /** One more quiet line under "Lands in your gifts…" — Add a client's "Buy and add" (Own clients v4). */
+  note?: string;
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
@@ -351,7 +354,7 @@ export function BuyGiftsSheet({
         <h2 id={headingId} className="pr-12 text-[18px] font-semibold text-ink">
           Buy gifts
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Lands in your gifts when the payment is approved.</p>
+        <p className="mt-1 text-[13.5px] text-ink/60">Lands in your gifts when the payment is approved.{note ? ` ${note}` : ''}</p>
 
         {openRails.length === 0 ? (
           <PaymentsPausedNote className="mt-4" />

@@ -66,6 +66,15 @@ export function mapProblems(): string[] {
   return out;
 }
 
+/**
+ * 🔗 THE ADDRESS MOVE (2026-11-15): an event or shop address built through its helper — `${publicEventPath(x)}`,
+ * `${shopPath(x)}` — is the same page the hand-typed `/${x}` was (the bare word, which the page forwards), so the map
+ * reads it that way.
+ */
+function viaAddressHelpers(href: string): string {
+  return href.replace(/\$\{(?:publicEventPath|shopPath)\(([^(),]*)(?:,[^()]*)?\)\}/g, '/${$1}');
+}
+
 /** Every back link on every page that disagrees with the map. */
 export function backFindings(): BackFinding[] {
   const out: BackFinding[] = [];
@@ -82,7 +91,7 @@ export function backFindings(): BackFinding[] {
           if (h.reason !== 'lab' && h.reason !== 'computed') why = `the map says no back here (${h.reason})`;
         } else if (normaliseHref(link.href) === normaliseHref(p.route) && p.route in IN_PAGE_BACKS) {
           why = null;
-        } else if (!hrefMatchesHome(link.href, h.home)) {
+        } else if (!hrefMatchesHome(viaAddressHelpers(link.href), h.home)) {
           why = `expected ${h.home}`;
         }
         if (!why) continue;

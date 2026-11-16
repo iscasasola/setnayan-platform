@@ -157,8 +157,9 @@ test('6 · the wiring', () => {
 
   const layout = read('app/[slug]/layout.tsx');
   assert.match(layout, /if \(eventId\) await forwardOldSubPage\(slug, eventId\);/, 'old sub-page links no longer forward');
-  assert.match(layout, /if \(!isUserNestingCutoverEnabled\(\) \|\| onTheCachedHub\(\)\) return;/, 'the forward reads the request on the cached hub, or runs with the switch off');
-  assert.match(layout, /if \(h\.get\('x-sn-u-nesting'\) === '1' \|\| h\.has\('next-action'\)\) return;/, 'a nested open or a form post is forwarded');
+  const fwd = read('app/[slug]/_lib/forward-old-sub-page.ts');
+  assert.match(fwd, /if \(!isUserNestingCutoverEnabled\(\) \|\| onTheCachedHub\(\)\) return;/, 'the forward reads the request on the cached hub, or runs with the switch off');
+  assert.match(fwd, /if \(h\.get\('x-sn-u-nesting'\) === '1' \|\| h\.has\('next-action'\)\) return;/, 'a nested open or a form post is forwarded');
 
   const route = read('lib/hub-view-route.ts');
   assert.match(route, /if \(isUserNestingCutoverEnabled\(\) && !opts\.pathname\) return null;/);

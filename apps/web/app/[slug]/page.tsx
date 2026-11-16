@@ -557,7 +557,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     //   · a bare `/{word}` that is a PERSON → their public page (`/{username}`): the same page `/u/{username}` is,
     //     with every gate it keeps (a hidden profile 404s; only public events and published stories show). One pool
     //     of names, so a person's word is never also a shop's — asked only on this miss path.
-    if (isUserNestingCutoverEnabled()) {
+    if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
       const reqHeaders = await headers();
       if (reqHeaders.get('x-sn-u-nesting') === '1') notFound();
       const { data: person } = await admin.from('users').select('user_id').eq('slug', slug.toLowerCase()).maybeSingle();

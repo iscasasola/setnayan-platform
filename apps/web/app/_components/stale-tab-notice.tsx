@@ -38,8 +38,10 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { LazyInlineNotice } from './notices/inline-notice-lazy';
 import {
+  LAYER_ATTRIBUTES,
   LAYER_OVER_THE_PAGE,
   LOADED_BUILD_VERSION,
+  MODAL_LAYER,
   SELF_UPDATE_KEY_PREFIX,
   aLayerCoversThePage,
   claimSelfUpdate,
@@ -57,7 +59,7 @@ function pageIsCovered(): boolean {
     const cs = window.getComputedStyle(el);
     const r = el.getBoundingClientRect();
     return {
-      modal: el.getAttribute('aria-modal') === 'true',
+      modal: el.matches(MODAL_LAYER),
       position: cs.position,
       display: cs.display,
       visibility: cs.visibility,
@@ -202,7 +204,7 @@ export function StaleTabNotice() {
     };
     measure();
     const watch = new MutationObserver(measure);
-    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-modal', 'data-chat-takeover', 'hidden'] });
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [...LAYER_ATTRIBUTES] });
     window.addEventListener('resize', measure);
     return () => {
       watch.disconnect();

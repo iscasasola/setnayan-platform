@@ -16,9 +16,11 @@
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { PEEK_TOAST_PLACE } from './toast/peek-toast';
+import { useHydrated } from '@/lib/use-hydrated';
 
 export default function StaleTabNoticeLift({ children }: { children: ReactNode }) {
-  if (typeof document === 'undefined') return null;
+  // <body> exists only after hydration; the house gate, so the hydration pass draws what the server drew (nothing).
+  if (!useHydrated()) return null;
   return createPortal(
     <div data-app-chrome="" data-stale-tab-lift="" className={PEEK_TOAST_PLACE}>
       {/* The live notice's tint is see-through (it was drawn for the page's ground); over a sheet it needs a ground of

@@ -188,7 +188,10 @@ export function staleTabAction(input: {
  */
 
 /** What covers the page: an open modal (Sheet · RiseScreen · blockers · dialogs) or the phone's full-screen thread. */
-export const LAYER_OVER_THE_PAGE = '[aria-modal="true"], [data-chat-takeover]';
+export const MODAL_LAYER = '[aria-modal="true"]';
+export const LAYER_OVER_THE_PAGE = `${MODAL_LAYER}, [data-chat-takeover]`;
+/** The attributes whose change can open or close such a layer without a node being added or removed. */
+export const LAYER_ATTRIBUTES: readonly string[] = ['aria-modal', 'data-chat-takeover', 'hidden'];
 
 /** One element `LAYER_OVER_THE_PAGE` matched, as the browser draws it. */
 export type DrawnLayer = {

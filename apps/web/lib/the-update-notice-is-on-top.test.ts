@@ -134,6 +134,7 @@ test('3a · what covers the page', () => {
 
 test('3b · the selector matches the marks the real layers carry', () => {
   assert.equal(LAYER_OVER_THE_PAGE, '[aria-modal="true"], [data-chat-takeover]');
+  assert.match(NOTICE, /modal: el\.matches\(MODAL_LAYER\)/, 'the modal test drifted from the selector');
   assert.match(code('app/_components/rise/rise-screen.tsx'), /aria-modal="true"/, 'the RiseScreen is no longer aria-modal');
   assert.match(code('app/_components/sheet.tsx'), /aria-modal="true"/, 'the Sheet is no longer aria-modal');
   assert.match(code('app/_components/chat/chat-box.tsx'), /data-chat-takeover=""/, 'the thread lost its takeover mark');

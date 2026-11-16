@@ -56,8 +56,8 @@ test('getTypeQuestions returns [] for unknown / null / wedding', () => {
 });
 
 test('a chosen option contributes its adds to the plan', () => {
-  // gender_reveal: smoke → fireworks
-  assert.deepEqual(extraPicksFromAnswers('gender_reveal', { reveal_method: 'smoke' }), ['fireworks']);
+  // gender_reveal: smoke → Rentals & Special Effects (Fireworks merged into it, T1 part 2)
+  assert.deepEqual(extraPicksFromAnswers('gender_reveal', { reveal_method: 'smoke' }), ['chairs_tents']);
   // corporate: awards → trophies_awards + host_mc (order preserved)
   assert.deepEqual(extraPicksFromAnswers('corporate', { format: 'awards' }), ['trophies_awards', 'host_mc']);
 });
@@ -91,18 +91,19 @@ test('every adds slug is a non-empty lowercase taxonomy-style id', () => {
 
 // Snapshot of tier-2 `service_categories` valid for the generic (non-wedding)
 // flow: the UNIVERSAL ids (applicable_event_types = null) plus the type-scoped
-// extras. Mirrors the live taxonomy (verified 2026-06-28). Guards every option's
+// extras. Mirrors the live taxonomy (verified 2026-06-28; T1 part 2, 16 Nov 2026: the merged-away categories
+// left and Rentals & Special Effects (`chairs_tents`) joined, carrying every event its merged categories served). Guards every option's
 // `adds` against typos / a removed category / a wedding-only id leaking in — the
 // "no dangling ids" contract (a non-applicable id is silently dropped at runtime,
 // so a typo would just vanish from the plan unnoticed without this test).
 const UNIVERSAL_CATEGORIES = new Set([
-  'arcade_games', 'cake', 'caricature_calligraphy_painting', 'catering', 'ceremony_venue',
-  'choir', 'choreographer', 'coffee_espresso', 'coordinator', 'dance_floor', 'date_specialist',
-  'dessert', 'digital_services', 'dj', 'editorial', 'engraving_embroidery', 'escort',
-  'filipiniana_barongs', 'fireworks', 'florist', 'food_cart', 'food_truck', 'grooming',
-  'guest_shuttle', 'henna_tattoo', 'hmua', 'host_mc', 'jewelleries_accessories', 'led_wall',
-  'lights_sound', 'live_band', 'livestream', 'massage_chair', 'mens_attire', 'mini_nail_bar',
-  'mobile_bar', 'mocktail', 'orchestra', 'outdoor', 'performers', 'perfume_bar', 'photo_booth',
+  'arcade_games', 'cake', 'caricature_calligraphy_painting', 'chairs_tents', 'catering', 'ceremony_venue',
+  'choir', 'choreographer', 'coffee_espresso', 'coordinator', 'date_specialist',
+  'digital_services', 'dj', 'editorial', 'engraving_embroidery', 'escort',
+  'filipiniana_barongs', 'florist', 'food_cart', 'grooming',
+  'guest_shuttle', 'hmua', 'host_mc', 'jewelleries_accessories', 'led_wall',
+  'lights_sound', 'live_band', 'livestream', 'massage_chair',
+  'mobile_bar', 'orchestra', 'performers', 'photo_booth',
   'photo_video', 'printing', 'reception', 'souvenir_giveaways', 'stations', 'stylist_decorator',
   'tarot_astrology_palmistry', 'wellness_fitness', 'womens_attire',
 ]);

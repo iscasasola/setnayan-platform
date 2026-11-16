@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, shopVerifiedNote, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -740,7 +740,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo, papers_current',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -857,6 +857,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
       is_demo: boolean | null;
+      /** 📄 Generated `papers_lapsed_at IS NULL` — false once the papers lapsed after 30 March. */
+      papers_current: boolean | null;
     };
 
     if (statsRes.error) {
@@ -1044,6 +1046,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
         // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
         not_yet_verified: threadShowsNotYetVerified(a),
+        // 📄 …and the line reads "Renewing their papers with Setnayan" for a shop whose papers lapsed (owner 16 Nov).
+        papers_renewing: shopVerifiedNote(a) === 'renewing',
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -2327,6 +2331,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
         notYetVerified: ext?.not_yet_verified === true,
+        papersRenewing: ext?.papers_renewing === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });

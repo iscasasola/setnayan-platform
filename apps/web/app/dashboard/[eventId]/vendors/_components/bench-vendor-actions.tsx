@@ -108,6 +108,7 @@ export function BenchVendorActions({
   vendorName,
   groupLabel,
   verifiedState,
+  papersRenewing = false,
   lockRequestExpiresAt,
   booked = false,
   hasPrice = false,
@@ -130,6 +131,8 @@ export function BenchVendorActions({
    * to (spec §9: manual vendors skip the handshake and lock directly).
    */
   verifiedState: boolean | null;
+  /** 📄 Papers lapsed: the Book confirm's line reads "Renewing their papers with Setnayan" (owner 16 Nov). */
+  papersRenewing?: boolean;
   /** ISO deadline of a still-outstanding ask, read back off the row the DB
    *  stamped. Only meaningful when `actions.withdraw` is non-null. */
   lockRequestExpiresAt?: string | null;
@@ -317,6 +320,7 @@ export function BenchVendorActions({
             className={pill(v)}
             wrapperClassName="verb-slot"
             isVerified={verifiedState ?? undefined}
+            papersRenewing={papersRenewing}
           />
         ) : null;
       case 'ask':

@@ -192,11 +192,30 @@ export const NOT_YET_VERIFIED_LINE = 'This shop is not yet verified by Setnayan'
  * answers false — the line is a claim about the shop, so it is never drawn from an absence.
  */
 export function threadShowsNotYetVerified(
-  row: { verification_state?: unknown; is_demo?: unknown } | null | undefined,
+  row: { verification_state?: unknown; is_demo?: unknown; papers_current?: unknown } | null | undefined,
 ): boolean {
-  if (!row || row.is_demo === true) return false;
+  return shopVerifiedNote(row) !== null;
+}
+
+/**
+ * 🛡 WHICH line a couple is told about this shop (owner 16 Nov: "always warned … everywhere they deal with that
+ * shop"; papers renewal ruling 4, confirmed by the owner 16 Nov "10.yes 11.yes"):
+ * - `'not_verified'` — the READ state is not `verified` → {@link NOT_YET_VERIFIED_LINE};
+ * - `'renewing'` — verified before, but its papers lapsed after 30 March (`papers_current === false`, the generated
+ *   `papers_lapsed_at IS NULL`) → "Renewing their papers with Setnayan", ALONE, in every place the first one shows;
+ * - `null` — verified and current, a demo shop, or a row that was not read (never drawn from an absence: a missing
+ *   `papers_current` counts as current).
+ */
+export type ShopVerifiedNote = 'not_verified' | 'renewing' | null;
+
+export function shopVerifiedNote(
+  row: { verification_state?: unknown; is_demo?: unknown; papers_current?: unknown } | null | undefined,
+): ShopVerifiedNote {
+  if (!row || row.is_demo === true) return null;
   const state = typeof row.verification_state === 'string' ? row.verification_state : null;
-  return state !== null && state !== 'verified';
+  if (state === null) return null;
+  if (state !== 'verified') return 'not_verified';
+  return row.papers_current === false ? 'renewing' : null;
 }
 
 /** The admin desk's one line per state. */

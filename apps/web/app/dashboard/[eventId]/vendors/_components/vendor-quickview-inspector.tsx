@@ -159,7 +159,7 @@ export function VendorQuickViewInspector({
           </div>
         ) : null}
         {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line. */}
-        {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
+        {v.notYetVerified ? <NotYetVerifiedThreadLine renewing={v.papersRenewing} /> : null}
 
         {/* Rating + review summary — "New to Setnayan" for a real
             marketplace pick with 0 reviews, hidden entirely only when the

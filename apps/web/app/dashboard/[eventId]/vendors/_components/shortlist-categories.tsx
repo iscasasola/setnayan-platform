@@ -1747,7 +1747,7 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    const told = v.notYetVerified ? <NotYetVerifiedThreadLine /> : null;
+    const told = v.notYetVerified ? <NotYetVerifiedThreadLine renewing={v.papersRenewing} /> : null;
     return v.buildFit === 'clash' || unavailable || told ? (
       <div className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}`}>
         {card}
@@ -1827,7 +1827,7 @@ function VendorCard({
       {card}
       {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line, under the card (its ⓘ
           is a button, so it cannot sit inside the card's link). */}
-      {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
+      {v.notYetVerified ? <NotYetVerifiedThreadLine renewing={v.papersRenewing} /> : null}
       <BenchVendorActions
         actions={actions}
         eventId={eventId}
@@ -1835,6 +1835,7 @@ function VendorCard({
         vendorName={v.name}
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
+        papersRenewing={v.papersRenewing}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
         booked={v.status === 'locked'}
         hasPrice={v.totalCostPhp != null}

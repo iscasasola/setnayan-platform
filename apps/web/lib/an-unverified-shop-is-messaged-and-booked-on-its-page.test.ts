@@ -119,7 +119,7 @@ test('the shop page: message doors ask canMessage, booking doors ask the one rul
 test('the couple’s thread: the one quiet line rides the shipped head’s `below` slot, from a read row, in-app only', () => {
   const thread = read('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
   assert.equal(
-    count(thread, 'below={shopNotYetVerified ? <NotYetVerifiedThreadLine /> : null}'),
+    count(thread, 'below={shopNotYetVerified ? <NotYetVerifiedThreadLine renewing={shopPapersRenewing} /> : null}'),
     1,
     'the thread head does not carry the not-yet-verified line in its below slot',
   );
@@ -129,18 +129,19 @@ test('the couple’s thread: the one quiet line rides the shipped head’s `belo
   assert.ok(head > 0 && slot > head && slot < end, 'the line is not inside the shipped ChatThreadHead');
   assert.match(
     thread,
-    /const shopNotYetVerifiedRead = readThreadShopNotYetVerified\(decisionAdmin, thread\.vendor_profile_id\);/,
+    /const shopVerifiedNoteRead = readThreadShopVerifiedNote\(decisionAdmin, thread\.vendor_profile_id\);/,
     'the thread does not read the shop state through the one reader',
   );
-  assert.match(thread, /shopNotYetVerifiedRead,\s*\]\);/, 'the read is not part of the one wait');
+  assert.match(thread, /shopVerifiedNoteRead,\s*\]\);/, 'the read is not part of the one wait');
   const reader = read('lib/not-yet-verified.server.ts');
-  assert.match(reader, /\.select\('verification_state, is_demo'\)/, 'the reader reads more than the state and the demo flag');
-  assert.match(reader, /return threadShowsNotYetVerified\(data\);/, 'the line is not decided by the one predicate');
-  assert.match(reader, /if \(error\) \{\s*logQueryError\('readThreadShopNotYetVerified'[\s\S]{0,160}return false;/, 'an unreadable row is not logged and drawn as nothing');
+  // 📄 + `papers_current` (owner 16 Nov "11.yes": a lapsed shop reads the renewing line) — still never the name.
+  assert.match(reader, /\.select\('verification_state, is_demo, papers_current'\)/, 'the reader reads more than the state, the demo flag and the papers stamp');
+  assert.match(reader, /return shopVerifiedNote\(data\);/, 'the line is not decided by the one predicate');
+  assert.match(reader, /if \(error\) \{\s*logQueryError\('readThreadShopVerifiedNote'[\s\S]{0,160}return null;/, 'an unreadable row is not logged and drawn as nothing');
 
   const line = read('app/_components/chat/not-yet-verified-line.tsx');
-  assert.match(line, /<InfoTip label=\{NOT_YET_VERIFIED_LINE\}/, 'the line is not the shared words behind the one ⓘ');
-  assert.match(line, /\{NOT_YET_VERIFIED_INFO\}/, 'the ⓘ does not carry the shared details');
+  assert.match(line, /<InfoTip\s+label=\{renewing \? RENEWING_COUPLE_MARK : NOT_YET_VERIFIED_LINE\}/, 'the line is not the shared words behind the one ⓘ');
+  assert.match(line, /\{renewing \? RENEWING_COUPLE_LINE : NOT_YET_VERIFIED_INFO\}/, 'the ⓘ does not carry the shared details');
   for (const src of [line, thread, reader]) {
     assert.ok(!/resend|sendEmail|emailTemplate/i.test(src), 'the not-yet-verified notice reached an email path');
   }

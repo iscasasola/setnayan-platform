@@ -686,7 +686,7 @@ export function BookedRowItem({
       {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — outside the row's toggle (its ⓘ is a button). */}
       {row.notYetVerified ? (
         <div className="ml-14">
-          <NotYetVerifiedThreadLine />
+          <NotYetVerifiedThreadLine renewing={row.papersRenewing} />
         </div>
       ) : null}
       {row.dateAsk ? (
@@ -770,7 +770,7 @@ export function WaitingRowItem({ eventId, row }: { eventId: string; row: Waiting
       </div>
       {row.notYetVerified ? (
         <div className="ml-14">
-          <NotYetVerifiedThreadLine />
+          <NotYetVerifiedThreadLine renewing={row.papersRenewing} />
         </div>
       ) : null}
       <p className="ml-14 mt-1 flex items-baseline gap-2 text-[14px]">

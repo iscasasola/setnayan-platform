@@ -31,3 +31,12 @@ SPEC IMPACT: None — builds the approved prototype; the "find, not book" wordin
   staff/shop-own trees, like every other dev lab. The lab page is a route entry that draws the admin Renewals screens,
   so the walk reached `lib/verification-checks-server.ts` from it. The earlier note that this guard "fails on main" was
   wrong: it was this PR's new lab.
+
+- **The renewing line reaches every place a couple deals with the shop (owner 16 Nov, "9.yes 10.yes 11.yes").** The
+  lapse keeps `verification_state = 'verified'` and only stamps `papers_lapsed_at`, so the state-only test drew NO line
+  for a lapsed shop in chat, the event's supplier list or the Book confirm. One test now decides which line
+  (`shopVerifiedNote` in `lib/findable-shop.ts`: not verified · renewing · nothing, never from an absence), every read
+  adds the generated `papers_current`, and the shipped `NotYetVerifiedThreadLine` takes `renewing` to show "Renewing
+  their papers with Setnayan" ALONE, the shop page's long line behind its ⓘ. Wired: the chat head and its quote card's
+  Book · the proposal's Book · the Suppliers cards, quick-view and bench Book · the booked and waiting rows. Guard:
+  `lib/every-couple-surface-says-not-yet-verified.test.ts` (mutation-checked). Kept: "new couples can't find you".

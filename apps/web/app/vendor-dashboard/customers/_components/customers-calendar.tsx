@@ -550,7 +550,7 @@ export function CustomersCalendar({
           This month&rsquo;s held days couldn&rsquo;t load, so a day you held may show as open here. Reload the page to try again.
         </p>
       ) : null}
-      {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
+      {/* The month itself. (`data-tour` was the retired Dates tour's first stop — W1-B14, 16 Nov 2026.) */}
       <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="relative touch-pan-y overflow-x-clip transition-opacity" data-tour="dates-calendar">
         {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
             (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}

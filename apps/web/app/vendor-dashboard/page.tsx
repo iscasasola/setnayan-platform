@@ -738,9 +738,8 @@ export default async function VendorOverviewPage({
           !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
         }
       />
-      {/* 🔦 First visit: the Today spotlight (`vendor_today_v3`, THE ONE BUILD A13) is mounted by the supplier frame
-          from `lib/supplier-page-tours.ts` — the old Next-card mini-tour (`vendor_today_v1`) no longer describes this
-          page and is not mounted. */}
+      {/* 🔦 No page tour of its own: the supplier's journey (`supplier_spotlight_v1`, in the supplier frame) is the one
+          tour (W1-B14 — the per-page tours were retired 16 Nov 2026). */}
     </div>
   );
 }

@@ -343,7 +343,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
             return (
               <SwipeToDelete key={o.id} as="li" label={`Remove ${o.name}`} word="Remove" radiusClass="rounded-2xl" surfaceClass="bg-raised" onDelete={() => remove(o)}>
                 <div
-                  className="flex items-start gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] px-3.5 py-3" // no-card-ok: an offer row is pressed to open its editor and holds its switch (prototype `.orow`)
+                  className="flex items-start gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3.5 py-3" // no-card-ok: an offer row is pressed to open its editor and holds its switch (prototype `.orow`)
                   data-offer-row={o.id}
                   data-off={off ? '' : undefined}
                 >

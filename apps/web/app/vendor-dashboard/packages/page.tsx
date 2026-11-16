@@ -88,7 +88,7 @@ export default async function VendorPackagesPage() {
             <li key={p.package_id}>
               <Link
                 href={`/vendor-dashboard/packages/${p.package_id}`}
-                className="flex items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] p-4"
+                className="flex items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
                   <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />

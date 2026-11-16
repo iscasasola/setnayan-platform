@@ -203,7 +203,7 @@ function StepShell({
 }) {
   return (
     <div
-      className="overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)]"
+      className="overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame"
       style={{ borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
     >
       <button

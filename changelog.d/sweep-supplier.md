@@ -5,9 +5,9 @@ area through the token layer: 22 hand-typed white frames in `app/vendor-dashboar
 now read `--sn-frame-bg` / `--sn-frame-radius` / `--sn-frame-shadow` (no border, radius or shadow typed by
 hand), the Bundle Maker's loading screen reads `bg-page`, and the hand-styled Cancel · Post in "Post an update"
 are `ActionButton`. Looks only: no words, layout or actions changed. Files edited by other open PRs were skipped.
-`no-card.baseline.txt` is left as it is (counts only fell; regenerating it rewrites ~340 lines from other areas).
+`no-card.baseline.txt` is left at the shared PR's version (counts only fell) so the sibling sweeps cannot conflict on its header; the batch regenerates it once.
 
-Note: Tailwind 3 reads `shadow-[var(--x)]` as a shadow COLOUR (box-shadow stays none), so the frame uses
-`shadow-[shadow:var(--sn-frame-shadow)]`.
+Note: Tailwind 3 reads `shadow-[var(--x)]` as a shadow COLOUR (box-shadow stays none), so the frame uses the
+shared token key `shadow-sn-frame` (added by the shared-layer PR, which this branch now stacks on).
 
 SPEC IMPACT: None — applies DECISION_LOG 2026-11-16 ("THE CLEAN WARM LOOK IS APPROVED", "PAGE BACKGROUND = NEUTRAL #F7F5F4").

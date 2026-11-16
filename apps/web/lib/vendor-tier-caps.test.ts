@@ -18,6 +18,7 @@ import {
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
   canBuyExtraBookingsPerDate,
+  holdsBoughtExtras,
   canSeeMarketIntel,
   canUseEditorialFeatures,
   isTierAtLeast,
@@ -35,8 +36,10 @@ const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'servicesPerLeaf', 'agen
 test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Supplier Plus / Pro / Ultra', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
   assert.deepEqual(row('serviceRadiusKm'), [0, 20, 30, 100, Infinity], 'reach: 0·20 / 30 / 100 / nationwide');
-  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 15], 'main categories: 1 / 2 / 8 / 15 (Ultra trimmed)');
-  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, 25], 'service cards per category: 1 / 3 / 10 / 25 (Ultra trimmed)');
+  // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS"): all 16 main categories · 30 cards each · 10 bookings a day.
+  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 16], 'main categories: 1 / 2 / 8 / 16 (Ultra: all of them, 2026-11-14)');
+  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, 30], 'service cards per category: 1 / 3 / 10 / 30 (Ultra, 2026-11-14)');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].bookingsPerDatePerService), [1, 1, 1, 3, 10], 'bookings a day per service: 1 / 1 / 3 / 10 (Ultra, 2026-11-14)');
   assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 10], 'team seats: 0 / 1 / 5 / 10 (Ultra trimmed; was 15)');
   assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 3], 'waitlist per date: 0 / 0 / 1 / 3 (Ultra trimmed; was 5)');
   assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 6], 'branches: 0 / 0 / 3 / 6 (Ultra trimmed; was 10)');
@@ -55,11 +58,13 @@ test('allowances · every numeric allowance is monotonic up the ladder (no rung 
 test('branches · only Ultra may buy more', () => {
   for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise', t);
   assert.equal(canBuyExtraBranches(null), false);
-  // The four Ultra add-ons of 2026-11-06 ("ULTRA ADD-ON PRICES") share the same gate.
+  // The four Ultra "+1" add-ons of 2026-11-06 are folded into Ultra's limits (2026-11-14 "SIMPLER SUPPLIER PLANS"):
+  // no plan buys them any more — and an Ultra shop that bought one still holds it until it runs out.
   for (const can of [canBuyExtraCategories, canBuyExtraServiceCards, canBuyExtraWaitlist, canBuyExtraBookingsPerDate]) {
-    for (const t of VENDOR_TIERS) assert.equal(can(t), t === 'enterprise', `${can.name} ${t}`);
+    for (const t of VENDOR_TIERS) assert.equal(can(t), false, `${can.name} ${t}`);
     assert.equal(can(null), false);
   }
+  for (const t of VENDOR_TIERS) assert.equal(holdsBoughtExtras(t), t === 'enterprise', `holdsBoughtExtras ${t}`);
 });
 
 test('calls · the stale capability is gone from every plan', () => {
@@ -105,11 +110,11 @@ test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
   );
 });
 
-test('ladder · Ultra: up to 10 seats + nationwide reach + 15 categories', () => {
+test('ladder · Ultra: up to 10 seats + nationwide reach + all 16 categories', () => {
   const c = TIER_CAPS.enterprise;
   assert.equal(c.agentAccounts, 10, 'Ultra = up to 10 team seats (owner 2026-11-04 "WITH TRIMMED ALLOWANCES"; 15 earlier that day)');
   assert.equal(c.serviceRadiusKm, Infinity, 'Ultra = nationwide (owner 2026-11-04; was 100 km)');
-  assert.equal(c.parentCategories, 15, 'Ultra = 15 categories (trimmed 2026-11-04; was unlimited)');
+  assert.equal(c.parentCategories, 16, 'Ultra = all 16 main categories (owner 2026-11-14; 15 since 2026-11-04)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 

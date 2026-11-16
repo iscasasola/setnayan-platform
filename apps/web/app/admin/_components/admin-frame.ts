@@ -10,4 +10,4 @@
  * Only for containers. A button is `ActionButton`; a field keeps its field look.
  */
 export const ADMIN_FRAME =
-  'bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)]';
+  'bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame';

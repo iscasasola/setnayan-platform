@@ -16,4 +16,10 @@ APPROVED" and "PAGE BACKGROUND = NEUTRAL #F7F5F4; FRAMES = WHITE #FFFFFF". This 
   admin file another open PR edits (listed in the PR).
 - Ratchets regenerated lower: `no-card.baseline.txt`, `label-contrast-dark.baseline.json`.
 
+**Handover pass (16 Nov):** the branch now stacks on the shared-layer PR (`claude/clean-look-tokens`), which owns the
+frame values. The frames read their lift as `shadow-[var(--sn-frame-shadow)]`, which Tailwind 3 compiles to a
+shadow COLOUR (measured: `--tw-shadow-color`, no `box-shadow`), so no frame would have lifted; `ADMIN_FRAME` now uses the
+token key `shadow-sn-frame`. `no-card.baseline.txt` is left at the shared PR's version (counts only fell) so the
+sibling sweeps cannot conflict on its header; the batch regenerates it once.
+
 SPEC IMPACT: None — implements the 16 Nov DECISION_LOG rows; no new decision.

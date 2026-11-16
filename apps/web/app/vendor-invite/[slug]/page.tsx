@@ -1,3 +1,4 @@
+import { CLIENT_INVITE_PARAM, clientInviteTokenOf } from '@/lib/own-clients';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,7 +26,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ status?: string; et?: string; cat?: string }>;
+  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string }>;
 };
 
 const STATUS_COPY: Record<string, string> = {
@@ -56,7 +57,10 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 
 export default async function VendorInvitePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { status, et, cat } = await searchParams;
+  const { status, et, cat, ci: rawCi } = await searchParams;
+  // 🎁 An Add-a-client invite (Own clients v4): the client's token rides every round-trip, shape-checked only — the
+  // claim action decides whether it is this shop's own waiting invite.
+  const ci = clientInviteTokenOf(rawCi);
 
   const admin = createAdminClient();
   const { data: vendor } = await admin
@@ -115,6 +119,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const scopeQs = new URLSearchParams();
   if (et) scopeQs.set('et', et);
   if (cat) scopeQs.set('cat', cat);
+  if (ci) scopeQs.set(CLIENT_INVITE_PARAM, ci);
   const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : '';
   const nextPath = `/vendor-invite/${slug}${scopeSuffix}`;
   const statusMessage = status ? STATUS_COPY[status] ?? null : null;
@@ -204,6 +209,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
               <input type="hidden" name="cat" value={pickedCategory} />
             ) : null}
             {et ? <input type="hidden" name="et" value={et} /> : null}
+            {ci ? <input type="hidden" name={CLIENT_INVITE_PARAM} value={ci} /> : null}
             <p className="text-sm font-medium text-ink/80">
               Add to which event?
             </p>

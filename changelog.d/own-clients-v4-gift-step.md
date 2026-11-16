@@ -1,0 +1,25 @@
+## 2026-11-16 · feat(own-clients): Add a client + the gift step + the gift on your own link (Own clients v3+v4)
+
+Built to the owner-approved drawing `prototypes/supplier_own_clients_2026-11-16/supplier_own_clients_v4_2026-11-16_fable.html`
+(specs 5af4037b) and the 16 Nov rulings: OWN CLIENTS v4 (both rows) · NO CAP ON CLIENT IMPORTS · EVERY SUPPLIER IMPORT
+CARRIES AT LEAST ONE SETNAYAN GIFT · GIFTS ARE ALWAYS BOUGHT AS STOCK FIRST · own-link clients need one gift ·
+the Shortlist QR is not an import.
+
+- **Customers › QR codes** gains "Add a client" + the promise line above Booked and Crew. The sheet: Name · Email or
+  phone · Agreed a date? · Note, then "Gift from you · At least one" — one ▾ per gift listing the shop's BOUGHT stock
+  only ("x left"; a badge reward greyed "Doesn't count here"; "＋ Buy more"), "＋ Add another gift", "1 from your stock
+  is used when the couple joins". No stock → the catalogue's Papic packs to buy, paid with the shipped Buy gifts sheet.
+  Add → the confirm (To · Invite · Gift · From your stock · Booking fee: None — your client) → Send opens the phone's
+  own share sheet (no Setnayan email, no SMS). "Yes, booked" goes on to the shipped Booked code.
+- **The invite link** is the Shortlist link carrying the client's token (`/vendor-invite/<slug>?ci=…`). Joining gives
+  the gift from stock (`own_client_gift_give`, once per shop + event) and only then makes the row `vendor_invite`
+  (own client, no fee). Too little stock → the couple lands on the shortlist as a normal Setnayan save (the fee).
+- **Shop › Promote › My page** gains "Gift with your link" — set once on the code. A first ask through `?src=own`
+  is stamped `website` (own client) only when that gift is given; otherwise `shop_page` (the normal fee).
+- **Shop › Promote › Shortlist · free** is labelled "Not your own client — If they book, the normal booking fee applies."
+- **The couple** meets the gift through the shipped gift moment ("A gift from <shop>") — `gift_moments_for_event` /
+  `gift_moment_claim` learn the own-client gift (source stays `shop_gift`).
+- Migration `own_clients_carry_a_gift`: `vendor_client_invites`, `vendor_own_link_gifts`, `own_client_gifts`, stock
+  kind `own_client`, `own_client_gift_give`. One new server action (`saveOwnClient`, two modes).
+
+SPEC IMPACT: None — builds the approved drawing; no ruling changed.

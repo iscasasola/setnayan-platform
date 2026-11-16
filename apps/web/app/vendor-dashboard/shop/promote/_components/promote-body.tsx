@@ -19,6 +19,10 @@ import { siteOrigin } from '@/lib/site-origin';
 import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
+import { OwnLinkGift } from '../../../invite/_components/own-client-gift';
+import { ownGiftDataOf, type OwnGiftLine } from '@/lib/own-clients';
+import { fetchOwnLinkGift } from '@/lib/own-clients.server';
+
 import { PromoteBridge } from './promote-bridge';
 import { ShopGiftsSection } from './shop-gifts-section';
 import { loadShopGiftsSection } from './shop-gifts-data';
@@ -29,6 +33,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readPrintMember } from '@/lib/supplier-prints.server';
 import { NfcTapTest } from '@/app/_components/nfc-tap-test';
 import type { ReactNode } from 'react';
+
+/** 🎁 Own clients v4: the own link's saved gift, as the block reads it. */
+function ownLinkCurrent(g: OwnGiftLine | null | 'unread'): { code: string; title: string } | null | 'unread' {
+  return g === 'unread' || g === null ? g : { code: g.service_code, title: g.title };
+}
 
 export type PromotePart = 'all' | 'promote' | 'qr';
 
@@ -115,6 +124,12 @@ export async function PromoteBody({
         canShare
         checkADate={{ ...dates, shopName }}
         myPage={{ url: pageUrl, svg: pageSvg, shopName }}
+        ownLinkGift={
+          <OwnLinkGift
+            data={ownGiftDataOf((await giftsPromise) ?? (await loadShopGiftsSection(supabase, profile.vendor_profile_id)))}
+            current={ownLinkCurrent(await fetchOwnLinkGift(supabase, profile.vendor_profile_id))}
+          />
+        }
         reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
         shortlist={{
           url: shortUrl,

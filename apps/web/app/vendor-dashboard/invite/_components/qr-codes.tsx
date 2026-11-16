@@ -6,6 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
 import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
+import { NOT_YOUR_OWN_CLIENT, NOT_YOUR_OWN_CLIENT_LINE, NOT_YOUR_OWN_CLIENT_TIP } from '@/lib/own-clients';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { QrCodeList, type QrRow } from './qr-code-list';
@@ -109,7 +110,13 @@ export function QrCodes({
   reviews = null,
   crew = null,
   hrefs = {},
+  addClient = null,
+  ownLinkGift = null,
 }: {
+  /** 🎁 Own clients v4: the "Add a client" row + promise line, above Booked and Crew (Customers › QR codes only). */
+  addClient?: ReactNode;
+  /** 🎁 Own clients v4: "Gift with your link" — set once on the code, drawn in My page's sheet (Shop › Promote only). */
+  ownLinkGift?: ReactNode;
   /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
   place?: 'customers' | 'promote';
   /** The code whose sheet opens on arrival — a link that names one (`?mode=` with something to show). */
@@ -178,6 +185,13 @@ export function QrCodes({
                     data="shortlist"
                   />
                 </div>
+                {/* 🔖 Own clients v4 part 3 (owner 16 Nov, d7f4b97f): the Shortlist QR is not an import — said on it. */}
+                <div className="mt-3 border-t border-ink/10 pt-2.5" data-shortlist-not-own="">
+                  <InfoTip label={NOT_YOUR_OWN_CLIENT} labelClassName="text-[14px] font-semibold text-ink" align="start">
+                    {NOT_YOUR_OWN_CLIENT_TIP}
+                  </InfoTip>
+                  <p className="mt-0.5 text-[13px] text-ink/65">{NOT_YOUR_OWN_CLIENT_LINE}</p>
+                </div>
               </>
             ) : null,
           ),
@@ -187,6 +201,7 @@ export function QrCodes({
             myPage ? (
               <div className="mt-3.5">
                 <QrCard svg={myPage.svg} url={myPage.url} title={myPage.shopName} line={WORDS.page.sheetLine} filename="setnayan-my-page-qr.svg" data="my-page" />
+                {ownLinkGift}
               </div>
             ) : null,
           ),
@@ -236,7 +251,10 @@ export function QrCodes({
           <DatesRow title="Name your shop first" line="Your codes are built from your shop’s web address" href={setupHref} />
         </div>
       ) : (
-        <QrCodeList rows={rows} openKey={open} />
+        <>
+          {addClient}
+          <QrCodeList rows={rows} openKey={open} />
+        </>
       )}
     </div>
   );

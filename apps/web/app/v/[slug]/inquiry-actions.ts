@@ -31,6 +31,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ownLinkArrivalIsOwnClient } from '@/lib/own-clients.server';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
@@ -503,9 +504,18 @@ export async function startServiceInquiry(input: {
       input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
+    // 🔗🎁 OWN CLIENTS v4 (owner 2026-11-16, "a client who arrives through the supplier's own link is treated like an
+    // import"): a first ask through the shop's OWN link (`?src=own` → 'website') makes the couple its own client only
+    // with the link's Setnayan gift, given now from the shop's bought stock (once per shop + event). No gift set, too
+    // little stock or a refused read → the link still works, and the ask is stamped as a visit to the shop's page on
+    // Setnayan ('shop_page' — the normal booking fee), never as a fee-free client without a gift.
+    const ownedSource =
+      declaredSource === 'website' && !referral && !(await ownLinkArrivalIsOwnClient(admin, vendorProfileId, eventId).catch(() => false))
+        ? 'shop_page'
+        : declaredSource;
     await stampThreadProvenance(threadId, {
       referringChapterId: referral?.chapterId ?? null,
-      inquirySource: referral ? 'influencer' : declaredSource,
+      inquirySource: referral ? 'influencer' : ownedSource,
       isReturning: returning,
     });
   }

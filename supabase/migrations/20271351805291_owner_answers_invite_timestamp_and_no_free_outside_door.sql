@@ -12,7 +12,74 @@
 --        `booking_fee_attribution_for` is now 'sourced', not 'import'. What is free is exactly: the free year, the
 --        couple's Find invite that created the shop, and the event's one free import slot.
 --   Q5 · imports made during a demotion gap pay — already so (20271351371342, "verified since").
--- Functions only. No data is written.
+--   34909f1 / 1abf35b (1) · the shop's own link is an import QR: a chat through it (inquiry_source 'website') dates the
+--        import and takes the event's free slot (trigger on chat_threads + a backfill of empty slots).
+-- Functions, one trigger and a backfill of empty slots. No other data is written.
+
+-- ── The shop's OWN LINK is an import QR too (34909f1 / 1abf35b (1)) ──────────────────────────────────────────
+-- A couple who arrives through the shop's own link / QR (`?src=own`) opens a chat whose inquiry_source is 'website'
+-- (`arrivalInquirySourceOf`) — there is no supplier-brought event_vendors row. With answer 3 closing the outside door,
+-- that thread must count as the import itself: it dates the import and takes the event's free slot.
+CREATE OR REPLACE FUNCTION public.booking_fee_import_at(
+  p_vendor_profile_id UUID,
+  p_event_id UUID
+)
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT LEAST(
+    (SELECT min(ev.created_at)
+       FROM public.event_vendors ev
+      WHERE ev.event_id = p_event_id
+        AND ev.marketplace_vendor_id = p_vendor_profile_id
+        AND ev.source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'vendor_shortlist_qr')),
+    (SELECT min(t.created_at)
+       FROM public.chat_threads t
+      WHERE t.event_id = p_event_id
+        AND t.vendor_profile_id = p_vendor_profile_id
+        AND t.inquiry_source = 'website')
+  );
+$$;
+COMMENT ON FUNCTION public.booking_fee_import_at(UUID, UUID) IS
+  'The moment a supplier imported the client onto an event: the earliest supplier-brought row (vendor_invite, '
+  'vendor_locked_qr, reuse_accept, vendor_shortlist_qr) or the earliest chat through the shop''s own link '
+  '(inquiry_source website). NULL when the supplier did not import them onto it.';
+
+CREATE OR REPLACE FUNCTION public.booking_fee_take_import_slot_from_thread()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $slot$
+BEGIN
+  IF NEW.event_id IS NOT NULL AND NEW.vendor_profile_id IS NOT NULL AND NEW.inquiry_source = 'website' THEN
+    INSERT INTO public.booking_fee_event_import_slots (event_id, vendor_profile_id, imported_at)
+    VALUES (NEW.event_id, NEW.vendor_profile_id, COALESCE(NEW.created_at, NOW()))
+    ON CONFLICT (event_id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$slot$;
+REVOKE ALL ON FUNCTION public.booking_fee_take_import_slot_from_thread() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.booking_fee_take_import_slot_from_thread() FROM anon;
+REVOKE ALL ON FUNCTION public.booking_fee_take_import_slot_from_thread() FROM authenticated;
+COMMENT ON FUNCTION public.booking_fee_take_import_slot_from_thread() IS
+  'AFTER INSERT on chat_threads: a chat through the shop''s own link (inquiry_source website) is an import and takes '
+  'the event''s one free import slot if nobody holds it yet.';
+DROP TRIGGER IF EXISTS chat_threads_take_import_slot ON public.chat_threads;
+CREATE TRIGGER chat_threads_take_import_slot
+  AFTER INSERT ON public.chat_threads
+  FOR EACH ROW EXECUTE FUNCTION public.booking_fee_take_import_slot_from_thread();
+
+-- Backfill own-link chats into empty slots, earliest first (supplier-brought rows were backfilled in 20271351371342).
+INSERT INTO public.booking_fee_event_import_slots (event_id, vendor_profile_id, imported_at)
+SELECT DISTINCT ON (t.event_id) t.event_id, t.vendor_profile_id, t.created_at
+  FROM public.chat_threads t
+ WHERE t.event_id IS NOT NULL AND t.vendor_profile_id IS NOT NULL AND t.inquiry_source = 'website'
+ ORDER BY t.event_id, t.created_at, t.vendor_profile_id::text
+ON CONFLICT (event_id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.booking_fee_import_invite_at(
   p_vendor_profile_id UUID,
@@ -119,7 +186,8 @@ AS $$
        AND me.member_type = 'couple'
   )
   SELECT CASE
-    -- No booking with this shop on the event at all (no marketplace row, no linked row, no record matched to it):
+    -- No booking with this shop on the event (no marketplace row, no linked row, no record matched to it) and no chat
+    -- started from a Setnayan surface:
     -- there is nothing to bill, so nothing is attributed — answer 3 charges bookings, not the absence of one.
     WHEN NOT EXISTS (
       SELECT 1
@@ -129,6 +197,10 @@ AS $$
          AND (ev.marketplace_vendor_id = p_vendor_profile_id
               OR ev.linked_vendor_profile_id = p_vendor_profile_id
               OR emv.leak_match_vendor_profile_id = p_vendor_profile_id)
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.chat_threads t
+       WHERE t.event_id = p_event_id AND t.vendor_profile_id = p_vendor_profile_id
+         AND public.booking_fee_is_sourced_surface(t.inquiry_source)
     ) THEN 'import'
     -- 1abf35b (2), FIRST: the couple's own Find invite that CREATED the shop books free. Such a shop is unverified by
     -- construction, so this must run before the unverified gate below (the later, more specific ruling).
@@ -201,3 +273,7 @@ REVOKE ALL ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) FROM PUBLI
 REVOKE ALL ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) FROM anon;
 REVOKE ALL ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) TO service_role;
+REVOKE ALL ON FUNCTION public.booking_fee_import_at(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.booking_fee_import_at(UUID, UUID) FROM anon;
+REVOKE ALL ON FUNCTION public.booking_fee_import_at(UUID, UUID) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_fee_import_at(UUID, UUID) TO service_role;

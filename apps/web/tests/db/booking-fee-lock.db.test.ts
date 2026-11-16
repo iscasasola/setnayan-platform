@@ -309,10 +309,12 @@ test('a client the VENDOR brought is never billed — no thread at all', async (
   // No free-5 warm-up needed: the import gate runs BEFORE the ordinal and
   // returns a DISTINCT status, so `waived_import` proves which gate fired.
   const eventId = await newEvent('byo-6');
+  // ⟲ Owner 2026-11-16 (answer 3): a booking with nothing imported now PAYS, so a client the supplier brought is
+  // modelled the way the app records one — a supplier-brought source (the Locked QR) — not as a row with no source.
   const evId = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
-     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', 200000, $2)
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, source)
+     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', 200000, $2, 'vendor_locked_qr')
      RETURNING vendor_id`,
     [eventId, vendorProfileId],
   );

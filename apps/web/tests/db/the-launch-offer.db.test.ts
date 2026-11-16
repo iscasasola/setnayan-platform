@@ -99,9 +99,11 @@ async function newBooking(vpid: string, opts: { sourced?: boolean; status?: stri
   const eventId = e.rows[0]!.event_id;
   const ev = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php, service_id)
-     VALUES ($1,'photographer','Launch Studio',$2::vendor_status,$3,50000,$4) RETURNING vendor_id`,
-    [eventId, opts.status ?? 'contracted', vpid, opts.serviceId ?? null],
+       (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php, service_id, source)
+     VALUES ($1,'photographer','Launch Studio',$2::vendor_status,$3,50000,$4,$5) RETURNING vendor_id`,
+    // ⟲ Owner 2026-11-16 (answer 3): nothing imported now pays — a not-sourced booking is recorded as the supplier's
+    // own import (the Locked QR), the way the app records a client the supplier brought.
+    [eventId, opts.status ?? 'contracted', vpid, opts.serviceId ?? null, opts.sourced === false ? 'vendor_locked_qr' : null],
   );
   if (opts.sourced !== false) {
     await db.query(

@@ -5,11 +5,13 @@
  *   (a) the chat's "DUE NOW · Set your call time" pin OPENS the control — its Answer › used to have no body and did
  *       nothing; the blocker's "Set your call time" lands on the control too, not the top of the tab;
  *   (b) the control is where the link points (`#own-times`), and the pin clears once a call time is kept there.
- *   (c) 🕕 SCHEDULE MODEL (owner, DECISION_LOG 16 Nov): the couple's Booked row shows the supplier's own "Crew call
- *       6:00 AM" APART from "On site from …" (the earliest moment the couple tagged them on) — never one "call time"
- *       for both — and stops saying "No call time yet" once a crew call exists;
- *   (d) the hosts get an IN-APP notice (never an email) when a supplier sets or changes their times, or presses
- *       Confirm my times — and none when the same times are saved again.
+ *   (c) 🕕 SCHEDULE MODEL (owner, DECISION_LOG 16 Nov; drawing event_pages_today_doors_2026-11-16): the couple's Booked
+ *       row shows "Crew call 11:00 AM" APART from "On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM" — or "No
+ *       times yet" + "On site from 2:30 PM, from the moments you tagged them on" — never one "call time" for both;
+ *   (d) the hosts get an IN-APP notice (never an email) when a supplier sets, changes or CLEARS their times, or presses
+ *       Confirm my times — none for the same times again, none for a Confirm again with nothing changed, and never a
+ *       "set" announced off a before-read that was refused;
+ *   (e) Today's Schedule card carries "Lumière Studio set their times" with their times, read from the data.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,8 +22,8 @@ import React, { isValidElement, type ReactElement } from 'react';
 import { stripComments } from './strip-comments';
 import { buildPinFacts } from './chat-pin-facts';
 import type { PinFact } from './chat-pins';
-import { CALL_TIME_ANCHOR, crewCallWords, supplierTimesNotice } from './supplier-own-times';
-import { crewCallFor } from './booked-rows';
+import { CALL_TIME_ANCHOR, bookedTimesLines, crewCallWords, supplierTimesNotice, type BookedTimesLine } from './supplier-own-times';
+import { timesFor } from './booked-rows';
 
 // The chat bodies are classic-JSX .tsx under tsx — React must be on the global, as the repo's other render tests do.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -73,61 +75,87 @@ test('(b) the link lands on the control, and the pin clears once a call time is 
   assert.match(branch, /revalidatePath\('\/vendor-dashboard\/messages', 'layout'\)/, 'the chat keeps a stale DUE NOW after the save');
 });
 
-test('(c) the Booked row: Crew call is the supplier’s own time, apart from On site from', async () => {
-  assert.deepEqual(crewCallFor(new Map([['p1', '06:00']]), 'p1'), { kind: 'set', clock: '6:00 AM' });
-  assert.equal(crewCallFor(new Map([['p1', '06:00']]), 'p2'), null, 'another shop’s crew call');
-  assert.deepEqual(crewCallFor(null, 'p1'), { kind: 'unread' }, 'a refused read drawn as none');
-  assert.equal(crewCallFor(undefined, 'p1'), null);
-  assert.equal(crewCallFor(new Map([['p1', 'nonsense']]), 'p1'), null);
-  assert.equal(crewCallWords('06:00'), 'Crew call 6:00 AM');
+const words = (ls: readonly BookedTimesLine[] | null) => (ls ?? []).map((l) => `${l.lead}${l.clock ?? ''}${l.tail}`);
 
-  // End to end through the lab's real bookedView: two lines on one row, from two different sources.
+test('(c) the Booked row: two times, two names, in the drawing’s words', async () => {
+  // The drawing's three rows, word for word.
+  assert.deepEqual(words(bookedTimesLines({ call: '11:00', arrive: '12:00', done: '22:00' }, '1:00 PM')), [
+    'Crew call 11:00 AM',
+    'On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM',
+  ]);
+  assert.deepEqual(words(bookedTimesLines(null, '2:30 PM')), ['No times yet', 'On site from 2:30 PM, from the moments you tagged them on']);
+  // Never the old one-name fallback, and a refused read is said — never "No times yet".
+  for (const own of [null, { call: '06:00', arrive: null, done: null }, 'unread'] as const) {
+    for (const tagged of [null, '2:30 PM', 'unread'] as const) {
+      const w = words(bookedTimesLines(own, tagged)).join(' | ');
+      assert.doesNotMatch(w, /No call time yet|Call time /, `${JSON.stringify(own)} / ${tagged}: the old single "call time"`);
+    }
+  }
+  assert.deepEqual(words(bookedTimesLines('unread', '2:30 PM')).slice(0, 1), ['We couldn’t check their times.'], 'a refused read drawn as No times yet');
+  assert.deepEqual(words(bookedTimesLines({ call: null, arrive: '12:00', done: '22:00' }, null)), ['Arrives 12:00 PM · done 10:00 PM']);
+  assert.equal(crewCallWords('06:00'), 'Crew call 6:00 AM');
+  // The tagged moment is the couple's; the clocks are the supplier's, keyed by shop.
+  const own = new Map([['p1', { call: '11:00', arrive: '12:00', done: '22:00' }]]);
+  assert.deepEqual(words(timesFor({ kind: 'set', clock: '1:00 PM', moment: 'Getting ready' }, own, 'p1')), ['Crew call 11:00 AM', 'On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM']);
+  assert.deepEqual(words(timesFor({ kind: 'set', clock: '2:30 PM', moment: 'Ceremony' }, own, 'p2')), ['No times yet', 'On site from 2:30 PM, from the moments you tagged them on'], 'another shop’s times');
+  assert.equal(timesFor(null, undefined, 'p1'), null, 'lines drawn where nobody asked');
+
+  // End to end through the lab's real bookedView.
   const { labBookedView, labBookedMoney } = await import('../app/dev/suppliers-lab/booked-fixtures');
   const o = { crewCall: '1' as const, booked: true } as Parameters<typeof labBookedView>[0];
   const view = labBookedView(o, labBookedMoney(o));
   const sv = view.booked.find((r) => r.vendorId === 'v-santuario');
   assert.ok(sv, 'anti-vacuity: the lab has no booked Santuario row');
-  assert.deepEqual(sv.crewCall, { kind: 'set', clock: '12:30 PM' }, 'the supplier’s own crew call is not on their row');
-  assert.deepEqual(sv.callTime, { kind: 'set', clock: '2:00 PM', moment: 'Ceremony' }, 'On site from stopped being the tagged moment');
-  assert.equal(view.booked.find((r) => r.vendorId === 'v-seda')?.crewCall, null, 'a crew call drawn for a shop that set none');
+  assert.deepEqual(words(sv.times ?? null), ['Crew call 12:30 PM', 'On site from 2:00 PM · arrives 1:00 PM · done 5:00 PM']);
+  assert.deepEqual(words(view.booked.find((r) => r.vendorId === 'v-seda')?.times ?? null), ['No times yet', 'On site from 10:00 AM, from the moments you tagged them on']);
 
   const row = read('app/dashboard/[eventId]/vendors/_components/booked-row.tsx');
-  assert.match(row, /\{row\.crewCall \? <CrewCallLine line=\{row\.crewCall\} \/> : null\}\s*\{row\.callTime \? <CallTimeLine line=\{row\.callTime\} crewCallSet=\{row\.crewCall\?\.kind === 'set'\} \/> : null\}/, 'not both lines');
-  const line = row.slice(row.indexOf('function CallTimeLine('), row.indexOf('function CrewCallLine('));
-  assert.match(line, />On site from </, 'the tagged moment is still called the call time');
-  assert.doesNotMatch(line, />Call time </, 'one "call time" for both again');
-  assert.match(line, /crewCallSet \? '[^']*' : 'No call time yet/, '"No call time yet" over a crew call that exists');
-  assert.doesNotMatch(line.slice(line.indexOf('crewCallSet ?'), line.indexOf(':', line.indexOf('crewCallSet ?'))), /No call time yet/);
-  const crew = row.slice(row.indexOf('function CrewCallLine('), row.indexOf('function ClaimDoor('));
-  assert.match(crew, />Crew call </);
+  assert.match(row, /\{row\.times \? <TimesLines lines=\{row\.times\} \/> : null\}/, 'the times are not drawn from the one rule');
+  assert.doesNotMatch(row, /No call time yet|set by them/, 'the old words are back');
   assert.match(read('app/dashboard/[eventId]/vendors/_components/booked-slot.tsx'), /readCrewCalls\(supabase, eventId\)[\s\S]{0,600}crewCalls,/);
-  assert.match(read('lib/supplier-schedule-marks.server.ts'), /\.from\('supplier_own_times'\)\s*\.select\('vendor_profile_id, call_clock'\)/);
+  assert.match(read('lib/supplier-schedule-marks.server.ts'), /\.from\('supplier_own_times'\)\s*\.select\('vendor_profile_id, call_clock, arrive_clock, done_clock'\)/);
 });
 
-test('(d) the hosts are told in the app — set, changed, confirmed — never emailed, never for the same times', () => {
-  const t = (before: { call: string | null; arrive: string | null; done: string | null } | null, after: { call: string | null; arrive: string | null; done: string | null }) =>
-    supplierTimesNotice({ kind: 'times', shop: 'Liwanag', before, after });
-  assert.deepEqual(t(null, { call: '06:00', arrive: null, done: null }), { title: 'Liwanag set their times', body: 'Crew call 6:00 AM' });
-  assert.deepEqual(t({ call: '06:00', arrive: null, done: null }, { call: '05:30', arrive: '07:30', done: null }), {
-    title: 'Liwanag changed their times',
-    body: 'Crew call 5:30 AM · arrive 7:30 AM',
+test('(d) the hosts are told in the app — set, changed, cleared, confirmed — and only of a real change', () => {
+  const t = (before: { call: string | null; arrive: string | null; done: string | null } | null | 'unread', after: { call: string | null; arrive: string | null; done: string | null }) =>
+    supplierTimesNotice({ kind: 'times', shop: 'Lumière Studio', before, after });
+  assert.deepEqual(t(null, { call: '11:00', arrive: '12:00', done: '22:00' }), {
+    title: 'Lumière Studio set their times',
+    body: 'Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM',
   });
-  assert.equal(t({ call: '06:00', arrive: null, done: null }, { call: '06:00', arrive: null, done: null }), null, 'the same times saved again told the hosts');
-  assert.equal(supplierTimesNotice({ kind: 'confirmed', shop: 'Liwanag' })?.title, 'Liwanag confirmed their times');
+  assert.deepEqual(t({ call: '11:00', arrive: null, done: null }, { call: '10:30', arrive: '12:00', done: null }), {
+    title: 'Lumière Studio changed their times',
+    body: 'Crew call 10:30 AM · arrives 12:00 PM',
+  });
+  assert.equal(t({ call: '11:00', arrive: null, done: null }, { call: '11:00', arrive: null, done: null }), null, 'the same times again told the hosts');
+  assert.equal(t('unread', { call: '11:00', arrive: null, done: null }), null, 'a refused before-read was announced as "set"');
+  assert.deepEqual(t({ call: '11:00', arrive: null, done: null }, { call: null, arrive: null, done: null }), { title: 'Lumière Studio cleared their times', body: 'No times yet' }, 'clearing every time is a change');
+  assert.equal(t(null, { call: null, arrive: null, done: null }), null, 'nothing kept, nothing cleared');
+  const c = (alreadyConfirmed: boolean, changedSinceConfirm: boolean) =>
+    supplierTimesNotice({ kind: 'confirmed', shop: 'Taal Vista Hotel', times: { call: null, arrive: '16:00', done: '22:30' }, alreadyConfirmed, changedSinceConfirm });
+  assert.deepEqual(c(false, false), { title: 'Taal Vista Hotel confirmed their times', body: 'Arrives 4:00 PM · done 10:30 PM' });
+  assert.equal(c(true, false), null, 'Confirm pressed again with nothing changed told the hosts');
+  assert.ok(c(true, true), 'a Confirm after a change told nobody');
 
   const action = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
   const branch = action.slice(action.indexOf("if (request === 'own_times')"), action.indexOf("if (request === 'times')"));
   assert.ok(branch.indexOf(".select('call_clock, arrive_clock, done_clock')") < branch.indexOf('.upsert('), 'the before is read after the write — every save looks unchanged');
+  assert.match(branch, /before: beforeRes\.error \? 'unread' :/, 'a refused before-read is not passed on as "nothing before"');
   assert.match(branch, /supplierTimesNotice\(\{\s*kind: 'times'[\s\S]*notifySupplierTimes\(/, 'a set or changed time reaches no host');
-  const mark = action.slice(action.indexOf('if (isMark) {'), action.indexOf("if (request === 'own_times')"));
-  assert.match(mark, /if \(request === 'confirm'\) \{[\s\S]*kind: 'confirmed'[\s\S]*notifySupplierTimes\(/, 'Confirm my times reaches no host');
+  assert.doesNotMatch(action.slice(action.indexOf('function ownTimesFromForm('), action.indexOf('export async function suggestScheduleChange(')), /if \(!call && !arrive && !done\) return \{ ok: false/, 'clearing every time is refused again');
+  const mark = action.slice(action.indexOf('const [markBefore, timesNow] ='), action.indexOf("if (request === 'own_times')"));
+  assert.ok(mark.length > 300, 'anti-vacuity: the Confirm branch was not found');
+  const readAt = mark.indexOf(".select('confirmed_at')");
+  assert.ok(readAt > -1 && readAt < mark.indexOf("rpc('supplier_mark_schedule'"), 'the last Confirm is read after this one moved it');
+  assert.match(mark, /kind: 'confirmed'[\s\S]*alreadyConfirmed: confirmedAt !== null[\s\S]*notifySupplierTimes\(/, 'Confirm my times reaches no host');
+  const view = read(VIEW);
+  assert.match(view, /if \(!next\.call && !next\.arrive && !next\.done && !own\?\.call && !own\?\.arrive && !own\?\.done\) return/, 'the form never sends a clear');
 
   const notify = read('lib/schedule-request-notify.server.ts');
   const fn = notify.slice(notify.indexOf('export async function notifySupplierTimes('), notify.indexOf('async function scheduleHosts('));
   assert.ok(fn.length > 100, 'anti-vacuity: notifySupplierTimes not found');
   assert.match(fn, /await scheduleHosts\(input\.eventId\)/, 'not the people who answer the supplier’s part of the day');
-  const types = [...fn.matchAll(/type: '([a-z_]+)'/g)].map((m) => m[1]);
-  assert.deepEqual(types, ['schedule_suggestion']);
+  assert.deepEqual([...fn.matchAll(/type: '([a-z_]+)'/g)].map((m) => m[1]), ['schedule_suggestion']);
   // In the app ONLY: the type is on neither email list.
   const emit = stripComments(readFileSync(join(WEB, 'lib/notification-emit.ts'), 'utf8'));
   for (const set of ['EMAIL_ENABLED_TYPES', 'MARKETING_GATED_EMAIL_TYPES']) {
@@ -137,4 +165,23 @@ test('(d) the hosts are told in the app — set, changed, confirmed — never em
     assert.ok(members.length > 0, `anti-vacuity: ${set} parsed empty`);
     assert.ok(!members.includes('schedule_suggestion'), `the supplier-times notice is emailed (${set})`);
   }
+});
+
+test('(e) Today’s Schedule card: "<shop> set their times", from the data', async () => {
+  const { latestTimesSet } = await import('./home-schedule');
+  const vendors = [{ vendor_name: 'Lumière Studio', marketplace_vendor_id: 'p-ls' }, { vendor_name: 'Taal Vista Hotel', marketplace_vendor_id: 'p-tv' }];
+  const row = (vp: string, call: string | null, arrive: string | null, done: string | null, at: string) => ({ vendor_profile_id: vp, call_clock: call, arrive_clock: arrive, done_clock: done, updated_at: at });
+  assert.deepEqual(latestTimesSet([row('p-ls', '11:00', '12:00', '22:00', '2026-11-16T10:00:00Z')], vendors), {
+    shop: 'Lumière Studio',
+    words: 'Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM',
+  });
+  assert.equal(latestTimesSet([row('p-ls', null, null, null, '2026-11-16T10:00:00Z')], vendors), null, 'a cleared row read as "set their times"');
+  assert.equal(latestTimesSet([row('p-x', '11:00', null, null, '2026-11-16T10:00:00Z')], vendors), null, 'a shop not on this event');
+  assert.equal(latestTimesSet([], vendors), null);
+  const reader = read('lib/home-schedule.server.ts');
+  assert.match(reader, /\.from\('supplier_own_times'\)[\s\S]{0,200}\.order\('updated_at', \{ ascending: false \}\)/, 'not the newest first');
+  assert.match(reader, /requestsRes\.error \?\? vendorsRes\.error \?\? ownRes\.error/, 'a refused own-times read is not said');
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces, /title: `\$\{s\.timesSet\.shop\} set their times`, sub: s\.timesSet\.words/);
+  assert.match(read('app/dashboard/[eventId]/_components/home-tile.tsx'), /data-home-sched-times=""/);
 });

@@ -526,7 +526,7 @@ function ownTimesFromForm(
   const arrive = read('arrive');
   const done = read('done');
   if (call === 'bad' || arrive === 'bad' || done === 'bad') return { ok: false, error: 'That time could not be read — pick it again.' };
-  if (!call && !arrive && !done) return { ok: false, error: 'Add a call time, an arrival or a finish first.' };
+  // 🕕 All three blank = they cleared their times (owner 16 Nov: clearing is a change, and the hosts are told).
   return { ok: true, call, arrive, done };
 }
 
@@ -588,6 +588,20 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   }
   const supplierName = profile.business_name?.trim() || 'A supplier';
 
+  // 🕕 Confirm my times tells the hosts — but a Confirm pressed AGAIN with nothing changed since tells nobody (owner
+  // 16 Nov). What was confirmed, and when their own times last changed, read BEFORE the mark moves.
+  const [markBefore, timesNow] =
+    request === 'confirm'
+      ? await Promise.all([
+          supabase.from('event_supplier_schedule_marks').select('confirmed_at').eq('event_id', eventId).eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
+          supabase
+            .from('supplier_own_times')
+            .select('call_clock, arrive_clock, done_clock, updated_at')
+            .eq('event_id', eventId)
+            .eq('vendor_profile_id', profile.vendor_profile_id)
+            .maybeSingle(),
+        ])
+      : [null, null];
   if (isMark) {
     const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });
     if (error) {
@@ -597,8 +611,16 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       };
     }
     // 🕕 SCHEDULE MODEL rule 3 (owner 16 Nov): Confirm my times tells the hosts, in the app only. Best-effort.
-    if (request === 'confirm') {
-      const notice = supplierTimesNotice({ kind: 'confirmed', shop: supplierName });
+    if (request === 'confirm' && markBefore && timesNow && !markBefore.error && !timesNow.error) {
+      const confirmedAt = (markBefore.data as { confirmed_at: string | null } | null)?.confirmed_at ?? null;
+      const t = timesNow.data as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null; updated_at: string } | null;
+      const notice = supplierTimesNotice({
+        kind: 'confirmed',
+        shop: supplierName,
+        times: t ? { call: t.call_clock, arrive: t.arrive_clock, done: t.done_clock } : null,
+        alreadyConfirmed: confirmedAt !== null,
+        changedSinceConfirm: confirmedAt !== null && t !== null && Date.parse(t.updated_at) > Date.parse(confirmedAt),
+      });
       try {
         if (notice) await notifySupplierTimes({ eventId, ...notice });
       } catch (e) {
@@ -720,13 +742,15 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   if (request === 'own_times') {
     const own = ownTimesFromForm(formData);
     if (!own.ok) return { ok: false, error: own.error };
-    // 🕕 What they had, so the hosts are told only of a real set or change (rule 3) — never of the same times again.
-    const { data: before } = await supabase
+    // 🕕 What they had, so the hosts are told only of a real set or change (rule 3) — never of the same times again. A
+    // REFUSED read is not "nothing before": it is unknown, and is never announced as "set".
+    const beforeRes = await supabase
       .from('supplier_own_times')
       .select('call_clock, arrive_clock, done_clock')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
+    if (beforeRes.error) logQueryError('suggestScheduleChange.ownTimesBefore', beforeRes.error, { event_id: eventId }, 'graceful_degrade');
     // RLS: the shop's own row, on an event it is booked for, signed as this user (supplier_own_times_shop_*).
     const { error: saveErr } = await supabase.from('supplier_own_times').upsert(
       {
@@ -744,11 +768,11 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     // 🕕 Ruling A: the chat's "Set your call time" pin counts this row as set — the chat reads it fresh.
     revalidatePath('/vendor-dashboard/messages', 'layout');
     // 🕕 SCHEDULE MODEL rule 3 (owner 16 Nov): the hosts hear it in the app (never emailed). Best-effort.
-    const b = before as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null } | null;
+    const b = beforeRes.data as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null } | null;
     const notice = supplierTimesNotice({
       kind: 'times',
       shop: supplierName,
-      before: b ? { call: b.call_clock, arrive: b.arrive_clock, done: b.done_clock } : null,
+      before: beforeRes.error ? 'unread' : b ? { call: b.call_clock, arrive: b.arrive_clock, done: b.done_clock } : null,
       after: { call: own.call, arrive: own.arrive, done: own.done },
     });
     if (notice) {

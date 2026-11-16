@@ -1019,7 +1019,8 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
   const keep = (k: 'call' | 'arrive' | 'done') => (hhmm: string) => {
     const next = { ...times, [k]: hhmm };
     setTimes(next);
-    if (!next.call && !next.arrive && !next.done) return { ok: true as const };
+    // 🕕 Clearing the last time saves too — the hosts are told (owner 16 Nov); nothing kept, nothing to clear.
+    if (!next.call && !next.arrive && !next.done && !own?.call && !own?.arrive && !own?.done) return { ok: true as const };
     return save(next);
   };
 

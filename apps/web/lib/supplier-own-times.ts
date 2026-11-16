@@ -65,11 +65,19 @@ export function callTimeIsSet(rpcAt: string | null, ownCall: string | null | und
  */
 export const CALL_TIME_ANCHOR = 'own-times';
 
-/* ── 🕕 THE SCHEDULE MODEL (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL") ────────────────────────────────────────────
+/* ── 🕕 THE SCHEDULE MODEL (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL"; drawing
+ * `prototypes/event_pages_today_doors_2026-11-16/event_pages_today_doors_2026-11-16_fable.html`, "two times, two names") ──
  * The couple sees TWO different times for a supplier, never one "call time" for both:
- *   · Crew call  — the supplier's own `call_clock` (when their crew meets), set on their Schedule tab;
- *   · On site from — the earliest Schedule moment the COUPLE tagged them on (`earliestTaggedBlock`).
+ *   · Crew call    — the supplier's own `call_clock` (when their crew meets), set on their Schedule tab;
+ *   · On site from — the earliest Schedule moment the COUPLE tagged them on (`earliestTaggedBlock`), with the supplier's
+ *                    own arrive and done after it: "On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM".
+ * A supplier with none of their own: "No times yet" + "On site from 2:30 PM, from the moments you tagged them on".
  */
+
+/** The three clocks as stored ('HH:MM' or null). */
+export type OwnClocks = Pick<OwnTimes, 'call' | 'arrive' | 'done'>;
+
+const hasAny = (t: OwnClocks | null | undefined): t is OwnClocks => Boolean(t && (t.call || t.arrive || t.done));
 
 /** "Crew call 6:00 AM" — the couple-facing words for the supplier's own call time ('' when none). */
 export function crewCallWords(call: string | null | undefined): string {
@@ -77,28 +85,67 @@ export function crewCallWords(call: string | null | undefined): string {
   return at ? `Crew call ${at}` : '';
 }
 
-/**
- * The hosts' IN-APP notice when a supplier sets or changes their times, or presses Confirm my times (owner 16 Nov,
- * rule 3: in the app only — never emailed). Null = nothing to tell (the same times saved again).
- */
-export function supplierTimesNotice(input:
-  | { kind: 'times'; shop: string; before: Pick<OwnTimes, 'call' | 'arrive' | 'done'> | null; after: Pick<OwnTimes, 'call' | 'arrive' | 'done'> }
-  | { kind: 'confirmed'; shop: string },
-): { title: string; body: string } | null {
-  if (input.kind === 'confirmed') {
-    return { title: `${input.shop} confirmed their times`.slice(0, 160), body: 'Their part of your Schedule is final from their side.' };
-  }
-  const b = input.before;
-  const a = input.after;
-  if (b && b.call === a.call && b.arrive === a.arrive && b.done === a.done) return null;
-  const had = Boolean(b && (b.call || b.arrive || b.done));
-  const words = [
-    a.call ? crewCallWords(a.call) : null,
-    a.arrive ? `arrive ${ownClockWords(a.arrive)}` : null,
-    a.done ? `done ${ownClockWords(a.done)}` : null,
-  ]
+/** "arrives 12:00 PM · done 10:00 PM" — only the ones set, in that order; '' when neither. */
+export function arrivesDoneWords(t: Pick<OwnClocks, 'arrive' | 'done'> | null | undefined): string {
+  if (!t) return '';
+  return [t.arrive && ownClockWords(t.arrive) ? `arrives ${ownClockWords(t.arrive)}` : null, t.done && ownClockWords(t.done) ? `done ${ownClockWords(t.done)}` : null]
     .filter(Boolean)
     .join(' · ');
-  if (!words) return null;
-  return { title: `${input.shop} ${had ? 'changed' : 'set'} their times`.slice(0, 160), body: words.slice(0, 200) };
+}
+
+const capFirst = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
+
+/** The notice body / Today line: "Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM", or "Arrives 4:00 PM · done 10:30 PM". */
+export function ownTimesNoticeWords(t: OwnClocks | null | undefined): string {
+  if (!t) return '';
+  return capFirst([crewCallWords(t.call), arrivesDoneWords(t)].filter(Boolean).join(' · '));
+}
+
+/** One line of the couple's Booked row times: `lead` + bold `clock` + `tail`. */
+export type BookedTimesLine = { id: 'crew' | 'none' | 'onsite' | 'unread'; lead: string; clock: string | null; tail: string };
+
+/**
+ * THE BOOKED ROW'S TIMES, as the drawing words them. `own` = the supplier's own row (`undefined` = none kept; `'unread'`
+ * = the read was refused — said, never "No times yet"); `tagged` = the earliest moment the couple tagged them on
+ * ("1:00 PM", `null` = tagged on nothing, `'unread'` = the Schedule read was refused).
+ */
+export function bookedTimesLines(own: OwnClocks | null | 'unread', tagged: string | null | 'unread'): BookedTimesLine[] {
+  const out: BookedTimesLine[] = [];
+  const mine = own === 'unread' ? null : hasAny(own) ? own : null;
+  if (own === 'unread') out.push({ id: 'unread', lead: 'We couldn’t check their times.', clock: null, tail: '' });
+  else if (!mine) out.push({ id: 'none', lead: 'No times yet', clock: null, tail: '' });
+  else if (mine.call && ownClockWords(mine.call)) out.push({ id: 'crew', lead: 'Crew call ', clock: ownClockWords(mine.call), tail: '' });
+  const ad = arrivesDoneWords(mine);
+  if (tagged === 'unread') out.push({ id: 'unread', lead: 'We couldn’t check your Schedule for when they’re on site.', clock: null, tail: '' });
+  else if (tagged) out.push({ id: 'onsite', lead: 'On site from ', clock: tagged, tail: mine ? (ad ? ` · ${ad}` : '') : ', from the moments you tagged them on' });
+  else if (ad) {
+    const first = mine?.arrive && ownClockWords(mine.arrive);
+    out.push(first ? { id: 'onsite', lead: 'Arrives ', clock: first, tail: mine?.done ? ` · done ${ownClockWords(mine.done)}` : '' } : { id: 'onsite', lead: 'Done ', clock: ownClockWords(mine?.done), tail: '' });
+  }
+  return out;
+}
+
+/**
+ * The hosts' IN-APP notice (owner 16 Nov, rule 3: in the app only — never emailed), as the drawing words it:
+ *   "Lumière Studio set their times" · "Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM"
+ *   "Taal Vista Hotel confirmed their times" · "Arrives 4:00 PM · done 10:30 PM"
+ * Null = nothing to tell: the before-read was REFUSED (never announced as "set"), the same times saved again, or a
+ * Confirm pressed again with nothing changed since the last one. Clearing every time IS a change, and is told.
+ */
+export function supplierTimesNotice(
+  input:
+    | { kind: 'times'; shop: string; before: OwnClocks | null | 'unread'; after: OwnClocks }
+    | { kind: 'confirmed'; shop: string; times: OwnClocks | null; alreadyConfirmed: boolean; changedSinceConfirm: boolean },
+): { title: string; body: string } | null {
+  if (input.kind === 'confirmed') {
+    if (input.alreadyConfirmed && !input.changedSinceConfirm) return null;
+    return { title: `${input.shop} confirmed their times`.slice(0, 160), body: ownTimesNoticeWords(input.times) || 'Their part of your Schedule is final from their side.' };
+  }
+  if (input.before === 'unread') return null;
+  const b = input.before;
+  const a = input.after;
+  const same = (b?.call ?? null) === (a.call ?? null) && (b?.arrive ?? null) === (a.arrive ?? null) && (b?.done ?? null) === (a.done ?? null);
+  if (same) return null;
+  if (!hasAny(a)) return { title: `${input.shop} cleared their times`.slice(0, 160), body: 'No times yet' };
+  return { title: `${input.shop} ${hasAny(b) ? 'changed' : 'set'} their times`.slice(0, 160), body: ownTimesNoticeWords(a).slice(0, 200) };
 }

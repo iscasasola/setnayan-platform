@@ -29,6 +29,7 @@ import {
   needsCompletionMark,
   reviewNeedsReply,
   threadOwesReply,
+  isSystemLine,
 } from '@/lib/answers-desk';
 import { resolveAppointmentLabel, type AppointmentKind } from '@/lib/appointments';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -1528,6 +1529,8 @@ async function fetchOwedThreadReplies(
   }
   const newestPerThread = new Map<string, (typeof rows)[number]>();
   for (const row of rows) {
+    // The last word from a PERSON — an app line ("Booked ✓", "Event date set") is nobody waiting (CHAT-13).
+    if (isSystemLine(row.sender_role)) continue;
     if (!newestPerThread.has(row.thread_id)) newestPerThread.set(row.thread_id, row);
   }
   const out: OwedReply[] = [];

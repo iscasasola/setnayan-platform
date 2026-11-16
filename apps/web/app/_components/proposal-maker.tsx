@@ -551,8 +551,11 @@ export function ProposalMaker({
       ? revision.lines.map((s) => ({ ...s, key: nextKey() }))
       : [newLine(false)],
   );
+  // CHAT-31 (walk 16 Nov 2026): "Update this quote" showed ₱10,500 for an ₱8,750 quote — the stored "Crew meal ₱1,750"
+  // seeds as a line (lib/quote-revision-seed.ts) AND this default emitted it again. A revision already carries its crew
+  // charge (or its "couple provides" credit) in its lines, so its crew mode starts 'included', as that seed promises.
   const [crew, setCrew] = useState<Crew>({
-    mode: coupleCrewProvider ? 'offset' : 'charge',
+    mode: revision ? 'included' : coupleCrewProvider ? 'offset' : 'charge',
     size: 5,
     perHeadPhp: 350,
   });

@@ -21,6 +21,7 @@ the CHAT-09 layout (plan card, strip, jump pills, where the poll/decision opens)
 - CHAT-29 · a day held by this very event reads "Booked", not "Not available".
 - CHAT-30 · "Wrapped up this <event type>?" via `eventTypeWord`; the per-event branding notice says what the couple sees.
 - CHAT-31 · `valid_until_pick` → "Date"; the gift cap no longer calls the fee a booking fee when none is charged.
+  CHAT-31 (third) · "Update this quote" showed ₱10,500 for an accepted ₱8,750 quote: the stored "Crew meal ₱1,750" seeds as a line and the builder's crew state also defaulted to "charge 5 × ₱350", so it was counted twice. A revision now opens with crew 'included', as `lib/quote-revision-seed.ts` already promised. Measured from the live row (one sent version, no per-guest line). Held by `lib/a-revised-quote-counts-its-crew-meal-once.test.ts`.
   The editor ₱10,500 vs ₱8,750 accepted is NOT fixed (needs the live quote rows to tell which cause).
 - CHAT-32 · Payment shows the same `firstPaymentStatus` line Details shows.
 - CHAT-33 · the Hub says "Crew for the day" and "View only — ask the hosts" once.

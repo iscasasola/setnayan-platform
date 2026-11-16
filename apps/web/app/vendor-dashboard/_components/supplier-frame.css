@@ -177,3 +177,33 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ── 🖥 CLIENTS ON A COMPUTER — THREE COLUMNS (owner "Yes, all 8", item 1, 16 Nov: "side menu · calendar with the client
+   list under it · picked day"; the controller's pick 17 Nov: column 3 shows only once a day is picked, no extra read).
+   Column 1 is the rail. From 1280, once a day is picked on the month, the picked day's block (its date, Open the day ›,
+   the day bar, its rows — all from the month the page already read) sits in column 3, held under the pinned row, and
+   the client list stays in column 2 under the month instead of stepping aside as it does on a phone. Nothing is
+   fetched for it. With no day picked, or below 1280, Clients is the shipped one column.
+   🔒 app/vendor-dashboard/customers/the-picked-day-is-column-three-on-a-computer.test.ts */
+@media (min-width: 1280px) {
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+    column-gap: 28px;
+    align-items: start;
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) > * {
+    grid-column: 1;
+    min-width: 0;
+  }
+  [data-dates-month='clients'] > [data-dates-picked-col] {
+    grid-column: 2;
+    grid-row: 1 / span 40;
+    align-self: start;
+    position: sticky;
+    top: var(--sn-pin-top, var(--fd-bar, 0px));
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-whole-list][hidden] {
+    display: block;
+  }
+}

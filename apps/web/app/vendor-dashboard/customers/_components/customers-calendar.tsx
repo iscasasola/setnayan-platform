@@ -657,7 +657,9 @@ export function CustomersCalendar({
 
       {/* Schedule (v113 `calC`): the month marks the event's day; the schedule follows — no day rows of the shop here. */}
       {!onClients ? null : picked ? (
-        <>
+        // 🖥 One block, so a computer can set it beside the month as Clients' third column (owner "Yes, all 8" item 1,
+        // 16 Nov; `supplier-frame.css`). The phone draws it exactly where it always was.
+        <div data-dates-picked-col="">
           {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
           <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
             <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
@@ -686,7 +688,7 @@ export function CustomersCalendar({
           {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
           {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} onFlip={onFlip} /> : null}
           <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
-        </>
+        </div>
       ) : oneScreen ? null : (
         <div className="mt-4" data-dates-all-days="">
           {allDays.length === 0 ? (

@@ -36,9 +36,10 @@
 --        · 'paused'  — Setnayan (is_admin) → paused_by 'admin'; the shop's owner or an admin of its team →
 --                      paused_by 'supplier'. A pause by Setnayan is never overwritten by the shop's own.
 --        · 'open'    — clears a pause. Only Setnayan lifts a pause Setnayan set.
---        · 'closed'  — public_visibility → 'archived', pause cleared. The shop's OWNER only (not a team admin),
---                      and only with no open booking (contracted · deposit_paid · delivered) — the approved
---                      drawing's "Finish or cancel your bookings first". Setnayan may close regardless.
+--        · 'closed'  — public_visibility → 'archived', pause cleared. The shop's OWNER (not a team admin) or
+--                      Setnayan, and ONLY with no open booking (contracted · deposit_paid · delivered) — for
+--                      everyone, Setnayan included (owner 2026-11-16 answer 2; audit of #7890 item 3). Close
+--                      HIDES and keeps (answer 1): page, reviews, photos and QR are hidden, never deleted.
 --        · A closed shop is not reopened through this door — the admin's existing visibility controls do that.
 --   6. vendor_profiles_self re-projected (its projection is frozen at CREATE) so the shop's own dashboard reads
 --      the pause.
@@ -271,18 +272,18 @@ BEGIN
     RETURN 'open';
   END IF;
 
-  -- p_status = 'closed'
-  IF NOT v_is_admin THEN
-    IF NOT v_is_owner THEN
-      RAISE EXCEPTION 'shop_status:owner_only' USING ERRCODE = '42501';
-    END IF;
-    SELECT count(*)::int INTO v_open
-      FROM public.event_vendors ev
-     WHERE ev.marketplace_vendor_id = p_vendor_profile_id
-       AND ev.status IN ('contracted', 'deposit_paid', 'delivered');
-    IF v_open > 0 THEN
-      RAISE EXCEPTION 'shop_status:open_bookings:%', v_open USING ERRCODE = 'P0001';
-    END IF;
+  -- p_status = 'closed'. Owner 2026-11-16 (answer 2 to #7890): only the shop's OWNER closes — a team admin may not —
+  -- and NOBODY closes a shop that still has an open booking, Setnayan included (audit of #7890, item 3). A couple
+  -- with a contracted booking must never find their supplier gone; Setnayan pauses instead, which keeps them whole.
+  IF NOT v_is_admin AND NOT v_is_owner THEN
+    RAISE EXCEPTION 'shop_status:owner_only' USING ERRCODE = '42501';
+  END IF;
+  SELECT count(*)::int INTO v_open
+    FROM public.event_vendors ev
+   WHERE ev.marketplace_vendor_id = p_vendor_profile_id
+     AND ev.status IN ('contracted', 'deposit_paid', 'delivered');
+  IF v_open > 0 THEN
+    RAISE EXCEPTION 'shop_status:open_bookings:%', v_open USING ERRCODE = 'P0001';
   END IF;
 
   UPDATE public.vendor_profiles
@@ -293,7 +294,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.set_shop_status(UUID, TEXT) IS
-  'THE ONE DOOR for Shop ⚙ › Shop status and the admin pause/close (owner 2026-10-31 "They can pause and close. Admin can also do that"; 2026-11-16 "AN ADMIN-HIDDEN SHOP IS PAUSED FOR EVERYTHING NEW"). p_status: open | paused | closed. Setnayan (is_admin) may do all three; the shop''s owner or a team admin may pause and reopen their own pause; only the OWNER may close, and only with no open booking (contracted/deposit_paid/delivered). Only Setnayan lifts a pause Setnayan set. Close = public_visibility ''archived'' (the existing closed state); a closed shop is not reopened here. Refusals: message prefix "shop_status:" (read by apps/web/lib/shop-status.ts). Returns the status after the call.';
+  'THE ONE DOOR for Shop ⚙ › Shop status and the admin pause/close (owner 2026-10-31 "They can pause and close. Admin can also do that"; 2026-11-16 "AN ADMIN-HIDDEN SHOP IS PAUSED FOR EVERYTHING NEW"). p_status: open | paused | closed. Setnayan (is_admin) may pause and reopen any shop; the shop''s owner or a team admin may pause and reopen their own pause; only the OWNER (or Setnayan) may close, and NOBODY may close while a booking is open (contracted/deposit_paid/delivered) — Setnayan pauses instead. Only Setnayan lifts a pause Setnayan set. Close = public_visibility ''archived'' (the existing closed state); a closed shop is not reopened here. Refusals: message prefix "shop_status:" (read by apps/web/lib/shop-status.ts). Returns the status after the call.';
 
 REVOKE ALL ON FUNCTION public.set_shop_status(UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.set_shop_status(UUID, TEXT) FROM anon;

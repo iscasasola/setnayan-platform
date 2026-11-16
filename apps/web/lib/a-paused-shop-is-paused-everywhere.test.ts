@@ -9,11 +9,11 @@
  *
  * Fails if: the Shortlist QR writer inserts a row for a paused shop · the claim action or the QR page stops reading
  * the pause · the admin card keeps a Hide button, loses its Pause/Unpause, or reaches the pause by any path but
- * `applyShopStatus` · the supplier action stops delegating to it · `applyShopStatus` writes the row itself instead of
- * calling the door · any shop-status copy says "deleted".
+ * `applyShopStatus` · an unwired shop-status action is exported · `applyShopStatus` writes the row itself, or calls the
+ * door after a failed read · /v/[slug] shows the verification line for a paused shop · any copy says "deleted".
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
@@ -104,18 +104,40 @@ test('(3) the admin Pause and the supplier Shop status run the SAME path, and th
   assert.match(fn.slice(0, 1200), /applyShopStatus\(/, 'the admin Pause no longer goes through applyShopStatus');
   assert.doesNotMatch(verify, /export async function rejectVendor/, 'the Hide export is back');
 
-  const supplier = read('app/_actions/shop-status-actions.ts');
-  assert.match(supplier, /return applyShopStatus\(input\)/, 'the supplier action no longer delegates');
-  assert.doesNotMatch(supplier, /\.rpc\(|\.update\(|\.insert\(/, 'the supplier action writes on its own');
+  // Audit of #7890, item 4: no exported action without a screen. The supplier's Shop status calls applyShopStatus
+  // through an EXISTING action once its drawing is approved.
+  assert.ok(!existsSync(join(WEB, 'app/_actions/shop-status-actions.ts')), 'an unwired shop-status action is exported again');
 
   const core = read('lib/shop-status.server.ts');
   assert.match(core, /\.rpc\('set_shop_status'/, 'applyShopStatus no longer calls the door');
   assert.doesNotMatch(core, /\.(update|upsert)\(/, 'applyShopStatus writes vendor_profiles itself');
   assert.doesNotMatch(core, /public_visibility\s*:\s*'archived'/, 'applyShopStatus archives the shop itself');
+  // Audit item 2: a failed read of the shop REFUSES the change (no silent pause with no audit row and no notice), and
+  // the refusal comes before the door is called.
+  assert.match(core, /if \(beforeErr\) \{[\s\S]{0,200}return \{ ok: false, reason: 'unreadable' \}/, 'a failed read no longer refuses');
+  assert.match(core, /if \(!beforeRow\) return \{ ok: false, reason: 'missing' \}/);
+  assert.ok(core.indexOf("reason: 'unreadable'") < core.indexOf(".rpc('set_shop_status'"), 'the door is called before the read is checked');
+});
+
+test('(audit 1) /v/[slug] says "This shop is paused" first — never "finishing verification" for a paused shop', () => {
+  const page = read('app/v/[slug]/page.tsx');
+  assert.match(page, /const shopPaused = isShopPaused\(vendor\) \|\| visibility === 'archived'/);
+  assert.match(page, /\{shopPaused \? \(\s*<div className=\{SHOP_CALM_COLUMN_CLASS\}>\s*<ShopPausedNotice \/>/);
+  // The paused notice renders ahead of the not-yet-verified notice.
+  assert.ok(page.indexOf('<ShopPausedNotice />') < page.indexOf('<NotYetVerifiedNotice />'));
+  assert.match(page, /paused=\{shopPaused\}/, 'the packages section no longer hears the pause');
+  // In the packages, the paused line is the FIRST branch — ahead of "Not yet bookable — finishing verification".
+  const pk = page.slice(page.indexOf('function VendorPackagesSection'));
+  assert.ok(pk.indexOf('if (paused)') > 0 && pk.indexOf('if (paused)') < pk.indexOf('finishing verification'));
+  assert.match(pk, /if \(paused\) \{\s*cta = <p[^>]*>\{SHOP_PAUSED_LINE\}<\/p>/);
+  // One source for the words.
+  const notice = page.slice(page.indexOf('function ShopPausedNotice'));
+  assert.match(notice.slice(0, 500), /\{SHOP_PAUSED_LINE\}/);
+  assert.doesNotMatch(page, /'This shop is paused'|"This shop is paused"/, 'the words were re-typed instead of read');
 });
 
 test('(1) a close hides and keeps — no shop-status copy says "deleted"', () => {
-  for (const file of ['lib/shop-status.ts', 'lib/shop-status.server.ts', 'app/_actions/shop-status-actions.ts', 'app/admin/verify/page.tsx']) {
+  for (const file of ['lib/shop-status.ts', 'lib/shop-status.server.ts', 'app/admin/verify/page.tsx']) {
     const src = read(file);
     // Only rendered/sent strings: quoted literals and JSX text in these files.
     const literals = src.match(/'[^'\n]*'|"[^"\n]*"|`[^`]*`/g) ?? [];

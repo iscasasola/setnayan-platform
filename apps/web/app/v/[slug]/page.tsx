@@ -19,6 +19,7 @@ import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
+import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
@@ -1049,6 +1050,11 @@ export async function renderVendorBySlug({
     boothTierCanBrand(effectiveTierState) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
+  // ⏸ Paused (by the shop or by Setnayan) or closed: the page says so FIRST, in the owner's own words (16 Nov, "its
+  // website and QR show "This shop is paused"") — never the verification line, which would be false for a verified
+  // shop. One source: SHOP_PAUSED_LINE (lib/shop-status.ts). A closed shop's page normally opens for nobody
+  // (`shopPageGate`); the arm is here so a future gate change cannot make it read as "finishing verification".
+  const shopPaused = isShopPaused(vendor) || visibility === 'archived';
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
   // `image` below both consume it. See resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
@@ -2534,6 +2540,11 @@ export async function renderVendorBySlug({
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app —
             since 13 Nov a soft card at the top of the calm column (prototype `.notice`), its ⓘ carrying the words. */}
+        {shopPaused ? (
+          <div className={SHOP_CALM_COLUMN_CLASS}>
+            <ShopPausedNotice />
+          </div>
+        ) : null}
         {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
           <div className={SHOP_CALM_COLUMN_CLASS}>
             <NotYetVerifiedNotice />
@@ -3128,6 +3139,7 @@ export async function renderVendorBySlug({
                the Lock button off it — the same quiet "Not yet bookable" line, never a Lock that the
                `event_vendors_require_verified_before_lock` trigger would refuse a step later. */
             isComingSoon={isComingSoon || !bookable}
+            paused={shopPaused}
             bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
@@ -3573,6 +3585,16 @@ export async function renderVendorBySlug({
 export default async function PublicVendorPage({ params, searchParams }: Props) {
   const { slug } = await params;
   return renderVendorBySlug({ slug, searchParams });
+}
+
+/** ⏸ The paused shop's line — plain, at the top of the calm column, the owner's words from lib/shop-status.ts. */
+function ShopPausedNotice() {
+  return (
+    <div data-shop-paused role="status" className="mb-6 py-2">
+      <p className="text-base font-medium text-ink">{SHOP_PAUSED_LINE}</p>
+      <p className="mt-1 text-sm text-ink/70">{SHOP_PAUSED_DETAIL}</p>
+    </div>
+  );
 }
 
 function ComingSoonBanner({ vendorName }: { vendorName: string }) {
@@ -4537,6 +4559,7 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  paused,
   bookingsOpen,
   hidePrices,
   paxCount,
@@ -4548,6 +4571,8 @@ function VendorPackagesSection({
   shopName: string | null;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** ⏸ Paused or closed — the package says so, ahead of every other line (never "finishing verification"). */
+  paused: boolean;
   /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
   bookingsOpen: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
@@ -4576,7 +4601,9 @@ function VendorPackagesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         {packages.map((pkg) => {
           let cta: React.ReactNode = null;
-          if (!bookingsOpen) {
+          if (paused) {
+            cta = <p className="text-xs text-ink/55">{SHOP_PAUSED_LINE}</p>;
+          } else if (!bookingsOpen) {
             cta = <p className="text-xs text-ink/55">{BOOKINGS_OPEN_SOON}</p>;
           } else if (isComingSoon) {
             cta = (

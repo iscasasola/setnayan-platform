@@ -1,9 +1,9 @@
 import 'server-only';
 
 /**
- * ⏸ THE ONE WAY THE APP CHANGES A SHOP'S STATUS — shared by Shop ⚙ › Shop status (`setShopStatus`,
- * app/_actions/shop-status-actions.ts) and the admin's Pause on /admin/verify (`setVendorPause`,
- * app/admin/verify/actions.ts). Owner 2026-11-16, answer 3 to PR #7890: the admin's "Hide" BECOMES Pause — one
+ * ⏸ THE ONE WAY THE APP CHANGES A SHOP'S STATUS. Today its only caller is the admin's Pause on /admin/verify
+ * (`setVendorPause`, app/admin/verify/actions.ts); the supplier's Shop ⚙ › Shop status will call it too once its
+ * drawing is approved — through an EXISTING action, never a new export with no screen (audit of #7890, item 4). Owner 2026-11-16, answer 3 to PR #7890: the admin's "Hide" BECOMES Pause — one
  * control — so both doors run this, and this runs the database door `set_shop_status()`.
  *
  * WHO MAY is decided in the DATABASE: the call goes out on the caller's OWN session, and `set_shop_status()` reads
@@ -48,11 +48,18 @@ export async function applyShopStatus(input: {
 
   // Read the row BEFORE, on the service role, only to audit an admin's act and to address the notice — it decides
   // nothing. The door below decides everything.
-  const { data: beforeRow } = await admin
+  const { data: beforeRow, error: beforeErr } = await admin
     .from('vendor_profiles')
     .select('user_id, business_name, business_slug, public_visibility, paused_at, paused_by')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  // FAIL CLOSED (audit of #7890, item 2): without this row there is nothing to audit and nobody to tell, so an
+  // admin's pause would land silently. Refuse the change instead — the shop stays exactly as it was.
+  if (beforeErr) {
+    console.error('[supabase-error] lib/shop-status.server.ts · from:vendor_profiles.select (before)', beforeErr);
+    return { ok: false, reason: 'unreadable' };
+  }
+  if (!beforeRow) return { ok: false, reason: 'missing' };
 
   const { data, error } = await supabase.rpc('set_shop_status', {
     p_vendor_profile_id: vendorProfileId,
@@ -67,20 +74,20 @@ export async function applyShopStatus(input: {
   }
   const after = parseShopStatus(data) ?? status;
 
-  const shop = beforeRow as {
+  const shop = beforeRow as unknown as {
     user_id: string | null;
     business_name: string | null;
     business_slug: string | null;
     public_visibility: string | null;
     paused_at: string | null;
     paused_by: string | null;
-  } | null;
-  revalidateShopPage(vendorProfileId, shop?.business_slug ?? null);
+  };
+  revalidateShopPage(vendorProfileId, shop.business_slug);
   // The home page remembers its shop shelf for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('shops');
 
   const { data: isAdmin } = await supabase.rpc('is_admin');
-  if (isAdmin === true && shop) {
+  if (isAdmin === true) {
     const note = typeof input.reason === 'string' && input.reason.trim() ? input.reason.trim().slice(0, 500) : null;
     const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action: 'vendor_shop_status_change',

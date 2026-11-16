@@ -9,7 +9,7 @@
  *   3 · reopening does not restore findable + bookable;
  *   4 · a shop's own session can write paused_at / paused_by directly (only the door may);
  *   5 · a shop can lift a pause Setnayan set, or a stranger / a viewer of the team can pause;
- *   6 · a team admin can close, or the owner can close with an open booking, or a closed shop is not archived
+ *   6 · a team admin can close, or ANYONE (Setnayan included) can close with an open booking, or a closed shop is not archived
  *       (never findable, never bookable), or a closed shop reopens through the door;
  *   7 · anon can read the pause columns.
  */
@@ -247,14 +247,19 @@ test('6 · close: owner only, open bookings first; closed = archived, never foun
   assert.match(await setStatus(owner, shop, 'open'), /shop_status:closed/);
   assert.match(await setStatus(owner, shop, 'paused'), /shop_status:closed/);
 
-  // Setnayan may close a shop with an open booking (its existing archive does too).
+  // Nobody closes a shop with an open booking — Setnayan included (owner 16 Nov answer 2; audit of #7890 item 3).
+  // Setnayan may PAUSE it instead, and may close it once the booking is finished.
   const other = await newShop('verified');
-  await db.query(
+  const open = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
-     VALUES ($1, 'photographer', 'A Shop', 'contracted', $2)`,
+     VALUES ($1, 'photographer', 'A Shop', 'contracted', $2) RETURNING vendor_id`,
     [await newEvent(), other.shop],
   );
-  assert.equal(await setStatus(await newAdmin(), other.shop, 'closed'), 'closed');
+  const setnayan = await newAdmin();
+  assert.match(await setStatus(setnayan, other.shop, 'closed'), /shop_status:open_bookings:1/, 'an admin closed a shop with an open booking');
+  assert.equal(await setStatus(setnayan, other.shop, 'paused'), 'paused', 'an admin could not pause it instead');
+  await db.query(`UPDATE public.event_vendors SET status = 'complete' WHERE vendor_id = $1`, [open.rows[0]!.vendor_id]);
+  assert.equal(await setStatus(setnayan, other.shop, 'closed'), 'closed');
 });
 
 test('7 · anon cannot read the pause columns; the door is not anon-callable', async () => {

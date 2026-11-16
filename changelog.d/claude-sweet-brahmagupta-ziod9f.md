@@ -32,3 +32,22 @@ row is due when the screen ships.
 - **(4) The Shortlist QR adds no paused shop.** `importVendorToEventShortlist` refuses it (`{ status: 'paused' }`),
   the claim action refuses it, and `/vendor-invite/[slug]` shows **"This shop is paused"** in place of the form.
 - Tests: `lib/a-paused-shop-is-paused-everywhere.test.ts` (6, two sabotages measured red).
+
+### 2026-11-16 · audit of #7890 (FIX-FIRST) — five fixes
+
+1. **`/v/[slug]` says "This shop is paused"** (`SHOP_PAUSED_LINE`, one source) whenever the shop is paused or closed —
+   a plain line at the top of the calm column, ahead of the not-yet-verified notice, and as the FIRST branch of each
+   package's call to action, ahead of "Not yet bookable — this supplier is finishing verification" (false for a
+   paused verified shop). The admin Pause confirm's promise is now true.
+2. **`applyShopStatus` fails closed:** a failed read of the shop refuses the change (`unreadable`) before the door is
+   called, so an admin's pause can never land without its audit row and its notice to the shop.
+3. **Nobody closes a shop with an open booking — Setnayan included.** `set_shop_status`'s open-booking check now
+   applies to admins too (owner or Setnayan may close; a team admin may not). Setnayan pauses instead.
+4. **No unwired server action.** `app/_actions/shop-status-actions.ts` (`setShopStatus`, no screen called it) is
+   deleted — 1,246 of 1,251. The supplier's Shop status will reach `applyShopStatus` through an existing action once
+   its drawing is approved.
+5. Merged `origin/main` right before ready (shared files with #7889: the vendor-invite page + action, the exposure
+   baseline, the screens map — generated files regenerated, never hand-merged).
+
+Tests: the db test's close case now asserts an admin is refused with an open booking; the app guard holds the paused
+line on `/v/[slug]`, the fail-closed read and the absent action. Three sabotages measured red.

@@ -108,6 +108,10 @@ export function shopStatusRefusalForAdmin(reason: ShopStatusRefusal): string {
       return 'This shop is closed (archived). Restore its listing first.';
     case 'missing':
       return 'Supplier not found.';
+    case 'unreadable':
+      return 'The shop could not be read, so nothing was changed. Try again.';
+    case 'open_bookings':
+      return 'This shop still has open bookings. It can be closed once they are finished or cancelled.';
     case 'not_allowed':
       return 'Only a Setnayan admin can pause or unpause another shop.';
     default:

@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7884
+# facts: 7885
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5674
 #   policy    1157
 #   view      10
-#   func      399
+#   func      400
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7534,6 +7534,7 @@ func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text
 func	public.ask_for_a_change(p_thread_id uuid, p_subject text, p_note text, p_proposal_id uuid, p_form_id uuid, p_amount_centavos bigint, p_scope_label text, p_proposed_plan jsonb, p_good_until date, p_counters uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ask_hosts_for_more_access(p_event_id uuid, p_area text, p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.badge_counts_start()	secdef=no exec=anon,authenticated search_path=public
 func	public.begin_mood_board_change(p_event_id uuid, p_kind text, p_slot_key text)	secdef=yes exec=authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public

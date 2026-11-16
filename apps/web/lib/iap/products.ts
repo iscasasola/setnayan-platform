@@ -249,9 +249,6 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
     [
       ['gift_event_plus', 'EVENT_PLUS', 'Gift · Event Plus'],
       ['gift_event_pro', EVENT_HUB_PRO_SERVICE_KEY, 'Gift · Event Pro'],
-      // 💎 Event Ultra as a gift (owner 15 Nov: at its ₱9,990 list price until a gift price is set). The OWNER creates it
-      // in App Store Connect at that price point; not sellable through the couple path.
-      ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
       ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
       ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
       ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],

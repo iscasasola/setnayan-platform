@@ -73,6 +73,7 @@ AS $$
        AND ev.status IN ('delivered', 'complete')
        AND ev.voided_by_fraud IS NOT TRUE
        AND ev.event_id IS NOT NULL
+       AND ev.created_at >= public.badge_counts_start()
   )
   SELECT COALESCE(SUM(public.gift_points_for_price(c.retail_price_php)), 0)::INTEGER
     FROM public.vendor_proposal_shop_gifts l
@@ -84,6 +85,7 @@ AS $$
          FROM public.shop_gift_stock_entries e
         WHERE e.vendor_profile_id = p_vendor_profile_id
           AND e.kind = 'given'
+          AND e.created_at >= public.badge_counts_start()
           AND e.proposal_id = l.proposal_id
           AND e.gift_kind = l.gift_kind
           AND e.event_id IN (SELECT d.event_id FROM done_events d)
@@ -136,8 +138,8 @@ REVOKE ALL ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) FROM PUBL
 GRANT EXECUTE ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) TO service_role;
 
 COMMENT ON FUNCTION public.shop_booking_is_import(UUID, UUID, TEXT) IS
-  'TRUE when a shop''s booking on an event is an IMPORT (owner 16 Nov: imports never count toward Completed bookings, '
-  'Trusted by, a seal or Most Booked): source vendor_invite / vendor_locked_qr / reuse_accept / website, a Booking QR '
+  'TRUE when a shop''s booking on an event is an IMPORT (owner 16 Nov: imports never count toward Completed bookings — '
+  'DECISION_LOG fd5814dc; Trusted by counts them, as no 16 Nov row rules them out): source vendor_invite / vendor_locked_qr / reuse_accept / website, a Booking QR '
   'token of this shop claimed onto the booking, or the couple''s chat with the shop arrived through the shop''s own '
   'link (inquiry_source ''website''). The one definition for every badge and seal. service_role only.';
 
@@ -156,6 +158,7 @@ AS $$
    WHERE vp.vendor_profile_id = p_vendor_profile_id
      AND ev.status IN ('delivered', 'complete')
      AND ev.voided_by_fraud IS NOT TRUE
+     AND ev.created_at >= public.badge_counts_start()
      AND (ev.event_id IS NULL OR EXISTS (SELECT 1 FROM public.events e WHERE e.event_id = ev.event_id))
      AND NOT public.shop_booking_is_import(vp.vendor_profile_id, ev.event_id, ev.source)
      AND NOT EXISTS (
@@ -184,8 +187,9 @@ COMMENT ON FUNCTION public.shop_completed_bookings_count(UUID) IS
   'completed-events rules (no fraud, no self-dealing, no self-comp), WITHOUT imports (shop_booking_is_import). '
   'service_role only.';
 
--- ── 2d · Trusted by, for the badge: clients who booked the shop a second time, imports left out ──
--- `shop_booked_loop_count` (C2, shared) is untouched; this is its body with imports removed from the bookings.
+-- ── 2d · Trusted by, for the badge: clients who booked the shop a second time, counted from 18 Dec 2026 ──
+-- `shop_booked_loop_count` (C2, shared) is untouched; this is its body with the badge cut-off. Imports COUNT here:
+-- the 16 Nov rows rule imports out of Completed bookings only (controller's audit of 923f981994).
 CREATE OR REPLACE FUNCTION public.shop_trusted_by_count(p_vendor_profile_id UUID)
 RETURNS INTEGER
 LANGUAGE sql
@@ -201,7 +205,7 @@ AS $$
        AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
        AND ev.archived_at IS NULL
        AND ev.voided_by_fraud IS NOT TRUE
-       AND NOT public.shop_booking_is_import(p_vendor_profile_id, ev.event_id, ev.source)
+       AND ev.created_at >= public.badge_counts_start()
        AND NOT EXISTS (
          SELECT 1 FROM public.comp_grants cg
           WHERE cg.vendor_profile_id = p_vendor_profile_id
@@ -240,8 +244,8 @@ REVOKE ALL ON FUNCTION public.shop_trusted_by_count(UUID) FROM PUBLIC, anon, aut
 GRANT EXECUTE ON FUNCTION public.shop_trusted_by_count(UUID) TO service_role;
 
 COMMENT ON FUNCTION public.shop_trusted_by_count(UUID) IS
-  'Trusted by badge counter (owner 15 Nov 50566f42; 16 Nov imports rule): clients who booked the shop on a second '
-  'event, each counted once, imports left out (shop_booking_is_import). shop_booked_loop_count is untouched. '
+  'Trusted by badge counter (owner 15 Nov 50566f42): clients who booked the shop on a second event, each counted '
+  'once, imports included, bookings from badge_counts_start() (18 Dec 2026). shop_booked_loop_count is untouched. '
   'service_role only.';
 
 -- ── 3 · where a shop is in an award flow ────────────────────────────────────

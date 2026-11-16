@@ -21,6 +21,20 @@
 
 BEGIN;
 
+-- ── THE BADGE COUNTERS START ON 18 DECEMBER 2026 (owner 16 Nov, DECISION_LOG "THE COUNTERS RESET ON 18 DECEMBER
+-- 2026 — TEST BILLS AND TEST BOOKINGS BEFORE THEN DO NOT COUNT") ── the ONE cut-off every badge count reads: a
+-- booking, review or gift recorded before it is a test and never counts. Midnight in Manila. No row is deleted.
+CREATE OR REPLACE FUNCTION public.badge_counts_start()
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$ SELECT TIMESTAMPTZ '2026-12-18 00:00:00+08' $$;
+
+COMMENT ON FUNCTION public.badge_counts_start() IS
+  'The day the badge counters start (owner 16 Nov: "we will reset our counter on december 18"): 2026-12-18 00:00 '
+  'Manila. Every badge count reads it; anything recorded before is a test and never counts. Nothing is deleted.';
+
 CREATE OR REPLACE FUNCTION public.shop_trusted_five_star_count(p_vendor_profile_id UUID)
 RETURNS INTEGER
 LANGUAGE sql
@@ -35,6 +49,7 @@ AS $$
      AND vr.rating_overall = 5
      AND vr.booked_through_setnayan = true
      AND vr.voided_by_fraud = false
+     AND vr.created_at >= public.badge_counts_start()
      AND (vr.event_id IS NULL OR EXISTS (
            SELECT 1 FROM public.events e WHERE e.event_id = vr.event_id))
      AND NOT public.booking_fee_top_up_overdue(vr.vendor_profile_id, vr.event_id)

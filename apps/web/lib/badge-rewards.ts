@@ -26,7 +26,7 @@
  * 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, "Event ultra"). The plan approved 13 Nov
  * (`EVENT_ULTRA_SKU`, lib/event-ultra.ts) lands in the shop's gift stock as one 'event_ultra' unlock, goes on a quote
  * like Event Pro, and at the couple's first payment unlocks EVENT_ULTRA on their event with the catalogue row's included
- * Papic credits (migration 20271348181787). A shop may also BUY it as a gift, at its list price (owner 15 Nov).
+ * Papic credits (migration 20271348181787). It is earned only — a shop cannot buy it (`shopGiftBuyable`).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`); "Papic 1000" and "Papic 3000" are the catalogue packs NAMED by their
@@ -348,8 +348,8 @@ export type BadgeRewardFacts = {
    */
   completedBookings?: number | null;
   /**
-   * 🛡 Trusted by — clients who booked the shop a second time, imports left out (`shop_trusted_by_count`, 50566f42 +
-   * owner 16 Nov). Absent/null = unread.
+   * 🛡 Trusted by — clients who booked the shop a second time, imports counted (`shop_trusted_by_count`, 50566f42;
+   * the 16 Nov rows rule imports out of Completed bookings only), from the 18 Dec 2026 cut-off. Absent/null = unread.
    */
   trustedBy?: number | null;
   /** 🎁 Gift points for gifts given on completed events, never a gift paid from badge-reward stock (`shop_gift_points`). Absent/null = unread. */

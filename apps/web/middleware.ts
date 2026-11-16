@@ -352,16 +352,17 @@ async function middlewareCore(request: NextRequest) {
 
   // 🔗 THE ADDRESS MOVE — SHOPS (owner 2026-11-15 · specs DECISION_LOG d7910b5d · lib/shop-address.ts).
   // A shop lives at `/{shop}`. The old `/v/{shop}` (and its dates / booth / review / guest-review pages) answer with a
-  // 307 for now — the map's first step; a 308 comes later, once the move has settled. Reads only: a POST (a Server
-  // Action posted from an old page) must never be redirected. The internal cached copy (`/v/{shop}/cached`) and any
+  // 308 (permanent — ADDRESS_MOVE_MAP_2026-11-15 "`/v/{shop}[/rest]` → `/{shop}[/rest]` · 308"). Reads only: a POST (a
+  // Server Action posted from an old page) must never be redirected — a 308 would replay it at the new address. The internal cached copy (`/v/{shop}/cached`) and any
   // other `/v/` sub-page are left alone. The subdomain and custom-domain rewrites above target `/v/` internally and
   // never reach this line (a rewrite does not re-run the middleware).
   if ((request.method === 'GET' || request.method === 'HEAD') && pathname.startsWith('/v/')) {
     const bare = legacyShopRedirect(pathname);
-    if (bare) return NextResponse.redirect(new URL(`${bare}${search}`, request.url), 307);
+    if (bare) return NextResponse.redirect(new URL(`${bare}${search}`, request.url), 308);
   }
-  // `/vendor-invite/{shop}` → `/{shop}/invite`, 308 (permanent): it is printed on the shop's QR codes.
-  if (pathname.startsWith('/vendor-invite/')) {
+  // `/vendor-invite/{shop}` → `/{shop}/invite`, 308 (permanent): it is printed on the shop's QR codes. Reads only, like
+  // the `/v/` forward above — a 308 preserves the method, so an unguarded one would replay a POST at the new address.
+  if ((request.method === 'GET' || request.method === 'HEAD') && pathname.startsWith('/vendor-invite/')) {
     const invite = legacyShopInviteRedirect(pathname);
     if (invite) return NextResponse.redirect(new URL(`${invite}${search}`, request.url), 308);
   }

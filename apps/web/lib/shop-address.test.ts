@@ -3,15 +3,16 @@
  * d7910b5d, map `ADDRESS_MOVE_MAP_2026-11-15_fable.md`).
  *
  * Held here, each with the regression it stops:
- *   1. every redirect pair — `/v/{shop}[/sub]` → `/{shop}[/sub]` (307), `/vendor-invite/{shop}` → `/{shop}/invite` (308);
+ *   1. every redirect pair — `/v/{shop}[/sub]` → `/{shop}[/sub]` and `/vendor-invite/{shop}` → `/{shop}/invite`, both 308;
  *   2. the bare shop sub-pages render from the route files under `/v/` (internal rewrite), never for a reserved word;
- *   3. the middleware wires them: GET/HEAD only for the 307, the query is kept, the cached copy is never redirected;
+ *   3. the middleware wires them: 308 (the map) on GET/HEAD only for BOTH, the query is kept, the cached copy is never
+ *      redirected;
  *   4. 🛑 THE OWNER'S HARD RULE: `/cale-ice` and `/maria-and-jose` (events) are never treated as a shop — no redirect,
  *      no sub-page rewrite, and the bare-word shop copy is refused for any word whose stamp names an event, or whose
  *      stamp read failed;
  *   5. no file builds a `/v/${…}` link by hand any more — every shop link goes through `shopPath`.
  *
- * MUTATIONS (each turns this red): change the 307 to 308 or drop the GET/HEAD check in middleware.ts; make
+ * MUTATIONS (each turns this red): turn either 308 into a 307, or drop either GET/HEAD check, in middleware.ts; make
  * `legacyShopRedirect` match `/v/x/cached`; make `bareWordIsNoEvent` return true on an unread stamp; delete the
  * `reserved` check in `shopSubPageRewrite`; type `` `/v/${slug}` `` into any lib/ or app/ file.
  */
@@ -80,18 +81,21 @@ test('2 · a bare shop sub-page renders from /v/, never for a reserved word', ()
   }
 });
 
-test('3 · the middleware wires the move: 307 on reads only, 308 for the invite, query kept, the copy gated', () => {
+test('3 · the middleware wires the move: 308 on reads only for /v/ and the invite, query kept, the copy gated', () => {
   const mw = read('middleware.ts');
   assert.match(
     mw,
-    /if \(\(request\.method === 'GET' \|\| request\.method === 'HEAD'\) && pathname\.startsWith\('\/v\/'\)\) \{\s*const bare = legacyShopRedirect\(pathname\);\s*if \(bare\) return NextResponse\.redirect\(new URL\(`\$\{bare\}\$\{search\}`, request\.url\), 307\);/,
-    '/v/{shop} must 307 (the map: a 308 comes later) on GET/HEAD only — a Server Action POST is never redirected',
+    /if \(\(request\.method === 'GET' \|\| request\.method === 'HEAD'\) && pathname\.startsWith\('\/v\/'\)\) \{\s*const bare = legacyShopRedirect\(pathname\);\s*if \(bare\) return NextResponse\.redirect\(new URL\(`\$\{bare\}\$\{search\}`, request\.url\), 308\);/,
+    '/v/{shop} must 308 (ADDRESS_MOVE_MAP: permanent) on GET/HEAD only — a Server Action POST is never redirected',
   );
   assert.match(
     mw,
-    /const invite = legacyShopInviteRedirect\(pathname\);\s*if \(invite\) return NextResponse\.redirect\(new URL\(`\$\{invite\}\$\{search\}`, request\.url\), 308\);/,
-    '/vendor-invite/{shop} must 308 with its query (et, cat)',
+    /if \(\(request\.method === 'GET' \|\| request\.method === 'HEAD'\) && pathname\.startsWith\('\/vendor-invite\/'\)\) \{\s*const invite = legacyShopInviteRedirect\(pathname\);\s*if \(invite\) return NextResponse\.redirect\(new URL\(`\$\{invite\}\$\{search\}`, request\.url\), 308\);/,
+    '/vendor-invite/{shop} must 308 with its query (et, cat), on GET/HEAD only — a 308 replays a POST',
   );
+  // No other status for either forward: exactly one `legacyShopRedirect` / `legacyShopInviteRedirect` redirect each.
+  assert.equal((mw.match(/legacyShopRedirect\(pathname\)/g) ?? []).length, 1, 'one /v/ forward, not a second unguarded one');
+  assert.equal((mw.match(/legacyShopInviteRedirect\(pathname\)/g) ?? []).length, 1, 'one invite forward, not a second unguarded one');
   assert.match(mw, /shopSubPageRewrite\(pathname, \(w\) => RESERVED_SLUGS\.has\(w\)\)/);
   assert.match(mw, /if \(bareShop && \(await bareWordIsNoEvent\(request\)\)\)/, 'the bare shop copy only for a word that is clearly no event');
   // The redirects run AFTER the subdomain / custom-domain rewrites returned (they target /v/ internally).

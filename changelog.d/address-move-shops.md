@@ -6,7 +6,7 @@ already rendered at the bare `/{shop}` and named it in its canonical tag; 46 fil
 - **One helper, `lib/shop-address.ts`** (`shopPath`, `shopInvitePath`). Every shop link — the share link, every QR
   (page · dates · reviews · shortlist), emails, the favourites list, admin, the supplier's own dashboard, the photo
   mark's address line — is built through it. A guard fails if a `/v/${…}` link is typed by hand again.
-- **`/v/{shop}` → `/{shop}`, 307** (the map's first step — a 308 comes later), and the same for `/dates`, `/booth`,
+- **`/v/{shop}` → `/{shop}`, 308** (permanent, as the address map says), and the same for `/dates`, `/booth`,
   `/review`, `/guest-review`. Reads only (a Server Action POST is never redirected); the query is kept. The route files
   stay at `app/v/[slug]/…` as the internal render target, so no file moves.
 - **`/vendor-invite/{shop}` → `/{shop}/invite`, 308** (printed on QR codes; `et`/`cat` kept). **The word decides:** at
@@ -17,7 +17,8 @@ already rendered at the bare `/{shop}` and named it in its canonical tag; 46 fil
   event's old word reaching the shop copy still lands on the event.
 - The subdomain and custom-domain rewrites are unchanged (they target `/v/` internally).
 
-Guards: `lib/shop-address.test.ts` (every redirect pair, the GET/HEAD-only 307, the 308, reserved words, the
+Guards: `lib/shop-address.test.ts` (every redirect pair, both 308s on GET/HEAD only — the `/vendor-invite` one
+  included, so a POST is never replayed — reserved words, the
 cale-ice / maria-and-jose pin, no hand-built `/v/` link). `lib/slug-forwarding-reach.test.ts` and
 `lib/the-shop-page-is-setnayan-sourced.test.ts` re-pointed at the new addresses, same properties.
 

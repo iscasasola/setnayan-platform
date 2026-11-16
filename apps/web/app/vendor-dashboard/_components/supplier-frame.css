@@ -73,6 +73,23 @@
    the work pane (Needs you today · Also today · Events you run · Coming up) and the Shop pane sit side by side; from 1600
    the work pane splits again: Needs | Coming up. Below 1280 the two wrappers draw nothing (`display: contents`).
    🔒 app/vendor-dashboard/_components/today-is-two-panes-on-a-computer.test.ts */
+/* 📐 THE DESK COLUMNS' NUMBERS, SAID ONCE (owner 17 Nov audit: no magic numbers) — the drawing's widths
+   (`supplier_desktop_main_2026-11-16`): Today's side pane 400 (420 from 1600), the Shop's side column 400 (440 from
+   1600), Clients' picked day 420, one 28 gap. Every grid below reads these; so does the Shop's thumb row, which is drawn
+   on <body> and cannot read the grid — it starts where the service cards start (the drawing's `.thumb{left:540px}`,
+   580 at 1600 = the content edge + the side column + the gap). */
+:root {
+  --desk-gap: 28px;
+  --today-side: 400px;
+  --shop-desk-side: 400px;
+  --clients-day: 420px;
+}
+@media (min-width: 1600px) {
+  :root {
+    --today-side: 420px;
+    --shop-desk-side: 440px;
+  }
+}
 [data-today-pane],
 [data-today-pane-needs],
 [data-today-top-only],
@@ -89,8 +106,8 @@
 @media (min-width: 1280px) {
   [data-today-first-screen] {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
-    column-gap: 28px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--today-side));
+    column-gap: var(--desk-gap);
     align-items: start;
   }
   [data-today-first-screen] > * {
@@ -118,13 +135,10 @@
   }
 }
 @media (min-width: 1600px) {
-  [data-today-first-screen] {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
-  }
   [data-today-first-screen] > [data-today-pane='work'] {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 28px;
+    column-gap: var(--desk-gap);
     align-items: start;
   }
   [data-today-pane='work'] > [data-today-pane-needs] {
@@ -145,28 +159,16 @@
 [data-shop-desk-side] {
   display: contents;
 }
-/* The side column's two numbers, said ONCE: the grid below and the thumb row (drawn on <body>, so it cannot read the
-   grid) both read them — the row starts where the service cards start (the drawing's `.thumb{left:540px}`, 580 at
-   1600 = the content edge + the side column + the gap). */
-:root {
-  --shop-desk-side: 400px;
-  --shop-desk-gap: 28px;
-}
-@media (min-width: 1600px) {
-  :root {
-    --shop-desk-side: 440px;
-  }
-}
 @media (min-width: 1280px) {
   [data-shop-desk] {
     display: grid;
     grid-template-columns: var(--shop-desk-side) minmax(0, 1fr);
-    column-gap: var(--shop-desk-gap);
+    column-gap: var(--desk-gap);
     align-items: start;
   }
   /* 🔍 The Shop's thumb row (`ShopServicesThumb`) sits right of the side column, over the cards it searches. */
   html:has([data-shop-desk]) [data-supplier-thumb='services']:not([data-thumb-up]) {
-    left: calc(var(--thumb-left, 0px) + var(--shop-desk-side) + var(--shop-desk-gap));
+    left: calc(var(--thumb-left, 0px) + var(--shop-desk-side) + var(--desk-gap));
   }
   [data-shop-desk] > [data-shop-desk-side] {
     display: block;
@@ -221,10 +223,10 @@
 @media (min-width: 1280px) {
   [data-dates-month='clients']:has(> [data-dates-picked-col]) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--clients-day));
     grid-template-rows: auto 1fr;
     grid-template-areas: 'top day' 'rest day';
-    column-gap: 28px;
+    column-gap: var(--desk-gap);
     align-items: start;
   }
   [data-dates-month='clients']:has(> [data-dates-picked-col]) > [data-dates-month-top] {

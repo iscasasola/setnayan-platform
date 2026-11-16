@@ -45,7 +45,8 @@ test('2 · below 1280 the wrappers draw nothing — the phone is the shipped one
 });
 
 test('3 · from 1280: a grid — work pane column 1, Shop column 2, the rest full width', () => {
-  const b = CSS.slice(CSS.indexOf('@media (min-width: 1280px)'), CSS.indexOf('@media (min-width: 1600px)'));
+  const w = CSS.indexOf('@media (min-width: 1280px)');
+  const b = CSS.slice(w, CSS.indexOf('@media (min-width: 1600px)', w));
   assert.match(b, /\[data-today-first-screen\]\s*\{[^}]*display:\s*grid/);
   assert.match(b, /\[data-today-first-screen\] > \*\s*\{\s*grid-column:\s*1 \/ -1;/);
   assert.match(b, /> \[data-today-pane='work'\]\s*\{[^}]*grid-column:\s*1;/);

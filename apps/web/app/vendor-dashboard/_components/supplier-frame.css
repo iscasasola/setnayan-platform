@@ -98,6 +98,9 @@
   }
 }
 @media (min-width: 1600px) {
+  [data-today-first-screen] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  }
   [data-today-first-screen] > [data-today-pane='work'] {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -110,5 +113,67 @@
   }
   [data-today-pane='work'] > [data-today-coming-up] {
     min-width: 0;
+  }
+}
+
+/* ── 🖥 SHOP ON A COMPUTER — layout A (owner 16 Nov, the same approval, picks 3 · 4 · 5). The cover and its doors keep the
+   full width; from 1280 the analytics, badges and Makers are a 400px side column (440 from 1600) beside the service
+   cards; the analytics carousel lays out as a grid (pick 4) and the cards go 2 across, 3 from 1600 (pick 5). Same cards,
+   words and order — the loop's inert copies step aside while it is a grid. Below 1280 nothing here applies.
+   🔒 app/vendor-dashboard/shop/the-shop-is-layout-a-on-a-computer.test.ts */
+[data-shop-desk],
+[data-shop-desk-side] {
+  display: contents;
+}
+@media (min-width: 1280px) {
+  [data-shop-desk] {
+    display: grid;
+    grid-template-columns: 400px minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+  [data-shop-desk] > [data-shop-desk-side] {
+    display: block;
+    min-width: 0;
+  }
+  [data-shop-desk] > [data-shop-services] {
+    min-width: 0;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-track] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    transform: none;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-copy],
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-dots] {
+    display: none;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-slide] {
+    width: auto;
+    min-width: 0;
+    flex: none;
+  }
+  [data-shop-desk] [data-shop-card-list] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+    align-items: start;
+  }
+  [data-shop-desk] [data-shop-card-list] > * {
+    margin-top: 0;
+    min-width: 0;
+  }
+  [data-shop-desk] [data-shop-card-list] > [data-shop-card-group] {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 1600px) {
+  [data-shop-desk] {
+    grid-template-columns: 440px minmax(0, 1fr);
+  }
+  [data-shop-desk] [data-shop-card-list] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

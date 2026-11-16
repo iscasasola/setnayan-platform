@@ -141,6 +141,7 @@ const config: Config = {
         // moves no pixel. Keys carry the `sn-` family so `lint-colour-exists` reads `sn` as a known key.
         'sn-hair': 'var(--sn-sh-hair)',
         'sn-frame-tile': 'var(--sn-frame-shadow-tile)',
+        'sn-frame': 'var(--sn-frame-shadow)', // the frame's soft lift (16 Nov) — read it, never type a shadow
         'sn-sheet': 'var(--sn-sheet-shadow)',
         'sn-sheet-side': 'var(--sn-sheet-shadow-side)',
       },
@@ -157,6 +158,8 @@ const config: Config = {
         'sn-xl': 'var(--sn-fs-xl)', // 17
         'sn-2xl': 'var(--sn-fs-2xl)', // 19
         'sn-3xl': 'var(--sn-fs-3xl)', // 22
+        // The ONE screen title (clean warm look, owner 16 Nov 2026): 30 px / 700, tight.
+        'sn-title': ['var(--sn-fs-title)', { lineHeight: '1.08', letterSpacing: '-0.02em', fontWeight: '700' }],
       },
       // Template sheet rule 14 (4 · 8 · 12 · 16 · 24) — `p-sn-3`, `gap-sn-2`, `mt-sn-5` …
       spacing: {
@@ -235,6 +238,8 @@ const config: Config = {
         // `page` — the page BEHIND everything (body + full-height wrappers only). Its own setting since 12 Nov 2026 so
         // the background can change without greying cards or button labels. See `--sn-page-bg` in globals.css.
         page: 'rgb(var(--sn-page-bg) / <alpha-value>)',
+        // The FRAME's fill (clean warm look, 16 Nov 2026) — the white card that sits on the page. `bg-frame`.
+        frame: 'rgb(var(--sn-frame-bg) / <alpha-value>)',
         // `paper` — surface slot used widely in dashboard editors
         // (`bg-paper` rows, `text-paper` on dark CTAs like the Build button).
         // It only ever existed as the `--m-paper` CSS var, NEVER as a Tailwind

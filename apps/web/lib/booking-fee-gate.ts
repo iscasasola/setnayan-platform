@@ -162,7 +162,10 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
  * only the NAME match (answer 8) — it is never stamped; the facts above stand.
  *
  * ⚠ THE APP'S BELIEF, NOT THE BILL. SQL decides what is charged:
- * `public.booking_fee_attribution_for` carries the same arms, and
+ * `public.booking_fee_attribution_for_event` carries the same arms, and
+ * `public.booking_fee_attribution_for` adds ONE more that this per-event mirror cannot see (HOLE 3, migration
+ * 20271349691846, owner LOCKED §3 "every repeat"): the same COUPLE, sourced to this shop on an earlier event, is
+ * sourced here too. And
  * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case of
  * `lib/fee-rule-b-cases.ts` through both and requires the same answer.
  * Fails SAFE to import.

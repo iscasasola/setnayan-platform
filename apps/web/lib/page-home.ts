@@ -199,6 +199,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): that door is now ALSO the top-left ‹ for everyone,
   // returning in place; cold, it is "home" — Discover signed out, Home signed in (`shopTopBack`).
   '/v/[slug]': { none: 'computed', by: 'lib/shop-back.ts' },
+  // 📖 An Ultra shop's own page for one event (2026-11-14, SIMPLER SUPPLIER PLANS item 8) goes back to that shop.
+  '/v/[slug]/story/[eventSlug]': { home: '/v/[slug]', label: 'the shop' },
   // 🎟 The host's own event page draws NO back — an invited guest sees nothing from Setnayan — EXCEPT for a visitor
   // Discover's event card sent (`?via=discover`, read in the browser only): one ‹ Discover (2026-11-12, "DISCOVER WITH
   // SUPPLIERS — PROTOTYPE APPROVED", answer 3). Per visit, so computed. (Its sub-pages keep `/[slug]/**` below.)

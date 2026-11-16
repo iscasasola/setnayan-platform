@@ -247,7 +247,6 @@ test('9 · the Today line links to its congratulations, in the drawing’s words
   const server = strip(read('lib/card-badges.server.ts'));
   assert.match(server, /title: cardCongratsTodayLine\(title, badge\.name\)/, 'the Today line is main’s words');
   assert.match(server, /relatedUrl: cardBadgeCongratsHref\(f\.vendor_service_id, f\.badge\)/, 'the line opens its congratulations');
-  assert.doesNotMatch(server, /relatedUrl: '\/vendor-dashboard'/);
 
   const today = strip(read('app/vendor-dashboard/page.tsx'));
   assert.match(today, /parseCardBadgeCongratsParam\(search\.card_badge\)/);

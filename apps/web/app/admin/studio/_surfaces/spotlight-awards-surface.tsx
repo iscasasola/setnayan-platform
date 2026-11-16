@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 /**
  * SpotlightAwardsSurface — the Spotlight Awards curation body, re-homed
  * byte-identical from app/admin/spotlight-awards/page.tsx into the tabbed
@@ -29,7 +32,7 @@
  * (defense in depth). Reads use the RLS-scoped server client (public-read).
  */
 
-import { Trophy, Star, TrendingUp, BarChart3, Info } from 'lucide-react';
+import { BarChart3, Info, Plus, Star, TrendingUp, Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchSpotlightAwards,
@@ -103,28 +106,30 @@ export async function SpotlightAwardsSurface({
       />
 
       {ok ? (
-        <div className="mb-5 rounded-xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <div className="mb-5 border-success-300/70 bg-success-50 py-3 text-sm text-success-800 border-t border-ink/10">
           {ok}
         </div>
       ) : null}
       {error ? (
-        <div className="mb-5 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3 text-sm text-mulberry">
+        <div className="mb-5 bg-terracotta/[0.06] py-3 text-sm text-mulberry border-t border-ink/10">
           {error}
         </div>
       ) : null}
 
       {/* Owner sign-off note — homepage featuring is gated, not auto. */}
-      <div className="mb-6 flex items-start gap-3 rounded-xl border border-warn-300/70 bg-warn-50 px-4 py-3">
+      <div className="mb-6 flex items-start gap-3 border-warn-300/70 bg-warn-50 py-3 border-t border-ink/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} aria-hidden />
-        <p className="text-sm text-ink/80">
-          Homepage featuring is <strong>off by default</strong>. The public
+        <div>
+          <InfoTip label="About homepage featuring" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Homepage featuring is <strong>off by default</strong>. The public
           homepage strip shows only the awards you feature here — nothing is
           auto-injected onto the live site. Featuring awaits owner sign-off.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {/* Recompute + stat row */}
-      <section className="mb-6 flex flex-col gap-4 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-6 flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between border-t border-ink/10">
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Total awards" value={rows.length} />
           <Stat label="Auto-picked" value={autoCount} />
@@ -135,7 +140,7 @@ export async function SpotlightAwardsSurface({
 
       {/* Awards table */}
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/40 px-6 py-12 text-center">
+        <div className="border-dashed py-12 text-center border-t border-ink/10">
           <Star className="mx-auto mb-3 h-6 w-6 text-ink/30" strokeWidth={1.5} aria-hidden />
           <p className="text-sm font-medium text-ink">No awards for this month yet.</p>
           <p className="mt-1 text-sm text-ink/60">
@@ -148,7 +153,7 @@ export async function SpotlightAwardsSurface({
           {rows.map((r, i) => (
             <li
               key={r.award_id}
-              className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between border-t border-ink/10"
             >
               <div className="flex items-center gap-3">
                 {logoUrls[i] ? (
@@ -193,13 +198,15 @@ export async function SpotlightAwardsSurface({
       )}
 
       {/* Add-by-hand */}
-      <section className="mt-8 sn-tile p-5">
+      <section className="mt-8 py-5 border-t border-ink/10">
         <h2 className="text-base font-semibold text-ink">Add an award by hand</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
+        <div className="mt-1">
+          <InfoTip label="About awarding directly" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
           recognition, which has no automatic formula yet. Paste the supplier&rsquo;s
           profile ID.
-        </p>
+          </InfoTip>
+        </div>
         <ManualAddForm period={period} />
       </section>
     </div>
@@ -230,27 +237,23 @@ function ManualAddForm({ period }: { period: string }) {
           name="vendor_profile_id"
           required
           placeholder="00000000-0000-0000-0000-000000000000"
-          className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 font-mono text-xs text-ink outline-none focus:border-terracotta"
+          className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-terracotta tabular-nums"
         />
       </label>
       <label className="text-sm">
         <span className="mb-1 block font-medium text-ink/80">Award</span>
-        <select
+        <FieldPick
           name="award_type"
+          label="Award"
           defaultValue="rising"
-          className="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-        >
-          <option value="rising">Rising Star</option>
-          <option value="top_pick">Setnayan&apos;s Top Pick</option>
-          <option value="most_booked">Most Booked</option>
-        </select>
+          options={[
+            { key: 'rising', label: 'Rising Star' },
+            { key: 'top_pick', label: 'Setnayan’s Top Pick' },
+            { key: 'most_booked', label: 'Most Booked' },
+          ]}
+        />
       </label>
-      <button
-        type="submit"
-        className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
-      >
-        Add award
-      </button>
+      <ActionButton tone="brand" main icon={<Plus aria-hidden />} label="Add award" type="submit" />
     </form>
   );
 }

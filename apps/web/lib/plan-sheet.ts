@@ -34,7 +34,7 @@ import { allowance, planGivesLines, type PlanLine } from './vendor-plan-rows';
 
 /** The limits a shop can press + past — each read from the plan table (Lane B "Door 1" list). */
 export const PLAN_LIMITS = [
-  { key: 'bookingsPerDate', title: 'Bookings a day per card', thing: 'bookings a day on a card' },
+  { key: 'bookingsPerDate', title: 'Bookings a day per service, at each branch', thing: 'bookings a day for a service' },
   { key: 'cardsPerCategory', title: 'Cards per category', thing: 'cards in a category' },
   { key: 'mainCategories', title: 'Main categories', thing: 'main categories' },
   { key: 'teamSeats', title: 'Team seats', thing: 'team seats' },
@@ -134,7 +134,7 @@ export function lowestPlanAllowing(
 export type LimitAsk = {
   /** The plan to offer; null = no plan takes that many (the sheet says so, with no Upgrade). */
   plan: VendorTier | null;
-  /** "Upgrade to Pro to take up to 3 bookings a day on a card" · "Get verified to take up to 20 km of reach". */
+  /** "Upgrade to Pro to take up to 3 bookings a day for a service" · "Get verified to take up to 20 km of reach". */
   headline: string;
   /** The other limits that plan raises, "Main categories 2 → 8" — the "see other features that will unlock" part. */
   alsoUnlocks: string[];
@@ -235,7 +235,7 @@ export function payToday(input: {
 }
 
 /**
- * A plan row's one line while it is shut. Another plan: "Up to 3 a day per card · 100 km · 5 team seats" (the
+ * A plan row's one line while it is shut. Another plan: "Up to 3 a day per service · 100 km · 5 team seats" (the
  * prototype's row line), read from the table; a lower plan while a paid one runs: "Lower plan · starts after 8 Dec 2026".
  */
 export function planRowLine(
@@ -251,5 +251,5 @@ export function planRowLine(
   const seats = limitOf(to, 'teamSeats', paywallOn);
   const seatWords = Number.isFinite(seats) ? `${formatCount(seats)} team ${seats === 1 ? 'seat' : 'seats'}` : 'team seats with no limit';
   const reachWords = reach === 'Not in search' ? 'not in search' : reach === 'Nationwide' ? 'nationwide' : reach;
-  return `Up to ${limitWords('bookingsPerDate', a)} a day per card · ${reachWords} · ${seatWords}`;
+  return `Up to ${limitWords('bookingsPerDate', a)} a day per service · ${reachWords} · ${seatWords}`;
 }

@@ -1337,29 +1337,11 @@ export async function MarketplaceView({
     }
   }
 
-  // Iteration 0041 — couple-side event_type auto-apply. When no
-  // ?event_type= URL param is set AND the couple has a primary event with
-  // a non-wedding event_type, default the filter to that event_type. The
-  // couple lands on a marketplace scoped to their event. Wedding event_types
-  // intentionally skip the auto-apply (every existing vendor is tagged
-  // wedding, so auto-applying would be a no-op visually). Users who want
-  // to browse all vendors can clear the filter via the empty-state CTA
-  // (PR #184's "Browse all vendors" link drops the event_type from the URL).
-  //
-  // 🔴 REWRITTEN 2026-09-18. This block used to fire on `!filters.eventType`,
-  // and the empty state's escape — "Or browse all vendors instead" — worked by
-  // DROPPING event_type from the URL, which is exactly the condition that
-  // re-applied it. Following the only way out reproduced the identical empty
-  // page, forever. The comment above claimed dropping the parameter was the
-  // solution; it was the mechanism.
-  //
-  // "No filter" and "I asked for everything" are now different states:
-  // `?event_type=all` beats the auto-apply. See lib/explore-event-type-scope.ts.
-  const scope = resolveExploreScope(
-    rawEventTypeParam,
-    coupleEventType,
-    eventTypeKeys,
-  );
+  // Iteration 0041 auto-applied the couple's own non-wedding event type when `?event_type=` was absent; the
+  // 2026-09-18 rewrite added `?event_type=all` as the escape. Both are history now:
+  // 🔴 2026-11-16: the couple's own event type no longer scopes the list (explore-event-type-scope.ts) — a
+  // filter applies only when the address names it, so "Clear all filters" clears every one.
+  const scope = resolveExploreScope(rawEventTypeParam, eventTypeKeys);
   filters = { ...filters, eventType: scope.eventType };
 
   // Religion-default-on (2026-05-20) → default-OFF (Task #42, 2026-05-22):

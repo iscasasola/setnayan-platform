@@ -3,6 +3,7 @@
  * client component can import it: the tries number, and THE ONE ANSWER TO "WHERE DOES THIS PAPER STAND?".
  */
 import type { IntakeOutcome, IntakeReport } from '@/lib/paper-intake';
+import { formatCount } from '@/lib/format-number';
 
 /** Tries per paper (owner 2026-11-14: "3 tries per paper"). */
 export const MAX_TRIES = 3;
@@ -103,7 +104,7 @@ export function paperState(
     const counted = !report || report.outcome === 'unreadable';
     const tries =
       attempts > 0 && counted
-        ? ` · Try ${Math.min(attempts + 1, MAX_TRIES)} of ${MAX_TRIES}${attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`
+        ? ` · Try ${formatCount(Math.min(attempts + 1, MAX_TRIES))} of ${formatCount(MAX_TRIES)}${attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`
         : report && !counted
           ? ' · Not counted as a try'
           : '';

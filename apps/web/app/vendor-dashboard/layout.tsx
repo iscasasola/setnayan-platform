@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { countNewInquiries } from '@/lib/new-inquiry';
 import { SUPPLIER_BOOKED_STATUSES } from '@/lib/papic-supplier-way-in';
 import { NoticeSlot } from '@/app/_components/notices/notices';
@@ -217,7 +218,9 @@ export default async function VendorDashboardLayout({
       if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
       if (error || !pending?.length) return 0;
       const eventIds = [...new Set(pending.map((t) => t.event_id as string).filter(Boolean))];
-      const { data: booked, error: bookedErr } = await supabase
+      // `event_vendors` has no supplier SELECT policy — a session read returns zero rows, silently
+      // (`a-shop-cannot-read-its-own-booking.test.ts`). The admin client, scoped by the shop the session just proved.
+      const { data: booked, error: bookedErr } = await createAdminClient()
         .from('event_vendors')
         .select('event_id')
         .eq('marketplace_vendor_id', vp.vendor_profile_id)

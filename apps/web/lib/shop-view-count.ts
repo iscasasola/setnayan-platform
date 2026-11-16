@@ -18,10 +18,9 @@
  * 🔒 `lib/shop-view-count.test.ts`.
  */
 import { isBot } from '@/lib/visits/visit-capture';
-import { hashViewer } from '@/lib/vendor-funnel';
+import { hashViewer } from '@/lib/viewer-hash';
 
 // The readers live beside the funnel they feed (one import direction: this file → the funnel).
-export { countDistinctViewers, readCouplesWhoOpened } from '@/lib/vendor-funnel';
 
 /** What the request said about who is looking — read by the caller (an action or a render, BEFORE `after()`). */
 export type ShopViewContext = {

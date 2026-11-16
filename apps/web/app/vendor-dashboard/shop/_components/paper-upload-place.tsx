@@ -435,8 +435,7 @@ function TypedForm({
       </p>
       <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
         <strong className="block">{slot === 'mayors_permit' ? 'Type what’s on your permit (optional)' : 'Type what’s on this paper (optional)'}</strong>
-        Three photos couldn’t be read, so we kept the last one for a person at Setnayan to check. Typing what it says
-        helps them — nothing waits on it.
+        We kept your last photo for a person at Setnayan to check. Typing what it says helps them.
       </p>
       <form
         className="space-y-2"

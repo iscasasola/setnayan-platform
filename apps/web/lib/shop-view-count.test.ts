@@ -14,9 +14,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
+import { countDistinctViewers, readCouplesWhoOpened } from '@/lib/vendor-funnel';
 import {
-  countDistinctViewers,
-  readCouplesWhoOpened,
   recordShopViewWith,
   shopViewerHash,
   type ShopViewAdmin,

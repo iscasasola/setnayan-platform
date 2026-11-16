@@ -57,20 +57,9 @@ export const SENT_PROPOSAL_STATUSES = ['sent', 'viewed', 'accepted'] as const;
  */
 export const FUNNEL_MIN_N = 5;
 
-/**
- * De-identify a viewer. Returns sha256(salt || id) — a stable, non-reversible
- * hash so unique-viewer counts work without ever storing the raw user_id /
- * anon-session id. NEVER store or expose the input `id`.
- *
- * Salt resolves from VIEWER_HASH_SALT, falling back to SUPABASE_SERVICE_ROLE_KEY
- * (mirrors lib/guest-session.ts) — the hash is non-reversible either way; the
- * dedicated salt just decouples it from the service key for rotation.
- */
-export function hashViewer(id: string): string {
-  const salt =
-    process.env.VIEWER_HASH_SALT ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  return createHash('sha256').update(`${salt}:${id}`).digest('hex');
-}
+// `hashViewer` lives in lib/viewer-hash.ts (re-exported here) — the shop page's view count imports it without
+// pulling this whole module (and its `vendor_proposals` reads) into the cached shop tree (W1-B15).
+export { hashViewer } from '@/lib/viewer-hash';
 
 /**
  * Minimum-N gate — TS mirror of the shipped SQL public.min_n_ok(count, floor).

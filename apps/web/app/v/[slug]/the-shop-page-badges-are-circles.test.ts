@@ -19,7 +19,7 @@ test('the hero badges sit in one flex row with a gap', () => {
   assert.match(row0, /<ul className="flex flex-wrap items-center gap-x-5 gap-y-3">/);
   assert.match(row0, /<div className="flex flex-wrap items-center gap-2">/);
   const row = page.slice(start, page.indexOf('<ShopSinceLine', start));
-  for (const b of ['badge={verifiedBadge()}', 'awardsRow.map', 'badge={ratingPill!}']) {
+  for (const b of ['badge={verifiedBadge()}', 'awardsRow.map((item)', 'badge={ratingPill!}']) {
     assert.ok(row.includes(b), `${b} left the spaced row`);
   }
 });

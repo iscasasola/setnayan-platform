@@ -21,6 +21,7 @@
  * Pure: no I/O, no React. Held by `lib/public-badges.test.ts`.
  */
 import { SEAL_LABEL, type SealKey as EngineSealKey } from '@/lib/shop-seals';
+import { shopBadgeTier, tierName, type ShopBadgeKey as BadgeTierKey } from '@/lib/badge-tiers';
 
 /** The retired explore pills — the old `VendorBadge` keys (`lib/vendor-badges.ts`) that no longer draw. */
 export const RETIRED_EXPLORE_PILLS = ['new', 'couple_trusted', 'most_booking', 'top_pick'] as const;
@@ -80,7 +81,7 @@ export type PublicBadgeView = {
  * an empty row for "this shop has none": it means "not counted yet".
  */
 export const PUBLIC_BADGE_GAPS: Readonly<Record<string, string>> = {
-  shopBadges: 'J0 — the five ladders and their tier steps (v86 steps; main still holds the retired Events ladder)',
+  shopBadges: 'J0 — wired (#7753): `tiersFromCounts` on the shop page; Invites has no counter yet (no import door)',
   seals: 'J2 — wired (#7825): `sealsFromEngine` reads `readShopSeals`; the shop page passes it (app/v/[slug])',
   cardMedals: 'J3 — the card-badge holds (service_card_badge_holds); only Setnayan Verified has a source today',
   sheetVerified: 'the shop page passes no verification to the service card yet (app/v/[slug] — F2 / J3 own its callers)',
@@ -119,19 +120,56 @@ export function sealsFromEngine(keys: readonly EngineSealKey[] | null | undefine
   return keys.map((k) => ENGINE_SEAL[k]).filter((k): k is SealKey => k !== undefined);
 }
 
+/** When and for which year a seal the shop holds was given (`shop_seals.award_year` / `awarded_at`, the newest row). */
+export type SealGiven = { year: number; awardedAt: string };
+
 /**
- * The year each yearly seal was given for (`shop_seals.award_year`, the newest when held more than once), in this
- * adapter's keys — so a row can name the seal's year ("Top 10 supplier of 2026") from the stored row, never a guess.
+ * The stored rows of the seals a shop holds (`readShopSeals().rows`), in this adapter's keys — so a row can name the
+ * seal's year ("Top 10 supplier of 2026") and its full screen the date it was given, from the stored row, never a guess.
  */
-export function sealYearsFromEngine(
-  rows: ReadonlyArray<{ seal: EngineSealKey; award_year: number }> | null | undefined,
-): Partial<Record<SealKey, number>> {
-  const out: Partial<Record<SealKey, number>> = {};
+export function sealsGivenFromEngine(
+  rows: ReadonlyArray<{ seal: EngineSealKey; award_year: number; awarded_at: string }> | null | undefined,
+): Partial<Record<SealKey, SealGiven>> {
+  const out: Partial<Record<SealKey, SealGiven>> = {};
   for (const r of rows ?? []) {
     const k = ENGINE_SEAL[r.seal];
-    if (k && Number.isInteger(r.award_year) && r.award_year > (out[k] ?? 0)) out[k] = r.award_year;
+    if (!k || !Number.isInteger(r.award_year)) continue;
+    const had = out[k];
+    if (!had || r.award_year > had.year) out[k] = { year: r.award_year, awardedAt: r.awarded_at };
   }
   return out;
+}
+
+/** The ladder (`lib/badge-tiers.ts`) each adapter family climbs. */
+export const FAMILY_LADDER: Readonly<Record<ShopBadgeFamily, BadgeTierKey>> = {
+  bookings: 'completed_bookings',
+  five_star: 'five_star_reviews',
+  gifts: 'gifts_given',
+  trusted_by: 'trusted_by',
+  invites: 'invites',
+};
+
+/** The counters behind the tiered badges; null = that read failed (never 0). */
+export type ShopTierCounts = Partial<Record<ShopBadgeFamily, number | null>>;
+
+/**
+ * 🪜 J0 WIRED (#7753): the tiers a shop has reached, from its counters (`readShopTierCounts`, lib/badge-rewards.server.ts)
+ * on each badge's OWN steps (`shopBadgeTier`). A null count draws nothing (and is reported by `unreadFamilies`).
+ */
+export function tiersFromCounts(counts: ShopTierCounts): ShopTierBadge[] {
+  const out: ShopTierBadge[] = [];
+  for (const f of SHOP_BADGE_FAMILIES) {
+    const count = counts[f.key];
+    if (count === null || count === undefined) continue;
+    const tier = shopBadgeTier(FAMILY_LADDER[f.key], count);
+    if (tier) out.push({ family: f.key, name: f.name, tier: tierName(tier), count });
+  }
+  return out;
+}
+
+/** The families whose counter was asked for and could not be read — the row says so instead of drawing nothing. */
+export function unreadFamilies(counts: ShopTierCounts): ShopBadgeFamily[] {
+  return SHOP_BADGE_FAMILIES.filter((f) => f.key in counts && counts[f.key] === null).map((f) => f.key);
 }
 
 const FAMILY_ORDER = SHOP_BADGE_FAMILIES.map((f) => f.key);

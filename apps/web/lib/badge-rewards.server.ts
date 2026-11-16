@@ -175,6 +175,25 @@ export async function readBadgeRewardFacts(
   };
 }
 
+/**
+ * 🏅 The four tiered shop badges' counters, as the shop's PUBLIC page reads them (the Awards row, through the one
+ * adapter — `tiersFromCounts`, lib/public-badges.ts). The SAME reads `readBadgeRewardFacts` makes, started together.
+ * Each is null when its read was refused — never 0 — so the row says it could not load, never "no badges".
+ * Invites has no counter yet (see `readBadgeRewardFacts`), so it is not read here.
+ */
+export async function readShopTierCounts(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ completedBookings: number | null; fiveStarReviews: number | null; giftPoints: number | null; trustedBy: number | null }> {
+  const [completedBookings, fiveStarReviews, giftPoints, trustedBy] = await Promise.all([
+    readBadgeCount(admin, 'shop_completed_bookings_count', vendorProfileId),
+    readFiveStarCount(admin, vendorProfileId),
+    readGiftPoints(admin, vendorProfileId),
+    readBadgeCount(admin, 'shop_trusted_by_count', vendorProfileId),
+  ]);
+  return { completedBookings, fiveStarReviews, giftPoints, trustedBy };
+}
+
 /** A badge counter RPC's answer (`shop_completed_bookings_count`, `shop_trusted_by_count`); null on a refused read. */
 async function readBadgeCount(
   admin: SupabaseClient,

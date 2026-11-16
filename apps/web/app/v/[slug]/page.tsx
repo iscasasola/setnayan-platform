@@ -21,7 +21,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
-import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
+import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store, CircleAlert } from 'lucide-react';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -117,10 +117,11 @@ import {
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
 import { ShopTopBar } from './_components/shop-top-bar';
-import { awardFact, awardsRowBadges } from '@/lib/shop-award-fact';
-import { SHOP_BADGE_FAMILIES, publicBadgeView, sealYearsFromEngine, sealsFromEngine } from '@/lib/public-badges';
+import { awardFact, awardsRowItems } from '@/lib/shop-award-fact';
+import { publicBadgeView, sealsFromEngine, sealsGivenFromEngine, tiersFromCounts, unreadFamilies, type ShopTierCounts } from '@/lib/public-badges';
+import { readShopTierCounts } from '@/lib/badge-rewards.server';
+import { AwardRowButton } from './_components/award-row-button';
 import { readShopSeals } from '@/lib/shop-seals.server';
-import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
 import { actionButtonClass } from '@/components/action-button-class';
 import { BackButton } from '@/app/_components/back-button';
@@ -1160,6 +1161,15 @@ export async function renderVendorBySlug({
   const sealsP = startRead(
     readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
   );
+  // 🪜 The tiered badges' counters (J0, #7753 — `readShopTierCounts`); each null when its read was refused, never 0.
+  const tierCountsP = startRead(
+    readShopTierCounts(admin, vendor.vendor_profile_id).catch(() => ({
+      completedBookings: null,
+      fiveStarReviews: null,
+      giftPoints: null,
+      trustedBy: null,
+    })),
+  );
   const favoritesCountP = startRead((async () => {
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
@@ -1226,18 +1236,23 @@ export async function renderVendorBySlug({
   // Verified from the route's gate, the seals from the seals engine (#7825), and Completed bookings on its own ladder
   // (`shopBadgeTier`, lib/badge-tiers.ts) from the SAME measured count the experience chip states — never from an
   // unread one. The retired monthly Spotlight awards are not badges any more (4b8cc3a3: the seals replace them).
-  const shopSeals = await sealsP;
-  const BOOKINGS_FAMILY_NAME = SHOP_BADGE_FAMILIES.find((f) => f.key === 'bookings')!.name;
-  const bookingsTier =
-    bookingCountMeasured && finalizedBookingCount ? shopBadgeTier('completed_bookings', finalizedBookingCount) : null;
+  const [shopSeals, tierCounts] = await Promise.all([sealsP, tierCountsP]);
+  // An unverified shop's row is its "Not yet" slot alone (v16): the tiered badges and the seals are a verified shop's.
+  const countsForRow: ShopTierCounts = {
+    bookings: tierCounts.completedBookings,
+    five_star: tierCounts.fiveStarReviews,
+    gifts: tierCounts.giftPoints,
+    trusted_by: tierCounts.trustedBy,
+  };
   const awardsView = publicBadgeView({
     verified: vendor.verification_state === 'verified',
     seals: sealsFromEngine(shopSeals?.seals),
-    tiers: bookingsTier
-      ? [{ family: 'bookings', name: BOOKINGS_FAMILY_NAME, tier: tierName(bookingsTier), count: finalizedBookingCount ?? 0 }]
-      : null,
+    tiers: tiersFromCounts(countsForRow),
   });
-  const awardsRow = awardsRowBadges(awardsView, sealYearsFromEngine(shopSeals?.rows));
+  const awardsRow = awardsRowItems(awardsView, sealsGivenFromEngine(shopSeals?.rows));
+  // 🔑 A FAILED READ IS NEVER "NO AWARDS": the row says it could not load them. This also keeps a Verified Partner from
+  // silently reading as plain Setnayan Verified when its seals could not be read.
+  const awardsUnread = shopSeals === null || unreadFamilies(countsForRow).length > 0;
   // The full-screen Verified award's art: the row's own blue-check seal, larger (the top bar's check opens it too).
   const verifiedFullArt = (
     <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-full" size={168} label="Setnayan Verified" />
@@ -2407,7 +2422,7 @@ export async function renderVendorBySlug({
           heading is just "Awards" — never instruction wording ("tap one", "Earned on Setnayan") — and each award is
           its badge + ONE plain fact (`awardFact`, lib/shop-award-fact.ts). The tier name and the award date belong to
           the full-screen view, never to this row. */}
-      {showsVerifiedSeal || awardsRow.length > 0 ? (
+      {vendor.verification_state === 'verified' || awardsRow.length > 0 || awardsUnread ? (
         <div data-shop-awards="" className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -2426,17 +2441,31 @@ export async function renderVendorBySlug({
                 </VerifiedAwardButton>
               </li>
             ) : null}
-      {/* 🏅 THE SEALS, THEN THE TIERED BADGES (v16 order) — from the one adapter (`awardsRowBadges`): the seals the
-          shop holds (seals engine), then Completed bookings from the SAME public completed-events count the
-          experience chip states (`finalizedBookingCount`, measured only). Nothing is cached in the row, so a voided
-          booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a scan always
-          shows today's badges. */}
-            {awardsRow.map((b) => (
-              <li key={b.key} className="flex items-center gap-2" data-shop-award-fact="">
-                <HeroBadge badge={b} title={b.label} />
-                <span className="text-sm leading-snug">{awardFact(b)}</span>
+      {/* 🏅 THE SEALS, THEN THE TIERED BADGES (v16 order) — from the one adapter (`awardsRowItems`): the seals the
+          shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
+          is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
+          scan always shows today's badges. */}
+            {vendor.verification_state !== 'verified' ? (
+              /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
+                 (`ImageBadge` `on={false}`, the shipped not-yet face). */
+              <li className="flex min-h-11 items-center gap-2" data-shop-not-verified-slot="">
+                <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-not-yet" size={48} on={false} label="Setnayan Verified — not yet" />
+                <span className="grid text-sm leading-snug">
+                  <b className="font-semibold">{awardFact(verifiedBadge())}</b>
+                  <small className="text-xs opacity-75">Not yet — papers not checked</small>
+                </span>
+              </li>
+            ) : null}
+            {awardsRow.map((item) => (
+              <li key={item.key}>
+                <AwardRowButton item={item} shopName={displayLabel} />
               </li>
             ))}
+            {awardsUnread ? (
+              <li className="text-sm leading-snug opacity-75" role="status" data-shop-awards-unread="">
+                Couldn’t load every award — open this page again in a moment.
+              </li>
+            ) : null}
           </ul>
         </div>
       ) : null}
@@ -3587,6 +3616,13 @@ export async function renderVendorBySlug({
             <p>
               Supplier ID · <span className="font-mono">{vendor.public_id}</span>
             </p>
+            {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
+            {vendor.verification_state !== 'verified' ? (
+              <p className="inline-flex items-center gap-1 font-semibold text-warn-800" data-shop-footer-not-verified="">
+                <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
+                Not yet verified
+              </p>
+            ) : null}
           </div>
           {/*
             🔴 A COUPLE HAD NO WAY TO REPORT A SHOP — CTRL-B3 build 9, 2026-09-22.

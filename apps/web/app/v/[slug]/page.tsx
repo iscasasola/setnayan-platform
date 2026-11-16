@@ -260,6 +260,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
 import { ShopHero, shopMotion } from './_components/shop-hero';
+import { ShopHeroGallery } from './_components/shop-hero-gallery';
+import { HERO_PHOTO_COUNT } from '@/lib/shop-hero-photos';
 import { VerifiedAwardButton } from './_components/verified-award-button';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
@@ -1711,6 +1713,15 @@ export async function renderVendorBySlug({
   const cinematicHero = vendor.verification_state === 'verified';
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
+  // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
+  // become the swipeable slides; a full five also make the desktop mosaic (`ShopHeroGallery`). One photo keeps the
+  // single hero exactly as before.
+  const heroGalleryPhotos = showPortfolio
+    ? (() => {
+        const lead = heroPhotoUrl ? portfolioPhotos.find((p) => p.key === microsite.heroPhotoKey) : undefined;
+        return lead ? [lead, ...portfolioPhotos.filter((p) => p !== lead)] : [...portfolioPhotos];
+      })()
+    : [];
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
   // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
   // was folded into gallery_video_links (data migration
@@ -2603,6 +2614,18 @@ export async function renderVendorBySlug({
           photoUrl={heroImage ?? VENDOR_PLACEHOLDER_PHOTO}
           photoIsMarked={heroImage !== null}
           badges={shopBadgesRow}
+          gallery={
+            heroGalleryPhotos.length >= 2 ? (
+              <ShopHeroGallery
+                photos={heroGalleryPhotos}
+                shopName={displayLabel}
+                vendorProfileId={vendor.vendor_profile_id}
+                count={!isDemoVendor && teamPreview === null}
+                bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
+              />
+            ) : undefined
+          }
+          bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
         />
       ) : null}
 

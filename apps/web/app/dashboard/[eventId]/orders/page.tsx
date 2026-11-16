@@ -84,7 +84,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
       {orders.length === 0 ? (
         <div className="sn-row border-dashed p-8 text-center">
           <Receipt aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm text-ink/55">
+          <p className="text-sm text-ink/70">
             {storeShell ? (
               'No orders yet.'
             ) : (
@@ -104,24 +104,24 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
                   <p className="line-clamp-1 text-sm font-semibold text-ink">
                     {o.description}
                   </p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
                     {o.public_id} · {o.reference_code}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <span className="font-mono text-sm text-ink">
+                  <span className="text-sm text-ink">
                     {formatPhp(
                       computeVatFromBase(
                         Number(o.confirmed_total_php ?? o.requested_total_php),
                         vatRatePct,
                       ).gross,
                     )}
-                    <span className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                    <span className="ml-1 text-xs uppercase tracking-[0.06em] text-ink/70">
                       incl. VAT
                     </span>
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    className={`rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
                       ORDER_STATUS_TONE[o.status]
                     }`}
                   >

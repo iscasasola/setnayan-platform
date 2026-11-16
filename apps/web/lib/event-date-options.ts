@@ -257,3 +257,39 @@ export function dateOptionsFactWords(o: {
   }
   return null;
 }
+
+const YMD = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+/** "Jun 19, 2027" for a real `YYYY-MM-DD`, else null. */
+export function dayWithYearWords(iso: unknown): string | null {
+  if (!isIsoDay(iso)) return null;
+  return YMD.format(utcOf(iso)!);
+}
+
+/**
+ * 📅 THE COUPLE'S DATE WHILE IT IS STILL OPEN, ONE PHRASE FOR EVERY SCREEN (walk 16 Nov 2026, EB-111 / EB-191).
+ * `events.event_date` is the LOCKED day and stays empty until the couple picks one; their option(s) live in these
+ * columns. A screen that read `event_date` alone said "Not set" on a wedding the header reads as June 19, 2027.
+ *
+ * "Jun 19, 2027" · "2 options · Jun 19, 2027 – Jul 3, 2027" · "between Jun 1, 2027 and Jun 30, 2027", plus
+ * " · 3 days" for a multi-day event. Years kept — these dates can be a year out. Null when there is nothing.
+ * Callers say what it is: "Not settled · …" (a fact row), "you’re considering …" (Papic).
+ */
+export function openDateWords(o: {
+  mode: unknown;
+  candidates: unknown;
+  windowStart: unknown;
+  windowEnd: unknown;
+  days?: unknown;
+}): string | null {
+  const n = typeof o.days === 'number' && o.days > 1 ? Math.floor(o.days) : 1;
+  const span = n > 1 ? ` · ${n} days` : '';
+  const c = [...new Set((Array.isArray(o.candidates) ? o.candidates : []).filter(isIsoDay))].sort();
+  if (o.mode !== 'window' && c.length === 1) return `${dayWithYearWords(c[0])}${span}`;
+  if (o.mode !== 'window' && c.length > 1) {
+    return `${c.length} options · ${dayWithYearWords(c[0])} – ${dayWithYearWords(c[c.length - 1])}${span}`;
+  }
+  const a = dayWithYearWords(o.windowStart);
+  const b = dayWithYearWords(o.windowEnd);
+  return a && b ? `between ${a} and ${b}${span}` : null;
+}

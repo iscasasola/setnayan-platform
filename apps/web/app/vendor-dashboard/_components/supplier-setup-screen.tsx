@@ -11,10 +11,11 @@ import { displayServiceLabel } from '@/lib/vendors';
 import { SupplierSetupFolds } from './supplier-setup-folds';
 import { SetupOfferFold } from './setup-offer-fold';
 import { SetupDaysOffRow } from './setup-days-off-row';
-import { SetupPapers } from './setup-papers';
+import { SetupPaperPlace } from './setup-paper-place';
+import type { InlineDocsPayload } from '../shop/inline-docs-actions';
 import { SetupQrStep } from './setup-qr-step';
 
-/** The id of Today's papers list — the "Get verified" fold's documents step links to it (F-W1-11). */
+/** The id of Today's one paper place — the "Get verified" fold's documents step links to it (F-W1-11). */
 const SETUP_PAPERS_ID = 'setup-papers';
 
 /** The parts of Your details the six steps mount (`loadDetailsData`, or the lab's fixture). */
@@ -33,11 +34,11 @@ export type SetupDetails = Pick<
  *   2 Your details         — the same rows: what you do · where · contact
  *   3 Add your logo        — the same editor's logo row (the shared `FileUpload`)
  *   4 What you offer       — Good · Better · Best per service; an empty slot opens the maker as a SHEET (`SetupOfferFold`)
- *   5 Send your documents  — one row per required paper (`SetupPapers`, 7 Nov 2026: the shipped upload, each file
- *                            saved on its own, each row's state read honestly); under them, `VerifySection` exactly as
+ *   5 Send your documents  — THE ONE UPLOAD PLACE (`SetupPaperPlace` → `PaperUploadPlace`, owner 2026-11-14 "supplier
+ *                            papers demo approved"; it replaced the three Add rows on 15 Nov); under it, `VerifySection` exactly as
  *                            Your details mounts it, folded — the details beside the papers, the contacts, Send for
  *                            review
- *   6 Download your QR     — the shop's own page, `/v/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
+ *   6 Download your QR     — the shop's own page, `/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
  *                            tour once; the days-off row stays under it
  *
  * ⛔ NO STEP 7. "How many a day" sat under the six (Build 6 Lane E) and LEFT Today on the owner's ruling (13 Nov 2026,
@@ -56,13 +57,13 @@ export function SupplierSetupScreen({
   lab = false,
   gear,
   tour = null,
-  paperUrls,
+  paperPayload,
 }: {
   d: SetupDetails;
   rail: FirstStepsRail;
   /** The shipped maker, drawn (`NewServiceMaker`) — the sheet's body. */
   maker: ReactNode;
-  /** The shop's own QR — its Setnayan page, `/v/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
+  /** The shop's own QR — its Setnayan page, `/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
   qr: { svg: string | null; url: string } | null;
   /** The tour after step 6 (`SETUP_TOUR_KEY`): its words, and whether it is on record (null: the read was refused). */
   tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
@@ -70,8 +71,8 @@ export function SupplierSetupScreen({
   /** The dev lab: the days-off row writes nothing and says so. */
   lab?: boolean;
   gear?: ReactNode;
-  /** The lab's paper previews (ref → URL). Today leaves it out: the papers are private and signed on demand. */
-  paperUrls?: Record<string, string>;
+  /** The lab's papers fixture. Today leaves it out: the place loads the shop's own (`loadInlineDocs`). */
+  paperPayload?: InlineDocsPayload;
 }) {
   const view = assembleSetup({
     checklist: d.checklist,
@@ -128,7 +129,13 @@ export function SupplierSetupScreen({
     docs: (
       <div className="space-y-3">
         <div id={SETUP_PAPERS_ID} className="scroll-mt-20">
-          <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+          <SetupPaperPlace
+            vendorProfileId={d.vendorId}
+            isVerified={d.isVerified}
+            papersMeasured={d.papers !== null}
+            reason={d.verify.decisionReason}
+            initial={paperPayload}
+          />
         </div>
         <Fold
           data="setup-papers-more"

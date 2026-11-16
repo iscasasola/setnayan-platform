@@ -244,7 +244,8 @@ test('3c · one pinned row per screen: Clients · N booked · ₱X to collect ·
     /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{ counts: pinCounts \}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
     'the one screen does not draw its title row, month, tiles and lists',
   );
-  assert.match(people, /const pinCounts = `\$\{doorValue\('booked'\) \?\? '—'\} booked · \$\{[^`]*\} to collect`/, 'the row does not read "N booked · ₱X to collect"');
+  // "booked this month" when Today's stat narrowed the list (EB-219) — that one ternary, nothing else.
+  assert.match(people, /const pinCounts = `\$\{doorValue\('booked'\) \?\? '—'\} booked(?:\$\{monthIds \? ' this month' : ''\})? · \$\{[^`]*\} to collect`/, 'the row does not read "N booked · ₱X to collect"');
   assert.match(code('_components', 'money-segment.tsx'), /<CustomersPin\s+seg="money"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Money lost its pinned row');
   assert.doesNotMatch(body(PAGE, 'VendorCustomersHub'), /<CustomersPin\b/, 'the hub draws a second pinned row over a view’s own');
 });

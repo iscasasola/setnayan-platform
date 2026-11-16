@@ -9,7 +9,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BACK_TO_CONVERSATION, proposalBackDoor } from './proposal-back';
+import { BACK_TO_CONVERSATION, VENDOR_QUOTES_HREF, proposalBackDoor } from './proposal-back';
 
 const EVENT = '2d4f1144-7816-4367-9c99-6ff0f9a6de10';
 const THREAD = 'ab7c1e90-0000-4000-8000-1234567890ab';
@@ -34,7 +34,7 @@ test('no thread keeps the destinations the page already had — never a dead end
   const couple = proposalBackDoor({ isVendorSide: false, eventId: EVENT, threadId: null });
   assert.equal(couple.href, `/dashboard/${EVENT}/vendors`);
   const vendor = proposalBackDoor({ isVendorSide: true, eventId: EVENT, threadId: null });
-  assert.equal(vendor.href, '/vendor-dashboard/proposals');
+  assert.equal(vendor.href, VENDOR_QUOTES_HREF);
   // A fallback is still a real control with real words.
   for (const d of [couple, vendor]) {
     assert.ok(d.href.startsWith('/'), 'the fallback must be an in-app path');
@@ -52,7 +52,7 @@ test('a deleted celebration never produces /dashboard/null/…', () => {
         `built ${door.href} from eventId=${String(eventId)} threadId=${String(threadId)}`,
       );
       // With no event there is no couple route to build, so it must fall back.
-      assert.equal(door.href, '/vendor-dashboard/proposals');
+      assert.equal(door.href, VENDOR_QUOTES_HREF);
     }
   }
 });

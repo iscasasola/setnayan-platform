@@ -54,7 +54,7 @@ lib/appointments.ts	list	1	# category → appointment type bridge. Exit: an admi
 lib/booked-rows.ts	list	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/budget-allocation-data.ts	list	3	# LEAF_CANONICAL_SERVICES budget-median inputs. Exit: read the buckets
 lib/canvas-form-snapshot.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
-lib/category-hints.ts	list	1	# SEED DEFAULT · the ⓘ written in code for a category whose admin hint_en is blank
+lib/category-hints.ts	list	2	# SEED DEFAULT · the ⓘ written in code for a category whose admin hint_en is blank · T1 16 Nov: +1 = the per-GROUP map (Record<WeddingFolder>) that already existed; the type forces one entry per group, and the new Gifts group tipped it over the detector's size. Not a new copy
 lib/celebration-engine.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/checklist-event-type-defs.ts	list	6	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/checklist.ts	list	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
@@ -97,20 +97,21 @@ lib/service-card-view-model.ts	compare	1	# UNREVIEWED · found when the guard la
 lib/shortlist-taxonomy.ts	import	7	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/shortlist-taxonomy.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/songs.ts	list	1	# DELIBERATE · MUSIC_CANONICALS — who gets the song bank. Exit: an admin flag
-lib/supplier-access-by-category.ts	list	2	# PRIVACY GATE · who may see the seat plan, guest list, meal counts; mirrored in the SQL RPCs; fails CLOSED today (a new category sees nothing). Moving it needs an access column read by BOTH the RPC and the app — not provable safe without that migration + owner sign-off. Left on purpose
+lib/supplier-access-by-category.ts	list	3	# PRIVACY GATE · who may see the seat plan, guest list, meal counts; mirrored in the SQL RPCs; fails CLOSED today (a new category sees nothing). Moving it needs an access column read by BOTH the RPC and the app — not provable safe without that migration + owner sign-off. Left on purpose · T1 16 Nov: +1 = the per-GROUP map (Record<WeddingFolder>) that already existed; the type forces one entry per group, and the new Gifts group tipped it over the detector's size. Not a new copy
 lib/supplier-count.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/supplier-find.ts	compare	1	# DELIBERATE · FIND_GROUP_OF_TILE (host-facing regrouping) + POPULAR_BY_TYPE (editorial "Popular for <type>", order-only — it can never ADD a category). No existing column encodes either. Exit: an admin find_group / popular field — owner sign-off on the new field first
 lib/supplier-find.ts	list	7	# DELIBERATE · FIND_GROUP_OF_TILE (host-facing regrouping) + POPULAR_BY_TYPE (editorial "Popular for <type>", order-only — it can never ADD a category). No existing column encodes either. Exit: an admin find_group / popular field — owner sign-off on the new field first
 lib/supplier-landing-data.ts	import	1	# FAIL-CLOSED · ADMIN_ONLY_TILES OR hiddenCategories — owner ruling 2026-08-27 keeps officiants + counseling shut; the constant keeps them shut even if a DB row loses its hidden flag
 lib/supplier-scan.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/taxonomy-folder-counts.ts	import	2	# FRONT_DOOR_VISIBLE_FOLDERS + a seed count. Exit: an admin front_door_visible flag + a live count
-lib/taxonomy-icons.ts	list	1	# SEED DEFAULT · the icon for a category with no admin icon_name
+lib/taxonomy-icons.ts	list	2	# SEED DEFAULT · the icon for a category with no admin icon_name · T1 16 Nov: +1 = the per-GROUP map (Record<WeddingFolder>) that already existed; the type forces one entry per group, and the new Gifts group tipped it over the detector's size. Not a new copy
 lib/service-icon-art.ts	list	1	# DESIGN · the owner-approved drawn icon for each tile (prototype service-icons.html, Nov 2026) — drawing data keyed by tile, like lib/taxonomy-icons.ts's seed glyphs; a tile with no drawing keeps its lucide glyph, so a new admin category is never blank. Art, not a list of services
 lib/todays-one-thing.ts	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/todays-one-thing.ts	list	4	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/vendor-category-parents.ts	import	1	# PRIVACY GATE input · TILE_PARENT in parentsOfCategory feeds supplier-access-by-category; moves with it, not before it
 lib/vendor-day-of.ts	list	2	# DELIBERATE · PHOTO_/CATERER_CANONICALS choose the on-the-day console. Exit: an admin console-kind field
 lib/vendor-dayof-modules.ts	import	1	# TILE_PARENT in a sync helper whose callers hold no snapshot. Exit: pass taxonomy.tileParent in
+lib/vendor-dayof-modules.ts	list	1	# FOLDER_FAMILY, the per-GROUP day-of family (Record<WeddingFolder>) that already existed· T1 16 Nov: +1 = the per-GROUP map (Record<WeddingFolder>) that already existed; the type forces one entry per group, and the new Gifts group tipped it over the detector's size. Not a new copy
 lib/vendor-facet-schema-map.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/vendor-packages.ts	list	1	# PACKAGE_CANONICAL_TO_VENDOR_CATEGORY — feeds stored package rows. Exit: read coarse_category
 lib/vendor-service-tools.ts	list	3	# DELIBERATE · SPECIALIST_TOOLS — which categories see which tools. Exit: an admin "tools offered" field

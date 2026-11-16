@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 /**
  * THE ONE STRING BOTH MARKERS MARK WITH (MB27).
  *
@@ -56,6 +57,24 @@ export const WATERMARK_TEXT = 'WWW.SETNAYAN.COM';
 export const MARK_CAPS = 'SETNAYAN';
 export const MARK_CAPS_VERIFIED = 'SETNAYAN VERIFIED';
 export const MARK_ADDRESS = 'setnayan.com';
+/**
+ * setnayan.com/{slug} — the shop's canonical address (`app/[slug]` serves the shop; `/v/{slug}` points there). The
+ * owner, 2026-11-15: the address line drops /v/ and reads the same for EVERY shop, verified or not, matching the QR.
+ */
 export function markVerifiedAddress(slug: string): string {
-  return `${MARK_ADDRESS}/v/${slug}`;
+  return `${MARK_ADDRESS}${shopPath(slug)}`;
+}
+
+/**
+ * The material tag the photo-mark QR carries (owner 16 Nov, DECISION_LOG b8d39503) — it says WHICH Setnayan material a
+ * scan came from. It is NOT `src`: a photo is Setnayan's, so no `?src=own` (DECISION_LOG b95998b3) and the booking fee
+ * still applies.
+ */
+export const MARK_QR_VIA = 'photo';
+/**
+ * The URL the photo-mark QR encodes — the same address as the line, with its scheme and host, plus `?via=photo`.
+ * NEVER `?src=own` (owner 16 Nov: "The qr codes on photos will have the no tag. Because this is from setnayan").
+ */
+export function markQrUrl(slug: string): string {
+  return `https://www.${MARK_ADDRESS}${shopPath(slug)}?via=${MARK_QR_VIA}`;
 }

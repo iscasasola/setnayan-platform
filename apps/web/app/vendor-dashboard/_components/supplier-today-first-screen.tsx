@@ -28,6 +28,7 @@ import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/li
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { fromToday } from '@/lib/picked-client-close';
 import { EventsYouRunRows } from './events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
@@ -51,7 +52,8 @@ export function nextHref(t: SupplierNextTarget): string {
     }
     case 'card': {
       // THE ONE BUILD integration: every door into a client is built by ONE function (`customerCardHref`).
-      const href = customerCardHref(t.eventId, t.tab);
+      // ✕ on the card comes back HERE, not to the Clients list (EB-290): the door says it came from Today.
+      const href = fromToday(customerCardHref(t.eventId, t.tab));
       return href;
     }
     case 'review': {
@@ -245,7 +247,7 @@ export type SupplierTodayFirstScreenProps = {
   gear?: ReactNode;
   /** 📋 Needs you today — every row, in order; each JUMPS (`nextHref(row.target)`). */
   needs: readonly TodayNeed[];
-  /** "N · 12 MN – 12 MN" — the same count as the cover's chip (null = the desk could not be read and shows nothing). */
+  /** "N" — the same count as the cover's chip (null = the desk could not be read and shows nothing). */
   needsCount: number | null;
   /** The outcome of an answer given elsewhere that redirected here (a booking ask · a date change · a payment). */
   outcome?: TodayOutcome | null;
@@ -353,8 +355,9 @@ export function SupplierTodayFirstScreen({
         >
           <span>Needs you today</span>
           {/* Only a real count: 0 or an unread desk draws nothing here — the empty row under it says "Nothing waiting on
-              you", and a bare "0 · 12 MN – 12 MN" read as a stray mark (Build 3 empty modes, 9 Nov). */}
-          {needsCount ? <em data-today-needs-count="">{`${formatCount(needsCount)} · 12 MN – 12 MN`}</em> : null}
+              you", and a bare "0" read as a stray mark (Build 3 empty modes, 9 Nov). The "12 MN – 12 MN" hours that used to
+              follow the count are gone — a midnight-to-midnight range says nothing (owner walkthrough, Nov). */}
+          {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
           {gear ? (
             <span className={`inline-flex shrink-0 normal-case tracking-normal ${needsCount ? '' : 'ml-auto'}`} data-today-needs-gear="">
               {gear}

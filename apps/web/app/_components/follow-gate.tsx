@@ -150,7 +150,7 @@ export function FollowGate({
           label="Message"
           pendingLabel="Opening…"
           ariaLabel={`Message ${vendorName}`}
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-ink bg-ink px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/90 disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-ink bg-ink px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/90 disabled:opacity-60"
           wrapperClassName=""
         />
       ) : isAuthenticated ? (
@@ -162,7 +162,7 @@ export function FollowGate({
         <Link
           href="/dashboard"
           title="Start an event, then message suppliers"
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-terracotta/40 bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 hover:border-terracotta"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-terracotta/40 bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 hover:border-terracotta"
         >
           <MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Start an event to message
@@ -171,7 +171,7 @@ export function FollowGate({
         <span
           aria-disabled="true"
           title="Sign in to message"
-          className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/40"
+          className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-full border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/40"
         >
           <MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Sign in to message

@@ -273,7 +273,7 @@ export type GalleryAsset = {
   credit: string;
   /** So a couple can walk from the photo to the shop. */
   vendorProfileId: string;
-  /** The shop's public page (`/v/<slug>`) — Studio's "Shop ›"; null when the shop has no address yet. */
+  /** The shop's public page (`/<slug>`) — Studio's "Shop ›"; null when the shop has no address yet. */
   shopSlug: string | null;
   /** The 6 sampled colours written onto the board row when this is picked. */
   swatches: string[];

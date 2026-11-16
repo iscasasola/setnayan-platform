@@ -25,6 +25,7 @@ import {
   GROW_TIERS,
   VERIFIED_PAPERS,
   foldGroups,
+  foldedLines,
   growLines,
   growSpec,
   tierOfPlansRow,
@@ -70,7 +71,9 @@ test('each plan spec is its caps', () => {
 });
 
 test('every Grow line still finds its Plans-page row, and sits under exactly one plan', () => {
-  const placed = GROW_TIERS.flatMap((t) => growLines(t).map((l) => l.text));
+  // The folded add-ons (2026-11-14, `foldedLines`) lead each plan's list; the rest are the Plans-page rows.
+  const folded = new Set(GROW_TIERS.flatMap((t) => foldedLines(t).map((l) => l.text)));
+  const placed = GROW_TIERS.flatMap((t) => growLines(t).map((l) => l.text)).filter((x) => !folded.has(x));
   assert.equal(placed.length, GROW_LINES.length, `a Grow line lost its Plans-page row: ${GROW_LINES.map((l) => l.text).filter((x) => !placed.includes(x)).join(' · ')}`);
   assert.equal(new Set(placed).size, placed.length, 'a Grow line is shown under two plans');
   assert.ok(tierOfPlansRow(/^Market Intelligence/), 'anti-vacuity: the Market Intelligence row is gone from the Plans page');

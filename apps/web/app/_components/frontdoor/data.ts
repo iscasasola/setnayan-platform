@@ -330,7 +330,10 @@ export type FrontDoorData = {
  * badges' stats once per TABLE for the whole shelf (`readShopBadgeFactsForShops`) — never one query per card. A row
  * with no address or no name is dropped: there would be nothing to link to.
  */
-async function toFrontDoorShops(rows: readonly Record<string, unknown>[]): Promise<FrontDoorShop[]> {
+async function toFrontDoorShops(
+  rows: readonly Record<string, unknown>[],
+  opts: { badgeStats?: boolean } = {},
+): Promise<FrontDoorShop[]> {
   const usable = rows.filter(
     (row) => typeof row.business_slug === 'string' && row.business_slug && typeof row.business_name === 'string' && row.business_name,
   );
@@ -345,6 +348,7 @@ async function toFrontDoorShops(rows: readonly Record<string, unknown>[]): Promi
   const [tax, facts] = await Promise.all([
     getTaxonomy().catch(() => null),
     (async (): Promise<Map<string, ShopBadgeFacts> | null> => {
+      if (opts.badgeStats === false) return null;
       try {
         return await readShopBadgeFactsForShops(
           createAdminClient(),
@@ -361,6 +365,17 @@ async function toFrontDoorShops(rows: readonly Record<string, unknown>[]): Promi
     })(),
   ]);
   return Promise.all(usable.map((row) => toFrontDoorShop(row, tax, facts, verifiedOf(row))));
+}
+
+/**
+ * 🤝 THE SAME CARDS, FOR THE END OF A SHOP'S PAGE (owner 2026-11-14, "A SHOP PAGE ENDS WITH ITS PARTNERS, THEN SIMILAR
+ * SHOPS NEARBY"): "More <kind of work> near <area>" draws Discover's shipped `ShopCard` from these, never a second
+ * mapper. `badgeStats: false` skips the three batched stats reads — the row is held to ONE read (owner: fewest
+ * requests per task; prod is the free plan) — so each card wears the badge its own row carries: Verified, when earned
+ * (the drawing's card shows that one). Logos and covers are signed here, as on the shelf; no database call.
+ */
+export function toShopCardsFromRows(rows: readonly Record<string, unknown>[]): Promise<FrontDoorShop[]> {
+  return toFrontDoorShops(rows, { badgeStats: false });
 }
 
 /** The shop's group, from the LIVE taxonomy: its first service's group (a stored tile or group id also answers). */

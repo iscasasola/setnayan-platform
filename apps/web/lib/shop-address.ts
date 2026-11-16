@@ -13,7 +13,7 @@
  */
 
 /** The shop's sub-pages that a bare address reaches (`/{shop}/dates`). None of these is an event sub-page. */
-export const SHOP_SUB_PAGES = ['dates', 'booth', 'review', 'guest-review'] as const;
+export const SHOP_SUB_PAGES = ['dates', 'booth', 'review', 'guest-review', 'story'] as const;
 export type ShopSubPage = (typeof SHOP_SUB_PAGES)[number];
 
 /** A shop word as it can appear in a path (the slug rule the routes already use). */

@@ -1,21 +1,22 @@
 /**
- * HOLE 4 · AN UNPAID EVENT PRO BUYS THE ULTRA "PAY THE DIFFERENCE" CREDIT — PROVEN OPEN
- * (controller sweep 2026-11-16).
+ * HOLE 4 · AN UNPAID EVENT PRO CANNOT BUY THE ULTRA "PAY THE DIFFERENCE" CREDIT — CLOSED (controller sweep 2026-11-16;
+ * the proof was #7841's `hole-4-an-unpaid-pro-buys-the-ultra-difference.test.ts`, each HOLE OPEN assertion flipped).
  *
- * TESTS ONLY. Every assertion below PASSES WHILE THE HOLE IS OPEN. The fix PR
- * flips each `HOLE OPEN` assertion to its closed form and renames the file.
+ * Owner, specs DECISION_LOG 2026-11-13 "EVENT ULTRA UPGRADE — PAY THE DIFFERENCE": "An event that already PAID Event
+ * Plus or Event Pro pays Ultra price MINUS what it already paid".
  *
- * The walk:
- *   1 · order Event Pro and do not pay — the order sits 'submitted' / 'awaiting_payment';
- *   2 · `readUltraUpgradeCharge` decides `proPaid` with `orderStatusConfersOwnership`
- *       — the BUY-SURFACE rule ("anything not in RELINQUISHED_STATUSES"), which
- *       counts an unpaid order — so the Ultra charge is sealed at Ultra minus Pro;
- *   3 · cancel the unpaid Pro — `cancelOrder` allows it (a pre-payment status),
- *       and nothing re-prices the Ultra order already sealed at the difference.
- * The couple keeps a credit for money they never paid.
+ * The walk that was open: order Event Pro and do not pay ('submitted' / 'awaiting_payment') → `readUltraUpgradeCharge`
+ * counted it with the BUY-SURFACE rule (`orderStatusConfersOwnership`) → Ultra sealed at Ultra minus Pro → cancel the
+ * unpaid Pro → a credit for money never paid.
  *
- * Prices here are SAMPLE numbers fed to the pure function; real prices are only
- * ever read from `platform_retail_catalog_v2`.
+ * The fix (lib/order-charge-authority.ts): `readUltraUpgradeCharge` counts a Plus / Pro order only in a PAID status
+ * (`orderStatusConfersAccess`), and reads what was paid toward Pro in the feature-gate mode
+ * (`eventHubOwnership(…, 'active')`). An unpaid Pro earns no credit, so Ultra is sealed at its own row price and a
+ * later cancel of the Pro takes nothing back — there is nothing to take.
+ *
+ * Prices here are SAMPLE numbers fed to the pure function; real prices are only ever read from
+ * `platform_retail_catalog_v2`. Limit (unchanged from #7841): the reader's catalogue read builds its own service-role
+ * client, so this is shown from the pure pieces and a source scan, not an end-to-end call.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,34 +41,39 @@ function ultraReaderBody(): string {
   return src.slice(at, at + 2500);
 }
 
-test('HOLE OPEN · 4a — an unpaid Pro order counts as a paid plan for the Ultra credit', () => {
+test('CLOSED · 4a — an unpaid Pro order does not count as a paid plan for the Ultra credit', () => {
   for (const s of UNPAID) {
     assert.equal(orderStatusConfersAccess(s), false, `precondition: '${s}' is not paid (the feature gate agrees)`);
-    // HOLE OPEN: the credit reader uses the ownership rule, which counts '${s}'. Fix flips to: false.
-    assert.equal(orderStatusConfersOwnership(s), true, `'${s}' confers ownership — and so the credit`);
+    // The buy-surface rule still counts '${s}' (so nobody is asked to pay twice mid-review) — but the credit no longer
+    // reads that rule.
+    assert.equal(orderStatusConfersOwnership(s), true);
     assert.ok(!RELINQUISHED_STATUSES.has(s));
   }
   const body = ultraReaderBody();
-  // HOLE OPEN: `proPaid` / `plusPaid` are decided by the ownership rule. Fix flips to the paid (access) rule.
-  assert.match(body, /orderStatusConfersOwnership\(r\.status\)/, 'readUltraUpgradeCharge reads "paid" as "not relinquished"');
-  assert.doesNotMatch(body, /orderStatusConfersAccess/, 'readUltraUpgradeCharge does not ask whether the plan was paid');
-  // `paidTowardProPhp` comes from the same buy-surface ('owned') rule.
-  assert.match(body, /eventHubOwnership\(admin, eventId, 'owned'\)/);
+  // CLOSED (was HOLE OPEN): `proPaid` / `plusPaid` are decided by the PAID (access) rule.
+  assert.match(body, /orderStatusConfersAccess\(r\.status\)/, 'readUltraUpgradeCharge asks whether the plan was paid');
+  assert.doesNotMatch(body, /orderStatusConfersOwnership\(r\.status\)/, 'readUltraUpgradeCharge reads "paid" as "not relinquished"');
+  // CLOSED: `paidTowardProPhp` comes from the feature-gate ('active') mode, not the buy surface ('owned').
+  assert.match(body, /eventHubOwnership\(admin, eventId, 'active'\)/);
+  assert.doesNotMatch(body, /eventHubOwnership\(admin, eventId, 'owned'\)/);
 
-  const charge = ultraUpgradeCharge({
-    ...SAMPLE,
-    proPaid: orderStatusConfersOwnership('submitted'),
-    plusPaid: false,
-    paidTowardProPhp: 0,
-  });
+  for (const s of UNPAID) {
+    // What the reader now hands the pure function for an unpaid Pro: no credit at all → Ultra's row price applies.
+    assert.equal(
+      ultraUpgradeCharge({ ...SAMPLE, proPaid: orderStatusConfersAccess(s), plusPaid: false, paidTowardProPhp: 0 }),
+      null,
+      `an unpaid ('${s}') Pro gives no Ultra credit`,
+    );
+  }
+  // Control: a PAID Pro still gets the owner's difference.
   assert.deepEqual(
-    charge,
+    ultraUpgradeCharge({ ...SAMPLE, proPaid: orderStatusConfersAccess('paid'), plusPaid: false, paidTowardProPhp: 0 }),
     { ok: true, php: 4_000, creditPhp: 6_000, from: 'pro' },
-    'Ultra is charged at the difference from a Pro that was never paid',
+    'a paid Pro still pays only the difference',
   );
 });
 
-test('HOLE OPEN · 4b — the unpaid Pro can then be cancelled, and nothing takes the sealed credit back', () => {
+test('CLOSED · 4b — cancelling an unpaid Pro takes nothing back, because no credit was ever sealed from it', () => {
   for (const s of UNPAID) {
     assert.ok(
       (CANCELLABLE_ORDER_STATUSES as readonly string[]).includes(s),
@@ -77,7 +83,13 @@ test('HOLE OPEN · 4b — the unpaid Pro can then be cancelled, and nothing take
   // The Ultra charge is sealed once, at order time, from the difference.
   assert.match(read('lib/order-charge-authority.ts'), /sealServerResolvedTotal\(upgrade\.charge\.php \* 100, 'event_ultra_upgrade'\)/);
 
-  // HOLE OPEN: the cancel path does not look at Ultra at all. Fix: a cancel (or the Ultra approval) re-checks the credit.
+  // CLOSED by the seal, not the cancel: the cancel path still does not look at Ultra (asserted below, unchanged), and it
+  // need not — only a PAID Pro or Plus can reach the difference seal, and a paid order is not in the couple's
+  // cancellable list (asserted next).
+  for (const s of ['paid', 'fulfilled']) {
+    assert.ok(!(CANCELLABLE_ORDER_STATUSES as readonly string[]).includes(s), `a '${s}' order cannot be cancelled by the couple`);
+    assert.equal(orderStatusConfersAccess(s), true);
+  }
   const cancel = read('app/dashboard/[eventId]/orders/actions.ts');
   const at = cancel.indexOf('export async function cancelOrder');
   const end = cancel.indexOf('export async function', at + 10);

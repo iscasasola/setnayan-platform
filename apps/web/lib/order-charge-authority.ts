@@ -66,7 +66,7 @@ import {
 import { EVENT_ULTRA_SKU, ultraUpgradeCharge, type UltraUpgradeCharge } from '@/lib/event-ultra';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
-import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersOwnership } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersAccess } from '@/lib/entitlements';
 
 export {
   chargeOverchargesDisplayedPrice,
@@ -398,9 +398,15 @@ async function resolveHubProCharge(
  * by the charge above and by the checkout drawer's quote (`applyVoucherAction`, intent `welcome_quote`), so the screen
  * and the bill can never disagree. `charge: null` = the event paid toward no plan (Ultra's row price applies).
  *
- * Reads, all existing: the Pro ownership the Plus → Pro upgrade already prices from (`eventHubOwnership`, 'owned' —
- * the buy-surface rule), the plan prices (`hubPartPrices` — Pro and Plus rows), and the Plus / Pro order lines (orders +
- * basket, never a comp: a gift was not paid). Ultra's own row is read only when there is a credit to take off it.
+ * Reads, all existing: what the event has PAID toward Pro (`eventHubOwnership`, 'active' — the feature-gate rule), the
+ * plan prices (`hubPartPrices` — Pro and Plus rows), and the Plus / Pro order lines (orders + basket, never a comp: a
+ * gift was not paid). Ultra's own row is read only when there is a credit to take off it.
+ *
+ * 💸 PAID MEANS PAID (HOLE 4 of the 16 Nov controller sweep, #7841): the owner's rule is "an event that already PAID
+ * Event Plus or Event Pro pays Ultra price MINUS what it already paid" (DECISION_LOG 2026-11-13). So the credit counts an
+ * order only in a status the Setnayan team has confirmed (`orderStatusConfersAccess` — 'paid' / 'fulfilled'), never the
+ * buy-surface rule (`orderStatusConfersOwnership`), which also counts a 'submitted' / 'awaiting_payment' order that can
+ * still be cancelled. An unpaid Pro therefore earns no credit, and Ultra's row price applies.
  */
 export async function readUltraUpgradeCharge(
   admin: SupabaseClient,
@@ -411,14 +417,14 @@ export async function readUltraUpgradeCharge(
   let lines;
   try {
     [own, prices, lines] = await Promise.all([
-      eventHubOwnership(admin, eventId, 'owned'),
+      eventHubOwnership(admin, eventId, 'active'),
       hubPartPrices(admin),
       eventSkuLinesFor(admin, eventId, [FULL_PRO_SKU, EVENT_PLUS_SKU]),
     ]);
   } catch (e) {
     return { status: 'error', message: e instanceof Error ? e.message : String(e) };
   }
-  const paid = (sku: string) => lines.some((r) => r.service_key === sku && orderStatusConfersOwnership(r.status));
+  const paid = (sku: string) => lines.some((r) => r.service_key === sku && orderStatusConfersAccess(r.status));
   const proPaid = paid(FULL_PRO_SKU);
   const plusPaid = paid(EVENT_PLUS_SKU);
   if (!proPaid && !plusPaid && !(own.paidPhp > 0)) return { status: 'ok', charge: null };

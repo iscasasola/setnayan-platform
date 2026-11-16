@@ -33,8 +33,8 @@ const packs: ShopGiftPack[] = [
 ];
 
 test('a badge reward never counts toward the gift (v4 answer 3)', () => {
-  assert.equal(boughtFreePapic({ papic: 1200, event_plus: 0, event_pro: 0 }, { papic: 300, event_plus: 0, event_pro: 0 }), 900);
-  assert.equal(boughtFreePapic({ papic: 100, event_plus: 0, event_pro: 0 }, { papic: 300, event_plus: 0, event_pro: 0 }), 0);
+  assert.equal(boughtFreePapic({ papic: 1200, event_plus: 0, event_pro: 0, event_ultra: 0 }, { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 }), 900);
+  assert.equal(boughtFreePapic({ papic: 100, event_plus: 0, event_pro: 0, event_ultra: 0 }, { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 }), 0);
   assert.equal(boughtFreePapic(null, null), null, 'an unread stock is null, never 0');
 });
 
@@ -88,12 +88,12 @@ test('email or phone', () => {
 
 test('the gift step reads the same stock read as Your gifts', () => {
   const d = ownGiftDataOf({
-    stock: { papic: { balance: 1500, held: 300 }, event_plus: { balance: 0, held: 0 }, event_pro: { balance: 0, held: 0 } },
+    stock: { papic: { balance: 1500, held: 300 }, event_plus: { balance: 0, held: 0 }, event_pro: { balance: 0, held: 0 }, event_ultra: { balance: 0, held: 0 } },
     packs,
     paysGiftPrice: true,
     canBuy: true,
     openRails: [{ id: 'gcash', label: 'GCash' }],
-    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0 } },
+    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0 } },
   });
   assert.equal(d.credits, 1050);
   assert.equal(d.rewardLeft, 150);

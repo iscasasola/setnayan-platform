@@ -20,7 +20,7 @@
  * offered as an own-client gift until a door gives an unlock without a quote (`shop_gift_deliver_unlocks_for_booking`
  * needs an accepted quote) — so this module never lists one as pickable.
  */
-import { giftCount, type FreeByKind, type ShopGiftPack } from './shop-gifts';
+import { freeByKind, giftCount, type FreeByKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
 import { shopInvitePath } from './shop-address';
 
 /** One gift line on an own client, as stored (`vendor_client_invites.gift_lines`, `vendor_own_link_gifts`). */
@@ -234,20 +234,15 @@ export function isEmailOrPhone(raw: string): boolean {
  * two screens can never disagree about the stock.
  */
 export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
-  stock: Readonly<Record<'papic' | 'event_plus' | 'event_pro', { balance: number; held: number }>> | null;
+  stock: ShopGiftStocks | null;
   packs: ShopGiftPack[] | null;
   paysGiftPrice: boolean;
   canBuy: boolean;
   openRails: R[];
   rewards?: { left: FreeByKind | null } | undefined;
 }) {
-  const free: FreeByKind | null = g.stock
-    ? {
-        papic: Math.max(0, g.stock.papic.balance - g.stock.papic.held),
-        event_plus: Math.max(0, g.stock.event_plus.balance - g.stock.event_plus.held),
-        event_pro: Math.max(0, g.stock.event_pro.balance - g.stock.event_pro.held),
-      }
-    : null;
+  // Every kind the catalogue knows (`freeByKind`, the shared reader) — a kind added later can never be missed here.
+  const free = freeByKind(g.stock);
   return {
     packs: g.packs,
     credits: boughtFreePapic(free, g.rewards?.left ?? null),

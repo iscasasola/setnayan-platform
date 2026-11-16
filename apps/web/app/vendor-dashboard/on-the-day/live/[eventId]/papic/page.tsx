@@ -184,6 +184,9 @@ export default async function VendorPapicCapturePage({
         eventId={eventId}
         creditsLeft={portfolioCredits.left}
         canPutOnPage={canPutOnPage}
+        vendorProfileId={profile.vendor_profile_id}
+        eventEnded={Boolean(booking.bookedDate) && String(booking.bookedDate) < phToday()}
+        coupleName={booking.eventName ?? 'the couple'}
       />
 
       {/* Shots guests took FOR this supplier's sponsored challenge — the only

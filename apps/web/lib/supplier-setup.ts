@@ -260,7 +260,7 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'docs',
       n: 5,
       title: 'Send your documents',
-      line: 'Setnayan checks them before you go live',
+      line: 'Setnayan checks them, then you get the Verified check',
       // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing").
       done: step('documents')?.state === 'done' || checking,
       badge: docsBadge,

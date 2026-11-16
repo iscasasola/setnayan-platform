@@ -12,7 +12,7 @@ carried into the signed-out pages and the supplier's public shop (`app/v/[slug]`
 - **Buttons:** ten raw `<button>`s with hand-typed looks are `ActionButton` now (Discover's review arrows,
   category-sheet close and lock-a-date; Pricing's "See all included" and the plan quiz's Back; the shop's photos
   sheet back/close/leave/try-again and the date calendar's close).
-- `no-card.baseline.txt` lowered for the files whose cards left (a ratchet, only down).
+- `no-card.baseline.txt` is left alone: it is shared and another PR edits it. Fewer cards keeps the ratchet green, and the train regenerates it once.
 - Skipped because another open PR edits them — listed in the PR body.
 
 SPEC IMPACT: None — applies the 2026-11-16 rulings already in DECISION_LOG.

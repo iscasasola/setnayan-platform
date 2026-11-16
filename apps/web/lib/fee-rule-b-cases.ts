@@ -79,7 +79,10 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   // ── a marketplace row ────────────────────────────────────────────────────
   c('saved from Find and booked without a chat → sourced (audit B5)', { kind: 'saved', rowSource: 'host_marketplace_search', tie: 'none' }, 'sourced'),
   c('auto-cascaded by Setnayan → sourced', { kind: 'saved', rowSource: 'auto_cascade_from_finalize', tie: 'none' }, 'sourced'),
-  c('the supplier invited the couple → free, even after a view', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
+  // 🎟 owner 2026-11-16 (d4899cd5 point 4): an earlier Setnayan contact makes it a Setnayan booking, even when the
+  // supplier then imports the couple. (Was 'import' — "free, even after a view" — until that ruling.)
+  c('the supplier invited the couple after Setnayan showed them the shop → sourced', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
+  c('the supplier invited the couple, nothing from Setnayan first → import (free only as the first import)', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none' }, 'import'),
   // 🔖 owner 2026-11-16 (d7f4b97f): the free Shortlist QR is not an import — a booking from it pays the fee.
   c('the shop came in through its free Shortlist QR → sourced, with nothing else recorded', { kind: 'saved', rowSource: 'vendor_shortlist_qr', tie: 'none' }, 'sourced'),
   c('an earlier Shortlist QR row is a save on Setnayan → sourced', { tie: 'matched', saves: [{ source: 'vendor_shortlist_qr', when: 'before' }] }, 'sourced'),

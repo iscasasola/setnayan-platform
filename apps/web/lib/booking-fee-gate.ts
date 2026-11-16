@@ -198,7 +198,16 @@ export type BookingAttributionFacts = {
 
 export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): BookingFeeAttribution {
   if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
-  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) return 'import';
+  // 🎟 Owner 2026-11-16 (DECISION_LOG d4899cd5 point 4): a row the supplier brought is a Setnayan booking when Setnayan
+  // showed the couple the shop FIRST — an earlier save on Setnayan or a Setnayan profile view. Otherwise this per-event
+  // mirror says 'import', meaning only "no Setnayan fact here": whether the import is FREE (the import brought the
+  // client onto Setnayan within 12 months, or this is the first imported supplier on the event) is decided in SQL by
+  // `booking_fee_attribution_for`, which reads across events and other shops.
+  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) {
+    if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
+    if (f.viewSourcesBefore.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
+    return 'import';
+  }
   if (!f.recordTiedToShop) return 'import';
   // Judged by the row's SOURCE: a Find save that a claimed record merged onto (it now carries the record's
   // manual_vendor_id too) is still a save from Find.

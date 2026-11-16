@@ -15531,6 +15531,16 @@
         "WaivedFeeRows"
       ]
     },
+    "/vendor-dashboard/customers/@client": {
+      "files": [
+        "vendor-dashboard/customers/@client/default.tsx",
+        "vendor-dashboard/customers/@client/loading.tsx",
+        "vendor-dashboard/customers/@client/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
+    },
     "/vendor-dashboard/customers/@client/(..)clients/[eventId]": {
       "files": [
         "vendor-dashboard/customers/@client/(..)clients/[eventId]/loading.tsx",

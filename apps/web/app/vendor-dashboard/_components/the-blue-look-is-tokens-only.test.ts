@@ -19,10 +19,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 import { appColourTokens, appColoursToCss, APP_COLOURS_DEFAULT, type AppColours } from '@/lib/app-colours';
 
 const RAW = readFileSync(join(process.cwd(), 'app/vendor-dashboard/_components/supplier-look.css'), 'utf8');
-const CSS = RAW.replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(RAW);
 const GLOBALS = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
 
 /** Every top-level declaration of a rule block (the custom properties hold multi-line values, so split on `;`). */

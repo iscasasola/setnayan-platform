@@ -496,7 +496,7 @@ export function CoupleThreadToolsSheet({
   eventId: string;
   threadId?: string;
   canLogPayment?: boolean;
-  /** 🔒 CHAT-19: booked at the accepted quote — "Counter with a price" is not drawn (`hostPlusRows`). */
+  /** 🔒 CHAT-19: booked at the accepted quote — "Counter with a price" is drawn shut with its reason (`hostPlusRows`). */
   booked?: boolean;
 }) {
   // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple

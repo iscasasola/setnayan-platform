@@ -160,6 +160,10 @@ const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', lin
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
 const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
 
+/** 🔒 CHAT-19: a booked quote is not re-quoted — the problem and the way forward, on the shut row. */
+export const BOOKED_CHANGE_QUOTE_REASON = 'Booked at this quote · propose a change order on their Schedule';
+export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change order in Details';
+
 /**
  * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
  * Propose a payment plan · See every version; then the menu's order (owner 11 Nov): Decision (Chat) · Ask for access
@@ -178,8 +182,9 @@ export function supplierPlusRows(opts: {
   /**
    * 🔒 CHAT-19 (walk 16 Nov 2026): they booked you at the accepted quote (`THREAD_STAGE_HAS_AGREEMENT`, the same fact
    * that opens Payment · Form · Ask for access). The shipped S5 gate (`vendor_may_requote` → 'deal_locked') refuses a
-   * new version then, so "Change quote" is not drawn — it only opened a card saying "use a change order". A change
-   * after booking is a change order (`supplierChangeOrderHref`).
+   * new version then, so "Change quote" is drawn SHUT with its reason (owner lock rule, controller audit 16 Nov: locked
+   * with the problem and its way forward, never hidden). A change after booking is a change order
+   * (`supplierChangeOrderHref`).
    */
   booked?: boolean;
 }): PlusRow[] {
@@ -188,9 +193,7 @@ export function supplierPlusRows(opts: {
   return [
     // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
     // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
-    ...(lockedAtBooking
-      ? []
-      : [
+    ...[
           noQuoteYet
             ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
               ({ key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' } as PlusRow)
@@ -200,8 +203,9 @@ export function supplierPlusRows(opts: {
                 line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
                 card: 'quote',
                 door: 'build-quote',
+                ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
               } as PlusRow),
-        ]),
+        ],
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     ...(noQuoteYet ? [] : [VERSIONS_ROW]),
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
@@ -258,8 +262,8 @@ export function hostPlusRows(opts: {
   pollOpen?: boolean;
   /**
    * 🔒 CHAT-19 (walk 16 Nov 2026): the supplier is booked at the accepted quote. A counter would ask for a new version
-   * the supplier's own gate refuses ('deal_locked'), so "Counter with a price" is not drawn; a change after booking is
-   * a change order (Details' Change orders on the picked supplier).
+   * the supplier's own gate refuses ('deal_locked'), so "Counter with a price" is drawn SHUT with its reason (never
+   * hidden); a change after booking is a change order (Details' Change orders on the picked supplier).
    */
   booked?: boolean;
 }): PlusRow[] {
@@ -269,9 +273,14 @@ export function hostPlusRows(opts: {
     // ✋ NO GENERIC "Ask for a change" ROW (owner, ruling 6076): an ask STARTS FROM THE PART being changed and carries
     // it — the "Ask for a change" action sits on the quote's lines, its payment plan and a sent form, in the chat
     // (`AskChangeDoor`, `ask-change-card.tsx`). A blank ask from the (+) had to be told afterwards what it was about.
-    ...(opts.booked
-      ? []
-      : [{ key: 'counter', label: 'Counter with a price', line: 'The total or one line · good until a date', card: 'counter', door: null } as PlusRow]),
+    {
+      key: 'counter',
+      label: 'Counter with a price',
+      line: 'The total or one line · good until a date',
+      card: 'counter',
+      door: null,
+      ...(opts.booked ? { shutNow: { reason: BOOKED_COUNTER_REASON } } : {}),
+    },
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     VERSIONS_ROW,
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },

@@ -2,15 +2,15 @@
  * 🧪 THE 16 NOV WALK, ROUND 2 — the chat's ＋, its running topic and its pins (CHAT-19 · 20 · 25 · 26 · 27).
  *
  * What would silently undo it:
- *   CHAT-19  a booked chat offers "Change quote" (supplier) or "Counter with a price" (hosts) again — both only reached
- *            a refusal ('deal_locked') — or the locked-quote card says "change order" with no door to one;
+ *   CHAT-19  a booked chat offers "Change quote" (supplier) or "Counter with a price" (hosts) OPEN again — both only
+ *            reached a refusal ('deal_locked') — or hides them instead of drawing them shut with the way forward — or the locked-quote card says "change order" with no door to one;
  *   CHAT-20  a ＋ row that leaves the sheet (a link, See every version, a panel) opens it in the same tick the sheet
  *            steps back through its own history entry — the step back then closes / overtakes what was opened;
  *   CHAT-25  `jumpTo` moves nothing when the PAGE is the chat's scroller (the new card sat at y≈1114 of 844);
  *   CHAT-26  the running topic is named from its kind capitalised ("Logpay") instead of the card's own title;
  *   CHAT-27  a money pin with no body in place ("Due now · Answer ›") presses into nothing.
  *
- * SABOTAGE (16 Nov): dropping `lockedAtBooking` from `supplierPlusRows` → CHAT-19 RED; restoring
+ * SABOTAGE (16 Nov): dropping `lockedAtBooking` from `supplierPlusRows` → CHAT-19 RED (re-checked 16 Nov after the shut-not-hidden change); restoring
  * `kind[0].toUpperCase()` in the stream → CHAT-26 RED; emptying `PIN_JUMP_ANCHOR` → CHAT-27 RED; putting
  * `setTimeout(() => door.click(), 0)` back in the sheet → CHAT-20 RED.
  *
@@ -21,28 +21,32 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PLUS_CARD_TITLE, hostPlusRows, supplierChangeOrderHref, supplierPlusRows } from './chat-plus';
+import { BOOKED_CHANGE_QUOTE_REASON, BOOKED_COUNTER_REASON, PLUS_CARD_TITLE, hostPlusRows, supplierChangeOrderHref, supplierPlusRows } from './chat-plus';
 import { MONEY_STEP_ANCHOR, PIN_JUMP_ANCHOR, pinPress } from './chat-pins';
 import { centredScrollTop, inViewport } from './chat-plus-store';
 
 const APP = join(__dirname, '..', 'app');
 const read = (p: string) => readFileSync(join(APP, p), 'utf8');
 
-test('CHAT-19 · a booked chat offers no "Change quote" to the supplier', () => {
-  const open = supplierPlusRows({ paid: false, hasQuote: true }).map((r) => r.label);
-  const booked = supplierPlusRows({ paid: true, hasQuote: true, booked: true }).map((r) => r.label);
-  assert.ok(open.includes('Change quote'), 'an unbooked quote still changes');
-  assert.ok(!booked.includes('Change quote'), 'a booked one goes through a change order');
-  // Nothing else is taken away: the rest of the (+) is the same.
-  assert.deepEqual(booked, open.filter((l) => l !== 'Change quote'));
+test('CHAT-19 · a booked chat shows "Change quote" SHUT with its reason to the supplier — never hidden', () => {
+  const open = supplierPlusRows({ paid: false, hasQuote: true });
+  const booked = supplierPlusRows({ paid: true, hasQuote: true, booked: true });
+  const q = (rows: typeof open) => rows.find((r) => r.label === 'Change quote');
+  assert.ok(q(open) && !q(open)?.shutNow, 'an unbooked quote still changes');
+  assert.deepEqual(q(booked)?.shutNow, { reason: BOOKED_CHANGE_QUOTE_REASON }, 'a booked one is locked with the way forward');
+  assert.match(BOOKED_CHANGE_QUOTE_REASON, /change order/);
+  // Nothing else changes: the same rows, in the same order.
+  assert.deepEqual(booked.map((r) => r.label), open.map((r) => r.label));
 });
 
-test('CHAT-19 · a booked chat offers no "Counter with a price" to the hosts', () => {
-  const open = hostPlusRows({ canLogPayment: true }).map((r) => r.label);
-  const booked = hostPlusRows({ canLogPayment: true, booked: true }).map((r) => r.label);
-  assert.ok(open.includes('Counter with a price'));
-  assert.ok(!booked.includes('Counter with a price'));
-  assert.deepEqual(booked, open.filter((l) => l !== 'Counter with a price'));
+test('CHAT-19 · a booked chat shows "Counter with a price" SHUT with its reason to the hosts — never hidden', () => {
+  const open = hostPlusRows({ canLogPayment: true });
+  const booked = hostPlusRows({ canLogPayment: true, booked: true });
+  const c = (rows: typeof open) => rows.find((r) => r.label === 'Counter with a price');
+  assert.ok(c(open) && !c(open)?.shutNow);
+  assert.deepEqual(c(booked)?.shutNow, { reason: BOOKED_COUNTER_REASON });
+  assert.match(BOOKED_COUNTER_REASON, /change order/);
+  assert.deepEqual(booked.map((r) => r.label), open.map((r) => r.label));
 });
 
 test('CHAT-19 · the sheets pass the booked fact the other booked rows read', () => {

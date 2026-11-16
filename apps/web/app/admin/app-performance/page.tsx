@@ -284,7 +284,16 @@ export default async function AdminMergedHost(props: { searchParams?: Promise<Se
   const raw = sp.tab;
   const key = Array.isArray(raw) ? raw[0] : raw;
   if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
-  // The bare address is the Insights dashboard (the tab's landing); Overview is ?tab=overview, one tap away.
-  if (key === undefined && Object.keys(sp).length === 0) return <TabLanding tab="insights" />;
+  // The bare address is the Insights dashboard (the tab's landing). v10 "Insights as ONE page of graphs": under its cards
+  // sit the shipped Overview charts (`CockpitSurface`), every chart on one screen; each card opens its full view.
+  if (key === undefined && Object.keys(sp).length === 0)
+    return (
+      <>
+        <TabLanding tab="insights" />
+        <div className="mx-auto w-full max-w-[1120px] px-4 pb-12 sm:px-6" data-insights-one-page="">
+          <CockpitSurface searchParams={Promise.resolve({})} />
+        </div>
+      </>
+    );
   return mountView(InsightsStudioPage, sp);
 }

@@ -2581,6 +2581,9 @@
         "/admin/verify",
         "/admin/website-media",
         "/admin/work",
+        "/admin?ask=badges",
+        "/admin?ask=papers",
+        "/admin?ask=payments",
         "/admin?card=[seg]",
         "/dashboard",
         "/dashboard/profile"
@@ -3625,12 +3628,20 @@
     },
     "/admin/directory": {
       "files": [
+        "admin/directory/_components/people-show-sort.tsx",
         "admin/directory/loading.tsx",
         "admin/directory/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AdminAskPill",
+        "ChosenRow",
+        "FilterFace",
+        "PeopleShowSort",
+        "SearchParamsRecord",
+        "ShowSortSheet",
+        "ShowSortTopic",
         "TabLanding"
       ]
     },

@@ -12,7 +12,7 @@
  *      top bar — and those two numbers are the shell's own (front-door.css), so a drift fails here.
  *
  * SABOTAGE (each run once, each went red): drop `true` from the picked day's `drawRow` → 1; set `left: 72px` → 1;
- * move the rule out of the 1280 media block → 1; drop `eventId` from the wire → 1; drop the booked row's `href` → 1.
+ * move the rule out of the 1280 media block → 1; type `left: 240px` back → 1; drift `--fd-app-bar` to 60px → 1; drop `eventId` from the wire → 1; drop the booked row's `href` → 1.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +32,9 @@ const RULE = /@media \(min-width: 1280px\) \{\s*html:has\(\[data-dates-month='cl
 
 test('an event in the picked day opens its own page; other rows still pick the day', () => {
   assert.match(CAL, /rowsOf\(picked\)\.map\(\(r\) => drawRow\(r, picked, true\)\)/, 'the picked day no longer opens its events');
-  assert.match(CAL, /href=\{onClients \? \(inPicked && r\.href \? r\.href : daySheetHref\(day\)\) : undefined\}/);
+  assert.match(CAL, /href=\{onClients \? \(inPicked && eventsOpenHere && r\.href \? r\.href : daySheetHref\(day\)\) : undefined\}/);
+  // 📱 The phone keeps the day sheet (audit 17 Nov): only from the Clients 1280 line does the row open the event.
+  assert.match(CAL, /const eventsOpenHere = useIsDesktop\('xl'\);/, 'the phone no longer keeps the day sheet');
 });
 
 test('the page is the one shipped PickedShell, moved — not a second panel', () => {
@@ -47,8 +49,11 @@ test('from 1280, over the Clients month, it keeps the rail and the top bar — w
   const rail = /^\.fd \{[^}]*--fd-rail:\s*(\d+)px/m.exec(FD)?.[1];
   const bar = /\.fd\[data-chrome='app'\] \{[^}]*--fd-bar:\s*(\d+)px/.exec(FD)?.[1];
   assert.ok(rail && bar, 'could not read the shell numbers from front-door.css');
-  assert.match(body, new RegExp(`left:\\s*${rail}px`), 'the event covers (or misses) the rail');
-  assert.match(body, new RegExp(`top:\\s*${bar}px`), 'the event covers (or misses) the top bar');
+  assert.match(body, /left:\s*var\(--fd-app-rail-wide\);/, 'the event covers (or misses) the rail');
+  assert.match(body, /top:\s*var\(--fd-app-bar\);/, 'the event covers (or misses) the top bar');
+  assert.doesNotMatch(body, /\d+px/, 'a shell number is typed on the panel');
+  // The published pair is the shell's own two values — never a second, drifting copy.
+  assert.match(FD, new RegExp(`:root \\{\\s*--fd-app-bar:\\s*${bar}px;\\s*--fd-app-rail-wide:\\s*${rail}px;`), 'the published shell numbers drifted from .fd');
   assert.match(body, /bottom:\s*0/);
   assert.match(body, /height:\s*auto/);
 });

@@ -189,21 +189,30 @@
   [data-dates-month='clients']:has(> [data-dates-picked-col]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 'top day' 'rest day';
     column-gap: 28px;
     align-items: start;
   }
-  [data-dates-month='clients']:has(> [data-dates-picked-col]) > * {
-    grid-column: 1;
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) > [data-dates-month-top] {
+    display: block;
+    grid-area: top;
+    min-width: 0;
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) > [data-dates-month-rest] {
+    display: block;
+    grid-area: rest;
     min-width: 0;
   }
   [data-dates-month='clients'] > [data-dates-picked-col] {
-    grid-column: 2;
-    grid-row: 1 / span 40;
+    grid-area: day;
+    min-width: 0;
     align-self: start;
     position: sticky;
     top: var(--sn-pin-top, var(--fd-bar, 0px));
   }
-  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-whole-list][hidden] {
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-whole-list][hidden],
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-quick-wrap][hidden] {
     display: block;
   }
 }
@@ -213,13 +222,13 @@
    is the ONE shipped `PickedShell` (fixed, full screen, portalled to <body>), opened over the still-mounted Clients list.
    While that list is on screen, from 1280 the same screen starts right of the rail and under the top bar instead of
    covering them. The phone and a cold load of the client's own address (no list under it) keep the full-screen rise.
-   <body> sits outside `.fd`, so `--fd-rail` / `--fd-bar` cannot reach it: the two numbers are the shell's own ≥1280
-   values (`front-door.css`: `.fd { --fd-rail: 240px }` · `.fd[data-chrome='app'] { --fd-bar: 61px }`), and
-   `customers/an-event-takes-columns-two-and-three.test.ts` fails the day either drifts. */
+   <body> sits outside `.fd`, so `--fd-rail` / `--fd-bar` cannot reach it: it reads the shell's own two numbers as
+   published on :root by `front-door.css` (`--fd-app-bar` · `--fd-app-rail-wide`), held equal to `.fd`'s values by
+   `customers/an-event-takes-columns-two-and-three.test.ts`. */
 @media (min-width: 1280px) {
   html:has([data-dates-month='clients']) [data-picked-client] {
-    top: 61px;
-    left: 240px;
+    top: var(--fd-app-bar);
+    left: var(--fd-app-rail-wide);
     height: auto;
     bottom: 0;
   }
@@ -240,4 +249,11 @@
   html:has([data-dates-month='clients']) [data-picked-client] [data-testid='picked-close'] {
     display: none;
   }
+}
+
+/* 🖥 The Clients month's two wrappers (`customers-calendar.tsx`) draw nothing of their own anywhere — the phone, the
+   picked client's Schedule calendar and a computer with no day picked all see the month's parts exactly as before. */
+[data-dates-month-top],
+[data-dates-month-rest] {
+  display: contents;
 }

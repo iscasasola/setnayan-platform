@@ -22,10 +22,11 @@ import { TIER_CAPS, TIER_LABEL, isTierAtLeast, type VendorTier } from '@/lib/ven
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
 
 /**
- * Free's search line: the 7 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
- * unverified shop shows in search until its first inquiry, then waits for Verified. Both front pages say these words.
+ * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
+ * unverified shop is reached by its own link and QR (and booked there); Verified adds Discover and Suppliers › Find.
+ * Both front pages say these words.
  */
-export const FREE_FINDABLE = 'found until your first inquiry';
+export const FREE_FINDABLE = 'found by your own link and QR';
 
 /** The paid plans a shop grows into, in order. */
 const GROW_TIERS = ['solo', 'pro', 'enterprise'] as const;

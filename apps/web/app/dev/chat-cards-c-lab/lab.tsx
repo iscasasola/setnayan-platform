@@ -110,7 +110,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             seed={
               empty
                 ? { quote: null }
-                : { quote: QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
+                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
             }
           />
         );

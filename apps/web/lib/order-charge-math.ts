@@ -100,10 +100,12 @@ export type ChargeRefusal =
   | 'read_error'
   /** 💎 The event already holds what this would buy (a part, or everything) — nobody pays twice. */
   | 'already_owned'
-  /** 💳 Event Ultra while the event's Event Pro (or Plus) payment is still being checked (owner 2026-11-16, "Approved"):
-   *  the difference is quoted only once that payment is confirmed, so nobody pays Ultra in full on top of a Pro that
-   *  then clears, and nobody gets the difference off a Pro that never does. */
-  | 'plan_payment_being_checked';
+  /** 💳 Event Ultra while the event's Event Pro / Event Plus payment is still being checked (owner 2026-11-16,
+   *  "Approved"): the difference is quoted only once that payment is confirmed, so nobody pays Ultra in full on top of a
+   *  plan that then clears, and nobody gets the difference off one that never does. One kind per plan, so the line
+   *  names the plan actually being checked. */
+  | 'pro_payment_being_checked'
+  | 'plus_payment_being_checked';
 // (`cycles_required` was removed 2026-08-01 with the per-USER subscription — the
 //  only SKU that took a cycle count. Nothing can emit it any more.)
 
@@ -154,8 +156,10 @@ export function refusalMessage(refusal: ChargeRefusal): string {
   switch (refusal) {
     case 'already_owned':
       return 'Your event already has this — nothing more to pay. Refresh to see it unlocked.';
-    case 'plan_payment_being_checked':
+    case 'pro_payment_being_checked':
       return 'We are still checking your Event Pro payment. Once it is confirmed, Event Ultra costs only the difference.';
+    case 'plus_payment_being_checked':
+      return 'We are still checking your Event Plus payment. Once it is confirmed, Event Ultra costs only the difference.';
     case 'read_error':
       return 'We could not confirm the price for this right now. Please try again in a moment.';
     case 'no_price_source':

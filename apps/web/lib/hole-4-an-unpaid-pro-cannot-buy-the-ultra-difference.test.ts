@@ -114,19 +114,22 @@ test('owner 2026-11-16 ("Approved") — while the Pro payment is still being che
   const body = ultraReaderBody();
   // The reader answers 'plan_being_checked' for a 'submitted' Pro (or Plus, with no plan paid) — before any price.
   assert.match(body, /r\.status === 'submitted'/, 'the reader no longer looks for a payment being checked');
-  assert.match(body, /return \{ status: 'plan_being_checked' \}/);
+  assert.match(body, /return \{ status: 'plan_being_checked', plan: 'pro' \}/);
+  assert.match(body, /return \{ status: 'plan_being_checked', plan: 'plus' \}/);
   assert.ok(
     body.indexOf("status: 'plan_being_checked'") < body.indexOf('resolveRetailChargeCentavos'),
     'the refusal must come before Ultra is priced',
   );
-  // The charge turns it into its own refusal, and the buyer reads one plain sentence.
+  // The charge turns it into the refusal for THAT plan, and the buyer reads one plain sentence naming it.
   assert.match(
     read('lib/order-charge-authority.ts'),
-    /upgrade\.status === 'plan_being_checked'\) return \{ ok: false, refusal: 'plan_payment_being_checked'/,
+    /refusal: upgrade\.plan === 'pro' \? 'pro_payment_being_checked' : 'plus_payment_being_checked'/,
   );
   const { refusalMessage } = await import('@/lib/order-charge-math');
-  const line = refusalMessage('plan_payment_being_checked');
-  assert.match(line, /still checking your Event Pro payment/);
-  assert.match(line, /only the difference/);
+  assert.match(refusalMessage('pro_payment_being_checked'), /still checking your Event Pro payment/);
+  assert.match(refusalMessage('plus_payment_being_checked'), /still checking your Event Plus payment/);
+  for (const k of ['pro_payment_being_checked', 'plus_payment_being_checked'] as const) {
+    assert.match(refusalMessage(k), /only the difference/);
+  }
   // Once Pro is verified ('paid'), the difference is quoted (the control in 4a).
 });

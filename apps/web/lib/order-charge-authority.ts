@@ -221,7 +221,9 @@ export async function resolveOrderChargeCentavos(
     if (owned) return { ok: false, refusal: 'already_owned', detail: serviceKey };
     const upgrade = await readUltraUpgradeCharge(admin, eventId);
     if (upgrade.status === 'error') return { ok: false, refusal: 'read_error', detail: upgrade.message };
-    if (upgrade.status === 'plan_being_checked') return { ok: false, refusal: 'plan_payment_being_checked', detail: serviceKey };
+    if (upgrade.status === 'plan_being_checked') {
+      return { ok: false, refusal: upgrade.plan === 'pro' ? 'pro_payment_being_checked' : 'plus_payment_being_checked', detail: serviceKey };
+    }
     if (upgrade.charge) {
       if (!upgrade.charge.ok) return { ok: false, refusal: 'read_error', detail: 'a plan price was not read' };
       return sealServerResolvedTotal(upgrade.charge.php * 100, 'event_ultra_upgrade');
@@ -414,7 +416,7 @@ export async function readUltraUpgradeCharge(
   eventId: string,
 ): Promise<
   | { status: 'error'; message: string }
-  | { status: 'plan_being_checked' }
+  | { status: 'plan_being_checked'; plan: 'pro' | 'plus' }
   | { status: 'ok'; charge: UltraUpgradeCharge | null }
 > {
   let own;
@@ -435,9 +437,8 @@ export async function readUltraUpgradeCharge(
   // 💳 Owner 2026-11-16 ("Approved"): while a Pro (or, with no paid plan, a Plus) payment is still being checked —
   // status 'submitted' — Ultra is refused with a plain line, not sold in full and not sold at the difference.
   const beingChecked = (sku: string) => lines.some((r) => r.service_key === sku && r.status === 'submitted');
-  if ((!proPaid && beingChecked(FULL_PRO_SKU)) || (!proPaid && !plusPaid && beingChecked(EVENT_PLUS_SKU))) {
-    return { status: 'plan_being_checked' };
-  }
+  if (!proPaid && beingChecked(FULL_PRO_SKU)) return { status: 'plan_being_checked', plan: 'pro' };
+  if (!proPaid && !plusPaid && beingChecked(EVENT_PLUS_SKU)) return { status: 'plan_being_checked', plan: 'plus' };
   if (!proPaid && !plusPaid && !(own.paidPhp > 0)) return { status: 'ok', charge: null };
   const ultraRow = await resolveRetailChargeCentavos(eventId, EVENT_ULTRA_SKU);
   if (ultraRow.status === 'error') return { status: 'error', message: ultraRow.message };

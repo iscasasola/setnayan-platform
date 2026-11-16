@@ -17,9 +17,9 @@
   display: grid;
   place-items: center;
   border-radius: var(--m-r-full);
-  background: rgba(20, 14, 8, 0.55);
-  border: 1px solid rgba(255, 240, 215, 0.35);
-  color: #f6e7c8;
+  background: color-mix(in srgb, var(--sn-gift-umber-14) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sn-gift-glow-29) 35%, transparent);
+  color: var(--sn-gift-glow-19);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   font: inherit;
@@ -29,7 +29,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .x:focus-visible {
-  outline: 2px solid #f6e7c8;
+  outline: 2px solid var(--sn-gift-glow-19);
   outline-offset: 3px;
   box-shadow: none;
 }

@@ -21,3 +21,22 @@ The badge build's J7 (corpus `plans/supplier_badges_build_plan_2026-11-15.md`), 
 - Guard: `app/_components/gift-moment/the-gift-box-is-the-approved-one.test.ts` (5 tests; 4 sabotages, each red).
 
 SPEC IMPACT: None — builds the 2026-11-15 approved gift box as ruled.
+
+### 2026-11-16 · controller audit fixes (FIX-FIRST)
+
+- **The ticket, the badge background and the drop-in reach the box.** `gift-moments.tsx` (couple Home, supplier Today) now passes `stage` (`stageFor`) and `arrive`. `arrive` is set for a badge's gift, and not for one re-opened from its waiting line. The lazily loaded `gift-moment-shown.tsx` passes the gift's reward `ticket`.
+  - The ticket is the award kit's drawing (`ticketDataUri`, #7752), and the gift itself decides which one: `GiftMomentView.ticket`, built in `lib/gift-moment.ts`.
+    - A supplier's Papic gift gets its pack's ticket, by credits. A plan gift gets its plan's ticket.
+    - A badge reward gets its granted kind, plus the pack its step pays from the reward table. Its frame wears the tier's metal.
+  - Named gap: a free booking fee has no ticket kind in the kit, so it opens on the lit lining.
+  - The ticket art stays out of the page's first load.
+- **An automatic claim never shows a false ✓.** A badge reward's card says "✓ In your gifts" only once the claim is confirmed, or when `claimedAt` already says so.
+  - While the claim is out, the card reads "Claiming…".
+  - A lost claim says "No connection — your gift is safe. It stays here until it goes through."; a refused one says so.
+  - There is still no button (owner 15 Nov). The waiting line stays, and the next showing sends the same claim again.
+- **The box's colours are tokens.** All 82 literal colours in `gift-box.module.css` and `close-x.module.css` are now `--sn-gift-*` tokens in `globals.css` (umber · glow · rose · night · black · white).
+  - Each one has an explicit, unchanged `html.dark` pair, because the box is a drawn object and looks the same in every theme.
+  - Alpha shades use `color-mix(in srgb, var(--sn-gift-…) N%, transparent)`. The picture is unchanged.
+- The guard `the-gift-box-is-the-approved-one.test.ts` gains tests 6–8. Each new assert was sabotage-checked red.
+
+SPEC IMPACT: None.

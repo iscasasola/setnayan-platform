@@ -175,16 +175,20 @@ export default function GiftMoment({
     [claim, view],
   );
 
-  // 🔑 AUTOMATIC CLAIM (a badge or seal reward): once, the moment it shows. The gift is already in their gifts either
-  // way; a claim that does not reach us leaves the waiting line up, and the next showing sends the same claim again.
+  // 🔑 AUTOMATIC CLAIM (a badge or seal reward): once, the moment it shows. The card says "✓ In your gifts" ONLY once
+  // the claim is confirmed (or `view.claimedAt` already says so): while it is out it reads "Claiming…", and a claim
+  // that does not reach us shows its failure — "No connection — your gift is safe. It stays here until it goes
+  // through." or the refusal — never a success tick over a failed claim (controller audit 16 Nov). The waiting line
+  // stays up, and the next showing sends the same claim again.
   useEffect(() => {
     if (mode !== 'auto' || view.claimedAt || autoSent.current) return;
     autoSent.current = true;
+    inFlight.current = true;
+    setState('pressed');
     void send('auto').then((next) => {
-      if (next === 'claimed') {
-        setState('claimed');
-        onClaimed?.('auto');
-      }
+      inFlight.current = false;
+      setState(next);
+      if (next === 'claimed') onClaimed?.('auto');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per showing
   }, []);
@@ -444,14 +448,31 @@ export default function GiftMoment({
             {view.detail ? <p className="mt-2 text-[14px] text-ink/75">{view.detail}</p> : null}
 
             {mode === 'auto' ? (
-              // The gift is already theirs: no button (owner 15 Nov: "We are just showing that they received something").
-              <p
-                role="status"
-                className="mt-4 flex min-h-12 items-center justify-center rounded-full bg-success-50 text-[15px] font-semibold text-success-800"
-                data-gift-claimed=""
-              >
-                {autoLine}
-              </p>
+              // No button while it goes through (owner 15 Nov: "We are just showing that they received something") — but
+              // the tick is drawn only for a CONFIRMED claim; a failed one says so and offers the same claim again.
+              claimed ? (
+                <p
+                  role="status"
+                  className="mt-4 flex min-h-12 items-center justify-center rounded-full bg-success-50 text-[15px] font-semibold text-success-800"
+                  data-gift-claimed=""
+                >
+                  {autoLine}
+                </p>
+              ) : state === 'offline' ? (
+                // Still no button (owner 15 Nov): the words say it did not go through, the waiting line stays up, and
+                // the next showing sends the SAME claim again.
+                <p role="status" className="mt-4 text-[14px] text-warn-900" data-gift-offline="">
+                  {CLAIM_WORDS.offline}
+                </p>
+              ) : state === 'refused' ? (
+                <p role="status" className="mt-4 text-[14px] text-danger-800" data-gift-refused="">
+                  {CLAIM_WORDS.refused}
+                </p>
+              ) : (
+                <p role="status" className="mt-4 flex min-h-12 items-center justify-center text-[15px] font-semibold text-ink/70" data-gift-claiming="">
+                  {CLAIM_WORDS.pressed}
+                </p>
+              )
             ) : (
               <>
                 {view.landedLine ? (

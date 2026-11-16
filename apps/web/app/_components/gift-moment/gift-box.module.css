@@ -41,55 +41,55 @@
   --gb-lining: var(--m-ivory);
   --gb-waxb: var(--gb-paper);
   /* the light and shade the drawn SVG parts (seal, bow, ribbon tails, lid top) paint with */
-  --gb-shade: #1a0602;
-  --gb-sheen2: #fffbea;
-  --gb-sheen: #fffdf2;
-  --gb-tint: #2b1a05;
-  --gb-cream: #fff1c9;
-  --gb-peach: #ffe6d2;
-  --gb-blush: #ffd9bf;
-  --gb-pearl: #fff1e4;
-  --gb-crease: #1e1002;
-  --gb-p-hi: color-mix(in srgb, var(--gb-paper) 80%, #ffe2c4);
-  --gb-p-top: color-mix(in srgb, var(--gb-paper) 91%, #ffe2c4);
-  --gb-p-lo: color-mix(in srgb, var(--gb-paper) 82%, #2a0e05);
-  --gb-p-sh: color-mix(in srgb, var(--gb-paper) 63%, #2a0e05);
-  --gb-p-dk: color-mix(in srgb, var(--gb-paper) 48%, #2a0e05);
-  --gb-g-sp: color-mix(in srgb, var(--gb-gold) 22%, #fff9e6);
-  --gb-g-hi: color-mix(in srgb, var(--gb-gold) 55%, #fff1c9);
-  --gb-g-lo: color-mix(in srgb, var(--gb-gold) 70%, #2b1a05);
-  --gb-g-dk: color-mix(in srgb, var(--gb-gold) 46%, #2b1a05);
-  --gb-l-lit: color-mix(in srgb, var(--gb-lining) 82%, #3a2410);
-  --gb-l-sh: color-mix(in srgb, var(--gb-lining) 58%, #2a1608);
-  --gb-l-dk: color-mix(in srgb, var(--gb-lining) 40%, #1e0f05);
-  --gb-wax-hi: color-mix(in srgb, var(--gb-waxb) 62%, #ffc7a0);
-  --gb-wax: color-mix(in srgb, var(--gb-waxb) 66%, #5a1c08);
-  --gb-wax-dk: color-mix(in srgb, var(--gb-waxb) 38%, #330d03);
-  --gb-press: color-mix(in srgb, var(--gb-waxb) 30%, #2a0a02);
+  --gb-shade: var(--sn-gift-umber-6);
+  --gb-sheen2: var(--sn-gift-glow-36);
+  --gb-sheen: var(--sn-gift-glow-37);
+  --gb-tint: var(--sn-gift-umber-25);
+  --gb-cream: var(--sn-gift-glow-28);
+  --gb-peach: var(--sn-gift-glow-21);
+  --gb-blush: var(--sn-gift-glow-15);
+  --gb-pearl: var(--sn-gift-glow-30);
+  --gb-crease: var(--sn-gift-umber-19);
+  --gb-p-hi: color-mix(in srgb, var(--gb-paper) 80%, var(--sn-gift-glow-17));
+  --gb-p-top: color-mix(in srgb, var(--gb-paper) 91%, var(--sn-gift-glow-17));
+  --gb-p-lo: color-mix(in srgb, var(--gb-paper) 82%, var(--sn-gift-umber-20));
+  --gb-p-sh: color-mix(in srgb, var(--gb-paper) 63%, var(--sn-gift-umber-20));
+  --gb-p-dk: color-mix(in srgb, var(--gb-paper) 48%, var(--sn-gift-umber-20));
+  --gb-g-sp: color-mix(in srgb, var(--gb-gold) 22%, var(--sn-gift-glow-33));
+  --gb-g-hi: color-mix(in srgb, var(--gb-gold) 55%, var(--sn-gift-glow-28));
+  --gb-g-lo: color-mix(in srgb, var(--gb-gold) 70%, var(--sn-gift-umber-25));
+  --gb-g-dk: color-mix(in srgb, var(--gb-gold) 46%, var(--sn-gift-umber-25));
+  --gb-l-lit: color-mix(in srgb, var(--gb-lining) 82%, var(--sn-gift-umber-26));
+  --gb-l-sh: color-mix(in srgb, var(--gb-lining) 58%, var(--sn-gift-umber-24));
+  --gb-l-dk: color-mix(in srgb, var(--gb-lining) 40%, var(--sn-gift-umber-18));
+  --gb-wax-hi: color-mix(in srgb, var(--gb-waxb) 62%, var(--sn-gift-glow-9));
+  --gb-wax: color-mix(in srgb, var(--gb-waxb) 66%, var(--sn-gift-umber-27));
+  --gb-wax-dk: color-mix(in srgb, var(--gb-waxb) 38%, var(--sn-gift-umber-21));
+  --gb-press: color-mix(in srgb, var(--gb-waxb) 30%, var(--sn-gift-umber-16));
   --gb-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .9 0 0 0 -.42'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
 }
 /* owner 15 Nov: "Setnayan box is gold" · "make the gift box of setnayan more premium and expensive" — polished gold
    foil with the Setnayan mark embossed all over, a deep wine satin ribbon edged in gold, a wine wax pressed in gold
    leaf, a dark velvet lining, a slow light across the foil while it waits. */
 .fromSn {
-  --gb-paper: #c9982f;
-  --gb-p-hi: #fff1bc;
-  --gb-p-top: #edc867;
-  --gb-p-lo: #9a6a19;
-  --gb-p-sh: #7a5113;
-  --gb-p-dk: #462c08;
-  --gb-gold: #701330;
-  --gb-g-sp: #c77590;
-  --gb-g-hi: #992f55;
-  --gb-g-lo: #4e0b21;
-  --gb-g-dk: #2a0411;
-  --gb-l-lit: #3e2632;
-  --gb-l-sh: #26141c;
-  --gb-l-dk: #140a0f;
-  --gb-wax-hi: #9a3a58;
-  --gb-wax: #541027;
-  --gb-wax-dk: #21040e;
-  --gb-press: #ebc66a;
+  --gb-paper: var(--sn-gift-glow-1);
+  --gb-p-hi: var(--sn-gift-glow-26);
+  --gb-p-top: var(--sn-gift-glow-7);
+  --gb-p-lo: var(--sn-gift-umber-34);
+  --gb-p-sh: var(--sn-gift-umber-32);
+  --gb-p-dk: var(--sn-gift-umber-29);
+  --gb-gold: var(--sn-gift-rose-3);
+  --gb-g-sp: var(--sn-gift-rose-6);
+  --gb-g-hi: var(--sn-gift-rose-4);
+  --gb-g-lo: var(--sn-gift-rose-1);
+  --gb-g-dk: var(--sn-gift-umber-12);
+  --gb-l-lit: var(--sn-gift-umber-28);
+  --gb-l-sh: var(--sn-gift-umber-23);
+  --gb-l-dk: var(--sn-gift-umber-11);
+  --gb-wax-hi: var(--sn-gift-rose-5);
+  --gb-wax: var(--sn-gift-rose-2);
+  --gb-wax-dk: var(--sn-gift-umber-8);
+  --gb-press: var(--sn-gift-glow-6);
 }
 
 .pool {
@@ -98,7 +98,7 @@
   right: 0;
   top: 50%;
   height: 46%;
-  background: radial-gradient(closest-side, rgba(246, 232, 206, 0.24), rgba(246, 232, 206, 0));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-20) 24%, transparent), color-mix(in srgb, var(--sn-gift-glow-20) 0%, transparent));
   pointer-events: none;
 }
 .scene {
@@ -141,37 +141,37 @@
 
 /* paper: grain + softened lit edges + a slow sheen + the face's own light */
 .pf.front {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 232, 208, 0.34), rgba(255, 232, 208, 0) 1.3em),
-    linear-gradient(270deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 0.55em),
-    linear-gradient(0deg, rgba(38, 12, 4, 0.42), rgba(38, 12, 4, 0) 6em),
-    linear-gradient(112deg, rgba(255, 255, 255, 0) 18%, rgba(255, 244, 230, 0.13) 36%, rgba(255, 255, 255, 0) 56%),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-23) 34%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 1.3em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-23) 30%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 0.55em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-17) 42%, transparent), color-mix(in srgb, var(--sn-gift-umber-17) 0%, transparent) 6em),
+    linear-gradient(112deg, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 18%, color-mix(in srgb, var(--sn-gift-glow-31) 13%, transparent) 36%, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 56%),
     linear-gradient(168deg, var(--gb-paper), var(--gb-p-lo));
 }
 .pf.right {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, rgba(255, 226, 200, 0.2), rgba(255, 226, 200, 0) 0.5em),
-    linear-gradient(0deg, rgba(20, 6, 2, 0.4), rgba(20, 6, 2, 0) 7em), linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-18) 20%, transparent), color-mix(in srgb, var(--sn-gift-glow-18) 0%, transparent) 0.5em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-5) 40%, transparent), color-mix(in srgb, var(--sn-gift-umber-5) 0%, transparent) 7em), linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
 }
 .pf.back,
 .pf.left {
   background: var(--gb-p-dk);
 }
 .pf.ltop {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(0deg, rgba(255, 238, 220, 0.55), rgba(255, 238, 220, 0) 0.5em),
-    linear-gradient(270deg, rgba(255, 238, 220, 0.38), rgba(255, 238, 220, 0) 0.5em),
-    linear-gradient(125deg, rgba(255, 255, 255, 0) 30%, rgba(255, 246, 234, 0.2) 46%, rgba(255, 255, 255, 0) 64%),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-glow-27) 55%, transparent), color-mix(in srgb, var(--sn-gift-glow-27) 0%, transparent) 0.5em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-27) 38%, transparent), color-mix(in srgb, var(--sn-gift-glow-27) 0%, transparent) 0.5em),
+    linear-gradient(125deg, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 30%, color-mix(in srgb, var(--sn-gift-glow-32) 20%, transparent) 46%, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 64%),
     linear-gradient(140deg, var(--gb-p-hi), var(--gb-p-top) 55%, var(--gb-paper));
   outline: 0.14em solid var(--gb-p-top);
 }
 .pf.lfront {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 236, 216, 0.42), rgba(255, 236, 216, 0) 0.55em),
-    linear-gradient(0deg, rgba(38, 12, 4, 0.46), rgba(38, 12, 4, 0) 0.9em),
-    linear-gradient(90deg, rgba(255, 232, 208, 0.3), rgba(255, 232, 208, 0) 1.3em),
-    linear-gradient(270deg, rgba(255, 232, 208, 0.28), rgba(255, 232, 208, 0) 0.55em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-25) 42%, transparent), color-mix(in srgb, var(--sn-gift-glow-25) 0%, transparent) 0.55em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-17) 46%, transparent), color-mix(in srgb, var(--sn-gift-umber-17) 0%, transparent) 0.9em),
+    linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-23) 30%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 1.3em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-23) 28%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 0.55em),
     linear-gradient(170deg, var(--gb-p-top), var(--gb-paper));
 }
 .pf.lright {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(255, 226, 200, 0.26), rgba(255, 226, 200, 0) 0.5em),
-    linear-gradient(0deg, rgba(20, 6, 2, 0.42), rgba(20, 6, 2, 0) 0.9em),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-18) 26%, transparent), color-mix(in srgb, var(--sn-gift-glow-18) 0%, transparent) 0.5em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-5) 42%, transparent), color-mix(in srgb, var(--sn-gift-umber-5) 0%, transparent) 0.9em),
     linear-gradient(180deg, var(--gb-p-sh), color-mix(in srgb, var(--gb-p-sh) 55%, var(--gb-p-dk)));
 }
 .pf.lback,
@@ -209,7 +209,7 @@
 }
 .fromSn .pf.rim,
 .fromSn .pf.lrim {
-  background: linear-gradient(90deg, #8a5e16, #fff1bc 40%, #c9982f 70%, #7a5113);
+  background: linear-gradient(90deg, var(--sn-gift-umber-33), var(--sn-gift-glow-26) 40%, var(--sn-gift-glow-1) 70%, var(--sn-gift-umber-32));
 }
 .fromSn .rb::before {
   content: '';
@@ -217,21 +217,21 @@
   inset: 0;
   background: linear-gradient(
     90deg,
-    #fbe3a0 0 0.34em,
-    #7a4e0e 0.34em 0.52em,
-    rgba(0, 0, 0, 0) 0.52em calc(100% - 0.52em),
-    #7a4e0e calc(100% - 0.52em) calc(100% - 0.34em),
-    #e9c46a calc(100% - 0.34em)
+    var(--sn-gift-glow-16) 0 0.34em,
+    var(--sn-gift-umber-31) 0.34em 0.52em,
+    color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 0.52em calc(100% - 0.52em),
+    var(--sn-gift-umber-31) calc(100% - 0.52em) calc(100% - 0.34em),
+    var(--sn-gift-glow-5) calc(100% - 0.34em)
   );
 }
 .fromSn .rb.h::before {
   background: linear-gradient(
     180deg,
-    #fbe3a0 0 0.34em,
-    #7a4e0e 0.34em 0.52em,
-    rgba(0, 0, 0, 0) 0.52em calc(100% - 0.52em),
-    #7a4e0e calc(100% - 0.52em) calc(100% - 0.34em),
-    #e9c46a calc(100% - 0.34em)
+    var(--sn-gift-glow-16) 0 0.34em,
+    var(--sn-gift-umber-31) 0.34em 0.52em,
+    color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 0.52em calc(100% - 0.52em),
+    var(--sn-gift-umber-31) calc(100% - 0.52em) calc(100% - 0.34em),
+    var(--sn-gift-glow-5) calc(100% - 0.34em)
   );
 }
 .fromSn .bow :global([data-sheen]) {
@@ -255,7 +255,7 @@
   bottom: -10%;
   left: 0;
   width: 38%;
-  background: linear-gradient(100deg, rgba(255, 250, 228, 0), rgba(255, 250, 228, 0.55) 50%, rgba(255, 250, 228, 0));
+  background: linear-gradient(100deg, color-mix(in srgb, var(--sn-gift-glow-34) 0%, transparent), color-mix(in srgb, var(--sn-gift-glow-34) 55%, transparent) 50%, color-mix(in srgb, var(--sn-gift-glow-34) 0%, transparent));
   transform: translateX(-120%) skewX(-14deg);
   animation: gb-foil calc(var(--sn-dur-enter) * 6.5) var(--sn-ease) calc(var(--sn-dur-enter) * 1.9) infinite;
 }
@@ -277,15 +277,15 @@
   background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
 }
 .in.inb {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(100deg, rgba(24, 10, 3, 0.55), rgba(24, 10, 3, 0) 46%),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(100deg, color-mix(in srgb, var(--sn-gift-umber-10) 55%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 0%, transparent) 46%),
     linear-gradient(180deg, var(--gb-l-lit), var(--gb-l-sh));
 }
 .in.inl {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, rgba(24, 10, 3, 0.25), rgba(24, 10, 3, 0.5)),
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-umber-10) 25%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 50%, transparent)),
     linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
 }
 .in.flr {
-  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(120deg, rgba(24, 10, 3, 0.6), rgba(24, 10, 3, 0.1) 70%), var(--gb-l-sh);
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(120deg, color-mix(in srgb, var(--sn-gift-umber-10) 60%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 10%, transparent) 70%), var(--gb-l-sh);
 }
 .in.lin {
   background: linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-lit));
@@ -297,16 +297,16 @@
 .glw {
   inset: 0;
   opacity: 0;
-  background: linear-gradient(0deg, rgba(255, 214, 140, 0.95), rgba(255, 198, 116, 0.42) 52%, rgba(255, 190, 100, 0.05));
+  background: linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-glow-14) 95%, transparent), color-mix(in srgb, var(--sn-gift-glow-8) 42%, transparent) 52%, color-mix(in srgb, var(--sn-gift-glow-4) 5%, transparent));
 }
 .flr .glw {
-  background: radial-gradient(closest-side, rgba(255, 236, 190, 1), rgba(255, 206, 128, 0.8) 55%, rgba(255, 190, 100, 0.35));
+  background: radial-gradient(closest-side, var(--sn-gift-glow-24), color-mix(in srgb, var(--sn-gift-glow-10) 80%, transparent) 55%, color-mix(in srgb, var(--sn-gift-glow-4) 35%, transparent));
 }
 
 /* satin ribbon: a hard bright streak along the length, a fine weave, a shadow where it sits on the paper */
 .rb {
-  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
-    linear-gradient(180deg, rgba(255, 250, 230, 0.16), rgba(255, 250, 230, 0) 26%, rgba(30, 16, 2, 0) 64%, rgba(30, 16, 2, 0.22)),
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
+    linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-35) 16%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 26%, color-mix(in srgb, var(--sn-gift-umber-19) 0%, transparent) 64%, color-mix(in srgb, var(--sn-gift-umber-19) 22%, transparent)),
     linear-gradient(
       90deg,
       var(--gb-g-dk) 0,
@@ -319,11 +319,11 @@
       var(--gb-g-lo) 86%,
       var(--gb-g-dk) 100%
     );
-  box-shadow: 0.32em 0.08em 0.55em rgba(38, 12, 4, 0.42), -0.08em 0 0.22em rgba(38, 12, 4, 0.22);
+  box-shadow: 0.32em 0.08em 0.55em color-mix(in srgb, var(--sn-gift-umber-17) 42%, transparent), -0.08em 0 0.22em color-mix(in srgb, var(--sn-gift-umber-17) 22%, transparent);
 }
 .rb.h {
-  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
-    linear-gradient(90deg, rgba(255, 250, 230, 0.2), rgba(255, 250, 230, 0) 30%, rgba(30, 16, 2, 0) 70%, rgba(30, 16, 2, 0.16)),
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
+    linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-35) 20%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 30%, color-mix(in srgb, var(--sn-gift-umber-19) 0%, transparent) 70%, color-mix(in srgb, var(--sn-gift-umber-19) 16%, transparent)),
     linear-gradient(
       180deg,
       var(--gb-g-dk) 0,
@@ -336,11 +336,11 @@
       var(--gb-g-lo) 88%,
       var(--gb-g-dk) 100%
     );
-  box-shadow: 0.08em 0.3em 0.5em rgba(38, 12, 4, 0.38);
+  box-shadow: 0.08em 0.3em 0.5em color-mix(in srgb, var(--sn-gift-umber-17) 38%, transparent);
 }
 .rb.fold {
-  background: linear-gradient(180deg, rgba(255, 250, 230, 0.5), rgba(255, 250, 230, 0) 0.45em),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.085) 0 0.07em, rgba(255, 255, 255, 0) 0.07em 0.26em),
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-35) 50%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 0.45em),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
     linear-gradient(
       90deg,
       var(--gb-g-dk) 0,
@@ -358,7 +358,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(30, 12, 2, 0.44);
+  background: color-mix(in srgb, var(--sn-gift-umber-15) 44%, transparent);
 }
 .rb.up {
   transform-origin: 50% 0;
@@ -374,28 +374,28 @@
   height: 16em;
   background: linear-gradient(
     180deg,
-    rgba(26, 8, 2, 0.62) 0,
-    rgba(26, 8, 2, 0.62) var(--gb-cover),
-    rgba(26, 8, 2, 0.22) calc(var(--gb-cover) + 2.3em),
-    rgba(26, 8, 2, 0)
+    color-mix(in srgb, var(--sn-gift-umber-9) 62%, transparent) 0,
+    color-mix(in srgb, var(--sn-gift-umber-9) 62%, transparent) var(--gb-cover),
+    color-mix(in srgb, var(--sn-gift-umber-9) 22%, transparent) calc(var(--gb-cover) + 2.3em),
+    color-mix(in srgb, var(--sn-gift-umber-9) 0%, transparent)
   );
 }
 .dim {
   inset: 0;
-  background: rgba(30, 10, 2, 0.3);
+  background: color-mix(in srgb, var(--sn-gift-umber-13) 30%, transparent);
   opacity: 0;
 }
 /* shadows on the floor: blurred once, never animated except by opacity */
 .sh {
-  background: rgba(14, 5, 2, 0.5);
-  box-shadow: 0 0 4.2em 3em rgba(14, 5, 2, 0.5);
+  background: color-mix(in srgb, var(--sn-gift-umber-4) 50%, transparent);
+  box-shadow: 0 0 4.2em 3em color-mix(in srgb, var(--sn-gift-umber-4) 50%, transparent);
   border-radius: 2em;
   backface-visibility: visible;
   -webkit-backface-visibility: visible;
 }
 .sh.far {
-  background: rgba(14, 5, 2, 0.16);
-  box-shadow: 0 0 12em 9em rgba(14, 5, 2, 0.16);
+  background: color-mix(in srgb, var(--sn-gift-umber-4) 16%, transparent);
+  box-shadow: 0 0 12em 9em color-mix(in srgb, var(--sn-gift-umber-4) 16%, transparent);
 }
 .sh.shLid {
   opacity: 0;
@@ -444,14 +444,14 @@
   height: 100%;
 }
 .mk .lo {
-  color: rgba(255, 206, 176, 0.62);
+  color: color-mix(in srgb, var(--sn-gift-glow-12) 62%, transparent);
   transform: translate(0.9%, 1.4%);
 }
 .mk .dk {
   color: var(--gb-press);
 }
 .fromSn .mk .lo {
-  color: rgba(20, 0, 6, 0.75);
+  color: color-mix(in srgb, var(--sn-gift-umber-1) 75%, transparent);
   transform: translate(1.2%, 1.8%);
 }
 .ini {
@@ -461,7 +461,7 @@
   font-size: 6.4em;
   letter-spacing: 0.03em;
   color: var(--gb-press);
-  text-shadow: 0.05em 0.07em 0 rgba(255, 206, 176, 0.55), -0.02em -0.03em 0.03em rgba(30, 6, 0, 0.55);
+  text-shadow: 0.05em 0.07em 0 color-mix(in srgb, var(--sn-gift-glow-12) 55%, transparent), -0.02em -0.03em 0.03em color-mix(in srgb, var(--sn-gift-umber-7) 55%, transparent);
 }
 .logo {
   position: relative;
@@ -507,7 +507,7 @@
   border-radius: var(--m-r-full);
   pointer-events: none;
   opacity: 0;
-  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.42), rgba(255, 186, 96, 0.16) 45%, rgba(255, 170, 80, 0));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-14) 42%, transparent), color-mix(in srgb, var(--sn-gift-glow-3) 16%, transparent) 45%, color-mix(in srgb, var(--sn-gift-glow-2) 0%, transparent));
 }
 .flash {
   position: absolute;
@@ -763,7 +763,7 @@
   height: 350px;
   margin: -175px 0 0 -175px;
   border-radius: var(--m-r-full);
-  background: radial-gradient(closest-side, rgba(251, 233, 200, 0.39), rgba(251, 233, 200, 0));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-22) 39%, transparent), color-mix(in srgb, var(--sn-gift-glow-22) 0%, transparent));
   mix-blend-mode: screen;
   pointer-events: none;
   opacity: 0;
@@ -798,7 +798,7 @@
   pointer-events: none;
   z-index: 2;
   opacity: 0;
-  background: radial-gradient(closest-side, rgba(255, 214, 140, 0.5), rgba(255, 186, 96, 0.18) 45%, rgba(255, 170, 80, 0));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-14) 50%, transparent), color-mix(in srgb, var(--sn-gift-glow-3) 18%, transparent) 45%, color-mix(in srgb, var(--sn-gift-glow-2) 0%, transparent));
 }
 /* the box arrives: it drops in and settles */
 .arrive {
@@ -834,10 +834,10 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  background: radial-gradient(120% 72% at 50% 36%, #1c2d57 0, #0b1124 52%, #04060c 100%);
+  background: radial-gradient(120% 72% at 50% 36%, var(--sn-gift-night-2) 0, var(--sn-gift-night-1) 52%, var(--sn-gift-umber-2) 100%);
 }
 .badgeStage.tier {
-  background: radial-gradient(120% 72% at 50% 36%, #4a3410 0, #1e1406 52%, #0a0603 100%);
+  background: radial-gradient(120% 72% at 50% 36%, var(--sn-gift-umber-30) 0, var(--sn-gift-umber-22) 52%, var(--sn-gift-umber-3) 100%);
 }
 .rays {
   position: absolute;
@@ -847,13 +847,13 @@
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  background: repeating-conic-gradient(from 0deg, rgba(140, 185, 255, 0.13) 0 5deg, rgba(140, 185, 255, 0) 5deg 15deg);
-  -webkit-mask: radial-gradient(closest-side, #000 18%, rgba(0, 0, 0, 0) 72%);
-  mask: radial-gradient(closest-side, #000 18%, rgba(0, 0, 0, 0) 72%);
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--sn-gift-night-3) 13%, transparent) 0 5deg, color-mix(in srgb, var(--sn-gift-night-3) 0%, transparent) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, var(--sn-gift-black) 18%, color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 72%);
+  mask: radial-gradient(closest-side, var(--sn-gift-black) 18%, color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 72%);
   animation: gb-spin calc(var(--sn-dur-enter) * 94) linear infinite;
 }
 .tier .rays {
-  background: repeating-conic-gradient(from 0deg, rgba(255, 215, 130, 0.13) 0 5deg, rgba(255, 215, 130, 0) 5deg 15deg);
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--sn-gift-glow-13) 13%, transparent) 0 5deg, color-mix(in srgb, var(--sn-gift-glow-13) 0%, transparent) 5deg 15deg);
 }
 @keyframes gb-spin {
   to {
@@ -866,8 +866,8 @@
   width: 4px;
   height: 4px;
   border-radius: var(--m-r-full);
-  background: #f3d58a;
-  box-shadow: 0 0 6px 1px rgba(243, 213, 138, 0.7);
+  background: var(--sn-gift-glow-11);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--sn-gift-glow-11) 70%, transparent);
   opacity: 0;
   animation: gb-mote var(--gb-d) linear var(--gb-dl) infinite;
 }

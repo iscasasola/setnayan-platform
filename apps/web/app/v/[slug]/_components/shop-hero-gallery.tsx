@@ -119,7 +119,7 @@ export function ShopHeroGallery({
                 onClick={() => show(i)}
                 aria-label={`Open photo ${formatCount(i + 1)} of ${formatCount(total)}`}
                 className={`group relative overflow-hidden bg-ink ${
-                  i === 0 ? 'row-span-2 rounded-l-[22px] rounded-r-md' : i === 2 ? 'rounded-md rounded-tr-[22px]' : i === 4 ? 'rounded-md rounded-br-[22px]' : 'rounded-md'
+                  i === 0 ? 'row-span-2 rounded-l-3xl rounded-r-md' : i === 2 ? 'rounded-md rounded-tr-3xl' : i === 4 ? 'rounded-md rounded-br-3xl' : 'rounded-md'
                 }`}
               >
                 <span className="absolute inset-0 transition-transform duration-[var(--sn-dur-enter)] group-hover:scale-[1.04]">

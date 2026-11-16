@@ -109,3 +109,24 @@ test('CLOSED · 4b — cancelling an unpaid Pro takes nothing back, because no c
     null,
   );
 });
+
+test('owner 2026-11-16 ("Approved") — while the Pro payment is still being checked, Ultra is refused with a plain line', async () => {
+  const body = ultraReaderBody();
+  // The reader answers 'plan_being_checked' for a 'submitted' Pro (or Plus, with no plan paid) — before any price.
+  assert.match(body, /r\.status === 'submitted'/, 'the reader no longer looks for a payment being checked');
+  assert.match(body, /return \{ status: 'plan_being_checked' \}/);
+  assert.ok(
+    body.indexOf("status: 'plan_being_checked'") < body.indexOf('resolveRetailChargeCentavos'),
+    'the refusal must come before Ultra is priced',
+  );
+  // The charge turns it into its own refusal, and the buyer reads one plain sentence.
+  assert.match(
+    read('lib/order-charge-authority.ts'),
+    /upgrade\.status === 'plan_being_checked'\) return \{ ok: false, refusal: 'plan_payment_being_checked'/,
+  );
+  const { refusalMessage } = await import('@/lib/order-charge-math');
+  const line = refusalMessage('plan_payment_being_checked');
+  assert.match(line, /still checking your Event Pro payment/);
+  assert.match(line, /only the difference/);
+  // Once Pro is verified ('paid'), the difference is quoted (the control in 4a).
+});

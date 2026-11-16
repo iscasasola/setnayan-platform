@@ -23,7 +23,10 @@ const PAGE = read('page.tsx');
 const PANEL = read('_components/shop-can-do-panel.tsx');
 
 test('the verified look is every verified shop — not a plan', () => {
-  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
+  // 📄 Papers renewal §4 (approved 14 Nov): a verified shop whose papers lapsed after 30 March gets the calm page —
+  // the ONE exception, and it is a papers fact, never a plan (`coupleShopRenewing`, held in lib/papers-renewal.test.ts).
+  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified' && !renewing;/);
+  assert.match(PAGE, /const renewing = coupleShopRenewing\(vendor\);/);
   assert.doesNotMatch(PAGE, /const cinematicHero = isEnterprise/, 'the hero went back behind Ultra');
   assert.match(PAGE, /\{cinematicHero \? \(\s*<ShopHero\b/, 'the hero is not drawn for the verified look');
 });

@@ -297,6 +297,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(lib/erasure/coverage.ts).',
   },
   {
+    table: 'vendor_client_invites',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s own "Add a client" invites (Own clients v4, 2026-11-16) — keyed to the shop (vendor_profile_id). ' +
+      '`created_by` is an actor stamp on which shop account pressed Add; the row says nothing about that person. The ' +
+      'name and contact it holds are the CLIENT\'s, typed by the shop about somebody who has no account yet; once ' +
+      'they join, the event they joined is theirs and is exported with `events`. The shop reads its own rows.',
+  },
+  {
     table: 'shop_badge_upgrades',
     decision: 'excluded',
     why:

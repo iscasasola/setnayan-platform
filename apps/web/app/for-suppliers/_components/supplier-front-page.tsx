@@ -831,7 +831,7 @@ export function SupplierFrontPage({
               <p>Climb a badge, and we reward you, free.</p>
               <Info label="Fees, badges and rewards">
                 <p>
-                  The fee counts only on couples Setnayan brings you. Your own clients, imported or returning, never carry a fee.{' '}
+                  The fee counts only on couples Setnayan brings you. Clients who found you outside Setnayan never carry a fee.{' '}
                   {FIRST_BOOKING_FREE}
                 </p>
                 <p>

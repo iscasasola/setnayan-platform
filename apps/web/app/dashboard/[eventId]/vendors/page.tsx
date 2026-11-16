@@ -3092,6 +3092,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                   bookSlot={
                     <BookThisBuild
                       eventId={eventId}
+                      inBuild={buildLines.filter((l) => l.pick || l.booked).length}
                       picks={buildLines.flatMap((l) =>
                         l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]

@@ -23,3 +23,12 @@ the Shortlist QR is not an import.
   kind `own_client`, `own_client_gift_give`. One new server action (`saveOwnClient`, two modes).
 
 SPEC IMPACT: None — builds the approved drawing; no ruling changed.
+
+## 2026-11-16 · fix(customers): a new shop's first outside client is never refused for "no schedule" (W1-B18)
+
+Walked live on 8c1bbc1: Clients › + Add → Name + Date → Add said "Pick which schedule this client belongs to. Nothing
+was added." with no picker on screen — the sheet had posted an empty `pool_id`. One rule now (`lib/outside-client-pool.ts`),
+asked by the sheet and by `importExternalClient`: a posted schedule wins; none posted and exactly one schedule → that
+one; never an empty pool. The "+ Add" button's look is unchanged (the v4 drawing does not draw it).
+
+SPEC IMPACT: None.

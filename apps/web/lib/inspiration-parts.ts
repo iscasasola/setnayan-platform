@@ -24,7 +24,7 @@
  * read before and no caller changes. The fallback carries `services: null`: its categories are the consts, and
  * the server expands them (`canonicalServicesForSlot`) the way the backfill did.
  */
-import type { WeddingTile } from './taxonomy';
+import { MERGED_TILES, TAXONOMY_MAP, forwardTile, type WeddingTile } from './taxonomy';
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 
 /** One part, as the table holds it. `slotKey` is permanent — the photos carry it. */
@@ -72,12 +72,12 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ── what the room is dressed with ──
   backdrop: ['stylist_decorator', 'led_wall'],
   tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'speaker_talent', 'lights_sound'],
+  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
   table: ['stylist_decorator', 'florist'],
   ceiling: ['stylist_decorator', 'lights_sound'],
   flowers: ['florist', 'stylist_decorator'],
-  cocktail: ['mobile_bar', 'coffee_espresso'],
-  cake: ['cake', 'food_cart'],
+  cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
+  cake: ['cake', 'dessert'],
   // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
   bridal_bouquet: ['florist'],
   centrepieces: ['florist', 'stylist_decorator', 'catering'],
@@ -94,9 +94,9 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ── what people wear. HMUA rides with `bride` because a bridal-hair photo
   //    and a gown photo are the same picture. ──
   bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
-  groom: ['grooms_attire', 'womens_attire', 'filipiniana_barongs'],
-  principal_sponsor: ['womens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'filipiniana_barongs'],
+  groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
+  principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
   // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
   // tiles and nothing invented: the women's half for the bridesmaids, the men's
   // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
@@ -106,11 +106,11 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
   // for a page boy and a flower girl too), as it does with the entourage.
   bridesmaids: ['womens_attire', 'filipiniana_barongs'],
-  groomsmen: ['womens_attire', 'filipiniana_barongs'],
+  groomsmen: ['mens_attire', 'filipiniana_barongs'],
   flower_girl: ['womens_attire', 'filipiniana_barongs'],
-  ring_bearer: ['womens_attire', 'filipiniana_barongs'],
-  parents: ['womens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'filipiniana_barongs'],
+  ring_bearer: ['mens_attire', 'filipiniana_barongs'],
+  parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
+  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
 };
 
 
@@ -161,13 +161,38 @@ export const INSPIRATION_PART_FALLBACK: Readonly<
   palette: { label: 'Palette', order: 290, hidden: true },
 };
 
+/**
+ * 🔀 THE T1 CATEGORY MERGES (owner 16 Nov 2026, "make the taxonomy go live now"; migration 20271350082350; MERGED_TILES).
+ * `MOODBOARD_SLOT_TRADES` keeps each part's categories AS SEEDED; the fallback forwards a merged one to where it went
+ * (above). A part that touches a merge — the category that went, or the one that took it in — keeps EXACTLY the shops
+ * it had: its services are its seeded categories' services as they were filed before the merge (`mergedFrom`), so
+ * "Entourage & Sponsors" (Women's + Men's Attire) does not hand the Bridesmaids board to every tailor or the Groomsmen
+ * board to every dressmaker. The database keeps these parts' `inspiration_part_services` links unchanged (a service
+ * changing category moves no link), which this reproduces. Every other part: `null`, its categories' expansion.
+ */
+const MERGE_DESTINATIONS: ReadonlySet<string> = new Set(Object.values(MERGED_TILES));
+function servicesKeptThroughTheMerges(trades: readonly WeddingTile[]): readonly string[] | null {
+  if (!trades.some((t) => t in MERGED_TILES || MERGE_DESTINATIONS.has(t))) return null;
+  const out: string[] = [];
+  for (const t of trades) {
+    for (const [key, e] of Object.entries(TAXONOMY_MAP)) {
+      // The fallback buckets' own rule (`deriveBuckets`): visible, filed under the tile or cross-listed to it.
+      if (e.marketplaceHidden) continue;
+      const filedUnder = e.mergedFrom ?? e.tile;
+      if ((filedUnder === t || (e.secondary_tiles ?? []).includes(t)) && !out.includes(key)) out.push(key);
+    }
+  }
+  return out;
+}
+
 let fallbackMemo: InspirationPartsSnapshot | null = null;
 
 /** The consts as a snapshot — what the table was seeded with, byte for byte. */
 export function fallbackInspirationParts(): InspirationPartsSnapshot {
   if (fallbackMemo) return fallbackMemo;
   const parts: InspirationPart[] = MOODBOARD_SLOT_KEYS.map((slotKey) => {
-    const [home, ...also] = MOODBOARD_SLOT_TRADES[slotKey];
+    const trades = MOODBOARD_SLOT_TRADES[slotKey];
+    const [home, ...also] = [...new Set(trades.map((t) => forwardTile(t)))];
     const f = INSPIRATION_PART_FALLBACK[slotKey];
     return {
       slotKey,
@@ -175,7 +200,7 @@ export function fallbackInspirationParts(): InspirationPartsSnapshot {
       kind: home ? 'part' : 'system',
       homeCategoryId: home ?? null,
       alsoCategoryIds: also,
-      services: null,
+      services: servicesKeptThroughTheMerges(trades),
       hidden: f.hidden === true,
       sortOrder: f.order,
     };

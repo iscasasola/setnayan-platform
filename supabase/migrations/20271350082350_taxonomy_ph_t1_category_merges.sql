@@ -42,17 +42,6 @@ DELETE FROM t1_category_merges m
  WHERE NOT EXISTS (SELECT 1 FROM public.service_categories WHERE id = m.src AND tier = 2)
     OR NOT EXISTS (SELECT 1 FROM public.service_categories WHERE id = m.dest AND tier = 2);
 
--- 0 · Inspiration parts: which categories each part links WHOLE, before anything moves (as part 1 step 0).
-CREATE TEMP TABLE t1m_part_whole_categories AS
-SELECT p.slot_key, pr.category_id
-  FROM public.inspiration_parts p
-  JOIN (SELECT category_id, array_agg(canonical_service) AS svcs
-          FROM public.inspiration_category_service_pairs() GROUP BY category_id) pr ON TRUE
- WHERE p.kind = 'part'
-   AND NOT EXISTS (SELECT 1 FROM unnest(pr.svcs) AS u(s)
-                    WHERE NOT EXISTS (SELECT 1 FROM public.inspiration_part_services l
-                                       WHERE l.slot_key = p.slot_key AND l.canonical_service = u.s));
-
 -- 1 · The destination keeps every event the merged category reached (NULL = every event, and stays so).
 UPDATE public.service_categories d
    SET applicable_event_types = CASE
@@ -101,22 +90,9 @@ UPDATE public.vendor_service_recommendations r SET tile_id = m.dest
 -- 5 · Inspiration parts. A part whose home was a merged category is now at home in the destination.
 UPDATE public.inspiration_parts p SET home_category_id = m.dest
   FROM t1_category_merges m WHERE p.home_category_id = m.src;
---     A category a part linked whole is linked whole again: the merged category's whole has moved into the
---     destination, so the part takes the destination's services too (Pampering, Food Carts, …) — the shops that
---     may add a photo stay the category expansion (part-eligibility-is-unchanged-by-the-move.db.test.ts).
-INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order)
-SELECT w.slot_key, pr.canonical_service,
-       COALESCE(
-         (SELECT max(x.sort_order) FROM public.inspiration_part_services x
-            JOIN public.inspiration_category_service_pairs() p2 ON p2.canonical_service = x.canonical_service AND p2.category_id = COALESCE(m.dest, w.category_id)
-           WHERE x.slot_key = w.slot_key),
-         (SELECT COALESCE(max(x.sort_order), 0) FROM public.inspiration_part_services x WHERE x.slot_key = w.slot_key)
-           + row_number() OVER (PARTITION BY w.slot_key ORDER BY pr.category_id, pr.canonical_service))
-  FROM t1m_part_whole_categories w
-  LEFT JOIN t1_category_merges m ON m.src = w.category_id
-  JOIN public.inspiration_category_service_pairs() pr ON pr.category_id = COALESCE(m.dest, w.category_id)
- WHERE NOT EXISTS (SELECT 1 FROM public.inspiration_part_services l WHERE l.slot_key = w.slot_key AND l.canonical_service = pr.canonical_service)
-ON CONFLICT DO NOTHING;
+--     Links do NOT move: a part keeps exactly the shops it had (a service changing category moves no link), so
+--     "Entourage & Sponsors" does not hand the Bridesmaids board to every tailor. The fallback mirrors it with
+--     FALLBACK_PART_SERVICES (apps/web/lib/inspiration-parts.ts).
 --     The stored copy of every part's categories is its derivation again (the ③a double write; the triggers only
 --     fire on a link or home change, and a service changing category is neither).
 DELETE FROM public.inspiration_part_categories c
@@ -155,6 +131,5 @@ BEGIN
   IF v_bad IS NOT NULL THEN RAISE EXCEPTION 'T1 merges: a destination is not live: %', v_bad; END IF;
 END $guard$;
 
-DROP TABLE t1m_part_whole_categories;
 DROP TABLE t1_category_merges;
 COMMIT;

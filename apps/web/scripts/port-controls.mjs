@@ -203,6 +203,21 @@ export function stripComments(source) {
   return out.join('');
 }
 
+/**
+ * 🔗 THE ADDRESS MOVE (2026-11-15) — an address built through its helper is the page the hand-typed form named:
+ * `${shopPath(x)}` → `/v/${x}` (the shop route) · `${publicEventPath(x)}` → `/${x}` (the event) ·
+ * `publicEventPath(x, owner)` → `/u/${owner}/${x}` (the event under its person) · `personPath(x)` → `/u/${x}`.
+ */
+function addressHelpersAsRoutes(src) {
+  return src
+    .replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}')
+    .replace(/\$\{publicEventPath\(([^(),]+),\s*([^()]+)\)\}/g, '/u/${$2}/${$1}')
+    .replace(/\$\{publicEventPath\(([^()]*)\)\}/g, '/${$1}')
+    .replace(/(?<!function )\bpublicEventPath\(([^(),:]+),\s*([^():]+)\)/g, '`/u/${$2}/${$1}`')
+    .replace(/(?<!function )\bpublicEventPath\(([^():]*)\)/g, '`/${$1}`')
+    .replace(/(?<!function )\bpersonPath\(([^():]*)\)/g, '`/u/${$1}`');
+}
+
 /** Dynamic segments collapse so `/x/${id}` and `/x/${eventId}` are one key. */
 export function normalizeHref(raw) {
   return (
@@ -573,8 +588,8 @@ export function controlsForRoute(routeDir, appRoot) {
   const blocks = new Set();
   const files = routeSourceFiles(routeDir, { isAppRoot: routeDir === appRoot });
   for (const f of files) {
-    // 🔗 The address move (2026-11-15): `${shopPath(x)}` is the shop door it replaced (`/v/${x}`) — same screen.
-    const text = readFileSync(f, 'utf8').replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}');
+    // 🔗 The address move (2026-11-15): an address helper reads as the door it replaced — same screen.
+    const text = addressHelpersAsRoutes(readFileSync(f, 'utf8'));
     const { destinations: d, actions: a, blocks: b } = extractControls(text);
     d.forEach((x) => destinations.add(x));
     a.forEach((x) => actions.add(x));

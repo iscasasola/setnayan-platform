@@ -72,7 +72,9 @@ export function mapProblems(): string[] {
  * reads it that way.
  */
 function viaAddressHelpers(href: string): string {
-  return href.replace(/\$\{(?:publicEventPath|shopPath)\(([^(),]*)(?:,[^()]*)?\)\}/g, '/${$1}');
+  return href
+    .replace(/\$\{(?:publicEventPath|shopPath)\(([^(),]*)(?:,[^()]*)?\)\}/g, '/${$1}')
+    .replace(/^(?:publicEventPath|shopPath)\(([^(),]*)(?:,[^()]*)?\)$/, '/${$1}');
 }
 
 /** Every back link on every page that disagrees with the map. */

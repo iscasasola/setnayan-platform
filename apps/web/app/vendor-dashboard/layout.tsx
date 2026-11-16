@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { countNewInquiries } from '@/lib/new-inquiry';
+import { SUPPLIER_BOOKED_STATUSES } from '@/lib/papic-supplier-way-in';
 import { NoticeSlot } from '@/app/_components/notices/notices';
 import { VendorNoticeTop } from './_components/vendor-notice-top';
 import { redirect } from 'next/navigation';
@@ -204,13 +206,25 @@ export default async function VendorDashboardLayout({
   const bookingsPendingPromise = vendorProfilePromise
     .then(async (vp) => {
       if (!vp?.vendor_profile_id) return 0;
-      const { count, error } = await supabase
+      // CYC-14: the SAME rule Today's cards use (`isNewInquiry`) — pending, unanswered, and not already booked here.
+      const { data: pending, error } = await supabase
         .from('chat_threads')
-        .select('thread_id', { count: 'exact', head: true })
+        .select('event_id, inquiry_status, vendor_first_reply_at')
         .eq('vendor_profile_id', vp.vendor_profile_id)
-        .eq('inquiry_status', 'pending');
+        .eq('inquiry_status', 'pending')
+        .is('vendor_first_reply_at', null)
+        .limit(200);
       if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
-      return error ? 0 : count ?? 0;
+      if (error || !pending?.length) return 0;
+      const eventIds = [...new Set(pending.map((t) => t.event_id as string).filter(Boolean))];
+      const { data: booked, error: bookedErr } = await supabase
+        .from('event_vendors')
+        .select('event_id')
+        .eq('marketplace_vendor_id', vp.vendor_profile_id)
+        .in('event_id', eventIds)
+        .in('status', [...SUPPLIER_BOOKED_STATUSES]);
+      if (bookedErr) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:event_vendors.select', bookedErr);
+      return countNewInquiries(pending, new Set((booked ?? []).map((b) => b.event_id as string)));
     })
     .catch(() => 0);
 

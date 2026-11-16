@@ -33,4 +33,8 @@ One batch for the 16 Nov supplier walk (W1). The other items in this PR have the
   no destination lands a supplier on the shop (`landingForAccount`, /auth/callback + /auth/confirm).
 - **W1-B9** — dropped: fixed on live (walkthrough 2).
 
+- **CYC-14** — supplier Today said "1 new inquiry" for a couple who had already booked: Today's cards and the console
+  badge counted every `inquiry_status = 'pending'` thread. One rule now (`lib/new-inquiry.ts` `isNewInquiry`): new only
+  while pending, unanswered (`vendor_first_reply_at` null) and not booked with this shop — read by both surfaces.
+
 SPEC IMPACT: None for the code. The template re-paste is an owner action (Supabase dashboard), not a spec edit.

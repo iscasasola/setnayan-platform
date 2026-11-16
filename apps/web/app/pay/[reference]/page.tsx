@@ -4,6 +4,8 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { payPath } from '@/lib/pay-path';
+import { RotateCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { qrWords, everyOpenRailCarriesAmount } from '@/lib/qr-amount-truth';
 import { mintedQrImage } from '@/lib/qr-image.server';
@@ -91,15 +93,13 @@ export default async function PayPage({ params, searchParams }: Props) {
   if (payable.status === 'unchecked') {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
-        <section className="sn-tile p-6 text-center" role="alert" data-pay-unchecked="">
+        <section className="text-center" role="alert" data-pay-unchecked="">
           <p className="sn-eye">Couldn&rsquo;t check</p>
           <h1 className="mt-2 text-xl font-semibold text-ink">{payable.title}</h1>
-          <p className="mt-3 text-sm text-ink/65">
-            We couldn&rsquo;t check this payment just now, so please don&rsquo;t send anything yet. Try again in a moment.
-          </p>
-          <Link href={payPath(payable.reference)} className="button-primary mt-4 inline-flex items-center gap-1.5">
-            Try again
-          </Link>
+          <p className="mt-3 text-sm text-ink/65">We couldn&rsquo;t check this payment just now, so please don&rsquo;t send anything yet.</p>
+          <div className="mt-4 flex justify-center">
+            <ActionButton tone="brand" main icon={RotateCw} label="Try again" href={payPath(payable.reference)} />
+          </div>
         </section>
       </main>
     );

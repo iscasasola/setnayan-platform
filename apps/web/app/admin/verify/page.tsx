@@ -191,6 +191,8 @@ type VendorVisibilityRow = {
   fraud_tombstoned?: boolean | null;
   /** False once the shop's papers lapsed (migration 20271348041863). */
   papers_current?: boolean | null;
+  /** ⏸ Set while the shop is paused (migration 20271350091032) — read by `isShopFindable` via FINDABLE_INPUT_COLUMNS. */
+  paused_at?: string | null;
 };
 
 type ApplicationRow = {

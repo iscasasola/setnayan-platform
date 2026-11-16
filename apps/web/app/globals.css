@@ -5933,6 +5933,14 @@ html.dark .sn-ambient {
   background: #17160F;
 }
 
+/* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
+   Zero specificity (`:where`), so any shadow a component already gives the button still wins, and never while the
+   button shows its keyboard focus ring (`.button-primary`'s ring IS a box-shadow). The supplier blue look sets it
+   (`vendor-dashboard/_components/supplier-look.css`). */
+:where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand) {
+  box-shadow: var(--sn-forward-lift, none);
+}
+
 /* ---------- glass surfaces ---------- */
 .sn-glass {
   background: var(--sn-glass-bg);
@@ -11157,13 +11165,4 @@ html[data-tour-running] [data-notice-slot='top'] {
     animation-timeline: auto;
     animation-range: normal;
   }
-}
-
-
-/* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
-   Zero specificity (`:where`), so any shadow a component already gives the button still wins, and never while the
-   button shows its keyboard focus ring (`.button-primary`'s ring IS a box-shadow). The supplier blue look sets it
-   (`vendor-dashboard/_components/supplier-look.css`). */
-:where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand) {
-  box-shadow: var(--sn-forward-lift, none);
 }

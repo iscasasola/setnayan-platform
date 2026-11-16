@@ -134,7 +134,7 @@ test('4 · the public shop page\'s card badges read only — the settle and the 
   for (const f of ['lib/card-badges.server.ts', 'lib/shop-seals.server.ts']) {
     for (const [k, v] of functionBodies(src(f))) if (!bodies.has(k)) bodies.set(k, v);
   }
-  const NOTICE = /\bemitNotification\s*\(|\bannounce\s*\(|\bsettleCardBadges\s*\(/;
+  const NOTICE = /\bemitNotification\s*\(|\bannounce\s*\(|\bsettleCardBadges\s*\(|\bsweepShopBadges\w*\s*\(|\bmaybeRunBadgeRewardSweep\s*\(/;
   for (const reader of ['readCardBadges', 'readCardBadgeCongrats', 'readShopSeals']) {
     assert.ok(bodies.has(reader), `${reader} is gone — the guard would be checking nothing`);
     const seen = new Set<string>();
@@ -156,7 +156,7 @@ test('4 · the public shop page\'s card badges read only — the settle and the 
 
   // The pages: the public shop page and Today read; neither calls the writer.
   for (const page of ['app/v/[slug]/page.tsx', 'app/vendor-dashboard/page.tsx']) {
-    assert.doesNotMatch(src(page), /\bsettleCardBadges\b|service_card_badge_settle/, `${page} settles card badges in its render`);
+    assert.doesNotMatch(src(page), /\bsettleCardBadges\b|service_card_badge_settle|\bsweepShopBadges\w*\b|\bmaybeRunBadgeRewardSweep\b/, `${page} settles card badges (or runs the badge sweep) in its render`);
   }
   assert.match(src('app/v/[slug]/page.tsx'), /readCardBadges\(admin, \{/, 'the shop page no longer reads its card badges');
   // The one caller of the writer is the sweep (after() on a moved count, and the daily backstop through it).
@@ -164,4 +164,5 @@ test('4 · the public shop page\'s card badges read only — the settle and the 
   assert.match(sweep.get('settleCardBadgesQuietly') ?? '', /\bsettleCardBadges\(admin, vendorProfileId\)/, 'the sweep no longer settles card badges');
   assert.match(sweep.get('sweepShopBadges') ?? '', /settleCardBadgesQuietly\(admin, vendorProfileId\)/, 'sweepShopBadges no longer settles card badges');
   assert.match(sweep.get('shopsWithMovedCounts') ?? '', /from\('service_card_badge_holds'\)[\s\S]*?\.is\('lost_at', null\)/, 'the daily backstop no longer checks every card holding a badge');
+  assert.match(sweep.get('shopsWithMovedCounts') ?? '', /return \[\.\.\.held, \.\.\.rest\];/, 'a shop holding a card badge can be dropped by the cap again');
 });

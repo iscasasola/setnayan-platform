@@ -32,7 +32,8 @@
 --   · a gift is a vendor_proposal_shop_gifts line on an ACCEPTED quote of that shop, on that event, naming that card.
 --
 -- 🔒 Both functions read and write other couples' events: SECURITY DEFINER, EXECUTE for service_role ONLY. The table
--- is service-role only too (RLS on, no policy, every grant revoked) — the app reads holds through settle.
+-- is service-role only too (RLS on, no policy, every grant revoked): the app READS open holds with the service role
+-- (lib/card-badges.server.ts readCardBadges, read-only) and WRITES them only through settle, from the badge sweep.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.service_card_badge_holds (
@@ -61,7 +62,7 @@ CREATE INDEX IF NOT EXISTS service_card_badge_holds_shop_idx
   ON public.service_card_badge_holds (vendor_profile_id);
 
 COMMENT ON TABLE public.service_card_badge_holds IS
-  'Badge build J3 (owner prototypes 2026-11-15; losing ruled DECISION_LOG 7fbff0cd): every span a service card held a card badge (book · quick · trend · rave · gift). lost_at NULL = held now (one open span per card and badge); losing sets lost_at, so the time held stays in the shop''s record; earning it again opens a new span. Written and read only by service_card_badge_settle (service_role). Setnayan Verified is the shop''s and is never stored here.';
+  'Badge build J3 (owner prototypes 2026-11-15; losing ruled DECISION_LOG 7fbff0cd): every span a service card held a card badge (book · quick · trend · rave · gift). lost_at NULL = held now (one open span per card and badge); losing sets lost_at, so the time held stays in the shop''s record; earning it again opens a new span. Written only by service_card_badge_settle; read by the service role (the app''s read-only readCardBadges). Setnayan Verified is the shop''s and is never stored here.';
 
 -- ----------------------------------------------------------------------------
 -- The raw numbers, per card of one shop. No thresholds here: apps/web/lib/card-badges.ts holds them.

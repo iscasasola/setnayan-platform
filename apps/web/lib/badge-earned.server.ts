@@ -120,7 +120,8 @@ export async function tellBadgesJustEarned(admin: SupabaseClient, vendorProfileI
 
 /** How far back the backstop looks for a moved count — over three daily windows, so a quiet day loses nothing. */
 const LOOKBACK_MS = 4 * 24 * 60 * 60 * 1000;
-/** At most this many shops per run — the rest are next run's (a booking moved yesterday is still in the window). */
+/** At most this many moved-count shops per run — the rest are next run's (a booking moved yesterday is still in the
+ * window). Shops holding a card badge are not capped: each is re-checked every run. */
 const SWEEP_CAP = 150;
 
 /** Shops whose counts moved recently: a booking delivered/completed, a review, an accepted partnership, a gift given. */
@@ -164,9 +165,13 @@ async function shopsWithMovedCounts(admin: SupabaseClient, sinceIso: string): Pr
   for (const r of (reviews.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (r.vendor_profile_id) ids.add(r.vendor_profile_id);
   for (const p of (partners.data ?? []) as Array<{ recommended_vendor_id: string | null }>) if (p.recommended_vendor_id) ids.add(p.recommended_vendor_id);
   for (const g of (gifts.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (g.vendor_profile_id) ids.add(g.vendor_profile_id);
-  for (const h of (cardHolds.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (h.vendor_profile_id) ids.add(h.vendor_profile_id);
   for (const t of (askedShops.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (t.vendor_profile_id) ids.add(t.vendor_profile_id);
-  return [...ids].slice(0, SWEEP_CAP);
+  // 🏅 Every shop holding a card badge is re-checked EVERY run, so a held badge always comes off the day it stops
+  // passing — the cap applies only to the moved-count candidates after them.
+  const held = new Set<string>();
+  for (const h of (cardHolds.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (h.vendor_profile_id) held.add(h.vendor_profile_id);
+  const rest = [...ids].filter((id) => !held.has(id)).slice(0, SWEEP_CAP);
+  return [...held, ...rest];
 }
 
 /**

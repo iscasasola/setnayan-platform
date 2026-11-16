@@ -106,5 +106,4 @@ table-no-writer	stewardship_transfers	1	no .from('stewardship_transfers').insert
 result-dropped-silently	lib/panood-moments.ts · from:panood_moments.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/panood-screens.ts · from:panood_screens.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/venue-recommendations.ts · from:venue_directory.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-notice-no-emitter	card_badge_earned	1	in the NotificationType union and on the PUSH allowlist, never passed as a type in any app file
 notice-no-emitter	seal_awarded	1	in the NotificationType union and on the PUSH allowlist, never passed as a type in any app file

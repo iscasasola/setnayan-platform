@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/action-button';
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -132,13 +133,7 @@ export default async function UgatStudioPage({ searchParams }: Props) {
             a ?tab= surface: the console is a full-viewport dark-canvas app with
             its own topbar + fixed side-card overlays, so it links out of the
             studio the same way detail sub-routes do. */}
-        <Link
-          href="/admin/ugat/map"
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Entity map
-        </Link>
+        <ActionButton tone="neutral" quiet href="/admin/ugat/map" icon={<Network aria-hidden />} label="Entity map" />
       </nav>
 
       <Suspense key={tab} fallback={tabSkeleton(tab)}>

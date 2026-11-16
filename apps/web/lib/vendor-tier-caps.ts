@@ -649,7 +649,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
     storageBytes: 15 * STORAGE_GB, // owner 2026-11-13: Ultra 15 GB
-    bookingsPerDatePerService: 5, // owner 2026-11-06: "ultra has 5 per date/service" — Ultra may buy +1 at a time
+    bookingsPerDatePerService: 10, // owner 2026-11-14 "SIMPLER SUPPLIER PLANS": 10 a day per service at each branch (was 5); nothing to add on
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: 3, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
     serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
@@ -660,9 +660,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     soloBusinessTools: true,
     formMediaUploads: true, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
     formVideoLinks: true, // FORM MEDIA BY PLAN 2026-10-28: video links Supplier Plus + Pro + Ultra
-    servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    servicesPerLeaf: 30, // owner 2026-11-14 "SIMPLER SUPPLIER PLANS": 30 cards per category (was 25)
     chat: 'chat',
-    parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    parentCategories: 16, // owner 2026-11-14 "SIMPLER SUPPLIER PLANS": all 16 main categories (was 15)
     agentAccounts: 10, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (15 earlier the same day) — extra seats are priced by the price PR
     branchesIncluded: 6, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" ("BRANCHES PER PLAN" said 10) — and only Ultra may buy more
     scheduling: 'hybrid',
@@ -702,21 +702,23 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  // 💰 FINAL PRICE SHEET (owner 2026-11-04): Supplier Plus ₱990 · Pro ₱2,490 · Ultra ₱5,990 per 4 weeks (owner, same day: "ULTRA = ₱5,990…"); a year = 10×.
+  // 💰 SIMPLER SUPPLIER PLANS (owner 2026-11-14): Plus ₱1,490 · Pro ₱4,990 · Ultra ₱9,990 per 4 weeks; a year = 10×.
   // A fallback that lags the catalogue is how an unreadable read shows a superseded price — it moves with the rows.
-  solo: { monthly: 990, annual: 9900 },
-  pro: { monthly: 2490, annual: 24900 },
-  enterprise: { monthly: 5990, annual: 59900 },
+  solo: { monthly: 1490, annual: 14900 },
+  pro: { monthly: 4990, annual: 49900 },
+  enterprise: { monthly: 9990, annual: 99900 },
 };
 
 export const TIER_LABEL: Record<VendorTier, string> = {
   free: 'Free',
   verified: 'Free · Verified',
-  solo: 'Supplier Plus',
-  pro: 'Supplier Pro',
-  // ⚖ The plan a person sees is "Ultra" (owner 2026-10-23: plan names are Supplier Plus · Pro · Ultra). The internal key
-  // `enterprise` and every SKU id stay unchanged — only the words move. `no-enterprise-plan-name.test.ts` holds it.
-  enterprise: 'Supplier Ultra',
+  // ⚖ Owner 2026-11-14 ("SIMPLER SUPPLIER PLANS … NAMED PLUS · PRO · ULTRA (NO "SUPPLIER")"): *"maybe remove the
+  // Supplier and just label them as plus pro and ultra?"*. The internal keys (`solo` · `pro` · `enterprise`) and every
+  // SKU id stay unchanged — only the words move. The couple side keeps "Event Plus/Pro/Ultra".
+  // `no-enterprise-plan-name.test.ts` holds that `enterprise` is never shown.
+  solo: 'Plus',
+  pro: 'Pro',
+  enterprise: 'Ultra',
 };
 
 /**
@@ -764,28 +766,39 @@ export function canBuyExtraBranches(tier: string | null | undefined): boolean {
 }
 
 /*
- * ULTRA ADD-ONS (owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES", verbatim: *"seat, branch + 990 / the rest is
- * +199"*) — per 4 weeks, Ultra only. Each one raises ONE allowance by one per purchase; the
- * price is the live `vendor_billing_catalog` row (lib/vendor-ultra-addons.ts), never typed here.
+ * ULTRA ADD-ONS — RETIRED AS PURCHASES (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", item 3): Ultra's
+ * higher limits are built in (all 16 categories · 30 cards each · 10 bookings a day per service · waiting list 3), so
+ * +1 category · +1 service card · +1 waiting-list place · +1 booking per date are no longer sold on ANY plan. Only the
+ * extra seat and the extra branch stay (Ultra only, `canBuyExtraSeats` / `canBuyExtraBranches` above).
+ * ⚠ A shop that ALREADY bought one keeps it until it runs out (item 11) — that is {@link holdsBoughtExtras}, never these.
  */
 
-/** May this tier buy +1 main category (`parentCategories`)? Ultra only. */
-export function canBuyExtraCategories(tier: string | null | undefined): boolean {
-  return isTierAtLeast(tier, 'enterprise');
+/** May this tier buy +1 main category? No plan, since 2026-11-14 (Ultra includes all 16). */
+export function canBuyExtraCategories(_tier: string | null | undefined): boolean {
+  return false;
 }
 
-/** May this tier buy +1 service card per category (`servicesPerLeaf`)? Ultra only. */
-export function canBuyExtraServiceCards(tier: string | null | undefined): boolean {
-  return isTierAtLeast(tier, 'enterprise');
+/** May this tier buy +1 service card per category? No plan, since 2026-11-14 (Ultra includes 30). */
+export function canBuyExtraServiceCards(_tier: string | null | undefined): boolean {
+  return false;
 }
 
-/** May this tier buy +1 wait-list place per date (`waitlistAcceptances`)? Ultra only. */
-export function canBuyExtraWaitlist(tier: string | null | undefined): boolean {
-  return isTierAtLeast(tier, 'enterprise');
+/** May this tier buy +1 wait-list place per date? No plan, since 2026-11-14. */
+export function canBuyExtraWaitlist(_tier: string | null | undefined): boolean {
+  return false;
 }
 
-/** May this tier buy +1 booking per date per card (`bookingsPerDatePerService`)? Ultra only. */
-export function canBuyExtraBookingsPerDate(tier: string | null | undefined): boolean {
+/** May this tier buy +1 booking per date? No plan, since 2026-11-14 (Ultra includes 10 a day per service). */
+export function canBuyExtraBookingsPerDate(_tier: string | null | undefined): boolean {
+  return false;
+}
+
+/**
+ * Do this plan's bought "+1" counts still count? Ultra — the only plan that could buy them. They are added on top of
+ * the plan until the paid orders behind them run out (the activation hook recomputes the counts from paid orders);
+ * the database's `service_card_daily_limit` adds them on the same rule.
+ */
+export function holdsBoughtExtras(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');
 }
 

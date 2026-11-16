@@ -280,6 +280,7 @@ export function EditorialEditor({
   initial,
   uploadDisplayUrls = {},
   isPro = false,
+  addsManyAtOnce = false,
   heldForPro = [],
   chapterCards = [],
   chapterOverrides = [],
@@ -314,6 +315,8 @@ export function EditorialEditor({
    *  disables anything: without it the Pro touches (moments, own columns, wishes)
    *  are kept in the Event Hub draft and asked for at Apply; the server decides. */
   isPro?: boolean;
+  /** 📸 Event Plus / Pro / Ultra add event photos many at once; a Free couple adds them one at a time (owner 2026-11-13). */
+  addsManyAtOnce?: boolean;
   /** The Pro touches this couple wrote that are held in the Event Hub draft. */
   heldForPro?: readonly StoryProExtraKey[];
   /** Auto-built "As the Day Unfolded" chapters (unfiltered, timeline order). */
@@ -1055,7 +1058,11 @@ export function EditorialEditor({
           </Field>
           <Field
             label="From the Day photos"
-            help={`Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day".`}
+            help={
+              addsManyAtOnce
+                ? `Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day".`
+                : `Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day", one at a time. Event Plus adds many at once.`
+            }
           >
             <FileUpload
               bucket="media"
@@ -1063,6 +1070,7 @@ export function EditorialEditor({
               name="editorial_gallery_uploads"
               unsavedHint="it goes in when you choose Draft, Guests only or Published"
               multiple
+              pickOneAtATime={!addsManyAtOnce}
               maxFiles={GALLERY_UPLOADS_MAX}
               acceptedTypes={EDITORIAL_IMAGE_TYPES}
               maxSizeMB={10}

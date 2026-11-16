@@ -229,10 +229,13 @@ export function acceptedQuoteTerms(
  * CHAT-24 (walk 16 Nov 2026) · the words after "Due" on a schedule row. A dated row whose day is already behind
  * `today` (Manila 'YYYY-MM-DD') read "Final balance · due 7 days before the event (Nov 2)" on Nov 16, before the first
  * payment was even made — a date in the past, said as if it were still ahead. The date is still named (it is the
- * supplier's own term); the row now says that it has passed and the money is due now. `today` null = unknown → as written.
+ * supplier's own term); the row now says that the day has passed. `today` null = unknown → as written.
+ * It does NOT say "so it is due now": which payment is due next is the pay plan's call (round 1 names the first
+ * unpaid payment, in pay order, and flags dates that are out of order) — a passed Final balance is still paid LAST.
+ * Controller audit 16 Nov: the two must not contradict each other.
  */
 export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>, today: string | null): string {
-  if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has passed, so it is due now`;
+  if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has already passed`;
   return row.dueText;
 }
 

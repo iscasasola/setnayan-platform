@@ -13,7 +13,7 @@ the CHAT-09 layout (plan card, strip, jump pills, where the poll/decision opens)
   `realNameOrNull`).
 - CHAT-23 · Details: service label via `displayServiceLabel` (not `lights_sound`); "Paid so far" only with a real ₱;
   no Message button while the chat exists.
-- CHAT-24 · a passed due date reads "due now" (`scheduleDueText`); no payment method beats "hasn't finished
+- CHAT-24 · a passed due date says "that day has already passed" — never "due now", which is the pay plan's call (`scheduleDueText`); no payment method beats "hasn't finished
   confirming" (`not_yet_no_methods`).
 - CHAT-25 · `jumpTo` scrolls the page when there is no inner scroller — ＋ drafts come into view on the couple's side.
 - CHAT-26 · the running-topic title reads `PLUS_CARD_TITLE` ("Log a payment", not "Logpay").

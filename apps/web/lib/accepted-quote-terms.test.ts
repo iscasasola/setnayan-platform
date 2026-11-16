@@ -192,7 +192,9 @@ test('updateVendorCosts leaves the price columns alone when the quote settles th
 
 test('CHAT-24 · a schedule row whose day has passed says so — never "due Nov 2" on Nov 16 as if still ahead', () => {
   const row = { dueText: '7 days before the event (Nov 2)', dueOnISO: '2026-11-02' };
-  assert.equal(scheduleDueText(row, '2026-11-16'), '7 days before the event (Nov 2) — that day has passed, so it is due now');
+  assert.equal(scheduleDueText(row, '2026-11-16'), '7 days before the event (Nov 2) — that day has already passed');
+  // It states the fact only — never "due now": the pay plan decides which payment is next (a Final balance stays last).
+  assert.doesNotMatch(scheduleDueText(row, '2026-11-16'), /due now/);
   assert.equal(scheduleDueText(row, '2026-11-01'), '7 days before the event (Nov 2)', 'still ahead — as written');
   assert.equal(scheduleDueText(row, '2026-11-02'), '7 days before the event (Nov 2)', 'the day itself is not past');
   assert.equal(scheduleDueText({ dueText: 'on booking', dueOnISO: null }, '2026-11-16'), 'on booking');

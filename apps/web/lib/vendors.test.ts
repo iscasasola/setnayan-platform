@@ -117,8 +117,8 @@ test('venue exemption still wins regardless of verification', () => {
 // copy ("Host / MC") instead of a title-cased key ("Host Mc"). ────────────
 
 test('displayServiceLabel: a WEDDING_TILE leaf prints its real label, not a title-cased key', () => {
-  assert.equal(displayServiceLabel('host_mc'), 'Host / MC');
-  assert.equal(displayServiceLabel('live_band'), 'Live Band');
+  assert.equal(displayServiceLabel('host_mc'), 'Host'); // T1 name (16 Nov 2026)
+  assert.equal(displayServiceLabel('live_band'), 'Live Band & Singers'); // T1 part 2: the merged category's name
 });
 
 test('displayServiceLabel: a VENDOR_CATEGORY code still wins over the tile map', () => {

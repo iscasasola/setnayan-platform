@@ -42,6 +42,7 @@ import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import {
   ACCOMMODATION_CATEGORY,
+  isAccommodationCategory,
   cardFits,
   fitDateScope,
   fitDaysToAsk,
@@ -808,7 +809,7 @@ export async function searchCategoryVendors(input: {
     // flagged only when NO way of fitting is wholly unblocked — free on any one candidate / any day of the span
     // keeps them; an accommodation search needs every night ±1. A failed day reads unblocked (fail-open).
     const fitCategory =
-      canonicals.length > 0 && canonicals.every((c) => c === ACCOMMODATION_CATEGORY) ? ACCOMMODATION_CATEGORY : null;
+      canonicals.length > 0 && canonicals.every(isAccommodationCategory) ? ACCOMMODATION_CATEGORY : null;
     const options = fitOptions(fitScope, fitCategory);
     const days = fitDaysToAsk(fitScope, fitCategory === ACCOMMODATION_CATEGORY);
     try {

@@ -250,8 +250,19 @@ test('⭐ a link an admin deleted after the first apply is NOT re-created by the
 
 /* ══ 5 · without the prod-only services, the replay still applies ═══════════ */
 
+/**
+ * The taxonomy re-trees that LATER rewrite these links on purpose (T1, owner 16 Nov "make the taxonomy go live now":
+ * folded and hidden services leave every part, a category a part linked whole gains its new services). They are
+ * left out here so this test still asks its own question — does the SEED apply on a replay — while whether a re-tree
+ * moves the links correctly is `part-eligibility-is-unchanged-by-the-move.db.test.ts`'s.
+ */
+const LATER_RETREES: ReadonlySet<string> = new Set(['20271349668764']);
+
 test('the full replay (no prod-only services) applies the seed and skips only what it cannot place', async () => {
-  const full = (await createReplayedDb()).db;
+  const everyButRetrees = new Set(
+    readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).map(versionOf).filter((v) => !LATER_RETREES.has(v)),
+  );
+  const full = (await createReplayedDb({ only: everyButRetrees })).db;
   try {
     const parts = await full.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM public.inspiration_parts WHERE slot_key = ANY($1::text[])`,

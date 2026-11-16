@@ -34,11 +34,15 @@ import { libraryPartLabel, slotUploadVerdict, uploadableSlotsForShop } from './m
 import { moodboardLibraryAccessForProfile } from './moodboard-library-access';
 import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { canonicalServicesForTile } from './vendor-counts';
-import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
+import { WEDDING_TILE_LABEL, forwardTile, servicesKeptThroughTheMerges, type WeddingTile } from './taxonomy';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
 import { pageHome } from './page-home';
 import type { VendorProfileRow } from './vendor-profile';
 import { fallbackInspirationParts } from './inspiration-parts';
+
+/** A shop of this trade: its services as a part sees them — for a category T1 part 2 merged (MERGED_TILES), the
+ *  services filed under it BEFORE the merge (`servicesKeptThroughTheMerges`), which is what the parts keep. */
+const tradeServices = (t: WeddingTile): string[] => [...(servicesKeptThroughTheMerges([t]) ?? canonicalServicesForTile(t))];
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -86,7 +90,7 @@ test('1 · every couple part has a library slot the database accepts, with at le
     assert.ok(trades.length > 0, `${p.label} → ${p.slot} has NO supplying trade — no supplier can ever add a photo to it`);
     for (const t of trades) {
       assert.ok(t in WEDDING_TILE_LABEL, `${p.label} → ${t} is not a taxonomy tile`);
-      assert.ok(canonicalServicesForTile(t).length > 0, `${p.label} → ${t} has no services under it, so no shop can hold it`);
+      assert.ok(tradeServices(t).length > 0, `${p.label} → ${t} has no services under it, so no shop can hold it`);
     }
     assert.ok((GALLERY_SLOT_KEYS as readonly string[]).includes(p.slot), `${p.label} → ${p.slot} is not a gallery shelf`);
   }
@@ -116,7 +120,7 @@ test('2 · the supplier library lists every part by the couple’s name, in the 
   const order = new Map(COUPLE_PARTS.map((p, i) => [p.slot, i]));
   for (const p of COUPLE_PARTS) {
     for (const t of MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES]) {
-      const offered = uploadableSlotsForShop(shopOf(canonicalServicesForTile(t)), fallbackInspirationParts());
+      const offered = uploadableSlotsForShop(shopOf(tradeServices(t)), fallbackInspirationParts());
       const hit = offered.find((s) => s.key === p.slot);
       assert.ok(hit, `a ${WEDDING_TILE_LABEL[t]} shop is not offered ${p.label}`);
       assert.equal(hit!.label, p.label, `${p.label} is offered to a ${WEDDING_TILE_LABEL[t]} shop as “${hit!.label}”`);
@@ -132,7 +136,7 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
   for (const p of COUPLE_PARTS) {
     const trades = MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES];
     const trade = trades[0]!;
-    const services = canonicalServicesForTile(trade);
+    const services = tradeServices(trade);
     /* The supplier: the library lets this shop in, and its upload to this part is allowed. */
     const profile = { vendor_profile_id: 'S89V-LAB0000001', services } as unknown as VendorProfileRow;
     const access = moodboardLibraryAccessForProfile(profile, fallbackInspirationParts());
@@ -155,11 +159,11 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
     const page = shapeGalleryPage(q!.slotKey, [row], fallbackInspirationParts());
     assert.equal(page.withheld, 0, `${p.label}: the approved photo was withheld`);
     assert.equal(page.assets.length, 1);
-    assert.equal(page.assets[0]!.credit, `Bloom & Vine · ${WEDDING_TILE_LABEL[trade]}`, `${p.label}: not credited to the shop by its trade`);
+    assert.equal(page.assets[0]!.credit, `Bloom & Vine · ${WEDDING_TILE_LABEL[forwardTile(trade)]}`, `${p.label}: not credited to the shop by its trade`);
     assert.equal(page.assets[0]!.shopSlug, 'bloom-and-vine');
     /* …and a shop whose trade does not dress this part is refused it, in plain words. */
-    const stranger = allTiles.find((t) => !trades.includes(t) && canonicalServicesForTile(t).every((c) => !trades.some((x) => canonicalServicesForTile(x).includes(c))) && canonicalServicesForTile(t).length > 0)!;
-    const refused = slotUploadVerdict(p.slot, canonicalServicesForTile(stranger), fallbackInspirationParts());
+    const stranger = allTiles.find((t) => !trades.includes(t) && tradeServices(t).every((c) => !trades.some((x) => tradeServices(x).includes(c))) && tradeServices(t).length > 0)!;
+    const refused = slotUploadVerdict(p.slot, tradeServices(stranger), fallbackInspirationParts());
     assert.ok(!refused.allowed && refused.reason === 'wrong_trade', `${p.label} was open to a ${WEDDING_TILE_LABEL[stranger]} shop`);
     assert.match(refused.message, new RegExp(`cover ${p.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.`), `${p.label}: the refusal does not name the part by its name`);
   }
@@ -262,12 +266,12 @@ test('5 · every couple part takes a suggestion from a booked shop of each of it
   for (const p of COUPLE_PARTS) {
     const trades = MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES];
     for (const t of trades) {
-      const offered = suggestablePartsForShop(canonicalServicesForTile(t), fallbackInspirationParts());
+      const offered = suggestablePartsForShop(tradeServices(t), fallbackInspirationParts());
       assert.ok(offered.some((x) => x.key === p.slot && x.label === p.label), `a booked ${WEDDING_TILE_LABEL[t]} shop cannot suggest a photo to ${p.label}`);
     }
-    const wanted = new Set(trades.flatMap((t) => canonicalServicesForTile(t)));
+    const wanted = new Set(trades.flatMap((t) => tradeServices(t)));
     for (const t of allTiles) {
-      const services = canonicalServicesForTile(t);
+      const services = tradeServices(t);
       if (services.some((c) => wanted.has(c))) continue;
       assert.ok(!suggestablePartsForShop(services, fallbackInspirationParts()).some((x) => x.key === p.slot), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to ${p.label}, which its trade does not dress`);
     }

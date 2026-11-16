@@ -633,13 +633,13 @@ function sinceOf(c: WhatsNewCard): string {
   }
 }
 
-/** 🔎 DECISION_LOG 2026-11-07 — the notice an unverified shop sees once its first inquiry locked it out of Find. */
+/** 🔎 15 Nov ("Verified only"): no find lock speaks any more — the `findlock` moment now shows no notice. */
 function labFindLockNotice() {
   const n = findabilityNotice(
     shopFindability({
       publicVisibility: 'hidden',
       railShowing: false,
-      findLock: { state: 'locked', reason: 'inquiry', since: ago(20) },
+      findLock: { state: 'until_verified' },
     }),
   );
   return n ? { title: n.title, body: n.body, cta: n.cta ?? null } : null;

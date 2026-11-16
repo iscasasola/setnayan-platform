@@ -118,3 +118,24 @@ export function bookedToast(done: ReadonlyArray<'asked' | 'booked' | 'proposed'>
   if (proposed > 0) return `Proposed ${n(proposed)} — waiting for the hosts to confirm`;
   return null;
 }
+
+/** The prototype's words when every pick is booked or already asked — TRUE only when there is at least one pick. */
+export const NOTHING_TO_BOOK = 'Nothing to book — every pick is booked or already asked';
+
+/** With nothing in the build at all (walk EB-173, owner 2026-11-16 "Fix them too"): said plainly, never with a ✓. */
+export const NOTHING_PICKED = 'Nothing picked yet — add a supplier to your build first';
+
+/**
+ * What "Book this build" says when there is nothing to send, or `null` when there is (the ask opens).
+ *
+ * @param inBuild how many of the build's lines hold a pick or a booking
+ * @param toBook  how many of those picks are still to be asked (`picks.length`)
+ *
+ * The ✓ (`tone: 'ok'`) is said only when it is true: there ARE picks, and every one is booked or already asked.
+ * An empty build used to get that same ✓ line, which read as success with nothing picked.
+ */
+export function nothingToBookNote(inBuild: number, toBook: number): { tone: 'ok' | 'note'; text: string } | null {
+  if (toBook > 0) return null;
+  if (inBuild <= 0) return { tone: 'note', text: NOTHING_PICKED };
+  return { tone: 'ok', text: NOTHING_TO_BOOK };
+}

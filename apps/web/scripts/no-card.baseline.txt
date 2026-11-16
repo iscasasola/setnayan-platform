@@ -59,17 +59,15 @@
 1 apps/web/app/_components/verification/verification-status-card.tsx
 1 apps/web/app/_components/wayfinding-map.tsx
 2 apps/web/app/(shell)/about/page.tsx
-1 apps/web/app/(shell)/alaala/page.tsx
 3 apps/web/app/(shell)/blog/page.tsx
 1 apps/web/app/(shell)/download/page.tsx
-3 apps/web/app/(shell)/explore/_components/category-tile.tsx
+2 apps/web/app/(shell)/explore/_components/category-tile.tsx
 3 apps/web/app/(shell)/explore/_components/filter-drawer.tsx
 2 apps/web/app/(shell)/explore/_components/folder-vendors-section.tsx
 1 apps/web/app/(shell)/explore/_components/icon-tile-folder-strip.tsx
-1 apps/web/app/(shell)/explore/_components/review-carousel.tsx
 2 apps/web/app/(shell)/explore/_components/taxonomy-search.tsx
 2 apps/web/app/(shell)/explore/_components/vendor-card.tsx
-2 apps/web/app/(shell)/explore/_components/vendors-availability-banner.tsx
+1 apps/web/app/(shell)/explore/_components/vendors-availability-banner.tsx
 11 apps/web/app/(shell)/explore/_lib/marketplace-view.tsx
 2 apps/web/app/(shell)/explore/compare/page.tsx
 3 apps/web/app/(shell)/help/page.tsx
@@ -470,7 +468,6 @@
 1 apps/web/app/dev/avatar-sheet-lab/sheet-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
-3 apps/web/app/features/_sections/_WhySetnayan.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
 1 apps/web/app/monogram/_monogram-motion.tsx
 2 apps/web/app/monogram/public-monogram-studio.tsx
@@ -517,7 +514,6 @@
 2 apps/web/app/tour/vendors/_components/tour-shortlist.tsx
 2 apps/web/app/tour/vendors/page.tsx
 1 apps/web/app/v/[slug]/_components/share-button.tsx
-1 apps/web/app/v/[slug]/_components/verified-price-card.tsx
 10 apps/web/app/v/[slug]/page.tsx
 6 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
 2 apps/web/app/vendor-dashboard/_components/branch-pin-map.tsx

@@ -31,6 +31,7 @@ import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { formatStarRating } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 
 type Props = {
   reviews: ReadonlyArray<VendorReviewPreview>;
@@ -75,28 +76,14 @@ export function ReviewCarousel({ reviews, vendorName }: Props) {
             className="mt-2 flex items-center justify-between gap-2"
             aria-label="Review carousel controls"
           >
-            <button
-              type="button"
-              onClick={prev}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta-700"
-              aria-label="Previous review"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
+            <ActionButton tone="neutral" icon={ChevronLeft} label="Previous review" iconOnly onClick={prev} />
             <span
               aria-live="polite"
               className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50"
             >
               {formatCount(index + 1)} / {formatCount(total)}
             </span>
-            <button
-              type="button"
-              onClick={next}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/50 hover:text-terracotta-700"
-              aria-label="Next review"
-            >
-              <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
+            <ActionButton tone="neutral" icon={ChevronRight} label="Next review" iconOnly onClick={next} />
           </nav>
         ) : null}
       </div>
@@ -123,7 +110,7 @@ function ReviewCard({ review }: { review: VendorReviewPreview }) {
 
   return (
     <article
-      className="flex h-full flex-col gap-1.5 rounded-lg border border-ink/10 bg-cream/60 p-2.5"
+      className="flex h-full flex-col gap-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-2.5"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink">

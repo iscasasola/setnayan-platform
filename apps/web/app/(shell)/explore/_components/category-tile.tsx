@@ -129,7 +129,7 @@ export async function CategoryTile({
       ? 'group flex h-full flex-col gap-2 rounded-2xl border border-terracotta/40 bg-terracotta/5 p-4 transition-colors hover:border-terracotta hover:bg-terracotta/10'
       : state.kind === 'future'
         ? 'group flex h-full flex-col gap-2 rounded-2xl border border-dashed border-ink/20 bg-cream p-4 transition-colors hover:border-ink/40'
-        : 'group flex h-full flex-col gap-2 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5';
+        : 'group flex h-full flex-col gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4 transition-colors hover:bg-terracotta/5';
 
   const ariaLabel = ariaLabelFor(data, state);
 

@@ -223,7 +223,7 @@ export function WhySetnayan({ locale }: { locale: MarketingLocale }) {
         </h3>
         <ul className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {c.juggle.map((j) => (
-            <li key={j.label} className="rounded-xl border border-ink/10 bg-cream p-5">
+            <li key={j.label} className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5">
               <h4 className="text-base font-semibold tracking-tight text-ink">{j.label}</h4>
               <p className="mt-1.5 text-sm text-ink/65">{j.line}</p>
             </li>
@@ -239,7 +239,7 @@ export function WhySetnayan({ locale }: { locale: MarketingLocale }) {
             return (
               <li
                 key={b.title}
-                className="flex items-start gap-4 rounded-xl border border-ink/10 bg-cream p-5"
+                className="flex items-start gap-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5"
               >
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                   <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -258,7 +258,7 @@ export function WhySetnayan({ locale }: { locale: MarketingLocale }) {
         </h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {faq.map((item) => (
-            <div key={item.q} className="rounded-xl border border-ink/10 bg-cream p-5">
+            <div key={item.q} className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5">
               <dt className="text-base font-semibold tracking-tight text-ink">{item.q}</dt>
               <dd className="mt-1.5 text-sm text-ink/65">{item.a}</dd>
             </div>

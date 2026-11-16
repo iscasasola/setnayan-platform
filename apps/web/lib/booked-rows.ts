@@ -155,6 +155,8 @@ export type BookedNext =
 export type BookedRow = {
   vendorId: string;
   name: string;
+  /** 🛡 Owner 2026-11-16 (36d74d48): the row says "not yet verified" (the shipped `NotYetVerifiedThreadLine`). */
+  notYetVerified: boolean;
   initials: string;
   logoUrl: string | null;
   /** The category's label ("Reception"). Null when it has none. */
@@ -257,6 +259,8 @@ export type BookedPlan =
 export type WaitingRow = {
   vendorId: string;
   name: string;
+  /** 🛡 Owner 2026-11-16 (36d74d48): the row says "not yet verified" (the shipped `NotYetVerifiedThreadLine`). */
+  notYetVerified: boolean;
   initials: string;
   logoUrl: string | null;
   service: string | null;
@@ -371,6 +375,7 @@ function bookedRowOf(
   const base = {
     vendorId: team.vendorId,
     name: team.name,
+    notYetVerified: team.notYetVerified,
     // The Budget page's own two letters for a supplier ("Seda Vertis North" →
     // SV) — one circle for one supplier on both screens, as the prototype draws it.
     initials: initialsOf(team.name),
@@ -483,6 +488,7 @@ function waitingRowOf(team: TeamRow, f: BookedFacts, now: Date | undefined): Wai
   return {
     vendorId: team.vendorId,
     name: team.name,
+    notYetVerified: team.notYetVerified,
     initials: initialsOf(team.name),
     logoUrl: team.logoUrl,
     service: team.service,

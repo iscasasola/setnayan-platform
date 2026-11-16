@@ -50,6 +50,9 @@ export type ProposalBackDoor = {
  */
 export const BACK_TO_CONVERSATION = 'Back to the conversation';
 
+/** The quotes fold on My Customers — exactly where the retired `/vendor-dashboard/proposals` address forwards. */
+export const VENDOR_QUOTES_HREF = '/vendor-dashboard/customers?tab=proposals#customer-tools';
+
 export function proposalBackDoor(input: {
   /** Is the reader the supplier's org (rather than the couple/delegate)? */
   isVendorSide: boolean;
@@ -79,7 +82,7 @@ export function proposalBackDoor(input: {
      couple has deleted the celebration (slice 5 of "vendors get to keep it");
      interpolating it blind produces `/dashboard/null/vendors`. */
   if (isVendorSide || !eventId) {
-    return { href: '/vendor-dashboard/proposals', label: 'Back to your quotes' };
+    return { href: VENDOR_QUOTES_HREF, label: 'Back to your quotes' };
   }
   return { href: `/dashboard/${eventId}/vendors`, label: 'Back to your suppliers' };
 }

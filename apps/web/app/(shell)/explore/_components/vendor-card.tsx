@@ -53,6 +53,7 @@
  *   `vendor.business_name` → `${vendor.contact_person_name} (${vendor.business_name})`.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import { MarkedPhoto } from '@/app/_components/marked-photo';
 import Link from 'next/link';
 import { MapPin, Navigation, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
@@ -76,6 +77,7 @@ import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
 import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
+import { publicShopName } from '@/lib/public-badges';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -307,7 +309,10 @@ export async function VendorCard({
   // reveal their business_name day-1 (the marketplace enrichment batch
   // selects tier_state). Venue exception fires first if applicable, then
   // name_revealed_at gates the rest for Free/Verified.
-  const displayLabel = resolveVendorDisplayName({
+  // 🏷 UNVERIFIED SHOPS SHOW THEIR REAL NAME (owner 2026-11-15, specs 7fbff0cd item 9 — only the check and the Verified
+  // seal are missing). The stored business name wins; the old anonymous placeholder is kept only for a shop with no name
+  // at all (`publicShopName`, lib/public-badges.ts).
+  const displayLabel = publicShopName(vendor.business_name, resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
     primary_canonical_service: primaryService,
@@ -318,11 +323,11 @@ export async function VendorCard({
     // a VERIFIED vendor's name is never gated — revealed on any tier.
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
     is_verified: vendor.verification_state === 'verified',
-  });
+  }));
   const slug = vendor.business_slug ?? null;
   // ?src=explore stamps the thread's inquiry_source for Booking-Fee attribution
   // (PR-0) — an organic marketplace discovery, not a direct hit.
-  const href = slug ? `/v/${slug}?src=explore` : `#`;
+  const href = slug ? `${shopPath(slug)}?src=explore` : `#`;
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   // `coming_soon` retired 2026-07-27 (owner: "we only show shops that are

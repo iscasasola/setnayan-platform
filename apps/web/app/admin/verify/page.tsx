@@ -2423,7 +2423,7 @@ function VerifyCard({
             </p>
             {slug ? (
               <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                /v/{slug}
+                /{slug}
               </p>
             ) : null}
           </div>

@@ -53,6 +53,7 @@
  *   `vendor.business_name` → `${vendor.contact_person_name} (${vendor.business_name})`.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import { MarkedPhoto } from '@/app/_components/marked-photo';
 import Link from 'next/link';
 import { MapPin, Navigation, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
@@ -326,7 +327,7 @@ export async function VendorCard({
   const slug = vendor.business_slug ?? null;
   // ?src=explore stamps the thread's inquiry_source for Booking-Fee attribution
   // (PR-0) — an organic marketplace discovery, not a direct hit.
-  const href = slug ? `/v/${slug}?src=explore` : `#`;
+  const href = slug ? `${shopPath(slug)}?src=explore` : `#`;
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   // `coming_soon` retired 2026-07-27 (owner: "we only show shops that are

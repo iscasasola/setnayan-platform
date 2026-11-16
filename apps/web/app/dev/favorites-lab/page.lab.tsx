@@ -38,9 +38,9 @@ const GUEST = { role: 'guest' as const, hostsName: 'Maria & Jose', eventWord: 'w
 const LOLA = { role: 'host' as const, hostsName: 'Lola’s 80th', eventWord: 'birthday', eventDate: '2026-03-14', moreEvents: 0 };
 
 const ROWS: FavoriteListRow[] = [
-  { shopId: 'p-bloom', serviceId: null, name: 'Bloom & Co.', logoUrl: null, line: 'Florist', from: favoriteSourceLine(HOST), detail: favoriteSourceDetail(HOST), href: '/v/bloom-and-co' },
-  { shopId: 'p-casa', serviceId: null, name: 'Casa Luna Catering', logoUrl: null, line: 'Caterer', from: favoriteSourceLine(GUEST), detail: favoriteSourceDetail(GUEST), href: '/v/casa-luna' },
-  { shopId: 'p-lumen', serviceId: null, name: 'Lumen Lights', logoUrl: null, line: 'Lights & sound', from: favoriteSourceLine(LOLA), detail: favoriteSourceDetail(LOLA), href: '/v/lumen-lights' },
+  { shopId: 'p-bloom', serviceId: null, name: 'Bloom & Co.', logoUrl: null, line: 'Florist', from: favoriteSourceLine(HOST), detail: favoriteSourceDetail(HOST), href: '/bloom-and-co' },
+  { shopId: 'p-casa', serviceId: null, name: 'Casa Luna Catering', logoUrl: null, line: 'Caterer', from: favoriteSourceLine(GUEST), detail: favoriteSourceDetail(GUEST), href: '/casa-luna' },
+  { shopId: 'p-lumen', serviceId: null, name: 'Lumen Lights', logoUrl: null, line: 'Lights & sound', from: favoriteSourceLine(LOLA), detail: favoriteSourceDetail(LOLA), href: '/lumen-lights' },
 ];
 
 export default async function FavoritesLabPage({

@@ -1574,7 +1574,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'dates-calendar',
           title: 'Your month at a glance',
           // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
-          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Struck-through days are off. Tap a day to see what is on it — or block it off.',
+          // 🎨 EB-231 (16 Nov 2026): the FILL says whether a day can still take a booking (owner 2026-11-14, "THE CLIENTS
+          // CALENDAR KEEPS WHAT IT HAS — ONLY THE COLOUR CODING CHANGES": open = seat green, cannot = outlined); the
+          // DOTS say what is on it. This step said "Green is booked here" over a month of open green days.
+          // Held by `app/vendor-dashboard/customers/the-calendar-key-says-what-green-means.test.ts`.
+          body: 'A green day can still take a booking; an outlined day cannot. The dots say what is on it: green booked here, grey booked elsewhere, gold a couple asking. Tap a day to see it — or block it off.',
         },
         {
           // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.

@@ -19,3 +19,16 @@ Owner rulings: 2026-10-31 "SHOP STATUS RULED" (*"They can pause and close. Admin
 
 SPEC IMPACT: None in this PR — the corpus DECISION_LOG rows of 31 Oct and 16 Nov already record the rulings; an AS BUILT
 row is due when the screen ships.
+
+### 2026-11-16 · owner answers to the four questions ("1. Yes 2. Yes 3. Yes 4.yes")
+
+- **(1) Close hides, never deletes** — as built (`public_visibility = 'archived'`: page, reviews, photos and QR are
+  hidden and kept). No shop-status copy says "deleted"; a test holds it.
+- **(2) Owner-only close with no open booking; owner or team admin pause and reopen** — as built.
+- **(3) The admin's "Hide" became Pause — one control.** `/admin/verify`'s "Reject → Hidden" is gone; the card
+  shows **Pause** / **Unpause** (+ a "Paused" badge). The export `rejectVendor` was RENAMED `setVendorPause` (no new
+  server action). It and the supplier's `setShopStatus` both run `applyShopStatus` (`lib/shop-status.server.ts`),
+  which calls `set_shop_status()` on the caller's session and, for an admin, writes the audit row + tells the shop.
+- **(4) The Shortlist QR adds no paused shop.** `importVendorToEventShortlist` refuses it (`{ status: 'paused' }`),
+  the claim action refuses it, and `/vendor-invite/[slug]` shows **"This shop is paused"** in place of the form.
+- Tests: `lib/a-paused-shop-is-paused-everywhere.test.ts` (6, two sabotages measured red).

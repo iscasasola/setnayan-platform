@@ -16,6 +16,7 @@ import {
   listHostEvents,
 } from '@/lib/vendor-couple-invite';
 import { isShopLive } from '@/lib/vendor-visibility';
+import { isShopPaused } from '@/lib/shop-status';
 
 function backToInvite(slug: string, status: string, scope = ''): never {
   const sep = scope ? `&${scope}` : '';
@@ -57,10 +58,12 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   // step: a page that renders and an action that refuses is worse than either.
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, public_visibility, verification_state')
+    .select('vendor_profile_id, public_visibility, verification_state, paused_at')
     .eq('business_slug', slug)
     .maybeSingle();
   if (!vendor || !isShopLive(vendor)) backToInvite(slug, 'not_found', scope);
+  // ⏸ A paused shop takes nothing new (owner 2026-11-16) — the page says so, and the writer refuses it too.
+  if (isShopPaused(vendor)) backToInvite(slug, 'paused', scope);
 
   // Ownership: the chosen event must be one the user actually hosts.
   const hostEvents = await listHostEvents(admin, user!.id);
@@ -77,6 +80,7 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
 
   if (result.status === 'error') backToInvite(slug, 'error', scope);
   if (result.status === 'vendor_not_found') backToInvite(slug, 'not_found', scope);
+  if (result.status === 'paused') backToInvite(slug, 'paused', scope);
 
   // Success (new or already-saved) → land the couple on that event's vendor
   // shortlist so they immediately see the vendor they just added.

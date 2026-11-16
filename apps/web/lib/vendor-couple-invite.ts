@@ -18,6 +18,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isShopPaused } from '@/lib/shop-status';
 import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
@@ -162,6 +163,8 @@ export type ImportResult =
   | { status: 'ok'; eventVendorId: string }
   | { status: 'already_saved'; eventVendorId: string }
   | { status: 'vendor_not_found' }
+  /** ⏸ The shop is paused (owner 2026-11-16, answer 4 to PR #7890): the Shortlist QR adds nothing. */
+  | { status: 'paused' }
   | { status: 'error'; message: string };
 
 /**
@@ -193,11 +196,14 @@ export async function importVendorToEventShortlist(
 ): Promise<ImportResult> {
   const { data: vendor, error: vError } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name, services')
+    .select('vendor_profile_id, business_name, services, paused_at')
     .eq('vendor_profile_id', input.vendorProfileId)
     .maybeSingle();
   if (vError) return { status: 'error', message: vError.message };
   if (!vendor) return { status: 'vendor_not_found' };
+  // ⏸ Owner 2026-11-16 (answer 4 to PR #7890, "yes"): a paused shop is not added to a couple's shortlist by its QR —
+  // the QR page says "This shop is paused" instead. Refused here, at the one writer, so no other door can add it.
+  if (isShopPaused(vendor)) return { status: 'paused' };
 
   const { data: existing } = await admin
     .from('event_vendors')

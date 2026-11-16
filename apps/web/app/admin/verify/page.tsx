@@ -62,13 +62,14 @@ import {
   demoteVendor,
   markVendorContactConfirmed,
   rejectApplication,
-  rejectVendor,
+  setVendorPause,
   openApplicationDocument,
   runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
+import { isShopPaused } from '@/lib/shop-status';
 import { FindLine } from './_components/find-line';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
@@ -155,6 +156,8 @@ type Props = {
     approved?: string;
     rejected?: string;
     archived?: string;
+    paused?: string;
+    unpaused?: string;
     app_approved?: string;
     app_rejected?: string;
     demoted?: string;
@@ -379,6 +382,20 @@ function FlashBanner({
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
         Supplier visibility rejected — they stay in their current state.
+      </p>
+    );
+  }
+  if (search.paused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        Shop paused — it takes no new bookings or clients, and its QR says it is paused. Existing bookings carry on.
+      </p>
+    );
+  }
+  if (search.unpaused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        Shop unpaused — it takes new bookings again.
       </p>
     );
   }
@@ -2539,6 +2556,8 @@ function VerifyCard({
   bypass: { expiresAt: string | null; expiredAt: string | null } | null;
 }) {
   const visibility = parseVisibility(vendor.public_visibility);
+  /** ⏸ The admin's Pause (and a supplier's own) — `paused_at`, read through FINDABLE_INPUT_COLUMNS. */
+  const paused = isShopPaused(vendor);
   const vouch = bypassState({
     expiresAt: bypass?.expiresAt ?? null,
     // The desk does not re-read the applications table per card; a shop whose
@@ -2563,7 +2582,17 @@ function VerifyCard({
             ) : null}
           </div>
         </div>
-        <VisibilityBadge value={visibility} />
+        <div className="flex flex-col items-end gap-1">
+          <VisibilityBadge value={visibility} />
+          {paused ? (
+            <span
+              data-shop-paused
+              className="inline-flex items-center rounded-full border border-ink/20 bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70"
+            >
+              Paused
+            </span>
+          ) : null}
+        </div>
       </header>
 
       {vendor.tagline ? <p className="text-xs text-ink/65">{vendor.tagline}</p> : null}
@@ -2631,19 +2660,38 @@ function VerifyCard({
           vouch={vouch}
           alreadyListed={visibility === 'verified'}
         />
-        {visibility !== 'hidden' ? (
-          <ConfirmForm
-            action={rejectVendor}
-            title="Hide this supplier?"
-            confirmLabel="Reject → Hidden"
-            message="This hides the supplier from marketplace browse — couples can no longer find them. Reversible by approving again later."
-          >
-            <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
-            <input type="hidden" name="reject_to" value="hidden" />
-            <SubmitButton pendingLabel="Hiding…" className="button-secondary h-9 px-3 text-xs">
-              Reject → Hidden
-            </SubmitButton>
-          </ConfirmForm>
+        {/* ⏸ Owner 2026-11-16 (answer 3 to PR #7890): the admin's "Hide" BECAME Pause — one control. A pause holds
+            for verified and unverified shops alike (Hide did nothing to an unverified one). A closed (archived) shop
+            has nothing to pause. */}
+        {visibility !== 'archived' ? (
+          paused ? (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Unpause this shop?"
+              confirmLabel="Unpause"
+              destructive={false}
+              message="The shop takes new bookings and clients again, and its QR works as before."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="open" />
+              <SubmitButton pendingLabel="Unpausing…" className="button-secondary h-9 px-3 text-xs">
+                Unpause
+              </SubmitButton>
+            </ConfirmForm>
+          ) : (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Pause this shop?"
+              confirmLabel="Pause"
+              message="The shop leaves every list and takes no new bookings or clients; its page and QR say it is paused. Couples who already booked keep their bookings and can still message it. Unpause any time."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="paused" />
+              <SubmitButton pendingLabel="Pausing…" className="button-secondary h-9 px-3 text-xs">
+                Pause
+              </SubmitButton>
+            </ConfirmForm>
+          )
         ) : null}
         {visibility !== 'archived' ? (
           <ConfirmForm

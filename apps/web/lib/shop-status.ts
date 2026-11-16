@@ -14,8 +14,8 @@
  *   · Both are written ONLY by `set_shop_status()` (a database door that checks who is asking), never by an
  *     `.update()`: a session's direct write to the pause columns is refused by `guard_vendor_shop_pause`.
  *
- * ⚠ The words a supplier or couple sees ("This shop is paused", the Shop status row) wait on an owner-approved
- * drawing. This module holds the state and the refusals, not the screen.
+ * ⚠ The Shop status row on the supplier side and the paused line on the shop page wait on an owner-approved
+ * drawing. The Shortlist QR page already says {@link SHOP_PAUSED_LINE} (owner answer 4, 16 Nov).
  */
 import { parseVisibility } from './vendor-visibility';
 
@@ -56,6 +56,15 @@ export function isShopPaused(row: ShopStatusRow | null | undefined): boolean {
   return !!row && present(row.paused_at);
 }
 
+/**
+ * ⏸ The words a couple reads where a paused shop would take something new — owner 2026-11-16, verbatim ("its website
+ * and QR show "This shop is paused""). One constant, so the QR page and (when drawn) the shop page say the same thing.
+ */
+export const SHOP_PAUSED_LINE = 'This shop is paused';
+
+/** The line under it: true for every paused shop, and it promises nothing about when it reopens. */
+export const SHOP_PAUSED_DETAIL = 'It isn’t taking new bookings right now.';
+
 /** Why `set_shop_status()` said no. `unreadable` = the call failed for any other reason. */
 export type ShopStatusRefusal =
   | 'not_allowed'
@@ -90,6 +99,20 @@ export function parseShopStatusRefusal(message: string | null | undefined): {
   const reason = m[1] as ShopStatusRefusal;
   if (reason === 'open_bookings' && m[2]) return { reason, openBookings: Number(m[2]) };
   return { reason };
+}
+
+/** The admin desk's sentence for a refused Pause / Unpause (the supplier's words wait on the drawing). */
+export function shopStatusRefusalForAdmin(reason: ShopStatusRefusal): string {
+  switch (reason) {
+    case 'closed':
+      return 'This shop is closed (archived). Restore its listing first.';
+    case 'missing':
+      return 'Supplier not found.';
+    case 'not_allowed':
+      return 'Only a Setnayan admin can pause or unpause another shop.';
+    default:
+      return 'The shop status could not be changed. Try again.';
+  }
 }
 
 /** The statuses the door accepts. */

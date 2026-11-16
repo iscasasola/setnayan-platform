@@ -42,9 +42,9 @@ test('parseShopStatusRefusal reads the door back, and invents nothing', () => {
   assert.deepEqual(parseShopStatusRefusal('connection reset'), { reason: 'unreadable' });
 });
 
-test('the action calls the door and never writes the pause or the close itself', () => {
-  const src = stripComments(readFileSync(join(WEB, 'app/_actions/shop-status-actions.ts'), 'utf8'));
+test('the shop-status path calls the door and never writes the pause or the close itself', () => {
+  const src = stripComments(readFileSync(join(WEB, 'lib/shop-status.server.ts'), 'utf8'));
   assert.match(src, /\.rpc\(\s*'set_shop_status'/);
-  assert.doesNotMatch(src, /\.(update|upsert)\(/, 'the action writes vendor_profiles directly');
-  assert.doesNotMatch(src, /public_visibility\s*:\s*'archived'/, 'the action archives the shop itself');
+  assert.doesNotMatch(src, /\.(update|upsert)\(/, 'the path writes vendor_profiles directly');
+  assert.doesNotMatch(src, /public_visibility\s*:\s*'archived'/, 'the path archives the shop itself');
 });

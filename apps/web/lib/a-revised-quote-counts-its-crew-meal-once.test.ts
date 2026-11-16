@@ -46,7 +46,7 @@ test('the seed carries the stored crew meal as ONE ordinary line, and its lines 
   const seed = seedQuoteRevision(WALK_ROW);
   const crewLines = seed.lines.filter((l) => /crew meal/i.test(l.label));
   assert.equal(crewLines.length, 1, 'the stored crew meal should seed once, as a line');
-  assert.equal(crewLines[0].flatPhp, 1750);
+  assert.equal(crewLines[0]?.flatPhp, 1750);
   const offerOff = seed.offer?.offPhp ?? 0;
   const linesPhp = seed.lines.reduce((s, l) => s + (l.free ? 0 : l.flatPhp), 0);
   assert.equal(linesPhp - seed.discountPhp - offerOff, 8750, 'seeded lines − discount must equal the accepted ₱8,750');
@@ -59,7 +59,7 @@ test('the builder does not add a SECOND crew meal on top of a revision', () => {
   const init = src.match(/useState<Crew>\(\{\s*mode:\s*([^,]+),/);
   assert.ok(init, 'the crew state initialiser moved — re-anchor this test, do not delete it');
   assert.match(
-    init[1],
+    init?.[1] ?? '',
     /^revision\s*\?\s*'included'/,
     "a revision already carries its crew charge in its lines — the builder's crew must start 'included'",
   );

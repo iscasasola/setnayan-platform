@@ -75,7 +75,11 @@ export async function proposePartnership(formData: FormData) {
   const { supabase, vendorProfileId } = await ensureProfile();
 
   const recommendedId = readString(formData, 'recommended_vendor_id');
-  const relationshipTypeRaw = readString(formData, 'relationship_type');
+  // 🤝 "+ Add" (Invite a supplier v3, owner 16 Nov): the SAME propose → accept, one flow — a hand add is a "Works with"
+  // tie ('general') with origin 'added', and the served-together check is lifted for it (the database skips it for
+  // 'added' too, migration 20271350444634). Anything else posted is the shipped propose, unchanged.
+  const added = readString(formData, 'origin') === 'added';
+  const relationshipTypeRaw = added ? 'general' : readString(formData, 'relationship_type');
 
   if (!recommendedId || !relationshipTypeRaw) {
     back('Please choose a supplier and a partnership type.');
@@ -92,12 +96,14 @@ export async function proposePartnership(formData: FormData) {
   // 🤝 OWNER 2026-11-06: "cannot link until they have served the same event." Asked of the one shared reader (the same
   // database definition the insert trigger enforces), so the words below and the trigger can never disagree. A read
   // that FAILED is not a "no" — it says so, rather than telling a supplier they never worked with someone they did.
-  const servedTogether = await servedTogetherWith(supabase, vendorProfileId, recommendedId);
-  if (servedTogether === null) {
-    back("We couldn't check the events you've served together. Try again in a moment.");
-  }
-  if (!servedTogether) {
-    back(NOT_SERVED_TOGETHER_MESSAGE);
+  if (!added) {
+    const servedTogether = await servedTogetherWith(supabase, vendorProfileId, recommendedId);
+    if (servedTogether === null) {
+      back("We couldn't check the events you've served together. Try again in a moment.");
+    }
+    if (!servedTogether) {
+      back(NOT_SERVED_TOGETHER_MESSAGE);
+    }
   }
 
   const { error } = await supabase.from('vendor_partnerships').insert({
@@ -106,13 +112,18 @@ export async function proposePartnership(formData: FormData) {
     relationship_type: relationshipType,
     status: 'proposed', // RLS enforces this too; set explicitly for clarity
     is_active: true,
+    origin: added ? 'added' : 'worked_together',
   });
 
   if (error) {
     // 23505 = unique_violation → a partnership of this type already exists
     // between the two vendors (in either direction). Treat gracefully.
     if (error.code === '23505') {
-      back('A partnership of this type already exists between you two.');
+      back(
+        added
+          ? 'You two already have a Works with tie — it is in your Partners, your Sent list, or was declined.'
+          : 'A partnership of this type already exists between you two.',
+      );
     }
     if (isNotServedTogether(error)) back(NOT_SERVED_TOGETHER_MESSAGE);
     back(error.message);
@@ -120,7 +131,7 @@ export async function proposePartnership(formData: FormData) {
 
   revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
-  redirect(`${PANEL_PATH}?proposed=1`);
+  redirect(`${PANEL_PATH}?${added ? 'added' : 'proposed'}=1`);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +217,55 @@ export async function withdrawPartnership(formData: FormData) {
   revalidatePath(PANEL_PATH);
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect(`${PANEL_PATH}?withdrawn=1`);
+}
+
+// ---------------------------------------------------------------------------
+// remove — EITHER side ends a partnership (swipe left, no confirm)
+// ---------------------------------------------------------------------------
+
+/**
+ * 🤝 Invite a supplier v3 (owner 16 Nov): "Either side removes a partnership (swipe left, no confirm). It leaves both
+ * pages." Through the SHIPPED status moves and their RLS, nothing new in the database: the shop that made the tie
+ * withdraws it (proposer → 'withdrawn'), the other shop declines it (recipient → 'declined'). Either way it is no
+ * longer accepted, so it leaves Trusted by on both shop pages, and an Invites count that needs "still partners".
+ */
+export async function removePartnership(formData: FormData) {
+  const { supabase, vendorProfileId } = await ensureProfile();
+
+  const partnershipId = Number.parseInt(readString(formData, 'partnership_id'), 10);
+  if (!Number.isInteger(partnershipId) || partnershipId <= 0) {
+    back('Missing partnership reference.');
+  }
+
+  const { data: row, error: readErr } = await supabase
+    .from('vendor_partnerships')
+    .select('id, recommending_vendor_id, recommended_vendor_id')
+    .eq('id', partnershipId)
+    .maybeSingle();
+  if (readErr) back(readErr.message);
+  if (!row) back('That partnership is already gone.');
+
+  const mine = row.recommending_vendor_id === vendorProfileId;
+  const theirs = row.recommended_vendor_id === vendorProfileId;
+  if (!mine && !theirs) back('That partnership is not yours to remove.');
+
+  const { data, error } = await supabase
+    .from('vendor_partnerships')
+    .update({ status: mine ? 'withdrawn' : 'declined' })
+    .eq('id', partnershipId)
+    .eq(mine ? 'recommending_vendor_id' : 'recommended_vendor_id', vendorProfileId)
+    .in('status', ['proposed', 'accepted'])
+    .select('id')
+    .maybeSingle();
+  if (error) back(error.message);
+  if (!data) back('That partnership is already gone.');
+
+  const other = mine ? row.recommended_vendor_id : row.recommending_vendor_id;
+  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(other as string);
+  revalidatePath(PANEL_PATH);
+  revalidatePath('/');
+  redirect(`${PANEL_PATH}?removed=1`);
 }
 
 // ---------------------------------------------------------------------------

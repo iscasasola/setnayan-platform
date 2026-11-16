@@ -165,7 +165,7 @@ test('a MISSING row (no error) leaves NO record — the log is for refusals, not
 function trustedByClient(profilesResult: { data: unknown; error: unknown }): SupabaseClient {
   let call = 0;
   const builder: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'neq', 'in', 'order']) builder[m] = () => builder;
+  for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
   builder.then = (resolve: (v: unknown) => unknown) => {
     // First `.from()` call is vendor_partnerships (one accepted row); the
     // second is vendor_profiles — resolved by call ORDER, matching the real
@@ -181,6 +181,8 @@ function trustedByClient(profilesResult: { data: unknown; error: unknown }): Sup
       call += 1;
       return builder;
     },
+    // 🤝 the automatic "Worked together" half (shop_worked_with_counts) — none here.
+    rpc: () => Promise.resolve({ data: [], error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -195,10 +197,10 @@ test('fetchTrustedByVendors: a refused vendor_profiles read returns the UNREADAB
 
 test('fetchTrustedByVendors: a genuine read (no partnerships) returns [] with NO record', async () => {
   const builder: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'neq', 'in', 'order']) builder[m] = () => builder;
+  for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
   builder.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve({ data: [], error: null }).then(resolve);
-  const client = { from: () => builder } as unknown as SupabaseClient;
+  const client = { from: () => builder, rpc: () => Promise.resolve({ data: [], error: null }) } as unknown as SupabaseClient;
 
   const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
   assert.deepEqual(value, [], 'no accepted partnerships is a genuine empty, distinct from unreadable');

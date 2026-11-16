@@ -197,6 +197,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'health',
   'help',
   'host',
+  'i',
   'join',
   'live',
   'login',

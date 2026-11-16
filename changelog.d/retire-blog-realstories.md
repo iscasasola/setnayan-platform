@@ -32,4 +32,11 @@ Not done here (follow-ups): the admin Real Stories / Journal Spotlights / Storyt
 data still feeds Discover's "New uploads" shelf; the `/features/real-stories` feature page still describes the hub
 (its copy is an owner call — the evidence now points at the shipped editorial code).
 
+Guards re-pointed to the retirement (not weakened, each sabotaged red once): search tests now find the
+refunds help page and assert no `/blog` hit; the help/features search injects a published story as its guide; the
+sitemap premise counts 7 sitemaps; the shell-pages guard asserts no `/blog` page exists; the Journal byline test is
+gone with the Journal. `blog` and `sitemap-blog.xml` left `sw.js` RESERVED and telemetry's TOP_LEVEL_SEGMENTS.
+OPEN: `/creators` lost its Real Stories door (the 2026-11-11 rail ruling's condition) — the doorway guard stays red
+until that door is ruled.
+
 SPEC IMPACT: None beyond the two DECISION_LOG rows above, which already record the ruling.

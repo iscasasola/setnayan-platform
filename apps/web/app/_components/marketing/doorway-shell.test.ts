@@ -628,7 +628,8 @@ test('the stranded footer destinations are reachable from the rail', () => {
     /<Link\s+href="\/creators"[\s>]/,
     '/creators left the rail on 2026-11-11 on the condition that Real Stories links it — the link is gone',
   );
-  for (const href of ['/download', '/blog', '/help', '/for-suppliers', '/for-coordinators']) {
+  // /blog left this list on 2026-11-16: the blog is retired and forwards to /features (DECISION_LOG "RETIRED ADDRESSES FORWARD").
+  for (const href of ['/download', '/help', '/for-suppliers', '/for-coordinators']) {
     assert.match(
       shell,
       // `[\s>]`, not `>`: /download and /for-suppliers carry `data-web-only`

@@ -18,3 +18,10 @@ SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECI
   - The blue band keeps white words (`--sn-on-band`, 4.55:1). Ink on the blue would read about 3.2:1.
   - The guard holds each value. It also passes against #7888's `app-colours.ts`.
 - **Template ratchet.** The cover's Prints tile is a wash tile (`--surface-soft`) with no bordered card, so Shop stays at its baseline.
+- **Re-audit fixes (17 Nov).**
+  - **Only the main button lifts.** The lift rule is narrowed to `.button-primary` and the filled `.ab.ab-brand.ab-main`, as the drawing lifts `.btn.pri` alone. Before, every brand-tone ActionButton lifted. A guard fails if the selector widens again.
+  - **The Shop cover's quick row is the drawn three.** Prints · Your gifts · Plan are three centred white tiles, each with a 40px icon square on the wash.
+    - Prints and Your gifts open the shipped Promote sheet at its own `#prints` / `#gifts` section.
+    - Plan is the cover's `#plan` door, worded from `planLabel`.
+    - No new read. Guard: `shop/the-quick-row-is-the-drawn-three.test.ts`.
+  - `printsCountLine` goes through `formatCount`, and the Promote page's docblock now says seven rows.

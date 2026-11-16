@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, Check, ChevronRight, ExternalLink, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { Camera, Check, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
 import { PRINTS_LINE } from '@/lib/prints-line';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { actionButtonClass } from '@/components/action-button';
@@ -195,6 +195,11 @@ export function ShopCover({
     setSheet(null);
     replaceAddressParam(SHEET_ADDRESS[id][0], null);
   };
+  // The quick row's Prints / Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
+  const openPromoteAt = (section: 'prints' | 'gifts') => {
+    openSheet('promote');
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })));
+  };
   // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
   const openGear = () => replaceAddressParam('gear', '1');
   const counts = [d.rating ? `★ ${d.rating}` : null, d.events ?? EVENTS_UNREAD].filter(Boolean).join(' · ');
@@ -330,16 +335,28 @@ export function ShopCover({
             Cover
           </button>
         </div>
-        {/* 🪪 The Prints tile (drawing `supplier_shop_clean_2026-11-16`, the quick row under the doors): the same line as
-            the Promote section (`PRINTS_LINE`), opening the shipped Promote sheet — whose body starts at Prints. */}
-        <button type="button" onClick={() => openSheet('promote')} className="sn-press flex min-h-[56px] w-full items-center gap-3 rounded-2xl bg-[var(--surface-soft)] px-3 py-2 text-left" data-shop-quick="prints">
-          <IdCard aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={1.75} />
-          <span className="min-w-0 flex-1">
-            <b className="block text-[14.5px] font-semibold leading-tight text-ink">Prints</b>
-            <small className="block truncate text-[12.5px] text-ink/60">{PRINTS_LINE}</small>
-          </span>
-          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-        </button>
+        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Prints ·
+            Your gifts · Plan — each a 40 px icon square on the wash. Every tile opens a place that already ships:
+            Prints and Your gifts are the Promote sheet's own sections (`#prints`, `#gifts`), opened and scrolled to;
+            Plan is the cover's `#plan` door (the ⚙ sheet's Plan and billing fold), with the plan name the cover already
+            read (`planLabel`). No new read. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-three.test.ts */}
+        <div className="grid grid-cols-3 gap-2.5 pt-1" data-shop-quick-row="">
+          <button type="button" onClick={() => openPromoteAt('prints')} className={QUICK_TILE} data-shop-quick="prints">
+            <QuickIcon icon={IdCard} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Prints</b>
+            <small className="text-[12px] leading-tight text-ink/60">{PRINTS_LINE}</small>
+          </button>
+          <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
+            <QuickIcon icon={Gift} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Your gifts</b>
+            <small className="text-[12px] leading-tight text-ink/60">Buy gifts</small>
+          </button>
+          <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
+            <QuickIcon icon={Gem} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Plan</b>
+            <small className="text-[12px] leading-tight text-ink/60">{d.planLabel} plan</small>
+          </a>
+        </div>
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
@@ -353,6 +370,19 @@ export function ShopCover({
 }
 
 /** The cover's equal-weight doors: one row, equal widths, a 40 px pill with an icon and a word (the house rule). */
+/** The quick row's tile (drawing `.qk`): centred, the frame's white with its lift, no line. */
+const QUICK_TILE =
+  'sn-press relative flex min-h-[96px] min-w-0 flex-col items-center gap-0.5 rounded-[18px] bg-[rgb(var(--sn-frame-bg))] px-1.5 pb-2.5 pt-3 text-center shadow-[var(--sn-frame-shadow-tile)]';
+
+/** The tile's 40 px icon square on the wash (drawing `.qi`), the icon in the link colour. */
+function QuickIcon({ icon: I }: { icon: LucideIcon }) {
+  return (
+    <i aria-hidden className="mb-1 grid h-10 w-10 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
+      <I className="h-5 w-5" strokeWidth={1.8} />
+    </i>
+  );
+}
+
 const COVER_PILL =
   'inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-raised px-2 text-[13px] font-medium text-ink disabled:opacity-40';
 

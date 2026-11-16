@@ -110,7 +110,11 @@ test('the clean warm look’s new tokens (#7888) are re-pointed to the drawing �
 
 test('the ground and the lift are tokens in globals.css, and the lift spares the focus ring', () => {
   assert.match(GLOBALS, /\.sn-ambient \{\s*(?:\/\*[\s\S]*?\*\/\s*)?background: var\(--sn-ambient, /);
-  assert.match(GLOBALS, /:where\(\.button-primary:not\(:focus-visible\), :is\(button, a\)\.ab\.ab-brand\) \{\s*box-shadow: var\(--sn-forward-lift, none\);/);
+  // ONLY THE MAIN BUTTON is lifted (the drawing lifts `.btn.pri` alone): every selector that reads the lift must be the
+  // main button — `.button-primary` or the filled `.ab-main` — so an outlined/quiet brand ActionButton never floats.
+  const readers = [...stripComments(GLOBALS).matchAll(/([^{}]+)\{[^{}]*var\(--sn-forward-lift/g)].map((m) => (m[1] ?? '').trim());
+  assert.equal(readers.length, 1, 'the lift is read in more than one place');
+  assert.equal(readers[0]?.replace(/\s+/g, ' '), ':where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand.ab-main:not(:focus-visible))', 'the lift selector widened past the main button');
   assert.ok(valueOf('--sn-ambient')?.includes('rgb(var(--sn-page-bg))'), 'the glow lost its ground');
   assert.ok(valueOf('--sn-forward-lift'), 'no lift');
 });

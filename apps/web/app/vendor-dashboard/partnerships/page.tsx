@@ -28,6 +28,7 @@ import {
   PARTNERSHIP_VENDOR_LABEL_SHORT,
 } from '@/lib/vendor-partnership-kinds';
 import { StayForm } from '@/app/_components/stay-form';
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { siteOrigin } from '@/lib/site-origin';
 import {
@@ -199,8 +200,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, location_city')
       .ilike('business_name', `%${query.replace(/[%_,()]/g, ' ')}%`)
-      .eq('public_visibility', 'verified')
-      .eq('verification_state', 'verified')
+      // The ONE rule for a live, verified shop (lib/live-shops.ts) — never the columns spelled by hand.
+      .match(LIVE_SHOP_GATE)
       .neq('vendor_profile_id', myId)
       .order('business_name', { ascending: true })
       .limit(20);

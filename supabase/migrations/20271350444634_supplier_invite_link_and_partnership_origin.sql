@@ -118,8 +118,9 @@ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM public.vendor_profiles vp
        WHERE vp.vendor_profile_id = NEW.recommended_vendor_id
-         AND vp.public_visibility = 'verified'
-         AND vp.verification_state = 'verified'
+         -- the ONE listing rule (lib/findable-shop.ts FINDABLE_SHOP_GATE): findable = verified, and papers current
+         AND vp.is_findable
+         AND vp.papers_current
     ) THEN
       RAISE EXCEPTION 'ADD_NEEDS_A_VERIFIED_SHOP'
         USING ERRCODE = 'P0001',
@@ -299,8 +300,8 @@ AS $$
     FROM public.vendor_served_together_rows(p_vendor) r
     JOIN public.vendor_profiles vp
       ON vp.vendor_profile_id = r.other_vendor_profile_id
-   WHERE vp.public_visibility = 'verified'
-     AND vp.verification_state = 'verified'
+   WHERE vp.is_findable      -- the ONE listing rule (lib/findable-shop.ts FINDABLE_SHOP_GATE)
+     AND vp.papers_current
    GROUP BY r.other_vendor_profile_id;
 $$;
 

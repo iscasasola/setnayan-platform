@@ -33,6 +33,7 @@ import {
   servedTogetherWith,
 } from '@/lib/partners-you-served-with.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 
 const PANEL_PATH = '/vendor-dashboard/partnerships';
@@ -107,8 +108,8 @@ export async function proposePartnership(formData: FormData) {
       .from('vendor_profiles')
       .select('vendor_profile_id')
       .eq('vendor_profile_id', recommendedId)
-      .eq('public_visibility', 'verified')
-      .eq('verification_state', 'verified')
+      // The ONE rule for a live, verified shop (lib/live-shops.ts) — never the columns spelled by hand.
+      .match(LIVE_SHOP_GATE)
       .maybeSingle();
     if (targetErr) back("We couldn't check that shop just now. Try again in a moment.");
     if (!target) back(ADD_NEEDS_VERIFIED_MESSAGE);

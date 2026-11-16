@@ -5,7 +5,8 @@
  * Reposition only (owner rule 17 Nov, *"No code everything that is already there"*): each view MOUNTS the shipped
  * page or Studio surface unchanged (`merged-view.ts`). The old addresses — /admin/launch-offer, /admin/discount-codes,
  * /admin/referrals, /admin/gifts, /admin/founder-seats, and the Studio's ?tab=discount-codes / ?tab=referrals — forward
- * here with `?view=` preselected, their query kept (`lib/admin/admin-pages.ts`). No new server action: every save is
+ * here with `?view=` preselected. Badges & seals (#7827's page, carried here) is the one view drawn in this folder,
+ * because it never had a page on `main`; the Spotlight Awards fold into it, their query kept (`lib/admin/admin-pages.ts`). No new server action: every save is
  * still the old page's own.
  */
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -16,6 +17,7 @@ import GiftsPage from '../gifts/page';
 import FounderSeatsPage from '../founder-seats/page';
 import { DiscountCodesSurface } from '../studio/_surfaces/discount-codes-surface';
 import { ReferralsSurface } from '../studio/_surfaces/referrals-surface';
+import { BadgesView } from './_surfaces/badges-view';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,7 @@ const TITLE: Record<string, string> = {
   referrals: 'Referrals',
   gifts: 'Gifts & comps',
   'founder-seats': 'Founder seats',
+  badges: 'Badges & seals',
 };
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParamsRecord> }) {
@@ -61,6 +64,8 @@ export default async function AdminOffersPage({ searchParams }: { searchParams: 
       return mountView(GiftsPage, sp);
     case 'founder-seats':
       return mountView(FounderSeatsPage, sp);
+    case 'badges':
+      return <BadgesView search={sp} />;
     default:
       return mountView(LaunchOfferPage, sp);
   }

@@ -117,7 +117,6 @@ const RAIL: RailItem[] = [
   { key: 'moodboard-library', label: 'Moodboard library', icon: Palette, group: 'Content', wired: true, legacyHref: '/admin/moodboard-library' },
   // ── Marketing (5) ───────────────────────────────────────────────────────
   { key: 'social-queue', label: 'Social queue', icon: Share2, group: 'Marketing', wired: true, legacyHref: '/admin/social-queue' },
-  { key: 'spotlight-awards', label: 'Spotlight Awards', icon: Trophy, group: 'Marketing', wired: true, legacyHref: '/admin/spotlight-awards' },
   { key: 'journal-spotlights', label: 'Journal Spotlights', icon: BookOpen, group: 'Marketing', wired: true, legacyHref: '/admin/journal-spotlights' },
 ];
 
@@ -249,11 +248,12 @@ export default async function AdminMergedHost(props: { searchParams?: Promise<Se
   const sp: SearchParamsRecord = (await props.searchParams) ?? {};
   const raw = sp.tab;
   const key = Array.isArray(raw) ? raw[0] : raw;
-  // Discount codes and Referrals moved to Money › Offers & gifts (owner call 12): their old tab forwards, query kept.
-  if (key === 'discount-codes' || key === 'referrals') {
+  // Discount codes and Referrals moved to Money › Offers & gifts (owner call 12), and the Spotlight Awards fold into its
+  // Badges & seals (#7827, dd7d05f1): their old tab forwards, query kept.
+  if (key === 'discount-codes' || key === 'referrals' || key === 'spotlight-awards') {
     const q = new URLSearchParams();
     for (const [k, val] of Object.entries(sp)) if (k !== 'tab') for (const x of [val].flat()) if (x !== undefined) q.append(k, x);
-    q.set('view', key);
+    q.set('view', key === 'spotlight-awards' ? 'badges' : key);
     redirect(`/admin/offers?${q.toString()}`);
   }
   if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);

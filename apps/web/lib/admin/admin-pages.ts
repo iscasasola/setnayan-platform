@@ -210,6 +210,12 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       }),
       v('gifts', 'Gifts & comps', '/admin/offers?view=gifts', { olds: ['/admin/gifts'] }),
       v('founder-seats', 'Founder seats', '/admin/offers?view=founder-seats', { olds: ['/admin/founder-seats'] }),
+      // 🏅 Carried from #7827 (controller 17 Nov). The monthly Spotlight Awards fold into it (DECISION_LOG dd7d05f1 (4)),
+      // so their old addresses — the page and the Studio tab — open it too.
+      v('badges', 'Badges & seals', '/admin/offers?view=badges', {
+        olds: ['/admin/badges', '/admin/spotlight-awards'],
+        match: ['/admin/offers?view=badges', '/admin/badges', '/admin/spotlight-awards', '/admin/studio?tab=spotlight-awards'],
+      }),
     ],
     openOne: ['/admin/discount-codes/new', '/admin/discount-codes/[id]/edit'],
   },
@@ -324,10 +330,6 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       }),
       v('storytellers', 'Storytellers', '/admin/studio?tab=storytellers', { kindGroup: 'Stories & social' }),
       v('recaps', 'Recaps', '/admin/studio?tab=recaps', { kindGroup: 'Stories & social', match: ['/admin/studio?tab=recaps', '/admin/recaps'] }),
-      v('spotlight-awards', 'Spotlight Awards', '/admin/studio?tab=spotlight-awards', {
-        kindGroup: 'Stories & social',
-        match: ['/admin/studio?tab=spotlight-awards', '/admin/spotlight-awards'],
-      }),
       v('journal-spotlights', 'Journal Spotlights', '/admin/studio?tab=journal-spotlights', {
         kindGroup: 'Stories & social',
         match: ['/admin/studio?tab=journal-spotlights', '/admin/journal-spotlights'],

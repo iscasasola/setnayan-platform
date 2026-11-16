@@ -4292,14 +4292,28 @@
     },
     "/admin/offers": {
       "files": [
+        "admin/offers/_surfaces/badges-view.tsx",
+        "admin/offers/_surfaces/not-yet-built.ts",
         "admin/offers/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "BadgesView",
         "DiscountCodesSurface",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
         "ReferralsSurface",
-        "SearchParamsRecord"
+        "SearchParamsRecord",
+        "ShopBadges",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/offline": {

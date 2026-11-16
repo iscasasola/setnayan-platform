@@ -317,7 +317,7 @@ function OwnedView({
         ) : null}
       </div>
 
-      <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
+      <section className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-6 text-center sm:p-8">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
           Live preview
         </p>
@@ -425,7 +425,7 @@ async function UnownedView({
 
   if (compact) {
     return (
-      <div className="flex flex-col gap-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5 sm:flex-row sm:items-center">
         <div className="flex-1 space-y-1">
           <p className="text-base font-semibold tracking-tight text-ink">
             Guests see it draw itself in
@@ -491,7 +491,7 @@ async function UnownedView({
   return (
     <>
       {/* Before / after preview */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5">
         <header className="space-y-1">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
             Your monogram, two ways
@@ -592,7 +592,7 @@ async function UnownedView({
       </section>
 
       {/* What you get + buy */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5">
         <header className="space-y-1">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
             What you get

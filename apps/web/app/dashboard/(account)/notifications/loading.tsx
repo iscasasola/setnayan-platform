@@ -37,7 +37,7 @@ export default function NotificationsLoading() {
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4"
+              className="flex items-start gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4"
             >
               <Sk className="mt-0.5 h-5 w-16 shrink-0 rounded-full" />
               <div className="min-w-0 flex-1 space-y-2">

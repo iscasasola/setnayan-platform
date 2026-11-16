@@ -38,7 +38,7 @@ export default async function ImportGuestsPage({ params }: Props) {
         </p>
       </header>
 
-      <section className="rounded-lg border border-ink/10 bg-cream p-4">
+      <section className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4">
         <h2 className="text-base font-semibold text-ink">1 · Get the guest list file</h2>
         <p className="mt-1 text-sm text-ink/70">
           Fill it in with Excel, Numbers or Google Sheets — one person per row.

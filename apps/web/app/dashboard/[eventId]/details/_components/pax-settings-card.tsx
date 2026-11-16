@@ -49,7 +49,7 @@ export function PaxSettingsCard({
           else setErr(res.message);
         });
       }}
-      className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
+      className="space-y-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4"
     >
       <div className="flex items-center gap-2">
         <CalendarClock className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />

@@ -98,6 +98,7 @@ import {
 import { computeVatFromBase } from '@/lib/receipts';
 import { ultraUpgradeLine, type UltraUpgradeFrom } from '@/lib/event-ultra';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { ActionButton } from '@/components/action-button';
 
 /** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
 const VOUCHER_NOT_CHECKED = 'We couldn’t check that code. Please try again.';
@@ -904,7 +905,7 @@ function VoucherBlock({
   // Collapsed state · "Have a code?" link.
   if (!showField && !applied) {
     return (
-      <div className="rounded-lg border border-ink/10 bg-cream px-4 py-2.5">
+      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-2.5">
         <button
           type="button"
           onClick={onShowField}
@@ -947,7 +948,7 @@ function VoucherBlock({
 
   // Input state — type / apply / rejection.
   return (
-    <div className="space-y-2 rounded-lg border border-ink/10 bg-cream px-4 py-3">
+    <div className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3">
       <label className="block text-xs font-medium text-ink/70">
         Enter your code
       </label>
@@ -1073,13 +1074,7 @@ function SubmitSuccess({
           Track this order
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         </Link>
-        <button
-          type="button"
-          onClick={onDone}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-semibold text-cream hover:bg-mulberry-600"
-        >
-          Done
-        </button>
+        <ActionButton tone="brand" main icon={CheckCircle2} label="Done" onClick={onDone} />
       </div>
     </div>
   );

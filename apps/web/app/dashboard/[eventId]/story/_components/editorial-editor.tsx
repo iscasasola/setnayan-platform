@@ -796,7 +796,7 @@ export function EditorialEditor({
 
   const card = 'rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6';
   const linkCard =
-    'flex items-center justify-between gap-3 rounded-xl border border-ink/15 bg-white px-4 py-3 text-sm transition hover:border-burgundy/40 hover:bg-burgundy/5';
+    'flex items-center justify-between gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3 text-sm transition hover:bg-burgundy/5';
 
   /*
     THE RAIL'S CHIPS SAY ONLY WHAT WE ALREADY KNOW. Every value here is read from state or from a
@@ -1248,7 +1248,7 @@ export function EditorialEditor({
             return (
               <li
                 key={k}
-                className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-2.5"
+                className="flex items-center justify-between gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-2.5"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink">
@@ -1323,7 +1323,7 @@ export function EditorialEditor({
         ) : (
           <ul className="mt-4 space-y-3">
             {columns.map((c) => (
-              <li key={c.id} className="rounded-xl border border-ink/10 bg-white p-4">
+              <li key={c.id} className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4">
                 <div className="flex items-start gap-3">
                   <input
                     className={`${inputCls} flex-1`}
@@ -1403,7 +1403,7 @@ export function EditorialEditor({
               const count = w.quote.length;
               const over = count > WISH_QUOTE_SOFT_CAP;
               return (
-                <li key={i} className="rounded-xl border border-ink/10 bg-white p-3">
+                <li key={i} className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-3">
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -1681,7 +1681,7 @@ export function EditorialEditor({
           ends. Two doors, one room, one cap (`LAST_WORD_MAX`), so the two can
           never disagree about how long a last word may be.
         */}
-        <div className="mt-4 rounded-xl border border-ink/10 bg-white p-4">
+        <div className="mt-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4">
           <label
             htmlFor="story-last-word"
             className="block text-xs font-semibold uppercase tracking-[0.12em] text-ink/45"
@@ -1712,7 +1712,7 @@ export function EditorialEditor({
           host's intent (the rung greys out) without erasing the fact that they
           once agreed.
         */}
-        <div className="mt-4 rounded-xl border border-ink/10 bg-white p-4">
+        <div className="mt-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4">
           <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3">
             <input
               type="checkbox"
@@ -1774,7 +1774,7 @@ export function EditorialEditor({
 
           {shareUrl ? (
             <div className="mt-4 space-y-3">
-              <div className="flex items-center gap-2 rounded-xl border border-ink/15 bg-white px-3 py-2">
+              <div className="flex items-center gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-3 py-2">
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink/70">
                   {shareUrl.replace(/^https?:\/\//, '')}
                 </span>

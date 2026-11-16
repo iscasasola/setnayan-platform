@@ -24,7 +24,7 @@ export function InviteLink({ url }: { url: string }) {
   }
 
   return (
-    <div className="flex min-h-12 items-stretch gap-2 rounded-xl bg-cream p-1 ring-1 ring-ink/15">
+    <div className="flex min-h-12 items-stretch gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-1">
       <input
         readOnly
         value={url}

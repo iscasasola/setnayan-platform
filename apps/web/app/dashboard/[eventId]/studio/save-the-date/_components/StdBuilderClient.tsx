@@ -479,7 +479,7 @@ export function StdBuilderClient({
                 Keep your names crisp over the background. <span className="font-medium text-ink/80">Auto</span> adapts to your choice — or <span className="font-medium text-ink/80">Lighten</span> / <span className="font-medium text-ink/80">Darken</span> to fine-tune.
               </p>
             </div>
-            <div className="inline-flex rounded-xl border border-ink/15 bg-cream p-1">
+            <div className="inline-flex bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-1">
               {([
                 { id: 'auto', label: 'Auto', Icon: Sparkles },
                 { id: 'lighten', label: 'Lighten', Icon: Sun },
@@ -567,7 +567,7 @@ export function StdBuilderClient({
                 Suggested for your Chinese ceremony — an auspicious red &amp; gold.
               </p>
             ) : null}
-            <div className="rounded-xl border border-ink/10 bg-cream p-3">
+            <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-3">
               <ColorRow
                 label="Accent colour"
                 value={accentColor}

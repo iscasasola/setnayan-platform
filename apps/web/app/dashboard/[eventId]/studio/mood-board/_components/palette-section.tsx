@@ -212,7 +212,7 @@ function PaletteGroup({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-xl border border-ink/10 bg-white" open={defaultOpen}>
+    <details className="group bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)]" open={defaultOpen}>
       <summary className="cursor-pointer list-none px-4 py-3 text-[12px] uppercase tracking-[0.2em] text-ink/70">
         {title}
       </summary>

@@ -75,7 +75,7 @@ export function InkCompare({
         </p>
       </div>
 
-      <div className="relative h-64 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+      <div className="relative h-64 overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)]">
         <div
           aria-hidden
           className="absolute inset-0 flex items-center justify-center p-8 [&_svg]:max-h-full [&_svg]:max-w-full"

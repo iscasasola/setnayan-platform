@@ -151,10 +151,10 @@ export const ADMIN_1_TOPICS: AdminHelpTopic[] = [
         body: 'On their Account card: Force sign-out signs them out everywhere; Suspend (and Unsuspend) holds the account. Add to team needs a second admin and shows as waiting until one decides; Remove from team needs one.',
       },
       {
-        // app/admin/verify (Applications · Listing visibility); "Mark in review", "Approve → Verified", "Confirm reject"; markVendorContactConfirmed
+        // app/admin/verify (Applications · Listing visibility); "Mark in review", "Approve → Verified", "Confirm reject"; sent_back_slots
         slug: 'admin-verify-a-supplier',
         title: 'How do I verify a supplier?',
-        body: 'People › To verify › Applications: Mark in review, then Approve → Verified, or reject with a required reason. Listing visibility handles what a shop shows. One admin. The console has no video-call scheduling — confirm the call yourself and record the contact check as Email received or Text received.',
+        body: 'People › To verify › Applications: Mark in review, then Approve → Verified, or send it back — tick the paper that needs a new copy and give the reason; the other papers are kept. Listing visibility handles what a shop shows. One admin. There is no call and no contact check: the three papers are the check, and the registration number is read off the DTI or SEC paper.',
       },
       {
         // app/admin/verification-docs ('In use', 'Left over', 'Not sure')

@@ -45,7 +45,7 @@ import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
 import { PAIR_COLUMNS } from '@/lib/verification-pairs';
 import { isReadableSlotKey, slotR2Key } from '@/lib/verification-paper-read';
-import { fileTypedValues, openSealedSlot, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
+import { fileTypedValues, openSealedSlot, registrationNumberOnPaper, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
 import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
 import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
 import { haversineKm } from '@/lib/geo';
@@ -710,10 +710,14 @@ export async function updateDocUploadInline(
 // ---------------------------------------------------------------------------
 // Government registration number capture + uniqueness enforcement
 //
-// The vendor types their government registration number (BIR TIN / DTI / SEC /
-// Mayor's Permit) during verification. It is stored on THEIR OWN
-// vendor_profiles row (RLS: vendor_profiles_owner) as:
-//   • registration_number_raw        — what they typed (display / admin)
+// 🔢 READ OFF THE PAPER, NEVER TYPED (owner 2026-11-14, DECISION_LOG 93ed7cd0
+// cut 2). On Submit, the number on the DTI/SEC paper — read off a clean copy,
+// or typed from that paper only after the third unclear try
+// (`registrationNumberOnPaper`, sealed) — is claimed for the shop. There is no
+// form field for it and no exported action: the claim is made here, once, by
+// the submit. It is stored on THEIR OWN vendor_profiles row (RLS:
+// vendor_profiles_owner) as:
+//   • registration_number_raw        — the number on the paper (display / admin)
 //   • registration_number_normalized — the canonical key the partial-UNIQUE
 //     index guards (anti-farm: no two shops share one registered identity)
 //
@@ -727,26 +731,23 @@ export async function updateDocUploadInline(
 // manual admin verification review, and return a clear message.
 // ---------------------------------------------------------------------------
 
-export type RegNumberSaveResult =
+type RegNumberClaim =
   | { ok: true; needsReview: boolean }
   | { ok: false; error: string };
 
-export async function saveRegistrationNumberInline(
-  _prev: RegNumberSaveResult | null,
-  formData: FormData,
-): Promise<RegNumberSaveResult> {
-  const auth = await requireVendorId();
-  if (!auth) return { ok: false, error: 'Please sign in again.' };
-
-  const parsed = parseRegistrationNumber(String(formData.get('registration_number') ?? ''));
+/**
+ * NOT exported: a "use server" export is a public route, and the number must
+ * never arrive from a request. The submit calls this with the sealed paper's
+ * number. A number the parser cannot make out is not claimed — the admin's
+ * check then says "read it off the certificate", which is the honest answer.
+ */
+async function claimRegistrationNumber(
+  auth: { supabase: SupabaseClient; vendorProfileId: string },
+  numberOnPaper: string,
+): Promise<RegNumberClaim> {
+  const parsed = parseRegistrationNumber(numberOnPaper);
   if (!parsed.ok) {
-    if (parsed.reason === 'empty') {
-      return { ok: false, error: 'Enter your government registration number.' };
-    }
-    return {
-      ok: false,
-      error: 'That does not look like a complete registration number — enter your full BIR TIN, DTI, SEC, or permit number.',
-    };
+    return { ok: false, error: 'The number on the paper could not be made out.' };
   }
 
   const now = new Date().toISOString();
@@ -797,8 +798,8 @@ export async function saveRegistrationNumberInline(
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');
-  // ok:true — the submission was ACCEPTED (not lost), just flagged. The UI
-  // shows REGISTRATION_NUMBER_TAKEN_MESSAGE via needsReview.
+  // ok:true — the number was RECORDED (not lost), just flagged: the admin's
+  // check reads "Same registration number as <shop>".
   return { ok: true, needsReview: true };
 }
 
@@ -907,6 +908,21 @@ export async function submitInlineForReview(
     applicationType: app.application_type as string | null | undefined,
   }).catch(() => undefined);
 
+  // 🔢 The number comes off the DTI/SEC paper (sealed), never from this request.
+  // Best-effort: a number that cannot be claimed never refuses a submit that
+  // already landed — the admin's registration check says what is missing.
+  const sealKey = paperSealKey();
+  const numberOnPaper = sealKey
+    ? registrationNumberOnPaper(openSealedSlot('dti_certificate', (app.doc_uploads as Record<string, unknown> | null)?.dti_certificate, sealKey))
+    : null;
+  if (numberOnPaper) {
+    const claim = await claimRegistrationNumber(auth, numberOnPaper).catch((e: unknown) => ({
+      ok: false as const,
+      error: e instanceof Error ? e.message : String(e),
+    }));
+    if (!claim.ok) console.error('[submitInlineForReview] registration-number claim failed', claim.error);
+  }
+
   // ✅ CLEAN PAPERS VERIFY THE SHOP ON SUBMIT (owner, "by the time they save
   // it, they can be verified right there"). The decision is made on the SERVER
   // from sealed reads, the allowlisted registry page and the other-shop
@@ -941,8 +957,8 @@ export async function submitInlineForReview(
 //
 // ⛔ `registration_number_raw` is deliberately NOT writable through here. It
 // carries the anti-farm uniqueness claim (partial-UNIQUE index + the soft
-// review flag), and a second writer would be a second copy of that rule. The
-// call is delegated to `saveRegistrationNumberInline`, unchanged.
+// review flag), and a second writer would be a second copy of that rule. Its
+// one writer is `claimRegistrationNumber`, fed from the paper on Submit.
 // ---------------------------------------------------------------------------
 
 /** Length caps. The two shared with the admin correction path MIRROR it — a

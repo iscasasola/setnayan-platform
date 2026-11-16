@@ -67,8 +67,6 @@ function cleanFacts(over: Partial<CheckFacts> = {}): CheckFacts {
     contactEmail: 'hello@banaweblooms.ph',
     contactPhone: '+639170000000',
     hqAddress: '76 Sampaguita Avenue, Quezon City',
-    contactEmailConfirmedAt: '2026-09-01T02:00:00.000Z',
-    contactPhoneConfirmedAt: '2026-09-01T02:05:00.000Z',
     inBusinessSinceYear: 2019,
     experienceVerifiedAt: '2026-09-03T00:00:00.000Z',
     registeredBusinessName: 'Banawe Blooms',
@@ -146,8 +144,6 @@ test('"all manual" is a case, never a mode — it is simply every check landing 
       contactEmail: 'a@b.c',
       contactPhone: '+63917',
       hqAddress: 'somewhere',
-      contactEmailConfirmedAt: null,
-      contactPhoneConfirmedAt: null,
       inBusinessSinceYear: null,
       experienceVerifiedAt: null,
       registeredBusinessName: null,
@@ -300,10 +296,10 @@ test('a document filed under another shop names both shops', () => {
   assert.match(r.disagreement!.right.value, /vp-someone-else/);
 });
 
-test('2026-11-14 · no VALIDATE and no identity call: a shop with neither stamped reads the same as one with both', () => {
+test('2026-11-14 · no identity call: a shop with no call booked reads the same as one with one (and VALIDATE is no longer a fact at all)', () => {
   const stamped = runVerificationChecks(cleanFacts(), NOW);
   const none = runVerificationChecks(
-    cleanFacts({ contactEmailConfirmedAt: null, contactPhoneConfirmedAt: null, meetScheduledAt: null }),
+    cleanFacts({ meetScheduledAt: null }),
     NOW,
   );
   assert.deepEqual(summariseChecks(none), summariseChecks(stamped));
@@ -652,8 +648,8 @@ test('nothing the desk draws names a table, a column, or a flag', () => {
   const batteries: Array<Partial<CheckFacts>> = [
     {},
     { completeSlotKeys: new Set() },
-    { contactPhoneConfirmedAt: null },
-    { contactEmailConfirmedAt: null, contactPhoneConfirmedAt: null },
+    { meetScheduledAt: null },
+    { registrationNumberRaw: null },
     { registrationNumberDuplicate: true, registrationNumberHeldAlsoBy: ['Riverside Catering'] },
     { registryAnswer: { kind: 'no_match' } },
     { registryAnswer: { kind: 'unreachable', note: '504 Gateway Timeout' } },

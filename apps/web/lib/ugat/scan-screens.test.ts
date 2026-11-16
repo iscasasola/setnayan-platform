@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { noDoorBaseline, scanScreens, serializeScreensMap, urlForAppDir } from './scan-screens';
+import { noDoorBaseline, scanScreens, serializeScreensMap, slotPageDrawsNothing, urlForAppDir } from './scan-screens';
 import { summarizeScreens, type UgatScreensMap } from './screens';
 
 function fixture(files: Record<string, string>): string {
@@ -172,4 +172,11 @@ test('a slot page at its parent’s address is not a second screen — the paren
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('a slot page that draws nothing is a slot reset, not a screen', () => {
+  assert.equal(slotPageDrawsNothing('export default function A() {\n  return null;\n}'), true);
+  assert.equal(slotPageDrawsNothing("import { notFound } from 'next/navigation';\nexport default function A() {\n  if (x) notFound();\n  return null;\n}"), true);
+  assert.equal(slotPageDrawsNothing('export default function A() {\n  return <Picked />;\n}'), false);
+  assert.equal(slotPageDrawsNothing("export { default } from '../../page';"), false);
 });

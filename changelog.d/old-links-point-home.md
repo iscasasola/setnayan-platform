@@ -14,3 +14,5 @@ Pages that moved still have their old address forwarding to the new one — righ
 Guard: `lib/old-links-point-home.test.ts` reads the retired list from the same three places the forwarding uses (the middleware's legacy map, the screen map's redirect stubs, the admin map's redirect stubs) and fails if any page or lib module names one. 21 links still do — 20 in files an open PR is editing, plus payment methods' Back, which must agree with the page map that #7717 is editing — and sit in a baseline that only shrinks. Five existing guards that pinned an old address (the marketplace GET form, the website redirect, the verification-docs body pin, the back-link baseline, the generated screen map) now pin the new one. Sabotaged twice (an old link restored → red; a stale baseline line → red).
 
 SPEC IMPACT: None.
+
+- llms.txt: the "Supplier pages" line linked the bare `/v/` directory, which is a 404 on live (W1-B20). It now links Discover `/`, and `/v/` is off `LINKED_ROUTES`; held by a new test in `lib/llms-txt.test.ts`.

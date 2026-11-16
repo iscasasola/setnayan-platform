@@ -195,6 +195,7 @@ import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { centreLogoOnItsInk } from '@/lib/logo-layers';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { foundYouLine } from '@/lib/booking-fee-dispute';
 import { readThreadUnreadCount } from '@/lib/couple-inbox';
 import {
   buildSharedFiles,
@@ -764,6 +765,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myContactsRes,
     headcountRule,
     headcountNames,
+    foundRes,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -882,8 +884,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // …and the rule in the couple's words ("Only Bride's Crew") — admin-read like the event row above (a supplier has no
       // read on `events`), behind the same booking gate. A failed read is the usual words, logged (`loadRoleNames`).
       isBooked && feeUnlocked ? loadRoleNames(admin, eventId, 'vendorClientCard.roleNames') : Promise.resolve(null),
+      // 🕵️ FOUND YOU (owner 16 Nov 2026, DECISION_LOG e5d166cd (2)) — where and when this couple first opened the shop
+      // from a Setnayan surface. The record is couple/admin-only under RLS, so it is admin-read, scoped to THIS event and
+      // THIS shop, which the brief RPC above already proved the caller holds. No record or a failed read → no line.
+      admin
+        .from('event_vendor_found')
+        .select('first_found_at, first_source')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
     ]),
   );
+  if (foundRes.error) logQueryError('vendorClientCard.foundYou', foundRes.error);
+  const foundRow = foundRes.error ? null : (foundRes.data as { first_found_at: string | null; first_source: string | null } | null);
+  const foundLine = foundYouLine(foundRow?.first_found_at, foundRow?.first_source);
 
   const completionRow = (evRow ?? null) as ({
     vendor_id: string | null;
@@ -2153,6 +2167,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       headcountRule={headcountRule}
       headcountNames={headcountNames}
       returningFlag={returningFlag}
+      foundLine={foundLine}
       isBooked={isBooked}
       paletteEntries={paletteEntries}
       mealEntries={mealEntries}
@@ -2844,6 +2859,8 @@ function OverviewTab(props: {
   /** The couple's words for roles, for the rule's line. */
   headcountNames: RoleNames | null;
   returningFlag: ReturningClientFlag | null;
+  /** 🕵️ "Found you on Setnayan · from Search, 3 Nov" — `foundYouLine`, or null when there is no found-record. */
+  foundLine: string | null;
   isBooked: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
   mealEntries: [string, number][];
@@ -2910,6 +2927,7 @@ function OverviewTab(props: {
     headcountRule,
     headcountNames,
     returningFlag,
+    foundLine,
     isBooked,
     paletteEntries,
     mealEntries,
@@ -2941,6 +2959,11 @@ function OverviewTab(props: {
       {/* Returning-client marker + quick-action bar (Relationship Workspace ·
           Details tab, PR 5). Additive — sits at the top of the Overview. */}
       <ReturningMarker returningFlag={returningFlag} />
+      {foundLine ? (
+        <p data-found-you="" className="text-[13px] font-semibold text-terracotta-700">
+          ★ {foundLine}
+        </p>
+      ) : null}
 
       {/* Imported hint (invite the couple to Setnayan). */}
       {isImported ? (

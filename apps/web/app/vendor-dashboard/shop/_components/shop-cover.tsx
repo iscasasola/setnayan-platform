@@ -349,7 +349,8 @@ export function ShopCover({
           <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
             <QuickIcon icon={Gift} />
             <b className="text-[15px] font-semibold leading-tight text-ink">Your gifts</b>
-            <small className="text-[12px] leading-tight text-ink/60">Buy gifts</small>
+            {/* The words sell, so the iPhone app never shows them (App Store #5/#14; the Promote section gates its own Buy). */}
+            <small className="text-[12px] leading-tight text-ink/60" data-web-only="">Buy gifts</small>
           </button>
           <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
             <QuickIcon icon={Gem} />

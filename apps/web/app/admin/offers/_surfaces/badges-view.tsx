@@ -272,8 +272,7 @@ export async function readBadgeShopList(admin: ReturnType<typeof createAdminClie
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name')
     .eq('is_demo', false)
-    .order('business_name', { ascending: true })
-    .limit(300);
+    .order('business_name', { ascending: true });
   if (error) logQueryError('BadgesView.shops', error, {}, 'graceful_degrade');
   return { list: (data ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>, error };
 }

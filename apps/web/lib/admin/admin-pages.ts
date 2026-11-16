@@ -183,9 +183,9 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
     line: 'Every price in one place (already merged on the site; two old addresses forward).',
     views: [
       v('prices', 'Prices', '/admin/pricing', { match: ['/admin/pricing', '/admin/pricing?tab=pricing', '/admin/addons'] }),
-      v('ai-prices', 'Setnayan AI prices', '/admin/pricing?tab=setnayan-ai'),
-      v('papic-shots', 'Papic shot prices', '/admin/pricing?tab=papic-shots'),
-      v('bands', 'Market price bands', '/admin/pricing?tab=price-bands', { match: ['/admin/pricing?tab=price-bands', '/admin/price-bands'] }),
+      v('ai-prices', 'AI prices', '/admin/pricing?tab=setnayan-ai'),
+      v('papic-shots', 'Papic shots', '/admin/pricing?tab=papic-shots'),
+      v('bands', 'Bands', '/admin/pricing?tab=price-bands', { match: ['/admin/pricing?tab=price-bands', '/admin/price-bands'] }),
       v('free-windows', 'Free windows', '/admin/pricing?tab=free-windows'),
     ],
     waitsOn: ['#7693 (pricing/page.tsx)', '#7874 (pricing/_components)'],

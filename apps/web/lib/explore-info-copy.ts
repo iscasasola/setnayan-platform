@@ -402,6 +402,21 @@ export const CARD_LOCK = 'Book this';
 export const CARD_LOCKING = 'Requesting…';
 
 /**
+ * 🛑 BOOK ASKS ONE CONFIRM BEFORE IT SENDS (owner 2026-11-16, DECISION_LOG 75a46e3c; walk EB-175: a card's Book sent a
+ * booking request to a supplier on the first tap). The words of that one confirm, drawn by the shipped `useConfirm`
+ * box (`app/_components/confirm-dialog.tsx`) in `AccordionLockButton`. It says what is sent and that it stays a
+ * request until they answer, never that anything is booked.
+ */
+export function bookConfirmCopy(vendorName: string): { title: string; body: string; confirmLabel: string; cancelLabel: string } {
+  return {
+    title: `Ask ${vendorName} to book your date?`,
+    body: `This sends ${vendorName} a booking request. It stays a request until they say yes.`,
+    confirmLabel: 'Yes, send it',
+    cancelLabel: 'Not yet',
+  };
+}
+
+/**
  * PR-H slice B · what a couple reads while nobody has answered yet.
  *
  * 🗣 THE WORD IS "ASKED", NEVER "BOOKED". The whole point of the handshake is

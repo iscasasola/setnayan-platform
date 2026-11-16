@@ -38,6 +38,7 @@
  * No second writer of anything: a verb here calls the action the Find card and
  * the workspace already call.
  */
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { useContext, useRef, useState, useTransition, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -682,6 +683,12 @@ export function BookedRowItem({
         />
       ) : null}
       </div>
+      {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — outside the row's toggle (its ⓘ is a button). */}
+      {row.notYetVerified ? (
+        <div className="ml-14">
+          <NotYetVerifiedThreadLine />
+        </div>
+      ) : null}
       {row.dateAsk ? (
         <p className="ml-14 mt-1 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
           Date change to {row.dateAsk.when}:{' '}
@@ -761,6 +768,11 @@ export function WaitingRowItem({ eventId, row }: { eventId: string; row: Waiting
         </span>
         <span className={`${PILL} bg-sn-accent/10 text-sn-accent`}>{WAITING_PILL}</span>
       </div>
+      {row.notYetVerified ? (
+        <div className="ml-14">
+          <NotYetVerifiedThreadLine />
+        </div>
+      ) : null}
       <p className="ml-14 mt-1 flex items-baseline gap-2 text-[14px]">
         <span className="shrink-0 text-ink/70">Until they say yes:</span>
         <span className="text-sn-accent">{WAITING_UNTIL}</span>

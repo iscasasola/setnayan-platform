@@ -12,6 +12,7 @@
  *   ?view=shelf                 the front page's Shops shelf (the REAL `FrontDoorFeed`): two demo shops and one real one
  *   ?view=event                 a demo event's page top: the "(DEMO ONLY)" band exactly as `app/[slug]/page.tsx` mounts it
  */
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MapPin, MessageCircle, Send } from 'lucide-react';
@@ -112,7 +113,7 @@ export default async function ShopPageLabPage({
                 Inquire
               </a>
               <ShareButton title={NAME} className="button-secondary inline-flex items-center gap-2" />
-              <CheckADateLink href="/v/sampaguita-table/dates" className="button-secondary inline-flex items-center gap-2" />
+              <CheckADateLink href={`${shopPath('sampaguita-table')}/dates`} className="button-secondary inline-flex items-center gap-2" />
             </div>
           </div>
         </section>

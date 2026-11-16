@@ -33,6 +33,7 @@ import {
   servedTogetherWith,
 } from '@/lib/partners-you-served-with.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 
 const PANEL_PATH = '/vendor-dashboard/partnerships';
 
@@ -169,6 +170,10 @@ async function respondToPartnership(
   if (!data) {
     back('That request is no longer pending — it may have been withdrawn or already answered.');
   }
+
+  // 🏅 An accepted recommendation climbs this shop's Trusted by badge — pay and tell after the response (owner
+  // 2026-11-15, "firing when earned").
+  if (next === 'accepted') sweepShopBadgesAfter(vendorProfileId);
 
   revalidateShopPage(vendorProfileId);
   // 🤝 Trusted by reads a tie from BOTH pages, and the adder's page already showed the pending add (v3): an answer

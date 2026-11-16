@@ -165,7 +165,7 @@ function isIdSegment(seg: string): boolean {
  * skipped) — add a top-level page and that test names this list.
  */
 export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
-  '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'auth', 'blog',
+  '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'auth',
   'budget', 'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev',
   'download', 'explore', 'favicon.ico', 'features', 'for-coordinators', 'for-suppliers',
   'forgot-password', 'guest-list', 'health', 'help', 'host', 'i', 'join', 'live',
@@ -173,7 +173,7 @@ export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
   'open-shop', 'our-story', 'pa3d', 'pakanta', 'palogo', 'panood', 'papic',
   'patiktok', 'pawebsite', 'pay', 'pricing', 'privacy', 'proposals',
   'realstories', 'receipts', 'refunds', 'reset-password', 'samahan', 'sample', 'schedule',
-  'seat-plan', 'setnayan-ai', 'signup', 'site-editor', 'sitemap-blog.xml', 'start',
+  'seat-plan', 'setnayan-ai', 'signup', 'site-editor', 'start',
   'sitemap-features.xml', 'sitemap-help.xml', 'sitemap-static.xml',
   'sitemap-suppliers.xml', 'sitemap-vendors.xml', 'sitemap-weddings.xml',
   'sitemap.xml', 'suppliers', 'terms', 'tl', 'tour', 'u', 'v', 'vendor',

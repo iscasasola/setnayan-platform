@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -177,7 +178,7 @@ export async function fetchTrustedByVendors(
     out.push({
       vendorProfileId: p.vendor_profile_id as string,
       displayName,
-      href: nameRevealed && slug ? `/v/${slug}` : null,
+      href: nameRevealed && slug ? `${shopPath(slug)}` : null,
       relationshipType: relByVendor.get(p.vendor_profile_id as string) ?? 'general',
       origin: tieByVendor.get(p.vendor_profile_id as string)?.origin ?? 'worked_together',
       direction: tieByVendor.get(p.vendor_profile_id as string)?.direction ?? 'partner',

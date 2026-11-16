@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { bookedThisMonthCount } from '@/lib/booked-this-month';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
@@ -1011,11 +1012,10 @@ export async function fetchVendorOverviewData(
   };
   const upcoming: UpcomingEventRow[] = ahead.slice(0, 5).map(toRow);
   const nextDay: UpcomingEventRow[] = firstDate ? ahead.filter((b) => b.bookedDate === firstDate).map(toRow) : [];
-  // 📊 "Booked · this month" — distinct events dated in this Manila month (past days of the month included).
+  // 📊 "Booked · this month" — distinct events dated in this Manila month (past days of the month included). The ONE
+  // definition Clients' "this month" filter reads too (`lib/booked-this-month.ts`, owner 75a46e3c item 9).
   const monthPrefix = manilaTodayIso().slice(0, 7);
-  const bookedThisMonth = bookingsComplete
-    ? new Set(roomBookings.filter((b) => b.bookedDate.slice(0, 7) === monthPrefix).map((b) => b.eventId)).size
-    : null;
+  const bookedThisMonth = bookedThisMonthCount(roomRead, monthPrefix);
 
   const since28 = Date.now() - 28 * 86_400_000;
   const inquiries28 = threads.filter((t) => {

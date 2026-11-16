@@ -17,8 +17,10 @@ import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   SHOP_GIFT_MAX_QUANTITY,
+  SHOP_GIFT_UNLOCK_KINDS,
   giftCount,
   giftUnitPrice,
+  shopGiftBuyable,
   stockSubline,
   type FreeByKind,
   type ShopGiftKind,
@@ -84,6 +86,13 @@ const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-
  * The "🏅 300" chip on a stock row when some of it is badge reward — the mark that tells it apart from bought stock,
  * kept short so the row's own line still fits a phone (the ⓘ says what 🏅 means; the Badge rewards fold lists each).
  */
+/** A plan's name when its catalogue row could not be read — the catalogue's own titles. */
+const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[number], string>> = {
+  event_plus: 'Event Plus',
+  event_pro: 'Event Pro',
+  event_ultra: 'Event Ultra',
+};
+
 function rewardChip(left: FreeByKind | null | undefined, k: ShopGiftKind): { tone: 'ok'; word: string } | null {
   const n = left?.[k] ?? 0;
   return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
@@ -123,7 +132,9 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const headingId = useId();
   const { stock, bought } = data;
   const packs = data.packs ?? [];
-  const canOffer = data.canBuy && stock !== null && packs.length > 0;
+  // 💎 Event Ultra is earned (Black Diamond), never bought — its row shows the count, the buy sheet leaves it out.
+  const buyPacks = packs.filter((p) => shopGiftBuyable(p.code));
+  const canOffer = data.canBuy && stock !== null && buyPacks.length > 0;
   const rewards = data.rewards;
   const granted = rewards?.granted ?? null;
   const fee = granted ? freeFeeSummary(granted) : null;
@@ -147,7 +158,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           strong={stock ? formatCount(stock.papic.balance) : null}
           badge={stock ? rewardChip(rewards?.left, 'papic') : null}
         />
-        {(['event_plus', 'event_pro'] as const).map((k) => {
+        {SHOP_GIFT_UNLOCK_KINDS.map((k) => {
           const pack = packs.find((p) => p.kind === k);
           const s = stock?.[k] ?? null;
           // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
@@ -157,7 +168,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               key={k}
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
-              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
+              title={pack?.title ?? UNLOCK_FALLBACK_TITLE[k]}
               line={stockSubline(s)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
               badge={stock ? rewardChip(rewards?.left, k) : null}
@@ -187,7 +198,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               data-testid="shop-gifts-buy"
             />
           </div>
-        ) : data.canBuy && data.packs !== null && packs.length === 0 ? (
+        ) : data.canBuy && data.packs !== null && buyPacks.length === 0 ? (
           <p className="mt-2 text-[13.5px] text-ink/60" role="status">
             Gifts are not on sale right now.
           </p>
@@ -289,7 +300,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         <BuyGiftsSheet
           open={buying}
           onClose={() => setBuying(false)}
-          packs={packs}
+          packs={buyPacks}
           paysGiftPrice={data.paysGiftPrice}
           openRails={data.openRails}
         />

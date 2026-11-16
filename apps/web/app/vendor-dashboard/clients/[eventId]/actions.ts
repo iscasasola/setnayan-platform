@@ -38,14 +38,14 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
-import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
+import { notifyScheduleRequest, notifySupplierTimes } from '@/lib/schedule-request-notify.server';
 import { whereAskRefusalWords } from '@/lib/supplier-where';
 import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
 import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
-import { isOwnClock } from '@/lib/supplier-own-times';
+import { isOwnClock, supplierTimesNotice } from '@/lib/supplier-own-times';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -586,6 +586,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     if (r.value === 'gone') return { ok: false, error: 'That ask was already answered or taken back.' };
     return done({ ok: true, outcome: decision === 'accept' ? 'applied' : 'done' });
   }
+  const supplierName = profile.business_name?.trim() || 'A supplier';
+
   if (isMark) {
     const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });
     if (error) {
@@ -594,10 +596,17 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
         error: error.code === '22023' ? 'Confirm my times opens one week before the event.' : NOT_SENT_WORDS,
       };
     }
+    // 🕕 SCHEDULE MODEL rule 3 (owner 16 Nov): Confirm my times tells the hosts, in the app only. Best-effort.
+    if (request === 'confirm') {
+      const notice = supplierTimesNotice({ kind: 'confirmed', shop: supplierName });
+      try {
+        if (notice) await notifySupplierTimes({ eventId, ...notice });
+      } catch (e) {
+        console.error('[suggestScheduleChange] confirm notify failed:', e);
+      }
+    }
     return done({ ok: true, outcome: 'done' });
   }
-
-  const supplierName = profile.business_name?.trim() || 'A supplier';
 
   /** Write one ask, tell the host, then settle it (Auto-agree on = in at once; off = it waits). */
   const ask = async (row: {
@@ -711,6 +720,13 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   if (request === 'own_times') {
     const own = ownTimesFromForm(formData);
     if (!own.ok) return { ok: false, error: own.error };
+    // 🕕 What they had, so the hosts are told only of a real set or change (rule 3) — never of the same times again.
+    const { data: before } = await supabase
+      .from('supplier_own_times')
+      .select('call_clock, arrive_clock, done_clock')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
     // RLS: the shop's own row, on an event it is booked for, signed as this user (supplier_own_times_shop_*).
     const { error: saveErr } = await supabase.from('supplier_own_times').upsert(
       {
@@ -727,6 +743,21 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     if (saveErr) return { ok: false, error: NOT_SENT_WORDS };
     // 🕕 Ruling A: the chat's "Set your call time" pin counts this row as set — the chat reads it fresh.
     revalidatePath('/vendor-dashboard/messages', 'layout');
+    // 🕕 SCHEDULE MODEL rule 3 (owner 16 Nov): the hosts hear it in the app (never emailed). Best-effort.
+    const b = before as { call_clock: string | null; arrive_clock: string | null; done_clock: string | null } | null;
+    const notice = supplierTimesNotice({
+      kind: 'times',
+      shop: supplierName,
+      before: b ? { call: b.call_clock, arrive: b.arrive_clock, done: b.done_clock } : null,
+      after: { call: own.call, arrive: own.arrive, done: own.done },
+    });
+    if (notice) {
+      try {
+        await notifySupplierTimes({ eventId, ...notice });
+      } catch (e) {
+        console.error('[suggestScheduleChange] own-times notify failed:', e);
+      }
+    }
     const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
     if (!chapterId || (!own.arrive && !own.done)) return done({ ok: true, outcome: 'done' });
     const { data: chapter } = await supabase

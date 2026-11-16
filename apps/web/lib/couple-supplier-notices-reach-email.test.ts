@@ -648,10 +648,13 @@ test('8 · the four change-order notices left the in-app-only register, and the 
     const notice = body.slice(body.indexOf('changeOrder'));
     assert.doesNotMatch(notice, /\b(delta|magnitude)\b/, `${fn} passes the typed amount into the notice`);
   }
-  // The other six are untouched: still six, still the generic type.
+  // The other six are untouched (plus the supplier-times notice, 2026-11-16): still the generic type.
   const rest = sitesOf('schedule_suggestion');
   console.log(`# schedule_suggestion sites left: ${rest.length} (${[...new Set(rest.map((s) => s.file))].join(', ')})`);
-  assert.equal(rest.length, 6, 'a schedule/meeting/handover notice moved or a new one appeared — schedule_suggestion had six sites after the change orders left');
+  // 7 since 2026-11-16: `notifySupplierTimes` (lib/schedule-request-notify.server.ts) — a supplier set/changed their own
+  // times or pressed Confirm my times, told to the hosts IN THE APP ONLY by owner ruling (DECISION_LOG 16 Nov
+  // "SCHEDULE MODEL", rule 3), which is exactly what this register is.
+  assert.equal(rest.length, 7, 'a schedule/meeting/handover notice moved or a new one appeared — schedule_suggestion had seven sites (six + the supplier-times notice)');
   assert.equal(sitesOf('change_order_proposed').length + sitesOf('change_order_answered').length, 4);
 });
 

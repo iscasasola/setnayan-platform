@@ -64,3 +64,41 @@ export function callTimeIsSet(rpcAt: string | null, ownCall: string | null | und
  * on the supplier's Schedule tab, settable before the hosts build their day.
  */
 export const CALL_TIME_ANCHOR = 'own-times';
+
+/* ── 🕕 THE SCHEDULE MODEL (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL") ────────────────────────────────────────────
+ * The couple sees TWO different times for a supplier, never one "call time" for both:
+ *   · Crew call  — the supplier's own `call_clock` (when their crew meets), set on their Schedule tab;
+ *   · On site from — the earliest Schedule moment the COUPLE tagged them on (`earliestTaggedBlock`).
+ */
+
+/** "Crew call 6:00 AM" — the couple-facing words for the supplier's own call time ('' when none). */
+export function crewCallWords(call: string | null | undefined): string {
+  const at = ownClockWords(call);
+  return at ? `Crew call ${at}` : '';
+}
+
+/**
+ * The hosts' IN-APP notice when a supplier sets or changes their times, or presses Confirm my times (owner 16 Nov,
+ * rule 3: in the app only — never emailed). Null = nothing to tell (the same times saved again).
+ */
+export function supplierTimesNotice(input:
+  | { kind: 'times'; shop: string; before: Pick<OwnTimes, 'call' | 'arrive' | 'done'> | null; after: Pick<OwnTimes, 'call' | 'arrive' | 'done'> }
+  | { kind: 'confirmed'; shop: string },
+): { title: string; body: string } | null {
+  if (input.kind === 'confirmed') {
+    return { title: `${input.shop} confirmed their times`.slice(0, 160), body: 'Their part of your Schedule is final from their side.' };
+  }
+  const b = input.before;
+  const a = input.after;
+  if (b && b.call === a.call && b.arrive === a.arrive && b.done === a.done) return null;
+  const had = Boolean(b && (b.call || b.arrive || b.done));
+  const words = [
+    a.call ? crewCallWords(a.call) : null,
+    a.arrive ? `arrive ${ownClockWords(a.arrive)}` : null,
+    a.done ? `done ${ownClockWords(a.done)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  if (!words) return null;
+  return { title: `${input.shop} ${had ? 'changed' : 'set'} their times`.slice(0, 160), body: words.slice(0, 200) };
+}

@@ -462,21 +462,45 @@ function TimesMarkLine({ mark }: { mark: NonNullable<BookedRow['timesMark']> }) 
   );
 }
 
-/** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
-function CallTimeLine({ line }: { line: BookedCallTime }) {
+/**
+ * "On site from 8:00 AM · Ingress & setup · from your Schedule" — the earliest Schedule moment YOU tagged them on, never
+ * a copy. 🕕 Owner, DECISION_LOG 16 Nov "SCHEDULE MODEL": this is NOT their crew call — that is the supplier's own time,
+ * drawn by `CrewCallLine` above it. Once a crew call exists, "No call time yet" is never said here.
+ */
+function CallTimeLine({ line, crewCallSet }: { line: BookedCallTime; crewCallSet: boolean }) {
   return (
     <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-call-time={line.kind}>
       <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/70" />
       {line.kind === 'set' ? (
         <span>
-          <span className="text-ink">Call time </span>
+          <span className="text-ink">On site from </span>
           <b className="font-semibold text-ink tabular-nums">{line.clock}</b>
           <span className="text-[12.5px] text-ink/70"> · {line.moment} · from your Schedule</span>
         </span>
       ) : line.kind === 'none' ? (
-        <span className="text-[12.5px] text-ink/70">No call time yet — tag them on a Schedule moment</span>
+        <span className="text-[12.5px] text-ink/70">
+          {crewCallSet ? 'On site — tag them on a Schedule moment' : 'No call time yet — tag them on a Schedule moment'}
+        </span>
       ) : (
         <span className="text-[12.5px] text-ink/70">We couldn’t check your Schedule for their call time.</span>
+      )}
+    </p>
+  );
+}
+
+/** 🕕 "Crew call 6:00 AM · set by them" — the supplier's own time (`supplier_own_times`), apart from On site from. */
+function CrewCallLine({ line }: { line: NonNullable<BookedRow['crewCall']> }) {
+  return (
+    <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-crew-call={line.kind}>
+      <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/70" />
+      {line.kind === 'set' ? (
+        <span>
+          <span className="text-ink">Crew call </span>
+          <b className="font-semibold text-ink tabular-nums">{line.clock}</b>
+          <span className="text-[12.5px] text-ink/70"> · set by them</span>
+        </span>
+      ) : (
+        <span className="text-[12.5px] text-ink/70">We couldn’t check their crew call.</span>
       )}
     </p>
   );
@@ -719,7 +743,8 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
     // `.bk-exp>div{overflow:clip}` cut every right-hand button. `minmax(0,1fr)` lets each child shrink to the column.
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
-      {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.crewCall ? <CrewCallLine line={row.crewCall} /> : null}
+      {row.callTime ? <CallTimeLine line={row.callTime} crewCallSet={row.crewCall?.kind === 'set'} /> : null}
       {row.timesMark ? <TimesMarkLine mark={row.timesMark} /> : null}
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.updated ? <UpdatedLine updated={row.updated} /> : null}

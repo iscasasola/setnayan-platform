@@ -179,8 +179,14 @@ export type BookedRow = {
   room: RoomLine | null;
   /** The couple asked their suppliers to move the date, and this is theirs. */
   dateAsk: DateAsk | null;
-  /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
+  /** "On site from 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
   callTime: BookedCallTime | null;
+  /**
+   * 🕕 "Crew call 6:00 AM" — the supplier's OWN call time (`supplier_own_times.call_clock`, set on their Schedule tab),
+   * kept apart from On site from (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL"): never one "call time" for both.
+   * `null` = none set or nobody asked (no line); `unread` = the read was refused (said, never "none").
+   */
+  crewCall?: { kind: 'set'; clock: string } | { kind: 'unread' } | null;
   /**
    * ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`, audit G6). `null` = not asked or
    * nothing pressed (no line); `unread` = the read was refused (said, never "not confirmed").
@@ -362,6 +368,7 @@ function bookedRowOf(
     now: Date | undefined;
     callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
     marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined;
+    crewCalls?: ReadonlyMap<string, string> | null | undefined;
     plansKnown: boolean;
     chapters: readonly WhereChapter[] | null | undefined;
     venues: ReadonlyMap<string, string>;
@@ -392,6 +399,7 @@ function bookedRowOf(
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
     timesMark: timesMarkFor(extra.marks, f.shopId),
+    crewCall: crewCallFor(extra.crewCalls, f.shopId),
     plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
     where:
       extra.chapters === undefined
@@ -531,6 +539,10 @@ export function bookedView(args: {
    */
   marks?: ReadonlyMap<string, ScheduleMarkFacts> | null;
   /**
+   * 🕕 Each booked shop's own crew call ('HH:MM') by SHOP (`readCrewCalls`). `null` = refused; `undefined` = not asked.
+   */
+  crewCalls?: ReadonlyMap<string, string> | null;
+  /**
    * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
    * `undefined` = nobody asked (no Where is drawn).
    */
@@ -572,6 +584,7 @@ export function bookedView(args: {
           now: args.now,
           callTimes: args.callTimes,
           marks: args.marks,
+          crewCalls: args.crewCalls,
           plansKnown: args.plans !== null,
           chapters: args.chapters,
           venues,
@@ -678,6 +691,18 @@ export function timesMarkFor(
   if (marks === null) return { kind: 'unread' };
   const mark = timesMarkOf(marks.get(shopId));
   return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word !== 'Seen' } : null;
+}
+
+/** 🕕 The Team row's "Crew call 6:00 AM" — keyed by the booking's SHOP (the supplier keeps it as their shop). */
+export function crewCallFor(
+  crewCalls: ReadonlyMap<string, string> | null | undefined,
+  shopId: string | null,
+): NonNullable<BookedRow['crewCall']> | null {
+  if (crewCalls === undefined || !shopId) return null;
+  if (crewCalls === null) return { kind: 'unread' };
+  const hhmm = crewCalls.get(shopId);
+  const clock = hhmm && /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(hhmm) ? bookedClock(`2000-01-01T${hhmm}:00.000Z`) : '';
+  return clock ? { kind: 'set', clock } : null;
 }
 
 export function callTimeFor(

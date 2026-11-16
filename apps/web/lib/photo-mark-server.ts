@@ -32,8 +32,14 @@ import {
   MARK_PLATE,
   MARK_RIM,
   MARK_RIM_POS,
+  QR_INK,
+  QR_QUIET,
+  QR_TILE,
+  ROW_LOGO_GOLD,
+  ROW_SHADOW,
   SY_BOX_UNITS,
   SY_PATH,
+  isRowLayout,
   layoutInside,
   layoutMark,
   layoutMarkInFrame,
@@ -44,6 +50,7 @@ import {
   type MarkLayout,
   type MarkMeasure,
   type MarkSpec,
+  type RowLayout,
 } from './photo-mark-geometry';
 
 let fonts: { jost: OtFont; cormorant: OtFont } | null = null;
@@ -139,7 +146,7 @@ function coinSvg(id: string, cx: number, cy: number, d: number, logoPng: Buffer 
   ].join('');
 }
 
-function linePath(line: MarkLayout['lines'][number]): string {
+function linePath(line: { text: string; font: MarkFont; px: number; x: number; y: number; tracking: number }): string {
   const face = faceFor(line.font);
   const baseline = line.y + (face.ascender / face.unitsPerEm) * line.px;
   if (!line.tracking) return face.getPath(line.text, line.x, baseline, line.px).toPathData(2);
@@ -152,8 +159,81 @@ function linePath(line: MarkLayout['lines'][number]): string {
   return parts.join(' ');
 }
 
+/** A soft shadow as an SVG filter — blur + offset + flood, the primitives librsvg has always drawn (canvas shadowBlur ≈ 2σ). */
+function shadowFilter(id: string, blur: number, dy: number, rgba: string): string {
+  const m = /rgba\(([^)]+)\)/.exec(rgba);
+  const [r, g, b, a] = m ? m[1]!.split(',').map((x) => x.trim()) : ['0', '0', '0', '0.5'];
+  return (
+    `<filter id="${id}" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">` +
+    `<feGaussianBlur in="SourceAlpha" stdDeviation="${n(blur / 2)}"/><feOffset dy="${n(dy)}" result="o"/>` +
+    `<feFlood flood-color="rgb(${r},${g},${b})" flood-opacity="${a}"/><feComposite in2="o" operator="in"/>` +
+    `<feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>`
+  );
+}
+
+/**
+ * 🔏 THE SUPPLIER ROW as an SVG overlay (owner-approved 2026-11-15) — the same drawing as `paintRow` in
+ * `photo-mark-canvas.ts`: the fade, the flat gold logo, SETNAYAN over the address (opentype outlines), the shop's logo
+ * in a plain circle, the QR on its light tile (shadow on the tile only; the modules are one crisp path).
+ */
+function rowOverlaySvg(W: number, H: number, l: RowLayout, logoPng: Buffer | null): string {
+  const S = l.safe.size;
+  const f = l.fade;
+  const fadeStops =
+    l.fadeKind === 'row'
+      ? `${rgbaStop(0, 'rgba(0,0,0,0)')}${rgbaStop(0.45, 'rgba(0,0,0,.32)')}${rgbaStop(1, 'rgba(0,0,0,.62)')}`
+      : `${rgbaStop(0, 'rgba(0,0,0,0)')}${rgbaStop(1, 'rgba(0,0,0,.6)')}`;
+  const defs: string[] = [
+    `<linearGradient id="fd" gradientUnits="userSpaceOnUse" x1="0" y1="${n(f.top)}" x2="0" y2="${n(f.top + f.height)}">${fadeStops}</linearGradient>`,
+    shadowFilter('sh', l.shadow.blur, l.shadow.offsetY, ROW_SHADOW),
+    shadowFilter('sc', Math.max(2, 0.008 * S), 0, 'rgba(0,0,0,.4)'),
+    shadowFilter('sq', Math.max(2, 0.008 * S), 0, 'rgba(0,0,0,.35)'),
+  ];
+  const body: string[] = [`<rect x="${n(f.left)}" y="${n(f.top)}" width="${n(f.width)}" height="${n(f.height)}" fill="url(#fd)"/>`];
+  const ink: string[] = [];
+  if (l.logo) {
+    const box = l.logo.size;
+    const k = box / SY_BOX_UNITS;
+    ink.push(
+      `<path d="${SY_PATH}" fill="${ROW_LOGO_GOLD}" transform="translate(${n(l.logo.cx - box / 2)} ${n(l.logo.cy - box / 2)}) scale(${k}) translate(0 ${SY_BOX_UNITS}) scale(1.3333333 -1.3333333)"/>`,
+    );
+  }
+  for (const line of [l.word, l.address]) {
+    if (!line) continue;
+    const m = /rgba\(([^)]+)\)/.exec(line.color);
+    ink.push(`<path d="${linePath(line)}" ${m ? fillAttr(line.color) : `fill="${line.color}"`}/>`);
+  }
+  body.push(`<g filter="url(#sh)">${ink.join('')}</g>`);
+  if (l.coin) {
+    const { cx, cy, d } = l.coin;
+    const r = d / 2;
+    const ir = r - Math.max(1, 0.04 * d);
+    const s2 = d * 0.96;
+    defs.push(`<clipPath id="cc"><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(ir)}"/></clipPath>`);
+    body.push(`<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="${QR_TILE}" filter="url(#sc)"/>`);
+    if (logoPng) {
+      body.push(
+        `<image clip-path="url(#cc)" x="${n(cx - s2 / 2)}" y="${n(cy - s2 / 2)}" width="${n(s2)}" height="${n(s2)}" href="data:image/png;base64,${logoPng.toString('base64')}"/>`,
+      );
+    }
+  }
+  if (l.qr) {
+    const { x0, y0, unit, side, modules } = l.qr;
+    body.push(`<rect x="${x0}" y="${y0}" width="${side}" height="${side}" rx="${n(Math.max(2, unit * 1.5))}" fill="${QR_TILE}" filter="url(#sq)"/>`);
+    const d: string[] = [];
+    modules.forEach((row, r) =>
+      row.forEach((dark, c) => {
+        if (dark) d.push(`M${x0 + (c + QR_QUIET) * unit} ${y0 + (r + QR_QUIET) * unit}h${unit}v${unit}h-${unit}z`);
+      }),
+    );
+    body.push(`<path d="${d.join('')}" fill="${QR_INK}" shape-rendering="crispEdges"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>${defs.join('')}</defs>${body.join('')}</svg>`;
+}
+
 /** The overlay for an image of W×H carrying `layout`. Shapes, paths and gradients only — never `<text>`. */
 export function markOverlaySvgForLayout(W: number, H: number, layout: MarkLayout, logoPng: Buffer | null = null): string {
+  if (isRowLayout(layout)) return rowOverlaySvg(W, H, layout, logoPng);
   const { plate } = layout;
   const body: string[] = [
     `<rect x="${plate.left}" y="${plate.top}" width="${plate.width}" height="${plate.height}" rx="${n(layout.radius)}" ${fillAttr(MARK_PLATE)}/>`,

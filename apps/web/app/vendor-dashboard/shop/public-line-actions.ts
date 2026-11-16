@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 
@@ -127,7 +128,7 @@ export async function updatePublicLine(
   // The shop editor, and every public surface that renders these two.
   revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
-  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
+  if (profile.business_slug) revalidatePath(`${shopPath(profile.business_slug)}`);
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 
   // ── C5, 2026-08-28 (owner + DPO: "C5 yes") ─────────────────────────────

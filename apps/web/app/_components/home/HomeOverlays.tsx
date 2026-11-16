@@ -36,7 +36,6 @@ import { VENDOR_TIER_SECTIONS } from './vendor-benefits';
 import { PapicDemoOverlay } from './papic-demo-overlay';
 import { PanoodDemoOverlay } from './panood-demo-overlay';
 import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
-import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { useIsStoreShell } from '@/lib/use-store-shell';
@@ -51,7 +50,6 @@ export type OverlayId =
   | 'papic-demo'
   | 'panood-demo'
   | 'plan3d-demo'
-  | 'alaala-editorial'
   | null;
 
 export function OverlayShell({
@@ -696,7 +694,6 @@ export function HomeOverlays({
       <PapicDemoOverlay current={current} onClose={onClose} />
       <PanoodDemoOverlay current={current} onClose={onClose} />
       <Plan3DDemoOverlay current={current} onClose={onClose} />
-      <AlaalaEditorialOverlay current={current} onClose={onClose} />
     </>
   );
 }

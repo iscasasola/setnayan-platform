@@ -18,6 +18,7 @@
  * calling server action / admin queue handler is never blocked.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail, type SendEmailResult } from '@/lib/email';
@@ -579,7 +580,7 @@ export async function sendWaitlistSlotOpenedEmail(
     }
   })();
 
-  const profileUrl = vendorSlug ? `${APP_URL}/v/${vendorSlug}` : `${APP_URL}/explore`;
+  const profileUrl = vendorSlug ? `${APP_URL}${shopPath(vendorSlug)}` : `${APP_URL}/explore`;
 
   const text = [
     `Hi ${contact.displayName},`,

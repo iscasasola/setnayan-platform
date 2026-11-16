@@ -10,14 +10,17 @@
  *   the browser instead of R2. Pick a photo → the Frame step → "Looks good" → the marked, framed cover; tap the thumb
  *   to re-frame it in place.
  *
- *   ?s=photo-mark&verified=1 — also paints a sample with a VERIFIED shop's spec, through the same browser painter
- *   (`markPhotoFile`). Painter only: in the app that spec is read on the server from the shop's own row.
+ *   ?s=photo-mark&verified=1 — 🔏 the NEW supplier photo mark (owner-approved 2026-11-15) through the same browser
+ *   painter (`markPhotoFile`): a verified shop (its logo, then the QR), a shop not verified yet (the QR, no logo) and a
+ *   160 px thumbnail (the address only). The specs — QR grid included — are built on the SERVER by the lab page from
+ *   sample shop rows (`shopMarkFromRow`), exactly as the app builds them, so no QR encoder reaches the browser.
  *
  * Names are samples: nobody real.
  */
 import { useEffect, useState } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { UploadSend } from '@/lib/upload-send';
+import type { MarkSpec } from '@/lib/photo-mark-geometry';
 
 const labSend: UploadSend = (job) => {
   const url = URL.createObjectURL(job.file);
@@ -62,7 +65,10 @@ async function samplePhoto(w: number, h: number): Promise<File> {
   return new File([blob], 'cover.jpg', { type: 'image/jpeg' });
 }
 
-function VerifiedSample() {
+type LabSpec = Extract<MarkSpec, { kind: 'supplier' }>;
+
+/** A sample painted through the REAL browser painter (`markPhotoFile`) with a spec the lab page built on the server. */
+function Sample({ title, spec, w, h, logo }: { title: string; spec: LabSpec; w: number; h: number; logo: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -70,9 +76,8 @@ function VerifiedSample() {
     void (async () => {
       try {
         const { markPhotoFile } = await import('@/lib/watermark');
-        const out = await markPhotoFile(await samplePhoto(1200, 1500), {
-          spec: { kind: 'supplier', verified: true, shopName: 'Bloom & Vine Studio', slug: 'bloom-vine', hasLogo: false },
-        });
+        const logoDataUrl = logo ? await sampleLogo() : null;
+        const out = await markPhotoFile(await samplePhoto(w, h), { spec, logoDataUrl });
         if (alive) setUrl(URL.createObjectURL(out));
       } catch (e) {
         if (alive) setErr(String(e));
@@ -81,18 +86,34 @@ function VerifiedSample() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [spec, w, h, logo]);
   return (
-    <section className="space-y-2" data-lab-verified={url ? 'painted' : err ? 'failed' : 'painting'}>
-      <h2 className="text-[15px] font-semibold text-ink">A verified shop’s mark (painter only)</h2>
+    <section className="space-y-2" data-lab-mark-sample={title} data-lab-verified={url ? 'painted' : err ? 'failed' : 'painting'}>
+      <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {url ? <img src={url} alt="A sample photo with the verified Seal and plate" className="w-full rounded-xl" /> : null}
+      {url ? <img src={url} alt={`A sample photo with the supplier mark — ${title}`} className="rounded-xl" style={{ width: w >= 400 ? '100%' : w }} /> : null}
       {err ? <p className="text-[13px] text-danger-700">{err}</p> : null}
     </section>
   );
 }
 
-export function PhotoMarkLab({ verified }: { verified: boolean }) {
+/** A sample shop logo (a gold disc with initials), drawn in the browser from the app's colour tokens. */
+async function sampleLogo(): Promise<string> {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = tok('--color-mulberry-600');
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = tok('--color-cream');
+  ctx.font = '600 110px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('LS', 128, 136);
+  return c.toDataURL('image/png');
+}
+
+export function PhotoMarkLab({ verified, specs }: { verified: boolean; specs?: { verified: LabSpec; unverified: LabSpec } }) {
   return (
     <main className="mx-auto max-w-[440px] space-y-6 px-4 py-6">
       <header>
@@ -129,7 +150,13 @@ export function PhotoMarkLab({ verified }: { verified: boolean }) {
       >
         Lab: pick the sample photo
       </button>
-      {verified ? <VerifiedSample /> : null}
+      {verified && specs ? (
+        <>
+          <Sample title="A verified shop — its logo, then the QR" spec={specs.verified} w={1200} h={1500} logo />
+          <Sample title="A shop not verified yet — the QR, no logo" spec={specs.unverified} w={1600} h={1200} logo={false} />
+          <Sample title="A 160 px thumbnail — the address only" spec={specs.verified} w={160} h={160} logo />
+        </>
+      ) : null}
     </main>
   );
 }

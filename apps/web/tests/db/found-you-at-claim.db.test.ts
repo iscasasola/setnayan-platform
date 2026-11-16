@@ -330,7 +330,9 @@ test('5 · the same kind of shop seen only AFTER the record was typed is NOT fou
   assert.equal(res.granted, true);
   assert.deepEqual(res.found_you, { found: false, why: 'not_seen_first' });
   assert.equal((await found(eventId, shop))?.claimed, false);
-  assert.equal(await feeAttribution(shop, eventId), 'import');
+  // ⟲ Owner 2026-11-16 (specs 1abf35b (2)): the couple's own Find invite claimed by a shop that ALREADY existed pays
+  // the normal booking fee — even with no Setnayan view first. (Was 'import' until that ruling.)
+  assert.equal(await feeAttribution(shop, eventId), 'sourced');
   assert.deepEqual(await performance(shopUid, shop), { off_platform: 1 });
 });
 

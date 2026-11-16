@@ -18,7 +18,8 @@
 --     pays the normal fee.
 -- Photo QR stays a Setnayan surface (unchanged).
 --
--- ORDER, AND WHY: (0) unverified -> fee. (1) the free year. (4) a Setnayan fact on this event. HOLE 3 (the same
+-- ORDER, AND WHY: the couple's Find invite that CREATED the shop -> free (it is unverified by construction, and
+-- 1abf35b is the later, specific ruling). (0) unverified -> fee. (1) the free year. (4) a Setnayan fact on this event. HOLE 3 (the same
 -- couple sourced earlier). (1abf35b-2) the couple's Find invite. (2)(3) the event's one free import slot. Else free
 -- (found outside Setnayan, verified shop).
 -- "Verified since" = the newest APPROVED initial or post-demotion verification (an annual renewal does not restart
@@ -240,7 +241,10 @@ AS $$
     JOIN public.vendor_profiles vp ON vp.vendor_profile_id = i.claimed_vendor_profile_id
    WHERE i.status = 'claimed'
      AND i.claimed_vendor_profile_id = p_vendor_profile_id
-     AND ev.event_id = p_event_id;
+     AND ev.event_id = p_event_id
+     -- Only once the shop is actually tied to that booking (the couple approved the claim): before that nothing is
+     -- bonded, so nothing is attributed.
+     AND (ev.linked_vendor_profile_id = p_vendor_profile_id OR ev.marketplace_vendor_id = p_vendor_profile_id);
 $$;
 COMMENT ON FUNCTION public.booking_fee_couple_invite_shop(UUID, UUID) IS
   'Returns new when the couple''s own Suppliers > Find invite on this event was claimed by a shop created after the '
@@ -352,6 +356,9 @@ AS $$
        AND me.member_type = 'couple'
   )
   SELECT CASE
+    -- 1abf35b (2), FIRST: the couple's own Find invite that CREATED the shop books free. Such a shop is unverified by
+    -- construction, so this must run before the unverified gate below (the later, more specific ruling).
+    WHEN public.booking_fee_couple_invite_shop(p_vendor_profile_id, p_event_id) = 'new' THEN 'import'
     -- (0) 99b6ab50: every booking an unverified shop gets pays the flat 5% fee.
     WHEN (SELECT since FROM vs) IS NULL THEN 'sourced'
     -- (1) The import brought the client onto Setnayan, after the shop was verified, within the last 12 months, with no
@@ -387,8 +394,7 @@ AS $$
                public.booking_fee_attribution_for_event(p_vendor_profile_id, mo.event_id)
              ) = 'sourced'
     ) THEN 'sourced'
-    -- 1abf35b (2): the couple's own Find invite. A shop it created books free; an existing shop pays.
-    WHEN public.booking_fee_couple_invite_shop(p_vendor_profile_id, p_event_id) = 'new' THEN 'import'
+    -- 1abf35b (2): the couple's own Find invite claimed by a shop that already existed pays the normal fee.
     WHEN public.booking_fee_couple_invite_shop(p_vendor_profile_id, p_event_id) = 'existing' THEN 'sourced'
     -- (2)/(3) The supplier brought this booking: free only for the event's one free import slot, imported after the
     -- shop was verified. Every other supplier on the event pays.

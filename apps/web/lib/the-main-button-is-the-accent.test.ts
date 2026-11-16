@@ -160,7 +160,9 @@ test('(4) both are the full pill; “cannot be used yet” is grey and flat, for
 });
 
 test('(5) guest pages and public pages are not reached — and the one guest-look island inside a dashboard is left alone', () => {
-  assert.equal(DASH.length, 6, `the dashboards’ button rules are ${DASH.length}, not the six this guard reads`);
+  // 8 since 16 Nov 2026: the clean warm look's soft grey secondary and its hover (`:not(.sn-editorial *)`, so (c) below
+  // holds them out of the Look sample).
+  assert.equal(DASH.length, 8, `the dashboards’ button rules are ${DASH.length}, not the eight this guard reads`);
   /* (a) EVERY selector of every such rule starts at the dashboards' root: no dashboard root above, no match. */
   for (const r of DASH) for (const s of r.sels) assert.match(s, /^\.app-surface\s/, `“${s}” reaches a button outside the dashboards`);
   /* (b) …and that root is set by the three dashboards' layouts, nowhere else — never on a guest or a public page. */

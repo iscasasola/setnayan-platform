@@ -37,7 +37,7 @@ import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
-import { nextPanelTabId, PickedHeadContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -130,6 +130,7 @@ export function PickedShell<P extends string>({
   const [page, setPage] = useState<P>(initialPage);
   const [gearOpen, setGearOpen] = useState(false);
   const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
+  const [headLineSlot, setHeadLineSlot] = useState<HTMLSpanElement | null>(null);
   // The pages opened in this visit — their badge has been seen (the page itself marks the read on the server side).
   const [seen, setSeen] = useState<ReadonlySet<P>>(() => new Set([initialPage]));
   useEffect(() => {
@@ -341,9 +342,13 @@ export function PickedShell<P extends string>({
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
         <div ref={setThumbColumn} className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
-          <h1 id={headingId} className="min-w-0 flex-1 truncate text-[20px] font-bold text-ink" data-pin-word="">
-            {title}
-          </h1>
+          <div className="min-w-0 flex-1">
+            <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
+              {title}
+            </h1>
+            {/* 📅 The page's own line under the title (the supplier's Chat: their date · Free — CHAT-09); empty = gone. */}
+            <span ref={setHeadLineSlot} className="block truncate text-[12.5px] leading-tight text-ink/70 empty:hidden" data-picked-head-line="" />
+          </div>
           {/* 📞 🎥 📎 — the page on show draws its own head actions here (`PickedHeadContext`; v8.3 head row). */}
           <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
@@ -420,7 +425,9 @@ export function PickedShell<P extends string>({
           {...(fills ? { 'data-picked-fill': '' } : {})}
         >
           <PickedHeadContext.Provider value={headSlot}>
-            <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+            <PickedHeadLineContext.Provider value={headLineSlot}>
+              <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+            </PickedHeadLineContext.Provider>
           </PickedHeadContext.Provider>
         </div>
       </div>

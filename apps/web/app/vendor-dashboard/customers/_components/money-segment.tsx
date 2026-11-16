@@ -230,7 +230,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
           year,
           // 🔴 NAMES THE FEE. "We never take a cut" is only the whole truth WITH the booking fee beside it (owner
           // 2026-08-06); the terms are DERIVED, never typed.
-          lockedLine: `Totals by month start with Supplier Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
+          lockedLine: `Totals by month start with Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
           legacy,
           wallet: {
             read: wallet.balance != null,

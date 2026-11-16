@@ -611,9 +611,6 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-2 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
-2 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
-1 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx
 1 apps/web/app/vendor-dashboard/subscription/_components/plan-screen.tsx
 1 apps/web/app/vendor-dashboard/theft-watch/page.tsx
 1 apps/web/app/vendor-dashboard/track-record/page.tsx

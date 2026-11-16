@@ -8,7 +8,6 @@
 import { ownWebAddress, pinnedQuote, shopReach, type ShopReach } from '@/lib/shop-page-plan';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { micrositeCan } from '@/lib/vendor-microsite';
-import { nextSaturdays, type PeekDay } from './open-dates-peek';
 
 /** The five plans a supplier can be on, in ladder order. `free` = not verified yet; `ultra` = the `enterprise` tier. */
 export const SAMPLE_SHOP_PLAN_TIER = { free: 'free', verified: 'verified', solo: 'solo', pro: 'pro', ultra: 'enterprise' } as const;
@@ -98,11 +97,3 @@ export function samplePlanCaption(plan: SampleShopPlan): string {
   return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
-/**
- * "Their real calendar" on sample days: the coming Saturdays from today (Manila), the second one not bookable, so the
- * peek shows both of its states. Drawn by the shipped `OpenDatesPeek` from the shipped `nextSaturdays`. Pure.
- */
-export function samplePeekDays(today: string): PeekDay[] {
-  const days = nextSaturdays(today, { from: today, to: '9999-12-31' }, []);
-  return days.map((d, i) => (i === 1 ? { ...d, open: false } : d));
-}

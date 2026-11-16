@@ -152,7 +152,7 @@ export async function activateVendor3dBooth(
   // price change. A floor a pricing flag can lift is not a floor.
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
-      '3D Booth comes with a paid plan — Supplier Plus, Supplier Pro or Supplier Ultra. Move up to add it.',
+      '3D Booth comes with a paid plan — Plus, Pro or Ultra. Move up to add it.',
     );
   }
   if (verification !== 'verified') {

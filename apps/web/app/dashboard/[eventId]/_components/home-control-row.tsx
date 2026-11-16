@@ -91,7 +91,7 @@ export function HomeControlRow({
         ) : null}
         {rest.map(tile)}
       </div>
-      <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
+      <div className="hc-two hidden md:grid xl:hidden" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
           <DetailCard k="count" input={input} tile={tiles.find((t) => t.key === 'count') ?? null} hubPick={hubPick} />
           {/* 📅 The Schedule, after the Countdown — the same card as the phone's (its faces, dots and doors). */}
@@ -107,6 +107,43 @@ export function HomeControlRow({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * 🖥 THE 1280 BOARD — one of Home's three columns from `xl` (owner-approved 16 Nov 2026, event dashboard drawing v13,
+ * `event_dashboard_clean_2026-11-16_fable.html` · clean look screen 2b): the event card, Next and To do | Guests ·
+ * Budget · Schedule | Suppliers · Event Hub, then Prints · Your services · Memories. The same detail cards, the same
+ * doors — drawn a third time, like the phone tiles and the tablet cards, and shown only from 1280 (`hidden xl:flex`),
+ * where the two-column detail hides. Each column is its own stack, so the eye and the Tab key read it column by column
+ * (the-home-grid-reads-in-order.test.ts). The Countdown rides the event card and To do is the list in the first
+ * column, so the board draws neither card.
+ */
+export const HOME_BOARD_COLUMNS = {
+  middle: ['guests', 'budget', 'sched'],
+  right: ['sup', 'hub'],
+} as const satisfies Record<string, readonly (HomeControlKey | 'sched')[]>;
+
+export function HomeControlBoardColumn({
+  input,
+  side,
+  hubPick = null,
+}: {
+  input: HomeControlInput;
+  side: keyof typeof HOME_BOARD_COLUMNS;
+  hubPick?: HomeHubPickRead | null;
+}) {
+  const { tiles } = homeControlTiles(input);
+  return (
+    <div className="hc-bcol hidden min-w-0 flex-col gap-3 xl:flex" data-home-control="board" data-home-board={side}>
+      {HOME_BOARD_COLUMNS[side].map((k) => {
+        if (k === 'sched') {
+          const sched = tiles.find((t) => t.key === 'sched') ?? null;
+          return sched ? <HomeTile key={k} model={sched} eventId={input.eventId} stagger={0} /> : null;
+        }
+        return <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={k === 'hub' ? hubPick : null} />;
+      })}
+    </div>
   );
 }
 

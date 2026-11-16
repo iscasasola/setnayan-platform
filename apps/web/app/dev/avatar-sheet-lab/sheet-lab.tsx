@@ -81,16 +81,20 @@ export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolea
         ref={dialogRef}
         role="dialog"
         aria-label="Account switcher"
-        /* The SHIPPED panel box, class for class (`renderPanel()` in account-switcher.tsx): a sheet on a phone, a 320-px
-           card under the pill from `lg`. It copied only the phone half until 2026-11-01, so at 1280 the lab — and only
+        /* The SHIPPED panel box, class for class (`renderPanel()` in account-switcher.tsx): full screen on a phone, a 360-px
+           card under the pill from `lg` (16 Nov 2026). It copied only the phone half until 2026-11-01, so at 1280 the lab — and only
            the lab — drew a phone sheet across a desktop. `the-lab-sheet-is-the-shipped-panel.test.ts` holds the copy. */
         className={[
           'focus:outline-none',
-          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
-          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-80 lg:max-h-[min(80vh,34rem)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
+          'fixed inset-0 z-[52] flex pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] pt-[env(safe-area-inset-top)] flex-col overflow-hidden sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
+          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:pt-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-[360px] lg:max-h-[calc(100dvh_-_var(--fd-bar,56px)_-_16px)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
         ].join(' ')}
       >
-        <div aria-hidden className="mx-auto mb-1.5 mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--m-line)] lg:hidden" />
+        {/* The phone's full-screen head (16 Nov 2026) — the lab's back and ✕ do nothing. */}
+        <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 lg:hidden" data-account-sheet-head="">
+          <span className="inline-flex min-h-[44px] items-center px-2 text-[15px] font-medium text-ink">‹ Today</span>
+          <span className="inline-flex min-h-[44px] items-center px-2 text-[15px] font-medium text-ink">Close</span>
+        </div>
         <SwitcherPanelBody
           data={c.data}
           close={() => {}}

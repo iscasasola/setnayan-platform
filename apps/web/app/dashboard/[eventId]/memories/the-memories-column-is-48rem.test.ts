@@ -9,6 +9,10 @@
  * and every width rule on the stage sits behind `tab:` (≥ 701px), so below 701 the div is an unstyled block and the
  * phone draws exactly what it drew before.
  *
+ * 🖥 FROM 1024 IT IS THE FULL WIDTH (owner "Yes, all 8", the later 16 Nov 2026 row — event dashboard drawing v13 Q4,
+ * "Memories full width (6 photos/row at 1280, 8 at 1600)"): the 48-rem column holds 701–1023 (the tablet) and
+ * `lg:max-w-none` lifts it from 1024, where the rail paints and the desk columns start (`DESK_FROM_PX`).
+ *
  * SABOTAGE (run 16 Nov 2026): putting `tab:max-w-5xl` back turns test 1 red; dropping the `tab:` prefix from the cap
  * (so it binds on a phone) turns test 2 red.
  */
@@ -48,8 +52,14 @@ test('1 · from 701 the Memories stage is capped at 48rem and centred', () => {
   assert.match(stage, /(?:^|\s)tab:mx-auto(?:\s|$)/, 'the 48-rem column is not centred');
 });
 
+test('1b · from 1024 the stage takes the full width (owner 16 Nov 2026, Q4)', () => {
+  assert.ok(stage);
+  const lg = [...stage.matchAll(/(?:^|\s)lg:max-w-(\S+)/g)].map((m) => m[1]!);
+  assert.deepEqual(lg, ['none'], `from 1024 the stage is capped (${lg.join(', ') || 'no lg rule'}), not the full width`);
+});
+
 test('2 · the phone is unchanged — no width rule on the stage binds below 701', () => {
   assert.ok(stage);
-  const bare = stage.split(/\s+/).filter((c) => c && !c.startsWith('tab:'));
+  const bare = stage.split(/\s+/).filter((c) => c && !c.startsWith('tab:') && !c.startsWith('lg:'));
   assert.deepEqual(bare, [], `these classes bind on a phone: ${bare.join(' ')}`);
 });

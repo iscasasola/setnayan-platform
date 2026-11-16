@@ -24,3 +24,7 @@ SPEC IMPACT: Corpus `FEATURE_REGISTER.md` needs a row for the new route `/i/[slu
 names it). The prototype's builder note "two accepted rows, one each way" is not buildable on the shipped schema
 (`vendor_partnerships_unordered_pair_uidx` allows one row per pair per kind) — built as ONE row read in both
 directions; flagged for the owner in the PR.
+
+- **Fix (controller audit):** a refused "worked together" read (`shop_worked_with_counts`) now returns the
+  UNREADABLE sentinel, so the shop page says it couldn't load Trusted by instead of drawing the list as empty. Held by
+  a new case in `lib/s41c-supplier-batch-d-reads-are-honest.test.ts` (mutation-checked).

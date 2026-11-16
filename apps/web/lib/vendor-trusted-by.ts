@@ -40,7 +40,8 @@ export type TrustedByVendor = {
 };
 
 /**
- * The `vendor_profiles` half of the read was REFUSED — distinct from `[]` so
+ * A read behind "Trusted by" was REFUSED (the partnerships, the worked-together shops, or the `vendor_profiles`
+ * half) — distinct from `[]` so
  * the "Trusted by" section never renders as "nobody endorsed this shop" for a
  * shop that other vendors HAVE endorsed. This is a trust signal shown on a
  * shop's own public profile (and their own dashboard, via callers of
@@ -95,9 +96,13 @@ export async function fetchTrustedByVendors(
     console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_partnerships.select', error);
     return TRUSTED_BY_UNREADABLE;
   }
-  // The automatic half failing leaves the confirmed ties standing — logged, never a false "nobody".
+  // ⚠ THE AUTOMATIC HALF REFUSED IS NOT "NOBODY WORKED WITH THEM" (reads-are-honest, S41). Logged alone, a shop whose
+  // only ties are worked-together ones would fall through to `relByVendor.size === 0 → []` and the page would draw
+  // the list as empty — byte-identical to a shop nobody has ever worked with. A list missing a whole kind cannot be
+  // told apart from a complete one either, so any refused half answers UNREADABLE and the page says it couldn't load.
   if (worked.error) {
     console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_worked_with_counts', worked.error);
+    return TRUSTED_BY_UNREADABLE;
   }
   const eventsWith = new Map<string, number>();
   for (const w of ((worked.data ?? []) as { other_vendor_profile_id: string; events: number | string }[])) {

@@ -195,6 +195,22 @@ test('fetchTrustedByVendors: a refused vendor_profiles read returns the UNREADAB
   assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · from:vendor_profiles\.select/);
 });
 
+test('fetchTrustedByVendors: a refused worked-together read returns UNREADABLE, never [] (Invite a supplier v3)', async () => {
+  // No partnerships at all — the case where a refused automatic half used to fall through to "nobody".
+  const builder: Record<string, unknown> = {};
+  for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
+  builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve);
+  const client = {
+    from: () => builder,
+    rpc: () => Promise.resolve({ data: null, error: ERR }),
+  } as unknown as SupabaseClient;
+
+  const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
+  assert.equal(value, trustedBy.TRUSTED_BY_UNREADABLE, 'a refused worked-together read must not draw an empty list');
+  assert.equal(logs.length, 1);
+  assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · rpc:shop_worked_with_counts/);
+});
+
 test('fetchTrustedByVendors: a genuine read (no partnerships) returns [] with NO record', async () => {
   const builder: Record<string, unknown> = {};
   for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;

@@ -614,7 +614,7 @@ test('the stranded footer destinations are reachable from the rail', () => {
   /*
     🔄 2026-11-11 (owner, DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · …"): Refunds now rides
     `POLICY_LINKS` (the Legal column), so it is asserted through that list below, not as a hand-typed
-    link; /creators left the sidebar for a door on Real Stories (asserted below); /for-coordinators
+    link; /creators left the sidebar for a door on Real Stories and Features — Features alone since 2026-11-16 (asserted below); /for-coordinators
     is a rail row.
   */
   assert.match(shell, /POLICY_LINKS\.map\(/, 'the rail no longer draws the policy list');
@@ -622,12 +622,16 @@ test('the stranded footer destinations are reachable from the rail', () => {
     POLICY_LINKS.some((p) => p.href === '/refunds'),
     'Refunds left lib/policy-links.ts — on a converted page the rail is the only way to it',
   );
-  const stories = code(read(join(APP, '(shell)', 'realstories', 'page.tsx')));
+  // 2026-11-16: Real Stories is retired, so the other door the 2026-11-11 ruling named — Features — carries
+  // /creators alone (the hub's closing section, rendered by /features and /tl/features).
+  const featuresClose = code(read(join(APP, 'features', '_sections', '_FinalCTA.tsx')));
   assert.match(
-    stories,
+    featuresClose,
     /<Link\s+href="\/creators"[\s>]/,
-    '/creators left the rail on 2026-11-11 on the condition that Real Stories links it — the link is gone',
+    '/creators left the rail on 2026-11-11 on the condition that Features links it — the link is gone',
   );
+  const featuresBody = code(read(join(APP, 'features', '_PageBody.tsx')));
+  assert.match(featuresBody, /<FinalCTA\b/, '/features no longer renders the section that links /creators');
   // /blog left this list on 2026-11-16: the blog is retired and forwards to /features (DECISION_LOG "RETIRED ADDRESSES FORWARD").
   for (const href of ['/download', '/help', '/for-suppliers', '/for-coordinators']) {
     assert.match(

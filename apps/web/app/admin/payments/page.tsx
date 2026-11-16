@@ -62,6 +62,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { readRemedyDesk, type RemedyDesk, type RemedyDeskRow } from '@/lib/admin/service-remedies.server';
+import { ActionButton } from '@/components/action-button';
+import { Search } from 'lucide-react';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -396,12 +398,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           placeholder="Reference code, order id, or bank reference"
           className="min-w-0 flex-1 rounded-card border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/45"
         />
-        <button
-          type="submit"
-          className="rounded-card bg-mulberry px-4 py-2 text-sm font-medium text-white"
-        >
-          Search
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={<Search aria-hidden strokeWidth={1.9} />} label="Search" />
         {q ? (
           <a
             href={`/admin/payments?filter=${encodeURIComponent(filter)}`}

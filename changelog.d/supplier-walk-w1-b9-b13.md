@@ -1,10 +1,6 @@
-## 2026-11-16 · fix(supplier): walk W1-B9 → B13 — a saved payment option shows at once, one "N of 6", one state per paper, a person past the tries
+## 2026-11-16 · fix(supplier): walk W1-B10 → B13 — one "N of 6", one state per paper, a person past the tries
 
-- **W1-B9 · a saved payment option shows at once.** After "Save payment option" Your details › How clients pay you kept
-  reading "Not yet · No payment options yet." until a reload. The add form (`add-payment-method.tsx`) still saves in
-  place through its door and now re-reads the screen in place once the save has landed (`router.refresh()` — never a
-  navigation). The action already revalidated both mounts; why that answer did not repaint was not reproduced off the
-  live site. Held by `app/vendor-dashboard/payment-options/a-saved-option-shows-at-once.test.ts`.
+- **W1-B9** — dropped from this batch: confirmed FIXED on live (walkthrough 2, 16 Nov 2026); no change here.
 - **W1-B10 · ONE checklist, ONE count.** Today's "Get your shop live" six and Your details' "N of 6" counted two
   different sixes. Both now draw `shopSetupView` (`lib/supplier-setup.ts`): Your details' headline ("2 of 6 done ·
   left: Send your documents · Download your QR"), its bar and its strip's "steps done" are Today's six. A verified shop

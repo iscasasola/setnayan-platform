@@ -84,3 +84,14 @@ test('the dead-link screen has a "Send a new link" button that re-sends — thro
   assert.match(fn, /buildConfirmUrl\(\{ appUrl: appUrl\(\), tokenHash, type: 'magiclink', next \}\)/, 'the new link is browser-bound');
   assert.doesNotMatch(fn, /action_link/, 'the GoTrue action_link (implicit-flow fragment) is used again');
 });
+
+test('W1-B25 · a link with no destination lands a SUPPLIER on the shop — from both email routes', async () => {
+  const { landingForAccount } = await import('./auth-confirm-link');
+  assert.equal(landingForAccount('/', 'vendor'), '/vendor-dashboard');
+  assert.equal(landingForAccount('/', 'customer'), '/');
+  assert.equal(landingForAccount('/x', 'vendor'), '/x', 'a real destination is honoured');
+  const confirm = stripComments(read('app/auth/confirm/route.ts'));
+  assert.match(confirm, /NextResponse\.redirect\(new URL\(landingForAccount\(next, accountType\), url\.origin\)\)/);
+  const callback = stripComments(read('app/auth/callback/route.ts'));
+  assert.match(callback, /if \(rawNext === '\/' && accountType === 'vendor'\) landing = landingForAccount\(rawNext, accountType\);/);
+});

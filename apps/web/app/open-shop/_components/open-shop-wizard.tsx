@@ -622,6 +622,7 @@ export function OpenShopWizard({
       }
     }
     setBanner(null);
+    submittedHere.current = true; // W1-B23 — the sent screen arrives by a fresh load, never swapped in place
     // 🧷 The form is going to the server: park what was typed, so a refusal there reloads with every field kept
     // (journey_fixes_later Supplier 4c). Restored only on the `?error=` reload; never the password.
     saveDraft({ atSubmit: true });
@@ -752,8 +753,22 @@ export function OpenShopWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new server refusal is the only trigger
   }, [error, refusalStamp]);
 
+  /**
+   * 💥 W1-B23 (FAIL on live, walkthrough 2, 16 Nov 2026) — right after "Open my shop — free" the page went blank with
+   * "Application error: a client-side exception has occurred", while the account WAS created and a reload of
+   * `/open-shop?check_inbox=…` drew fine. The redirect is a soft navigation that swapped this whole form — its
+   * server action still settling — for the screen below IN PLACE. Now a submit from THIS page never swaps in place:
+   * the form stays drawn and the page is loaded afresh onto the sent screen, the exact load the walker saw work.
+   * A fresh visit to that address (no submit in this page) draws it directly, as before.
+   */
+  const submittedHere = useRef(false);
+  const hardLoading = Boolean(sentTo) && submittedHere.current;
+  useEffect(() => {
+    if (hardLoading) window.location.replace(window.location.href);
+  }, [hardLoading]);
+
   // ✉ A1 — the shop is open on the new account, and the account waits for its email link (verification on).
-  if (sentTo) {
+  if (sentTo && !hardLoading) {
     return (
       <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
         <div

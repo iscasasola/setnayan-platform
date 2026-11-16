@@ -7,7 +7,7 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { appleWasJustUsed } from '@/lib/apple-sign-in';
 import { holdAppleRefreshToken } from '@/lib/apple-sign-in-store';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
-import { deadLinkLanding, isDeadLinkError } from '@/lib/auth-confirm-link';
+import { deadLinkLanding, isDeadLinkError, landingForAccount } from '@/lib/auth-confirm-link';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 import {
   RSVP_TERMS_COOKIE,
@@ -217,6 +217,8 @@ export async function GET(request: NextRequest) {
       // A guest signing in from an invitation (magic link, Google / Apple) goes
       // straight back to it: every such door returns through the event-connect
       // route, and that address — not a 120-second clock — decides it.
+      // W1-B25: a sign-in that named no destination (`/`) lands a supplier on the shop, never the Events board.
+      if (rawNext === '/' && accountType === 'vendor') landing = landingForAccount(rawNext, accountType);
       if (
         accountType === 'customer' &&
         !isEventConnectNext(fallbackNext) &&

@@ -87,3 +87,13 @@ test('W1-B1 · the account step\'s "Have an account? Sign in" names /login once,
   const link = read('app/_components/auth/sign-in-here-link.tsx');
   assert.match(link, /signInFallbackHref\(href, here\)/);
 });
+
+test('W1-B23 · after "Open my shop — free" the sent screen arrives by a fresh load, never swapped in place', () => {
+  // The submit marks the page…
+  const gate = WIZARD.slice(WIZARD.indexOf('const submitGate = '), WIZARD.indexOf('const saveDraft = '));
+  assert.match(gate, /submittedHere\.current = true;/, 'the submit no longer marks that the sent screen must load fresh');
+  // …and with that mark the form stays drawn while the page reloads onto the sent screen.
+  assert.match(WIZARD, /const hardLoading = Boolean\(sentTo\) && submittedHere\.current;/);
+  assert.match(WIZARD, /if \(hardLoading\) window\.location\.replace\(window\.location\.href\);/);
+  assert.match(WIZARD, /if \(sentTo && !hardLoading\) \{/, 'the sent screen is swapped in place over a settling submit again');
+});

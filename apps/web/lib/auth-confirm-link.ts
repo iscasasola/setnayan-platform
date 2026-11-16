@@ -140,3 +140,12 @@ export const DEAD_LINK_WORDS = {
   sent: 'Sent. Open the newest email from Setnayan — its link works on your phone or your computer.',
   needEmail: 'Type the email you signed up with.',
 } as const;
+
+/**
+ * W1-B25 (walk 2, 16 Nov 2026) — where an email link lands when it names no destination of its own (`/`): a supplier
+ * account goes to its shop, never the Events board (whose empty state used to bounce it into /dashboard/create-event).
+ * A real destination is honoured exactly as given.
+ */
+export function landingForAccount(next: string, accountType: string | null | undefined): string {
+  return next === '/' && accountType === 'vendor' ? '/vendor-dashboard' : next;
+}

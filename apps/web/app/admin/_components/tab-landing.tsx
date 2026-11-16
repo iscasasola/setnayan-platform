@@ -112,8 +112,8 @@ function show(n: number | null | undefined): string {
   return typeof n === 'number' ? formatCount(n) : '—';
 }
 
-export async function TabLanding({ tab }: { tab: AdminBarKey }) {
-  const digest = await getAdminQueueDigest();
+export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /** Lab only — fixture counts. */ digest?: AdminQueueDigest }) {
+  const digest = given ?? (await getAdminQueueDigest());
   const nowMs = Date.now();
   const pages = pagesIn(tab);
   const cards = pages.flatMap((p) => cardsFor(p, digest));

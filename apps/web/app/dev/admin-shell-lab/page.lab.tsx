@@ -28,7 +28,9 @@ import { AdminBottomNav } from '@/app/admin/_components/admin-bottom-nav';
 import { AdminPinnedRow, AdminThumbRow } from '@/app/admin/_components/admin-tab-rows';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
-import { ADMIN_AVATAR_ROWS, adminPlaceFor } from '@/lib/admin/admin-tabs';
+import { ADMIN_SETUP_PAGES, adminShellPlaceFor } from '@/lib/admin/admin-pages';
+import { TabLanding } from '@/app/admin/_components/tab-landing';
+import type { AdminQueueDigest } from '@/lib/admin/queue-counts';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 import { BASE_ROWS } from '@/lib/admin/work-rows';
@@ -89,8 +91,9 @@ export default async function AdminShellLab({
         : BUSY;
   const unreadable = sp.counts === 'fail' ? Object.keys(BUSY).length : 0;
   const [path, q] = at.split('?');
-  const place = adminPlaceFor(path!, new URLSearchParams(q ?? ''));
-  const avatarRows = ADMIN_AVATAR_ROWS.flatMap((r) => (r.href ? [{ key: r.key, href: r.href, label: r.label }] : []));
+  const place = adminShellPlaceFor(path!, new URLSearchParams(q ?? ''));
+  const digest: AdminQueueDigest = Object.fromEntries(Object.entries(counts).map(([k, c]) => [k, { count: c, oldestAt: c ? new Date(Date.now() - 31 * 3_600_000).toISOString() : null }]));
+  const avatarRows = ADMIN_SETUP_PAGES.flatMap((p) => (p.href ? [{ key: p.key, href: p.href, label: p.label }] : []));
   const overdue = sp.counts === 'fail' || sp.counts === 'empty' ? 0 : 1;
 
   return (
@@ -109,7 +112,9 @@ export default async function AdminShellLab({
       >
         <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px+var(--sn-thumb-room,0px))] lg:pb-0">
           <AdminPinnedRow queueCounts={counts} at={at} />
-          {place?.kind === 'tab' && place.tab.key === 'work' && place.view.key === 'work' ? (
+          {place?.kind === 'landing' ? (
+            <TabLanding tab={place.tab.key as 'work'} digest={digest} />
+          ) : place?.kind === 'tab' && place.view.key === 'queue.all' ? (
             <QueuesTriageFeed
               title="Work"
               items={labWorkItems(counts)}
@@ -124,8 +129,10 @@ export default async function AdminShellLab({
             <p className="text-[13px] text-ink/60">
               {place?.kind === 'tab'
                 ? `${place.tab.label} › ${place.view.label} — the page's own content, unchanged by this slice.`
-                : place?.kind === 'avatar'
-                  ? `Avatar › ${place.row.label} — the page's own content, unchanged by this slice.`
+                : place?.kind === 'setup'
+                  ? `Setup › ${place.page.label} › ${place.view.label} — the page's own content, unchanged by this slice.`
+                  : place?.kind === 'focus'
+                    ? 'Focus — the decide list, unchanged.'
                   : 'No home — the route guard would fail.'}
             </p>
             {Array.from({ length: 5 }, (_, i) => (

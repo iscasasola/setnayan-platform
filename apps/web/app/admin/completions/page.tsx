@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Handshake } from 'lucide-react';
 import { completionStuckReason } from '@/lib/admin/completions-stuck';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -185,12 +186,14 @@ export default async function AdminCompletionsPage() {
         title="Completions"
       />
 
-      <p className="mb-4 rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
-        <span className="font-semibold">Force-complete</span> unlocks the couple&apos;s review +
+      <div className="mb-4">
+        <InfoTip label="About force-complete" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          <span className="font-semibold">Force-complete</span> unlocks the couple&apos;s review +
         recommendation (use when the service was delivered and the handshake just stalled).{' '}
         <span className="font-semibold">Uphold non-delivery</span> keeps the review closed (use when
         the supplier genuinely didn&apos;t deliver) and clears the row. Both notify the couple.
-      </p>
+        </InfoTip>
+      </div>
 
       {eventError ? (
         <div className="mb-4">
@@ -243,7 +246,7 @@ export default async function AdminCompletionsPage() {
                 <>
                   <p className="font-medium text-ink">{vendorName}</p>
                   {!r.marketplace_vendor_id ? (
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-ink/70">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                       Off-platform
                     </p>
                   ) : null}

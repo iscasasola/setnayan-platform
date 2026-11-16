@@ -46,7 +46,7 @@ test('Door 1 offers the lowest plan above the shop that takes the number', () =>
   const plan = lowestPlanAllowing('solo', 'bookingsPerDate', want, true);
   assert.ok(plan);
   assert.ok(TIER_CAPS[plan].bookingsPerDatePerService >= want);
-  // Nothing between Supplier Plus and that plan takes it.
+  // Nothing between Plus and that plan takes it.
   const ladder = ['solo', 'pro', 'enterprise'] as const;
   for (const t of ladder.slice(1, ladder.indexOf(plan as 'pro' | 'enterprise'))) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService < want, `${t} already takes ${want}`);
@@ -55,7 +55,7 @@ test('Door 1 offers the lowest plan above the shop that takes the number', () =>
   assert.ok(ask);
   assert.equal(ask.plan, plan);
   assert.equal(ask.savedAt, soloBookings, 'the setting saves at the current limit until paid');
-  assert.match(ask.headline, new RegExp(`take up to ${TIER_CAPS[plan].bookingsPerDatePerService} bookings a day on a card`));
+  assert.match(ask.headline, new RegExp(`take up to ${TIER_CAPS[plan].bookingsPerDatePerService} bookings a day for a service`));
   assert.equal(ask.keep, `Keep ${soloBookings}`);
   assert.ok(ask.alsoUnlocks.length > 0, 'the other differences are listed');
 });
@@ -109,7 +109,7 @@ test('today is the RPC arithmetic — and no number when the unused value is unr
   const unread = payToday({ ...base, kind: 'upgrade', price: 100, unusedPhp: null, creditPhp: 0 });
   assert.equal(unread.amount, null);
   assert.match(unread.line, /exact amount shows on your order/);
-  assert.match(payToday({ ...base, kind: 'downgrade', price: 100, unusedPhp: 0, creditPhp: 0 }).line, /^Starts when Supplier Plus ends on 8 Dec 2026/);
+  assert.match(payToday({ ...base, kind: 'downgrade', price: 100, unusedPhp: 0, creditPhp: 0 }).line, /^Starts when Plus ends on 8 Dec 2026/);
 });
 
 test('no peso and no jargon is typed in the sheet', () => {

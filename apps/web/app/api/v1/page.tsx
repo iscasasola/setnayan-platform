@@ -95,7 +95,7 @@ const ENDPOINTS: Endpoint[] = [
     auth: 'bearer',
     scope: 'vendor.profile.read',
     summary:
-      'Your own business profile, services, and packages (Supplier Ultra SDK).',
+      'Your own business profile, services, and packages (Ultra SDK).',
     example: `curl https://setnayan-platform-web.vercel.app/api/v1/vendor/profile \\
   -H "Authorization: Bearer sk_live_…"`,
     notes: [
@@ -169,7 +169,7 @@ export default function ApiV1ReferencePage() {
         <p className="max-w-2xl text-base text-ink/65">
           Read-only endpoints for the Setnayan platform. Events + guests are
           Bearer-authenticated; vendor browse is public. The{' '}
-          <span className="font-medium text-ink">Supplier Ultra SDK</span>{' '}
+          <span className="font-medium text-ink">Ultra SDK</span>{' '}
           (/api/v1/vendor/*) syncs your leads, bookings, availability, and reviews
           into your own systems. API access is not open to any plan right now.
           Webhooks and write paths land in a later phase.
@@ -241,7 +241,7 @@ export default function ApiV1ReferencePage() {
           </li>
           <li className="pt-1.5 text-ink/55">
             <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
-              Supplier Ultra SDK
+              Ultra SDK
             </span>{' '}
             — the scopes below require API access, which is not open to any plan right now.
           </li>

@@ -38,7 +38,7 @@ export type SetupDetails = Pick<
  *                            papers demo approved"; it replaced the three Add rows on 15 Nov); under it, `VerifySection` exactly as
  *                            Your details mounts it, folded — the details beside the papers, the contacts, Send for
  *                            review
- *   6 Download your QR     — the shop's own page, `/v/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
+ *   6 Download your QR     — the shop's own page, `/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
  *                            tour once; the days-off row stays under it
  *
  * ⛔ NO STEP 7. "How many a day" sat under the six (Build 6 Lane E) and LEFT Today on the owner's ruling (13 Nov 2026,
@@ -63,7 +63,7 @@ export function SupplierSetupScreen({
   rail: FirstStepsRail;
   /** The shipped maker, drawn (`NewServiceMaker`) — the sheet's body. */
   maker: ReactNode;
-  /** The shop's own QR — its Setnayan page, `/v/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
+  /** The shop's own QR — its Setnayan page, `/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
   qr: { svg: string | null; url: string } | null;
   /** The tour after step 6 (`SETUP_TOUR_KEY`): its words, and whether it is on record (null: the read was refused). */
   tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;

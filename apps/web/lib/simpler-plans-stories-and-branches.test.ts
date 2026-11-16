@@ -47,7 +47,7 @@ test('(8) only Ultra opens the shop’s own story page; every other plan keeps "
     });
   }
   assert.deepEqual(featuredStoryLink({ tier: 'enterprise', shopSlug: 'lumen', eventSlug: 'ana-marco' }), {
-    href: '/v/lumen/story/ana-marco',
+    href: '/lumen/story/ana-marco',
     label: OUR_STORY_LINK,
     own: true,
   });

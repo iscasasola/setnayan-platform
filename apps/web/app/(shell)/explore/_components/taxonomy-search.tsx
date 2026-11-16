@@ -129,7 +129,7 @@ export function TaxonomySearch({
     // chrome on the landed page.
     if (preserve.from === 'plan') params.set('from', 'plan');
     setOpen(false);
-    router.push('/explore?' + params.toString());
+    router.push('/?' + params.toString());
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

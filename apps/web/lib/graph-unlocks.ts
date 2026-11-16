@@ -34,6 +34,8 @@ import type { GrowthRec } from './vendor-growth-recs';
 import { formatCount } from './format-number';
 import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierName, type ShopBadgeKey } from './badge-tiers';
 import { BADGE_REWARDS, paidTiers } from './badge-rewards';
+import { PHP_PER_GIFT_POINT } from './gift-points';
+import { formatPhp } from './php';
 
 /** The five shop badges — J0's `ShopBadgeKey` itself (lib/badge-tiers.ts), never a second list. */
 export type UnlockBadge = ShopBadgeKey;
@@ -229,7 +231,7 @@ export function giftsRec(g: GiftsToBookings | null, more: GiftsRecFacts = { gift
   return {
     key: 'give_gifts',
     title: 'Give a gift to the couples still deciding',
-    body: `${asked}${rates} Give each of them a gift from your stock. Each gift earns one point for every ₱10 of its price${ex}, counted once their event is complete${reach}.`,
+    body: `${asked}${rates} Give each of them a gift from your stock. Each gift earns one point for every ${formatPhp(PHP_PER_GIFT_POINT)} of its price${ex}, counted once their event is complete${reach}.`,
     impact: high ? 'high' : 'medium',
     impactLabel: high ? 'High impact' : 'Medium impact',
     ctaLabel: 'Give a gift',

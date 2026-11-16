@@ -50,3 +50,4 @@ SPEC IMPACT: None — builds the approved badge-unlock_v6. Gaps named in the PR:
 SPEC IMPACT: None — implements badge-unlock_v6 as drawn.
 
 - 2026-11-17 re-audit: `earnedBronze` is now main's `paidTiers` (so legacy `reviews:<step>` keys count too, not only `events:*`); the Trusted-by count is no longer read on every load (it opens no graph until its ruling closes); the Invites legend's "Completed an event" uses the same `--color-ok` token as its bar; the Invites docblock now says the badge prints no line while not counted.
+- 2026-11-17 · CI fix: the Gifts tip no longer types "₱10" — it reads `PHP_PER_GIFT_POINT` (exported from lib/gift-points.ts, the rate giftPointsForPrice divides by) and prints it with `formatPhp`.

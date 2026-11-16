@@ -1,4 +1,4 @@
-import { giftsLine, giftsRec, type GiftsToBookings } from '@/lib/graph-unlocks';
+import { giftsLine, giftsRec, type GiftsRecFacts, type GiftsToBookings } from '@/lib/graph-unlocks';
 import type { GraphSpec } from './graph-tile';
 import type { SourceRow } from './growth-view';
 import { SourceBars } from './source-bars';
@@ -27,7 +27,7 @@ const rowsOf = (g: GiftsToBookings): SourceRow[] => [
 const EMPTY_LINE = 'Shows once couples ask you about your services.';
 
 /** One window's gifts card. `data` null = the read was refused; undefined never reaches here (not opened = no card). */
-export function giftsSpec(data: GiftsToBookings | null): GraphSpec {
+export function giftsSpec(data: GiftsToBookings | null, more?: GiftsRecFacts): GraphSpec {
   const asked = data ? data.giftedBooked + data.giftedDeciding + data.plainBooked + data.plainDeciding : 0;
   const empty = data !== null && asked === 0;
   const line = data === null ? 'Couldn’t load.' : empty ? EMPTY_LINE : giftsLine(data);
@@ -40,7 +40,7 @@ export function giftsSpec(data: GiftsToBookings | null): GraphSpec {
     pic: <SourceBars rows={rowsOf(empty || data === null ? SAMPLE : data)} />,
     line,
     problem: line,
-    rec: giftsRec(data),
+    rec: giftsRec(data, more),
     door: { label: 'Give a gift', href: '/vendor-dashboard/shop/promote' },
   };
 }

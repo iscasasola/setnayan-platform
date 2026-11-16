@@ -28,20 +28,26 @@ test('1 · a hidden graph is skipped before the one card builder — never drawn
   assert.match(CAROUSEL, /const hidden = useMemo\(\(\) => new Set\(props\.unlocks\?\.hidden \?\? \[\]\), \[props\.unlocks\]\);/);
 });
 
-test('2 · each shut badge leaves one plain line under the carousel, in the adapter’s words', () => {
+test('2 · each shut badge leaves one plain line under the carousel, in the drawing’s words; an unread one says Couldn’t load', () => {
   const carousel = CAROUSEL.indexOf('<SnapCarousel');
   const lines = CAROUSEL.indexOf('data-graph-unlock-lines');
   assert.ok(lines > carousel, 'the lines must sit under the carousel, where the graphs would be');
-  assert.match(CAROUSEL, /props\.unlocks\.locked\.map\(\(l\) => \(/);
-  assert.match(CAROUSEL, /\{lockedLine\(l, /, 'the line is the adapter’s lockedLine, never words of the page’s own');
+  assert.match(CAROUSEL, /\(props\.unlocks\?\.locked \?\? \[\]\)\.flatMap\(\(l\) => \{\s*const line = lockedLine\(l\);/, 'the line is the adapter’s lockedLine, never words of the page’s own');
+  assert.match(CAROUSEL, /<p className="font-semibold text-ink">\{LOCKED_HEAD\}<\/p>/, 'the drawing’s head');
+  assert.match(CAROUSEL, /\(props\.unlocks\?\.unsure \?\? \[\]\)[\s\S]{0,160}COULDNT_LOAD/, 'a badge we could not read says Couldn’t load');
 });
 
 test('3 · decided on the server from the one unlock read; the gifts graph is read only once its badge opened it', () => {
   assert.match(SECTION, /const unlockRead = safeRead\(readGraphUnlockFacts\(bookingsAdmin, profile\.vendor_profile_id\), null, 'graph_unlocks'\);/);
   assert.match(SECTION, /const unlocks = graphUnlocks\(facts\);/);
   assert.match(SECTION, /const giftsOpen = badgeGate\('gifts_given', facts\) === 'open';/, 'the gifts graph must wait for OPEN, not "not locked"');
-  assert.match(SECTION, /const \[gifts30, gifts12\] = giftsOpen\s*\?/, 'the gifts read must run only when the badge opened it');
-  assert.match(SECTION, /unlocks=\{\{ hidden: \[\.\.\.unlocks\.hidden\], locked: unlocks\.locked \}\}/);
+  assert.match(SECTION, /const \[gifts30, gifts12, giftExamples\] = giftsOpen\s*\?/, 'the gifts read must run only when the badge opened it');
+  assert.match(SECTION, /unlocks=\{\{ hidden: \[\.\.\.unlocks\.hidden\], locked: unlocks\.locked, unsure: unlocks\.unsure \}\}/);
+  // The counts are main's own counters — no second count (the audit removed one).
+  assert.match(SECTION, /readFiveStarCount\(bookingsAdmin, profile\.vendor_profile_id\)/);
+  assert.match(SECTION, /readGiftPoints\(bookingsAdmin, profile\.vendor_profile_id\)/);
+  assert.match(SECTION, /readBadgeCount\(bookingsAdmin, 'shop_trusted_by_count', profile\.vendor_profile_id\)/);
+  assert.doesNotMatch(SECTION, /trustedBy: unlockFacts|unlockFacts\.trustedBy/);
   assert.match(SECTION, /gifts=\{giftsOpen \? \{ '30': gifts30, '12': gifts12 \} : null\}/);
   // The unlock read sits AFTER the Verified lock's early return — an unverified shop reads none of it.
   assert.ok(SECTION.indexOf('const unlockRead') > SECTION.indexOf("canUse('analytics'"), 'an unverified shop must not run the unlock read');

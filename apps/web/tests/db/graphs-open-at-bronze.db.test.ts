@@ -7,7 +7,7 @@
  *   · the keep marker: written for every shop Verified when the migration applies, never for a shop verified later,
  *     re-applying adds nothing, and no client role can write it (a shop could otherwise mark itself kept);
  *   · `earned` lists every unrevoked badge step and never a revoked one (a revoked step must not open graphs);
- *   · `trusted_by` is the live `shop_booked_loop_count`, not a second count;
+ *   · it carries NO count — the badge counts are main's own counters (a second count here is what the audit removed);
  *   · the gifts graph splits the couples who asked by offered-a-gift × booked, counts each couple once, never counts
  *     another shop's couples, honours the window and the caller's booked statuses;
  *   · both functions are service_role only.
@@ -77,8 +77,8 @@ async function book(eventId: string, vpid: string, status = 'contracted'): Promi
     [eventId, status, vpid],
   );
 }
-async function facts(vpid: string): Promise<{ kept: boolean; trusted_by: number; earned: string[] } | null> {
-  const r = await db.query<{ f: { kept: boolean; trusted_by: number; earned: string[] } | null }>(
+async function facts(vpid: string): Promise<{ kept: boolean; earned: string[] } | null> {
+  const r = await db.query<{ f: { kept: boolean; earned: string[] } | null }>(
     `SELECT public.shop_graph_unlock_facts($1) AS f`,
     [vpid],
   );
@@ -135,7 +135,7 @@ test('no client role can write the marker (a shop must not be able to keep itsel
   assert.equal(rls.rows[0]!.on, true);
 });
 
-test('earned lists every unrevoked badge step and never a revoked one; trusted_by is the live loop count', async () => {
+test('earned lists every unrevoked badge step and never a revoked one; it carries no count of its own', async () => {
   const vpid = await newShop();
   await db.query(
     `INSERT INTO public.shop_badge_rewards (vendor_profile_id, reward_key, badge, reward_kind, units, stock_delta)
@@ -146,8 +146,7 @@ test('earned lists every unrevoked badge step and never a revoked one; trusted_b
   await db.query(`UPDATE public.shop_badge_rewards SET revoked_at = now() WHERE vendor_profile_id = $1 AND reward_key = 'gifts_given:tier1'`, [vpid]);
   const f = (await facts(vpid))!;
   assert.deepEqual(f.earned, ['five_star_reviews:tier1'], 'a revoked step must not open graphs');
-  const loop = await db.query<{ n: number }>(`SELECT public.shop_booked_loop_count($1) AS n`, [vpid]);
-  assert.equal(f.trusted_by, Number(loop.rows[0]!.n));
+  assert.deepEqual(Object.keys(f).sort(), ['earned', 'kept'], 'the unlock facts carry no badge count — main counts them');
   assert.equal(await facts('00000000-0000-0000-0000-000000000000'), null, 'an unknown shop reads null, never zeros');
 });
 

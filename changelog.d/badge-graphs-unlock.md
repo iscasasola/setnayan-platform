@@ -30,3 +30,21 @@ SPEC IMPACT: None — builds the approved badge-unlock_v6. Gaps named in the PR:
 - Trusted by graphs (open item 10).
 - The Invites graph's data: it needs a record of who imported whom, which the add-a-supplier door creates (and that door needs a server action — none allowed here).
 - The full-screen unlock flow (badge → what it opened → tour → summary, Later resumes) rides J0's notice and `shop_award_flow_progress`.
+
+## 2026-11-17 · fix(badges): J5 audit fixes — main's steps and counters, the drawing's words
+
+- **Bronze is `SHOP_BADGE_STEPS[b][0]`** (lib/badge-tiers.ts) and the badges/names are main's (`SHOP_BADGE_KEYS`,
+  `BADGE_REWARDS[b].title`) — the copied step table is gone.
+- **The counts are main's counters**: `readFiveStarCount` · `readGiftPoints` · `readBadgeCount('shop_trusted_by_count')`
+  (badge-rewards.server.ts). The unlock RPC no longer returns its own trusted-by count, and the "no counter on this
+  build" claims are removed.
+- **"Not counted yet" reads `BADGE_REWARDS[b].measured`** (`notCountedYet`) — no hard-coded list, so Invites flips the
+  day its record lands (#7891).
+- **A malformed `earned` is a failed read** (null → the badge's line says "Couldn’t load"), never `[]` / locked.
+- **The drawing's words**: the rec is badge-unlock_v6 `RECS.give_gifts` verbatim ("Give a gift to the couples still
+  deciding", the booked-% sentence, the points line, "N more points reach Gifts given Silver"), every number read —
+  rates from the graph, points to the next tier from the live gift points and `SHOP_BADGE_STEPS`, the worked examples
+  from the catalog price through `giftPointsForPrice`. The lines under the carousel are the drawing's `.more` block
+  ("More graphs open as you earn badges" + each badge's line); the invented "N more … to go" copy is removed.
+
+SPEC IMPACT: None — implements badge-unlock_v6 as drawn.

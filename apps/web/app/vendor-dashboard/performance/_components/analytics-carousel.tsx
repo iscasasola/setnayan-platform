@@ -15,9 +15,10 @@ import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
-import { lockedLine, type GiftsToBookings, type LockedBadge } from '@/lib/graph-unlocks';
-import { GIFTS_TITLE, giftsSpec } from './gifts-graph';
-import { INVITES_TITLE, invitesSpec } from './invites-graph';
+import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsToBookings, type LockedBadge, type UnlockBadge } from '@/lib/graph-unlocks';
+import { COULDNT_LOAD } from '@/lib/shop-badge-row';
+import { giftsSpec } from './gifts-graph';
+import { invitesSpec } from './invites-graph';
 import type { InviteMonth } from '@/lib/graph-unlocks';
 
 /**
@@ -109,7 +110,7 @@ function countSpec(k: CountKind, win: GrowthWindow, totals: Totals | null, view:
  * 🏅 J5 — which badge graphs this shop sees (lib/graph-unlocks.ts, decided on the server). `hidden` graphs are never
  * drawn, not even greyed; each `locked` badge leaves ONE plain line under the carousel instead (badge-unlock_v6).
  */
-export type CarouselUnlocks = { hidden: readonly string[]; locked: readonly LockedBadge[] };
+export type CarouselUnlocks = { hidden: readonly string[]; locked: readonly LockedBadge[]; unsure?: readonly UnlockBadge[] };
 
 type Props =
   | {
@@ -118,11 +119,13 @@ type Props =
       unlocks?: CarouselUnlocks;
       /** The gifts graph, per window — present only once Gifts given Bronze has opened it (null = a refused read). */
       gifts?: Record<GrowthWindow, GiftsToBookings | null> | null;
+      /** What the gifts recommendation reads besides the graph (gift points, the drawing's worked examples). */
+      giftsRecFacts?: GiftsRecFacts;
       /** The Invites graph (a fixed 12 months) — present only once Invites Bronze has opened it; null = a refused read. */
       invites?: InviteMonth[] | null;
       locked?: undefined;
     }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; invites?: undefined };
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
 
 export function AnalyticsCarousel(props: Props) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
@@ -142,11 +145,11 @@ export function AnalyticsCarousel(props: Props) {
     () =>
       base
         ? {
-            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30']) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
-            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12']) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
           }
         : null,
-    [base, props.gifts, props.invites],
+    [base, props.gifts, props.giftsRecFacts, props.invites],
   );
   const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 
@@ -204,16 +207,30 @@ export function AnalyticsCarousel(props: Props) {
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
       <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
-      {/* 🏅 One plain line per badge whose graphs are still shut — where they would be, under the carousel. */}
-      {props.unlocks && props.unlocks.locked.length > 0 ? (
-        <ul className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
-          {props.unlocks.locked.map((l) => (
-            <li key={l.badge} data-graph-unlock-line={l.badge}>
-              {lockedLine(l, (k) => (k === 'gifts' ? GIFTS_TITLE : k === 'invites' ? INVITES_TITLE : (specs?.['30'][k as GraphKey]?.title ?? k)))}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {/* 🏅 Under the carousel, as drawn (badge-unlock_v6 `.more`): the head, then one plain line per badge whose graphs
+          are still shut — and, for a badge we could not read, its line says "Couldn’t load" (never "locked", never 0). */}
+      {(() => {
+        const shut = (props.unlocks?.locked ?? []).flatMap((l) => {
+          const line = lockedLine(l);
+          return line ? [{ key: l.badge, lead: line.lead, rest: `${line.rest}.` }] : [];
+        });
+        const unread = (props.unlocks?.unsure ?? []).flatMap((b) => {
+          const line = BRONZE_LINES[b];
+          return line ? [{ key: b, lead: line.lead, rest: `— ${COULDNT_LOAD}.` }] : [];
+        });
+        const rows = [...shut, ...unread];
+        if (rows.length === 0) return null;
+        return (
+          <div className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
+            <p className="font-semibold text-ink">{LOCKED_HEAD}</p>
+            {rows.map((r) => (
+              <p key={r.key} data-graph-unlock-line={r.key}>
+                <b>{r.lead}</b> {r.rest}
+              </p>
+            ))}
+          </div>
+        );
+      })()}
     </section>
   );
 }

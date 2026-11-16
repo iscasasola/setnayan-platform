@@ -8,9 +8,8 @@
  *   Trusted by Bronze         → none yet — its old graph "Which partners send you couples" no longer fits now that
  *                               Trusted by counts returning clients (50566f42); open item 10, nothing drawn until ruled.
  *   Invites Bronze            → Suppliers you invited (ONE graph, month by month: invited · booked · completed an
- *                               event — specs 7fbff0cd (10)). ⏸ NOT COUNTED YET: nothing records which shop imported
- *                               which supplier until the add-a-supplier door is built (owner 6439 (4)), so the badge
- *                               shows its line "not counted yet" and the graph is never drawn.
+ *                               event — specs 7fbff0cd (10)). Waits while `BADGE_REWARDS.invites.measured` is false
+ *                               (`notCountedYet`) — it flips when the invites record lands; nothing here changes.
  * The sign-up graphs, the Verified graphs and the Pro graphs open exactly as they do today; this file decides only the
  * badge ones.
  *
@@ -24,47 +23,32 @@
  *     tell whether a badge is reached, its graphs are SHOWN (fail open) — they are the shop's own numbers, which it saw
  *     yesterday, and hiding them would read as "locked" when the truth is "we don't know".
  *
- * ⚠ THE ONE ADAPTER (J0 #7753 builds the badge ladder in parallel). `BRONZE_STEP` copies the first step of each
- * badge's own ladder from J0's `SHOP_BADGE_STEPS` (lib/badge-tiers.ts on claude/badge-ladder-and-firing), and
- * `reachedBronze` accepts J0's reward keys (`<badge>:tier1`…`tier7`) as well as main's legacy completed-bookings keys
- * (`events:<step>`). When J0 lands, replace `BRONZE_STEP[b]` with `SHOP_BADGE_STEPS[b][0]` — nothing else moves.
+ * 🔑 MAIN'S PIECES, NEVER A COPY: the badges, their Bronze (`SHOP_BADGE_STEPS[b][0]`) and tier names are
+ * lib/badge-tiers.ts; the names and "is it counted" are `BADGE_REWARDS` (lib/badge-rewards.ts); the counts are main's
+ * readers (badge-rewards.server.ts). `earnedBronze` accepts the reward keys (`<badge>:tier1`…`tier7`) and main's legacy
+ * completed-bookings keys (`events:<step>`).
  *
  * PURE: no I/O, no React. 🔒 lib/graph-unlocks.test.ts
  */
 import type { GrowthRec } from './vendor-growth-recs';
 import { formatCount } from './format-number';
+import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierName, type ShopBadgeKey } from './badge-tiers';
+import { BADGE_REWARDS } from './badge-rewards';
 
-/** The five shop badges (J0's `ShopBadgeKey`, by the same keys). */
-export type UnlockBadge = 'completed_bookings' | 'five_star_reviews' | 'gifts_given' | 'trusted_by' | 'invites';
+/** The five shop badges — J0's `ShopBadgeKey` itself (lib/badge-tiers.ts), never a second list. */
+export type UnlockBadge = ShopBadgeKey;
 
-export const UNLOCK_BADGES: readonly UnlockBadge[] = ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'];
+export const UNLOCK_BADGES: readonly UnlockBadge[] = SHOP_BADGE_KEYS;
 
-/** The badge names everywhere (a33fd894: "Completed bookings · Five-star reviews · Gifts given · Trusted by · Invites"). */
-export const BADGE_NAME: Readonly<Record<UnlockBadge, string>> = {
-  completed_bookings: 'Completed bookings',
-  five_star_reviews: 'Five-star reviews',
-  gifts_given: 'Gifts given',
-  trusted_by: 'Trusted by',
-  invites: 'Invites',
-};
+/** The badge names — `BADGE_REWARDS[badge].title` (lib/badge-rewards.ts), the names the badge screen draws. */
+export const BADGE_NAME: Readonly<Record<UnlockBadge, string>> = Object.fromEntries(
+  UNLOCK_BADGES.map((b) => [b, BADGE_REWARDS[b].title]),
+) as Record<UnlockBadge, string>;
 
-/** What a count of each badge is a count OF (for "N more … to go"). */
-const UNIT: Readonly<Record<UnlockBadge, [one: string, many: string]>> = {
-  completed_bookings: ['completed booking', 'completed bookings'],
-  five_star_reviews: ['five-star review', 'five-star reviews'],
-  gifts_given: ['gift point', 'gift points'],
-  trusted_by: ['returning client', 'returning clients'],
-  invites: ['invited supplier', 'invited suppliers'],
-};
-
-/** ⚠ ADAPTER — the first step of each badge's own ladder (J0 `SHOP_BADGE_STEPS[badge][0]`, owner 15 Nov). */
-export const BRONZE_STEP: Readonly<Record<UnlockBadge, number>> = {
-  completed_bookings: 5,
-  five_star_reviews: 50,
-  gifts_given: 150,
-  trusted_by: 1,
-  invites: 1,
-};
+/** Each badge's Bronze — the FIRST step of its own ladder, `SHOP_BADGE_STEPS[badge][0]` (lib/badge-tiers.ts). No copy. */
+export const BRONZE_STEP: Readonly<Record<UnlockBadge, number>> = Object.fromEntries(
+  UNLOCK_BADGES.map((b) => [b, SHOP_BADGE_STEPS[b][0]!]),
+) as Record<UnlockBadge, number>;
 
 /** The graphs each badge's Bronze opens (badge-unlock_v6 `BADGES`, with today's two open items left empty). */
 export const BADGE_GRAPHS: Readonly<Record<UnlockBadge, readonly string[]>> = {
@@ -81,11 +65,13 @@ export const BADGE_GRAPHS: Readonly<Record<UnlockBadge, readonly string[]>> = {
 export const NEW_BADGE_GRAPHS: readonly string[] = ['gifts', 'invites'];
 
 /**
- * ⏸ Badges with NO record to count on this build (owner 6439 (4): "Until the add/invite door is built, the Invites badge
- * ships showing 'Not counted yet'"). Their line says so instead of a "to go" figure; drop a badge from here the day its
- * record exists.
+ * ⏸ A badge with NO record to count yet — read from the ONE place that says so, `BADGE_REWARDS[badge].measured`
+ * (lib/badge-rewards.ts: Invites is `measured: false` until the add/invite door records it, owner 6439 (4)). The day
+ * that record lands and flips `measured`, the badge is counted here too — nothing in this file changes.
  */
-export const NOT_COUNTED_YET: readonly UnlockBadge[] = ['invites'];
+export function notCountedYet(badge: UnlockBadge): boolean {
+  return !BADGE_REWARDS[badge].measured;
+}
 
 /** Every graph a badge decides. */
 export const BADGE_GATED_GRAPHS: readonly string[] = UNLOCK_BADGES.flatMap((b) => BADGE_GRAPHS[b]);
@@ -93,12 +79,9 @@ export const BADGE_GATED_GRAPHS: readonly string[] = UNLOCK_BADGES.flatMap((b) =
 export type UnlockFacts = {
   /** The keep marker; null = not read. */
   kept: boolean | null;
-  /**
-   * Each badge's live count. `null` = the read FAILED (we don't know → graphs stay shown). ABSENT = this build has no
-   * counter for the badge yet (five-star reviews and gift points are J0's, #7753) → decided by earned steps alone.
-   */
+  /** Each badge's live count (main's counters). `null` = the read FAILED (we don't know → graphs stay shown). */
   counts: Partial<Record<UnlockBadge, number | null>>;
-  /** Every unrevoked badge reward key the shop holds; null = not read. */
+  /** Every unrevoked badge reward key the shop holds; null = not read (or malformed — never `[]`). */
   earned: readonly string[] | null;
 };
 
@@ -109,16 +92,16 @@ export function earnedBronze(badge: UnlockBadge, earned: readonly string[] | nul
   if (earned === null) return null;
   return earned.some((key) => {
     const [head, part] = key.split(':');
-    if (head === badge && part !== undefined && /^tier[1-7]$/.test(part)) return true;
-    // main's legacy completed-bookings steps ('events:<n>') start at 10 — above Bronze (5) — so any one of them is Bronze.
+    if (head === badge && part !== undefined && (TIER_KEYS as readonly string[]).includes(part)) return true;
+    // main's legacy completed-bookings steps ('events:<n>') start above Bronze — so any one at or over it is Bronze.
     if (badge === 'completed_bookings' && head === 'events' && part !== undefined && Number(part) >= BRONZE_STEP.completed_bookings) return true;
     return false;
   });
 }
 
 /**
- * One badge's gate: open (reached now, or ever earned) · locked (never earned, and the count — where this build has one —
- * is below Bronze) · unknown (a read failed: the earned list, or a count we do read).
+ * One badge's gate: open (reached now, or ever earned) · locked (never earned, and the count — where it is counted —
+ * is below Bronze) · unknown (a read failed: the earned list, or a count).
  */
 export function badgeGate(badge: UnlockBadge, facts: UnlockFacts): BadgeGate {
   const count = facts.counts[badge];
@@ -129,23 +112,26 @@ export function badgeGate(badge: UnlockBadge, facts: UnlockFacts): BadgeGate {
   return 'locked';
 }
 
-/** How many more of the badge's unit to Bronze, in words ("2 more completed bookings to go"); null when unknown. */
-export function toGoLine(badge: UnlockBadge, count: number | null | undefined): string | null {
-  if (typeof count !== 'number' || !Number.isFinite(count)) return null;
-  const left = Math.max(0, BRONZE_STEP[badge] - count);
-  if (left === 0) return null;
-  const [one, many] = UNIT[badge];
-  return `${formatCount(left)} more ${left === 1 ? one : many} to go`;
-}
+/**
+ * The plain lines under the carousel, word for word from badge-unlock_v6 (`.more`: "More graphs open as you earn
+ * badges", then `BADGES[b].line`). Only the badges the drawing gives a line; a badge with no line in the drawing
+ * (Invites — ruled after it) shows none, and its badge screen says "Not counted yet".
+ */
+export const LOCKED_HEAD = 'More graphs open as you earn badges';
+export const BRONZE_LINES: Partial<Record<UnlockBadge, { lead: string; rest: string }>> = {
+  completed_bookings: { lead: 'Events Bronze', rest: 'shows you your slow months' },
+  five_star_reviews: { lead: 'Reviews Bronze', rest: 'shows you what couples say' },
+  gifts_given: { lead: 'Gift points Bronze', rest: 'shows you which gifts turn into bookings' },
+};
 
-export type LockedBadge = { badge: UnlockBadge; name: string; graphs: readonly string[]; toGo: string | null };
+export type LockedBadge = { badge: UnlockBadge; name: string; graphs: readonly string[] };
 
 export type GraphUnlocks = {
-  /** Graphs NOT drawn (locked by a badge the shop has not reached). */
+  /** Graphs NOT drawn (locked by a badge the shop has not reached, or not counted yet). */
   hidden: ReadonlySet<string>;
-  /** One entry per badge whose graphs are hidden — the carousel prints one plain line for each, under itself. */
+  /** One entry per badge whose graphs are hidden — the carousel prints its drawing line, under itself. */
   locked: readonly LockedBadge[];
-  /** Graphs drawn because we could not tell (fail open) — for the page's own note, never shown as 0. */
+  /** Graphs drawn because we could not tell (fail open) — said as "Couldn’t load", never shown as locked or 0. */
   unsure: readonly UnlockBadge[];
 };
 
@@ -157,6 +143,11 @@ export function graphUnlocks(facts: UnlockFacts): GraphUnlocks {
   for (const badge of UNLOCK_BADGES) {
     const graphs = BADGE_GRAPHS[badge];
     if (graphs.length === 0) continue;
+    // Not counted yet: there is nothing to draw it from and nothing to earn it by — its graphs wait, with no line.
+    if (notCountedYet(badge)) {
+      for (const g of graphs) hidden.add(g);
+      continue;
+    }
     const gate = badgeGate(badge, facts);
     if (gate === 'open') continue;
     if (gate === 'unknown') {
@@ -167,16 +158,23 @@ export function graphUnlocks(facts: UnlockFacts): GraphUnlocks {
     const shut = facts.kept === true ? graphs.filter((g) => NEW_BADGE_GRAPHS.includes(g)) : [...graphs];
     if (shut.length === 0) continue;
     for (const g of shut) hidden.add(g);
-    const toGo = NOT_COUNTED_YET.includes(badge) ? 'not counted yet' : toGoLine(badge, facts.counts[badge]);
-    locked.push({ badge, name: BADGE_NAME[badge], graphs: shut, toGo });
+    locked.push({ badge, name: BADGE_NAME[badge], graphs: shut });
   }
   return { hidden, locked, unsure };
 }
 
-/** The plain line that stands where a badge's graphs would be ("Five-star reviews Bronze opens What couples say …"). */
-export function lockedLine(l: LockedBadge, titleOf: (graph: string) => string): string {
-  const names = l.graphs.map(titleOf).join(' · ');
-  return `${l.name} Bronze opens ${names}${l.toGo ? ` — ${l.toGo}` : ''}.`;
+/** The drawing's line for a locked badge ("<b>Events Bronze</b> shows you your slow months."); null = none drawn. */
+export function lockedLine(l: { badge: UnlockBadge }): { lead: string; rest: string } | null {
+  return BRONZE_LINES[l.badge] ?? null;
+}
+
+/** Gift points to the badge's next tier, from the shop's live count and `SHOP_BADGE_STEPS` ("450", "Silver"). */
+export function giftPointsToNext(points: number | null | undefined): { left: number; tier: string } | null {
+  if (typeof points !== 'number' || !Number.isFinite(points)) return null;
+  const steps = SHOP_BADGE_STEPS.gifts_given;
+  const i = steps.findIndex((st) => st > points);
+  if (i < 0) return null;
+  return { left: steps[i]! - points, tier: tierName(TIER_KEYS[i]!) };
 }
 
 // ── The Gifts given → bookings graph (Gifts given Bronze) ─────────────────────────────────────────────────────────
@@ -202,22 +200,39 @@ export function giftsLine(g: GiftsToBookings): string {
   return `${a}; ${b}.`;
 }
 
+/** The two worked examples the drawing gives ("a Papic 1000 is 50 points, an Event Plus 300"), as their catalog codes. */
+export const GIFT_POINT_EXAMPLES: ReadonlyArray<{ code: string; name: string }> = [
+  { code: 'PAPIC_GUEST_1K', name: 'a Papic 1000' },
+  { code: 'EVENT_PLUS', name: 'an Event Plus' },
+];
+
+/** What the recommendation reads besides the graph: the shop's gift points, and each example's points (from its price). */
+export type GiftsRecFacts = { giftPoints: number | null; examplePoints: ReadonlyArray<{ name: string; points: number }> | null };
+
 /**
- * The gifts graph's recommendation (badge-unlock_v6, settled 15 Nov): it FIRES when couples who asked are still deciding
- * and the shop has gift stock; it is HIGH impact when gifted couples book at least twice as often as the rest. Never
- * made up — no stock or nobody deciding means no task.
+ * The gifts graph's recommendation, word for word from badge-unlock_v6 `RECS.give_gifts`, every number read: it FIRES
+ * when couples who asked are still deciding (not yet given a gift) and the shop has gift stock; it is HIGH impact when
+ * gifted couples book at least twice as often as the rest. Never made up — no stock or nobody deciding means no task.
+ * A part whose number could not be read is left out, never guessed.
  */
-export function giftsRec(g: GiftsToBookings | null): GrowthRec | null {
+export function giftsRec(g: GiftsToBookings | null, more: GiftsRecFacts = { giftPoints: null, examplePoints: null }): GrowthRec | null {
   if (!g) return null;
-  const deciding = g.giftedDeciding + g.plainDeciding;
+  const deciding = g.plainDeciding;
   if (deciding <= 0 || g.freeStock <= 0) return null;
   const gifted = share(g.giftedBooked, g.giftedDeciding);
   const plain = share(g.plainBooked, g.plainDeciding);
   const high = gifted !== null && gifted > 0 && (plain === null || plain === 0 || gifted >= 2 * plain);
+  const asked = `${formatCount(deciding)} ${deciding === 1 ? 'couple asked and has' : 'couples asked and have'} not booked.`;
+  const rates = gifted !== null && plain !== null ? ` Couples you gave a gift to booked ${pct(gifted)} of the time; the rest, ${pct(plain)}.` : '';
+  const ex = more.examplePoints && more.examplePoints.length > 0
+    ? ` (${more.examplePoints.map((e, i) => (i === 0 ? `${e.name} is ${formatCount(e.points)} points` : `${e.name} ${formatCount(e.points)}`)).join(', ')})`
+    : '';
+  const next = giftPointsToNext(more.giftPoints);
+  const reach = next ? `; ${formatCount(next.left)} more points reach ${BADGE_NAME.gifts_given} ${next.tier}` : '';
   return {
     key: 'give_gifts',
-    title: 'Give a gift to couples still deciding',
-    body: `${formatCount(deciding)} ${deciding === 1 ? 'couple who asked is' : 'couples who asked are'} still deciding, and you have gifts in stock.`,
+    title: 'Give a gift to the couples still deciding',
+    body: `${asked}${rates} Give each of them a gift from your stock. Each gift earns one point for every ₱10 of its price${ex}, counted once their event is complete${reach}.`,
     impact: high ? 'high' : 'medium',
     impactLabel: high ? 'High impact' : 'Medium impact',
     ctaLabel: 'Give a gift',

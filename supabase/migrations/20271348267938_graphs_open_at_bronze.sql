@@ -13,12 +13,11 @@
 --      shop below Bronze would lose graphs it sees today. A shop verified LATER gets no row and opens graphs by badge.
 --      Nothing else ever writes the table (no INSERT/UPDATE/DELETE grant to any client role).
 --
---   2. public.shop_graph_unlock_facts(shop) — the facts the unlock adapter (apps/web/lib/graph-unlocks.ts) needs that
---      the Analytics page does not already read, in ONE call: the marker, the Trusted-by count (the live
---      `shop_booked_loop_count`, ruled the Trusted-by count on 15 Nov, 50566f42), and the badge steps the shop has
---      EVER earned (`shop_badge_rewards`, written exactly once per step, never on a dip) — so a Bronze once earned keeps
---      its graphs when a count later falls (owner: "keep what you had"). No count is re-derived here: completed
---      bookings are read by the page already, and the five-star / gift-point counters belong to J0 (#7753).
+--   2. public.shop_graph_unlock_facts(shop) — the two facts the unlock adapter (apps/web/lib/graph-unlocks.ts) needs
+--      that main does not already read, in ONE call: the marker, and the badge steps the shop has EVER earned
+--      (`shop_badge_rewards`, written exactly once per step, never on a dip) — so a Bronze once earned keeps its graphs
+--      when a count later falls (owner: "keep what you had"). No count is derived here: every badge count is main's own
+--      counter (shop_trusted_five_star_count · shop_gift_points · shop_trusted_by_count, read by badge-rewards.server.ts).
 --
 --   3. public.shop_gifts_to_bookings(shop, since, booked statuses) — the "Gifts given → bookings" graph: of the couples
 --      who asked the shop since `since` (chat_threads, the Asked graph's own source), how many were offered a gift in
@@ -73,7 +72,6 @@ AS $$
   SELECT jsonb_build_object(
            'kept', EXISTS (SELECT 1 FROM public.vendor_graph_unlocks_kept k
                             WHERE k.vendor_profile_id = vp.vendor_profile_id),
-           'trusted_by', public.shop_booked_loop_count(vp.vendor_profile_id),
            'earned', COALESCE((SELECT jsonb_agg(r.reward_key ORDER BY r.reward_key)
                                  FROM public.shop_badge_rewards r
                                 WHERE r.vendor_profile_id = vp.vendor_profile_id
@@ -87,8 +85,8 @@ REVOKE ALL ON FUNCTION public.shop_graph_unlock_facts(UUID) FROM PUBLIC, anon, a
 GRANT EXECUTE ON FUNCTION public.shop_graph_unlock_facts(UUID) TO service_role;
 
 COMMENT ON FUNCTION public.shop_graph_unlock_facts(UUID) IS
-  'J5: what decides which graphs a shop sees, in one call — kept (vendor_graph_unlocks_kept), trusted_by '
-  '(shop_booked_loop_count) and earned (every unrevoked shop_badge_rewards key). service_role only; NULL for an '
+  'J5: what decides which graphs a shop sees beside main''s badge counters, in one call — kept '
+  '(vendor_graph_unlocks_kept) and earned (every unrevoked shop_badge_rewards key). service_role only; NULL for an '
   'unknown shop.';
 
 -- ── 3 · gifts → bookings ───────────────────────────────────────────────────────────────────────────────────────────

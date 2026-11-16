@@ -173,6 +173,7 @@ import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
+import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
@@ -590,6 +591,8 @@ type Props = {
     taken?: string;
     free?: string;
     competing?: string;
+    /** `today` — opened from Today, so ✕ returns there (`pickedClientCloseHref`, EB-290). */
+    from?: string;
   }>;
 };
 
@@ -2693,6 +2696,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       eventId={eventId}
       eventName={eventName}
       chatUnread={await chatUnreadP}
+      closeHref={pickedClientCloseHref(search.from)}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}

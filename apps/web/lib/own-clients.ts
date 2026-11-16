@@ -38,7 +38,7 @@ export const ADD_CLIENT_ROW_LINE = 'Their invite comes with a Setnayan gift from
 export const OWN_CLIENT_PROMISE = 'Your clients pay no booking fee.';
 export const OWN_CLIENT_PROMISE_LINE = 'Each one comes with at least one Setnayan gift from you';
 export const OWN_CLIENT_PROMISE_TIP =
-  'A client you add, or who first asks through your own link or QR, is your own client: no booking fee, on every event with you. Each one comes with at least one Setnayan gift from your stock — one is used when they join. An invite nobody uses costs nothing more. Gifts from a badge reward don’t count here.';
+  'Each client you add comes with a Setnayan gift from your stock — one is used when they join; an invite nobody uses costs nothing more. A client new to Setnayan books you with no booking fee for 12 months. A client already on Setnayan books free only for an event you are the first supplier to add them to. Gifts from a badge reward don’t count here.';
 export const ADD_CLIENT_LEAD = 'Clients you bring pay no booking fee. Each one comes with a Setnayan gift from you.';
 export const GIFT_FROM_YOU = 'Gift from you';
 export const GIFT_WITH_YOUR_LINK = 'Gift with your link';
@@ -245,4 +245,25 @@ export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
     paysGiftPrice: g.paysGiftPrice,
     openRails: g.openRails,
   };
+}
+
+/* ── the import's fee facts (owner 2026-11-16, "A NEW ACCOUNT IS FREE FOR ONE YEAR…") ───────────────────────── */
+
+/** What `own_client_gift_give` recorded about one import. `null` = not known (an own-link arrival has no invite). */
+export type ImportFacts = { accountNew: boolean | null; eventNew: boolean | null; firstImport: boolean };
+
+/**
+ * Does this import make the couple the shop's OWN client (no booking fee)? The ruling (specs d4899cd5, amended
+ * 9fe95ebe the same day):
+ *   (1) the import CREATED the client's account → yes (the 12-month window is the fee logic's to measure, from the
+ *       import's own timestamp);
+ *   (2) an existing account → yes for THAT event when this shop is its FIRST imported supplier — the event may be new
+ *       or already on Setnayan (9fe95ebe dropped "new event"; `eventNew` stays recorded, it no longer decides);
+ *   (3) every other supplier on that event → no — the normal booking fee (the gift is still given).
+ * Unknown is never free. ⚠ "An earlier Setnayan contact with this supplier makes it a Setnayan booking" is the fee
+ * logic's arm (it reads the thread, saves and views), not decided here.
+ */
+export function importIsOwnClient(f: ImportFacts): boolean {
+  if (f.accountNew === true) return true;
+  return f.firstImport === true;
 }

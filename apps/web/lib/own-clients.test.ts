@@ -15,6 +15,7 @@ import {
   clientInviteUrl,
   creditsFor,
   defaultOwnGift,
+  importIsOwnClient,
   isEmailOrPhone,
   ownGiftDataOf,
   ownGiftLinesOf,
@@ -110,4 +111,12 @@ test('the own link is own only with its gift — the inquiry door asks before it
   const src = readFileSync(join(process.cwd(), 'app/v/[slug]/inquiry-actions.ts'), 'utf8');
   assert.match(src, /declaredSource === 'website'[\s\S]{0,120}ownLinkArrivalIsOwnClient/);
   assert.match(src, /\? 'shop_page'/, 'without the gift the ask is a visit to the shop on Setnayan (the fee)');
+});
+
+test('an import is an own client only as the 2026-11-16 ruling says (new account · or first import on the event)', () => {
+  assert.equal(importIsOwnClient({ accountNew: true, eventNew: false, firstImport: false }), true, '(1) the import made the account');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: true }), true, '(2) first import on a new event');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: false, firstImport: true }), true, '(2, amended 9fe95ebe) first import on an event already on Setnayan');
+  assert.equal(importIsOwnClient({ accountNew: false, eventNew: true, firstImport: false }), false, '(3) a second supplier pays');
+  assert.equal(importIsOwnClient({ accountNew: null, eventNew: null, firstImport: false }), false, 'unknown is never free');
 });

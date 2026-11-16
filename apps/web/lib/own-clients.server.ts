@@ -2,14 +2,16 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
-import { clientInviteTokenOf, ownLinkGiftLineOf, type OwnGiftLine } from '@/lib/own-clients';
+import { clientInviteTokenOf, ownLinkGiftLineOf, type ImportFacts, type OwnGiftLine } from '@/lib/own-clients';
 
 /**
  * 🎁 OWN CLIENTS — the I/O half of `lib/own-clients.ts`. Every read binds its `error`; a failure is said as a failure,
  * never as "none" (the 20 Aug disease). The ONE write that moves stock is `own_client_gift_give` (service role).
  */
 
-export type OwnGiftGiveResult = 'given' | 'already' | 'short' | 'error';
+export type OwnGiftGiveResult =
+  | { status: 'given' | 'already'; facts: ImportFacts }
+  | { status: 'short' | 'error' };
 
 /**
  * Give one own-client gift into the couple's event — exactly once per (shop, event), from BOUGHT stock only.
@@ -18,7 +20,15 @@ export type OwnGiftGiveResult = 'given' | 'already' | 'short' | 'error';
  */
 export async function giveOwnClientGift(
   admin: SupabaseClient,
-  input: { vendorProfileId: string; eventId: string; via: 'invite' | 'own_link'; inviteId: string | null; lines: readonly OwnGiftLine[] },
+  input: {
+    vendorProfileId: string;
+    eventId: string;
+    via: 'invite' | 'own_link';
+    inviteId: string | null;
+    lines: readonly OwnGiftLine[];
+    /** The joining client — the door measures whether the invite created their account. */
+    userId?: string | null;
+  },
 ): Promise<OwnGiftGiveResult> {
   const { data, error } = await admin.rpc('own_client_gift_give', {
     p_vendor_profile_id: input.vendorProfileId,
@@ -26,17 +36,20 @@ export async function giveOwnClientGift(
     p_via: input.via,
     p_invite_id: input.inviteId,
     p_lines: input.lines,
+    p_user_id: input.userId ?? null,
   });
   if (error) {
     console.error('[supabase-error] own-clients: own_client_gift_give', error);
-    return 'error';
+    return { status: 'error' };
   }
-  const status = (data as { status?: string } | null)?.status;
-  if (status === 'ok') return 'given';
-  if (status === 'already') return 'already';
-  if (status === 'short') return 'short';
+  const d = (data ?? {}) as { status?: string; account_new?: unknown; event_new?: unknown; first_import?: unknown };
+  const bool = (v: unknown) => (typeof v === 'boolean' ? v : null);
+  const facts: ImportFacts = { accountNew: bool(d.account_new), eventNew: bool(d.event_new), firstImport: d.first_import === true };
+  if (d.status === 'ok') return { status: 'given', facts };
+  if (d.status === 'already') return { status: 'already', facts };
+  if (d.status === 'short') return { status: 'short' };
   console.error('[own-clients] own_client_gift_give refused', data);
-  return 'error';
+  return { status: 'error' };
 }
 
 /** The gift set on the shop's own link. `null` = not set; `'unread'` = could not be read (said, never "not set"). */
@@ -73,7 +86,9 @@ export async function ownLinkArrivalIsOwnClient(admin: SupabaseClient, vendorPro
     return !error && Boolean(data);
   }
   const res = await giveOwnClientGift(admin, { vendorProfileId, eventId, via: 'own_link', inviteId: null, lines: [gift] });
-  return res === 'given' || res === 'already';
+  // ⚠ The own link has no invite to measure "new account / new event" against, so its facts are recorded as unknown
+  // and the fee logic decides from them (2026-11-16 ruling). Here it keeps the shipped own-link stamp once a gift is given.
+  return res.status === 'given' || res.status === 'already';
 }
 
 export type ClientInviteRow = {

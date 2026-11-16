@@ -154,6 +154,16 @@ CREATE TABLE IF NOT EXISTS public.own_client_gifts (
                       CONSTRAINT own_client_gifts_credits_positive
                       CHECK (credits > 0),
   pool_grant_id     UUID REFERENCES public.papic_event_point_grants(grant_id) ON DELETE SET NULL,
+  -- 🎟 IMPORTED CLIENTS (owner 2026-11-16, DECISION_LOG "A NEW ACCOUNT IS FREE FOR ONE YEAR…"): the three facts
+  -- the booking-fee rule reads, recorded ONCE at the import, by the server (never the browser). NULL = not known
+  -- (an own-link arrival carries no invite to measure against) — a reader must treat NULL as NOT free.
+  --   account_new_by_import — the client's account was created through this invite (free 12 months from
+  --                           created_at, on their bookings with THIS shop)
+  --   event_new_by_import   — the event was created through this invite (not one the client already had)
+  --   first_import_on_event — no other shop had imported this couple onto this event before
+  account_new_by_import BOOLEAN,
+  event_new_by_import   BOOLEAN,
+  first_import_on_event BOOLEAN NOT NULL DEFAULT FALSE,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -207,8 +217,8 @@ COMMENT ON COLUMN public.shop_gift_stock_entries.own_client_gift_id IS
 
 -- ── 5 · the ONE door an own-client gift takes ────────────────────────────────
 -- Returns jsonb:
---   {status:'ok', own_gift_id, credits}   — given now
---   {status:'already', own_gift_id}       — this shop already gave this event its own-client gift
+--   {status:'ok', own_gift_id, credits, account_new, event_new, first_import} — given now
+--   {status:'already', own_gift_id, account_new, event_new, first_import}    — given before (the facts as recorded then)
 --   {status:'short', wanted, free}        — not enough BOUGHT stock; nothing written
 --   {status:'bad_input'}
 -- Only BOUGHT stock counts (v4 answer 3): free = balance − held (live quotes),
@@ -218,7 +228,8 @@ CREATE OR REPLACE FUNCTION public.own_client_gift_give(
   p_event_id          UUID,
   p_via               TEXT,
   p_invite_id         UUID,
-  p_lines             JSONB
+  p_lines             JSONB,
+  p_user_id           UUID DEFAULT NULL
 )
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -236,10 +247,14 @@ DECLARE
   v_free     INTEGER;
   v_reward   INTEGER;
   v_bought   INTEGER;
-  v_existing UUID;
   v_name     TEXT;
   v_grant    UUID;
   v_gift     UUID;
+  v_invited  TIMESTAMPTZ;
+  v_acct_new BOOLEAN;
+  v_evt_new  BOOLEAN;
+  v_first    BOOLEAN;
+  v_row      public.own_client_gifts%ROWTYPE;
 BEGIN
   IF p_vendor_profile_id IS NULL OR p_event_id IS NULL
      OR p_via IS NULL OR p_via NOT IN ('invite', 'own_link')
@@ -262,18 +277,41 @@ BEGIN
   PERFORM pg_advisory_xact_lock(
     hashtextextended('shop_gift_stock:' || p_vendor_profile_id::text, 0));
 
-  SELECT o.own_gift_id INTO v_existing
+  SELECT o.* INTO v_row
     FROM public.own_client_gifts o
    WHERE o.vendor_profile_id = p_vendor_profile_id
      AND o.event_id = p_event_id;
-  IF v_existing IS NOT NULL THEN
+  IF v_row.own_gift_id IS NOT NULL THEN
     IF p_invite_id IS NOT NULL THEN
       UPDATE public.vendor_client_invites
          SET status = 'joined', claimed_event_id = p_event_id, claimed_at = NOW()
        WHERE invite_id = p_invite_id AND vendor_profile_id = p_vendor_profile_id AND status = 'waiting';
     END IF;
-    RETURN jsonb_build_object('status', 'already', 'own_gift_id', v_existing);
+    RETURN jsonb_build_object('status', 'already', 'own_gift_id', v_row.own_gift_id,
+      'account_new', v_row.account_new_by_import, 'event_new', v_row.event_new_by_import,
+      'first_import', v_row.first_import_on_event);
   END IF;
+
+  -- 🎟 The import's facts (2026-11-16 ruling). Measured against the INVITE's own birth: an account or an event
+  -- made after the shop made this invite was made through it. No invite (own link) → unknown (NULL).
+  IF p_invite_id IS NOT NULL THEN
+    SELECT i.created_at INTO v_invited
+      FROM public.vendor_client_invites i
+     WHERE i.invite_id = p_invite_id AND i.vendor_profile_id = p_vendor_profile_id;
+  END IF;
+  IF v_invited IS NOT NULL THEN
+    SELECT (u.created_at >= v_invited) INTO v_acct_new FROM auth.users u WHERE u.id = p_user_id;
+    SELECT (e.created_at >= v_invited) INTO v_evt_new FROM public.events e WHERE e.event_id = p_event_id;
+  END IF;
+  -- First import on the event: no OTHER shop already gave an own-client gift here, or holds a row it brought.
+  v_first := NOT EXISTS (
+      SELECT 1 FROM public.own_client_gifts o
+       WHERE o.event_id = p_event_id AND o.vendor_profile_id <> p_vendor_profile_id)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.event_vendors ev
+       WHERE ev.event_id = p_event_id
+         AND ev.marketplace_vendor_id IS DISTINCT FROM p_vendor_profile_id
+         AND ev.source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept'));
 
   SELECT s.balance, s.held INTO v_balance, v_held
     FROM public.shop_gift_stock_status(p_vendor_profile_id) s
@@ -298,8 +336,10 @@ BEGIN
   RETURNING grant_id INTO v_grant;
 
   INSERT INTO public.own_client_gifts
-    (vendor_profile_id, event_id, via, invite_id, gift_lines, credits, pool_grant_id)
-  VALUES (p_vendor_profile_id, p_event_id, p_via, p_invite_id, p_lines, v_total, v_grant)
+    (vendor_profile_id, event_id, via, invite_id, gift_lines, credits, pool_grant_id,
+     account_new_by_import, event_new_by_import, first_import_on_event)
+  VALUES (p_vendor_profile_id, p_event_id, p_via, p_invite_id, p_lines, v_total, v_grant,
+          v_acct_new, v_evt_new, v_first)
   RETURNING own_gift_id INTO v_gift;
 
   INSERT INTO public.shop_gift_stock_entries
@@ -313,14 +353,15 @@ BEGIN
      WHERE invite_id = p_invite_id AND vendor_profile_id = p_vendor_profile_id;
   END IF;
 
-  RETURN jsonb_build_object('status', 'ok', 'own_gift_id', v_gift, 'credits', v_total);
+  RETURN jsonb_build_object('status', 'ok', 'own_gift_id', v_gift, 'credits', v_total,
+    'account_new', v_acct_new, 'event_new', v_evt_new, 'first_import', v_first);
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB) TO service_role;
+REVOKE ALL ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID) TO service_role;
 
-COMMENT ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB) IS
+COMMENT ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID) IS
   'The one door an own-client Setnayan gift takes (owner 2026-11-16): from the shop''s BOUGHT gift '
   'stock (badge reward never counts) into the couple''s event Papic pool, once per (shop, event). '
   'Refuses — writing nothing — when stock is short. Service role only; the app gates the caller.';

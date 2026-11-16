@@ -22,6 +22,8 @@
  *
  * Pure (no I/O) so `event-details-sheet.test.ts` can exercise it directly.
  */
+import { openDateWords } from './event-date-options';
+import { onePickedDay } from './event-anchor';
 import { RSVP_ASK_FIELDS, RSVP_ASK_LABEL, readGuestsReply, sanitizeRsvpAskConfig } from './rsvp-ask';
 import { guestsGetInLabel, readGuestsGetIn } from './who-can-reply';
 
@@ -141,8 +143,17 @@ export function sheetDate(ymd: string | null | undefined, withYear = true): stri
  * editor and this sheet word one fact one way.
  */
 export function describeEventDate(e: Record<string, unknown>): string | null {
-  const eventDate = typeof e.event_date === 'string' ? e.event_date : null;
-  const precision = typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
+  /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through
+     `withPickedDate`), so it reads as the date here too. Only 2+ options or a range fall through to "Not settled". */
+  const stored = typeof e.event_date === 'string' ? e.event_date : null;
+  const picked = stored
+    ? null
+    : onePickedDay({
+        event_type: typeof e.event_type === 'string' ? e.event_type : null,
+        date_candidates: Array.isArray(e.date_candidates) ? (e.date_candidates as string[]) : null,
+      });
+  const eventDate = stored ?? picked;
+  const precision = picked ? 'day' : typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
   if (eventDate) {
     const d = new Date(`${eventDate}T00:00:00`);
     if (Number.isNaN(d.getTime())) return null;
@@ -151,21 +162,15 @@ export function describeEventDate(e: Record<string, unknown>): string | null {
     return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
-  const mode = typeof e.date_mode === 'string' ? e.date_mode : null;
-  if (mode === 'window') {
-    const start = typeof e.date_window_start === 'string' ? e.date_window_start : null;
-    const end = typeof e.date_window_end === 'string' ? e.date_window_end : null;
-    if (start && end) return `Flexible · ${shortDay(start)}–${shortDay(end)}`;
-  }
-  if (mode === 'specific' && Array.isArray(e.date_candidates)) {
-    const n = (e.date_candidates as unknown[]).filter((c) => typeof c === 'string').length;
-    if (n > 0) return `${n} candidate date${n === 1 ? '' : 's'}`;
-  }
-  return null;
+  // 📅 Still options (EB-111): say the day(s) the couple picked, the same phrase every screen uses — never a count
+  // ("1 candidate date") and never "Not set".
+  const open = openDateWords({
+    mode: e.date_mode,
+    candidates: e.date_candidates,
+    windowStart: e.date_window_start,
+    windowEnd: e.date_window_end,
+    days: e.event_days,
+  });
+  return open ? `Not settled · ${open}` : null;
 }
 
-function shortDay(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-}

@@ -3167,6 +3167,13 @@ html.dark .fd {
     transition: none;
   }
 }
+/* ⤴ THE AVATAR SHEET STEPS ASIDE FOR A RISEN ROW (13 Nov rollout, build-sessions/RISE-AUDIT-2026-11-13.md § H.4): the
+   sheet (`z-[52]`) sits above the rise layer (`--sn-z-pop`), so while a row's page is risen it stays MOUNTED — the row
+   keeps its rect, so ✕ falls back into it — but is not drawn; on ✕ it is there again under your thumb. Every width. */
+html[data-chrome-away] [data-account-sheet-layer] {
+  visibility: hidden;
+}
+
 /* No reduced-motion stop for the TOP bar: it slides for everybody, as its scroll-hide does — the pinned block and the
    pinned category head travel with it and carry no reduced-motion exception either
    (🔒 app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts #2). */

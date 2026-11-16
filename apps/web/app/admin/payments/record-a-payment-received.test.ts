@@ -30,7 +30,7 @@ const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ACTIONS = read('app/admin/payments/actions.ts');
-const PAGE = read('app/admin/payments/page.tsx');
+const PAGE = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
 const LEDGER = read('app/admin/money/_components/transactions-ledger.tsx');
 // The Reference link moved into its own column file so a test can render it at
 // every width (ledger-reference-column.tsx); the ledger mounts it.

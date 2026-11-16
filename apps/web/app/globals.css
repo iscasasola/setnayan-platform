@@ -5976,8 +5976,11 @@ body {
  *
  * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
  * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
+/* ✨ 16 Nov 2026: THE PAGE TOKEN, not its own hex — owner "netural background color f7f5f4 / so framed can be white"
+   (DECISION_LOG "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Every signed-in shell's ground is now the ONE page colour, so
+   Admin › Colours reaches it; #F7F5F4 is the same "white cards must read" band this note measured above. */
 .sn-ambient {
-  background: #F7F5F0;
+  background: rgb(var(--sn-page-bg));
   background-attachment: fixed;
 }
 /* Dark counterpart. There was none before — `.sn-ambient` hardcoded light

@@ -129,28 +129,6 @@
         "RevealList"
       ]
     },
-    "/(shell)/blog": {
-      "files": [
-        "(shell)/blog/loading.tsx",
-        "(shell)/blog/page.tsx",
-        "blog/_components/story-card.tsx"
-      ],
-      "destinations": [
-        "/blog",
-        "/blog/[seg]",
-        "/blog?category=[seg]",
-        "/realstories",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "Eyebrow",
-        "Image",
-        "LeadCard",
-        "Link",
-        "StoryCard"
-      ]
-    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",
@@ -191,8 +169,8 @@
         "creators/_components/creators-motion.tsx"
       ],
       "destinations": [
+        "/",
         "/creators",
-        "/realstories",
         "/signup"
       ],
       "actions": [],
@@ -292,7 +270,7 @@
         "features/_story-sample-moments.tsx"
       ],
       "destinations": [
-        "/blog/[seg]",
+        "/creators",
         "/for-suppliers",
         "/open-shop",
         "/pricing",
@@ -850,41 +828,6 @@
         "LegalLayout",
         "LegalSection",
         "Link"
-      ]
-    },
-    "/(shell)/realstories": {
-      "files": [
-        "(shell)/realstories/loading.tsx",
-        "(shell)/realstories/page.tsx",
-        "realstories/_components/gallery.tsx",
-        "realstories/_components/share-buttons.tsx",
-        "realstories/_components/stories-search.tsx"
-      ],
-      "destinations": [
-        "/?browse=1",
-        "/creators",
-        "/realstories/[seg]",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "BoomerangVideo",
-        "Companions",
-        "FacebookGlyph",
-        "FacetRow",
-        "HTMLDivElement",
-        "HTMLInputElement",
-        "HTMLVideoElement",
-        "Link",
-        "PickMenu",
-        "PinterestGlyph",
-        "RealStoriesGallery",
-        "SectionHead",
-        "StoriesSearch",
-        "StoryCard",
-        "StorytellerTile",
-        "Tile",
-        "VendorCreditChip"
       ]
     },
     "/(shell)/refunds": {
@@ -5095,6 +5038,7 @@
         "admin/studio/page.tsx"
       ],
       "destinations": [
+        "/",
         "/[seg]",
         "/[seg]/recap",
         "/admin/discount-codes/[seg]/edit",
@@ -5104,7 +5048,6 @@
         "/admin/studio?tab=discount-codes&filter=disabled",
         "/admin/studio?tab=discount-codes&filter=expired",
         "/admin/user-reports",
-        "/realstories",
         "/u/[seg]"
       ],
       "actions": [
@@ -5808,35 +5751,6 @@
       "actions": [],
       "blocks": [
         "Link"
-      ]
-    },
-    "/blog/[slug]": {
-      "files": [
-        "blog/[slug]/_components/journal-partner-credit.tsx",
-        "blog/[slug]/_components/shop-link.tsx",
-        "blog/[slug]/page.tsx"
-      ],
-      "destinations": [
-        "/",
-        "/blog",
-        "/blog/[seg]",
-        "/blog?category=[seg]",
-        "/realstories",
-        "/signup",
-        "/u/[seg]",
-        "/u/[seg]/c/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "Block",
-        "ChapterEmbedFrame",
-        "Image",
-        "JournalPartnerCredit",
-        "Link",
-        "Logo",
-        "OpenFileLink",
-        "SaveFileLink",
-        "ShopLink"
       ]
     },
     "/claim/[token]": {
@@ -7891,6 +7805,7 @@
         "AddGuestSheet",
         "AddPicks",
         "AddPreviewLine",
+        "Animation",
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
@@ -12418,9 +12333,9 @@
         "dashboard/[eventId]/website/privacy/page.tsx"
       ],
       "destinations": [
+        "/",
         "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/editor",
-        "/realstories"
+        "/dashboard/[seg]/website/editor"
       ],
       "actions": [
         "setLiveMediaAudience",
@@ -13535,21 +13450,6 @@
         "QuoteWhereFact",
         "StayForm",
         "SubmitButton"
-      ]
-    },
-    "/realstories/[slug]": {
-      "files": [
-        "realstories/[slug]/page.tsx"
-      ],
-      "destinations": [
-        "/realstories"
-      ],
-      "actions": [],
-      "blocks": [
-        "DemoOnlyMarker",
-        "EditorialContent",
-        "Link",
-        "SampleEditorial"
       ]
     },
     "/receipts/[receiptId]": {
@@ -15422,6 +15322,7 @@
         "AutoReplySection",
         "Badge",
         "BlockDateAdd",
+        "BookedMonthScope",
         "BookingFeeBills",
         "BookingsSurface",
         "BuyAPack",
@@ -15476,6 +15377,7 @@
         "InquiryOutcomesRollup",
         "KeptNotesFold",
         "Link",
+        "LinkPickMenu",
         "ListPager",
         "Marked",
         "MeetingsList",
@@ -15530,6 +15432,16 @@
         "UnreadList",
         "WaivedFeeRows"
       ]
+    },
+    "/vendor-dashboard/customers/@client": {
+      "files": [
+        "vendor-dashboard/customers/@client/default.tsx",
+        "vendor-dashboard/customers/@client/loading.tsx",
+        "vendor-dashboard/customers/@client/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/customers/@client/(..)clients/[eventId]": {
       "files": [
@@ -16510,14 +16422,6 @@
         "ValidUntilPicker",
         "VendorReuseInbox"
       ]
-    },
-    "/vendor-dashboard/real-stories": {
-      "files": [
-        "vendor-dashboard/real-stories/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/vendor-dashboard/recaps": {
       "files": [

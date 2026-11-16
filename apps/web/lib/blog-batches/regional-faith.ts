@@ -146,7 +146,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Plan your Northern celebration with a free, deadline-aware checklist.',
-        href: '/blog/free-printable-wedding-checklist-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -353,7 +353,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Handle the civil paperwork on time — here is exactly what a marriage licence requires.',
-        href: '/blog/marriage-license-requirements-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -422,7 +422,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Weighing church versus civil? Here is a clear, side-by-side comparison.',
-        href: '/blog/civil-vs-church-wedding-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -491,7 +491,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious about the veil, cord and coins? Here is what each one means.',
-        href: '/blog/filipino-wedding-traditions-explained',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -628,7 +628,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Get a feel for supplier costs before you commit to an island.',
-        href: '/blog/how-much-do-wedding-suppliers-cost-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],

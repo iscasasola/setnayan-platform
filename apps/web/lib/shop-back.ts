@@ -25,6 +25,7 @@
  * Pure and dependency-free: the server page, the client check-a-date calendar and the guard all ask it.
  * 🔒 lib/shop-back.test.ts
  */
+import { shopPath } from '@/lib/shop-address';
 import { coldWayBack } from './discover-way-back';
 import { OWN_LINK_SRC } from './supplier-qr-codes';
 
@@ -188,7 +189,7 @@ export function withShopArrival(
  * is the viewer's own, scopes Inquire to it, and its back door returns to that event's Suppliers.
  */
 export function shopHrefForEvent(slug: string, eventId: string, hash = ''): string {
-  return withShopArrival(`/v/${encodeURIComponent(slug)}${hash}`, { src: null, eventId });
+  return withShopArrival(`${shopPath(encodeURIComponent(slug))}${hash}`, { src: null, eventId });
 }
 
 /**

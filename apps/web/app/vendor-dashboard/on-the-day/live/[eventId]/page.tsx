@@ -161,7 +161,7 @@ export default async function VendorOnTheDayLivePage({
     }
   }
 
-  if (!profile) redirect('/vendor-dashboard/verify');
+  if (!profile) redirect('/vendor-dashboard/profile#docs');
 
   // Booked-today gate: the launched console only opens for a booking dated today.
   const today = phToday();

@@ -110,7 +110,20 @@ export function PollStepCard({ threadId, onClose, onSent }: { threadId: string; 
         onSent?.();
       }}
     >
-      <ChatStepCard topic="poll" kicker="You · not sent yet" title="Poll" steps={steps} step={step} onStep={setStep} sendLabel="Open poll" sending={sending} onClose={onClose} submitForm={formId} />
+      {/* ⤴ The form RISES FULL SCREEN (CHAT-09, 16 Nov — it was a thin band inside the chat, "Next" under the fold). */}
+      <ChatStepCard
+        topic="poll"
+        kicker="You · not sent yet"
+        title="Poll"
+        steps={steps}
+        step={step}
+        onStep={setStep}
+        sendLabel="Open poll"
+        sending={sending}
+        onClose={onClose}
+        submitForm={formId}
+        rise={{ info: `${ONE_POLL_REASON}. Enter goes to the next step; Shift+Enter makes a new line.` }}
+      />
     </form>
   );
 }

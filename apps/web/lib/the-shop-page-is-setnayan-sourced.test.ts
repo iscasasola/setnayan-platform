@@ -43,14 +43,14 @@ test('the shop page stamps shop_page when untagged, website on ?src=own', () => 
 test('RW-19 · every Promote code the supplier hands out is tagged as theirs (the shortlist code is the invite, never the shop)', () => {
   const O = 'https://www.setnayan.com';
   const want: Record<string, string> = {
-    dates: `${O}/v/titanena/dates?src=own`,
-    page: `${O}/v/titanena?src=own`,
-    reviews: `${O}/v/titanena/review?src=own`,
+    dates: `${O}/titanena/dates?src=own`,
+    page: `${O}/titanena?src=own`,
+    reviews: `${O}/titanena/review?src=own`,
   };
   assert.deepEqual([...PROMOTE_QR_MODES].sort(), ['dates', 'page', 'reviews', 'shortlist']);
   for (const mode of PROMOTE_QR_MODES) {
     const url = printQrUrl(mode, O, 'titanena');
-    if (mode === 'shortlist') assert.match(url, /\/vendor-invite\/titanena/, 'the shortlist code adds the couple through the invite');
+    if (mode === 'shortlist') assert.match(url, /\/titanena\/invite/, 'the shortlist code adds the couple through the invite');
     else assert.equal(url, want[mode], `the ${mode} code`);
   }
   assert.equal(ownDatesUrl(O, 'titanena'), want.dates);
@@ -63,13 +63,13 @@ test('RW-19 · every Promote code the supplier hands out is tagged as theirs (th
 test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → shop, the ask on dates, the review door', () => {
   // SHOP-02 v7: Check a date is a sheet over the shop; the printed address forwards with the arrival, and the sheet's
   // ask is stamped by the same rule.
-  assert.match(code('lib/check-a-date.ts'), /return withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrivalParams\(search\), extra\);/);
+  assert.match(code('lib/check-a-date.ts'), /return withShopArrival\(shopPath\(encodeURIComponent\(slug\)\), arrivalParams\(search\), extra\);/);
   assert.match(code('app/v/[slug]/_components/check-a-date-over-shop.tsx'), /inquirySource=\{arrivalInquirySourceOf\(search\.src\)\}/, 'the ask on Check a date is stamped by the same rule');
   assert.match(code('app/v/[slug]/dates/_components/check-a-date-calendar.tsx'), /checkDateAskLine\(day\) \},\s*inquirySource,/);
-  assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'own'), '/v/titanena?src=own#reviews');
-  assert.equal(reviewDoorTarget({ kind: 'moved', slug: 'titanena' } as never, 'own'), '/v/titanena/review?src=own');
-  assert.equal(reviewDoorTarget({ kind: 'sign_in', next: '/v/titanena/review' } as never, 'own'), `/login?next=${encodeURIComponent('/v/titanena/review?src=own')}`);
-  assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'evil'), '/v/titanena#reviews', 'only the own tag is carried');
+  assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'own'), '/titanena?src=own#reviews');
+  assert.equal(reviewDoorTarget({ kind: 'moved', slug: 'titanena' } as never, 'own'), '/titanena/review?src=own');
+  assert.equal(reviewDoorTarget({ kind: 'sign_in', next: '/titanena/review' } as never, 'own'), `/login?next=${encodeURIComponent('/titanena/review?src=own')}`);
+  assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'evil'), '/titanena#reviews', 'only the own tag is carried');
   assert.match(code('app/v/[slug]/review/route.ts'), /reviewDoorTarget\(door, request\.nextUrl\.searchParams\.get\('src'\)\)/);
 });
 

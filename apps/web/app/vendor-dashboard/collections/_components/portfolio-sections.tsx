@@ -363,7 +363,7 @@ export function MorePill({
   );
   // A pressable pill — the class list of the <button> / <Link> drawn just below.
   const cls =
-    'sn-press flex h-12 w-full min-w-0 items-center gap-2.5 rounded-lg border border-ink/10 bg-[color:var(--m-paper)] pl-3.5 pr-3 text-left text-[14.5px] font-medium text-ink'; // no-card-ok: a pressable pill (a <button> or <Link>), not a box
+    'sn-press flex h-12 w-full min-w-0 items-center gap-2.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] pl-3.5 pr-3 text-left text-[14.5px] font-medium text-ink'; // no-card-ok: a pressable pill (a <button> or <Link>), not a box
   return typeof open === 'function' ? (
     <button type="button" onClick={(e) => open(e.currentTarget)} className={cls} data-portfolio-pill={data}>
       {inner}

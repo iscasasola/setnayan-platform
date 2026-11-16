@@ -150,8 +150,7 @@ export function BranchManager({
               .map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-lg border bg-white p-2.5"
-                  style={{ borderColor: 'var(--m-line)' }}
+                  className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] p-2.5"
                 >
                   <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">{a.label}</dt>
                   <dd className="mt-0.5 text-ink">
@@ -281,8 +280,7 @@ function AddBranchForm({
   return (
     <form
       action={formAction}
-      className="space-y-3 rounded-xl border p-4"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-cream, #faf7f2)' }}
+      className="space-y-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] p-4"
     >
       <label className="block space-y-1">
         <span className="block text-xs font-medium text-ink/70">Branch name</span>
@@ -438,8 +436,7 @@ function BranchRow({
 
   return (
     <li
-      className="flex items-start justify-between gap-3 rounded-xl border bg-white p-3"
-      style={{ borderColor: 'var(--m-line)' }}
+      className="flex items-start justify-between gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[shadow:var(--sn-frame-shadow)] p-3"
     >
       <div className="min-w-0 space-y-1">
         <p className="truncate text-sm font-semibold text-ink">{branch.branch_label}</p>

@@ -58,3 +58,9 @@ export function ownTimesSlotInto(t: OwnTimes | null, linkedChapterIds: readonly 
 export function callTimeIsSet(rpcAt: string | null, ownCall: string | null | undefined): boolean {
   return rpcAt != null || Boolean(ownCall && isOwnClock(ownCall));
 }
+
+/**
+ * 🕕 Owner ruling A (2026-11-16): the anchor the chat's "DUE NOW · Set your call time" pin opens — the Your times control
+ * on the supplier's Schedule tab, settable before the hosts build their day.
+ */
+export const CALL_TIME_ANCHOR = 'own-times';

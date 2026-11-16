@@ -725,6 +725,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       { onConflict: 'event_id,vendor_profile_id' },
     );
     if (saveErr) return { ok: false, error: NOT_SENT_WORDS };
+    // 🕕 Ruling A: the chat's "Set your call time" pin counts this row as set — the chat reads it fresh.
+    revalidatePath('/vendor-dashboard/messages', 'layout');
     const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
     if (!chapterId || (!own.arrive && !own.done)) return done({ ok: true, outcome: 'done' });
     const { data: chapter } = await supabase

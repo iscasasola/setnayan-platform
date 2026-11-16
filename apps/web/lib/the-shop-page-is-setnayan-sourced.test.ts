@@ -37,27 +37,27 @@ test('the shop page stamps shop_page when untagged, website on ?src=own', () => 
   assert.equal(arrivalInquirySourceOf('explore'), 'explore');
   assert.equal(arrivalInquirySourceOf('anything-else'), 'shop_page');
   assert.equal(OWN_LINK_SRC, 'own');
-  assert.equal(ownPageUrl('https://www.setnayan.com', 'titanena'), `${myPageUrl('https://www.setnayan.com', 'titanena')}?src=own`);
+  assert.equal(ownPageUrl('https://www.setnayan.com', 'titanena', 'link'), `${myPageUrl('https://www.setnayan.com', 'titanena')}?src=own&via=link`);
 });
 
 test('RW-19 · every Promote code the supplier hands out is tagged as theirs (the shortlist code is the invite, never the shop)', () => {
   const O = 'https://www.setnayan.com';
   const want: Record<string, string> = {
-    dates: `${O}/v/titanena/dates?src=own`,
-    page: `${O}/v/titanena?src=own`,
-    reviews: `${O}/v/titanena/review?src=own`,
+    dates: `${O}/v/titanena/dates?src=own&via=tarp`,
+    page: `${O}/v/titanena?src=own&via=tarp`,
+    reviews: `${O}/v/titanena/review?src=own&via=tarp`,
   };
   assert.deepEqual([...PROMOTE_QR_MODES].sort(), ['dates', 'page', 'reviews', 'shortlist']);
   for (const mode of PROMOTE_QR_MODES) {
-    const url = printQrUrl(mode, O, 'titanena');
+    const url = printQrUrl(mode, O, 'titanena', 'tarp');
     if (mode === 'shortlist') assert.match(url, /\/vendor-invite\/titanena/, 'the shortlist code adds the couple through the invite');
     else assert.equal(url, want[mode], `the ${mode} code`);
   }
-  assert.equal(ownDatesUrl(O, 'titanena'), want.dates);
-  assert.equal(ownReviewsUrl(O, 'titanena'), want.reviews);
-  assert.match(code('lib/check-a-date-qr.ts'), /const url = ownDatesUrl\(origin, slug\);/, 'Promote’s Check a date code');
-  assert.match(code('app/api/vendor/door-sticker/route.ts'), /code === 'dates' \? ownDatesUrl\(siteOrigin\(\), slug\)/);
-  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const reviewsUrl = printQrUrl\('reviews', origin, slug!\);/);
+  assert.equal(ownDatesUrl(O, 'titanena', 'tarp'), want.dates);
+  assert.equal(ownReviewsUrl(O, 'titanena', 'tarp'), want.reviews);
+  assert.match(code('lib/check-a-date-qr.ts'), /const url = ownDatesUrl\(origin, slug, 'link'\);/, 'Promote’s Check a date code');
+  assert.match(code('app/api/vendor/door-sticker/route.ts'), /code === 'dates' \? ownDatesUrl\(siteOrigin\(\), slug, 'sticker'\)/);
+  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const reviewsUrl = printQrUrl\('reviews', origin, slug!, 'link'\);/);
 });
 
 test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → shop, the ask on dates, the review door', () => {
@@ -70,17 +70,17 @@ test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → sh
   assert.equal(reviewDoorTarget({ kind: 'moved', slug: 'titanena' } as never, 'own'), '/v/titanena/review?src=own');
   assert.equal(reviewDoorTarget({ kind: 'sign_in', next: '/v/titanena/review' } as never, 'own'), `/login?next=${encodeURIComponent('/v/titanena/review?src=own')}`);
   assert.equal(reviewDoorTarget({ kind: 'read', slug: 'titanena', reason: 'no_booking' } as never, 'evil'), '/v/titanena#reviews', 'only the own tag is carried');
-  assert.match(code('app/v/[slug]/review/route.ts'), /reviewDoorTarget\(door, request\.nextUrl\.searchParams\.get\('src'\)\)/);
+  assert.match(code('app/v/[slug]/review/route.ts'), /reviewDoorTarget\(door, request\.nextUrl\.searchParams\.get\('src'\), request\.nextUrl\.searchParams\.get\('via'\)\)/);
 });
 
 test('every code or link the SUPPLIER hands out is tagged as theirs', () => {
   assert.match(code('app/vendor-dashboard/page.tsx'), /const qrUrl = details\.slug \? ownPageUrl\(/);
   assert.match(code('app/vendor-dashboard/shop/page.tsx'), /const shareUrl = data\.slug \? ownPageUrl\(/);
   assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const pageUrl = ownPageUrl\(/);
-  assert.match(code('app/api/vendor/door-sticker/route.ts'), /ownPageUrl\(siteOrigin\(\), slug\)/);
-  assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'page'\) return ownPageUrl\(origin, slug\);/);
-  assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'reviews'\) return ownReviewsUrl\(origin, slug\);/);
-  assert.match(code('lib/supplier-prints-shop.ts'), /return ownDatesUrl\(origin, slug\);/);
+  assert.match(code('app/api/vendor/door-sticker/route.ts'), /ownPageUrl\(siteOrigin\(\), slug, 'sticker'\)/);
+  assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'page'\) return ownPageUrl\(origin, slug, via\);/);
+  assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'reviews'\) return ownReviewsUrl\(origin, slug, via\);/);
+  assert.match(code('lib/supplier-prints-shop.ts'), /return ownDatesUrl\(origin, slug, via\);/);
 });
 
 test('the migration adds shop_page to the CHECK and to the sourced surfaces', () => {

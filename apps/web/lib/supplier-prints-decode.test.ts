@@ -63,23 +63,24 @@ test('seven sides carry the code — every piece but the card’s front', () => 
 
 test('the printed address is the one the Promote codes already build — never typed here', () => {
   // 💳 RW-19 (walk 13 Nov 2026): every printed code is the supplier's own — ?src=own on Check a date and Reviews too.
-  assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${checkADateUrl(ORIGIN, SLUG)}?src=own`);
+  // 🏷 …and names the piece it is printed on (owner 2026-11-16): via=<piece id>.
+  assert.equal(printQrUrl('dates', ORIGIN, SLUG, 'card'), `${checkADateUrl(ORIGIN, SLUG)}?src=own&via=card`);
   // 💳 A printed My page code is the supplier's own link: ?src=own (owner 2026-11-13, F-W1-58).
-  assert.equal(printQrUrl('page', ORIGIN, SLUG), ownPageUrl(ORIGIN, SLUG));
-  assert.equal(printQrUrl('shortlist', ORIGIN, SLUG), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
-  assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${ORIGIN}/v/${SLUG}/dates?src=own`);
+  assert.equal(printQrUrl('page', ORIGIN, SLUG, 'tarp'), ownPageUrl(ORIGIN, SLUG, 'tarp'));
+  assert.equal(printQrUrl('shortlist', ORIGIN, SLUG, 'tarp'), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
+  assert.equal(printQrUrl('dates', ORIGIN, SLUG, 'backdrop'), `${ORIGIN}/v/${SLUG}/dates?src=own&via=backdrop`);
   // Reviews opens the WRITE door (owner 2026-11-06 "Write a review"): /v/<slug>/review → the couple's "Leave a review",
   // or the shop page's reviews section (`<section id="reviews">` on /v/[slug]) for anyone without a booking ready for one.
-  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${myPageUrl(ORIGIN, SLUG)}/review?src=own`);
-  assert.equal(printQrUrl('reviews', ORIGIN, SLUG), `${ORIGIN}${reviewDoorPath(SLUG)}?src=own`);
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG, 'standee'), `${myPageUrl(ORIGIN, SLUG)}/review?src=own&via=standee`);
+  assert.equal(printQrUrl('reviews', ORIGIN, SLUG, 'standee'), `${ORIGIN}${reviewDoorPath(SLUG)}?src=own&via=standee`);
   assert.ok(existsSync(new URL('../app/v/[slug]/review/route.ts', import.meta.url)), 'the Reviews code prints an address with no route behind it');
   assert.match(readFileSync(new URL('../app/v/[slug]/page.tsx', import.meta.url), 'utf8'), /<section id="reviews"/, 'the shop page lost the #reviews section the Reviews door falls back to');
 });
 
 for (const d of PRINT_DESIGNS) {
   test(`${d.name}: the Check a date code scans on every piece that carries it`, async () => {
-    const url = printQrUrl('dates', ORIGIN, SLUG);
     for (const [p, s] of SIDES) {
+      const url = printQrUrl('dates', ORIGIN, SLUG, p.id); // 🏷 each piece's code names that piece
       const svg = renderPrint({ piece: p, design: d, shop: BUSY, qr: { mode: 'dates', url }, side: s });
       assert.equal(await scan(svg, widthFor(p)), url, `${d.name} · ${p.name}${s === 'b' ? ' (back)' : ''} does not scan to ${url}`);
     }
@@ -88,8 +89,8 @@ for (const d of PRINT_DESIGNS) {
 
 test('every code scans on every piece (Check a date · Shortlist · My page · Reviews)', async () => {
   for (const mode of PRINT_QR_ORDER) {
-    const url = printQrUrl(mode, ORIGIN, SLUG);
     for (const [p, s] of SIDES) {
+      const url = printQrUrl(mode, ORIGIN, SLUG, p.id);
       const svg = renderPrint({ piece: p, design: PRINT_DESIGNS[0]!, shop: PLAIN, qr: { mode, url }, side: s });
       assert.equal(await scan(svg, widthFor(p)), url, `${mode} on ${p.name} does not scan`);
     }
@@ -97,10 +98,10 @@ test('every code scans on every piece (Check a date · Shortlist · My page · R
 });
 
 test('the Save files scan too — exact size, bleed and all (Jet mono, Spotlight, Kraft: the darkest, the busiest grounds)', async () => {
-  const url = printQrUrl('dates', ORIGIN, SLUG);
   for (const id of ['mono', 'spotlight', 'kraft'] as const) {
     const d = PRINT_DESIGNS.find((x) => x.id === id)!;
     for (const p of PRINT_PIECES) {
+      const url = printQrUrl('dates', ORIGIN, SLUG, p.id);
       const svg = renderPrint({ piece: p, design: d, shop: BUSY, qr: { mode: 'dates', url }, for: 'print' });
       // the card's file is front over back: the code is in its lower half
       // rasterised at a density that draws the file ~widthFor(p) px wide (an 8 ft backdrop at 144 dpi is 1.9 gigapixels)

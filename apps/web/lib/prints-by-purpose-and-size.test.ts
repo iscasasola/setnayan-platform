@@ -58,7 +58,7 @@ const FULL: PrintShop = {
   about: 'A family kitchen that cooks for the whole hall and serves it warm.',
   ownDomain: 'casabuenaventura.ph',
 };
-const QR = printQr('dates', ORIGIN, SLUG);
+const QR = printQr('dates', ORIGIN, SLUG, 'card');
 const DESIGN = PRINT_DESIGNS[0]!;
 const piece = (id: string) => PRINT_PIECES.find((p) => p.id === id)!;
 const sidesOf = (p: PrintPiece) => (p.sides === 2 ? (['f', 'b'] as const) : (['f'] as const));

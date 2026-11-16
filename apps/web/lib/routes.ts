@@ -168,9 +168,6 @@ export const routes = {
     },
     og: {
       manifesto: () => `/api/og/manifesto`,
-      realstory: {
-        detail: (slug: string) => `/api/og/realstory/${slug}`,
-      },
       realstorySlug: {
         detail: (slug: string) => `/api/og/realstory-slug/${slug}`,
       },
@@ -256,10 +253,6 @@ export const routes = {
   auth: {
     callback: () => `/auth/callback`,
     signOut: () => `/auth/sign-out`,
-  },
-  blog: {
-    index: () => `/blog`,
-    detail: (slug: string) => `/blog/${slug}`,
   },
   dashboard: {
     index: () => `/dashboard`,
@@ -467,10 +460,6 @@ export const routes = {
   proposals: {
     detail: (publicId: string) => `/proposals/${publicId}`,
   },
-  realstories: {
-    index: () => `/realstories`,
-    detail: (slug: string) => `/realstories/${slug}`,
-  },
   receipts: {
     detail: (receiptId: string) => `/receipts/${receiptId}`,
   },
@@ -481,7 +470,6 @@ export const routes = {
     // a redirect; point callers straight at the one editor.
     detail: (eventId: string) => `/dashboard/${eventId}/website/editor`,
   },
-  sitemapBlogXml: () => `/sitemap-blog.xml`,
   sitemapHelpXml: () => `/sitemap-help.xml`,
   sitemapStaticXml: () => `/sitemap-static.xml`,
   sitemapVendorsXml: () => `/sitemap-vendors.xml`,
@@ -534,7 +522,6 @@ export const routes = {
     paymentOptions: () => `/vendor-dashboard/payment-options`,
     profile: () => `/vendor-dashboard/profile`,
     proposals: () => `/vendor-dashboard/proposals`,
-    realStories: () => `/vendor-dashboard/real-stories`,
     recaps: () => `/vendor-dashboard/recaps`,
     repertoire: () => `/vendor-dashboard/repertoire`,
     reviews: () => `/vendor-dashboard/reviews`,

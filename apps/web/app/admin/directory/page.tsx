@@ -1,28 +1,17 @@
 /**
- * /admin/directory — mobile overflow landing for the Accounts group.
+ * /admin/directory — the People tab's dashboard (admin reorg v7, the drawing's "5 tab dashboards", owner 17 Nov 2026).
  *
- * OWNER DIRECTIVE 2026-07-04: mobile menus mirror the desktop sidebar. This
- * Accounts landing DERIVES its cards from the 'directory' group of the
- * canonical ADMIN_NAV_GROUPS (admin-sidebar.tsx) — no hand-mirrored item list.
- * Every NavItem here maps 1:1 to the desktop Accounts group by construction.
- *
- * SCOPE: server component, hidden at lg+ via lg:hidden — desktop reaches these
- * through the sidebar's Accounts group directly.
+ * It was the retired phone card grid for the Accounts group. It now draws People's head numbers and its three group
+ * cards (Look up · Papers · Ties), each opening its ONE merged page with the view preselected. Drawn by the shared
+ * `TabLanding`.
  */
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { TabLanding } from '../_components/tab-landing';
 
-import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
-import { MobileLandingGrid } from '../_components/mobile-landing-grid';
-import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
+export const dynamic = 'force-dynamic';
+export const metadata = { title: 'People · Admin' };
 
-export const metadata = { title: 'People & shops · Admin' };
-
-export default function AdminDirectoryLanding() {
-  const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'directory');
-
-  return (
-    <MobileLandingGrid
-      title="People & shops"
-      items={items}
-    />
-  );
+export default async function AdminPeopleLanding() {
+  await requireAdmin();
+  return <TabLanding tab="people" />;
 }

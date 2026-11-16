@@ -33,6 +33,10 @@ import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
 import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
 import { VisitsSurface } from './_surfaces/visits-surface';
 import { AdminTotalsSurface } from './_surfaces/admin-totals-surface';
+import DemandPage from '../demand/page';
+import PapicStoragePage from '../papic-storage/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
+import { TabLanding } from '@/app/admin/_components/tab-landing';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -223,7 +227,7 @@ function activeSurface(
   }
 }
 
-export default async function InsightsStudioPage({ searchParams }: Props) {
+async function InsightsStudioPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
@@ -263,4 +267,24 @@ export default async function InsightsStudioPage({ searchParams }: Props) {
       </Suspense>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Insights · View ▾ — one read-only page.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?tab=` preselected (`lib/admin/admin-pages.ts`). Every other `?tab=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'demand': DemandPage,
+  'papic-storage': PapicStoragePage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.tab;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  // The bare address is the Insights dashboard (the tab's landing); Overview is ?tab=overview, one tap away.
+  if (key === undefined && Object.keys(sp).length === 0) return <TabLanding tab="insights" />;
+  return mountView(InsightsStudioPage, sp);
 }

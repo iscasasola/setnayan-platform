@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   Globe,
   Video,
@@ -30,6 +31,10 @@ import { ReferralsSurface } from './_surfaces/referrals-surface';
 import { SocialQueueSurface } from './_surfaces/social-queue-surface';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import FrontDoorVideosPage from '../background-videos/page';
+import WebsiteMediaPage from '../website-media/page';
+import HubMusicPage from '../hub-music/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 /**
  * Studio Studio (slice 1) — the tabbed /admin/studio shell that consolidates
  * the Studio menu (the `media` group in ADMIN_NAV_GROUPS) into one surface.
@@ -114,8 +119,6 @@ const RAIL: RailItem[] = [
   { key: 'social-queue', label: 'Social queue', icon: Share2, group: 'Marketing', wired: true, legacyHref: '/admin/social-queue' },
   { key: 'spotlight-awards', label: 'Spotlight Awards', icon: Trophy, group: 'Marketing', wired: true, legacyHref: '/admin/spotlight-awards' },
   { key: 'journal-spotlights', label: 'Journal Spotlights', icon: BookOpen, group: 'Marketing', wired: true, legacyHref: '/admin/journal-spotlights' },
-  { key: 'discount-codes', label: 'Discount codes', icon: Tag, group: 'Marketing', wired: true, legacyHref: '/admin/discount-codes' },
-  { key: 'referrals', label: 'Referrals', icon: Gift, group: 'Marketing', wired: true, legacyHref: '/admin/referrals' },
 ];
 
 const GROUPS = ['Content', 'Marketing'] as const;
@@ -128,7 +131,7 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function AdminStudioPage({ searchParams }: Props) {
+async function AdminStudioPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
@@ -229,4 +232,30 @@ export default async function AdminStudioPage({ searchParams }: Props) {
       </div>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Catalogue › Studio · What ▾ — Templates & media + Stories & social as one page (call 13).
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?tab=` preselected (`lib/admin/admin-pages.ts`). Every other `?tab=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'background-videos': FrontDoorVideosPage,
+  'website-media': WebsiteMediaPage,
+  'hub-music': HubMusicPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.tab;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  // Discount codes and Referrals moved to Money › Offers & gifts (owner call 12): their old tab forwards, query kept.
+  if (key === 'discount-codes' || key === 'referrals') {
+    const q = new URLSearchParams();
+    for (const [k, val] of Object.entries(sp)) if (k !== 'tab') for (const x of [val].flat()) if (x !== undefined) q.append(k, x);
+    q.set('view', key);
+    redirect(`/admin/offers?${q.toString()}`);
+  }
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminStudioPage, sp);
 }

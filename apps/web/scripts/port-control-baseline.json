@@ -2481,11 +2481,13 @@
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
         "admin/_components/kpi-stat-card.tsx",
+        "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-kit.tsx",
         "admin/_components/record-search.ts",
+        "admin/_components/tab-landing.tsx",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
         "admin/error.tsx",
@@ -2609,6 +2611,7 @@
         "FocusCardSheet",
         "FocusHome",
         "Fold",
+        "Fragment",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -2621,6 +2624,7 @@
         "MoreSearch",
         "Notice",
         "OverlayBackdrop",
+        "P",
         "PageMasthead",
         "PickMenu",
         "PinnedRow",
@@ -2850,6 +2854,7 @@
         "ResolveDriftButton",
         "Row",
         "Rows",
+        "SearchParamsRecord",
         "Sec",
         "SeoRerunButton",
         "SeoSurface",
@@ -2862,6 +2867,7 @@
         "StackedBars",
         "StatusPill",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TypedRow",
         "VendorPicker",
@@ -2998,6 +3004,7 @@
         "FormRows",
         "LoaderAppearanceCard",
         "PageMasthead",
+        "SearchParamsRecord",
         "SentrySmokeTestButton",
         "SettingRow",
         "TemplateFail",
@@ -3624,7 +3631,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "TabLanding"
       ]
     },
     "/admin/discount-codes": {
@@ -4006,7 +4013,8 @@
         "HelpMessageRow",
         "HelpMessenger",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "SearchParamsRecord"
       ]
     },
     "/admin/hub-music": {
@@ -4217,7 +4225,9 @@
         "Link",
         "RevenueSummary",
         "Row",
+        "SearchParamsRecord",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TransactionsLedger"
       ]
@@ -4278,6 +4288,18 @@
       "blocks": [
         "NpcTaskResult",
         "NpcTaskStatus"
+      ]
+    },
+    "/admin/offers": {
+      "files": [
+        "admin/offers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DiscountCodesSurface",
+        "ReferralsSurface",
+        "SearchParamsRecord"
       ]
     },
     "/admin/offline": {
@@ -4444,6 +4466,7 @@
         "FormDate",
         "FormPick",
         "FormRows",
+        "Fragment",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
@@ -4462,6 +4485,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "SearchParamsRecord",
         "ServiceRemedyForms",
         "SubmitButton",
         "TemplateEmpty",
@@ -5122,6 +5146,7 @@
         "RevealStudio",
         "RevealStudioSurface",
         "ScheduledPostCard",
+        "SearchParamsRecord",
         "ShowcaseAdminRow",
         "SiteWidgetPage",
         "SocialQueueSurface",
@@ -5183,6 +5208,7 @@
         "DemoModeSurface",
         "PageMasthead",
         "SampleEventSwitch",
+        "SearchParamsRecord",
         "SettingRow",
         "SettingValue",
         "TemplateFail",
@@ -5243,6 +5269,7 @@
         "Resolution",
         "ScreenRow",
         "ScreensSurface",
+        "SearchParamsRecord",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
@@ -5364,6 +5391,7 @@
         "InfoTip",
         "PageMasthead",
         "SearchParams",
+        "SearchParamsRecord",
         "SubmitButton"
       ]
     },
@@ -5735,8 +5763,10 @@
         "Preview",
         "QueuesTriageFeed",
         "ReasonPick",
+        "SearchParamsRecord",
         "SupplierInbox",
         "Suspense",
+        "TabLanding",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"
@@ -15740,6 +15770,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "Explain",
         "HTMLElement",
         "Icon",
         "InfoTip",
@@ -15756,6 +15787,7 @@
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
+        "PickedHeadLine",
         "PipelinePressureLine",
         "PlusDoor",
         "ProposalMaker",
@@ -15780,6 +15812,7 @@
         "SupplierChatsPage",
         "Suspense",
         "ThreadAnswerLine",
+        "ThreadAskRow",
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadDrawn",

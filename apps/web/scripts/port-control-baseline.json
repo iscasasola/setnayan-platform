@@ -2186,7 +2186,8 @@
         "Link",
         "RevealOverlayServer",
         "SealMark",
-        "TicketPicture"
+        "TicketPicture",
+        "VendorInvitePage"
       ]
     },
     "/[slug]/invite/enter": {
@@ -2673,6 +2674,8 @@
         "/?browse=1&demo=1&category=catering",
         "/?browse=1&demo=1&category=photography",
         "/?browse=1&demo=1&category=wedding_coordination",
+        "/admin/accounts?tab=venues",
+        "/admin/accounts?tab=venues&type=[seg]",
         "/admin/approvals",
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
@@ -2681,10 +2684,8 @@
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
         "/admin/vendors/[seg]/team",
-        "/admin/venues",
         "/admin/venues/[seg]",
-        "/admin/venues/new",
-        "/admin/venues?type=[seg]"
+        "/admin/venues/new"
       ],
       "actions": [
         "blacklistUser",
@@ -3635,8 +3636,8 @@
         "admin/discount-codes/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes",
-        "/admin/users"
+        "/admin/accounts?tab=users",
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "action",
@@ -3655,7 +3656,7 @@
         "admin/discount-codes/[id]/edit/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes"
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "updateDiscountCode"
@@ -3673,7 +3674,7 @@
         "admin/discount-codes/new/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes"
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "createDiscountCode"
@@ -4899,8 +4900,8 @@
       ],
       "destinations": [
         "/?browse=1",
+        "/admin/accounts?tab=demo-vendors",
         "/admin/compliance/data-sheet",
-        "/admin/demo-vendors",
         "/admin/email-delivery",
         "/admin/settings/payment-methods",
         "/admin/ugat?tab=onboarding"
@@ -5462,7 +5463,7 @@
         "admin/vendors/[vendorProfileId]/edit/page.tsx"
       ],
       "destinations": [
-        "/admin/vendors"
+        "/admin/accounts?tab=vendors"
       ],
       "actions": [],
       "blocks": [
@@ -5495,7 +5496,7 @@
         "admin/vendors/[vendorProfileId]/team/page.tsx"
       ],
       "destinations": [
-        "/admin/vendors",
+        "/admin/accounts?tab=vendors",
         "/admin/vendors/[seg]/plan"
       ],
       "actions": [],
@@ -5528,7 +5529,7 @@
         "admin/venues/[id]/page.tsx"
       ],
       "destinations": [
-        "/admin/venues"
+        "/admin/accounts?tab=venues"
       ],
       "actions": [
         "deleteVenue",
@@ -7398,9 +7399,9 @@
         "dashboard/[eventId]/date-selection/page.tsx"
       ],
       "destinations": [
+        "/?category=date_fengshui_consultant",
         "/dashboard/[seg]/date-selection?path=direct",
-        "/dashboard/[seg]/date-selection?path=guided",
-        "/explore?category=date_fengshui_consultant"
+        "/dashboard/[seg]/date-selection?path=guided"
       ],
       "actions": [
         "lockThisDate",
@@ -8156,9 +8157,9 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/send",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?tool=details&item=theme",
-        "/dashboard/[seg]/launch?tool=rsvp-page",
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch?tool=rsvp-page"
       ],
       "actions": [],
       "blocks": [
@@ -10709,7 +10710,7 @@
         "dashboard/[eventId]/studio/papic/crew/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch"
       ],
       "actions": [],
       "blocks": [
@@ -11402,6 +11403,7 @@
         "NewManualVendorModal",
         "NextPayButton",
         "NotSharedWithYou",
+        "NotYetVerifiedThreadLine",
         "OverlayBackdrop",
         "OwnPayWays",
         "PageMasthead",
@@ -12334,7 +12336,7 @@
       ],
       "destinations": [
         "/",
-        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/website/editor"
       ],
       "actions": [
@@ -16261,8 +16263,8 @@
         "vendor-dashboard/performance/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/calendar",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?tab=calendar",
         "/vendor-dashboard/messages",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/shop/promote",

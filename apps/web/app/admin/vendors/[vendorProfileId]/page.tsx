@@ -31,9 +31,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel } from '@/lib/vendors';
 import { cardAnchorId } from '@/lib/service-card-view-model';
 import { cardStatusOf } from '@/lib/service-card-moderation';
-import { readRenewalRecord, type RenewalRecord } from '@/lib/papers-renewal-admin.server';
-import { paperDay, reminderSentLine, renewalDayWords, renewalStage, type RenewalStage } from '@/lib/papers-renewal';
-import { manilaDateKey } from '@/lib/verified-badge';
+import { readRenewalRecord } from '@/lib/papers-renewal-admin.server';
+import { renewalDayWords, renewalStage } from '@/lib/papers-renewal';
+import { RenewalRecordFacts } from './_components/renewal-record';
 import { ServiceCardsSection, type AdminServiceCard } from './_components/service-cards-section';
 import { SampleShopSwitch } from './_components/sample-shop-switch';
 
@@ -466,54 +466,3 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
   );
 }
 
-/**
- * 📄 The shop's renewal, as §5 of the approved "Papers renewal" design draws it: why, the verified window, what
- * carries on, what is paused, the papers on file and every reminder that went out. No button lets a shop through
- * by hand here — verification decides that, from the papers.
- */
-function RenewalRecordFacts({
-  stage,
-  dueAt,
-  lastVerifiedAt,
-  record,
-}: {
-  stage: RenewalStage;
-  dueAt: string | null;
-  lastVerifiedAt: string | null;
-  record: RenewalRecord;
-}) {
-  const day = dueAt ? `${renewalDayWords(dueAt)} ${manilaDateKey(new Date(dueAt)).slice(0, 4)}` : '—';
-  const lapsed = stage === 'lapsed';
-  const bookings = record.bookings === null ? COULD_NOT_LOAD : `${formatCount(record.bookings)} carry on`;
-  return (
-    <>
-      <RecordFacts
-        items={[
-          ['Why', lapsed ? `Papers not renewed by ${day}` : `Papers due by ${day}`],
-          ['Verified', `${lastVerifiedAt ? paperDay(manilaDateKey(new Date(lastVerifiedAt))) : '—'} – ${day}`],
-          ['Bookings', bookings],
-          ['New couples', lapsed ? 'Out of Find and Discover' : 'Can find and book the shop'],
-          ['Plan', lapsed ? 'Free until verified again' : 'Unchanged'],
-        ]}
-      />
-      <RecordFacts
-        label="Papers"
-        items={
-          record.papers === null
-            ? [['Papers', COULD_NOT_LOAD]]
-            : record.papers.map((p, i) => [['DTI or SEC', 'BIR 2303', 'Business Permit'][i]!, `${p.tag} · ${p.text}`] as const)
-        }
-      />
-      <RecordFacts
-        label="Reminders sent"
-        items={
-          record.reminders === null
-            ? [['Reminders sent', COULD_NOT_LOAD]]
-            : record.reminders.length === 0
-              ? [['Reminders sent', 'None yet']]
-              : record.reminders.map((r, i) => [`Sent ${formatCount(i + 1)}`, reminderSentLine(r.at, r.stage)] as const)
-        }
-      />
-    </>
-  );
-}

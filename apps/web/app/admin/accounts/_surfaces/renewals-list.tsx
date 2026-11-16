@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { formatCount } from '@/lib/format-number';
-import { readRenewalsList } from '@/lib/papers-renewal-admin.server';
+import { readRenewalsList, type RenewalListRow } from '@/lib/papers-renewal-admin.server';
 import { RENEWAL_BUCKET_LABEL, adminPapersSummary, paperDay, renewalDayWords, type RenewalBucket } from '@/lib/papers-renewal';
 import { manilaDateKey } from '@/lib/verified-badge';
 import { CalendarClock } from 'lucide-react';
@@ -15,7 +15,11 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 const ORDER: RenewalBucket[] = ['lapsed', 'due_week', 'renewed'];
 
 export async function RenewalsList() {
-  const rows = await readRenewalsList();
+  return <RenewalsTable rows={await readRenewalsList()} />;
+}
+
+/** The drawn list — exported so the dev lab mounts this, not a copy. `null` rows = the read was refused. */
+export function RenewalsTable({ rows }: { rows: RenewalListRow[] | null }) {
   const count = (b: RenewalBucket) => (rows ?? []).filter((r) => r.bucket === b).length;
   const ordered = rows === null ? null : ORDER.flatMap((b) => rows.filter((r) => r.bucket === b));
   return (

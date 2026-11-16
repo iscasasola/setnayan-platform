@@ -7,6 +7,7 @@ import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supp
 import { ProfileChecklistEditor } from '../../shop/_components/profile-checklist-editor';
 import { VenueMatchCard } from '../../shop/_components/venue-match-card';
 import { VenueTypeCard } from '../../shop/_components/venue-type-card';
+import { asksVenueType } from '@/lib/vendor-venue-type';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
 import { SuggestedCoverageCard } from '../../shop/_components/suggested-coverage-card';
 import { VisibilityCard } from '../../shop/_components/visibility-card';
@@ -194,7 +195,8 @@ export function DetailsScreen({
                 showProgress={false}
                 asks={asks}
               />
-              <VenueTypeCard initialVenueType={d.venueType} />
+              {/* W1-B26: asked of a venue only, never a cake shop (`asksVenueType`). */}
+              {asksVenueType(d.profileFields.services, d.venueType) ? <VenueTypeCard initialVenueType={d.venueType} /> : null}
               <VenueMatchCard
                 initialVenueSettings={d.compatibleVenueSettings}
                 initialCeremonyTypes={d.compatibleCeremonyTypes}

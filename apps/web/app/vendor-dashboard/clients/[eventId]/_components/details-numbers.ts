@@ -2,7 +2,7 @@
  * 🔢 THE THREE NUMBERS AT THE TOP OF DETAILS (THE ONE BUILD, 8 Nov 2026 · v113 `pgExtra` `three` · slice plan 3 D2/D3).
  *
  *   BOOKED      Paid (received) · Balance (to collect / all paid) · Event day (today · tomorrow · in N days · done)
- *   NOT BOOKED  Quote (the sent quote's total / "not sent") · Schedules "—" · Event day ("they asked")
+ *   NOT BOOKED  Quote (the sent quote's total / "not sent") · Schedules (meetings to come, else "—") · Event day ("they asked")
  *
  * 🛑 NEVER "all paid" WITHOUT A BOOKING (spec §4 / §9 #22): a client who owes nothing because nothing is booked is a
  * false green. And never "all paid" when no amount was ever set — nothing owed is not everything paid.
@@ -36,8 +36,22 @@ export type DetailsNumbersInput = {
   sentQuotePhp: number | null | undefined;
   /** 👥 RW-108: a claimed per-guest booking's figure and count (`readShopPerGuest`), when no quote was sent. */
   perGuest?: { totalPhp: number | null; guests: number } | null;
+  /**
+   * 🗓 W1-B29: this client's meetings still to come — counted from the SAME read and rule the Clients list's Schedules
+   * tile and its list use (`openMeetingsWindow`, `clients-tiles.ts`). `null` = the read was refused ("couldn't load",
+   * never "none yet"); absent = not read (a lab).
+   */
+  meetings?: number | null;
   peso: (php: number) => string;
 };
+
+/** Not booked: the Schedules cell — this client's meetings to come, never a hard-coded "none yet" over a real one. */
+function schedulesCell(meetings: number | null | undefined): DetailsNumber {
+  const base = { key: 'schedules' as const, label: 'Schedules', page: 'schedule' as const };
+  if (meetings === null) return { ...base, value: '—', sub: 'couldn’t load' };
+  if (!meetings) return { ...base, value: '—', sub: 'none yet' };
+  return { ...base, value: meetings.toLocaleString('en-PH'), sub: 'coming up' };
+}
 
 const DAY_MS = 86_400_000;
 
@@ -70,7 +84,7 @@ export function detailsNumbers(i: DetailsNumbersInput): DetailsNumber[] {
           : i.sentQuotePhp === undefined
           ? { key: 'quote', label: 'Quote', value: '—', sub: 'not sent', page: 'quote' }
           : { key: 'quote', label: 'Quote', value: i.peso(i.sentQuotePhp), sub: 'sent', page: 'quote' };
-    return [quote, { key: 'schedules', label: 'Schedules', value: '—', sub: 'none yet', page: 'schedule' }, eventCell(i)];
+    return [quote, schedulesCell(i.meetings), eventCell(i)];
   }
   let paid: DetailsNumber;
   let balance: DetailsNumber;

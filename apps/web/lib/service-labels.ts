@@ -39,7 +39,7 @@ export const readServiceLabels = cache(async (): Promise<Record<string, string>>
 
 /** The label for a key: the admin's, else the key's own words ("hair_touchup_station" → "Hair touchup station"). */
 export function serviceLabelOf(labels: Readonly<Record<string, string>>, key: string): string {
-  const own = labels[key];
+  const own = labels[key] || serviceDisplayName(key, '');
   if (own) return own;
   const words = key.replace(/_/g, ' ').trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;

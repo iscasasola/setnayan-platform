@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { serviceDisplayName } from '@/lib/service-display-name';
 
 /**
  * Vendor coverage read layer (Vendor Services rework 2026-07-02).
@@ -101,15 +102,15 @@ export const getCoverageTaxonomy = cache(async (): Promise<CoverageParent[]> => 
   const parents = cats.filter((c) => c.tier === 1 && isActive(c));
   const tiles = cats.filter((c) => c.tier === 2 && isActive(c));
   const tileById = new Map(tiles.map((t) => [t.id, t]));
-  // W1-B22: the admin's name, with a seed's wrong words corrected for display only (`serviceDisplayName`).
-  const displayName = new Map(schemas.map((s) => [s.canonical_service, serviceDisplayName(s.canonical_service, s.display_name_en)]));
+  const displayName = new Map(schemas.map((s) => [s.canonical_service, s.display_name_en ?? '']));
 
   const leavesByTile = new Map<string, CoverageLeaf[]>();
   for (const cs of canon) {
     if (cs.marketplace_hidden === true || !cs.tile_id) continue;
     const tile = tileById.get(cs.tile_id);
     if (!tile) continue; // parent tile retired/hidden → drop leaf
-    const label = (displayName.get(cs.canonical_service) || '').trim() || humanize(cs.canonical_service);
+    // W1-B22: the admin's name, a seed's wrong words corrected for display only (`serviceDisplayName`).
+    const label = serviceDisplayName(cs.canonical_service, displayName.get(cs.canonical_service)) || humanize(cs.canonical_service);
     const allowedEventTypes =
       cs.applicable_event_types && cs.applicable_event_types.length
         ? cs.applicable_event_types

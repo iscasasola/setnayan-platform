@@ -11,6 +11,7 @@
  */
 import { TAXONOMY_MAP, WEDDING_FOLDER_ORDER, WEDDING_FOLDER_SHORT_LABEL, type WeddingFolder } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
+import { SERVICE_NAME_PH } from '@/lib/taxonomy-service-names';
 
 /** The shape `/explore`'s category search (`taxonomy-search.tsx`'s `TaxonomyOption`) renders. */
 export type MarketplaceCategoryOption = {
@@ -23,14 +24,16 @@ export type MarketplaceCategoryOption = {
 // Derive a human-readable label from a snake_case canonical_service key.
 // Pre-baked overrides for cases that don't title-case cleanly (acronyms,
 // hyphenated terms, Setnayan-branded SKUs).
+//
+// Build T1 (2026-11-16): a service's Philippine name (`SERVICE_NAME_PH`, the spec's words) wins; this override list
+// now only carries Setnayan's own products, which the spec does not name.
 const TAXONOMY_LABEL_OVERRIDE: Record<string, string> = {
-  pre_nup_photographer: 'Pre-Nup Photographer',
-  pre_nup_shoot_locations: 'Pre-Nup Shoot Locations',
   setnayan_papic: 'Setnayan · Papic',
   setnayan_ai_edited_highlight: 'Setnayan · AI Highlight',
 };
 
 export function taxonomyLabel(key: string): string {
+  if (SERVICE_NAME_PH[key]) return SERVICE_NAME_PH[key];
   if (TAXONOMY_LABEL_OVERRIDE[key]) return TAXONOMY_LABEL_OVERRIDE[key];
   return key
     .split('_')

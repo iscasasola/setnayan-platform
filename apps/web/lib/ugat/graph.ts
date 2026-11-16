@@ -294,6 +294,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
       { key: '', name: 'hint_en', note: 'service_categories: the ⓘ text of a group or category, written on /admin/categories (owner 2026-10-31) — Find\u2019s ⓘ reads it first, never hidden · canonical_service_schemas: a service\u2019s one-line ⓘ definition, same field (plan D4, 2026-11-07) — empty = no ⓘ, read by lib/service-definitions.server.ts' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
+      { key: '', name: 'merged_into', note: 'a folded service\u2019s forward (merge_canonical_service); the row is kept so an old key still resolves. Build T1 (2026-11-16) put the tree on the owner-approved Philippine taxonomy: supabase/data/taxonomy-ph-2026-11-07.json is the target, held by lib/t1-taxonomy-is-the-spec.test.ts and its .db twin' },
     ],
     edges: [
       { verb: 'preferences', to: 'TYPE-EVENTS' },

@@ -48,7 +48,10 @@ test('Trusted by is still the shop\'s own choice, keeps "couldn\'t load", and is
 test('each partner wears the app\'s own kind words, strongest first, and its round shop photo', () => {
   assert.match(PAGE, /kindLabel: PARTNERSHIP_PUBLIC_LABEL\[v\.relationshipType\]/);
   assert.match(TRUSTED, /PARTNERSHIP_RANK\[b\.relationshipType\] - PARTNERSHIP_RANK\[a\.relationshipType\]/, 'sorted by the one rank, strongest first');
-  assert.match(TRUSTED, /logoRef: nameRevealed \?/, 'a still-hidden partner never shows its logo — it would name the shop');
+  // 🏷 Was "a still-hidden partner never shows its logo". Owner ruling 2026-11-16 (15) — real shop name everywhere —
+  // shows every partner's logo and link; the reveal rule no longer gates either.
+  assert.match(TRUSTED, /logoRef: \(p\.logo_url as string \| null\) \?\? null,/, 'every partner wears its stored logo');
+  assert.doesNotMatch(TRUSTED, /isVendorNameRevealed\(/, 'a partner is still hidden behind the old reveal rule');
   assert.match(PAGE, /logoUrl: v\.logoRef \? await resolveDisplayUrl\(v\.logoRef\) : null/);
   assert.match(PAGE, /initials: shopInitials\(/);
 });

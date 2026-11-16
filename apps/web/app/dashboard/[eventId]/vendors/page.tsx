@@ -40,7 +40,7 @@ import { resolveLivePax } from '@/lib/pax';
 import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 import { claimReveals, invitedCoupleName, revealFor, type AnsweredClaimAsk, type ClaimReveal } from '@/lib/supplier-corrections';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
@@ -962,25 +962,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         services: s.services,
         screen_name: a?.screen_name ?? null,
       });
-      // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the vendor's
-      // real logo is as identifying as their business name, so it must stay
-      // masked until the SAME predicate that reveals the name says reveal.
-      // Reuse `isVendorNameRevealed` (the source of truth behind
-      // `resolveVendorDisplayName`) so the shortlist card's logo can never drift
-      // from its label — pre-reveal we drop the logo and the card falls back to
-      // screen-name initials, matching the Messages thread-list fix.
-      const nameRevealed = isVendorNameRevealed({
-        name_revealed_at: a?.name_revealed_at ?? null,
-        isPaidTier: isTrueNameTier(a?.tier_state ?? null),
-        is_verified: a?.verification_state === 'verified',
-        services: s.services,
-      });
+      // 🏷 The shop's logo shows with its real name for every shop (owner ruling 2026-11-16 (15) — real shop name
+      // everywhere; the Messages list follows the same ruling). Was: masked until `isVendorNameRevealed` (Data Flow
+      // Map audit gap #6), which kept the card on screen-name initials.
       // 🔓 The couple who invited this supplier and let them in already knows who it is: their row reads the shop's
       // REAL name (and logo) even while the shop is anonymous to everyone else (DECISION_LOG 2026-11-07).
       const invitedBy = revealFor(claimRevealByRow, v.vendor_id, pid);
       marketplaceCardByVendorId.set(v.vendor_id, {
         name: invitedCoupleName(invitedBy, s.business_name, resolvedName),
-        logo: nameRevealed || invitedBy ? s.logo_url : null,
+        logo: s.logo_url,
         city: s.location_city,
       });
 

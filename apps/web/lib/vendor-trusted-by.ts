@@ -1,6 +1,6 @@
 import { shopPath } from '@/lib/shop-address';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { strongestPartnershipKind, PARTNERSHIP_RANK } from '@/lib/vendor-partnership-kinds';
 
@@ -14,17 +14,16 @@ export type TrustedByVendor = {
   vendorProfileId: string;
   displayName: string;
   /**
-   * Microsite link — set ONLY when the endorsing vendor's name is revealed. A
-   * still-hidden vendor stays unlinked because its business_slug would leak the
-   * real business name the hybrid-anonymity gate is withholding.
+   * Microsite link — set whenever the endorser has a slug (owner ruling 2026-11-16 (15)/(18): every shop's real name
+   * shows and its page is open by link, so nothing is withheld). Was: only once the name was revealed.
    */
   href: string | null;
   relationshipType: TrustedByRelationship;
   /**
    * 🖼 The endorser's STORED logo (`vendor_profiles.logo_url` — an `r2://` tag, not an address) for its round shop
    * profile photo, the same logo circle as the shop card (owner 2026-11-14, "make trusted by the shop profile
-   * photos?"). The page signs it (`resolveDisplayUrl`); null → the circle shows initials. ALSO null for a still-hidden
-   * endorser: a logo would name the shop the hybrid-anonymity gate is withholding — the same reason `href` is null.
+   * photos?"). The page signs it (`resolveDisplayUrl`); null → the circle shows initials. Since owner ruling 2026-11-16
+   * (15) every endorser's logo shows (was: null for a still-hidden one).
    */
   logoRef: string | null;
 };
@@ -108,7 +107,6 @@ export async function fetchTrustedByVendors(
     const isPaidTier = isTrueNameTier((p.tier_state as string | null) ?? null);
     // Open-it-up lock: a VERIFIED vendor's name is never gated (any tier).
     const isVerified = (p.verification_state as string | null) === 'verified';
-    const nameRevealed = isVendorNameRevealed({ name_revealed_at: nameRevealedAt, isPaidTier, is_verified: isVerified, services });
     const displayName = resolveVendorDisplayName({
       business_name: (p.business_name as string | null) ?? '',
       name_revealed_at: nameRevealedAt,
@@ -123,9 +121,11 @@ export async function fetchTrustedByVendors(
     out.push({
       vendorProfileId: p.vendor_profile_id as string,
       displayName,
-      href: nameRevealed && slug ? `${shopPath(slug)}` : null,
+      // 🏷 Every partner links to its page and wears its logo (owner ruling 2026-11-16 (15) real name everywhere ·
+      // (18) the page is open to anyone with the link). Was: both only once `isVendorNameRevealed`.
+      href: slug ? `${shopPath(slug)}` : null,
       relationshipType: relByVendor.get(p.vendor_profile_id as string) ?? 'general',
-      logoRef: nameRevealed ? ((p.logo_url as string | null) ?? null) : null,
+      logoRef: (p.logo_url as string | null) ?? null,
     });
   }
   // 🔢 STRONGEST FIRST (owner 2026-11-14, "A SHOP PAGE ENDS WITH ITS PARTNERS"): by what the couple gets —

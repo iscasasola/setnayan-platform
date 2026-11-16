@@ -210,9 +210,8 @@ type Props = {
    */
   hosts?: readonly ChatHost[] | null;
   /**
-   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page and
-   * only once the shop's name is REVEALED (`couple_thread_supplier_names` sends no logo before — a logo is as identifying
-   * as the name). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
+   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page
+   * (`couple_thread_supplier_names` sends every shop's logo since owner ruling 2026-11-16 (15)). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
    * fails to load → the initials, as before.
    */
   shopLogoUrl?: string | null;

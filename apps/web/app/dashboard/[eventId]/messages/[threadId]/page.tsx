@@ -177,8 +177,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // run through the canonical `resolveVendorDisplayName`. NOT a `vendor_profiles`
   // read: under the couple's RLS that refuses every shop that is not public +
   // verified, and this page then titled the conversation "Supplier" (owner, live,
-  // 2026-10-28). Pre-reveal the label is the screen name; the real name and logo
-  // arrive only once revealed. A failed read says so — never a generic word.
+  // 2026-10-28). The label is the shop's real name and logo for every shop (owner
+  // ruling 2026-11-16 (15)). A failed read says so — never a generic word.
   const supplierNamesRead = readCoupleThreadSupplierNames(supabase, thread.event_id);
   const vendorRead = supplierNamesRead.then((names) => nameForThread(names, threadId));
 
@@ -303,8 +303,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   ).then((extras) => extras.get(thread.vendor_profile_id));
 
   const vendorLabelRead = vendorRead.then((v) => v.name);
-  // 🏪 The shop's face in the stream: its logo, presigned, ONLY when revealed (`vendorRead.logoUrl` is null before —
-  // a logo is as identifying as the name). A failed presign is the initials, never a broken picture.
+  // 🏪 The shop's face in the stream: its logo, presigned (every shop's, since ruling 2026-11-16 (15); null when it
+  // has none). A failed presign is the initials, never a broken picture.
   const shopLogoRead = vendorRead.then((v) => (v.logoUrl ? displayLogoUrl({ logo_url: v.logoUrl }).catch(() => null) : null));
 
   // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do

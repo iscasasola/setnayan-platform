@@ -202,8 +202,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // `vendor_profiles` embed. The embed is a read under the couple's RLS, which
   // refuses every shop that is not public + verified; the page then printed
   // 'Supplier' for that NULL (owner, live, 2026-10-28: "the 1 supplier is not
-  // named on chat"). The function answers for every thread, sends the real name
-  // and logo only once revealed, and the label is the same
+  // named on chat"). The function answers for every thread, sends every shop's real
+  // name and logo (owner ruling 2026-11-16 (15)), and the label is the same
   // `resolveVendorDisplayName` (lib/chat-supplier-names.ts). A failed read says so.
   const supplierNames = await namesRead;
   const displayNames = new Map<string, string>();

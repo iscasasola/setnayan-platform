@@ -68,7 +68,8 @@ test('the tray is v16’s `.dock .q` (count, names, Clear); the page’s ONE Inq
 // Sabotage: offer the quote where the page has no Inquire pop-up / keep the old subtitle → red.
 test('the quote is offered only where the Inquire pop-up is, and the heading says so (v16 words)', () => {
   assert.match(PAGE, /const quote =\s*inquireMode === 'anchor'/);
-  assert.match(PAGE, /Add the ones you want to one quote — final quotes happen in chat\./);
+  assert.match(PAGE, /const QUOTE_HINT = 'Add the ones you want to one quote — final quotes happen in chat\.';/);
+  assert.match(PAGE, /Starting prices set by \{businessName\}\. \{quote \? QUOTE_HINT : 'Final quotes happen in chat\.'\}/);
   assert.match(PAGE, /inquireMode=\{canMessage \? 'anchor' : 'none'\}/);
 });
 

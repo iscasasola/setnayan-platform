@@ -4023,6 +4023,9 @@ function buildServiceGroups({
   return groups;
 }
 
+/** v16 S3's Services line, where the quote is offered (prototype `#services .sub`). */
+const QUOTE_HINT = 'Add the ones you want to one quote — final quotes happen in chat.';
+
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
   const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor } = props;
@@ -4045,9 +4048,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
           Services &amp; pricing
         </h2>
         <p className="text-sm text-ink/65">
-          {quote
-            ? `Starting prices set by ${businessName}. Add the ones you want to one quote — final quotes happen in chat.`
-            : `Starting prices set by ${businessName}. Final quotes happen in chat.`}
+          Starting prices set by {businessName}. {quote ? QUOTE_HINT : 'Final quotes happen in chat.'}
         </p>
       </header>
       <ServicesGallery

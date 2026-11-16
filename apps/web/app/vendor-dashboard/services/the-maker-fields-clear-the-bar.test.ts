@@ -12,7 +12,8 @@
  *       tall as the space the fixed row takes at the foot of the screen, so a focused field stops above it;
  *   3 · the phone's preview is not pinned over the fields by this build (it stays one tap away, cut 3).
  *
- * Sabotage: drop `full` → test 1 red; drop the scroll-padding rule or shrink it under the row → test 2 red.
+ * Sabotage: drop `full` → test 1 red; type a number into the scroll-padding again, or drop the row's height from
+ * the token → test 2 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,18 +39,22 @@ test('1 · on a phone Today’s New service sheet is the whole screen', () => {
   assert.match(SHEET, /if \(!open\) return null;[\s\S]*\$\{full \? ` \$\{at\.full\}`/, 'the Sheet no longer applies `full`');
 });
 
-test('2 · the page and the sheet body keep the fields above the fixed Cancel · Create row', () => {
-  const rule = /html:has\(\[data-card-maker\]\),\s*\[data-sheet-panel\] > \.overflow-y-auto:has\(\[data-card-maker\]\)\s*\{\s*scroll-padding-bottom:\s*calc\((\d+(?:\.\d+)?)rem \+ env\(safe-area-inset-bottom, 0px\)\);\s*\}/.exec(CSS);
-  assert.ok(rule, 'the scroll-padding rule for the maker’s two scrolling boxes is gone');
-  const paddingPx = Number(rule![1]) * 16;
-  /* The space the row takes at the foot: its own height and the gap under it — read from the row's source. */
-  const ROW = stripComments(read('app/vendor-dashboard/_components/supplier-thumb-row.tsx'));
+test('2 · the page and the sheet body keep the fields above the fixed Cancel · Create row — by the row’s own token', () => {
+  const rule = /html:has\(\[data-card-maker\]\),\s*\[data-sheet-panel\] > \.overflow-y-auto:has\(\[data-card-maker\]\)\s*\{\s*scroll-padding-bottom:\s*var\(--sn-thumb-clear\);\s*\}/.exec(CSS);
+  assert.ok(rule, 'the scroll-padding rule for the maker’s two scrolling boxes is gone, or types its own number again');
+  /* The token: the row's lift (its own `bottom`) + the row's height + a gap — one definition, in :root. */
+  const defs = [...CSS.matchAll(/--sn-thumb-clear:\s*([^;]+);/g)].map((m) => m[1]!.trim());
+  assert.equal(defs.length, 1, 'the clearance is defined more than once (or not at all)');
+  const ROW = read('app/vendor-dashboard/_components/supplier-thumb-row.module.css');
+  const lift = /\.lower \{[^}]*?\bbottom: calc\((var\(--sn-ride-h[^;]+)\);/.exec(ROW)?.[1];
+  assert.ok(lift, 'anti-vacuity: the row’s own `bottom` was not read');
+  assert.ok(defs[0]!.startsWith(`calc(${lift}`), `the clearance does not start from the row’s own lift (${lift})`);
+  assert.match(defs[0]!, /\+ var\(--sn-thumb-row-h\)/, 'the clearance leaves out the row’s height');
+  assert.match(ROW, /min-height: var\(--sn-thumb-row-h\);/, 'the row no longer reads the height token — the two can drift apart');
+  /* Measured 2026-11-16 at 390 × 844: the row stood 714 → 780 px, 130 px from the bottom edge (a 64 px lift + 66 px). */
+  const rowH = Number(/--sn-thumb-row-h:\s*(\d+)px;/.exec(CSS)?.[1]);
+  assert.ok(64 + rowH + 16 >= 844 - 714, 'the clearance is shorter than the measured row');
   assert.match(MAKER, /<SupplierThumbRow name="maker"/, 'anti-vacuity: the maker no longer draws the row');
-  assert.ok(ROW.length > 500, 'anti-vacuity: the row was not read');
-  /* Measured 2026-11-16 at 390 × 844: the row stood 714 → 780 px, so 130 px from the bottom edge. */
-  const MEASURED_FOOT_PX = 844 - 714;
-  assert.ok(paddingPx >= MEASURED_FOOT_PX, `scroll-padding ${paddingPx}px is shorter than the ${MEASURED_FOOT_PX}px the row takes — a field stops under it`);
-  assert.ok(paddingPx <= 844 / 3, `scroll-padding ${paddingPx}px eats the screen`);
 });
 
 test('3 · the phone’s preview is not pinned over the fields (one tap away)', () => {

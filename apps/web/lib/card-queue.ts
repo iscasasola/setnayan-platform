@@ -128,27 +128,3 @@ export function cardQueueLine(rest: readonly string[], labelOf: (key: string) =>
   if (rest.length === 0) return null;
   return `${rest.length} more after this: ${rest.map(labelOf).join(', ')}`;
 }
-
-/**
- * 🧰 The shop's own services with no card yet, as picks — in the shop's order, each once, only a service the tree
- * offers (a retired one is never pre-picked), never one already on the shop, and no more than one press makes. When
- * the shop's own cards could not be read (`onShop` null) nothing is pre-picked: the picker is not drawn then anyway.
- */
-export function shopServicesPicked(
-  tree: readonly { label: string; branches: readonly { label: string; leaves: readonly { canonicalService: string; label: string }[] }[] }[],
-  shopServices: readonly string[],
-  onShop: readonly string[] | null,
-): { key: string; label: string; path: string }[] {
-  if (onShop === null) return [];
-  const has = new Set(onShop);
-  const at = new Map<string, { label: string; path: string }>();
-  for (const p of tree) for (const b of p.branches) for (const l of b.leaves) at.set(l.canonicalService, { label: l.label, path: `${p.label} › ${b.label}` });
-  const out: { key: string; label: string; path: string }[] = [];
-  for (const key of shopServices) {
-    const leaf = at.get(key);
-    if (!leaf || has.has(key) || out.some((x) => x.key === key)) continue;
-    out.push({ key, ...leaf });
-    if (out.length >= CARD_QUEUE_MAX) break;
-  }
-  return out;
-}

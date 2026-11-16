@@ -79,5 +79,5 @@ export function NewServiceMaker({
       />
   );
   if (!picker) return maker;
-  return <AddServicePicker tree={picker.tree} specialties={picker.specialties ?? {}} onShop={ctx.ownKinds} shopServices={ctx.shopServices} maker={maker} startOnMaker={quoteReturn !== null} />;
+  return <AddServicePicker tree={picker.tree} specialties={picker.specialties ?? {}} onShop={ctx.ownKinds} maker={maker} startOnMaker={quoteReturn !== null} />;
 }

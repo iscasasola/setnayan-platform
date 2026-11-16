@@ -49,7 +49,6 @@ export async function GET(): Promise<Response> {
   const children: ReadonlyArray<{ slug: string; lastmod: string }> = [
     { slug: 'sitemap-static.xml', lastmod: now },
     { slug: 'sitemap-help.xml', lastmod: now },
-    { slug: 'sitemap-blog.xml', lastmod: now },
     // One page per feature + its Tagalog twin (lib/feature-pages). 2026-10-01.
     { slug: 'sitemap-features.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },

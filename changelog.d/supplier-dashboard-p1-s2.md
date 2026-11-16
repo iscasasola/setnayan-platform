@@ -26,4 +26,4 @@ SPEC IMPACT: None. Every move is a 16 Nov approval already in DECISION_LOG.
   - Clients' picked day is a named grid area (top · day · rest), with no `span 40` rows.
   - The This-day panel reads `--fd-app-bar` / `--fd-app-rail-wide`, published on `:root` from the `.fd` values. A guard holds them equal.
 - **Phone.** It keeps the day sheet: the event opens its page only from 1280 (`useIsDesktop('xl')`).
-- **The Clients quick row** stays mounted (hidden) while a day is picked, instead of being dropped.
+- **The Clients quick row** now shows with a picked day on a computer, as drawn (at 1280 its `hidden` becomes `display: block`; the phone still steps it aside). Before, it was dropped.

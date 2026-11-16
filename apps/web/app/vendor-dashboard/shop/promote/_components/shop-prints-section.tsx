@@ -138,7 +138,7 @@ export function ShopPrintsSection({
           <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left" data-dates-row="shop-prints">
             <Printer aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium leading-tight text-ink">Calling card + tarps</span>
+              <span className="block truncate text-[15px] font-medium leading-tight text-ink">Marketing materials, printed out</span>
               <span className="mt-0.5 block truncate text-[13px] text-ink/60">15 designs · 7 pieces</span>
             </span>
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />

@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic';
  * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts.
  *
  * PART 3 — 🖨 PRINTS (owner APPROVED the 15 looks, 5 Nov 2026 — Setnayan-specs `prototypes/supplier_prints_2026-11-05/`):
- * a row "Calling card + tarps" → one sheet: Design ▾ (15 looks) · QR on your prints ▾ (the codes above: Check a date ·
+ * a row "Marketing materials, printed out" (was "Calling card + tarps"; P1 drawing 16 Nov) → one sheet: Design ▾ (15 looks) · QR on your prints ▾ (the codes above: Check a date ·
  * Shortlist · My page) · the 7 pieces, each with Save (a print-ready file, `/api/vendor/prints`) · See it in use (the
  * look + QR placed on real event photos). `ShopPrintsSection`; the drawing is `lib/supplier-prints-svg.ts`.
  *

@@ -1,0 +1,7 @@
+## 2026-11-17 · feat(supplier): the supplier dashboard wears the owner's blue look (light) + the Prints row says what it is
+
+- **The blue look, carried to every supplier page** (owner 16 Nov, DECISION_LOG "SUPPLIER DASHBOARD = THE OWNER'S BLUE LOOK … CARRIED TO EVERY SUPPLIER PAGE"; P1 drawings `prototypes/supplier_*_clean_2026-11-16/`). New `app/vendor-dashboard/_components/supplier-look.css`, switched on by `data-supplier-look` on the supplier template. It re-points the existing colour tokens on `<html>` while a supplier page is on screen. No component is recoloured by hand. The page is #EEF2F8 with the soft glow, cards are white with a soft shadow, titles are #101B30, body text is #566275, links are #175AB9, and the main button is solid #2272E6 with a white label (4.55:1) and the 16 Nov blue shadow. Ghost fills and washes are #E8F0FA, lines are cool, and the top bar is solid white from 1100. Admin › Colours and the couple side are untouched. Leaving the supplier area restores them.
+- **Light only.** The ruling's dark mode is held as an owner question. The app is light-locked, the shell rule says dark follows the person's Appearance setting rather than the device, and the hand-typed white surfaces in the supplier area would break under it.
+- **Shop › Promote › Prints row:** "Calling card + tarps" now reads "Marketing materials, printed out" (P1 drawing). The sheet, the 15 designs and the 7 pieces are unchanged.
+
+SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECISION_LOG. Nothing new is decided.

@@ -14,6 +14,7 @@ import sharp from 'sharp';
 import { renderPrint, type PrintImage, type PrintShop } from '@/lib/supplier-prints-svg';
 import { printQr, printShopFrom } from '@/lib/supplier-prints-shop';
 import { PRINT_DESIGNS, PRINT_PIECES, type PrintBlock } from '@/lib/supplier-prints';
+import type { PrintVia } from '@/lib/material-tags';
 
 async function image(file: string | undefined, mime: 'image/png' | 'image/jpeg'): Promise<PrintImage | null> {
   if (!file) return null;
@@ -50,7 +51,8 @@ async function main() {
       'We are a Tagaytay crew of photographers, filmmakers and technicians. One team covers the whole day — the photos, the film you watch at the reception, the live stream for family abroad, and the lights and sound in the hall. We serve Metro Manila, Cavite and Laguna.',
     ownDomain: 'setnayanproductions.com',
   };
-  const qr = printQr('dates', origin, slug);
+  // 🏷 each piece's code carries its own tag (`via`), exactly as the download route draws it.
+  const qr = (piece: PrintVia) => printQr('dates', origin, slug, piece);
   const design = PRINT_DESIGNS[0]!;
   const png = async (svg: string, name: string, width = 1000) => {
     writeFileSync(path.join(out, `${name}.svg`), svg);
@@ -64,13 +66,13 @@ async function main() {
   for (const k of cases) {
     for (const p of PRINT_PIECES) {
       for (const s of p.sides === 2 ? (['f', 'b'] as const) : (['f'] as const)) {
-        await png(renderPrint({ piece: p, design, shop: k.shop, qr, side: s, hide: k.hide }), `${k.tag}-${p.id}${p.sides === 2 ? `-${s}` : ''}`);
+        await png(renderPrint({ piece: p, design, shop: k.shop, qr: qr(p.id), side: s, hide: k.hide }), `${k.tag}-${p.id}${p.sides === 2 ? `-${s}` : ''}`);
       }
     }
   }
   const card = PRINT_PIECES.find((p) => p.id === 'card')!;
-  await png(renderPrint({ piece: card, design, shop, qr, side: 'f', member: { name: 'Juan dela Cruz', role: 'Owner · Director' } }), 'built-personal-f');
-  await png(renderPrint({ piece: card, design, shop, qr, side: 'f', member: { name: 'Juan dela Cruz', role: null } }), 'built-personal-f-no-role');
+  await png(renderPrint({ piece: card, design, shop, qr: qr(card.id), side: 'f', member: { name: 'Juan dela Cruz', role: 'Owner · Director' } }), 'built-personal-f');
+  await png(renderPrint({ piece: card, design, shop, qr: qr(card.id), side: 'f', member: { name: 'Juan dela Cruz', role: null } }), 'built-personal-f-no-role');
   console.log(`wrote ${out}`);
 }
 

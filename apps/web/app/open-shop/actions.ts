@@ -1,6 +1,7 @@
 'use server';
 
 import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
+import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { parseInBusinessSince } from '@/lib/in-business-since';
 import { revalidatePath } from 'next/cache';
@@ -782,6 +783,9 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // RIGHT AFTER the shop opens, signed in, on its own screen. Skip → Today, where "Add your logo" stays a first step.
   // A shop that already has a logo (a re-run) goes straight to Today, as before.
   // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02) — through the logo screen, never past it.
-  if (!logoUrl && !existingHasLogo) redirect(OPEN_SHOP_LOGO_PATH);
-  redirect('/vendor-dashboard');
+  // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
+  // plan it came for is offered (the plan sheet, that row open), through the logo step when there is one.
+  const plan = parseSupplierPlan(formData.get('plan'));
+  if (!logoUrl && !existingHasLogo) redirect(plan ? `${OPEN_SHOP_LOGO_PATH}?plan=${plan}` : OPEN_SHOP_LOGO_PATH);
+  redirect(planOfferPath(plan) ?? '/vendor-dashboard');
 }

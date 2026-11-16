@@ -236,6 +236,7 @@ export function SignInCard({
                   Email
                 </label>
                 <input
+                  // field-ok: the sign-in card's own email box (hr-si-input, like the one below), not a form row — W1-B24
                   id="hr-si-relink-email"
                   name="email"
                   type="email"

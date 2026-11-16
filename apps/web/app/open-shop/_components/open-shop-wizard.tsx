@@ -122,6 +122,7 @@ export function OpenShopWizard({
   defaults,
   error,
   refusalStamp = 0,
+  plan = null,
   feeNotice = null,
   initialStep = 1,
   guest = false,
@@ -203,6 +204,8 @@ export function OpenShopWizard({
   /** W1-B3 — a fresh value on every server render that carries `?error=` (the page stamps it), so a refusal that comes
    *  back WITHOUT a remount (a server action's redirect is a soft navigation onto the same page) is still shown. */
   refusalStamp?: number;
+  /** W1-B21 — `?plan=` from /for-suppliers' "Start on Plus / Pro / Ultra" (whitelisted by `parseSupplierPlan`). */
+  plan?: string | null;
   /** The signed-in account's own name. Shown READ-ONLY when present (owner
    *  2026-08-10: "your name (automatic from their account)") — presented, not
    *  asked. Falls back to an editable input when the account has none, because
@@ -1025,6 +1028,8 @@ export function OpenShopWizard({
             {/* The bot check rides with the account creation, as on /signup.
                 Graceful-off when the site key is unset. */}
             {guest ? <TurnstileField action="signup" /> : null}
+            {/* W1-B21 — the plan picked on /for-suppliers, offered once the shop opens (`planOfferPath`). */}
+            {plan ? <input type="hidden" name="plan" value={plan} /> : null}
             {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
 
             {/* 1 · Name your shop. Always mounted, like every panel — inputs persist across steps and there is ONE

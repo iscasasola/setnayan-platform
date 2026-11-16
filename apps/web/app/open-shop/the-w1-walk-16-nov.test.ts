@@ -97,3 +97,20 @@ test('W1-B23 · after "Open my shop — free" the sent screen arrives by a fresh
   assert.match(WIZARD, /if \(hardLoading\) window\.location\.replace\(window\.location\.href\);/);
   assert.match(WIZARD, /if \(sentTo && !hardLoading\) \{/, 'the sent screen is swapped in place over a settling submit again');
 });
+
+test('W1-B21 · the plan picked on /for-suppliers rides through the door and is offered once the shop opens', async () => {
+  const { planOfferPath, parseSupplierPlan } = await import('@/lib/supplier-plan-offer');
+  assert.equal(parseSupplierPlan('pro'), 'pro');
+  assert.equal(parseSupplierPlan('gold'), null);
+  assert.match(planOfferPath('pro') ?? '', /^\/vendor-dashboard\/subscription\?plan=pro#plan-sheet-/);
+  assert.match(PAGE, /plan=\{parseSupplierPlan\(plan\)\}/, 'the page drops ?plan=');
+  assert.match(PAGE, /redirect\(planOfferPath\(plan\) \?\? landing\)/);
+  assert.match(WIZARD, /\{plan \? <input type="hidden" name="plan" value=\{plan\} \/> : null\}/, 'the form no longer posts the plan');
+  const actions = stripComments(read('app/open-shop/actions.ts'));
+  assert.match(actions, /const plan = parseSupplierPlan\(formData\.get\('plan'\)\);/);
+  assert.match(actions, /redirect\(plan \? `\$\{OPEN_SHOP_LOGO_PATH\}\?plan=\$\{plan\}` : OPEN_SHOP_LOGO_PATH\);\s*redirect\(planOfferPath\(plan\) \?\? '\/vendor-dashboard'\);/);
+  const logo = read('app/open-shop/logo/page.tsx');
+  assert.match(logo, /doneHref=\{offer \?\? '\/vendor-dashboard'\}/);
+  const card = read('app/open-shop/logo/_components/add-your-logo.tsx');
+  assert.equal((card.match(/href=\{doneHref\}/g) ?? []).length, 2, 'Continue and Skip both go to the offer');
+});

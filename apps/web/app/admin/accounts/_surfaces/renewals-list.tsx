@@ -36,6 +36,8 @@ export function RenewalsTable({ rows }: { rows: RenewalListRow[] | null }) {
       <ConsoleTable
         rows={ordered}
         readPermitted
+        // The reader logged the refusal itself and answered null; this says so to the table (never an empty list).
+        readError={rows === null ? { message: 'the renewals read was refused (logged by readRenewalsList)' } : null}
         reads="the renewals"
         label="Renewals"
         minWidth="32rem"

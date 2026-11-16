@@ -164,7 +164,7 @@ test('1 · the order is LIVE’s nine rules — a couple’s ask comes before a 
 // SABOTAGE: drop `<BookingFeeNotice disclosure={feeForecast} />` from booking-ask-panel.tsx → RED (no fee above Agree).
 test('2 · a booking ask jumps to the client’s Details — and there the fee is named BEFORE Agree, the shipped form, Turn it down', async () => {
   const { html } = await draw({ desk: [ASK] });
-  assert.equal(hrefOf(html, 'lockreq-ev-rc'), '/vendor-dashboard/clients/rc?tab=details', 'the ask does not open the client');
+  assert.equal(hrefOf(html, 'lockreq-ev-rc'), '/vendor-dashboard/clients/rc?tab=details&from=today', 'the ask does not open the client');
   assert.doesNotMatch(needsOf(html), /<form/, 'the ask is answered on Today again');
   const panel = code('app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx');
   const fee = panel.indexOf('<BookingFeeNotice disclosure={feeForecast} />');
@@ -193,13 +193,13 @@ test('3 · every kind keeps a page — each row jumps to where its answer is giv
   const { html } = await draw({ desk: [INQUIRY, MOVE, REMOVE, DONE, REVIEW, QUOTE, CONTRACT, LAPSED, DISPUTE] });
   const want: Record<string, string> = {
     [INQUIRY.id]: '/vendor-dashboard/messages/t-am',
-    dc: '/vendor-dashboard/clients/cruz?tab=details',
-    del: '/vendor-dashboard/clients/dz?tab=details',
-    done: '/vendor-dashboard/clients/rd?tab=details',
+    dc: '/vendor-dashboard/clients/cruz?tab=details&from=today',
+    del: '/vendor-dashboard/clients/dz?tab=details&from=today',
+    done: '/vendor-dashboard/clients/rd?tab=details&from=today',
     rev: '/vendor-dashboard/website#reply_r1',
     q: '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools',
     k: '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools',
-    lap: '/vendor-dashboard/clients/dp?tab=details',
+    lap: '/vendor-dashboard/clients/dp?tab=details&from=today',
     disp: '/vendor-dashboard/messages/t-pz',
   };
   for (const [key, href] of Object.entries(want)) assert.equal(hrefOf(html, key), href, `${key}: the row goes to ${hrefOf(html, key) || 'nowhere'}`);
@@ -306,7 +306,7 @@ test('8 · the Shop row says Checking · Live · Not yet, what is left of the de
   assert.match(await shopOf({ findable: false }), /not shown yet Not yet/);
   assert.match(
     await shopOf({ verified: false, findable: false, views: null, shop: { name: 'San Agustin Parish', categoryWord: 'Church', details: { done: 4, total: 6, complete: false }, awardWord: null, milestoneWord: null } }),
-    /San Agustin Parish Church · send your documents to go live · details 4 of 6 Checking How is business Couples see your shop once you are live/,
+    /San Agustin Parish Church · send your documents to get Verified · details 4 of 6 Checking How is business Couples can open your page by its link and message you/,
   );
   // A views read that did not come back prints no number at all — never 0.
   assert.doesNotMatch(await shopOf({ views: null }), /\b0 looked/);

@@ -52,8 +52,8 @@ const TILES: OnboardingPickChip[] = [
   t('stylist_decorator', 'Stylist / Decorator'),
   t('florist', 'Florist'),
   t('lights_sound', 'Lights & Sound'),
-  t('dance_floor', 'Dance Floor'),
-  t('fireworks', 'Fireworks'),
+  // T1 part 2: Dance Floor, Fireworks and Outdoor merged into Rentals & Special Effects.
+  t('chairs_tents', 'Rentals & Special Effects'),
   t('led_wall', 'LED Wall'),
   t('digital_services', 'Digital Services'),
   t('live_band', 'Live Band'),
@@ -69,8 +69,6 @@ const TILES: OnboardingPickChip[] = [
   t('hmua', 'HMUA'),
   t('mobile_bar', 'Mobile Bar'),
   t('coffee_espresso', 'Coffee / Espresso'),
-  t('food_truck', 'Food Truck'),
-  t('dessert', 'Dessert'),
   t('food_cart', 'Food Cart'),
   t('photo_booth', 'Photo Booth'),
   t('souvenir_giveaways', 'Souvenir / Giveaways'),
@@ -110,16 +108,16 @@ test('effort scales the plan size: simple=4, balanced=6, allout=9', () => {
 
 test('allout pulls in the full persona extras list before taxonomy fill', () => {
   const plan = derivePackPlan('birthday', 'big_celebration', TILES, 'allout');
-  // essentials(4) + big_celebration extras(dj,live_band,dance_floor,mobile_bar,lights_sound = 5) = 9.
-  for (const id of ['dj', 'live_band', 'dance_floor', 'mobile_bar', 'lights_sound']) {
+  // essentials(4) + big_celebration extras(dj,live_band,chairs_tents,mobile_bar,lights_sound = 5) = 9.
+  for (const id of ['dj', 'live_band', 'chairs_tents', 'mobile_bar', 'lights_sound']) {
     assert.ok(plan.picks.includes(id), `expected ${id} in allout plan`);
   }
 });
 
 test('categories not present in tiles are dropped (never surfaced)', () => {
-  const noFireworks = TILES.filter((c) => c.cat !== 'fireworks');
+  const noFireworks = TILES.filter((c) => c.cat !== 'chairs_tents'); // fireworks live in Rentals & Special Effects (T1)
   const plan = derivePackPlan('gender_reveal', 'modern_statement', noFireworks, 'allout');
-  assert.ok(!plan.picks.includes('fireworks'));
+  assert.ok(!plan.picks.includes('chairs_tents'));
   // Still produces a full plan from the remaining applicable categories.
   assert.ok(plan.picks.length > 0);
 });

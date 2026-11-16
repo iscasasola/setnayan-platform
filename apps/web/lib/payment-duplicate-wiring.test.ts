@@ -13,7 +13,11 @@ import { join } from 'node:path';
  */
 
 const ACTIONS = readFileSync(join(process.cwd(), 'app/admin/payments/actions.ts'), 'utf8');
-const PAGE = readFileSync(join(process.cwd(), 'app/admin/payments/page.tsx'), 'utf8');
+// The desk is two files since the admin Money drawing (2026-11-14): the page reads, `_components/desk.tsx` draws.
+const PAGE =
+  readFileSync(join(process.cwd(), 'app/admin/payments/page.tsx'), 'utf8') +
+  '\n' +
+  readFileSync(join(process.cwd(), 'app/admin/payments/_components/desk.tsx'), 'utf8');
 
 test('the approval path consults the rule', () => {
   assert.match(ACTIONS, /classifyDuplicate\(/, 'approvePaymentCore must call classifyDuplicate');

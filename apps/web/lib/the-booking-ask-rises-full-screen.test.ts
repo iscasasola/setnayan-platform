@@ -34,13 +34,13 @@ test('2 · the supplier thread page passes it through', () => {
 
 test('3 · a rising panel draws no tray body — only the hidden reveal target, and the rise uses the one RiseScreen', () => {
   const html = renderToStaticMarkup(
-    React.createElement(ThreadToolPanel, { id: 'booking-ask', label: 'Answer their booking ask', hint: 'Agree', rise: true }, 'BODY'),
+    React.createElement(ThreadToolPanel, { id: 'booking-ask', label: 'Answer their booking ask', hint: 'Agree', rise: true, children: 'BODY' }),
   );
   assert.match(html, /id="booking-ask"/, 'revealThreadTool has nothing to open');
   assert.match(html, /data-thread-tool-rise/);
   assert.doesNotMatch(html, /max-h-\[55dvh\]/, 'the booking ask is drawn in the half-height tray again');
   assert.doesNotMatch(html, /BODY/, 'the form is drawn under the composer while closed');
-  const tray = renderToStaticMarkup(React.createElement(ThreadToolPanel, { id: 'x', label: 'X', hint: 'h' }, 'BODY'));
+  const tray = renderToStaticMarkup(React.createElement(ThreadToolPanel, { id: 'x', label: 'X', hint: 'h', children: 'BODY' }));
   assert.match(tray, /max-h-\[55dvh\]/);
   const rise = read('app', '_components', 'chat', 'thread-tool-rise.tsx');
   assert.match(rise, /<RiseScreen\b/);

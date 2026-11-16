@@ -11107,6 +11107,45 @@ html[data-tour-running] [data-notice-slot='top'] {
 }
 
 
+/* ── 🏅 THE SERVICE-CARD BADGE MEDALS (badge build J3; approved badge-milestones_v86 `AW` · `VBo`) ───────────────
+ * One medal per card badge, keyed by `CARD_MEDALS` (lib/public-badges.ts) + the Verified Partner seal that takes
+ * Verified's slot. `-fill` is the medal (the design's own colour, the same in dark); `-ink` is the badge's LABEL colour,
+ * the nearest tone of the hue that reads at 4.5:1 on the card (`--m-paper` / `--m-paper-2`), light and dark.
+ * Read ONLY through `lib/card-badges-art.ts` (var(...) strings) — never a raw hex in a component.
+ * 🔒 lib/card-badges.test.ts § 7 measures every ink on both papers, read from THIS file. */
+:root {
+  --sn-cb-hot-booking-fill: #2F8F5B;      --sn-cb-hot-booking-ink: #1F6E43;
+  --sn-cb-quick-responder-fill: #2C5FC8;  --sn-cb-quick-responder-ink: #2C5FC8;
+  --sn-cb-trending-now-fill: #D9561E;     --sn-cb-trending-now-ink: #B7330E;
+  --sn-cb-rave-reviews-fill: #B8871F;     --sn-cb-rave-reviews-ink: #8A6410;
+  --sn-cb-generous-giver-fill: #B03A78;   --sn-cb-generous-giver-ink: #B03A78;
+  --sn-cb-verified-fill: #1F4CBA;         --sn-cb-verified-ink: #1F4CBA;
+  --sn-cb-partner-fill: #7A4E08;          --sn-cb-partner-ink: #7A4E08;
+  /* The lifted medal's gold rim (v86 `.awc i.on`): the light gold, then its dark edge. */
+  --sn-cb-rim-gold: #E2BE6E;
+  --sn-cb-rim-edge: #6B4A10;
+}
+/* Dark: each medal keeps the design's own colour (the medal is the badge — v86 draws it the same on the dark card); the
+   LABEL inks lift to a tone that reads on the dark paper. */
+html.dark {
+  --sn-cb-hot-booking-fill: #2F8F5B;
+  --sn-cb-quick-responder-fill: #2C5FC8;
+  --sn-cb-trending-now-fill: #D9561E;
+  --sn-cb-rave-reviews-fill: #B8871F;
+  --sn-cb-generous-giver-fill: #B03A78;
+  --sn-cb-verified-fill: #1F4CBA;
+  --sn-cb-partner-fill: #7A4E08;
+  --sn-cb-rim-gold: #E2BE6E;
+  --sn-cb-rim-edge: #6B4A10;
+  --sn-cb-hot-booking-ink: #4FB37A;
+  --sn-cb-quick-responder-ink: #7FA3E8;
+  --sn-cb-trending-now-ink: #FF9A4D;
+  --sn-cb-rave-reviews-ink: #FFE08A;
+  --sn-cb-generous-giver-ink: #E07AB0;
+  --sn-cb-verified-ink: #8AB6FF;
+  --sn-cb-partner-ink: #FFE27A;
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).
@@ -11252,4 +11291,3 @@ html[data-tour-running] [data-notice-slot='top'] {
     animation-range: normal;
   }
 }
-

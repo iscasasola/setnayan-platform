@@ -404,11 +404,13 @@ export default async function PrivacyEditorPage({
             Feature your {eventNoun(event.event_type)} on Setnayan
           </h2>
           <p className="max-w-prose text-sm text-ink/75">
-            With your okay, Setnayan can feature your {eventNoun(event.event_type)} on our public{' '}
-            <Link href="/realstories" className="sn-hit text-terracotta hover:underline">
-              Stories
+            With your okay, Setnayan can feature your {eventNoun(event.event_type)} on{' '}
+            {/* 🗞✂ 2026-11-16 — the public Stories hub is retired (it forwards to Discover); shared stories show on
+                Discover's "New uploads" shelf, so that is where this points. */}
+            <Link href="/" className="sn-hit text-terracotta hover:underline">
+              Discover
             </Link>{' '}
-            page — your story, your photos, and the team behind your day — starting
+            — your story, your photos, and the team behind your day — starting
             30&nbsp;days after your {eventNoun(event.event_type)}. It&rsquo;s completely optional, and you can
             turn it off anytime.
           </p>

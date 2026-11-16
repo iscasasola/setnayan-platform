@@ -73,6 +73,5 @@ export async function setChapterOnMyDay(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/website/stories`);
-  revalidatePath('/realstories');
   redirect(`/dashboard/${eventId}/website/stories?saved=1`);
 }

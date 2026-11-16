@@ -160,7 +160,6 @@ export async function setStoryCover(
   revalidatePath(`/dashboard/${eventId}/story`);
   // The shelf card reads the cover now, so the shelf itself has to be rebuilt —
   // this is half of "the shelf card and the OG card both change".
-  revalidatePath('/realstories');
   const slug = typeof event.slug === 'string' ? event.slug : null;
   if (slug) {
     revalidatePath(`/${slug}`);

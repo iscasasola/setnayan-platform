@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { ChevronLeft, X } from 'lucide-react';
 import { sheetBackLabel } from '@/lib/sheet-back-label';
 import { SwitcherPanelBody, type SheetPlace } from '@/app/_components/account-switcher/account-switcher';
@@ -59,6 +61,7 @@ const CASES: Record<
 export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolean; dark: boolean; noCount: boolean }) {
   const c = CASES[who] ?? CASES.owner!;
   const dialogRef = useRef<HTMLDivElement>(null);
+  const host = usePortalHost();
   useModalA11y({ open: true, onClose: () => {}, containerRef: dialogRef });
   useEffect(() => {
     const html = document.documentElement;
@@ -78,41 +81,50 @@ export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolea
         </span>
       </div>
       <h1 className="px-4 pt-4 font-display text-3xl">{c.title}</h1>
-      <OverlayBackdrop onClose={() => {}} fade={false} className="z-[51]" />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-label="Account switcher"
-        /* The SHIPPED panel box, class for class (`renderPanel()` in account-switcher.tsx): full screen on a phone, a 360-px
-           card under the pill from `lg` (16 Nov 2026). It copied only the phone half until 2026-11-01, so at 1280 the lab — and only
-           the lab — drew a phone sheet across a desktop. `the-lab-sheet-is-the-shipped-panel.test.ts` holds the copy. */
-        className={[
-          'focus:outline-none',
-          'fixed inset-0 z-[52] flex pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] pt-[env(safe-area-inset-top)] flex-col overflow-hidden sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
-          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:pt-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-[360px] lg:max-h-[calc(100dvh_-_var(--fd-bar,56px)_-_16px)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
-        ].join(' ')}
-      >
-        {/* The phone's full-screen head (16 Nov 2026) — the lab's back and ✕ do nothing. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 lg:hidden" data-account-sheet-head="">
-          <span data-account-sheet-back="" className="inline-flex min-h-[44px] min-w-0 items-center gap-1 rounded-full px-2 text-[15px] font-medium text-ink">
-            <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" strokeWidth={2} />
-            {/* The label comes from the shipped `sheetBackLabel`, fed this lab page's own title — never typed here. */}
-            <span className="min-w-0 [overflow-wrap:anywhere]">{sheetBackLabel({ pathname: '/dev/avatar-sheet-lab', title: c.title })}</span>
-          </span>
-          <span aria-label="Close" data-account-sheet-close="" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink">
-            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
-          </span>
-        </div>
-        <SwitcherPanelBody
-          data={c.data}
-          close={() => {}}
-          referHref={c.refer ? '/dashboard/lab/refer' : null}
-          shopRows={c.shopRows ? supplierAvatarRows({ storeShell: app }) : null}
-          here={c.here}
-          activeShopId={c.activeShopId ?? null}
-          unread={noCount ? null : c.unread}
-        />
-      </div>
+      {/* Portalled to <body> like the shipped panel (`createPortal` in account-switcher.tsx) — a fixed full-screen dialog
+         drawn inside the page sits under its bars (`an-open-panel-clears-the-top-bar.test.ts`). */}
+      {host
+        ? createPortal(
+          <>
+            <OverlayBackdrop onClose={() => {}} fade={false} className="z-[51]" />
+            <div
+              ref={dialogRef}
+              role="dialog"
+              aria-label="Account switcher"
+              /* The SHIPPED panel box, class for class (`renderPanel()` in account-switcher.tsx): full screen on a phone, a 360-px
+                 card under the pill from `lg` (16 Nov 2026). It copied only the phone half until 2026-11-01, so at 1280 the lab — and only
+                 the lab — drew a phone sheet across a desktop. `the-lab-sheet-is-the-shipped-panel.test.ts` holds the copy. */
+              className={[
+                'focus:outline-none',
+                'fixed inset-0 z-[52] flex pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] pt-[env(safe-area-inset-top)] flex-col overflow-hidden sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
+                'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:pt-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-[360px] lg:max-h-[calc(100dvh_-_var(--fd-bar,56px)_-_16px)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
+              ].join(' ')}
+            >
+              {/* The phone's full-screen head (16 Nov 2026) — the lab's back and ✕ do nothing. */}
+              <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 lg:hidden" data-account-sheet-head="">
+                <span data-account-sheet-back="" className="inline-flex min-h-[44px] min-w-0 items-center gap-1 rounded-full px-2 text-[15px] font-medium text-ink">
+                  <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" strokeWidth={2} />
+                  {/* The label comes from the shipped `sheetBackLabel`, fed this lab page's own title — never typed here. */}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{sheetBackLabel({ pathname: '/dev/avatar-sheet-lab', title: c.title })}</span>
+                </span>
+                <span aria-label="Close" data-account-sheet-close="" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink">
+                  <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+                </span>
+              </div>
+              <SwitcherPanelBody
+                data={c.data}
+                close={() => {}}
+                referHref={c.refer ? '/dashboard/lab/refer' : null}
+                shopRows={c.shopRows ? supplierAvatarRows({ storeShell: app }) : null}
+                here={c.here}
+                activeShopId={c.activeShopId ?? null}
+                unread={noCount ? null : c.unread}
+              />
+            </div>
+          </>,
+          host,
+        )
+        : null}
     </main>
   );
 }

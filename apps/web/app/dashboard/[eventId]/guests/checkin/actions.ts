@@ -7,6 +7,8 @@ import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { doorVerdict } from '@/lib/request-key';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { readDeskViewer } from '@/lib/checkin-desk.server';
+import { parseDeskAccess, serializeDeskAccess, type DeskAccess, type DeskPart } from '@/lib/checkin-desk';
 
 /**
  * How a guest was checked in — `guest_checkins.method`, CHECKed in the DB
@@ -72,7 +74,29 @@ async function assertDoorCrew(eventId: string) {
     .maybeSingle();
   if (error) throw new DoorCrewUnread();
   if (!data) throw new Error('forbidden');
-  return user;
+  return { ...user, memberType: (data as { member_type: string }).member_type };
+}
+
+/**
+ * 🛂 WHO RUNS THE DESK (owner 16 Nov 2026): the hosts choose which parts the coordinator, helpers and the supplier at
+ * the door may open (lib/checkin-desk.ts). The page draws only those parts; this is the same answer asked again at the
+ * write, so a part the hosts turned Off cannot be worked from an old tab. A couple member is a host and holds every
+ * part, so the door's fastest path asks nothing more. A refused read answers try-again (`unread`), never "not allowed".
+ */
+async function deskPartRefusal(
+  eventId: string,
+  user: { id: string; memberType: string },
+  part: DeskPart,
+): Promise<{ error: string; refused: boolean } | null> {
+  if (user.memberType === 'couple') return null;
+  const supabase = await createClient();
+  const desk = await readDeskViewer(supabase, eventId, user.id, {
+    isCouple: false,
+    isCoordinatorMember: user.memberType === 'coordinator',
+  });
+  if (desk.parts.includes(part)) return null;
+  if (desk.unread) return { error: COULD_NOT_CHECK, refused: false };
+  return { error: 'The hosts haven’t given you this part of the desk.', refused: true };
 }
 
 /**
@@ -105,6 +129,8 @@ export async function checkInGuest(
     if (e instanceof DoorCrewUnread) return { ok: false, error: COULD_NOT_CHECK };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in'), refused: true };
   }
+  const deskRefusal = await deskPartRefusal(eventId, user, 'guests');
+  if (deskRefusal) return { ok: false, error: deskRefusal.error, ...(deskRefusal.refused ? { refused: true as const } : {}) };
 
   const supabase = await createClient();
 
@@ -170,12 +196,15 @@ export async function undoCheckIn(
 ): Promise<UndoActionResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
+  let crew;
   try {
-    await assertDoorCrew(eventId);
+    crew = await assertDoorCrew(eventId);
   } catch (e) {
     if (e instanceof DoorCrewUnread) return { ok: false, error: 'Couldn’t undo that check-in — try again.' };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'undo a check-in') };
   }
+  const deskRefusal = await deskPartRefusal(eventId, crew, 'guests');
+  if (deskRefusal) return { ok: false, error: deskRefusal.error };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -256,4 +285,63 @@ export async function checkTicketLive(eventId: string, qrToken: string): Promise
   return joined
     ? { verdict: 'valid', guestId: joined.guest_id as string, name: nameOf(joined), checkedAt }
     : { verdict: 'unknown', checkedAt };
+}
+
+export type SaveDeskAccessResult = { ok: true; access: DeskAccess } | { ok: false; error: string };
+
+/**
+ * ⚙ WHO RUNS THE DESK — the hosts' one save (owner 16 Nov 2026, "Yes, as drawn"). Hosts always run every part, so
+ * only the coordinator's, the helpers' and the door supplier's parts are stored. HOSTS ONLY: the caller must be a
+ * couple member or a full co-host seat (`readDeskViewer` → role `host`). The supplier at the door must hold a live
+ * supplier seat (`wedding_planner_external`) on THIS event — a typed or stale account id is refused, never stored.
+ * Written through the service role (the column has no user grant — migration 20271350882870). The sheet updates in
+ * place from what comes back; nothing reloads.
+ */
+export async function saveDeskAccess(eventId: string, next: unknown): Promise<SaveDeskAccessResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Sign in again to change who runs the desk.' };
+  if (typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId)) return { ok: false, error: 'That event could not be found.' };
+  const supabase = await createClient();
+  const { data: member, error: memberError } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  if (memberError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+  const memberType = (member as { member_type?: string } | null)?.member_type ?? null;
+  const desk = await readDeskViewer(supabase, eventId, user.id, {
+    isCouple: memberType === 'couple',
+    isCoordinatorMember: memberType === 'coordinator',
+  });
+  if (desk.role !== 'host') {
+    return desk.unread
+      ? { ok: false, error: 'Couldn’t save that just now — try again.' }
+      : { ok: false, error: 'Only a host can change who runs the desk.' };
+  }
+
+  // The wire shape is the stored shape; parsing it drops every unknown part and a malformed door.
+  const access = parseDeskAccess(next);
+  const admin = createAdminClient();
+  if (access.door) {
+    const { data: seat, error: seatError } = await admin
+      .from('event_moderators')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', access.door.userId)
+      .eq('role_subtype', 'wedding_planner_external')
+      .is('removed_at', null)
+      .maybeSingle();
+    if (seatError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+    if (!seat) return { ok: false, error: 'That supplier no longer has access to this event.' };
+  }
+  const { error } = await admin
+    .from('events')
+    .update({ checkin_desk_access: serializeDeskAccess(access) })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+  return { ok: true, access };
 }

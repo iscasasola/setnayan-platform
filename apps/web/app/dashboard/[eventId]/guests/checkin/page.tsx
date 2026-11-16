@@ -20,6 +20,15 @@ import { companionNames } from '@/lib/extra-seats';
 import { DeskSavedMark } from '@/app/_components/offline-ready/desk-saved-mark';
 import { EVENT_CLOCK_COLUMNS, theDayInstantsOf } from '@/lib/event-clock';
 import { eventClockOf } from '@/lib/event-clock.server';
+import { readDeskViewer } from '@/lib/checkin-desk.server';
+import { ARRIVAL_PRESETS, arrivalsBoard, teamOnDesk, type DeskActivity, type DeskRole, type TeamPerson } from '@/lib/checkin-desk';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';
+import { eventDateToEpoch } from '@/lib/day-of-mode';
+import { updateTimeLabel } from '@/lib/day-requests';
+import { ownClockWords, isOwnClock } from '@/lib/supplier-own-times';
+import { seatIsFullCohost } from '@/lib/guest-access';
+import { DeskParts, type DoorCandidate } from './_components/desk-parts';
+import { SuppliersPart, TeamPart } from './_components/desk-parts-board';
 
 export const metadata = { title: 'Check-in desk' };
 
@@ -81,6 +90,13 @@ export default async function CheckinDeskPage({ params }: Props) {
     { data: tablesRaw, error: tablesRawError },
     { data: checkinsRaw, error: checkinsRawError },
     { data: eventRow, error: eventRowError },
+    desk,
+    { data: souvenirsRaw, error: souvenirsRawError },
+    { data: statusRaw, error: statusRawError },
+    { data: vendorsRaw, error: vendorsRawError },
+    { data: timesRaw, error: timesRawError },
+    { data: seatsRaw, error: seatsRawError },
+    { data: couplesRaw, error: couplesRawError },
   ] = await Promise.all([
     supabase
       .from('guests')
@@ -103,9 +119,39 @@ export default async function CheckinDeskPage({ params }: Props) {
       .eq('event_id', eventId),
     supabase
       .from('guest_checkins')
-      .select('guest_id, checked_in_at, method')
+      // 🛂 `checked_in_by_user_id` — who worked the door: the Team part reads it (no second read of this table).
+      .select('guest_id, checked_in_at, method, checked_in_by_user_id')
       .eq('event_id', eventId),
     supabase.from('events').select(EVENT_CLOCK_COLUMNS).eq('event_id', eventId).maybeSingle(),
+    // ── 🛂 THE DESK'S THREE PARTS (owner 16 Nov 2026) — in the SAME batch, every one an existing fact ──
+    // Which parts this person may open (their seat, the two booked-supplier answers, the hosts' choice).
+    readDeskViewer(supabase, eventId, user.id, { isCouple: viewer.isCouple, isCoordinatorMember: membership.member_type === 'coordinator' }),
+    // Team: who handed a souvenir (the souvenir table is part of the desk).
+    supabase.from('guest_souvenir_claims').select('claimed_at, claimed_by_user_id').eq('event_id', eventId),
+    // Suppliers: their OWN shipped status presets (lib/day-requests.ts) — the vendor lane, arrival presets only.
+    supabase
+      .from('event_day_requests')
+      .select('author_vendor_profile_id, preset_key, created_at')
+      .eq('event_id', eventId)
+      .eq('origin', 'vendor')
+      .in('preset_key', [...ARRIVAL_PRESETS]),
+    // Suppliers: who is booked (and on Setnayan, so they can press "On site").
+    supabase
+      .from('event_vendors')
+      .select('linked_vendor_profile_id, vendor_name, status')
+      .eq('event_id', eventId)
+      .not('linked_vendor_profile_id', 'is', null)
+      .in('status', [...BOOKED_EVENT_VENDOR_STATUSES]),
+    // Suppliers: the time each said they arrive and are done (cut 5, the venue's wall clock).
+    supabase.from('supplier_own_times').select('vendor_profile_id, arrive_clock, done_clock').eq('event_id', eventId),
+    // Team + Who runs the desk: the event's live seats, named off this same roster by guest_id.
+    supabase
+      .from('event_moderators')
+      .select('user_id, guest_id, role_subtype')
+      .eq('event_id', eventId)
+      .is('removed_at', null)
+      .not('user_id', 'is', null),
+    supabase.from('event_members').select('user_id').eq('event_id', eventId).eq('member_type', 'couple'),
   ]);
   if (guestsRawError) {
     logQueryError('GuestCheckinPage.guestsRaw', guestsRawError, { event_id: eventId }, 'graceful_degrade');
@@ -127,6 +173,22 @@ export default async function CheckinDeskPage({ params }: Props) {
   // TODAY IN MANILA, so it flipped at midnight while the reception was still checking guests in.
   const clock = eventClockOf(eventRow);
   const somethingRefused = Boolean(guestsRawError) || Boolean(assignmentsRawError) || Boolean(tablesRawError) || Boolean(checkinsRawError);
+  for (const [what, e] of [
+    ['souvenirs', souvenirsRawError],
+    ['supplierStatus', statusRawError],
+    ['vendors', vendorsRawError],
+    ['supplierTimes', timesRawError],
+    ['seats', seatsRawError],
+    ['couples', couplesRawError],
+  ] as const) {
+    if (e) logQueryError(`GuestCheckinPage.${what}`, e, { event_id: eventId }, 'graceful_degrade');
+  }
+  // 🔌 The parts read did not answer: the desk opens as it shipped (Guests), and says so — the actions ask again.
+  const parts = desk.parts.length ? desk.parts : desk.unread ? (['guests'] as const) : [];
+  if (parts.length === 0) {
+    return <NotSharedWithYou title="Check-in desk" thing="check-in desk" />;
+  }
+  const isHost = desk.role === 'host';
 
   // Linked tables (#1266) display as the unit's name when one is set.
   const tableLabelById = new Map<string, string>();
@@ -168,6 +230,76 @@ export default async function CheckinDeskPage({ params }: Props) {
   }));
 
   const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
+
+  // ── 🛂 Suppliers: the arrivals board — their own presets against their own times ──
+  const nowMs = Date.now();
+  const eventDay = (eventRow?.event_date as string | null) ?? null;
+  const suppliersSeen = new Set<string>();
+  const boardSuppliers = ((vendorsRaw ?? []) as { linked_vendor_profile_id: string | null; vendor_name: string | null }[])
+    .filter((v) => v.linked_vendor_profile_id && !suppliersSeen.has(v.linked_vendor_profile_id) && suppliersSeen.add(v.linked_vendor_profile_id))
+    .map((v) => ({ vendorProfileId: v.linked_vendor_profile_id as string, name: (v.vendor_name ?? '').trim() || 'A supplier' }));
+  const board = arrivalsBoard({
+    suppliers: boardSuppliers,
+    rows: ((statusRaw ?? []) as { author_vendor_profile_id: string | null; preset_key: string | null; created_at: string }[]).map((r) => ({
+      vendorProfileId: r.author_vendor_profile_id,
+      presetKey: r.preset_key,
+      at: r.created_at,
+    })),
+    times: new Map(
+      ((timesRaw ?? []) as { vendor_profile_id: string; arrive_clock: string | null; done_clock: string | null }[]).map((t) => [
+        t.vendor_profile_id,
+        { arrive: t.arrive_clock, done: t.done_clock },
+      ]),
+    ),
+    nowMs,
+    wallToMs: (hhmm) => {
+      if (!eventDay || !isOwnClock(hhmm)) return null;
+      const day = eventDateToEpoch(eventDay.slice(0, 10), clock.tz);
+      if (!Number.isFinite(day)) return null;
+      const [h = 0, m = 0] = hhmm.split(':').map(Number);
+      return day + (h * 60 + m) * 60_000;
+    },
+    clockOf: (iso) => updateTimeLabel(iso, clock.tz),
+    ownClock: ownClockWords,
+  });
+  const suppliersUnread = Boolean(statusRawError) || Boolean(vendorsRawError) || Boolean(timesRawError);
+
+  // ── 🛂 Team: who is on the desk now — read off who scanned and who handed a souvenir ──
+  const nameByGuestId = new Map(roster.map((g) => [g.guest_id, guestDisplayName(g)]));
+  const coupleIds = new Set(((couplesRaw ?? []) as { user_id: string }[]).map((c) => c.user_id));
+  const seats = (seatsRaw ?? []) as { user_id: string; guest_id: string | null; role_subtype: string }[];
+  const people = new Map<string, TeamPerson>();
+  for (const id of coupleIds) people.set(id, { name: null, role: 'host' });
+  for (const s of seats) {
+    const role: DeskRole =
+      coupleIds.has(s.user_id) || seatIsFullCohost(s.role_subtype)
+        ? 'host'
+        : s.role_subtype === 'wedding_planner_external'
+          ? desk.access.door?.userId === s.user_id
+            ? 'supplier'
+            : 'coordinator'
+          : 'helper';
+    people.set(s.user_id, { name: (s.guest_id && nameByGuestId.get(s.guest_id)) || null, role });
+  }
+  const activity: DeskActivity[] = [
+    ...((checkinsRaw ?? []) as { checked_in_by_user_id: string | null; checked_in_at: string }[]).map((c) => ({
+      userId: c.checked_in_by_user_id,
+      at: c.checked_in_at,
+      kind: 'scan' as const,
+    })),
+    ...((souvenirsRaw ?? []) as { claimed_by_user_id: string | null; claimed_at: string }[]).map((c) => ({
+      userId: c.claimed_by_user_id,
+      at: c.claimed_at,
+      kind: 'souvenir' as const,
+    })),
+  ];
+  const team = teamOnDesk({ viewerId: user.id, viewerRole: desk.role, activity, people, nowMs });
+  // ⚙ Who runs the desk: the supplier at the door is one of the event's supplier seats (the hired-planner seat kind).
+  const doorCandidates: DoorCandidate[] = isHost
+    ? seats
+        .filter((s) => s.role_subtype === 'wedding_planner_external' && !coupleIds.has(s.user_id))
+        .map((s) => ({ userId: s.user_id, name: (s.guest_id && nameByGuestId.get(s.guest_id)) || 'A supplier' }))
+    : [];
   // A birthday's door crew never reads "Both sides" (the profile's role set).
   const hasSides = eventHasSides(await resolveRoleSetForEvent(eventId));
 
@@ -213,16 +345,32 @@ export default async function CheckinDeskPage({ params }: Props) {
         />
       </header>
 
-      <RoleNamesProvider names={roleNames}>
-        <CheckinDesk
-          eventId={eventId}
-          viewer={user.id}
-          guests={guests}
-          initialCheckins={checkins}
-          expected={expected}
-          hasSides={hasSides}
-        />
-      </RoleNamesProvider>
+      {desk.unread ? (
+        <ReadRefusedNotice className="mt-3" partial what="who runs which part of this desk" />
+      ) : null}
+
+      {/* 🛂 One desk, three parts (owner 16 Nov 2026): Guests · Suppliers · Team, one dropdown, ⚙ Who runs the desk. */}
+      <DeskParts
+        eventId={eventId}
+        parts={parts}
+        isHost={isHost}
+        access={desk.access}
+        doorCandidates={doorCandidates}
+        guests={
+          <RoleNamesProvider names={roleNames}>
+            <CheckinDesk
+              eventId={eventId}
+              viewer={user.id}
+              guests={guests}
+              initialCheckins={checkins}
+              expected={expected}
+              hasSides={hasSides}
+            />
+          </RoleNamesProvider>
+        }
+        suppliers={<SuppliersPart lines={board.lines} here={board.here} unread={suppliersUnread} />}
+        team={<TeamPart lines={team} unread={Boolean(checkinsRawError) || Boolean(souvenirsRawError) || Boolean(seatsRawError) || Boolean(couplesRawError)} />}
+      />
 
       {/* Day-of: silently re-pull the roster so a live reseat updates each
           guest's table on the board without a manual reload (seat-finding PR 5).

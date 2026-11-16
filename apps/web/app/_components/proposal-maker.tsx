@@ -2262,6 +2262,9 @@ export function ProposalMaker({
             codes={shopGiftCodes}
             onChange={setShopGiftCodes}
             buy={shopGiftsBuy}
+            // CHAT-31: the fee line above reads the SAME standing — a client who did not come from Setnayan carries
+            // no fee, so the limit must not call the sized figure "its booking fee".
+            feeNotCharged={feeStanding?.kind === 'not_sourced'}
           />
         ) : null}
       </div>

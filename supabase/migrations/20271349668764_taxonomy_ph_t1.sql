@@ -7,6 +7,22 @@
 -- Data only. Idempotent: every write is guarded, so a re-run changes nothing.
 BEGIN;
 
+-- 0 · Inspiration parts: remember, BEFORE anything moves, which categories each part links WHOLE
+--     (every live service of the category). Step 11c re-expands exactly those after the tree changes,
+--     so a part that was "everyone in Stylist / Decorator" stays that — new services in, folded and
+--     hidden ones out — and the shops that may add a photo stay the category expansion
+--     (tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts). Hand-picked links are only
+--     re-pointed (a fold) or dropped (a hidden service); nothing else about them changes.
+CREATE TEMP TABLE t1_part_whole_categories AS
+SELECT p.slot_key, pr.category_id
+  FROM public.inspiration_parts p
+  JOIN (SELECT category_id, array_agg(canonical_service) AS svcs
+          FROM public.inspiration_category_service_pairs() GROUP BY category_id) pr ON TRUE
+ WHERE p.kind = 'part'
+   AND NOT EXISTS (SELECT 1 FROM unnest(pr.svcs) AS u(s)
+                    WHERE NOT EXISTS (SELECT 1 FROM public.inspiration_part_services l
+                                       WHERE l.slot_key = p.slot_key AND l.canonical_service = u.s));
+
 -- 1 · Group names
 UPDATE public.service_categories SET label_en = 'Venues & Simbahan', label_short = 'Venues', updated_at = now() WHERE id = 'venue' AND tier = 1 AND (label_en, label_short) IS DISTINCT FROM ('Venues & Simbahan', 'Venues');
 UPDATE public.service_categories SET label_en = 'Catering & Cakes', label_short = 'Catering', updated_at = now() WHERE id = 'feast' AND tier = 1 AND (label_en, label_short) IS DISTINCT FROM ('Catering & Cakes', 'Catering');
@@ -268,6 +284,17 @@ SELECT public.merge_canonical_service('kingdom_hall_venue', 'other_place_of_wors
 SELECT public.merge_canonical_service('sda_church_venue', 'other_place_of_worship', NULL) WHERE EXISTS (SELECT 1 FROM public.canonical_service_taxonomy WHERE canonical_service = 'sda_church_venue' AND merged_into IS NULL);
 SELECT public.merge_canonical_service('cultural_ceremony_site', 'other_place_of_worship', NULL) WHERE EXISTS (SELECT 1 FROM public.canonical_service_taxonomy WHERE canonical_service = 'cultural_ceremony_site' AND merged_into IS NULL);
 
+-- 8b · A fold keeps the reach of what it absorbed: `accommodation` served weddings and Hotel stay did not, so after
+--      the fold no supplier could serve "Hotels & Resorts" at a wedding (tile-event-type-fillable.db.test.ts).
+UPDATE public.canonical_service_taxonomy d
+   SET applicable_event_types = (SELECT array_agg(DISTINCT x ORDER BY x) FROM unnest(d.applicable_event_types || s.applicable_event_types) AS u(x)),
+       updated_at = now()
+  FROM public.canonical_service_taxonomy s
+ WHERE s.merged_into = d.canonical_service
+   AND s.canonical_service IN ('born_again_church_venue', 'accommodation', 'gender_separated_reception_coordinator', 'engagement_photographer', 'highlight_reel_specialist', 'drone', 'inc_modest_bridal', 'junior_groomsman', 'bridal_hair_stylist', 'maternity_bride_mua', 'mature_bride_mua', 'bridal_jewellery_rental', 'decorator_general', 'event_lights_rental', 'outdoor_lighting_specialist', 'outdoor_sound_system', 'tent_rental', 'band_live_music', 'pre_cana_dance_trainer', 'whiskey_cigar_bar', 'mocktail_booth_mini', 'mocktail_only_caterer', 'massage_therapist', 'foot_reflexology', 'aromatherapy_station', 'mehndi_artist', 'muslim_henna_artist', 'wedding_cards_designer', 'save_the_date_digital', 'place_card', 'van_rental', 'private_car_charter', 'orthodox_church_venue', 'buddhist_temple_venue', 'hindu_temple_venue', 'gurdwara_venue', 'synagogue_venue', 'lds_temple_venue', 'kingdom_hall_venue', 'sda_church_venue', 'cultural_ceremony_site')
+   AND d.applicable_event_types IS NOT NULL AND s.applicable_event_types IS NOT NULL
+   AND NOT (d.applicable_event_types @> s.applicable_event_types);
+
 -- 9 · Service names
 UPDATE public.canonical_service_schemas SET display_name_en = 'Hotel ballroom', updated_at = now() WHERE canonical_service = 'hotel_ballroom' AND display_name_en IS DISTINCT FROM 'Hotel ballroom';
 UPDATE public.canonical_service_schemas SET display_name_en = 'Events place', updated_at = now() WHERE canonical_service = 'events_place' AND display_name_en IS DISTINCT FROM 'Events place';
@@ -490,6 +517,65 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION public.supplier_scan_is_souvenir(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_scan_is_souvenir(TEXT) TO authenticated;
+
+-- 11b · The coordinator trade's SQL copy drops the folded key (its holders now carry mahr_coordination).
+--      Mirror of COORDINATOR_TRADE_SERVICES (apps/web/lib/coordinator-trade.ts); a unit test holds them equal.
+CREATE OR REPLACE FUNCTION public.services_make_a_coordinator(p_services text[])
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = public
+AS $$
+  SELECT COALESCE(p_services, ARRAY[]::text[]) && ARRAY[
+    'coordinator',
+    'planner_coordinator',
+    'wedding_coordination',
+    'wedding_planner_partial',
+    'day_of_coordinator',
+    'destination_wedding_specialist',
+    'pamamanhikan_coordinator',
+    'despedida_planner',
+    'sponsor_coordinator',
+    'religious_venue_coordinator',
+    'inc_wedding_coordinator',
+    'mahr_coordination',
+    'setnayan_concierge'
+  ]::text[];
+$$;
+REVOKE ALL ON FUNCTION public.services_make_a_coordinator(text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.services_make_a_coordinator(text[]) TO service_role;
+
+-- 11c · Inspiration parts follow the tree (see step 0).
+--   (a) a hand-picked link to a FOLDED service moves to the service it folded into — its shops moved there;
+INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order)
+SELECT DISTINCT ON (l.slot_key, t.merged_into) l.slot_key, t.merged_into, l.sort_order
+  FROM public.inspiration_part_services l
+  JOIN public.canonical_service_taxonomy t ON t.canonical_service = l.canonical_service AND t.merged_into IS NOT NULL
+ WHERE NOT EXISTS (SELECT 1 FROM t1_part_whole_categories w
+                    WHERE w.slot_key = l.slot_key AND (t.tile_id = w.category_id OR w.category_id = ANY (COALESCE(t.secondary_tiles, ARRAY[]::TEXT[]))))
+ORDER BY l.slot_key, t.merged_into, l.sort_order
+ON CONFLICT DO NOTHING;
+--   (b) no part links a folded or hidden service (nobody can hold one any more);
+DELETE FROM public.inspiration_part_services l
+ USING public.canonical_service_taxonomy t
+ WHERE t.canonical_service = l.canonical_service AND (t.merged_into IS NOT NULL OR COALESCE(t.marketplace_hidden, FALSE));
+--   (c) a category a part linked whole is linked whole again — its new services join, after the part's last link.
+INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order)
+SELECT w.slot_key, pr.canonical_service,
+       -- placed beside the category's own links (a covered category sits where its last service sits), so the
+       -- part's also-categories keep their order; a category with no link left goes after the part's last link
+       COALESCE(
+         (SELECT max(x.sort_order) FROM public.inspiration_part_services x
+            JOIN public.inspiration_category_service_pairs() p2 ON p2.canonical_service = x.canonical_service AND p2.category_id = w.category_id
+           WHERE x.slot_key = w.slot_key),
+         (SELECT COALESCE(max(x.sort_order), 0) FROM public.inspiration_part_services x WHERE x.slot_key = w.slot_key)
+           + row_number() OVER (PARTITION BY w.slot_key ORDER BY pr.category_id, pr.canonical_service))
+  FROM t1_part_whole_categories w
+  JOIN public.inspiration_category_service_pairs() pr ON pr.category_id = w.category_id
+ WHERE NOT EXISTS (SELECT 1 FROM public.inspiration_part_services l WHERE l.slot_key = w.slot_key AND l.canonical_service = pr.canonical_service)
+ON CONFLICT DO NOTHING;
+DROP TABLE t1_part_whole_categories;
 
 -- 12 · Refuse to commit a tree that is not the approved one
 DO $guard$

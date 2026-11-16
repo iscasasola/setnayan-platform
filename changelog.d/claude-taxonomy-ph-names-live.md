@@ -44,3 +44,10 @@ under Gifts.
 
 SPEC IMPACT: `DECISION_LOG.md` row — T1 part 1 live, part 2 listed; `TAXONOMY_PH_FULL_2026-11-07.md`
 unchanged (this implements it).
+
+**CI follow-up (same PR):** inspiration parts now follow the tree — a part that linked a category whole is
+re-expanded (new services in; folded and hidden ones out; a hand-picked folded link moves to its destination);
+Hotel stay keeps the wedding reach of the `accommodation` leaf it absorbed; `services_make_a_coordinator` and
+`COORDINATOR_TRADE_SERVICES` drop the folded `gender_separated_reception_coordinator`; three stale
+`KNOWN_UNFILLABLE` pairs now fill and leave the allowlist; tests that pinned "Host / MC", "Reception", the ten
+Filipiniana keys and the old Chairs & tents leaves pin T1's.

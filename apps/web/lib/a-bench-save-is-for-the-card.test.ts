@@ -62,7 +62,7 @@ test('1 · the tile names the card — including a card that stores the tile id'
 test('1b · two cards in one tile resolve the same way every time', () => {
   const two: ShopCard[] = [
     { vendor_service_id: 'bbb', category: 'live_band', created_at: AT },
-    { vendor_service_id: 'aaa', category: 'band_live_music', created_at: AT },
+    { vendor_service_id: 'aaa', category: 'live_band', created_at: AT }, // band_live_music folded into live_band (T1)
     { vendor_service_id: 'zzz', category: 'live_band', created_at: '2026-01-01T00:00:00+00' },
   ];
   const pick = (cards: ShopCard[]) => cardForTile(cards, 'live_band', canonicalServicesForTile('live_band'))?.vendor_service_id;
@@ -115,7 +115,7 @@ test('4 · the interest chip asks the card what it is before the coarse key', ()
   assert.equal(interestChipLabel({ category_key: 'misc' }, null, 'live_band'), 'Live Band');
   // testnayan4 × Saysay: coarse `band_dj`, card is Live Band
   assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'live_band'), 'Live Band');
-  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'host_mc'), 'Host / MC');
+  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'host_mc'), 'Host');
   // a card title still wins; no card at all keeps the old fallback
   assert.equal(interestChipLabel({ category_key: 'misc' }, 'Saysay Live', 'live_band'), 'Saysay Live');
   assert.equal(interestChipLabel({ category_key: 'band_dj' }), 'Band / DJ');
@@ -139,7 +139,7 @@ const OLD = '**Setnayan Exclusive unlocked 🎁** live_band: Free 1-hour extensi
 test('3 · an OLD perk line reads in the new words — stored text untouched', () => {
   const shown = renderPerkUnlock(OLD);
   assert.equal(shown, '🎁 A perk for Setnayan couples · Live Band — Free 1-hour extension for Setnayan couples');
-  assert.equal(renderPerkUnlock('**Setnayan Exclusive unlocked 🎁** host_mc: FREE'), '🎁 A perk for Setnayan couples · Host / MC — FREE');
+  assert.equal(renderPerkUnlock('**Setnayan Exclusive unlocked 🎁** host_mc: FREE'), '🎁 A perk for Setnayan couples · Host — FREE');
   for (const s of [shown, shortPerkUnlock(OLD)!, shortenGeneratedBody(OLD)]) {
     assert.ok(!/\*\*|live_band|Exclusive/.test(s), `markdown, a raw key or the retired name reached a person: ${s}`);
   }

@@ -34,7 +34,7 @@ export function FeatureUsCard({
 }) {
   if (alreadyConsented) {
     return (
-      <p className="inline-flex items-start gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4 text-sm text-ink/65">
+      <p className="inline-flex items-start gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4 text-sm text-ink/65">
         <Check
           aria-hidden
           className="mt-0.5 h-4 w-4 shrink-0 text-success-600"
@@ -49,7 +49,7 @@ export function FeatureUsCard({
   }
 
   return (
-    <section className="space-y-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-4">
+    <section className="space-y-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4">
       <div className="flex items-start gap-2">
         <Megaphone
           aria-hidden

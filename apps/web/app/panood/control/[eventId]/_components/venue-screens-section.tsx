@@ -101,7 +101,7 @@ export function VenueScreensSection({
       </div>
 
       {banner ? (
-        <p role="status" className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-3 py-2 text-sm text-ink/80">
+        <p role="status" className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-2 text-sm text-ink/80">
           {banner}
         </p>
       ) : null}

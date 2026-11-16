@@ -323,7 +323,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       {youtubeDisconnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3 text-sm text-ink/75"
+          className="inline-flex items-center gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm text-ink/75"
         >
           <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           YouTube disconnected. Reconnect any time to re-enable the broadcast.
@@ -339,7 +339,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       {youtubeError === 'pool_only' ? (
         <p
           role="status"
-          className="inline-flex items-start gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3 text-sm text-ink/75"
+          className="inline-flex items-start gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm text-ink/75"
         >
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>

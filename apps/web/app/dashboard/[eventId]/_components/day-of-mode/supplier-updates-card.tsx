@@ -17,7 +17,7 @@ export type SupplierUpdateCardLine = SupplierUpdateLine & { time: string };
 export function SupplierUpdatesCard({ lines }: { lines: SupplierUpdateCardLine[] | null }) {
   return (
     <article
-      className="space-y-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5" // no-card-ok: one of the day-of grid's cards, the same box as Get help and What's happening beside it
+      className="space-y-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-5" // no-card-ok: one of the day-of grid's cards, the same box as Get help and What's happening beside it
       data-supplier-updates={lines === null ? 'unread' : lines.length}
     >
       <header className="flex items-center justify-between">

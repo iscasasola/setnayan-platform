@@ -270,7 +270,7 @@ function ServeRow({
 }) {
   const relation = guest.relation?.trim() || null;
   return (
-    <li className="flex items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-2.5 break-inside-avoid">
+    <li className="flex items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-2.5 break-inside-avoid">
       <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta/10 font-mono text-xs font-semibold text-terracotta-700">
         {number}
       </span>
@@ -294,7 +294,7 @@ function ServeRow({
 
 function EmptyState({ eventId }: { eventId: string }) {
   return (
-    <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-6 text-sm text-ink/70">
+    <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-6 text-sm text-ink/70">
       <p>
         Once you add your families to the guest list and mark each one&rsquo;s
         side, they&rsquo;ll appear here in serving order. Set a relationship and

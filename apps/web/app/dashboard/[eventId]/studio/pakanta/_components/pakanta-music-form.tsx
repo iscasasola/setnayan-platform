@@ -83,7 +83,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
         e.preventDefault();
         submit(paid ? 'skip' : 'purchase');
       }}
-      className="space-y-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-5"
+      className="space-y-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-5"
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-ink/70">
         A few music notes

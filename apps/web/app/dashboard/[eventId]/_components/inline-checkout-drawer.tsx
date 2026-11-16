@@ -905,7 +905,7 @@ function VoucherBlock({
   // Collapsed state · "Have a code?" link.
   if (!showField && !applied) {
     return (
-      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-2.5">
+      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-2.5">
         <button
           type="button"
           onClick={onShowField}
@@ -948,7 +948,7 @@ function VoucherBlock({
 
   // Input state — type / apply / rejection.
   return (
-    <div className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3">
+    <div className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3">
       <label className="block text-xs font-medium text-ink/70">
         Enter your code
       </label>

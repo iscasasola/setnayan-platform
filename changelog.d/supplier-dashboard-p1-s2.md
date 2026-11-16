@@ -14,3 +14,4 @@ Slice 2 of the P1 supplier drawings. It stacks on #7898 (the W1 walk batch) and 
   - Each now draws the shipped `BackButton`, which takes its home from `lib/page-home.ts` and returns in place. It sits inside the new `BackWhenNotRisen`, so a risen sheet never shows two ways out. 🔒 `a-cold-arrival-has-a-back.test.ts`
 
 SPEC IMPACT: None. Every move is a 16 Nov approval already in DECISION_LOG.
+- Clients on a computer (≥1280): once a day is picked, the picked day sits beside the month as the third column and the client list stays shown. It uses no extra read, because it reuses the month's own data. Phone unchanged. Guard: `customers/the-picked-day-is-column-three-on-a-computer.test.ts`.

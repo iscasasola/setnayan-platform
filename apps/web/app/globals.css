@@ -199,15 +199,19 @@
      * declared only by the admin's saved set (`<style id="sn-app-colours">`, `lib/app-colours.ts`), which resets them to
      * `initial` inside every guest island. Held by `lib/app-colours-in-globals.test.ts`.
      *
-     * The band and frame tokens below are for the next waves (band on PageMasthead/CollapsingTop · frame on
-     * .sn-tile/.sn-row/.sn-card): NOTHING READS THEM YET, so they move no pixel. Defaults = today's values. */
-    --sn-band-from: 194 78 37;          /* #C24E25 — flat terracotta */
-    --sn-band-to: 194 78 37;
-    --sn-band-angle: 135deg;
-    --sn-on-band: 255 255 255;          /* the band's words are always white; the gate darkens a pale stop */
-    --sn-frame-bg: 255 255 255;         /* = --m-paper */
+     * ✨ THE CLEAN WARM LOOK (owner 16 Nov 2026, "yes the template looks good" — specs DECISION_LOG 2026-11-16 "THE
+     * CLEAN WARM LOOK IS APPROVED", drawing `prototypes/clean_warm_look_2026-11-16_fable.html` § "What changes in the
+     * token layer"). These are the values that drawing set: the band is pale peach → white with INK words, and a
+     * frame is pure white with the soft lift and no line. `.sn-band`, `.sn-frame`, `.sn-tile`, `.sn-row`, `.home-card`
+     * and the bottom bar read them, so one value here changes every screen that wears them. Admin › Colours
+     * (`lib/app-colours.ts` APP_COLOURS_DEFAULT) holds the same values as its "Current" set. */
+    --sn-band-from: 250 224 209;        /* #FAE0D1 — pale peach (was #C24E25 flat terracotta) */
+    --sn-band-to: 255 255 255;          /* #FFFFFF */
+    --sn-band-angle: 180deg;            /* top to bottom */
+    --sn-on-band: 44 42 41;             /* ink #2C2A29 — 11.3:1 on #FAE0D1, 14.3:1 on white. The gate picks ink on a pale band */
+    --sn-frame-bg: 255 255 255;         /* = --m-paper — the white card */
     --sn-frame-radius: 14px;            /* = --m-r-md */
-    --sn-frame-shadow: none;            /* today a frame is a line, not a float */
+    --sn-frame-shadow: var(--m-shadow-md); /* the soft lift — one value for tile, row and card (was none: a line) */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
      * token; anchors inherited ink. Scope is deliberately NARROW (owner):
      * inline links and secondary/ghost buttons only. It is NOT a decorative
@@ -260,7 +264,7 @@
      * Measured on the #F0F2F5 trial (lighter values only raise these): ink 12.74:1 · link 7.58:1 · gold 3.10:1 (UI only) ·
      * terracotta as TEXT straight on the page 4.25:1 — under 4.5, so it stays a fill/large-text colour (the CTA label
      * sits on the fill and is unchanged). */
-    --sn-page-bg: 255 255 255;            /* #FFFFFF — owner 12 Nov: "keep the background white"; the life goes in the frames + buttons on top */
+    --sn-page-bg: 247 245 244;            /* #F7F5F4 — owner 16 Nov: "netural background color f7f5f4 / so framed can be white. ffffff" (supersedes 12 Nov "keep the background white"; DECISION_LOG 2026-11-16 "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Ink on it 13.1:1 · terracotta-700 words 6.1:1 · terracotta as TEXT 4.38:1 (stays a fill/large-text colour) */
     /* 🎨 THE FOUR CATEGORY COLOURS (owner, THE ONE BUILD item 13, 8 Nov 2026 — supplier-menu-r2.v113 `--c-ev/--c-sch/
      * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
      * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
@@ -294,9 +298,18 @@
     --sn-btn-radius: var(--m-r-full);   /* pill */
     --sn-btn-radius-rect: var(--m-r-sm);/* .button-primary outside .app-surface (rounded-md) */
     /* frames — joins --sn-frame-bg/-radius/-shadow above */
-    --sn-frame-line: var(--m-line);     /* .sn-tile / .sn-row edge */
+    --sn-frame-line: transparent;       /* .sn-tile / .sn-row edge — OFF (16 Nov: "no 1 px border"; was --m-line) */
     --sn-frame-padding: 18px;           /* .sn-tile padding */
-    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06); /* .sn-tile's hairline lift (.sn-row has none) */
+    --sn-frame-shadow-tile: var(--sn-frame-shadow); /* tile, row and card now share ONE lift (was a 1 px hairline shadow) */
+    /* the line between sections and rows — OFF (16 Nov: "lines between sections/rows/nav removed (space separates)").
+       `TemplateRows`, `TemplateNums` and the shared row lists read it. The pinned row's soft hairline (`--sn-hair`)
+       is a different job and stays. */
+    --sn-divider: transparent;
+    /* the secondary button — a soft grey fill, no outline (16 Nov). Read by `.ab-neutral` and `.button-secondary`. */
+    --sn-btn-secondary-bg: rgb(44 42 41 / 0.06);   /* ink 6 % → #F0EFEF on white; ink on it 12.4:1 */
+    --sn-btn-secondary-bg-hover: rgb(44 42 41 / 0.1);
+    --sn-btn-secondary-border: transparent;
+    --sn-btn-secondary-fg: 44 42 41;    /* ink (was link slate on .button-secondary) */
     /* the sheet — the one floating surface */
     --sn-sheet-radius: var(--m-r-lg);   /* rounded-t-2xl */
     --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
@@ -332,6 +345,7 @@
     --sn-fs-xl: 17px;
     --sn-fs-2xl: 19px;
     --sn-fs-3xl: 22px;
+    --sn-fs-title: 30px;                /* the ONE screen title, 30 px / 700 (16 Nov; Tailwind `text-sn-title`) */
   }
 
   html.dark {
@@ -402,7 +416,10 @@
     --sn-hair: rgb(251 250 247 / 0.1);
     /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
        (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */
-    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06);
+    --sn-frame-shadow-tile: var(--sn-frame-shadow);
+    --sn-btn-secondary-bg: rgb(251 250 247 / 0.08);
+    --sn-btn-secondary-bg-hover: rgb(251 250 247 / 0.12);
+    --sn-btn-secondary-fg: 251 250 247;
     --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
     --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
     --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
@@ -445,6 +462,31 @@
     --ramp-champagne: 224 204 160; --ramp-champagne-deep: 197 160 89;
     /* sage: the pale fill becomes a dark sage wash, the readable tone goes light (#9CC093, 8.0:1 on the card) */
     --ramp-sage: 54 58 45; --ramp-sage-deep: 156 192 147;
+  }
+
+  /* 🏝 THE GUEST ISLANDS KEEP THEIR LOOK (clean warm look, 16 Nov 2026). The guest Event Hub (`.sn-editorial`, worn on
+   * every page of `app/[slug]`) and the pieces of a guest page drawn inside a dashboard wear the COUPLE's design — the
+   * same four selectors as `GUEST_ISLANDS` in `lib/app-colours.ts`. So the 16 Nov values stop at their edge: inside
+   * one, a frame is still a line, a row still has its hairline, the secondary button is still the slate outline on
+   * white, and the band is the old flat terracotta with white words. Zero specificity, so any theme rule still wins.
+   * 🔒 lib/app-colours.test.ts · lib/app-colours-in-globals.test.ts */
+  :where(.sn-editorial, [data-look-sample], [data-hub-theme], [data-art]) {
+    --sn-band-from: 194 78 37;
+    --sn-band-to: 194 78 37;
+    --sn-band-angle: 135deg;
+    --sn-on-band: 255 255 255;
+    --sn-frame-shadow: none;
+    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06);
+    --sn-frame-line: var(--m-line);
+    --sn-divider: var(--m-line);
+    --sn-btn-secondary-bg: rgb(var(--color-cream));
+    --sn-btn-secondary-bg-hover: rgb(var(--color-cream));
+    --sn-btn-secondary-border: rgb(var(--color-link) / 0.3);
+    --sn-btn-secondary-fg: var(--color-link);
+  }
+  /* …and the guest Event Hub's page stays WHITE (owner 16 Nov: "every screen except the guest Event Hub"). */
+  html:not(.dark) body:has(.sn-editorial) {
+    --sn-page-bg: 255 255 255;
   }
 
   html {
@@ -1217,8 +1259,16 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    * Label #3B4E67 on cream = 8.22:1 (AAA).
    */
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-link/30 bg-cream px-6 text-sm font-medium text-link transition hover:border-link/60 hover:text-link-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex h-11 items-center justify-center rounded-md border px-6 text-sm font-medium transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
+  /* ✨ SOFT GREY, NO OUTLINE (clean warm look, owner 16 Nov 2026): the secondary is a grey fill with ink words —
+   * it no longer competes with the terracotta main verb by colour, only by weight. Read from the secondary tokens. */
+  .button-secondary {
+    background-color: var(--sn-btn-secondary-bg);
+    border-color: var(--sn-btn-secondary-border);
+    color: rgb(var(--sn-btn-secondary-fg));
+  }
+  .button-secondary:hover { background-color: var(--sn-btn-secondary-bg-hover); }
 
   .input-field {
     @apply h-11 w-full rounded-md border border-ink/20 bg-cream px-3 text-base text-ink placeholder-ink/40 transition-colors focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta;
@@ -3749,8 +3799,14 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
      The bar painted `rgba(248,246,240,.92)` inline under html.dark too, so its
      near-white labels read 1.15:1 on every screen. */
-  --sn-dock-bg:    rgba(248, 246, 240, 0.92); /* the frosted paper @ 92 % */
-  --sn-dock-pill:  rgba(30, 34, 41, 0.15);    /* the travelling active pill — ink @ 15 % */
+  /* ✨ THE FLOATING WHITE PILL (clean warm look, owner 16 Nov 2026 — DECISION_LOG "THE CLEAN WARM LOOK IS APPROVED"):
+     the bar is the frame's white with its own lift, floating 14 px above the edge; the active item is a FILLED
+     terracotta pill (the accent — the toggle job) with its icon and word in --sn-on-accent (white, 4.76:1). Was the
+     frosted paper @ 92 % with an ink @ 15 % pill (NAV-9). The press-light is unchanged. */
+  --sn-dock-bg:    rgb(var(--sn-frame-bg));   /* the white pill */
+  --sn-dock-pill:  rgb(var(--sn-accent));     /* the active item, filled terracotta */
+  --sn-dock-on-pill: rgb(var(--sn-on-accent)); /* the active item's icon + word on it */
+  --sn-dock-lift:  0 12px 32px -10px rgba(30, 26, 18, 0.28), 0 2px 6px -2px rgba(30, 26, 18, 0.1); /* the drawing's .nav lift */
   --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
@@ -3836,8 +3892,10 @@ html.dark {
   --sn-glass-bg-raised: rgba(35,32,25,.86);
   /* The dock: the card #232019 frosted at the same 92 %, the pill = ink #FBFAF7 @ 15 %,
      and a softer press-light (a 95 % white bloom is a flashbulb on the dark page). */
-  --sn-dock-bg:    rgba(35, 32, 25, 0.92);
-  --sn-dock-pill:  rgba(251, 250, 247, 0.15);
+  --sn-dock-bg:    rgb(35 32 25);
+  --sn-dock-pill:  rgb(229 121 78);
+  --sn-dock-on-pill: rgb(23 22 15);
+  --sn-dock-lift:  0 12px 32px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
   --sn-dock-press: rgba(251, 250, 247, 0.28);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
@@ -6550,12 +6608,14 @@ div:has(> [data-apply-pro-sheet]),
    *
    * REVERSIBLE IN ONE PLACE. If the owner wants the glass back, it is this
    * block and nothing else. */
+  /* ✨ ON THE FRAME TOKENS (clean warm look, owner 16 Nov 2026): white, the soft lift, no line. (`--sn-frame-bg`
+   * equals `--m-paper` in both themes — #FFFFFF / #232019 — so the fill is unchanged; Admin › Colours now reaches it.) */
   .sn-tile {
-    background: var(--m-paper);
-    border: 1px solid var(--m-line);
-    border-radius: var(--m-r-md);
-    padding: 18px;
-    box-shadow: 0 1px 3px rgba(30, 26, 18, 0.06);
+    background: rgb(var(--sn-frame-bg));
+    border: var(--sn-border-w) solid var(--sn-frame-line);
+    border-radius: var(--sn-frame-radius);
+    padding: var(--sn-frame-padding);
+    box-shadow: var(--sn-frame-shadow-tile);
     transition:
       transform var(--sn-dur-elem) var(--sn-ease),
       box-shadow var(--sn-dur-elem) var(--sn-ease);
@@ -6608,10 +6668,28 @@ div:has(> [data-apply-pro-sheet]),
    * looked detached from the panels holding them. Token-aware for the same
    * reason as `.sn-tile` above. */
   .sn-row {
-    background: var(--m-paper);
-    border: 1px solid var(--m-line);
-    border-radius: var(--m-r-md);
+    background: rgb(var(--sn-frame-bg));
+    border: var(--sn-border-w) solid var(--sn-frame-line);
+    border-radius: var(--sn-frame-radius);
+    box-shadow: var(--sn-frame-shadow);
   }
+  /* ✨ THE FRAME — the ONE lifted white card (clean warm look, owner 16 Nov 2026). Every value is a frame token, so
+   * Admin › Colours moves every frame at once. Use it (or `.sn-tile` / `.sn-row`) instead of typing
+   * `bg-white border rounded-xl shadow-…` — `scripts/lint-no-card.mjs` counts the hand-typed kind. */
+  .sn-frame {
+    background: rgb(var(--sn-frame-bg));
+    border-radius: var(--sn-frame-radius);
+    box-shadow: var(--sn-frame-shadow);
+    padding: var(--sn-frame-padding);
+  }
+  .sn-frame-flush { padding: 0; overflow: hidden; }
+  /* ✨ THE HEADER BAND — pale peach into white, top to bottom, ink words (16 Nov). Reads the band tokens only. */
+  .sn-band {
+    background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%);
+    color: rgb(var(--sn-on-band));
+  }
+  /* The ONE screen title — 30 px / 700 (16 Nov). */
+  .sn-screen-title { font-size: var(--sn-fs-title); font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; }
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */
   html.dark .sn-row {
@@ -6761,6 +6839,17 @@ div:has(> [data-apply-pro-sheet]),
   .app-surface .button-secondary:not(.sn-editorial *):hover {
     border-color: var(--sn-ink-900);
     transform: translateY(-2px);
+  }
+  /* ✨ SOFT GREY, NO OUTLINE (clean warm look, owner 16 Nov 2026) — outside a guest-look island only; the island keeps
+     the two rules above. */
+  .app-surface .button-secondary:not(.sn-editorial *):not([data-look-sample] *) {
+    background: var(--sn-btn-secondary-bg);
+    color: rgb(var(--sn-btn-secondary-fg));
+    border-color: var(--sn-btn-secondary-border);
+  }
+  .app-surface .button-secondary:not(.sn-editorial *):not([data-look-sample] *):hover {
+    background: var(--sn-btn-secondary-bg-hover);
+    border-color: var(--sn-btn-secondary-border);
   }
   /* The same pill for both. */
   .app-surface .button-primary:not(.sn-editorial *),
@@ -8160,10 +8249,13 @@ html:has([data-sticky-top]) [data-home-after-cover] {
  * canvas block: `the-canvas-fails-visible.test.ts` reads everything after `.hub-canvas`
  * as the canvas, and these animations are not the canvas's. */
 .home-card {
-  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
-  border-radius: 16px;
-  padding: 14px;
-  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  /* ✨ On the frame tokens (clean warm look, 16 Nov): white, the soft lift, no line — was a 1 px line, 16 px corner,
+     14 px pad and a 2 % ink fill. */
+  border: var(--sn-border-w) solid var(--sn-frame-line);
+  border-radius: var(--sn-frame-radius);
+  padding: var(--sn-frame-padding);
+  background: rgb(var(--sn-frame-bg));
+  box-shadow: var(--sn-frame-shadow);
   text-align: left;
   color: rgb(var(--color-ink));
   min-width: 0;
@@ -8331,7 +8423,7 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 /* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — prototype `.ecard`): the countdown and NOW ride
    the cover band. Every colour is the band's own ink (currentColor), so a paper, image or colour ground all read. */
 .hc-ecard-cd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; margin-top: 6px; color: inherit; text-decoration: none; }
-.hc-ecard-n { font-family: Georgia, "Times New Roman", serif; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-ecard-n { font-family: var(--sn-font, inherit); font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .hc-ecard-n.hc-ecard-word { font-size: 34px; }
 .hc-ecard-w { min-width: 0; font-size: 14px; }
 .hc-ecard-d { display: block; margin-top: 2px; font-size: 12px; opacity: 0.8; }
@@ -8343,10 +8435,10 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-now.hc-calm { padding-right: 14px; }
 /* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
    the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
-.hc-ecard-plain { background: linear-gradient(180deg, #201d1b 0%, #3a3230 100%); color: #f6efe7; }
+.hc-ecard-plain { background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%); color: rgb(var(--sn-on-band)); } /* ✨ the header band (16 Nov) — was a dark gradient */
 html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
-.hc-ecard-plain .hc-ecard-name { color: #e7c9b6; }
-.hc-ecard-plain .hc-now-k { color: #f0b490; opacity: 1; }
+.hc-ecard-plain .hc-ecard-name { color: inherit; }
+.hc-ecard-plain .hc-now-k { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }
 /* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
 .hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
@@ -10372,13 +10464,14 @@ input.sn-switch:focus-visible {
 :is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
 :is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
 :is(button, a).ab.ab-danger { --ab-tone: var(--color-danger); }
-:is(button, a).ab.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
+/* ✨ The secondary — a soft grey fill, no outline (clean warm look, owner 16 Nov 2026). */
+:is(button, a).ab.ab-neutral { --ab-tone: var(--sn-btn-secondary-fg); background: var(--sn-btn-secondary-bg); border-color: var(--sn-btn-secondary-border); }
 /* `quiet` — the prototype's `.btn.quiet`: a secondary that should not compete
  * (Skip · Not now). Hairline border, muted word, no wash — any tone. Muted word
  * = ink at 72% on white, measured 5.75:1, AA. Ignored on `main`. */
 :is(button, a).ab.quiet:not(.ab-main) {
   background: transparent;
-  border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent);
+  border-color: var(--sn-btn-secondary-border);
   color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent);
 }
 :is(button, a).ab.ab-main {

@@ -51,7 +51,7 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
             {t.card ? (
               <a
                 href={`#${t.card.anchorId}`}
-                className="block overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta" // no-card-ok: an <a> — it opens the look's service card on this page
+                className="block overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta" // no-card-ok: an <a> — it opens the look's service card on this page
                 aria-label={`${t.part} — ${t.card.label}, ${t.card.priceLabel}. Open the card`}
                 data-inspiration-tile="card"
               >

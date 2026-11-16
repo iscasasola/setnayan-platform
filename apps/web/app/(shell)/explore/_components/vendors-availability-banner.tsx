@@ -96,7 +96,7 @@ export function VendorsAvailabilityBanner({
   return (
     <div
       role="status"
-      className="mt-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-4 py-3 text-sm"
+      className="mt-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm"
     >
       <div className="flex items-start gap-2">
         <CalendarRange

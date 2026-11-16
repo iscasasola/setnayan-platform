@@ -30,7 +30,7 @@ export function VerifiedPriceCard({
         <BadgeCheck className="h-5 w-5 text-success-700" strokeWidth={2} aria-hidden />
         <h2 className="text-lg font-semibold tracking-[-0.01em]">Typical price</h2>
       </div>
-      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] px-5 py-4">
+      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-5 py-4">
         <p className="text-3xl font-semibold text-ink">
           Typically around {formatMedianPhp(typicalPricePhp)}
         </p>

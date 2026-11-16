@@ -319,7 +319,7 @@ export default function AlaalaLandingPage() {
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Albums kept the photo. Memories keeps the day.
           </LineRevealHeading>
-          <RevealList className="mt-7 overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)]" stagger={0.06} y={12}>
+          <RevealList className="mt-7 overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame" stagger={0.06} y={12}>
             {VS.map(([before, after], i) => (
               <li
                 key={after}

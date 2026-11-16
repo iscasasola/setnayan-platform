@@ -110,7 +110,7 @@ function ReviewCard({ review }: { review: VendorReviewPreview }) {
 
   return (
     <article
-      className="flex h-full flex-col gap-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-[var(--sn-frame-shadow)] p-2.5"
+      className="flex h-full flex-col gap-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-2.5"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink">

@@ -15,4 +15,10 @@ carried into the signed-out pages and the supplier's public shop (`app/v/[slug]`
 - `no-card.baseline.txt` is left alone: it is shared and another PR edits it. Fewer cards keeps the ratchet green, and the train regenerates it once.
 - Skipped because another open PR edits them — listed in the PR body.
 
+**Handover pass (16 Nov):** the branch now stacks on the shared-layer PR (`claude/clean-look-tokens`), which owns the
+frame values. The frames read their lift as `shadow-[var(--sn-frame-shadow)]`, which Tailwind 3 compiles to a
+shadow COLOUR (measured: `--tw-shadow-color`, no `box-shadow`), so no frame would have lifted; they now use the
+token key `shadow-sn-frame`. `no-card.baseline.txt` is left at the shared PR's version (counts only fell) so the
+sibling sweeps cannot conflict on its header; the batch regenerates it once.
+
 SPEC IMPACT: None — applies the 2026-11-16 rulings already in DECISION_LOG.

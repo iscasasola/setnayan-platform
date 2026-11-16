@@ -68,6 +68,15 @@ export function readPickedOrigin(eventPath: string, from: readonly string[] = SU
   }
 }
 
+/**
+ * ✕ / Esc: go BACK to the list the client was opened from (its scroll and its filter — Overdue stays Overdue), or, with
+ * no origin (a hard load, Today, a notification) or no history to go back through, PUSH the list's address.
+ * EB-246 (16 Nov 2026): a row that recorded no origin always pushed — held by `client-card-closes-to-its-list.test.ts`.
+ */
+export function pickedCloseStep(origin: PickedOrigin | null, historyLength: number): 'back' | 'push' {
+  return origin && historyLength > 1 ? 'back' : 'push';
+}
+
 export function forgetPickedOrigin(): void {
   try {
     window.sessionStorage.removeItem(KEY);

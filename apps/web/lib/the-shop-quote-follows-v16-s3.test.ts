@@ -30,7 +30,9 @@ test('each card: "Add to quote" (pressed → "In your quote") and "Choose this s
   assert.match(QUOTE, /\{inQuote \? 'In your quote' : 'Add to quote'\}/);
   // 13 Nov "Yes, only one": the card's door into the ONE Inquire reads the shipped words, never a second "Inquire".
   assert.match(QUOTE, /<a\s+href="#get-in-touch"\s+data-inquire-service=\{card\.id\}[\s\S]{0,300}Choose this service\s*<\/a>/);
-  assert.match(GALLERY, /\{quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
+  // Inside the card's frame (`ServiceFace` `footer`, v16 `.sc .ft`), above the card's door — never under the card.
+  assert.match(GALLERY, /footer=\{\s*quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
+  assert.match(src('app/_components/service-card-view.tsx'), /<ServiceFace\s+footer=\{footer\}/);
   assert.match(GALLERY, /data-in-quote=\{picked\.includes\(c\.id\) \? '' : undefined\}/, 'a card in the quote is not marked');
 });
 

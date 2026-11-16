@@ -284,10 +284,12 @@ export function ServicesGallery({
                   originRef.current = from;
                   setOpenCardId(c.id);
                 }}
+                footer={
+                  quote ? (
+                    <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+                  ) : null
+                }
               />
-              {quote ? (
-                <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
-              ) : null}
             </li>
           )),
         )}

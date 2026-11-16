@@ -47,10 +47,14 @@ test('an unknown tier reads as Free — like vendor_tier_limit()', () => {
 });
 
 test('every editable key names a real TierCaps number, and the seed in the migration equals TIER_CAPS', () => {
-  const sql = readFileSync(
-    join(__dirname, '../../../supabase/migrations/20271344452857_vendor_plan_contents.sql'),
-    'utf8',
-  );
+  // The seed, plus every later migration that moved a seeded number with the owner's ruling (2026-11-14 "SIMPLER
+  // SUPPLIER PLANS": Ultra 16 categories · 30 cards · 10 bookings a day) — the latest word for a row is in one of them.
+  const sql = [
+    '20271344452857_vendor_plan_contents.sql',
+    '20271346711828_simpler_supplier_plans.sql',
+  ]
+    .map((f) => readFileSync(join(__dirname, '../../../supabase/migrations', f), 'utf8'))
+    .join('\n');
   let seeded = 0;
   for (const def of EDITABLE_PLAN_KEYS) {
     for (const t of VENDOR_TIERS) {

@@ -1,6 +1,6 @@
 /**
  * supplier-storage.test.ts — THE PLAN HOLDS STORAGE (owner 2026-11-13, specs DECISION_LOG ce2d0a8 "plan storage":
- * Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB; Free and Free · Verified keep what they had — no allowance).
+ * Plus 5 GB · Pro 10 GB · Ultra 15 GB; Free and Free · Verified keep what they had — no allowance).
  *
  *   1 · the per-plan numbers, read from TIER_CAPS — and `storageAllowanceBytes` asks TIER_CAPS, not a typed number;
  *   2 · the refusal: a file past the allowance is refused with the plan's number and the way up, before any bytes move
@@ -46,7 +46,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const GB = 1_000_000_000;
 
 // ── 1 · the numbers ────────────────────────────────────────────────────────
-test('the owner’s numbers: Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB · Free and Verified no allowance', () => {
+test('the owner’s numbers: Plus 5 GB · Pro 10 GB · Ultra 15 GB · Free and Verified no allowance', () => {
   assert.equal(STORAGE_GB, GB, 'a storage GB is the decimal GB the supplier reads');
   assert.equal(TIER_CAPS.solo.storageBytes, 5 * GB);
   assert.equal(TIER_CAPS.pro.storageBytes, 10 * GB);
@@ -92,15 +92,15 @@ test('storageFits: up to the allowance fits, one byte past does not; no allowanc
 
 test('the refusal names the plan, what is left, the way to make room and the next plan up — and touches nothing', () => {
   const m = storageFullMessage('solo', 4.9 * GB, 200_000_000);
-  assert.match(m, /This file is 200 MB, and your Supplier Plus plan has 100 MB of its 5 GB left\./);
-  assert.match(m, /Remove files from an event to make room or move to Supplier Pro for 10 GB\./);
+  assert.match(m, /This file is 200 MB, and your Plus plan has 100 MB of its 5 GB left\./);
+  assert.match(m, /Remove files from an event to make room or move to Pro for 10 GB\./);
   assert.match(m, /Nothing you stored was changed\./);
   const full = storageFullMessage('pro', 10 * GB, 1_000_000);
-  assert.match(full, /Your Supplier Pro plan’s 10 GB of storage is full\./);
-  assert.match(full, /move to Supplier Ultra for 15 GB/);
+  assert.match(full, /Your Pro plan’s 10 GB of storage is full\./);
+  assert.match(full, /move to Ultra for 15 GB/);
   // Ultra has no plan above it, and the packs are not on sale: no "move to", never an invented offer.
   const ultra = storageFullMessage('enterprise', 15 * GB, 1_000_000);
-  assert.match(ultra, /Your Supplier Ultra plan’s 15 GB of storage is full\. Remove files from an event to make room\./);
+  assert.match(ultra, /Your Ultra plan’s 15 GB of storage is full\. Remove files from an event to make room\./);
   assert.doesNotMatch(ultra, /move to/);
   assert.equal(nextStoragePlan('solo'), 'pro');
   assert.equal(nextStoragePlan('pro'), 'enterprise');
@@ -134,7 +134,7 @@ function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown;
   } as unknown as Parameters<typeof server.readStoredBytes>[0];
 }
 
-test('checkSupplierStorage: a Supplier Plus shop at 4.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
+test('checkSupplierStorage: a Plus shop at 4.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
   const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 4.9 * GB }), 'shop', 200_000_000);
   assert.equal(r.kind, 'full');
   assert.equal(r.kind === 'full' && r.message, storageFullMessage('solo', 4.9 * GB, 200_000_000));
@@ -208,7 +208,7 @@ test('the Plan screen draws the row from the honest read, and the limits sheet r
   assert.match(facts, /storedBytes: stored\.status === 'ok' \? stored\.bytes : null/);
 });
 
-test('the limits sheet: Pro → Supplier Plus over 5 GB waits for room; an unread store says so, never “fits”', () => {
+test('the limits sheet: Pro → Plus over 5 GB waits for room; an unread store says so, never “fits”', () => {
   const facts: DowngradeFacts = {
     founder: false,
     cards: [],
@@ -222,7 +222,7 @@ test('the limits sheet: Pro → Supplier Plus over 5 GB waits for room; an unrea
   const over = downgradeFit(facts, 'pro', 'solo', { paywallOn: true, storageAllowanceBytes: storageAllowanceBytes('solo'), now: new Date('2026-11-13') });
   const row = over.rows.find((r) => r.key === 'storage');
   assert.equal(row?.state, 'blocks');
-  assert.match(row?.line ?? '', /You store 7 GB · Supplier Plus holds 5 GB\. Remove 2 GB first\./);
+  assert.match(row?.line ?? '', /You store 7 GB · Plus holds 5 GB\. Remove 2 GB first\./);
   const blind = downgradeFit({ ...facts, storedBytes: null }, 'pro', 'solo', { paywallOn: true, storageAllowanceBytes: storageAllowanceBytes('solo'), now: new Date('2026-11-13') });
   assert.equal(blind.rows.find((r) => r.key === 'storage')?.state, 'unread');
 });

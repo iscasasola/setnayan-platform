@@ -70,6 +70,7 @@ import {
 } from '@/app/v/[slug]/_components/sample-shop-page';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 export type SupplierFrontPrices = {
   soloMonthly: string | null;
@@ -172,13 +173,13 @@ function feeWords(fee: SupplierFrontFee) {
     heroFee: f
       ? `You pay a booking fee of ${f.head} on the first ${f.band} of a booking and ${f.tail} after.`
       : fee.enabled
-        ? 'You pay a booking fee only on couples Setnayan brings you; the rate is shown in full before you agree to any booking.'
+        ? `You pay a booking fee on a booking, ${FEE_SCOPE}; the rate is shown in full before you agree to any booking.`
         : 'There is no booking fee while it is switched off.',
     /** The Grow beat's fee sentence. */
     growFee: f
       ? `Setnayan never takes a cut of the deal. You pay a booking fee: ${f.head} on the first ${f.band} of a booking, ${f.tail} after.`
       : fee.enabled
-        ? 'Setnayan never takes a cut of the deal. You pay a booking fee only on couples Setnayan brings you.'
+        ? `Setnayan never takes a cut of the deal. You pay a booking fee on a booking, ${FEE_SCOPE}.`
         : 'Setnayan never takes a cut of the deal, and charges no booking fee while it is switched off.',
   };
 }
@@ -298,7 +299,7 @@ export function SupplierFrontPage({
               <Info label="How the fee works">
                 <p>
                   Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
-                  takes a cut of the deal. {words.heroFee} Your own clients, the ones you bring or import, never carry a fee.
+                  takes a cut of the deal. {words.heroFee} {FEE_FREE_RULE}
                 </p>
               </Info>
             </div>
@@ -850,7 +851,7 @@ export function SupplierFrontPage({
               <p>Climb a badge, and we reward you, free.</p>
               <Info label="Fees, badges and rewards">
                 <p>
-                  The fee counts only on couples Setnayan brings you. Clients who found you outside Setnayan never carry a fee.{' '}
+                  {FEE_FREE_RULE} Every other booking carries the fee.{' '}
                   {FIRST_BOOKING_FREE}
                 </p>
                 <p>
@@ -1001,7 +1002,7 @@ export function SupplierFrontPage({
             <p className={s.smallprint}>
               <span>Free to join</span>
               <span>Full dashboard free</span>
-              <span>Your own clients never carry a fee</span>
+              <span>{FEE_FREE_CHIP}</span>
             </p>
           </div>
         </section>

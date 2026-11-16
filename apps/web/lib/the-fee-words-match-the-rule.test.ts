@@ -12,15 +12,16 @@ import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from './booking-fee-loc
 import { bookingFeeTourLine, TOURS } from './tours';
 import { vendorDayOfFreeUntilLabel } from './vendor-dayof-free-until';
 import { stripComments } from './strip-comments';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
 const all = () => JSON.stringify(TOURS);
 
 test('the Money tour says when the fee is charged, from the lock — and nothing when the fee is off', () => {
   assert.equal(
     bookingFeeTourLine(true),
-    `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+    `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE}`,
   );
-  assert.equal(bookingFeeTourLine(false), 'No booking fee is charged right now. Your own clients are always free.');
+  assert.equal(bookingFeeTourLine(false), 'No booking fee is charged right now.');
   assert.doesNotMatch(all(), /due after the day/i);
   const src = stripComments(readFileSync(join(import.meta.dirname, 'tours.ts'), 'utf8'));
   assert.match(src, /body: bookingFeeTourLine\(isBookingFeeEnabled\(\)\),/);

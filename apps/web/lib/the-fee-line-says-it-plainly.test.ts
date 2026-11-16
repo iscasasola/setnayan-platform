@@ -79,8 +79,9 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
   assert.match(src, /bookingFeeMinimumAmount\(fee\)/, 'the minimum is not read from the schedule');
   assert.doesNotMatch(src, /\d+\s*%|₱\s*\d/, 'a rate or a peso amount is typed into the fee line');
   assert.match(src, /<InfoTip\b[\s\S]*?The smallest fee is \$\{bookingFeeMinimumAmount\(fee\)\} a booking\./, 'the ⓘ lost the minimum');
-  assert.match(src, /'No fee on clients you bring in yourself\.'/);
-  assert.match(src, /'only on couples who found you here\.'/);
+  // ⟲ 16 Nov (d4899cd5 · 9fe95ebe · answer 3): both sentences quote the one rule in lib/booking-fee-who-words.ts.
+  assert.match(src, /FEE_LINE_OWN_CLIENTS = FEE_FREE_RULE;/);
+  assert.match(src, /FEE_LINE_WHO = `\$\{FEE_SCOPE\}\.`;/);
   assert.match(src, /\{FIRST_BOOKING_FREE\}/, 'the lead sentence is typed instead of read');
   // NULL = could not read: no rate, no minimum — never the code default.
   assert.doesNotMatch(src, /BOOKING_FEE\b(?!_)/, 'the line can fall back to the code default schedule');

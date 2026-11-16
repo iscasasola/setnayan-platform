@@ -42,6 +42,7 @@ import { openRailOptions } from '@/lib/payment-channels';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { payPath } from '@/lib/pay-path';
 import { formatPhp } from '@/lib/php';
+import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /**
  * CUSTOMERS › MONEY — the reads (S-PR4). Payday + earnings + the booking-fee bills, as one segment (plan § 2: the
@@ -230,7 +231,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
           year,
           // 🔴 NAMES THE FEE. "We never take a cut" is only the whole truth WITH the booking fee beside it (owner
           // 2026-08-06); the terms are DERIVED, never typed.
-          lockedLine: `Totals by month start with Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
+          lockedLine: `Totals by month start with Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, ${FEE_SCOPE}.`,
           legacy,
           wallet: {
             read: wallet.balance != null,

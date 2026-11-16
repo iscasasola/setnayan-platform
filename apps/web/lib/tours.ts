@@ -54,6 +54,7 @@ import {
   Wand2,
   type LucideIcon,
 } from 'lucide-react';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
 /**
  * ⚠ THE TWO TEXT FIELDS HAVE DIFFERENT CONTRACTS, AND THAT IS THE TRAP.
@@ -316,8 +317,8 @@ export type TourDefinition = {
  */
 export function bookingFeeTourLine(feeOn: boolean): string {
   return feeOn
-    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
-    : 'No booking fee is charged right now. Your own clients are always free.';
+    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE}`
+    : 'No booking fee is charged right now.';
 }
 
 export const TOURS: Record<TourKey, TourDefinition> = {

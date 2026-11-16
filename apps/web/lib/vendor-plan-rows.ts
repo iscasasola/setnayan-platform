@@ -145,7 +145,7 @@ export function bookingFeeRow(
     case 'silent':
       return due ? { line: 'Bills waiting', badge: due } : null;
     case 'not_sourced':
-      return { line: 'Only on couples Setnayan brings you · your own clients are free', badge: due };
+      return { line: 'Free when you bring the event first · every other booking carries the fee', badge: due };
     case 'unreadable':
       return { line: 'Couldn’t check your fee just now — nothing changed', badge: due };
     case 'launch_offer':

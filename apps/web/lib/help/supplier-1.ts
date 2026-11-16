@@ -23,6 +23,7 @@ import type { HelpTopic } from '@/lib/help';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
 import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { SHOP_NAME_MAX } from '@/lib/business-slug';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
 /*
  * H1 · 2026-11-14 — every answer below was checked against origin/main. The code that proves each one is named in the
@@ -206,7 +207,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-qr-codes.ts `OWN_LINK_SRC = 'own'`, `ownPageUrl`; lib/booking-fee-disclosure.ts own clients
         slug: 'supplier-your-own-link',
         title: 'Suppliers: does a couple who comes from my own QR count as Setnayan’s?',
-        body: 'No. Your QR from setup and the links you share from your page are marked as yours, so a couple who reaches you through them is your own client — and your own clients never carry a booking fee.',
+        body: 'No. Your QR from setup and the links you share from your page are marked as yours, so a couple who reaches you through them is brought by you. ' + FEE_FREE_RULE,
       },
     ],
   },

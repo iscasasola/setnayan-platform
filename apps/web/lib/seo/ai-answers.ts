@@ -25,6 +25,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { SHOT_TTL_MS } from '@/lib/papic-upload/replayer';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 /** "7" — how long a Papic shot waits on the phone for signal, read from the sender that drops it. */
 const SHOT_WAIT_DAYS = Math.round(SHOT_TTL_MS / (24 * 60 * 60 * 1000));
@@ -66,8 +67,8 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
   }
   return (
     `Couples pay no commission: they pay suppliers directly and Setnayan adds nothing to the price. ` +
-    `Suppliers pay Setnayan ${feeClause(ctx)}, only on couples Setnayan introduces — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}, ` +
-    `and a supplier's own clients are always free. It is billed to the supplier, never added to what a couple pays.` +
+    `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD} — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}. ` +
+    `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
     (ctx.bookingFee ? '' : ' The current rate is on the For Suppliers page.')
   );

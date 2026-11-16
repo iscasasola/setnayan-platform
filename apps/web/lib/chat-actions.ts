@@ -12,7 +12,8 @@ import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.ser
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
-import { readCoupleChatHref } from '@/lib/couple-chat-door.server';
+import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
+import { coupleChatHref } from '@/lib/couple-chat-door';
 import { markThreadNoticesRead } from '@/lib/thread-notices-read.server';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -195,9 +196,9 @@ export async function notifyOtherParty(args: {
   const preview = args.body.slice(0, 140);
   // 🚪 A host's notice opens where their Messages list opens — the picked supplier on Chat (CHAT-07). Read once, and
   // only when a host is told.
-  let coupleDoorRead: Promise<string> | null = null;
-  const coupleDoor = () =>
-    (coupleDoorRead ??= readCoupleChatHref(admin, { eventId: args.eventId, vendorProfileId: args.vendorProfileId, threadId: args.threadId }));
+  let coupleRowRead: Promise<string | null> | null = null;
+  const coupleRow = () =>
+    (coupleRowRead ??= readCoupleWorkspaceRowId(admin, { eventId: args.eventId, vendorProfileId: args.vendorProfileId, threadId: args.threadId }));
 
   if (args.privateTo) {
     // 👥 One or several (owner, 12 Nov) — each recipient told once, at their own door; nobody else.
@@ -212,7 +213,8 @@ export async function notifyOtherParty(args: {
         type: 'chat_message',
         title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,
-        relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : await coupleDoor(),
+        eventId: args.eventId,
+        relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : coupleChatHref(args.eventId, await coupleRow(), args.threadId),
       });
     }
     return;
@@ -330,7 +332,8 @@ export async function notifyOtherParty(args: {
           type: 'chat_message_in_app',
           title: `${first} wrote to ${vendorName}`,
           body: preview,
-          relatedUrl: await coupleDoor(),
+          eventId: args.eventId,
+          relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
         });
       }
     }
@@ -345,7 +348,8 @@ export async function notifyOtherParty(args: {
       type: 'chat_message',
       title: `New message from ${vendorName}`,
       body: preview,
-      relatedUrl: await coupleDoor(),
+      eventId: args.eventId,
+      relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
     });
   }
   for (const userId of told.hostsInApp) {
@@ -354,7 +358,8 @@ export async function notifyOtherParty(args: {
       type: 'chat_message_in_app',
       title: `New message from ${vendorName}`,
       body: preview,
-      relatedUrl: await coupleDoor(),
+      eventId: args.eventId,
+      relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
     });
   }
 }

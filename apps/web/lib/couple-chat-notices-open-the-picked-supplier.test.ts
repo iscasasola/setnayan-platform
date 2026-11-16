@@ -86,10 +86,15 @@ test('2 · no couple chat notice opens the old thread page, and the supplier’s
     'a couple chat notice opens /dashboard/<event>/messages/<thread> — use readCoupleChatHref (the workspace’s Chat)',
   );
   const chat = src('lib/chat-actions.ts');
-  assert.ok((chat.match(/relatedUrl: await coupleDoor\(\)/g) ?? []).length >= 3, 'the shop→host and host→host chat notices lost the door');
-  assert.match(chat, /readCoupleChatHref\(admin, \{ eventId: args\.eventId, vendorProfileId: args\.vendorProfileId, threadId: args\.threadId \}\)/);
-  assert.match(src('app/_actions/thread-call-actions.ts'), /await readCoupleChatHref\(createAdminClient\(\)/, 'the call ring lost the couple’s door');
-  assert.match(src('lib/offer-service-core.ts'), /const coupleDoor = await readCoupleChatHref\(admin/);
+  assert.ok(
+    (chat.match(/relatedUrl: coupleChatHref\(args\.eventId, await coupleRow\(\), args\.threadId\)/g) ?? []).length >= 3,
+    'the shop→host and host→host chat notices lost the door',
+  );
+  assert.match(chat, /readCoupleWorkspaceRowId\(admin, \{ eventId: args\.eventId, vendorProfileId: args\.vendorProfileId, threadId: args\.threadId \}\)/);
+  const ring = src('app/_actions/thread-call-actions.ts');
+  assert.match(ring, /coupleChatHref\(\s*thread\.event_id,\s*await readCoupleWorkspaceRowId\(createAdminClient\(\)/, 'the call ring lost the couple’s door');
+  assert.match(src('lib/offer-service-core.ts'), /const coupleRow = await readCoupleWorkspaceRowId\(admin/);
+  assert.match(src('lib/offer-service-core.ts'), /relatedUrl: coupleChatHref\(thread\.event_id, coupleRow, threadId\)/);
   const push = src('app/api/notify/route.ts');
   assert.match(push, /url: supplierChatHref\(/, 'the supplier’s chat push opens the bare thread page again');
   assert.doesNotMatch(push, /url: `\/vendor-dashboard\/messages\/\$\{thread_id\}`/);

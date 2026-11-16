@@ -14,7 +14,19 @@ export async function readCoupleChatHref(
   client: SupabaseClient,
   args: { eventId: string; vendorProfileId: string | null | undefined; threadId: string },
 ): Promise<string> {
-  if (!isRelationshipWorkspaceEnabled() || !args.vendorProfileId) return coupleChatHref(args.eventId, null, args.threadId);
+  return coupleChatHref(args.eventId, await readCoupleWorkspaceRowId(client, args), args.threadId);
+}
+
+/**
+ * The `event_vendors.vendor_id` the couple's door opens (null = no row, the flag off, or a refused read → the shipped
+ * full-screen thread). Notice senders pass it straight to `coupleChatHref(eventId, row, threadId)` so every notice
+ * link is written as that one helper — which the notice guards read.
+ */
+export async function readCoupleWorkspaceRowId(
+  client: SupabaseClient,
+  args: { eventId: string; vendorProfileId: string | null | undefined; threadId: string },
+): Promise<string | null> {
+  if (!isRelationshipWorkspaceEnabled() || !args.vendorProfileId) return null;
   const { data, error } = await client
     .from('event_vendors')
     .select('vendor_id')
@@ -26,8 +38,8 @@ export async function readCoupleChatHref(
     .limit(1)
     .maybeSingle();
   if (error) {
-    logQueryError('readCoupleChatHref', error, { event_id: args.eventId, thread_id: args.threadId }, 'graceful_degrade');
-    return coupleChatHref(args.eventId, null, args.threadId);
+    logQueryError('readCoupleWorkspaceRowId', error, { event_id: args.eventId, thread_id: args.threadId }, 'graceful_degrade');
+    return null;
   }
-  return coupleChatHref(args.eventId, (data as { vendor_id: string } | null)?.vendor_id ?? null, args.threadId);
+  return (data as { vendor_id: string } | null)?.vendor_id ?? null;
 }

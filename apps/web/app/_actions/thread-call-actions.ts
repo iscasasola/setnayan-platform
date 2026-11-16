@@ -5,7 +5,8 @@ import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { resolveCounterpartyUserIds } from '@/lib/chat-block';
 import { emitNotification } from '@/lib/notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
-import { readCoupleChatHref } from '@/lib/couple-chat-door.server';
+import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
+import { coupleChatHref } from '@/lib/couple-chat-door';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { mintTurnIceServers } from '@/lib/turn';
@@ -141,11 +142,15 @@ export async function startThreadCall(
         ? supplierChatHref(thread.event_id, thread.thread_id)
         : // The couple's door is the picked supplier on Chat, as their Messages list opens it (CHAT-07). event_vendors
           // is the couple's table, so the shop's ring reads it with the admin client.
-          await readCoupleChatHref(createAdminClient(), {
-            eventId: thread.event_id,
-            vendorProfileId: thread.vendor_profile_id,
-            threadId: thread.thread_id,
-          });
+          coupleChatHref(
+            thread.event_id,
+            await readCoupleWorkspaceRowId(createAdminClient(), {
+              eventId: thread.event_id,
+              vendorProfileId: thread.vendor_profile_id,
+              threadId: thread.thread_id,
+            }),
+            thread.thread_id,
+          );
     const kindLabel = kind === 'video' ? 'video' : 'voice';
     for (const uid of recipients) {
       await emitNotification({
@@ -153,6 +158,7 @@ export async function startThreadCall(
         type: 'chat_message',
         title: `Incoming ${kindLabel} call`,
         body: 'Open the conversation to join the call.',
+        eventId: thread.event_id,
         relatedUrl,
       });
     }

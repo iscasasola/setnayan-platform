@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { readCoupleChatHref } from '@/lib/couple-chat-door.server';
+import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
+import { coupleChatHref } from '@/lib/couple-chat-door';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { recordThreadInterests } from '@/lib/thread-interests';
@@ -151,7 +152,7 @@ export async function offerServiceCore(
       .maybeSingle();
     const vendorName = vendor?.business_name?.trim() || 'a supplier';
     // 🚪 Where the couple's Messages list opens this conversation — the picked supplier on Chat (CHAT-07).
-    const coupleDoor = await readCoupleChatHref(admin, { eventId: thread.event_id, vendorProfileId: thread.vendor_profile_id, threadId });
+    const coupleRow = await readCoupleWorkspaceRowId(admin, { eventId: thread.event_id, vendorProfileId: thread.vendor_profile_id, threadId });
     const { data: members } = await admin
       .from('event_members')
       .select('user_id')
@@ -165,7 +166,8 @@ export async function offerServiceCore(
           type: 'service_card_shared',
           title: `${vendorName} shared a service card`,
           body: 'It is in your chat with them.',
-          relatedUrl: coupleDoor,
+          eventId: thread.event_id,
+          relatedUrl: coupleChatHref(thread.event_id, coupleRow, threadId),
         });
       } else {
         await emitNotification({
@@ -173,7 +175,8 @@ export async function offerServiceCore(
           type: 'chat_message',
           title: `${vendorName} offered a service`,
           body: 'They sent one of their service cards to your conversation.',
-          relatedUrl: coupleDoor,
+          eventId: thread.event_id,
+          relatedUrl: coupleChatHref(thread.event_id, coupleRow, threadId),
         });
       }
       notified += 1;

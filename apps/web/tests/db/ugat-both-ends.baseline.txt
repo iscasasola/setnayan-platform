@@ -64,7 +64,7 @@ notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with n
 #   seal_awarded      — paid down by the seal flow (J4's award player: a seal earned → this notice) → delete its row there;
 #   card_badge_earned — paid down by J3 (the service-card badge row) → delete its row there.
 # Today's grant sweep keeps emitting `badge_earned`, which is on the email allowlist; moving a grant to either new type
-# before its player ships would drop that email. If J3/J4 is dropped, drop its type's TS member too. 46 -> 48.
+# before its player ships would drop that email. If J3/J4 is dropped, drop its type's TS member too. 46 -> 48. J2 (#7825) adds the same seal_awarded key, so it keeps this one row.
 # ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (10) ══
 component-no-mount	app/_components/thread-call-room.tsx	1	no runtime importer in any source file
 rpc-no-caller	chat_thread_add_host	1	no 'chat_thread_add_host' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it

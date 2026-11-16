@@ -102,6 +102,8 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // 42 → 46 on 2026-11-09 (Supplier Build 3 · lane B): current_thread_ids paid down (migration 20271330575424 gave it a
 // body and the chat policies call it), and five lane-B RPCs ranked in one commit ahead of the UI that calls them —
 // each with its named payer in the baseline's header. Each .rpc() that lands takes its row out and this down by one.
+// 46 → 48 on 2026-11-15/16: the badge ladder (J0, #7753) adds seal_awarded + card_badge_earned notice rows; the seals
+// engine (J2, #7825) adds the same seal_awarded key, so it shares that one row.
 const EXPECTED_BASELINE_ROWS = 48;
 
 function walk(dir: string, out: string[]) {

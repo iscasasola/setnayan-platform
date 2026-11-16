@@ -238,6 +238,7 @@ import {
   starterDraftHint,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
+import { SeatFaceTray, type FloorDrop, type TrayItem } from './seat-face-tray';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
 import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
@@ -1361,7 +1362,8 @@ export function SeatingEditor({
     });
   };
 
-  const unseat = (guestId: string) => {
+  /** `quiet`: an Undo putting someone back off a seat says nothing more (its own line already spoke). */
+  const unseat = (guestId: string, quiet = false) => {
     if (!canEdit) return;
     const was = guests.find((g) => g.guest_id === guestId);
     const fd = new FormData();
@@ -1371,7 +1373,7 @@ export function SeatingEditor({
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id) return;
+      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id || quiet) return;
       /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
          shipped seat write (`assignGuest`) — the place it was taken from. */
       const tableId = was.seated_table_id;
@@ -5828,7 +5830,7 @@ export function SeatingEditor({
           onSeatGuest={(gid) => seatGuestHere(st, gid)}
           onSeatGroup={(grpId) => seatGroupMembers(grpId, st.table_id)}
           onSeatTier={(tier) => seatTierHere(st, tier)}
-          onUnseat={unseat}
+          onUnseat={(gid) => unseat(gid)}
           roleSet={roleSet}
         />
       ) : null;
@@ -6489,7 +6491,7 @@ export function SeatingEditor({
   // Tap a guest → a sheet with ONE Table ▾: only tables with room for them and
   // the +1 who moves with them (a linked unit is one row), or + New table (the
   // room's default Round, placed in open space and seated in the same tap).
-  // No drag on a phone.
+  // (2026-11-16: a guest is also DRAGGED from the tray under the floor — `seat-face-tray.tsx`; a tap there opens this.)
   const firstNameOf = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/)[0] ?? name;
   /* 🔢 "Antonio’s +2" under a "+2 · TBA" seat — the seat's own number among its guest's seats, never a fixed "+1"
      (owner 2026-11-01, DECISION_LOG "SEATS 2D IS THE ROOM"). 🔒 lib/a-second-plus-one-says-plus-two.test.ts */
@@ -6847,6 +6849,20 @@ export function SeatingEditor({
      there is something to say. Done → one line with Undo (swap again / put back). */
   const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
   const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  /* ↩ ONE UNDO FOR EVERY GUEST DROP (owner 2026-11-16, batch 2 "Seat plan (drag-first)": *"every guest drop shows one
+     Undo line (trades have none today)"*). An Undo is pressed a render or more after its move, so it calls the LATEST
+     shipped moves (`seatOps`): the move's own render still holds the seats as they were BEFORE it — a swap "again" from
+     there swapped nobody, and a put-back found its own chair still taken. */
+  const seatOps = useRef({ tradeSeats, seatGuestHere, unseat, tables });
+  seatOps.current = { tradeSeats, seatGuestHere, unseat, tables };
+  const putBack = (before: readonly { id: string; tableId: string | null; seat: number | null }[]) => {
+    const o = seatOps.current;
+    for (const b of before) {
+      const t = b.tableId ? o.tables.find((x) => x.table_id === b.tableId) : null;
+      if (t) o.seatGuestHere(t, b.id, b.seat ?? undefined);
+      else o.unseat(b.id, true);
+    }
+  };
   const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
     guest_id: g.guest_id,
     name: g.name,
@@ -6899,12 +6915,8 @@ export function SeatingEditor({
     for (const x of along) seatGuestHere(target, x.guestId, x.seat);
     const undo = () => {
       setMoveNote(null);
-      if (other) return tradeSeats(mover.guest_id, other.guest_id);
-      for (const b of before) {
-        const t = b.tableId ? tables.find((x) => x.table_id === b.tableId) : null;
-        if (t) seatGuestHere(t, b.id, b.seat ?? undefined);
-        else unseat(b.id);
-      }
+      if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
+      putBack(before);
     };
     setMoveNote({
       text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
@@ -6959,15 +6971,96 @@ export function SeatingEditor({
     if (plan.kind === 'unseat') return unseat(guestId);
     if (plan.kind === 'trade') {
       if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
-      return tradeSeats(guestId, plan.otherId);
+      tradeSeats(guestId, plan.otherId);
+      return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat);
     }
     if (plan.kind === 'place') {
       const t = tables.find((x) => x.table_id === plan.tableId);
       if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
       setPickedId(null);
       seatGuestHere(t, guestId, plan.seat);
+      noteDrop(g, null, plan.tableId, plan.seat);
     }
   };
+  /* ↩ The drop that asked nothing still says what it did, with its Undo — the asked one's own line (`seatMoveDoneWords`). */
+  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number) => {
+    const a = assessFor(mover.guest_id, tableId, seat, other?.guest_id ?? null);
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!a || !t) return;
+    const before = [{ id: mover.guest_id, tableId: mover.seated_table_id, seat: mover.seat_number }];
+    setMoveNote({
+      text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, []),
+      undo: () => {
+        setMoveNote(null);
+        if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
+        putBack(before);
+      },
+    });
+  };
+  /* ✋ A FACE (OR A GROUP) LET GO ON THE FLOOR — the tray under the 2D floor on a phone (`seat-face-tray.tsx`, owner
+     2026-11-16 "Yes, phone too"). A chair → that chair; only a table (zoomed out, or a group) → its first free chair /
+     the shipped group seating (`seatGroupMembers`). Then the SAME drop Seats › List gives (`dropSeat`). */
+  const floorDrop = (item: TrayItem, at: FloorDrop) => {
+    if (!canEdit) return;
+    const t = tables.find((x) => x.table_id === at.tableId);
+    if (!t) return;
+    const label = t.link_group_label?.trim() || t.table_label;
+    if (item.kind === 'group') {
+      const before = guests.filter((g) => g.group_id === item.id).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
+      seatGroupMembers(item.id, t.table_id);
+      setMoveNote({
+        text: `${item.name} → ${label}`,
+        undo: () => {
+          setMoveNote(null);
+          putBack(before);
+        },
+      });
+      return;
+    }
+    const occ = occupantsFor(t);
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    const seat = at.seat !== null && at.seat < occ.length && !removed.has(at.seat) ? at.seat : occ.findIndex((g, i) => g === null && !removed.has(i));
+    if (seat < 0) {
+      setNotice(`${label} is full — drop on someone’s chair to swap, or pick another table.`);
+      return;
+    }
+    dropSeat(item.id, { kind: 'seat', tableId: t.table_id, seat, occupantId: occ[seat]?.guest_id ?? null });
+  };
+  /** Pan the floor by screen px (the tray's edge pan) — the same straight-to-the-DOM view the pan and pinch use. It stops
+   *  once the room's far side has reached the middle of the floor: a held finger never pans the room away. */
+  const panPlanBy = (dx: number, dy: number) => {
+    const w = worldRef.current?.getBoundingClientRect();
+    const r = regionRef.current?.getBoundingClientRect();
+    if (w && r) {
+      const midX = r.left + r.width / 2;
+      const midY = r.top + r.height / 2;
+      if ((dx > 0 && w.right - dx < midX) || (dx < 0 && w.left - dx > midX)) dx = 0;
+      if ((dy > 0 && w.bottom - dy < midY) || (dy < 0 && w.top - dy > midY)) dy = 0;
+    }
+    if (dx || dy) applyView(zoomRef.current, { x: panRef.current.x - dx, y: panRef.current.y - dy });
+  };
+  /* The tray: the first faces still to seat, "+N" for the rest (→ Seats › List, "To seat" open), and their groups. */
+  const TRAY_FACES = 5;
+  const trayGroups = groups.flatMap((gr) => {
+    const n = comingUnseated.filter((g) => g.group_id === gr.group_id).length;
+    return n > 0 ? [{ id: gr.group_id, label: gr.label, count: n }] : [];
+  });
+  const seatTray =
+    roomOnly && isPhone && comingUnseated.length > 0 ? (
+      <SeatFaceTray
+        faces={comingUnseated.slice(0, TRAY_FACES).map((g) => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url }))}
+        more={Math.max(0, comingUnseated.length - TRAY_FACES)}
+        groups={trayGroups}
+        canEdit={canEdit}
+        onTapFace={openMove}
+        onMore={() => {
+          setFaceOpen((c) => (c.has(SEAT_LIST_UNSEATED) ? c : new Set([...c, SEAT_LIST_UNSEATED])));
+          onSelectView('list');
+        }}
+        onDrop={floorDrop}
+        onPan={panPlanBy}
+      />
+    ) : null;
   const unitOfKey = (key: string) => displayUnits.find((u) => u.key === key) ?? null;
   /* ＋ An empty seat's Add ▾ — who comes and has no seat yet (the shared dropdown; the plan's own `seatGuestHere`). */
   const seatListAdd = (tableId: string, seat: number) => {
@@ -7453,12 +7546,14 @@ export function SeatingEditor({
   const boothCard = roomOnly ? (
     <BoothVendorCard booth={boothCardRow ? boothCardFromRow(boothCardRow) : null} onClose={() => setBoothCardId(null)} profileCta="view" />
   ) : null;
+  /* ✋ Over the thumb row: the picked seat's or table's bar — or, with neither picked, the people still to seat (the tray
+     under the floor, `seatTray`, Guests › Seats › 2D on a phone). */
   const seatThumb =
     lens && lens.slot
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
-            {seatPop ?? tableBar}
+            {seatPop ?? tableBar ?? seatTray}
             <lens.ThumbRow
               name="guests-seats"
               left={
@@ -7944,7 +8039,8 @@ export function SeatingEditor({
         )}
 
       {/* ---------------- Canvas cell — fills all remaining height (verdict §1) ---------------- */}
-      <div ref={regionRef} className={`relative min-h-0 flex-1 overflow-hidden ${details ? '' : 'lg:flex-none'}`}>
+      {/* ✋ `data-plan-floor`: the floor a face from the tray is dragged over (`seat-face-tray.tsx` pans it near its edges). */}
+      <div ref={regionRef} data-plan-floor="" className={`relative min-h-0 flex-1 overflow-hidden ${details ? '' : 'lg:flex-none'}`}>
 
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
@@ -8737,10 +8833,13 @@ export function SeatingEditor({
             return (
               <div
                 key={t.table_id}
+                /* ✋ A face dragged from the tray lands here (`seat-face-tray.tsx` reads `data-plan-table`, and rings the table
+                   it is over by setting `data-plan-drop-over` straight on the DOM). */
+                data-plan-table={t.table_id}
                 // Bounce when this table becomes the selected one (tap → popup).
                 // `.sn-bounce` animates the standalone `scale` property, which
                 // composes with the inline translate/scale transform below.
-                className={`absolute${highlighted ? ' sn-bounce' : ''}`}
+                className={`absolute rounded-full data-[plan-drop-over]:outline data-[plan-drop-over]:outline-[3px] data-[plan-drop-over]:outline-offset-2 data-[plan-drop-over]:outline-terracotta${highlighted ? ' sn-bounce' : ''}`}
                 style={{
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
@@ -8876,7 +8975,10 @@ export function SeatingEditor({
                   return (
                     <div
                       key={i}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity"
+                      /* ✋ The chair a dragged face would land on lights up (`data-plan-drop-chair`, set by the tray). */
+                      data-plan-chair={i}
+                      data-plan-chair-taken={occupant ? '' : undefined}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity data-[plan-drop-chair]:z-30 data-[plan-drop-chair]:bg-terracotta/20 data-[plan-drop-chair]:outline data-[plan-drop-chair]:outline-[2.5px] data-[plan-drop-chair]:outline-terracotta"
                       style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX, opacity: occupant && seatDim(occupant.guest_id) ? 0.22 : undefined }}
                       data-seat-dim={occupant && seatDim(occupant.guest_id) ? '' : undefined}
                     >

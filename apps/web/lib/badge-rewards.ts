@@ -193,12 +193,12 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
   /**
    * Suppliers the shop imported onto Setnayan, each counted once, at the imported supplier's first COMPLETED event
    * (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" (3): "successful booking" = the event is completed — the same
-   * test as Completed bookings). ⚠ NOT COUNTED YET: nothing records one supplier importing another — the import door
-   * and its address are unbuilt and unruled (`/[slug]/invite` is the couple's guest invitation; `vendor_invites` is the
-   * couple's invite; `vendor_partnerships` needs both shops to exist already). Ships showing "Not counted yet"; the
-   * door's build supplies `BadgeRewardFacts.invites`.
+   * test as Completed bookings). ✅ COUNTED since Invite a supplier v3 (#7891, owner 16 Nov): the record is
+   * `vendor_partnerships.brought_new_shop` — a shop CREATED through this shop's link, still partners — and
+   * `readInvitesCount` (lib/supplier-invite.server.ts) counts those with a completed booking (the same vetted view
+   * Completed bookings reads). An existing shop joining through the link never counts (answer 2).
    */
-  invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], false),
+  invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], true),
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },
   first_booking: firstOnce('first_booking', 'First booking', true),
   first_review: firstOnce('first_review', 'First review', true),

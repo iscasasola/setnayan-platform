@@ -90,3 +90,19 @@ test('Trusted by reads both directions, the adder’s pending adds, and the work
   assert.match(src, /if \(r\.status === 'proposed' && !iMade\) continue;/, 'a pending tie shows only on the adder’s page');
   assert.match(src, /rpc\('shop_worked_with_counts'/);
 });
+
+test('the Invites badge card carries the drawing §5 count line, and a refused read never reads as 0 (#7891)', async () => {
+  const { badgePage } = await import('../app/vendor-dashboard/shop/_components/badges/badge-page-model');
+  const waiting = badgePage({}, { counted: 0, joined: 2 }).find((c) => c.key === 'invites')!;
+  assert.equal(waiting.state, 'locked', '0 counted is below Bronze');
+  assert.equal(waiting.note, '0 counted · 2 joined, waiting for their first completed booking');
+  const bronze = badgePage({}, { counted: 1, joined: 1 }).find((c) => c.key === 'invites')!;
+  assert.equal(bronze.state, 'earned');
+  const unread = badgePage({}, null).find((c) => c.key === 'invites')!;
+  assert.equal(unread.state, 'unread');
+  assert.equal(unread.note, undefined, 'no "0 counted" on a read that failed');
+  // The rewards engine counts Invites now — it is no longer "Not counted yet".
+  const { BADGE_REWARDS } = await import('./badge-rewards');
+  assert.equal(BADGE_REWARDS.invites.measured, true);
+  assert.match(read('lib/badge-rewards.server.ts'), /invites: invitesRead === null \? null : invitesRead\.counted/);
+});

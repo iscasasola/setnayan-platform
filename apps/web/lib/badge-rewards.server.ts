@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { readShopBookedLoopCount } from '@/lib/shop-booked-loops.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readInvitesCount } from '@/lib/supplier-invite.server';
 import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/lib/badge-upgrades.server';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
@@ -65,7 +66,7 @@ export async function readBadgeRewardFacts(
   /** The page's badge facts — or the promise of them: this function's own reads start at once, beside that read. */
   badgeIn: BadgeIn | PromiseLike<BadgeIn>,
 ): Promise<BadgeRewardFacts> {
-  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, giftPoints, completedBookings, trustedBy] = await Promise.all([
+  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops, fiveStarReviews, giftPoints, completedBookings, trustedBy, invitesRead] = await Promise.all([
     badgeIn,
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
@@ -152,6 +153,8 @@ export async function readBadgeRewardFacts(
     // ✅ Completed bookings (imports left out) and 🛡 Trusted by (imports counted), both from 18 Dec 2026. null = unread.
     readBadgeCount(admin, 'shop_completed_bookings_count', vendorProfileId),
     readBadgeCount(admin, 'shop_trusted_by_count', vendorProfileId),
+    // 🤝 Invites (#7891): shops created through this shop's link, still partners, with a completed booking. null = unread.
+    readInvitesCount(admin, vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -169,9 +172,9 @@ export async function readBadgeRewardFacts(
     completedBookings,
     trustedBy,
     giftPoints,
-    // 🤝 Invites: no counter exists yet (nothing records one supplier importing another) — "Not counted yet". When the
-    // import door lands: count each imported supplier once, at its first COMPLETED event (owner 15 Nov, open item 3).
-    invites: null,
+    // 🤝 Invites (owner 15 Nov, open item 3): each supplier created through this shop's link, counted once, at its first
+    // COMPLETED booking — `readInvitesCount` (Invite a supplier v3, #7891). A refused read stays null: "Couldn't load".
+    invites: invitesRead === null ? null : invitesRead.counted,
   };
 }
 

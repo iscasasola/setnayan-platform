@@ -152,7 +152,7 @@ describe('the one table is the ruling', () => {
     assert.equal(byName('Papic 3000'), PAPIC_PACK_CODE.papic_3000);
   });
 
-  it('the monthly awards, Verified, and the one badge with no counter yet (Invites)', () => {
+  it('the monthly awards, Verified, and every shop ladder counted (Invites since #7891)', () => {
     const a = BADGE_REWARDS.award;
     assert.equal(a.shape, 'period');
     if (a.shape === 'period') {
@@ -164,8 +164,8 @@ describe('the one table is the ruling', () => {
     }
     assert.deepEqual(BADGE_REWARDS.verified.shape === 'once' && BADGE_REWARDS.verified.reward, { kind: 'papic', units: 1 });
     const unmeasured = Object.values(BADGE_REWARDS).filter((r) => !r.measured && !r.retired).map((r) => r.badge).sort();
-    // Invites ships "Not counted yet": nothing records one supplier adding another (219fb192).
-    assert.deepEqual(unmeasured, ['invites']);
+    // Invites is counted since Invite a supplier v3 (#7891): the record is vendor_partnerships.brought_new_shop.
+    assert.deepEqual(unmeasured, []);
   });
 
   it('🏅 the five shop badges and their own steps, exactly (v86 · bc148e4e · 50566f42)', () => {
@@ -274,8 +274,12 @@ describe('what a shop is owed', () => {
     assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0, giftPoints: 0, completedBookings: 0 }), []);
     // ✅ Completed bookings reads its OWN import-free count, never the public completed-events number (owner 16 Nov).
     assert.deepEqual(rewardsOwed({ ...NONE, completedEvents: 10_000, completedBookings: null }), []);
-    // Invites has no counter yet: even a count handed in pays nothing.
-    assert.deepEqual(rewardsOwed({ ...NONE, invites: SHOP_BADGE_STEPS.invites[SHOP_BADGE_STEPS.invites.length - 1]! }), []);
+    // Invites, unread or at zero, pays nothing; its first step pays once it is reached (#7891).
+    assert.deepEqual(rewardsOwed({ ...NONE, invites: 0 }), []);
+    assert.ok(
+      rewardsOwed({ ...NONE, invites: SHOP_BADGE_STEPS.invites[0]! }).length > 0,
+      'one supplier invited with a completed booking reaches Invites Bronze',
+    );
   });
 
   it('every reached tier, each paying the one ladder', () => {

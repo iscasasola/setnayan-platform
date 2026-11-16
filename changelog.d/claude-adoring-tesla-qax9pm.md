@@ -35,3 +35,7 @@ directions; flagged for the owner in the PR.
   `vendor_trusted_by_hidden` (RLS at create, owner-only), a Hide/Show toggle inside each row's existing fold in
   Partnerships, +1 server action (`toggleTrustedByHidden`). Q3: the Invites count line WAITS ON the badge-rewards owner —
   flipping `invites` to measured makes the reward ladder pay; `readInvitesCount` + `invitesCountLine` are ready.
+- **Invites is COUNTED (controller audit 2):** the rewards engine marks Invites measured and reads `readInvitesCount`
+  (a refused read stays "Couldn't load"); the badge page model's Invites card carries the drawing §5 line
+  "N counted · M joined, waiting for their first completed booking". ⚠ This means the Invites ladder now PAYS at its
+  first step (1 invited supplier with a completed booking) — the owner's 15 Nov counting rule.

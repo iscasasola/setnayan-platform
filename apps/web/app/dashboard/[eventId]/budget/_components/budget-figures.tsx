@@ -52,7 +52,14 @@ export type BudgetFigureCell = {
 };
 
 export type BudgetFiguresNext =
-  | { amountPhp: number; name: string; dueDate: string | null; action: ReactNode }
+  | {
+      amountPhp: number;
+      name: string;
+      dueDate: string | null;
+      action: ReactNode;
+      /** Its day has passed (`isPastDue`) — the line says "Overdue … · since Nov 13", never "Next … · Nov 13". */
+      overdue?: boolean;
+    }
   | 'unread'
   | null;
 
@@ -118,14 +125,14 @@ export function BudgetFigures({
           <span className={`${styles.nextTxt} ${styles.mute}`}>couldn&rsquo;t check</span>
         </div>
       ) : next ? (
-        <div className={styles.nextdue} data-budget-next="">
-          <span className={styles.mute}>Next</span>
+        <div className={styles.nextdue} data-budget-next={next.overdue ? 'overdue' : ''}>
+          <span className={styles.mute}>{next.overdue ? 'Overdue' : 'Next'}</span>
           <span className={styles.nextTxt}>
             <b className={styles.num}>
               <Peso value={next.amountPhp} id="budget-next" />
             </b>{' '}
             · {next.name}
-            {next.dueDate ? ` · ${shortDate(next.dueDate)}` : ''}
+            {next.dueDate ? ` · ${next.overdue ? 'since ' : ''}${shortDate(next.dueDate)}` : ''}
           </span>
           {next.action}
         </div>

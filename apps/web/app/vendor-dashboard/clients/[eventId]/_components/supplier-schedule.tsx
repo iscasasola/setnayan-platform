@@ -370,7 +370,7 @@ export function SupplierSchedule({
         </p>
       ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
         <section data-asked-of-you="" aria-label="Asked of you">
-          <InfoTip label="Asked of you" labelAs="h3" labelClassName="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" align="start">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="text-[13px] font-semibold text-[color:var(--m-slate-2)]" align="start">
             The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
             once; Decline tells them, with your reason.
           </InfoTip>
@@ -404,7 +404,7 @@ export function SupplierSchedule({
 
       {day.otherWaiting.length > 0 ? (
         <section aria-label="Also waiting for the host">
-          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Also waiting</h3>
+          <h3 className="text-[13px] font-semibold text-[color:var(--m-slate-2)]">Also waiting</h3>
           <ul className="mt-1 divide-y divide-ink/10">
             {day.otherWaiting.map((r) => (
               <WaitingRow
@@ -421,7 +421,7 @@ export function SupplierSchedule({
 
       {answered.length > 0 ? (
         <section aria-label="Your answered requests">
-          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Answered</h3>
+          <h3 className="text-[13px] font-semibold text-[color:var(--m-slate-2)]">Answered</h3>
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
@@ -517,7 +517,7 @@ function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: b
         {m.optional ? <span className="ml-1.5 text-xs text-ink/70">if kept</span> : null}
         {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
         {m.section !== 'Event' ? (
-          <span data-backstage-moment="" className="block text-xs uppercase tracking-[0.06em] text-gold-deep">
+          <span data-backstage-moment="" className="block text-xs font-medium text-gold-deep">
             {m.section} · {BACKSTAGE_WORDS}
           </span>
         ) : null}
@@ -1031,7 +1031,7 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
         </p>
       ) : null}
       <div className="flex items-baseline justify-between gap-2">
-        <p className="home-k2">Your times{day ? ` · ${day}` : ''}</p>
+        <p className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Your times{day ? ` · ${day}` : ''}</p>
         <InfoTip label="How these work" labelClassName="text-xs text-ink/70" align="end">
           Set your call time, when you arrive and when you’re done, even before the hosts build their program. Once they do,
           your arrival and finish slot in as moments in it, and the hosts can still move them.

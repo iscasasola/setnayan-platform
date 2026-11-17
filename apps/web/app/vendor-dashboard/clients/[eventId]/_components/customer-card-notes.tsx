@@ -61,7 +61,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
               n.done_at ? '' : overdue ? 'border-l-4 border-l-danger-600 pl-3' : n.remind_at ? 'border-l-4 border-l-gold pl-3' : ''
             }`}
           >
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/70">
+            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-ink/70">
               <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
               {n.remind_at && !n.done_at ? (
                 <span className={overdue ? 'text-warn-900' : 'text-ink/70'}>

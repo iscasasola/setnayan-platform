@@ -7,6 +7,10 @@
  *   8  · NO COUNT IS NOT 100 — Quotation said "On their list 100" while the event has no estimate, no final count and no
  *        guests (the 100 is the thread page's stand-in seed). With no real count the row says "No count yet".
  *   9  · held in `no-all-paid-without-a-booking.test.ts` (Details reads the plan: ₱0 paid · ₱5,350 overdue).
+ *   3b · THE PAYMENT PAGE AGREES — its Next line said "Next ₱5,350 · Nov 13" while Details and Chat said overdue;
+ *        one rule, `isPastDue`, now decides all three.
+ *   4b · THE FORMS DOOR NAMES THE EVENT — "Forms · sent to this couple" on a debut; it says the event's name, as the
+ *        Forms page does.
  *   10 · "BOOKED" IS SAID ONCE — the category chips said "Booked · In-house" beside the stage pill's "Booked".
  *   11 · THE PAYMENT-METHOD PROMPT SHOWS ONCE — on the client workspace's Chat page the quote card no longer repeats the
  *        prompt Details already shows.
@@ -18,10 +22,26 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import { QUOTED_AFTER_SITE_CHECK, quoteLineDetailWords, quoteLinePriceWords } from './quote-line-price-words';
+import { quoteChanges, versionsSideBySide, type QuoteVersion } from './quote-versions';
+import { isPastDue } from './chat-plan-fold';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request.endsWith('.css') || request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+const h = React.createElement;
+const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -45,6 +65,58 @@ test('7 · an unpriced transport line says it is quoted after the site check —
   }
   const maker = read('app/_components/proposal-maker.tsx');
   assert.match(maker, /detail: QUOTED_AFTER_SITE_CHECK/, 'the maker writes the transport line with the shared words');
+  // The maker's one "Complimentary" is the builder's own freebie switch (`l.free`), never a missing amount.
+  assert.deepEqual(maker.match(/['"`]Complimentary['"`]/g)?.length, 1);
+  assert.match(maker, /if \(l\.free\) return 'Complimentary';/);
+});
+
+test('7b · no quote file decides "Complimentary" for itself — only the one rule does', () => {
+  const hits: string[] = [];
+  let scanned = 0;
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name === '.next') continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/quote/i.test(name) && /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+        scanned += 1;
+        if (/['"`]Complimentary['"`]|>\s*Complimentary\s*</.test(stripComments(readFileSync(p, 'utf8')))) hits.push(p.slice(WEB.length + 1));
+      }
+    }
+  };
+  walk(join(WEB, 'app'));
+  walk(join(WEB, 'lib'));
+  assert.ok(scanned > 30, `anti-vacuity: scanned only ${scanned} quote files`);
+  assert.deepEqual(hits, ['lib/quote-line-price-words.ts'], 'a quote file says "Complimentary" by its own rule');
+});
+
+test('7c · what changed and side by side say the unpriced transport as it is (render + data)', async () => {
+  const before = { lines: [{ label: 'Lights', amount_centavos: 2_500_000 }], plan: null, totalCentavos: 2_500_000 };
+  const after = {
+    lines: [
+      { label: 'Lights', amount_centavos: 2_500_000 },
+      { label: 'Transportation', detail: QUOTED_AFTER_SITE_CHECK, amount_centavos: null },
+      { label: 'Stage lights', amount_centavos: null },
+    ],
+    plan: null,
+    totalCentavos: 2_500_000,
+  };
+  const c = quoteChanges(before, after);
+  const { QuoteWhatChanged } = await import('@/app/_components/quote-what-changed');
+  const t = text(renderToStaticMarkup(h(QuoteWhatChanged, { changes: c, sinceVersion: 1 })));
+  assert.match(t, /Transportation Quoted after site check/, `what changed calls the transport free: ${t}`);
+  assert.match(t, /Stage lights Complimentary/, 'anti-vacuity: a freebie is still free');
+
+  const v = (n: number, side: typeof before): QuoteVersion =>
+    ({ proposalId: `p${n}`, pair: 'x', version: n, at: '2026-11-13T00:00:00Z', ...side, previous: null }) as unknown as QuoteVersion;
+  const rows = versionsSideBySide(v(1, before), v(2, after));
+  const transport = rows.find((r) => r.label === 'Transportation');
+  assert.equal(transport?.bWords, 'Quoted after site check');
+  assert.equal(rows.find((r) => r.label === 'Stage lights')?.bWords, 'Complimentary');
+  assert.equal(rows.find((r) => r.label === 'Lights')?.bWords, undefined, 'a priced line carries no words');
+  const compare = read('app/_components/quote-versions-compare.tsx');
+  assert.match(compare, /\{cell\(r, r\.a, r\.aWords\)\}/);
+  assert.match(compare, /\{cell\(r, r\.b, r\.bWords\)\}/);
 });
 
 test('8 · with no real count the Quotation says "No count yet", and the thread page says when the count is real', () => {
@@ -93,6 +165,7 @@ test('+ · the client tabs speak in sentence case', () => {
     `${CLIENT}/_components/hosts-list.tsx`,
     `${CLIENT}/_components/details-forms-door.tsx`,
     `${CLIENT}/_components/details-decisions.tsx`,
+    `${CLIENT}/_components/details-decisions-list.tsx`,
     `${CLIENT}/_components/suppliers-list.tsx`,
     `${CLIENT}/_components/picked-client-settings.tsx`,
     `${CLIENT}/_components/payment-asks-panel.tsx`,
@@ -100,10 +173,62 @@ test('+ · the client tabs speak in sentence case', () => {
     `${CLIENT}/_components/customer-money-fold.tsx`,
     `${CLIENT}/_pages/payment.tsx`,
     `${CLIENT}/_pages/files.tsx`,
+    `${CLIENT}/_components/supplier-schedule.tsx`,
+    `${CLIENT}/_components/script-tab.tsx`,
+    `${CLIENT}/_components/script-composer.tsx`,
+    `${CLIENT}/_components/customer-card-activity.tsx`,
+    `${CLIENT}/_components/customer-card-notes.tsx`,
+    `${CLIENT}/_components/couple-answers.tsx`,
+    `${CLIENT}/_components/day-check-line.tsx`,
+    `${CLIENT}/_components/booth-poster-card.tsx`,
+    `${CLIENT}/_components/booth-studio-card.tsx`,
+    `${CLIENT}/_components/event-files-board.tsx`,
+    `${CLIENT}/page.tsx`,
   ]) {
     const src = read(f);
     assert.ok(src.length > 300, `anti-vacuity: ${f} is empty`);
     assert.doesNotMatch(src, /\bhome-k2\b/, `${f} still uses the uppercase section label`);
-    assert.doesNotMatch(src, /(className="|')[^"'\n]*\buppercase tracking-\[0\.(08|12)em\][^"'\n]*text-ink\/70/, `${f} still draws an uppercase heading`);
+    // Every uppercase label in the client workspace's own files is gone (the deferred shared parts live elsewhere).
+    // Any class string — className, labelClassName, a `const H = '…'` — that still carries `uppercase`.
+    const caps = src.match(/["'`][^"'`\n]*\buppercase\b[^"'`\n]*["'`]/g) ?? [];
+    assert.deepEqual(caps, [], `${f} still draws an uppercase label`);
   }
+});
+
+test('3b · the Payment page says Overdue the same way Details and Chat do (render)', async () => {
+  assert.equal(isPastDue('2026-11-13', '2026-11-17'), true);
+  assert.equal(isPastDue('2026-11-17', '2026-11-17'), false, 'the due day itself is not overdue');
+  assert.equal(isPastDue('2026-11-13', null), false, 'an unknown today is never overdue');
+  const { PaymentPage } = await import('@/app/vendor-dashboard/clients/[eventId]/_pages/payment');
+  const step = (seq: number, label: string, amount: number, due: string, state: string) =>
+    ({ seq, label, amount_php: amount, due_date: due, amount_kind: 'fixed', percent_bps: null, state });
+  const CTX = { eventId: 'e1', vendorProfileId: 'v1', viewerUserId: 'u1', threadId: 't1', eventName: 'Debut 18', stage: 'booked', isBooked: true, feeUnlocked: true, eventVendorId: 'ev1', eventDate: '2027-05-12' };
+  const draw = (todayIso: string | null) =>
+    text(
+      renderToStaticMarkup(
+        h(PaymentPage, {
+          ctx: CTX as never,
+          reservationAcknowledgedAt: null,
+          money: {
+            steps: [step(1, 'First payment', 5350, '2026-11-13', 'due'), step(2, 'Final balance', 21400, '2027-04-28', 'due')],
+            clearedAt: null,
+            pending: [],
+            ledgerMoney: { rows: [], receivedPhp: 0, expectedPhp: 0 },
+            ledgerUnreadable: false,
+            todayIso,
+          } as never,
+        }),
+      ),
+    );
+  assert.match(draw('2026-11-17'), /Overdue ₱5,350 · First payment · since Nov 13/, 'the Payment page still says Next on a passed day');
+  assert.match(draw(null), /Next ₱5,350 · First payment · Nov 13/, 'anti-vacuity: an unknown today says Next');
+  const page = read(`${CLIENT}/page.tsx`);
+  assert.match(page, /unreadableNote: <LedgerUnreadableNote \/>,\s*todayIso: manilaTodayIso\(\),/, 'the page does not hand the Payment page today');
+});
+
+test('4b · the Forms door on Details names the event, never "this couple"', () => {
+  const door = read(`${CLIENT}/_components/details-forms-door.tsx`);
+  assert.doesNotMatch(door, /this couple/);
+  assert.match(door, />Forms · sent to \{who\}</);
+  assert.match(read(`${CLIENT}/page.tsx`), /<DetailsFormsDoor eventName=\{eventName\} \/>/);
 });

@@ -2483,7 +2483,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked && threadId ? (
       pendingPayments.length === 0 && planRowsAll.length === 0 ? (
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="text-[13px] font-semibold text-ink/70">
             Payments
           </p>
           {ledgerUnreadable ? (
@@ -2502,7 +2502,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="text-[13px] font-semibold text-ink/70">
             Payments
           </p>
           <VendorPaymentLive
@@ -2515,7 +2515,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       )
     ) : (
       <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="text-[13px] font-semibold text-ink/70">
           Payments
         </p>
         <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
@@ -2582,7 +2582,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const nextMoveCard = (
     <div className="hidden lg:block" data-next-move="">
       <ShopCard pad="tight">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Your next move</p>
+        <p className="text-[13px] font-semibold text-ink/70">Your next move</p>
         <div className="mt-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -2593,7 +2593,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <h3 className="mt-2 text-sm font-semibold text-ink">{nextMove.title}</h3>
         <p className="mt-1 text-xs leading-relaxed text-ink/60">{nextMove.body}</p>
         {awaitingPayments.length > 0 ? (
-          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
+          <p className="mt-2.5 text-[12px] font-medium text-warn-900">
             {awaitingPayments.length} awaiting confirmation
           </p>
         ) : null}
@@ -2653,7 +2653,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
       <DetailsDecisions threadId={threadId} eventId={eventId} />
-      <DetailsFormsDoor />
+      <DetailsFormsDoor eventName={eventName} />
     </div>
   );
 
@@ -2694,6 +2694,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             ledgerMoney,
             ledgerUnreadable,
             unreadableNote: <LedgerUnreadableNote />,
+            todayIso: manilaTodayIso(),
           }
         : undefined,
       asks: askPanel,
@@ -3591,7 +3592,7 @@ function QuoteTab(props: {
     <div className="space-y-6">
       {/* Quotation */}
       <div>
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="mb-2 text-[13px] font-semibold text-ink/70">
           Quotation
         </p>
         {proposals.length === 0 ? (
@@ -3644,7 +3645,7 @@ function QuoteTab(props: {
 
       {/* Payments */}
       <div>
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="mb-2 text-[13px] font-semibold text-ink/70">
           Payments
         </p>
         {!isBooked ? (
@@ -3743,7 +3744,7 @@ function ScheduleTab(props: {
     const timeline = props.brief.timeline ?? [];
     return (
       <div className="space-y-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Day-of timeline</p>
+        <p className="text-[13px] font-semibold text-ink/70">Day-of timeline</p>
         {timeline.length > 0 ? (
           <ShopCard>
             <ul className="space-y-2">
@@ -3975,7 +3976,7 @@ function ScheduleTab(props: {
 
           {handovers.length > 0 ? (
             <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your handovers</p>
+              <p className="text-[13px] font-semibold text-ink/70">Your handovers</p>
               <ul className="mt-1.5 space-y-1.5">
                 {handovers.map((h) => (
                   <li key={h.handover_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">

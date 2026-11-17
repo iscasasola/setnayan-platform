@@ -40,10 +40,18 @@ export function planFoldLine(rollup: PlanRollup, cleared: boolean, hasSteps: boo
  * null (unknown) keeps the plain "next" — never a guessed "overdue". Null when nothing is left to pay.
  * One source for the chat's plan row and the client's Details numbers.
  */
+/**
+ * Is a payment due on `dueDate` past due on `todayIso` (Manila's today)? The ONE rule the chat's plan row, Details and
+ * the Payment page's Next line all read. An unknown day on either side is never "overdue" — never a guess.
+ */
+export function isPastDue(dueDate: string | null | undefined, todayIso: string | null | undefined): boolean {
+  return Boolean(dueDate && todayIso && dueDate.slice(0, 10) < todayIso.slice(0, 10));
+}
+
 export function planNextWords(rollup: PlanRollup, todayIso: string | null): string | null {
   if (!rollup.next) return null;
   const when = planShortDate(rollup.next.dueDate);
-  if (when && todayIso && rollup.next.dueDate && rollup.next.dueDate.slice(0, 10) < todayIso.slice(0, 10)) {
+  if (when && isPastDue(rollup.next.dueDate, todayIso)) {
     return `${peso(rollup.next.amountPhp)} overdue since ${when}`;
   }
   return `next ${peso(rollup.next.amountPhp)}${when ? ` ${when}` : ''}`;

@@ -96,7 +96,7 @@ export function DayCheckLine({
 function Section({ label, tip, children, empty }: { label: string; tip?: string; children: React.ReactNode[]; empty: boolean }) {
   return (
     <section className="mt-1" data-day-check-section={label}>
-      <p className="flex items-center gap-1 px-5 pb-1 pt-4 text-xs font-medium uppercase tracking-[0.08em] text-ink/70">
+      <p className="flex items-center gap-1 px-5 pb-1 pt-4 text-[13px] font-semibold text-ink/70">
         {tip ? (
           <InfoTip label={label} align="start">
             {tip}

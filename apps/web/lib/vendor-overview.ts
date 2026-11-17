@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { isNewInquiry } from '@/lib/new-inquiry';
 import { bookedThisMonthCount } from '@/lib/booked-this-month';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -509,7 +510,9 @@ export async function fetchVendorOverviewData(
 
   const roomBookings = roomRead.events;
   const bookingsComplete = roomRead.complete;
-  const pendingThreads = threads.filter((t) => t.inquiry_status === 'pending');
+  // CYC-14: a pending thread whose couple already booked this shop, or that the supplier answered, is not "new".
+  const bookedHere = new Set(roomBookings.map((b) => b.eventId));
+  const pendingThreads = threads.filter((t) => isNewInquiry(t, bookedHere));
   /*
     THE ACCEPTED LANE — where a reply is actually owed.
     · `accepted` only: displaced / withdrawn / expired threads are conversations

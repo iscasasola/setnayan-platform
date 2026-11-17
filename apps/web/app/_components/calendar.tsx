@@ -339,7 +339,7 @@ export function CalendarLegend({
           green square is never read as the green "Booked here" dot (owner, 17 Nov). */}
       {mark === 'box' ? (
         <span className="inline-flex items-center gap-1.5" data-calendar-legend-open="">
-          <i aria-hidden className="block h-3 w-3.5 rounded-[3px]" style={{ background: 'var(--seat-top)' }} />
+          <i aria-hidden className="block h-3 w-3.5 rounded-sm" style={{ background: 'var(--seat-top)' }} />
           {CALENDAR_OPEN_WORD}
         </span>
       ) : null}

@@ -63,6 +63,7 @@ let person = '';
 let supplier = '';
 let teammate = '';
 let shop = '';
+let hidden = '';
 
 async function postAs(uid: string, title: string, extra: Record<string, string | boolean> = {}): Promise<{
   chapter_id: string; slug: string; is_journal: boolean; posted_as_vendor_id: string | null;
@@ -92,6 +93,10 @@ before(async () => {
     `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role) VALUES ($1, $2, 'agent')`,
     [shop, teammate],
   );
+  // The reader has chosen a posting name (the Write sheet asks for one before the first post), which is what makes
+  // their articles public. `hidden` is a person with a hidden profile and no name — their chapter stays private.
+  await db.query(`UPDATE public.users SET posting_name = 'reader.one' WHERE user_id = $1`, [person]);
+  hidden = await signUp('hidden@test.local', 'customer');
 });
 
 after(async () => {
@@ -159,6 +164,25 @@ test('4 · anyone reads a published article; nobody else reads a draft or a remo
   )).rows.map((r) => r.chapter_id);
   assert.deepEqual(seen, [live.chapter_id], 'anon sees the live article only');
   await asOwner();
+});
+
+test('4b · a HIDDEN profile with no posting name stays private — articles do not undo that promise', async () => {
+  const quiet = await postAs(hidden, 'Published before articles existed');
+  await asOwner();
+  await db.query(`UPDATE public.users SET public_profile_enabled = FALSE, posting_name = NULL WHERE user_id = $1`, [hidden]);
+  await asAnon();
+  const anonSees = (await db.query(`SELECT 1 FROM public.creator_chapters WHERE chapter_id = $1`, [quiet.chapter_id])).rows.length;
+  await asUser(person);
+  const strangerSees = (await db.query(`SELECT 1 FROM public.creator_chapters WHERE chapter_id = $1`, [quiet.chapter_id])).rows.length;
+  await asOwner();
+  assert.equal(anonSees, 0, 'a signed-out reader cannot see a hidden author’s chapter');
+  assert.equal(strangerSees, 0, 'nor can another signed-in account');
+  // …and the moment they choose a name, it is an article.
+  await db.query(`UPDATE public.users SET posting_name = 'quiet.one' WHERE user_id = $1`, [hidden]);
+  await asAnon();
+  const nowSees = (await db.query(`SELECT 1 FROM public.creator_chapters WHERE chapter_id = $1`, [quiet.chapter_id])).rows.length;
+  await asOwner();
+  assert.equal(nowSees, 1);
 });
 
 test('5 · replies: one level, to live articles only, and the writer owns only the words', async () => {

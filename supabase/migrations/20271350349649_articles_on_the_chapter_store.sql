@@ -183,10 +183,45 @@ UPDATE public.creator_chapters SET updated_at = updated_at WHERE slug IS NULL;
 -- 1e. THE PUBLIC READ OF AN ARTICLE. A published, not-removed chapter with an address is public — readers
 --     see the posting name or the shop, never the account (owner: "they can stay anonymous"). The older
 --     policy (published on a public profile) stays exactly as it is; this one is added beside it.
+--     ⚖ BUT A HIDDEN PROFILE STAYS HIDDEN. Before articles, a published chapter was public only on a public
+--     profile, and a person who later hid their profile was promised it disappears (creator-loop.db.test.ts).
+--     An article is therefore public only when the reader can see WHO it speaks for, without exposing the
+--     account: a Journal post · a shop's post · an author who CHOSE a posting name (the Write sheet asks for one
+--     before the first post) · or an author whose profile is public. A chapter by a person with a hidden
+--     profile and no posting name stays exactly as private as it was.
+--     The answer reads `users`, whose own RLS refuses anon — so it is ONE SECURITY DEFINER helper returning a
+--     boolean (never a row), or the policy would err closed for every signed-out reader.
+-- `users.posting_name` must exist before this function is created (a SQL function's body is checked at
+-- CREATE); section 2 below re-states it with IF NOT EXISTS and adds its shape and uniqueness.
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS posting_name TEXT NULL;
+
+CREATE OR REPLACE FUNCTION public.article_author_is_public(
+  p_user_id UUID, p_is_journal BOOLEAN, p_posted_as_vendor_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT coalesce(p_is_journal, FALSE)
+      OR p_posted_as_vendor_id IS NOT NULL
+      OR EXISTS (
+           SELECT 1 FROM public.users u
+            WHERE u.user_id = p_user_id
+              AND (u.public_profile_enabled = TRUE OR u.posting_name IS NOT NULL)
+         )
+$$;
+REVOKE ALL ON FUNCTION public.article_author_is_public(UUID, BOOLEAN, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.article_author_is_public(UUID, BOOLEAN, UUID) TO anon, authenticated;
+
 DROP POLICY IF EXISTS public_can_read_published_article ON public.creator_chapters;
 CREATE POLICY public_can_read_published_article ON public.creator_chapters
   FOR SELECT TO anon, authenticated
-  USING (status = 'published' AND slug IS NOT NULL AND removed_at IS NULL);
+  USING (
+    status = 'published' AND slug IS NOT NULL AND removed_at IS NULL
+    AND public.article_author_is_public(user_id, is_journal, posted_as_vendor_id)
+  );
 
 -- ---------------------------------------------------------------------------
 -- 2. users.posting_name — the name a person posts under, set on their first post
@@ -242,6 +277,7 @@ CREATE POLICY replies_public_read ON public.creator_chapter_replies
       SELECT 1 FROM public.creator_chapters c
        WHERE c.chapter_id = creator_chapter_replies.chapter_id
          AND c.status = 'published' AND c.slug IS NOT NULL AND c.removed_at IS NULL
+         AND public.article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)
     )
   );
 
@@ -259,6 +295,7 @@ CREATE POLICY replies_author_inserts ON public.creator_chapter_replies
       SELECT 1 FROM public.creator_chapters c
        WHERE c.chapter_id = creator_chapter_replies.chapter_id
          AND c.status = 'published' AND c.slug IS NOT NULL AND c.removed_at IS NULL
+         AND public.article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)
     )
   );
 

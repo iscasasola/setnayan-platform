@@ -263,7 +263,11 @@ test('publish: owner flips draft→published; readable on the app read path', as
     [F.creatorChapterId],
   );
   await db.exec(`RESET ROLE`);
-  assert.equal(anonRead.rows.length, 0, 'documented finding: anon public-read policy is dead-as-written');
+  // ✅ FLIPPED 2026-11-17, as the note above asked: migration 20271350349649 added exactly that helper
+  // (`article_author_is_public`, SECURITY DEFINER, a boolean) for the article read, so a published chapter on a
+  // PUBLIC profile is now readable by anon through PostgREST. The hidden-profile test below still holds the
+  // other half: a hidden profile with no posting name stays invisible.
+  assert.equal(anonRead.rows.length, 1, 'a published chapter on a public profile is readable by anon (the helper fixed the dead policy)');
 });
 
 test('published chapter on a HIDDEN profile stays publicly invisible (RLS gate)', async () => {

@@ -103,7 +103,10 @@ test('5 · the short form: name · price · included · photos first; extras and
      is unchanged in kind and stricter in place: each field has ONE place, in the order drawn. */
   const src = read(MAKER);
   // The JSX attribute (` data-maker-row="…"`), never the save's `[data-maker-row="included"]` selector.
-  const first = ['name', 'price', 'included', 'photos'];
+  /* 🔁 RE-AIMED 2026-11-17 (Card Maker HYBRID, owner-approved; drawing `service_card_maker_HYBRID_2026-11-17_fable.html`
+     @ a2542b3 "Proposed"): the first page is Services · Name, then Photos, then Price, the tiers, What's included and
+     How clients book; More options still holds specialties · extras · the gift. Same claim: one place each, in the order drawn. */
+  const first = ['kind', 'name', 'photos', 'price', 'included', 'schedule', 'slots'];
   const order = first.map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
   order.forEach((at, i) => assert.ok(at > 0, `the ${first[i]} field is gone`));
   for (let i = 1; i < order.length; i++) assert.ok(order[i]! > order[i - 1]!, 'the first page is out of the prototype’s order');

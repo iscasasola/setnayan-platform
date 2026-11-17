@@ -36,6 +36,7 @@ import {
   type DueAnchor,
   type ScheduleItemDraft,
 } from '@/lib/vendor-service-payment-schedules';
+import { parseReservationFee } from '@/lib/reservation-fee';
 
 type Row = {
   label: string;
@@ -101,10 +102,17 @@ function blankRow(label: string): Row {
   };
 }
 
+/** What the one box shows for a saved first payment: "5000" or "10%". */
+function feeText(r: { amount_kind: AmountKind; value: string }): string {
+  if (r.value.trim() === '') return '';
+  return r.amount_kind === 'percent' ? `${r.value}%` : r.value;
+}
+
 export function PaymentScheduleEditor({
   serviceId,
   initial,
   bare = false,
+  pricePhp = null,
 }: {
   serviceId: string;
   initial: ScheduleItemDraft[];
@@ -114,13 +122,30 @@ export function PaymentScheduleEditor({
    * `setServicePaymentSchedule` (`parsePaymentScheduleForm`), the no-show terms on the first payment included.
    */
   bare?: boolean;
+  /** The card's "from" price in pesos, when known — a peso reservation fee may not be more (card maker only). */
+  pricePhp?: number | null;
 }) {
+  /** 💳 The card maker's first payment is the one-box reservation fee (bare only; the standalone form is unchanged). */
+  const oneBox = bare;
+  const [feeRaw, setFeeRaw] = useState<string>(() => (initial[0] ? feeText(draftToRow(initial[0])) : ''));
+  const fee = parseReservationFee(feeRaw, pricePhp);
   const [rows, setRows] = useState<Row[]>(
     initial.length > 0 ? initial.map(draftToRow) : [],
   );
 
   function update(i: number, patch: Partial<Row>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  /** 💳 The one box: what was typed stays on screen; a reading that parses becomes row 0's kind and value. */
+  function typeFee(raw: string) {
+    setFeeRaw(raw);
+    const f = parseReservationFee(raw, pricePhp);
+    update(0, f.ok ? { amount_kind: f.kind, value: String(f.value) } : { value: '' });
+  }
+  /** When another payment becomes the first (moved or the first removed), the box shows ITS amount. */
+  function syncFee(next: Row[]) {
+    if (oneBox) setFeeRaw(next[0] ? feeText(next[0]) : '');
+    return next;
   }
   function add() {
     setRows((prev) =>
@@ -130,7 +155,10 @@ export function PaymentScheduleEditor({
     );
   }
   function remove(i: number) {
-    setRows((prev) => prev.filter((_, idx) => idx !== i));
+    setRows((prev) => {
+      const next = prev.filter((_, idx) => idx !== i);
+      return i === 0 ? syncFee(next) : next;
+    });
   }
   function move(i: number, dir: -1 | 1) {
     setRows((prev) => {
@@ -142,7 +170,7 @@ export function PaymentScheduleEditor({
       const next = [...prev];
       next[i] = b;
       next[j] = a;
-      return next;
+      return i === 0 || j === 0 ? syncFee(next) : next;
     });
   }
 
@@ -196,6 +224,8 @@ export function PaymentScheduleEditor({
 
               {/* Parallel-array fields — submitted as item_*[] in row order. */}
               <input type="hidden" name="item_amount_kind" value={r.amount_kind} />
+              {/* The one box writes row 0's own kind and value (below); this posts the value under the shipped name. */}
+              {oneBox && i === 0 ? <input type="hidden" name="item_value" value={r.value} /> : null}
 
               <div className="space-y-2">
                 <label className="block space-y-1">
@@ -212,6 +242,23 @@ export function PaymentScheduleEditor({
                   />
                 </label>
 
+                {oneBox && i === 0 ? (
+                  <label className="block space-y-1" data-reservation-fee="">
+                    <span className={FIELD_LABEL}>Reservation fee</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={feeRaw}
+                      onChange={(e) => typeFee(e.target.value)}
+                      placeholder="10% or 5000"
+                      aria-invalid={!fee.ok && fee.error ? true : undefined}
+                      className="input-field font-bold tabular-nums"
+                    />
+                    <span className="block text-[12.5px] text-ink/55" aria-live="polite" data-reservation-fee-reads="">
+                      {fee.ok ? (fee.kind === 'percent' ? `${fee.value}% of the price` : `₱${fee.value.toLocaleString('en-PH')}`) : (fee.error ?? '5000 is pesos · 10% is a percent')}
+                    </span>
+                  </label>
+                ) : (
                 <div className="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-end">
                   {/* The app's ONE pill selector (owner 2026-10-08). Each side now SAYS which is picked
                       (`aria-pressed`) — it said nothing before, and the thumb finds the picked side by it. */}
@@ -241,6 +288,7 @@ export function PaymentScheduleEditor({
                     />
                   </label>
                 </div>
+                )}
 
                 <div className="grid gap-2 sm:grid-cols-2 sm:items-end">
                   <div className="block space-y-1">

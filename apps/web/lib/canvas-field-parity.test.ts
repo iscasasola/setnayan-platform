@@ -484,7 +484,9 @@ test('the canvas MOUNTS the shipped editors rather than forking them', () => {
   const canvas = stripComments(readFileSync(CANVAS, 'utf8'));
   // Non-field reuse: primitives that carry no posted name of their own, so a
   // mount assertion would be meaningless — the identifier is the point.
-  for (const reused of ['SubmitButton', 'useModalA11y', 'Field']) {
+  // 2026-11-17 (Card Maker HYBRID): the booking-terms, crew and branch boxes moved from `Field` stacks into the shared
+  // Form rows of their framed groups — `FormRow` is the reused primitive now (same field names, held above).
+  for (const reused of ['SubmitButton', 'useModalA11y', 'FormRow']) {
     assert.match(canvas, new RegExp(`\\b${reused}\\b`), `expected to reuse ${reused}`);
   }
   // Same flag as the wizard, so both carry identical payloads on both settings.

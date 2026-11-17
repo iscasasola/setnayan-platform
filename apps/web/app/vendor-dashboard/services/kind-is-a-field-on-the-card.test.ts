@@ -237,10 +237,15 @@ test('the status line asks the publish gate, never a list of its own', () => {
 
 
 
-test('a pre-filled kind says where it came from', () => {
+/* Re-aimed 2026-11-17 (Card Maker HYBRID, owner-approved — REMOVES 2): "From your shop · change" under the old pill is
+   gone. The claim it served — a service on the card says what it is and where it sits — now lives in the Services row:
+   the service in its pill and, under the name, its live Group › Category. */
+test('the service on the card says where it sits — Group › Category under "Services"', () => {
   const src = read(MAKER);
-  assert.match(src, /From your shop · change/, 'the pre-filled kind stopped explaining itself');
-  assert.match(src, /setKindFromShop\(false\)/, 'picking a kind by hand still claims it came from the shop');
+  assert.doesNotMatch(src, /From your shop · change/, 'the retired line is back (HYBRID REMOVES 2)');
+  assert.match(src, /<FormRow\s+name="Services"/, 'the Services row is gone');
+  assert.match(src, /data-maker-kind-path=""/, 'the Services row stopped saying Group › Category');
+  assert.match(src, /return o\.hint \? `\$\{g\.label\} › \$\{o\.hint\}` : g\.label;/, 'Group › Category is no longer read from the live groups');
 });
 
 test('what was typed is held in the vendor’s own browser, never in a card row', () => {
@@ -363,13 +368,21 @@ test('every other field lives under More settings, and it starts shut', () => {
   // The prototype's folds, in its order (makerMore()). 2026-11-07 (makers prototype § 3): Price · more, Add-ons (→
   // Extras), the Setnayan gift (→ the Gift dropdown) and Details (→ Specialties) moved UP to the one page of fields
   // (held by lib/the-card-gift-is-one-dropdown.test.ts), and the Schedule row moved DOWN here, onto the saved card.
-  const folds = ['schedule', 'm-disc', 'm-inc', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
+  // Re-aimed 2026-11-17 (Card Maker HYBRID, owner-approved): How clients book (the schedule, booking terms and the
+  // same-day count) moved UP onto the first page (ruling 16 Nov (4)), the "What's included · details" fold became the
+  // tier grid there, and the folds left under More settings are FRAMED GROUPS, in the drawing's order.
+  for (const f of ['tiers', 'm-terms']) {
+    const i = src.indexOf(`data-maker-group={'${f}'}`) >= 0 ? src.indexOf(`data-maker-group={'${f}'}`) : src.indexOf(`<MakerGroup id="${f}"`);
+    assert.ok(i > 0 && i < at, `the "${f}" group is not on the first page, before More settings`);
+  }
+  const groups = ['m-card', 'm-disc', 'm-crew', 'm-pay', 'm-who', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
   let last = at;
-  for (const f of folds) {
-    const i = src.indexOf(`data="${f}"`);
-    assert.ok(i > last, `the "${f}" fold is missing or out of the prototype's order`);
+  for (const f of groups) {
+    const i = Math.max(src.indexOf(`<MakerGroup id="${f}"`), src.indexOf(`data-maker-group-row="${f}"`));
+    assert.ok(i > last, `the "${f}" group is missing or out of the drawing's order`);
     last = i;
   }
+  assert.ok(!/data="m-inc"/.test(src), 'the "What’s included · details" fold is back (HYBRID REMOVES 6 — the tier grid replaced it)');
 });
 
 test('ONE Create: live when the gate is met, else saved not shown yet (owner 2026-10-08 Q3)', () => {

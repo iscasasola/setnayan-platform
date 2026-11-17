@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRow, TypedRow } from '@/app/_components/form-row';
 
 /**
  * Pricing-basis editor (service-card redesign · Phase 3a). The three ways a
@@ -70,7 +70,7 @@ export function PricingBasisEditor({
    */
   basis?: Basis;
   /** `row` — the maker's one form (ruling 6058): `main` as ONE typed Form row (`TypedRow`, amount), same field names. */
-  part?: 'all' | 'main' | 'more' | 'row';
+  part?: 'all' | 'main' | 'more' | 'row' | 'basis' | 'brackets';
 }) {
   const isCrewMeals = category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
@@ -103,6 +103,30 @@ export function PricingBasisEditor({
         />
       </>
     );
+  }
+  if (part === 'basis') {
+    /* 🗂 CARD MAKER HYBRID (owner-approved 17 Nov; map row "Price, covers N guests, each extra guest, minimums, each extra
+       hour": "The basis's two main fields sit beside Price; brackets stay under Price · more"). The same fields `more`
+       holds, as rows of the Price group — same names, posted once (`more` is not drawn beside this part). */
+    const count = (t: string) => (t.trim() === '' || /^\d+(\.\d+)?$/.test(t.trim()) ? null : 'A number, please.');
+    const v = (n: number | null | undefined) => (n == null ? '' : String(n));
+    return basis === 'fixed' ? (
+      <>
+        <TypedRow key="base_pax" name="Price covers" about={{ title: 'Price covers', words: 'Guests the price covers. Blank = one price, any guest count.' }} value={v(defaults.base_pax)} empty="Any count" inputMode="numeric" check={count} fieldName="base_pax" onKeep={() => undefined} data="price-covers" attrs={{ 'data-maker-price-field': 'base_pax' }} />
+        <TypedRow key="added_pax_price_php" name={`Each extra ${perPaxUnit}`} about={{ title: `Each extra ${perPaxUnit}`, words: `Optional. Charged per ${perPaxUnit} above that.` }} value={v(defaults.added_pax_price_php)} amount empty="None" fieldName="added_pax_price_php" onKeep={() => undefined} data="price-extra-guest" attrs={{ 'data-maker-price-field': 'added_pax_price_php' }} />
+      </>
+    ) : basis === 'per_pax' ? (
+      <TypedRow key="min_pax" name={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} about={{ title: isCrewMeals ? 'Minimum meals' : 'Minimum guests', words: 'The floor — the card shows rate × minimum.' }} value={v(defaults.min_pax)} empty="None" inputMode="numeric" check={count} fieldName="min_pax" onKeep={() => undefined} data="price-min-pax" attrs={{ 'data-maker-price-field': 'min_pax' }} />
+    ) : (
+      <>
+        <TypedRow key="min_hours" name="Minimum hours" about={{ title: 'Minimum hours', words: 'Hours the “from” price covers.' }} value={v(defaults.min_hours)} empty="None" inputMode="numeric" check={count} fieldName="min_hours" onKeep={() => undefined} data="price-min-hours" attrs={{ 'data-maker-price-field': 'min_hours' }} />
+        <TypedRow key="extra_hour_php" name="Each extra hour" about={{ title: 'Each extra hour', words: 'Charged for each hour beyond the minimum.' }} value={v(defaults.extra_hour_php)} amount empty="None" fieldName="extra_hour_php" onKeep={() => undefined} data="price-extra-hour" attrs={{ 'data-maker-price-field': 'extra_hour_php' }} />
+      </>
+    );
+  }
+  if (part === 'brackets') {
+    /* The rest of `more` once `basis` has its fields: the Fixed brackets only (mounted only on Fixed, as before). */
+    return basis === 'fixed' ? <>{fixedExtra}</> : null;
   }
   if (part === 'main') {
     return (
@@ -247,6 +271,7 @@ export function IncludedFlags({
   idPrefix,
   defaults,
   category,
+  rows = false,
 }: {
   idPrefix: string;
   defaults: {
@@ -257,9 +282,64 @@ export function IncludedFlags({
   /** Vendor category — a crew_meals listing IS the crew meal, so the crew-meal
    *  checkbox is hidden (and forced "included") to avoid a contradictory flag. */
   category?: string;
+  /**
+   * 🗂 CARD MAKER HYBRID (owner-approved 17 Nov): the same three facts as rows of the "Crew and transport" group — Crew
+   * meal and Transport each ONE dropdown (Transport's three choices are the two shipped columns: Included =
+   * `transport_included`, Flat fee = `transport_flat_fee_php`, both empty = quoted by distance). Same field names, same
+   * values posted. Absent = the shipped box, byte-for-byte.
+   */
+  rows?: boolean;
 }) {
   const isCrewMeals = category === 'crew_meals';
   const [transportIncluded, setTransportIncluded] = useState(defaults.transport_included);
+  const [mealIncluded, setMealIncluded] = useState(defaults.crew_meal_included);
+  const [transport, setTransport] = useState<'distance' | 'included' | 'flat'>(
+    defaults.transport_included ? 'included' : defaults.transport_flat_fee_php != null ? 'flat' : 'distance',
+  );
+  if (rows) {
+    return (
+      <>
+        {isCrewMeals ? (
+          <input type="hidden" name="crew_meal_included" value="on" />
+        ) : (
+          <>
+            {mealIncluded ? <input type="hidden" name="crew_meal_included" value="on" /> : null}
+            <ChosenRow
+              name="Crew meal"
+              about={{ title: 'Crew meal', words: 'Client provides = the couple feeds your crew (added to their budget).' }}
+              value={mealIncluded ? 'included' : 'client'}
+              options={[
+                { key: 'client', label: 'Client provides' },
+                { key: 'included', label: 'Included' },
+              ]}
+              onPick={(k) => setMealIncluded(k === 'included')}
+              dataAttr="data-maker-crew-meal"
+              data="crew-meal"
+            />
+          </>
+        )}
+        {transport === 'included' ? <input type="hidden" name="transport_included" value="on" /> : null}
+        <ChosenRow
+          name="Transport"
+          about={{ title: 'Transport', words: 'Included = within your coverage area. Quoted by distance = no flat fee.' }}
+          value={transport}
+          options={[
+            { key: 'distance', label: 'Quoted by distance' },
+            { key: 'included', label: 'Included' },
+            { key: 'flat', label: 'Flat fee' },
+          ]}
+          onPick={(k) => setTransport(k as 'distance' | 'included' | 'flat')}
+          dataAttr="data-maker-transport"
+          data="transport"
+        />
+        {transport === 'flat' ? (
+          <FormRow name="Flat transport fee" data="transport-fee">
+            <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="₱ e.g. 2000" aria-label="Flat transport fee (PHP)" className="input-field !h-10 w-[150px] flex-none text-right tabular-nums" />
+          </FormRow>
+        ) : null}
+      </>
+    );
+  }
   return (
     <div
       className="space-y-2.5 rounded-xl border p-3"

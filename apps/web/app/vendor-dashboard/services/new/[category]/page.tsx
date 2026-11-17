@@ -213,6 +213,7 @@ export default async function NewServicePage({
         <CanvasMaker
           categoryValue={cat}
           categoryLabel={kindLabel(cat)}
+          categoryPath={ctx.kindPath(cat)}
           otherCategories={otherCategories}
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}

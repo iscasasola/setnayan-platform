@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { MakerTiers } from '@/lib/service-card-tiers';
 import {
   VENDOR_CATEGORY_LABEL,
   isCanonicalService,
@@ -94,6 +95,12 @@ export type MakerContext = {
    */
   bookingsPerDate: { cap: number | null; help: string | null };
   kindLabel: (kind: string) => string;
+  /**
+   * 🗂 THE SERVICES ROW'S SECOND LINE (Card Maker HYBRID, owner-approved 17 Nov): where a service sits in the live
+   * taxonomy, "Group › Category" (e.g. "Venues & Simbahan › Reception Venues"). Read from the same tree the kind sheet
+   * groups by — never typed. `null` = not a live service (an old kind, Other): the row then says nothing.
+   */
+  kindPath: (kind: string) => string | null;
   /**
    * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
    * shop can still offer of each kind. `null` = could not be read (the row then offers No gift · Setnayan gift and
@@ -323,6 +330,11 @@ export async function loadMakerContext(
   }
 
   const coveredChoices = coverageKindOptions.filter((o) => o.standing === 'covered');
+  /* 🗂 "Group › Category" for each live service — a level is never said twice in a row (as `pathLabel`). */
+  const kindPathOf = new Map<string, string>();
+  for (const p of tree)
+    for (const b of p.branches)
+      for (const l of b.leaves) if (!kindPathOf.has(l.canonicalService)) kindPathOf.set(l.canonicalService, b.label && b.label !== p.label ? `${p.label} › ${b.label}` : p.label);
 
   return {
     categoryOptions,
@@ -353,6 +365,7 @@ export async function loadMakerContext(
     ownKinds: ownRowsRes.error ? null : Array.from(new Set(ownCategories)),
     bookingsPerDate,
     kindLabel,
+    kindPath: (kind: string) => kindPathOf.get(kind) ?? null,
     giftPacks,
     giftFree: freeByKind(giftStock),
     checkRules,
@@ -429,7 +442,7 @@ export async function loadCardForEdit(
     showcase_photo_r2_keys: string[] | null;
   };
 
-  const [disc, inc, brk, links, sched, addons, slots, member] = await Promise.all([
+  const [disc, inc, brk, links, sched, addons, slots, member, tierRes] = await Promise.all([
     supabase
       .from('vendor_service_discounts')
       .select('vendor_service_id,discount_type,rate,unit,min_lead_months,expires_at,conditions_md,sort_order')
@@ -473,7 +486,35 @@ export async function loadCardForEdit(
       .select('pool_id')
       .eq('vendor_service_id', serviceId)
       .maybeSingle(),
+    // 🪜 The tier grid (Card Maker HYBRID, 17 Nov): the packages this shop linked to THIS card, each with its own typed
+    // price and its lines. Read only — a refused read is said on the grid, and never holds the card's Save.
+    supabase
+      .from('vendor_packages')
+      .select('package_name,total_price_centavos,vendor_package_items(service_description,is_default_included,display_order)')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true),
   ]);
+  if (tierRes.error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:vendor_packages.select (card tiers)', tierRes.error);
+  const tiers: MakerTiers = tierRes.error
+    ? { status: 'unread' }
+    : {
+        status: 'ok',
+        tiers: (
+          (tierRes.data ?? []) as {
+            package_name: string | null;
+            total_price_centavos: number | null;
+            vendor_package_items: { service_description: string | null; is_default_included: boolean | null; display_order: number | null }[] | null;
+          }[]
+        ).map((p) => ({
+          name: p.package_name ?? '',
+          priceCentavos: Number(p.total_price_centavos ?? 0),
+          lines: [...(p.vendor_package_items ?? [])]
+            .filter((i) => i.is_default_included === true && (i.service_description ?? '').trim() !== '')
+            .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+            .map((i) => (i.service_description ?? '').trim()),
+        })),
+      };
   const unread: string[] = [];
   if (disc.error) unread.push('discounts');
   if (inc.error) unread.push('what’s included');
@@ -550,6 +591,7 @@ export async function loadCardForEdit(
     slots: (slots.data ?? []) as VendorServiceTimeSlot[],
     poolId: (member.data as { pool_id?: string | null } | null)?.pool_id ?? null,
     legacyPromise: typeof c.exclusive_perk_text === 'string' && c.exclusive_perk_text.trim() ? c.exclusive_perk_text.trim() : null,
+    tiers,
   };
   return { category: c.category, initial, editing, unread };
 }

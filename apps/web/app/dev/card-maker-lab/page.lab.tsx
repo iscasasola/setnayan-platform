@@ -25,6 +25,7 @@
  *   &host=add&read=tree           🔒 …when the service list could not be read: the line + Try again, never a blank picker
  *   &portfolio=albums|none|unread 🃏📸 the edit sheet's Portfolio fold as it reads with the card-record flag ON (frames 72 · 74 · 75):
  *                                 this card's event albums + own uploads last · own uploads only · Couldn't load · Retry
+ *   &tiers=1|unread               🪜 the tier grid on an edited card (Card Maker HYBRID, 17 Nov): Gold · Platinum · or a refused read
  *   &record=unread                🃏 the Record fold when the record read is refused (frame 75)
  *   &work=1|unread                🃏📸 Their work (frame 78): each album names the card(s) it was booked on · retired pill
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
@@ -322,6 +323,19 @@ export default async function CardMakerLabPage({
     fx.editing.coverKey = refs[0]!;
     fx.initial.showcasePhotoR2Keys = refs.slice(1);
     fx.initial.mediaDisplayUrls = Object.fromEntries(refs.map((r, i) => [r, `/realstories/${pics[i]}.jpg`]));
+  }
+  // 🪜 `&tiers=1|unread` — the tier grid (Card Maker HYBRID, 17 Nov) on an edited card: the drawing's Gold · Platinum,
+  // or a refused read. LAB FIXTURES — sample words, nobody real.
+  if (fx && sp.tiers === 'unread') fx.editing.tiers = { status: 'unread' };
+  if (fx && sp.tiers === '1') {
+    const own = fx.initial.inclusions.map((i) => i.label);
+    fx.editing.tiers = {
+      status: 'ok',
+      tiers: [
+        { name: 'Gold', priceCentavos: 11_000_000, lines: [...own, 'Bridal room', 'Ceiling drapes'] },
+        { name: 'Platinum', priceCentavos: 14_000_000, lines: [...own, 'Bridal room', 'Ceiling drapes', '2 more hours'] },
+      ],
+    };
   }
   const inToday = sp.host === 'today';
   const withChecks = sp.checks === '1';

@@ -1,3 +1,5 @@
+import { readSentTo } from '@/lib/open-shop-sent-to';
+import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
@@ -48,9 +50,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string; way?: string }>;
+  searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string; way?: string }>;
 }) {
-  const { error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim, way } = await searchParams;
+  const { plan, error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim, way } = await searchParams;
   const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
@@ -111,7 +113,8 @@ export default async function OpenShopPage({
   const claimDoor = claimToken ? await readClaimDoor(claimToken) : null;
   if (claimToken && !claimDoor?.open) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}`);
   if (claimToken && row?.business_name?.trim()) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}/finalize`);
-  if (row?.business_name?.trim()) redirect(landing);
+  // W1-B21: a supplier who already has a shop and came for a plan is offered it straight away.
+  if (row?.business_name?.trim()) redirect(planOfferPath(plan) ?? landing);
 
   // Taxonomy-driven labels for the primary-service picker (degrades to the
   // in-code names on a hiccup).
@@ -211,6 +214,10 @@ export default async function OpenShopPage({
   const inviter = invitedVia ? await readInviter(createAdminClient(), invitedVia) : null;
   const invitedBy = inviter && inviter !== 'unreadable' ? inviter.businessName : null;
 
+  // W1-B4 (walk 16 Nov 2026): `?check_inbox=1` only says the screen is due — the address is this browser's cookie
+  // (`parkSentTo`). With no cookie (another browser) the screen still shows, naming no address.
+  const sentTo = checkInbox ? ((await readSentTo()) ?? 'your email') : null;
+
   if (claimToken && claimDoor?.open) {
     return (
       <ClaimDoor
@@ -225,7 +232,7 @@ export default async function OpenShopPage({
         declineAction={declineVendorInviteByToken}
         startOnEmail={way === 'email'}
         taken={taken === '1'}
-        sentTo={checkInbox ? checkInbox.slice(0, 254) : null}
+        sentTo={sentTo}
       />
     );
   }
@@ -272,12 +279,15 @@ export default async function OpenShopPage({
         '&as=vendor'
       }
       error={error}
+      // W1-B3: a fresh stamp per server render carrying a refusal — the wizard shows it even when not remounted.
+      refusalStamp={error ? Date.now() : 0}
+      plan={parseSupplierPlan(plan)}
       planCategories={categoryLadder()}
       specialties={specialties}
       // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
-      sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}
+      sentTo={guest ? sentTo : null}
       initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );

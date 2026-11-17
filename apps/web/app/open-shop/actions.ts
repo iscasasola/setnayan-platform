@@ -1,5 +1,7 @@
 'use server';
 
+import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
+import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { parseInBusinessSince } from '@/lib/in-business-since';
 import { revalidatePath } from 'next/cache';
@@ -792,11 +794,18 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');
   // ✉ A1 — the shop is open, the account is not confirmed yet: say so, on this page, with the address.
-  if (checkEmail) redirect(`/open-shop?check_inbox=${encodeURIComponent(checkEmail)}`);
+  // W1-B4 (walk 16 Nov 2026): the address is parked in this browser's cookie, never in the URL (history, logs).
+  if (checkEmail) {
+    await parkSentTo(checkEmail);
+    redirect(`/open-shop?check_inbox=${CHECK_INBOX_FLAG}`);
+  }
   // 🖼 A2 (owner 2026-11-06: logo "if it does not want to upload, then it has no use here") — the logo is asked
   // RIGHT AFTER the shop opens, signed in, on its own screen. Skip → Today, where "Add your logo" stays a first step.
   // A shop that already has a logo (a re-run) goes straight to Today, as before.
   // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02) — through the logo screen, never past it.
-  if (!logoUrl && !existingHasLogo) redirect(OPEN_SHOP_LOGO_PATH);
-  redirect('/vendor-dashboard');
+  // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
+  // plan it came for is offered (the plan sheet, that row open), through the logo step when there is one.
+  const plan = parseSupplierPlan(formData.get('plan'));
+  if (!logoUrl && !existingHasLogo) redirect(plan ? `${OPEN_SHOP_LOGO_PATH}?plan=${plan}` : OPEN_SHOP_LOGO_PATH);
+  redirect(planOfferPath(plan) ?? '/vendor-dashboard');
 }

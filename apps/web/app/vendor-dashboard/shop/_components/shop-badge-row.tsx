@@ -29,10 +29,10 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
   return (
     <section aria-labelledby="shop-badges-h" data-shop-badges="" data-tour="shop-badges" className="scroll-mt-24" id="badges">
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-badges-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <h2 id="shop-badges-h" className="home-k2 !my-0">
           Badges
         </h2>
-        <span className="text-xs text-ink/70">earned · in progress · not yet · tap one</span>
+        <span className="text-xs text-ink/70">Tap a badge to see how it&rsquo;s earned</span>
       </div>
       {tiles === null ? (
         <p role="status" className="px-4 text-[13.5px] text-ink/70" data-shop-badges-unread="">

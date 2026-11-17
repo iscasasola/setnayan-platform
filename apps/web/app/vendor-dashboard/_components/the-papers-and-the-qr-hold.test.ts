@@ -4,10 +4,11 @@
  * Owner 7 Nov 2026 (build-sessions/PLAN-SUPPLIER-GO-LIVE-BUILD-2026-11-07.md, Track C1–C3; prototype
  * `open-shop-redesign.html` v21 — "Send your documents", "Download your QR", the spotlight after step 6):
  *
- *   A · THE QR LEADS TO THE SHOP'S OWN PAGE, `/v/<slug>` (`myPageUrl`) — never the root `/<slug>`, which is a couple's
- *       Event Hub. Download is the one filled button; the file keeps the shipped name.
- *   B · THE PAPER ROWS ARE `REQUIRED_DOC_SLOT_KEYS` — never a hand list; each row's state is read off the latest
- *       application, and a refused read is said, never drawn as four empty rows. The upload is the shipped one.
+ *   A · THE QR LEADS TO THE SHOP'S OWN PAGE, `/<slug>` (`myPageUrl`) — a shop lives at the bare address since the
+ *       address move (owner 2026-11-15); never the shortlist invite. Download is the one filled button; the file keeps the shipped name.
+ *   B · THE PAPERS ARE `REQUIRED_DOC_SLOT_KEYS` — never a hand list — and step 5 draws them as THE ONE UPLOAD PLACE
+ *       (`PaperUploadPlace`, the same one Your details draws; 15 Nov 2026 the three Add rows left). A refused read is
+ *       said, never drawn as an empty place to upload into.
  *   C · THE TOUR IS THE HOUSE SPOTLIGHT (`SpotlightMount` → dim + gliding ring), started by the download, once; its
  *       record is step 6's ✓.
  *
@@ -66,24 +67,24 @@ const between = (html: string, from: string, to?: string) => {
 
 // ── A · the QR ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('A1 · Today’s QR is the shop’s own page, /v/<slug> — never the root slug, never the shortlist invite', () => {
+test('A1 · Today’s QR is the shop’s own page, /<slug> — built by ownPageUrl, never the shortlist invite', () => {
   const page = code('app/vendor-dashboard/page.tsx');
   // 💳 The step-6 QR is the supplier's OWN code — the same page, tagged ?src=own (owner 2026-11-13, F-W1-58).
   assert.match(page, /const qrUrl = details\.slug \? ownPageUrl\(siteOrigin\(\), details\.slug\) : null;/, 'the step-6 QR is not built by ownPageUrl');
   assert.doesNotMatch(page, /buildVendorInviteUrl/, 'Today’s QR went back to the shortlist invite');
-  assert.doesNotMatch(page, /siteOrigin\(\)\}\/\$\{[^}]*slug/, 'a root /<slug> address (a couple Event Hub) is built on Today');
+  assert.doesNotMatch(page, /siteOrigin\(\)\}\/\$\{[^}]*slug/, 'a shop address is typed by hand on Today — build it through ownPageUrl / shopPath');
   const { myPageUrl } = require('@/lib/supplier-qr-codes') as typeof import('@/lib/supplier-qr-codes');
-  assert.equal(myPageUrl('https://www.setnayan.com', 'titanena'), 'https://www.setnayan.com/v/titanena');
+  assert.equal(myPageUrl('https://www.setnayan.com', 'titanena'), 'https://www.setnayan.com/titanena');
 });
 
-test('A2 · drawn: the code, where it leads (/v/), "put it on your photos", Download filled — the shipped file name', async () => {
+test('A2 · drawn: the code, where it leads (/<slug>), "put it on your photos", Download filled — the shipped file name', async () => {
   const html = await drawLab();
   const qr = between(html, 'data-setup-body="qr"');
   assert.match(qr, /data-qr-card="setup-shop"/);
   assert.match(qr, /<svg/, 'step 6 draws no code');
   const words = text(qr);
-  assert.match(words, /Scanning it opens your page — www\.setnayan\.com\/v\/titanena/);
-  assert.doesNotMatch(words, /setnayan\.com\/titanena\b/, 'the QR line names the root slug');
+  assert.match(words, /Scanning it opens your page — www\.setnayan\.com\/titanena\b/);
+  assert.doesNotMatch(words, /setnayan\.com\/v\//, 'the QR line names the old /v/ address');
   assert.match(words, /Put it on your photos, posts and cards so couples find you\./);
   // Download is the filled (main) button; Share is not. The order stays Share · Copy link · Download (owner 2026-11-06).
   const dl = qr.match(/<a[^>]*data-qr-download=""[^>]*>/)?.[0] ?? '';
@@ -97,85 +98,69 @@ test('A2 · drawn: the code, where it leads (/v/), "put it on your photos", Down
 
 // ── B · the papers ────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('B1 · one row per REQUIRED_DOC_SLOT_KEYS, in DOC_SLOTS order — never a hand list', async () => {
+test('B1 · the papers are REQUIRED_DOC_SLOT_KEYS — never a hand list; drawn as the ONE upload place, never three Add rows', async () => {
   const { setupPapers } = await import('@/lib/setup-papers');
   const { DOC_SLOTS, REQUIRED_DOC_SLOT_KEYS } = await import('@/lib/vendor-verification');
   const rows = setupPapers({ measured: true, status: null, uploads: {} })!;
   assert.deepEqual(rows.map((r) => r.key), DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => s.key));
   assert.equal(rows.length, REQUIRED_DOC_SLOT_KEYS.size);
-  assert.deepEqual(rows.map((r) => r.n), rows.map((_, i) => i + 1));
   const src = code('lib/setup-papers.ts');
   assert.match(src, /DOC_SLOTS\.filter\(\(s\) => REQUIRED_DOC_SLOT_KEYS\.has\(s\.key\)\)/, 'the rows are not read off REQUIRED_DOC_SLOT_KEYS');
   for (const k of REQUIRED_DOC_SLOT_KEYS) assert.doesNotMatch(src, new RegExp(`'${k}'`), `lib/setup-papers.ts hand-lists ${k}`);
-  // Drawn: three rows (owner 2026-11-14, DECISION_LOG f69ec167 — bank proof retired), keyed by the slots.
-  const html = await drawLab();
-  const docs = between(html, 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.deepEqual([...docs.matchAll(/data-setup-paper="([a-z_0-9]+)"/g)].map((m) => m[1]), [...REQUIRED_DOC_SLOT_KEYS]);
+  // Drawn (owner 2026-11-14 "supplier papers demo approved"; 15 Nov the three Add rows left Today): one upload button
+  // for all three, then the three papers in the slots' order — DTI or SEC · BIR 2303 · Business Permit.
+  const docs = between(await drawLab(), 'data-setup-body="docs"', 'data-setup-body="qr"');
+  assert.equal((docs.match(/data-setup-paper-place=""/g) ?? []).length, 1, 'step 5 is not the one paper place');
+  const words = text(docs);
+  assert.match(words, /Please upload your 3 documents here\./);
+  assert.equal((words.match(/Upload your papers/g) ?? []).length, 1, 'step 5 has more than one upload button');
+  assert.match(words, /Your three papers 0 of 3/);
+  const i = (w: string) => words.indexOf(w);
+  assert.ok(i('DTI or SEC registration') > 0 && i('DTI or SEC registration') < i('BIR 2303 Waiting') && i('BIR 2303 Waiting') < i('Business Permit Waiting'));
+  assert.doesNotMatch(docs, /data-setup-paper="|setup-paper-add/, 'the three separate Add rows are back on Today');
 });
 
-test('B2 · each row’s state is read off the latest application — none · uploaded · review · approved · new copy', async () => {
+test('B2 · how the papers stand is read off the latest application — and drawn by the one place', async () => {
   const { setupPapers } = await import('@/lib/setup-papers');
   const one = { dti_certificate: { r2_key: 'vendors/x/verification/dti_certificate/a.pdf' } };
   const st = (status: string | null) => setupPapers({ measured: true, status, uploads: one })!.map((r) => r.state);
   assert.deepEqual(st(null), ['none', 'none', 'none']);
   assert.deepEqual(st('draft'), ['uploaded', 'none', 'none']);
   assert.deepEqual(st('pending_review'), ['review', 'none', 'none']);
-  assert.deepEqual(st('in_review'), ['review', 'none', 'none']);
   assert.deepEqual(st('approved'), ['approved', 'none', 'none']);
-  // Sent back: the next upload starts a fresh draft with nothing in it — every paper needs a new copy.
   assert.deepEqual(st('rejected'), ['new_copy', 'new_copy', 'new_copy']);
-  assert.deepEqual(st('withdrawn'), ['none', 'none', 'none']);
-  // Only a draft's paper can be replaced in place; in review or approved nothing can be.
-  assert.equal(setupPapers({ measured: true, status: 'draft', uploads: one })![0]!.ref, one.dti_certificate.r2_key);
-  assert.ok(setupPapers({ measured: true, status: 'pending_review', uploads: one })!.every((r) => !r.editable));
-  // Drawn: "some" = one uploaded in a draft; "checking" = three under review; "fix" = the reason, said once.
-  const some = between(await drawLab('some'), 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.match(some, /data-setup-paper="dti_certificate" data-paper-state="uploaded"/);
-  // The row with a file: its thumbnail, "✓ Saved · <the file's own name>" (the shipped `filenameFromRef`), opens in place.
-  assert.match(some, /data-setup-paper-thumb="image"/);
-  assert.match(text(some), /Saved · dti-certificate\.jpg/);
-  assert.equal((some.match(/data-setup-paper-open/g) ?? []).length, 1);
-  // No state pill: the line says it. The two without a file are one tap — Add, nothing to open first.
-  assert.doesNotMatch(text(some), /Not sent yet/);
-  assert.equal((some.match(/data-testid="setup-paper-add"/g) ?? []).length, 2);
-  assert.match(text(some), /Required · 2 of 3 · PDF \/ JPG \/ PNG up to 15 MB/);
-  const checking = between(await drawLab('checking'), 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.equal((checking.match(/data-paper-state="review"/g) ?? []).length, 3);
-  assert.doesNotMatch(checking, /data-setup-paper-open|setup-paper-add/, 'a paper under review can still be replaced');
-  // Each held row says the design's word (Fable v8, 2026-11-14): "Waiting for Setnayan". Today's own "…Setnayan’s check"
-  // line and Get verified's one "Waiting for Setnayan — …" notice are not rows.
-  assert.equal((text(checking).match(/Waiting for Setnayan(?!’| —)/g) ?? []).length, 3);
+  // Drawn: one in a draft → "1 of 3", the first MISSING paper marked; under review → nothing to upload.
+  const some = text(between(await drawLab('some'), 'data-setup-body="docs"', 'data-setup-body="qr"'));
+  assert.match(some, /Your three papers 1 of 3/);
+  const checking = text(between(await drawLab('checking'), 'data-setup-body="docs"', 'data-setup-body="qr"'));
+  assert.match(checking, /Your three papers 3 of 3/);
+  assert.doesNotMatch(checking, /Upload your papers/, 'papers under review can still be uploaded over');
+  // An OLD send-back (it named no paper) says its reason once, above the place.
   const fix = between(await drawLab('fix'), 'data-setup-body="docs"', 'data-setup-body="qr"');
-  assert.equal((fix.match(/data-paper-state="new_copy"/g) ?? []).length, 3);
-  assert.equal((fix.match(/data-testid="setup-paper-add"/g) ?? []).length, 3);
-  assert.equal((text(fix).match(/Needs a new copy/g) ?? []).length, 3);
+  assert.equal((fix.match(/data-setup-papers-reason=""/g) ?? []).length, 1);
   assert.match(text(fix), /Setnayan sent them back: The BIR 2303 photo is cut off at the bottom/);
 });
 
-test('B3 · a refused read is said — never four empty rows', async () => {
+test('B3 · a refused read is said — never an empty place to upload into', async () => {
   const { setupPapers } = await import('@/lib/setup-papers');
   assert.equal(setupPapers({ measured: false, status: null, uploads: null }), null);
   const docs = between(await drawLab('unread'), 'data-setup-body="docs"', 'data-setup-body="qr"');
   assert.match(docs, /data-could-not-load/, 'a refused papers read is not said');
-  assert.doesNotMatch(docs, /data-paper-state="none"/, 'a refused read is drawn as "Not sent yet"');
-  // The page's read carries its measured flag into the rows.
+  assert.doesNotMatch(docs, /data-setup-paper-place/, 'a refused read is drawn as a place to upload');
   assert.match(code('app/vendor-dashboard/profile/details-data.ts'), /papers: setupPapers\(\{ measured: verifyMeasured,/);
+  assert.match(code('app/vendor-dashboard/_components/supplier-setup-screen.tsx'), /papersMeasured=\{d\.papers !== null\}/);
 });
 
-test('B4 · the upload is the shipped one — the same bucket, folder and save as Your details; saves one at a time', () => {
-  const c = code('app/vendor-dashboard/_components/setup-papers.tsx');
-  assert.match(c, /import \{ loadInlineDocs, updateDocUploadInline \} from '\.\.\/shop\/inline-docs-actions';/);
-  assert.match(c, /bucket="vendor-verification"/);
-  // ONE TAP: Add / Replace press the shipped upload's own picker (drawn only as the pill, `studio-prints-six.tsx` `pick`).
-  assert.match(c, /querySelector<HTMLInputElement>\('\[data-setup-paper-upload\] input\[type="file"\]'\)\?\.click\(\)/);
-  assert.match(c, /label="Add" onClick=\{pick\}|label="Add"\s+onClick=\{pick\}/);
-  assert.match(c, /tone="danger" icon=\{<Trash2 [^\n]*?\/>\} label="Remove"/);
-  assert.match(c, /pathPrefix=\{`vendors\/\$\{vendorProfileId\}\/verification\/\$\{p\.key\}`\}/);
-  assert.match(c, /const run = queue\.then\(\(\) => updateDocUploadInline\(null, fd\)\);/, 'two first saves can race to make two drafts');
-  // The shipped papers' upload moved to the one upload place (design v10, 2026-11-14) — same bucket and folder.
+test('B4 · the upload is the shipped one — Your details\' own PaperUploadPlace, its read and its save; nothing of its own', () => {
+  const c = code('app/vendor-dashboard/_components/setup-paper-place.tsx');
+  assert.match(c, /import \{ PaperUploadPlace \} from '\.\.\/shop\/_components\/paper-upload-place';/);
+  assert.match(c, /import \{ loadInlineDocs, type InlineDocsPayload \} from '\.\.\/shop\/inline-docs-actions';/);
+  assert.match(c, /<PaperUploadPlace payload=\{payload\} vendorProfileId=\{vendorProfileId\} isVerified=\{isVerified\} onSaved=\{reload\} \/>/);
+  // No second upload, no second save, no second bucket: the place owns all three.
+  assert.doesNotMatch(c, /<FileUpload\b|updateDocUploadInline|bucket=/, 'step 5 grew an upload of its own');
   const shipped = code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx');
   assert.match(shipped, /bucket="vendor-verification"/, 'the shipped papers moved bucket — move this with them');
-  // No founding-supplier deadline line: there is no ruling for it.
+  assert.match(code('app/vendor-dashboard/shop/_components/docs-body.tsx'), /<PaperUploadPlace\b/, 'Your details no longer draws the same place');
   assert.doesNotMatch(c, /Founding|31 Jan 2027/);
 });
 

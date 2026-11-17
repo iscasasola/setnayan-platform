@@ -36,8 +36,9 @@ import {
   eventWasRemoved,
   opensWords,
   placeLineText,
-  placeMarkLetter,
+  placeMarkWords,
   placeLineWords,
+  placeMissingWords,
   resolveNotificationPlace,
   type NotificationPlace,
   type NotificationPlaceFacts,
@@ -167,7 +168,7 @@ export function NotificationsList({ items, returnTo, emptyState, onRead, inset =
         group.rows.length === 0 ? null : (
           <section key={group.key} aria-label={group.label}>
             <h3
-              className={`block px-6 pb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--m-slate-3)] ${
+              className={`sn-sheet-k px-6 pb-1.5 ${
                 gi > 0 && today.length > 0 ? 'pt-3' : 'pt-2'
               }`}
             >
@@ -179,6 +180,7 @@ export function NotificationsList({ items, returnTo, emptyState, onRead, inset =
                   key={n.notification_id}
                   item={n}
                   place={resolveNotificationPlace(n, places)}
+                  missing={placeMissingWords(n, places)}
                   returnTo={returnTo}
                   onRead={onRead}
                   now={now}
@@ -208,18 +210,22 @@ function titleClass(unread: boolean): string {
 
 /** The place line's box — shared by the row and the ⓘ's copy, so the ⓘ lands right after the words. */
 const PLACE_LINE = 'inline-flex max-w-full items-center gap-1.5 align-top';
-const PLACE_WORDS = 'min-w-0 truncate text-[11.5px] leading-[1.2] tracking-[0.01em]';
+// Two lines at most, never cut on one (owner 17 Nov: "Indalecio & Claire · You org…" lost the stance at 390).
+const PLACE_WORDS = 'min-w-0 line-clamp-2 break-words text-[11.5px] leading-[1.2] tracking-[0.01em]';
 
 function NotificationItem({
   item: n,
   place,
+  missing,
   returnTo,
   onRead,
   now,
 }: {
   item: NotificationRow;
-  /** Which part this notice is from, or null when it cannot be said (drawn as "Place didn't load"). */
+  /** Which part this notice is from, or null when it cannot be said (drawn with `missing`). */
   place: NotificationPlace | null;
+  /** Why there is no place, in words (`placeMissingWords`) — "Place didn't load" only when the read really failed. */
+  missing: string;
   returnTo: string;
   onRead?: (notificationId: string) => void;
   now: Date;
@@ -247,7 +253,7 @@ function NotificationItem({
   }, [menu]);
 
   const open = shift <= -REVEAL / 2;
-  const words = placeLineWords(place);
+  const words = placeLineWords(place, missing);
   // A notice whose event was removed marks read and stays here — its link is dead (the drawing's § 6).
   const lands = eventWasRemoved(n.related_url, n.event_id) ? null : n.related_url;
   const rowStyle = {
@@ -426,7 +432,7 @@ function NotificationItem({
           <span className="min-w-0 flex-1">
             <span className="mb-0.5 block">
               <InfoTip
-                label={placeLineText(place)}
+                label={placeLineText(place, missing)}
                 labelNode={<PlaceWords words={words} unread={unread} />}
                 labelClassName={`${PLACE_WORDS} invisible`}
                 ariaLabel="Where this opens"
@@ -540,6 +546,12 @@ function PlaceWords({ words, unread }: { words: ReturnType<typeof placeLineWords
   );
 }
 
+/** An event's face: the shared initials rule over its words, "?" when it has none. */
+function eventInitials(event: { monogram_text: string | null; display_name: string | null }): string {
+  const words = placeMarkWords(event);
+  return words ? deriveVendorInitials(words) : '?';
+}
+
 /**
  * The place's own mark, at 38px — drawn as the side menu draws each: the event's monogram tile, the shop's
  * `VendorAvatar` (logo, else the dark initials tile), your picture (else your initial), the Setnayan mark for HQ.
@@ -552,10 +564,12 @@ function PlaceFace({ place }: { place: NotificationPlace }) {
         <span
           role="img"
           aria-label={place.name}
-          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] font-display text-[20px] italic leading-none text-ink"
+          // The event's INITIALS, upright, by the shop face's rule and size (owner 17 Nov, live tray): the one italic
+          // letter it drew read as a "/" placeholder. `the-tray-face-is-never-a-slash.test.ts` holds it.
+          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] text-[12px] font-semibold not-italic tracking-[0.02em] leading-none text-ink"
           data-notice-mark-letter=""
         >
-          {placeMarkLetter(place.event)}
+          {eventInitials(place.event)}
         </span>
       );
     case 'shop':

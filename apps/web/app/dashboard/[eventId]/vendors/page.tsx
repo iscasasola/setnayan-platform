@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -183,7 +183,7 @@ import {
   formatDayKey,
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
-import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { CONFIRMED_VENDOR_STATUSES, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
@@ -739,7 +739,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -749,7 +749,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -823,7 +823,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .eq('event_id', eventId)
         .eq('kind', 'claim')
         .eq('status', 'answered'),
+      // 📖 CYC-15b (owner 2026-11-15, DECISION_LOG e8650540): each picked shop's confirmed bookings on Setnayan, so a
+      // shop with bookings and no reviews reads "No reviews yet", never "New to Setnayan". Same round trip; one column.
+      enrichmentAdmin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .in('marketplace_vendor_id', marketplaceIds)
+        .in('status', [...CONFIRMED_VENDOR_STATUSES]),
     ]);
+    // A refused read is UNKNOWN (null), never 0 — 0 would call an established shop "New".
+    if (bookedRes.error) logQueryError('dashboard/[eventId]/vendors/page.tsx: booked counts', bookedRes.error, { event_id: eventId });
+    const bookedByProfile = bookedRes.error ? null : new Map<string, number>();
+    for (const r of ((bookedRes.data as { marketplace_vendor_id: string | null }[] | null) ?? [])) {
+      if (bookedByProfile && r.marketplace_vendor_id) bookedByProfile.set(r.marketplace_vendor_id, (bookedByProfile.get(r.marketplace_vendor_id) ?? 0) + 1);
+    }
     if (claimAsksRes.error) {
       // Refused → nobody is revealed and nothing is marked: the anonymous name is the safe side to fail on.
       logQueryError('dashboard/[eventId]/vendors/page.tsx: answered claim asks', claimAsksRes.error, { event_id: eventId });
@@ -852,6 +865,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       verification_state: string | null;
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
+      is_demo: boolean | null;
     };
 
     if (statsRes.error) {
@@ -1027,6 +1041,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
+        booked_count: bookedByProfile ? (bookedByProfile.get(pid) ?? 0) : null,
         // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
         // deadline (hasVerifiedBadge), separate from public_visibility
         // (listing/bookability, untouched — stays listed past the deadline).
@@ -1035,6 +1050,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           next_renewal_due_at: a?.next_renewal_due_at ?? null,
         }),
         is_setnayan_service: s.is_setnayan_service === true,
+        // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
+        // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
+        not_yet_verified: threadShowsNotYetVerified(a),
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -2317,6 +2335,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         reviewStatus: reviewStatusByVendorId.get(row.vendor_id) ?? null,
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
+        notYetVerified: ext?.not_yet_verified === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
@@ -3087,6 +3106,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                   bookSlot={
                     <BookThisBuild
                       eventId={eventId}
+                      inBuild={buildLines.filter((l) => l.pick || l.booked).length}
                       picks={buildLines.flatMap((l) =>
                         l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]

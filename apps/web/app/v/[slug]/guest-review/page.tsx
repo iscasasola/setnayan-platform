@@ -14,6 +14,7 @@
  *   · Every state is SAID: a refused read is "couldn't load", not an empty form; not on the door list is said, with
  *     the shop's page offered (prototype § 7: "never a silent empty form").
  */
+import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -51,7 +52,7 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
   if (!shopRow) notFound();
   const shop = shopRow as { vendor_profile_id: string; business_name: string | null };
   const shopName = shop.business_name?.trim() || 'This supplier';
-  const shopHref = `/v/${slug}#reviews`;
+  const shopHref = `${shopPath(slug)}#reviews`;
 
   const eventId = typeof event === 'string' && UUID.test(event) ? event : null;
   const session = eventId ? await readGuestSessionForEvent(eventId) : null;

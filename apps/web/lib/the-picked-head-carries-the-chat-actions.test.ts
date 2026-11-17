@@ -81,7 +81,11 @@ test('3 · a picked chat draws no notice row — the words sit behind the strip�
   assert.match(LAB, /notice=\{null\}/);
   assert.match(LAB, /headNote=\{<ChatPrivacyTip viewer=\{side\} \/>\}/);
   assert.match(STREAM, /<ChatHostStrip\b[^>]*\bnote=\{headNote\}/, 'the stream drops the ⓘ words');
-  assert.match(read('app/_components/chat/chat-host-strip.tsx'), /\{note \? \(\s*<InfoTip\b/, 'the strip has no ⓘ for the words');
+  // CHAT-09 (DECISION_LOG 2026-11-16): the strip's ONE ⓘ is always there now (it holds the names that left the row), and
+  // the privacy words ride in it when the page hands them.
+  const tip = read('app/_components/chat/chat-host-strip.tsx').match(/<InfoTip\b[\s\S]*?<\/InfoTip>/)?.[0] ?? '';
+  assert.ok(tip, 'the strip has no ⓘ for the words');
+  assert.match(tip, /\{note \? <span[^>]*>\{note\}<\/span> : null\}/, 'the strip’s ⓘ dropped the privacy words');
 });
 
 test('4 · with a (+) the camera and photo live inside it; every picked chat lab mounts a (+)', () => {

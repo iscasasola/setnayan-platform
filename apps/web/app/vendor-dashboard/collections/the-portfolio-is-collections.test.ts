@@ -14,7 +14,8 @@
  *   3 · SECTIONS: › opens, ˅ folds (the house rise token, the shut body inert), a rail of tiles on the 16-px gutter —
  *       left = right (the trailing 6-px spacer + the 10-px gap), every collection kept.
  *   4 · AN OPENED COLLECTION is the ONE in-body panel, its name wrapping to two lines, its grid FULL-BLEED (the approved
- *       exception to the 16-px rule), 3 columns, 2-px gaps; a photo opens Show on that photo.
+ *       exception to the 16-px rule), 3 columns, 2-px gaps; a photo opens THE shared viewer on that photo (ruling 5951 —
+ *       it slides, and Send to a chat is its action; the hand-over Show stays on the Show button).
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-10): a `<SwitchTrack` put back in collections-list.tsx (red: 1); the
  *   rail given `pl-3` (red: 3); `bleed` dropped from the OpenedCollection's BodyPanel (red: 4).
  */
@@ -80,10 +81,11 @@ test('3 · sections: › opens, ˅ folds on the house motion; rails sit on equal
   assert.match(LIST, /<Fold anchor="gallery-media"/, 'Add photos (the shipped gallery editors) is gone');
 });
 
-test('4 · an opened collection: the one panel, a two-line name, a FULL-BLEED 3-column grid; a photo opens Show on it', () => {
+test('4 · an opened collection: the one panel, a two-line name, a FULL-BLEED 3-column grid; a photo opens the viewer on it', () => {
   assert.match(GROUPS, /<BodyPanel\b[^>]*titleLines=\{2\} bleed>/, 'the opened collection is not the full-bleed panel with a two-line name');
   assert.match(GROUPS, /className="grid grid-cols-3 gap-\[2px\]" data-collection-grid="" data-bleed=""/, 'the grid is not 3 columns, 2-px gaps, full-bleed');
-  assert.match(GROUPS, /<PortfolioShow title=\{photos\.title\} urls=\{photos\.urls\} start=\{showAt\}/, 'a tapped photo does not open Show on that photo');
+  assert.match(GROUPS, /<button type="button" onClick=\{\(\) => setShowAt\(i\)\}/, 'a tapped photo does not open on that photo');
+  assert.match(GROUPS, /<PhotoViewer\s+photo=\{\{ src: photos\.urls\[at\]!, kind: 'photo' \}\}\s+at=\{at\}/, 'a tapped photo does not open the shared viewer on that photo');
   assert.match(PANEL, /titleLines === 2 \? 'line-clamp-2' : 'truncate'/, 'the panel cannot wrap a long name to two lines');
   assert.match(PANEL, /\$\{bleed \? '' : 'px-4 pt-3'\}/, 'the panel cannot run its body edge to edge');
   assert.match(GROUPS, /<div className="px-4 pt-3">/, 'the rows around the grid lost their 16-px gutters');

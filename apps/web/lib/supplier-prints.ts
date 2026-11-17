@@ -1,4 +1,5 @@
 import type { PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🖨 THE SUPPLIER'S PRINTS — Shop › Promote part 3 (owner APPROVED all 15 looks, 5 Nov 2026: "perfect").
@@ -447,3 +448,12 @@ export function printAllFilename(design: PrintDesign): string {
   const slug = design.name.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `setnayan-prints-${slug}.zip`;
 }
+
+/* ── PRINTS' OWN LINE (owner 16 Nov, "Supplier Prints must show Marketing Materials Printed Out"; drawing
+ * `supplier_shop_clean_2026-11-16`) — one string for the Promote section and the Shop's Prints tile, and the counts read
+ * from the two tables above, never typed. */
+export { PRINTS_LINE } from './prints-line';
+export function printsCountLine(): string {
+  return `${formatCount(PRINT_DESIGNS.length)} designs · ${formatCount(PRINT_PIECES.length)} pieces`;
+}
+export const PRINT_PIECE_COUNT = PRINT_PIECES.length;

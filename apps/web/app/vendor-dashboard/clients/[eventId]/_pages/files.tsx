@@ -58,7 +58,7 @@ export function FilesPage(props: FilesPageProps) {
       {/* ⚡ The board streams in after the rest of the page (wave 5 speed pass) — Hub already wraps it the same way, so
           its two read rounds no longer hold up the whole response. */}
       {board ? <Suspense fallback={null}>{board}</Suspense> : null}
-      {board ? <h3 className="pt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Shared in the chat · contracts · handover</h3> : null}
+      {board ? <h3 className="home-k2 !mb-0 pt-2">Shared in the chat · contracts · handover</h3> : null}
       {!chatFilesMeasured ? (
         <div role="status" className="text-[13px] font-semibold text-warn-800" data-files-chat-unread="">
           <InfoTip label="Couldn’t load the chat’s files — this list may be incomplete" align="start">
@@ -77,7 +77,7 @@ export function FilesPage(props: FilesPageProps) {
           </InfoTip>
           {threadId ? (
             <Link
-              href={`/vendor-dashboard/messages/${threadId}`}
+              href="?tab=chat"
               className="inline-flex min-h-11 items-center font-semibold text-sn-accent"
             >
               Share files in chat ›
@@ -90,7 +90,7 @@ export function FilesPage(props: FilesPageProps) {
 
       {hasAny && threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href="?tab=chat"
           className="inline-flex min-h-11 items-center text-[15px] font-semibold text-sn-accent"
         >
           Share more files in chat ›

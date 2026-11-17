@@ -187,6 +187,7 @@ export function oneIn(failures: number | undefined, successes: number | undefine
 export function problemLine(i: ProblemLineInput): string {
   const where = pageName(i.page);
   let subject: string;
+  let outcome = kindWords(i.kind);
   if (i.kind === 'DEAD_END') {
     const reason = /^(not_found|forwarded|missing_section)\b/.exec(i.action)?.[1] ?? 'not_found';
     const rawTo = /\s(\S+)\s←/.exec(i.action)?.[1];
@@ -210,7 +211,7 @@ export function problemLine(i: ProblemLineInput): string {
   } else {
     subject = plainWords(i.action);
   }
-  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${kindWords(i.kind)}`;
+  const head = `${subject}${where && !subject.includes(where) ? ` on ${where}` : ''} — ${outcome}`;
   return tail(head, i);
 }
 

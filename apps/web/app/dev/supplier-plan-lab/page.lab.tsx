@@ -90,9 +90,9 @@ const SHOPS: Record<Who, { tier: string; cycle: 'monthly' | 'annual'; expires: s
 
 /** Lab-only stand-in prices — the page reads `vendor_billing_catalog`; these never reach a supplier. */
 const LAB_PRICES: Record<string, { monthly: number; annual: number }> = {
-  solo: { monthly: 1000, annual: 10400 },
-  pro: { monthly: 2500, annual: 26000 },
-  enterprise: { monthly: 6000, annual: 62400 },
+  solo: { monthly: 1490, annual: 14900 },
+  pro: { monthly: 4990, annual: 49900 },
+  enterprise: { monthly: 9990, annual: 99900 },
 };
 
 /** The plan sheet's rows from the lab's picks — the same lib calls the Plan screen makes (`plan-screen.tsx`). */
@@ -183,7 +183,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
+      name: t === 'solo' ? 'Plus' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
       pickLine: planPickLine(shop.tier, t, shop.expires),
@@ -221,12 +221,14 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           : shop.tier === 'free'
             ? []
             : [
-                { key: 'r1', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
-                { key: 'r2', title: `${shop.tier === 'pro' ? 'Supplier Pro' : 'Supplier Plus'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
+                { key: 'r1', title: `${shop.tier === 'pro' ? 'Pro' : 'Plus'} plan`, line: 'Thu 1 Oct 2026 · lab price', receiptId: 'lab-receipt' },
+                { key: 'r2', title: `${shop.tier === 'pro' ? 'Pro' : 'Plus'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
               ]
       }
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
+      deepSearch={{ line: 'Lab price a search · on every plan' }}
+      extras={shop.tier === 'enterprise' ? { line: '1 extra seat · lab price each, every 4 weeks' } : null}
     />
   );
 }
@@ -247,7 +249,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(tier, 'free', gift ? '31 January 2027' : null) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Supplier Plus' : t === 'pro' ? 'Supplier Pro' : 'Supplier Ultra',
+      name: t === 'solo' ? 'Plus' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: null, annual: null },
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
@@ -327,8 +329,22 @@ function helpersFixture(who: Who) {
       founderUserId={ME}
       enriched={team}
       motionData={{ motions: motions as never, votes: [] }}
-      services={who === 'studio' ? ([{ vendor_service_id: 's1', category: 'photo_video', is_active: true }] as never) : []}
-      assignments={who === 'studio' ? { m2: ['s1'] } : {}}
+      services={
+        who === 'studio'
+          ? [
+              { vendor_service_id: 's1', category: 'photo_video', is_active: true, title: 'Wedding Day', branch_id: null },
+              { vendor_service_id: 's2', category: 'photo_video', is_active: true, title: 'Prenup Shoot', branch_id: null },
+              { vendor_service_id: 's3', category: 'photo_video', is_active: true, title: 'Debut Coverage', branch_id: null },
+              { vendor_service_id: 's4', category: 'photo_video', is_active: true, title: 'Same-Day Edit', branch_id: null },
+              { vendor_service_id: 's5', category: 'photo_video', is_active: true, title: 'Wedding Day', branch_id: 'b-cebu' },
+              { vendor_service_id: 's6', category: 'photo_video', is_active: true, title: 'Debut Coverage', branch_id: 'b-cebu' },
+              { vendor_service_id: 's7', category: 'photo_video', is_active: true, title: 'Christening', branch_id: 'b-cebu' },
+            ]
+          : []
+      }
+      assignments={who === 'studio' ? { m2: ['s3', 's5', 's6', 's7'] } : {}}
+      // 🏢 Whole branch (2026-11-14, item 9) — a two-branch studio, Marco holding all of Cebu plus Makati's Debut Coverage.
+      branchScope={who === 'studio' ? { locations: [{ key: 'main', label: 'Main · Makati' }, { key: 'b-cebu', label: 'Cebu' }], wholeKeys: { m2: ['b-cebu'] } } : undefined}
       seatsLine={seatLine(teamSeats(team, ME), cap)}
       canBuySeats={false}
       storeShell={false}
@@ -594,6 +610,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
               papic: { balance: 2150, held: 1150 },
               event_plus: { balance: 3, held: 1 },
               event_pro: { balance: 1, held: 0 },
+              event_ultra: { balance: 0, held: 0 },
             },
         packs: LAB_GIFT_PACKS,
         paysGiftPrice: !unverified,
@@ -612,7 +629,7 @@ function giftsFixture(unverified: boolean, fail: boolean, inApp = false) {
         canBuy: !inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {
-          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0 },
+          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0, event_ultra: 0 },
           granted: fail
             ? null
             : [
@@ -640,6 +657,6 @@ const LAB_GIFT_LEDGER = [
   { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, giftKind: 'papic' as const, unlocksSku: null, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
 ];
 const LAB_GIFT_HOLDS = [
-  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0 },
-  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150, plus: 0, pro: 0 },
+  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000, plus: 1, pro: 0, ultra: 0 },
+  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150, plus: 0, pro: 0, ultra: 0 },
 ];

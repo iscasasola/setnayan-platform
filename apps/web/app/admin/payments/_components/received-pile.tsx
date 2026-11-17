@@ -8,6 +8,7 @@
  * listed FIRST and the admin presses Match.
  */
 import { formatPhp } from '@/lib/orders';
+import { formatCount } from '@/lib/format-number';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TemplateFail, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { FormPick } from '../../work/_components/form-pick';
@@ -76,13 +77,13 @@ export function ReceivedPile({
     >
       {tile}
       <ul className={`mt-2 space-y-1 ${TEMPLATE_SUBLINE}`} data-payments-received-lines="">
-        <li>{noOrder === 1 ? '1 in your BDO, no order' : `${noOrder} in your BDO, no order`}</li>
+        <li>{noOrder === 1 ? '1 in your BDO, no order' : `${formatCount(noOrder)} in your BDO, no order`}</li>
         <li>
           {notInBdo === 1
             ? '1 buyer says paid, not in your BDO yet'
-            : `${notInBdo} buyers say paid, not in your BDO yet`}
+            : `${formatCount(notInBdo)} buyers say paid, not in your BDO yet`}
         </li>
-        {unreadable > 0 ? <li>{unreadable === 1 ? '1 picture could not be read' : `${unreadable} pictures could not be read`}</li> : null}
+        {unreadable > 0 ? <li>{unreadable === 1 ? '1 picture could not be read' : `${formatCount(unreadable)} pictures could not be read`}</li> : null}
       </ul>
       <div className="mt-3 space-y-3">
         {rows.map((r) => (
@@ -140,8 +141,8 @@ function ReceivedCard({ row, waiting, query }: { row: ReceivedOpenRow; waiting: 
         <FormPick
           name="reason"
           form={leaveForm}
-          label="Not now"
-          placeholder="Not now"
+          label="Set aside"
+          placeholder="Set aside"
           dataAttr={`received-leave-pick-${row.received_id}`}
           options={[
             { key: 'later', label: 'Leave for the next drop' },

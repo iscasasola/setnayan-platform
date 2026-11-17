@@ -11,9 +11,9 @@
  * amount and time, and throws the picture away.
  */
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ImagePlus } from 'lucide-react';
 import { approvePayment } from '../actions';
+import { formatCount } from '@/lib/format-number';
 
 const PER_DROP = 4; // = RECEIVED_PER_DROP in ../received.ts
 const MAX_EDGE = 1568;
@@ -37,7 +37,6 @@ async function shrink(file: File): Promise<Blob> {
 
 export function ReceivedDropTile({ disabledReason }: { disabledReason: string | null }) {
   const input = useRef<HTMLInputElement>(null);
-  const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +46,7 @@ export function ReceivedDropTile({ disabledReason }: { disabledReason: string | 
     if (pictures.length === 0) return;
     try {
       for (let i = 0; i < pictures.length; i += PER_DROP) {
-        setBusy(`Reading ${Math.min(i + PER_DROP, pictures.length)} of ${pictures.length}…`);
+        setBusy(`Reading ${formatCount(Math.min(i + PER_DROP, pictures.length))} of ${formatCount(pictures.length)}…`);
         const fd = new FormData();
         fd.set('intent', 'received-drop');
         for (const f of pictures.slice(i, i + PER_DROP)) {
@@ -57,7 +56,6 @@ export function ReceivedDropTile({ disabledReason }: { disabledReason: string | 
         }
         await approvePayment(fd);
       }
-      router.refresh();
     } catch {
       setError('Some pictures could not be read. Try those again.');
     } finally {

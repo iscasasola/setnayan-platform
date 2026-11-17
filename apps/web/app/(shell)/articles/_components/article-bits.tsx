@@ -79,7 +79,7 @@ export function LinkCardView({ card }: { card: LinkCard }) {
   return (
     <Link
       href={card.path}
-      className="flex items-center gap-3 rounded-xl border border-ink/12 bg-white p-3 hover:border-ink/25"
+      className="sn-frame flex items-center gap-3 p-3"
       data-link-card={card.kind}
     >
       {card.imageUrl ? (

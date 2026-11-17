@@ -32,7 +32,7 @@ export default async function WritePage({ searchParams }: Props) {
         </Link>
       </div>
       {writer.readFailed ? (
-        <p role="alert" className="mt-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+        <p role="alert" className="mt-4 text-sm font-medium text-danger-700">
           We couldn’t check your posting name just now. Please try again in a moment.
         </p>
       ) : (

@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { findPostLinks, normalizeTags } from '@/lib/article-links';
-import { PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapters';
+import { findPostLinks, normalizePostingName, normalizeTags } from '@/lib/article-links';
+import { CHAPTER_BODY_MAX, PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapters';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { createChapter } from '@/app/dashboard/(account)/creator/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -30,72 +31,90 @@ export function WriteSheet({
   const links = useMemo(() => findPostLinks(body), [body]);
   const tags = normalizeTags(tagText);
   const askName = !shopName && !postingName;
+  const keep = () => undefined;
 
   return (
     <form action={createChapter} className="space-y-4" data-write-sheet>
       <input type="hidden" name="surface" value="articles" />
       <p className="text-sm text-ink/75">Text and links. No photos or videos.</p>
 
-      {askName ? (
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink">Post as</span>
-          <input name="posting_name" required maxLength={30} placeholder="tagaytaybride" className="input-field" autoComplete="nickname" />
-          <span className="block text-xs text-ink/70">
-            Your name on every post and reply. Your account stays behind it, so Report still works. Suppliers always
-            post as their shop and skip this.
-          </span>
-        </label>
-      ) : (
+      {!askName ? (
         <p className="text-xs text-ink/70">
           Posting as <span className="font-medium text-ink">{shopName ?? postingName}</span>
           {shopName ? ' — your shop, with the Supplier mark' : ''}
         </p>
-      )}
+      ) : null}
 
-      <label className="block space-y-1">
-        <span className="block text-xs font-medium text-ink">Title</span>
-        <input name="title" required maxLength={160} placeholder="Garden or church in Tagaytay for 150 guests?" className="input-field" />
-      </label>
-
-      <label className="block space-y-1">
-        <span className="block text-xs font-medium text-ink">Tags · up to 3</span>
-        <input
-          name="tags"
-          value={tagText}
-          onChange={(e) => setTagText(e.target.value)}
-          placeholder="venues, Tagaytay"
-          className="input-field"
-        />
-        {tags.length > 0 ? (
-          <span className="flex flex-wrap gap-1.5 pt-1">
-            {tags.map((t) => (
-              <span key={t} className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[12px] font-medium text-ink/80">
-                {t}
-              </span>
-            ))}
-          </span>
+      <FormRows width="wide" data="write-a-post">
+        {askName ? (
+          <TypedRow
+            name="Post as"
+            value=""
+            fieldName="posting_name"
+            boxed
+            required
+            maxLength={30}
+            placeholder="tagaytaybride"
+            autoComplete="nickname"
+            check={(t) => (t.trim() && !normalizePostingName(t) ? '3–30 letters, numbers, dots or underscores' : null)}
+            note="Your name on every post and reply. Your account stays behind it, so Report still works. Suppliers always post as their shop and skip this."
+            onKeep={keep}
+          />
         ) : null}
-      </label>
-
-      <label className="block space-y-1">
-        <span className="block text-xs font-medium text-ink">Your post</span>
-        <textarea
-          name="body"
+        <TypedRow
+          name="Title"
+          value=""
+          fieldName="title"
+          boxed
           required
-          rows={10}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={'We’re torn between these two. Has anyone booked them?\n\nPaste a link as it is.'}
-          className="input-field"
+          maxLength={160}
+          placeholder="Garden or church in Tagaytay for 150 guests?"
+          onKeep={keep}
         />
-      </label>
+        <TypedRow
+          name="Tags · up to 3"
+          value=""
+          fieldName="tags"
+          boxed
+          maxLength={100}
+          placeholder="venues, Tagaytay"
+          onType={setTagText}
+          onKeep={(t) => {
+            setTagText(t);
+          }}
+          below={
+            tags.length > 0 ? (
+              <span className="flex flex-wrap gap-1.5 pt-1">
+                {tags.map((t) => (
+                  <span key={t} className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[12px] font-medium text-ink/80">
+                    {t}
+                  </span>
+                ))}
+              </span>
+            ) : null
+          }
+        />
+        <TypedRow
+          name="Your post"
+          value=""
+          fieldName="body"
+          long
+          required
+          maxLength={CHAPTER_BODY_MAX}
+          placeholder="We’re torn between these two. Has anyone booked them? Paste a link as it is."
+          onType={setBody}
+          onKeep={(t) => {
+            setBody(t);
+          }}
+        />
+      </FormRows>
 
       {links.length > 0 ? (
         <div className="space-y-2" data-your-links>
           <p className="text-xs font-medium text-ink">Your links</p>
           {links.map((l) =>
             l.kind === 'setnayan' ? (
-              <p key={l.text} className="rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm text-ink">
+              <p key={l.text} className="sn-frame px-3 py-2 text-sm text-ink">
                 <span className="block text-[12px] text-ink/70">setnayan.com · shows as a card</span>
                 {l.text}
               </p>

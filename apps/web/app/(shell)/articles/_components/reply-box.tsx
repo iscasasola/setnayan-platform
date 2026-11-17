@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { normalizePostingName } from '@/lib/article-links';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 /**
  * Write a reply (drawing v15 "An article" · Replies). ONE level deep — there is nothing to reply TO but the
@@ -105,20 +106,21 @@ export function ReplyBox({
         </div>
       ))}
       {needsName ? (
-        <label className="block space-y-1">
-          <span className="block text-xs font-medium text-ink">Post as</span>
-          <input
+        <FormRows width="wide" data="reply-post-as">
+          <TypedRow
+            name="Post as"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            boxed
             maxLength={30}
             placeholder="tagaytaybride"
-            className="input-field"
             autoComplete="nickname"
+            onType={setName}
+            onKeep={(t) => {
+              setName(t);
+            }}
+            note="Your name on every post and reply. Your account stays behind it, so Report still works."
           />
-          <span className="block text-xs text-ink/70">
-            Your name on every post and reply. Your account stays behind it, so Report still works.
-          </span>
-        </label>
+        </FormRows>
       ) : (
         <p className="text-xs text-ink/70">
           Replying as <span className="font-medium text-ink">{shopName ?? myName}</span>
@@ -127,7 +129,7 @@ export function ReplyBox({
       )}
       <label className="block">
         <span className="sr-only">Write a reply</span>
-        <textarea
+        <textarea // field-ok: a reply composer — the chat composer's template (type, send), not a form row
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}

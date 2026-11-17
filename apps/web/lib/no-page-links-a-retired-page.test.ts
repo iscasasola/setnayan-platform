@@ -106,9 +106,11 @@ test('3 · the pages are gone', () => {
 
 test('4 · the old addresses forward where the owner ruled, at every depth — and the media does not', () => {
   for (const [from, to] of [
-    ['/blog', '/features'],
-    ['/blog/', '/features'],
-    ['/blog/filipino-wedding-traditions-explained', '/features'],
+    // 📰 2026-11-17 (DECISION_LOG "THE JOURNAL MOVES INTO DISCOVER'S ARTICLES"; drawing v15) supersedes the
+    // 2026-11-16 /blog → /features row: each Journal post forwards to its own article.
+    ['/blog', '/articles'],
+    ['/blog/', '/articles'],
+    ['/blog/filipino-wedding-traditions-explained', '/articles/filipino-wedding-traditions-explained'],
     ['/realstories', '/'],
     ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/'],
     ['/vendor-dashboard/real-stories', '/vendor-dashboard'],

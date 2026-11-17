@@ -29,10 +29,11 @@ import {
 } from '@/lib/article-links';
 import { bylineFor, UNNAMED_MEMBER } from '@/lib/article-byline';
 import { JOURNAL_BYLINE } from '@/lib/journal-move';
+import { stripComments } from '@/lib/strip-comments';
 
 const APP = path.resolve(__dirname, '../app');
 const read = (rel: string) => fs.readFileSync(path.join(APP, rel), 'utf8');
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (src: string) => stripComments(src);
 
 test('1 · a setnayan.com link is ours; every other domain is an outside link', () => {
   assert.deepEqual(classifyLink('setnayan.com/taal-vista-hotel'), { kind: 'setnayan', text: 'setnayan.com/taal-vista-hotel', path: '/taal-vista-hotel' });
@@ -81,8 +82,8 @@ test('3 · tags and posting names are stored the way the database checks them', 
 });
 
 test('4 · the pages say what the drawing says, and refuse honestly', () => {
-  const feed = code(read('(shell)/articles/page.tsx'));
-  const article = code(read('(shell)/articles/[slug]/page.tsx'));
+  const feed = code(read('(shell)/articles/_components/feed-view.tsx'));
+  const article = code(read('(shell)/articles/_components/article-view.tsx'));
   const sheet = code(read('(shell)/articles/_components/write-sheet.tsx'));
   for (const [name, src] of [['feed', feed], ['article', article], ['write sheet', sheet]] as const) {
     // Rendered, not merely imported — an import line alone would keep this green with the words gone.

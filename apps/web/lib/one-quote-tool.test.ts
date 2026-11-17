@@ -86,5 +86,10 @@ test('nothing under app/ deep-links the retired #send-proposal; the brief’s Qu
   const brief = read(CLIENT_BRIEF);
   // ≥ 1 since 12 Nov 2026: the Details page's old shortcut pills (Chat · Quote · Files · Details) were removed — the
   // picked-client menu opens those pages; the brief's remaining Quote door still opens the one panel.
-  assert.ok(count(brief, /messages\/\$\{threadId\}#build-quote/g) >= 1, 'the brief lost a Quote door into the one panel');
+  // 17 Nov: the Quote door opens the client's own Quotation page (the same one panel, drawn in the client) instead of
+  // the full-screen thread's #build-quote — every way in lands in the client.
+  assert.ok(
+    count(brief, /messages\/\$\{threadId\}#build-quote/g) + count(brief, /customerCardHref\(eventId, 'quote'\)/g) >= 1,
+    'the brief lost a Quote door into the one panel',
+  );
 });

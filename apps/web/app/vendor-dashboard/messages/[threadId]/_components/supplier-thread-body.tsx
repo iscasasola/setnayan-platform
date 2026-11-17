@@ -18,11 +18,24 @@ import VendorThreadPage from '../page';
  *
  * Mount it in its own <Suspense> — it waits on the thread's batched read.
  */
-export function SupplierThreadBody({ threadId, view }: { threadId: string; view: 'chat' | 'quotation' | 'decisions' }) {
+export function SupplierThreadBody({
+  threadId,
+  view,
+  search,
+}: {
+  threadId: string;
+  view: 'chat' | 'quotation' | 'decisions';
+  /**
+   * The client page's thread notice params (`PickedPageContext.threadSearch`) — an action taken in this chat returns
+   * to the client with them, and the ONE draw says the notice in the chat box, as the full-screen page did. Every embed
+   * passes the same, so they still share one draw.
+   */
+  search?: Record<string, string>;
+}) {
   return (
     <VendorThreadPage
       params={Promise.resolve({ threadId })}
-      searchParams={Promise.resolve({ __embed: view })}
+      searchParams={Promise.resolve({ ...(search ?? {}), __embed: view })}
     />
   );
 }

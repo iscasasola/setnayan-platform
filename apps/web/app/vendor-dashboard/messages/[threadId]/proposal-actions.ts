@@ -1,5 +1,6 @@
 'use server';
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -85,7 +86,7 @@ function refusalNotice(code: Exclude<SendProposalError, 'unauthenticated' | 'not
 export async function sendProposalFromChat(formData: FormData) {
   const supabase = await createClient();
   const threadId = String(formData.get('thread_id') ?? '');
-  const back = `/vendor-dashboard/messages/${threadId}`;
+  const back = supplierThreadPageHref(threadId);
 
   const totalPhpRaw = Number(formData.get('total_php'));
   const result = await sendProposalCore(supabase, {
@@ -499,7 +500,7 @@ export async function loadServiceCardLinesForQuote(input: {
 export async function sendCustomProposalFromChat(formData: FormData) {
   const supabase = await createClient();
   const threadId = String(formData.get('thread_id') ?? '');
-  const back = `/vendor-dashboard/messages/${threadId}`;
+  const back = supplierThreadPageHref(threadId);
 
   let lineItems: ProposalLineItem[] = [];
   let validUntil: string | null = null;

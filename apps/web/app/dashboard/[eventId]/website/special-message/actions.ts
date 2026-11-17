@@ -47,7 +47,7 @@ export async function updateSpecialMessage(
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/website/special-message?error=${encodeURIComponent(
+      `/dashboard/${eventId}/website/editor?open=special-message&error=${encodeURIComponent(
         'Could not save. Please try again.',
       )}`,
     );

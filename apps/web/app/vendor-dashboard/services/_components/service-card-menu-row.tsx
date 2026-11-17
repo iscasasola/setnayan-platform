@@ -28,11 +28,19 @@
  * refuses going online with EVERY missing item and going offline while a booking is open) instead of `action`, and no
  * `share` — its Share is drawn WAITING until a bundle can be posted into a client's chat. Same row, same switch.
  *
+ * ⚡ THE SWITCH FLIPS THE MOMENT IT IS PRESSED (owner 15 Nov: *"pressing online offline takes too long to update"*). It
+ * draws `shown` — the state it is going to (`pendingTo`) while the save is on its way, the server's `isActive` otherwise
+ * — with one line under the row saying it is saving ("Going online…"). Every server gate still runs; a REFUSAL flips it
+ * straight back (`onRefused`) and prints under the row as before. A LANDED save keeps the new state on screen (`landed`
+ * only hides the saving line) until the page's `isActive` catches up — so it neither flashes the old state nor keeps one
+ * the server did not save. A bundle flips its own `live` the same way (`shop-bundle-card.tsx`).
+ *
+ * 🔒 app/vendor-dashboard/services/the-online-switch-flips-at-once.test.ts
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
  * 🔒 app/vendor-dashboard/shop/bundle-cards-wear-the-card-row.test.ts
  */
-import { useId, useState } from 'react';
-import { Pencil, Share } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { Pencil, Share, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StayForm, type StaySave } from '@/app/_components/stay-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -59,13 +67,31 @@ export type ServiceCardMenuRowProps = {
   /** Share to a client event: this shop's client events and the server's post (the shipped `offerServiceInterest`).
    *  Absent (a bundle) = Share is drawn waiting. */
   share?: ServiceCardShareProps;
+  /** The card's Delete, at the row's end — a COMPUTER's hover Delete (shown on hover or keyboard focus, never on a touch
+   *  screen, where the card swipes). Set only when the row sits inside the card (`ServiceCardItemFooter`). */
+  onDelete?: () => void;
 };
 
-export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, onToggle, toggling = false, share }: ServiceCardMenuRowProps) {
+export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, onToggle, toggling = false, share, onDelete }: ServiceCardMenuRowProps) {
   const uid = useId().replace(/:/g, '');
   const formId = `card-online-${uid}`;
   const shareTitleId = `card-share-${uid}`;
   const [sharing, setSharing] = useState(false);
+  /* ⚡ Where the switch is going while its save is on its way (null = nothing pending; the server's `isActive` rules). */
+  const [pendingTo, setPendingTo] = useState<boolean | null>(null);
+  /* The save LANDED but the page's new `isActive` may not be drawn yet (a state update after an await is not part of
+     the transition) — keep showing the new state, stop saying "Going online…". Never hand back to `isActive` here:
+     that would flash the OLD state until the props catch up. */
+  const [landed, setLanded] = useState(false);
+  // The page re-rendered with the saved state — the press is done.
+  useEffect(() => {
+    if (pendingTo !== null && isActive === pendingTo) {
+      setPendingTo(null);
+      setLanded(false);
+    }
+  }, [isActive, pendingTo]);
+  const shown = pendingTo ?? isActive;
+  const saving = (pendingTo !== null && !landed) || toggling;
 
   return (
     <div data-card-menu={vendorServiceId}>
@@ -90,18 +116,34 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             type="submit"
             form={formId}
             role="switch"
-            aria-checked={isActive}
-            aria-label={isActive ? `${cardName} is online — turn it offline` : `${cardName} is offline — turn it online`}
+            aria-checked={shown}
+            aria-busy={saving || undefined}
+            aria-label={shown ? `${cardName} is online — turn it offline` : `${cardName} is offline — turn it online`}
             className={SWITCH_BUTTON}
             disabled={toggling}
-            data-card-online={isActive ? '1' : '0'}
+            onClick={
+              action && pendingTo === null
+                ? () => {
+                    setLanded(false);
+                    setPendingTo(!isActive);
+                  }
+                : undefined
+            }
+            data-card-online={shown ? '1' : '0'}
+            data-card-online-saving={saving ? '1' : undefined}
           >
-            <SwitchTrack on={isActive} words={{ on: 'Online', off: 'Offline' }} />
+            <SwitchTrack on={shown} words={{ on: 'Online', off: 'Offline' }} />
           </button>
         )}
+        {onDelete ? (
+          // 🖱 A computer's Delete, at the row's end (hover or keyboard focus); a touch screen never sees it — it swipes.
+          <span className="hidden opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100 [&>.ab]:h-11 [&>.ab]:min-h-11 [&>.ab]:w-11 [@media(hover:hover)_and_(pointer:fine)]:inline-flex" data-card-delete-hover="">
+            <ActionButton tone="danger" icon={Trash2} iconOnly label="Delete" name="Delete" title={`Delete ${cardName}`} onClick={onDelete} data-card-delete={vendorServiceId} />
+          </span>
+        ) : null}
       </div>
       {held ? null : action ? (
-        <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} className="hidden">
+        <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} onSaved={() => setLanded(true)} onRefused={() => { setPendingTo(null); setLanded(false); }} className="hidden">
           <input type="hidden" name="vendor_service_id" value={vendorServiceId} />
           <input type="hidden" name="is_active" value={isActive ? 'false' : 'true'} />
         </StayForm>
@@ -114,6 +156,11 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             onToggle();
           }}
         />
+      ) : null}
+      {!held && saving ? (
+        <p role="status" className="text-[12.5px] leading-snug text-ink/70" data-card-online-saving-line="">
+          {shown ? 'Going online…' : 'Going offline…'}
+        </p>
       ) : null}
       {share ? (
         <ServiceCardShareSheet

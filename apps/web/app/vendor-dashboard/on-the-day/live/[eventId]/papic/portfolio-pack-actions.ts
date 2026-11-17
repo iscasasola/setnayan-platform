@@ -21,7 +21,7 @@ import {
   shopGiftServiceKey,
   SHOP_GIFT_MAX_QUANTITY,
 } from '@/lib/shop-gifts';
-import { fetchShopGiftBundles, fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
+import { fetchShopGiftBundles, fetchShopGiftPacks, fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
 
 /**
  * 🛍 2026-11-04 — THE SHOP BUYS THE COUPLE'S PACKS (owner, "SIX OWNER ANSWERS" (4)). The form names a pack
@@ -119,7 +119,13 @@ export async function buyVendorPapicPortfolioPack(
   const forGift = String(formData.get('for') ?? '') === 'gift';
   const asked = String(formData.get('pack') ?? '').trim();
   const bundleGift = forGift && isShopGiftBundleCode(asked);
-  const askedKind = shopGiftKindOf(asked);
+  const admin = createAdminClient();
+  // 📦 A bundle names the gift it holds in the catalogue — a Papic pack or (2026-11-17, "10 + 1 bundles for ALL
+  // gifts") an Event Plus / Pro / Ultra unlock — so it is resolved first, against every gift on sale.
+  const allPacks = bundleGift ? await fetchShopGiftPacks(admin) : null;
+  const bundle = bundleGift ? ((await fetchShopGiftBundles(admin, allPacks ?? []))?.find((b) => b.code === asked) ?? null) : null;
+  if (bundleGift && !bundle) return err('That bundle is not on sale right now. Please try again later.');
+  const askedKind = bundle ? bundle.pack.kind : shopGiftKindOf(asked);
   const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro' || askedKind === 'event_ultra');
 
   // Owner 2026-10-25: "No. Papic needs to be on." — for Papic packs. Event Plus / Pro / Ultra gifts are not Papic.
@@ -131,11 +137,7 @@ export async function buyVendorPapicPortfolioPack(
 
   // Re-read the authoritative price + credits from the admin-managed catalog — the
   // client names a pack, never a price. `null` covers missing/inactive/unreadable.
-  const admin = createAdminClient();
   const packs = unlockGift ? await fetchShopGiftUnlockRows(admin) : await fetchShopPapicPacks(admin);
-  // 📦 A bundle names its pack in the catalogue; the pack it holds is the one priced and landed.
-  const bundle = bundleGift ? ((await fetchShopGiftBundles(admin, shopGiftPacksFrom(packs ?? [])))?.find((b) => b.code === asked) ?? null) : null;
-  if (bundleGift && !bundle) return err('That bundle is not on sale right now. Please try again later.');
   const pack = packs?.find((p) => p.code === (bundle ? bundle.pack.code : asked)) ?? null;
   if (!pack) {
     return err(unlockGift ? 'That gift is not on sale right now. Please try again later.' : 'That Papic pack is not on sale right now. Please try again later.');

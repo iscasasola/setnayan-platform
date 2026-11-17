@@ -201,12 +201,12 @@ export async function fetchEventGiftHolds(
   eventId: string,
   mode: 'owned' | 'active',
 ): Promise<EventHolds> {
-  const holds = (code: string) => (mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code));
-  // 💎 Ultra first: an Ultra event also reads as Pro through the ownership aliases.
-  const [hub, plus, ultra] = await Promise.all([
+  const holds = (code: string) =>
+    mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code);
+  const [ultra, hub, plus] = await Promise.all([
+    holds(SHOP_GIFT_UNLOCK_CODE.event_ultra),
     eventHubOwnership(admin, eventId, mode),
     holds(SHOP_GIFT_UNLOCK_CODE.event_plus),
-    holds(SHOP_GIFT_UNLOCK_CODE.event_ultra),
   ]);
   return ultra ? 'ultra' : hub.full ? 'pro' : plus ? 'plus' : 'none';
 }
@@ -482,7 +482,7 @@ export async function deliverShopGiftsForBooking(
 }
 
 /**
- * 💎 Give the booking's Event Plus / Event Pro gifts to the couple's event (slice 2), beside the Papic door. What the
+ * 💎 Give the booking's Event Plus / Event Pro / Event Ultra gifts to the couple's event (slice 2), beside the Papic door. What the
  * event already holds is answered here by the full entitlement chain, approved only, and handed to the SQL door —
  * which upgrades a second Event Plus to Event Pro (owner 2026-11-05) and gives nothing to an event that already has
  * Event Pro (the unit stays in the shop's stock). Never throws; idempotent.

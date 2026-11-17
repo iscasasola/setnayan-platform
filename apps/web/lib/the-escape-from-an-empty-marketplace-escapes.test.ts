@@ -25,24 +25,23 @@ const KNOWN = new Set(['wedding', 'simple_event', 'debut', 'birthday']);
 
 /* ── THE DECISION, EXECUTED ──────────────────────────────────────────────── */
 
-test('THE BUG: nothing chosen scopes a non-wedding couple to their own type', () => {
-  // This half was correct and must stay — it is why the page is scoped at all.
-  assert.deepEqual(resolveExploreScope(null, 'simple_event', KNOWN), {
-    eventType: 'simple_event',
-    browseAll: false,
-  });
+test('2026-11-16: nothing chosen is the whole marketplace — the couple’s own event type never scopes it', () => {
+  // EB-062/069/073: a Get-together couple's category pick came back "Florists · Get-together", Clear all could not
+  // remove it, and "flower" found no florists. A filter applies only when the address names it.
+  assert.deepEqual(resolveExploreScope(null, KNOWN), { eventType: null, browseAll: false });
+  assert.deepEqual(resolveExploreScope('', KNOWN), { eventType: null, browseAll: false });
 });
 
 test('THE FIX: asking for everything beats the auto-apply', () => {
   // Before, this was expressed by REMOVING the parameter — which is the same
   // input as "I have not chosen", so it re-applied and the page never changed.
-  assert.deepEqual(resolveExploreScope('all', 'simple_event', KNOWN), {
+  assert.deepEqual(resolveExploreScope('all', KNOWN), {
     eventType: null,
     browseAll: true,
   });
   // And it holds for every event type, not just the one that was reported.
   for (const t of KNOWN) {
-    const s = resolveExploreScope(BROWSE_ALL_EVENT_TYPES, t, KNOWN);
+    const s = resolveExploreScope(BROWSE_ALL_EVENT_TYPES, KNOWN);
     assert.equal(s.eventType, null, `"all" was overridden for ${t}`);
     assert.equal(s.browseAll, true);
   }
@@ -66,7 +65,7 @@ test('following the escape does NOT re-scope — the loop is closed', () => {
   // and the page must not scope itself again.
   const href = browseAllVendorsHref(false);
   const param = new URL(href, 'https://x').searchParams.get('event_type');
-  const after = resolveExploreScope(param, 'simple_event', KNOWN);
+  const after = resolveExploreScope(param, KNOWN);
   assert.equal(
     after.eventType,
     null,
@@ -74,26 +73,26 @@ test('following the escape does NOT re-scope — the loop is closed', () => {
   );
 });
 
-test('a wedding still skips the auto-apply, and an unknown type is not a filter', () => {
-  assert.deepEqual(resolveExploreScope(null, 'wedding', KNOWN), {
+test('an unknown type is not a filter', () => {
+  assert.deepEqual(resolveExploreScope(null, KNOWN), {
     eventType: null,
     browseAll: false,
   });
   // A type the admin has retired from the vocab must not silently filter to
   // nothing — same failure with a different cause.
-  assert.deepEqual(resolveExploreScope(null, 'seance', KNOWN), {
+  assert.deepEqual(resolveExploreScope(null, KNOWN), {
     eventType: null,
     browseAll: false,
   });
-  assert.deepEqual(resolveExploreScope('seance', 'wedding', KNOWN), {
+  assert.deepEqual(resolveExploreScope('seance', KNOWN), {
     eventType: null,
     browseAll: false,
   });
 });
 
 test('an explicit choice is honoured, case and padding forgiven', () => {
-  assert.equal(resolveExploreScope(' DEBUT ', 'wedding', KNOWN).eventType, 'debut');
-  assert.equal(resolveExploreScope('debut', 'simple_event', KNOWN).eventType, 'debut');
+  assert.equal(resolveExploreScope(' DEBUT ', KNOWN).eventType, 'debut');
+  assert.equal(resolveExploreScope('debut', KNOWN).eventType, 'debut');
 });
 
 /* ── THE WIRING ──────────────────────────────────────────────────────────── */

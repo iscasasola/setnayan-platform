@@ -187,7 +187,7 @@ export type OfferStatus = { k: 'run' | 'off' | 'ended' | 'taken'; label: string 
 
 /** One honest chip, read from the row itself (the prototype's statusOf). `today` is the Manila day (YYYY-MM-DD). */
 export function offerStatus(o: Offer, today: string): OfferStatus {
-  if (o.who === 'first_n' && o.firstNCap != null && o.firstNTaken >= o.firstNCap) return { k: 'taken', label: `All ${count(o.firstNCap)} taken` };
+  if (o.who === 'first_n' && o.firstNCap != null && o.firstNTaken >= o.firstNCap) return { k: 'taken', label: o.firstNCap === 1 ? 'Taken' : `All ${count(o.firstNCap)} taken` };
   if (o.untilDate && o.untilDate < today) return { k: 'ended', label: 'Ended' };
   if (!o.isOn) return { k: 'off', label: 'Off' };
   return { k: 'run', label: 'Running' };
@@ -237,7 +237,10 @@ export function shortDate(day: string): string {
 export function whoLine(o: Offer): string {
   if (o.who === 'first_n' && o.firstNCap != null) {
     const left = Math.max(0, o.firstNCap - o.firstNTaken);
-    return left > 0 ? `First ${count(o.firstNCap)} couples · ${count(left)} left` : `All ${count(o.firstNCap)} taken`;
+    // "First couple", never "First 1 couples"; "Taken", never "All 1 taken" (controller round, 15 Nov 2026).
+    const one = o.firstNCap === 1;
+    if (left === 0) return one ? 'Taken' : `All ${count(o.firstNCap)} taken`;
+    return one ? 'First couple · still open' : `First ${count(o.firstNCap)} couples · ${count(left)} left`;
   }
   if (o.who === 'season' && o.seasonFrom && o.seasonTo) return `Events ${seasonWords(o.seasonFrom, o.seasonTo)}`;
   if (o.who === 'early_bird' && o.minLeadMonths != null) {
@@ -278,7 +281,8 @@ export function whatTile(o: Offer): { bigs: string[]; small: string; marks: ('wa
 /** The pill couples read on a card (the prototype's badgeFor): "10% off" · "First 5 · ₱5,000 off". */
 export function badgeWords(o: Offer): string {
   const w = priceWords(o);
-  return o.who === 'first_n' && o.firstNCap != null ? `First ${count(o.firstNCap)} · ${w}` : w;
+  if (o.who !== 'first_n' || o.firstNCap == null) return w;
+  return o.firstNCap === 1 ? `First couple · ${w}` : `First ${count(o.firstNCap)} · ${w}`;
 }
 
 /** The written-for-you name a new offer starts with (＋ asks only for the first part; the supplier can change it). */

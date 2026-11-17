@@ -19,7 +19,7 @@
  * form with the fee.
  */
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceCardView } from '@/app/_components/service-card-view';
@@ -43,6 +43,7 @@ import {
   type PageKey,
 } from '@/lib/supplier-landing';
 import { formatPhp } from '@/lib/php';
+import { forwardTile } from '@/lib/taxonomy';
 import { COUPLE_COMMISSION_PROMISE } from '@/lib/commission-promise';
 import { formatCount } from '@/lib/format-number';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
@@ -68,14 +69,20 @@ async function resolve(params: LandingParams): Promise<Resolved | null> {
   const event = eventKeyFromSlug(params.event, [...source.eventLabel.keys()]);
   const tile = tileFromSlug(params.category, source.taxonomy.tileSlug);
   if (!event || !tile) return null;
-  if (!source.tileServesEvent(tile, event)) return null;
-  if (source.taxonomy.hiddenCategories[tile]) return null;
   // The last segment is a city key or a region page slug — never both, since
   // `supplier-landing.test.ts` keeps the two vocabularies apart.
   const place = params.city ?? null;
   const city = place !== null && isCityKey(place) ? place : null;
   const region = place !== null && city === null ? regionFromPageSlug(place) : null;
   if (place !== null && city === null && region === null) return null;
+  // 🔀 A category T1 part 2 merged away (owner 16 Nov 2026: "ok" — hide it, point it at where it went) sends its old
+  // link, once and for good, to the same page of the category that took it in — never an empty shelf, never a 404.
+  const forwarded = forwardTile(tile);
+  if (forwarded !== tile && source.taxonomy.tileSlug[forwarded]) {
+    permanentRedirect(pagePath({ event, tile: forwarded, city, region }, source.taxonomy.tileSlug));
+  }
+  if (!source.tileServesEvent(tile, event)) return null;
+  if (source.taxonomy.hiddenCategories[tile]) return null;
   const page: PageKey = { event, tile, city, region };
   return {
     page,

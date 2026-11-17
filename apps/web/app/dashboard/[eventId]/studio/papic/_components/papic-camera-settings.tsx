@@ -28,6 +28,7 @@ import { FaceBlockingCount } from './face-blocking-count';
 import { GuestAllotmentsChoice } from './guest-allotments-choice';
 import { PhoneUploadsChoice } from './phone-uploads-choice';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
+import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -65,9 +66,13 @@ export async function PapicCameraSettings({
   credits?: { total: number | null; left: number | null } | null;
 }) {
   const supabase = await createClient();
+  // 📅 date_mode … event_days: the couple's still-open date (EB-191) — named in the "switches on"
+  // line, never read as the day. ONE string literal: a concatenated select defeats Supabase's typing.
   const { data: ev, error } = await supabase
     .from('events')
-    .select('event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on')
+    .select(
+      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, event_days',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (error) logQueryError('PapicCameraSettings.event', error, { eventId }, 'graceful_degrade');
@@ -87,7 +92,7 @@ export async function PapicCameraSettings({
   // The window's line under the counter (the approved controller: "● Open now · until 12 hours after your day").
   const windowWords = (() => {
     const on = formatPapicDayInWords(win.startDate);
-    if (!on) return 'Switches on when your date is set';
+    if (!on) return papicWaitsForTheDayWords(ev as Record<string, unknown>);
     if (windowState === 'closed') return 'Closed · your day has passed';
     const from = win.startDate ? papicDayWords(`${win.startDate}T00:00:00+08:00`) : on;
     return `${windowState === 'not_started' ? `Papic turns on ${on}` : `On from ${from}`} · ${PAPIC_UNTIL_WORDS}`;

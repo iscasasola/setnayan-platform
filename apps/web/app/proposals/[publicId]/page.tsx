@@ -35,6 +35,7 @@ import {
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
+import { readThreadShopNotYetVerified } from '@/lib/not-yet-verified.server';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { proposalBackDoor } from '@/lib/proposal-back';
@@ -379,6 +380,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         (pick as { vendor_id: string }).vendor_id,
         (pick as { category?: string | null }).category ?? null,
       );
+      // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the chat's own read.
+      lockTarget.notYetVerified = await readThreadShopNotYetVerified(createAdminClient(), proposal.vendor_profile_id);
     }
   }
 
@@ -758,6 +761,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               groupLabel={lockTarget.groupLabel}
               vendorId={lockTarget.vendorId}
               vendorName={businessName}
+              isVerified={lockTarget.notYetVerified ? false : undefined}
               label={
                 isLockHandshakeEnabled()
                   ? `Ask ${businessName} to confirm your booking`

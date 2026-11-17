@@ -67,10 +67,10 @@ const door = (user: SupabaseClient, admin: SupabaseClient, userId: string | null
 
 test('signed out → the login page, returning to this same door (its own `next`, and it passes safeNext)', async () => {
   const d = await door(stub({}), stub({}), null);
-  assert.deepEqual(d, { kind: 'sign_in', next: '/v/saysay/review' });
+  assert.deepEqual(d, { kind: 'sign_in', next: '/saysay/review' });
   const target = reviewDoorTarget(d);
-  assert.equal(target, '/login?next=%2Fv%2Fsaysay%2Freview');
-  assert.equal(safeNext(new URLSearchParams(target.split('?')[1]).get('next')), '/v/saysay/review');
+  assert.equal(target, '/login?next=%2Fsaysay%2Freview');
+  assert.equal(safeNext(new URLSearchParams(target.split('?')[1]).get('next')), '/saysay/review');
 });
 
 test('one booking ready for a review → that booking\'s "Leave a review"', async () => {
@@ -104,7 +104,7 @@ test('"marked done, awaiting your Yes" counts as ready — the review page\'s fi
 test('no booking ready (event still ahead) → the shop\'s reviews, to read', async () => {
   const d = await door(stub({ event_members: MEMBERS, event_vendors: { data: [notYet('evNext', 'c')], error: null } }), stub({ vendor_profiles: SHOP }));
   assert.deepEqual(d, { kind: 'read', slug: 'saysay', reason: 'no_booking' });
-  assert.equal(reviewDoorTarget(d), '/v/saysay#reviews');
+  assert.equal(reviewDoorTarget(d), '/saysay#reviews');
 });
 
 test('hosts no event at all → the shop\'s reviews, and no booking read is made', async () => {
@@ -124,14 +124,14 @@ for (const [what, user, admin] of [
     const d: ReviewDoor = await door(user, admin);
     assert.equal(d.kind, 'read');
     assert.equal((d as Extract<ReviewDoor, { kind: 'read' }>).reason, 'read_failed');
-    assert.equal(reviewDoorTarget(d), '/v/saysay#reviews');
+    assert.equal(reviewDoorTarget(d), '/saysay#reviews');
   });
 }
 
 test('a renamed shop → the same door on its new address; a genuinely missing one → the shop page (which 404s itself)', async () => {
   const moved = await door(stub({}), stub({ vendor_profiles: { data: null, error: null } }), 'u1', async () => '/saysay-events');
   assert.deepEqual(moved, { kind: 'moved', slug: 'saysay-events' });
-  assert.equal(reviewDoorTarget(moved), '/v/saysay-events/review');
+  assert.equal(reviewDoorTarget(moved), '/saysay-events/review');
   const missing = await door(stub({}), stub({ vendor_profiles: { data: null, error: null } }));
   assert.deepEqual(missing, { kind: 'read', slug: 'saysay', reason: 'missing_shop' });
 });
@@ -142,5 +142,5 @@ test('the route decides nothing itself — it hands every branch to readReviewDo
   assert.equal((src.match(/NextResponse\.redirect\(/g) ?? []).length, 1);
   assert.doesNotMatch(src, /notFound\(/);
   assert.match(src, /is_anonymous/, 'a guest pass must sign in like a stranger');
-  assert.equal(reviewDoorPath('saysay'), '/v/saysay/review');
+  assert.equal(reviewDoorPath('saysay'), '/saysay/review');
 });

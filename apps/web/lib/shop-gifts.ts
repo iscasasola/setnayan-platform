@@ -10,7 +10,7 @@
  *   • they leave the stock when that couple's FIRST PAYMENT clears, and land on the couple's EVENT;
  *   • 📦 ONE PRICE PER GIFT (2026-11-14, superseding the 4 Nov gift price): every single gift is at its LIST price
  *     (`retail_price_php`), from stock or on the booking fee — `gift_price_php` is not a price anywhere. The only way to
- *     pay less is a BUY 10, GET 1 FREE Papic bundle: an admin-managed catalogue row (`bundle_of_service_code`,
+ *     pay less is a BUY 10, GET 1 FREE bundle — for every gift since 2026-11-17: an admin-managed catalogue row (`bundle_of_service_code`,
  *     `bundle_quantity`) that fills the stock; each pack still goes on a quote one at a time at its list price. Every
  *     shop may buy bundles, Free or Verified (owner's pick 4, 14 Nov).
  *   • a shop's gifts on one booking are capped at 40% of that booking's fee, measured at the price couples pay —
@@ -41,20 +41,28 @@ import { EVENT_ULTRA_SKU } from './event-ultra';
 
 /**
  * What a gift is: Papic credits, or one Event Plus / Event Pro / Event Ultra unlock. The migrations' CHECKs say the same
- * four (💎 Ultra: owner 2026-11-13, "Gifting Ultra: yes" — migration 20271345709071).
+ * four (Ultra: 20271348181787, owner 15 Nov "Event ultra" — Black Diamond's reward).
  */
 export type ShopGiftKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra';
 
 export const SHOP_GIFT_KINDS: readonly ShopGiftKind[] = ['papic', 'event_plus', 'event_pro', 'event_ultra'];
 
-/** The couple product each unlock kind is (a `platform_retail_catalog_v2.service_code`). */
-export const SHOP_GIFT_UNLOCK_CODE: Readonly<Record<Exclude<ShopGiftKind, 'papic'>, string>> = {
+/** The unlock kinds — one plan each. */
+export type ShopGiftUnlockKind = Exclude<ShopGiftKind, 'papic'>;
+export const SHOP_GIFT_UNLOCK_KINDS: readonly ShopGiftUnlockKind[] = ['event_plus', 'event_pro', 'event_ultra'];
+
+/**
+ * The couple products a shop can BUY as gifts (a `platform_retail_catalog_v2.service_code`) — every unlock kind, Event
+ * Ultra included (owner 2026-11-17: "Event Ultra can be bought", at its list price like every gift). It also reaches a
+ * shop as Black Diamond's badge reward (migration 20271348181787); the two land in the same stock.
+ */
+export const SHOP_GIFT_UNLOCK_CODE: Readonly<Record<ShopGiftUnlockKind, string>> = {
   event_plus: EVENT_PLUS_SKU,
   event_pro: FULL_PRO_SKU,
   event_ultra: EVENT_ULTRA_SKU,
 };
 
-/** The kind of a giftable product code, or null when it cannot be gifted. */
+/** The kind of a giftable product code (one a shop can put on a quote), or null when it cannot be gifted. */
 export function shopGiftKindOf(code: string | null | undefined): ShopGiftKind | null {
   if (typeof code !== 'string') return null;
   if (/^PAPIC_GUEST(_[A-Z0-9]+)?$/.test(code)) return 'papic';
@@ -62,6 +70,14 @@ export function shopGiftKindOf(code: string | null | undefined): ShopGiftKind | 
   if (code === SHOP_GIFT_UNLOCK_CODE.event_pro) return 'event_pro';
   if (code === SHOP_GIFT_UNLOCK_CODE.event_ultra) return 'event_ultra';
   return null;
+}
+
+/**
+ * Can a shop BUY this code as a gift? Every giftable code — Event Ultra too (owner 2026-11-17, superseding the 16 Nov
+ * "earned only" audit of #7753): there is no earned-only gift any more.
+ */
+export function shopGiftBuyable(code: string | null | undefined): boolean {
+  return shopGiftKindOf(code) !== null;
 }
 
 /**
@@ -117,7 +133,7 @@ export type ShopGiftPack = {
   code: string;
   title: string;
   kind: ShopGiftKind;
-  /** Papic credits ONE pack adds — or 1 for an Event Plus / Event Pro unlock. */
+  /** Papic credits ONE pack adds — or 1 for an Event Plus / Event Pro / Event Ultra unlock. */
   credits: number;
   /**
    * THE price of one — the list price (`retail_price_php`): what a shop pays to stock one, what goes on the booking fee,
@@ -165,7 +181,7 @@ export function giftPackLine(pack: Pick<ShopGiftPack, 'kind' | 'credits' | 'titl
 export type ShopGiftBundle = {
   code: string;
   title: string;
-  /** The pack this bundle holds — a Papic pack on sale today. */
+  /** The gift this bundle holds — a Papic pack or an Event Plus / Pro / Ultra unlock on sale today. */
   pack: ShopGiftPack;
   /** How many of `pack` one bundle lands (`bundle_quantity`). */
   quantity: number;
@@ -182,9 +198,10 @@ export type ShopGiftBundleRow = {
 };
 
 /**
- * Bundles from the catalogue rows, smallest pack first. A row is dropped unless its code is a bundle code, it holds a
- * PAPIC pack that is on sale today (`packs`), its count is a whole number ≥ 2 and its price is positive — so a bundle
- * whose pack was switched off can never be bought. Nothing about a bundle is typed here; all of it is the row's.
+ * Bundles from the catalogue rows — Papic smallest pack first, then Event Plus, Pro, Ultra (owner 2026-11-17: "10 + 1
+ * bundles for ALL gifts"). A row is dropped unless its code is a bundle code, it holds a gift that is on sale today
+ * (`packs`), its count is a whole number ≥ 2 and its price is positive — so a bundle whose gift was switched off can
+ * never be bought. Nothing about a bundle is typed here; all of it is the row's.
  */
 export function shopGiftBundlesFrom(rows: readonly ShopGiftBundleRow[], packs: readonly ShopGiftPack[]): ShopGiftBundle[] {
   const byCode = new Map(packs.map((p) => [p.code, p]));
@@ -192,14 +209,15 @@ export function shopGiftBundlesFrom(rows: readonly ShopGiftBundleRow[], packs: r
   for (const r of rows) {
     if (!r || !isShopGiftBundleCode(r.code)) continue;
     const pack = r.bundleOf ? byCode.get(r.bundleOf) : undefined;
-    if (!pack || pack.kind !== 'papic') continue;
+    if (!pack) continue;
     const qty = Number(r.bundleQuantity);
     if (!Number.isInteger(qty) || qty < 2) continue;
     const price = Math.round(Number(r.pricePhp) * 100);
     if (!Number.isFinite(price) || price <= 0) continue;
     out.push({ code: r.code, title: r.title || r.code, pack, quantity: qty, priceCentavos: price });
   }
-  return out.sort((a, b) => a.pack.credits - b.pack.credits || a.quantity - b.quantity);
+  const rank = (b: ShopGiftBundle) => SHOP_GIFT_KINDS.indexOf(b.pack.kind);
+  return out.sort((a, b) => rank(a) - rank(b) || a.pack.credits - b.pack.credits || a.quantity - b.quantity);
 }
 
 /**

@@ -335,22 +335,22 @@ function DetailCard({
           {g.total > 0 ? (
             <span className="sg-status hc-figs" data-glance-status="" data-tour="home-faces">
               {/* The faces, side by side — each opens the exact list it counts. */}
-              <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig">
+              <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig sn-hit">
                 <b><Count value={g.coming} id="home-guests-coming" /></b> coming
               </Link>
               <span aria-hidden className="hc-sep">·</span>
-              <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig">
+              <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig sn-hit">
                 <b><Count value={g.noReply} id="home-guests-noreply" /></b> no reply
               </Link>
               <span aria-hidden className="hc-sep">·</span>
-              <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig">
+              <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig sn-hit">
                 <b><Count value={g.declined} id="home-guests-declined" /></b> can’t come
               </Link>
               {/* 🪑 Seats (R4 → Guests › Seats) — the phone tile's own face, so both draw one fact. */}
               {seats ? (
                 <>
                   <span aria-hidden className="hc-sep">·</span>
-                  <Link href={seats.href} className="hc-fig" data-home-fig={seats.id}>
+                  <Link href={seats.href} className="hc-fig sn-hit" data-home-fig={seats.id}>
                     <b>{seats.big}</b> {seats.id === 'guests-seats-unread' ? 'seats · couldn’t load' : seats.unit}
                   </Link>
                 </>
@@ -463,7 +463,7 @@ function DetailCard({
           </Dot>
           {s.replied > 0 ? (
             <span className="sg-status" data-glance-status="">
-              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig">
+              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig sn-hit">
                 <b>{formatCount(s.replied)}</b> replied · waiting on you
               </Link>
             </span>
@@ -471,7 +471,7 @@ function DetailCard({
           {/* 💡 The inspiration board (R5 → Suppliers › Find) — the phone tile's own face. */}
           {board ? (
             <span className="sg-status" data-glance-status="">
-              <Link href={board.href} className="hc-fig" data-home-fig={board.id}>
+              <Link href={board.href} className="hc-fig sn-hit" data-home-fig={board.id}>
                 <b>{board.big}</b> {board.unit} · {board.sm}
               </Link>
             </span>

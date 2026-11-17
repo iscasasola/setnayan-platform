@@ -1,7 +1,7 @@
 /**
  * 💎🎁 EVENT ULTRA AS A SUPPLIER GIFT AND A BADGE REWARD KIND (owner 2026-11-13: "Gifting Ultra: yes, add it to shop
- * gifts and badge rewards"; an Ultra gift on a Plus/Pro event "Gives full Ultra"; badge rewards: "Ultra kind, no step
- * yet"). The SQL side is executed in tests/db/a-supplier-gift-lands-once.db.test.ts (case 6); this holds the app side
+ * gifts and badge rewards"; an Ultra gift on a Plus/Pro event "Gives full Ultra"; badge rewards: "Ultra kind" — since 15 Nov Black
+ * Diamond pays it; since 17 Nov a shop can also buy it at list). The SQL side is executed in tests/db/a-supplier-gift-lands-once.db.test.ts (case 6); this holds the app side
  * and the one list the two sides must share.
  */
 import test from 'node:test';
@@ -19,7 +19,7 @@ import {
   type EventHolds,
 } from './shop-gifts';
 import { EVENT_ULTRA_GRANTS, EVENT_ULTRA_SKU } from './event-ultra';
-import { BADGE_REWARDS, EVENTS_STEP_REWARDS, FALLBACK_REWARD_NAMES, PLAN_PERIOD_GIFTS } from './badge-rewards';
+import { BADGE_REWARDS, TIER_REWARDS, FALLBACK_REWARD_NAMES, PLAN_PERIOD_GIFTS } from './badge-rewards';
 import { BOOKING_FEE } from './booking-fee';
 import { GIFT_KIND_WORD } from './gift-pick';
 
@@ -68,17 +68,18 @@ test('the quote verdict counts Ultra units and refuses only where the event cann
   assert.equal(short.shortKind, 'event_ultra');
 });
 
-test('🏅 Ultra is a reward KIND, and no badge step pays it until the owner names one', () => {
-  const tables = JSON.stringify({ BADGE_REWARDS, EVENTS_STEP_REWARDS, PLAN_PERIOD_GIFTS });
-  assert.ok(!tables.includes('event_ultra'), 'a badge step pays Event Ultra — the owner has not named one (13 Nov 2026)');
+test('🏅 Ultra is a reward KIND, and Black Diamond pays it (owner 15 Nov "Event ultra", superseding 13 Nov "no step yet")', () => {
+  const tables = JSON.stringify({ BADGE_REWARDS, TIER_REWARDS, PLAN_PERIOD_GIFTS });
+  assert.ok(tables.includes('event_ultra'), 'no badge step pays Event Ultra — Black Diamond\'s reward is gone');
 });
 
 test('the SQL gift door grants exactly what Ultra grants (lib/event-ultra.ts EVENT_ULTRA_GRANTS)', () => {
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith('_supplier_gifts_event_ultra.sql'));
+  // The ONE Ultra gift migration is main's 20271348181787 (applied in prod); #7678's unapplied copy was withdrawn.
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith('_black_diamond_gives_event_ultra.sql'));
   assert.ok(file, 'the Ultra gift migration is missing');
-  const sql = readFileSync(join(MIGRATIONS, file!), 'utf8');
-  const lists = [...sql.matchAll(/ARRAY\[('[A-Z_]+'(?:,\s*'[A-Z_]+')*)\]/g)]
-    .map((m) => m[1]!.split(',').map((s) => s.trim().replace(/'/g, '')))
+  const sql = readFileSync(join(MIGRATIONS, file!), 'utf8').replace(/--[^\n]*/g, '');
+  const lists = [...sql.matchAll(/(?:ARRAY\[|IN \()('[A-Z_]+'(?:,\s*'[A-Z_]+')*)[\])]/g)]
+    .map((m) => m[1]!.split(',').map((x) => x.trim().replace(/'/g, '')))
     .filter((l) => l.includes('LIVE_STUDIO'));
   assert.equal(lists.length, 2, 'both gifted-access readers must name what Ultra grants');
   for (const l of lists) assert.deepEqual([...l].sort(), [...EVENT_ULTRA_GRANTS].sort());

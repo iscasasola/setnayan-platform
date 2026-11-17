@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM } from './lib/ci-shape.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -163,6 +163,43 @@ test('🚨 the shard flag placed after the globs is caught — node ignores it t
 test('a needed job that can be skipped is caught', () => {
   mentions(problemsOf(broken('  eslint:\n    name: eslint\n', "  eslint:\n    name: eslint\n    if: ${{ github.event_name == 'pull_request' }}\n")), /"eslint" has a job-level `if:`/);
   mentions(problemsOf(broken('  eslint:\n    name: eslint\n', '  eslint:\n    name: eslint\n    needs: [typecheck]\n')), /"eslint" has its own `needs:`/);
+});
+
+/* ── draft PRs ──────────────────────────────────────────────────────────────*/
+
+test('🚨 a DRAFT PR is red on the gate, even when every job it needs passed', () => {
+  const allGreen = JSON.stringify({ guards: { result: 'success' }, typecheck: { result: 'success' } });
+  assert.deepEqual(gateVerdict(allGreen, 'true'), { ok: false, rows: [], problems: [DRAFT_PR_PROBLEM] });
+  assert.equal(gateVerdict(allGreen, 'false').ok, true, 'a ready PR is judged on its jobs');
+  assert.equal(gateVerdict(allGreen, undefined).ok, true, 'push / workflow_dispatch: no pull request');
+  const run = spawnSync(process.execPath, [path.join(HERE, 'ci-gate.mjs')], { env: { ...process.env, NEEDS: allGreen, PR_DRAFT: 'true', GITHUB_STEP_SUMMARY: '' }, encoding: 'utf8' });
+  assert.equal(run.status, 1, 'the script exits red on a draft');
+  assert.match(run.stdout, /Draft PR: checks not run\. Mark ready to test\./);
+});
+
+test('🚨 the gate that gets the draft clause is caught — it would SKIP on a draft, and skipped counts as passed', () => {
+  mentions(problemsOf(broken('    if: ${{ always() }}\n', `    if: \${{ always() && ${DRAFT_CLAUSE} }}\n`)), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('    if: ${{ always() }}\n', `    if: \${{ ${DRAFT_CLAUSE} }}\n`)), /must be `if: \$\{\{ always\(\) \}\}`/);
+});
+
+test('🚨 a gate that is not told the PR is a draft is caught', () => {
+  mentions(problemsOf(broken(/ {10}PR_DRAFT: \$\{\{ github\.event\.pull_request\.draft == true \}\}\n/, '')), /must hand the script `PR_DRAFT:/);
+});
+
+test('the draft clause is the ONLY job-level `if:` a gated job may carry', () => {
+  assert.ok(CI.includes(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`), 'typecheck skips drafts');
+  mentions(problemsOf(broken(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`, '    name: typecheck\n    if: ${{ github.event.pull_request.draft == false }}\n')), /"typecheck" has a job-level `if:`/);
+});
+
+test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked ready would keep only skipped checks', () => {
+  const types = '    types: [opened, synchronize, reopened, ready_for_review]\n';
+  assert.ok(CI.includes(types), 'ci.yml lists the four pull_request types');
+  mentions(problemsOf(broken(types, '    types: [opened, synchronize, reopened]\n')), /ci\.yml: its jobs skip draft PRs[\s\S]*missing ready_for_review/);
+  mentions(problemsOf(broken(types, '')), /ci\.yml: its jobs skip draft PRs/);
+  for (const f of ['e2e.yml', 'lighthouse.yml']) {
+    assert.ok(others[f].includes(DRAFT_CLAUSE) && others[f].includes(types), `${f} skips drafts and lists the four types`);
+    mentions(problemsOf(CI, webPackage, { ...others, [f]: others[f].replace(types, '') }), new RegExp(`${f.replace('.', '\\.')}: its jobs skip draft PRs`));
+  }
 });
 
 /* ── a shard's log ──────────────────────────────────────────────────────────*/

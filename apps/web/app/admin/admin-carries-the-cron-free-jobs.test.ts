@@ -80,6 +80,8 @@ const JOBS = [
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },
   { fn: 'maybeRunEmailDeliveryCheck', what: 'asking Resend whether each email was delivered' },
+  // 🏅 Owner 2026-11-15: the badge-reward backstop sweep (a reward whose after() was lost still pays).
+  { fn: 'maybeRunBadgeRewardSweep', what: 'paying badge rewards whose moment-of-earning sweep was lost' },
   { fn: 'maybeRunSupplierPagePublish', what: 'a supplier’s event photo going on its page after the guests’ 7-day notice' },
   // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner

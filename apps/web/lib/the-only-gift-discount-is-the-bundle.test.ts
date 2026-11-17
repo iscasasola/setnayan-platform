@@ -12,8 +12,8 @@
  *      `giftUnitPrice`, `tierPaysGiftPrice`, `fetchVendorPaysGiftPrice`, `giftChargeAtGiftPrice`), may not appear.
  *      Sabotage: put `gift_price_php` back in `fetchShopGiftUnlockRows`' select → red, naming the file.
  *   2. BUNDLE COUNTS COME FROM THE CATALOGUE — `shopGiftBundlesFrom` takes the pack and the count from the row (a row of
- *      7 is a bundle of 7); no app source types a GIFT_BUNDLE_* code; the migration's seed is the only place the
- *      owner's figures appear. Sabotage: `quantity: 11` in shopGiftBundlesFrom → red.
+ *      7 is a bundle of 7); no app source types a GIFT_BUNDLE_* code; the migration's seed names one bundle per gift and prices
+ *      it at 10 × that gift's own list price, read at apply time (owner 2026-11-17) — no ₱ is typed anywhere. Sabotage: `quantity: 11` in shopGiftBundlesFrom → red.
  *   3. The SQL side agrees: the latest `vendor_pays_gift_price` answers FALSE, so the booking-fee bill
  *      (`setnayan_gift_for_fee(BIGINT, UUID)`) charges every shop the list price.
  */
@@ -110,17 +110,26 @@ test('3 · the bill agrees: the latest vendor_pays_gift_price answers FALSE for 
   assert.doesNotMatch(body, /tier_state/, `${file}: a tier must not buy a lower price any more`);
 });
 
-test('4 · the three bundles are seeded from the owner’s figures in ONE migration, as catalogue rows the admin owns', () => {
-  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('_gift_bundles_and_papic_packs.sql'));
-  assert.equal(files.length, 1);
+test('4 · every gift has ONE 10 + 1 bundle seed, priced at 10 × its own list price READ from the catalogue — no ₱ typed', () => {
+  // Owner 2026-11-17: "10 + 1 bundles for ALL gifts" and "10 + 1 price = 10 × catalogue unit price"; every ₱ is read.
+  const files = readdirSync(MIGRATIONS).filter((f) => /_gift_bundles_.*papic_packs\.sql$/.test(f));
+  assert.equal(files.length, 1, `one bundle-seeding migration, found ${files.join(', ')}`);
   const sql = readFileSync(join(MIGRATIONS, files[0]!), 'utf8').replace(/--[^\n]*/g, '');
-  for (const [code, pack, price] of [
-    ['GIFT_BUNDLE_PAPIC_150', P150, '990.00'],
-    ['GIFT_BUNDLE_PAPIC_1K', P1K, '4990.00'],
-    ['GIFT_BUNDLE_PAPIC_3000', P3K, '9990.00'],
+  const seed = sql.slice(sql.indexOf('INSERT INTO public.platform_retail_catalog_v2'), sql.indexOf('ON CONFLICT (service_code) DO NOTHING'));
+  assert.ok(seed.length > 0, 'the bundle seed is missing');
+  for (const [code, gift] of [
+    ['GIFT_BUNDLE_PAPIC_150', P150],
+    ['GIFT_BUNDLE_PAPIC_1K', P1K],
+    ['GIFT_BUNDLE_PAPIC_3000', P3K],
+    ['GIFT_BUNDLE_EVENT_PLUS', 'EVENT_PLUS'],
+    ['GIFT_BUNDLE_EVENT_PRO', 'COUPLE_WEBSITE_PRO'],
+    ['GIFT_BUNDLE_EVENT_ULTRA', 'EVENT_ULTRA'],
   ] as const) {
-    assert.match(sql, new RegExp(`'${code}'[^)]*${price.replace('.', '\\.')}[^)]*'${pack}', 11\\)`), `${code} seed`);
+    assert.match(seed, new RegExp(`\\('${code}',\\s*'${gift}'\\)`), `${code} → ${gift} seed`);
   }
+  // The price is the gift's own row × 10 — never a peso figure in the seed.
+  assert.match(seed, /10 \* c\.retail_price_php/);
+  assert.doesNotMatch(seed, /\d+\.\d{2}/, 'a typed peso figure is in the bundle seed');
   // A re-apply never resets what the admin changed since.
   assert.match(sql, /ON CONFLICT \(service_code\) DO NOTHING/);
 });

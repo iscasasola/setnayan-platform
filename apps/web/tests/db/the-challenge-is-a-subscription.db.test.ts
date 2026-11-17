@@ -131,9 +131,9 @@ const inDays = (n: number) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('a BOOKED shop with no subscription cannot author a challenge', async () => {
-  // SOLO, not Pro: since 2026-11-09 the Pro and Ultra plans INCLUDE the Specialized tools unlock (owner,
-  // Build 4), so a Pro shop is entitled with no subscription. Solo is the plan that still has to pay.
-  const shop = await newVendor('unpaid', 'solo');
+  // VERIFIED, not a paid plan: Pro and Ultra INCLUDE the Specialized tools unlock since 2026-11-09 (owner, Build 4),
+  // and Plus does too since 2026-11-14 ("SIMPLER SUPPLIER PLANS"). Verified is the plan that still has to pay.
+  const shop = await newVendor('unpaid', 'verified');
   const eventId = await newBookedEvent('unpaid-ev', shop.vendorProfileId);
   const err = await tryAuthor(shop.userId, eventId);
   assert.match(
@@ -175,7 +175,7 @@ test('ONE subscription covers EVERY celebration — the whole product change', a
 });
 
 test('a LAPSED subscription refuses — lapse is read time, nothing sweeps it', async () => {
-  const shop = await newVendor('lapsed', 'solo'); // Pro includes the unlock since 2026-11-09
+  const shop = await newVendor('lapsed', 'verified'); // Plus · Pro · Ultra include the unlock (2026-11-09 / 2026-11-14)
   const eventId = await newBookedEvent('lapsed-ev', shop.vendorProfileId);
   await setSubscription(shop.vendorProfileId, inDays(-1));
   assert.match(String(await tryAuthor(shop.userId, eventId)), /PAPIC_CHALLENGE_NOT_SUBSCRIBED/);

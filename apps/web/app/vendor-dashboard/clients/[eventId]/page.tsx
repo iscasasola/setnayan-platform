@@ -1,3 +1,4 @@
+import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
@@ -173,6 +174,7 @@ import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
+import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
@@ -195,6 +197,7 @@ import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { centreLogoOnItsInk } from '@/lib/logo-layers';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { foundYouLine } from '@/lib/booking-fee-dispute';
 import { readThreadUnreadCount } from '@/lib/couple-inbox';
 import {
   buildSharedFiles,
@@ -589,6 +592,8 @@ type Props = {
     taken?: string;
     free?: string;
     competing?: string;
+    /** `today` — opened from Today, so ✕ returns there (`pickedClientCloseHref`, EB-290). */
+    from?: string;
   }>;
 };
 
@@ -764,6 +769,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myContactsRes,
     headcountRule,
     headcountNames,
+    foundRes,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -882,8 +888,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // …and the rule in the couple's words ("Only Bride's Crew") — admin-read like the event row above (a supplier has no
       // read on `events`), behind the same booking gate. A failed read is the usual words, logged (`loadRoleNames`).
       isBooked && feeUnlocked ? loadRoleNames(admin, eventId, 'vendorClientCard.roleNames') : Promise.resolve(null),
+      // 🕵️ FOUND YOU (owner 16 Nov 2026, DECISION_LOG e5d166cd (2)) — where and when this couple first opened the shop
+      // from a Setnayan surface. The record is couple/admin-only under RLS, so it is admin-read, scoped to THIS event and
+      // THIS shop, which the brief RPC above already proved the caller holds. No record or a failed read → no line.
+      admin
+        .from('event_vendor_found')
+        .select('first_found_at, first_source')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
     ]),
   );
+  if (foundRes.error) logQueryError('vendorClientCard.foundYou', foundRes.error);
+  const foundRow = foundRes.error ? null : (foundRes.data as { first_found_at: string | null; first_source: string | null } | null);
+  const foundLine = foundYouLine(foundRow?.first_found_at, foundRow?.first_source);
 
   const completionRow = (evRow ?? null) as ({
     vendor_id: string | null;
@@ -2037,7 +2055,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {runsThisEvent ? <OpenTheirEvent eventId={eventId} /> : null}
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href={supplierChatHref(eventId, threadId)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
@@ -2073,7 +2091,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </Link>
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}#pending-payments`}
+          href={`${supplierChatHref(eventId, threadId)}#pending-payments`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
@@ -2153,6 +2171,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       headcountRule={headcountRule}
       headcountNames={headcountNames}
       returningFlag={returningFlag}
+      foundLine={foundLine}
       isBooked={isBooked}
       paletteEntries={paletteEntries}
       mealEntries={mealEntries}
@@ -2261,6 +2280,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     feeUnlocked,
     eventVendorId,
     eventDate: brief.event.event_date,
+    threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
   };
 
   // Files: the ONE shared builder, read once; the page body (`_pages/files.tsx`, C1) draws the rows.
@@ -2397,6 +2417,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       access={feeGate.access}
       withheld={feeWithheld}
       threadId={threadId}
+      eventId={eventId}
     />
   );
   const gated = (node: React.ReactNode): React.ReactNode => (feeUnlocked ? node : feeLockPanel);
@@ -2459,7 +2480,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked && threadId ? (
       pendingPayments.length === 0 && planRowsAll.length === 0 ? (
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="home-k2 !mt-0 !mb-0">
             Payments
           </p>
           {ledgerUnreadable ? (
@@ -2478,7 +2499,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="home-k2 !mt-0 !mb-0">
             Payments
           </p>
           <VendorPaymentLive
@@ -2491,7 +2512,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       )
     ) : (
       <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="home-k2 !mt-0 !mb-0">
           Payments
         </p>
         <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
@@ -2551,7 +2572,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const nextMoveCard = (
     <div className="hidden lg:block" data-next-move="">
       <ShopCard pad="tight">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">Your next move</p>
+        <p className="home-k2 !mt-0 !mb-0">Your next move</p>
         <div className="mt-2">
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -2562,7 +2583,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <h3 className="mt-2 text-sm font-semibold text-ink">{nextMove.title}</h3>
         <p className="mt-1 text-xs leading-relaxed text-ink/60">{nextMove.body}</p>
         {awaitingPayments.length > 0 ? (
-          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
+          <p className="mt-2.5 text-[12.5px] font-semibold text-warn-900">
             {awaitingPayments.length} awaiting confirmation
           </p>
         ) : null}
@@ -2621,7 +2642,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         />
       ) : null}
       {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} />
+      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
       <DetailsFormsDoor />
     </div>
   );
@@ -2678,6 +2699,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       eventId={eventId}
       eventName={eventName}
       chatUnread={await chatUnreadP}
+      closeHref={pickedClientCloseHref(search.from)}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
@@ -2844,6 +2866,8 @@ function OverviewTab(props: {
   /** The couple's words for roles, for the rule's line. */
   headcountNames: RoleNames | null;
   returningFlag: ReturningClientFlag | null;
+  /** 🕵️ "Found you on Setnayan · from Search, 3 Nov" — `foundYouLine`, or null when there is no found-record. */
+  foundLine: string | null;
   isBooked: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
   mealEntries: [string, number][];
@@ -2910,6 +2934,7 @@ function OverviewTab(props: {
     headcountRule,
     headcountNames,
     returningFlag,
+    foundLine,
     isBooked,
     paletteEntries,
     mealEntries,
@@ -2941,6 +2966,11 @@ function OverviewTab(props: {
       {/* Returning-client marker + quick-action bar (Relationship Workspace ·
           Details tab, PR 5). Additive — sits at the top of the Overview. */}
       <ReturningMarker returningFlag={returningFlag} />
+      {foundLine ? (
+        <p data-found-you="" className="text-[13px] font-semibold text-terracotta-700">
+          ★ {foundLine}
+        </p>
+      ) : null}
 
       {/* Imported hint (invite the couple to Setnayan). */}
       {isImported ? (
@@ -3551,7 +3581,7 @@ function QuoteTab(props: {
     <div className="space-y-6">
       {/* Quotation */}
       <div>
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="home-k2 !mt-0 !mb-2">
           Quotation
         </p>
         {proposals.length === 0 ? (
@@ -3593,7 +3623,7 @@ function QuoteTab(props: {
           // that tool, with the proposals list only when there is no thread.
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#build-quote`
+              ? customerCardHref(eventId, 'quote')
               : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
@@ -3604,7 +3634,7 @@ function QuoteTab(props: {
 
       {/* Payments */}
       <div>
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="home-k2 !mt-0 !mb-2">
           Payments
         </p>
         {!isBooked ? (
@@ -3703,7 +3733,7 @@ function ScheduleTab(props: {
     const timeline = props.brief.timeline ?? [];
     return (
       <div className="space-y-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Day-of timeline</p>
+        <p className="home-k2 !mt-0 !mb-0">Day-of timeline</p>
         {timeline.length > 0 ? (
           <ShopCard>
             <ul className="space-y-2">
@@ -3935,7 +3965,7 @@ function ScheduleTab(props: {
 
           {handovers.length > 0 ? (
             <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your handovers</p>
+              <p className="home-k2 !mt-0 !mb-0">Your handovers</p>
               <ul className="mt-1.5 space-y-1.5">
                 {handovers.map((h) => (
                   <li key={h.handover_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">

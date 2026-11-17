@@ -5,9 +5,9 @@ import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server
 
 /** The gift a row moved: "1,000 credits" for Papic, "1 Event Plus" for an unlock (slice 2). */
 const giftWord = (kind: ShopGiftLedgerRow['giftKind'], n: number) =>
-  kind === 'papic'
-    ? `${formatCount(n)} credits`
-    : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : kind === 'event_ultra' ? 'Event Ultra' : 'Event Pro'}`;
+  kind === 'papic' ? `${formatCount(n)} credits` : `${formatCount(n)} ${UNLOCK_WORD[kind]}`;
+
+const UNLOCK_WORD = { event_plus: 'Event Plus', event_pro: 'Event Pro', event_ultra: 'Event Ultra' } as const;
 
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });

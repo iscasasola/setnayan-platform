@@ -17,34 +17,25 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { EXPLORE_INFO_DATE } from '@/lib/explore-info-copy';
-import { coverPercent } from './_components/cover-ring';
 
 const read = (p: string) => stripComments(readFileSync(join(__dirname, p), 'utf8'));
 const SHELL = read('_components/services-takeover.tsx');
 const BENCH = read('_components/shortlist-categories.tsx');
 const RING = read('_components/cover-ring.tsx');
+const BUILD = read('_components/build-body.tsx');
 
-test('1 · the bar fills by the covered share', () => {
-  assert.equal(coverPercent({ covered: 6, total: 14 }), 43);
-  assert.equal(coverPercent({ covered: 14, total: 14 }), 100);
-  assert.equal(coverPercent({ covered: 0, total: 0 }), 0);
-  assert.equal(coverPercent(null), 0);
-  assert.equal(coverPercent({ covered: 9, total: 4 }), 100);
-});
-
-test('2 · (2026-11-12) the count sits in the pinned row beside Find ▾, the bar along its foot; the header is for a screen reader', () => {
+test('2 · (2026-11-17) the count is ONE quiet line atop Build — "Covered N of M categories ⓘ" — and off the row', () => {
   const at = SHELL.indexOf('data-suppliers-stick=""');
   const row = SHELL.slice(SHELL.lastIndexOf('<div', at), SHELL.indexOf('<MenuSettingsButton', at));
-  assert.match(SHELL, /mode === 'find' \? \(\s*<CoverCount \/>/, 'Find’s count is not the row’s count');
-  assert.match(row, /\{mode === 'find' \? <CoverBar \/> : null\}/, 'the bar is not along the pinned row');
-  assert.match(SHELL, /<CoverRingProvider>\s*<section ref=\{rootRef\}/, 'the row cannot hear the bench’s count');
+  assert.doesNotMatch(row, /<CoverCount|<CoverBar/, 'the count is back on the pinned row (ruled 17 Nov, Q14: one quiet line in Build)');
+  assert.match(SHELL, /<CoverRingProvider>\s*<section ref=\{rootRef\}/, 'Build cannot hear the bench’s count');
+  assert.match(BUILD, /<section id="svc-build"[^>]*>(\s|\{\s*\})*<CoveredLine \/>/, 'the covered line is not the first line of Build');
   const sec = SHELL.slice(SHELL.indexOf('function ServiceSection('), SHELL.indexOf('function SectionStub('));
   assert.match(sec, /<header className=\{folded \? 'sr-only' : 'mb-4'\}>/, 'the folded header is drawn on the page again');
   assert.doesNotMatch(sec, /<CoverCount|<CoverBar|<Explain/, 'the old header block is back — the count twice');
-  assert.match(RING, /<Count value=\{ring\.covered\} id="sup-ring-covered" \/> of <Count value=\{ring\.total\} id="sup-ring-total" \/>/);
-  assert.match(RING, /COVER_NOTHING_YET = 'nothing added yet'/);
-  assert.match(RING, /data-cover-bar=""[\s\S]*?role="progressbar"/);
-  assert.match(RING, /h-\[3px\]/, 'the bar is no longer thin');
+  assert.match(RING, /Covered <Count value=\{ring\.covered\} id="sup-cart-covered" \/> of <Count value=\{ring\.total\} id="sup-cart-total" \/>\{' '\}\s*categories/);
+  // Not published yet, or nothing listed → no line, never a made-up 0.
+  assert.match(RING, /if \(!ring \|\| ring\.total <= 0\) return null;/);
 });
 
 test('3 · under the calm header the bench draws no "Covered N of M" line — it publishes the count', () => {

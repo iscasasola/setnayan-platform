@@ -33,6 +33,7 @@ import {
   type BookedView,
 } from '@/lib/booked-rows';
 import { BookedRowList, BookedRowsExample, WaitingRowItem } from './booked-row';
+import { BOOK_STATUS_BOOKED, BOOK_STATUS_PAY } from '@/lib/your-team-rows';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import type { ServiceCounts } from '@/lib/supplier-count';
 import { WhereAsk } from './booked-where';
@@ -152,7 +153,17 @@ export function BookedBody({
         ) : (
           <>
             <p className={SUB}>
-              {formatCount(booked.length)} booked
+              {/* 📦 "Booked ✓" only after the first payment (owner 2026-11-17, Q10) — a yes still owed its first
+                  payment is counted as what it is. */}
+              {formatCount(booked.filter((r) => r.pill.text === BOOK_STATUS_BOOKED).length)} booked
+              {booked.some((r) => r.pill.text === BOOK_STATUS_PAY) ? (
+                <>
+                  {' · '}
+                  <span className="font-medium text-[rgb(var(--color-warn))]" data-booked-owed="">
+                    {formatCount(booked.filter((r) => r.pill.text === BOOK_STATUS_PAY).length)} waiting for your first payment
+                  </span>
+                </>
+              ) : null}
               {unpriced > 0 ? (
                 <>
                   {' · '}

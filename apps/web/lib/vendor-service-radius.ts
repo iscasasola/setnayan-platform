@@ -249,6 +249,9 @@ export function travelFeeVerdictForVendor(input: {
 
 /** Plain-words label + tone for each verdict. One definition, so the bench card
  *  and the quickview inspector can never word the same fact differently. */
+/** The word on a card past its supplier's reach (owner 2026-11-17, drawing v15). */
+export const BEYOND_REACH = 'Beyond reach';
+
 export const TRAVEL_FEE_BADGE: Record<
   Exclude<TravelFeeVerdict, null>,
   { text: string; tone: 'ok' | 'warn' }
@@ -307,11 +310,15 @@ export function resolveReachBadge(input: {
     innerKm: input.innerKm,
     outerKm: input.outerKm,
   });
+  // 🧭 "Beyond reach" (owner 2026-11-17, drawing v15): a supplier past their reach of the event's place says so in
+  // those words, with the distance when it is known (a read, never typed).
+  const km = typeof input.distanceKm === 'number' && Number.isFinite(input.distanceKm) ? Math.round(input.distanceKm) : null;
+  const beyond = km != null ? `${BEYOND_REACH} · ${km} km away` : BEYOND_REACH;
   if (verdict) {
     return {
       source: 'declared',
       verdict,
-      text: TRAVEL_FEE_BADGE[verdict].text,
+      text: verdict === 'outside_range' ? beyond : TRAVEL_FEE_BADGE[verdict].text,
       tone: TRAVEL_FEE_BADGE[verdict].tone,
       inRange: verdict !== 'outside_range',
     };
@@ -322,7 +329,7 @@ export function resolveReachBadge(input: {
   if (input.reachesVenue === false) {
     return {
       source: 'tier',
-      text: input.serviceRadiusKm ? `Beyond ${input.serviceRadiusKm}km` : 'Travel fee likely',
+      text: beyond,
       tone: 'warn',
       inRange: false,
     };

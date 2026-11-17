@@ -57,6 +57,8 @@ const STEPS: Array<[name: string, verbs: ReturnType<typeof cardVerbs>, want: Car
   ['priced', at({ inquiry: THREAD, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'chat', 'remove'], ['add']],
   ['in the build', at({ inquiry: THREAD, build: { kind: 'in_build' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['in_build', 'book', 'chat', 'remove'], ['in_build']],
   ['priced, added by you', at({ connect: true, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'record', 'remove'], ['add']],
+  // 🛒 Owner 2026-11-17 (drawing v15): one next step per pick — "Ask for a quote" while there is no price to book at.
+  ['in the build, no price yet', at({ inquiry: { kind: 'inquire' }, build: { kind: 'in_build' }, buildGroupId: 'g', lockGroupId: 'g' }), ['in_build', 'ask', 'remove'], ['in_build']],
   ['added by you, no price', at({ connect: true, build: { kind: 'set_price' }, buildGroupId: 'g' }), ['record', 'remove'], ['record']],
   ['does not fit the build', at({ inquiry: THREAD, build: { kind: 'schedule_clash', clashWith: 'Seda' }, buildGroupId: 'g' }, { hasPrice: true }), ['chat', 'remove'], []],
   ['asked to book', at({ inquiry: THREAD, withdraw: { kind: 'withdraw' } }, { hasPrice: true }), ['nudge', 'chat', 'withdraw'], []],
@@ -118,7 +120,7 @@ test('T3 · the words are the prototype’s, and one colour per meaning', () => 
     another_day: ['Ask about another day', 'warn'],
     add: ['Add to build', 'brand'],
     in_build: ['In your build', 'ok'],
-    book: ['Book', 'ok'],
+    book: ['Ask to book', 'ok'], // 🛒 owner 2026-11-17: "Lock this" → "Ask to book"
     record: ['Your record', 'neutral'],
     withdraw: ['Withdraw', 'danger'],
     pay: ['Pay', 'ok'],

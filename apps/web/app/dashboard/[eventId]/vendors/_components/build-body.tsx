@@ -43,8 +43,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Check, ChevronRight, Columns2, Pencil, Plus, Save, Search, X } from 'lucide-react';
-import { ActionButton, useFitRow } from '@/components/action-button';
+import { CalendarCheck, CalendarDays, Check, ChevronRight, Columns2, Pencil, Plus, Save, Search, X } from 'lucide-react';
+import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { Explain } from '@/app/_components/explain';
 import { SwitchRow } from '@/app/_components/form-row';
@@ -80,6 +80,9 @@ import {
 import { deleteBudgetBuild, savePlanBuildNamed } from '../build-actions';
 import { applyBuildToWorking, removeBuildPick, setBuildPick } from '../build-pick-actions';
 import { BookPricesCtx } from './book-this-build';
+import { AccordionLockButton } from './accordion-lock';
+import { CoveredLine } from './cover-ring';
+import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
 type Done = { ok: true } | { ok: false; error: string };
@@ -358,6 +361,7 @@ export function BuildBody({
       onPick={(key) => pick(line, key)}
       onFind={() => findIn(line.tile)}
       priceHref={(vendorId) => `${base}/${vendorId}/workspace?tab=payments`}
+      eventId={eventId}
     />
   );
   // ✓ only when every priced pick is READ free — a calendar not set or not checked is not a yes (P5, the prototype's rule).
@@ -384,6 +388,8 @@ export function BuildBody({
 
       {/* ── THIS BUILD ─────────────────────────────────────────────────── */}
       <section id="svc-build" aria-labelledby="svc-build-h" className="min-w-0">
+        {/* 📋 "Covered N of M categories ⓘ" — one quiet line atop the cart (owner 2026-11-17, Q14), moved off the row. */}
+        <CoveredLine />
         {/* The row: This build ▾ · ＋ New build · ⓘ (frame 12). */}
         <div className="flex min-w-0 items-center gap-2" data-build-head="">
           <h2 id="svc-build-h" className="sr-only">
@@ -698,18 +704,34 @@ function BuildFigures({ view }: { view: BuildView }) {
 
 /* ── ONE CATEGORY LINE ────────────────────────────────────────────────────── */
 
+/** A pick the couple can ask now: in the build, priced, not booked, not asked, nothing standing in the way. */
+export function askable(line: BuildLine): boolean {
+  const p = line.pick;
+  return (
+    p != null &&
+    line.booked == null &&
+    !line.pickAsked &&
+    line.pickNote == null &&
+    p.groupId != null &&
+    p.includedWith == null &&
+    p.pricePhp != null
+  );
+}
+
 function BuildLineRow({
   line,
   busy,
   onPick,
   onFind,
   priceHref,
+  eventId,
 }: {
   line: BuildLine;
   busy: boolean;
   onPick: (key: string) => void;
   onFind: () => void;
   priceHref: (vendorId: string) => string;
+  eventId: string;
 }) {
   const who = line.booked ?? line.pick;
   // The pick is always in its own dropdown, even while it cannot be booked.
@@ -774,6 +796,25 @@ function BuildLineRow({
       </div>
       {/* A line with nobody: its door sits on its own row under the words (the approved prototype's drawing), so a long
           category name ("Jewelleries & Accessories") is never squeezed into a narrow column beside a wide button. */}
+      {/* 🛒 ONE NEXT STEP PER PICK (owner 2026-11-17, drawing v15 — "Book this build" and its sheet go): a priced pick
+          not yet asked gets "Ask to book" on its own line, through the one booking path (`AccordionLockButton` →
+          `finalizeVendor`). Asking moves it to Book; a pick that cannot be booked keeps its note and offers nothing. */}
+      {askable(line) ? (
+        <div className="col-span-2 justify-self-end" data-build-ask={line.tile}>
+          <AccordionLockButton
+            eventId={eventId}
+            groupId={line.pick!.groupId as PlanGroupId}
+            groupLabel={line.label}
+            vendorId={line.pick!.vendorId}
+            vendorName={line.pick!.name}
+            label="Ask to book"
+            pendingLabel="Asking…"
+            icon={<CalendarCheck aria-hidden strokeWidth={1.9} />}
+            className={actionButtonClass('brand', { main: true })}
+            wrapperClassName="verb-slot"
+          />
+        </div>
+      ) : null}
       {who == null && !canChoose ? (
         <div className="col-span-2 justify-self-start" data-build-find={line.tile}>
           <ActionButton tone="brand" icon={Search} label={`Find in ${line.label}`} onClick={onFind} />

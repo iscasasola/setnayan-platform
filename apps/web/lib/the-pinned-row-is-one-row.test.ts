@@ -109,9 +109,9 @@ test('Guests — ONE row on every view, pinned from the start: the one menu · �
   assert.doesNotMatch(screen, /getBoundingClientRect\(\)\.bottom <= bar/, 'the row waits for the carousel to leave again — it would wear two faces');
 });
 
-test('Suppliers — ONE row pins, the same at rest: [Page · View ▾] · its count · ⚙; the date · place line scrolls away above it', () => {
-  // Owner 2026-10-30 "all yes" (DECISION_LOG "ONE SELECTOR FOR EVERY PAGE") + 2026-10-31 *"Suppliers. needs to have that
-  // drop down effect"*: the segmented Find | Build | Booked row and the face laid over it while pinned are ONE row.
+test('Suppliers — ONE row pins, the same at rest: Find · Build · Book · ⚙; the date · place line scrolls away above it', () => {
+  // Owner 2026-10-30 "all yes" (DECISION_LOG "ONE SELECTOR FOR EVERY PAGE") made it one dropdown; owner 2026-11-17 ("the
+  // find build book" — search · cart · orders, drawing v15) overturned that for Suppliers ONLY: three plain steps, one row.
   const src = read('vendors', '_components', 'services-takeover.tsx');
   const at = src.indexOf('data-suppliers-stick=""');
   assert.ok(at > -1, 'the pinned row is gone');
@@ -120,9 +120,8 @@ test('Suppliers — ONE row pins, the same at rest: [Page · View ▾] · its co
   assert.ok(close > at, 'the pinned row lost its ⚙');
   const stick = src.slice(open, close);
   assert.match(stick, /className="[^"]*\bsticky\b/, 'the selector row is not sticky');
-  assert.equal(count(stick, /<PickMenu\b/g), 1, 'the pinned row holds one selector');
-  assert.match(stick, /<PickMenu\b[^>]*\bcompact\b/, 'the selector is not the shared compact face');
-  assert.doesNotMatch(stick, /<PickMenu\b[^>]*\b(trigger|className)=/, 'the selector wears a local look');
+  assert.equal(count(stick, /<PickMenu\b/g), 0, 'a dropdown is back on the Suppliers row (ruled 17 Nov: three plain steps)');
+  assert.equal(count(stick, /<nav\b[^>]*data-sup-steps=""/g), 1, 'the pinned row holds the one step row');
   assert.equal(count(src, /<ISegmented\b|<ISeg\b|data-sup-face/g), 0, 'a segmented row (or the face laid over it) is back');
   assert.equal(count(stick, '{factsSlot}'), 0, 'the date · place line is pinned again — two rows');
   const facts = src.indexOf('{factsSlot}');

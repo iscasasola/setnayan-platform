@@ -115,7 +115,7 @@ test('a supplier saved here this visit is counted on its row once — and not ag
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
-test('wiring: the bench says it at every in-place pin; the shell’s segment and peek read the re-count', () => {
+test('wiring: the bench says it at every in-place pin; the shell’s cart badge and peek read the re-count', () => {
   const bench = src('_components/shortlist-categories.tsx');
   const setBuilt = bench.slice(bench.indexOf('setBuilt: (vendorId, groupId, on, multi) => {'), bench.indexOf('say: (tone, text, retry)'));
   assert.match(setBuilt, /window\.dispatchEvent\(new Event\(BENCH_BUILT_EVENT\)\)/, 'an in-place pin must tell the shell');
@@ -124,7 +124,9 @@ test('wiring: the bench says it at every in-place pin; the shell’s segment and
   assert.match(shell, /liveBuildTally\(liveTally, \(v, g, drawn\) => builtNowIn\(benchLocalStore\(eventId\), v, g, drawn\)\)/);
   assert.match(shell, /tally: drawnTally,/, 'the drawn tally must not be read directly by the segment or the peek');
   assert.match(shell, /<BuildCart tally=\{tally\} \/>/);
-  assert.match(shell, /<Count value=\{tally\.filled\} id="sup-row-filled" \/>/);
+  // 🛒 2026-11-17: the row's fraction became the cart badge — it re-counts from the SAME store at the SAME tick.
+  assert.match(shell, /countCart\(liveTally, \(v, g, drawn\) => builtNowIn\(benchLocalStore\(eventId\), v, g, drawn\)\)/, 'the cart badge no longer moves at the press');
+  assert.match(shell, /\[liveTally, drawnCart, eventId, builtTick\]/, 'the cart badge does not hear an in-place pin');
   const page = src('page.tsx');
   assert.match(page, /liveTally=\{liveTallyBase\}/, 'the page must hand the shell its inputs');
   assert.match(bench, /vendorCount: yours,/, 'the row’s state word must count a supplier saved here');

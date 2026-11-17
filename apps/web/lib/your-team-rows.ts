@@ -86,7 +86,7 @@ export type TeamRowFacts = {
 
 export type TeamRowAction =
   | { kind: 'pay'; label: 'Pay'; href: string }
-  | { kind: 'lock'; label: 'Book'; groupId: string }
+  | { kind: 'lock'; label: 'Ask to book'; groupId: string }
   | { kind: 'nudge'; label: 'Nudge'; href: string }
   | { kind: 'review'; label: 'Review'; href: string }
   /** A refused deposit read: a doorway that claims nothing either way. */
@@ -120,6 +120,19 @@ export type TeamRow = {
   isVerified?: boolean;
   notYetVerified: boolean;
 };
+
+/**
+ * 📦 BOOK'S THREE STATUSES (owner 2026-11-17, Q10: *"A supplier reads 'Booked ✓' only after the first payment; their yes
+ * shows 'Waiting for your first payment'; booking fee stays on that payment."*). Words only — the states exist:
+ *   asked, no answer           → "Waiting for their answer"
+ *   their yes, first payment   → "Waiting for your first payment" (with Pay)
+ *   first payment confirmed    → "Booked ✓"
+ */
+export const BOOK_STATUS_ASKED = 'Waiting for their answer';
+export const BOOK_STATUS_PAY = 'Waiting for your first payment';
+export const BOOK_STATUS_BOOKED = 'Booked ✓';
+/** The supplier said the first payment never arrived — send it again. */
+export const BOOK_PAYMENT_REFUSED = 'Payment not received';
 
 const GROUP_ORDER: Record<TeamRowGroup, number> = { booked: 0, asked: 1, deciding: 2, waiting: 3 };
 
@@ -164,7 +177,9 @@ export function teamRowOf(
 
   // ── 1 · Booked ───────────────────────────────────────────────────────────
   if (state === 'locked') {
-    const booked = { ...base, group: 'booked' as const, pill: { text: 'Booked', tone: 'ok' as const } };
+    const booked = { ...base, group: 'booked' as const, pill: { text: BOOK_STATUS_BOOKED, tone: 'ok' as const } };
+    // Their yes, before the first payment is confirmed, is not "Booked ✓" yet (Q10).
+    const owed = { ...booked, pill: { text: BOOK_STATUS_PAY, tone: 'warn' as const } };
     // After the day: the review window, when (and only when) it is open.
     if (f.reviewStatus === 'open') {
       return {
@@ -179,22 +194,30 @@ export function teamRowOf(
       const href = depositStepHref(ctx.eventId, f.vendorId);
       switch (f.depositStep) {
         case 'due':
-          return { ...booked, next: 'make your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
+          return { ...owed, next: 'make your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
         case 'refused':
           return {
             ...booked,
-            pill: { text: 'Payment not received', tone: 'warn' },
+            pill: { text: BOOK_PAYMENT_REFUSED, tone: 'warn' },
             next: 'send your payment again',
             action: { kind: 'pay', label: 'Pay', href },
             needsYou: true,
           };
         case 'sent':
-          return { ...booked, next: 'they confirm your first payment', action: null, needsYou: false };
+          // Paid, not yet confirmed — not "Booked ✓" until it is, and not "waiting for you" either.
+          return {
+            ...booked,
+            pill: { text: 'First payment sent', tone: 'soft' },
+            next: 'they confirm your first payment',
+            action: null,
+            needsYou: false,
+          };
         case 'unknown':
           // A refused read is NOT "due" — telling a couple who paid to pay again
           // is the failure this whole codebase keeps fencing. Say what is true.
           return {
             ...booked,
+            pill: { text: 'Couldn’t check payment', tone: 'warn' },
             next: 'we couldn’t check your payment',
             action: { kind: 'check', label: 'Check', href },
             needsYou: false,
@@ -212,7 +235,7 @@ export function teamRowOf(
     return {
       ...base,
       group: 'asked',
-      pill: { text: 'Waiting', tone: 'soft' },
+      pill: { text: BOOK_STATUS_ASKED, tone: 'soft' },
       next: fuse ? `they confirm your booking · ${fuse}` : 'they confirm your booking',
       action: nudge ? { kind: 'nudge', label: 'Nudge', href: nudge } : null,
       needsYou: false,
@@ -239,7 +262,7 @@ export function teamRowOf(
       group: 'deciding',
       pill: priced ? { text: 'Quote in', tone: 'warn' } : { text: 'In your build', tone: 'soft' },
       next: priced ? `book at ${formatPhpRounded(f.pricePhp)}` : 'book them',
-      action: { kind: 'lock', label: 'Book', groupId: f.lockGroupId },
+      action: { kind: 'lock', label: 'Ask to book', groupId: f.lockGroupId },
       needsYou: true,
     };
   }
@@ -282,7 +305,8 @@ export function teamRows(
 /** "4 booked · 2 need you" — counted from the same rows the screen draws. */
 export function teamCountsLine(rows: readonly TeamRow[]): { booked: number; needYou: number } {
   return {
-    booked: rows.filter((r) => r.group === 'booked').length,
+    // "Booked ✓" only after the first payment (Q10) — a yes still waiting on its first payment is not counted booked.
+    booked: rows.filter((r) => r.group === 'booked' && r.pill.text === BOOK_STATUS_BOOKED).length,
     needYou: rows.filter((r) => r.needsYou).length,
   };
 }

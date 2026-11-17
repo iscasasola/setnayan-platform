@@ -148,7 +148,9 @@ test('the save refuses a twin on the server too — the same compare the screen 
 test('a set of choices is ONE dropdown, and the buttons are the shipped button', () => {
   assert.match(BODY, /<PickMenu\s/);
   assert.doesNotMatch(BODY, /<select|<button/, 'a hand-made control — use PickMenu / ActionButton');
-  assert.match(BODY, /import \{ ActionButton, useFitRow \} from '@\/components\/action-button';/);
+  assert.match(BODY, /import \{ ActionButton, actionButtonClass, useFitRow \} from '@\/components\/action-button';/);
+  // 🛒 A pick's "Ask to book" is the ONE shipped booking button (owner 2026-11-17) — never a hand-made one.
+  assert.match(BODY, /<AccordionLockButton\s[\s\S]*?label="Ask to book"/, 'a pick no longer asks through the shipped booking button');
   assert.match(BODY, /import \{ ScheduleSheet, SheetField, SheetFoot \} from '@\/app\/dashboard\/\[eventId\]\/schedule\/_components\/schedule-sheet';/);
   assert.match(BODY, /import \{ PeekToast \} from '@\/app\/_components\/toast\/peek-toast';/);
 });

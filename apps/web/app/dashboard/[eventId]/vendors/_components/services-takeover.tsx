@@ -43,12 +43,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { flushSync } from 'react-dom';
-import { ChevronRight, Sparkles } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { Package, Search, ShoppingCart, Sparkles, type LucideIcon } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
-import { Count } from '@/components/count';
-import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -59,10 +56,10 @@ import {
   type BudgetBuildTab,
 } from '@/lib/budget-build';
 import {
+  SUPPLIERS_MODES,
   SUPPLIERS_MODE_LABEL,
-  SUPPLIERS_MODE_MEANING,
   SUPPLIERS_MODE_TAB,
-  SUPPLIERS_NEXT_MODE,
+  cartCount as countCart,
   isModeTab,
   liveBuildTally,
   suppliersModeOfTab,
@@ -74,7 +71,7 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { COVERAGE_STRIP_HEADING } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
 import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
-import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
+import { CoverRingProvider } from './cover-ring';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
 import { shellBarShows } from '../../guests/_components/use-shell-bar-offset';
@@ -131,10 +128,13 @@ const LANDING_CSS =
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
   '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
-// 📌 ONE ROW, THE SAME AT REST AND PINNED (owner 2026-10-30 "all yes" — DECISION_LOG "ONE SELECTOR FOR EVERY PAGE";
-// owner 2026-10-31, live iPhone: *"Suppliers. needs to have that drop down effect to be able to safely integrate
-// all"*). The segmented Find | Build | Booked row and the face that lay over it while pinned are GONE: the row is one
-// `Page · View ▾` dropdown, its count, and the ⚙ — nothing to swap, so nothing below ever moves.
+// 🛒 FIND · BUILD · BOOK — SEARCH · CART · ORDERS (owner 2026-11-17: *"technically this is like search, view cart and
+// ordered on a shopping app"* · *"the find build book"*; drawing v15 `shoprow`). Three plain steps, each an icon with
+// its read badge and its word, then the ⚙ — the same at rest and pinned. It OVERTURNS the 30 Oct one-selector rule for
+// Suppliers only (his words, 17 Nov): the Find ▾ dropdown, both fractions and the ▶ next button are gone.
+
+/** Each step's icon — the drawing's search · cart · box. */
+const STEP_ICON: Record<SuppliersMode, LucideIcon> = { find: Search, build: ShoppingCart, booked: Package };
 
 function prefersReducedMotion(): boolean {
   return (
@@ -151,6 +151,8 @@ export function ServicesTakeover({
   tally: drawnTally,
   liveTally = null,
   bookedCount,
+  cartCount: drawnCart = 0,
+  ordersCount = 0,
   shortlistSlot,
   buildSlot,
   buildBody,
@@ -185,8 +187,12 @@ export function ServicesTakeover({
   /** The inputs `tally` was counted from — so a press that answers in place (Add to build) moves Build N/M and
    *  the cart peek at once (`liveBuildTally`). Null: the page's numbers as drawn. */
   liveTally?: LiveTallyBase | null;
-  /** "Booked 2" — counted from the same rows the Booked body draws. */
+  /** "2 booked" — counted from the same rows the Book body draws. (No longer on the row — kept for the lab.) */
   bookedCount: number;
+  /** 🛒 The cart badge as the page drew it — picks not yet asked (`cartCount`). Moves in place with `liveTally`. */
+  cartCount?: number;
+  /** 📦 The orders badge — what waits on the couple in Book (`ordersWaitingCount`). */
+  ordersCount?: number;
   /** The team, as rows — booked first, one next step each (`team-rows.tsx`). */
   teamSlot?: ReactNode;
   /**
@@ -389,45 +395,18 @@ export function ServicesTakeover({
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
   const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
-  /**
-   * 📌 THE ROW'S ONE DROPDOWN — Find · Build · Booked (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE"; 2026-11-02
-   * "BOOKED IS JUST THE TEAM": *"and booked-team will just be booked."*). Booked's Team · Budget · Schedule parts are
-   * gone — Budget and Schedule are Home's own pages — so the dropdown names the three bodies, each with its count.
-   */
-  const buildCount = tally.filled > 0 ? `${tally.filled}/${tally.total}` : null;
-  // 📌 Each row of the menu carries its count and ONE line on what the page is for (owner 2026-11-12, "option 4").
-  const faceOptions: PickOption[] = [
-    { key: 'find', label: SUPPLIERS_MODE_LABEL.find, hint: SUPPLIERS_MODE_MEANING.find },
-    { key: 'build', label: SUPPLIERS_MODE_LABEL.build, trail: buildCount ? { text: buildCount, tone: 'muted' } : undefined, hint: SUPPLIERS_MODE_MEANING.build },
-    { key: 'booked', label: SUPPLIERS_MODE_LABEL.booked, trail: bookedCount > 0 ? { text: formatCount(bookedCount), tone: 'muted' } : undefined, hint: SUPPLIERS_MODE_MEANING.booked },
-  ];
-  /**
-   * ▶ THE ROW'S ONE ACTION IS THE NEXT PAGE (owner 2026-11-12, "option 4"): Find → "Build 3/6", Build → "Booked 2",
-   * Booked → "Find". The same door as the menu — `goToBuildTab` — so the two can never land in different places.
-   */
-  const nextMode = SUPPLIERS_NEXT_MODE[mode];
-  const nextTrail = nextMode === 'build' ? buildCount : nextMode === 'booked' && bookedCount > 0 ? formatCount(bookedCount) : null;
-  const nextWords = nextTrail ? `${SUPPLIERS_MODE_LABEL[nextMode]} ${nextTrail}` : SUPPLIERS_MODE_LABEL[nextMode];
-  const faceWords = SUPPLIERS_MODE_LABEL[mode];
-  const pickFace = (key: string) => {
-    if (key === mode || (key !== 'find' && key !== 'build' && key !== 'booked')) return;
-    goToBuildTab(SUPPLIERS_MODE_TAB[key]);
+  // 🛒 The cart moves at the press with the tally (the same store, the same tick); 0 → no badge, never "0".
+  const cart = useMemo(
+    () => (liveTally ? countCart(liveTally, (v, g, drawn) => builtNowIn(benchLocalStore(eventId), v, g, drawn)) : drawnCart),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveTally, drawnCart, eventId, builtTick],
+  );
+  const badge: Record<SuppliersMode, number> = { find: 0, build: cart, booked: ordersCount };
+  const badgeName: Record<SuppliersMode, string> = {
+    find: '',
+    build: `${formatCount(cart)} to ask`,
+    booked: `${formatCount(ordersCount)} waiting on you`,
   };
-  /** The count the row can count itself — Build's N/M, the team's N booked.
-   *  `Count` rolls the number when a press moves it (Add to build answers in place). */
-  const faceCount =
-    // 📋 "6 of 12 covered" sits beside Find ▾ — counted over the categories Find LISTS only (owner 2026-11-12).
-    mode === 'find' ? (
-      <CoverCount />
-    ) : mode === 'build' && buildCount ? (
-      <span data-sup-row-count-of="build">
-        <Count value={tally.filled} id="sup-row-filled" />/<Count value={tally.total} id="sup-row-total" />
-      </span>
-    ) : mode === 'booked' && bookedCount > 0 ? (
-      <span data-sup-row-count-of="booked">
-        <Count value={bookedCount} id="sup-row-booked" /> booked
-      </span>
-    ) : null;
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -475,36 +454,47 @@ export function ServicesTakeover({
         data-tour="suppliers-segments"
         data-first-row=""
       >
-        <span className="flex min-w-0 shrink items-center" data-sup-row-menu="">
-          <PickMenu
-            label="Suppliers: Find, Build or Booked"
-            value={mode}
-            options={faceOptions}
-            onPick={pickFace}
-            buttonText={faceWords}
-            dataAttr="data-sup-row-pick"
-            compact
-          />
-        </span>
-        <span
-          className="min-w-0 flex-1 truncate text-[13px] text-ink/70"
-          data-sup-row-count=""
-          aria-live="polite"
-        >
-          {faceCount}
-        </span>
-        {/* ▬ The covered count, drawn — along the row's foot, on Find only (owner 2026-11-12: the "Cover your event"
-            block folds into this row). */}
-        {mode === 'find' ? <CoverBar /> : null}
-        <ActionButton
-          tone="neutral"
-          icon={ChevronRight}
-          label={nextWords}
-          name={`Go to ${SUPPLIERS_MODE_LABEL[nextMode]}`}
-          onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[nextMode])}
-          className="shrink-0"
-          data-sup-row-next={nextMode}
-        />
+        <nav aria-label="Suppliers" className="flex min-w-0 items-center gap-1.5" data-sup-steps="">
+          {SUPPLIERS_MODES.map((m) => {
+            const Icon = STEP_ICON[m];
+            const on = m === mode;
+            const n = badge[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                data-sup-step={m}
+                aria-current={on ? 'page' : undefined}
+                aria-label={n > 0 ? `${SUPPLIERS_MODE_LABEL[m]}, ${badgeName[m]}` : SUPPLIERS_MODE_LABEL[m]}
+                onClick={() => {
+                  if (!on) goToBuildTab(SUPPLIERS_MODE_TAB[m]);
+                }}
+                className={`inline-flex min-h-[44px] shrink-0 items-center gap-[7px] rounded-full py-0 pl-2 pr-3 text-sm font-semibold transition-colors ${
+                  on ? 'bg-sn-accent text-sn-on-accent' : 'text-ink/80 hover:bg-ink/[0.04]'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`relative grid h-[30px] w-[30px] place-items-center rounded-full ${
+                    on ? 'bg-[rgb(var(--sn-on-accent)/0.2)] text-sn-on-accent' : 'bg-[rgb(var(--sn-frame-bg))] text-ink shadow-[inset_0_0_0_1px_rgb(var(--color-ink)/0.14)]'
+                  }`}
+                >
+                  <Icon className="h-[17px] w-[17px]" strokeWidth={1.8} />
+                  {n > 0 ? (
+                    <em
+                      data-sup-step-badge={m}
+                      className="absolute -right-[7px] -top-[5px] grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[rgb(var(--color-danger))] px-[5px] text-[11px] font-extrabold not-italic leading-none text-white shadow-[0_0_0_2px_rgb(var(--sn-page-bg))]"
+                    >
+                      {formatCount(n)}
+                    </em>
+                  ) : null}
+                </span>
+                <span>{SUPPLIERS_MODE_LABEL[m]}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <span className="min-w-0 flex-1" aria-hidden />
         {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
         {settingsSlot ? (
           <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -615,7 +605,7 @@ function ServiceSection({
   const blurb = tabBlurb(tab);
   // 📋 FIND'S HEADER FOLDED INTO THE PINNED ROW (owner 2026-11-12, the organized-Find prototype — it overturns the
   // 2026-10-26 "Cover your event ⓘ · N of M covered" block): the count sits beside Find ▾ and its bar along the row's
-  // foot (`CoverCount` · `CoverBar`). The heading stays for a screen reader; nothing of it is drawn on the page.
+  // foot — and since 2026-11-17 it is one quiet line atop Build (`CoveredLine`). The heading stays for a screen reader.
   const folded = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // Lands below the pinned block when scrolled to (`LANDING_CSS`).

@@ -70,7 +70,8 @@ const WORDS: Record<CardVerbKey, { label: string; tone: VerbTone }> = {
   another_day: { label: 'Ask about another day', tone: 'warn' },
   add: { label: 'Add to build', tone: 'brand' },
   in_build: { label: 'In your build', tone: 'ok' },
-  book: { label: 'Book', tone: 'ok' },
+  // 🛒 "Lock this" → "Ask to book" (owner 2026-11-17, drawing v15: "It was always an ask.").
+  book: { label: 'Ask to book', tone: 'ok' },
   record: { label: 'Your record', tone: 'neutral' },
   withdraw: { label: 'Withdraw', tone: 'danger' },
   pay: { label: 'Pay', tone: 'ok' },
@@ -160,7 +161,9 @@ export function cardVerbs(i: CardVerbInput): CardVerb[] {
 
   if (build === 'add' || build === 'in_build') {
     out.push(verb(build === 'add' ? 'add' : 'in_build', { main: true }));
-    if (actions.lockGroupId) out.push(verb('book'));
+    // 🛒 One next step per pick (owner 2026-11-17): "Ask to book" — or "Ask for a quote" while no price is recorded
+    // and a quote can still be asked for.
+    if (actions.lockGroupId) out.push(verb(!i.hasPrice && !own && actions.inquiry?.kind === 'inquire' ? 'ask' : 'book'));
     if (own) out.push(verb('record'));
     else if (thread) out.push(verb('chat'));
     out.push(verb('remove'));

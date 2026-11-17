@@ -47,7 +47,7 @@ import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-row
 import type { BookedFacts } from '@/lib/booked-rows';
 import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
-import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
+import { buildTally, cartCount, ordersWaitingCount, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { dateFitOf, takenOnWords, type DateFit } from '@/lib/calendar-truth';
 import { readCalendarTruth } from '@/lib/calendar-truth.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
@@ -167,7 +167,6 @@ import { BookedBody } from './_components/booked-body';
 import { BookedSlot } from './_components/booked-slot';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { BuildBody } from './_components/build-body';
-import { BookThisBuild } from './_components/book-this-build';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
 import { QuoteFillRow, type FillableCategory } from './_components/quote-fill';
 import { TeamClearCandidates } from './_components/team-controls';
@@ -2889,6 +2888,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       lockedCentavos: model.chosenCentavos,
       ring: null,
       drawnIn: [...new Set([...buildPicksByGroup.values()].flat())],
+      // 🛒 Asked and not answered — they left the cart for Book (the team rows' own 'asked' group, flag-aware).
+      askedVendorIds: teamRowList.filter((r) => r.group === 'asked').map((r) => r.vendorId),
     };
     const shellTally = (() => {
       const money = buildTally(buildChildren, model.chosenCentavos);
@@ -3065,6 +3066,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           tally={shellTally}
           liveTally={liveTallyBase}
           bookedCount={teamCountsLine(teamRowList).booked}
+          // 🛒 · 📦 The two badges, read: the cart's picks not yet asked, and what waits on the couple in Book.
+          cartCount={cartCount(liveTallyBase, (_v, _g, drawn) => drawn)}
+          ordersCount={ordersWaitingCount(teamRowList)}
           premium={aiActive}
           bookedSlot={teamSlot}
           shortlistSlot={shortlistContent}
@@ -3092,19 +3096,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                       ) : null}
                     </>
                   }
-                  // "Book this build" — every pick not booked and not already
-                  // asked, through the one booking path (`book-this-build.tsx`).
-                  bookSlot={
-                    <BookThisBuild
-                      eventId={eventId}
-                      inBuild={buildLines.filter((l) => l.pick || l.booked).length}
-                      picks={buildLines.flatMap((l) =>
-                        l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
-                          ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
-                          : [],
-                      )}
-                    />
-                  }
+                  // 🛒 "Book this build" and its sheet are gone (owner 2026-11-17, drawing v15): each priced pick asks on
+                  // its own line ("Ask to book", `build-body.tsx` `askable`) through the same one booking path.
                 />
                 {/* Dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED; null when off. */}
                 <ReuseBookingsPanel />

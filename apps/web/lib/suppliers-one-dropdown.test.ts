@@ -1,5 +1,10 @@
 /**
- * suppliers-one-dropdown.test.ts — 📌 SUPPLIERS' TOP ROW IS ONE DROPDOWN, AND EVERY OLD DOOR STILL LANDS.
+ * suppliers-one-dropdown.test.ts — 🛒 SUPPLIERS' TOP ROW IS FIND · BUILD · BOOK, AND EVERY OLD DOOR STILL LANDS.
+ *
+ * ⚠ SUPERSEDED IN PART, 2026-11-17 (owner: *"technically this is like search, view cart and ordered on a shopping
+ * app"* · *"the find build book"*; drawing v15 — it overturns the 30 Oct one-selector rule for Suppliers ONLY). Tests 1
+ * and 2 now hold the new row: three plain steps with READ badges (cart = picks not yet asked · orders = a first payment
+ * to make), no dropdown, no fraction, no ▶. Test 3 (every old door lands) is unchanged. The history below is kept.
  *
  * Owner 2026-10-30, "all yes" (DECISION_LOG "ONE SELECTOR FOR EVERY PAGE — COUPLE · SUPPLIER · ADMIN"): the segmented
  * Find | Build | Booked row becomes the same `Page · View ▾` dropdown. Owner 2026-11-02 ("BOOKED IS JUST THE TEAM"):
@@ -20,19 +25,22 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { BUDGET_BUILD_TABS } from './budget-build';
-import { SUPPLIERS_MODE_TAB, suppliersModeOfTab } from './suppliers-shell';
+import { SUPPLIERS_MODES, SUPPLIERS_MODE_TAB, suppliersModeOfTab } from './suppliers-shell';
 
 const V = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors');
 const read = (...p: string[]) => stripComments(readFileSync(join(...p), 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
-test('1 · the row is ONE dropdown (the shared compact face) — no segmented row, no Booked part row', () => {
+test('1 · the row is THREE plain steps — Find · Build · Book — and ⚙; no dropdown, no fraction, no ▶ next (owner 2026-11-17)', () => {
   const shell = read(V, '_components', 'services-takeover.tsx');
   const at = shell.indexOf('data-suppliers-stick=""');
   const row = shell.slice(shell.lastIndexOf('<div', at), shell.indexOf('<MenuSettingsButton', at));
-  assert.equal(count(row, /<PickMenu\b/g), 1, 'the row holds more or less than ONE dropdown');
-  assert.match(row, /<PickMenu\b[^>]*\bcompact\b/, 'the row’s dropdown is not the shared compact face');
-  assert.doesNotMatch(row, /<PickMenu\b[^>]*\b(trigger|className)=/, 'the row’s dropdown wears a local look');
+  assert.equal(count(row, /<PickMenu\b/g), 0, 'a dropdown is back on the Suppliers row — the 17 Nov ruling replaced it');
+  assert.doesNotMatch(row, /data-sup-row-next|SUPPLIERS_NEXT_MODE|ChevronRight/, 'the ▶ next button is back');
+  assert.doesNotMatch(row, /<CoverCount\b|sup-row-filled|tally\.filled/, 'a fraction is back on the row (it moved to one quiet line in Build)');
+  assert.match(row, /SUPPLIERS_MODES\.map\(/, 'the steps are no longer the three modes, in their order');
+  assert.match(row, /onClick=\{\(\) => \{\s*if \(!on\) goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\)/, 'a step no longer goes through the shipped bus');
+  assert.match(row, /aria-current=\{on \? 'page' : undefined\}/, 'the step you are on is not said to a screen reader');
   for (const f of ['services-takeover.tsx', 'booked-body.tsx']) {
     const src = read(V, '_components', f);
     assert.equal(count(src, /<ISegmented\b|<ISeg\b|I_SEGMENTED_CLASS|<PillTrack\b|role="tablist"|data-sup-face/g), 0, `${f} draws a segmented row`);
@@ -42,13 +50,16 @@ test('1 · the row is ONE dropdown (the shared compact face) — no segmented ro
   }
 });
 
-test('2 · the dropdown lists exactly Find · Build · Booked — never Schedule or Budget', () => {
+test('2 · the steps are exactly Find · Build · Book — never Schedule or Budget — and each badge is READ', () => {
   const shell = read(V, '_components', 'services-takeover.tsx');
-  const opts = shell.slice(shell.indexOf('const faceOptions'), shell.indexOf('];', shell.indexOf('const faceOptions')));
-  assert.deepEqual([...opts.matchAll(/key: '([a-z-]+)'/g)].map((m) => m[1]), ['find', 'build', 'booked']);
-  assert.doesNotMatch(opts, /Schedule|Budget|bookedParts|\.map\(/, 'the dropdown lists a Booked part again');
-  assert.match(opts, /\{ key: 'build', label: SUPPLIERS_MODE_LABEL\.build, trail: buildCount \?/, 'Build lost its count');
-  assert.match(opts, /\{ key: 'booked', label: SUPPLIERS_MODE_LABEL\.booked, trail: bookedCount > 0/, 'Booked lost its count');
+  assert.deepEqual([...SUPPLIERS_MODES], ['find', 'build', 'booked']);
+  const badges = shell.slice(shell.indexOf('const badge:'), shell.indexOf(';', shell.indexOf('const badge:')));
+  assert.match(badges, /find: 0, build: cart, booked: ordersCount/, 'a badge is no longer the read count (cart · orders)');
+  assert.match(shell, /countCart\(liveTally,/, 'the cart badge no longer moves at the press');
+  const page = read(V, 'page.tsx');
+  assert.match(page, /cartCount=\{cartCount\(liveTallyBase,/, 'the page no longer reads the cart badge');
+  assert.match(page, /ordersCount=\{ordersWaitingCount\(teamRowList\)\}/, 'the page no longer reads the orders badge');
+  assert.doesNotMatch(shell.slice(shell.indexOf('data-sup-steps'), shell.indexOf('</nav>')), /Schedule|Budget/, 'a step names a Booked part again');
 });
 
 test('3 · every old address still lands on the same view', () => {

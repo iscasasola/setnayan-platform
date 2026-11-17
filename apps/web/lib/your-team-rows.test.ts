@@ -41,7 +41,8 @@ const kindOf = (f: TeamRowFacts) => teamRowOf(f, CTX)?.action?.kind ?? null;
 test('booked + deposit due → Pay, to the deposit card', () => {
   const r = teamRowOf(facts({ status: 'contracted', depositStep: 'due' }), CTX)!;
   assert.equal(r.group, 'booked');
-  assert.equal(r.pill.text, 'Booked');
+  // 📦 Their yes is not "Booked ✓" until the first payment (owner 2026-11-17, Q10).
+  assert.equal(r.pill.text, 'Waiting for your first payment');
   assert.equal(r.next, 'make your first payment');
   assert.deepEqual(r.action, {
     kind: 'pay',
@@ -98,7 +99,7 @@ test('asked to lock → Waiting on THEM; Nudge opens the conversation', () => {
     CTX,
   )!;
   assert.equal(r.group, 'asked');
-  assert.equal(r.pill.text, 'Waiting');
+  assert.equal(r.pill.text, 'Waiting for their answer');
   assert.match(r.next, /^they confirm your booking · 20 hours left to answer$/);
   assert.deepEqual(r.action, { kind: 'nudge', label: 'Nudge', href: '/dashboard/E/messages/t9' });
   assert.equal(r.needsYou, false, 'the ball is in the supplier’s court');
@@ -117,7 +118,7 @@ test('in the build and lockable → Lock, with the price when there is one', () 
   const r = teamRowOf(facts({ inBuild: true, lockGroupId: 'catering', pricePhp: 96000 }), CTX)!;
   assert.equal(r.pill.text, 'Quote in');
   assert.equal(r.next, 'book at ₱96,000');
-  assert.deepEqual(r.action, { kind: 'lock', label: 'Book', groupId: 'catering' });
+  assert.deepEqual(r.action, { kind: 'lock', label: 'Ask to book', groupId: 'catering' });
   const unpriced = teamRowOf(facts({ inBuild: true, lockGroupId: 'catering' }), CTX)!;
   assert.equal(unpriced.next, 'book them');
 });
@@ -187,7 +188,24 @@ test('BOOKED suppliers come first, then asked, deciding, waiting — stable with
     rows.map((r) => r.vendorId),
     ['b1', 'b2', 'a', 'd', 'w'],
   );
-  assert.deepEqual(teamCountsLine(rows), { booked: 2, needYou: 2 });
+  // b1 said yes but its first payment is due — not "Booked ✓" yet (Q10), so ONE is counted booked.
+  assert.deepEqual(teamCountsLine(rows), { booked: 1, needYou: 2 });
+});
+
+test('📦 Book’s three statuses (owner 2026-11-17, Q10): asked → their answer · yes → your first payment · paid → Booked ✓', () => {
+  const asked = teamRowOf(facts({ lockRequestState: 'pending' }), CTX)!;
+  assert.equal(asked.pill.text, 'Waiting for their answer');
+  const owed = teamRowOf(facts({ status: 'contracted', depositStep: 'due' }), CTX)!;
+  assert.equal(owed.pill.text, 'Waiting for your first payment');
+  assert.equal(owed.action?.kind, 'pay', 'the first-payment status carries Pay');
+  const sent = teamRowOf(facts({ status: 'contracted', depositStep: 'sent' }), CTX)!;
+  assert.notEqual(sent.pill.text, 'Booked ✓', 'a payment not yet confirmed is not Booked ✓');
+  assert.equal(sent.action, null);
+  for (const done of [{ status: 'contracted', depositStep: 'confirmed' as const }, { status: 'deposit_paid' }, { status: 'complete' }]) {
+    assert.equal(teamRowOf(facts(done), CTX)!.pill.text, 'Booked ✓', JSON.stringify(done));
+  }
+  const unread = teamRowOf(facts({ status: 'contracted', depositStep: 'unknown' }), CTX)!;
+  assert.notEqual(unread.pill.text, 'Booked ✓', 'a refused payment read never says Booked ✓');
 });
 
 test('initials for the logo square', () => {

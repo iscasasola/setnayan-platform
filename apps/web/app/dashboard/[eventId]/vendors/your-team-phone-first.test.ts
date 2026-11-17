@@ -68,11 +68,11 @@ function bodyOf(mode: 'find' | 'build' | 'booked'): string {
 
 /* ── (a) the line, the control, one body ─────────────────────────────────── */
 
-test('(a) the order: the date · place line, the ONE Find · Build · Booked dropdown, then one body', () => {
+test('(a) the order: the date · place line, the ONE Find · Build · Book step row, then one body', () => {
   const body = takeoverBody();
   const stick = body.indexOf('data-suppliers-stick');
   const facts = body.indexOf('{factsSlot}');
-  const seg = body.indexOf('<PickMenu', stick);
+  const seg = body.indexOf('data-sup-steps', stick);
   const find = body.indexOf('data-suppliers-body="find"');
   const build = body.indexOf('data-suppliers-body="build"');
   const booked = body.indexOf('data-suppliers-body="booked"');
@@ -83,13 +83,11 @@ test('(a) the order: the date · place line, the ONE Find · Build · Booked dro
   // date · place line still sits ABOVE the control, but OUTSIDE the pinned block — it scrolls away; only the control pins.
   assert.ok(facts < stick && stick < seg, 'the date · place line sits ABOVE the segmented control, outside the pinned block (only the control pins)');
   assert.ok(seg < find && find < build && build < booked, 'the body follows the control, in the order Find · Build · Booked');
-  // ONE control, the shipped one (owner 2026-10-31, "ONE SELECTOR": the segmented row became `Page · View ▾`).
+  // ONE control (owner 2026-11-17, "the find build book" — three plain steps; it overturns the 30 Oct dropdown here).
   assert.equal((body.match(/<ISegmented\b|<ISeg\b/g) ?? []).length, 0, 'a segmented row is back');
-  assert.equal((body.slice(stick, body.indexOf('<MenuSettingsButton', stick)).match(/<PickMenu\b/g) ?? []).length, 1, 'a second navigator');
-  assert.match(TAKEOVER, /import \{ PickMenu, type PickOption \} from '\.\.\/\.\.\/website\/editor\/_components\/pick-menu'/);
-  // The counts are <Count>, never a bare number.
-  assert.match(body, /<Count value=\{tally\.filled\} id="sup-row-filled" \/>\/<Count value=\{tally\.total\} id="sup-row-total" \/>/);
-  assert.match(body, /<Count value=\{bookedCount\} id="sup-row-booked" \/> booked/);
+  assert.equal((body.slice(stick, body.indexOf('<MenuSettingsButton', stick)).match(/<PickMenu\b|data-sup-steps=""/g) ?? []).length, 1, 'a second navigator');
+  // The badges are read counts printed through formatCount, never a bare number.
+  assert.match(body, /\{formatCount\(n\)\}/, 'a step’s badge is printed raw');
   // No Jump bar and no page-name row on a phone: the visible name is desktop-only.
   assert.match(
     body,
@@ -124,12 +122,11 @@ test('(a) every shipped section has ONE home — Find, Build or Booked', () => {
   }
 });
 
-test('(a) the row’s dropdown drives the shipped bus, and the bus drives the control', () => {
+test('(a) the row’s steps drive the shipped bus, and the bus drives the control', () => {
   const body = takeoverBody();
   // A press dispatches the mode's own tab key on the SHIPPED bus — no second channel.
   // Every pick — Find · Build · Booked — IS the bus (`goToBuildTab`); there are no part pages since 2026-11-02.
-  assert.match(body, /onPick=\{pickFace\}/);
-  assert.match(body, /goToBuildTab\(SUPPLIERS_MODE_TAB\[key\]\);/);
+  assert.match(body, /if \(!on\) goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);/);
   // The listener is unchanged for every caller, and resolves a key to its body.
   assert.match(body, /window\.addEventListener\(BB_TAB_EVENT, onTab\)/);
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
@@ -268,6 +265,7 @@ test('(c) the Booked body says "Couldn’t load your suppliers" for unreadable, 
   const view = BODY.slice(split);
   assert.match(view, /booked\.length === 0 \? \([\s\S]{0,200}\{BOOKED_EMPTY\}/);
   // A count a person reads is printed through formatCount.
-  assert.match(view, /\{formatCount\(booked\.length\)\} booked/);
+  // 📦 "Booked ✓" only after the first payment (owner 2026-11-17, Q10) — the count says only those.
+  assert.match(view, /\{formatCount\(booked\.filter\(\(r\) => r\.pill\.text === BOOK_STATUS_BOOKED\)\.length\)\} booked/);
   assert.match(view, /\{formatCount\(waiting\.length\)\} asked/);
 });

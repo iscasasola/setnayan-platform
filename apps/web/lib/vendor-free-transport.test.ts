@@ -13,6 +13,7 @@ import {
   resolveDeclaredRings,
   resolveReachBadge,
   TRAVEL_FEE_BADGE,
+  BEYOND_REACH,
 } from './vendor-service-radius';
 import { isFreeTransportEnforcementEnabled } from './vendor-free-transport-flag';
 
@@ -173,9 +174,10 @@ test('THE CLAMP · a lapsed subscription moves the badge and the rule TOGETHER',
   assert.equal(enforcementZeroesTransport(onPro), true);
 
   const lapsed = { ...declared, tier: 'verified' };
+  // 🧭 Out of range reads "Beyond reach · N km away" since 2026-11-17 (owner, drawing v15).
   assert.equal(
     badgeText(lapsed),
-    TRAVEL_FEE_BADGE.outside_range.text,
+    `${BEYOND_REACH} · 25 km away`,
     'a downgrade can never land a venue in the travel-fee BAND: both rings clamp to ' +
       'the same cap, so anything that falls out of the free ring falls out of range ' +
       'with it. Noted here because it is surprising, not because it is wrong.',

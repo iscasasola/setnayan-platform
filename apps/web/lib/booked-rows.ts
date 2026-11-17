@@ -41,7 +41,7 @@ import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
 import type { PlanProgress } from './vendor-service-payment-schedules';
-import type { TeamRow, TeamRowTone } from './your-team-rows';
+import { BOOK_PAYMENT_REFUSED, type TeamRow, type TeamRowTone } from './your-team-rows';
 import { canInviteSupplier } from './supplier-invite-eligibility';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
 import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
@@ -283,7 +283,8 @@ export type BookedView = {
 
 /** The pill, the sub line and the line under a waiting row — the prototype's words. */
 export const WAITING_HEADING = 'Waiting for their yes';
-export const WAITING_PILL = 'Waiting for their yes';
+/** 📦 Book's first status (owner 2026-11-17, Q10) — the same words as the team row's (`BOOK_STATUS_ASKED`). */
+export const WAITING_PILL = 'Waiting for their answer';
 export const WAITING_UNTIL = 'no payments · no shared details · not on their calendar';
 /** The ⓘ beside the heading. A waived fee is a completed handshake too. */
 export const WAITING_INFO =
@@ -294,6 +295,8 @@ export const WAITING_INFO =
  * ("Payment not received", a warn state). Waiting for their yes keeps its own pill.
  */
 export function pillSaysMore(pill: { text: string; tone: TeamRowTone }): boolean {
+  // 📦 Book's statuses are each drawn now (owner 2026-11-17, drawing v15: "Booked ✓" on every booked row) — only the
+  // retired plain "Booked" word stays hidden, should an old row still carry it.
   return !(pill.tone === 'ok' && pill.text === 'Booked');
 }
 export const BOOKED_EMPTY = 'Nothing booked yet — book from Find or from your build.';
@@ -433,7 +436,9 @@ function bookedRowOf(
   // The shipped first-payment step (`depositStepOf`, through `teamRowOf`).
   const step = team.action?.kind ?? null;
   // "Payment not received" — the supplier said it never arrived. Send it again.
-  if (step === 'pay' && team.pill.tone === 'warn') return withVerbs(said(team.next, true), verb('pay', { main: true }));
+  // Read by its WORDS, not its tone: since 2026-11-17 a first payment still due is a warn pill too
+  // ("Waiting for your first payment"), and it must keep its dated instalment line below.
+  if (step === 'pay' && team.pill.text === BOOK_PAYMENT_REFUSED) return withVerbs(said(team.next, true), verb('pay', { main: true }));
 
   // Their plan's next instalment still due. (One waiting on their confirmation
   // is their turn, not the couple's — the next DUE one is the couple's step.)

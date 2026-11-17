@@ -24,11 +24,14 @@
  */
 import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { Count } from '@/components/count';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export type CoverRing = { covered: number; total: number };
 
 type Ctx = { ring: CoverRing | null; setRing: (r: CoverRing | null) => void };
 
+// 🛒 2026-11-17 (owner, "the find build book"; Q14): the count left the pinned row — `CoverCount` and `CoverBar` are
+// gone with it. It is now ONE quiet line atop Build (`CoveredLine`, below), from the same published count.
 const CoverRingContext = createContext<Ctx | null>(null);
 
 /** The shell's side: holds the bench's published count for the header. */
@@ -57,53 +60,29 @@ export function usePublishCoverRing(covered: number, total: number, on: boolean)
 }
 
 /** The bar's fill, in percent (pure — 0…100, never NaN). */
-export function coverPercent(r: CoverRing | null): number {
-  if (!r || r.total <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((r.covered / r.total) * 100)));
-}
-
-/** The words while Find lists nothing (a brand-new event). */
-export const COVER_NOTHING_YET = 'nothing added yet';
-
-/** "6 of 14 covered" — quiet, beside Find ▾ in the pinned row (owner 2026-11-12). Read, never pressed. */
-export function CoverCount() {
+/**
+ * 📋 "Covered N of M categories ⓘ" — ONE quiet line atop Build, the cart (owner 2026-11-17, Q14: *"covered N of M"
+ * stays as one quiet line in Build*). The SAME published count the row used to carry (`ringCoveredCount` over the
+ * categories Find lists — booked or covered), never typed. Not published yet → no line, never a made-up 0.
+ */
+export function CoveredLine() {
   const ring = useContext(CoverRingContext)?.ring ?? null;
-  if (!ring) return null;
-  if (ring.total <= 0) {
-    return (
-      <span data-cover-count="" data-cover-empty="" className="font-sans text-[13px] tracking-normal text-ink/70">
-        {COVER_NOTHING_YET}
-      </span>
-    );
-  }
+  if (!ring || ring.total <= 0) return null;
   return (
-    <span data-cover-count="" className="font-sans text-[13px] font-medium tracking-normal text-ink/70">
-      <Count value={ring.covered} id="sup-ring-covered" /> of <Count value={ring.total} id="sup-ring-total" />
-      {/* At 320 the row keeps "6 of 12" and lets the word go — Find ▾, the next page and ⚙ never wrap (2026-11-12). */}
-      <span className="max-[359px]:sr-only"> covered</span>
-    </span>
-  );
-}
-
-/** The thin bar along the pinned row's foot — the same count, drawn. Nothing listed → no bar. */
-export function CoverBar() {
-  const ring = useContext(CoverRingContext)?.ring ?? null;
-  const pct = coverPercent(ring);
-  if (ring && ring.total <= 0) return null;
-  return (
-    <div
-      data-cover-bar=""
-      role="progressbar"
-      aria-label="Categories covered"
-      aria-valuemin={0}
-      aria-valuemax={ring?.total ?? 0}
-      aria-valuenow={ring?.covered ?? 0}
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] overflow-hidden bg-ink/10"
-    >
-      <div
-        className="h-full rounded-full bg-[rgb(var(--color-ok))] transition-[width] duration-500 ease-out motion-reduce:transition-none"
-        style={{ width: `${pct}%` }}
-      />
-    </div>
+    <p data-covered-line="" className="mb-2 text-xs text-ink/60">
+      <InfoTip
+        align="start"
+        label="Covered categories"
+        labelNode={
+          <span>
+            Covered <Count value={ring.covered} id="sup-cart-covered" /> of <Count value={ring.total} id="sup-cart-total" />{' '}
+            categories
+          </span>
+        }
+        ariaLabel="About covered categories"
+      >
+        A category is covered when a supplier is booked there, or it comes with another booking, or you marked it done.
+      </InfoTip>
+    </p>
   );
 }

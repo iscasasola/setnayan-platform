@@ -23,7 +23,7 @@ test('the renewal unsubscribe is a mailto, the shape every sibling relationship 
 
 test('it never points at an app page that does not exist', () => {
   for (const m of body.matchAll(/\$\{base\}(\/[a-z0-9/-]+)/g)) {
-    const page = join(WEB, 'app', m[1], 'page.tsx');
+    const page = join(WEB, 'app', m[1] ?? '', 'page.tsx');
     assert.ok(existsSync(page), `List-Unsubscribe points at ${m[1]}, which has no page`);
   }
   assert.doesNotMatch(body, /\/settings\/notifications/);

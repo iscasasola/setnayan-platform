@@ -17,6 +17,8 @@
  * spent link is a DEAD END, so it does not wear the action colour. The one
  * control on the dead end still leads somewhere real — a fresh link.
  */
+import { ExpiredResend } from '@/app/forgot-password/_components/reset-sent';
+import { requestPasswordReset } from '@/app/forgot-password/actions';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -57,12 +59,11 @@ export default async function ResetPasswordPage({
         tone="dead_end"
         eyebrow="Account recovery"
         title="This link has expired."
-        sub="Reset links work once and expire after a short while. Request a fresh one and you’ll be back in shortly."
+        sub="Reset links work once and expire after a short while. Send yourself a new one below — it opens on any device."
       >
+        {/* W1-B5: the new link is sent from HERE, by the sent page's own send — never back to an empty form. */}
+        <ExpiredResend requestPasswordReset={requestPasswordReset} />
         <DoorActions>
-          <Link href="/forgot-password" className="button-primary">
-            Send me a new link
-          </Link>
           <Link href="/login" className="button-secondary">
             Back to sign in
           </Link>

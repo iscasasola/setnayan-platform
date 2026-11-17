@@ -1,12 +1,14 @@
 /**
  * GUARD — the Memories grid's columns follow the zoom like Apple Photos (owner 2026-10-23): phone 1 · 3 · 5 · 7
- * (3 to start), desktop 6 · 9 · 12 · 16 (9 to start), one step at a time, clamped, remembered under the prototype's
+ * (3 to start), desktop 6 · 8 · 12 · 16 (6 to start, 8 from 1600 — owner 16 Nov 2026, "6 photos/row at 1280, 8 at
+ * 1600"), one step at a time, clamped, remembered under the prototype's
  * keys; a spread opens the photos up, a squeeze packs more in.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DESK_COLUMNS,
+  scaleFor,
   PHONE_COLUMNS,
   ZOOM_KEY_DESK,
   ZOOM_KEY_PHONE,
@@ -24,9 +26,15 @@ import {
 
 test('the steps are the approved ones, and each scale starts where the prototype starts', () => {
   assert.deepEqual([...PHONE_COLUMNS], [1, 3, 5, 7]);
-  assert.deepEqual([...DESK_COLUMNS], [6, 9, 12, 16]);
+  assert.deepEqual([...DESK_COLUMNS], [6, 8, 12, 16]);
   assert.equal(defaultFor('phone'), 3);
-  assert.equal(defaultFor('desk'), 9);
+  assert.equal(defaultFor('desk'), 6, '6 a row at 1280');
+  assert.equal(defaultFor('wide'), 8, '8 a row at 1600');
+  assert.equal(scaleFor(390), 'phone');
+  assert.equal(scaleFor(1023), 'phone');
+  assert.equal(scaleFor(1280), 'desk');
+  assert.equal(scaleFor(1599), 'desk');
+  assert.equal(scaleFor(1600), 'wide');
   assert.equal(ZOOM_KEY_PHONE, 'sn-gallery-zoom');
   assert.equal(ZOOM_KEY_DESK, 'sn-gallery-zoom-desk');
 });
@@ -36,7 +44,9 @@ test('a remembered value is used only when it is one of the steps', () => {
   assert.equal(readColumns('1', 'phone'), 1);
   assert.equal(readColumns('16', 'desk'), 16);
   for (const bad of [null, undefined, '', '4', '9', 'abc', '-3']) assert.equal(readColumns(bad, 'phone'), 3, String(bad));
-  assert.equal(readColumns('5', 'desk'), 9, 'a phone value is not a desktop value');
+  assert.equal(readColumns('5', 'desk'), 6, 'a phone value is not a desktop value');
+  assert.equal(readColumns('9', 'wide'), 8, 'the retired 23 Oct step 9 falls back to the start for its width');
+  assert.equal(readColumns('12', 'wide'), 12, 'the wide desk shares the desk steps');
 });
 
 test('one step at a time, clamped at both ends', () => {
@@ -45,7 +55,8 @@ test('one step at a time, clamped at both ends', () => {
   assert.equal(stepColumns(7, 1, 'phone'), 7);
   assert.equal(stepColumns(3, -1, 'phone'), 1);
   assert.equal(stepColumns(1, -1, 'phone'), 1);
-  assert.equal(stepColumns(9, 1, 'desk'), 12);
+  assert.equal(stepColumns(8, 1, 'desk'), 12);
+  assert.equal(stepColumns(6, 1, 'desk'), 8);
   assert.equal(stepColumns(6, -1, 'desk'), 6);
   assert.equal(stepColumns(16, 1, 'desk'), 16);
   // A value off the scale (a desktop count on a phone after a resize) restarts from the default.

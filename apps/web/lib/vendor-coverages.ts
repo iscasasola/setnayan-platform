@@ -161,7 +161,9 @@ export async function resolveCoverageLabels(): Promise<CoverageLabels> {
     leafLabel: (cs) => byLeaf.get(cs)?.leaf ?? humanize(cs),
     pathLabel: (cs) => {
       const e = byLeaf.get(cs);
-      return e ? `${e.parent} › ${e.branch} › ${e.leaf}` : humanize(cs);
+      // A level is never said twice in a row: where the branch and its leaf share a name ("Lights & Sounds ›
+      // Lights & Sounds") the trail says it once (owner 17 Nov on Shop › Services).
+      return e ? [e.parent, e.branch, e.leaf].filter((x, i, a) => i === 0 || x !== a[i - 1]).join(' › ') : humanize(cs);
     },
     allowedEventTypes: (cs) => byLeaf.get(cs)?.allowed ?? null,
   };

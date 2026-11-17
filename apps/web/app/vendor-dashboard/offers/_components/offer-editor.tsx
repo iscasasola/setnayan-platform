@@ -475,7 +475,7 @@ export function OfferEditor({
             {open ? (
               <div className="pb-2" data-offer-preview-full="">
                 <div className="mb-1.5 mt-0.5 flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">As couples see it</span>
+                  <span className="home-k2 !my-0">As couples see it</span>
                   {reached.length > 1 ? (
                     <PickMenu label="Preview on" value={prev.id} compact dataAttr="data-offer-preview-card" options={reached.map((c) => ({ key: c.id, label: c.name, hint: c.pricePhp != null ? peso(c.pricePhp) : 'No price yet' }))} onPick={setPrevId} />
                   ) : null}
@@ -539,7 +539,7 @@ export function OfferEditor({
               </Part>
               {hasPrice(view) && prev?.pricePhp != null ? (
                 <p className="flex flex-col gap-0.5 border-t border-ink/10 px-3 pb-2.5 pt-2" style={{ background: 'var(--sn-canvas)' }} data-offer-worked="">
-                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{prev.name}</span>
+                  <span className="truncate text-[13px] font-semibold text-ink/70">{prev.name}</span>
                   <b className="truncate text-[13px] font-bold tabular-nums text-ink">{workedLine(view, prev.pricePhp)}</b>
                 </p>
               ) : null}

@@ -43,7 +43,7 @@ test('1 · a cover sheet opens and closes without asking the server', () => {
 });
 
 test('2 · the address still opens a sheet on arrival', () => {
-  assert.match(COVER, /promote: \['sheet', 'promote'\],\s*qr: \['sheet', 'qr'\],\s*logo: \['view', 'logo'\],\s*cover: \['view', 'cover'\],/, 'a sheet lost its address');
+  assert.match(COVER, /promote: \['sheet', 'promote'\],\s*prints: \['sheet', 'prints'\],\s*qr: \['sheet', 'qr'\],\s*logo: \['view', 'logo'\],\s*cover: \['view', 'cover'\],/, 'a sheet lost its address');
   assert.match(COVER, /const inAddress = sheetInAddress\(params\);\s*const \[sheet, setSheet\] = useState<CoverSheet \| null>\(inAddress\);/, 'a deep link no longer opens its sheet');
   assert.match(COVER, /useEffect\(\(\) => setSheet\(inAddress\), \[inAddress\]\);/, 'the sheet no longer follows its address');
 });

@@ -1520,6 +1520,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     .filter((a) => a.date === day)
     .map((a) => ({
       threadId: a.threadId,
+      // The holder's event, so its Chat opens the picked client (supplierChatHref), not the full-screen thread.
+      eventId: threadsRead.threads.find((t) => t.thread_id === a.threadId)?.event_id ?? null,
       title: a.name ?? 'A couple',
       // 📅 F-W1-68: an agreed booking waiting on its first payment is Booked — the date held once that payment is in.
       line: a.agreed ? BOOKED_DATE_HELD_LINE : `${askedOn(a.askedAt)} · not booked`,

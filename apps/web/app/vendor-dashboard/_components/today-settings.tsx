@@ -5,8 +5,8 @@ import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { PushToggle } from '../notifications/push-toggle';
 
 /**
- * ⚙ TODAY SETTINGS — since 11 Nov top-right on Today's photo header, riding onto the pinned "Needs you today" row's
- * right end once the header has scrolled away (owner *"Today settings yes"*; `TodayGearRide`, Portfolio's `pin`).
+ * ⚙ TODAY SETTINGS — since 11 Nov top-right on Today's photo header (owner *"Today settings yes"*), and ONLY there since
+ * 17 Nov (the clean look: "One ⚙ stays, in the header" — it no longer rides the pinned "Needs you today" row).
  * Owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE": "Today ⚙
  * notifications + run-the-day". The house ⚙ (`MenuSettingsButton`, menu `today`), mounted ONCE at a time — on the
  * header or the pinned row, or on a new shop at the end of the "Get your shop live" row; never two.

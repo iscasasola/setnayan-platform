@@ -5980,7 +5980,9 @@ body {
    (DECISION_LOG "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Every signed-in shell's ground is now the ONE page colour, so
    Admin › Colours reaches it; #F7F5F4 is the same "white cards must read" band this note measured above. */
 .sn-ambient {
-  background: rgb(var(--sn-page-bg));
+  /* 🎨 A token, so a scope can repaint the ground (the supplier glow, owner 16 Nov) without a per-component rule;
+     unset = the one page colour (16 Nov, `--sn-page-bg`), exactly as before. */
+  background: var(--sn-ambient, rgb(var(--sn-page-bg)));
   background-attachment: fixed;
 }
 /* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
@@ -5990,6 +5992,16 @@ body {
    `--color-cream` (#17160F) the body already uses. */
 html.dark .sn-ambient {
   background: #17160F;
+}
+
+/* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
+   ONLY THE MAIN BUTTON (the drawing lifts `.btn.pri` alone — re-audit 17 Nov): `.button-primary` and the filled brand
+   ActionButton (`.ab-main`); an outlined or quiet brand button is never lifted.
+   Zero specificity (`:where`), so any shadow a component already gives the button still wins, and never while the
+   button shows its keyboard focus ring (`.button-primary`'s ring IS a box-shadow). The supplier blue look sets it
+   (`vendor-dashboard/_components/supplier-look.css`). */
+:where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand.ab-main:not(:focus-visible)) {
+  box-shadow: var(--sn-forward-lift, none);
 }
 
 /* ---------- glass surfaces ---------- */
@@ -8297,7 +8309,10 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 .home-money .home-v { font-size: 20px; }
 .home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
 .home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
-.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+/* 🏷 THE HOUSE SECTION LABEL reads tokens (owner 17 Nov, the clean look: "Removes: uppercase section labels … become
+   bold sentence-case titles"). Unset = the small uppercase grey label, exactly as before; a scope re-points them
+   (supplier-look.css) — no per-component rule. 🔒 app/vendor-dashboard/section-labels-are-sentence-case.test.ts */
+.home-k2 { font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 14px 0 6px; }
 .home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
 .home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
 .home-row .home-t { font-weight: 500; }
@@ -8444,8 +8459,15 @@ html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2
 .hc-ecard-plain .hc-now-k { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }
 /* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
-.hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
-.hc-k2 em { margin-left: auto; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.hc-k2 { display: flex; align-items: center; gap: var(--sn-label-gap, 6px); font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 6px 0 -4px; }
+/* The label's count: far right and bare by default; a scope can sit it after the title in a pale pill. */
+.hc-k2 em { margin-left: var(--sn-label-count-push, auto); padding: var(--sn-label-count-pad, 0); border-radius: 999px; background: var(--sn-label-count-bg, transparent); color: var(--sn-label-count-ink, inherit); font-weight: var(--sn-label-count-weight, inherit); font-style: normal; text-transform: none; letter-spacing: 0; font-size: var(--sn-label-count-size, 12px); }
+/* 🏷 THE SHEET SECTION LABEL (Switch to · You are in · Today · Earlier · Waiting on this page; `.sn-sheet-k`) and THE SHEET NAME read
+   tokens too: the defaults are the old mono uppercase label and the editorial display name, so the couple side is
+   unchanged; the supplier look sets the clean look's bold sentence case and the app sans (owner 17 Nov).
+   🔒 app/vendor-dashboard/section-labels-are-sentence-case.test.ts */
+.sn-sheet-k { display: block; font-family: var(--sn-label-font, var(--font-mono)); font-size: var(--sn-sec-size, 10px); font-weight: var(--sn-label-weight, 500); letter-spacing: var(--sn-label-track, 0.2em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, var(--m-slate-3)); }
+.sn-sheet-name { font-family: var(--sn-name-font, var(--font-editorial-display)); font-size: var(--sn-name-size, 22px); font-weight: var(--sn-name-weight, 600); }
 .hc-k2-name { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 /* ✅ Home's one To do (prototype `.nx` · `.todoline`): rows on the page, a hairline between, the plan's own tick. */
 .hc-todo { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }

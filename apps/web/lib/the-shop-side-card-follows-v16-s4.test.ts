@@ -34,11 +34,12 @@ test('"from ₱…" is the lowest price the page SHOWS, with that card’s best 
     { vendor_service_id: 'c', starting_price_php: null },
   ];
   const off = (id: string, php: number) =>
-    ({ vendor_service_id: id, discount_type: 'loyalty', rate: php, unit: 'php', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }) as never;
+    ({ vendor_service_id: id, discount_type: 'promo', rate: php, unit: 'php', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }) as never;
   const discounts = new Map([['a', [off('a', 9000)]], ['b', [off('b', 5000)]]]);
   const line = sideCardPrice(rows, false, discounts);
   assert.equal(line?.from, 'from ₱45,000');
   assert.ok(line?.offer && /5,000/.test(line.offer), `the offer is not the cheapest card's own: ${line?.offer}`);
+  assert.equal(line?.offer, '₱5,000 off · limited-time');
   assert.equal(sideCardPrice(rows, true, discounts), null, 'a hidden price showed');
   assert.equal(sideCardPrice([{ vendor_service_id: 'c', starting_price_php: null }], false, new Map()), null, 'an unset price became ₱0');
   assert.match(PAGE, /price=\{sideCardPrice\(activeServices, hidePricesPublicly, discountsByService, \{ eventDate: coupleEventDate \}\)\}/);

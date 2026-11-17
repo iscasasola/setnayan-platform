@@ -2280,8 +2280,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </p>
           ) : !contractsMeasured ? (
             <p role="status" className="text-xs text-warn-800">
-              We couldn&rsquo;t load this booking&rsquo;s contracts just now &mdash; this does not mean there are none.
-              Reload in a moment, or open Manage to look.
+              Couldn&rsquo;t load contracts just now &mdash; that does not mean there are none.
             </p>
           ) : contracts.length === 0 ? (
             <div className="space-y-2">

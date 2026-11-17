@@ -104,7 +104,9 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // each with its named payer in the baseline's header. Each .rpc() that lands takes its row out and this down by one.
 // 46 → 48 on 2026-11-15/16: the badge ladder (J0, #7753) adds seal_awarded + card_badge_earned notice rows; the seals
 // engine (J2, #7825) adds the same seal_awarded key, so it shares that one row.
-const EXPECTED_BASELINE_ROWS = 48;
+// 48 → 47 on 2026-11-17: J3 (#7819) ships the card_badge_earned emitter (lib/card-badges.server.ts announce) and
+// takes that row out.
+const EXPECTED_BASELINE_ROWS = 47;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

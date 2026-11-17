@@ -13,7 +13,7 @@ import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
 import { returningClientLine } from '@/lib/client-words';
 import { readClientNoun } from '@/lib/client-words.server';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
@@ -452,7 +452,7 @@ export async function acceptInquiry(formData: FormData) {
   const back =
     isSafeNext(returnTo)
       ? returnTo
-      : `/vendor-dashboard/messages/${threadId}`;
+      : supplierThreadPageHref(threadId);
   const fail = (msg: string): never =>
     redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
 

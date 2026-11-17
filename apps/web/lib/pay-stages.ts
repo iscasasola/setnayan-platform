@@ -38,7 +38,9 @@ export const PAY_STAGES: ReadonlyArray<{
   advance: string | null;
 }> = [
   { n: 1, title: 'You’re paying for', advance: 'Continue' },
-  { n: 2, title: 'Pay this exact amount', advance: 'I’ve sent the payment' },
+  // ⚖ Owner 2026-11-17: the step-2 button reads "Upload Payment Receipt" — the
+  // payer does not type anything on the next stage, they upload the receipt.
+  { n: 2, title: 'Pay this exact amount', advance: 'Upload Payment Receipt' },
   { n: 3, title: 'Send your proof', advance: null },
 ];
 

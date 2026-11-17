@@ -124,7 +124,8 @@ test('names read as a phrase from the list, in the admin order', () => {
   assert.equal(namesPhrase(['GCash', 'BDO']), 'GCash or BDO');
   assert.equal(namesPhrase(['GCash', 'BDO', 'Maribank']), 'GCash, BDO or Maribank');
   assert.equal(namesPhrase([], 'bank or e-wallet'), 'bank or e-wallet');
-  assert.equal(receivingAccountsPhrase(SETTINGS), 'GCash, BDO or Maribank');
+  // ⚖ BDO only (owner 2026-11-17): the OPEN accounts' phrase names BDO alone.
+  assert.equal(receivingAccountsPhrase(SETTINGS), 'BDO');
   assert.equal(ourAccountPhrase(['GCash', 'Maribank']), 'our GCash or Maribank account');
   assert.equal(ourAccountPhrase([]), 'our receiving account');
 });

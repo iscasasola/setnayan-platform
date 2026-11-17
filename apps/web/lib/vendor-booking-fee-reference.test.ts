@@ -100,20 +100,20 @@ test('over-long input is capped, not refused', () => {
 // ── the rule is REACHABLE, and enforced where it counts ─────────────────────
 
 test('the pay lane enforces it, and refuses BEFORE the write', () => {
+  // ⚖ REPOINTED 2026-11-17 — the owner superseded the TYPED reference: *"the
+  // don't have to type. we detect after they sent it and log the data for the
+  // admin"*. What the 2026-08-06 rule wanted — a booking fee the admin can match
+  // against a bank message — is now the RECEIPT, required on every lane
+  // (booking fees included), with the reference READ off it and stored. So the
+  // guard follows the capability: no receipt ⇒ refused, before the write; and
+  // the stored reference is the typed one, else the one read off the picture.
   const src = codeOf(ACTION);
-  const check = src.search(/payable\.requiresReference\s*&&\s*!\s*bankReference/);
+  const check = src.search(/if\s*\(\s*!screenshotUrl\s*\)/);
   const insert = src.indexOf(".from('payments')");
-  assert.ok(
-    check > 0,
-    'the pay action no longer refuses a booking fee with no reference — the field ' +
-      'being marked required in the form would be the only check, and a form ' +
-      'attribute is not a rule',
-  );
+  assert.ok(check > 0, 'the pay action no longer refuses a send with no receipt');
   assert.ok(insert > 0, 'the pay action no longer inserts a payment — repoint this guard');
-  assert.ok(
-    check < insert,
-    'the refusal comes AFTER the insert, so a blank reference is already stored',
-  );
+  assert.ok(check < insert, 'the refusal comes AFTER the insert, so an empty claim is already stored');
+  assert.match(src, /reference_number:\s*bankReference \?\? receiptRead\?\.readReference/);
 });
 
 test('the pay lane stores the NORMALISED reference, not the raw field', () => {

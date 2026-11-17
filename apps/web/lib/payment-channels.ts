@@ -202,7 +202,30 @@ function payableAccount(a: ReceivingAccount): boolean {
  * number and no QR would render a payment panel with nothing to pay to.
  */
 export function openAccounts(s: ChannelSettings): ReceivingAccount[] {
-  return receivingAccounts(s).filter((a) => a.enabled && payableAccount(a));
+  return receivingAccounts(s).filter(
+    (a) => a.enabled && payableAccount(a) && isPayerRail(a),
+  );
+}
+
+/**
+ * ⚖ BDO ONLY, FOR EVERY PAYER (owner 2026-11-17, DECISION_LOG, verbatim):
+ * *"we will make all our transactions enter BDO Account. So we show them QRPH
+ * with the exact data. Show QR."* So GCash — and any other account in the list —
+ * is offered NOWHERE a payer starts a payment: /pay, booking fees, gifts, plans,
+ * the couple's checkout. This supersedes every earlier GCash limit.
+ *
+ * 🔑 DORMANT, NOT DELETED. The GCash account stays in `receivingAccounts` (the
+ * admin list, the monthly-cap meter, every `payments.channel = 'gcash'` already
+ * written) and keeps its own `gcash_enabled` / `enabled` switch. Re-opening it is
+ * this one predicate, and it is the ONE place: every payer surface asks
+ * `openAccounts` (through `openChannels`, `resolveChannel`, `openRailOptions`,
+ * `openRailDetails`, `isChannelOpen`, `receivingAccountsPhrase`).
+ *
+ * A BDO account is the migrated `'bdo'` rail, or one the admin added whose label
+ * names BDO (a second BDO account must not be shut out by its id).
+ */
+export function isPayerRail(a: Pick<ReceivingAccount, 'id' | 'label'>): boolean {
+  return a.id === 'bdo' || /^bdo\b/i.test(a.label.trim());
 }
 
 /**

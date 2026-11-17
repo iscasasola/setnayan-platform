@@ -77,12 +77,14 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-test('the screenshot preview stays on screen, above the reference field', () => {
-  const previewAt = panel.indexOf('Read the reference number off it');
-  const fieldAt = panel.indexOf('reference_last6');
+test('the screenshot preview stays on screen, above the send button', () => {
+  // ✏️ 2026-11-17: the typed field is gone (owner: "the don't have to type"), so
+  // the preview is anchored above the one control left — the send.
+  const previewAt = panel.indexOf('This is the receipt we&rsquo;ll read');
+  const sendAt = panel.indexOf('<SubmitButton');
   assert.ok(previewAt > 0, 'the preview caption is gone');
-  assert.ok(fieldAt > 0, 'the last-6 field is gone');
-  assert.ok(previewAt < fieldAt, 'the preview must render BEFORE the field they type into');
+  assert.ok(sendAt > 0, 'the send button is gone');
+  assert.ok(previewAt < sendAt, 'the preview must render BEFORE the send');
   assert.match(panel, /onFilePicked/, 'nothing captures the picked file to preview it');
 });
 
@@ -111,11 +113,12 @@ test('the rail is written in the spelling the headroom meter can read', () => {
   assert.equal((actions.match(/'GCash'|'BDO'/g) ?? []).length, 0);
 });
 
-test('a booking fee must carry a bank reference — the owner ruled it', () => {
-  // Owner 2026-08-06: on that lane a reference is REQUIRED, because an admin
-  // reconciles it against a bank message rather than guessing at money.
-  assert.match(actions, /payable\.requiresReference && !bankReference/);
-  assert.match(panel, /required=\{requiresReference\}/);
+test('a booking fee must carry something the admin can match — now the receipt', () => {
+  // Owner 2026-08-06 required a reference on that lane; owner 2026-11-17
+  // superseded the TYPING ("the don't have to type") — the receipt is required
+  // on every lane and its reference is read off it and stored.
+  assert.match(actions, /if \(!screenshotUrl\) \{/);
+  assert.match(actions, /reference_number: bankReference \?\? receiptRead\?\.readReference/);
 });
 
 test('a pasted full reference is KEPT, not trimmed to six', () => {
@@ -124,10 +127,10 @@ test('a pasted full reference is KEPT, not trimmed to six', () => {
   assert.doesNotMatch(actions, /cleaned\.slice\(-6\)/);
 });
 
-test('a claim with neither a picture nor a number is refused, not stored', () => {
-  // Both fields are optional and the submit button sits below them: one stray
-  // tap wrote an unreconcilable row AND hid the form that could have fixed it.
-  assert.match(actions, /if \(!screenshotUrl && !bankReference\)/);
+test('a claim with no picture is refused, not stored', () => {
+  // One stray tap once wrote an unreconcilable row AND hid the form that could
+  // have fixed it. With nothing typed (owner 2026-11-17), the picture is the claim.
+  assert.match(actions, /if \(!screenshotUrl\) \{/);
 });
 
 test('the form comes back when we ask for a better picture', () => {

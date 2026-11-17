@@ -12,6 +12,7 @@
  *
  * Worked (the owner's own examples, all asserted in booking-fee.test.ts):
  *   ₱60,000 → ₱3,000 · ₱300,000 → ₱7,000 · ₱1M → ₱14,000 · ₱10M → ₱104,000
+ *   → now ₱100,000: the ceiling (owner 2026-11-17) binds above ₱9.6M.
  *
  * WHY: a flat 5% with no cap made large bookings punitive (₱1M → ₱50,000) and
  * re-opened the large-ticket under-declaration incentive the old ₱4,000 cap had
@@ -56,6 +57,8 @@
  * **5% on the first ₱100,000, then 1% on the amount above.** Floor ₱50 survives;
  * still no cap. Supersedes the 2026-07-24 flat 5%.
  */
+import { MAX_PAYMENT_PHP_DEFAULT, maxPaymentPhpOrDefault } from '@/lib/max-payment';
+
 /**
  * The three numbers the OWNER may set, plus the two he may not.
  *
@@ -78,6 +81,14 @@ export type BookingFeeSchedule = {
   tier1LimitPhp: number;
   /** Minimum fee (and floor) for any positive proposal. FIXED, not editable. */
   minPhp: number;
+  /**
+   * ⚖ THE CEILING (owner 2026-11-17): the booking fee can never exceed ₱100,000.
+   * It is the admin setting `platform_settings.max_payment_php` — the same number
+   * that bounds every payment to Setnayan — read by `getBookingFeeSchedule`.
+   * Optional so a schedule built anywhere else still caps: absent ⇒
+   * `MAX_PAYMENT_PHP_DEFAULT`. Mirrored in SQL by `public.booking_fee_centavos`.
+   */
+  maxPhp?: number;
 };
 
 /**
@@ -94,6 +105,8 @@ export const BOOKING_FEE: BookingFeeSchedule = {
   tier1LimitPhp: 100_000,
   /** Minimum fee (and floor) for any positive proposal. */
   minPhp: 50,
+  /** The ceiling (owner 2026-11-17) — the ruled default of `max_payment_php`. */
+  maxPhp: MAX_PAYMENT_PHP_DEFAULT,
 } as const;
 
 /** The FIRST-BAND rate (5%). Exposed for display copy / callers. */
@@ -109,12 +122,13 @@ export const BOOKING_FEE_TIER1_LIMIT_PHP = BOOKING_FEE.tier1LimitPhp;
  * The booking fee (PHP, to the centavo) for a finalized proposal amount in PHP.
  *
  * PURE + deterministic. **5% on the first ₱100,000, then 1% above**, floored at
- * ₱50, no upper cap. The ₱50 floor binds below ₱1,000. A non-positive /
+ * ₱50, capped at `max_payment_php` (₱100,000 — owner 2026-11-17). The ₱50 floor binds below ₱1,000. A non-positive /
  * non-finite amount → 0 (see the ₱0/barter note above).
  *
  * Owner's own worked examples (`..._MODEL_LOCKED_2026-07-25.md` § 3), all
  * asserted in the test suite:
  *   ₱60,000 → ₱3,000 · ₱300,000 → ₱7,000 · ₱1M → ₱14,000 · ₱10M → ₱104,000
+ *   → now ₱100,000: the ceiling (owner 2026-11-17) binds above ₱9.6M.
  *
  * ⚠ The taper is a DISCOUNT on large bookings, never a surcharge: it is
  * continuous at ₱100,000 (₱5,000 either way) and monotonic, so no vendor is
@@ -128,8 +142,10 @@ export function bookingFeePhp(
   const tier1 = Math.min(proposalPhp, schedule.tier1LimitPhp);
   const tier2 = Math.max(0, proposalPhp - schedule.tier1LimitPhp);
   const linear = tier1 * schedule.rate + tier2 * schedule.tailRate;
-  // Floor at ₱50 — no upper cap (owner 2026-07-25; the floor SURVIVES the taper).
-  const bounded = Math.max(linear, schedule.minPhp);
+  // Floor at ₱50 (owner 2026-07-25; the floor SURVIVES the taper).
+  const floored = Math.max(linear, schedule.minPhp);
+  // ⚖ …and capped at the ceiling (owner 2026-11-17: never above ₱100,000).
+  const bounded = Math.min(floored, maxPaymentPhpOrDefault(schedule.maxPhp));
   return Math.round(bounded * 100) / 100; // centavo precision
 }
 

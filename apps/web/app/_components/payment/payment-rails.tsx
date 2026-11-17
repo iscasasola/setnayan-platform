@@ -34,7 +34,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Share2 } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -149,6 +149,11 @@ export function railCardWords(r: Pick<RailIdentity, 'kind' | 'label'>): { title:
   };
 }
 
+/** The one row's words when only one account is open: "Pay to BDO via QR". */
+export function payToRailLine(r: Pick<RailIdentity, 'label'>): string {
+  return `Pay to ${r.label} via QR`;
+}
+
 export function ChannelToggle({
   channel,
   onChange,
@@ -167,6 +172,29 @@ export function ChannelToggle({
   // transfers FAIL rather than queue. Showing it greyed-out would invite
   // "why can't I use GCash?"; omitting it just presents what works. The
   // server re-checks on submit either way.
+  //
+  // ⚖ ONE RAIL IS NOT A CHOICE (owner 2026-11-17: every payment enters BDO —
+  // "So we show them QRPH with the exact data. Show QR."). With one open account
+  // there is no picker and no switch: ONE row, "Pay to BDO via QR", and nothing
+  // to press. The radio cards below are the dormant multi-account path.
+  const only = rails.length === 1 ? rails[0] : null;
+  if (only) {
+    const { badge, badgeClass } = railBadge(only);
+    return (
+      <div
+        data-pay-rail-row=""
+        className="flex w-full items-center gap-3 rounded-2xl border border-mulberry bg-mulberry/5 px-4 py-3 text-left"
+      >
+        <span
+          aria-hidden
+          className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[11px] font-extrabold tracking-wide ${badgeClass}`}
+        >
+          {badge}
+        </span>
+        <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{payToRailLine(only)}</span>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2.5">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
@@ -417,16 +445,25 @@ export function PaymentDetailsBlock({
                 {qrWords(true, payAmount(amountPhp), { appLabel: label, reference: referenceCode })
                   .caption}
               </p>
-              {/* Same-device path: a couple browsing on their phone cannot
-                  point that phone's camera at its own screen. Both GCash and
-                  the BDO app can scan an image from the gallery, so saving is
-                  the only route that works without a second device. */}
+              {/* Same-device path: a payer browsing on their phone cannot point
+                  that phone's camera at its own screen, so the code has to
+                  reach their photos and the bank app scans it from there.
+                  ⚖ Owner 2026-11-17: "should auto save the QR Code", with a
+                  Share button. SHARE is the honest half of that on the web:
+                  `SaveFileLink` opens the phone's share sheet with the QR IMAGE
+                  (Save Image · send it on) through the Web Share API, and falls
+                  back to a plain download on a computer. ⚠ There is no
+                  auto-save here, on purpose: iPhone Safari cannot write to the
+                  photo library without a tap, and a button that pretends it
+                  already saved is a payer scanning nothing. */}
               <SaveFileLink
                 href={mintedQr}
                 filename={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
-                className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
+                data-pay-qr-share=""
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3.5 py-1.5 text-[12px] font-semibold text-ink/75 transition hover:border-ink/30 hover:text-ink"
               >
-                Save image · scan from your photos
+                <Share2 aria-hidden className="h-3.5 w-3.5" />
+                Share
               </SaveFileLink>
             </>
           ) : (

@@ -49,7 +49,9 @@ test('🔴 every instruction to pay is gone while we are checking', () => {
   // The whole pay panel — the QR, the channel tabs and the "I've paid" button.
   assert.match(
     SRC,
-    /\{!waiting && \(\s*<PayPanel/,
+    // `!overCeiling` (owner 2026-11-17: no payment above max_payment_php) may
+    // narrow it further; it may never widen it.
+    /\{!waiting && (?:!overCeiling && )?\(\s*<PayPanel/,
     'the QR and the proof form must not render while we are checking',
   );
 });

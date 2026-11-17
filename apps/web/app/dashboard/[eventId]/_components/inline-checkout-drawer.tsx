@@ -326,10 +326,6 @@ export function InlineCheckoutDrawer({
   // as success (matches createOrder pattern from PR #591/#593).
   const idempotencyKey = useId();
 
-  // Stable id so the visible "Reference number" label is programmatically
-  // associated with its input (a11y · screen readers announce the field name
-  // on focus). Mirrors the wrapped-label pattern the order-detail page uses.
-  const referenceFieldId = useId();
 
   // Pre-minted Setnayan reference · shown in the payment step BEFORE the couple
   // pays, and threaded to submitOrderAction so the created order carries the
@@ -749,48 +745,11 @@ export function InlineCheckoutDrawer({
                   }}
                   className="space-y-3"
                 >
-                  <div>
-                    <label
-                      htmlFor={referenceFieldId}
-                      className="mb-1 block text-xs font-medium text-ink/70"
-                    >
-                      {channel === 'gcash'
-                        ? 'Reference number from GCash'
-                        : shownRail?.kind === 'bank'
-                          ? 'InstaPay Invoice No. from your transfer'
-                          : `Reference number from ${shownRail?.label ?? 'your app'}`}
-                    </label>
-                    {/* Name the EXACT field, per rail. Verified on live
-                        transfers 2026-07-31: on GCash→GCash the reference is
-                        identical for payer and recipient, but on a transfer to
-                        BDO the prominent "Ref No." is GCash's own and appears
-                        NOWHERE on our side — the InstaPay Invoice No. is what
-                        our BDO record ends with. Asking for "a reference
-                        number" gets us the decoy on half the payments.
-                        Both apps put a copy button beside it, so this is one
-                        tap for them and the strongest matching signal we have
-                        without a bank feed. */}
-                    <input
-                      id={referenceFieldId}
-                      type="text"
-                      name="reference_number"
-                      autoComplete="off"
-                      inputMode="numeric"
-                      placeholder={
-                        shownRail?.kind === 'bank' ? 'e.g. 6991560' : 'e.g. 0043457367694'
-                      }
-                      className="input-field"
-                    />
-                    <p className="mt-1 text-[11px] text-ink/50">
-                      {channel === 'gcash'
-                        ? 'Open the transaction in GCash and tap the copy icon beside Reference Number.'
-                        : shownRail?.kind === 'bank'
-                          ? 'On your GCash transfer receipt, copy the InstaPay Invoice No. (not the Ref No. below it).'
-                          : 'Open the transaction in your app and copy its reference number.'}{' '}
-                      Optional · but it lets us confirm your payment much faster.
-                    </p>
-                  </div>
-
+                  {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
+                      *"the don't have to type. we detect after they sent it and
+                      log the data for the admin"*). The receipt reader takes
+                      the reference, amount, date and time off the screenshot
+                      below and files them on the payment (checkout/actions.ts). */}
                   <div>
                     {/* label passed to FileUpload so the field name renders with
                         the dropzone (whose own input is htmlFor-associated),
@@ -811,7 +770,7 @@ export function InlineCheckoutDrawer({
                       onChange={(v) => {
                         setScreenshotRef(typeof v === 'string' ? v : null);
                       }}
-                      help="Snap a photo of your bank-transfer or GCash confirmation."
+                      help="Snap your payment receipt — nothing to type; we read it for you."
                     />
                   </div>
 

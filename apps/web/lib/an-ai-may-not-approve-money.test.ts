@@ -125,18 +125,13 @@ test('a mismatch is never the default — every verdict field can be null', () =
   );
 });
 
-test('the pay form does not silently truncate a pasted reference', () => {
-  // The field invites "paste the whole thing" and the server keeps 64
-  // characters. A small maxLength here throws the rest away with no error —
-  // it shipped that way once.
+test('the pay form asks for no typed reference — so nothing can truncate one', () => {
+  // ✏️ 2026-11-17: this guarded a maxLength that silently cut a pasted
+  // reference. The field itself is gone (owner: "the don't have to type") — the
+  // reference is read off the receipt and stored, advisory, for the admin. If a
+  // typed field ever returns, so must the maxLength ≥ 32 rule this held.
   const src = read('app/pay/[reference]/_components/pay-panel.tsx');
-  const field = src.slice(src.indexOf("name=\"reference_last6\""));
-  const maxLength = /maxLength=\{(\d+)\}/.exec(field.slice(0, 400));
-  assert.ok(maxLength, 'the reference field lost its maxLength entirely');
-  assert.ok(
-    Number(maxLength[1]) >= 32,
-    `the reference field truncates at ${maxLength[1]} while the copy invites a full paste`,
-  );
+  assert.doesNotMatch(src, /name="reference_last6"/, 'a typed reference field is back — restore the maxLength guard with it');
 });
 
 test('the buyer is asked at most once, and a "not sure" never asks', () => {

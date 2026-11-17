@@ -42,6 +42,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createClient } from '@/lib/supabase/server';
@@ -49,6 +50,8 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -815,6 +818,15 @@ export async function submitOrderAction(
     await getEffectiveVatRatePct(supabase),
   ).gross;
 
+  // ⚖ THE MOST ONE PAYMENT TO SETNAYAN MAY BE (owner 2026-11-17). This drawer is
+  // pay-then-mint, so the refusal happens BEFORE the order exists — an over-
+  // ceiling checkout leaves nothing in the admin queue. Exactly the ceiling is
+  // allowed; the number is the admin setting, never typed here.
+  const maxPaymentPhp = await getMaxPaymentPhp(supabase);
+  if (!paymentWithinCeiling(finalAmountForPayment, maxPaymentPhp)) {
+    return { ok: false, reason: paymentOverCeilingMessage(maxPaymentPhp) };
+  }
+
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
   // the ORIGINAL price in that field (consistent with the legacy createOrder
   // flow where requested_total_php is the quote · admin confirms to
@@ -984,6 +996,39 @@ export async function submitOrderAction(
     };
   }
   const paymentId = paymentRow.payment_id as string;
+
+  // ── THE RECEIPT IS READ, NOT TYPED (owner 2026-11-17) ─────────────────────
+  // *"the don't have to type. we detect after they sent it and log the data for
+  // the admin"*. The drawer no longer asks for a reference, so the receipt
+  // reader takes the reference, amount, date and time off the screenshot and
+  // files them for the admin — AFTER the response, so the couple never waits on
+  // it (this lane has no "check your digits" ask to make; nothing was typed).
+  // ⚠ ADVISORY: it fills the empty lookup keys of THIS pending payment and
+  // nothing else — never a status, never an order. Approval stays the admin's.
+  after(async () => {
+    const { readPaymentReceiptFromR2, recordPaymentReceiptRead } = await import(
+      '@/lib/payment-receipt-read.server'
+    );
+    const read = await readPaymentReceiptFromR2({
+      screenshotRef: screenshotUrl,
+      proofPolicy: inlineCheckoutProofPolicy(eventIdClean, user.id),
+      typedReference: referenceNumberClean,
+      expectedPhp: finalAmountForPayment,
+      channel: typeof channel === 'string' ? channel : null,
+    });
+    if (!read) return;
+    await recordPaymentReceiptRead(moneyWriter, paymentId, read);
+    const fill: Record<string, string> = {};
+    if (!referenceNumberClean && read.readReference) fill.reference_number = read.readReference;
+    if (read.seenPaidOn) fill.paid_at = read.seenPaidOn;
+    if (Object.keys(fill).length === 0) return;
+    const { error: fillErr } = await moneyWriter
+      .from('payments')
+      .update(fill)
+      .eq('payment_id', paymentId)
+      .eq('status', 'pending');
+    if (fillErr) console.error('[checkout] receipt read was not logged on the payment', paymentId, fillErr.message);
+  });
 
   // discount_code_redemptions row IF voucher applied. UNIQUE (order_id)
   // from PR #594 + UNIQUE (discount_code_id, couple_user_id) from PR #595

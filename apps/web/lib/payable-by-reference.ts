@@ -5,7 +5,8 @@ import { statusOf, type PayableStatus } from './payable-status';
 import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
-import { isBookingFeeOrder, payBackLink } from './pay-back-link';
+import { isBookingFeeOrder, payBackLink, payHomeHref } from './pay-back-link';
+import { SHOP_GIFT_KEY_PREFIX } from './shop-gifts';
 import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
 
 export type { PayableStatus };
@@ -68,6 +69,8 @@ export type Payable = {
   ownerUserId: string | null;
   /** Where this buyer came from, so the page is not a dead end. */
   back: { label: string; href: string } | null;
+  /** The payer's HOME — where the sent screen's countdown lands (owner 2026-11-17). */
+  home: string;
   /**
    * True when a bank reference is REQUIRED, not merely useful — the booking-fee
    * lane (owner 2026-08-06), where a shop owes Setnayan money that an admin
@@ -200,6 +203,16 @@ export async function fetchPayableByReference(
     isBookingFee ? bookingFeeCarriesGift(supabase, order.service_key) : Promise.resolve(false),
   ]);
 
+  const backInput = {
+    orderId: order.order_id,
+    isBookingFee,
+    eventId: order.event_id ?? null,
+    vendorProfileId: order.vendor_profile_id ?? null,
+    ownerUserId: order.user_id ?? null,
+    viewerUserId: viewerUserId ?? null,
+    isShopGift: Boolean(order.service_key?.startsWith(SHOP_GIFT_KEY_PREFIX)),
+  };
+
   return {
     orderId: order.order_id,
     reference: order.reference_code,
@@ -212,14 +225,8 @@ export async function fetchPayableByReference(
     isVendorPlan,
     eventId: order.event_id ?? null,
     ownerUserId: order.user_id ?? null,
-    back: payBackLink({
-      orderId: order.order_id,
-      isBookingFee,
-      eventId: order.event_id ?? null,
-      vendorProfileId: order.vendor_profile_id ?? null,
-      ownerUserId: order.user_id ?? null,
-      viewerUserId: viewerUserId ?? null,
-    }),
+    back: payBackLink(backInput),
+    home: payHomeHref(backInput),
     requiresReference: isBookingFee,
     isBookingFee,
     carriesGift,

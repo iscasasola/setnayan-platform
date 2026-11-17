@@ -34,7 +34,7 @@
  * a database or a key.
  */
 
-import { scanPaymentProof } from '@/lib/payment-proof-scan';
+import { scanPaymentProof, extractReceiptPaidAt, preferredReference } from '@/lib/payment-proof-scan';
 import {
   compareReferences,
   normalizeReference,
@@ -87,6 +87,18 @@ export type PaymentReceiptRead = {
   amountMatches: boolean | null;
   seenReferences: string[];
   seenAmounts: number[];
+  /**
+   * The ONE reference to log on the payment when the payer typed none (owner
+   * 2026-11-17: "the don't have to type") — the rail's own matching key, so on
+   * BDO the InstaPay invoice number before the decoy "Ref No." (see
+   * `preferredReference`). NULL when none was read. Advisory: it is a lookup
+   * key for the admin, never a verdict.
+   */
+  readReference: string | null;
+  /** The transfer date on the receipt, `YYYY-MM-DD`, or NULL. */
+  seenPaidOn: string | null;
+  /** The transfer clock time on the receipt, `HH:MM[:SS]` 24-hour, or NULL. */
+  seenPaidTime: string | null;
   /** One plain sentence for the admin. */
   summary: string;
   error: string | null;
@@ -181,7 +193,8 @@ export function summariseReceiptRead(args: {
 }
 
 /**
- * Read a transcribed receipt.
+ * Read a transcribed receipt — the references, the amounts, and (owner
+ * 2026-11-17) the date and time of the transfer, so the payer types nothing.
  *
  * @param transcript  whatever the model typed out (or a sentinel)
  * @param typed       the reference the buyer entered on the pay page
@@ -191,6 +204,8 @@ export function readPaymentReceipt(args: {
   transcript: string;
   typed: string | null | undefined;
   expectedPhp: number | null;
+  /** The rail it was paid to — picks which reference is the matching key. Default BDO. */
+  channel?: string | null;
 }): PaymentReceiptRead {
   const text = args.transcript.trim();
 
@@ -201,6 +216,9 @@ export function readPaymentReceipt(args: {
       amountMatches: null,
       seenReferences: [],
       seenAmounts: [],
+      readReference: null,
+      seenPaidOn: null,
+      seenPaidTime: null,
       summary: 'The picture could not be read. Open it yourself.',
       error: null,
     };
@@ -213,6 +231,9 @@ export function readPaymentReceipt(args: {
       amountMatches: null,
       seenReferences: [],
       seenAmounts: [],
+      readReference: null,
+      seenPaidOn: null,
+      seenPaidTime: null,
       summary: 'That picture does not look like a payment receipt. Open it yourself.',
       error: null,
     };
@@ -221,6 +242,7 @@ export function readPaymentReceipt(args: {
   const scan = scanPaymentProof(text, args.expectedPhp ?? undefined);
   const seenReferences = scan.references.map((r) => r.value);
   const { matches, reason } = referenceVerdict(args.typed, seenReferences);
+  const paidAt = extractReceiptPaidAt(text);
 
   return {
     status: 'ok',
@@ -228,6 +250,10 @@ export function readPaymentReceipt(args: {
     amountMatches: scan.matchesExpected,
     seenReferences,
     seenAmounts: scan.amounts,
+    // Every payment enters BDO (owner 2026-11-17), so BDO's key leads.
+    readReference: preferredReference(scan, args.channel === 'gcash' ? 'gcash' : 'bdo')?.value ?? null,
+    seenPaidOn: paidAt.date,
+    seenPaidTime: paidAt.time,
     summary: summariseReceiptRead({
       referenceMatches: matches,
       referenceReason: reason,

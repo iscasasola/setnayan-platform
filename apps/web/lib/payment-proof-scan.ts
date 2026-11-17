@@ -197,3 +197,100 @@ export function preferredReference(
     scan.references.find((r) => r.kind === wanted) ?? scan.references[0] ?? null
   );
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * WHEN THE TRANSFER WAS MADE — the date and clock time printed on the receipt.
+ *
+ * ⚖ Owner 2026-11-17, verbatim: *"the don't have to type. we detect after they
+ * sent it and log the data for the admin to send his counterpart screenshot"*.
+ * The admin matches a payment against the bank's OWN record, which is keyed by
+ * amount and time; reading the time off the payer's picture is what lets the
+ * payer type nothing.
+ *
+ * Shapes seen on Philippine receipts:
+ *   GCash   "Nov 17, 2026 3:04 PM"           (month name first, 12-hour)
+ *   BDO     "17 Nov 2026 15:04:22"           (day first, 24-hour)
+ *   others  "2026-11-17 15:04" · "11/17/2026 03:04 PM"
+ *
+ * ⚠ ADVISORY LIKE EVERYTHING HERE. A date that cannot be read is NULL, never a
+ * guess (and never "today"): a wrong date on the admin's card is worse than none.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export type ReceiptPaidAt = {
+  /** `YYYY-MM-DD`, or null when no real calendar date was printed. */
+  date: string | null;
+  /** `HH:MM` or `HH:MM:SS`, 24-hour, as printed (Manila wall time), or null. */
+  time: string | null;
+};
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_RE = '(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
+
+function isoDate(y: number, m: number, d: number): string | null {
+  if (!Number.isInteger(y) || y < 2000 || y > 2100) return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const t = new Date(Date.UTC(y, m - 1, d));
+  if (t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null; // 31 Feb is not a date
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function monthIndex(name: string): number {
+  return MONTHS.indexOf(name.slice(0, 3).toLowerCase()) + 1;
+}
+
+/** The first real calendar date printed on the receipt, in reading order. */
+function extractDate(text: string): string | null {
+  type Hit = { at: number; iso: string | null };
+  const hits: Hit[] = [];
+  const add = (re: RegExp, f: (m: RegExpExecArray) => string | null) => {
+    let m: RegExpExecArray | null;
+    re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null) hits.push({ at: m.index, iso: f(m) });
+  };
+  // "Nov 17, 2026" / "November 17 2026"
+  add(new RegExp(`\\b${MONTH_RE}\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'gi'), (m) =>
+    isoDate(Number(m[3]), monthIndex(m[1]!), Number(m[2])),
+  );
+  // "17 Nov 2026" / "17-Nov-2026"
+  add(new RegExp(`\\b(\\d{1,2})[\\s\\-]+${MONTH_RE}[\\s\\-,]+(\\d{4})\\b`, 'gi'), (m) =>
+    isoDate(Number(m[3]), monthIndex(m[2]!), Number(m[1])),
+  );
+  // "2026-11-17"
+  add(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m) => isoDate(Number(m[1]), Number(m[2]), Number(m[3])));
+  // "11/17/2026" — month first, as PH banking apps print it; day first only
+  // when the first number cannot be a month.
+  add(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m) => {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    return a > 12 ? isoDate(Number(m[3]), b, a) : isoDate(Number(m[3]), a, b);
+  });
+  hits.sort((x, y) => x.at - y.at);
+  return hits.find((h) => h.iso)?.iso ?? null;
+}
+
+/** The first clock time printed on the receipt, normalised to 24-hour. */
+function extractTime(text: string): string | null {
+  const re = /\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])?\.?\s*(m\.?)?(?![a-z])/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    let h = Number(m[1]);
+    const min = Number(m[2]);
+    const sec = m[3] == null ? null : Number(m[3]);
+    const ap = m[4] && m[5] ? m[4].toLowerCase() : null;
+    if (min > 59 || (sec != null && sec > 59)) continue;
+    if (ap) {
+      if (h < 1 || h > 12) continue;
+      if (ap === 'p' && h !== 12) h += 12;
+      if (ap === 'a' && h === 12) h = 0;
+    } else if (h > 23) continue;
+    const hh = String(h).padStart(2, '0');
+    const mm = String(min).padStart(2, '0');
+    return sec == null ? `${hh}:${mm}` : `${hh}:${mm}:${String(sec).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+/** Read when the transfer was made off a transcribed receipt. Never throws. */
+export function extractReceiptPaidAt(text: string): ReceiptPaidAt {
+  return { date: extractDate(text), time: extractTime(text) };
+}

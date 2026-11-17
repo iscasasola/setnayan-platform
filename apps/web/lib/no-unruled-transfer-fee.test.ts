@@ -20,7 +20,7 @@ const TRANSFER_FEE = /transfer\s+fee/i;
 
 test('the pay page still exists where this guard looks', () => {
   const src = readFileSync(PAY_PANEL, 'utf8');
-  assert.ok(src.includes('Save the code to your photos'), 'anchor sentence moved — re-point this guard');
+  assert.ok(src.includes('save the code to your photos'), 'anchor sentence moved — re-point this guard');
 });
 
 test('the pay page quotes no bank transfer fee range', () => {

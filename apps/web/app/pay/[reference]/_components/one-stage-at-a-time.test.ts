@@ -193,11 +193,6 @@ test('exactly one stage is on screen at a time', async () => {
 test('the upload is not in the document until the proof stage', async () => {
   for (const stage of [1, 2] as const) {
     const html = await paint(stage);
-    assert.doesNotMatch(
-      html,
-      /reference_last6/,
-      `the reference field is in the document at stage ${stage}`,
-    );
     // ⚠ ANCHORED ON THE DROPZONE'S OWN LABEL, NOT ON `name="screenshot_ref"`.
     // `<FileUpload>` mirrors its value into a hidden input that only EXISTS
     // once a file has been uploaded — so a `screenshot_ref` check is absent at
@@ -211,7 +206,8 @@ test('the upload is not in the document until the proof stage', async () => {
     assert.doesNotMatch(html, /type="file"/, `a file input is in the document at stage ${stage}`);
   }
   const atProof = await paint(PROOF_STAGE);
-  assert.match(atProof, /reference_last6/, 'the reference field never arrives');
+  // ⛔ …and there is no typed reference field at any stage (owner 2026-11-17).
+  assert.doesNotMatch(atProof, /reference_last6/, 'the typed reference field is back');
   assert.match(atProof, /Your payment screenshot/, 'the screenshot upload never arrives');
   assert.match(atProof, /type="file"/, 'there is no file input on the proof stage');
 });

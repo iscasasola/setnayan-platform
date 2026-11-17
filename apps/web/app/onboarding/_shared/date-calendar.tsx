@@ -615,10 +615,8 @@ export function DateCalendar({
                   onClick={() => toggleMonth(iso)}
                 >
                   <b>{monthWords(iso)}</b>
-                  <small>
-                    {DEMAND_WORD[tier]}
-                    {guide && MONTH_LINE[m] ? <> · {MONTH_LINE[m]}</> : null}
-                  </small>
+                  {/* "Not sure yet" says the drawn line, which already names the demand; otherwise the one word. */}
+                  <small>{guide && MONTH_LINE[m] ? MONTH_LINE[m] : DEMAND_WORD[tier]}</small>
                   {on ? <span aria-hidden>✓</span> : null}
                 </button>
               </li>
@@ -741,6 +739,8 @@ export function DateCalendar({
           nothing anywhere saying what it meant — the owner calls it "the hot
           date legend", which is the name of a thing you can READ. A colour
           ramp nobody can decode is decoration. */}
+      {mode === 'months' ? null : (
+      <>
       <ul className="sn-datecal-legend" aria-label="What the shading means">
         <li><span className="swatch heat-0" aria-hidden />Open</li>
         <li><span className="swatch heat-1" aria-hidden />Quiet</li>
@@ -752,6 +752,8 @@ export function DateCalendar({
         Shading shows how busy suppliers usually are. A quieter day often costs
         less and gives you more choice.
       </p>
+      </>
+      )}
     </>
   );
 

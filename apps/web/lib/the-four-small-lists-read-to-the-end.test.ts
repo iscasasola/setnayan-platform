@@ -576,7 +576,13 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
   // 🔁 THE ONE BUILD (8 Nov): the feed is retired from Today; the desk is ONE Needs-you list (`view.needs`). The same
   // properties, where they live now:
   //   1. the short-read flag REACHES the list — a partial read draws "Some answers couldn't load", never an empty desk;
-  assert.match(page, /needsAnswer,\s*closed: nothingToAnswer,\s*deskIncomplete,/, 'the page does not hand the short-read flag to the assembly');
+  // The flag may carry more than the desk's own reads: an unreadable fee-bill list is a short read too (supplier
+  // dashboard audit, 2026-11-17). What must hold is that `deskIncomplete` is still in it.
+  assert.match(
+    page,
+    /needsAnswer,\s*closed: nothingToAnswer,\s*(?:\/\/[^\n]*\n\s*)*deskIncomplete(?:: deskIncomplete \|\| feeBillsRead === FEE_BILLS_UNREADABLE)?,/,
+    'the page does not hand the short-read flag to the assembly',
+  );
   assert.match(view, /if \(input\.deskIncomplete\) \{\s*needs\.push\(\{\s*key: 'unread',/, 'a short read no longer reaches the list — it would render as an empty desk');
   //   2. BOTH halves are drawn — the asks and the closed lines, in one list;
   assert.match(view, /const needs: TodayNeed\[\] = askOrder\.map\(/, 'the asks are no longer rows');

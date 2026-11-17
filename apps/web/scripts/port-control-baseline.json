@@ -47,6 +47,7 @@
         "Reconnecting",
         "RevealDetailsOnOpen",
         "Script",
+        "ServiceIconPlay",
         "SiteChrome",
         "SiteFooterChrome",
         "StaleTabNotice",
@@ -129,28 +130,6 @@
         "RevealList"
       ]
     },
-    "/(shell)/blog": {
-      "files": [
-        "(shell)/blog/loading.tsx",
-        "(shell)/blog/page.tsx",
-        "blog/_components/story-card.tsx"
-      ],
-      "destinations": [
-        "/blog",
-        "/blog/[seg]",
-        "/blog?category=[seg]",
-        "/realstories",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "Eyebrow",
-        "Image",
-        "LeadCard",
-        "Link",
-        "StoryCard"
-      ]
-    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",
@@ -191,8 +170,8 @@
         "creators/_components/creators-motion.tsx"
       ],
       "destinations": [
+        "/",
         "/creators",
-        "/realstories",
         "/signup"
       ],
       "actions": [],
@@ -292,7 +271,7 @@
         "features/_story-sample-moments.tsx"
       ],
       "destinations": [
-        "/blog/[seg]",
+        "/creators",
         "/for-suppliers",
         "/open-shop",
         "/pricing",
@@ -850,41 +829,6 @@
         "LegalLayout",
         "LegalSection",
         "Link"
-      ]
-    },
-    "/(shell)/realstories": {
-      "files": [
-        "(shell)/realstories/loading.tsx",
-        "(shell)/realstories/page.tsx",
-        "realstories/_components/gallery.tsx",
-        "realstories/_components/share-buttons.tsx",
-        "realstories/_components/stories-search.tsx"
-      ],
-      "destinations": [
-        "/?browse=1",
-        "/creators",
-        "/realstories/[seg]",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "BoomerangVideo",
-        "Companions",
-        "FacebookGlyph",
-        "FacetRow",
-        "HTMLDivElement",
-        "HTMLInputElement",
-        "HTMLVideoElement",
-        "Link",
-        "PickMenu",
-        "PinterestGlyph",
-        "RealStoriesGallery",
-        "SectionHead",
-        "StoriesSearch",
-        "StoryCard",
-        "StorytellerTile",
-        "Tile",
-        "VendorCreditChip"
       ]
     },
     "/(shell)/refunds": {
@@ -1468,7 +1412,6 @@
         "/terms",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/on-the-day?event=[seg]"
       ],
@@ -2243,7 +2186,8 @@
         "Link",
         "RevealOverlayServer",
         "SealMark",
-        "TicketPicture"
+        "TicketPicture",
+        "VendorInvitePage"
       ]
     },
     "/[slug]/invite/enter": {
@@ -2730,6 +2674,8 @@
         "/?browse=1&demo=1&category=catering",
         "/?browse=1&demo=1&category=photography",
         "/?browse=1&demo=1&category=wedding_coordination",
+        "/admin/accounts?tab=venues",
+        "/admin/accounts?tab=venues&type=[seg]",
         "/admin/approvals",
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
@@ -2738,10 +2684,8 @@
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
         "/admin/vendors/[seg]/team",
-        "/admin/venues",
         "/admin/venues/[seg]",
-        "/admin/venues/new",
-        "/admin/venues?type=[seg]"
+        "/admin/venues/new"
       ],
       "actions": [
         "blacklistUser",
@@ -3692,8 +3636,8 @@
         "admin/discount-codes/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes",
-        "/admin/users"
+        "/admin/accounts?tab=users",
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "action",
@@ -3712,7 +3656,7 @@
         "admin/discount-codes/[id]/edit/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes"
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "updateDiscountCode"
@@ -3730,7 +3674,7 @@
         "admin/discount-codes/new/page.tsx"
       ],
       "destinations": [
-        "/admin/discount-codes"
+        "/admin/studio?tab=discount-codes"
       ],
       "actions": [
         "createDiscountCode"
@@ -4956,8 +4900,8 @@
       ],
       "destinations": [
         "/?browse=1",
+        "/admin/accounts?tab=demo-vendors",
         "/admin/compliance/data-sheet",
-        "/admin/demo-vendors",
         "/admin/email-delivery",
         "/admin/settings/payment-methods",
         "/admin/ugat?tab=onboarding"
@@ -5095,6 +5039,7 @@
         "admin/studio/page.tsx"
       ],
       "destinations": [
+        "/",
         "/[seg]",
         "/[seg]/recap",
         "/admin/discount-codes/[seg]/edit",
@@ -5104,7 +5049,6 @@
         "/admin/studio?tab=discount-codes&filter=disabled",
         "/admin/studio?tab=discount-codes&filter=expired",
         "/admin/user-reports",
-        "/realstories",
         "/u/[seg]"
       ],
       "actions": [
@@ -5519,7 +5463,7 @@
         "admin/vendors/[vendorProfileId]/edit/page.tsx"
       ],
       "destinations": [
-        "/admin/vendors"
+        "/admin/accounts?tab=vendors"
       ],
       "actions": [],
       "blocks": [
@@ -5552,7 +5496,7 @@
         "admin/vendors/[vendorProfileId]/team/page.tsx"
       ],
       "destinations": [
-        "/admin/vendors",
+        "/admin/accounts?tab=vendors",
         "/admin/vendors/[seg]/plan"
       ],
       "actions": [],
@@ -5585,7 +5529,7 @@
         "admin/venues/[id]/page.tsx"
       ],
       "destinations": [
-        "/admin/venues"
+        "/admin/accounts?tab=venues"
       ],
       "actions": [
         "deleteVenue",
@@ -5808,35 +5752,6 @@
       "actions": [],
       "blocks": [
         "Link"
-      ]
-    },
-    "/blog/[slug]": {
-      "files": [
-        "blog/[slug]/_components/journal-partner-credit.tsx",
-        "blog/[slug]/_components/shop-link.tsx",
-        "blog/[slug]/page.tsx"
-      ],
-      "destinations": [
-        "/",
-        "/blog",
-        "/blog/[seg]",
-        "/blog?category=[seg]",
-        "/realstories",
-        "/signup",
-        "/u/[seg]",
-        "/u/[seg]/c/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "Block",
-        "ChapterEmbedFrame",
-        "Image",
-        "JournalPartnerCredit",
-        "Link",
-        "Logo",
-        "OpenFileLink",
-        "SaveFileLink",
-        "ShopLink"
       ]
     },
     "/claim/[token]": {
@@ -7484,9 +7399,9 @@
         "dashboard/[eventId]/date-selection/page.tsx"
       ],
       "destinations": [
+        "/?category=date_fengshui_consultant",
         "/dashboard/[seg]/date-selection?path=direct",
-        "/dashboard/[seg]/date-selection?path=guided",
-        "/explore?category=date_fengshui_consultant"
+        "/dashboard/[seg]/date-selection?path=guided"
       ],
       "actions": [
         "lockThisDate",
@@ -7891,6 +7806,7 @@
         "AddGuestSheet",
         "AddPicks",
         "AddPreviewLine",
+        "Animation",
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
@@ -8241,9 +8157,9 @@
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/send",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?tool=details&item=theme",
-        "/dashboard/[seg]/launch?tool=rsvp-page",
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch?tool=rsvp-page"
       ],
       "actions": [],
       "blocks": [
@@ -10794,7 +10710,7 @@
         "dashboard/[eventId]/studio/papic/crew/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch"
       ],
       "actions": [],
       "blocks": [
@@ -11487,6 +11403,7 @@
         "NewManualVendorModal",
         "NextPayButton",
         "NotSharedWithYou",
+        "NotYetVerifiedThreadLine",
         "OverlayBackdrop",
         "OwnPayWays",
         "PageMasthead",
@@ -12418,9 +12335,9 @@
         "dashboard/[eventId]/website/privacy/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website",
-        "/dashboard/[seg]/website/editor",
-        "/realstories"
+        "/",
+        "/dashboard/[seg]/launch",
+        "/dashboard/[seg]/website/editor"
       ],
       "actions": [
         "setLiveMediaAudience",
@@ -13537,21 +13454,6 @@
         "SubmitButton"
       ]
     },
-    "/realstories/[slug]": {
-      "files": [
-        "realstories/[slug]/page.tsx"
-      ],
-      "destinations": [
-        "/realstories"
-      ],
-      "actions": [],
-      "blocks": [
-        "DemoOnlyMarker",
-        "EditorialContent",
-        "Link",
-        "SampleEditorial"
-      ]
-    },
     "/receipts/[receiptId]": {
       "files": [
         "receipts/[receiptId]/loading.tsx",
@@ -14007,8 +13909,11 @@
         "AxisStat",
         "BackButton",
         "BiggerMapButton",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardHidesRead",
         "CardLink",
+        "CardMedalRow",
         "CardPortfolioSection",
         "CardRecordSection",
         "CardReviewsBlock",
@@ -14081,6 +13986,7 @@
         "ShareButton",
         "Sheet",
         "ShopAddresses",
+        "ShopAwards",
         "ShopBranchesLine",
         "ShopCanDoPanel",
         "ShopCard",
@@ -14230,6 +14136,7 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
+        "vendor-dashboard/_components/card-badge-congrats-mount.tsx",
         "vendor-dashboard/_components/claim-wait-lines.tsx",
         "vendor-dashboard/_components/client-day-answers.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
@@ -14275,7 +14182,6 @@
         "vendor-dashboard/_components/thumb-layer.ts",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/today-cover.tsx",
-        "vendor-dashboard/_components/today-gear-ride.tsx",
         "vendor-dashboard/_components/today-next-events.tsx",
         "vendor-dashboard/_components/today-settings.tsx",
         "vendor-dashboard/_components/today-stats.tsx",
@@ -14312,7 +14218,6 @@
         "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -14362,6 +14267,10 @@
         "BranchPinMap",
         "BranchPlace",
         "BranchRow",
+        "CardBadgeCongrats",
+        "CardBadgeCongratsLink",
+        "CardBadgeCongratsMount",
+        "CardBadgeIcon",
         "CardShell",
         "ClaimWaitLines",
         "ClientDayAnswersBody",
@@ -14499,9 +14408,6 @@
         "Tile",
         "TodayCover",
         "TodayEyebrow",
-        "TodayGearPinned.Provider",
-        "TodayGearRide",
-        "TodayGearSlot",
         "TodayNextEvents",
         "TodayNoteRow",
         "TodayRow",
@@ -14704,9 +14610,7 @@
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/messages/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -14857,7 +14761,6 @@
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -15402,7 +15305,6 @@
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
@@ -15422,6 +15324,7 @@
         "AutoReplySection",
         "Badge",
         "BlockDateAdd",
+        "BookedMonthScope",
         "BookingFeeBills",
         "BookingsSurface",
         "BuyAPack",
@@ -15476,6 +15379,7 @@
         "InquiryOutcomesRollup",
         "KeptNotesFold",
         "Link",
+        "LinkPickMenu",
         "ListPager",
         "Marked",
         "MeetingsList",
@@ -15797,8 +15701,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/customers",
-        "/vendor-dashboard/messages/[seg]"
+        "/vendor-dashboard/customers"
       ],
       "actions": [
         "acceptInquiry",
@@ -15834,6 +15737,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "Explain",
         "HTMLElement",
         "Icon",
         "InfoTip",
@@ -15850,6 +15754,7 @@
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
+        "PickedHeadLine",
         "PipelinePressureLine",
         "PlusDoor",
         "ProposalMaker",
@@ -15874,6 +15779,7 @@
         "SupplierChatsPage",
         "Suspense",
         "ThreadAnswerLine",
+        "ThreadAskRow",
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadDrawn",
@@ -16342,11 +16248,13 @@
         "vendor-dashboard/performance/_components/calendar-strip.tsx",
         "vendor-dashboard/performance/_components/funnel-preview-card.tsx",
         "vendor-dashboard/performance/_components/ghost-track.tsx",
+        "vendor-dashboard/performance/_components/gifts-graph.tsx",
         "vendor-dashboard/performance/_components/graph-sample.ts",
         "vendor-dashboard/performance/_components/graph-tile.tsx",
         "vendor-dashboard/performance/_components/growth-motion.tsx",
         "vendor-dashboard/performance/_components/growth-recs-card.tsx",
         "vendor-dashboard/performance/_components/growth-view.ts",
+        "vendor-dashboard/performance/_components/invites-graph.tsx",
         "vendor-dashboard/performance/_components/new-graph-pics.tsx",
         "vendor-dashboard/performance/_components/one-analytics-section.tsx",
         "vendor-dashboard/performance/_components/price-rail.tsx",
@@ -16359,8 +16267,8 @@
         "vendor-dashboard/performance/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/calendar",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?tab=calendar",
         "/vendor-dashboard/messages",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/shop/promote",
@@ -16402,6 +16310,7 @@
         "HeldCount",
         "HeldFill",
         "InfoTip",
+        "InvitesPic",
         "Link",
         "LockedFeature",
         "LostPic",
@@ -16520,14 +16429,6 @@
         "ValidUntilPicker",
         "VendorReuseInbox"
       ]
-    },
-    "/vendor-dashboard/real-stories": {
-      "files": [
-        "vendor-dashboard/real-stories/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/vendor-dashboard/recaps": {
       "files": [
@@ -16955,6 +16856,8 @@
       "files": [
         "vendor-dashboard/shop/_components/autoreply-card.tsx",
         "vendor-dashboard/shop/_components/autoreply-section.tsx",
+        "vendor-dashboard/shop/_components/badges/badge-page-model.ts",
+        "vendor-dashboard/shop/_components/badges/badge-sources.ts",
         "vendor-dashboard/shop/_components/branch-panel.tsx",
         "vendor-dashboard/shop/_components/could-not-load.tsx",
         "vendor-dashboard/shop/_components/couple-photos-list.tsx",
@@ -17086,6 +16989,7 @@
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
+        "I",
         "Icon",
         "IdentityFieldSaveResult",
         "ImageBadge",
@@ -17132,6 +17036,7 @@
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
+        "QuickIcon",
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",

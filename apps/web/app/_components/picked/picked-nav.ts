@@ -36,3 +36,11 @@ export function nextPanelTabId(panelIds: readonly string[], currentId: string, k
  * 🔒 lib/the-picked-head-carries-the-chat-actions.test.ts
  */
 export const PickedHeadContext = createContext<HTMLElement | null>(null);
+
+/**
+ * 📅 THE PICKED HEAD'S LINE UNDER THE TITLE (DECISION_LOG 2026-11-16 CHAT-09 — "date + Free sit under the title in the
+ * head; the separate date row goes"). The shell draws an empty line under its title and hands it down; the supplier's
+ * Chat portals the couple's date and the day's answer into it (`PickedHeadLine`). Empty = nothing drawn (`empty:hidden`),
+ * so every other page keeps the one-line head. `null` outside a picked shell.
+ */
+export const PickedHeadLineContext = createContext<HTMLElement | null>(null);

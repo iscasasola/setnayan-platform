@@ -1,4 +1,3 @@
-import { publishedBlogArticles, blogCategoryLabel } from '@/lib/blog';
 import { searchTokens, STOP_WORDS } from '@/lib/search-stop-words';
 import { ALL_HELP_ARTICLES, HELP_NOT_IN_THE_APP, helpBodyFor } from '@/lib/help';
 import type { PublicSearchNoun } from '@/lib/public-search-nouns';
@@ -150,25 +149,8 @@ function firstSentence(body: string, max = 150): string {
   return `${cut.slice(0, stop > 40 ? stop : max)}…`;
 }
 
-/** Published guides — the Journal. */
-function guideHits(tokens: string[], phrase: string): ReadHit[] {
-  const out: ReadHit[] = [];
-  for (const a of publishedBlogArticles()) {
-    const category = blogCategoryLabel(a.category);
-    const score = scoreDocument(a.title, `${a.excerpt} ${category}`, tokens, phrase);
-    if (score > 0) {
-      out.push({
-        noun: 'guides',
-        tag: `Guide · ${category}`,
-        href: `/blog/${a.slug}`,
-        title: a.title,
-        blurb: a.excerpt,
-        score,
-      });
-    }
-  }
-  return out;
-}
+// 🗞✂ 2026-11-16 — the blog's articles ("the Journal") left search with the blog itself (owner, DECISION_LOG "THE
+// BLOG AND REAL STORIES ARE RETIRED"): every hit linked a page that now forwards to /features. Help pages stay.
 
 /** Help pages — also "guides" to a reader; a different shelf only to us. */
 function helpHits(tokens: string[], phrase: string, storeShell = false): ReadHit[] {
@@ -201,7 +183,6 @@ function helpHits(tokens: string[], phrase: string, storeShell = false): ReadHit
 
 /** Every corpus searchable without IO. */
 export const IN_CODE_SOURCES: ReadonlyArray<InCodeSource> = [
-  { noun: 'guides', find: guideHits },
   { noun: 'guides', find: helpHits },
 ];
 

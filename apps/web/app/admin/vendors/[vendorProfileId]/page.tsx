@@ -272,7 +272,9 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
     },
     new Date(),
   );
-  const renewal = renewalAt ? await readRenewalRecord(shopId) : null;
+  const renewal = renewalAt
+    ? await readRenewalRecord(shopId, new Date(), (shop.papers_lapsed_at as string | null) ?? null)
+    : null;
 
   // RA 10173 who-viewed-whom — the owner's account shows this page was opened.
   after(async () => {

@@ -282,7 +282,7 @@ export function renewalWaitingBody(handTyped: readonly RenewalSlotKey[] | null):
   if (!handTyped || handTyped.length === 0) return 'A person will look over your papers before your badge comes back.';
   const words = handTyped.map((k) => SLOT_WORD[k]);
   const list = words.length === 1 ? words[0]! : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
-  const tries = `${formatCount(MAX_TRIES)} ${MAX_TRIES === 1 ? 'try' : 'tries'}`;
+  const tries = `${formatCount(MAX_TRIES)} tries`;
   return `We couldn’t read your ${list} after ${tries}, so a person will compare what you typed by hand.`;
 }
 
@@ -340,6 +340,14 @@ export function renewalCountLine(standings: ReadonlyArray<PaperStanding | null>)
   const read = standings.filter((s) => s?.kind === 'read').length;
   if (good > 0 && good + read < 3) return `${formatCount(good + read)} of 3 still good`;
   return `${formatCount(good + read)} of 3`;
+}
+
+const RENEWAL_SLOTS: readonly RenewalSlotKey[] = ['dti_certificate', 'bir_2303', 'mayors_permit'];
+
+/** The renewal papers typed by hand (after the last unclear try) in an application that waits on a person. */
+export function handTypedSlots(docUploads: unknown): RenewalSlotKey[] {
+  const d = (docUploads && typeof docUploads === 'object' ? docUploads : {}) as Record<string, { manual?: unknown } | null>;
+  return RENEWAL_SLOTS.filter((k) => d[k]?.manual === true);
 }
 
 /** The one-tap button names the paper that ran out ("Upload this year's permit"), else the generic ask. */

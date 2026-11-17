@@ -3,7 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import type { RenewalPageFacts, RenewalSlotKey } from '@/lib/papers-renewal';
+import { handTypedSlots, type RenewalPageFacts } from '@/lib/papers-renewal';
 
 /**
  * The renewal facts for ONE shop, read for the shop's own pages (Today, the verification page) — the server half of
@@ -18,8 +18,6 @@ export type RenewalView = RenewalPageFacts;
 
 /** Bookings that carry on: booked and not yet delivered (`vendor_status`). */
 const CARRYING_ON = ['contracted', 'deposit_paid'] as const;
-
-const RENEWAL_SLOTS: readonly RenewalSlotKey[] = ['dti_certificate', 'bir_2303', 'mayors_permit'];
 
 /**
  * "You can still answer the N asks that came in before 31 March" — the booking asks STILL WAITING on the shop
@@ -45,11 +43,6 @@ export async function countAsksBefore(admin: SupabaseClient, vendorProfileId: st
   return count ?? null;
 }
 
-/** The renewal papers typed by hand (after the last unclear try) in an application that waits on a person. */
-export function handTypedSlots(docUploads: unknown): RenewalSlotKey[] {
-  const d = (docUploads && typeof docUploads === 'object' ? docUploads : {}) as Record<string, { manual?: unknown } | null>;
-  return RENEWAL_SLOTS.filter((k) => d[k]?.manual === true);
-}
 
 export async function readRenewalView(supabase: SupabaseClient, vendorProfileId: string): Promise<RenewalView | null> {
   try {

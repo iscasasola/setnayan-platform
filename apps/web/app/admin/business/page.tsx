@@ -2,7 +2,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { TemplateFail, TemplateRow, TemplateRows, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchDriveSpeed, fetchPlatformSettingsMeasured, fetchVendorValidateContacts } from '@/lib/platform-settings';
+import { fetchDriveSpeed, fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
 import { removeBrandIcon } from '@/app/admin/settings/actions';
 import { BrandIconUploadForm } from '@/app/admin/settings/_components/brand-icon-form';
@@ -46,7 +46,6 @@ export default async function AdminBusinessPage({
   // 🔒 MEASURED, NOT FALLBACK (2026-09-30). A refused read seeds the form with FALLBACK blanks/defaults; Save would
   // write them over the real values printed on every receipt. Save is off instead.
   const { settings, readFailed: settingsReadFailed } = await fetchPlatformSettingsMeasured(admin);
-  const validateContacts = await fetchVendorValidateContacts(admin);
   const driveSpeed = await fetchDriveSpeed(admin);
   const loaderConfig = await getLoaderSettings();
 
@@ -99,8 +98,6 @@ export default async function AdminBusinessPage({
               business_email: settings.business_email ?? '',
               default_vat_rate_pct: String(settings.default_vat_rate_pct ?? ''),
               repost_watch_hamming_threshold: String(settings.repost_watch_hamming_threshold ?? ''),
-              vendor_validate_email: validateContacts.vendor_validate_email,
-              vendor_validate_phone: validateContacts.vendor_validate_phone ?? '',
               drive_speed_kmh: driveSpeed.read ? (driveSpeed.kmh !== null ? String(driveSpeed.kmh) : '') : null,
             }}
           />

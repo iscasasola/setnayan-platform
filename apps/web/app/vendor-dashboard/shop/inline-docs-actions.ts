@@ -48,6 +48,7 @@ import { isReadableSlotKey, slotR2Key } from '@/lib/verification-paper-read';
 import { fileTypedValues, openSealedSlot, registrationNumberOnPaper, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
 import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
 import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
+import { REGISTRATION_CLAIM_FAILED_ACTION } from '@/lib/verification-checks';
 import { haversineKm } from '@/lib/geo';
 import { manilaDateKey, renewalUploadOpen } from '@/lib/verified-badge';
 import { seedRenewalDraft } from '@/lib/papers-renewal';
@@ -920,7 +921,19 @@ export async function submitInlineForReview(
       ok: false as const,
       error: e instanceof Error ? e.message : String(e),
     }));
-    if (!claim.ok) console.error('[submitInlineForReview] registration-number claim failed', claim.error);
+    if (!claim.ok) {
+      console.error('[submitInlineForReview] registration-number claim failed', claim.error);
+      // 🔢 …and the ADMIN is told: one audit row the registration check reads as "Claim failed"
+      // (`readRegistrationClaimFailures`). Service role, scoped by the session-proved shop id.
+      const { error: auditErr } = await createAdminClient().from('admin_audit_log').insert({
+        action: REGISTRATION_CLAIM_FAILED_ACTION,
+        target_table: 'vendor_profiles',
+        target_id: auth.vendorProfileId,
+        actor_user_id: null,
+        metadata: { reason: claim.error, application_id: app.application_id },
+      });
+      if (auditErr) console.error('[submitInlineForReview] could not record the failed claim for the admin', auditErr);
+    }
   }
 
   // ✅ CLEAN PAPERS VERIFY THE SHOP ON SUBMIT (owner, "by the time they save

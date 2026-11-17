@@ -80,6 +80,7 @@ import {
   buildVerificationChecks,
   buildVerificationChecksForVendors,
   readPayoutNameFacts,
+  readRegistrationClaimFailures,
   type VerificationChecksReport,
 } from '@/lib/verification-checks-server';
 import {
@@ -659,6 +660,8 @@ async function ApplicationsSurface({
   const checksMap: Record<string, VerificationChecksReport> = {};
   // SUP-27: the payout-name facts for every shop on screen, in one batch.
   const payoutNames = await readPayoutNameFacts(fullRows.map((r) => r.vendor_profile_id));
+  // 🔢 A Submit whose paper's number could not be saved shows "Claim failed" on the check, never only in a log.
+  const claimFailures = await readRegistrationClaimFailures(fullRows.map((r) => r.vendor_profile_id));
   const checkReports = vendorReadFailed ? [] : await Promise.all(
     fullRows.map(async (r) => ({
       id: r.application_id,
@@ -671,6 +674,7 @@ async function ApplicationsSurface({
         hqAddress: r.vendor.hq_address,
         registrationNumberRaw: r.vendor.registrationNumberRaw,
         registrationNumberNeedsReview: r.vendor.registrationNumberNeedsReview,
+        registrationClaimFailure: claimFailures[r.vendor_profile_id] ?? null,
         inBusinessSinceYear: r.vendor.inBusinessSinceYear,
         experienceVerifiedAt: r.vendor.experienceVerifiedAt,
         payoutNames: payoutNames[r.vendor_profile_id],

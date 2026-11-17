@@ -156,6 +156,11 @@ export type CheckFacts = {
   registrationNumberRaw: string | null;
   /** The anti-farm flag: this number normalises onto another shop's. */
   registrationNumberDuplicate: boolean;
+  /**
+   * Why the LAST claim of the number read off the paper failed (Submit could not save it), when that failure is
+   * newer than the number on file — `REGISTRATION_CLAIM_FAILED_ACTION`. null / absent = no failed claim on record.
+   */
+  registrationClaimFailure?: string | null;
   /** The other shop(s) holding the same normalised number, when known. */
   registrationNumberHeldAlsoBy: string[];
   registryAnswer: RegistryAnswer;
@@ -445,10 +450,22 @@ function checkDocumentTenancy(f: CheckFacts): CheckResult {
   return pass(key, label, `All ${f.filedDocuments.length} filed documents are stored under this shop.`);
 }
 
+/** The audit action written when Submit could not save the number read off the DTI/SEC paper. */
+export const REGISTRATION_CLAIM_FAILED_ACTION = 'registration_number_claim_failed';
+
 function checkRegistrationNumber(f: CheckFacts): CheckResult {
   const key = 'registration_number';
   const label = 'The government registration number is this shop’s alone';
   const raw = f.registrationNumberRaw?.trim();
+  // A failed claim is said as a failed claim — never as "nothing read yet", and never hidden behind an older number.
+  if (f.registrationClaimFailure) {
+    return manual(
+      key,
+      label,
+      'Claim failed: the number read off the DTI/SEC paper could not be saved.',
+      `${f.registrationClaimFailure}${raw ? ` The number on file (${raw}) is from before.` : ''} Read it off the certificate.`,
+    );
+  }
   if (!raw) {
     return manual(
       key,

@@ -6,7 +6,6 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
-import { DEFAULT_VENDOR_VALIDATE_EMAIL } from '@/lib/platform-settings';
 import { setAiPaywall } from '@/app/admin/integrations/actions';
 import { setReferralProgramEnabled } from '@/app/admin/referrals/actions';
 import { SampleEventSwitch } from '@/app/admin/settings/_components/sample-event-switch';
@@ -48,8 +47,6 @@ type Settings = {
   radar_enabled?: boolean | null;
   radar_min_n_floor?: number | null;
   admin_digest_enabled?: boolean | null;
-  vendor_validate_email?: string | null;
-  vendor_validate_phone?: string | null;
 };
 
 const onOff = (v: boolean | null | undefined): string | null => (typeof v === 'boolean' ? (v ? 'On' : 'Off') : null);
@@ -210,13 +207,6 @@ export default async function AdminSwitchesPage({
             line="No control writes this yet"
             right={<SettingValue>{unread ? null : (onOff(s.spotlight_homepage_enabled) ?? 'Off')}</SettingValue>}
           />
-          <SettingRow
-            data="validate-contacts"
-            name="Supplier VALIDATE inbox + number"
-            tip="Where suppliers send “VALIDATE <shop name>” during verification. Saved with Business identity, because one save writes both."
-            line={unread ? 'Couldn’t read what is saved' : `${s.vendor_validate_email || DEFAULT_VENDOR_VALIDATE_EMAIL} · ${s.vendor_validate_phone || 'number coming soon'}`}
-          />
-          <TemplateRow title="Change the VALIDATE inbox or number" line="Business & compliance › Business identity" href="/admin/business#identity" data="validate-edit" />
           <SettingRow
             data="radar-enabled"
             name="Demand Radar supplier feed"

@@ -40,3 +40,21 @@ SPEC IMPACT: None — builds the approved prototype; the "find, not book" wordin
   their papers with Setnayan" ALONE, the shop page's long line behind its ⓘ. Wired: the chat head and its quote card's
   Book · the proposal's Book · the Suppliers cards, quick-view and bench Book · the booked and waiting rows. Guard:
   `lib/every-couple-surface-says-not-yet-verified.test.ts` (mutation-checked). Kept: "new couples can't find you".
+
+- **FIX-FIRST round (controller audit, 16 Nov):**
+  - The reminder windows are READ off `BADGE_REMINDER_STAGES` (`renewalStage`, the "Due in N days" chip and the admin
+    list's week window); the list's two-week window is `RENEWED_NEWS_DAYS`; the "tries" copy reads `MAX_TRIES`.
+  - A renewal draft never invents `<last year>-12-31`: a permit with no read end date says "End date not on file", and
+    so does the admin's papers line (was "ended last year").
+  - "Waiting for Setnayan" says what happened: "couldn't read it after 3 tries" only for papers actually typed by hand
+    (`handTypedSlots` on the waiting application); otherwise "A person will look over your papers".
+  - The admin Renewals list says "Couldn't load" when the applications read fails (was "Renewed · 0"), and "200+" with
+    a line past its cap (was a silent `.limit(200)`).
+  - The admin Renewal fold gains the drawn "Asks from before" row and the two doors, "Open the papers" (the
+    verification queue) and "Message the shop" (its contact email, drawn only when one is on file). Today passes the
+    real `asksBefore` (`countAsksBefore`: booking asks still waiting on the shop, from before the lapse).
+  - A PAID plan is `isTierAtLeast(tier, 'solo')` on the one tier ladder, not a typed set.
+- **#7793 leftovers:** the dead VALIDATE contact settings are gone (Business identity rows, the Settings form, its
+  save, the Switches line, `fetchVendorValidateContacts`; the two columns stay, unread). A failed claim of the number
+  read off the DTI/SEC paper is written as an audit row and the admin's registration check says "Claim failed"
+  (`readRegistrationClaimFailures`) instead of only logging it.

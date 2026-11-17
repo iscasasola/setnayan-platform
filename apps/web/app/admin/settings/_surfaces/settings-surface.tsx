@@ -18,7 +18,6 @@ import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   fetchPlatformSettingsMeasured,
-  fetchVendorValidateContacts,
   fetchDriveSpeed,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
@@ -68,7 +67,6 @@ export async function SettingsSurface({ searchParams }: Props) {
   const { settings, readFailed: settingsReadFailed } =
     await fetchPlatformSettingsMeasured(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
-  const validateContacts = await fetchVendorValidateContacts(admin);
   const driveSpeed = await fetchDriveSpeed(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
@@ -203,36 +201,6 @@ export async function SettingsSurface({ searchParams }: Props) {
               step={1}
               required
               defaultValue={settings.repost_watch_hamming_threshold}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Supplier VALIDATE email"
-            htmlFor="vendor_validate_email"
-            help='Setnayan-owned inbox suppliers email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
-          >
-            <input
-              autoComplete="off"
-              id="vendor_validate_email"
-              name="vendor_validate_email"
-              type="email"
-              required
-              defaultValue={validateContacts.vendor_validate_email}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Supplier VALIDATE mobile number"
-            htmlFor="vendor_validate_phone"
-            help='Setnayan-owned number suppliers text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to suppliers until one exists.'
-          >
-            <input
-              autoComplete="off"
-              id="vendor_validate_phone"
-              name="vendor_validate_phone"
-              type="tel"
-              defaultValue={validateContacts.vendor_validate_phone ?? ''}
-              placeholder="09XX XXX XXXX"
               className="input-field"
             />
           </Field>

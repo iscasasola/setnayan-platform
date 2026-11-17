@@ -5,7 +5,9 @@ import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
 import { papersDueIn } from './papers-due';
-import { hasVerifiedBadge } from './verified-badge';
+import { BADGE_REMINDER_STAGES, hasVerifiedBadge } from './verified-badge';
+import { MAX_TRIES } from './paper-intake-shared';
+import * as R from './papers-renewal';
 import {
   FREE_UNVERIFIED,
   RENEWED_NEWS,
@@ -323,4 +325,71 @@ test('§5 · the Renewals chips: Free · Unverified, Due in 7 days, Renewed', ()
 test('§5 · nothing in the admin view changes a shop — no write, no “let it through” button', () => {
   const admin = code('lib/papers-renewal-admin.server.ts') + code('app/admin/accounts/_surfaces/renewals-list.tsx');
   assert.doesNotMatch(admin, /\.update\(|\.insert\(|\.upsert\(|\.delete\(|'use server'/);
+});
+
+// ── FIX-FIRST round (controller audit 16 Nov) ───────────────────────────────────────────────────────────────────────
+
+test('the reminder windows are READ off BADGE_REMINDER_STAGES, never typed twice', () => {
+  assert.equal(R.RENEWAL_SIXTY_DAYS, BADGE_REMINDER_STAGES[0]);
+  assert.equal(R.RENEWAL_WEEK_DAYS, BADGE_REMINDER_STAGES[BADGE_REMINDER_STAGES.length - 1]);
+  assert.equal(R.RENEWAL_BUCKET_LABEL.due_week, `Due in ${R.RENEWAL_WEEK_DAYS} days`);
+  const src = stripComments(readFileSync(join(__dirname, 'papers-renewal.ts'), 'utf8'));
+  assert.doesNotMatch(src, /daysLeft <= (7|30|60)\b/, 'a window is typed again instead of read');
+  const admin = stripComments(readFileSync(join(__dirname, 'papers-renewal-admin.server.ts'), 'utf8'));
+  assert.doesNotMatch(admin, /\b(7|14) \* 86_400_000/, 'the admin list types its windows again');
+  assert.match(admin, /RENEWAL_WEEK_DAYS \* 86_400_000/);
+  assert.match(admin, /RENEWED_NEWS_DAYS \* 86_400_000/);
+});
+
+test('a renewal draft never invents a permit end date — "End date not on file"', () => {
+  const seeded = R.seedRenewalDraft({ mayors_permit: { manual: true, r2_key: 'k' } }, '2027-03-31', 'app1');
+  assert.deepEqual((seeded.mayors_permit as { renewal?: unknown }).renewal, { ended_on: null });
+  assert.equal(R.paperStanding('mayors_permit', seeded.mayors_permit, true)?.line, 'End date not on file — upload this year’s');
+  assert.ok(!JSON.stringify(seeded).includes('-12-31'), 'a 31 December was made up');
+  // The admin's line says the same, never "ended last year".
+  const lines = R.adminPaperLines({ mayors_permit: { r2_key: 'k', evidence: { model: { expirationDate: null } } } }, '2027-03-31');
+  assert.equal(lines[2]!.text, 'Business Permit · end date not on file');
+  assert.equal(R.adminPapersSummary(lines).split(' · ')[2], 'Permit end date not on file');
+});
+
+test('"Waiting" says what really happened: unreadable only for papers typed by hand', () => {
+  assert.doesNotMatch(R.renewalWaitingBody([]), /couldn’t read|tries/);
+  assert.doesNotMatch(R.renewalWaitingBody(null), /couldn’t read|tries/);
+  assert.equal(
+    R.renewalWaitingBody(['mayors_permit']),
+    `We couldn’t read your permit after ${MAX_TRIES} tries, so a person will compare what you typed by hand.`,
+  );
+  assert.match(R.renewalWaitingBody(['dti_certificate', 'mayors_permit']), /your DTI or SEC paper and permit after/);
+  assert.deepEqual(R.handTypedSlots({ mayors_permit: { manual: true }, bir_2303: { manual: false }, extra: { manual: true } }), ['mayors_permit']);
+  assert.deepEqual(R.handTypedSlots(null), []);
+});
+
+test('a PAID plan comes from the one tier ladder, not a typed set', () => {
+  const src = stripComments(readFileSync(join(__dirname, 'papers-renewal.ts'), 'utf8'));
+  assert.doesNotMatch(src, /new Set\(\['solo'/, 'the paid plans are typed again');
+  assert.match(src, /isTierAtLeast\(tier, 'solo'\)/);
+  assert.equal(R.planHoldAtLapse({ tier_state: 'pro', tier_expires_at: null }, new Date()).kind, 'hold');
+  assert.equal(R.planHoldAtLapse({ tier_state: 'free' }, new Date()).kind, 'none');
+  assert.equal(R.planBackAtRenewal({ tier: 'verified', held_ms: 5 }, new Date()), null);
+});
+
+test('the admin list says "couldn’t load" on a failed applications read and "200+" past its cap', () => {
+  const admin = stripComments(readFileSync(join(__dirname, 'papers-renewal-admin.server.ts'), 'utf8'));
+  assert.match(admin, /if \(apps\.error\) \{[^}]{0,400}return null;/, 'a failed applications read is drawn as Renewed · 0');
+  assert.match(admin, /\.limit\(RENEWALS_LIST_CAP \+ 1\)/);
+  assert.doesNotMatch(admin, /\.limit\(200\)/);
+  const list = stripComments(readFileSync(join(__dirname, '../app/admin/accounts/_surfaces/renewals-list.tsx'), 'utf8'));
+  assert.match(list, /list\?\.more \? `\$\{formatCount\(count\(b\)\)\}\+`/);
+});
+
+test('Today and the admin fold carry the REAL asks from before; the fold has the drawn two doors', () => {
+  const line = stripComments(readFileSync(join(__dirname, '../app/vendor-dashboard/_components/papers-renewal-line.tsx'), 'utf8'));
+  assert.match(line, /asksBefore: view\.asksBefore \?\? null,/);
+  assert.doesNotMatch(line, /asksBefore: null,/);
+  const server = stripComments(readFileSync(join(__dirname, 'papers-renewal.server.ts'), 'utf8'));
+  assert.match(server, /\.eq\('lock_request_state', 'pending'\)\s*\.lt\('lock_requested_at', before\)/);
+  const fold = stripComments(readFileSync(join(__dirname, '../app/admin/vendors/[vendorProfileId]/_components/renewal-record.tsx'), 'utf8'));
+  assert.match(fold, /\['Asks from before', asks\]/);
+  assert.match(fold, /label="Open the papers"/);
+  assert.match(fold, /label="Message the shop" href=\{`mailto:\$\{record\.contactEmail\}`\}/);
 });

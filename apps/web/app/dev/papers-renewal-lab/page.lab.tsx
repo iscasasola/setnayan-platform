@@ -171,7 +171,7 @@ export default async function PapersRenewalLabPage({ searchParams }: { searchPar
     return (
       <Frame title="Suppliers · Renewals">
         <RenewalsTable
-          rows={[
+          list={{ more: false, rows: [
             { vendorProfileId: SHOP, name: 'Liwanag Lights & Sound', city: 'Pasig', bucket: 'lapsed', dueAt: DUE, lapsedAt: FACTS.lapsedAt, lastVerifiedAt: FACTS.lastVerifiedAt, papers: adminPaperLines(LAST_YEAR, '2027-03-31') },
             { vendorProfileId: `${SHOP.slice(0, -1)}2`, name: 'Sayaw Events Hosting', city: 'Cebu City', bucket: 'due_week', dueAt: DUE, lapsedAt: null, lastVerifiedAt: '2026-06-01T00:00:00Z', papers: adminPaperLines(LAST_YEAR, '2027-03-24') },
             {
@@ -184,7 +184,7 @@ export default async function PapersRenewalLabPage({ searchParams }: { searchPar
               lastVerifiedAt: '2027-03-02T02:00:00Z',
               papers: adminPaperLines({ ...LAST_YEAR, mayors_permit: read('lgu', '2027-12-31', '2027-01120') }, '2027-03-24'),
             },
-          ]}
+          ] }}
         />
       </Frame>
     );
@@ -200,6 +200,8 @@ export default async function PapersRenewalLabPage({ searchParams }: { searchPar
             lastVerifiedAt={FACTS.lastVerifiedAt}
             record={{
               bookings: 4,
+              asksBefore: 1,
+              contactEmail: 'hello@liwanag.example',
               papers: adminPaperLines(LAST_YEAR, '2027-03-31'),
               reminders: [
                 { at: '2027-01-29T01:00:00Z', stage: 60 },

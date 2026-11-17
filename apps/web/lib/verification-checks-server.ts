@@ -45,6 +45,7 @@ import {
   type FiledDocument,
   type PayoutAccountFact,
   type RegistryAnswer,
+  REGISTRATION_CLAIM_FAILED_ACTION,
 } from '@/lib/verification-checks';
 
 /** Never probe more than this many document keys for one application. */
@@ -117,6 +118,8 @@ export type ChecksInput = {
   hqAddress: string | null;
   registrationNumberRaw: string | null;
   registrationNumberNeedsReview: boolean;
+  /** Why the last claim of the paper's number failed (`readRegistrationClaimFailures`); null = none on record. */
+  registrationClaimFailure?: string | null;
   inBusinessSinceYear: number | null;
   experienceVerifiedAt: string | null;
   /**
@@ -194,6 +197,51 @@ export async function readPayoutNameFacts(
     // Leave the defaults in place: accounts null ("could not be read"), names null.
   }
   return out;
+}
+
+/**
+ * 🔢 Which shops' LAST claim of the number read off their paper failed — one audit row per failure, written on Submit
+ * (`inline-docs-actions.ts`), kept only while it is newer than the number the shop has on file
+ * (`registration_number_submitted_at`). Batched: two `.in` reads for a whole screen. A refused read is logged and
+ * answers `{}` — the check then shows what is on file, as it always did.
+ */
+export async function readRegistrationClaimFailures(vendorProfileIds: readonly string[]): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(vendorProfileIds.filter(Boolean)));
+  if (ids.length === 0) return {};
+  try {
+    const admin = createAdminClient();
+    const [fails, shops] = await Promise.all([
+      admin
+        .from('admin_audit_log')
+        .select('target_id, created_at, metadata')
+        .eq('action', REGISTRATION_CLAIM_FAILED_ACTION)
+        .in('target_id', ids)
+        .order('created_at', { ascending: false }),
+      admin.from('vendor_profiles').select('vendor_profile_id, registration_number_submitted_at').in('vendor_profile_id', ids),
+    ]);
+    if (fails.error || shops.error) {
+      console.error('[supabase-error] lib/verification-checks-server.ts · readRegistrationClaimFailures', fails.error ?? shops.error);
+      return {};
+    }
+    const claimedAt = new Map<string, string | null>();
+    for (const s of (shops.data ?? []) as Array<{ vendor_profile_id: string; registration_number_submitted_at: string | null }>) {
+      claimedAt.set(s.vendor_profile_id, s.registration_number_submitted_at);
+    }
+    const out: Record<string, string> = {};
+    for (const f of (fails.data ?? []) as Array<{ target_id: string; created_at: string; metadata: { reason?: unknown } | null }>) {
+      if (f.target_id in out) continue;
+      const at = claimedAt.get(f.target_id) ?? null;
+      if (at && Date.parse(at) >= Date.parse(f.created_at)) {
+        out[f.target_id] = '';
+        continue;
+      }
+      out[f.target_id] = typeof f.metadata?.reason === 'string' && f.metadata.reason.trim() ? f.metadata.reason.trim() : 'No reason was recorded.';
+    }
+    for (const k of Object.keys(out)) if (!out[k]) delete out[k];
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -430,6 +478,7 @@ export async function buildVerificationChecks(
     meetScheduledAt,
     registrationNumberRaw: input.registrationNumberRaw,
     registrationNumberDuplicate: input.registrationNumberNeedsReview,
+    registrationClaimFailure: input.registrationClaimFailure ?? null,
     registrationNumberHeldAlsoBy: heldAlsoBy,
     registryAnswer,
     contactEmail: input.contactEmail,
@@ -519,6 +568,7 @@ export async function buildVerificationChecksForVendors(
       if (!latest[key]) latest[key] = row;
     }
     const payoutNames = await readPayoutNameFacts(ids);
+    const claimFailures = await readRegistrationClaimFailures(ids);
 
     const built = await Promise.all(
       (vendorRows as unknown as Array<Record<string, unknown>>).map(async (v) => {
@@ -536,6 +586,7 @@ export async function buildVerificationChecksForVendors(
             hqAddress: (v.hq_address as string | null) ?? null,
             registrationNumberRaw: (v.registration_number_raw as string | null) ?? null,
             registrationNumberNeedsReview: Boolean(v.registration_number_needs_review),
+            registrationClaimFailure: claimFailures[id] ?? null,
             inBusinessSinceYear: (v.in_business_since_year as number | null) ?? null,
             experienceVerifiedAt: (v.experience_verified_at as string | null) ?? null,
             payoutNames: payoutNames[id],

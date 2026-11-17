@@ -129,7 +129,7 @@ export function ServiceCardItem({ liId, live, nameLower, face, below, row, actio
       data-shop-card-live={live ? '1' : '0'}
       data-shop-card-name={nameLower}
       hidden={gone}
-      className="group/card scroll-mt-24 space-y-2"
+      className="group/card isolate scroll-mt-24 space-y-2"
     >
       <CardFoot.Provider value={footInFace ? { row, action, save, below, onDelete: () => onSwipeDelete(() => {}) } : null}>
         <SwipeToDelete label={`Delete ${row.cardName}`} onDelete={onSwipeDelete} radiusClass="rounded-xl" surfaceClass="bg-cream" hover={!footInFace}>

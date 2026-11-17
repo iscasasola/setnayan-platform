@@ -79,3 +79,16 @@ Guards: `the-card-says-each-level-once.test.ts` (new, sabotage-proven); the quic
 shop-sheets guards follow the ruling; the card-row guard now holds "no divider".
 
 SPEC IMPACT: None
+
+## 2026-11-17 · fix(swipe): a card never paints over a pinned bar
+
+Owner via P2, Shop › Services: *"scrolling overlaps"* — a scrolled service card (its ✎ ⇪ Online row) drew OVER the
+pinned bar ("View shop ↗ · ⚙ · +"). The swipe front's `z-10` and the card face footer's `z-10` shared the page's
+stacking order with the pinned bars (`z-[5]` / `z-[6]`, both already on the opaque `--sn-canvas`). `SwipeToDelete`'s
+row and the service card `<li>` are now `isolate` — their own stacking context — so every swipe row in the app keeps
+its lifts inside itself; the row's sheets are portalled, so none is trapped. Measured in `/dev/service-card-row-lab` with
+a stand-in `sticky top-0 z-[5]` bar: the topmost element over the bar was the card's row 3/3 (before) → the bar 3/3
+(after), at 390 and 1280. Guard: `the-card-says-each-level-once.test.ts` #4 (sabotage-proven).
+Also merged `origin/main` (the J3 badge row also uses `ServiceCardView`'s `footer`; one prop, both uses documented).
+
+SPEC IMPACT: None

@@ -7,7 +7,8 @@
  *      category already says it — so every card reads the same.
  *   3. The record rides inside the card as ONE quiet line (`compact`), not a ruled block of its own.
  *
- * Sabotage: drop the `filter` in pathLabel (1 red) · append the full path to the meta line (2 red) · drop `compact` (3 red).
+ * Sabotage: drop the `filter` in pathLabel (1 red) · append the full path to the meta line (2 red) · drop `compact` (3 red)
+ *   · drop `isolate` from the swipe row (4 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,4 +36,13 @@ test('3 · the record is one quiet line inside the card', () => {
   const rec = read('app/_components/card-record-section.tsx');
   assert.match(rec, /<section className=\{compact \? '' : 'mt-auto border-t border-ink\/10 pt-3'\}/, 'the compact record still draws a rule above it');
   assert.match(rec, /data-card-medal-line=""/);
+});
+
+test('4 · a card never paints over a pinned bar — the swipe row and the card are their own stacking context', () => {
+  // Owner 17 Nov, "scrolling overlaps": the swipe front's `z-10` and the face footer's `z-10` shared the page's stacking
+  // order with the pinned bars (`z-[5]` / `z-[6]`), so a scrolled card drew OVER them. `isolate` keeps them inside.
+  const swipe = read('app/_components/swipe-to-delete.tsx');
+  assert.match(swipe, /<Tag className=\{`group\/swipe relative isolate flex items-stretch/, 'the swipe row lost `isolate` — its z-10 front paints over pinned bars again');
+  const item = read('app/vendor-dashboard/services/_components/service-card-item.tsx');
+  assert.match(item, /className="group\/card isolate scroll-mt-24/, 'the service card lost `isolate`');
 });

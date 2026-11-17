@@ -1100,6 +1100,12 @@ export async function EventDashboard({
     invitation_status: string | null;
   }>;
 
+  // ⛔ A refused pending-orders read used to become `[]`: no "Settle a payment" row, and with the paid read
+  // also refused "Your services" said "0 orders · Nothing ordered yet" to a couple who had paid (audit
+  // 2026-11-17). Both reads are now measured, and an unmeasured one is said, never drawn as none.
+  const pendingOrdersMeasured = !pendingOrdersRes.error;
+  if (!pendingOrdersMeasured) logQueryError('dashboard/home.pending-orders', pendingOrdersRes.error);
+  const servicesMeasured = ordersMeasured && pendingOrdersMeasured;
   const pendingOrders = (pendingOrdersRes.data ?? []) as Array<{
     order_id: string;
     service_key: string | null;
@@ -1259,6 +1265,9 @@ export async function EventDashboard({
       href: `${base}/orders`,
     };
   });
+  // An unmeasured pending read is SAID under the board (`paymentsUnread`), never added as a row: a row would be
+  // counted into "N open decisions", which would then be a number nobody measured either.
+  const paymentsUnread = !storeShell && !pendingOrdersMeasured;
 
   /* ⛔ THE CREDIT VERDICT IS GONE UNTIL THERE IS DATA (owner, 2026-09-23).
      *"we will also collect data of how much photo is used for an event and that
@@ -2719,11 +2728,19 @@ export async function EventDashboard({
             <div className="grid gap-3.5 lg:grid-cols-2">
               {decisionGroups.map((group, gi) => renderDecisionGroup(group, gi))}
             </div>
-          ) : (
+          ) : paymentsUnread ? null : (
             <div className="sn-tile text-sm text-ink/55">
               Nothing needs a decision right now — your plan keeps moving on its own.
             </div>
           )}
+          {paymentsUnread ? (
+            <p role="status" data-home-payments-unread="" className="sn-tile mt-3.5 text-sm text-warn-800">
+              We couldn’t check for payments waiting just now — this does not mean there are none.{' '}
+              <Link href={`${base}/orders`} className="inline-flex min-h-11 items-center font-semibold underline">
+                Open orders
+              </Link>
+            </p>
+          ) : null}
           {/* Doorway to the plan's To do list — Planning Stage's To do filter, where the Checklist now lives. */}
           <div className="mt-3.5 flex flex-wrap items-center gap-2 text-sm">
             <Link
@@ -3080,13 +3097,17 @@ export async function EventDashboard({
               title="Your services"
               badge={
                 <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[11.5px] font-bold text-ink/60">
-                  {serviceRows.length} {serviceRows.length === 1 ? 'order' : 'orders'}
+                  {servicesMeasured ? `${serviceRows.length} ${serviceRows.length === 1 ? 'order' : 'orders'}` : '—'}
                 </span>
               }
               fullHref={`${base}/orders`}
               fullLabel="Open orders"
               preview={
-                serviceRows.length > 0 ? null : (
+                serviceRows.length > 0 ? null : !servicesMeasured ? (
+                  <p role="status" className="border-t border-ink/5 py-2 text-[13px] text-warn-800">
+                    We couldn’t load your orders just now — this does not mean there are none. Open orders to look.
+                  </p>
+                ) : (
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'Nothing was ordered for this one.'

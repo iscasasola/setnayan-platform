@@ -104,7 +104,7 @@ export function DetailsScreen({
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
-        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: count ? count.done : null, of: count ? count.of : 6, steps: live !== null })} gearBody={gearBody} />
+        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: count ? count.done : null, of: count ? count.of : null, steps: live !== null })} gearBody={gearBody} />
         <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">

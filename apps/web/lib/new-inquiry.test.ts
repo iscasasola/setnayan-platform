@@ -44,8 +44,19 @@ test('Today\'s cards and the console badge both count by the one rule', () => {
   assert.match(overview, /const pendingThreads = threads\.filter\(\(t\) => isNewInquiry\(t, bookedHere\)\);/);
   assert.doesNotMatch(overview, /threads\.filter\(\(t\) => t\.inquiry_status === 'pending'\)/, 'Today counts raw pending threads again');
   const layout = read('app/vendor-dashboard/layout.tsx');
-  assert.match(layout, /\.is\('vendor_first_reply_at', null\)/);
-  assert.match(layout, /\.in\('status', \[\.\.\.SUPPLIER_BOOKED_STATUSES\]\)/);
-  assert.match(layout, /return countNewInquiries\(pending, new Set\(/);
-  assert.doesNotMatch(layout, /\.select\('thread_id', \{ count: 'exact', head: true \}\)\s*\.eq\('vendor_profile_id', vp\.vendor_profile_id\)\s*\.eq\('inquiry_status', 'pending'\);/, 'the badge counts raw pending threads again');
+  // The #7898 audit: ONE exact head count — no row cap, no admin client in the layout.
+  assert.match(layout, /\.select\('thread_id', \{ count: 'exact', head: true \}\)\s*\.eq\('vendor_profile_id', vp\.vendor_profile_id\)\s*\.eq\('inquiry_status', 'pending'\)\s*\.is\('vendor_first_reply_at', null\);/);
+  assert.match(layout, /if \(booked\.length > 0\) q = q\.not\('event_id', 'in', `\(\$\{booked\.join\(','\)\}\)`\);/, 'the badge counts booked events again');
+  assert.match(layout, /supabase\.rpc\('current_vendor_booked_event_ids'\)/);
+  assert.doesNotMatch(layout, /createAdminClient/, 'the layout reads with the admin client again');
+  assert.doesNotMatch(layout, /\.limit\(200\)/, 'the badge is silently capped again');
+});
+
+test('the booked ids are read in either PostgREST shape, and only uuid-shaped ids reach the filter', async () => {
+  const { bookedEventIdsOf } = await import('./new-inquiry');
+  const a = '11111111-2222-3333-4444-555555555555';
+  assert.deepEqual(bookedEventIdsOf([a, a]), [a]);
+  assert.deepEqual(bookedEventIdsOf([{ current_vendor_booked_event_ids: a }]), [a]);
+  assert.deepEqual(bookedEventIdsOf(['x),(evil', null, 3]), []);
+  assert.deepEqual(bookedEventIdsOf(null), []);
 });

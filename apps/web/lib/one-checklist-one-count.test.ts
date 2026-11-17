@@ -62,7 +62,7 @@ test('1 · Today and Your details draw ONE six from ONE call', () => {
   assert.match(page, /live=\{live\}/);
 
   const screen = code('app/vendor-dashboard/profile/_components/details-screen.tsx');
-  assert.match(screen, /done: count \? count\.done : null, of: count \? count\.of : 6, steps: live !== null/, 'the strip counts a second six');
+  assert.match(screen, /done: count \? count\.done : null, of: count \? count\.of : null, steps: live !== null/, 'the strip counts a second six');
   assert.match(screen, /: setupLine\(steps\)/, 'the headline is not Today’s six');
   assert.doesNotMatch(screen, /done: p\.done, of: p\.of \}\)/, 'the strip is back on the details count');
 
@@ -117,4 +117,15 @@ test('2 · "Send your documents" ticks by the paper rows’ rule, and still name
     serviceLabel: (k) => k,
   });
   assert.equal(two.folds.find((f) => f.key === 'docs')!.done, false);
+});
+
+test('audit #7898 · the "of" is the READ\'s — an unread checklist shows "—", never a typed 6', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const screen = readFileSync(join(process.cwd(), 'app/vendor-dashboard/profile/_components/details-screen.tsx'), 'utf8');
+  assert.match(screen, /of: count \? count\.of : null,/);
+  assert.doesNotMatch(screen, /of: count \? count\.of : 6/, 'a typed 6 stands in for an unread count again');
+  const unread = detailsFigures({ verified: false, docsIn: 0, docsTotal: 3, done: null, of: null }).find((f) => f.key === 'done')!;
+  assert.equal(unread.value, null, 'an unread checklist drew a number');
+  assert.equal(unread.hot, false);
 });

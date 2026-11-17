@@ -114,3 +114,8 @@ test('4 · ruling 17 — past the tries a paper goes to a person; it is never re
   assert.doesNotMatch(INTAKE_MESSAGE.triesUsed, /used your three tries/);
   assert.match(INTAKE_MESSAGE.keptTyped, /a person at Setnayan is checking this paper/i);
 });
+
+test('audit #7898 · a sent-back paper\'s "Needs a new copy · …" line is still announced (role="alert")', () => {
+  const src = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), 'utf8');
+  assert.match(src, /data-paper-state=\{st\.kind\}[\s\S]{0,200}role=\{sentBackOf\(payload\.docMap\[row\.slot\] as DocUpload\) && !st\.isIn \? 'alert' : undefined\}/);
+});

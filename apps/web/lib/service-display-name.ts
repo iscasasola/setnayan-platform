@@ -16,6 +16,8 @@
 
 /** key → { the seeded words being corrected, what is shown instead }. */
 const SEED_NAME_CORRECTIONS: Readonly<Record<string, { seeded: string; shown: string }>> = {
+  // TODO(owner ruling 6, "Yes, all 8" — 16 Nov 2026): the owner renames `wedding_cake` to "Cake" in Admin › Categories.
+  // Once the stored name reads "Cake", delete this entry (and, if it is the last, this map and its callers' wrap).
   wedding_cake: { seeded: 'Wedding cake', shown: 'Cake' },
 };
 

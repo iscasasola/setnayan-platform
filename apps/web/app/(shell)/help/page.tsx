@@ -42,14 +42,14 @@ const HELP_METADATA = {
       'Ask anything about Setnayan — in English or Tagalog. Answers for couples, hosts, guests and suppliers, or send us a message.',
     siteName: 'Setnayan',
     locale: 'en_PH',
-    images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
+    images: [{ url: '/brand/og-card-2026-11.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Help & support · Setnayan',
     description:
       'Ask anything about Setnayan — in English or Tagalog. Answers for couples, hosts, guests and suppliers, or send us a message.',
-    images: ['/brand/og-card.webp'],
+    images: ['/brand/og-card-2026-11.png'],
   },
 };
 

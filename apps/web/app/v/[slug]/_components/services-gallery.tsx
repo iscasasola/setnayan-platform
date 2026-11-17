@@ -39,6 +39,8 @@ import { NotYetVerifiedTag } from './not-yet-verified-tag';
 import { NOT_VERIFIED_STAMP } from '@/lib/not-yet-verified-markings';
 import { setShopQuote } from './shop-quote-store';
 import { quoteSummary, toggleQuote, type QuoteCard } from '@/lib/shop-quote';
+import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import type { CardBadgesRead } from '@/lib/card-badges';
 
 export type ServiceGroup = {
   key: string;
@@ -74,7 +76,17 @@ export function ServicesGallery({
   ownerCheckFor = null,
   quote = null,
   notVerified = false,
+  cardBadges = null,
+  badgesNow = 0,
 }: {
+  /**
+   * 🏅 THE CARD BADGES (badge build J3) — per card, its medals in order, Verified last; read on the server
+   * (`lib/card-badges.server.ts`). `unreadable` says so once above the cards — never an empty row that reads as
+   * "no badges". null = not read here (a lab, a demo).
+   */
+  cardBadges?: CardBadgesRead | null;
+  /** The server's clock for the medals' "time held", so server and client draw the same words. */
+  badgesNow?: number;
   /**
    * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
    * it? Then the grown card carries hide per card, 👁 Couple view and the card's opens. The database decides
@@ -202,6 +214,11 @@ export function ServicesGallery({
 
   // 🧾 The quote — on the device only, in the order picked (prototype `ST.svc`); the tray's Inquire sends it.
   const [picked, setPicked] = useState<string[]>([]);
+  // 🧾 v16 S3: "Add to quote" + "Choose this service" under a card's face (`ServiceFace` `footer`, v16 `.sc .ft`).
+  const quoteActionsFor = (c: ServiceCard) =>
+    quote ? (
+      <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+    ) : null;
   // The ONE Inquire reads the quote when its button names no card (v16 `inquire()` opens with the quote picked).
   useEffect(() => {
     setShopQuote(picked, quote ? quoteSummary(picked, quote.cards) : null);
@@ -264,6 +281,11 @@ export function ServicesGallery({
       {/* ONE GRID, NOT ONE PER GROUP (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE"): every visible card in one list —
           1 column on a phone, 2, then 3 — so a group with a single card never strands half a row. The group is said on
           each card's path line, and the chips above still filter by it. */}
+      {cardBadges?.kind === 'unreadable' ? (
+        <p data-card-badges-unreadable="" className="text-[13px] text-ink/65">
+          We couldn’t check these cards’ badges just now.
+        </p>
+      ) : null}
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
         {visible.flatMap((g) =>
           g.cards.map((c) => (
@@ -289,15 +311,20 @@ export function ServicesGallery({
                   originRef.current = from;
                   setOpenCardId(c.id);
                 }}
+                // The badge row (#7819), then the quote buttons (v16 S3) — one slot, both kept.
                 footer={
-                  quote || notVerified ? (
+                  cardBadges?.kind === 'ok' && (cardBadges.byCard[c.id]?.length ?? 0) > 0 ? (
+                    <>
+                      <CardBadgeRow badges={cardBadges.byCard[c.id]!} cardName={c.label} shopName={shopName} now={badgesNow} />
+                      {notVerified ? <NotYetVerifiedTag label={NOT_VERIFIED_STAMP} /> : null}
+                      {quoteActionsFor(c)}
+                    </>
+                  ) : (
                     <>
                       {notVerified ? <NotYetVerifiedTag label={NOT_VERIFIED_STAMP} /> : null}
-                      {quote ? (
-                        <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
-                      ) : null}
+                      {quoteActionsFor(c)}
                     </>
-                  ) : null
+                  )
                 }
               />
             </li>
@@ -327,6 +354,12 @@ export function ServicesGallery({
           shopName={shopName}
           from={originRef.current}
           owner={ownerFor(openCard.id)}
+          // 🏅 The same J3 row the card's face draws, on the full card too (layout D on every card).
+          cardBadgeRow={
+            cardBadges?.kind === 'ok' && (cardBadges.byCard[openCard.id]?.length ?? 0) > 0 ? (
+              <CardBadgeRow badges={cardBadges.byCard[openCard.id]!} cardName={openCard.label} shopName={shopName} now={badgesNow} />
+            ) : null
+          }
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

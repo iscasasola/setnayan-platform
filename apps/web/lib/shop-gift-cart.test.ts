@@ -4,12 +4,13 @@
  * cart never knows a price of its own.
  *
  *   1 · total, tickets, free and save for a mixed cart (singles + bundles in ONE order);
- *   2 · a single stops at 9 (and a bundle too — the prototype's stepper runs 0 … 9);
+ *   2 · a single stops at 9; a BUNDLE does not (owner 2026-11-17, "Yes, all picks") — only the payment max stops it;
  *   3 · + is refused when the ORDER would pass the most in one payment; equal to it is allowed ("above" is refused);
  *   4 · the form carries codes and counts only, and the server's `priceCart` refuses anything malformed, off sale or over.
  *
  * Sabotage: `>` → `>=` in `canAdd`'s ceiling test turns test 3 red (an order exactly at the most refused);
- * dropping the `over_max` branch from `priceCart` turns test 4 red.
+ * dropping the `over_max` branch from `priceCart` turns test 4 red; capping bundles at 9 again (`mostOf` returning
+ * SHOP_GIFT_STORE_MOST_EACH for every code) turns test 2b red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,6 +83,33 @@ test('2 · nine is the most of one item; − never goes below 0', () => {
   assert.deepEqual(bump({ [P150]: 1 }, P150, -1), {}, 'back to 0 drops the line');
   assert.deepEqual(bump({}, P150, -1), {});
   assert.equal(canAdd({}, 'NOT_ON_SALE', PACKS, BUNDLES, MAX), 'not_on_sale');
+});
+
+test('2b · a bundle goes past 9 while under the most in one payment, and only the most stops it', () => {
+  // Papic 150 10 + 1 is ₱990: 9 of them is ₱8,910 — a 10th, 11th … still fit.
+  let cart: Record<string, number> = {};
+  for (let i = 0; i < 100; i += 1) {
+    // 100 × ₱990 = ₱99,000 still fits under ₱100,000 (100 is also the order line's table ceiling).
+    const v = canAdd(cart, B150, PACKS, BUNDLES, MAX);
+    if (v !== 'ok') assert.fail(`refused bundle number ${i + 1} with ${v}`);
+    cart = bump(cart, B150, 1) as Record<string, number>;
+  }
+  assert.equal(cart[B150], 100, 'a bundle was capped below what the payment max allows');
+  // Under a lower ceiling the MAX is what refuses — never a count.
+  let small: Record<string, number> = {};
+  while (canAdd(small, B150, PACKS, BUNDLES, 20_000) === 'ok') small = bump(small, B150, 1) as Record<string, number>;
+  assert.equal(small[B150], 20, '₱20,000 ÷ ₱990 = 20 bundles');
+  assert.equal(canAdd(small, B150, PACKS, BUNDLES, 20_000), 'over_max', 'the 21st bundle is refused by the max, not a count');
+  // The server takes a bundle count past 9, and still refuses a single past 9.
+  const posted = priceCart(`${B150}:15`, PACKS, BUNDLES, MAX);
+  assert.ok(posted.ok, 'the server refused 15 bundles under the max');
+  if (posted.ok) assert.equal(posted.summary.totalCentavos, 15 * 99_000);
+  const tooMany = priceCart(`${P150}:15`, PACKS, BUNDLES, MAX);
+  assert.equal(tooMany.ok, false, 'a single went past 9');
+  // Over the max on the server, by money alone: 11 × Papic 1000 bundle (₱4,990) under a ₱50,000 ceiling.
+  const over = priceCart(`${B1K}:11`, PACKS, BUNDLES, 50_000);
+  assert.equal(over.ok, false);
+  if (!over.ok) assert.equal(over.reason, 'over_max');
 });
 
 test('3 · + is refused when the ORDER would pass the most in one payment — equal is allowed', () => {

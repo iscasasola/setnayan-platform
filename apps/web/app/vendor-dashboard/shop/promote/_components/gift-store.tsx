@@ -16,6 +16,7 @@ import type { OpenRail } from '@/lib/payment-channels';
 import type { ShopGiftBundle, ShopGiftPack } from '@/lib/shop-gifts';
 import {
   SHOP_GIFT_STORE_MOST_EACH,
+  mostOf,
   canAdd,
   encodeCart,
   summarizeCart,
@@ -38,7 +39,7 @@ import s from './gift-store.module.css';
  *   · TicketSheet   — tap a ticket in Your gifts: its picture, what it is for your client / for you, "You have N
  *                     available", then Add 1 and Add <10 + 1>. After Add, the store opens scrolled to THAT item's row,
  *                     which flashes (no "Just added" box — owner removed it 17 Nov);
- *   · GiftStore     — Papic and Event singles (− n +, at most 9), then "<10 + 1> bundles · pay 10, get 11"; the cart bar:
+ *   · GiftStore     — Papic and Event singles (− n +, at most 9), then "<10 + 1> bundles · pay 10, get 11" (no count cap — only the payment max); the cart bar:
  *                     "N tickets (M free) · save ₱X", the total, "Buy now · ₱total", "₱100,000 is the most in one payment.";
  *   · GiftHistory   — Transaction history (‹ Your gifts): bought orders and gifts given.
  *
@@ -50,9 +51,9 @@ import s from './gift-store.module.css';
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 
 /** Why + is grey, in the prototype's words. */
-function addWhy(v: AddVerdict, maxPhp: number): string | null {
+function addWhy(v: AddVerdict, maxPhp: number, code: string): string | null {
   if (v === 'over_max') return `Would pass ${formatPhp(maxPhp)}`;
-  if (v === 'most_each') return `${formatCount(SHOP_GIFT_STORE_MOST_EACH)} is the most`;
+  if (v === 'most_each') return `${formatCount(mostOf(code))} is the most`;
   if (v === 'not_on_sale') return 'Not on sale right now';
   return null;
 }
@@ -117,7 +118,7 @@ export function GiftTicketSheet({
             <AddButton
               word="Add 1"
               price={formatPhp(pack.srpCentavos / 100)}
-              why={addWhy(one, maxPaymentPhp)}
+              why={addWhy(one, maxPaymentPhp, pack.code)}
               onPress={() => onAdd(pack.code)}
               data="gift-sheet-add-1"
             />
@@ -126,7 +127,7 @@ export function GiftTicketSheet({
                 main
                 word={`Add ${shape.label}`}
                 price={`${formatPhp(bundle.priceCentavos / 100)}${save > 0 ? ` · save ${formatPhp(save / 100)}` : ''}`}
-                why={many ? addWhy(many, maxPaymentPhp) : null}
+                why={many && bundle ? addWhy(many, maxPaymentPhp, bundle.code) : null}
                 onPress={() => onAdd(bundle.code)}
                 data="gift-sheet-add-bundle"
               />
@@ -237,7 +238,7 @@ export function GiftStore({
   const row = (code: string, pic: ReactNode, title: string, note: ReactNode, capLine: string | null) => {
     const n = cart[code] ?? 0;
     const v = canAdd(cart, code, packs, bundles, maxPaymentPhp);
-    const why = addWhy(v, maxPaymentPhp);
+    const why = addWhy(v, maxPaymentPhp, code);
     return (
       <div key={code}>
         <div className="flex min-h-[64px] items-center gap-2.5 px-3 py-2.5" data-store-row={code}>

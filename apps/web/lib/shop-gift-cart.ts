@@ -5,7 +5,7 @@
  *   • the store lists every gift once as a single (− n +) and once as a "10 + 1" bundle (− n +);
  *   • any mix of singles and bundles is ONE order, paid once;
  *   • the cart bar reads "N tickets (M free) · save ₱X", the total, then "Buy now · ₱total";
- *   • a single stops at 9 — "9 is the most here. Want 10? Take the 10 + 1 bundle below and get 1 free.";
+ *   • a single stops at 9 (a bundle does not — owner 2026-11-17; only the payment max limits it) — "9 is the most here. Want 10? Take the 10 + 1 bundle below and get 1 free.";
  *   • − is not pressable at 0; + (and a ticket's Add) is not pressable when it would take the ORDER past the most in one
  *     payment (owner 17 Nov: "We do not allow transactions above 100,000." — `lib/max-payment.ts`, an admin setting).
  *
@@ -18,10 +18,23 @@ import { bundleFreePacks, isShopGiftBundleCode, type ShopGiftBundle, type ShopGi
 import { maxPaymentCentavos } from './max-payment';
 
 /**
- * The most of ONE item the store takes in one order (prototype v16: the stepper runs 0 … 9, for singles and bundles
- * alike; at 9 the single says "9 is the most here" and points at the bundle). Not money — a count the owner drew.
+ * The most of ONE SINGLE the store takes in one order (prototype v16: at 9 the single says "9 is the most here" and
+ * points at the bundle). Not money — a count the owner drew. Bundles are NOT capped at 9 (owner 2026-11-17, "Yes, all
+ * picks"): a bundle's count is limited only by the most in one payment (`max_payment_php`).
  */
 export const SHOP_GIFT_STORE_MOST_EACH = 9;
+
+/**
+ * A bundle line's hard ceiling — the database's own CHECK (`shop_gift_order_lines.quantity BETWEEN 1 AND 100`), not a
+ * store rule. The money cap bites first (the cheapest bundle × 100 already nears ₱100,000); this only keeps the form
+ * from posting a count the table would refuse.
+ */
+export const SHOP_GIFT_BUNDLE_LINE_CEILING = 100;
+
+/** The most of one item: 9 for a single, the line ceiling for a bundle. */
+export function mostOf(code: string): number {
+  return isShopGiftBundleCode(code) ? SHOP_GIFT_BUNDLE_LINE_CEILING : SHOP_GIFT_STORE_MOST_EACH;
+}
 
 /** How many different items one order may carry (6 gifts × single + bundle = 12 rows in the store today). */
 export const SHOP_GIFT_STORE_MAX_LINES = 24;
@@ -106,7 +119,7 @@ export function summarizeCart(
 export type AddVerdict = 'ok' | 'most_each' | 'over_max' | 'not_on_sale';
 
 /**
- * Can `by` more of `code` go in? Not past 9 of one item, and not when the ORDER's total would pass the most in one
+ * Can `by` more of `code` go in? Not past 9 of one SINGLE (a bundle has no such cap), and not when the ORDER's total would pass the most in one
  * payment (`maxPhp`, the admin setting). Equal to the most is allowed — the ruling refuses "above".
  */
 export function canAdd(
@@ -120,14 +133,14 @@ export function canAdd(
   const item = storeItems(packs, bundles).find((i) => i.code === code);
   if (!item) return 'not_on_sale';
   const have = Math.max(0, Math.trunc(Number(cart[code] ?? 0)));
-  if (have + by > SHOP_GIFT_STORE_MOST_EACH) return 'most_each';
+  if (have + by > mostOf(code)) return 'most_each';
   const total = summarizeCart(cart, packs, bundles).totalCentavos + item.unitCentavos * by;
   return total > maxPaymentCentavos(maxPhp) ? 'over_max' : 'ok';
 }
 
 /** The cart with one more / one less of `code` (never below 0, never past the caps — the caller asks `canAdd` first). */
 export function bump(cart: GiftCart, code: string, by: number): GiftCart {
-  const next = Math.max(0, Math.min(SHOP_GIFT_STORE_MOST_EACH, Math.trunc(Number(cart[code] ?? 0)) + by));
+  const next = Math.max(0, Math.min(mostOf(code), Math.trunc(Number(cart[code] ?? 0)) + by));
   const out: Record<string, number> = { ...cart };
   if (next === 0) delete out[code];
   else out[code] = next;
@@ -148,7 +161,7 @@ const CODE_SHAPE = /^[A-Z0-9_]{2,64}$/;
 
 /**
  * Parse what the form posted. Null when it is not a well-formed cart: empty, too many items, a code twice, a code of the
- * wrong shape, or a count that is not a whole number from 1 to 9. The server trusts nothing else from the browser.
+ * wrong shape, or a count that is not a whole number from 1 to 9 for a single (1 to the line ceiling for a bundle). The server trusts nothing else from the browser.
  */
 export function parseCart(raw: unknown): Array<{ code: string; qty: number }> | null {
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2000) return null;
@@ -160,7 +173,7 @@ export function parseCart(raw: unknown): Array<{ code: string; qty: number }> | 
     const code = m[1]!;
     const qty = Number(m[2]);
     if (!CODE_SHAPE.test(code) || seen.has(code)) return null;
-    if (!Number.isInteger(qty) || qty < 1 || qty > SHOP_GIFT_STORE_MOST_EACH) return null;
+    if (!Number.isInteger(qty) || qty < 1 || qty > mostOf(code)) return null;
     seen.add(code);
     out.push({ code, qty });
   }

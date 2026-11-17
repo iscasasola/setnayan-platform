@@ -25,7 +25,7 @@
  *
  * SABOTAGE (each seen RED, then restored): the at-rest rule removed · its name not `none` · its isolation removed · a
  * `backdrop-filter` back on `.thumb [data-pick] button` · a translucent fill back on `.field` · a blur back on the field ·
- * the row without `sn-glass-row` · the shared neutral button given a fill.
+ * the row without `sn-glass-row` · the shared neutral button given a fill (since 16 Nov: an opaque one).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,11 +107,21 @@ test('(D) the Select band wears the ONE shared glass class and no fill of its ow
   }
 });
 
-test('(E) the shared neutral button is transparent on the glass — what the row’s buttons rely on', () => {
+test('(E) the shared neutral button is see-through on the glass — what the row’s buttons rely on', () => {
   let neutral: Record<string, string> | null = null;
   GLOBALS.walkRules((r) => {
     if (r.selectors.some((s) => norm(s) === ':is(button, a).ab.ab-neutral') && decls(r)['background']) neutral = decls(r);
   });
   assert.ok(neutral, 'the shared neutral button rule is gone');
-  assert.equal(neutral!['background'], 'transparent', 'the neutral button has a fill: on the glass row it would be a flat white pane again');
+  // ✨ 16 Nov 2026 (clean warm look, owner: "secondary button = soft grey fill, no outline"): the neutral button now
+  // wears the secondary token — ink at a few percent, a WASH, never an opaque pane. What this row relies on is that the
+  // glass still shows through; so the guard reads the token and holds its alpha low (it was `transparent` before).
+  assert.equal(neutral!['background'], 'var(--sn-btn-secondary-bg)', 'the neutral button no longer reads the secondary token');
+  let wash: string | null = null;
+  GLOBALS.walkRules((r) => {
+    if (r.selectors.some((s) => norm(s) === ':root') && decls(r)['--sn-btn-secondary-bg']) wash = decls(r)['--sn-btn-secondary-bg']!;
+  });
+  assert.ok(wash, 'the secondary fill token is not declared on :root');
+  const alpha = /\/\s*([\d.]+)\s*\)$/.exec(wash!)?.[1];
+  assert.ok(alpha !== undefined && Number(alpha) <= 0.12, `the neutral button's fill ${wash} is not a see-through wash: on the glass row it would be a flat pane again`);
 });

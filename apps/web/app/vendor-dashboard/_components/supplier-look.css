@@ -1,0 +1,182 @@
+/*
+ * supplier-look.css — THE SUPPLIER DASHBOARD'S BLUE LOOK (owner 2026-11-16, DECISION_LOG "SUPPLIER DASHBOARD = THE
+ * OWNER'S BLUE LOOK, LIGHT AND DARK — APPROVED ON CLIENTS, CARRIED TO EVERY SUPPLIER PAGE"; P1 drawings
+ * `prototypes/supplier_*_clean_2026-11-16/`, one shared colour block, plus the 16 Nov colour adjustments and the glow).
+ *
+ * HOW: TOKENS ONLY. No component is recoloured by hand and no component rule lives here (owner 17 Nov, "no
+ * per-component overrides"): this file RE-POINTS the tokens in globals.css while a supplier page is on screen. The
+ * supplier shell's template (`../template.tsx`) carries `data-supplier-look`; the selector is
+ * `html:not(.dark):has([data-supplier-look])`, so:
+ *   • the tokens land on <html>, the same element the :root aliases live on — every alias re-resolves to the blue;
+ *   • it outranks Admin › Colours' saved `html:not(.dark){…}` (0,1,1) by one class, AND it declares EVERY token a saved
+ *     set writes (`appColourTokens`, lib/app-colours.ts) — the ones the blue look recolours as the blue, the rest as the
+ *     code default — so a saved colour set can never show through on a supplier page. Held by
+ *     `the-blue-look-is-tokens-only.test.ts`, which reads the list from `appColourTokens` itself;
+ *   • leaving the supplier area (the template unmounts) restores the couple side's colours;
+ *   • a guest island / the couple's Event Hub never carries the attribute, so it is untouched.
+ * The ground (`.sn-ambient`) and the main button's lift read `--sn-ambient` / `--sn-forward-lift` in globals.css.
+ *
+ * LIGHT ONLY, ON PURPOSE (owner 17 Nov): dark follows the person's Appearance setting, light by default, and ships in a
+ * later slice after a sweep of every white surface. The drawing's dark set (amber #F2A93B for gold and warn) waits
+ * for it.
+ *
+ * Values are the drawing's colour block (`supplier_shop_clean_2026-11-16`): page #EEF2F8 · titles #101B30 · body
+ * #566275 · links #175AB9 · tiles, washes, pills and the band #DCE6F2 · ghost #E8F0FA · lines #E1E7F0 / #CFD9E6 ·
+ * ok #2B744A · warn #8A5A00 · the main button #2272E6 with its soft blue lift.
+ * Contrast, measured: white on #2272E6 4.55:1 AA · #101B30 on #EEF2F8 15.3:1 · #566275 on #FFFFFF 6.18:1 ·
+ * #566275 on #EEF2F8 5.50:1 · #175AB9 on #FFFFFF 6.56:1 · #175AB9 on #EEF2F8 5.84:1 · on the #DCE6F2 wash: #101B30
+ * 13.6:1 · #175AB9 5.20:1 · #566275 4.90:1 · warn #8A5A00 on #FFFFFF 5.93:1, on #EEF2F8 5.28:1.
+ */
+
+html:not(.dark):has([data-supplier-look]) {
+  /* page + words */
+  --sn-page-bg: 238 242 248; /* #EEF2F8 */
+  --color-ink: 16 27 48; /* #101B30 — titles */
+  --ink-soft: 86 98 117; /* #566275 — body */
+  --color-link: 23 90 185; /* #175AB9 */
+  --color-link-600: 21 83 176; /* #1553B0 */
+
+  /* the main button + everything on / picked / tappable — the one blue */
+  --color-mulberry: 34 114 230; /* #2272E6 */
+  --color-mulberry-600: 27 102 210; /* #1B66D2 */
+  --color-mulberry-700: 21 83 176; /* #1553B0 */
+  --sn-on-accent: 255 255 255;
+
+  /* the accent slot (selected pills, accent words) — the link blue, so a word in it stays AA on white and on the page */
+  --color-terracotta: 23 90 185;
+  --color-terracotta-600: 21 83 176;
+  --color-terracotta-700: 17 70 150;
+  --accent: #2272e6;
+  --accent-deep: #1b66d2;
+  --accent-soft: #dce6f2; /* the drawing's --acc-soft */
+
+  /* status — the drawing's light warn */
+  --color-warn: 138 90 0; /* #8A5A00 */
+
+  /* the band */
+  --sn-band-from: 27 102 210;
+  --sn-band-to: 34 114 230;
+
+  /* frames — white cards with a soft shadow (the reference's floating cards), cool lines, pale blue washes */
+  --sn-frame-bg: 255 255 255;
+  --sn-frame-radius: 16px;
+  --sn-frame-shadow: 0 1px 2px rgba(16, 27, 48, 0.04), 0 10px 26px -14px rgba(16, 27, 48, 0.18);
+  --sn-frame-shadow-tile: 0 1px 2px rgba(16, 27, 48, 0.05), 0 6px 16px -10px rgba(16, 27, 48, 0.14);
+  --m-line: #e1e7f0;
+  --m-paper-2: #e8f0fa; /* the drawing's --ghost */
+  --surface-soft: #dce6f2; /* the drawing's --wash */
+  --sn-hair: rgb(16 27 48 / 0.08);
+  /* the warm canvas (#F7F5F0) behind bands and worked lines — the page's own cool white here, so no beige band shows
+     on a supplier page (owner 17 Nov, round 3: "uppercase beige" band in the Offer Maker) */
+  --sn-canvas: #eef2f8;
+
+  /* the ground: the soft background glow (owner pick, 16 Nov) — three faint blue lights over the page colour */
+  --sn-glow-soft: 125 177 255;
+  --sn-ambient:
+    radial-gradient(900px 520px at 88% -8%, rgb(var(--color-mulberry) / 0.17), transparent 62%),
+    radial-gradient(720px 520px at -12% 34%, rgb(var(--sn-glow-soft) / 0.16), transparent 60%),
+    radial-gradient(800px 600px at 60% 108%, rgb(var(--color-mulberry) / 0.1), transparent 60%),
+    rgb(var(--sn-page-bg));
+
+  /* the main button's soft blue lift (16 Nov adjustment; solid fill, no gradient) */
+  --sn-forward-lift: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
+
+  /* ── THE CLEAN WARM LOOK'S NEW TOKENS (#7888), re-pointed to the drawing so the supplier side never goes warm ──
+     the secondary button is the drawing's blue ghost (`.btn`: --ghost #E8F0FA, ink words 15.0:1; hover the #DCE6F2
+     wash, 13.6:1), no outline; the floating bar's lift is the drawing's cool `--lift`, not the warm one. */
+  --sn-btn-secondary-bg: var(--m-paper-2);
+  --sn-btn-secondary-bg-hover: var(--surface-soft);
+  --sn-btn-secondary-border: transparent;
+  --sn-btn-secondary-fg: var(--color-ink);
+  --sn-dock-lift: 0 8px 24px -12px rgba(30, 60, 110, 0.16), 0 1px 4px -1px rgba(30, 60, 110, 0.06);
+
+  /* ── THE SECTION LABEL — the clean look's bold sentence-case title (owner 17 Nov; `dashboards_clean_look_2026-11-16`
+     `.new .sec`: 1.06em · 700 · ink · no tracking), its count right after it in a pale pill (`.sec .n`: the ghost wash
+     · ink · 600). Read by `.home-k2` / `.hc-k2` in globals.css. */
+  --sn-label-size: 17px;
+  --sn-label-weight: 700;
+  --sn-label-track: 0;
+  --sn-label-case: none;
+  --sn-label-ink: rgb(var(--color-ink));
+  --sn-label-gap: 8px;
+  --sn-label-count-push: 0;
+  --sn-label-count-pad: 1px 10px;
+  --sn-label-count-bg: rgb(16 27 48 / 0.05); /* the drawing's --ghost */
+  --sn-label-count-ink: rgb(var(--color-ink));
+  --sn-label-count-weight: 600;
+  --sn-label-count-size: 13px;
+  /* the sheets' labels and name (`.sn-sec` / `.sn-sheet-name`): the app sans, bold — the drawing's `.sec b` and its
+     name at 1.15em · 700, never the mono caps or the editorial serif */
+  --sn-label-font: var(--font-sans);
+  --sn-sec-size: 15px;
+  --sn-name-font: var(--font-sans);
+  --sn-name-size: 19px;
+  --sn-name-weight: 700;
+  /* the account sheet's name card wears no warm glow */
+  --sn-cover-glow: transparent;
+
+  /* ── THE MOBILE PALETTE (`--m-*`, :root hexes) — the account and Notifications sheets, the active row, ✓, the pill
+     tags, "Mark all read", "View all" and the unread dots read these. Re-pointed to the drawing so a sheet opened from
+     a supplier page (portalled to <body>, still under this <html> scope) never goes gold (owner 17 Nov). White on
+     #2272E6 4.55:1 · #175AB9 on white 6.56:1 · #566275 on white 6.18:1 · #6B7789 on white 4.62:1. */
+  --m-nav-active: #2272e6;
+  --m-orange: #2272e6;
+  --m-orange-2: #1b66d2;
+  --m-orange-3: #7db1ff;
+  --m-orange-4: #dce6f2;
+  --m-orange-deep: #1553b0;
+  --m-ivory: #e8f0fa;
+  --m-slate: #2e3a4f;
+  --m-slate-2: #566275;
+  --m-slate-3: #6b7789;
+  --m-slate-4: #aab4c3;
+
+  /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
+  /* the band's angle and its WHITE words are the blue look's own (white on #2272E6 4.55:1 AA) — never the clean warm
+     look's ink-on-peach default, which would read ~3.2:1 on the blue */
+  --sn-band-angle: 135deg;
+  --sn-on-band: 255 255 255;
+  --color-ok: 43 116 74; /* #2B744A — also the drawing's ok */
+  /* the forward step is unset by default (globals.css): `initial` hands every consumer back its fallback, which is the
+     blue above (`var(--sn-decision, var(--color-mulberry))`) */
+  --sn-decision: initial;
+  --sn-decision-600: initial;
+  --sn-decision-word: initial;
+  --sn-on-decision: initial;
+  --sn-accent: 34 114 230; /* the blue — the toggle "on" */
+  --color-private: 2 132 199;
+  --color-private-text: 3 105 161;
+  --color-private-tint: 224 242 254;
+  --sn-cat-booked: 22 107 74;
+  --sn-cat-schedule: 47 109 181;
+  --sn-cat-asked: 201 71 26;
+  --sn-cat-collect: 162 69 126;
+}
+
+/* The shell (bar · rail · bottom bar) keeps its own `--fd-*` set on `.fd` — re-pointed the same way. --fd-cream stays
+   WHITE: it is the bar/rail ground AND the label on a --fd-gold fill (white on #2272E6 4.55:1; the page colour on it
+   would be 4.05:1). The app shell's `.fd` is transparent, so the page ground shows through. */
+html:not(.dark):has([data-supplier-look]) .fd {
+  --fd-ink: #101b30;
+  --fd-gold: #2272e6;
+  --fd-hi: #2272e6;
+  --fd-gold-press: #1b66d2;
+  --fd-link: #175ab9;
+  --fd-line: #e1e7f0;
+  --fd-wash: #dce6f2;
+  --fd-hover: #e8f0fa;
+  --fd-field: #e8f0fa;
+  --fd-note: #eef3fa;
+  --fd-chip: #dce6f2;
+  --fd-chip-hover: #cfd9e6;
+  --fd-quiet: #e8f0fa;
+  --fd-invite: #f4f7fc;
+  --fd-invite-line: #cfd9e6;
+}
+
+/* From 1100 the top bar is solid white (16 Nov adjustment), not frosted glass over the glow. */
+@media (min-width: 1100px) {
+  html:not(.dark):has([data-supplier-look]) .fd {
+    --fd-topglass: rgba(255, 255, 255, 0.96);
+  }
+}

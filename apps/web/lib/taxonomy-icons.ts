@@ -117,9 +117,9 @@ import { serviceIcon, type IconComponent } from '@/lib/service-icon';
  * 🎨 NOV 2026 — THE DRAWN SET WINS. Every folder and every live service now has
  * its own animated drawing (`lib/service-icon-art.ts`, from the owner-approved
  * prototype). The lucide maps below are kept as the record of the old glyphs
- * and as the fallback for the four tiles with no drawing yet (`officiants`,
- * `counseling_seminars`, `livestream`, `everything_else` — all hidden from the
- * couple). The exported maps stay EXHAUSTIVE: they are built over these
+ * and as the fallback for any tile or group with no drawing yet (none today:
+ * the last five — `officiants`, `counseling_seminars`, `livestream`,
+ * `everything_else` and the Gifts group — were drawn 2026-11-17). The exported maps stay EXHAUSTIVE: they are built over these
  * exhaustive records, so a new tile is still a compile error until it gets a
  * lucide glyph, and it picks up a drawing the moment one is added.
  */

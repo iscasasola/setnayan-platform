@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { shopPath } from '@/lib/shop-address';
 import { papicCardHref } from '@/lib/papic-home-href';
 
@@ -515,7 +516,8 @@ export const routes = {
     manpower: () => `/vendor-dashboard/manpower`,
     messages: {
       index: () => `/vendor-dashboard/messages`,
-      detail: (threadId: string) => `/vendor-dashboard/messages/${threadId}`,
+      // Every way into a conversation lands on the picked client's Chat (lib/upcoming-schedule-door.ts).
+      detail: (threadId: string, eventId?: string | null) => supplierChatHref(eventId, threadId),
     },
     moodboardLibrary: () => `/vendor-dashboard/moodboard-library`,
     more: () => `/vendor-dashboard/more`,

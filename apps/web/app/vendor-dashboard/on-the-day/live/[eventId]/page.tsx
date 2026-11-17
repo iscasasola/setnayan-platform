@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
@@ -322,7 +323,7 @@ export default async function VendorOnTheDayLivePage({
           dayWords={dayWords}
           view={view}
           exitHref={hubHref(eventId)}
-          chatHref={booking.threadId ? `/vendor-dashboard/messages/${booking.threadId}` : null}
+          chatHref={booking.threadId ? supplierChatHref(eventId, booking.threadId) : null}
           about={[place, brief ? `${formatCount(attending)} of ${formatCount(invited)} guests coming` : null, 'Your tools for the day — only this event.'].filter(Boolean).join(' · ')}
         />
         <EventHubCounts tiles={counts} />

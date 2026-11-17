@@ -93,7 +93,7 @@ const HOW =
 const FACTS_TIP =
   'These come from your shop — change them there and every print follows. Nothing on a print is typed or moved here. The seal, rating and badges print only if you have them; the switches below take the rating and badges off every print. On the calling card the rating and badges sit on the back.';
 const FITS_TIP =
-  `Every piece has one fixed layout that all ${PRINT_DESIGNS.length} designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.`;
+  `Every piece has one fixed layout that all ${formatCount(PRINT_DESIGNS.length)} designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.`;
 
 /** YOUR FACTS' first two rows: the shop's name and the line every print carries — read on the server, never typed. */
 export type PrintFacts = { name: string; line: string };
@@ -242,7 +242,7 @@ function PrintsSheet({
   const pickDesign = (k: string) => {
     if (k === designId) return;
     setDesignId(k);
-    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all ${PRINT_PIECE_COUNT} pieces and the photos updated`);
+    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all ${formatCount(PRINT_PIECE_COUNT)} pieces and the photos updated`);
   };
   const pickQr = (k: string) => {
     const m = k as PrintQrMode;
@@ -279,7 +279,7 @@ function PrintsSheet({
           <p className="truncate text-[12.5px] text-ink/60">{bigSub}</p>
         ) : (
           <span className="text-[12.5px] text-ink/60" data-prints-top="">
-            <InfoTip label={`${d.name} · ${PRINT_PIECE_COUNT} pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
+            <InfoTip label={`${d.name} · ${formatCount(PRINT_PIECE_COUNT)} pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
               {HOW}
             </InfoTip>
           </span>
@@ -387,7 +387,7 @@ function PrintsSheet({
             <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">One fixed layout per piece. A design changes only the look — your shop changes the facts.</p>
 
             <SecHead
-              label={`All ${PRINT_PIECE_COUNT} pieces · ${d.name}`}
+              label={`All ${formatCount(PRINT_PIECE_COUNT)} pieces · ${d.name}`}
               tip={`${d.name} — suits ${d.suits}. Tap any piece to see it big. Save gives a print-ready file with 3 mm bleed at this exact size.`}
               badge={`${PRINT_QR[qr].t} QR`}
             />

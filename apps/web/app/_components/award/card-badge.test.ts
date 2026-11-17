@@ -27,7 +27,10 @@ test('congratulations: v86 words verbatim, the shared ✕, tap anywhere closes',
 
 test('the Today line reads as v86 draws it', () => {
   // (the module imports a CSS module, which the test runner cannot load — read the source instead)
-  assert.match(read('card-badge-congrats.tsx'), /return `Congratulations, your \$\{cardName\} service card earned \$\{badgeName\}`;/);
+  // ONE copy, in a plain module, so the server sweep that sends the line can call it too; the kit re-exports it.
+  assert.match(read('card-congrats-words.ts'), /return `Congratulations, your \$\{cardName\} service card earned \$\{badgeName\}`;/);
+  assert.doesNotMatch(strip(read('card-congrats-words.ts')), /'use client'/, 'the server cannot call a function from a client module');
+  assert.match(read('card-badge-congrats.tsx'), /export \{ cardCongratsTodayLine \} from '\.\/card-congrats-words';/);
 });
 
 test('rules pop-up: a shell J3 fills — title rule, held line, daily-check note, Got it', () => {

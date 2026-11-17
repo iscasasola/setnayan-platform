@@ -3,12 +3,13 @@
  *
  * Drawing `supplier_shop_clean_2026-11-16` (Promote › Prints): "Prints" stays the heading; under it the line
  * "Marketing materials, printed out" and its counts; then ONE row per piece (name · size, then its line), each opening
- * the shipped sheet on that piece. The Shop's Prints tile wears the same line. The icon is a calling card.
+ * the shipped sheet on that piece. The Shop's Prints tile wears the same line. The section's icon is a calling card (the
+ * rows themselves carry no icon).
  *
  *   1. The rows are `PRINT_PIECES.map` — never a typed list — and each opens the sheet on its own piece (`setBig`).
  *   2. No count is typed: "15 designs" / "7 pieces" appear nowhere outside comments; they are read from the tables.
  *   3. One line, two places: `PRINTS_LINE` in the section and on the Shop's tile.
- *   4. The icon is `IdCard`; `Printer` is gone from the section.
+ *   4. The section's icon is `IdCard`; `Printer` is gone from the section.
  *
  * SABOTAGE (each run once, each went red): type "15 designs · 7 pieces" back → 1; drop `setBig` from a row → 1; type
  * the tile's line → 1; put `Printer` back → 1.
@@ -46,8 +47,9 @@ test('one line, in the section and on the Shop\'s Prints tile', () => {
   assert.match(SECTION, /\{PRINTS_LINE\}/);
   assert.match(COVER, /data-shop-quick="prints"[\s\S]{0,700}\{PRINTS_LINE\}/, 'the Shop tile does not wear the line');
   assert.doesNotMatch(COVER, /Marketing materials, printed out/, 'the tile types its own copy of the line');
-  assert.match(COVER, /data-shop-quick="prints"/);
-  assert.match(COVER, /onClick=\{\(\) => openSheet\('promote'\)\} className="sn-press flex/, 'the tile does not open the shipped Promote sheet');
+  assert.match(COVER, /data-shop-quick="prints"/); // "Prints" again (owner 17 Nov, later): it opens the prints alone
+  // The tile is one of the quick row's three (`the-quick-row-is-the-drawn-three.test.ts`); it opens the prints alone.
+  assert.match(COVER, /onClick=\{\(\) => openSheet\('prints'\)\}[^>]*data-shop-quick="prints"/, 'the tile does not open the prints');
 });
 
 test('the icon is a calling card, not a printer', () => {

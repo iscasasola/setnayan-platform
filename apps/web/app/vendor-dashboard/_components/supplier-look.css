@@ -66,6 +66,9 @@ html:not(.dark):has([data-supplier-look]) {
   --m-paper-2: #e8f0fa; /* the drawing's --ghost */
   --surface-soft: #dce6f2; /* the drawing's --wash */
   --sn-hair: rgb(16 27 48 / 0.08);
+  /* the warm canvas (#F7F5F0) behind bands and worked lines — the page's own cool white here, so no beige band shows
+     on a supplier page (owner 17 Nov, round 3: "uppercase beige" band in the Offer Maker) */
+  --sn-canvas: #eef2f8;
 
   /* the ground: the soft background glow (owner pick, 16 Nov) — three faint blue lights over the page colour */
   --sn-glow-soft: 125 177 255;
@@ -78,7 +81,59 @@ html:not(.dark):has([data-supplier-look]) {
   /* the main button's soft blue lift (16 Nov adjustment; solid fill, no gradient) */
   --sn-forward-lift: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
 
+  /* ── THE CLEAN WARM LOOK'S NEW TOKENS (#7888), re-pointed to the drawing so the supplier side never goes warm ──
+     the secondary button is the drawing's blue ghost (`.btn`: --ghost #E8F0FA, ink words 15.0:1; hover the #DCE6F2
+     wash, 13.6:1), no outline; the floating bar's lift is the drawing's cool `--lift`, not the warm one. */
+  --sn-btn-secondary-bg: var(--m-paper-2);
+  --sn-btn-secondary-bg-hover: var(--surface-soft);
+  --sn-btn-secondary-border: transparent;
+  --sn-btn-secondary-fg: var(--color-ink);
+  --sn-dock-lift: 0 8px 24px -12px rgba(30, 60, 110, 0.16), 0 1px 4px -1px rgba(30, 60, 110, 0.06);
+
+  /* ── THE SECTION LABEL — the clean look's bold sentence-case title (owner 17 Nov; `dashboards_clean_look_2026-11-16`
+     `.new .sec`: 1.06em · 700 · ink · no tracking), its count right after it in a pale pill (`.sec .n`: the ghost wash
+     · ink · 600). Read by `.home-k2` / `.hc-k2` in globals.css. */
+  --sn-label-size: 17px;
+  --sn-label-weight: 700;
+  --sn-label-track: 0;
+  --sn-label-case: none;
+  --sn-label-ink: rgb(var(--color-ink));
+  --sn-label-gap: 8px;
+  --sn-label-count-push: 0;
+  --sn-label-count-pad: 1px 10px;
+  --sn-label-count-bg: rgb(16 27 48 / 0.05); /* the drawing's --ghost */
+  --sn-label-count-ink: rgb(var(--color-ink));
+  --sn-label-count-weight: 600;
+  --sn-label-count-size: 13px;
+  /* the sheets' labels and name (`.sn-sec` / `.sn-sheet-name`): the app sans, bold — the drawing's `.sec b` and its
+     name at 1.15em · 700, never the mono caps or the editorial serif */
+  --sn-label-font: var(--font-sans);
+  --sn-sec-size: 15px;
+  --sn-name-font: var(--font-sans);
+  --sn-name-size: 19px;
+  --sn-name-weight: 700;
+  /* the account sheet's name card wears no warm glow */
+  --sn-cover-glow: transparent;
+
+  /* ── THE MOBILE PALETTE (`--m-*`, :root hexes) — the account and Notifications sheets, the active row, ✓, the pill
+     tags, "Mark all read", "View all" and the unread dots read these. Re-pointed to the drawing so a sheet opened from
+     a supplier page (portalled to <body>, still under this <html> scope) never goes gold (owner 17 Nov). White on
+     #2272E6 4.55:1 · #175AB9 on white 6.56:1 · #566275 on white 6.18:1 · #6B7789 on white 4.62:1. */
+  --m-nav-active: #2272e6;
+  --m-orange: #2272e6;
+  --m-orange-2: #1b66d2;
+  --m-orange-3: #7db1ff;
+  --m-orange-4: #dce6f2;
+  --m-orange-deep: #1553b0;
+  --m-ivory: #e8f0fa;
+  --m-slate: #2e3a4f;
+  --m-slate-2: #566275;
+  --m-slate-3: #6b7789;
+  --m-slate-4: #aab4c3;
+
   /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
+  /* the band's angle and its WHITE words are the blue look's own (white on #2272E6 4.55:1 AA) — never the clean warm
+     look's ink-on-peach default, which would read ~3.2:1 on the blue */
   --sn-band-angle: 135deg;
   --sn-on-band: 255 255 255;
   --color-ok: 43 116 74; /* #2B744A — also the drawing's ok */

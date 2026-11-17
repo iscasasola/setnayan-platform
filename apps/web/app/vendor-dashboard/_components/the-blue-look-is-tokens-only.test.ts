@@ -19,10 +19,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 import { appColourTokens, appColoursToCss, APP_COLOURS_DEFAULT, type AppColours } from '@/lib/app-colours';
 
 const RAW = readFileSync(join(process.cwd(), 'app/vendor-dashboard/_components/supplier-look.css'), 'utf8');
-const CSS = RAW.replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(RAW);
 const GLOBALS = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
 
 /** Every top-level declaration of a rule block (the custom properties hold multi-line values, so split on `;`). */
@@ -83,7 +84,7 @@ test('a saved Admin › Colours set cannot show through on a supplier page', () 
   const missing = written.filter((k) => valueOf(k) === undefined);
   assert.deepEqual(missing, [], 'a token a saved set writes is not held by the supplier scope');
   // The keys the blue look does not recolour sit at the code default (or `initial` where the default is unset).
-  const BLUE = new Set(['--sn-page-bg', '--sn-band-from', '--sn-band-to', '--sn-frame-bg', '--sn-frame-radius', '--sn-frame-shadow', '--sn-accent', '--sn-on-accent']);
+  const BLUE = new Set(['--sn-page-bg', '--sn-band-from', '--sn-band-to', '--sn-band-angle', '--sn-on-band', '--sn-frame-bg', '--sn-frame-radius', '--sn-frame-shadow', '--sn-accent', '--sn-on-accent']);
   const UNSET = new Set(['--sn-decision', '--sn-decision-600', '--sn-decision-word', '--sn-on-decision']);
   const def = appColourTokens(APP_COLOURS_DEFAULT);
   for (const k of written) {
@@ -91,11 +92,29 @@ test('a saved Admin › Colours set cannot show through on a supplier page', () 
     assert.equal(valueOf(k), UNSET.has(k) ? 'initial' : def[k], `${k} drifted from its default`);
   }
   assert.equal(valueOf('--sn-accent'), '34 114 230', 'the toggle is not the blue');
+  assert.equal(valueOf('--sn-on-band'), '255 255 255', 'the blue band’s words are not white (ink on the blue is ~3.2:1)');
+});
+
+test('the clean warm look’s new tokens (#7888) are re-pointed to the drawing — the supplier side never goes warm', () => {
+  // The secondary button is the drawing's blue ghost with ink words, no outline (`.btn`: --ghost #E8F0FA).
+  assert.equal(valueOf('--sn-btn-secondary-bg'), 'var(--m-paper-2)');
+  assert.equal(valueOf('--m-paper-2'), '#e8f0fa');
+  assert.equal(valueOf('--sn-btn-secondary-bg-hover'), 'var(--surface-soft)');
+  assert.equal(valueOf('--sn-btn-secondary-border'), 'transparent');
+  assert.equal(valueOf('--sn-btn-secondary-fg'), 'var(--color-ink)');
+  // The floating bar's lift is the drawing's cool one — a blue-grey shadow, never the warm rgba(30, 26, 18, …).
+  const lift = valueOf('--sn-dock-lift') ?? '';
+  assert.match(lift, /rgba\(30, 60, 110, 0\.16\)/);
+  assert.doesNotMatch(lift, /30, 26, 18/);
 });
 
 test('the ground and the lift are tokens in globals.css, and the lift spares the focus ring', () => {
   assert.match(GLOBALS, /\.sn-ambient \{\s*(?:\/\*[\s\S]*?\*\/\s*)?background: var\(--sn-ambient, /);
-  assert.match(GLOBALS, /:where\(\.button-primary:not\(:focus-visible\), :is\(button, a\)\.ab\.ab-brand\) \{\s*box-shadow: var\(--sn-forward-lift, none\);/);
+  // ONLY THE MAIN BUTTON is lifted (the drawing lifts `.btn.pri` alone): every selector that reads the lift must be the
+  // main button — `.button-primary` or the filled `.ab-main` — so an outlined/quiet brand ActionButton never floats.
+  const readers = [...stripComments(GLOBALS).matchAll(/([^{}]+)\{[^{}]*var\(--sn-forward-lift/g)].map((m) => (m[1] ?? '').trim());
+  assert.equal(readers.length, 1, 'the lift is read in more than one place');
+  assert.equal(readers[0]?.replace(/\s+/g, ' '), ':where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand.ab-main:not(:focus-visible))', 'the lift selector widened past the main button');
   assert.ok(valueOf('--sn-ambient')?.includes('rgb(var(--sn-page-bg))'), 'the glow lost its ground');
   assert.ok(valueOf('--sn-forward-lift'), 'no lift');
 });

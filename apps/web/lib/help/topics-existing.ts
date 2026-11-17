@@ -829,6 +829,16 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         appBody: HELP_NOT_IN_THE_APP,
         body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, tap Add more on the Papic card in Memories: it adds to the shared pool for the whole event. What you add stacks on whatever your event already holds — it never replaces it — and current prices are on setnayan.com/pricing.`,
       },
+      {
+        // NEW 2026-11-18 — AI answers said guests are "cut off mid-party". app/papic/_components/upload-chip.tsx case
+        // 'credits' ("these shots are kept on this phone. They send as soon as the hosts add more."); the gallery sheet
+        // app/papic/guest/_components/add-from-phone-sheet.tsx "Out of Credits" … "Nothing was sent." (ruling 1, 14 Nov).
+        slug: 'papic-credits-run-out',
+        title: 'What happens if our Papic credits run out during the event?',
+        appBody:
+          'Nothing is lost. Guests can keep shooting with the Papic camera: their shots are kept on their phone and send by themselves as soon as the event has credits again. Photos a guest picks from their phone’s gallery are not added while the credits are out — they see Out of Credits, and nothing is sent.',
+        body: 'Nothing is lost. Guests can keep shooting with the Papic camera: their shots are kept on their phone and send by themselves as soon as you add more. Photos a guest picks from their phone’s gallery are not added while the credits are out — they see Out of Credits, and nothing is sent. To add more, tap Add more on the Papic card in Memories.',
+      },
     ],
   },
   {

@@ -38,11 +38,11 @@ export function ReceivedHeldList({ held, query, next, now = new Date() }: { held
         {held.length === 1 ? '1 matched by itself' : `${formatCount(held.length)} matched by themselves`}
       </p>
       <p className={TEMPLATE_SUBLINE}>Same reference and same amount. Each confirms 30 minutes after it matched. Undo puts it back with the ones you match by hand.</p>
-      <ul className="mt-2 divide-y divide-[color:var(--sn-ink-100)]">
+      <ul className="mt-2">
         {held.map((h) => {
           const open = undoIsOpen(h.matched_at, now);
           return (
-            <li key={h.received_id} className="flex items-center gap-3 py-2.5" data-payments-received-held-row={h.received_id}>
+            <li key={h.received_id} className="flex min-h-14 items-center gap-3 border-t py-2.5" data-payments-received-held-row={h.received_id}>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-ink">
                   {h.label} · <span className="tabular-nums">{h.amount_php == null ? '—' : formatPhp(h.amount_php)}</span>

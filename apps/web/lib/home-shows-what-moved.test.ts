@@ -127,7 +127,7 @@ test('4 · it is wired — Home reads both for the planning viewers and hands th
   // The desktop cards draw the SAME faces the phone tiles rotate — one fact, two drawings.
   const row = code('app/dashboard/[eventId]/_components/home-control-row.tsx');
   assert.match(row, /const seats = tile\.faces\.find\(\(f\) => f\.id === 'guests-unseated' \|\| f\.id === 'guests-seats-unread'\);/);
-  assert.match(row, /<Link href=\{seats\.href\} className="hc-fig" data-home-fig=\{seats\.id\}>/);
+  assert.match(row, /<Link href=\{seats\.href\} className="hc-fig sn-hit" data-home-fig=\{seats\.id\}>/);
   assert.match(row, /const board = tile\.faces\.find\(\(f\) => f\.id === 'sup-inspiration' \|\| f\.id === 'sup-inspiration-unread'\);/);
-  assert.match(row, /<Link href=\{board\.href\} className="hc-fig" data-home-fig=\{board\.id\}>/);
+  assert.match(row, /<Link href=\{board\.href\} className="hc-fig sn-hit" data-home-fig=\{board\.id\}>/);
 });

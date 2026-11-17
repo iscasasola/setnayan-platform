@@ -34,6 +34,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSignInPanel } from './sign-in-here';
+import { signInFallbackHref } from '@/lib/sign-in-fallback-href';
 
 export function SignInHereLink({
   href = '/login',
@@ -60,7 +61,7 @@ export function SignInHereLink({
   */
   const pathname = usePathname();
   const here = pathname ?? '/';
-  const fallback = here === '/' ? href : `${href}?next=${encodeURIComponent(here)}`;
+  const fallback = signInFallbackHref(href, here);
 
   /*
     🚨 THE PANEL IS A SIBLING OF THE LINK, NOT A CHILD — and that is a bug fix,

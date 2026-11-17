@@ -41,6 +41,8 @@ export type ShopServiceRow = {
   label: string;
   cards: number;
   live: boolean;
+  /** How many of its cards are switched on — the same unit as `cards` (a service is `live` when this is above 0). */
+  liveCards: number;
   /** The lowest "from" price among its cards, in pesos — null when no card has a price. */
   fromPhp: number | null;
   /** The first card's id — where the row's link lands in the cards list (`#svc-<id>`). */
@@ -78,6 +80,7 @@ export function shopServiceRows(
       label,
       cards: mine.length,
       live: mine.some((c) => c.is_active),
+      liveCards: mine.filter((c) => c.is_active).length,
       fromPhp: prices.length ? Math.min(...prices) : null,
       firstCardId: mine[0]?.vendor_service_id ?? null,
       tools,
@@ -96,6 +99,19 @@ export function shopServiceRows(
 }
 
 const HERE = '/vendor-dashboard/shop#shop-services';
+
+/**
+ * "3 cards · 3 live" — the pinned row's card count and how many of THOSE CARDS are on. Both count cards: "live" once
+ * counted services, so 2 services holding 3 live cards read "3 cards · 2 live" (W1, 15 Nov). `null` rows = unread, and a
+ * zero is left out — never "0 cards".
+ */
+export function cardsLiveBits(rows: readonly ShopServiceRow[] | null): string[] {
+  if (rows === null) return [];
+  const cards = rows.reduce((t, r) => t + r.cards, 0);
+  if (cards <= 0) return [];
+  const live = rows.reduce((t, r) => t + r.liveCards, 0);
+  return [`${formatCount(cards)} ${cards === 1 ? 'card' : 'cards'}`, ...(live > 0 ? [`${formatCount(live)} live`] : [])];
+}
 
 /** Services' three figures — services · live · tools ready. `null` rows = the read failed: every figure "—", never 0. */
 export function servicesFigures(rows: readonly ShopServiceRow[] | null): PinFigure[] {

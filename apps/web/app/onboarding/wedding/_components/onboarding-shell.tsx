@@ -122,7 +122,7 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { moveSelf, seatCouple, seatSelf, takeCouple, type CoupleCarry, type SelfName } from '@/lib/onboarding/couple-handoff';
-import { SetupCard } from '@/app/onboarding/_shared/setup-card';
+import { SetupCard, SetupFrame } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
@@ -137,6 +137,7 @@ import {
   type SetupCardId,
   type SetupView,
 } from '@/lib/onboarding/setup-answers';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 /** No setup cards — the stable default, so the sequence memo never churns. */
 const NO_SETUP_STEPS: readonly SetupCardId[] = [];
@@ -2446,7 +2447,7 @@ export function OnboardingShell({
     const cands = (state.dateCandidates ?? []).filter(Boolean);
     if (cands.length === 1) {
       try {
-        return new Date(cands[0]! + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return formatRecordedAt(cands[0]!) ?? cands[0]!;
       } catch {
         return cands[0]!;
       }
@@ -3632,15 +3633,40 @@ export function OnboardingShell({
               DateCalendar renders the standard .viewzone + .tapzone skeleton, so on desktop the
               headline goes LEFT and the toggle+calendar fill the RIGHT column (was a narrow
               centred column in a wide sheet). Mobile (<1024) unaffected. */}
-          <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
-            <DateCalendar
-              dateExempt={dateExempt}
-              mode={state.dateMode}
-              candidates={state.dateCandidates}
-              windowStart={state.windowStart}
-              windowEnd={state.windowEnd}
-              onChange={patch}
-            />
+          {/* 📐 Walk 14 Nov 2026: on the approved flow the date is step 4 of the question cards — it wears the SAME
+              SetupFrame as every other step ("4 of 10", the house title), never the old serif viewzone header. */}
+          <section className={`screen${approvedFlow ? '' : ' onb-twopane'}${activeId === 'date' ? ' active' : ''}`} id="screen-date">
+            {approvedFlow ? (
+              <SetupFrame
+                skin="wedding"
+                n={questionN}
+                total={questionTotal}
+                dataCard="date"
+                footer=""
+                title="When’s the big day?"
+                line="Pick one day, or a few you are choosing between."
+                info="Still deciding? Pick the few days you are weighing — you can settle on one later."
+              >
+                <DateCalendar
+                  chrome="bare"
+                  dateExempt={dateExempt}
+                  mode={state.dateMode}
+                  candidates={state.dateCandidates}
+                  windowStart={state.windowStart}
+                  windowEnd={state.windowEnd}
+                  onChange={patch}
+                />
+              </SetupFrame>
+            ) : (
+              <DateCalendar
+                dateExempt={dateExempt}
+                mode={state.dateMode}
+                candidates={state.dateCandidates}
+                windowStart={state.windowStart}
+                windowEnd={state.windowEnd}
+                onChange={patch}
+              />
+            )}
           </section>
 
           {/* ALAALA PROMISE — a brand moment after the love story, before the

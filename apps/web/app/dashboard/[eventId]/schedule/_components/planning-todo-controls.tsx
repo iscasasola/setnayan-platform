@@ -21,6 +21,7 @@ import { ScheduleSheet, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 // ── Tick ────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export function PlanningTick({
         aria-pressed={on}
         aria-label={on ? `Mark "${title}" not done` : `Mark "${title}" done`}
         data-planning-tick={kind}
-        className={`inline-flex h-11 w-9 items-center justify-center rounded-full transition ${
+        className={`sn-hit-2d inline-flex h-11 w-9 items-center justify-center rounded-full transition ${
           on ? 'text-success-600' : 'text-ink/35 hover:text-success-600'
         }`}
       >
@@ -97,7 +98,10 @@ export function PlanningTick({
 
 function prettyDay(iso: string | null): string {
   if (!iso) return 'No date yet';
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const day = formatRecordedAt(iso);
+  if (!day) return iso;
+  const weekday = new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  return `${weekday}, ${day}`;
 }
 
 export function TaskDateButton({

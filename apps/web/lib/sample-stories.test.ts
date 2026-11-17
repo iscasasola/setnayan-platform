@@ -136,39 +136,21 @@ test('a nonsense count fails toward showing, never toward an empty page', () => 
 
 // ── Anti-drift: both publishers ask the same question ──────────────────────
 
-test('the Stories page counts REAL stories, not database rows', () => {
-  const src = stripComments(read('app/(shell)/realstories/page.tsx'));
-  assert.match(
-    src,
-    /sampleStoriesAreShowing\(/,
-    'the page no longer asks the shared retire rule',
-  );
-  /*
-   * 🚨 THE ORIGINAL DEFECT, PINNED. `showcases.length === 0` treated the
-   * seeded sample row as a story and hid nine finished pages behind it.
-   */
-  assert.doesNotMatch(
-    src,
-    /showingSamples\s*=\s*showcases\.length\s*===\s*0/,
-    'the page is counting rows again — a seeded sample row will hide the library',
-  );
-  assert.match(
-    src,
-    /realStories\s*=\s*showcases\.filter\(\(s\) => !s\.isSample\)/,
-    'the real-story count must exclude samples',
-  );
-});
+// 'the Stories page counts REAL stories' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
 
-test('the sitemap asks the same rule, so it cannot outlive the page', () => {
+test('the sitemap lists no sample, so it cannot outlive the retired page', () => {
   /*
    * 🔑 THIS IS THE HALF THAT ROTS QUIETLY. A page that stops rendering samples
    * is obvious immediately; a sitemap still offering twenty fictional URLs
    * after they vanished is visible to nobody but a crawler.
    */
   const src = stripComments(read('app/sitemap-weddings.xml/route.ts'));
-  assert.match(
-    src,
-    /sampleStoriesAreShowing\(/,
-    'the sitemap decides on its own again — it will keep publishing retired samples',
-  );
+  /*
+   * 🗞✂ 2026-11-16 (PR #7847): the sample stories' only page (`/realstories/[slug]`) is retired, so the rule the
+   * sitemap shares with that page is now "never" — no sample URL, no hub URL. Pinned so the sitemap cannot start
+   * offering the retired samples again.
+   */
+  assert.match(src, /showcases\.filter\(\(s\) => !s\.isSample\)/, 'the sitemap must still drop samples from the real list');
+  assert.doesNotMatch(src, /ALL_REAL_WEDDINGS|sampleStoriesAreShowing\(/, 'the sitemap lists the retired samples again');
+  assert.doesNotMatch(src, /\/realstories/, 'the sitemap points at the retired stories hub again');
 });

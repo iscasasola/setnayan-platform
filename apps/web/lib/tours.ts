@@ -783,6 +783,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
       },
       {
+        // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable" · "Supplier Ultra scenes").
+        Icon: Users,
+        title: 'The people who made it',
+        body: 'Every supplier booked on Setnayan is in your story, ordered by their plan &mdash; <b>See all</b> lists them all, with a search when there are many. Tap one to open their shop; Supplier Pro and Supplier Ultra open a card first. A supplier you added yourself is named, with no link. Each Supplier Ultra that shares its album from your day gets its own scene.',
+      },
+      {
         Icon: Wand2,
         title: 'Add scenes made for after the day',
         body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
@@ -1568,7 +1574,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'dates-calendar',
           title: 'Your month at a glance',
           // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
-          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Struck-through days are off. Tap a day to see what is on it — or block it off.',
+          // 🎨 EB-231 (16 Nov 2026): the FILL says whether a day can still take a booking (owner 2026-11-14, "THE CLIENTS
+          // CALENDAR KEEPS WHAT IT HAS — ONLY THE COLOUR CODING CHANGES": open = seat green, cannot = outlined); the
+          // DOTS say what is on it. This step said "Green is booked here" over a month of open green days.
+          // Held by `app/vendor-dashboard/customers/the-calendar-key-says-what-green-means.test.ts`.
+          body: 'A green day can still take a booking; an outlined day cannot. The dots say what is on it: green booked here, grey booked elsewhere, gold a couple asking. Tap a day to see it — or block it off.',
         },
         {
           // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.
@@ -2166,7 +2176,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'suppliers-segments',
           title: 'Find · Build · Booked',
-          body: 'Find suppliers, build your set with its total, and see who you booked.',
+          // 🏅 J6 (2026-11-15): the one badge a couple meets on a supplier today is Setnayan Verified.
+          body: 'Find suppliers, build your set with its total, and see who you booked. The check beside a name means Setnayan Verified.',
         },
         {
           anchor: 'suppliers-category',

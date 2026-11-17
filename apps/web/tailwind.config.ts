@@ -136,6 +136,58 @@ const config: Config = {
         'm-sm': 'var(--m-shadow-sm)',
         'm-md': 'var(--m-shadow-md)',
         'm-lg': 'var(--m-shadow-lg)',
+        // THE TOKEN LAYER (14 Nov 2026 · docs/design-token-map.md). Every key below names a globals.css
+        // token whose value equals what the app types by hand today — swapping a class for one of these
+        // moves no pixel. Keys carry the `sn-` family so `lint-colour-exists` reads `sn` as a known key.
+        'sn-hair': 'var(--sn-sh-hair)',
+        'sn-frame-tile': 'var(--sn-frame-shadow-tile)',
+        'sn-frame': 'var(--sn-frame-shadow)', // the frame's soft lift (16 Nov) — read it, never type a shadow
+        'sn-sheet': 'var(--sn-sheet-shadow)',
+        'sn-sheet-side': 'var(--sn-sheet-shadow-side)',
+      },
+      // The token layer's type scale: `text-sn-xs` = the `text-[11px]` the app types 1,385 times. Exact
+      // sizes only (font-size, no line-height — the same as the arbitrary class it replaces).
+      fontSize: {
+        'sn-3xs': 'var(--sn-fs-3xs)', // 9
+        'sn-2xs': 'var(--sn-fs-2xs)', // 10
+        'sn-xs': 'var(--sn-fs-xs)', // 11
+        'sn-sm': 'var(--sn-fs-sm)', // 12
+        'sn-md': 'var(--sn-fs-md)', // 13
+        'sn-base': 'var(--sn-fs-base)', // 14
+        'sn-lg': 'var(--sn-fs-lg)', // 15
+        'sn-xl': 'var(--sn-fs-xl)', // 17
+        'sn-2xl': 'var(--sn-fs-2xl)', // 19
+        'sn-3xl': 'var(--sn-fs-3xl)', // 22
+        // The ONE screen title (clean warm look, owner 16 Nov 2026): 30 px / 700, tight.
+        'sn-title': ['var(--sn-fs-title)', { lineHeight: '1.08', letterSpacing: '-0.02em', fontWeight: '700' }],
+      },
+      // Template sheet rule 14 (4 · 8 · 12 · 16 · 24) — `p-sn-3`, `gap-sn-2`, `mt-sn-5` …
+      spacing: {
+        'sn-1': 'var(--sn-space-1)',
+        'sn-2': 'var(--sn-space-2)',
+        'sn-3': 'var(--sn-space-3)',
+        'sn-4': 'var(--sn-space-4)',
+        'sn-5': 'var(--sn-space-5)',
+      },
+      minHeight: {
+        'sn-btn': 'var(--sn-btn-min-height)',
+        'sn-tap-md': 'var(--sn-tap-md)',
+        'sn-tap-lg': 'var(--sn-tap-lg)',
+        'sn-tap-xl': 'var(--sn-tap-xl)',
+      },
+      height: {
+        'sn-btn': 'var(--sn-btn-height)',
+        'sn-btn-lg': 'var(--sn-btn-height-lg)',
+      },
+      size: {
+        'sn-btn-icon': 'var(--sn-btn-icon-size)',
+        'sn-icon-sm': 'var(--sn-icon-sm)',
+        'sn-icon-md': 'var(--sn-icon-md)',
+      },
+      borderWidth: {
+        'sn-hair': 'var(--sn-border-w)',
+        'sn-strong': 'var(--sn-border-w-strong)',
+        'sn-edge': 'var(--sn-border-w-edge)',
       },
       zIndex: {
         'sn-raised': 'var(--sn-z-raised)',
@@ -191,6 +243,8 @@ const config: Config = {
         // `page` — the page BEHIND everything (body + full-height wrappers only). Its own setting since 12 Nov 2026 so
         // the background can change without greying cards or button labels. See `--sn-page-bg` in globals.css.
         page: 'rgb(var(--sn-page-bg) / <alpha-value>)',
+        // The FRAME's fill (clean warm look, 16 Nov 2026) — the white card that sits on the page. `bg-frame`.
+        frame: 'rgb(var(--sn-frame-bg) / <alpha-value>)',
         // `paper` — surface slot used widely in dashboard editors
         // (`bg-paper` rows, `text-paper` on dark CTAs like the Build button).
         // It only ever existed as the `--m-paper` CSS var, NEVER as a Tailwind

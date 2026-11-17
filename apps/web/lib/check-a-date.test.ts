@@ -119,6 +119,6 @@ test('a shop with no schedule still honours its typed closures', () => {
 
 test('words and addresses', () => {
   assert.equal(checkDateWords('2026-11-22'), 'Sun, 22 Nov 2026');
-  assert.equal(checkADateUrl('https://setnayan.com/', 'tita-nenas-catering'), 'https://setnayan.com/v/tita-nenas-catering/dates');
-  assert.equal(checkDateResumeHref('tita', '2026-11-22', ['a', 'b']), '/v/tita/dates?d=2026-11-22&step=event&s=a%2Cb');
+  assert.equal(checkADateUrl('https://setnayan.com/', 'tita-nenas-catering'), 'https://setnayan.com/tita-nenas-catering/dates');
+  assert.equal(checkDateResumeHref('tita', '2026-11-22', ['a', 'b']), '/tita/dates?d=2026-11-22&step=event&s=a%2Cb');
 });

@@ -63,12 +63,14 @@ import {
   serviceByKey,
   servicesOf,
   unfiledCategories,
+  unsetAvailability,
   withDesktopDefaults,
   type FlatHit,
   type MapData,
   type MapPart,
   type MapSel,
 } from './four-level-model';
+import { mostCommonAvailability } from '@/lib/availability-styles';
 import {
   CardRow,
   CategoryTile,
@@ -148,7 +150,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
   }, []);
 
   const desk = useMemo(() => withDesktopDefaults(data, sel), [data, sel]);
-  const flat = q.trim().length > 0 || ['needs', 'parts', 'nosvc-cat', 'nosvc-part', 'hidden'].includes(show);
+  const flat = q.trim().length > 0 || ['needs', 'parts', 'nosvc-cat', 'nosvc-part', 'hidden', 'no-availability'].includes(show);
 
   // ── address + toast ──────────────────────────────────────────────────────────
   const hrefFor = (over: { in?: string; at?: string; open?: string; keepFilters?: boolean }) =>
@@ -235,7 +237,10 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     return null;
   }
   async function addService(categoryId: string, label: string): Promise<string | null> {
-    const res = (await mapWrite({ op: 'addService', categoryId, label })) as WriteResult;
+    // Availability (plan step 2): a new service starts as its category's most common one, else Not set — the drawer
+    // then opens on it, where it can be changed.
+    const availability = data.availabilityRead ? mostCommonAvailability(servicesOf(data, categoryId).map((s) => s.availability)) ?? '' : '';
+    const res = (await mapWrite({ op: 'addService', categoryId, label, availability })) as WriteResult;
     if (!res.ok) return res.error;
     setJustAdded(`s:${res.id}`);
     stand({ ...desk, c: categoryId, sel: `s:${res.id}` });
@@ -590,7 +595,24 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
             ({data.servicesRead ? gapCategories(data).length : '—'} without a service · {gapParts(data).length} parts without a service · {heldCards(data).length} held cards
             {unfiledCategories(data).length ? ` · ${unfiledCategories(data).length} filed under Other` : ''})
           </span>
-        </a>
+        </a>{' '}
+        {/* Availability (plan step 2): "N services have no Availability set" → the list of them. Unread is said, never 0. */}
+        {data.availabilityRead ? (
+          unsetAvailability(data).length > 0 || show === 'no-availability' ? (
+            <a
+              href={hrefFor({ keepFilters: false }) + (show === 'no-availability' ? '' : `${hrefFor({ keepFilters: false }).includes('?') ? '&' : '?'}show=no-availability`)}
+              className={`ml-1 inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 align-middle text-xs font-semibold ${
+                show === 'no-availability' ? 'border-ink bg-ink text-cream' : 'border-ink/15 text-ink'
+              }`}
+              aria-pressed={show === 'no-availability'}
+              data-no-availability=""
+            >
+              {plural(unsetAvailability(data).length, 'service has', 'services have')} no Availability set
+            </a>
+          ) : null
+        ) : (
+          <span className="ml-1 align-middle" data-no-availability="unread">· Couldn’t read Availability</span>
+        )}
       </p>
 
       <KeyStrip />

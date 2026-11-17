@@ -25,6 +25,7 @@ import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
 import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-db';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { cleanServiceDefinition, SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
+import { AVAILABILITY_STYLES, availabilityName, isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 
 // The service-role client is untyped in this repo (`createAdminClient()`), and the test adapter is
 // supabase-js-SHAPED, not supabase-js — so the cores take the loose shape both satisfy.
@@ -221,6 +222,8 @@ export type NewServiceInput = {
   isTradition?: boolean;
   refinementLabel?: string;
   refinementOptions?: string;
+  /** How it books (lib/availability-styles.ts); '' / absent = Not set. Anything else outside the seven is refused. */
+  availability?: string;
 };
 
 /**
@@ -233,6 +236,9 @@ export async function addServiceCore(admin: AdminDb, actorId: string, input: New
   if (!label) return { ok: false, error: 'Service name must be 2–80 characters.' };
   const canonical = slugify(label, '_');
   if (!canonical) return { ok: false, error: 'Name needs letters or numbers.' };
+  const availRaw = String(input.availability ?? '').trim();
+  if (availRaw && !isAvailabilityStyle(availRaw)) return { ok: false, error: `Unknown Availability “${availRaw}”.` };
+  const availability: AvailabilityStyle | null = availRaw ? (availRaw as AvailabilityStyle) : null;
 
   let faith: string | null = null;
   const faithRaw = String(input.faith ?? '').trim();
@@ -293,6 +299,8 @@ export async function addServiceCore(admin: AdminDb, actorId: string, input: New
     marketplace_hidden: false,
     secondary_tiles: [],
     sort_order: nextSort,
+    // Only named when chosen, so a database that is behind the column still takes a plain new service.
+    ...(availability ? { availability_style: availability } : {}),
   });
   if (taxErr) {
     // supabase-error-ignored: the compensating rollback of a half-created service; the placement error is what the admin is told
@@ -303,7 +311,14 @@ export async function addServiceCore(admin: AdminDb, actorId: string, input: New
     action: 'taxonomy.create_leaf',
     target_table: 'canonical_service_taxonomy',
     target_id: canonical,
-    after_json: { canonical_service: canonical, folder_id: t.parent_id, tile_id: input.tileId, display_name_en: label, category_specific_attributes: categoryAttrs },
+    after_json: {
+      canonical_service: canonical,
+      folder_id: t.parent_id,
+      tile_id: input.tileId,
+      display_name_en: label,
+      category_specific_attributes: categoryAttrs,
+      availability_style: availability,
+    },
     actor_user_id: actorId,
   });
   return { ok: true, id: canonical, message: `Saved — "${label}" is live under ${t.label_en ?? input.tileId}. Suppliers can pick it now.` };
@@ -683,4 +698,104 @@ export async function setServiceInfoTextCore(admin: AdminDb, actorId: string, ca
   if (error) return { ok: false, error: error.message };
   await audit(admin, { action: 'taxonomy.set_service_info_text', target_table: 'canonical_service_schemas', target_id: key, before_json: { hint_en: b.hint_en }, after_json: { hint_en: next }, actor_user_id: actorId });
   return { ok: true, message: next ? 'Saved — suppliers see it in the ⓘ.' : 'Cleared — this service shows no ⓘ.' };
+}
+
+// ── Availability (plan step 2) ────────────────────────────────────────────────
+
+/**
+ * Is this actor an admin? The doors already gate (`four-level-actions.ts` `gate()`), and the /admin layout 404s
+ * everyone else; the Availability cores check AGAIN because the service-role client they write with ignores RLS —
+ * so a core reached from anywhere else still refuses a non-admin. Same three marks as the door's gate.
+ */
+async function actorIsAdmin(admin: AdminDb, actorId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!actorId) return { ok: false, error: 'Forbidden.' };
+  const { data, error } = await admin.from('users').select('is_internal, is_team_member, account_type').eq('user_id', actorId).maybeSingle();
+  // A refused read is said as one — never dressed as "you are not an admin".
+  if (error) return { ok: false, error: `Couldn’t check your access just now (${error.message}) — try again.` };
+  const u = data as { is_internal: boolean | null; is_team_member: boolean | null; account_type: string | null } | null;
+  return u && (u.is_internal === true || u.is_team_member === true || u.account_type === 'admin') ? { ok: true } : { ok: false, error: 'Forbidden.' };
+}
+
+/** '' = Not set (null); one of the seven; anything else is refused. */
+function parseAvailability(raw: string): { ok: true; value: AvailabilityStyle | null } | { ok: false; error: string } {
+  const v = String(raw ?? '').trim();
+  if (v === '') return { ok: true, value: null };
+  if (!isAvailabilityStyle(v)) return { ok: false, error: `Unknown Availability “${v}” — pick one of the ${AVAILABILITY_STYLES.length}.` };
+  return { ok: true, value: v };
+}
+
+/**
+ * "Availability ▾" on a SERVICE — how it books (`canonical_service_taxonomy.availability_style`, Availability plan
+ * step 2; the seven owner-ruled 2026-11-17). '' clears it to Not set. Admin-only; a combined service is refused.
+ * `previous` carries the old value ('' = Not set) so the drawer's Undo can put it back.
+ */
+export async function setAvailabilityStyleCore(admin: AdminDb, actorId: string, canonical: string, raw: string): Promise<WriteResult> {
+  const gate = await actorIsAdmin(admin, actorId);
+  if (!gate.ok) return gate;
+  const parsed = parseAvailability(raw);
+  if (!parsed.ok) return parsed;
+  const next = parsed.value;
+  const key = String(canonical ?? '').trim();
+  const { data: before, error: readErr } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, availability_style, merged_into')
+    .eq('canonical_service', key)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  const b = before as { canonical_service: string; availability_style: string | null; merged_into: string | null } | null;
+  if (!b) return { ok: false, error: 'That service no longer exists.' };
+  if (b.merged_into) return { ok: false, error: 'That service was combined into another — set it on the one it was combined into.' };
+  if ((b.availability_style ?? null) === next) return { ok: true, message: 'No change.', previous: b.availability_style ?? '' };
+  const { error } = await admin.from('canonical_service_taxonomy').update({ availability_style: next, updated_at: now() }).eq('canonical_service', key);
+  if (error) return { ok: false, error: error.message };
+  await audit(admin, {
+    action: 'taxonomy.set_availability_style',
+    target_table: 'canonical_service_taxonomy',
+    target_id: key,
+    before_json: { availability_style: b.availability_style },
+    after_json: { availability_style: next },
+    actor_user_id: actorId,
+  });
+  return { ok: true, message: `Saved — ${availabilityName(next)}.`, previous: b.availability_style ?? '' };
+}
+
+/**
+ * "Set Availability for all N services" on a CATEGORY — one of the seven written to every live (not combined)
+ * service whose home is this category. Each service can be changed on its own afterwards. Admin-only; Not set is
+ * not a bulk choice (clearing a whole category is not something the plan asks for).
+ */
+export async function setCategoryAvailabilityCore(admin: AdminDb, actorId: string, categoryId: string, raw: string): Promise<WriteResult> {
+  const gate = await actorIsAdmin(admin, actorId);
+  if (!gate.ok) return gate;
+  const parsed = parseAvailability(raw);
+  if (!parsed.ok) return parsed;
+  if (parsed.value === null) return { ok: false, error: 'Pick one of the seven for the whole category.' };
+  const next = parsed.value;
+  const { data: tile } = await admin.from('service_categories').select('id, tier, label_en').eq('id', categoryId).maybeSingle();
+  const t = tile as { id: string; tier: number; label_en: string | null } | null;
+  if (!t || t.tier !== 2) return { ok: false, error: 'Category not found.' };
+  const { data, error: readErr } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, availability_style, merged_into')
+    .eq('tile_id', categoryId);
+  if (readErr) return { ok: false, error: readErr.message };
+  const rows = ((data ?? []) as Array<{ canonical_service: string; availability_style: string | null; merged_into: string | null }>).filter((r) => !r.merged_into);
+  if (rows.length === 0) return { ok: false, error: 'This category has no services yet.' };
+  const changed: Array<{ canonical_service: string; was: string | null }> = [];
+  for (const r of rows) {
+    if ((r.availability_style ?? null) === next) continue;
+    const { error } = await admin.from('canonical_service_taxonomy').update({ availability_style: next, updated_at: now() }).eq('canonical_service', r.canonical_service);
+    if (error) return { ok: false, error: `${error.message} — ${changed.length} of ${rows.length} were saved before it stopped.` };
+    changed.push({ canonical_service: r.canonical_service, was: r.availability_style });
+  }
+  if (changed.length === 0) return { ok: true, message: 'No change.' };
+  await audit(admin, {
+    action: 'taxonomy.set_category_availability',
+    target_table: 'canonical_service_taxonomy',
+    target_id: categoryId,
+    before_json: { services: changed },
+    after_json: { availability_style: next, services: changed.map((c) => c.canonical_service) },
+    actor_user_id: actorId,
+  });
+  return { ok: true, message: `Saved — ${availabilityName(next)} for all ${rows.length} services in ${t.label_en ?? categoryId}.` };
 }

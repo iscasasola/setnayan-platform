@@ -77,6 +77,7 @@ const SHOW_LABEL: Record<string, string> = {
   parts: 'Inspiration parts',
   'nosvc-cat': 'Categories with no service',
   'nosvc-part': 'Parts with no service',
+  'no-availability': 'Services with no Availability',
 };
 
 /** Show ▾ choices the SHIPPED list still answers (its own rows + panel); every other one is the map. */

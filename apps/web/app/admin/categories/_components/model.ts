@@ -10,6 +10,7 @@
  * Words: "service" (never "leaf"), "supplier" (never "vendor"), "group" (a
  * tier-1 folder), "category" (a tier-2 tile). The stored keys keep their names.
  */
+import type { AvailabilityStyle } from '@/lib/availability-styles';
 import type { CategoriesShow } from './back';
 import { rankTaxonomyOptions, type RankableOption } from '@/lib/taxonomy-search-rank';
 
@@ -117,6 +118,11 @@ export type Service = {
    * empty box that would overwrite what is there.
    */
   hint?: string | null;
+  /**
+   * How it books (`canonical_service_taxonomy.availability_style`, Availability plan step 2): one of the seven, null =
+   * Not set, undefined = could not be READ — the panel then says so, never "Not set" (and never `day`).
+   */
+  availability?: AvailabilityStyle | null;
 };
 
 export type RequestDraft = {

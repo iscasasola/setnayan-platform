@@ -26,6 +26,7 @@ import {
 } from './taxonomy';
 import { BRANCH_TO_VENDOR_CATEGORY } from './vendor-branch-category';
 import type { VendorCategory } from './vendors';
+import { isAvailabilityStyle, type AvailabilityStyle } from './availability-styles';
 
 /**
  * Plain, fully-serializable mirror of the taxonomy constants — safe to pass
@@ -80,9 +81,27 @@ export type TaxonomySnapshot = {
    * `folderInfoText` (lib/category-hints.ts), never read raw: an unwritten id still has an ⓘ.
    */
   categoryHints?: Record<string, string>;
+  /**
+   * canonical_service → how it books (`canonical_service_taxonomy.availability_style`, Availability plan step 2):
+   * one of the seven in lib/availability-styles.ts, or null = NOT SET. 🔒 HONEST READ: the whole field is
+   * `null`/absent when the column could not be read (a refused read, a build ahead of its migration, the constant
+   * fallback) — that is "unknown", never "Not set". Read it through `availabilityOf()`, never raw.
+   */
+  serviceAvailability?: Record<string, AvailabilityStyle | null> | null;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
+
+/**
+ * How one service books, as read: a style, `null` = Not set (the admin has not decided), or `undefined` = UNKNOWN
+ * (the setting could not be read). A caller that cannot tell `null` from `undefined` must say "couldn’t read",
+ * never "Not set" — and never `day`.
+ */
+export function availabilityOf(snap: Pick<TaxonomySnapshot, 'serviceAvailability'>, canonical: string): AvailabilityStyle | null | undefined {
+  const all = snap.serviceAvailability;
+  if (!all) return undefined;
+  return Object.prototype.hasOwnProperty.call(all, canonical) ? all[canonical]! : undefined;
+}
 
 export type CategoryRow = {
   id: string;
@@ -115,6 +134,8 @@ export type MapRow = {
   is_tradition: boolean;
   marketplace_hidden: boolean;
   secondary_tiles: string[] | null;
+  /** One of the seven, or null = Not set. ABSENT on a read made without the column (then the setting is unknown). */
+  availability_style?: string | null;
 };
 
 /** Build the snapshot straight from the lib/taxonomy.ts constants. */
@@ -145,12 +166,20 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     ) as Record<string, true>,
     tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
     categoryHints: {}, // the constant has no admin-written ⓘ — the fallback chain answers instead
+    serviceAvailability: null, // the constant knows nothing of it — UNKNOWN, never "Not set"
     map: { ...TAXONOMY_MAP },
   };
 }
 
-/** Reconstruct the snapshot from DB rows. Pure — no I/O. */
-export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomySnapshot {
+/**
+ * Reconstruct the snapshot from DB rows. Pure — no I/O. `availabilityRead` says whether the rows were read WITH
+ * `availability_style`; when they were not, the setting is unknown (null), not Not set.
+ */
+export function snapshotFromRows(
+  cats: CategoryRow[],
+  maps: MapRow[],
+  { availabilityRead = maps.length > 0 && maps.every((m) => 'availability_style' in m) }: { availabilityRead?: boolean } = {},
+): TaxonomySnapshot {
   const parents = cats
     .filter((c) => c.tier === 1)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -204,7 +233,12 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   }
 
   const map: Record<string, TaxonomyEntry> = {};
+  const serviceAvailability: Record<string, AvailabilityStyle | null> | null = availabilityRead ? {} : null;
   for (const m of maps) {
+    if (serviceAvailability) {
+      const v = m.availability_style ?? null;
+      serviceAvailability[m.canonical_service] = isAvailabilityStyle(v) ? v : null;
+    }
     const entry: TaxonomyEntry = {
       folder: m.folder_id as WeddingFolder,
       phase: m.phase as TaxonomyPhase,
@@ -240,6 +274,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     hiddenCategories,
     tileCoarseCategory,
     categoryHints,
+    serviceAvailability,
     map,
   };
 }

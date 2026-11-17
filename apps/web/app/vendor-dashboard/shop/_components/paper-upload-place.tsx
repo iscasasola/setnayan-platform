@@ -328,6 +328,8 @@ export function PaperUploadPlace({
                     className={`block text-xs${sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? ' font-medium text-danger-700' : ''}`}
                     style={sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? undefined : { color: status.icon === 'ok' ? 'var(--m-sage-deep)' : MUTE }}
                     data-paper-state={st.kind}
+                    // audit #7898: a sent-back paper's "Needs a new copy · {reason}" is announced, as it was before.
+                    role={sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? 'alert' : undefined}
                   >
                     {status.text}
                   </span>

@@ -25,3 +25,19 @@ export function isNewInquiry(t: InquiryLike, bookedEventIds: ReadonlySet<string>
 export function countNewInquiries(threads: ReadonlyArray<InquiryLike>, bookedEventIds: ReadonlySet<string>): number {
   return threads.filter((t) => isNewInquiry(t, bookedEventIds)).length;
 }
+
+/**
+ * The ids `current_vendor_booked_event_ids()` returns over PostgREST — a SETOF uuid arrives as bare strings or as
+ * `{ current_vendor_booked_event_ids: uuid }` rows depending on the client; both are read, anything else dropped.
+ * Only uuid-shaped ids pass, since they are written into a `not.in.(…)` filter.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function bookedEventIdsOf(data: unknown): string[] {
+  if (!Array.isArray(data)) return [];
+  const out: string[] = [];
+  for (const row of data) {
+    const id = typeof row === 'string' ? row : (row as { current_vendor_booked_event_ids?: unknown } | null)?.current_vendor_booked_event_ids;
+    if (typeof id === 'string' && UUID_RE.test(id)) out.push(id);
+  }
+  return [...new Set(out)];
+}

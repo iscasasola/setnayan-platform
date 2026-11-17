@@ -185,7 +185,7 @@ test('the switcher\'s Home carries the bypass', () => {
 test('the empty-console redirect still fires, and goes to the console, never to create-event', () => {
   // Guard against over-correction: the 0-event console branch was never the bug, and removing it would strand a
   // supplier with no events on a blank board. W1-B25 (walk 2, 16 Nov 2026) moved its TARGET: `/dashboard/create-event`
-  // is intercepted by `@modal/(.)create-event`, which keeps this page as the background and loops the redirect.
+  // is intercepted by `@modal/(.)create-event`, which keeps this page as the background and loops the redirect. See a-console-user-never-loops-….
   assert.match(
     launcher(),
     /active\.length\s*===\s*0\s*&&\s*hasConsole[\s\S]{0,1200}redirect\(\s*roles\.hasVendorAccess\s*\?\s*['"]\/vendor-dashboard['"]\s*:\s*['"]\/admin['"]\s*\)/,

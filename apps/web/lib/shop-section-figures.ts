@@ -26,13 +26,15 @@ const plural = (v: number | null, one: string, many: string) => (v === 1 ? one :
  * false` = a verified shop, which Today no longer counts either — the figure is left off rather than kept as a second
  * count. 📏 The two long words carry a `short` one: at 375 px the row uses them before it would slide (W1-B11).
  */
-export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal: number; done: number | null; of: number; steps?: boolean }): PinFigure[] {
+export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal: number; done: number | null; of: number | null; steps?: boolean }): PinFigure[] {
   const out: PinFigure[] = [
     { key: 'verified', value: f.verified ? '✓' : 'Not yet', word: 'verified', hot: !f.verified, href: '/vendor-dashboard/profile#docs' },
     { key: 'docs', value: `${n(f.docsIn)}/${n(f.docsTotal)}`, word: 'documents in', short: 'papers', hot: f.docsIn < f.docsTotal, href: '/vendor-dashboard/profile#docs' },
   ];
   if (f.steps === false) return out;
-  out.push({ key: 'done', value: f.done === null ? null : `${n(f.done)}/${n(f.of)}`, word: 'steps done', short: 'done', hot: f.done !== null && f.done < f.of, href: '/vendor-dashboard/profile' });
+  // The six is the READ's (`shopSetupView`), never a typed 6 — an unread checklist shows "—" (audit of #7898).
+  const counted = f.done !== null && f.of !== null;
+  out.push({ key: 'done', value: counted ? `${n(f.done!)}/${n(f.of!)}` : null, word: 'steps done', short: 'done', hot: counted && f.done! < f.of!, href: '/vendor-dashboard/profile' });
   return out;
 }
 

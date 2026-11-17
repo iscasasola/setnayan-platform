@@ -32,3 +32,10 @@ test('the taxonomy key is not renamed (display only)', () => {
   const tax = readFileSync('lib/taxonomy.ts', 'utf8');
   assert.match(tax, /\bwedding_cake:/, 'the canonical key moved — that belongs to the taxonomy builder, not this fix');
 });
+
+test('the wedding_cake correction carries its retirement TODO (owner ruling 6)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const src = readFileSync(join(process.cwd(), 'lib/service-display-name.ts'), 'utf8');
+  assert.match(src, /TODO\(owner ruling 6[^)]*\)[\s\S]{0,300}wedding_cake: \{ seeded: 'Wedding cake', shown: 'Cake' \}/);
+});

@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { CalendarClock, Check, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { TypedRow } from '@/app/_components/form-row';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 // Aliased, not relative: the field-parity scan (`canvas-field-parity.test.ts`) walks relative imports, and this shared
@@ -243,21 +244,24 @@ export function PaymentScheduleEditor({
                 </label>
 
                 {oneBox && i === 0 ? (
-                  <label className="block space-y-1" data-reservation-fee="">
-                    <span className={FIELD_LABEL}>Reservation fee</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                  <div data-reservation-fee="">
+                    {/* The house typed row (lint:field-template): what is typed is read live into row 0's kind and value. */}
+                    <TypedRow
+                      name="Reservation fee"
+                      about={{ title: 'Reservation fee', words: '5000 is pesos · 10% is a percent of the price.' }}
                       value={feeRaw}
-                      onChange={(e) => typeFee(e.target.value)}
+                      empty="10% or 5000"
                       placeholder="10% or 5000"
-                      aria-invalid={!fee.ok && fee.error ? true : undefined}
-                      className="input-field font-bold tabular-nums"
+                      inputMode="text"
+                      check={(t) => (t.trim() === '' ? null : (() => { const f = parseReservationFee(t, pricePhp); return f.ok ? null : f.error; })())}
+                      onType={typeFee}
+                      onKeep={(t) => typeFee(t)}
+                      data="reservation-fee"
                     />
                     <span className="block text-[12.5px] text-ink/55" aria-live="polite" data-reservation-fee-reads="">
                       {fee.ok ? (fee.kind === 'percent' ? `${fee.value}% of the price` : `₱${fee.value.toLocaleString('en-PH')}`) : (fee.error ?? '5000 is pesos · 10% is a percent')}
                     </span>
-                  </label>
+                  </div>
                 ) : (
                 <div className="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-end">
                   {/* The app's ONE pill selector (owner 2026-10-08). Each side now SAYS which is picked

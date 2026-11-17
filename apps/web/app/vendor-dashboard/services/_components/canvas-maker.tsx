@@ -1246,7 +1246,7 @@ export function CanvasMaker({
             <div className="md:hidden">
               <p
                 data-maker-status={status.tone}
-                className="flex items-start gap-2.5 rounded-[14px] px-3 py-2.5 text-[14px] leading-snug"
+                className="flex items-start gap-2.5 rounded-2xl px-3 py-2.5 text-[14px] leading-snug"
                 style={{
                   color: status.tone === 'ok' ? 'rgb(var(--color-ok))' : 'rgb(var(--color-warn))',
                   background: status.tone === 'ok' ? 'color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent)' : 'color-mix(in srgb, rgb(var(--color-warn)) 12%, transparent)',
@@ -1795,7 +1795,7 @@ export function CanvasMaker({
                 {kindQuery.trim().length > 0 ? <p className="pt-3 text-[13px] font-semibold text-ink">{group.label}</p> : null}
                 {byCategory(rest).map(([cat, opts]) => (
                   <div key={cat || '-'} className="sn-frame mt-2 !px-3.5 !py-1" data-kind-category={cat}>
-                    {cat ? <p className="pb-1 pt-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-ink/55">{cat}</p> : null}
+                    {cat ? <p className="pb-1 pt-2.5 text-[13px] font-semibold text-ink/60">{cat}</p> : null}
                     {opts.map((opt) => (
                       <KindRow
                         key={opt.value}
@@ -2045,15 +2045,14 @@ function RowIcon({ children }: { children: ReactNode }) {
 
 /**
  * 🗂 A FRAMED WHITE GROUP (Card Maker HYBRID, owner-approved 17 Nov — REMOVES 8 "Hairlines between rows → framed white
- * groups (clean look)"). The app's one frame (`.sn-frame`, every value a frame token), 18 px corners and 14 px sides as
- * drawn; its rows lose their hairlines; an optional mono label with its small aside and its ⓘ on the right.
+ * groups (clean look)"). The app's one frame (`.sn-frame`, every value a frame token), 14 px sides as drawn (corners are the frame token's); its rows lose their hairlines; an optional mono label with its small aside and its ⓘ on the right.
  */
 function MakerGroup({ id, label, aside, tip, children }: { id: string; label?: string; aside?: string; tip?: string; children: ReactNode }) {
   return (
     <section
       data-maker-group={id}
       aria-label={label}
-      className="sn-frame !rounded-[18px] !px-3.5 !py-1 [&_[data-form-row]]:!border-t-0 [&_[data-maker-row]]:!border-t-0"
+      className="sn-frame !px-3.5 !py-1 [&_[data-form-row]]:!border-t-0 [&_[data-maker-row]]:!border-t-0"
     >
       {label ? (
         <div className="flex min-h-[36px] items-center justify-between gap-2 pb-1 pt-2.5" data-maker-group-label="">
@@ -2117,7 +2116,7 @@ function TierGrid({
       {linked.length > 0 ? (
         <>
           <div className="-mx-1 overflow-x-auto px-1">
-            <table className="w-full border-separate border-spacing-0 text-[13px]">
+            <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
                   <th className="sr-only">Line</th>

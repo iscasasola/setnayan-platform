@@ -32,7 +32,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import type { EventVenueColumns } from '@/lib/event-venues';
 import { demoScopeFor } from '@/lib/demo-scope';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 // The ladder's own vocabulary lives in the PURE module that enforces the
@@ -42,6 +42,7 @@ import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { findSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import {
   ACCOMMODATION_CATEGORY,
+  isAccommodationCategory,
   cardFits,
   fitDateScope,
   fitDaysToAsk,
@@ -808,7 +809,7 @@ export async function searchCategoryVendors(input: {
     // flagged only when NO way of fitting is wholly unblocked — free on any one candidate / any day of the span
     // keeps them; an accommodation search needs every night ±1. A failed day reads unblocked (fail-open).
     const fitCategory =
-      canonicals.length > 0 && canonicals.every((c) => c === ACCOMMODATION_CATEGORY) ? ACCOMMODATION_CATEGORY : null;
+      canonicals.length > 0 && canonicals.every(isAccommodationCategory) ? ACCOMMODATION_CATEGORY : null;
     const options = fitOptions(fitScope, fitCategory);
     const days = fitDaysToAsk(fitScope, fitCategory === ACCOMMODATION_CATEGORY);
     try {
@@ -1185,14 +1186,9 @@ export async function searchCategoryVendors(input: {
       primary_canonical_service: prof?.services?.[0] ?? null,
       location_city: r.location_city ?? null,
     });
-    // Same gate `resolveVendorDisplayName` used: TRUE here means the
-    // resolved `name` above is the placeholder, not the real business_name.
-    const nameAnonymized = !isVendorNameRevealed({
-      name_revealed_at: prof?.name_revealed_at ?? null,
-      isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
-      is_verified: r.verification_state === 'verified',
-      services: prof?.services ?? null,
-    });
+    // TRUE only when there is no real name to show (ruling 2026-11-16 (15): an unverified shop is named by its
+    // business name, so "unverified" alone withholds nothing).
+    const nameAnonymized = isShopNameWithheld({ business_name: r.business_name ?? null });
     const vLat = (r.hq_latitude as number | null) ?? null;
     const vLng = (r.hq_longitude as number | null) ?? null;
     const dKm =

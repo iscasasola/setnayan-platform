@@ -85,7 +85,8 @@ test('2 · every photo fetch behind the share pictures carries the limit, inside
 
 test('3 · every /api/og route states its own time limit', () => {
   const routes = walk(join(WEB, 'app', 'api', 'og')).filter((f) => /route\.tsx?$/.test(f));
-  assert.ok(routes.length >= 7, `expected the share-picture routes, found ${routes.length}`);
+  // 7 → 6 on 2026-11-16: /api/og/realstory/[slug] was retired with the blog + Real Stories, PR #7847.
+  assert.ok(routes.length >= 6, `expected the share-picture routes, found ${routes.length}`);
   for (const file of routes) {
     const src = stripComments(readFileSync(file, 'utf8'));
     const m = /^export const maxDuration = (\d+);/m.exec(src);

@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { noDoorBaseline, scanScreens, serializeScreensMap, urlForAppDir } from './scan-screens';
+import { noDoorBaseline, scanScreens, serializeScreensMap, slotPageDrawsNothing, urlForAppDir } from './scan-screens';
 import { summarizeScreens, type UgatScreensMap } from './screens';
 
 function fixture(files: Record<string, string>): string {
@@ -155,4 +155,28 @@ test('route groups and parallel slots drop out; intercepting routes are not scre
   assert.equal(urlForAppDir('dashboard/(launcher)/@modal/x'), '/dashboard/x');
   assert.equal(urlForAppDir('dashboard/(launcher)/@modal/(.)create-event'), null);
   assert.equal(urlForAppDir(''), '/');
+});
+
+test('a slot page at its parent’s address is not a second screen — the parent keeps the route (EB-246)', () => {
+  const { map, root } = scan({
+    'app/clients/page.tsx': page('<main id="outside" />'),
+    'app/clients/@client/page.tsx': `export default function P() { return null; }\n`,
+    'app/clients/@client/default.tsx': `export default function D() { return null; }\n`,
+    'app/lonely/@panel/page.tsx': page(),
+  });
+  try {
+    const clients = map.screens.filter((s) => s.route === '/clients');
+    assert.equal(clients.length, 1, 'one address, one screen');
+    assert.equal(clients[0]!.file, 'app/clients/page.tsx', 'the plain page owns it, not the slot');
+    assert.ok(map.screens.some((s) => s.route === '/lonely'), 'a slot page with no plain page beside it is still the screen');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a slot page that draws nothing is a slot reset, not a screen', () => {
+  assert.equal(slotPageDrawsNothing('export default function A() {\n  return null;\n}'), true);
+  assert.equal(slotPageDrawsNothing("import { notFound } from 'next/navigation';\nexport default function A() {\n  if (x) notFound();\n  return null;\n}"), true);
+  assert.equal(slotPageDrawsNothing('export default function A() {\n  return <Picked />;\n}'), false);
+  assert.equal(slotPageDrawsNothing("export { default } from '../../page';"), false);
 });

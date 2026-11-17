@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 /**
  * favorites.ts — FAVORITES COME AFTER AN EVENT (owner 2026-11-06, DECISION_LOG "APPROVED: FAVORITES ONLY AFTER AN
  * EVENT"; prototype `favorites-proto/index.html` §D–§G).
@@ -222,6 +223,6 @@ export function heartClass(on: boolean): string {
 /** The favorite's door: the shop page, opened at that service (`/v/[slug]?service=<public_id>`). */
 export function favoriteHref(slug: string | null, servicePublicId: string | null): string | null {
   if (!slug) return null;
-  const base = `/v/${encodeURIComponent(slug)}`;
+  const base = `${shopPath(encodeURIComponent(slug))}`;
   return servicePublicId ? `${base}?service=${encodeURIComponent(servicePublicId)}` : base;
 }

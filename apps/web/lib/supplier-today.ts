@@ -35,6 +35,7 @@
  * `lint-port-no-lost-controls` can see it (the host learned this on its guided
  * flow's door).
  */
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import { feeDueStage, feePesos, type DueFeeBill, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
@@ -800,7 +801,7 @@ export function todayNextSecond(
     return { label: 'See the day', to: 'given', href: `/vendor-dashboard/customers?seg=dates&day=${answer.eventDate}` };
   }
   if (answer.kind === 'lock_request' && answer.threadId) {
-    return { label: 'Chat', to: 'given', href: `/vendor-dashboard/messages/${answer.threadId}` };
+    return { label: 'Chat', to: 'given', href: supplierChatHref(answer.eventId, answer.threadId) };
   }
   return null;
 }
@@ -825,9 +826,9 @@ export function shopPillOf(input: { verified: boolean; findable: boolean }): Sho
   return input.findable ? 'Live' : 'Not yet';
 }
 
-/** "couples can find you" · "send your documents to go live" · "Setnayan is checking your documents" · "not shown yet". */
+/** "couples can find you" · "send your documents to get Verified" · "Setnayan is checking your documents" · "not shown yet". */
 export function shopStateWords(input: { pill: ShopPill; docsWithSetnayan: boolean }): string {
-  if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to go live';
+  if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to get Verified';
   return input.pill === 'Live' ? 'couples can find you' : 'not shown yet';
 }
 

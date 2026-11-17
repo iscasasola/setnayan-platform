@@ -26,6 +26,7 @@ import {
   fetchReturningClientFlags,
   fetchLeadTrustActivePlanner,
   fetchThreadById,
+  readClientChatThreadId,
   fetchVendorThreads,
   formatChatTimestamp,
 } from '@/lib/chat';
@@ -110,7 +111,7 @@ import {
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
-import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { customerCardHref, supplierThreadForward, supplierThreadNoticeSearch, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 // ⚡ The heavy client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
 // each in its own chunk — server-rendered and preloaded where they are on screen, so this page paints as before, and
 // out of the picked client's first load (Details' Decisions renders this page).
@@ -271,7 +272,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     sp?.__embed === 'chat' || sp?.__embed === 'quotation' || sp?.__embed === 'decisions' ? sp.__embed : null;
   if (view) {
     const viewer = await createClient();
-    const drawn = await askedOnce(viewer, THREAD_EMBEDS_DRAW, [threadId], () => drawVendorThread(threadId, undefined, true));
+    // The notice params the client page handed on (an action in its Chat returned there) — ONLY those, so the embed's
+    // notice lines say what happened; no tool of the full page (`view`, `compose`) is opened inside the client.
+    const carried = supplierThreadNoticeSearch(sp as Readonly<Record<string, string | string[] | undefined>> | undefined);
+    const carriedKey = new URLSearchParams(carried).toString();
+    const embedSearch = carriedKey ? (carried as ThreadSearch) : undefined;
+    const drawn = await askedOnce(viewer, THREAD_EMBEDS_DRAW, [threadId, carriedKey], () => drawVendorThread(threadId, embedSearch, true));
     return drawn[view];
   }
   return (await drawVendorThread(threadId, sp, false)).full;
@@ -323,6 +329,25 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // 🚪 EVERY WAY IN LANDS ON THE CLIENT'S CHAT (owner 17 Nov, #7901 preview): a plain arrival — a stored notice, an old
+  // push, any link still typed to this page — is forwarded to the picked client's Chat (or Quotation for "Update this
+  // quote"). The page still draws for a thread with no event, the computer inbox's pane (`?pane=1`), a return that
+  // carries its own notice, and an older or closed chat on the event. Rule + reasons: `supplierThreadForward` (lib/upcoming-schedule-door.ts).
+  // Only a chat the client page admits — accepted, or pending and not archived (the brief's 'inquiry' rung, as
+  // `briefOpensOnThread`). A released ('displaced'), declined or withdrawn chat keeps this page: it is where
+  // `closingCopy` says who closed it, and the client page may no longer open for this shop.
+  const clientAdmits =
+    thread.inquiry_status === 'accepted' || (thread.inquiry_status === 'pending' && !thread.archived_at);
+  if (!embedded && thread.event_id && clientAdmits) {
+    const search = sp as Readonly<Record<string, string | string[] | undefined>> | undefined;
+    // Only the thread the client's Chat draws (the event's newest) — an older or closed chat keeps this page.
+    if (supplierThreadForward(thread.event_id, search, true)) {
+      const drawn = await readClientChatThreadId(supabase, profile.vendor_profile_id, thread.event_id);
+      const forward = supplierThreadForward(thread.event_id, search, drawn === threadId);
+      if (forward) redirect(forward);
+    }
+  }
 
   /*
     📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a
@@ -1467,7 +1492,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           expiresAt={lockHandshake.expiresAt}
           payoutReadiness={payoutReadiness}
           feeForecast={chatFeeForecast}
-          returnTo={`/vendor-dashboard/messages/${threadId}`}
+          returnTo={supplierThreadPageHref(threadId)}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
           dayCheck={dayCheck}
@@ -1483,7 +1508,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           // `quote` is the Build-a-quote panel's mode, not this menu's.
           initialMode={cm === 'deal' ? 'deal' : null}
           threadId={threadId}
-          returnPath={`/vendor-dashboard/messages/${threadId}`}
+          returnPath={supplierThreadPageHref(threadId)}
           eventDate={event?.event_date ?? null}
         />
     ),
@@ -1541,7 +1566,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             expiresAt={lockHandshake.expiresAt}
             payoutReadiness={payoutReadiness}
             feeForecast={chatFeeForecast}
-            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            returnTo={supplierThreadPageHref(threadId)}
             agreeLock={vendorAgreeToLock}
             declineLock={vendorDeclineLock}
             dayCheck={dayCheck}
@@ -1581,7 +1606,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           <BlockerChangeRow
             threadId={threadId}
             amendmentId={blockFact.key.slice('adjustment:'.length)}
-            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            returnTo={supplierThreadPageHref(threadId)}
           />
         ),
       };
@@ -1894,7 +1919,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} />
                 <ChatThreadMenu
                   threadId={threadId}
-                  returnTo={`/vendor-dashboard/messages/${threadId}`}
+                  returnTo={supplierThreadPageHref(threadId)}
                   blockedByMe={blockState.blockedByMe}
                   archive={threadArchive}
                   // The client page's sections live behind ⋮ (One Chat Box,
@@ -1968,11 +1993,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               IN its Chat page — never out to another screen; full screen, Accept starts the quote in this chat as shipped. */}
           <InquiryAnswers
             threadId={threadId}
-            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            returnTo={supplierThreadPageHref(threadId)}
             pinned
             {...(embedded
               ? { chatHref: `/vendor-dashboard/clients/${thread.event_id}?tab=chat` }
-              : { acceptTo: `/vendor-dashboard/messages/${threadId}?compose=quote` })}
+              : { acceptTo: `${supplierThreadPageHref(threadId)}?compose=quote` })}
             acceptInquiry={acceptInquiry}
             declineInquiry={declineInquiry}
           />
@@ -2260,7 +2285,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               <input
                 type="hidden"
                 name="return_to"
-                value={`/vendor-dashboard/messages/${threadId}`}
+                value={supplierThreadPageHref(threadId)}
               />
               <SubmitButton
                 pendingLabel="Opening…"
@@ -2274,7 +2299,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               <input
                 type="hidden"
                 name="return_to"
-                value={`/vendor-dashboard/messages/${threadId}`}
+                value={supplierThreadPageHref(threadId)}
               />
               <SubmitButton
                 pendingLabel="Declining…"
@@ -2365,7 +2390,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             pinBodies={Object.assign(decisionPinBodies(chatPins.facts), schedulePinBodies(chatPins.facts, threadId))}
             plus={{
               eventId: thread.event_id,
-              returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,
+              returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : supplierThreadPageHref(threadId),
             }}
             // 💳 Inside the picked client the folded plan row sits under the who's-here strip (CHAT-09).
             {...(embedded ? { planRow: paymentLive } : {})}

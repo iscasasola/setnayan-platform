@@ -1,3 +1,5 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+
 /**
  * proposal-back.ts — the way OUT of a quote, as one rule.
  *
@@ -68,7 +70,7 @@ export function proposalBackDoor(input: {
     // couple's. The couple's carries the event in its path, so it needs one —
     // without it there is no route to build and the fallback below is right.
     if (isVendorSide) {
-      return { href: `/vendor-dashboard/messages/${threadId}`, label: BACK_TO_CONVERSATION };
+      return { href: supplierChatHref(eventId, threadId), label: BACK_TO_CONVERSATION };
     }
     if (eventId) {
       return {

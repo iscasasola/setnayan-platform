@@ -434,13 +434,13 @@ async function UnownedView({
             {bespokeSvg ? (
               <>
                 Every reveal previews free above. This makes {revealLabel} play for
-                real — on your website, your invitation, your save-the-date and the
+                real — on your Event Hub, your invitation, your save-the-date and the
                 screens on the day.
               </>
             ) : (
               <>
                 Every reveal previews free above. This makes your monogram draw
-                itself in for real — on your website, your invitation, your
+                itself in for real — on your Event Hub, your invitation, your
                 save-the-date and the screens on the day.
               </>
             )}

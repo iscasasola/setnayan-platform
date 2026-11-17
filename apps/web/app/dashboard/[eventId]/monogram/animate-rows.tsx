@@ -108,8 +108,16 @@ export function AnimateRows({
     if (busy) return;
     setBusy(true);
     setResult(null);
-    const ok = await save(animate);
-    setBusy(false);
+    // A save that THROWS (a dropped connection rejects the server action) used to skip
+    // `setBusy(false)`: both buttons stayed disabled and nothing was said — a stuck spinner.
+    let ok = false;
+    try {
+      ok = await save(animate);
+    } catch {
+      setResult({ tone: 'error', text: 'That did not save — check your connection and try again.' });
+    } finally {
+      setBusy(false);
+    }
     if (ok) {
       // ⚡ `commitMonogram` revalidates the event: its answer carries the redraw — no second render.
       setResult({ tone: 'ok', text: animate ? 'Saved — it plays for your guests.' : 'Saved — guests see it still.' });

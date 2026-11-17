@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { noteDatesFromShop } from './check-a-date-link';
 import { BadgeCheck } from 'lucide-react';
 import { SeatMonths } from '../dates/_components/seat-months';
 import { checkDateStateOf } from '@/lib/check-a-date';
@@ -61,7 +63,10 @@ export function ShopSideCard({
                 value={null}
                 startAt={month.today}
                 stateOf={(d) => checkDateStateOf(d, { notBookable: closed, today: month.today, to: month.to })}
-                onPick={(d) => router.push(`${datesHref}&d=${d}`, { scroll: false })}
+                onPick={(d) => {
+                  noteDatesFromShop();
+                  router.push(`${datesHref}&d=${d}`, { scroll: false });
+                }}
               />
               <p className="mt-2 text-sm text-ink/70">{SIDE_CARD_WORDS.hint}</p>
             </>
@@ -70,9 +75,17 @@ export function ShopSideCard({
               {SIDE_CARD_WORDS.unreadable}
             </p>
           )}
-          <a href={datesHref} className="inline-flex min-h-11 items-center text-sm font-bold text-sn-accent" data-side-card-every-month="">
+          {/* v16 S5: Check a date rises OVER the shop in place (`?dates`, `CheckADateSheet`) — a client step with the
+              page kept where it was, never a reload — and × steps back onto the shop. */}
+          <Link
+            href={datesHref}
+            scroll={false}
+            onClick={noteDatesFromShop}
+            className="inline-flex min-h-11 items-center text-sm font-bold text-sn-accent"
+            data-side-card-every-month=""
+          >
             {SIDE_CARD_WORDS.everyMonth}
-          </a>
+          </Link>
         </div>
       ) : null}
       {quote ? (

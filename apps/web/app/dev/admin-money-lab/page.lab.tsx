@@ -20,6 +20,7 @@
  * The buttons post to the real server actions, which refuse without an admin session — a lab press changes nothing.
  */
 import Link from 'next/link';
+import { formatCount } from '@/lib/format-number';
 import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
@@ -213,7 +214,7 @@ function LabFocusCard({ v }: { v: string }) {
   return (
     <FocusCardSheet title={kicker} kicker={kicker}>
       <div className="flex items-center justify-between gap-3 text-[13px] text-[color:var(--sn-ink-500)]" data-focus-received-position="">
-        <span className="tabular-nums">{`${at + 1} of ${total}`}</span>
+        <span className="tabular-nums">{`${formatCount(at + 1)} of ${formatCount(total)}`}</span>
         {at + 1 < total ? <Link href={next} className="underline underline-offset-2">Next</Link> : <span />}
       </div>
       {buyer ? (

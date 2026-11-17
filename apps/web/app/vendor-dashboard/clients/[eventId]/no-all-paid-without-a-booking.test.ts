@@ -32,8 +32,8 @@ const words = (i: DetailsNumbersInput) => detailsNumbers(i).map((c) => `${c.labe
 const said = (i: DetailsNumbersInput) => words(i).join(' ');
 
 test('1 · a client with NO booking: Quote · Schedules "—" · Event day — never Paid, Balance or "all paid"', () => {
-  assert.deepEqual(words(base), ['Quote|—|not sent', 'Schedules|—|none yet', 'Event day|Nov 8|they asked']);
-  assert.deepEqual(words({ ...base, sentQuotePhp: 40000 }), ['Quote|₱40,000|sent', 'Schedules|—|none yet', 'Event day|Nov 8|they asked']);
+  assert.deepEqual(words(base), ['Quote|—|not sent', 'Meetings|—|none yet', 'Event day|Nov 8|they asked']);
+  assert.deepEqual(words({ ...base, sentQuotePhp: 40000 }), ['Quote|₱40,000|sent', 'Meetings|—|none yet', 'Event day|Nov 8|they asked']);
   assert.equal(words({ ...base, sentQuotePhp: null })[0], 'Quote|—|couldn’t load');
   // Whatever the ledger says, an unbooked client is never "all paid".
   for (const ledger of [null, { receivedPhp: 0, expectedPhp: 0 }, { receivedPhp: 5000, expectedPhp: 5000 }]) {

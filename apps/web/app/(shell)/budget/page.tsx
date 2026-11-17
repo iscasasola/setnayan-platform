@@ -60,7 +60,7 @@ const PAGE_TITLE = 'Budget — The Truth, in PHP · Setnayan';
  *  go through that template and are correct WITH the brand. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('budget');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

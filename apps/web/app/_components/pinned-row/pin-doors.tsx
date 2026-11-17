@@ -9,7 +9,7 @@ import type { PinDoorMark } from './pin-door';
  * 📏 THE FIT PASS (the house rule "a row of buttons shrinks together"; measured 2026-10-31 at 390: `Customers · Money ▾`
  * beside "₱186K received · ₱98K to come in · 1 overdue" cut the second door to "₱98K t"): when the doors cannot show
  * every word, they first TIGHTEN (`data-tight` — each number over its word, so a door is as wide as the wider of the two),
- * and only if that still does not fit the strip
+ * then SHORTEN (`data-short` — each door's `short` word, the folded line's), and only if that still does not fit the strip
  * SLIDES sideways under a fade at its right edge (`data-slides`) — every door stays whole and reachable, never cut
  * mid-word. Written as attributes, before paint, so nothing re-renders for a resize and nothing flashes.
  */
@@ -37,9 +37,14 @@ export function PinDoors({
     const el = ref.current;
     if (!el) return;
     el.removeAttribute('data-tight');
+    el.removeAttribute('data-short');
     el.removeAttribute('data-slides');
     if (el.scrollWidth <= el.clientWidth + 1) return;
     el.setAttribute('data-tight', '');
+    if (el.scrollWidth <= el.clientWidth + 1) return;
+    // 📏 Still too wide (walk W1-B11, 375 px: "Not yet verified · 0/3 documents in · 3/6 details done" slid under its
+    // fade, the last door cut): each door's SHORT word — the one the folded line already uses — before it slides.
+    el.setAttribute('data-short', '');
     if (el.scrollWidth > el.clientWidth + 1) el.setAttribute('data-slides', '');
   };
   // Every render (a count changed, the month re-counted): re-fit before paint.

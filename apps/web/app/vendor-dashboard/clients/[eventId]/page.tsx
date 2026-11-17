@@ -165,6 +165,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
@@ -1912,6 +1913,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       label: resolveAppointmentLabel(a, typeLabels),
     }));
   }
+  // 🗓 W1-B29: a client not booked yet still has meetings (an ocular visit set from the chat) — its Schedules cell
+  // counts them with the Clients tile's own rule (`openMeetingsWindow`), never a hard-coded "none yet" over a real one.
+  // A refused read is `null` ("couldn't load").
+  let openMeetings: number | null = 0;
+  if (!isBooked) {
+    const { count, error } = await supabase
+      .from('event_appointments')
+      .select('appointment_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .in('status', [...OPEN_MEETING_STATUSES])
+      .or(openMeetingsWindow(manilaTodayIso()));
+    if (error) logQueryError('vendorClientCard.openMeetings', error, { eventId }, 'graceful_degrade');
+    openMeetings = error ? null : (count ?? 0);
+  }
 
   clientTimer.flush();
 
@@ -2560,6 +2576,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         : null,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
     perGuest: shopPerGuest,
+    meetings: openMeetings,
     peso: (php) => fmtPeso(php),
   });
 

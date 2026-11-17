@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, CalendarCheck, Star } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { loadShopStoryPage } from '@/lib/ultra-story-pages.server';
 import { IN_OUR_WORDS } from '@/lib/ultra-story-pages';
+import { shopPath } from '@/lib/shop-address';
 import { formatCount } from '@/lib/format-number';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export default async function ShopStoryPage({ params }: Props) {
   const read = await loadShopStoryPage(slug, eventSlug);
   if (read.kind !== 'ok') notFound();
   const { shop, story, photos, work, note, review } = read.page;
-  const shopHref = `/v/${encodeURIComponent(shop.slug)}`;
+  const shopHref = shopPath(encodeURIComponent(shop.slug));
   const [lead, ...rest] = photos;
 
   return (

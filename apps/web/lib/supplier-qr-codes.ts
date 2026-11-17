@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { VendorDay } from '@/lib/vendor-day-picker';
 import { isPrintVia, materialViaOf, withVia, type MaterialVia } from '@/lib/material-tags';
 
@@ -9,7 +10,7 @@ import { isPrintVia, materialViaOf, withVia, type MaterialVia } from '@/lib/mate
  * REDRAW IT"): keep the live dropdown (Shortlist · Booked) and ADD **Check a date** (after #7007 — shipped), **My page**
  * and **Crew for an event**. Under the dropdown, one large code — never a stack of codes (the row before it).
  *
- *   · My page  — the shop's own Setnayan page, `/v/<slug>`. The same address the day-of review code opens, without the
+ *   · My page  — the shop's own Setnayan page, `/<slug>`. The same address the day-of review code opens, without the
  *                `#reviews` jump (that one stays on the day-of page, where it asks guests for a review).
  *   · Crew     — pick the event → the event's ONE crew code (`vendor_crew_codes`, made in Hub › Crew). A scan lands the
  *                phone on that event's supplier Event Hub and waits for the supplier's Allow, which stays in Hub › Crew.
@@ -75,7 +76,7 @@ export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = 
 
 /** The page "My page" opens. `origin` has no trailing slash (`siteOrigin()`). */
 export function myPagePath(slug: string): string {
-  return `/v/${encodeURIComponent(slug)}`;
+  return `${shopPath(encodeURIComponent(slug))}`;
 }
 export function myPageUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${myPagePath(slug)}`;
@@ -96,11 +97,11 @@ export const OWN_LINK_SRC = 'own';
 export function ownPageUrl(origin: string, slug: string, via: MaterialVia): string {
   return withVia(`${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`, via);
 }
-/** 💳 RW-19 (walk 13 Nov 2026): the supplier's own "Check a date" code — `/v/<slug>/dates`, tagged as theirs. */
+/** 💳 RW-19 (walk 13 Nov 2026): the supplier's own "Check a date" code — `/<slug>/dates`, tagged as theirs. */
 export function ownDatesUrl(origin: string, slug: string, via: MaterialVia): string {
   return withVia(`${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`, via);
 }
-/** 💳 RW-19: the supplier's own "Reviews" code — `/v/<slug>/review`, tagged as theirs (the door keeps the tag). */
+/** 💳 RW-19: the supplier's own "Reviews" code — `/<slug>/review`, tagged as theirs (the door keeps the tag). */
 export function ownReviewsUrl(origin: string, slug: string, via: MaterialVia): string {
   return withVia(`${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`, via);
 }

@@ -69,9 +69,9 @@ test('the migration CHECKs carry exactly the same ten words, on all four columns
 // ── (a) every material writes its via ────────────────────────────────────────────────────────────────────────────────
 
 test('(a) every own code carries src=own AND its piece', () => {
-  assert.equal(ownPageUrl(O, SLUG, 'card'), `${O}/v/${SLUG}?src=own&via=card`);
-  assert.equal(ownDatesUrl(O, SLUG, 'sticker'), `${O}/v/${SLUG}/dates?src=own&via=sticker`);
-  assert.equal(ownReviewsUrl(O, SLUG, 'link'), `${O}/v/${SLUG}/review?src=own&via=link`);
+  assert.equal(ownPageUrl(O, SLUG, 'card'), `${O}/${SLUG}?src=own&via=card`);
+  assert.equal(ownDatesUrl(O, SLUG, 'sticker'), `${O}/${SLUG}/dates?src=own&via=sticker`);
+  assert.equal(ownReviewsUrl(O, SLUG, 'link'), `${O}/${SLUG}/review?src=own&via=link`);
   assert.equal(withVia('/v/x#reviews', 'tarp'), '/v/x?via=tarp#reviews');
 });
 
@@ -190,8 +190,8 @@ test('(b) the arrival keeps the piece and the campaign through every inner door'
   assert.equal(dates.searchParams.get('via'), 'standee');
   assert.equal(dates.searchParams.get('dates'), '1');
   // The review door.
-  assert.equal(reviewDoorTarget({ kind: 'read', slug: SLUG, reason: 'no_booking' } as never, 'own', 'card'), `/v/${SLUG}?src=own&via=card#reviews`);
-  assert.equal(reviewDoorTarget({ kind: 'moved', slug: SLUG } as never, null, 'evil'), `/v/${SLUG}/review`);
+  assert.equal(reviewDoorTarget({ kind: 'read', slug: SLUG, reason: 'no_booking' } as never, 'own', 'card'), `/${SLUG}?src=own&via=card#reviews`);
+  assert.equal(reviewDoorTarget({ kind: 'moved', slug: SLUG } as never, null, 'evil'), `/${SLUG}/review`);
   assert.ok(SHOP_LIVE_PARAMS.includes('via'), 'a tagged arrival must render live, or the sheet cannot carry the piece');
 });
 

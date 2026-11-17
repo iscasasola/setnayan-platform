@@ -57,6 +57,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/story/_components/editorial-editor.tsx', 'editor field — a custom column’s name + body and a wish’s fields inside the editorial editor'],
   ['app/_components/file-upload.tsx', 'tile — every ✕ / Remove is a photo or file tile’s own (a staged, failed or uploaded tile, and the round logo’s [Remove] pill under its one picture, A3)'],
   ['app/open-shop/_components/claim-door.tsx', 'editor field — an inclusion line’s input and a picked service inside the claim door’s edit slide, written only on “Claim it” (A6)'],
+  ['app/vendor-dashboard/services/_components/service-card-menu-row.tsx', 'hover — the SwipeToDelete row’s OWN computer Delete, moved from the swipe’s outside column (which cut the card short) into the card’s row (owner 17 Nov, one card); hover/keyboard only, never on a touch screen (the card swipes), same warning sheet + Undo'],
   ['app/open-shop/_components/service-cards.tsx', 'editor — ONLY the opened specialties’ own Remove (prototype v19 fit row ⌃ Specialties · Remove · ✓ Done, owner 7 Nov “Remove also inside”); every service ROW is on the swipe, with Undo'],
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
   ['app/vendor-dashboard/services/_components/card-photo-gallery.tsx', 'tile — a card photo’s own sheet: Delete photo, opened by tapping the photo tile, with Undo (owner 13 Nov, the approved gallery upload)'],

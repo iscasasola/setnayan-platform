@@ -11,6 +11,7 @@
  * Otherwise: the Canvas showcase.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import { arrivalParams, withShopArrival } from '@/lib/shop-back';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -161,7 +162,7 @@ export default async function VendorBoothShowcasePage({ params, searchParams }: 
   if (!PLAN3D_BOOTH_SHOWCASE_ENABLED) notFound();
   const { slug } = await params;
   // The shop page again, carrying where the visit came from (lib/shop-back.ts) — so its back door survives the booth.
-  const shopHref = withShopArrival(`/v/${slug}`, arrivalParams((await searchParams) ?? {}));
+  const shopHref = withShopArrival(`${shopPath(slug)}`, arrivalParams((await searchParams) ?? {}));
   const vendor = await fetchBoothVendor(slug);
 
   // 🔑 A REFUSED READ IS NOT "THIS BOOTH IS NOT PUBLIC". The 404 below is the

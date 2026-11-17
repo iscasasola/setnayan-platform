@@ -34,12 +34,12 @@ const BUSY: PrintShop = {
   name: 'Casa Buenaventura Catering & Events Services',
   line: 'Catering · Buffets · Grazing tables',
   ini: 'CB',
-  handle: `setnayan.com/v/${SLUG}`,
+  handle: `setnayan.com/${SLUG}`,
   verified: true,
   rating: { avg: 4.9, count: 32 },
   badges: shopBadges(facts),
 };
-const PLAIN: PrintShop = { name: 'Setnayan Productions', line: 'Weddings & Events', ini: 'SP', handle: 'setnayan.com/v/setnaprod', verified: false, rating: null, badges: [] };
+const PLAIN: PrintShop = { name: 'Setnayan Productions', line: 'Weddings & Events', ini: 'SP', handle: 'setnayan.com/setnaprod', verified: false, rating: null, badges: [] };
 
 async function scan(svg: string, width: number, density = 144): Promise<string | null> {
   const { data, info } = await sharp(Buffer.from(svg), { density })
@@ -68,7 +68,7 @@ test('the printed address is the one the Promote codes already build — never t
   // 💳 A printed My page code is the supplier's own link: ?src=own (owner 2026-11-13, F-W1-58).
   assert.equal(printQrUrl('page', ORIGIN, SLUG, 'tarp'), ownPageUrl(ORIGIN, SLUG, 'tarp'));
   assert.equal(printQrUrl('shortlist', ORIGIN, SLUG, 'tarp'), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
-  assert.equal(printQrUrl('dates', ORIGIN, SLUG, 'backdrop'), `${ORIGIN}/v/${SLUG}/dates?src=own&via=backdrop`);
+  assert.equal(printQrUrl('dates', ORIGIN, SLUG, 'backdrop'), `${ORIGIN}/${SLUG}/dates?src=own&via=backdrop`);
   // Reviews opens the WRITE door (owner 2026-11-06 "Write a review"): /v/<slug>/review → the couple's "Leave a review",
   // or the shop page's reviews section (`<section id="reviews">` on /v/[slug]) for anyone without a booking ready for one.
   assert.equal(printQrUrl('reviews', ORIGIN, SLUG, 'standee'), `${myPageUrl(ORIGIN, SLUG)}/review?src=own&via=standee`);
@@ -112,6 +112,6 @@ test('the Save files scan too — exact size, bleed and all (Jet mono, Spotlight
 });
 
 test('the card’s FRONT carries no code (its code is on the back)', () => {
-  const svg = renderPrint({ piece: PRINT_PIECES[0]!, design: PRINT_DESIGNS[0]!, shop: PLAIN, qr: { mode: 'dates', url: `${ORIGIN}/v/x/dates` }, side: 'f' });
+  const svg = renderPrint({ piece: PRINT_PIECES[0]!, design: PRINT_DESIGNS[0]!, shop: PLAIN, qr: { mode: 'dates', url: `${ORIGIN}/x/dates` }, side: 'f' });
   assert.ok(!svg.includes('data-print-qr'), 'the front drew a code');
 });

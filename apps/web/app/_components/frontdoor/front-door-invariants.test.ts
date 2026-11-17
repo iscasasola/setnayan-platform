@@ -606,15 +606,13 @@ test('chapter reading time is computed from the body, never the excerpt', () => 
  * rewritten for the new structure.
  */
 test('New uploads still comes from the shared composer, not a local copy', () => {
+  // 🗞✂ 2026-11-16 — the blog is retired (PR #7847), so New uploads is stories only: the feed hands the composer
+  // every story and NO articles (an empty list, never a hand-picked subset).
   assert.ok(
-    /splitShelfRows\(\s*stories,\s*articles\s*,?\s*\)/.test(FEED_CODE),
-    'the feed must ask the shared composer for the full stories+articles split ' +
-      '— there is no chip-filtered subset to pass it any more',
+    /splitShelfRows\(\s*stories,\s*\[\]\s*,?\s*\)/.test(FEED_CODE),
+    'the feed must ask the shared composer for the full stories split — there is no chip-filtered subset to pass it any more',
   );
-  assert.ok(
-    /leadStories\.map/.test(FEED_CODE) && /leadArticles\.map/.test(FEED_CODE),
-    'both kinds must render into New uploads',
-  );
+  assert.ok(/leadStories\.map/.test(FEED_CODE), 'the stories must render into New uploads');
 });
 
 /* ── 15 · THE KIND LIVES ON THE CARD ──────────────────────────────────────
@@ -632,10 +630,7 @@ test('New uploads still comes from the shared composer, not a local copy', () =>
    and are checked directly — a rewrite that quietly drops "Article" or
    "Their story" from the cards is exactly what this still catches. */
 test('every card in New uploads and Trending declares its kind', () => {
-  assert.ok(
-    /fd-kindtag[^]*?>\s*Article\s*</.test(FEED_CODE),
-    'the article card must carry the word Article',
-  );
+  // The article card's "Article" tag left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
   assert.ok(
     /fd-kindtag[^]*?>\s*Their story\s*</.test(FEED_CODE),
     'the story card must carry the words Their story',
@@ -670,13 +665,15 @@ test('the shelf rows are split by the composer, not by a hard-coded index', () =
     /splitShelfRows\(/.test(FEED_CODE),
     'the feed must ask the composer where the lead grid stops',
   );
-  // THE CONSEQUENCE — all three returned rows must reach the screen.
-  assert.ok(
-    /leadStories\.map/.test(FEED_CODE) &&
-      /leadArticles\.map/.test(FEED_CODE) &&
-      /trailingArticles\.map/.test(FEED_CODE),
-    'a row that is computed and never rendered is an article nobody can read',
-  );
+  // THE CONSEQUENCE — every row the feed takes from the composer must reach the screen. Since the blog retired
+  // (2026-11-16, PR #7847) the feed takes only `leadStories`; an article row taken and not drawn is the old defect.
+  assert.ok(/leadStories\.map/.test(FEED_CODE), 'a row that is computed and never rendered is a story nobody can read');
+  for (const row of ['leadArticles', 'trailingArticles']) {
+    assert.ok(
+      !new RegExp(`\\b${row}\\b`).test(FEED_CODE) || new RegExp(`\\b${row}\\.map`).test(FEED_CODE),
+      `${row} is computed and never rendered — an article nobody can read`,
+    );
+  }
   // NO HAND-TYPED BOUNDARY left beside it.
   assert.ok(
     !/shownArticles\.slice\(\s*4\s*,/.test(FEED_CODE),
@@ -817,44 +814,11 @@ test('the story poster is not routed through the image optimizer', () => {
   );
 });
 
-/* ── THE STORIES HUB MUST NEVER BE ORPHANED ──────────────────────────────
-   Owner 2026-08-20: *"what we want is the stories menu to be inside this as
-   well"*. The rail's "Stories" destination was retired — it was a second door
-   to the shelf directly below it, reading the SAME three voices from the SAME
-   loaders as `/realstories`, with the chip row already carrying "Their
-   stories".
-
-   🔑 THE HUB ITSELF IS NOT RETIRED, AND THAT IS THE WHOLE RISK. `/realstories`
-   still holds the event-type filter and the search box the chips do not have,
-   and it is where all storyteller SEO equity is deliberately concentrated
-   (chapter detail pages are noindex so the hub keeps it). The front page's
-   ONLY other link to it lives inside the real-weddings written invitation,
-   which renders exclusively while that grid is UNEARNED — so it disappears on
-   the day the second couple publishes. Retiring the rail row without promoting
-   the shelf heading would have left the hub with zero links from the front
-   page at exactly the moment it started to matter: a page nobody can reach,
-   the defect this project has already paid for more than once.
-
-   These two assertions were mutation-checked by occurrence count. */
-test('the front page keeps a permanent door into the stories hub', () => {
-  const links = FEED_CODE.match(/href="\/realstories"/g) ?? [];
-  assert.ok(
-    links.length >= 2,
-    `The feed holds ${links.length} link(s) to /realstories; at least 2 are ` +
-      'required — the shelf HEADING (permanent) and the invitation (conditional). ' +
-      'If the heading link was removed, the hub is orphaned every day the real-' +
-      'weddings grid is earned.',
-  );
-  // …and specifically the PERMANENT one. Counting alone would stay green if
-  // somebody added a second conditional link and deleted the heading.
-  assert.match(
-    FEED_CODE,
-    /<Link href="\/realstories" className="fd-sechead-go">/,
-    'The "Stories" shelf heading is no longer a link into the hub. It replaced ' +
-      'the rail row retired on 2026-08-20 and is the only link here that does ' +
-      'not depend on the real-weddings grid being empty.',
-  );
-});
+/* ── THE STORIES HUB DOOR — RETIRED 2026-11-16 ───────────────────────────
+   This guard kept a permanent link from the front page into `/realstories`. The hub is retired with the blog +
+   Real Stories (PR #7847, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED") and its address forwards to
+   Discover — this page — so the door has no subject. `lib/no-page-links-a-retired-page.test.ts` now holds the
+   inverse: nothing links the retired address. */
 
 test('the retired Stories rail row has not quietly returned', () => {
   const rows = SHELL_CODE.match(/<Link href="\/realstories"/g) ?? [];
@@ -962,11 +926,8 @@ test('Trending explains itself when it is honestly empty, and never fakes a rank
       '"nothing here" — prod holds zero chapters with a real view count, so ' +
       'this is the state most visitors actually meet',
   );
-  assert.match(
-    section,
-    /<EmptyShelf[\s\S]{0,300}href="\/realstories"/,
-    'the empty Trending state has no way onward — an apology with no door',
-  );
+  // Its door ("Browse all stories" → the stories hub) left 2026-11-16 — retired with the blog + Real Stories,
+  // PR #7847. EmptyShelf's action is optional by house rule (owner 13 Nov); the ⓘ still says how Trending fills.
   assert.match(
     section,
     /never seeded, padded, or sold/,

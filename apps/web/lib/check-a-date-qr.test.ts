@@ -27,7 +27,7 @@ test('the Check-a-date code scans back to https://<site>/v/<slug>/dates?src=own&
     ['https://setnayan.com/', 'setnaprod'],
   ] as const) {
     const { url, svg } = await checkADateQr(slug, origin);
-    assert.equal(url, `${origin.replace(/\/+$/, '')}/v/${slug}/dates?src=own&via=link`);
+    assert.equal(url, `${origin.replace(/\/+$/, '')}/${slug}/dates?src=own&via=link`);
     assert.ok(svg && svg.startsWith('<svg'), 'no code was drawn');
     assert.equal(await scan(svg), url, `the code for ${slug} did not scan to its page`);
   }

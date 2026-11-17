@@ -62,6 +62,9 @@ export const CANVAS_LEFT_PRO_AT = '2026-11-14T00:00:00+08:00';
  * for new buyers; couples who already bought Pro keep what they paid for"*).
  *
  *   · an approved Ultra order → yes;
+ *   · Ultra HELD without an order → yes (`ultraHeld`): a supplier's gifted Event Ultra from the moment it was delivered
+ *     (owner 2026-11-15, "yes" — a gifted Ultra is FULL Ultra), an admin comp, an internal host, a founder seat — what
+ *     `eventUltraActive` answers through the whole entitlement chain;
  *   · an approved Event Pro order placed BEFORE `CANVAS_LEFT_PRO_AT` → yes: they bought Pro while canvas was part of it;
  *   · anything else → no. An order with no readable date is grandfathered — a bad read may only ever keep a paid
  *     unlock, never take one away.
@@ -72,7 +75,9 @@ export const CANVAS_LEFT_PRO_AT = '2026-11-14T00:00:00+08:00';
 export function canvasPrintsUnlockedFrom(
   orders: readonly PlanOrderFact[],
   cutoverIso: string = CANVAS_LEFT_PRO_AT,
+  ultraHeld = false,
 ): boolean {
+  if (ultraHeld) return true;
   const since = Date.parse(cutoverIso);
   return orders.some((o) => {
     if (!o.status || !PAID.has(o.status)) return false;

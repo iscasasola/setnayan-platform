@@ -8,6 +8,7 @@
  * machinery itself is retired. The proof is
  * `tests/db/an-unverified-shop-is-booked-on-its-page-and-found-only-once-verified.db.test.ts`.
  */
+import { shopPath } from '@/lib/shop-address';
 import { notFound } from 'next/navigation';
 import { MapPin, MessageCircle, Send } from 'lucide-react';
 
@@ -93,7 +94,7 @@ export default async function FindLockLabPage({
                 </a>
                 <ShareButton title={shopRow.name} className="button-secondary inline-flex items-center gap-2" />
                 {bookable ? (
-                  <CheckADateLink href="/v/lab/dates" className="button-secondary inline-flex items-center gap-2" />
+                  <CheckADateLink href={`${shopPath('lab')}/dates`} className="button-secondary inline-flex items-center gap-2" />
                 ) : null}
               </div>
             ) : null}

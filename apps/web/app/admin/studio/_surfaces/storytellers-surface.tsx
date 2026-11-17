@@ -279,12 +279,12 @@ export async function StorytellersSurface({
       {/* Same as Real Stories: the only link to the shelf this page controls
           lived inside the retired (i) sentence. A door outlives the sentence
           that happened to contain it. NOTE the anchor — the route-level control
-          guard passes on `/realstories` alone because a SIBLING surface links
-          there, so it could not have told us this one went missing. */}
+          guard passed on the hub alone because a SIBLING surface linked there, so it could not have told us this
+          one went missing. 🗞✂ 2026-11-16 — the hub is retired; chapters show on Discover. */}
       <PageMasthead
         title="Storytellers"
         actions={
-          <ActionButton tone="info" href="/realstories#storytellers" icon={<BookOpen aria-hidden />} label="View the shelf" />
+          <ActionButton tone="info" href="/" icon={<BookOpen aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />

@@ -4,8 +4,8 @@
  * Owner 7 Nov 2026 (build-sessions/PLAN-SUPPLIER-GO-LIVE-BUILD-2026-11-07.md, Track C1–C3; prototype
  * `open-shop-redesign.html` v21 — "Send your documents", "Download your QR", the spotlight after step 6):
  *
- *   A · THE QR LEADS TO THE SHOP'S OWN PAGE, `/v/<slug>` (`myPageUrl`) — never the root `/<slug>`, which is a couple's
- *       Event Hub. Download is the one filled button; the file keeps the shipped name.
+ *   A · THE QR LEADS TO THE SHOP'S OWN PAGE, `/<slug>` (`myPageUrl`) — a shop lives at the bare address since the
+ *       address move (owner 2026-11-15); never the shortlist invite. Download is the one filled button; the file keeps the shipped name.
  *   B · THE PAPERS ARE `REQUIRED_DOC_SLOT_KEYS` — never a hand list — and step 5 draws them as THE ONE UPLOAD PLACE
  *       (`PaperUploadPlace`, the same one Your details draws; 15 Nov 2026 the three Add rows left). A refused read is
  *       said, never drawn as an empty place to upload into.
@@ -67,24 +67,24 @@ const between = (html: string, from: string, to?: string) => {
 
 // ── A · the QR ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('A1 · Today’s QR is the shop’s own page, /v/<slug> — never the root slug, never the shortlist invite', () => {
+test('A1 · Today’s QR is the shop’s own page, /<slug> — built by ownPageUrl, never the shortlist invite', () => {
   const page = code('app/vendor-dashboard/page.tsx');
   // 💳 The step-6 QR is the supplier's OWN code — the same page, tagged ?src=own (owner 2026-11-13, F-W1-58).
   assert.match(page, /const qrUrl = details\.slug \? ownPageUrl\(siteOrigin\(\), details\.slug, 'link'\) : null;/, 'the step-6 QR is not built by ownPageUrl');
   assert.doesNotMatch(page, /buildVendorInviteUrl/, 'Today’s QR went back to the shortlist invite');
-  assert.doesNotMatch(page, /siteOrigin\(\)\}\/\$\{[^}]*slug/, 'a root /<slug> address (a couple Event Hub) is built on Today');
+  assert.doesNotMatch(page, /siteOrigin\(\)\}\/\$\{[^}]*slug/, 'a shop address is typed by hand on Today — build it through ownPageUrl / shopPath');
   const { myPageUrl } = require('@/lib/supplier-qr-codes') as typeof import('@/lib/supplier-qr-codes');
-  assert.equal(myPageUrl('https://www.setnayan.com', 'titanena'), 'https://www.setnayan.com/v/titanena');
+  assert.equal(myPageUrl('https://www.setnayan.com', 'titanena'), 'https://www.setnayan.com/titanena');
 });
 
-test('A2 · drawn: the code, where it leads (/v/), "put it on your photos", Download filled — the shipped file name', async () => {
+test('A2 · drawn: the code, where it leads (/<slug>), "put it on your photos", Download filled — the shipped file name', async () => {
   const html = await drawLab();
   const qr = between(html, 'data-setup-body="qr"');
   assert.match(qr, /data-qr-card="setup-shop"/);
   assert.match(qr, /<svg/, 'step 6 draws no code');
   const words = text(qr);
-  assert.match(words, /Scanning it opens your page — www\.setnayan\.com\/v\/titanena/);
-  assert.doesNotMatch(words, /setnayan\.com\/titanena\b/, 'the QR line names the root slug');
+  assert.match(words, /Scanning it opens your page — www\.setnayan\.com\/titanena\b/);
+  assert.doesNotMatch(words, /setnayan\.com\/v\//, 'the QR line names the old /v/ address');
   assert.match(words, /Put it on your photos, posts and cards so couples find you\./);
   // Download is the filled (main) button; Share is not. The order stays Share · Copy link · Download (owner 2026-11-06).
   const dl = qr.match(/<a[^>]*data-qr-download=""[^>]*>/)?.[0] ?? '';

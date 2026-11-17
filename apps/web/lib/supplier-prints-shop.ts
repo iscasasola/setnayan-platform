@@ -17,7 +17,7 @@ import type { MaterialVia, PrintVia } from '@/lib/material-tags';
  *   line     — the shop's own services, in their kind words ("Photo & video · Sound · Lights"), at most three; the
  *              tagline when the shop lists no service; nothing when it has neither (never a filler)
  *   ini      — `shopInitials(name)` (the shop's logo goes in the circle in a later part)
- *   handle   — `setnayan.com/v/<slug>` (the card back)
+ *   handle   — `setnayan.com/<slug>` (the card back)
  *   seal · rating · badges — `shopBadges(facts)` from facts read AT PRINT TIME (`readShopBadgeFacts`, the badge
  *              print's own read): a badge un-earned since is not printed; one earned since is
  *
@@ -36,7 +36,7 @@ export function printLine(services: readonly string[], tagline: string | null | 
   return tagline?.trim() ?? '';
 }
 
-/** `setnayan.com/v/<slug>` — the site's host without `www.` and the scheme. */
+/** `setnayan.com/<slug>` — the site's host without `www.` and the scheme. */
 export function printHandle(origin: string, slug: string): string {
   const host = origin.replace(/^https?:\/\//, '').replace(/\/+$/, '').replace(/^www\./, '');
   return `${host}${myPagePath(slug)}`;

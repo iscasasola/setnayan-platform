@@ -8,6 +8,7 @@
  * No I/O, no clock, no `server-only` — so every rule here is unit-tested directly (`lane-s.test.ts`).
  */
 
+import { shopPath } from '@/lib/shop-address';
 import { isShopLive } from '@/lib/vendor-visibility';
 import { rewardSourceWords, type RewardBadge } from '@/lib/badge-rewards';
 
@@ -143,7 +144,7 @@ export function badgePostCopy(input: {
   const words = rewardSourceWords(input.rewardKey);
   const name = input.businessName.trim();
   const named = input.named && name.length > 0;
-  const shopUrl = input.businessSlug ? `${origin}/v/${encodeURIComponent(input.businessSlug)}` : null;
+  const shopUrl = input.businessSlug ? `${origin}${shopPath(encodeURIComponent(input.businessSlug))}` : null;
   if (named) {
     const linkUrl = shopUrl ?? `${origin}/vendors`;
     return {

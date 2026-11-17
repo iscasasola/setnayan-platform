@@ -48,8 +48,8 @@ test('1b · only an article or a page address carries a card', () => {
   assert.deepEqual(cardTarget('/articles/best-months-to-get-married-philippines'), { kind: 'article', slug: 'best-months-to-get-married-philippines' });
   assert.deepEqual(cardTarget('/taal-vista-hotel'), { kind: 'page', word: 'taal-vista-hotel' });
   assert.deepEqual(cardTarget('/v/taal-vista-hotel'), { kind: 'page', word: 'taal-vista-hotel' });
-  for (const p of ['/signup/start', '/', '/blog/setnayan-wedding-checklist.pdf', '/features/papic', '/?browse=1']) {
-    assert.equal(cardTarget(p) === null || cardTarget(p)?.kind === 'page', true, p);
+  for (const p of ['/signup/start', '/features/papic', '/dashboard/x/guests', '/?browse=1']) {
+    assert.equal(cardTarget(p), null, `${p} is our page but not a card`);
   }
   assert.equal(cardTarget('/blog/setnayan-wedding-checklist.pdf'), null, 'a file is never a card');
   assert.equal(cardTarget('/'), null);
@@ -85,7 +85,8 @@ test('4 · the pages say what the drawing says, and refuse honestly', () => {
   const article = code(read('(shell)/articles/[slug]/page.tsx'));
   const sheet = code(read('(shell)/articles/_components/write-sheet.tsx'));
   for (const [name, src] of [['feed', feed], ['article', article], ['write sheet', sheet]] as const) {
-    assert.match(src, /PUBLIC_POSTS_ARE_FINDABLE/, `${name} lost "Public posts can appear on Google and in AI answers"`);
+    // Rendered, not merely imported — an import line alone would keep this green with the words gone.
+    assert.match(src, /\{PUBLIC_POSTS_ARE_FINDABLE\}/, `${name} lost "Public posts can appear on Google and in AI answers"`);
   }
   assert.match(feed, /!res\.ok \?/, 'the feed must render a refused read as a refusal');
   assert.match(feed, /We couldn’t load the articles/);

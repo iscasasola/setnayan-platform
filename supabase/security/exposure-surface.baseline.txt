@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7902
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     642
-#   col       5684
+#   col       5685
 #   policy    1160
 #   view      10
 #   func      401
@@ -4125,6 +4125,7 @@ col	public.platform_settings.loader_pop_enabled	anon=- authenticated=S
 col	public.platform_settings.loader_step_interval_ms	anon=- authenticated=S
 col	public.platform_settings.loader_variant	anon=- authenticated=S
 col	public.platform_settings.loader_veil_opacity	anon=- authenticated=S
+col	public.platform_settings.max_payment_php	anon=- authenticated=S
 col	public.platform_settings.maya_checkout_endpoint	anon=- authenticated=S
 col	public.platform_settings.meta_page_id	anon=- authenticated=S
 col	public.platform_settings.onboarding_bg_music_enabled	anon=- authenticated=S

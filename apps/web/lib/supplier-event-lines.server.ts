@@ -1,4 +1,3 @@
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import 'server-only';
 
 import type { createAdminClient } from '@/lib/supabase/admin';

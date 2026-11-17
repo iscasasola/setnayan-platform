@@ -2734,7 +2734,7 @@ export async function EventDashboard({
             </div>
           )}
           {paymentsUnread ? (
-            <p role="status" data-home-payments-unread="" className="sn-tile mt-3.5 text-sm text-warn-800">
+            <p role="status" data-home-payments-unread="" className="mt-3.5 text-sm text-warn-800">
               We couldn’t check for payments waiting just now — this does not mean there are none.{' '}
               <Link href={`${base}/orders`} className="inline-flex min-h-11 items-center font-semibold underline">
                 Open orders

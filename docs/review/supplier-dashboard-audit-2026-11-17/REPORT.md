@@ -48,7 +48,7 @@ Severity: **H** = money, data loss, or a false statement about the supplier's ow
 ### Today
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| T-1 ✅ | H | `vendor-dashboard/page.tsx` (`feeBillsRead === FEE_BILLS_UNREADABLE ? []`) | An unreadable fee-bill list became `[]`, so Today said **"Nothing waiting on you"** while a booking fee could be unpaid. The code comment says the opposite is intended. | **PR-TODAY** |
+| T-1 ✅ | H | `vendor-dashboard/page.tsx` (`feeBillsRead === FEE_BILLS_UNREADABLE ? []`) | An unreadable fee-bill list became `[]`, so Today said **"Nothing waiting on you"** while a booking fee could be unpaid. The code comment says the opposite is intended. | **#7953** |
 | T-2 | H | `lib/vendor-overview.ts` (`fetchVendorThreads(...).catch(() => [])`, meetings, unsent quotes) | A refused threads read drops every inquiry and owed reply. `deskIncomplete` does not include these reads, so Today reads "Nothing waiting on you" and **Inquiries 0**. | Next. Switch to `fetchVendorThreadsDetailed` and fold the result into `deskIncomplete`. Not shipped today, because it touches the `lib/` read that several in-flight Today PRs also read. |
 | T-3 | H | `supplier-today-first-screen.tsx` ("No bookings yet") with `lib/vendor-overview.ts` (`bookingsComplete` computed, never used) | A refused room read or schedule read gives **"No bookings yet · Add the ones you already have"** to a shop with bookings. | Next. Return `bookingsComplete` and draw a "Couldn't load your bookings" row. |
 | T-4 | L | `_components/today-settings.tsx`, `customers/_components/customers-settings.tsx` | The Today and Customers ⚙ menus open as a **half sheet** (`max-h-[52dvh]`), not full screen. | **In flight: #7760** (Settings v2 step 1 — "every ⚙ rises full screen"). Q1. |
@@ -56,9 +56,9 @@ Severity: **H** = money, data loss, or a false statement about the supplier's ow
 ### Calendar (Customers › Dates)
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| D-1 ✅ | **H (data loss)** | `calendar/actions.ts` `ownedServiceIds` | A refused read returned `[]`. `editCalendar` diffed that against the schedule, **unassigned every service**, ignored the delete's error, and said **"Schedule saved"**. `createCalendar` made the schedule empty and said "Schedule made". | **PR-CAL** |
-| D-2 ✅ | H | `calendar/actions.ts` `movePoolCategory` (`(count ?? 0) === 0`) | A refused count was read as 0, which **switched off a schedule that still had services**. | **PR-CAL** |
-| D-3 ✅ | H | `calendar/actions.ts` `notifyWaitlistSlot` | The count returned was thrown away, so the page always said **"Told them — the couples waiting know"**, even when nobody was waiting or the call threw. | **PR-CAL** |
+| D-1 ✅ | **H (data loss)** | `calendar/actions.ts` `ownedServiceIds` | A refused read returned `[]`. `editCalendar` diffed that against the schedule, **unassigned every service**, ignored the delete's error, and said **"Schedule saved"**. `createCalendar` made the schedule empty and said "Schedule made". | **#7936** |
+| D-2 ✅ | H | `calendar/actions.ts` `movePoolCategory` (`(count ?? 0) === 0`) | A refused count was read as 0, which **switched off a schedule that still had services**. | **#7936** |
+| D-3 ✅ | H | `calendar/actions.ts` `notifyWaitlistSlot` | The count returned was thrown away, so the page always said **"Told them — the couples waiting know"**, even when nobody was waiting or the call threw. | **#7936** |
 | D-4 | M | `lib/vendor-waitlist.ts` `fetchVendorWaitlist` with `dates-folds.tsx` ("Nobody waiting.") | A refused read says "Nobody waiting." and hides the notify button. | Next |
 | D-5 | M | `customers/page.tsx` (`pools.length === 0` → "Set how many events you take a day") | `fetchVendorPools` is `…OrNull ?? []`, so a refused read tells a shop that already has schedules to set one up. | Next. Read `fetchVendorPoolsOrNull` directly. |
 | D-6 | M | `calendar/actions.ts` `pickWaitlistCouple` (count and next-row reads) | A refused read says "No one is waiting", and `count ?? 0` lets a pick past the cap. | Next |
@@ -83,20 +83,20 @@ Severity: **H** = money, data loss, or a false statement about the supplier's ow
 ### Shop
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| S-1 ✅ | H | `shop/page.tsx` (`if (!data)` → "Set up my shop" → `/open-shop`) | `data` is null **only when the loader threw**, because a proven absence has already redirected. So a supplier who **has** a shop was invited into the new-shop wizard. Same fault class as `lib/roles.ts` "Create your shop". | **PR-SHOP** |
+| S-1 ✅ | H | `shop/page.tsx` (`if (!data)` → "Set up my shop" → `/open-shop`) | `data` is null **only when the loader threw**, because a proven absence has already redirected. So a supplier who **has** a shop was invited into the new-shop wizard. Same fault class as `lib/roles.ts` "Create your shop". | **#7941** |
 | S-2 | H (money) | `shop/page.tsx` (`tier: own?.tier_state ?? null` → `planWord(null)` = "Free") | A refused own-row read shows **"Free plan"** on the cover and on the Plan tile of a paying shop. | Next |
 | S-3 | H | `shop/page.tsx` (`soft.read('latestApplication', …, null)`) | A refused read looks like "no application", so a shop in review reads **"Get verified · 0 of 3 papers"**. | Next. Use a distinct unread sentinel. |
 | S-4 | H | `shop/page.tsx` (`verified: own?.verification_state === 'verified'`) | The same refused read locks the Offer Maker behind "Get verified" for a verified shop. | Next. Pairs with S-2. |
 | S-5 | **H (data loss)** | `shop/promote/_components/share-your-work-data.ts` (`notesErr` logged, then `noteRows ?? []`) | A refused read shows each Ultra story's "In our words" box empty. **A blank save deletes the note**, so a supplier can wipe a published note they never saw. | Next. Priority. |
 | S-6 | M | `shop/_components/autoreply-section.tsx` (mounted in the Customers ⚙) | A refused read draws both switches as **off**, and a re-save turns them off. | Next |
-| S-7 ✅ | L | `shop-cover.tsx` (the "★ rating · reviews" `<Link>`, and the "Open in browser" `<a h-9>`) | Plain links under 44 px. | **PR-SHOP** |
+| S-7 ✅ | L | `shop-cover.tsx` (the "★ rating · reviews" `<Link>`, and the "Open in browser" `<a h-9>`) | Plain links under 44 px. | **#7941** |
 | S-8 **P** | L | `shop-cover.tsx` (`grid grid-cols-4`, `COVER_PILL` with no truncate) | "Promote" may spill past an ~83 px pill at 390 px. Not reproduced in a lab. | Next. Measure first. |
 
 ### Services and card maker
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| V-1 ✅ | H | `services/_components/services-manager.tsx` (`fetchVendorCoverages(...).catch(() => [])`) | A refused read put **"not in what you do" on every card**, and "Your coverage" said "Nothing yet". | **PR-SVC** |
-| V-2 ✅ | M | `services-manager.tsx` (`{decodeURIComponent(search.error)}`) | Decodes an already-decoded param. A message with a bare `%` throws `URIError` and breaks the whole Shop page. | **PR-SVC** |
+| V-1 ✅ | H | `services/_components/services-manager.tsx` (`fetchVendorCoverages(...).catch(() => [])`) | A refused read put **"not in what you do" on every card**, and "Your coverage" said "Nothing yet". | **#7952** |
+| V-2 ✅ | M | `services-manager.tsx` (`{decodeURIComponent(search.error)}`) | Decodes an already-decoded param. A message with a bare `%` throws `URIError` and breaks the whole Shop page. | **#7952** |
 | V-3 | H | `services-manager.tsx` (tier read via `.then((r) => r, () => ({ data: null }))`) | `error` is never read, so branches hide and every card says "assigned to You". The code's own comment calls that "a silent lie". | Next |
 | V-4 | M | `lib/vendor-services.ts` `fetchInclusionsByService` / `fetchDiscountsByService` | A refused read draws cards with no "What's included" and no discount. | Next |
 | V-5 | M | `services/_components/stay-on-section.tsx` (`if (read.status !== 'ok') return null`) | Held cards keep a `#stay-on` tag that points at nothing. | Next |
@@ -110,7 +110,7 @@ Severity: **H** = money, data loss, or a false statement about the supplier's ow
 ### Chat
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| H-1 ✅ | H | `messages/[threadId]/page.tsx` (`counterHref={\`?compose=deal\`}`, `reviseHref={\`?compose=quote\`}`, and the blocker's "Send a new quotation" `href="?compose=quote"`) | The same chat box draws inside `/clients/<id>?tab=chat`. There a relative `?compose=` **drops `tab=chat` and lands on Details**, because the client page never reads `compose`. Counter-offer, "Update this quote" and "Send a new quotation" all looked dead. | **PR-CHAT** |
+| H-1 ✅ | H | `messages/[threadId]/page.tsx` (`counterHref={\`?compose=deal\`}`, `reviseHref={\`?compose=quote\`}`, and the blocker's "Send a new quotation" `href="?compose=quote"`) | The same chat box draws inside `/clients/<id>?tab=chat`. There a relative `?compose=` **drops `tab=chat` and lands on Details**, because the client page never reads `compose`. Counter-offer, "Update this quote" and "Send a new quotation" all looked dead. | **#7951** |
 | H-2 ✅ | **H (money)** | `messages/[threadId]/pay-confirm-actions.ts` (`if (error) { console.error(…); return; }`, the same in `refuseVendorPayment` and `clearVendorPaymentPlan`) | A refused **"Confirm received"** turns back into its label with no word, so the supplier cannot tell it failed. The mounts are on the thread, on the client's Payment page and in the Money fold. | **Not shipped:** it needs a result channel (`useActionState` or a `?pay=` notice) across three plain-form mounts, and #7917 / #7632 are editing `vendor-payment-live.tsx`. Q3. |
 | H-3 | M | `messages/[threadId]/pax-actions.ts` (decline: the `update` error is never read, but the audit row is still written) | The audit records a decline that may not have happened. | Next |
 | H-4 | M | `messages/[threadId]/page.tsx` (`vendors.data ?? []`) | The Customer card says "None yet" for booked suppliers. | Next |
@@ -140,7 +140,7 @@ Forms has no page of its own. It opens as Shop › Makers `?maker=forms` and as 
 ### Plans
 | # | Sev | Where | Fault | Fix |
 |---|---|---|---|---|
-| L-1 ✅ | **H (money)** | `subscription/_components/plan-screen.tsx` (`let { data: tierRow } = await readTierRow()`) | A refused read gave `asVendorTier(undefined)` = `'free'`, so a paying shop read **"You are on Free · nothing to pay"** and "there is nothing to cancel", with every paid row locked. This hit the Plan page **and** the Shop ⚙ fold. | **PR-PLANS** |
+| L-1 ✅ | **H (money)** | `subscription/_components/plan-screen.tsx` (`let { data: tierRow } = await readTierRow()`) | A refused read gave `asVendorTier(undefined)` = `'free'`, so a paying shop read **"You are on Free · nothing to pay"** and "there is nothing to cancel", with every paid row locked. This hit the Plan page **and** the Shop ⚙ fold. | **#7949** |
 | L-2 | H | `plan-screen.tsx` (`fetchV2VendorCatalog()` gives `[]` on error) | A shop on Plus **loses its own "Plus · your plan" row**, and Pro/Ultra say "Not sold on this cycle". | Next |
 | L-3 | H | `subscription/actions.ts` (`redirect(payPath ?? '/vendor-dashboard/subscription?ordered=' + …)`) | When the `orders` insert fails, the page shows a green "Order started" with **"Send your payment" → `/pay/<ref>`, which 404s**, because `/pay` resolves only `orders` and `booking_fee_charges`. | **Not shipped.** Q2 (money-flow call). |
 | L-4 | M | `plan-screen.tsx` (`planChangeRow` error dropped) | The "Today" figure ignores held credit, and a scheduled change and its undo vanish. | Next |
@@ -158,14 +158,17 @@ Forms has no page of its own. It opens as Shop › Makers `?maker=forms` and as 
 
 | PR | Area | What |
 |---|---|---|
-| PR-CAL | Calendar | D-1, D-2, D-3, plus a guard: `calendar/a-refused-read-never-saves.test.ts` |
-| PR-SHOP | Shop | S-1, S-7, plus a guard: `the-open-shop-redirect-is-a-proven-absence.test.ts` now also fails on a **link** to `/open-shop` |
-| PR-PLANS | Plans | L-1, plus a guard: `subscription/a-refused-plan-read-is-not-free.test.ts` |
-| PR-CHAT | Chat | H-1. The two guards that pinned the literal strings now pin both forms. |
-| PR-SVC | Services | V-1, V-2, plus a guard: `services/a-refused-category-read-is-not-outside.test.ts` |
-| PR-TODAY | Today | T-1, plus a guard in `_components/an-unread-desk-is-not-caught-up.test.ts` |
+| #7936 | Calendar | D-1, D-2, D-3, plus a guard: `calendar/a-refused-read-never-saves.test.ts` |
+| #7941 | Shop | S-1, S-7, plus a guard: `the-open-shop-redirect-is-a-proven-absence.test.ts` now also fails on a **link** to `/open-shop` |
+| #7949 | Plans | L-1, plus a guard: `subscription/a-refused-plan-read-is-not-free.test.ts` |
+| #7951 | Chat | H-1. The two guards that pinned the literal strings now pin both forms. |
+| #7952 | Services | V-1, V-2, plus a guard: `services/a-refused-category-read-is-not-outside.test.ts` |
+| #7953 | Today | T-1, plus a guard in `_components/an-unread-desk-is-not-caught-up.test.ts` |
 
 Every new guard was sabotage-checked: restoring the `origin/main` source turns it red.
+
+⚠ **The fix PRs are drafts, so the repo's `typecheck + lint` gate stays red on purpose** ("Draft PR: checks not run. Mark ready to test."). Every job that does run on a draft (guards, source guards, lint guards, secret scan) passed. The full suite runs only after a PR is marked ready. Each PR body has its local `pnpm preflight` table.
+⚠ **#7941 regenerates `port-control-baseline.json`.** It will conflict with any other PR that regenerates that file and merges first. The fix is to regenerate again, never to hand-merge.
 
 ## 4 · Owner questions
 
@@ -178,13 +181,13 @@ Every new guard was sabotage-checked: restoring the `origin/main` source turns i
 
 | Screen | Fault | Fix PR / in-flight PR | Owner question |
 |---|---|---|---|
-| Today | Unread fee bills → "Nothing waiting on you" (T-1) | PR-TODAY | — |
+| Today | Unread fee bills → "Nothing waiting on you" (T-1) | #7953 | — |
 | Today | Refused threads read → inquiries dropped, "0" (T-2) | next | — |
 | Today | Refused bookings read → "No bookings yet" (T-3) | next | — |
 | Today | ⚙ opens as a half sheet (T-4) | #7760 | Q1 |
-| Calendar | Refused read unassigns every service, says "saved" (D-1) | PR-CAL | — |
-| Calendar | Refused count switches a schedule off (D-2) | PR-CAL | — |
-| Calendar | "Told them" when nobody was told (D-3) | PR-CAL | — |
+| Calendar | Refused read unassigns every service, says "saved" (D-1) | #7936 | — |
+| Calendar | Refused count switches a schedule off (D-2) | #7936 | — |
+| Calendar | "Told them" when nobody was told (D-3) | #7936 | — |
 | Calendar | "Nobody waiting" / "Set up a schedule" on a refused read (D-4, D-5, D-6) | next | — |
 | Calendar | Half-saved halls say "Nothing changed" (D-7) | next | Q2 |
 | Calendar | Month tap throws to the error page (D-8) | next | — |
@@ -193,19 +196,19 @@ Every new guard was sabotage-checked: restoring the `origin/main` source turns i
 | Clients | Forms, challenges, photos, editorial and sign-off show false empties (C-3 … C-6) | next | — |
 | Clients | "Removing…" stuck forever (C-7) | next | — |
 | Clients | Sub-44 px links and controls (C-8) | next | — |
-| Shop | Loader crash → "Set up my shop" (S-1) | PR-SHOP | — |
+| Shop | Loader crash → "Set up my shop" (S-1) | #7941 | — |
 | Shop | Refused read → "Free plan", "0 of 3 papers", Offer Maker locked (S-2 … S-4) | next | — |
 | Shop | Blank "In our words" box can delete a published note (S-5) | next | — |
 | Shop | Auto-reply switches drawn off on a refused read (S-6) | next | — |
-| Shop | Cover links under 44 px (S-7) | PR-SHOP | — |
-| Services | Every card "not in what you do" on a refused read (V-1) | PR-SVC | — |
-| Services | Bare `%` in an error crashes Shop (V-2) | PR-SVC | — |
+| Shop | Cover links under 44 px (S-7) | #7941 | — |
+| Services | Every card "not in what you do" on a refused read (V-1) | #7952 | — |
+| Services | Bare `%` in an error crashes Shop (V-2) | #7952 | — |
 | Services | Branches hidden, "assigned to You" (V-3) | next | — |
 | Services | Inclusions, stay-on, halls and coverage-action false empties (V-4 … V-7) | next | — |
 | Services | "Request it under Tools", which is gone (V-8) | next | — |
 | Services | 16 px-wide destructive ✕ (V-9) | next | — |
 | Card maker | Sheets at 86 % (V-10) | #7928 / #7897 (never #7860) | Q1 |
-| Chat | Compose doors land on Details inside the client (H-1) | PR-CHAT | — |
+| Chat | Compose doors land on Details inside the client (H-1) | #7951 | — |
 | Chat | Failed "Confirm received" is silent (H-2) | not shipped | Q3 |
 | Chat | Pax decline audited when the update failed (H-3) | next | — |
 | Chat | "None yet" / "No date yet" on refused reads (H-4, H-5) | next / #7870 | — |
@@ -214,7 +217,7 @@ Every new guard was sabotage-checked: restoring the `origin/main` source turns i
 | Prints | Switches drawn off while unread; 34 px Save links (P-1, P-2) | #7925 | — |
 | Prints | "Back to Promote" from Prints (P-3) | next | — |
 | Badges | The five-badge page is not mounted (B-1) | #7925 | — |
-| Plans | Refused read → "You are on Free" (L-1) | PR-PLANS | — |
+| Plans | Refused read → "You are on Free" (L-1) | #7949 | — |
 | Plans | Plus loses its own row when the catalogue read fails (L-2) | next | — |
 | Plans | "Send your payment" → 404 when the order insert fails (L-3) | not shipped | Q2 |
 | Plans | End date cut off at 390 px (L-7) | next | — |

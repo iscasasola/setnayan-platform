@@ -103,7 +103,7 @@ export type GenericOnboardingPayload = {
   refinements: Record<string, string[]>;
   /** Derived palette hexes (→ style_preferences.basic_moodboard). */
   basicMoodboard: string[] | null;
-  /** Up-to-2 area picks (→ style_preferences.search_areas). */
+  /** Up-to-3 area picks (owner 2026-11-17, Q15 → style_preferences.search_areas). */
   places: string[];
   /** Free deadline-timeline guidance opt-in (default true · → style_preferences.guidance_opt_in). */
   guidanceOptIn: boolean;

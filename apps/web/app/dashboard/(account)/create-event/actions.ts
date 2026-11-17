@@ -408,7 +408,7 @@ export async function createWeddingEvent(formData: FormData) {
       estimated_pax: capture.estimatedPax,
       budget_band: capture.budgetBand,
       estimated_budget_centavos: capture.estimatedBudgetCentavos,
-      // Location — up to 2 candidate areas (owner 2026-07-12: "location can be in
+      // Location — up to 3 candidate areas (owner 2026-11-17, Q15) (owner 2026-07-12: "location can be in
       // 2 places"): primary → region + venue centroid, all → search_areas.
       // Matches the wedding onboarding's screen-6 model.
       region: capture.region,

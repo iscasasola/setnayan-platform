@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bandRangePhp } from '@/lib/budget-band-money';
-import { resolveCreateCapture, type AreaResolver } from './create-event-capture';
+import { MAX_EVENT_AREAS, resolveCreateCapture, type AreaResolver } from './create-event-capture';
 import { BUDGET_BANDS_FALLBACK } from './budget-bands-shared';
 
 const BANDS = BUDGET_BANDS_FALLBACK;
@@ -44,13 +44,14 @@ test('location: 2 areas → primary drives region + geo, both become search_area
   assert.deepEqual(r.searchAreas, ['manila', 'tagaytay']);
 });
 
-test('location: capped at 2, de-duped', () => {
+test('location: capped at 3 (owner 2026-11-17, Q15), de-duped', () => {
   const r = resolveCreateCapture(
-    { locationAreasRaw: ['manila', 'manila', 'tagaytay', 'cebu'] },
+    { locationAreasRaw: ['manila', 'manila', 'tagaytay', 'cebu', 'baguio'] },
     BANDS,
     { resolveArea: RESOLVE },
   );
-  assert.deepEqual(r.searchAreas, ['manila', 'tagaytay']); // dedup + cap 2
+  assert.equal(MAX_EVENT_AREAS, 3);
+  assert.deepEqual(r.searchAreas, ['manila', 'tagaytay', 'cebu']); // dedup + cap 3
   assert.equal(r.region, 'ncr');
 });
 

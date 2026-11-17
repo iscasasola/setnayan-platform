@@ -333,3 +333,8 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
     }),
   };
 }
+
+/** The team rows the fixtures make, as the page makes them (`teamRows`) — for the shell's orders badge. */
+export function labTeamRows(o: LabBookedOptions) {
+  return teamRows(TEAM, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: labBookedNow(o) });
+}

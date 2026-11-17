@@ -7,7 +7,7 @@
  *   • type  → searches the curated cities FIRST, then the full PSGC set (every PH
  *             province/city/municipality — lazy-loaded so it never bloats the bundle)
  *   • "Near me" → device GPS re-sorts the curated cities nearest-first (haversine)
- * Couple picks up to 2 areas → chips. The pick scopes the reception-venue search;
+ * Couple picks up to 3 areas (owner 2026-11-17, Q15) → chips. The pick scopes the reception-venue search;
  * the parent derives the region label + venue coords from the primary pick.
  */
 
@@ -26,11 +26,13 @@ import {
 import type { PhPlace } from '../_data/ph-places';
 import { askLocationOnce } from '@/lib/location-ask';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { MAX_EVENT_AREAS } from '@/lib/create-event-capture';
 
 type Pos = { lat: number; lon: number };
 type Row = { c: WeddingCity; d: number | null };
 
-const MAX = 2;
+// 📍 Up to 3 areas (owner 2026-11-17, Q15) — the one cap the writer reads too.
+const MAX = MAX_EVENT_AREAS;
 const NCR_FALLBACK: Pos = { lat: 14.58, lon: 121.0 };
 
 export function LocationStep({
@@ -164,7 +166,8 @@ export function LocationStep({
     <>
       <div className="viewzone">
         <div className="eyebrow">Where</div>
-        <h1 className="q">Where will it be? Pick up to 2 areas.</h1>
+        <h1 className="q">Where will it be?</h1>
+        <p className="sub">Pick up to {MAX_EVENT_AREAS} areas.</p>
         <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">

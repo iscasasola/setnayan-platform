@@ -30,7 +30,7 @@ export type CreateCaptureInput = {
   windowEndRaw?: FormDataEntryValue | null;
   paxRaw?: FormDataEntryValue | null;
   budgetBandRaw?: FormDataEntryValue | null;
-  /** Up to 2 candidate area pick-keys (FormData.getAll('location_area')). */
+  /** Up to 3 candidate area pick-keys (FormData.getAll('location_area')). */
   locationAreasRaw?: (FormDataEntryValue | null)[];
 };
 
@@ -59,7 +59,7 @@ export type CreateCaptureFields = {
   /** Primary area's centroid → events.venue_latitude / _longitude. */
   venueLatitude: number | null;
   venueLongitude: number | null;
-  /** All picked area keys (max 2) → style_preferences.search_areas. */
+  /** All picked area keys (max 3) → style_preferences.search_areas. */
   searchAreas: string[];
 };
 
@@ -92,7 +92,12 @@ function validPax(raw: string): number | null {
   return Number.isInteger(n) && n > 0 && n <= MAX_PAX ? n : null;
 }
 
-const MAX_AREAS = 2;
+/**
+ * 📍 UP TO 3 AREAS (owner 2026-11-17, "Q15 - 3"; was 2 since 2026-06-05). The ONE cap every place picker and this
+ * writer read — the wedding location step, the non-wedding create form — so the screen and the save cannot disagree.
+ */
+export const MAX_EVENT_AREAS = 3;
+const MAX_AREAS = MAX_EVENT_AREAS;
 
 export function resolveCreateCapture(
   input: CreateCaptureInput,
@@ -156,7 +161,7 @@ export function resolveCreateCapture(
     if (dateCandidates.length > 0) dateMode = 'specific';
   }
 
-  // Location — up to 2 candidate area pick-keys (de-duped). The primary drives
+  // Location — up to 3 candidate area pick-keys (de-duped). The primary drives
   // region + venue centroid; all become search_areas. Resolution is injected so
   // this stays pure. Unknown keys resolve to null coords but still count as areas
   // (a couple may search a place the curated set doesn't geocode).

@@ -23,7 +23,7 @@
 import { useMemo, useRef, useState, type ComponentProps } from 'react';
 import { ServicesTakeover } from '@/app/dashboard/[eventId]/vendors/_components/services-takeover';
 import { BuildBody, BuildWritesStandInCtx, type BuildWrites } from '@/app/dashboard/[eventId]/vendors/_components/build-body';
-import { BookStandInCtx, BookThisBuild } from '@/app/dashboard/[eventId]/vendors/_components/book-this-build';
+import { BookStandInCtx } from '@/app/dashboard/[eventId]/vendors/_components/book-this-build';
 import type { FinalizeVendorResult } from '@/app/dashboard/[eventId]/vendors/actions';
 import { MerkadoGuardBanner } from '@/app/dashboard/[eventId]/vendors/_components/merkado-guard-banner';
 import { displayBuildTitle, planSaveAs, sortSavedBuilds } from '@/lib/named-builds';
@@ -185,6 +185,8 @@ export function LabSuppliersShell({
       <ServicesTakeover
         {...shell}
         bookedCount={bookedCount}
+        // 🛒 The cart badge, the page's way: picks in the build not yet asked (`buildCounts().toBook`).
+        cartCount={view.counts.toBook}
         tally={{ filled: view.counts.filled, total: view.counts.total, knownPhp: view.money.bookedPhp + view.money.toBookPhp, unpriced: view.money.unpriced }}
         buildBody={
           <BuildBody
@@ -192,18 +194,6 @@ export function LabSuppliersShell({
             view={view}
             basePath="/dev/suppliers-lab"
             guardSlot={picked > 0 ? <MerkadoGuardBanner guard={{ ok: true, issues: [] }} demand={[]} /> : null}
-            bookSlot={
-              <BookThisBuild
-                eventId={shell.eventId}
-                basePath="/dev/suppliers-lab"
-                inBuild={view.lines.filter((l) => l.pick || l.booked).length}
-                      picks={view.lines.flatMap((l) =>
-                  l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
-                    ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
-                    : [],
-                )}
-              />
-            }
           />
         }
       />

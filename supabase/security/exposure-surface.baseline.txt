@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7917
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     642
-#   col       5684
-#   policy    1160
+#   tpriv     643
+#   col       5698
+#   policy    1161
 #   view      10
 #   func      401
 #
@@ -27,6 +27,7 @@ tpriv	public.account_deletion_requests|authenticated	SIUD
 tpriv	public.admin_approval_requests|authenticated	SIUD
 tpriv	public.admin_audit_log|authenticated	SIUD
 tpriv	public.admin_data_access_log|authenticated	SIUD
+tpriv	public.admin_received_transactions|authenticated	S
 tpriv	public.anniversary_email_log|authenticated	SIUD
 tpriv	public.anniversary_headsup_log|authenticated	SIUD
 tpriv	public.anon_onboarding_ip_throttle|authenticated	SIUD
@@ -704,6 +705,20 @@ col	public.admin_data_access_log.admin_user_id	anon=- authenticated=SIU
 col	public.admin_data_access_log.context	anon=- authenticated=SIU
 col	public.admin_data_access_log.created_at	anon=- authenticated=SIU
 col	public.admin_data_access_log.surface	anon=- authenticated=SIU
+col	public.admin_received_transactions.amount_php	anon=- authenticated=S
+col	public.admin_received_transactions.channel	anon=- authenticated=S
+col	public.admin_received_transactions.created_at	anon=- authenticated=S
+col	public.admin_received_transactions.created_by	anon=- authenticated=S
+col	public.admin_received_transactions.left_reason	anon=- authenticated=S
+col	public.admin_received_transactions.match_kind	anon=- authenticated=S
+col	public.admin_received_transactions.matched_at	anon=- authenticated=S
+col	public.admin_received_transactions.matched_by	anon=- authenticated=S
+col	public.admin_received_transactions.matched_payment_id	anon=- authenticated=S
+col	public.admin_received_transactions.read_status	anon=- authenticated=S
+col	public.admin_received_transactions.received_at	anon=- authenticated=S
+col	public.admin_received_transactions.received_id	anon=- authenticated=S
+col	public.admin_received_transactions.reference	anon=- authenticated=S
+col	public.admin_received_transactions.reference_norm	anon=- authenticated=S
 col	public.anniversary_email_log.anniversary_year	anon=- authenticated=SIU
 col	public.anniversary_email_log.event_id	anon=- authenticated=SIU
 col	public.anniversary_email_log.resend_id	anon=- authenticated=SIU
@@ -6360,6 +6375,7 @@ policy	public.admin_approval_requests|admin_approval_requests_admin_write	mode=P
 policy	public.admin_audit_log|admin_audit_log_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.account_type = 'admin'::account_type))))) check=NULL
 policy	public.admin_audit_log|admin_audit_log_vendor_toggle_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((action = 'vendor_backend_count_toggle'::text) AND (actor_user_id = ( SELECT auth.uid() AS uid)))
 policy	public.admin_data_access_log|admin_data_access_log_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.admin_received_transactions|admin_received_transactions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
 policy	public.anniversary_email_log|anniversary_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.anniversary_headsup_log|anniversary_headsup_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.api_keys|api_keys_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL

@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
+import { dropReceived, leaveReceived, matchReceived } from './received';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
@@ -166,6 +167,28 @@ export async function approvePayment(formData: FormData) {
   // at its ceiling, and recording money an admin SAW arrive is approval with
   // the "I paid" step done on the customer's behalf.
   if (formData.get('intent') === 'record') return recordPaymentReceived(userId, q, formData);
+  // ── RECEIVED SCREENSHOTS FROM OUR BDO (owner 2026-11-17) ──────────────────
+  // Three more intent branches for the same reason as 'record': no new route.
+  // ⛔ 'received-match' approves ONLY because the admin pressed Match, and only
+  // through approvePaymentCore. Nothing matches by itself in this phase.
+  const intent = formData.get('intent');
+  if (intent === 'received-drop') {
+    await dropReceived(userId, formData);
+    revalidatePath('/admin/payments');
+    return;
+  }
+  if (intent === 'received-leave') {
+    await leaveReceived(formData);
+    revalidatePath('/admin/payments');
+    return;
+  }
+  if (intent === 'received-match') {
+    const res = await matchReceived(userId, formData, approvePaymentCore);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin/payouts');
+    after(() => revalidatePath('/dashboard', 'layout'));
+    redirect(deskUrl(q, res.notice, res.warn));
+  }
 
   const paymentId = formData.get('payment_id');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));

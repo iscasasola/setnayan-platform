@@ -1031,7 +1031,7 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
         </p>
       ) : null}
       <div className="flex items-baseline justify-between gap-2">
-        <p className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Your times{day ? ` · ${day}` : ''}</p>
+        <p className="home-k2">Your times{day ? ` · ${day}` : ''}</p>
         <InfoTip label="How these work" labelClassName="text-xs text-ink/70" align="end">
           Set your call time, when you arrive and when you’re done, even before the hosts build their program. Once they do,
           your arrival and finish slot in as moments in it, and the hosts can still move them.

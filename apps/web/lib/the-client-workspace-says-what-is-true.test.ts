@@ -196,6 +196,28 @@ test('+ · the client tabs speak in sentence case', () => {
   }
 });
 
+test('+b · every client-workspace section label draws through the one house label (.home-k2)', () => {
+  // Controller 17 Nov: one shared part per pattern — no second 13px label class beside `.home-k2`.
+  const labels: Array<[string, RegExp]> = [
+    [`${CLIENT}/_pages/payment.tsx`, /const H = 'home-k2\b/],
+    [`${CLIENT}/_components/client-refunds.tsx`, /const H = 'home-k2\b/],
+    [`${CLIENT}/_components/customer-money-fold.tsx`, /className="home-k2[^"]*">Waiting for you</],
+    [`${CLIENT}/_components/details-forms-door.tsx`, /className="home-k2">Forms · sent to/],
+    [`${CLIENT}/_components/hosts-list.tsx`, /className="home-k2">Hosts/],
+    [`${CLIENT}/_components/suppliers-list.tsx`, /className="home-k2">Suppliers on this event/],
+    [`${CLIENT}/_components/supplier-schedule.tsx`, /className="home-k2">Your times/],
+    [`${CLIENT}/_components/details-decisions.tsx`, /className="home-k2">Decisions/],
+    [`${CLIENT}/_components/details-decisions-list.tsx`, /labelClassName="home-k2"/],
+    [`${CLIENT}/_components/payment-asks-panel.tsx`, /className="home-k2[^"]*">Ask for a payment/],
+    [`${CLIENT}/_components/script-tab.tsx`, /labelAs="h3"\s+labelClassName="home-k2[^"]*"/],
+    [`${CLIENT}/_components/supplier-locks-section.tsx`, /className="home-k2[^"]*">Your locks/],
+    [`${CLIENT}/_components/day-check-line.tsx`, /<p className="home-k2[^"]*">\s*\{tip \?/],
+    [`${CLIENT}/_components/booth-poster-card.tsx`, /<h2 className="home-k2[^"]*">/],
+    [`${CLIENT}/_components/booth-studio-card.tsx`, /<h2 className="home-k2[^"]*">/],
+  ];
+  for (const [f, re] of labels) assert.match(read(f), re, `${f}: the section label is not the house label`);
+});
+
 test('3b · the Payment page says Overdue the same way Details and Chat do (render)', async () => {
   assert.equal(isPastDue('2026-11-13', '2026-11-17'), true);
   assert.equal(isPastDue('2026-11-17', '2026-11-17'), false, 'the due day itself is not overdue');

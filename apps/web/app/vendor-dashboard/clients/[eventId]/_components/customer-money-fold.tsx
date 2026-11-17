@@ -140,7 +140,7 @@ export function CustomerMoneyFold({
 
       {pending.length > 0 ? (
         <div data-customer-money-waiting={pending.length}>
-          <p className={`${H} mt-2`}>Waiting for you</p>
+          <p className="home-k2 !mb-0 !mt-2">Waiting for you</p>
           <ul role="list">
             {pending.map((p) => (
               <li key={p.paymentId} className="border-t border-ink/10 py-3 first:border-t-0" data-customer-money-pending={p.paymentId}>

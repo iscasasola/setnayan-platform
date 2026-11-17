@@ -67,7 +67,7 @@ export function BoothStudioCard({
   return (
     // 📐 Design template rule 2: a section, not a tinted card — a small label, the ⓘ for the explaining (rule 7).
     <div className="border-t border-ink/10 pt-4">
-      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-ink/70">
+      <h2 className="home-k2 !m-0 flex items-center gap-2">
         <Type aria-hidden className="h-4 w-4 text-terracotta" />
         <InfoTip label="Words on your booth" align="start">
           A few words for <em>this</em> wedding&rsquo;s guests. We draw them on your booth in the couple&rsquo;s own

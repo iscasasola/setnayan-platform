@@ -23,7 +23,7 @@ export function DetailsDecisions({
   if (!threadId) {
     return (
       <section data-details-decisions="" aria-label="Decisions">
-        <h3 className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Decisions · 0</h3>
+        <h3 className="home-k2">Decisions · 0</h3>
         <p className="py-2 text-xs text-ink/70" data-details-decisions-empty="">
           Nothing decided yet.
         </p>
@@ -34,7 +34,7 @@ export function DetailsDecisions({
     <Suspense
       fallback={
         <section data-details-decisions="" aria-label="Decisions" aria-busy="true">
-          <h3 className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Decisions</h3>
+          <h3 className="home-k2">Decisions</h3>
           <p className="py-2 text-xs text-ink/70" role="status">
             Loading…
           </p>

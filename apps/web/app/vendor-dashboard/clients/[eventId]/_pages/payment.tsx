@@ -96,7 +96,7 @@ export type PaymentPageProps = PickedPageProps & {
   refunds?: { eventVendorId: string; clientName: string; measured: boolean; rows: ClientRefundView[] };
 };
 
-const H = 'text-[13px] font-semibold text-ink/70';
+const H = 'home-k2 !mt-0 !mb-0';
 
 export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, asks, refunds }: PaymentPageProps) {
   if (!money) {

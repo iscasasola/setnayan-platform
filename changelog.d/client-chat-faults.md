@@ -18,4 +18,6 @@ Owner screenshot of the supplier's client "Debut 18" (booked, quote v1 ₱26,750
 
 Guards: `lib/the-client-chat-says-what-is-true.test.ts` and `lib/the-client-workspace-says-what-is-true.test.ts` (each guard was seen red when its fix was broken on purpose), plus overdue cases in `the-supplier-chat-gives-the-messages-room.test.ts` and the plan cases in `no-all-paid-without-a-booking.test.ts`.
 
+- **One house label.** Every section label in the client workspace now uses the shared `.home-k2` label (bold sentence case on supplier pages, from main's clean-look tokens), so there is no second 13px label style. Field labels, number captions and note meta lines keep their own small text. Guarded in `the-client-workspace-says-what-is-true.test.ts` (+b).
+
 SPEC IMPACT: None. These are bug fixes plus the already-approved clean-look rule.

@@ -35,7 +35,7 @@ export function DetailsDecisionsList({
       <InfoTip
         label={`Decisions · ${entries.length}`}
         labelAs="h3"
-        labelClassName="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70"
+        labelClassName="home-k2"
         align="start"
       >
         Every quote, meeting, payment and change with this couple collects here, each showing where it stands now. The

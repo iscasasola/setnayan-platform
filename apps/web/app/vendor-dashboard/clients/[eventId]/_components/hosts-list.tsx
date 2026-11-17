@@ -15,7 +15,7 @@ export function HostsList({ hosts }: { hosts: HostRow[] | undefined }) {
   if (hosts === undefined) return null;
   return (
     <section data-details-hosts="" aria-label="Hosts">
-      <p className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Hosts · in your shared chat</p>
+      <p className="home-k2">Hosts · in your shared chat</p>
       {hosts.length === 0 ? (
         <p className="text-[13px] text-ink/70">Nobody from the event is in the chat yet.</p>
       ) : (

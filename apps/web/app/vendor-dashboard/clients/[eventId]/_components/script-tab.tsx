@@ -221,7 +221,7 @@ export async function ScriptTab({
           <InfoTip
             label={`Get these right · ${attention.length}`}
             labelAs="h3"
-            labelClassName="text-[13px] font-semibold text-ink/70"
+            labelClassName="home-k2 !m-0"
             align="start"
           >
             {coupleName} asked for something specific on these moments. Everything else you can ad-lib.

@@ -196,9 +196,11 @@ test('(b) the arrival keeps the piece and the campaign through every inner door'
 });
 
 test('(b) the view writes its piece; the page hands the piece to both asks', () => {
-  const rec = code('lib/record-vendor-view.ts');
+  // 👁 Both doors (the live render and the cached copy's beacon) record through ONE recorder since W1-B15.
+  const rec = code('lib/shop-view-count.ts');
   assert.match(rec, /const via = materialViaOf\(input\.via\);/);
-  assert.match(rec, /utm: input\.utm \?\? null,\s*via,\s*viewer_hash: viewerHash,/);
+  assert.match(rec, /utm: input\.utm \?\? null,\s*via,\s*viewer_hash: shopViewerHash\(ctx\),/);
+  assert.match(code('lib/record-vendor-view.ts'), /await recordShopViewWith\(createAdminClient\(\), input, await readShopViewContext\(\{ mint: true \}\)\);/, 'the beacon hands the piece to the same recorder');
   const page = code('app/v/[slug]/page.tsx');
   assert.match(page, /source: viewSource,\s*utm: utmParam,\s*via: shopArrival\.via,/, 'the view row gets the piece');
   assert.match(page, /inquirySource=\{arrivalInquirySource\}\s*inquiryVia=\{shopArrival\.via\}\s*inquiryUtm=\{shopArrival\.utm\}/);
@@ -228,11 +230,11 @@ test('(b) a sign-up a piece brought is written once, by the service role, only f
   assert.equal(viewCountsAsSignup({ accountCreatedAt: '2026-11-16T11:30:00Z', via: null, utm: null }, at + 1), false, 'an untagged view names no piece');
   assert.equal(viewCountsAsSignup({ accountCreatedAt: null, via: 'card', utm: null }, at), false);
   assert.equal(viewCountsAsSignup({ accountCreatedAt: '2026-11-16T11:30:00Z', via: 'card', utm: null }, at - 1), false, 'a clock that says the account is from the future');
-  const rec = code('lib/record-vendor-view.ts');
-  assert.match(rec, /if \(user && !\(user\.is_anonymous \?\? false\)\) signedIn = \{ userId: user\.id, createdAt: user\.created_at \?\? null \};/, 'a guest pass is not a sign-up');
+  const rec = code('lib/shop-view-count.ts');
+  assert.match(code('lib/shop-view-context.ts'), /ctx\.accountCreatedAt = user && !\(user\.is_anonymous \?\? false\) \? \(user\.created_at \?\? null\) : null;/, 'a guest pass is not a sign-up');
   assert.match(
     rec,
-    /if \(signedIn && viewCountsAsSignup\(\{ accountCreatedAt: signedIn\.createdAt, via, utm \}, Date\.now\(\)\)\) \{\s*const \{ error: signupError \} = await admin\.from\('signup_attributions'\)\.upsert\(/,
+    /if \(ctx\.userId && viewCountsAsSignup\(\{ accountCreatedAt: ctx\.accountCreatedAt, via, utm \}, Date\.now\(\)\)\) \{\s*const \{ error: signupError \} = await admin\.from\('signup_attributions'\)\.upsert\(/,
   );
   assert.match(rec, /\{ onConflict: 'user_id', ignoreDuplicates: true \}/, 'the FIRST piece wins; a later one never rewrites it');
   assert.match(rec, /if \(signupError\) logQueryError\(/, 'a lost attribution is reported, never silent');

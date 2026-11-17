@@ -4,10 +4,13 @@
  * recordVendorProfileView — best-effort, fire-and-forget capture of a public
  * vendor-profile view (Wave 6 Quote-to-Booking Funnel · the VIEWS stage).
  *
- * CALL IT INSIDE Next 15 after():
+ * From a server action (the cached copy's beacon, the Find sheet's action) it may run inside Next 15 after():
  *
  *     import { after } from 'next/server';
  *     after(() => recordVendorProfileView({ vendorProfileId, source, ... }));
+ *
+ * ⚠ NOT from a Server Component's after(): Next refuses `headers()`/`cookies()` there, so it could not tell who is
+ * looking. A render reads `readShopViewContext()` first and hands it to `recordShopViewWith` (W1-B15).
  *
  * after() runs the work AFTER the response is flushed, so this NEVER blocks the
  * page render (cron-free per project_setnayan_cron_free). Every failure mode is
@@ -22,19 +25,11 @@
  *     for them), so a view can only be recorded through this audited path.
  */
 
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
-import { hashViewer } from '@/lib/vendor-funnel';
+import { recordShopViewWith } from '@/lib/shop-view-count';
+import { readShopViewContext } from '@/lib/shop-view-context';
 import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
 import { recordServiceCardView } from '@/lib/record-service-card-view';
-import { materialViaOf, utmOf, viewCountsAsSignup } from '@/lib/material-tags';
-import { logQueryError } from '@/lib/supabase/error-detect';
-
-/** Cookie that carries an opaque per-browser id for anonymous viewers. Set
- *  best-effort so repeat anonymous views from the same browser dedupe on the
- *  hash without ever identifying the person. */
-const ANON_VIEWER_COOKIE = 'sn_vw';
 
 type RecordVendorViewInput = {
   vendorProfileId: string;
@@ -70,85 +65,10 @@ export async function recordVendorProfileView(
     if (input.photoKey) return await recordPortfolioPhotoView(input.vendorProfileId, input.photoKey);
     if (input.serviceId) return await recordServiceCardView(input.vendorProfileId, input.serviceId);
 
-    // Resolve a viewer id WITHOUT persisting it raw. Prefer the auth user;
-    // fall back to an opaque anon-browser cookie. Either way we only ever
-    // store the hash.
-    let rawViewerId: string | null = null;
-    let signedIn: { userId: string; createdAt: string | null } | null = null;
-    try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) rawViewerId = `u:${user.id}`;
-      if (user && !(user.is_anonymous ?? false)) signedIn = { userId: user.id, createdAt: user.created_at ?? null };
-    } catch {
-      // auth read is best-effort
-    }
-
-    if (!rawViewerId) {
-      try {
-        const jar = await cookies();
-        const existing = jar.get(ANON_VIEWER_COOKIE)?.value;
-        if (existing) {
-          rawViewerId = `a:${existing}`;
-        } else {
-          // Mint a fresh opaque id. Best-effort: in a pure RSC render context
-          // cookie writes are allowed during after()'s deferred work; if the
-          // store is read-only we just skip the cookie (view still records,
-          // simply un-deduped for this browser).
-          const fresh = crypto.randomUUID();
-          rawViewerId = `a:${fresh}`;
-          try {
-            jar.set({
-              name: ANON_VIEWER_COOKIE,
-              value: fresh,
-              httpOnly: true,
-              sameSite: 'lax',
-              path: '/',
-              maxAge: 60 * 60 * 24 * 365,
-            });
-          } catch {
-            // read-only cookie store — fine
-          }
-        }
-      } catch {
-        // no cookie store — record an anonymous, un-deduped view
-      }
-    }
-
-    const viewerHash = rawViewerId ? hashViewer(rawViewerId) : null;
-
-    const via = materialViaOf(input.via);
-    const utm = utmOf(input.utm);
-    const admin = createAdminClient();
-    await admin.from('vendor_profile_views').insert({
-      vendor_profile_id: input.vendorProfileId,
-      event_id: input.eventId ?? null,
-      source: input.source ?? null,
-      utm: input.utm ?? null,
-      via,
-      viewer_hash: viewerHash,
-    });
-
-    // 📝 THE SIGN-UP A PIECE BROUGHT (owner 2026-11-16; the QR-stats "Registered" column). Signing up from the shop —
-    // the sign-in sheet over it, or the Google return — lands back on the same tagged address, so the first tagged
-    // view of a just-made account names the piece. First one wins (primary key on the user; a later piece never
-    // rewrites it). Service role only — no browser role may write the table (a person may only read their own row).
-    if (signedIn && viewCountsAsSignup({ accountCreatedAt: signedIn.createdAt, via, utm }, Date.now())) {
-      const { error: signupError } = await admin.from('signup_attributions').upsert(
-        {
-          user_id: signedIn.userId,
-          vendor_profile_id: input.vendorProfileId,
-          via,
-          src: typeof input.source === 'string' ? input.source.slice(0, 64) : null,
-          utm,
-        },
-        { onConflict: 'user_id', ignoreDuplicates: true },
-      );
-      // Best-effort like the view itself, but never silent: a lost sign-up attribution is reported.
-      if (signupError) logQueryError('recordVendorProfileView.signupAttribution', signupError, { vendorProfileId: input.vendorProfileId }, 'graceful_degrade');
-    }
+    // 👁 W1-B15: a bot, the shop's own people and the same device again are not "a couple who opened your page"
+    // (`lib/shop-view-count.ts`). This is the browser's door (the cached copy's beacon) — an action may read the
+    // request and set the cookie. The live render reads the same facts BEFORE `after()` (`readShopViewContext`).
+    await recordShopViewWith(createAdminClient(), input, await readShopViewContext({ mint: true }));
   } catch {
     // Fully best-effort — a failed view capture must never break a render.
   }

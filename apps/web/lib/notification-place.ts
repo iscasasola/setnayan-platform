@@ -166,15 +166,20 @@ export function resolveNotificationPlace(
 }
 
 /**
- * The ONE letter an event's notification mark draws (the approved drawing): the first letter of its monogram, else
- * of its name. "M & J" at 38px overflowed the tile and clipped the J; the full monogram stays everywhere else.
+ * The words an event's notification face takes its INITIALS from (owner 17 Nov 2026, live tray: "show … its initials"):
+ * its monogram text, else its name, with every word that holds no letter or digit dropped ("&", "/", "·"). The row
+ * draws `deriveVendorInitials()` of this — the one initials rule the shop face uses — so "Indalecio & Claire" is "IC"
+ * and "M & J" is "MJ", never "I&". Null when nothing is left: the row draws "?".
+ *
+ * ⚠ It drew ONE letter until 17 Nov ("M & J" at 20px overflowed the tile). In Hanken Grotesk, which ships no italic,
+ * the italic "I" of "Indalecio" was a synthesised slanted bar — the owner read it as a "/" placeholder.
  */
-export function placeMarkLetter(event: { monogram_text: string | null; display_name: string | null }): string {
+export function placeMarkWords(event: { monogram_text: string | null; display_name: string | null }): string | null {
   for (const source of [event.monogram_text, event.display_name]) {
-    const ch = Array.from(source ?? '').find((c) => /[\p{L}\p{N}]/u.test(c));
-    if (ch) return ch.toLocaleUpperCase();
+    const words = (source ?? '').split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+    if (words.length) return words.map((w) => Array.from(w).filter((c) => /[\p{L}\p{N}'’]/u.test(c)).join('')).join(' ');
   }
-  return '?';
+  return null;
 }
 
 // ── the words ─────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -226,6 +226,10 @@ export const REQUIRED_DATA_SUBJECT_CATEGORIES: readonly DataSubjectCategoryKey[]
 export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> = {
   api_keys: 'The label an integration is given ("Zapier prod"), not a person.',
   communities: 'The name of a group, not of a person.',
+  vendor_pay_plans:
+    'The name a shop gives one of its saved pay plans ("My 3-step plan") — Payment Strategies, Card Maker part 2, migration 20271350884376. Keyed to the shop, never to a couple; it names no person.',
+  service_included_templates:
+    'The name of one of Setnayan\'s starting "What\'s included" lists for a service ("Catering basics") — Quick Forms, migration 20271351904391. Platform content; it names no person.',
   vendor_offers:
     'The name a shop gives one of its offers ("Shop-wide 10%", "Early bird · a year ahead") — the Offer Maker, Build 6 Lane D, migration 20271336923559. Shop marketing copy keyed to the shop, never to a couple; it names no person.',
   events:

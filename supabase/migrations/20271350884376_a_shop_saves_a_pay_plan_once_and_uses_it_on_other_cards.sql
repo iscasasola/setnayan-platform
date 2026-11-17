@@ -78,6 +78,7 @@ CREATE POLICY vendor_pay_plans_admin_all
 
 REVOKE ALL ON public.vendor_pay_plans FROM anon;
 -- Retire, never delete, from a browser: Undo needs the row.
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.vendor_pay_plans FROM authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.vendor_pay_plans TO authenticated;
 
 COMMENT ON TABLE public.vendor_pay_plans IS
@@ -112,6 +113,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- A trigger body only: nobody calls it (the house pattern, e.g. only_a_branch_copy_sets_branch_copy_of).
+REVOKE ALL ON FUNCTION public.a_card_follows_only_its_own_shops_pay_plan() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS a_card_follows_only_its_own_shops_pay_plan ON public.vendor_services;
 CREATE TRIGGER a_card_follows_only_its_own_shops_pay_plan

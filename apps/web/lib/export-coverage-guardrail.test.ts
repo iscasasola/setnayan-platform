@@ -404,6 +404,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'reason, not because the table exists.',
   reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
   site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  service_included_templates:
+    'Setnayan’s starting "What’s included" lists per service (Quick Forms) — updated_by is a staff actor; a template holds no user’s data.',
   form_templates:
     'Admin-authored "Suggested for your service" form templates — updated_by is a staff actor; a template holds no user’s data.',
   platform_compliance_facts:

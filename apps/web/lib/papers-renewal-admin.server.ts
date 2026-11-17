@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PAPERS_LAPSED_AUDIT_ACTION } from '@/lib/papers-lapse';
 import { BADGE_REMINDER_DAYS, manilaDateKey } from '@/lib/verified-badge';
-import { adminPaperLines, renewalBucket, type RenewalBucket } from '@/lib/papers-renewal';
+import { RENEWAL_WEEK_DAYS, RENEWED_NEWS_DAYS, adminPaperLines, renewalBucket, type RenewalBucket } from '@/lib/papers-renewal';
+import { countAsksBefore } from '@/lib/papers-renewal.server';
 
 /**
  * 📄 THE ADMIN'S RENEWAL VIEW — §5 of the approved "Papers renewal" design: one Renewals filter on the shipped
@@ -29,18 +30,29 @@ export type RenewalListRow = {
   papers: ReturnType<typeof adminPaperLines> | null;
 };
 
-/** Every shop under one of the three Renewals chips. null = the read was refused. */
-export async function readRenewalsList(now: Date = new Date()): Promise<RenewalListRow[] | null> {
+/** How many shops one read lists; past it the list says "200+", never a silent cut. */
+export const RENEWALS_LIST_CAP = 200;
+
+/** The Renewals list, and whether more shops matched than it shows. */
+export type RenewalsList = { rows: RenewalListRow[]; more: boolean };
+
+/**
+ * Every shop under one of the three Renewals chips. null = a read was refused — the shops OR their papers, because
+ * "Renewed" is decided by the latest approved application, so without it the chips cannot be counted honestly.
+ */
+export async function readRenewalsList(now: Date = new Date()): Promise<RenewalsList | null> {
   // The SERVICE ROLE, inline: the renewal day is a trust column no session reads (20271217955839).
   const admin = createAdminClient();
-  const weekAhead = new Date(now.getTime() + 7 * 86_400_000).toISOString();
-  const twoWeeksAgo = new Date(now.getTime() - 14 * 86_400_000).toISOString();
+  // The windows are the chips' own: "Due in N days" is the last reminder window, "Renewed" the news line's two weeks.
+  const weekAhead = new Date(now.getTime() + RENEWAL_WEEK_DAYS * 86_400_000).toISOString();
+  const twoWeeksAgo = new Date(now.getTime() - RENEWED_NEWS_DAYS * 86_400_000).toISOString();
   const shops = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, business_name, location_city, verification_state, next_renewal_due_at, papers_lapsed_at, last_verified_at')
     .eq('verification_state', 'verified')
     .or(`papers_lapsed_at.not.is.null,next_renewal_due_at.lte.${weekAhead},last_verified_at.gte.${twoWeeksAgo}`)
-    .limit(200);
+    .order('vendor_profile_id', { ascending: true })
+    .limit(RENEWALS_LIST_CAP + 1);
   if (shops.error) {
     logQueryError('papers-renewal-admin: shops', shops.error);
     return null;
@@ -54,15 +66,22 @@ export async function readRenewalsList(now: Date = new Date()): Promise<RenewalL
     papers_lapsed_at: string | null;
     last_verified_at: string | null;
   };
-  const rows = (shops.data ?? []) as Shop[];
-  if (rows.length === 0) return [];
+  const all = (shops.data ?? []) as Shop[];
+  const more = all.length > RENEWALS_LIST_CAP;
+  const rows = all.slice(0, RENEWALS_LIST_CAP);
+  if (rows.length === 0) return { rows: [], more: false };
   const apps = await admin
     .from('vendor_verification_applications')
     .select('vendor_profile_id, application_type, status, doc_uploads, created_at')
     .in('vendor_profile_id', rows.map((r) => r.vendor_profile_id))
     .eq('status', 'approved')
     .order('created_at', { ascending: false });
-  if (apps.error) logQueryError('papers-renewal-admin: applications', apps.error);
+  if (apps.error) {
+    // Without the applications "Renewed" cannot be told apart, so the whole list says "Couldn't load" — never
+    // "Renewed · 0".
+    logQueryError('papers-renewal-admin: applications', apps.error);
+    return null;
+  }
   const latest = new Map<string, { application_type: string | null; doc_uploads: Record<string, unknown> | null }>();
   for (const a of (apps.data ?? []) as Array<{ vendor_profile_id: string; application_type: string | null; doc_uploads: Record<string, unknown> | null }>) {
     if (!latest.has(a.vendor_profile_id)) latest.set(a.vendor_profile_id, a);
@@ -81,22 +100,30 @@ export async function readRenewalsList(now: Date = new Date()): Promise<RenewalL
       dueAt: r.next_renewal_due_at,
       lapsedAt: r.papers_lapsed_at,
       lastVerifiedAt: r.last_verified_at,
-      papers: apps.error ? null : adminPaperLines(app?.doc_uploads ?? null, today),
+      papers: adminPaperLines(app?.doc_uploads ?? null, today),
     });
   }
-  return out;
+  return { rows: out, more };
 }
 
 export type RenewalRecord = {
   bookings: number | null;
+  /** Booking asks still waiting on the shop from before the lapse; null = not read, or not lapsed. */
+  asksBefore: number | null;
+  /** The shop's contact email, for "Message the shop"; null = none on file or not read. */
+  contactEmail: string | null;
   reminders: Array<{ at: string; stage: number | 'lapse' }> | null;
   papers: ReturnType<typeof adminPaperLines> | null;
 };
 
 /** The shop record's renewal block: bookings that carry on, every reminder sent, the papers on file. */
-export async function readRenewalRecord(vendorProfileId: string, now: Date = new Date()): Promise<RenewalRecord> {
+export async function readRenewalRecord(
+  vendorProfileId: string,
+  now: Date = new Date(),
+  lapsedAt: string | null = null,
+): Promise<RenewalRecord> {
   const admin = createAdminClient();
-  const [bookings, said, app] = await Promise.all([
+  const [bookings, said, app, asksBefore, shop] = await Promise.all([
     admin
       .from('event_vendors')
       .select('event_id', { count: 'exact', head: true })
@@ -117,13 +144,19 @@ export async function readRenewalRecord(vendorProfileId: string, now: Date = new
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    lapsedAt ? countAsksBefore(admin, vendorProfileId, lapsedAt, now) : Promise.resolve(null),
+    admin.from('vendor_profiles').select('contact_email').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
   ]);
+  if (shop.error) logQueryError('papers-renewal-admin: contact email', shop.error, { vendorProfileId });
+  const email = ((shop.data as { contact_email?: string | null } | null)?.contact_email ?? '').trim();
   if (bookings.error) logQueryError('papers-renewal-admin: bookings', bookings.error, { vendorProfileId });
   if (said.error) logQueryError('papers-renewal-admin: reminders', said.error, { vendorProfileId });
   if (app.error) logQueryError('papers-renewal-admin: papers', app.error, { vendorProfileId });
   const uploads = ((app.data as { doc_uploads?: Record<string, unknown> | null } | null)?.doc_uploads ?? null) as Record<string, unknown> | null;
   return {
     bookings: bookings.error ? null : (bookings.count ?? null),
+    asksBefore,
+    contactEmail: shop.error || !email.includes('@') ? null : email,
     reminders: said.error
       ? null
       : ((said.data ?? []) as Array<{ action: string; metadata: { stage?: unknown } | null; created_at: string }>).map((r) => ({

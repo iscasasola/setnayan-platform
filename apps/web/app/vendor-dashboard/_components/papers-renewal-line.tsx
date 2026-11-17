@@ -25,7 +25,7 @@ export async function PapersRenewalLine({ supabase, vendorProfileId }: { supabas
   const spec =
     renewalNotice({ verified: view.verified, dueAt: view.dueAt, lapsedAt: view.lapsedAt }, now, {
       bookings: view.bookings,
-      asksBefore: null,
+      asksBefore: view.asksBefore ?? null,
     }) ??
     (view.renewed
       ? renewedNotice({ renewedAt: view.lastVerifiedAt, nextDueAt: view.dueAt, verified: view.verified, lapsedAt: view.lapsedAt }, now)

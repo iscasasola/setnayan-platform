@@ -23,7 +23,9 @@
 
 import { dayMonth } from '@/lib/format-date';
 import { formatCount } from '@/lib/format-number';
-import { badgeDeadlineMs, manilaDateKey } from '@/lib/verified-badge';
+import { BADGE_REMINDER_STAGES, badgeDeadlineMs, manilaDateKey } from '@/lib/verified-badge';
+import { MAX_TRIES } from '@/lib/paper-intake-shared';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import type { NoticeKind, NoticeTone } from '@/lib/notices';
 
 const DAY_MS = 86_400_000;
@@ -38,6 +40,10 @@ export type RenewalPageFacts = {
   renewed: boolean;
   /** Active bookings that carry on through a lapse; null = not read. */
   bookings: number | null;
+  /** Booking asks still waiting on the shop that came in before the lapse; null = not read (or not lapsed). */
+  asksBefore?: number | null;
+  /** The papers typed by hand in the renewal that is waiting on a person; null = not read. */
+  handTyped?: RenewalSlotKey[] | null;
 };
 
 /** Which card heads the verification page during a renewal, or null for the page as it always was. */
@@ -78,11 +84,17 @@ export function renewalStage(f: RenewalFacts, now: Date): { stage: RenewalStage;
   // Counted in Manila CALENDAR days, as the drawing counts them: 29 Jan → 60 days, 28 Feb → 30, 23 Mar → 7. The
   // renewal day itself still has its last hours, so it reads "1 day", never "0".
   const daysLeft = Math.max(1, Math.round((Date.parse(manilaDateKey(new Date(ms))) - Date.parse(manilaDateKey(now))) / DAY_MS));
-  if (daysLeft <= 7) return { stage: 'week', daysLeft };
-  if (daysLeft <= 30) return { stage: 'thirty', daysLeft };
-  if (daysLeft <= 60) return { stage: 'sixty', daysLeft };
+  // The windows are the daily pass's own reminder days (`BADGE_REMINDER_STAGES`, widest first), never typed here.
+  if (daysLeft <= RENEWAL_WEEK_DAYS) return { stage: 'week', daysLeft };
+  if (daysLeft <= RENEWAL_THIRTY_DAYS) return { stage: 'thirty', daysLeft };
+  if (daysLeft <= RENEWAL_SIXTY_DAYS) return { stage: 'sixty', daysLeft };
   return null;
 }
+
+/** The three reminder windows, read off `BADGE_REMINDER_STAGES` (60 · 30 · 7 today). */
+export const RENEWAL_SIXTY_DAYS = BADGE_REMINDER_STAGES[0]!;
+export const RENEWAL_THIRTY_DAYS = BADGE_REMINDER_STAGES[1]!;
+export const RENEWAL_WEEK_DAYS = BADGE_REMINDER_STAGES[BADGE_REMINDER_STAGES.length - 1]!;
 
 /** "30 March" — the renewal day as the drawing writes it. */
 export function renewalDayWords(dueAt: string): string {
@@ -252,9 +264,27 @@ export const FREE_UNVERIFIED = {
 
 export const RENEWAL_WAITING = {
   title: 'Waiting for Setnayan',
-  sub: 'A person is checking your new permit',
-  body: 'We couldn’t read it after three tries, so we’ll compare what you typed by hand.',
+  sub: 'A person is checking your papers',
 } as const;
+
+const SLOT_WORD: Record<RenewalSlotKey, string> = {
+  dti_certificate: 'DTI or SEC paper',
+  bir_2303: 'BIR 2303',
+  mayors_permit: 'permit',
+};
+
+/**
+ * The "Waiting" card's sentence, from what REALLY happened: only papers typed by hand after the last try
+ * (`MAX_TRIES`) are said to have been unreadable. Anything else that sent the papers to a person is said plainly,
+ * never as a read failure that did not happen. `null` = the papers were not read → no reason is given.
+ */
+export function renewalWaitingBody(handTyped: readonly RenewalSlotKey[] | null): string {
+  if (!handTyped || handTyped.length === 0) return 'A person will look over your papers before your badge comes back.';
+  const words = handTyped.map((k) => SLOT_WORD[k]);
+  const list = words.length === 1 ? words[0]! : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+  const tries = `${formatCount(MAX_TRIES)} ${MAX_TRIES === 1 ? 'try' : 'tries'}`;
+  return `We couldn’t read your ${list} after ${tries}, so a person will compare what you typed by hand.`;
+}
 
 export const RENEWED_PAGE = {
   title: 'You’re verified',
@@ -288,9 +318,12 @@ export function stillGoodLine(expirationDate: string | null | undefined): string
   return expirationDate ? `Still good · valid until ${paperDay(expirationDate)}` : 'Still good · no end date';
 }
 
-/** A paper that ran out: "Ended 31 Dec 2026 — upload this year's". */
-export function endedLine(endedOn: string): string {
-  return `Ended ${paperDay(endedOn)} — upload this year’s`;
+/**
+ * A paper that ran out: "Ended 31 Dec 2026 — upload this year's". With no end date ON FILE (a permit that was typed
+ * by hand, or never read) the line says so — it never prints a date nobody read.
+ */
+export function endedLine(endedOn: string | null): string {
+  return endedOn ? `Ended ${paperDay(endedOn)} — upload this year’s` : 'End date not on file — upload this year’s';
 }
 
 /** A paper read clean now: "Read ✓ · 2027-03158 · valid until 31 Dec 2027" (the number only on the permit). */
@@ -325,7 +358,7 @@ export function renewalButtonLabel(endedSlots: readonly RenewalSlotKey[]): strin
 // ---------------------------------------------------------------------------
 
 /** A kept paper carries this mark (so its row reads "Still good"); a paper that ran out leaves a marker with its date. */
-export type RenewalMark = { kept_from: string } | { ended_on: string };
+export type RenewalMark = { kept_from: string } | { ended_on: string | null };
 
 type SlotLike = {
   r2_key?: string;
@@ -365,8 +398,13 @@ export function seedRenewalDraft(
     if (s?.r2_key && model && !s.manual && !paperEnded(key, exp, todayManila)) {
       out[key] = { ...s, renewal: { kept_from: approvedApplicationId } satisfies RenewalMark };
     } else {
-      const ended = exp ?? (key === 'mayors_permit' ? `${Number(todayManila.slice(0, 4)) - 1}-12-31` : null);
-      out[key] = { attempts: 0, ...(ended ? { renewal: { ended_on: ended } satisfies RenewalMark } : {}) };
+      // The date it ended is the one READ off it, or none: a permit with no read end date says "End date not on
+      // file", never an invented 31 December.
+      const ended = exp ?? null;
+      out[key] = {
+        attempts: 0,
+        ...(ended || key === 'mayors_permit' ? { renewal: { ended_on: ended } satisfies RenewalMark } : {}),
+      };
     }
   }
   return out;
@@ -375,13 +413,13 @@ export function seedRenewalDraft(
 /** The standing of one slot in a renewal draft, or null when the slot is not part of a renewal. */
 export function paperStanding(slot: RenewalSlotKey, raw: unknown, renewing: boolean): PaperStanding | null {
   if (!renewing || !raw || typeof raw !== 'object') return null;
-  const s = raw as SlotLike & { renewal?: Partial<{ kept_from: string; ended_on: string }> };
+  const s = raw as SlotLike & { renewal?: Partial<{ kept_from: string; ended_on: string | null }> };
   const model = (s.evidence?.model ?? null) as { expirationDate?: string | null; registrationNumber?: string | null } | null;
   if (s.r2_key && model && !s.manual) {
     if (s.renewal?.kept_from) return { kind: 'still_good', line: stillGoodLine(model.expirationDate) };
     return { kind: 'read', line: readLine(slot, model.registrationNumber, model.expirationDate) };
   }
-  if (!s.r2_key && s.renewal?.ended_on) return { kind: 'ended', line: endedLine(s.renewal.ended_on) };
+  if (!s.r2_key && s.renewal && 'ended_on' in s.renewal) return { kind: 'ended', line: endedLine(s.renewal.ended_on ?? null) };
   return null;
 }
 
@@ -419,7 +457,8 @@ export function coupleShopRenewing(row: { verification_state?: unknown; papers_c
 // Ruling (2) · a paid plan's unused days WAIT
 // ---------------------------------------------------------------------------
 
-const PAID = new Set(['solo', 'pro', 'enterprise']);
+/** A PAID plan is Supplier Plus or higher on the one tier ladder (`lib/vendor-tier-caps.ts`), never a typed list. */
+const isPaidPlan = (tier: string): boolean => isTierAtLeast(tier, 'solo');
 
 /** What the lapse does to the plan: the free "verified" plan drops to free; a PAID plan is held with its days left. */
 export type PlanAtLapse =
@@ -430,7 +469,7 @@ export type PlanAtLapse =
 export function planHoldAtLapse(row: { tier_state?: string | null; tier_expires_at?: string | null }, now: Date): PlanAtLapse {
   const tier = row.tier_state ?? null;
   if (tier === 'verified') return { kind: 'free_drop' };
-  if (!tier || !PAID.has(tier)) return { kind: 'none' };
+  if (!tier || !isPaidPlan(tier)) return { kind: 'none' };
   const end = row.tier_expires_at ? Date.parse(row.tier_expires_at) : NaN;
   // No end date = a plan with no clock (comped for good): it waits whole and comes back whole.
   if (!Number.isFinite(end)) return { kind: 'hold', tier, heldMs: null };
@@ -441,7 +480,7 @@ export function planHoldAtLapse(row: { tier_state?: string | null; tier_expires_
 
 /** On renewal: the held plan comes back with the days it had left, counted from the approval. */
 export function planBackAtRenewal(held: { tier?: unknown; held_ms?: unknown } | null | undefined, now: Date): { tier_state: string; tier_expires_at: string | null } | null {
-  if (!held || typeof held.tier !== 'string' || !PAID.has(held.tier)) return null;
+  if (!held || typeof held.tier !== 'string' || !isPaidPlan(held.tier)) return null;
   const ms = typeof held.held_ms === 'number' && Number.isFinite(held.held_ms) && held.held_ms > 0 ? held.held_ms : null;
   return { tier_state: held.tier, tier_expires_at: ms === null ? null : new Date(now.getTime() + ms).toISOString() };
 }
@@ -471,7 +510,7 @@ export function renewalBucket(
 
 export const RENEWAL_BUCKET_LABEL: Record<RenewalBucket, string> = {
   lapsed: 'Free · Unverified',
-  due_week: 'Due in 7 days',
+  due_week: `Due in ${RENEWAL_WEEK_DAYS} days`,
   renewed: 'Renewed',
 };
 
@@ -489,7 +528,7 @@ export function adminPaperLines(uploads: Record<string, unknown> | null | undefi
     const name = slot === 'dti_certificate' && model.registry === 'sec' ? 'SEC' : word;
     const num = model.registrationNumber ? ` ${model.registrationNumber}` : '';
     if (paperEnded(slot, model.expirationDate ?? null, todayManila)) {
-      return { tag: 'Ended' as const, text: `${name}${num} · ended ${model.expirationDate ? paperDay(model.expirationDate) : 'last year'}` };
+      return { tag: 'Ended' as const, text: `${name}${num} · ${model.expirationDate ? `ended ${paperDay(model.expirationDate)}` : 'end date not on file'}` };
     }
     return { tag: 'Read' as const, text: `${name}${num} · ${model.expirationDate ? `valid until ${paperDay(model.expirationDate)}` : 'no end date'}` };
   });
@@ -501,7 +540,10 @@ export function adminPapersSummary(lines: ReadonlyArray<{ tag: 'Read' | 'Ended' 
   return lines
     .map((l, i) => {
       if (l.tag === 'Read') return `${short[i]} ✓`;
-      if (l.tag === 'Ended') return `${short[i]} ${l.text.slice(l.text.indexOf('ended'))}`;
+      if (l.tag === 'Ended') {
+        const at = l.text.indexOf('ended ');
+        return `${short[i]} ${at >= 0 ? l.text.slice(at) : 'end date not on file'}`;
+      }
       return `${short[i]} —`;
     })
     .join(' · ');

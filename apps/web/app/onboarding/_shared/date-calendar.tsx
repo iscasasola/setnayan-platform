@@ -48,7 +48,7 @@ import { CalendarRange, ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide
 import { ActionButton } from '@/components/action-button';
 import { StepPick } from '@/app/onboarding/_shared/step-field';
 import { countNoun } from '@/lib/format-number';
-import { heatTier } from '@/lib/hot-date';
+import { heatTier, monthDemand } from '@/lib/hot-date';
 import {
   asksHowManyDays,
   clampDays,
@@ -59,6 +59,10 @@ import {
   optionOverlapping,
   optionWords,
   sharesDayOffer,
+  MAX_DATE_MONTHS,
+  MAX_WINDOW_DAYS,
+  cleanDateMonths,
+  monthWords,
 } from '@/lib/event-date-options';
 
 /**
@@ -69,7 +73,9 @@ import {
  * not depend on either flow's state type.
  */
 export type DateCalendarValue = {
-  dateMode?: 'specific' | 'window';
+  dateMode?: 'specific' | 'window' | 'months';
+  /** 🗓 "Some months" (owner 2026-11-17): first-of-month days, up to 3 — reported only where `allowMonths`. */
+  dateMonths?: string[];
   dateCandidates?: string[];
   windowStart?: string | null;
   windowEnd?: string | null;
@@ -79,7 +85,28 @@ export type DateCalendarValue = {
 
 /* ── date helpers (prototype initCal) ── */
 const DAY = 86400000;
-export const MAXSPAN = 29;
+/** Days BETWEEN a window's start and end — one less than the inclusive cap ("A range · up to 3 months"). */
+export const MAXSPAN = MAX_WINDOW_DAYS - 1;
+
+/**
+ * 🌦 THE MONTH LINES (owner 2026-11-17, drawing v15 "Popular months in the Philippines" — approved as drawn, Q5; the
+ * controller checks the weather words against PAGASA). Busy and quiet come from the calendar's own demand rule
+ * (`heatTier`, the shades this calendar paints); the words are the drawing's, by month.
+ */
+export const MONTH_LINE: Readonly<Record<number, string>> = {
+  11: 'Peak: the most in demand. Prices run highest.',
+  0: 'Peak: the most in demand. Prices run highest.',
+  1: 'In demand around Valentine’s. Dry and cool.',
+  3: 'Popular. Summer heat; good for beach and garden.',
+  4: 'Popular. Summer heat; good for beach and garden.',
+  5: 'Quiet. The rainy season starts in June; better rates.',
+  6: 'Quiet. The rainy season starts in June; better rates.',
+  7: 'Quiet. The rainy season starts in June; better rates.',
+  8: 'Quiet. The rainy season starts in June; better rates.',
+  9: 'Popular again as the rains ease.',
+  10: 'Popular again as the rains ease.',
+  // March has no line in the drawing — none is written for it.
+};
 export const MAXMULTI = 4;
 const CLUSTER = 90;
 export const M_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -115,8 +142,10 @@ export function DateCalendar({
   days = 1,
   maxDays = 1,
   sayFloor = false,
+  allowMonths = false,
+  months = [],
 }: {
-  mode: 'specific' | 'window';
+  mode: 'specific' | 'window' | 'months';
   candidates: string[];
   windowStart: string | null;
   windowEnd: string | null;
@@ -157,8 +186,19 @@ export function DateCalendar({
    * Opt-in, so the onboarding flows (which say it at Continue) are unchanged; the Suppliers "A few dates" sheet asks.
    */
   sayFloor?: boolean;
+  /**
+   * 🗓 WHEN IS NEVER LEFT BLANK (owner 2026-11-17, Q1 — "when · where · guests required for every type, each with
+   * 'Not sure yet' ending in a pick"). Opt-in (the onboarding flows): the dropdown gains "Some months" (up to 3, apart)
+   * and "Not sure yet", which opens the same month list with the season lines — it ends in a 1–3 month pick. With it on,
+   * "Not decided yet" (the blank) is not offered. The Suppliers date sheet does not pass it and is unchanged.
+   */
+  allowMonths?: boolean;
+  /** The months already picked (`YYYY-MM-01`), when the mode is 'months'. */
+  months?: string[];
 }) {
   const [notYet, setNotYet] = useState(false);
+  /* "Not sure yet" — the month list, led by the season guide (allowMonths only). */
+  const [guide, setGuide] = useState(false);
   /* N — 1 unless the type asks "How many days?" (a 1-day type, or a caller that does not ask, is today's calendar). */
   const stepShown = asksHowManyDays(maxDays);
   const n = stepShown ? clampDays(days, maxDays) : 1;
@@ -249,7 +289,7 @@ export function DateCalendar({
     [onChange],
   );
 
-  const setMode = (m: 'specific' | 'window') => {
+  const setMode = (m: 'specific' | 'window' | 'months') => {
     // Switching to the flexible window seeds a starter range to nudge (responds to
     // the explicit mode choice). Specific mode never auto-seeds a date — the screen
     // opens with nothing selected (owner 2026-06-05: no prefilled onboarding values).
@@ -534,12 +574,74 @@ export function DateCalendar({
     </div>
   ) : null;
 
+  /* 🗓 The months a host can pick: from the first pickable month, two years of them. */
+  const monthChoices = useMemo(() => {
+    const out: string[] = [];
+    const d = new Date(minD.getFullYear(), minD.getMonth(), 1);
+    for (let i = 0; i < 24; i++) {
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+      d.setMonth(d.getMonth() + 1);
+    }
+    return out;
+  }, [minD]);
+  const picked = cleanDateMonths(months);
+  const toggleMonth = (iso: string) => {
+    const has = picked.includes(iso);
+    if (!has && picked.length >= MAX_DATE_MONTHS) {
+      setRefuse(`Up to ${MAX_DATE_MONTHS} months — tap one to swap.`);
+      return;
+    }
+    setRefuse(null);
+    const next = has ? picked.filter((m) => m !== iso) : cleanDateMonths([...picked, iso]);
+    onChange({ dateMode: 'months', dateMonths: next });
+  };
+  const DEMAND_WORD = ['Quiet', 'Popular', 'In demand'] as const;
+  const monthList =
+    mode === 'months' ? (
+      <div className="sn-datemonths" data-datecal-months="">
+        {guide ? <p className="sn-datemonths-head">Popular months in the Philippines · pick 1–3</p> : null}
+        <ul className="sn-datemonths-list" aria-label="Months">
+          {monthChoices.map((iso) => {
+            const m = Number(iso.slice(5, 7)) - 1;
+            const on = picked.includes(iso);
+            const tier = monthDemand(m);
+            return (
+              <li key={iso}>
+                <button /* button-ok: a month cell — the month grid itself, not an action */
+                  type="button"
+                  className={`sn-datemonth${on ? ' on' : ''}`}
+                  aria-pressed={on}
+                  data-datecal-month={iso}
+                  onClick={() => toggleMonth(iso)}
+                >
+                  <b>{monthWords(iso)}</b>
+                  <small>
+                    {DEMAND_WORD[tier]}
+                    {guide && MONTH_LINE[m] ? <> · {MONTH_LINE[m]}</> : null}
+                  </small>
+                  {on ? <span aria-hidden>✓</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ) : null;
+  const monthsPick =
+    mode === 'months'
+      ? picked.length === 0
+        ? guide
+          ? 'Not sure yet? Pick 1–3 months — we’ll narrow it down with you.'
+          : 'Pick up to 3 months, apart.'
+        : `Your months: ${picked.map(monthWords).join(' · ')}`
+      : null;
+
   const hint = chrome === 'wedding' ? 'micro' : 'sn-datecal-hint';
 
   const inner = (
     <>
       {stepper}
-      <div className="calpick">{pickHtml}</div>
+      <div className="calpick">{monthsPick ?? pickHtml}</div>
       {warn && <div className="rangewarn">{warn}</div>}
       {refuse ? (
         <p className="refuse" role="alert" data-datecal-refuse="">
@@ -552,7 +654,7 @@ export function DateCalendar({
           <ActionButton tone="neutral" icon={<X />} label="Keep my options" onClick={dismissOffer} />
         </div>
       ) : null}
-      <div className={hint}>{setRangeMsg}</div>
+      {mode === 'months' ? null : <div className={hint}>{setRangeMsg}</div>}
       {floorInView ? (
         <p className="floornote" data-event-date-floor="">
           {EVENT_DATE_FLOOR_MESSAGE}
@@ -563,13 +665,32 @@ export function DateCalendar({
       <div className="calmode-pick" data-datecal-mode="">
         <StepPick
           label="How sure are you of the date?"
-          value={notYet ? 'undecided' : mode}
-          options={[
-            { key: 'specific', label: 'Specific dates', hint: n > 1 ? '1–4 options' : '1–4 days' },
-            { key: 'window', label: 'Flexible window', hint: 'a range' },
-            ...(undecided ? [{ key: 'undecided', label: 'Not decided yet' }] : []),
-          ]}
+          value={notYet ? 'undecided' : mode === 'months' && guide ? 'unsure' : mode}
+          options={
+            allowMonths
+              ? [
+                  // 🗓 The four choices of drawing v15 (owner 2026-11-17) — never a blank.
+                  { key: 'specific', label: 'Specific dates', hint: n > 1 ? '1–4 options' : '1–4 days' },
+                  { key: 'window', label: 'A range', hint: 'up to 3 months' },
+                  { key: 'months', label: 'Some months', hint: 'up to 3, apart' },
+                  { key: 'unsure', label: 'Not sure yet', hint: 'we’ll help you pick' },
+                ]
+              : [
+                  { key: 'specific', label: 'Specific dates', hint: n > 1 ? '1–4 options' : '1–4 days' },
+                  { key: 'window', label: 'Flexible window', hint: 'a range' },
+                  ...(undecided ? [{ key: 'undecided', label: 'Not decided yet' }] : []),
+                ]
+          }
           onPick={(k) => {
+            if (k === 'months' || k === 'unsure') {
+              setNotYet(false);
+              setRefuse(null);
+              setOffer(null);
+              setGuide(k === 'unsure');
+              onChange({ dateMode: 'months', dateMonths: picked });
+              return;
+            }
+            setGuide(false);
             if (k === 'undecided') {
               setNotYet(true);
               setMulti([]);
@@ -583,10 +704,13 @@ export function DateCalendar({
             setRefuse(null);
             setOffer(null);
             setMode(k as 'specific' | 'window');
+            // Leaving "Some months" — the months stop counting (one mode is stored at a time).
+            if (mode === 'months') onChange({ dateMode: k as 'specific' | 'window', dateMonths: [] });
           }}
         />
       </div>
-      <div className="cal">
+      {monthList}
+      <div className="cal" hidden={mode === 'months'}>
         <div className="calhead">
           <ActionButton tone="neutral" quiet iconOnly icon={<ChevronLeft />} label="Previous month" onClick={prevMonth} disabled={atMin} />
           <div className="calmonth">{M_FULL[view.m]} {view.y}</div>

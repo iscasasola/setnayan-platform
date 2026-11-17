@@ -11,6 +11,15 @@
    inquiry data (founder-only today → it would be dead code). Mirrors the verified
    prototype Hot_Date_Heat_Calendar_Prototype_2026-06-09.html. */
 const HEAT_PEAK: Record<number, number> = { 11: 2, 0: 2, 1: 2, 10: 2, 3: 1, 4: 1, 9: 1 }; // getMonth() idx: Dec/Jan/Feb/Nov=2 · Apr/May/Oct=1
+/**
+ * 🗓 A MONTH's own demand — the same table the day shades start from, without the day-of-week lift: 0 quiet ·
+ * 1 popular · 2 in demand (owner 2026-11-17, the "Some months" list: "Busy and quiet months come from the calendar's
+ * own demand rule").
+ */
+export function monthDemand(monthIndex: number): 0 | 1 | 2 {
+  return (HEAT_PEAK[monthIndex] ?? 0) as 0 | 1 | 2;
+}
+
 export function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
   const m = d.getMonth();
   const dow = d.getDay();

@@ -19,6 +19,7 @@ test('all-empty input → no date, no pax, no budget, no location (name-only cre
   const r = resolveCreateCapture({}, BANDS);
   assert.deepEqual(r, {
     dateMode: null,
+    dateMonths: [],
     dateCandidates: [],
     dateWindowStart: null,
     dateWindowEnd: null,
@@ -105,13 +106,30 @@ test('window: a backwards range is swapped chronological, not rejected', () => {
   assert.equal(r.dateWindowEnd, '2027-06-20');
 });
 
-test('window: over-long range is clamped to 30 days inclusive (start + 29)', () => {
+test('window: up to 3 months (owner 2026-11-17, "A range · up to 3 months"); longer is clamped to 92 days inclusive', () => {
   const r = resolveCreateCapture(
     { dateModeRaw: 'window', windowStartRaw: '2027-06-01', windowEndRaw: '2027-12-31' },
     BANDS,
   );
   assert.equal(r.dateWindowStart, '2027-06-01');
-  assert.equal(r.dateWindowEnd, '2027-06-30'); // 2027-06-01 + 29 days
+  assert.equal(r.dateWindowEnd, '2027-08-31'); // 2027-06-01 + 91 days
+  const three = resolveCreateCapture({ dateModeRaw: 'window', windowStartRaw: '2027-06-01', windowEndRaw: '2027-08-31' }, BANDS);
+  assert.equal(three.dateWindowEnd, '2027-08-31', 'three whole months fit untouched');
+});
+
+test('🗓 "Some months" (owner 2026-11-17): up to 3 first-of-month days, de-duped, in order — nothing else', () => {
+  const r = resolveCreateCapture(
+    { dateModeRaw: 'months', dateMonthsRaw: ['2027-05-01', '2027-02-01', '2027-02-01', '2027-04-15', 'x', '2027-10-01', '2027-11-01'] },
+    BANDS,
+    { today: '2026-12-19' },
+  );
+  assert.equal(r.dateMode, 'months');
+  assert.deepEqual(r.dateMonths, ['2027-02-01', '2027-05-01', '2027-10-01'], 'not a first-of-month → dropped; capped at 3');
+  assert.deepEqual(r.dateCandidates, []);
+  assert.equal(r.dateWindowStart, null);
+  const gone = resolveCreateCapture({ dateModeRaw: 'months', dateMonthsRaw: ['2026-01-01'] }, BANDS, { today: '2026-12-19' });
+  assert.equal(gone.dateMode, null, 'a month already gone is no date at all');
+  assert.deepEqual(gone.dateMonths, []);
 });
 
 test('window without a complete pair falls back to candidates (or none)', () => {

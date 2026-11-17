@@ -1,7 +1,7 @@
 'use server';
 
 import { EVENT_SIZES } from '@/lib/event-type-profile';
-import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
@@ -339,8 +339,8 @@ export async function upsertEventTypeProfile(formData: FormData) {
   if (formData.get('size_shown') === '1') {
     const size = String(formData.get('event_size') ?? '');
     row.event_size = (EVENT_SIZES as readonly string[]).includes(size) ? size : null;
-    const known = new Set<string>(WEDDING_TILE_ORDER);
-    const core = WEDDING_TILE_ORDER.filter((t) => formData.get(`core_${t}`) === 'on' && known.has(t));
+    const { tileOrder } = await getTaxonomy();
+    const core = tileOrder.filter((t) => formData.get(`core_${t}`) === 'on');
     row.core_categories = core.length > 0 ? core : null;
   }
   const admin = createAdminClient();

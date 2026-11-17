@@ -20,6 +20,7 @@
  */
 
 import { bandReachBudgetPhp } from './budget-band-money';
+import { MAX_WINDOW_DAYS, cleanDateMonths } from './event-date-options';
 import type { BudgetBand } from './budget-bands-shared';
 
 export type CreateCaptureInput = {
@@ -30,6 +31,8 @@ export type CreateCaptureInput = {
   windowEndRaw?: FormDataEntryValue | null;
   paxRaw?: FormDataEntryValue | null;
   budgetBandRaw?: FormDataEntryValue | null;
+  /** 🗓 "Some months" (owner 2026-11-17): first-of-month days (FormData.getAll('date_month')), up to 3. */
+  dateMonthsRaw?: (FormDataEntryValue | null)[];
   /** Up to 3 candidate area pick-keys (FormData.getAll('location_area')). */
   locationAreasRaw?: (FormDataEntryValue | null)[];
 };
@@ -43,8 +46,10 @@ export type AreaResolver = (key: string) => {
 };
 
 export type CreateCaptureFields = {
-  /** 'specific' | 'window' | null (no usable date given). */
-  dateMode: 'specific' | 'window' | null;
+  /** 'specific' | 'window' | 'months' | null (no usable date given). */
+  dateMode: 'specific' | 'window' | 'months' | null;
+  /** 🗓 First-of-month days (max 3). Empty unless mode='months' → events.date_months. */
+  dateMonths: string[];
   /** Valid, de-duped, ordered candidate dates (max 4). Empty unless mode='specific'. */
   dateCandidates: string[];
   dateWindowStart: string | null;
@@ -129,19 +134,23 @@ export function resolveCreateCapture(
   const windowStart = validDate(str(input.windowStartRaw), minDate);
   const windowEnd = validDate(str(input.windowEndRaw), minDate);
   const wantsWindow = str(input.dateModeRaw) === 'window';
+  const wantsMonths = str(input.dateModeRaw) === 'months';
+  const dateMonths = wantsMonths ? cleanDateMonths((input.dateMonthsRaw ?? []).map(str), minDate) : [];
 
-  let dateMode: 'specific' | 'window' | null = null;
+  let dateMode: 'specific' | 'window' | 'months' | null = null;
   let dateCandidates: string[] = [];
   let dateWindowStart: string | null = null;
   let dateWindowEnd: string | null = null;
 
-  if (wantsWindow && windowStart && windowEnd) {
+  if (wantsMonths && dateMonths.length > 0) {
+    // 🗓 "Some months" — the months themselves; no day, no window (the date is an OUTPUT).
+    dateMode = 'months';
+  } else if (wantsWindow && windowStart && windowEnd) {
     // Keep chronological (swap a backwards range rather than reject it).
     const [lo, hiRaw] = windowStart <= windowEnd ? [windowStart, windowEnd] : [windowEnd, windowStart];
-    // Platform convention (date_window comment on migration 20260719000000): a
-    // window spans at most 30 days inclusive (start + 29). Clamp rather than
-    // reject so an over-long range still yields a usable window.
-    const maxHi = new Date(Date.parse(`${lo}T00:00:00Z`) + 29 * 86_400_000)
+    // A window spans at most MAX_WINDOW_DAYS inclusive ("A range · up to 3 months", owner 2026-11-17 — was 30). Clamp
+    // rather than reject so an over-long range still yields a usable window.
+    const maxHi = new Date(Date.parse(`${lo}T00:00:00Z`) + (MAX_WINDOW_DAYS - 1) * 86_400_000)
       .toISOString()
       .slice(0, 10);
     dateMode = 'window';
@@ -179,6 +188,7 @@ export function resolveCreateCapture(
 
   return {
     dateMode,
+    dateMonths: dateMode === 'months' ? dateMonths : [],
     dateCandidates,
     dateWindowStart,
     dateWindowEnd,

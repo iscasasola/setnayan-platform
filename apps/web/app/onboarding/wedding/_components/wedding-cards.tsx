@@ -20,6 +20,7 @@
  * confirm dialogs; title ≤ 5 words + one line ≤ 12 words, the rest behind ⓘ.
  */
 
+import { START_GUESTS_LINE } from '@/lib/event-size';
 import { useEffect, useState } from 'react';
 import { Building2, ChevronDown, ChevronUp, MapPin, Minus, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -357,7 +358,8 @@ function PaxCard({ frame, state, patch }: SubProps) {
     <SetupFrame
       {...frame}
       title="About how many guests?"
-      line="A rough number is fine — it sizes your seat plan and quotes."
+      // 👥 Worded as the minimum (owner 2026-11-17: "for wedding, let's start with 150 … this is gonna be their minimum").
+      line={START_GUESTS_LINE}
       info="It sizes your seat plan, your suppliers’ quotes and Papic. You’ll list their names later — or now, if you like."
     >
       <div className="flex items-center justify-between gap-3" data-wedding-estimate>

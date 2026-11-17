@@ -18,7 +18,7 @@
  */
 import { EVENT_SIZES } from '@/lib/event-type-profile';
 import { EVENT_SIZE_LABEL, EVENT_SIZE_START_GUESTS } from '@/lib/event-size';
-import { WEDDING_TILE_LABEL, WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -144,6 +144,8 @@ export async function EventTypePanel({
     .maybeSingle<{ event_size: string | null; core_categories: string[] | null }>();
   if (sizeError) logQueryError('EventTypePanel (size)', sizeError, { eventType }, 'graceful_degrade');
   const sizeReadOk = !sizeError && !profileReadFailed;
+  // The categories to choose from: the ONE taxonomy (Admin › Categories), never a seed copy.
+  const taxonomy = await getTaxonomy();
   const sizeNow = sizeData?.event_size ?? '';
   const coreNow = new Set(sizeData?.core_categories ?? []);
   if (profileError) {
@@ -339,7 +341,7 @@ export async function EventTypePanel({
             </KeyRow>
             <ReadOnly>Starting categories — none ticked means the shipped starter list.</ReadOnly>
             <div className="grid gap-1 sm:grid-cols-3" data-core-categories="">
-              {WEDDING_TILE_ORDER.map((tile) => (
+              {taxonomy.tileOrder.map((tile) => (
                 <label key={tile} className="flex min-h-10 items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
@@ -348,7 +350,7 @@ export async function EventTypePanel({
                     defaultChecked={coreNow.has(tile)}
                     className="h-4 w-4 accent-terracotta"
                   />
-                  {WEDDING_TILE_LABEL[tile]}
+                  {taxonomy.tileLabel[tile] ?? tile}
                 </label>
               ))}
             </div>

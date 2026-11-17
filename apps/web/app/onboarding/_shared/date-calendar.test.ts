@@ -66,14 +66,28 @@ test('multiple single dates — up to four', async () => {
   assert.match(html, /1–4 days/, 'the control no longer offers more than one day');
 });
 
-test('a range, capped at 30 days', async () => {
+test('a range, capped at 3 months (owner 2026-11-17, "A range · up to 3 months" — was 30 days)', async () => {
   const { MAXSPAN } = await mod();
-  // 29 days BETWEEN two dates is a 30-day window inclusive. Off by one here is
-  // the difference between the owner's "30 days" and 31.
-  assert.equal(MAXSPAN, 29);
+  // 91 days BETWEEN two dates is a 92-day window inclusive — the longest three calendar months run. Off by one here is
+  // the difference between three whole months fitting and the third month's last day being refused.
+  assert.equal(MAXSPAN, 91);
   const html = await render({ mode: 'window' });
   assert.match(html, /Flexible window/);
-  assert.match(html, /30 days/, 'the 30-day promise is not stated to the person');
+  assert.match(html, /92 days/, 'the 3-month cap is not stated to the person');
+});
+
+test('🗓 with allowMonths the dropdown is the four of drawing v15 — and never a blank', async () => {
+  // The menu draws its choices only when open, so the choices are read where they are written.
+  const src = readFileSync(join(process.cwd(), 'app', 'onboarding', '_shared', 'date-calendar.tsx'), 'utf8');
+  const four = src.slice(src.indexOf('allowMonths\n              ? ['), src.indexOf(': [', src.indexOf('allowMonths\n              ? [') + 30));
+  for (const word of ["'Specific dates'", "'A range'", "'Some months'", "'Not sure yet'"]) assert.ok(four.includes(word), `${word} is not a choice`);
+  assert.ok(!four.includes('Not decided yet'), 'a blank is offered where When must end in a pick');
+  const html = await render({ mode: 'months', allowMonths: true, months: [] });
+  assert.match(html, /aria-label="How sure are you of the date\?: Some months"/);
+  assert.match(html, /data-datecal-months=""/, 'the month list is not drawn in months mode');
+  // A rainy month is never sold as busy: the month's own demand, not one day's.
+  assert.match(html, /<b>August 2027<\/b><small>Quiet<\/small>/);
+  assert.match(html, /<b>February 2027<\/b><small>In demand<\/small>/);
 });
 
 test('no raw \\u escape reaches the screen', async () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { dateMonthsWords } from '@/lib/event-date-options';
 import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 
@@ -1147,6 +1148,7 @@ export function OnboardingShell({
   servicesStepView = null,
   servicesStepAiValue = null,
   storeShell = false,
+  areaCounts = null,
   setupView = null,
   setupSteps = NO_SETUP_STEPS,
   dateExempt = false,
@@ -1233,6 +1235,8 @@ export function OnboardingShell({
    * STORE_SHELL_DROPPED_SCREENS. Defaults false: web, PWA and desktop unchanged.
    */
   storeShell?: boolean;
+  /** 📍 area key → suppliers there (`readAreaSupplierCounts`); null = the read was refused. */
+  areaCounts?: Record<string, number> | null;
   /**
    * 🎟 THE SETUP ENGINE (G1). Server-resolved from the wedding profile
    * (`setupViewForProfile`) — NULL until the seed admits weddings, and then
@@ -2322,6 +2326,8 @@ export function OnboardingShell({
       case 'w_colours':
         return true;
       case 'date':
+        // 🗓 "Not sure yet" never ends blank: it ends in a 1–3 month pick (owner 2026-11-17).
+        if (state.dateMode === 'months') return (state.dateMonths ?? []).length >= 1;
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
       case 'region':
         return state.places.length >= 1;
@@ -2444,6 +2450,7 @@ export function OnboardingShell({
   const cap = (s: string | null | undefined) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : null);
   const recapDate = (() => {
     if (state.dateMode === 'window' && state.windowStart && state.windowEnd) return 'A flexible window';
+    if (state.dateMode === 'months') return dateMonthsWords(state.dateMonths ?? []);
     const cands = (state.dateCandidates ?? []).filter(Boolean);
     if (cands.length === 1) {
       try {
@@ -2562,7 +2569,8 @@ export function OnboardingShell({
     // date chip is present once any date intent exists (specific candidate(s) or a window)
     const hasDate =
       (state.dateMode === 'specific' && (state.dateCandidates ?? []).filter(Boolean).length > 0) ||
-      (state.dateMode === 'window' && state.windowStart !== null);
+      (state.dateMode === 'window' && state.windowStart !== null) ||
+      (state.dateMode === 'months' && (state.dateMonths ?? []).length > 0);
 
     // chips accrete IN ORDER; each carries a stable key (for the pop-once animation) +
     // a payoff caption that flashes over the row the first time the chip lands.
@@ -2673,6 +2681,7 @@ export function OnboardingShell({
           return pesos == null ? null : Math.round(pesos * 100);
         })(),
       dateMode: s.dateMode,
+      dateMonths: s.dateMode === 'months' ? (s.dateMonths ?? []) : [],
       // A picked venue narrows the couple's candidate dates to the ones it is not marked busy on
       // (DECISION_LOG 2026-10-01 — the chain); a window-mode couple has no candidate dates to narrow.
       dateCandidates: s.dateMode === 'specific' ? narrowedByVenues(s.dateCandidates, s.venues) : s.dateCandidates,
@@ -3649,6 +3658,8 @@ export function OnboardingShell({
               >
                 <DateCalendar
                   chrome="bare"
+                  allowMonths
+                  months={state.dateMonths ?? []}
                   dateExempt={dateExempt}
                   mode={state.dateMode}
                   candidates={state.dateCandidates}
@@ -3659,6 +3670,8 @@ export function OnboardingShell({
               </SetupFrame>
             ) : (
               <DateCalendar
+                allowMonths
+                months={state.dateMonths ?? []}
                 dateExempt={dateExempt}
                 mode={state.dateMode}
                 candidates={state.dateCandidates}
@@ -3683,6 +3696,7 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
               storeShell={storeShell}
+              areaCounts={areaCounts}
               value={state.places}
               onChange={(places) =>
                 patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })

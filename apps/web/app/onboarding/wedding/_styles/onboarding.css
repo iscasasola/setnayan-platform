@@ -1179,3 +1179,13 @@
 .onbw .phone{overflow:clip;}
 .onbw .sheet{visibility:hidden;transition:transform .32s cubic-bezier(.2,.7,.3,1),visibility 0s linear .32s;}
 .onbw .sheet.open{visibility:visible;transition:transform .32s cubic-bezier(.2,.7,.3,1),visibility 0s;}
+/* 📍 Where · "Not sure yet" (owner 2026-11-17, drawing v15): the guests' home, then the areas that fit — one row each. */
+.onbw .locunsure-toggle{display:flex;justify-content:flex-start;margin:0 0 10px;}
+.onbw .locunsure{display:flex;flex-direction:column;gap:10px;margin:0 0 14px;}
+.onbw .locunsure-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;}
+.onbw .locunsure-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;width:100%;min-height:52px;padding:8px 14px;border-radius:var(--m-r-md);border:1px solid var(--line-2);background:var(--surface);color:var(--ink);text-align:left;}
+.onbw .locunsure-row b{font-size:14.5px;font-weight:600;}
+.onbw .locunsure-row small{grid-column:1;font-size:12px;color:var(--ink-soft);}
+.onbw .locunsure-row span{grid-row:1/3;grid-column:2;font-weight:700;}
+.onbw .locunsure-row.sel{border-color:var(--mulberry);box-shadow:inset 0 0 0 1px var(--mulberry);}
+.onbw .locunsure-note{font-size:13px;color:var(--ink-soft);margin:0;}

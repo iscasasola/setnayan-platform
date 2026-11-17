@@ -79,7 +79,9 @@ export type GenericOnboardingPayload = {
   budgetBand: string | null;
   /** Working-budget amount in centavos (→ events.estimated_budget_centavos). */
   budgetAmountCentavos: number | null;
-  dateMode: 'specific' | 'window';
+  dateMode: 'specific' | 'window' | 'months';
+  /** 🗓 "Some months" (owner 2026-11-17): first-of-month days, up to 3 → `events.date_months`. Optional: absent = none. */
+  dateMonths?: string[];
   dateCandidates: string[];
   windowStart: string | null;
   windowEnd: string | null;

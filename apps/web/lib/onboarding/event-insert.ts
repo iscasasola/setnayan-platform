@@ -7,7 +7,7 @@
  * Mirrors `commitOnboardingWedding`'s generic onboarding-v2 + style_preferences
  * columns. The wedding commit is NOT touched.
  */
-import { addDaysIso, clampDays } from '../event-date-options';
+import { addDaysIso, clampDays, cleanDateMonths } from '../event-date-options';
 import type { GenericOnboardingPayload } from './types';
 import { anchorForType, isAnchorOrigin, resolveCadence, singlePickedDate } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
@@ -100,7 +100,10 @@ export function buildGenericEventInsert(
   opts: GenericInsertOpts,
 ): Record<string, unknown> {
   const setup = opts.setup ? setupColumns(opts.setup) : null;
-  const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
+  // 🗓 "Some months" (owner 2026-11-17): stored only when at least one month survives the clean-up — else the
+  // shipped specific/window path, exactly as before.
+  const dateMonths = payload.dateMode === 'months' ? cleanDateMonths(payload.dateMonths ?? []) : [];
+  const dateMode = dateMonths.length > 0 ? 'months' : payload.dateMode === 'window' ? 'window' : 'specific';
   const candidates = dateMode === 'specific' ? (payload.dateCandidates ?? []).filter(Boolean) : [];
   // 📅 ONE PICKED DATE IS THE DATE (owner 2026-10-08). A hangout with one day
   // picked used to land as `event_date: null` + `date_candidates: [d]`, and Home
@@ -204,6 +207,7 @@ export function buildGenericEventInsert(
     venue_latitude: payload.venueLatitude,
     venue_longitude: payload.venueLongitude,
     date_mode: dateMode,
+    ...(dateMonths.length > 0 ? { date_months: dateMonths } : {}),
     event_days: eventDays,
     ...(eventEndDate ? { event_end_date: eventEndDate } : {}),
     date_candidates: pickedDate || !candidates.length ? null : candidates,

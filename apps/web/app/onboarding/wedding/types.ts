@@ -111,7 +111,9 @@ export interface OnboardingState {
    * a 90-day cluster; 'window' = a flexible range ≤30 days inclusive. The final
    * events.event_date settles later on vendor availability. Maps to events.date_mode.
    */
-  dateMode: 'specific' | 'window';
+  dateMode: 'specific' | 'window' | 'months';
+  /** 🗓 "Some months" / "Not sure yet" (owner 2026-11-17): first-of-month days, up to 3. Maps to events.date_months. */
+  dateMonths?: string[];
   /** Specific-mode candidate dates, ISO yyyy-mm-dd, sorted asc (≤4). Maps to events.date_candidates. */
   dateCandidates: string[];
   /** Flexible-window start, ISO yyyy-mm-dd (null in specific mode). Maps to events.date_window_start. */

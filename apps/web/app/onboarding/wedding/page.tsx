@@ -19,6 +19,8 @@
  * Wedding tile) lands in Phase 5. For Phase 1 the route is reachable directly
  * but NOT linked from any production surface yet.
  */
+import { readAreaSupplierCounts } from '@/lib/area-supplier-counts.server';
+import { CITIES } from './_data/wedding-cities';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -122,7 +124,7 @@ export default async function OnboardingWeddingPage({
   // null on any read error → the shell falls back to its built-in soon flags.
   // `user` is already resolved above (the cardinality check needed it first).
   const user = earlyUser;
-  const [activeFaiths, customerSkus, bundles, bgMusicUrl, bgMusicUrls, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
+  const [activeFaiths, customerSkus, bundles, bgMusicUrl, bgMusicUrls, refinements, hiddenCats, dynamicTiles, budgetBands, areaCounts] = await Promise.all([
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
@@ -142,6 +144,9 @@ export default async function OnboardingWeddingPage({
     // Admin-tunable budget feel-bands (owner 2026-06-19, screen 9). DB-first,
     // falls back to BUDGET_BANDS_FALLBACK on any read error/empty.
     getBudgetBands(),
+    // 📍 "Areas that fit · by suppliers we have there" (owner 2026-11-17) — ONE grouped read over the areas the Where
+    // step offers. Null = the read was refused: the step says it could not count, never ranks every area at zero.
+    readAreaSupplierCounts(CITIES.map((c) => ({ key: c.k, lat: c.lat, lon: c.lon }))),
   ]);
   // Build the onboarding pricing view-model from the live admin catalog. No
   // committed event yet (lazy commit at the final button) → estimated_pax is
@@ -219,6 +224,7 @@ export default async function OnboardingWeddingPage({
       setupView={setupView}
       setupSteps={setupSteps}
       storeShell={storeShell}
+      areaCounts={areaCounts}
       servicesStepView={servicesStepView}
       servicesStepAiValue={servicesStepAiValue}
       authed={!!user}

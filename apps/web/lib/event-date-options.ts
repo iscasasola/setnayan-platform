@@ -19,8 +19,55 @@
 
 /** Up to four options (the shipped calendar's `MAXMULTI`). */
 export const MAX_OPTIONS = 4;
-/** A window spans at most 30 days, inclusive (the shipped calendar's `MAXSPAN` = 29 between). */
-export const MAX_WINDOW_DAYS = 30;
+/**
+ * A window spans at most 92 days, inclusive — "A range · up to 3 months" (owner 2026-11-17, drawing v15; was 30). 92 is
+ * the longest any three calendar months run, so a window from the 1st of one month to the end of the third always fits.
+ * The calendar's `MAXSPAN` (= this − 1 between) and the create writer read it from here.
+ */
+export const MAX_WINDOW_DAYS = 92;
+
+/* ── 🗓 "SOME MONTHS" (owner 2026-11-17; migration 20271351181764 — `date_mode = 'months'` + `date_months`) ─────── */
+
+/** Up to three months, apart ("Some months · up to 3, apart"). */
+export const MAX_DATE_MONTHS = 3;
+
+/** `YYYY-MM-01` for a real first-of-month day. */
+export function isMonthStart(iso: unknown): iso is string {
+  return isIsoDay(iso) && iso.endsWith('-01');
+}
+
+/**
+ * The months a host picked, as they are stored: first-of-month days, de-duped, chronological, at most three, none
+ * before `minIso`'s month (a month already gone cannot hold the event). Anything unreadable is dropped, never thrown.
+ */
+export function cleanDateMonths(raw: readonly unknown[] | null | undefined, minIso: string | null = null): string[] {
+  const minMonth = minIso && isIsoDay(minIso) ? `${minIso.slice(0, 7)}-01` : null;
+  const out = [...new Set((raw ?? []).filter(isMonthStart))]
+    .filter((m) => !minMonth || m >= minMonth)
+    .sort();
+  return out.slice(0, MAX_DATE_MONTHS);
+}
+
+const MONTH_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+const MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+/** "February 2027" for a first-of-month day. */
+export function monthWords(iso: string): string {
+  return isMonthStart(iso) ? MONTH_YEAR.format(utcOf(iso)!) : iso;
+}
+
+/** "Feb · Apr · May 2027" (years said where they change) — the date · place line while the date is still months. */
+export function dateMonthsWords(months: readonly string[]): string | null {
+  const m = cleanDateMonths(months);
+  if (m.length === 0) return null;
+  return m
+    .map((iso, i) => {
+      const y = iso.slice(0, 4);
+      const lastOfYear = i === m.length - 1 || m[i + 1]!.slice(0, 4) !== y;
+      return lastOfYear ? `${MONTH_SHORT.format(utcOf(iso)!)} ${y}` : MONTH_SHORT.format(utcOf(iso)!);
+    })
+    .join(' · ');
+}
 /** The outer bound of a day count — the column's CHECK (1..30). The type's own cap is narrower. */
 export const MAX_EVENT_DAYS = 30;
 
@@ -243,7 +290,10 @@ export function dateOptionsFactWords(o: {
   windowStart: string | null;
   windowEnd: string | null;
   days: number | null;
+  /** 🗓 `events.date_months` when the mode is 'months'. */
+  months?: readonly string[] | null;
 }): string | null {
+  if (o.mode === 'months') return dateMonthsWords(o.months ?? []);
   const n = Math.max(1, Math.floor(o.days ?? 1) || 1);
   const c = (o.candidates ?? []).filter(isIsoDay).sort();
   if (o.mode !== 'window' && c.length > 0) {
@@ -281,7 +331,13 @@ export function openDateWords(o: {
   windowStart: unknown;
   windowEnd: unknown;
   days?: unknown;
+  /** 🗓 `events.date_months` when the mode is 'months'. */
+  months?: unknown;
 }): string | null {
+  if (o.mode === 'months') {
+    const w = dateMonthsWords(Array.isArray(o.months) ? o.months : []);
+    return w ? `in ${w}` : null;
+  }
   const n = typeof o.days === 'number' && o.days > 1 ? Math.floor(o.days) : 1;
   const span = n > 1 ? ` · ${n} days` : '';
   const c = [...new Set((Array.isArray(o.candidates) ? o.candidates : []).filter(isIsoDay))].sort();

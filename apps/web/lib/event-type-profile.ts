@@ -356,10 +356,9 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     teamFirst: ['venue', 'catering', 'photo_video', 'coordinator', 'florist', 'stylist_decorator', 'hmua', 'cake'],
     lookSet: ['velvet', 'vintage', 'regency', 'cinderella'],
     cameraDefault: 'on',
-    // Mirrors the wedding row's seed (migration 20271350215206) — the hard-coded profile keeps a DB read error on
-    // yesterday's shape, as every field above does.
+    // The wedding is LARGE (migration 20271350215206 seeds it; owner 2026-11-17). Its core categories live ONLY in
+    // that row — no second copy here (lib/no-taxonomy-literals): a read error falls back to the shipped starter ring.
     eventSize: 'large',
-    coreCategories: ['reception', 'ceremony_venue', 'catering', 'coordinator', 'photo_video'],
   },
   onboardingEngine: false,
 };

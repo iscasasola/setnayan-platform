@@ -24,13 +24,14 @@
  *     and `vendorFree=true`, which drops the effort question + vendor reveal
  *     inside `GenericOnboarding` and saves no `interested_categories`.
  */
+import { startGuestsForSize } from '@/lib/event-size';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { resolveProfile } from '@/lib/event-type-profile';
+import { profileSetup, resolveProfile } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
@@ -257,6 +258,8 @@ export default async function GenericOnboardingPage({
       todayISO={manilaToday()}
       dateExempt={await viewerIsInternal().catch(() => false)}
       maxDays={profile.maxDays}
+      // 👥 The type's size (Admin › Categories) → the guest step's start number; unset → none (owner 2026-11-17).
+      startGuests={startGuestsForSize(profileSetup(profile).eventSize)}
       setupView={setupView}
       setupSteps={setupSteps}
     />

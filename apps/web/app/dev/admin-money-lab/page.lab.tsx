@@ -213,7 +213,6 @@ function LabFocusCard({ v }: { v: string }) {
   return (
     <FocusCardSheet title={kicker} kicker={kicker}>
       <div className="flex items-center justify-between gap-3 text-[13px] text-[color:var(--sn-ink-500)]" data-focus-received-position="">
-        <Link href="/dev/admin-money-lab?v=focus-home" className="underline underline-offset-2">‹ Focus</Link>
         <span className="tabular-nums">{`${at + 1} of ${total}`}</span>
         {at + 1 < total ? <Link href={next} className="underline underline-offset-2">Next</Link> : <span />}
       </div>

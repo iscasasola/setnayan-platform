@@ -40,10 +40,10 @@ import { siteOrigin } from '@/lib/site-origin';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeTracker, nextBadgeShort, shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges';
+import { nextBadgeShort, shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
-import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
-import { shopBadgeRow, type BadgeTile } from '@/lib/shop-badge-row';
+import { type TrackerRewardInput } from '@/lib/badge-rewards';
+import { shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
@@ -110,7 +110,7 @@ type ShopData = {
   /** 🎟 Each service's claim scanner (coverage id → setting) — `null` = unread. */
   scanSettings: Map<number, ScanSetting> | null;
   /** 🏅 The one badge row (`shopBadgeRow`) — null = unread. */
-  badges: BadgeTile[] | null;
+  badges: ShelfTile[] | null;
   /** 🏅 The cover's earned circles (milestone + award, as the public shop hero draws them); null = facts unread. */
   earned: ShopBadge[] | null;
   /** The cover's honest next step when nothing is earned yet; null = unread or every step reached. */
@@ -411,15 +411,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const avg = trusted?.trusted_avg_rating ?? null;
   const count = trusted?.trusted_review_count ?? null;
 
-  const rows = facts ? (rewards ? badgeRowsWithRewards(badgeTracker(facts), rewards) : badgeTracker(facts)) : null;
-  const badges = shopBadgeRow({
-    rows,
+  // 🏅 The approved shelf (lib/shop-badge-shelf.ts): Verified + the five v84 badges, from the reward engine's own counts.
+  // Nothing read at all = the row says "Couldn't load your badges", never a shelf of unread tiles.
+  const badges = !facts && !rewards ? null : shopBadgeShelf({
     counts: rewards?.facts ?? null,
-    completedEvents: facts?.completedEvents ?? null,
-    trusted,
-    inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
-    founding: own ? { isFounder: own.is_founder === true, joinedYear: own.created_at ? Number(own.created_at.slice(0, 4)) : null } : null,
-    // 🔁 The Booked Loop rides `rewards.facts.bookedLoops` (C2's counter, read by the reward engine) — hidden when unread.
+    verified: facts ? facts.verified : (rewards?.facts.verified ?? null),
+    granted: rewards?.granted ?? null,
+    names: rewards?.names,
   });
 
   return {
@@ -712,8 +710,8 @@ async function ShopHome({
           <OneAnalyticsSection {...data.analytics} />
         </Suspense>
 
-        {/* 🏅 BADGES — ONE row: completed first, then in progress, then not yet (Lane E item 2). */}
-        <ShopBadgeRow tiles={data.badges} />
+        {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
+        <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
 
         {/* 🛠 MAKERS — one row of tiles (Forms Maker · Specialized tools, Lane E item 13), each opening into the body. */}
         <ShopMakers

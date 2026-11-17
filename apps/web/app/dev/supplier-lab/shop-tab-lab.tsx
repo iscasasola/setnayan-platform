@@ -29,9 +29,9 @@ import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/po
 import { LabPortfolioChats } from './portfolio-chats-lab';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
-import { badgeTracker, nextBadgeShort, shopBadges, type TrackerFacts } from '@/lib/shop-badges';
-import { badgeRowsWithRewards, FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
-import { shopBadgeRow } from '@/lib/shop-badge-row';
+import { nextBadgeShort, shopBadges, type TrackerFacts } from '@/lib/shop-badges';
+import { FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
+import { shopBadgeShelf } from '@/lib/shop-badge-shelf';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from '@/lib/portfolio-groups';
@@ -67,17 +67,10 @@ function shopLab(fail: boolean, none: boolean) {
   const counts: BadgeRewardFacts | null = fail
     ? null
     : none
-      ? { verified: true, completedEvents: 0, trustedReviews: 0, firstSourcedBooking: false, branchIds: ['hq'], serviceCards: 1, inspirationPhotos: 0, awards: [], bookedLoops: 0 }
-      : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3 };
-  const rows = facts && counts ? badgeRowsWithRewards(badgeTracker(facts), { facts: counts, granted: [], names: FALLBACK_REWARD_NAMES, awardTypeByTitle: {}, periodMonth: '2026-11-01' }) : null;
-  const tiles = shopBadgeRow({
-    rows,
-    counts,
-    completedEvents: facts?.completedEvents ?? null,
-    trusted: facts?.trusted ?? null,
-    inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
-    founding: fail || none ? null : { isFounder: true, joinedYear: 2026 },
-  });
+      ? { verified: true, completedEvents: 0, trustedReviews: 0, firstSourcedBooking: false, branchIds: ['hq'], serviceCards: 1, inspirationPhotos: 0, awards: [], bookedLoops: 0, completedBookings: 0, fiveStarReviews: 0, giftPoints: 0, trustedBy: 0 }
+      : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3, completedBookings: 63, fiveStarReviews: 38, giftPoints: 820, trustedBy: 3 };
+  // 🏅 The approved shelf on lab counts — one Gold, one Silver, one Bronze, two not yet (or all unread on ?fail).
+  const tiles = fail ? null : shopBadgeShelf({ counts, verified: facts?.verified ?? null, granted: [], names: FALLBACK_REWARD_NAMES });
 
   const cover: CoverData = {
     name: 'SetnaProd',
@@ -149,7 +142,7 @@ function shopLab(fail: boolean, none: boolean) {
         </div>
         {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
         <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} />
+        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}

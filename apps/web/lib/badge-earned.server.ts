@@ -11,6 +11,7 @@ import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { composeBadgeSocialPost } from '@/lib/social/badge-post';
 import { rewardWords } from '@/lib/badge-rewards';
 import { grantOwedBadgeRewards, readBadgeRewardFacts, readRewardNames, type GrantSweep } from '@/lib/badge-rewards.server';
+import { settleCardBadges } from '@/lib/card-badges.server';
 import { BADGE_EARNED_CTA, BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell } from '@/lib/badge-earned';
 
 /**
@@ -25,7 +26,12 @@ import { BADGE_EARNED_CTA, BADGE_EARNED_HREF, badgeEarnedNotice, pickBadgeToTell
  *   tellBadgesJustEarned(...)   the notice + email + Lane S post for keys a sweep just paid. Only a key the database
  *                               answered 'granted' for reaches it, so an existing grant is never told twice.
  *   maybeRunBadgeRewardSweep()  the backstop (`claim_periodic_job`, ~daily): shops whose counts moved in the last few
- *                               days, swept — for any moment whose after() was lost.
+ *                               days, swept — for any moment whose after() was lost. It also visits every shop holding
+ *                               a service-card badge and every shop asked about recently, so each card's badges are
+ *                               checked every day (a badge comes off the day the card stops passing).
+ *
+ * 🏅 The SERVICE-CARD badges settle here too (`settleCardBadges`, J3) — the public shop page only READS them, so this
+ * sweep is the one place their holds are opened and closed and the Today congratulations is sent.
  *
  * Badges stay worked out LIVE; only the rewards are stored, once.
  */
@@ -37,10 +43,22 @@ export async function sweepShopBadges(vendorProfileId: string, admin: SupabaseCl
     const facts = await readBadgeRewardFacts(admin, vendorProfileId, badge);
     const sweep = await grantOwedBadgeRewards(admin, vendorProfileId, facts);
     await tellBadgesJustEarned(admin, vendorProfileId, sweep);
+    await settleCardBadgesQuietly(admin, vendorProfileId);
     return sweep;
   } catch (e) {
     console.error('[badge-earned] sweep failed', vendorProfileId, e);
+    // The shop rewards' read failed — the card badges have their own read, so they still settle.
+    await settleCardBadgesQuietly(admin, vendorProfileId);
     return null;
+  }
+}
+
+/** The card badges' settle, never throwing into the rewards sweep (a failure is logged; the next sweep settles it). */
+async function settleCardBadgesQuietly(admin: SupabaseClient, vendorProfileId: string): Promise<void> {
+  try {
+    await settleCardBadges(admin, vendorProfileId);
+  } catch (e) {
+    console.error('[badge-earned] card badge settle failed', vendorProfileId, e);
   }
 }
 
@@ -102,12 +120,13 @@ export async function tellBadgesJustEarned(admin: SupabaseClient, vendorProfileI
 
 /** How far back the backstop looks for a moved count — over three daily windows, so a quiet day loses nothing. */
 const LOOKBACK_MS = 4 * 24 * 60 * 60 * 1000;
-/** At most this many shops per run — the rest are next run's (a booking moved yesterday is still in the window). */
+/** At most this many moved-count shops per run — the rest are next run's (a booking moved yesterday is still in the
+ * window). Shops holding a card badge are not capped: each is re-checked every run. */
 const SWEEP_CAP = 150;
 
 /** Shops whose counts moved recently: a booking delivered/completed, a review, an accepted partnership, a gift given. */
 async function shopsWithMovedCounts(admin: SupabaseClient, sinceIso: string): Promise<string[]> {
-  const [bookings, reviews, partners, gifts] = await Promise.all([
+  const [bookings, reviews, partners, gifts, cardHolds, asked] = await Promise.all([
     admin
       .from('event_vendors')
       .select('linked_vendor_profile_id, marketplace_vendor_id')
@@ -118,10 +137,26 @@ async function shopsWithMovedCounts(admin: SupabaseClient, sinceIso: string): Pr
     admin.from('vendor_reviews').select('vendor_profile_id').gte('created_at', sinceIso).limit(1000),
     admin.from('vendor_partnerships').select('recommended_vendor_id').eq('status', 'accepted').gte('accepted_at', sinceIso).limit(1000),
     admin.from('shop_gift_stock_entries').select('vendor_profile_id').eq('kind', 'given').gte('created_at', sinceIso).limit(1000),
+    // 🏅 J3 — a shop holding a service-card badge is checked every day, so a badge comes off the day it stops passing.
+    admin.from('service_card_badge_holds').select('vendor_profile_id').is('lost_at', null).limit(1000),
+    // 🏅 J3 — Quick Responder and Trending Now move on inquiries: a shop asked about recently is checked too.
+    admin.from('thread_service_interests').select('thread_id').gte('created_at', sinceIso).limit(1000),
   ]);
-  for (const [name, r] of [['bookings', bookings], ['reviews', reviews], ['partners', partners], ['gifts', gifts]] as const) {
+  for (const [name, r] of [
+    ['bookings', bookings],
+    ['reviews', reviews],
+    ['partners', partners],
+    ['gifts', gifts],
+    ['card holds', cardHolds],
+    ['inquiries', asked],
+  ] as const) {
     if (r.error) throw new Error(`badge sweep candidates (${name}): ${r.error.message}`);
   }
+  const askedThreads = [...new Set(((asked.data ?? []) as Array<{ thread_id: string | null }>).map((a) => a.thread_id).filter((t): t is string => !!t))];
+  const askedShops = askedThreads.length
+    ? await admin.from('chat_threads').select('vendor_profile_id').in('thread_id', askedThreads)
+    : { data: [], error: null };
+  if (askedShops.error) throw new Error(`badge sweep candidates (inquiry shops): ${askedShops.error.message}`);
   const ids = new Set<string>();
   for (const b of (bookings.data ?? []) as Array<{ linked_vendor_profile_id: string | null; marketplace_vendor_id: string | null }>) {
     if (b.linked_vendor_profile_id) ids.add(b.linked_vendor_profile_id);
@@ -130,7 +165,13 @@ async function shopsWithMovedCounts(admin: SupabaseClient, sinceIso: string): Pr
   for (const r of (reviews.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (r.vendor_profile_id) ids.add(r.vendor_profile_id);
   for (const p of (partners.data ?? []) as Array<{ recommended_vendor_id: string | null }>) if (p.recommended_vendor_id) ids.add(p.recommended_vendor_id);
   for (const g of (gifts.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (g.vendor_profile_id) ids.add(g.vendor_profile_id);
-  return [...ids].slice(0, SWEEP_CAP);
+  for (const t of (askedShops.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (t.vendor_profile_id) ids.add(t.vendor_profile_id);
+  // 🏅 Every shop holding a card badge is re-checked EVERY run, so a held badge always comes off the day it stops
+  // passing — the cap applies only to the moved-count candidates after them.
+  const held = new Set<string>();
+  for (const h of (cardHolds.data ?? []) as Array<{ vendor_profile_id: string | null }>) if (h.vendor_profile_id) held.add(h.vendor_profile_id);
+  const rest = [...ids].filter((id) => !held.has(id)).slice(0, SWEEP_CAP);
+  return [...held, ...rest];
 }
 
 /**

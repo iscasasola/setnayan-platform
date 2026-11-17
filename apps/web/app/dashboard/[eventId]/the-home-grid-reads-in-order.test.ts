@@ -38,7 +38,7 @@ test('1 · the phone reads the tiles row by row, in the order drawn', () => {
 
 test('2 · from md, the two columns are read column by column, as seen', () => {
   const html = drawHome();
-  const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
+  const detail = slice(html, 'data-home-control="detail"', ['data-home-control="board"']);
   const cols = detail.split('class="hc-col"').slice(1);
   assert.equal(cols.length, 2, 'the detail version is not two columns');
   assert.deepEqual(order(cols[0]!, 'data-home-card-key'), ['hub', 'budget'], 'the left column');
@@ -46,6 +46,28 @@ test('2 · from md, the two columns are read column by column, as seen', () => {
   // The Today line comes first, the services after the control row.
   assert.ok(html.indexOf('data-home-today=') < html.indexOf('data-home-control="compact"'), 'Today is not first');
   assert.ok(html.indexOf('data-home-control="detail"') < html.indexOf('data-home-services'), 'Your services come before the control row');
+});
+
+// 🖥 THE 1280 BOARD (owner-approved 16 Nov 2026, event dashboard drawing v13): three column wrappers, each its own stack,
+// so the page order IS the column order — the event card, Next and To do | Guests · Budget · Schedule | Suppliers ·
+// Event Hub, then Prints · Your services · Memories. Below 1280 each wrapper is `display: contents`, so the order above
+// (tests 1 and 2) is the order the phone and the tablet read. Sabotage: swap 'budget' and 'guests' in HOME_BOARD_COLUMNS.
+test('2b · from 1280, three columns read column by column, as seen', () => {
+  const html = drawHome();
+  const at = (m: string) => html.indexOf(m);
+  assert.ok(at('data-home-board-col="left"') < at('data-home-cover'), 'the event card is not in the first column');
+  assert.ok(at('data-home-cover') < at('data-home-board="middle"') && at('data-home-board="middle"') < at('data-home-board-col="right"'), 'the middle column is out of order');
+  const middle = slice(html, 'data-home-board="middle"', ['data-home-board-col="right"']);
+  assert.deepEqual(order(middle, 'data-home-card-key'), ['guests', 'budget'], 'the middle column (the Schedule tile follows them)');
+  if (html.includes('data-home-tile="sched"')) assert.ok(middle.includes('data-home-tile="sched"'), 'the middle column ends with the Schedule');
+  const right = slice(html, 'data-home-board="right"', ['data-home-services']);
+  assert.deepEqual(order(right, 'data-home-card-key'), ['sup', 'hub'], 'the right column opens with Suppliers · Event Hub');
+  assert.ok(at('data-home-board="right"') < at('data-home-services'), 'Your services are not under the right column');
+  // Each wrapper is a column only from 1280 — below it, it adds nothing to the page.
+  for (const side of ['left', 'right']) {
+    assert.match(html, new RegExp(`class="contents xl:flex[^"]*" data-home-board-col="${side}"`), `the ${side} wrapper is not display: contents below 1280`);
+  }
+  assert.match(html, /class="hc-two hidden md:grid xl:hidden" data-home-control="detail"/, 'the two-column cards must hide where the board shows');
 });
 
 test('3 · no Home piece is placed out of the page order, at any width', () => {

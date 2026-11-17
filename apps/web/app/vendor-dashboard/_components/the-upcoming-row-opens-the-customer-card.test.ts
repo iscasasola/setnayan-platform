@@ -146,7 +146,8 @@ test('4 · the conversation is still offered, and never offered twice', () => {
     threadId: THREAD,
     briefOpensOnThread: true,
   });
-  assert.equal(card.threadHref, `/vendor-dashboard/messages/${THREAD}`);
+  // 🚪 The conversation beside an opening card is the client's own Chat (owner 17 Nov — every way in lands there).
+  assert.equal(card.threadHref, `/vendor-dashboard/clients/${EVENT}?tab=chat`);
   assert.notEqual(card.threadHref, card.href, 'the Message link would duplicate the row');
 
   // In the fallback the row IS the thread, so the row must render no second

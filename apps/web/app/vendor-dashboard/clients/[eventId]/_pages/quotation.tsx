@@ -36,7 +36,7 @@ export function QuotationPage({ ctx }: PickedPageProps) {
         </p>
       }
     >
-      <SupplierThreadBody threadId={threadId} view="quotation" />
+      <SupplierThreadBody threadId={threadId} view="quotation" search={ctx.threadSearch} />
     </Suspense>
   );
 }

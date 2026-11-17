@@ -9,7 +9,6 @@ import {
   type ServiceFaceDoor,
 } from '@/app/_components/service-face';
 import type { ServiceCard } from '@/lib/service-card-view-model';
-import type { ReactNode } from 'react';
 
 /**
  * The shop a marketplace card belongs to — its logo, its name, and the address

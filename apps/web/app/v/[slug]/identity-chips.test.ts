@@ -82,7 +82,9 @@ test('the ✓ Verified chip rides the badge row, which the verified look draws o
   const rowEnd = code.indexOf('\n  );', rowAt);
   assert.ok(rowAt > 0 && chipIdx > rowAt && chipIdx < rowEnd, 'the ✓ Verified chip left the badge row');
   assert.match(code, /<ShopHero[\s\S]{0,400}badges=\{shopBadgesRow\}/, 'the hero no longer carries the badge row');
-  assert.match(code, /\{cinematicHero \? null : shopBadgesRow\}/, 'the calm header lost the badge row');
+  // v16 S6 (owner 15 Nov, "same website"): every shop wears the hero, so the row is drawn there and nowhere else.
+  assert.equal((code.match(/\bshopBadgesRow\b/g) ?? []).length, 2, 'the badge row is drawn twice, or not at all');
+  assert.match(code, /<ShopHero\b/, 'the hero is gone'); assert.doesNotMatch(code, /\{\w+ \? <ShopHero|\{\w+ \? \(\s*<ShopHero/, 'the hero is gated again');
 });
 
 test('the anchor target and the pointer chip both exist, exactly once each', () => {

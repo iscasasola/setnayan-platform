@@ -1,5 +1,7 @@
 'use client';
 
+import { NotYetVerifiedTag } from './not-yet-verified-tag';
+import { NOT_YET_VERIFIED_SIDE_LIST } from '@/lib/not-yet-verified-markings';
 import { useEffect, useRef } from 'react';
 import { Check, MessageCircle, Plus } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button-class';
@@ -50,12 +52,15 @@ export function QuoteTray({
   cards,
   onClear,
   phoneOnly = false,
+  notVerified = false,
 }: {
   picked: readonly string[];
   cards: readonly QuoteCard[];
   onClear: () => void;
   /** v16 S4: true on the verified page, where a computer shows the quote in the side card instead. */
   phoneOnly?: boolean;
+  /** ⚠ v16 S6 `.nvd`: the dock's line on a shop Setnayan has not checked yet. */
+  notVerified?: boolean;
 }) {
   const sum = quoteSummary(picked, cards);
   const trayRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +96,11 @@ export function QuoteTray({
           Clear
         </button>
       </div>
+      {notVerified ? (
+        <div className="mx-auto w-full max-w-3xl" data-quote-tray-not-verified="">
+          <NotYetVerifiedTag>{NOT_YET_VERIFIED_SIDE_LIST[0]}</NotYetVerifiedTag>
+        </div>
+      ) : null}
     </div>
   );
 }

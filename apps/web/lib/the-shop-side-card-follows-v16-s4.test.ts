@@ -50,7 +50,7 @@ test('the Verified line carries ★ only behind the page’s star gate and the t
   assert.equal(sideCardVerifiedLine(true, { trusted_avg_rating: 4.94, trusted_review_count: 1038 }), 'Setnayan Verified · ★ 4.9 · 1,038 reviews');
   assert.equal(sideCardVerifiedLine(false, { trusted_avg_rating: 4.9, trusted_review_count: 38 }), 'Setnayan Verified');
   assert.equal(sideCardVerifiedLine(true, { trusted_avg_rating: null, trusted_review_count: 0 }), 'Setnayan Verified');
-  assert.match(PAGE, /verifiedLine=\{sideCardVerifiedLine\(viewerTierCaps\.reviewStarsCounted, trustedReviewStats\)\}/);
+  assert.match(PAGE, /verifiedLine=\{isVerifiedShop \? sideCardVerifiedLine\(viewerTierCaps\.reviewStarsCounted, trustedReviewStats\) : null\}/);
 });
 
 // Sabotage: read the mini month from anywhere but Check a date's own reads / draw every day green on a failure → red.
@@ -66,9 +66,11 @@ test('the mini month is Check a date’s own answer for this month, and a failed
 // Sabotage: drop `md:hidden` from the action row's Check a date / show the side card on a phone → red.
 test('ONE Check a date per screen: the side card’s month on a computer, the action row’s on a phone', () => {
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1);
-  assert.match(PAGE, /<CheckADateLink[\s\S]{0,200}className=\{`button-secondary inline-flex items-center gap-2\$\{cinematicHero \? ' md:hidden' : ''\}`\}/);
+  assert.match(PAGE, /<CheckADateLink[\s\S]{0,200}className=\{`button-secondary inline-flex items-center gap-2\$\{isVerifiedShop \? ' md:hidden' : ''\}`\}/);
   assert.match(CARD, /className="hidden w-full[^"]*md:block"[^>]*data-shop-side-card=""/);
-  assert.match(PAGE, /\{cinematicHero \? \(\s*<ShopSideCard/, 'the side card is not verified-only (the unverified one is S6)');
+  // v16 S6: every shop has the side card; only a verified one's carries the month (Check a date is verified only).
+  assert.equal((PAGE.match(/<ShopSideCard\b/g) ?? []).length, 1);
+  assert.match(PAGE, /<ShopSideCard[\s\S]{0,400}month=\{isVerifiedShop \? thisMonth : null\}/, 'an unverified shop shows a month');
   // A green day opens Check a date on that day; the link opens it on the first.
   assert.match(CARD, /onPick=\{\(d\) => \{\s*noteDatesFromShop\(\);\s*router\.push\(`\$\{datesHref\}&d=\$\{d\}`, \{ scroll: false \}\);\s*\}\}/);
   assert.match(PAGE, /datesHref=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival, \{ dates: '1' \}\)\}/);
@@ -79,6 +81,6 @@ test('the quote: in the side card on a computer, the S3 tray on a phone', () => 
   assert.match(CARD, /useSyncExternalStore\(subscribeShopQuote, shopQuoteSummary, \(\) => null\)/);
   assert.match(TRAY, /className=\{`\$\{phoneOnly \? 'md:hidden ' : ''\}fixed inset-x-0 bottom-0/);
   assert.match(src('app/v/[slug]/_components/services-gallery.tsx'), /setShopQuote\(picked, quote \? quoteSummary\(picked, quote\.cards\) : null\)/);
-  assert.match(PAGE, /quoteInSideCard=\{cinematicHero\}/);
+  assert.match(PAGE, /quoteInSideCard\s+notVerified=\{!isVerifiedShop\}/);
   assert.match(PAGE, /inSideCard: props\.quoteInSideCard === true,/);
 });

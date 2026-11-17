@@ -35,6 +35,8 @@ import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
 import { CardQuoteActions, QuoteTray } from './shop-quote';
+import { NotYetVerifiedTag } from './not-yet-verified-tag';
+import { NOT_VERIFIED_STAMP } from '@/lib/not-yet-verified-markings';
 import { setShopQuote } from './shop-quote-store';
 import { quoteSummary, toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 
@@ -71,6 +73,7 @@ export function ServicesGallery({
   countOpensFor = null,
   ownerCheckFor = null,
   quote = null,
+  notVerified = false,
 }: {
   /**
    * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
@@ -94,6 +97,8 @@ export function ServicesGallery({
    * decided server-side (`quotePriceOf`). null = no quote (a page with no Inquire pop-up to send it through).
    */
   quote?: { cards: QuoteCard[]; inSideCard?: boolean } | null;
+  /** ⚠ v16 S6: the shop is not verified yet — every card wears the drawing's "Not verified" stamp (`.nvp`). */
+  notVerified?: boolean;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -285,8 +290,13 @@ export function ServicesGallery({
                   setOpenCardId(c.id);
                 }}
                 footer={
-                  quote ? (
-                    <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+                  quote || notVerified ? (
+                    <>
+                      {notVerified ? <NotYetVerifiedTag label={NOT_VERIFIED_STAMP} /> : null}
+                      {quote ? (
+                        <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+                      ) : null}
+                    </>
                   ) : null
                 }
               />
@@ -295,7 +305,9 @@ export function ServicesGallery({
         )}
       </ul>
 
-      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} /> : null}
+      {quote ? (
+        <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} notVerified={notVerified} />
+      ) : null}
 
       <PhotosByServiceSheet
         view={photoServices.find((v) => v.key === openService) ?? null}

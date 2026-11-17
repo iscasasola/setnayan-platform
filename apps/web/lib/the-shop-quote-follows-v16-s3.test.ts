@@ -31,7 +31,7 @@ test('each card: "Add to quote" (pressed → "In your quote") and "Choose this s
   // 13 Nov "Yes, only one": the card's door into the ONE Inquire reads the shipped words, never a second "Inquire".
   assert.match(QUOTE, /<a\s+href="#get-in-touch"\s+data-inquire-service=\{card\.id\}[\s\S]{0,300}Choose this service\s*<\/a>/);
   // Inside the card's frame (`ServiceFace` `footer`, v16 `.sc .ft`), above the card's door — never under the card.
-  assert.match(GALLERY, /footer=\{\s*quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
+  assert.match(GALLERY, /footer=\{\s*quote \|\| notVerified \? \(\s*<>\s*\{notVerified \? <NotYetVerifiedTag label=\{NOT_VERIFIED_STAMP\} \/> : null\}\s*\{quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
   assert.match(src('app/_components/service-card-view.tsx'), /<ServiceFace\s+footer=\{footer\}/);
   assert.match(GALLERY, /data-in-quote=\{picked\.includes\(c\.id\) \? '' : undefined\}/, 'a card in the quote is not marked');
 });
@@ -65,7 +65,7 @@ test('the tray is v16’s `.dock .q` (count, names, Clear); the page’s ONE Inq
   assert.match(SHEET, /const quoted = shopQuote\(\);\s*const picks = svc \? \[svc\] : quoted\.length > 0 \? \[\.\.\.quoted\] : undefined;/, 'the one Inquire does not open with the quote');
   assert.match(QUOTE, /className=\{`\$\{phoneOnly \? 'md:hidden ' : ''\}fixed inset-x-0 bottom-0 z-20[^`]*max-md:pr-\[calc\(10rem\+var\(--sn-safe-r\)\)\]`\}/, 'the tray covers the floating Inquire on a phone');
   assert.doesNotMatch(QUOTE, /from '@\/app\/[^']*actions'|'use server'|startServiceInquiry/, 'the quote has its own send');
-  assert.match(GALLERY, /\{quote \? <QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} \/> : null\}/);
+  assert.match(GALLERY, /\{quote \? \(\s*<QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} notVerified=\{notVerified\} \/>\s*\) : null\}/);
 });
 
 // Sabotage: offer the quote where the page has no Inquire pop-up / keep the old subtitle → red.

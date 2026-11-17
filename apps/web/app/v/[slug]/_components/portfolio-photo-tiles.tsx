@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import Image from 'next/image';
 import { Sheet } from '@/app/_components/sheet';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { NOT_VERIFIED_STAMP } from '@/lib/not-yet-verified-markings';
 
 /**
  * 👁 THE SHOP PAGE'S PORTFOLIO PHOTOS — each opens full size on a tap, and that open is ONE view of that photo (Build 3
@@ -18,11 +19,14 @@ export function PortfolioPhotoTiles({
   photos,
   label,
   count,
+  notVerified = false,
 }: {
   vendorProfileId: string;
   photos: readonly { key: string; url: string }[];
   label: string;
   count: boolean;
+  /** ⚠ v16 S6 `.nvp`: every photo of a shop Setnayan has not checked yet wears the "Not verified" stamp. */
+  notVerified?: boolean;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const hid = useId();
@@ -42,6 +46,12 @@ export function PortfolioPhotoTiles({
           data-portfolio-photo-open=""
         >
           <Image src={p.url} alt={`${label} portfolio ${idx + 1}`} fill sizes="(max-width: 640px) 50vw, 33vw" className="object-cover" />
+          {/* Inside the photo's own button, so a plain stamp (never a second button); the sheet is the page's markings'. */}
+          {notVerified ? (
+            <em className="absolute bottom-2 left-2 rounded-full bg-warn-50 px-2 py-0.5 text-xs font-bold not-italic text-warn-800" data-photo-not-verified="">
+              {NOT_VERIFIED_STAMP}
+            </em>
+          ) : null}
         </button>
       ))}
       <Sheet open={shown !== undefined} onClose={() => setOpen(null)} labelledById={hid} rise>

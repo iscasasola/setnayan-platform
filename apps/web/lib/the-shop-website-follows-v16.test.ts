@@ -177,7 +177,8 @@ test('a failed awards read says so — never "no awards", and a Partner never si
 // Sabotage: drop the slot or the footer tag, or show them on a verified shop → red.
 test('the unverified look: the Verified slot reads "Not yet — papers not checked", and the footer carries the tag', () => {
   assert.match(PAGE, /\{vendor\.verification_state !== 'verified' \? \([\s\S]{0,400}<li[^>]*data-shop-not-verified-slot="">[\s\S]{0,300}on=\{false\}[\s\S]{0,200}\{awardFact\(verifiedBadge\(\)\)\}<\/b>\s*<small[^>]*>Not yet — papers not checked<\/small>/);
-  assert.match(PAGE, /Supplier ID · [\s\S]{0,300}\{vendor\.verification_state !== 'verified' \? \(\s*<p[^>]*data-shop-footer-not-verified="">[\s\S]{0,120}Not yet verified\s*<\/p>/);
+  // v16 S6: the footer's tag is the ONE shared marking (`NotYetVerifiedTag`, "Not yet verified", opening the sheet).
+  assert.match(PAGE, /Supplier ID · [\s\S]{0,300}\{vendor\.verification_state !== 'verified' \? \(\s*<p[^>]*data-shop-footer-not-verified="">\s*<NotYetVerifiedTag \/>\s*<\/p>/);
 });
 
 // Sabotage: load a kit full screen statically / let the public seal screen use the kit's owner-facing copy → red.

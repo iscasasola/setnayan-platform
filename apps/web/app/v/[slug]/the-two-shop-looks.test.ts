@@ -22,17 +22,20 @@ const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'
 const PAGE = read('page.tsx');
 const PANEL = read('_components/shop-can-do-panel.tsx');
 
-test('the verified look is every verified shop — not a plan', () => {
-  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
-  assert.doesNotMatch(PAGE, /const cinematicHero = isEnterprise/, 'the hero went back behind Ultra');
-  assert.match(PAGE, /\{cinematicHero \? \(\s*<ShopHero\b/, 'the hero is not drawn for the verified look');
+// v16 S6 (owner 15 Nov, DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", which SUPERSEDES the
+// 13 Nov "two looks" for the LOOK): one look for every shop; only the CONTENT is gated, by `isVerifiedShop`.
+test('one look for every shop — the hero is never behind a plan or verification; content is gated by isVerifiedShop', () => {
+  assert.match(PAGE, /const isVerifiedShop = vendor\.verification_state === 'verified';/);
+  assert.doesNotMatch(PAGE, /cinematicHero|isEnterprise \? \(\s*<ShopHero/, 'the hero went back behind a gate');
+  assert.equal((PAGE.match(/<ShopHero\b/g) ?? []).length, 1);
+  assert.doesNotMatch(PAGE, /\{\w+ \? \(\s*<ShopHero|\{\w+ \? <ShopHero/, 'the hero is drawn for some shops only');
 });
 
 test('Check a date exists only behind the verified + bookable gate; the old day strip is gone (15 Nov)', () => {
   // The action-row door keeps its own `bookable` gate (the-since-line-and-check-a-date.test.ts); the panel rides the
   // verified look AND bookable. "Their real calendar · Open Saturdays coming up" is gone: DECISION_LOG 2026-11-15
   // "THE OWNER APPROVES THE SUPPLIER WEBSITE DESIGN…" — the website's own day strip is gone.
-  assert.match(PAGE, /\{cinematicHero && bookable \? \(\s*<ShopCanDoPanel\b/, 'the "can\'t do" panel left its gate');
+  assert.match(PAGE, /\{isVerifiedShop && bookable \? \(\s*<ShopCanDoPanel\b/, 'the "can\'t do" panel left its gate');
   assert.equal((PAGE.match(/<ShopCanDoPanel\b/g) ?? []).length, 1);
   const sample = read('_components/sample-shop-page.tsx');
   for (const [name, src] of [['page', PAGE], ['sample', sample]] as const) {
@@ -62,13 +65,13 @@ test('Lock lives only on the package cards', () => {
   assert.match(modal, /<PackageIcon[^>]*\/>\s*\{\s*\}\s*Book this package/);
 });
 
-test('the section bar: verified About · Services · Portfolio · Reviews; unverified Services · Reviews · Where (no Inquire tab)', () => {
+test('the section bar: verified About · Services · Portfolio · Reviews; unverified Services · Portfolio · About · Reviews · Where (v16 S6; no Inquire tab)', () => {
   assert.equal((PAGE.match(/<ShopSectionBar\b/g) ?? []).length, 1);
   const tabs = PAGE.slice(PAGE.indexOf('const shopSectionTabs'), PAGE.indexOf('const shopSectionTabs') + 900);
   const [ver, unv] = tabs.split(/\]\s*\n\s*:\s*\[/);
   const labels = (t: string | undefined) => [...(t ?? '').matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(labels(ver), ['About', 'Services', 'Portfolio', 'Reviews']);
-  assert.deepEqual(labels(unv), ['Services', 'Reviews', 'Where']);
+  assert.deepEqual(labels(unv), ['Services', 'Portfolio', 'About', 'Reviews', 'Where']);
   // Every tab points at a section the page renders.
   for (const id of ['shop-about', 'shop-services', 'shop-portfolio', 'shop-reviews', 'shop-where']) {
     assert.match(PAGE, new RegExp(`id="${id}" data-shop-section=""`), `#${id} has no section`);
@@ -79,7 +82,7 @@ test('the section bar: verified About · Services · Portfolio · Reviews; unver
 });
 
 test('the unverified page prints no web address, and its Where is the city alone — no map (15 Nov "no exact address")', () => {
-  assert.match(PAGE, /\{cinematicHero \? <ShopAddresses setnayanAddress=\{setnayanAddress\} ownAddress=\{ownAddress\} \/> : null\}/);
+  assert.match(PAGE, /\{isVerifiedShop \? <ShopAddresses setnayanAddress=\{setnayanAddress\} ownAddress=\{ownAddress\} \/> : null\}/);
   const where = PAGE.slice(PAGE.indexOf('id="shop-where"'), PAGE.indexOf('id="get-in-touch"'));
   assert.doesNotMatch(where, /<ShopReachMap\b|<DirectionsMenu\b/);
   assert.match(where, /<ShopReachLine\b/);
@@ -137,5 +140,5 @@ test('the Where tab and the Where section share one answer — a shop with nowhe
   assert.match(PAGE, /const where = shopWhere\(/);
   assert.match(PAGE, /const hasWhere = where\.has;/);
   assert.match(PAGE, /\.\.\.\(hasWhere \? \[\{ id: 'shop-where', label: 'Where' \}\] : \[\]\)/, 'the Where tab is drawn whatever the shop has');
-  assert.match(PAGE, /\{cinematicHero \|\| !hasWhere \? null : \(\s*<div id="shop-where"/, 'the Where section is drawn whatever the shop has');
+  assert.match(PAGE, /\{isVerifiedShop \|\| !hasWhere \? null : \(\s*<div id="shop-where"/, 'the Where section is drawn whatever the shop has');
 });

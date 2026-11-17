@@ -245,6 +245,9 @@ import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { coupleShopRenewing } from '@/lib/papers-renewal';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
+import { readCardBadges } from '@/lib/card-badges.server';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import type { CardBadgesRead } from '@/lib/card-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
@@ -1158,6 +1161,26 @@ export async function renderVendorBySlug({
       : Promise.resolve(null),
   );
   const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
+     blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
+  const cardBadgesP = startRead(
+    (async (): Promise<CardBadgesRead> => {
+      const shopVerified = vendor.verification_state === 'verified';
+      /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
+         medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
+         never a quiet "not a partner". */
+      const shopSeals = await readShopSeals(vendor.vendor_profile_id, shopVerified);
+      if (!shopSeals) return { kind: 'unreadable' };
+      return readCardBadges(admin, {
+        vendorProfileId: vendor.vendor_profile_id,
+        shopVerified,
+        verifiedPartner: shopSeals.seals.includes('verified_partner'),
+      });
+    })().catch((err: unknown): CardBadgesRead => {
+      console.error('[renderVendorBySlug] card badges unreadable', err);
+      return { kind: 'unreadable' };
+    }),
+  );
   const favoritesCountP = startRead((async () => {
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
@@ -2307,7 +2330,10 @@ export async function renderVendorBySlug({
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
   // The service cards' inputs, ONCE: the Services section draws them and 📸 photos by service (owner 2026-11-14)
   // gathers the same cards by their service for the Portfolio's "Photos by service" row.
+  const serviceCardBadges = await cardBadgesP;
   const servicesProps: ServicesPricingProps = {
+    cardBadges: serviceCardBadges,
+    badgesNow: Date.now(),
             /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
        (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
     countOpensFor: !isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null,
@@ -3666,6 +3692,10 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
 }
 
 type ServicesPricingProps = {
+  /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
+  cardBadges: CardBadgesRead | null;
+  /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
+  badgesNow: number;
   /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
   ownerCheckFor: string | null;
   /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
@@ -3875,7 +3905,7 @@ function buildServiceGroups({
 
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
-  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor } = props;
+  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor, cardBadges, badgesNow } = props;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -3895,6 +3925,8 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         shopName={businessName}
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
+        cardBadges={cardBadges}
+        badgesNow={badgesNow}
       />
     </section>
   );

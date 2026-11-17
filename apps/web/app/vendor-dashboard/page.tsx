@@ -42,6 +42,9 @@ import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone, todayMilestoneWord } from '@/lib/vendor-milestone';
 import { BadgeEarnedLine } from './_components/badge-earned-line';
+import { CardBadgeCongratsMount } from './_components/card-badge-congrats-mount';
+import { readCardBadgeCongrats } from '@/lib/card-badges.server';
+import { parseCardBadgeCongratsParam } from '@/lib/card-badges';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
 import { PapersRenewalLine } from './_components/papers-renewal-line';
@@ -204,6 +207,8 @@ export default async function VendorOverviewPage({
     free?: string;
     competing?: string;
     date_answer?: string;
+    /** `{serviceId}.{badge}` — the card-badge Today line's link (`cardBadgeCongratsHref`): open its congratulations. */
+    card_badge?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -303,6 +308,12 @@ export default async function VendorOverviewPage({
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
+  // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
+  const cardBadgeLink = parseCardBadgeCongratsParam(search.card_badge);
+  const cardBadgeCongratsP = cardBadgeLink
+    ? readCardBadgeCongrats(createAdminClient(), vendorProfileId, cardBadgeLink).catch(() => null)
+    : Promise.resolve(null);
   /*
     🧰 A shop not yet approved draws its six steps in place (below). Their reads hang off the ONE shop-row read — they
     start the moment it says "not verified", beside the slow desk read, never a wave after it
@@ -717,6 +728,7 @@ export default async function VendorOverviewPage({
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />
+      <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}
@@ -741,4 +753,10 @@ export default async function VendorOverviewPage({
           page and is not mounted. */}
     </div>
   );
+}
+
+/** The congratulations a card-badge Today line opens, or nothing (no link, not this shop's, or no longer held). */
+function CardBadgeCongratsLink({ read }: { read: Awaited<ReturnType<typeof readCardBadgeCongrats>> }) {
+  if (!read) return null;
+  return <CardBadgeCongratsMount cardName={read.cardName} badge={read.badge} name={read.name} tag={read.tag} rule={read.rule} />;
 }

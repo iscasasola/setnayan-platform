@@ -554,8 +554,7 @@ function ProofForm({
       {setup && <input type="hidden" name="setup" value="1" />}
 
       <p className="text-sm text-ink/65">
-        Upload the screenshot of your payment receipt &mdash; nothing to type. We read the reference,
-        amount, date and time off it and confirm within 24 hours.
+        Upload your payment receipt &mdash; nothing to type. We read it and confirm within 24 hours.
       </p>
 
       {preview && (

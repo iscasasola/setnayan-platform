@@ -494,9 +494,9 @@ export default async function PayPage({ params, searchParams }: Props) {
 
       {!waiting && overCeiling && summary}
       {!waiting && overCeiling && (
-        <section role="status" data-pay-over-ceiling="" className="sn-tile mt-5 border-mulberry/40 p-6 text-sm text-ink">
+        <p role="status" data-pay-over-ceiling="" className="mt-5 px-1 text-sm font-medium text-ink">
           {paymentOverCeilingMessage(maxPaymentPhp)}
-        </section>
+        </p>
       )}
 
       {!waiting && !overCeiling && (

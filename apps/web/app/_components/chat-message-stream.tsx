@@ -1427,7 +1427,7 @@ export function ChatMessageStream({
   */
   // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
   const bookAskAnswers = useMemo(
-    () => answeredBookAsks(messages.filter((m) => m.sender_role === 'system').map((m) => ({ id: m.message_id, body: m.body }))),
+    () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
     [messages],
   );
   const latestProposalRef = useRef<HTMLLIElement | null>(null);

@@ -125,7 +125,7 @@ test('8 · with no real count the Quotation says "No count yet", and the thread 
   assert.match(row, /\{paxKnown \? formatCount\(seedPax\) : 'No count yet'\}/, 'the row draws the stand-in seed as their list');
   assert.match(maker, /paxKnown = true,/);
   const thread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
-  assert.match(thread, /paxKnown=\{thread\.pax_at_inquiry != null \|\| headerPax != null\}/, 'the thread page never says whether the count is real');
+  assert.match(thread, /paxKnown=\{guestCounts\.atInquiry != null \|\| guestCounts\.live != null\}/, 'the thread page never says whether the count is real');
 });
 
 test('10 · the category chips never say "Booked" — the stage pill does', () => {

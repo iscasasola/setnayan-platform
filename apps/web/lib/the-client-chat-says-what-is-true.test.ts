@@ -47,6 +47,11 @@ test('2a · a later answer closes every open ask before it — and only those', 
   assert.equal(m.has('b1'), false, 'the answer line itself is not an answered ask');
   assert.equal(answeredBookAsks([{ id: 'a', body: ASK }, { id: 'n', body: 'Not available · Booked that day' }]).get('a'), 'not_available');
   assert.equal(answeredBookAsks([{ id: 'a', body: ASK }]).size, 0);
+  assert.equal(
+    answeredBookAsks([{ id: 'a', body: ASK, role: 'system' }, { id: 't', body: 'Booked ✓', role: 'vendor' }]).size,
+    0,
+    'a person typing the answer words answers nothing',
+  );
 });
 
 test('2b · the card says how it was answered; the stream hands it the answer', async () => {
@@ -61,7 +66,7 @@ test('2b · the card says how it was answered; the stream hands it the answer', 
   const stream = read('app/_components/chat-message-stream.tsx');
   const mount = stream.match(/<StreamLineCard\b[\s\S]*?\/>/)?.[0] ?? '';
   assert.match(mount, /answeredAs=\{bookAskAnswers\.get\(m\.message_id\) \?\? null\}/, 'the stream does not pass the answer');
-  assert.match(stream, /answeredBookAsks\(messages\.filter\(\(m\) => m\.sender_role === 'system'\)/);
+  assert.match(stream, /answeredBookAsks\(messages\.map\(\(m\) => \(\{ id: m\.message_id, body: m\.body, role: m\.sender_role \}\)\)\)/);
   const line = read('app/_components/chat/cards/stream-line-card.tsx');
   assert.match(line, /<BookRequestCard [^>]*answeredAs=\{answeredAs\}/);
 });

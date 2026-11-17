@@ -1,3 +1,4 @@
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { CHAT_SENT_AS_FIELD } from '@/lib/chat-sent-as';
 import { CheckCircle2, CircleDashed, XCircle } from 'lucide-react';
@@ -131,7 +132,7 @@ export function QuickReplies({
           {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />
           <input type="hidden" name="body" value={q} />
-          <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
+          <input type="hidden" name="return_to" value={supplierThreadPageHref(threadId)} />
           <SubmitButton
             pendingLabel="Sending…"
             className="sn-press inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-ink/15 bg-ink/[0.04] px-4 text-sm text-ink hover:border-ink/30"

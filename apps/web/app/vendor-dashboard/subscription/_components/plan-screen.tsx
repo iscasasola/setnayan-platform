@@ -152,7 +152,21 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-  let { data: tierRow } = await readTierRow();
+  const firstTierRead = await readTierRow();
+  let tierRow = firstTierRead.data;
+  // 🔎 A REFUSED PLAN READ IS NOT FREE (supplier dashboard audit, 2026-11-17). With `error` dropped, `tierRow` was
+  // null, `asVendorTier(undefined)` gave 'free', and a paying shop read "You are on Free · nothing to pay" and
+  // "there is nothing to cancel", with every paid row behind a "Get verified" lock. Say it could not load instead.
+  if (firstTierRead.error) {
+    logQueryError('subscription/plan-screen · vendor_profiles tier read', firstTierRead.error, { vendor_profile_id: profile.vendor_profile_id }, 'graceful_degrade');
+    return (
+      <Column embedded={embedded}>
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-plan-unread="">
+          Couldn&apos;t load your plan — nothing has changed. Refresh in a moment to try again.
+        </p>
+      </Column>
+    );
+  }
   // ⏳ A PLAN THAT HAS RUN OUT IS ENDED BEFORE THIS SCREEN DRAWS IT (Lane G · Step 0 rows 14–15, 2026-11-10).
   // The layout's lapse sweep runs AFTER the response, so this page — the one that prints the plan and its day —
   // drew the ended plan as current ("You are on Solo · until Oct 19, 2026") on the visit that ended it. When the

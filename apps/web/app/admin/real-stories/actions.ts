@@ -150,7 +150,7 @@ async function notifyCoupleShowcaseFeatured(
           type: 'showcase_featured',
           title: 'Your wedding is featured on Stories',
           body: `${displayName} is now featured in the Setnayan Stories showcase. Couples planning their own day will see your story.`,
-          relatedUrl: '/realstories',
+          relatedUrl: '/',
         }),
       ),
     );
@@ -254,7 +254,6 @@ export async function setShowcaseFeatured(formData: FormData) {
         name as string,
       );
     }
-    revalidatePath('/realstories');
     revalidatePath(BASE);
     redirectBack('ok', `${name} is now featured on Stories.`, eventId);
   }
@@ -273,7 +272,6 @@ export async function setShowcaseFeatured(formData: FormData) {
     after_json: { showcase_featured_at: null, showcase_feature_rank: null },
     actor_user_id: user.id,
   });
-  revalidatePath('/realstories');
   revalidatePath(BASE);
   redirectBack('ok', 'Removed from the Real Stories feature list. The wedding stays published at its own page.', eventId);
 }
@@ -323,7 +321,6 @@ export async function setShowcaseRank(formData: FormData) {
     after_json: { showcase_feature_rank: rank },
     actor_user_id: user.id,
   });
-  revalidatePath('/realstories');
   revalidatePath(BASE);
   const name = (ev.display_name as string | null)?.trim() || 'This wedding';
   redirectBack(

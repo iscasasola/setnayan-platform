@@ -104,6 +104,9 @@ const DELETED_FILIPINIANA_HAND_LIST = [
   'inc_modest_bridal',
 ];
 
+/** The hand list minus what T1 folded away (hidden in the code copy too). */
+const LIVE_FILIPINIANA = DELETED_FILIPINIANA_HAND_LIST.filter((k) => !TAXONOMY_MAP[k]?.marketplaceHidden);
+
 function deletedConstants(): { byTile: Map<string, string[]>; byFolder: Map<string, string[]> } {
   const byFolder = new Map<string, string[]>();
   const byTile = new Map<string, string[]>();
@@ -125,7 +128,9 @@ function deletedConstants(): { byTile: Map<string, string[]>; byFolder: Map<stri
       if (!arr.includes(canonical)) byTile.set(st, [...arr, canonical]);
     }
   }
-  byTile.set('filipiniana_barongs', [...DELETED_FILIPINIANA_HAND_LIST]);
+  // T1 (16 Nov 2026) folded `inc_modest_bridal` into `muslim_modest_bridal`: a folded service is hidden,
+  // and a hidden service leaves every shelf — the cross-view included.
+  byTile.set('filipiniana_barongs', LIVE_FILIPINIANA);
   return { byTile, byFolder };
 }
 
@@ -216,7 +221,7 @@ test('an admin cross-lists a new service onto Filipiniana & Barongs → the cros
       const live = await readerBuckets();
       assert.ok(servicesInTile(live, 'filipiniana_barongs').includes(NEW_SERVICE));
       assert.ok(servicesInTile(live, 'brides_attire').includes(NEW_SERVICE), 'the primary shelf keeps it too');
-      assert.equal(servicesInTile(live, 'filipiniana_barongs').length, DELETED_FILIPINIANA_HAND_LIST.length + 1);
+      assert.equal(servicesInTile(live, 'filipiniana_barongs').length, LIVE_FILIPINIANA.length + 1);
     },
   );
 });

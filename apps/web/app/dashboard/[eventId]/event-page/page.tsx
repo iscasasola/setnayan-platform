@@ -82,7 +82,7 @@ export default async function HostEventPageRedirect({
   // No slug yet → the couple hasn't set up their public URL. Send them to the
   // Website hub where they pick a slug + style the page, rather than 404.
   if (!event.slug) {
-    redirect(`/dashboard/${eventId}/website`);
+    redirect(`/dashboard/${eventId}/launch`);
   }
 
   // Same-origin RELATIVE redirect so the host's auth session carries through.

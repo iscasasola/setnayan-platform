@@ -49,12 +49,15 @@ test('1 · /v/{shop} and its sub-pages redirect to the bare address — nothing 
     ['/v/titanena/review', '/titanena/review'],
     ['/v/titanena/guest-review', '/titanena/guest-review'],
     ['/v/titanena/cached', null], // the internal cached copy — never addressed, never redirected
-    ['/v/titanena/story/our-day', null], // a sub-page the move has not given a bare form
+    ['/v/titanena/story/our-day', '/titanena/story/our-day'], // W1-B19 — an Ultra story page forwards too
+    ['/v/titanena/story/our-day/', '/titanena/story/our-day'],
+    ['/v/titanena/dates/our-day', null], // only `story` takes an event segment
+    ['/v/titanena/story/our-day/more', null],
     ['/v/', null],
     ['/vendors/titanena', null],
   ];
   for (const [from, to] of pairs) assert.equal(legacyShopRedirect(from), to, from);
-  assert.deepEqual([...SHOP_SUB_PAGES], ['dates', 'booth', 'review', 'guest-review']);
+  assert.deepEqual([...SHOP_SUB_PAGES], ['dates', 'booth', 'review', 'guest-review', 'story']);
 });
 
 test('1b · /vendor-invite/{shop} → /{shop}/invite, and the builders name the new door', () => {
@@ -73,6 +76,7 @@ test('1b · /vendor-invite/{shop} → /{shop}/invite, and the builders name the 
 test('2 · a bare shop sub-page renders from /v/, never for a reserved word', () => {
   assert.equal(shopSubPageRewrite('/titanena/dates', reserved), '/v/titanena/dates');
   assert.equal(shopSubPageRewrite('/titanena/guest-review', reserved), '/v/titanena/guest-review');
+  assert.equal(shopSubPageRewrite('/titanena/story/maria-jose', reserved), '/v/titanena/story/maria-jose', 'an Ultra story page lives on the bare address');
   assert.equal(shopSubPageRewrite('/titanena', reserved), null);
   assert.equal(shopSubPageRewrite('/titanena/invite', reserved), null, 'the invite door is app/[slug]/invite — the word decides');
   for (const w of ['admin', 'dashboard', 'vendor-dashboard', 'api', 'v', 'u']) {

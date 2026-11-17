@@ -615,9 +615,16 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
   const tree = walkApp(appRoot);
   const patterns: RoutePattern[] = [];
   const screenDirs: Array<{ dir: string; route: string }> = [];
+  // A parallel-route slot's page (`customers/@client/page.tsx`) is drawn INSIDE its parent's layout at the parent's
+  // address — it is not a second screen. When a plain page already serves that address, the plain page owns the
+  // screen; listing both gave one route two entries, and the empty slot entry then hid the parent's `#sections`
+  // (EB-246: `/vendor-dashboard/customers#outside` read as "no such section"). Held by `scan-screens.test.ts`.
+  const inSlot = (dir: string) => dir.split(/[\\/]/).some((s) => s.startsWith('@'));
+  const plainRoutes = new Set(tree.pageDirs.filter((d) => !inSlot(d)).map(urlForAppDir).filter((r): r is string => r !== null));
   for (const dir of tree.pageDirs) {
     const route = urlForAppDir(dir);
     if (route === null) continue;
+    if (inSlot(dir) && plainRoutes.has(route)) continue;
     // A slot's reset page — a `page.tsx` under `@slot/` that draws nothing (`return null`), there so a soft navigation
     // clears the slot (the rise slot, build-sessions/RISE-AUDIT-2026-11-13.md § H.2) — is not a screen: its URL is the
     // children page's (or a catch-all of them), and counting it would shadow that page's own sections.

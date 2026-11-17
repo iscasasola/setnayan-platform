@@ -6,7 +6,7 @@ import { VerifySection } from '../shop/_components/verify-section';
 import { CouldNotLoad } from '../shop/_components/could-not-load';
 import type { DetailsData } from '../profile/details-data';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
-import { assembleSetup, setupChecklistKeys, type SetupFoldKey } from '@/lib/supplier-setup';
+import { setupChecklistKeys, shopSetupView, type SetupFoldKey } from '@/lib/supplier-setup';
 import { displayServiceLabel } from '@/lib/vendors';
 import { SupplierSetupFolds } from './supplier-setup-folds';
 import { SetupOfferFold } from './setup-offer-fold';
@@ -74,17 +74,8 @@ export function SupplierSetupScreen({
   /** The lab's papers fixture. Today leaves it out: the place loads the shop's own (`loadInlineDocs`). */
   paperPayload?: InlineDocsPayload;
 }) {
-  const view = assembleSetup({
-    checklist: d.checklist,
-    rail,
-    offer: rail.offer,
-    docs: { status: d.verify.status, docsIn: d.docsIn, docsTotal: d.docsTotal },
-    shopName: d.businessName,
-    slug: d.slug ?? null,
-    // "Photography · no card yet" — the shop's first service, by the name couples read.
-    serviceLabel: rail.offer?.services[0] ? displayServiceLabel(rail.offer.services[0].service) : null,
-    qrSaved: tour ? tour.seen : null,
-  });
+  // 🔢 ONE CHECKLIST, ONE COUNT (W1-B10): Your details draws the same six from the same call.
+  const view = shopSetupView({ d, rail, qrSaved: tour ? tour.seen : null, serviceLabel: displayServiceLabel });
   const rows = (k: 'name' | 'details' | 'logo') => {
     const keys = setupChecklistKeys(k);
     return d.checklist.filter((i) => keys.includes(i.key));

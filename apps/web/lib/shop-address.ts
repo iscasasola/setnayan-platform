@@ -13,7 +13,7 @@
  */
 
 /** The shop's sub-pages that a bare address reaches (`/{shop}/dates`). None of these is an event sub-page. */
-export const SHOP_SUB_PAGES = ['dates', 'booth', 'review', 'guest-review'] as const;
+export const SHOP_SUB_PAGES = ['dates', 'booth', 'review', 'guest-review', 'story'] as const;
 export type ShopSubPage = (typeof SHOP_SUB_PAGES)[number];
 
 /** A shop word as it can appear in a path (the slug rule the routes already use). */
@@ -35,9 +35,12 @@ export function shopInvitePath(slug: string): string {
  * later change adds before it is given its bare form here.
  */
 export function legacyShopRedirect(pathname: string): string | null {
-  const m = new RegExp(`^/v/(${WORD})(?:/(${SHOP_SUB_PAGES.join('|')}))?/?$`, 'i').exec(pathname);
+  // W1-B19: `/v/{shop}/story/{event}` (an Ultra story page) carries one more segment than the other sub-pages —
+  // it forwards too, to `/{shop}/story/{event}`. Only `story` takes that segment; `/v/{shop}/dates/x` stays null.
+  const m = new RegExp(`^/v/(${WORD})(?:/(${SHOP_SUB_PAGES.join('|')})(?:/(${WORD}))?)?/?$`, 'i').exec(pathname);
   if (!m) return null;
-  return shopPath(m[1]!, m[2] ? `/${m[2]}` : '');
+  if (m[3] && m[2]!.toLowerCase() !== 'story') return null;
+  return shopPath(m[1]!, m[2] ? `/${m[2]}${m[3] ? `/${m[3]}` : ''}` : '');
 }
 
 /** `/vendor-invite/{shop}` → `/{shop}/invite` (308 — shop QR codes are printed; the caller keeps the query). */

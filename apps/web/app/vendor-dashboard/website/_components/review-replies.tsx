@@ -139,7 +139,7 @@ function VendorGuestReviewCard({ row, vendorName }: { row: GuestReviewRow; vendo
       {row.line ? <p className="text-sm text-ink">&ldquo;{row.line}&rdquo;</p> : <p className="text-xs italic text-[color:var(--m-slate-2)]">Stars only.</p>}
       {row.vendor_reply ? (
         <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4" data-guest-review-reply="posted">
-          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Response from {vendorName}</p>
+          <p className="home-k2 !mt-0 !mb-0">Response from {vendorName}</p>
           <p className="mt-1 whitespace-pre-line text-sm text-ink">{row.vendor_reply}</p>
           <p className="mt-2 text-xs text-[color:var(--m-slate-2)]">Your public reply is final — it can’t be edited once posted.</p>
         </div>
@@ -147,7 +147,7 @@ function VendorGuestReviewCard({ row, vendorName }: { row: GuestReviewRow; vendo
         <form action={postVendorReply} className="space-y-2 border-t border-[color:var(--m-line)] pt-3" data-guest-review-reply="form">
           <input type="hidden" name="kind" value="guest" />
           <input type="hidden" name="review_id" value={row.review_id} />
-          <label htmlFor={`guest_reply_${row.review_id}`} className="block text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+          <label htmlFor={`guest_reply_${row.review_id}`} className="block home-k2 !mt-0 !mb-0">
             Public reply
           </label>
           <textarea
@@ -220,7 +220,7 @@ function ExistingReplySection({ review, vendorName }: { review: ReviewWithCouple
     : null;
   return (
     <div className="rounded-md border-l-4 border-terracotta/40 bg-terracotta/[0.06] p-3 pl-4" data-review-reply="posted">
-      <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+      <p className="home-k2 !mt-0 !mb-0">
         Response from {vendorName}
         {repliedAt ? ` · ${repliedAt}` : null}
       </p>
@@ -234,7 +234,7 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
   return (
     <form action={postVendorReply} className="space-y-2 border-t border-[color:var(--m-line)] pt-3" data-review-reply="form">
       <input type="hidden" name="review_id" value={reviewId} />
-      <label htmlFor={`reply_${reviewId}`} className="block text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+      <label htmlFor={`reply_${reviewId}`} className="block home-k2 !mt-0 !mb-0">
         Public reply
       </label>
       <textarea
@@ -274,7 +274,7 @@ function FlagForm({ reviewId }: { reviewId: string }) {
         <span className="sr-only">Flag as fake</span>
       </summary>
       <div className="absolute right-0 top-10 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-3 shadow-lg">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Flag review as fake</p>
+        <p className="home-k2 !mt-0 !mb-2">Flag review as fake</p>
         <form action={submitFlagAsFake} className="space-y-2">
           <input type="hidden" name="review_id" value={reviewId} />
           <FlagReasonPick />
@@ -313,7 +313,7 @@ function VerifiedBookingPill() {
 function AxisStat({ axis, value }: { axis: ReviewAxis; value: number }) {
   return (
     <div className="py-1">
-      <dt className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{REVIEW_AXIS_LABEL[axis]}</dt>
+      <dt className="home-k2 !mt-0 !mb-0">{REVIEW_AXIS_LABEL[axis]}</dt>
       <dd className="flex items-center gap-1 text-ink">
         <Star className="h-3 w-3 fill-warn-400 text-warn-500" strokeWidth={1.5} />
         <span className="text-xs font-semibold tabular-nums text-ink">{value.toFixed(0)}</span>

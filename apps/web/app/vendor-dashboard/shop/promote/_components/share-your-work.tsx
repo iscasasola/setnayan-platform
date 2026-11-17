@@ -60,7 +60,7 @@ function ShareRow({
   return (
     <li className="flex flex-col gap-2 border-b border-[color:var(--m-line)] py-3 last:border-b-0" data-share-row={data}>
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{kicker}</p>
+        <p className="home-k2 !mt-0 !mb-0">{kicker}</p>
         <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">{row.hostNames}</p>
         {meta ? <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{meta}</p> : null}
       </div>

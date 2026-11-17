@@ -48,7 +48,7 @@ test('Quotation and Chat render the one thread body; a client with no thread is 
     ['chat.tsx', 'chat'],
   ] as const) {
     const src = read(`${PAGES}/${file}`);
-    assert.match(src, new RegExp(`<SupplierThreadBody threadId=\\{threadId\\} view="${view}" />`));
+    assert.match(src, new RegExp(`<SupplierThreadBody threadId=\\{threadId\\} view="${view}" search=\\{ctx\\.threadSearch\\} />`));
     assert.match(src, /if \(!threadId\) \{/, `${file}: a threadless client gets an empty box`);
     assert.match(src, /href=\{SUPPLIER_CHATS_HREF\}/);
   }

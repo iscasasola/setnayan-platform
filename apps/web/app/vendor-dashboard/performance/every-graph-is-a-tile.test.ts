@@ -123,7 +123,8 @@ test('6 · the section reads the five graphs on the right clients, per window, a
   const page = read(PAGE);
   assert.match(page, /const newGraphsRead = readNewGraphs\(\{\s*session: supabase,\s*admin: bookingsAdmin,/);
   assert.match(page, /const newGraphs = await newGraphsRead;/);
-  assert.match(page, /<AnalyticsCarousel view=\{growthView\} graphs=\{newGraphs\} \/>/);
+  // J5: the carousel also takes which badge graphs are open (`unlocks`, `gifts`) — view and graphs still come first.
+  assert.match(page, /<AnalyticsCarousel\s+view=\{growthView\}\s+graphs=\{newGraphs\}[\s\S]*?\/>/);
   // 🔁 "Run an offer on <card>" fires ONLY from the graph's own read — the opens `service_card_opens` counts, through the
   // one pure rule, per window. Never a guessed open: no other source may feed it.
   assert.match(page, /const quiet = quietCard\(g\.cardsell\);/, 'the quiet card is not read off the graph');

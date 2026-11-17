@@ -1,19 +1,34 @@
 #!/usr/bin/env node
 /**
- * lint-no-card.mjs — NO NEW CARDS.
+ * lint-no-card.mjs — NO HAND-TYPED FRAMES. (Was "NO NEW CARDS"; REWRITTEN 16 Nov 2026.)
  *
- * The design brief (owner, 2026-09-24 · DESIGN_BRIEF_2026-09-24.md §3) bans
- * cards: "do not segment content using white or light-gray bordered boxes,
- * standard rounded rectangles, grid containers, or card-based modules." Group
- * by whitespace, type scale and layered depth instead. The owner ruled the same
- * day that radius (and a hairline) STAY on things you can press — buttons,
- * inputs, chips — so this bans the COMBINATION on CONTAINERS only.
+ * ✨ THE RULE CHANGED. The 2026-09-24 design brief banned cards outright ("do not
+ * segment content using … bordered boxes"), and this guard counted every box.
+ * On 16 Nov 2026 the owner approved the CLEAN WARM LOOK (specs DECISION_LOG
+ * "THE CLEAN WARM LOOK IS APPROVED", drawing
+ * `prototypes/clean_warm_look_2026-11-16_fable.html`): "frames = pure white +
+ * soft lift (`--m-shadow-md`), no 1 px border". That row says in so many words
+ * that it UNDOES template rule 2 "bands, not boxes" and the intent of this
+ * guard — to be rewritten, not dodged. So frames are welcome now; what is
+ * banned is DRAWING ONE BY HAND. A frame is the shared piece — `.sn-frame`,
+ * `.sn-tile`, `.sn-row` (globals.css), or `bg-frame` + `shadow-sn-frame` +
+ * `rounded-[var(--sn-frame-radius)]` — which reads the frame tokens, so one value
+ * in Admin › Colours moves every frame at once. A hand-typed border, radius or
+ * shadow on a container is a frame that one value can no longer reach.
+ *
+ * The owner ruled on 2026-09-24 that radius (and a hairline) STAY on things you
+ * can press — buttons, inputs, chips — so controls are still not counted.
  *
  * ── WHAT IT COUNTS ──────────────────────────────────────────────────────────
- * Per file, the source lines that carry BOTH class tokens:
- *   · a bare `border` (the 1px all-sides box — not `border-t`, not a colour),
- *   · `rounded-lg|xl|2xl|3xl|card|tile` (the container radii; `rounded-md` and
- *     `rounded-full` are control/chip radii and do not count).
+ * Per file, the source lines on a CONTAINER that carry a container radius
+ * (`rounded-lg|xl|2xl|3xl|card|tile`; `rounded-md` and `rounded-full` are
+ * control/chip radii and do not count) TOGETHER WITH either
+ *   · a bare `border` (the 1px all-sides box — not `border-t`, not a colour) —
+ *     the old count, unchanged: the clean look has no line on a frame; or
+ *   · a HAND-TYPED shadow (`shadow`, `shadow-sm|md|lg|xl|2xl|inner`, or an
+ *     arbitrary `shadow-[…]`) — new on 16 Nov: the lift is the frame token's.
+ *     A token shadow (`shadow-sn-*`, `shadow-m-*`) and `shadow-none` do not
+ *     count.
  * Variant prefixes are read through (`sm:rounded-2xl` counts). Comments are
  * stripped first with the repo's ONE stripper (`port-controls.mjs`), so prose
  * that names the pattern is not the pattern.
@@ -26,13 +41,15 @@
  *     is not one of those tags. Say why in the same comment.
  *
  * ── A RATCHET, NOT A BAN ────────────────────────────────────────────────────
- * The tree already holds hundreds of cards; redesigning them is the work of
- * the redesign, one screen at a time, looked at. So the committed baseline
- * (`no-card.baseline.txt`) freezes today's per-file count, and the guard fails
- * only when a file's count RISES or a file not in the baseline has any. When a
- * redesign removes cards, run `--update-baseline` in the same PR so the lower
- * count is locked in and cannot grow back. (Modelled on
- * `lint-guest-legibility.mjs`.)
+ * The tree already holds hundreds of hand-typed frames; moving them onto the
+ * shared piece is the clean-look sweep, area by area, looked at. So the
+ * committed baseline (`no-card.baseline.txt`) freezes today's per-file count,
+ * and the guard fails only when a file's count RISES or a file not in the
+ * baseline has any. When a sweep moves frames onto the token, run
+ * `--update-baseline` in the same PR so the lower count is locked in and cannot
+ * grow back. (Modelled on `lint-guest-legibility.mjs`.) The baseline was
+ * regenerated ONCE, upward, on 16 Nov 2026, because the rule itself widened
+ * (hand-typed shadows now count) — never to make a new frame pass.
  *
  * Usage (from apps/web):
  *   pnpm lint:no-card
@@ -55,6 +72,8 @@ const INLINE_OK = 'no-card-ok';
 export const MIN_FILES = 1500;
 
 const CONTAINER_RADIUS = /^rounded-(?:lg|xl|2xl|3xl|card|tile)$/;
+/** A hand-typed lift: Tailwind's own greys or an arbitrary value — NOT a token (`shadow-sn-*`, `shadow-m-*`). */
+const HAND_SHADOW = /^shadow(?:-(?:sm|md|lg|xl|2xl|inner)|-\[.*)?$/; // `-[…` — the class splitter cuts an arbitrary value at its commas
 const CONTROL_TAGS = new Set(['button', 'input', 'select', 'textarea', 'summary']);
 const isControlTag = (tag) => CONTROL_TAGS.has(tag) || /Button$/.test(tag);
 
@@ -63,16 +82,19 @@ function baseOf(token) {
   return token.split(':').pop().replace(/^!/, '');
 }
 
-/** Does this (comment-stripped) line hold a bare `border` and a container radius? */
+/**
+ * Does this (comment-stripped) line hand-type a frame — a container radius together with a bare `border` or a
+ * hand-typed shadow?
+ */
 export function holdsCard(line) {
-  let border = false;
+  let edge = false;
   let radius = false;
   for (const raw of line.split(/[\s"'`{}(),;]+/)) {
     if (!raw) continue;
     const base = baseOf(raw);
-    if (base === 'border') border = true;
+    if (base === 'border' || HAND_SHADOW.test(base)) edge = true;
     else if (CONTAINER_RADIUS.test(base)) radius = true;
-    if (border && radius) return true;
+    if (edge && radius) return true;
   }
   return false;
 }
@@ -177,8 +199,10 @@ export function formatBaseline(counts) {
   const rows = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
   const total = rows.reduce((s, [, n]) => s + n, 0);
   return [
-    '# lint:no-card baseline — lines per file holding a bare `border` AND a container',
-    '# radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:',
+    '# lint:no-card baseline — lines per file that HAND-TYPE a frame: a container radius',
+    '# (rounded-lg|xl|2xl|3xl|card|tile) with a bare `border` or a hand-typed shadow',
+    '# (shadow, shadow-sm…2xl, shadow-[…]). Rule rewritten 16 Nov 2026 (clean warm look).',
+    '# GENERATED — never hand-edit:',
     '#   node apps/web/scripts/lint-no-card.mjs --update-baseline',
     '# A RATCHET: a count may fall, never rise; a file not listed may hold none.',
     `# ${rows.length} files · ${total} lines`,
@@ -227,28 +251,29 @@ function main() {
   const violations = compare(counts, baseline);
   if (violations.length === 0) {
     const lower = Object.entries(baseline).filter(([rel, n]) => (counts[rel] ?? 0) < n).length;
-    console.log(`OK · lint:no-card · ${files} files · ${total} card lines, none above baseline (${baseTotal}).`);
+    console.log(`OK · lint:no-card · ${files} files · ${total} hand-typed frame lines, none above baseline (${baseTotal}).`);
     if (lower) console.log(`   ${lower} file(s) are BELOW baseline — run --update-baseline to lock the gain in.`);
     process.exit(0);
   }
 
   const inCI = process.env.GITHUB_ACTIONS === 'true';
-  console.error(`\nFAIL · lint:no-card: ${violations.length} file(s) added a card (bordered + rounded container):\n`);
+  console.error(`\nFAIL · lint:no-card: ${violations.length} file(s) added a hand-typed frame (a rounded container with its own border or shadow):\n`);
   for (const v of violations) {
     console.error(`  ${v.rel} — ${v.count} card line(s), baseline allows ${v.allowed}`);
     for (const h of hits[v.rel]) {
       console.error(`    :${h.lineNumber}  ${h.text.slice(0, 110)}`);
       if (inCI) {
         console.log(
-          `::error file=${v.rel},line=${h.lineNumber}::A bordered, rounded container — the 2026-09-24 design brief bans cards. Group by space and type, not a box.`,
+          `::error file=${v.rel},line=${h.lineNumber}::A hand-typed frame — since 16 Nov 2026 a frame is the shared piece (.sn-frame / .sn-tile / .sn-row, or bg-frame + shadow-sn-frame), never its own border, radius or shadow.`,
         );
       }
     }
     console.error('');
   }
   console.error('How to fix:');
-  console.error('  1. Drop the box: separate by space and type (padding, type scale), not a border.');
-  console.error('     Depth, where it is needed, is shadow + glass (`.sn-glass-bare`), not a border.');
+  console.error('  1. Wear the shared frame: `.sn-frame` (or `.sn-tile` / `.sn-row`) — white, the soft lift,');
+  console.error('     no line, all from the frame tokens. In Tailwind: `bg-frame shadow-sn-frame`.');
+  console.error('     Or drop the box and separate by space and type, if it is not a frame at all.');
   console.error('  2. A control (chip, pressable pill) that is not a <button>/<input>: add a');
   console.error('     `// no-card-ok: <why>` comment on that line.');
   console.error('  3. Never raise the baseline to go green. It is regenerated only to LOWER counts.');

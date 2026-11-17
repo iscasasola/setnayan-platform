@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { formatPhp } from '@/lib/php';
 import type { ReactNode } from 'react';
@@ -116,7 +117,7 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
             {lines.alsoOffer.map((o) => (
               <li key={o.serviceId}>
                 <DoorRow
-                  href={lines.threadId ? `/vendor-dashboard/messages/${lines.threadId}` : `/vendor-dashboard/clients/${lines.eventId}?tab=details`}
+                  href={lines.threadId ? supplierChatHref(lines.eventId, lines.threadId) : `/vendor-dashboard/clients/${lines.eventId}?tab=details`}
                   label={o.name}
                   line={o.from ? `They added this to their plan · ${o.from}` : 'They added this to their plan'}
                   end="Offer"
@@ -192,7 +193,8 @@ export function InquiryAnswers({
   acceptInquiry: Act;
   declineInquiry: Act;
 }) {
-  const chat = chatHref ?? `/vendor-dashboard/messages/${threadId}`;
+  // Default: the full-screen thread this row is drawn on (no event in hand here) — the picked client passes its own.
+  const chat = chatHref ?? supplierChatHref(null, threadId);
   return (
     <div
       className={`flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3 ${pinned ? 'sticky bottom-0 z-[1] pb-2' : ''}`}

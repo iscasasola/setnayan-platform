@@ -45,15 +45,13 @@ function manilaWhen(iso: string | null): string {
 export function ReceivedPile({
   read,
   waiting,
-  readerOn,
   query,
 }: {
   read: ReceivedPileRead;
   waiting: WaitingPayment[];
-  readerOn: boolean;
   query: string;
 }) {
-  const tile = <ReceivedDropTile disabledReason={readerOn ? null : 'Reading is off on this server'} />;
+  const tile = <ReceivedDropTile />;
   if (read.kind === 'failed') {
     return (
       <TemplateSection label="From your BDO" data="payments-received">
@@ -72,7 +70,7 @@ export function ReceivedPile({
   return (
     <TemplateSection
       label="From your BDO"
-      tip="Pictures are read, then deleted. Nothing confirms until you press Match."
+      tip="Pictures are read on this phone and never uploaded. Nothing confirms until you press Match."
       data="payments-received"
     >
       {tile}

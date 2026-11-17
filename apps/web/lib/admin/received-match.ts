@@ -65,6 +65,17 @@ function manilaIso(y: number, mo: number, d: number, clock: [number, number] | n
 }
 
 /**
+ * The on-phone reader (Tesseract) misreads a zero as the letter O inside long
+ * digit runs — measured 2026-11-17 on a drawn BDO screen: "B000…" came back
+ * "B0O00…". An O touching a digit is read as 0. Only the received side is
+ * fixed; it can only make a true suffix match visible, never invent one, and
+ * the admin still presses Match.
+ */
+export function ocrDigitFix(norm: string): string {
+  return norm.replace(/O(?=\d)|(?<=\d)O/g, '0');
+}
+
+/**
  * The date + time a bank screen prints. Manila time, because that is the only
  * clock our BDO app shows. Handles the shapes BDO and InstaPay use:
  *   "Nov 17, 2026 10:42 AM" · "17 Nov 2026, 22:42" · "11/17/2026 10:42 AM" ·
@@ -74,7 +85,7 @@ function manilaIso(y: number, mo: number, d: number, clock: [number, number] | n
  */
 export function readReceivedTime(text: string): string | null {
   const time = '((?:\\s*,?\\s*(?:at\\s+)?)\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:am|pm)?)?';
-  let m = new RegExp(`\\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]{0,6})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})${time}`, 'i').exec(text);
+  let m = new RegExp(`\\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]{0,6})\\.?\\s+(\\d{1,2})\\s*,?\\s*(\\d{4})${time}`, 'i').exec(text);
   if (m && MONTHS[m[1]!.slice(0, 3).toLowerCase()]) {
     return manilaIso(Number(m[3]), MONTHS[m[1]!.slice(0, 3).toLowerCase()]!, Number(m[2]), readClock(m[4]));
   }
@@ -120,7 +131,7 @@ export function readReceivedTranscript(transcript: string): ReceivedRead {
   if (reference === null && amountPhp === null) return { ...empty, receivedAt };
   return {
     reference,
-    referenceNorm: reference ? normalizeReference(reference) : null,
+    referenceNorm: reference ? ocrDigitFix(normalizeReference(reference)) : null,
     amountPhp,
     receivedAt,
     readStatus: 'read',

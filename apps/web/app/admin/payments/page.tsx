@@ -46,7 +46,6 @@ import { receivingAccounts, type ChannelSettings } from '@/lib/payment-channels'
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { receiptReaderConfigured } from '@/lib/payment-receipt-read.server';
 import type { ReceivedOpenRow, ReceivedPileRead } from './_components/received-pile';
 import { readRemedyDesk } from '@/lib/admin/service-remedies.server';
 export const metadata = { title: 'Payments · Admin' };
@@ -371,7 +370,6 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
               readFailed={readFailed}
               query={qDisplay}
               received={received}
-              readerOn={receiptReaderConfigured()}
             />
           )}
         </>

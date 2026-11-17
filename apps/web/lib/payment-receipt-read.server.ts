@@ -115,53 +115,6 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-/** Show one normalised JPEG to the model and return the raw transcript. THROWS. */
-async function transcribeJpeg(base64: string): Promise<string> {
-  const client = new Anthropic();
-  const res = await withTimeout(
-    client.messages.create({
-      model: RECEIPT_READ_MODEL,
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-            { type: 'text', text: RECEIPT_TRANSCRIBE_PROMPT },
-          ],
-        },
-      ],
-    }),
-    READ_TIMEOUT_MS,
-  );
-  return res.content
-    .filter((b): b is { type: 'text'; text: string } & typeof b => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n');
-}
-
-/**
- * Transcribe ONE screenshot the admin dropped from our OWN BDO app (owner
- * 2026-11-17, batch of received screenshots on /admin/payments).
- *
- * 🔑 THE SECOND DOOR, AND WHY IT TAKES BYTES NOT A REF. The picture is uploaded
- * by an admin in the request and is NEVER STORED — "Pictures are read, then
- * deleted" — so there is no R2 key to hold to a folder policy. The bytes live
- * only in this request. Nothing here decides anything: the caller parses the
- * text with plain code (lib/admin/received-match.ts) and a human presses Match.
- *
- * Returns the transcript, or NULL when the reader is off or failed. Never throws.
- */
-export async function transcribeReceivedScreenshot(bytes: Uint8Array): Promise<string | null> {
-  if (!receiptReaderConfigured()) return null;
-  try {
-    return await transcribeJpeg(await toModelImage(bytes));
-  } catch (e) {
-    console.error('received screenshot read failed', e instanceof Error ? e.message : String(e));
-    return null;
-  }
-}
-
 /**
  * Read one screenshot and say what is on it. Records nothing, decides nothing.
  *
@@ -212,7 +165,30 @@ export async function readPaymentReceiptFromR2(args: {
 
   let transcript: string;
   try {
-    transcript = await transcribeJpeg(base64);
+    const client = new Anthropic();
+    const res = await withTimeout(
+      client.messages.create({
+        model: RECEIPT_READ_MODEL,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+              },
+              { type: 'text', text: RECEIPT_TRANSCRIBE_PROMPT },
+            ],
+          },
+        ],
+      }),
+      READ_TIMEOUT_MS,
+    );
+    transcript = res.content
+      .filter((b): b is { type: 'text'; text: string } & typeof b => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
   } catch (e) {
     return failed(
       'The reader could not run just now. Open the picture yourself.',

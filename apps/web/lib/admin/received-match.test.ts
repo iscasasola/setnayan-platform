@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AUTO_MATCH_ENABLED,
   candidatesFor,
+  ocrDigitFix,
   readReceivedTime,
   readReceivedTranscript,
   referenceNamesTransfer,
@@ -114,4 +115,20 @@ test('nothing in this phase writes an automatic match', async () => {
   assert.match(src, /match_kind: 'manual'/);
   assert.doesNotMatch(src, /'auto'/, 'an automatic match is written before the BDO pay flow and its hold ship');
   assert.doesNotMatch(src, /\bstrong\b/, 'the save path reads the strong-candidate flag — that is auto-match');
+});
+
+test('what the on-phone reader really returned for a drawn BDO screen (2026-11-17)', () => {
+  // Tesseract output, verbatim: no space after the comma, one 0 read as O, one digit inserted.
+  const r = readReceivedTranscript(
+    'BDO Online\nReceived\nPHP 2,499.00\nReference No.\nGXCHPHM2XXXB0O00000006991560\nDate and time\nNov 17,2026 10:42 AM\nFrom\nJUAN DELA CRUZ\n',
+  );
+  assert.equal(r.amountPhp, 2499);
+  assert.equal(r.receivedAt, '2026-11-17T02:42:00.000Z');
+  assert.ok(r.referenceNorm!.endsWith('6991560'));
+  assert.equal(referenceNamesTransfer(r.referenceNorm, '6991560'), true);
+});
+
+test('an O touching a digit is a zero; letters elsewhere stay', () => {
+  assert.equal(ocrDigitFix('GXCHB0O0O1'), 'GXCHB00001');
+  assert.equal(ocrDigitFix('BOOKING'), 'BOOKING');
 });

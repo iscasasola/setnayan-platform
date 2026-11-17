@@ -1,15 +1,16 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { transcribeReceivedScreenshot } from '@/lib/payment-receipt-read.server';
 import { readReceivedTranscript } from '@/lib/admin/received-match';
 
 /**
  * app/admin/payments/received.ts — the three things the admin does with a
  * screenshot of money that ARRIVED in our BDO (owner 2026-11-17, specs
  * prototypes/admin_payment_verify_2026-11-17/):
- *   drop  — many pictures at once → one received row each, pictures discarded
+ *   drop  — many pictures at once, READ ON THE ADMIN'S PHONE (Tesseract, no
+ *           outside service, owner 2026-11-17 "Yes, swap it in"); only the
+ *           text arrives here → one received row each. No picture is sent.
  *   match — the admin presses Match on a row and a waiting payment
- *   leave — "Not now ▾": leave for the next drop, or not a Setnayan payment
+ *   leave — "Set aside ▾": leave for the next drop, or not a Setnayan payment
  *
  * Not a `use server` file: each export would be a route, and the action budget
  * is at its ceiling. `approvePayment` in ./actions.ts dispatches here on its
@@ -22,22 +23,23 @@ import { readReceivedTranscript } from '@/lib/admin/received-match';
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-/** Per request — the 6 MB action body limit. The client sends pictures in groups. */
-export const RECEIVED_PER_DROP = 4;
+/** Per request. The client sends the text of each picture, never the picture. */
+export const RECEIVED_PER_DROP = 25;
+/** A received screen is a few hundred characters; anything longer is not one. */
+const MAX_TEXT = 4000;
 
 export async function dropReceived(userId: string, formData: FormData): Promise<void> {
-  const files = formData
-    .getAll('shots')
-    .filter((f): f is File => typeof f === 'object' && f !== null && 'arrayBuffer' in f && f.size > 0)
+  const texts = formData
+    .getAll('texts')
+    .filter((t): t is string => typeof t === 'string')
     .slice(0, RECEIVED_PER_DROP);
-  if (files.length === 0) return;
+  if (texts.length === 0) return;
 
-  const rows = [];
-  for (const file of files) {
-    // The bytes exist only inside this loop. Nothing below writes them anywhere.
-    const transcript = await transcribeReceivedScreenshot(new Uint8Array(await file.arrayBuffer()));
-    const read = readReceivedTranscript(transcript ?? '');
-    rows.push({
+  const rows = texts.map((text) => {
+    // An empty text is a picture the phone could not read — kept as an
+    // "unreadable" row so it is counted, never silently dropped.
+    const read = readReceivedTranscript(text.slice(0, MAX_TEXT));
+    return {
       channel: 'bdo',
       reference: read.reference,
       reference_norm: read.referenceNorm,
@@ -45,8 +47,8 @@ export async function dropReceived(userId: string, formData: FormData): Promise<
       received_at: read.receivedAt,
       read_status: read.readStatus,
       created_by: userId,
-    });
-  }
+    };
+  });
   const { error } = await createAdminClient().from('admin_received_transactions').insert(rows);
   if (error) throw new Error(`Could not save what was read: ${error.message}`);
 }

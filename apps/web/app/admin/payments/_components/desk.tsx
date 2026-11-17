@@ -505,12 +505,9 @@ export function PaymentsList({
   readFailed,
   query,
   received,
-  readerOn = false,
 }: {
   /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
   received?: ReceivedPileRead;
-  /** Is the screenshot reader configured on this server? */
-  readerOn?: boolean;
   /** 🏷 F-A-15: an event type's admin-managed name (the opened payment uses it). */
   typeName: EventTypeName;
   /** Where the desk is — each row opens its payment on top of it. */
@@ -579,7 +576,6 @@ export function PaymentsList({
       {received ? (
         <ReceivedPile
           read={received}
-          readerOn={readerOn}
           query={query}
           waiting={payments
             .filter((p) => p.status === 'pending')

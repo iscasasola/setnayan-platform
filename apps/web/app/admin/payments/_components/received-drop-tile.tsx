@@ -5,79 +5,94 @@
  * ARRIVED in our BDO app at once (owner 2026-11-17, specs
  * prototypes/admin_payment_verify_2026-11-17/).
  *
- * Each picture is shrunk on the phone first (the reader never benefits past
- * 1568px), then sent in groups of RECEIVED_PER_DROP so no request breaches the
- * 6 MB action body limit. The server reads each one, keeps the reference,
- * amount and time, and throws the picture away.
+ * 🔒 THE PICTURES NEVER LEAVE THIS PHONE (owner 2026-11-17, "Yes, swap it in").
+ * Each one is read here by Tesseract (open source, runs in the browser), and
+ * only the TEXT is sent to the server, where plain code keeps the reference,
+ * amount and time. The reader's own files (worker, wasm, English data) come
+ * from cdn.jsdelivr.net, already allowed in next.config.ts for MediaPipe, and
+ * are cached after the first use. Versions are pinned so a CDN update can
+ * never change what we run.
+ *
+ * A picture the reader cannot read is sent as empty text, which the server
+ * keeps as an "unreadable" row: counted on the desk, never silently dropped.
  */
 import { useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { approvePayment } from '../actions';
 import { formatCount } from '@/lib/format-number';
 
-const PER_DROP = 4; // = RECEIVED_PER_DROP in ../received.ts
-const MAX_EDGE = 1568;
-const MAX_BYTES = 1_400_000;
+const PER_DROP = 25; // = RECEIVED_PER_DROP in ../received.ts
+const READER_PATHS = {
+  workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
+  corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
+  langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
+};
 
-async function shrink(file: File): Promise<Blob> {
+async function readOnThisPhone(
+  files: File[],
+  onProgress: (done: number) => void,
+): Promise<string[]> {
+  const { createWorker } = await import('tesseract.js');
+  const worker = await createWorker('eng', 1, READER_PATHS);
+  const texts: string[] = [];
   try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d')?.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.82));
-    if (blob && blob.size <= MAX_BYTES) return blob;
-  } catch {
-    /* a picture this browser cannot draw is sent as it is */
+    for (const file of files) {
+      onProgress(texts.length + 1);
+      try {
+        const { data } = await worker.recognize(file);
+        texts.push(data.text ?? '');
+      } catch {
+        texts.push(''); // → an "unreadable" row, so it is counted
+      }
+    }
+  } finally {
+    await worker.terminate();
   }
-  return file;
+  return texts;
 }
 
-export function ReceivedDropTile({ disabledReason }: { disabledReason: string | null }) {
+export function ReceivedDropTile() {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function send(files: File[]) {
     setError(null);
-    const pictures = files.filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    const pictures = files.filter((f) => f.type.startsWith('image/'));
     if (pictures.length === 0) return;
+    const total = formatCount(pictures.length);
     try {
-      for (let i = 0; i < pictures.length; i += PER_DROP) {
-        setBusy(`Reading ${formatCount(Math.min(i + PER_DROP, pictures.length))} of ${formatCount(pictures.length)}…`);
+      setBusy('Getting the reader ready…');
+      const texts = await readOnThisPhone(pictures, (n) => setBusy(`Reading ${formatCount(n)} of ${total}…`));
+      setBusy('Saving…');
+      for (let i = 0; i < texts.length; i += PER_DROP) {
         const fd = new FormData();
         fd.set('intent', 'received-drop');
-        for (const f of pictures.slice(i, i + PER_DROP)) {
-          const blob = await shrink(f);
-          if (blob.size > 5_500_000) continue;
-          fd.append('shots', blob, f.name.replace(/\.[^.]+$/, '') + '.jpg');
-        }
+        for (const t of texts.slice(i, i + PER_DROP)) fd.append('texts', t);
+        // The action revalidates the page, so its answer carries the new pile.
         await approvePayment(fd);
       }
     } catch {
-      setError('Some pictures could not be read. Try those again.');
+      setError('The pictures could not be read on this phone. Check your connection and try again.');
     } finally {
       setBusy(null);
       if (input.current) input.current.value = '';
     }
   }
 
-  const off = disabledReason !== null || busy !== null;
   return (
     <div data-payments-received-drop="">
       <button
         type="button"
         className="ab ab-main flex min-h-14 w-full items-center gap-3 text-left"
-        disabled={off}
+        disabled={busy !== null}
         aria-busy={busy !== null}
         onClick={() => input.current?.click()}
       >
         <ImagePlus aria-hidden className="h-5 w-5 flex-none" strokeWidth={2} />
         <span className="min-w-0">
           <span className="block font-semibold">{busy ?? 'Add received screenshots'}</span>
-          <span className="block text-[13px] opacity-80">{disabledReason ?? 'From your BDO app · many at once'}</span>
+          <span className="block text-[13px] opacity-80">From your BDO app · many at once</span>
         </span>
       </button>
       <input

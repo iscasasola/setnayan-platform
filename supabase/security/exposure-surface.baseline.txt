@@ -6375,7 +6375,7 @@ policy	public.admin_approval_requests|admin_approval_requests_admin_write	mode=P
 policy	public.admin_audit_log|admin_audit_log_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.account_type = 'admin'::account_type))))) check=NULL
 policy	public.admin_audit_log|admin_audit_log_vendor_toggle_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((action = 'vendor_backend_count_toggle'::text) AND (actor_user_id = ( SELECT auth.uid() AS uid)))
 policy	public.admin_data_access_log|admin_data_access_log_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
-policy	public.admin_received_transactions|admin_received_transactions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
+policy	public.admin_received_transactions|admin_received_transactions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.anniversary_email_log|anniversary_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.anniversary_headsup_log|anniversary_headsup_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.api_keys|api_keys_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL

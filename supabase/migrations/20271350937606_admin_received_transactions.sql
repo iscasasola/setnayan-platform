@@ -50,7 +50,7 @@ ALTER TABLE public.admin_received_transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS admin_received_transactions_admin_all ON public.admin_received_transactions;
 CREATE POLICY admin_received_transactions_admin_all
   ON public.admin_received_transactions FOR ALL TO authenticated
-  USING (public.is_admin()) WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin())) WITH CHECK ((SELECT public.is_admin()));
 
 REVOKE ALL ON TABLE public.admin_received_transactions FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.admin_received_transactions FROM authenticated;

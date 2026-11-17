@@ -98,9 +98,9 @@ import {
 import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
-import { coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
-import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
-import type { ShopGiftPack } from '@/lib/shop-gifts';
+import { bundleGiftOnOffer, coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
+import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { freeByKind, type ShopGiftPack } from '@/lib/shop-gifts';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
 import { BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
@@ -4544,14 +4544,19 @@ async function fetchVendorPackagesWithItems(
     const rows = pkgs as unknown as Array<VendorPackageRow & { includes_setnayan_gift?: boolean | null; gift_pack_code?: string | null }>;
     const gifts = new Map(rows.map((p) => [p.package_id, packageGiftOf({ includes_setnayan_gift: p.includes_setnayan_gift === true, gift_pack_code: p.gift_pack_code ?? null })]));
     const wantsPack = [...gifts.values()].some((g) => g && g !== PACKAGE_GIFT_SETNAYAN);
-    const packs = wantsPack ? await fetchShopGiftPacks(admin) : null;
+    // 🎟 0 stock blocks ONLY that gift (owner 17 Nov; whole-booking vs that gift is OPEN): the stock is read beside the
+    // catalogue, and a pack with none free — or a stock nobody could read — is not promised. The bundle stays bookable.
+    const [packs, stock] = wantsPack
+      ? await Promise.all([fetchShopGiftPacks(admin), fetchShopGiftStock(admin, vendorProfileId)])
+      : [null, null];
+    const free = freeByKind(stock);
     return rows.map((p) => {
       const gift = gifts.get(p.package_id) ?? '';
       return {
         ...p,
         items: itemsByPackage.get(p.package_id) ?? [],
         gift,
-        giftPack: packs?.find((x) => x.code === gift) ?? null,
+        giftPack: bundleGiftOnOffer(packs?.find((x) => x.code === gift) ?? null, free),
       };
     });
   } catch {

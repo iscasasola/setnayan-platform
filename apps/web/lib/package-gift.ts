@@ -138,3 +138,19 @@ export function coupleBundleGift(
   const line = coupleGiftHeadline([p.kind === 'papic' ? `1 × ${p.title}` : p.title], shopName);
   return line ? { setnayan: false, line } : null;
 }
+
+/**
+ * 🎟 0 STOCK BLOCKS ONLY THAT GIFT (owner 17 Nov, DECISION_LOG "1 gift held per booking": *"1 will be held for all your
+ * bookings. for that gift item. if you run out, they cannot request to book."*). ⚠ OPEN with the owner: whether 0 stock
+ * blocks the whole booking request or only that gift. Built as ONLY THAT GIFT: the bundle stays bookable and simply stops
+ * promising a gift its shop cannot hold. The pack the couple may be shown, or null:
+ *   - a pack with at least 1 free to offer  → shown
+ *   - 0 free                                → null (the gift comes off; the bundle does not)
+ *   - stock unread (`free` null)            → null — never promise a gift on a number nobody read
+ * The Setnayan gift needs no stock and never reaches here.
+ */
+export function bundleGiftOnOffer(pack: ShopGiftPack | null, free: FreeByKind | null): ShopGiftPack | null {
+  if (!pack) return null;
+  const have = freeOfPack(free, pack);
+  return have != null && have >= 1 ? pack : null;
+}

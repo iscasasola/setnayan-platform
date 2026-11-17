@@ -86,3 +86,12 @@ export function giftStoreCapLine(most: number, b: Parameters<typeof bundleShape>
 
 /** The Your gifts banner once a payment is sent (prototype v16). */
 export const GIFT_PAYMENT_SENT = { lead: 'Payment sent.', rest: ' We’re checking it. Your new tickets land here once it’s approved.' };
+
+/**
+ * 🎟 THE HOLD RULE under "You have N available" (owner 17 Nov, DECISION_LOG row "1 gift held per booking", drawing
+ * tap-through v4: "1 is held for each booking. At 0, clients can’t request to book."). ⚠ OPEN with the owner: whether 0
+ * stock blocks the WHOLE booking request or only that gift. Built as ONLY THAT GIFT — the gift comes off the shop page and
+ * a quote refuses it, the booking itself can still be requested — so the line says that, never the drawing's stronger
+ * claim, which would be false on this build.
+ */
+export const GIFT_HOLD_RULE = '1 is held for each booking. At 0, this gift comes off your bookings; clients can still request to book.';

@@ -43,6 +43,7 @@ import {
   type GrowTier,
 } from './supplier-front-data';
 import { SupplierPlanTable } from './supplier-plan-table';
+import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import {
   CheckADateDemo,
   CtaDock,
@@ -260,6 +261,8 @@ export function SupplierFrontPage({
         plus: growPlus(t),
         lines: growLines(t),
         cta: `Start on ${growName(t)}`,
+        // W1-B21: the plan the supplier tapped travels with them (`?plan=plus|pro|ultra`), never a bare /open-shop.
+        href: openShopWithPlanHref(t),
         preview: <PlanPreview plan={GROW_PLAN[t]} label={growName(t)} />,
       }),
     ),

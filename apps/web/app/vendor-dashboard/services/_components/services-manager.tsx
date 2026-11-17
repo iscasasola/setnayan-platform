@@ -212,13 +212,20 @@ export async function VendorServicesManager({
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
   // through with no deploy). Each read fails soft to empty so the page renders.
-  const [vendorCoverages, coverageTree, coverageLabels, eventVocab] =
+  // 🔎 EXCEPT the shop's own categories (supplier dashboard audit, 2026-11-17): read as [] on a refusal, every card
+  // said "not in what you do" and the panel said "Nothing yet". `null` = unread, and the render says so instead.
+  const [vendorCoveragesRead, coverageTree, coverageLabels, eventVocab] =
     await Promise.all([
-      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
+      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch((e: unknown) => {
+        console.error('[services] fetchVendorCoverages failed:', e);
+        return null;
+      }),
       getCoverageTaxonomy().catch(() => []),
       resolveCoverageLabels().catch(() => null),
       getVendorServableEventTypes().catch(() => []),
     ]);
+  const coveragesUnread = vendorCoveragesRead === null;
+  const vendorCoverages = vendorCoveragesRead ?? [];
   const serviceCountByCoverage = services.reduce<Record<number, number>>(
     (m, s) => {
       if (s.coverage_id != null) m[s.coverage_id] = (m[s.coverage_id] ?? 0) + 1;
@@ -507,7 +514,7 @@ export async function VendorServicesManager({
           className="rounded-md border px-4 py-3 text-sm"
           style={{ borderColor: 'var(--m-blush-deep)', background: 'var(--m-blush)', color: 'var(--m-ink)' }}
         >
-          {decodeURIComponent(search.error)}
+          {safeDecode(search.error)}
         </p>
       ) : null}
       {/* A decision on one of their service requests they have not opened yet (owner ruling 4) — leaves once read. */}
@@ -909,7 +916,7 @@ export async function VendorServicesManager({
                         extraCount={svcDiscountList.length - 1}
                       />
                     ) : null}
-                    {cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
+                    {!coveragesUnread && cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
                       <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-card-outside="">
                         {NOT_IN_WHAT_YOU_DO}
                       </p>
@@ -1030,6 +1037,7 @@ export async function VendorServicesManager({
           <CoveragePanel
             tree={coverageTree}
             coverages={coverageItems}
+            coveragesUnread={coveragesUnread}
             eventTypeOptions={eventTypeOptions}
             faithOptions={faithOptions}
             parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
@@ -1454,4 +1462,17 @@ function DiscountBadge({
       {extraCount > 0 ? ` +${formatCount(extraCount)}` : ''}
     </span>
   );
+}
+
+/**
+ * `searchParams` arrive decoded already. A second `decodeURIComponent` threw a `URIError` on any message holding a
+ * bare `%` ("…between 0 and 100%."), and that broke the whole Shop page (supplier dashboard audit, 2026-11-17).
+ * The try keeps an older double-encoded link readable.
+ */
+function safeDecode(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }

@@ -58,12 +58,15 @@ const paper = 'var(--m-paper)';
 export function CoveragePanel({
   tree,
   coverages,
+  coveragesUnread = false,
   eventTypeOptions,
   faithOptions,
   parentUsage,
 }: {
   tree: CoverageParent[];
   coverages: CoverageItem[];
+  /** The shop's categories could not be read: say so, never "Nothing yet". */
+  coveragesUnread?: boolean;
   eventTypeOptions: EventTypeOption[];
   faithOptions: FaithOption[];
   parentUsage: ParentUsage;
@@ -103,7 +106,11 @@ export function CoveragePanel({
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
         Your coverage
       </p>
-      {coverages.length === 0 ? (
+      {coveragesUnread ? (
+        <p role="status" className="text-xs font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-coverage-unread="">
+          Couldn&apos;t load your categories — nothing has changed. Refresh in a moment to try again.
+        </p>
+      ) : coverages.length === 0 ? (
         <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Nothing yet — pick a category above and it lands here. Service cards
           are built inside your coverage.

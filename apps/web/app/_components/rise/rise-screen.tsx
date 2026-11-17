@@ -28,7 +28,7 @@
  * Never a second copy: a ⚙ rises through `MenuSettingsButton rise`, everything else mounts this.
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts
  */
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, startTransition, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Info, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -37,6 +37,7 @@ import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 import { riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
+import { onItsOwnLayer } from '@/lib/rise-layer';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
@@ -115,13 +116,20 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
 
   useEffect(() => watchRiseOrigins(), []);
 
+  // ⚡ SHELL FIRST, THE BODY A BEAT AFTER (owner 2026-11-17 *"it feels like it is lagging"*). A rise out of a tap paints
+  // its head and its cream on the tap's own frame and starts moving; the body renders right after, in a transition React
+  // can pause for the rise's frames, while the clip is still a small window at 0.6. A heavy body no longer holds the
+  // tap's answer hostage. No tap behind it (a deep link, the server's HTML): the body is there at once, as before.
+  const [bodyIn, setBodyIn] = useState(() => typeof window === 'undefined' || riseOriginNow() === null);
+
   // 🎬 OPEN — out of the thing you tapped, once the screen stands on <body>.
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el || !host) return;
     originRef.current = riseOriginNow();
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
-    if (m && typeof el.animate === 'function') el.animate(m.frames, m.timing);
+    if (m && typeof el.animate === 'function') onItsOwnLayer(el, el.animate(m.frames, m.timing));
+    if (!bodyIn) startTransition(() => setBodyIn(true));
     // Once, when the portal lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
@@ -134,7 +142,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     const el = rootRef.current;
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
     if (!el || !m || typeof el.animate !== 'function') return done();
-    el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' }).finished.then(done, done);
+    onItsOwnLayer(el, el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' })).finished.then(done, done);
   }, []);
 
   // ← The phone's Back closes the screen, not the page; ✕ and Esc step back through the same entry.
@@ -213,7 +221,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
         >
           {/* Inside this layer a part that floats at the foot (the supplier's thumb row) stays IN it, never under it. */}
           <InSheet.Provider value>
-            <RiseCloseContext.Provider value={close}>{children}</RiseCloseContext.Provider>
+            <RiseCloseContext.Provider value={close}>{bodyIn ? children : null}</RiseCloseContext.Provider>
           </InSheet.Provider>
         </div>
       </div>

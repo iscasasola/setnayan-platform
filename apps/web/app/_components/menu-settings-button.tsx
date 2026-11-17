@@ -29,11 +29,12 @@
  * `RiseScreen` — it grows out of the ⚙ you tapped, the bars slide away, ✕ is the exact reverse — headed by the same
  * name, the same one line and the same ⓘ words. One door, one frame per mode; never a second ⚙.
  */
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Settings } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MENU_SETTINGS_TIP, SETTINGS_ENTRY, type SettingsMenu } from '@/lib/menu-settings';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
@@ -109,7 +110,7 @@ export function MenuSettingsButton({
 }
 
 function OnBody({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setHost(document.body), []);
+  // The shared host: <body> in the tap's own render, so the sheet is not a frame late (lib/use-portal-host.ts).
+  const host = usePortalHost();
   return host ? createPortal(children, host) : null;
 }

@@ -84,7 +84,7 @@ test('3 · the close is the open played backwards', () => {
   assert.match(motion, /export function pickedMotion\(/);
   const shell = read(SHELL);
   assert.equal((shell.match(/pickedMotion\(/g) ?? []).length, 2, 'open and close must both come from pickedMotion');
-  assert.match(shell, /if \(m\) el\.animate\(m\.frames, m\.timing\);/, 'the open plays the frames forwards');
+  assert.match(shell, /if \(m\) (?:onItsOwnLayer\(el, )?el\.animate\(m\.frames, m\.timing\)\)?;/, 'the open plays the frames forwards');
   assert.match(
     shell,
     /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/,

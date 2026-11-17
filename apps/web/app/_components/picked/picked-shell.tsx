@@ -30,6 +30,7 @@
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { onItsOwnLayer } from '@/lib/rise-layer';
 import { useRouter } from 'next/navigation';
 import { X, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -166,7 +167,7 @@ export function PickedShell<P extends string>({
     if (!el || !host) return;
     originRef.current = readPickedOrigin(pagePath, originFrom);
     const m = pickedMotion(originRef.current);
-    if (m) el.animate(m.frames, m.timing);
+    if (m) onItsOwnLayer(el, el.animate(m.frames, m.timing));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
 
@@ -306,7 +307,7 @@ export function PickedShell<P extends string>({
     // The SAME frames and timing as the open, played backwards — the exact reverse, easing included.
     const m = pickedMotion(origin);
     if (!m) return leave();
-    const anim = el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' });
+    const anim = onItsOwnLayer(el, el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' }));
     anim.onfinish = leave;
   }, [router, closeHref]);
 

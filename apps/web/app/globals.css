@@ -8309,7 +8309,10 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 .home-money .home-v { font-size: 20px; }
 .home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
 .home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
-.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+/* 🏷 THE HOUSE SECTION LABEL reads tokens (owner 17 Nov, the clean look: "Removes: uppercase section labels … become
+   bold sentence-case titles"). Unset = the small uppercase grey label, exactly as before; a scope re-points them
+   (supplier-look.css) — no per-component rule. 🔒 app/vendor-dashboard/section-labels-are-sentence-case.test.ts */
+.home-k2 { font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 14px 0 6px; }
 .home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
 .home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
 .home-row .home-t { font-weight: 500; }
@@ -8456,8 +8459,9 @@ html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2
 .hc-ecard-plain .hc-now-k { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }
 /* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
-.hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
-.hc-k2 em { margin-left: auto; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.hc-k2 { display: flex; align-items: center; gap: var(--sn-label-gap, 6px); font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 6px 0 -4px; }
+/* The label's count: far right and bare by default; a scope can sit it after the title in a pale pill. */
+.hc-k2 em { margin-left: var(--sn-label-count-push, auto); padding: var(--sn-label-count-pad, 0); border-radius: 999px; background: var(--sn-label-count-bg, transparent); color: var(--sn-label-count-ink, inherit); font-weight: var(--sn-label-count-weight, inherit); font-style: normal; text-transform: none; letter-spacing: 0; font-size: var(--sn-label-count-size, 12px); }
 .hc-k2-name { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 /* ✅ Home's one To do (prototype `.nx` · `.todoline`): rows on the page, a hairline between, the plan's own tick. */
 .hc-todo { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }

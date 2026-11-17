@@ -66,6 +66,9 @@ html:not(.dark):has([data-supplier-look]) {
   --m-paper-2: #e8f0fa; /* the drawing's --ghost */
   --surface-soft: #dce6f2; /* the drawing's --wash */
   --sn-hair: rgb(16 27 48 / 0.08);
+  /* the warm canvas (#F7F5F0) behind bands and worked lines — the page's own cool white here, so no beige band shows
+     on a supplier page (owner 17 Nov, round 3: "uppercase beige" band in the Offer Maker) */
+  --sn-canvas: #eef2f8;
 
   /* the ground: the soft background glow (owner pick, 16 Nov) — three faint blue lights over the page colour */
   --sn-glow-soft: 125 177 255;
@@ -86,6 +89,22 @@ html:not(.dark):has([data-supplier-look]) {
   --sn-btn-secondary-border: transparent;
   --sn-btn-secondary-fg: var(--color-ink);
   --sn-dock-lift: 0 8px 24px -12px rgba(30, 60, 110, 0.16), 0 1px 4px -1px rgba(30, 60, 110, 0.06);
+
+  /* ── THE SECTION LABEL — the clean look's bold sentence-case title (owner 17 Nov; `dashboards_clean_look_2026-11-16`
+     `.new .sec`: 1.06em · 700 · ink · no tracking), its count right after it in a pale pill (`.sec .n`: the ghost wash
+     · ink · 600). Read by `.home-k2` / `.hc-k2` in globals.css. */
+  --sn-label-size: 17px;
+  --sn-label-weight: 700;
+  --sn-label-track: 0;
+  --sn-label-case: none;
+  --sn-label-ink: rgb(var(--color-ink));
+  --sn-label-gap: 8px;
+  --sn-label-count-push: 0;
+  --sn-label-count-pad: 1px 10px;
+  --sn-label-count-bg: rgb(16 27 48 / 0.05); /* the drawing's --ghost */
+  --sn-label-count-ink: rgb(var(--color-ink));
+  --sn-label-count-weight: 600;
+  --sn-label-count-size: 13px;
 
   /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
   /* the band's angle and its WHITE words are the blue look's own (white on #2272E6 4.55:1 AA) — never the clean warm

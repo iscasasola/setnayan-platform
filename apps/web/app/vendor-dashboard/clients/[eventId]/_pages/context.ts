@@ -37,7 +37,7 @@ export type PickedPageContext = {
    * client's Chat returns here with them, and every thread embed hands them to the ONE draw so the notice is said in
    * the chat box (owner 17 Nov). Empty on a plain open.
    */
-  threadSearch: Record<string, string>;
+  threadSearch?: Record<string, string>;
 };
 
 export type PickedPageProps = {

@@ -34,6 +34,7 @@ export function EventLockedByFee({
   access,
   withheld,
   threadId,
+  eventId = null,
   className,
 }: {
   stage: EventAccessStage;
@@ -41,6 +42,8 @@ export function EventLockedByFee({
   withheld: readonly WithheldBriefField[];
   /** The couple's thread, so "talk to them" is one click. */
   threadId?: string | null;
+  /** The event, so "Message the couple" opens the client's Chat (owner 17 Nov); with none, the thread page. */
+  eventId?: string | null;
   className?: string;
 }) {
   if (stage === 'unlocked') return null;
@@ -124,6 +127,7 @@ export function EventLockedPage({
         access={gate.access}
         withheld={withheld}
         threadId={threadId}
+        eventId={eventId}
       />
     </section>
   );

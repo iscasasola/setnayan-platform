@@ -467,7 +467,11 @@ export async function readClientChatThreadId(
     .order('thread_id', { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    // A refused read keeps the thread page (the caller forwards only on a match) — said, never silent.
+    logQueryError('readClientChatThreadId', error, { missing_relation: isMissingRelationError(error) }, 'graceful_degrade');
+    return null;
+  }
   return (data as { thread_id?: string } | null)?.thread_id ?? null;
 }
 

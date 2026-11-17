@@ -210,7 +210,8 @@ function titleClass(unread: boolean): string {
 
 /** The place line's box — shared by the row and the ⓘ's copy, so the ⓘ lands right after the words. */
 const PLACE_LINE = 'inline-flex max-w-full items-center gap-1.5 align-top';
-const PLACE_WORDS = 'min-w-0 truncate text-[11.5px] leading-[1.2] tracking-[0.01em]';
+// Two lines at most, never cut on one (owner 17 Nov: "Indalecio & Claire · You org…" lost the stance at 390).
+const PLACE_WORDS = 'min-w-0 line-clamp-2 break-words text-[11.5px] leading-[1.2] tracking-[0.01em]';
 
 function NotificationItem({
   item: n,
@@ -557,7 +558,9 @@ function PlaceFace({ place }: { place: NotificationPlace }) {
         <span
           role="img"
           aria-label={place.name}
-          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] font-display text-[20px] italic leading-none text-ink"
+          // UPRIGHT, never italic (owner 17 Nov, live tray): the display face's italic "I" of "Indalecio & Claire" read as
+          // a "/" placeholder. `the-tray-face-is-never-a-slash.test.ts` holds it.
+          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] font-display text-[20px] font-semibold not-italic leading-none text-ink"
           data-notice-mark-letter=""
         >
           {placeMarkLetter(place.event)}

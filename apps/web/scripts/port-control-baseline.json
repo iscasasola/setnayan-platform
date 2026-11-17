@@ -2924,6 +2924,26 @@
         "SlotCard"
       ]
     },
+    "/admin/badges": {
+      "files": [
+        "admin/badges/not-yet-built.ts",
+        "admin/badges/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
+      ]
+    },
     "/admin/booking-fees": {
       "files": [
         "admin/booking-fees/actions.ts",
@@ -6918,6 +6938,7 @@
         "HeadcountView",
         "HomeBoothCard",
         "HomeCardRow",
+        "HomeControlBoardColumn",
         "HomeControlKey",
         "HomeControlRow",
         "HomeCoverBand",
@@ -6942,6 +6963,7 @@
         "HomeSettingsGear",
         "HomeSettingsLanded",
         "HomeTile",
+        "HomeTileCountKey",
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
@@ -7127,6 +7149,7 @@
         "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
+        "TileCountKey.Provider",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -9400,6 +9423,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "ListPageSkeleton",
         "PageMasthead"
@@ -16572,8 +16596,11 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardCheckInput",
         "CardChecksSummary",
+        "CardFoot.Provider",
         "CardPhotoGallery",
         "CardRecordSection",
         "CheckChip",
@@ -16599,6 +16626,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FootCtx",
         "FormCounter",
         "FormRow",
         "FormRows",
@@ -16652,6 +16680,7 @@
         "SelectChip",
         "ServiceCardFace",
         "ServiceCardItem",
+        "ServiceCardItemFooter",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
         "ServiceCardShareSheet",
@@ -17544,26 +17573,6 @@
         "TileGrid",
         "WallClaim",
         "WallProjection"
-      ]
-    },
-    "/admin/badges": {
-      "files": [
-        "admin/badges/not-yet-built.ts",
-        "admin/badges/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "BadgeRewardsLedger",
-        "BadgeUpgradesLedger",
-        "Link",
-        "NotYetBuilt",
-        "PageMasthead",
-        "SpotlightAwardsSurface",
-        "TemplateNums",
-        "TemplateRow",
-        "TemplateRows",
-        "TemplateSection"
       ]
     }
   }

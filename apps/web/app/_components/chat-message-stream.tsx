@@ -150,7 +150,7 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
+import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
 import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -1425,6 +1425,11 @@ export function ChatMessageStream({
     they cost NO layout height, and each only appears when its target is
     off-screen.
   */
+  // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
+  const bookAskAnswers = useMemo(
+    () => answeredBookAsks(messages.filter((m) => m.sender_role === 'system').map((m) => ({ id: m.message_id, body: m.body }))),
+    [messages],
+  );
   const latestProposalRef = useRef<HTMLLIElement | null>(null);
   // The newest quote in the thread — what "jump to the quote" means, and the
   // only card that gets the ref. Older quotes stay in place as the audit trail.
@@ -1738,7 +1743,7 @@ export function ChatMessageStream({
       {inPicked && filesOpen ? (
         <section ref={filesPanelRef} className="pb-2" aria-label="Files in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
-            <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
+            <h2 className="text-[15px] font-semibold text-ink">
               Files · {files.length} · newest first
             </h2>
             <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
@@ -1920,7 +1925,7 @@ export function ChatMessageStream({
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                    <p className="whitespace-nowrap text-[12px] font-medium text-terracotta">
                       📄 Quote{quoteVersion ? ` · version ${quoteVersion.version}` : ''}
                     </p>
                     {quoteState?.badge ? (
@@ -2195,7 +2200,7 @@ export function ChatMessageStream({
                       {m.body}
                     </p>
                   )}
-                  <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  <p className="mt-1.5 text-[11px] text-ink/45">
                     {formatChatTimestamp(m.created_at)}
                   </p>
                 </div>
@@ -2318,6 +2323,7 @@ export function ChatMessageStream({
                     messageId={m.message_id}
                     meId={currentUserId}
                     nameOf={personName}
+                    answeredAs={bookAskAnswers.get(m.message_id) ?? null}
                   />
                 </li>
               );
@@ -2329,7 +2335,7 @@ export function ChatMessageStream({
                       and a raw card key reads in today's words; any other
                       system body is unchanged. */}
                   <p className="whitespace-pre-wrap break-words">{renderPerkUnlock(m.body ?? '')}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
+                  <p className="mt-1 text-[11px] text-mulberry/70">
                     Setnayan · {formatChatTimestamp(m.created_at)}
                   </p>
                 </div>

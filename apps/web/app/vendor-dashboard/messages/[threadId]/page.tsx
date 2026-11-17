@@ -1842,6 +1842,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       initialPending={pendingPayments}
       initialPlans={planProgress}
       fold={{ paymentHref: customerCardHref(thread.event_id, 'payments') }}
+      todayIso={todayIso}
     />
   );
   const chatBox = (

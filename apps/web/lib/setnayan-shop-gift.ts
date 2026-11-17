@@ -26,8 +26,8 @@ export const SHOP_GIFT_CHOICES: readonly ShopGiftChoice[] = ['stock', 'start', '
 
 /**
  * The gift stock Setnayan can send. Event Ultra is a gift option (DECISION_LOG 14 Nov); its stock lands through
- * `shop_badge_reward_grant` once #7652 opens that door to it — until then the admin picker cannot offer it, because it
- * lists only the live gift packs (`fetchShopGiftPacks`).
+ * `shop_badge_reward_grant`, which takes it since Black Diamond (migration 20271348181787), and the admin picker offers
+ * it whenever its catalogue row is live (`fetchShopGiftPacks`). Held by DB test 10.
  */
 export type ShopGiftStockKind = 'papic' | 'event_plus' | 'event_pro' | 'event_ultra';
 
@@ -64,7 +64,7 @@ export type ShopGiftView = {
   /** Plan: the gifted tier. */
   planTier?: ShopGiftPlanTier;
   planDays?: number;
-  /** The shop's plan now (for "You're on Supplier Pro now"), or null with no plan. */
+  /** The shop's plan now (for "You're on Pro now"), or null with no plan. */
   currentTier: string | null;
   /** What the database lets the shop press now. Empty = the gift waits (another gift is running). */
   choices: readonly ShopGiftChoice[];
@@ -244,7 +244,7 @@ export function claimedWords(choice: ShopGiftChoice, tier: string | null | undef
   }
 }
 
-/** Admin: the gift as one line ("3 × Papic 1000" · "28 days of Supplier Ultra"). */
+/** Admin: the gift as one line ("3 × Papic 1000" · "28 days of Ultra"). */
 export function adminGiftLine(g: { type: 'stock' | 'plan'; stockLine?: string; planTier?: string | null; planDays?: number }): string {
   return g.type === 'stock'
     ? (g.stockLine ?? 'Gift stock')

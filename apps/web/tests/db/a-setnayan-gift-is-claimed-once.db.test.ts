@@ -275,12 +275,19 @@ test('9 · a held gift takes over when the shop’s own plan ends — and the cr
   );
 });
 
-test('10 · Event Ultra is a stock kind the gift row accepts', async () => {
-  const { shop } = await newShop();
+test('10 · Event Ultra gift stock lands once, as reward stock (the badge-reward door takes it since Black Diamond)', async () => {
+  const { userId, shop } = await newShop();
   const gift = await one<string>(
     `INSERT INTO public.setnayan_shop_gifts (vendor_profile_id, gift_type, stock_kind, stock_units)
-     VALUES ($1, 'stock', 'event_ultra', 1) RETURNING gift_id AS v`,
+     VALUES ($1, 'stock', 'event_ultra', 2) RETURNING gift_id AS v`,
     [shop],
   );
-  assert.ok(gift);
+  assert.equal((await claim(gift, shop, 'stock', userId)).status, 'claimed');
+  assert.equal((await claim(gift, shop, 'stock', userId)).status, 'already', 'a second press claims nothing');
+  const stock = await one<number>(
+    `SELECT COALESCE(sum(delta), 0)::int AS v FROM public.shop_gift_stock_entries
+      WHERE vendor_profile_id = $1 AND gift_kind = 'event_ultra' AND kind = 'badge_reward'`,
+    [shop],
+  );
+  assert.equal(stock, 2, '2 × Event Ultra, once');
 });

@@ -45,8 +45,8 @@ test('gift stock: Add to my gifts (frame 4)', () => {
 
 test('no plan: one button, Start it (frame 5)', () => {
   const w = shopGiftMomentWords(plan({ choices: ['start'] }));
-  assert.equal(w.title, 'Setnayan sent you Supplier Ultra');
-  assert.equal(w.what, 'Supplier Ultra on your own shop, for 28 days');
+  assert.equal(w.title, 'Setnayan sent you Ultra');
+  assert.equal(w.what, 'Ultra on your own shop, for 28 days');
   assert.deepEqual(w.buttons.map((b) => b.label), ['Start it']);
 });
 
@@ -60,12 +60,12 @@ test('a lower plan: Upgrade now leads, Start it when my plan ends second', () =>
     ],
   );
   assert.equal(w.lines[0], 'Try everything Ultra opens, on top of your Pro');
-  assert.equal(w.lines[1], 'You’re on Supplier Pro now. Upgrade today, or have it start when Supplier Pro ends.');
+  assert.equal(w.lines[1], 'You’re on Pro now. Upgrade today, or have it start when Pro ends.');
 });
 
-test('the same plan: 28 more days of Supplier Ultra', () => {
+test('the same plan: 28 more days of Ultra', () => {
   const w = shopGiftMomentWords(plan({ currentTier: 'enterprise', choices: ['extend'] }));
-  assert.equal(w.title, '28 more days of Supplier Ultra');
+  assert.equal(w.title, '28 more days of Ultra');
   assert.deepEqual(w.buttons.map((b) => b.choice), ['extend']);
 });
 
@@ -100,35 +100,35 @@ test('the ends-soon words: the end date in words, one Stay button, the catalogue
   // 2026-11-21T04:00Z is Saturday 21 November in Manila.
   const g = running({ endsAt: '2026-11-21T04:00:00Z' });
   const w = planGiftEndingWords(g, 10000);
-  assert.equal(w.title, 'Your Supplier Ultra gift ends Saturday 21 November');
-  assert.equal(w.stay, 'Stay on Supplier Ultra');
+  assert.equal(w.title, 'Your Ultra gift ends Saturday 21 November');
+  assert.equal(w.stay, 'Stay on Ultra');
   assert.equal(
     w.body,
-    'Stay on Supplier Ultra for ₱10,000 every 28 days, or do nothing and your shop goes back to Supplier Pro that day, with nothing lost.',
+    'Stay on Ultra for ₱10,000 every 28 days, or do nothing and your shop goes back to Pro that day, with nothing lost.',
   );
   assert.doesNotMatch(planGiftEndingWords(g, null).body, /₱/, 'no price read → no price, never a typed one');
   assert.match(planGiftEndingWords({ ...g, returnTier: null }, null).body, /goes back to Free that day/);
-  assert.match(planGiftEndingWords({ ...g, extend: true }, null).body, /your Supplier Ultra ends then, as it would have/);
+  assert.match(planGiftEndingWords({ ...g, extend: true }, null).body, /your Ultra ends then, as it would have/);
 });
 
 test('the day it ends: one plain line', () => {
-  assert.equal(planGiftEndedLine({ tier: 'enterprise', returnTier: 'pro' }), 'Your Supplier Ultra gift has ended. Your shop is back on Supplier Pro.');
-  assert.equal(planGiftEndedLine({ tier: 'pro', returnTier: null }), 'Your Supplier Pro gift has ended. Your shop is back on Free.');
+  assert.equal(planGiftEndedLine({ tier: 'enterprise', returnTier: 'pro' }), 'Your Ultra gift has ended. Your shop is back on Pro.');
+  assert.equal(planGiftEndedLine({ tier: 'pro', returnTier: null }), 'Your Pro gift has ended. Your shop is back on Free.');
 });
 
 test('what a press says', () => {
   assert.equal(claimedWords('stock', null), 'Added to your gifts.');
-  assert.equal(claimedWords('now', 'enterprise'), 'You’re on Supplier Ultra now.');
-  assert.equal(claimedWords('after', 'pro'), 'Supplier Pro starts when your plan ends.');
-  assert.equal(claimedWords('extend', 'enterprise'), '28 days added to your Supplier Ultra.');
+  assert.equal(claimedWords('now', 'enterprise'), 'You’re on Ultra now.');
+  assert.equal(claimedWords('after', 'pro'), 'Pro starts when your plan ends.');
+  assert.equal(claimedWords('extend', 'enterprise'), '28 days added to your Ultra.');
 });
 
 test('the moment G2 plays: Setnayan on the seal, the gift’s own words, where it landed', () => {
   const v = setnayanShopGiftMomentView({ ...plan({ choices: ['start'] }), giftId: 'g1', sentAt: '2026-11-14T04:00:00Z' });
   assert.equal(v.source, 'setnayan_gift');
   assert.deepEqual(v.seal, { kind: 'setnayan' });
-  assert.equal(v.headline, 'Setnayan sent you Supplier Ultra');
-  assert.equal(v.received, 'Supplier Ultra on your own shop, for 28 days');
+  assert.equal(v.headline, 'Setnayan sent you Ultra');
+  assert.equal(v.received, 'Ultra on your own shop, for 28 days');
   assert.equal(v.redeemHref, '/vendor-dashboard/subscription');
   assert.equal(v.claimedAt, null);
   const st = setnayanShopGiftMomentView({ ...plan({ choices: ['stock'] }), type: 'stock', stockLine: '3 × Papic 1000' });

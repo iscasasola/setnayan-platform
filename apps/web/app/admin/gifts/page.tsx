@@ -460,7 +460,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </form>
 
             {/* 🎁 SEND A SETNAYAN GIFT (owner 14 Nov 2026) — gift stock to give couples (outside the 40% limit, like a
-                badge reward), or 28 days of Supplier Plus / Pro / Ultra the shop chooses when to start. Nothing is
+                badge reward), or 28 days of Plus / Pro / Ultra the shop chooses when to start. Nothing is
                 granted here: the shop opens it on Today, and its press is the claim (exactly once). */}
             <form
               id="setnayan-shop-gift"

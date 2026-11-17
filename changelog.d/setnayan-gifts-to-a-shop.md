@@ -5,7 +5,7 @@ THE SHOP CHOOSES" · "STRATEGIC TASTE OF THE HIGHER TIER" · "FINAL — … 28 D
 ADDS 28 DAYS" · "PRESSING REDEEM IS THE CLAIM" · "GIFT DESIGN APPROVED").
 
 - **Admin › Gifts**, in the shop's existing comp panel: "Send a gift from Setnayan" — a live catalogue pack (Papic,
-  Event Plus, Event Pro) × 1–10, or 28 days of Supplier Plus / Pro / Ultra. A branch of `setVendorTier` (no new
+  Event Plus, Event Pro) × 1–10, or 28 days of Plus / Pro / Ultra. A branch of `setVendorTier` (no new
   server action). The shop's sent gifts are listed under it with where each stands.
 - **The shop's Today**: "🎁 A gift from Setnayan is waiting · Open" until claimed → the tap-to-open moment with
   Setnayan's mark. Stock: *Add to my gifts* (lands through `shop_badge_reward_grant`, outside the 40% limit). Plan:
@@ -15,16 +15,17 @@ ADDS 28 DAYS" · "PRESSING REDEEM IS THE CLAIM" · "GIFT DESIGN APPROVED").
   7 DAYS BEFORE AND AGAIN 1 DAY BEFORE"): an in-app notice (Today, through the one notice system, and the bell) and an
   email (`vendor_plan_gift_ending`, on the email allowlist by that ruling), each with one **Stay on <plan>** button,
   the plan's 28-day catalogue price and the end date in words. Sent by a fleet-wide, cron-free sweep, once per stage
-  (claimed on the gift row). On the day it ends, one plain line: "Your Supplier Ultra gift has ended. Your shop is back
-  on Supplier Pro." No countdown line anywhere.
+  (claimed on the gift row). On the day it ends, one plain line: "Your Ultra gift has ended. Your shop is back
+  on Pro." No countdown line anywhere.
 - **Nothing is lost**: Upgrade now PAUSES the shop's plan; when the gift ends, the shipped lapse sweep
   (`sweep_vendor_tier_expiry`) hands it back with exactly the days it had left (`setnayan_plan_gift_return`).
 - **Exactly once**: `setnayan_shop_gift_claim` sets `claimed_at` in one conditional UPDATE; a repeat answers
-  `already`. `tests/db/a-setnayan-gift-is-claimed-once.db.test.ts` (8 tests).
+  `already`. `tests/db/a-setnayan-gift-is-claimed-once.db.test.ts` (9 tests, Event Ultra stock among them).
 - Migrations `20271345573127_setnayan_gifts_to_a_shop.sql` and `20271346219255_plan_gift_ending_notice_type.sql` (the notification type + two once-only send stamps) — adds one table (RLS at create), five functions, and two
   branches in `sweep_vendor_tier_expiry` (body copied from the object's newest definition, 20271310256381). Ugat map:
   `setnayan_shop_gifts` on the Papic ↔ Vendor joint.
-- The moment stands in for G2's GiftMoment (not merged when this was built) — same words, swap the shell.
+- The moment is G2's GiftMoment, reused unchanged (and it stays a press, not an automatic claim, under J7's gift box:
+  `claimModeFor` makes only a `badge_reward` automatic). Plan words follow main's Plus · Pro · Ultra (no "Supplier").
 
 SPEC IMPACT: None — builds the approved 14 Nov rulings and drawing as ruled. Open items for the owner are in the PR
-body (a "Stay" bought while a paid plan is paused; Event Ultra stock waits on #7652).
+body (a "Stay" bought while a paid plan is paused).

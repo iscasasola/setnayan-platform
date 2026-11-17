@@ -29,6 +29,8 @@ import { useState, useTransition } from 'react';
 import { Check, X, Film, Lock, ShieldAlert } from 'lucide-react';
 import { sealStdVideoForReview, setStdVideoModeration } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ActionButton } from '@/components/action-button';
 
 export type PendingStdVideo = {
   eventId: string;
@@ -112,7 +114,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
   };
 
   return (
-    <section className="mt-10 rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper,#fff)] p-5 sm:p-6">
+    <section className={`${ADMIN_FRAME} mt-10 p-5 sm:p-6`}>
       <div className="mb-4">
         <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-[var(--m-slate)]">
           <Film aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -200,35 +202,33 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
 
             <div className="flex gap-2">
               {row.approvable ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="ok"
+                  main
+                  className="flex-1"
                   disabled={pending && busyId === row.eventId}
                   onClick={() => decide(row.eventId, 'approved')}
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-success-700 disabled:opacity-50"
-                >
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                  Approve
-                </button>
+                  icon={Check}
+                  label="Approve"
+                />
               ) : (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="neutral"
+                  className="flex-1"
                   disabled={pending && busyId === row.eventId}
                   onClick={() => prepare(row.eventId)}
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[var(--m-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--m-ink)] transition hover:bg-[var(--m-wash,#faf8f4)] disabled:opacity-50"
-                >
-                  <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  Prepare for review
-                </button>
+                  icon={Lock}
+                  label="Prepare for review"
+                />
               )}
-              <button
-                type="button"
+              <ActionButton
+                tone="danger"
+                className="flex-1"
                 disabled={pending && busyId === row.eventId}
                 onClick={() => decide(row.eventId, 'rejected')}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger-300 bg-white px-3 py-2 text-sm font-semibold text-danger-700 transition hover:bg-danger-50 disabled:opacity-50"
-              >
-                <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                Reject
-              </button>
+                icon={X}
+                label="Reject"
+              />
             </div>
             <a
               href={`/${row.publicId}`}

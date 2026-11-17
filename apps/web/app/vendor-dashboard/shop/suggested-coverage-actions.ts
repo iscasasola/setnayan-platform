@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -114,7 +115,7 @@ export async function applySuggestedCoverage(
   revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/services');
-  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
+  if (profile.business_slug) revalidatePath(`${shopPath(profile.business_slug)}`);
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 
   return { ok: true, addedLabels: confirmed.map((c) => c.label) };

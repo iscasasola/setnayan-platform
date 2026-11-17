@@ -21,12 +21,13 @@
 // resubscribe we refetch the latest messages so any inserts that happened
 // while we were offline catch up without a page reload.
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE, BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
 import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Paperclip, X } from 'lucide-react';
+import { ArrowDown, Paperclip, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton } from '@/components/action-button';
 import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
@@ -91,7 +92,7 @@ import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
 import { PlusDraft } from './chat/plus-draft';
 import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
 import { HOSTS_ONLY } from '@/lib/money-mask';
-import type { RunningTopic } from '@/lib/chat-plus';
+import { RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
@@ -243,6 +244,11 @@ type Props = {
    * screen, scrolling inside itself). Nothing pinned above the messages is drawn outside it.
    */
   pins?: React.ReactNode;
+  /**
+   * 💳 The supplier's folded payment plan (DECISION_LOG 2026-11-16 CHAT-09) — one 44 px row under the who's-here strip,
+   * first in the pinned stack's scrolling part (so, opened, it scrolls inside the 4/9 cap and never pushes the strip).
+   */
+  planRow?: React.ReactNode;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -485,6 +491,7 @@ export function ChatMessageStream({
   headCalls = null,
   headNote = null,
   pins = null,
+  planRow = null,
   extraPins = [],
   pinBodies,
   labFilings,
@@ -1146,7 +1153,7 @@ export function ChatMessageStream({
         plus?.returnPath ??
         (viewerRole === 'couple' && messages[0]
           ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
-          : `/vendor-dashboard/messages/${threadId}`),
+          : supplierThreadPageHref(threadId)),
       eventDate,
       supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
     }),
@@ -1230,7 +1237,7 @@ export function ChatMessageStream({
     (m: ChatMessageRow) =>
       viewerRole === 'couple'
         ? `/dashboard/${m.event_id}/messages/${threadId}`
-        : `/vendor-dashboard/messages/${threadId}`,
+        : supplierThreadPageHref(threadId),
     [viewerRole, threadId],
   );
 
@@ -1728,6 +1735,7 @@ export function ChatMessageStream({
           </>
         }
       >
+      {planRow}
       {inPicked && filesOpen ? (
         <section ref={filesPanelRef} className="pb-2" aria-label="Files in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
@@ -2040,6 +2048,7 @@ export function ChatMessageStream({
                               groupLabel={lockTarget.groupLabel}
                               vendorId={lockTarget.vendorId}
                               vendorName={counterpartyLabel}
+                              isVerified={lockTarget.notYetVerified ? false : undefined}
                               label={
                                 isLockHandshakeEnabled()
                                   ? `Ask ${counterpartyLabel} to confirm your booking`
@@ -2072,7 +2081,7 @@ export function ChatMessageStream({
                         lockHandshake?.eventVendorId ? (
                           <LockAnswerForms
                             eventVendorId={lockHandshake.eventVendorId}
-                            returnTo={`/vendor-dashboard/messages/${threadId}`}
+                            returnTo={supplierThreadPageHref(threadId)}
                             agreeLock={supplierReplyActions.agreeLock}
                             declineLock={supplierReplyActions.declineLock}
                             feeForecast={feeForecast}
@@ -2408,7 +2417,11 @@ export function ChatMessageStream({
                 openSheetAtStart={labFileRemove?.openSheetFor === m.message_id}
                 onRemoved={(done) => fileRemoved(m.message_id, done)}
               >
-              <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
+              {/* 📐 `w-full` IS LOAD-BEARING (17 Nov): the <li> is a column flex with items-end/-start, so without it this
+                  row shrinks to its content and the bubble's `max-w-[75%]` resolves against THAT — "Hello" drew as
+                  "He / llo". Full width, the 75 % is of the thread. Your own file keeps its swipe's sizing.
+                  🔒 lib/nothing-is-squeezed-by-its-own-content.test.ts */}
+              <div className={`flex max-w-full ${ownFile ? '' : 'w-full'} items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
                   shopLogoUrl && !shopLogoBroken && m.sender_role === 'vendor' ? (
@@ -2709,29 +2722,37 @@ export function ChatMessageStream({
     </ol>
 
       {/*
-        Jump pills. Absolutely positioned OVER the scroller, so they occupy no
-        layout height — the whole point, after a pinned quote card cost this
-        conversation all but 32px of its own column on a phone. Each appears
-        only when its target is out of view.
+        ⤓ THE JUMP ROW (DECISION_LOG 2026-11-16 CHAT-09). "Jump to the quote" and "Latest messages" left the overlay over
+        the messages for their OWN 44 px row directly above the message box, in the thumb zone: a pill floating over the
+        first message covered words, and its press was ~26 px. The row exists ONLY while a target is off screen — at
+        rest it takes 0 px — and it is gone while a poll or decision form is up (that form is the whole screen).
       */}
-      {quoteOffScreen && latestProposalId ? (
-        <button
-          type="button"
-          onClick={scrollToLatestQuote}
-          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-terracotta/40 bg-cream/95 px-3 py-1 text-xs font-medium text-terracotta shadow-sm backdrop-blur hover:bg-cream"
-        >
-          📄 Jump to the quote
-        </button>
-      ) : null}
-      {awayFromBottom ? (
-        <button
-          type="button"
-          onClick={() => scrollToBottom('smooth')}
-          className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-ink/15 bg-cream/95 px-3 py-1 text-xs font-medium text-ink/70 shadow-sm backdrop-blur hover:bg-cream"
-        >
-          ↓ Latest messages
-        </button>
-      ) : null}
+      {(() => {
+        const quoteJump = quoteOffScreen && latestProposalId !== null;
+        const formUp = plusState.draft != null && RISING_DRAFTS.has(plusState.draft.kind);
+        if (formUp || !(quoteJump || awayFromBottom)) return null;
+        const QuoteIcon = TOPIC_ICON.quote;
+        const pill =
+          "sn-press relative inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']";
+        return (
+          <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-t border-ink/10 bg-cream px-3.5" data-chat-jump-row="">
+            {quoteJump ? (
+              <button type="button" onClick={scrollToLatestQuote} aria-label="Jump to the quote" className={`${pill} border-terracotta/50 text-terracotta-700`} data-chat-jump="quote">
+                <QuoteIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                Quote
+              </button>
+            ) : (
+              <span aria-hidden />
+            )}
+            {awayFromBottom ? (
+              <button type="button" onClick={() => scrollToBottom('smooth')} aria-label="Latest messages" className={`${pill} border-ink/12 text-ink`} data-chat-jump="latest">
+                <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                Latest
+              </button>
+            ) : null}
+          </div>
+        );
+      })()}
     </div>
       )}
     </div>

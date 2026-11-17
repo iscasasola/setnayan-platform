@@ -15,6 +15,11 @@
  *       paying door `GET /api/vendor/badges?view=facts` after the page draws — and that door still pays
  *       (`grantOwedBadgeRewards`), the same door Today uses (owner 2026-11-05). A guard that only removed the write
  *       would silently stop paying suppliers; this one pins both halves.
+ *   4 · THE PUBLIC SHOP PAGE'S CARD BADGES (J3, audit 17 Nov: `readCardBadges` ran `service_card_badge_settle` and
+ *       `emitNotification` on every anonymous view of /v/[slug]). The public render and the Today congratulations read
+ *       through `readCardBadges` / `readCardBadgeCongrats` / `readShopSeals`, which reach no write and no notice; the one
+ *       writer, `settleCardBadges`, is called only from the sweep (`sweepShopBadges`, after() + the daily backstop),
+ *       never from a page.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -69,7 +74,13 @@ function functionBodies(code: string): Map<string, string> {
  * declared STABLE (migration 20271327129110) — a counter, it writes nothing. A new rpc on this path must be added here
  * on purpose, with its volatility checked, or the guard goes red.
  */
-const READ_ONLY_RPCS = ['shop_booked_loop_count'];
+// + shop_trusted_five_star_count (2026-11-15): a STABLE SQL count, no write (migration a_shop_counts_its_five_star_reviews).
+// + shop_gift_points (2026-11-15, J0): a STABLE SQL sum, no write (migration 20271349129379_award_flow_gift_points_and_auto_claim).
+// ⛔ NOT shop_badge_rewards_auto_claim — that one WRITES claims and is called only from the grant sweep.
+// + shop_completed_bookings_count, shop_trusted_by_count (2026-11-16): STABLE SQL counts, no write (same migration).
+// + service_card_badge_facts (2026-11-17, J3): a STABLE SQL read of the 30-day numbers, no write (migration
+//   20271348906302). ⛔ NOT service_card_badge_settle — it opens and closes holds, and runs only from the sweep.
+const READ_ONLY_RPCS = ['service_card_badge_facts', 'shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points', 'shop_completed_bookings_count', 'shop_trusted_by_count'];
 const WRITE = new RegExp(String.raw`\.(insert|update|upsert|delete)\s*\(|\bgrantOwed\w*\s*\(|\.rpc\(\s*(?!'(?:${READ_ONLY_RPCS.join('|')})')`);
 
 test('1 · the badge tracker, and every reader it reaches, never writes', () => {
@@ -116,4 +127,42 @@ test('3 · the reward is still paid at the same visit — after the draw, throug
     /if \(sp\.get\('view'\) === 'facts'\) \{[\s\S]*?grantOwedBadgeRewards\(admin, profile\.vendor_profile_id, rewardFacts\)[\s\S]*?NextResponse\.json\(\{ vendorId: profile\.vendor_profile_id, facts, granted \}/,
     'the badge-facts door no longer pays (or no longer says what it paid)',
   );
+});
+
+test('4 · the public shop page\'s card badges read only — the settle and the notice run from the sweep', () => {
+  const bodies = new Map<string, string>();
+  for (const f of ['lib/card-badges.server.ts', 'lib/shop-seals.server.ts']) {
+    for (const [k, v] of functionBodies(src(f))) if (!bodies.has(k)) bodies.set(k, v);
+  }
+  const NOTICE = /\bemitNotification\s*\(|\bannounce\s*\(|\bsettleCardBadges\s*\(|\bsweepShopBadges\w*\s*\(|\bmaybeRunBadgeRewardSweep\s*\(/;
+  for (const reader of ['readCardBadges', 'readCardBadgeCongrats', 'readShopSeals']) {
+    assert.ok(bodies.has(reader), `${reader} is gone — the guard would be checking nothing`);
+    const seen = new Set<string>();
+    const queue = [reader];
+    while (queue.length) {
+      const name = queue.shift()!;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      for (const m of bodies.get(name)!.matchAll(/\b(\w+)\s*\(/g)) if (bodies.has(m[1]!) && !seen.has(m[1]!)) queue.push(m[1]!);
+    }
+    const writers = [...seen].filter((n) => WRITE.test(bodies.get(n)!) || NOTICE.test(bodies.get(n)!));
+    assert.deepEqual(writers, [], `${reader} (a render's read) writes or notifies again, through: ${writers.join(', ')}`);
+  }
+  // The writer exists, settles and tells — so removing the write from the render did not stop the badges settling.
+  const settle = bodies.get('settleCardBadges');
+  assert.ok(settle, 'settleCardBadges is gone — no card badge would ever be held or announced');
+  assert.match(settle!, /\.rpc\('service_card_badge_settle'/, 'the settle no longer settles');
+  assert.match(settle!, /\bannounce\(/, 'the settle no longer tells the shop');
+
+  // The pages: the public shop page and Today read; neither calls the writer.
+  for (const page of ['app/v/[slug]/page.tsx', 'app/vendor-dashboard/page.tsx']) {
+    assert.doesNotMatch(src(page), /\bsettleCardBadges\b|service_card_badge_settle|\bsweepShopBadges\w*\b|\bmaybeRunBadgeRewardSweep\b/, `${page} settles card badges (or runs the badge sweep) in its render`);
+  }
+  assert.match(src('app/v/[slug]/page.tsx'), /readCardBadges\(admin, \{/, 'the shop page no longer reads its card badges');
+  // The one caller of the writer is the sweep (after() on a moved count, and the daily backstop through it).
+  const sweep = functionBodies(src('lib/badge-earned.server.ts'));
+  assert.match(sweep.get('settleCardBadgesQuietly') ?? '', /\bsettleCardBadges\(admin, vendorProfileId\)/, 'the sweep no longer settles card badges');
+  assert.match(sweep.get('sweepShopBadges') ?? '', /settleCardBadgesQuietly\(admin, vendorProfileId\)/, 'sweepShopBadges no longer settles card badges');
+  assert.match(sweep.get('shopsWithMovedCounts') ?? '', /from\('service_card_badge_holds'\)[\s\S]*?\.is\('lost_at', null\)/, 'the daily backstop no longer checks every card holding a badge');
+  assert.match(sweep.get('shopsWithMovedCounts') ?? '', /return \[\.\.\.held, \.\.\.rest\];/, 'a shop holding a card badge can be dropped by the cap again');
 });

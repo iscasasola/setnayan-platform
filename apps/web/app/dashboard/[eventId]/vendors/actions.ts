@@ -34,7 +34,8 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
+import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -524,6 +525,11 @@ async function updateVendorStatus(formData: FormData) {
   if (prevRow?.marketplace_vendor_id) {
     const vpid = prevRow.marketplace_vendor_id;
     after(() => triggerVendorActivityRecompute(vpid));
+    // 🏅 A booking just became delivered/complete — the shop's Events badge may have climbed; its reward is paid and
+    // the shop told now, after the response (owner 2026-11-15, "firing when earned").
+    if ((status === 'delivered' || status === 'complete') && prev?.status !== 'delivered' && prev?.status !== 'complete') {
+      sweepShopBadgesAfter(vpid);
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
@@ -2644,7 +2650,7 @@ export async function finalizeVendor(
                 // lib/supplier-notices-open-the-picked-client.test.ts): a released
                 // inquiry may no longer open the picked client, and this page is
                 // where `closingCopy` says who closed it.
-                relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                relatedUrl: supplierThreadPageHref(t.thread_id),
                 eventId,
               });
             }

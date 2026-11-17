@@ -103,7 +103,9 @@ test('a part the snapshot moves to another category moves with it — the access
   const before = fallbackInspirationParts();
   const moved: InspirationPartsSnapshot = {
     source: 'db',
-    parts: before.parts.map((p) => (p.slotKey === 'cake' ? { ...p, homeCategoryId: 'florist', alsoCategoryIds: [] } : p)),
+    // `services: null` — the categories decide, as for every part outside the T1 merges (cake keeps its own shops
+    // through them in the fallback; this test is about a category move, not about that).
+    parts: before.parts.map((p) => (p.slotKey === 'cake' ? { ...p, homeCategoryId: 'florist', alsoCategoryIds: [], services: null } : p)),
   };
   assert.ok(!listed(shopOf('florist'), before).includes('cake'));
   assert.ok(listed(shopOf('florist'), moved).includes('cake'), 'a florist is not offered the part an admin homed on Florist');

@@ -78,7 +78,7 @@ export function UnreadMessagesBadge({ userId, initialUnread, href, tour }: Props
       data-tour={tour}
       href={href}
       aria-label={label}
-      className="fd-round relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+      className="fd-round sn-hit-2d relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
     >
       <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
       {unread > 0 ? (

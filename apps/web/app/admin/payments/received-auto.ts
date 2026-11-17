@@ -154,11 +154,12 @@ export async function undoAutoMatch(userId: string, formData: FormData): Promise
   const receivedId = Number(formData.get('received_id'));
   if (!Number.isSafeInteger(receivedId)) return { notice: 'Pick the match to undo.', warn: true };
   const admin = createAdminClient();
-  const { data: before } = await admin
+  const { data: before, error: readErr } = await admin
     .from('admin_received_transactions')
     .select('received_id, matched_payment_id, match_kind, matched_at, matched_by, released_at')
     .eq('received_id', receivedId)
     .maybeSingle();
+  if (readErr) return { notice: `Could not read that match: ${readErr.message}`, warn: true };
   const b = before as { matched_payment_id: string | null; match_kind: string | null; matched_at: string | null; matched_by: string | null; released_at: string | null } | null;
   if (!b || b.match_kind !== 'auto' || !b.matched_at) return { notice: 'That match is not one that happened by itself.', warn: true };
   const now = new Date();
@@ -208,7 +209,7 @@ export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
   let paid = 0;
   for (const d of (data ?? []) as Due[]) {
     const nowIso = new Date().toISOString();
-    const { data: claimed } = await admin
+    const { data: claimed, error: claimErr } = await admin
       .from('admin_received_transactions')
       .update({ released_at: nowIso })
       .eq('received_id', d.received_id)
@@ -216,10 +217,18 @@ export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
       .eq('matched_payment_id', d.matched_payment_id)
       .is('released_at', null)
       .select('received_id');
+    if (claimErr) throw new Error(`received auto release claim: ${claimErr.message}`);
     if (!claimed || claimed.length === 0) continue; // Undone, or another run took it.
 
     const approver = d.matched_by ?? d.created_by;
-    const { data: pay } = await admin.from('payments').select('status').eq('payment_id', d.matched_payment_id).maybeSingle();
+    const { data: pay, error: payErr } = await admin.from('payments').select('status').eq('payment_id', d.matched_payment_id).maybeSingle();
+    if (payErr) {
+      // Claimed but unreadable: put the claim back so the next run tries again, and record why.
+      await admin.from('admin_received_transactions').update({ released_at: null }).eq('received_id', d.received_id).then(({ error }) => {
+        if (error) console.error('[received-auto] unclaim failed', error.message);
+      });
+      throw new Error(`received auto release payment read: ${payErr.message}`);
+    }
     const status = (pay as { status: string } | null)?.status ?? null;
     if (status !== 'pending' || !approver) {
       // Settled or refused by a person during the hold. Matched → the stamp

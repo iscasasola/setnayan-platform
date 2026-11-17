@@ -99,11 +99,12 @@ export async function matchReceived(
   if (!p || p.status !== 'pending') return { notice: 'That payment is no longer waiting.', warn: true };
   // Phase 2: a payment another BDO row is holding (matched by itself, Undo
   // window open) is not offered here — Undo that one first.
-  const { data: holding } = await admin
+  const { data: holding, error: holdErr } = await admin
     .from('admin_received_transactions')
     .select('received_id')
     .eq('matched_payment_id', paymentId)
     .limit(1);
+  if (holdErr) return { notice: `Could not check for a match that happened by itself: ${holdErr.message}`, warn: true };
   if (holding && holding.length > 0) {
     return { notice: 'That payment already matched by itself and is on its 30-minute hold. Undo it first.', warn: true };
   }

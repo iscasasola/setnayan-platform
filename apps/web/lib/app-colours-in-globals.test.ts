@@ -9,7 +9,8 @@
  *   (2) Every decision consumer reads `--sn-decision…` WITH a fallback to exactly what it read before — so with nothing
  *       saved no pixel moves.
  *   (3) No decision consumer still reads `--sn-accent` bare (that would be the toggle dragging it again).
- *   (4) The page behind everything has its own token, and the body reads it.
+ *   (4) The page behind everything has its own token, and the body reads it — #F7F5F4 since 16 Nov 2026, white frames
+ *       on it, and the guest Event Hub keeps its white page.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,5 +53,10 @@ test('(3) no decision consumer reads the toggle bare', () => {
 test('(4) the page behind everything is its own token', () => {
   assert.match(CSS, /\n\s*body \{\n\s*background-color: rgb\(var\(--sn-page-bg\)\);/);
   const root = CSS.slice(CSS.indexOf(':root {'), CSS.indexOf('html.dark {'));
-  assert.match(root, /--sn-page-bg: 255 255 255;/, 'the light page is not white');
+  // Owner 16 Nov 2026: "netural background color f7f5f4 / so framed can be white. ffffff" (DECISION_LOG "PAGE
+  // BACKGROUND = NEUTRAL #F7F5F4", superseding 12 Nov "keep the background white").
+  assert.match(root, /--sn-page-bg: 247 245 244;/, 'the light page is not the neutral #F7F5F4');
+  assert.match(root, /--sn-frame-bg: 255 255 255;/, 'the frame is not white');
+  // …every screen except the guest Event Hub, which keeps its white page.
+  assert.match(CSS, /html:not\(\.dark\) body:has\(\.sn-editorial\) \{\n\s*--sn-page-bg: 255 255 255;/, 'the guest Event Hub lost its white page');
 });

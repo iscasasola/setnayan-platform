@@ -1,5 +1,6 @@
 'use server';
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -128,6 +129,6 @@ export async function sendQuestionsToEvent(
     console.error('[sendQuestionsToEvent] notice failed:', e);
   }
 
-  revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  revalidatePath(supplierThreadPageHref(threadId));
   return { status: 'sent', count };
 }

@@ -35,6 +35,7 @@ import { RequestCardView } from '../queues/_components/request-card-view';
 import { SETTLE_NOTICES } from '../queues/_components/queues-triage-feed';
 import { AdminAskPill } from './admin-ask-pill';
 import { FocusCardSheet } from './focus-card-sheet';
+import { FocusReceived } from './focus-received';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type FocusRow = {
@@ -172,6 +173,9 @@ export async function FocusHome({
           </Link>
         </p>
       ) : null}
+
+      {/* From your BDO (owner 2026-11-17, v5 drawing): its own block and cards, in its own file. */}
+      <FocusReceived cardKey={cardKey} />
 
       {groups.map((g) => (
         <section key={g.kind} aria-label={FOCUS_KIND_LABEL[g.kind]}>

@@ -1,6 +1,8 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readReceivedTranscript } from '@/lib/admin/received-match';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { lastDropOf, readReceivedTranscript, type WaitingPayment } from '@/lib/admin/received-match';
+import type { ReceivedOpenRow, ReceivedPileRead } from './_components/received-pile';
 
 /**
  * app/admin/payments/received.ts — the three things the admin does with a
@@ -10,6 +12,8 @@ import { readReceivedTranscript } from '@/lib/admin/received-match';
  *           outside service, owner 2026-11-17 "Yes, swap it in"); only the
  *           text arrives here → one received row each. No picture is sent.
  *   match — the admin presses Match on a row and a waiting payment
+ *   not   — "Not received ▾" on a Buyer-says-paid card: reject or ask again,
+ *           through the shipped rejectPayment / requestPaymentResubmit
  *   leave — "Set aside ▾": leave for the next drop, or not a Setnayan payment
  *
  * Not a `use server` file: each export would be a route, and the action budget
@@ -69,7 +73,7 @@ export async function matchReceived(
   userId: string,
   formData: FormData,
   approve: ApproveCore,
-): Promise<{ notice: string; warn: boolean }> {
+): Promise<{ notice: string; warn: boolean; openPaymentId?: string }> {
   const receivedId = Number(formData.get('received_id'));
   const paymentId = formData.get('payment_id');
   if (!Number.isSafeInteger(receivedId) || typeof paymentId !== 'string' || paymentId === '') {
@@ -91,8 +95,16 @@ export async function matchReceived(
   if (!p || p.status !== 'pending') return { notice: 'That payment is no longer waiting.', warn: true };
   // 🔒 To the centavo, re-checked here — the picker only offers equal amounts,
   // and a stale page must not approve a different sum.
+  //    A reference match at a different amount ("₱50 short") is LISTED on the
+  //    card, and picking it opens that payment's own card, where the shipped
+  //    shortfall guard decides. Nothing is approved from here.
   if (r.amount_php == null || Math.round(Number(r.amount_php) * 100) !== Math.round(Number(p.amount_php) * 100)) {
-    return { notice: 'The amounts differ. Confirm it from the payment card instead.', warn: true };
+    const diff = r.amount_php == null ? null : Math.round((Number(r.amount_php) - Number(p.amount_php)) * 100) / 100;
+    const words =
+      diff == null
+        ? 'The amount on the screenshot was not read.'
+        : `₱${Math.abs(diff).toLocaleString('en-PH', { maximumFractionDigits: 2 })} ${diff < 0 ? 'short' : 'over'}.`;
+    return { notice: `${words} Confirm the amount on their payment.`, warn: true, openPaymentId: paymentId };
   }
 
   const outcome = await approve({
@@ -124,4 +136,76 @@ export async function leaveReceived(formData: FormData): Promise<void> {
     .eq('received_id', receivedId)
     .is('matched_payment_id', null);
   if (error) throw new Error(`Could not set it aside: ${error.message}`);
+}
+
+/** The reasons on "Not received ▾", and what each one does. */
+export const NOT_RECEIVED_REASONS = {
+  no_money: { label: 'No money arrived', notes: 'No money arrived in our BDO for this payment.' },
+  wrong_amount: { label: 'Wrong amount', notes: 'The amount that arrived in our BDO does not match this payment.' },
+  unreadable: {
+    label: 'Photo unreadable — ask again',
+    notes: 'Your receipt photo could not be read. Please send a clearer screenshot that shows the amount and the reference number.',
+  },
+  wrong_account: { label: 'Paid to the wrong account', notes: 'This payment did not go to Setnayan’s BDO account.' },
+} as const;
+export type NotReceivedReason = keyof typeof NOT_RECEIVED_REASONS;
+
+export function isNotReceivedReason(v: unknown): v is NotReceivedReason {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(NOT_RECEIVED_REASONS, v);
+}
+
+/**
+ * What Focus needs to draw the BDO pile: the open received rows, the buyers
+ * who say they paid, and the last drop. Each read that is refused is SAID —
+ * a failed read is never drawn as "nothing received".
+ */
+/** `withWaiting: false` on Admin › Payments, which already reads the pending payments. */
+export async function readReceivedDesk({ withWaiting = true }: { withWaiting?: boolean } = {}): Promise<{
+  read: ReceivedPileRead;
+  waiting: WaitingPayment[] | null;
+  lastDrop: { count: number; at: string } | null;
+}> {
+  const admin = createAdminClient();
+  const [rec, last, pays] = await Promise.all([
+    admin
+      .from('admin_received_transactions')
+      .select('received_id, reference, reference_norm, amount_php, received_at, read_status, left_reason')
+      .is('matched_payment_id', null)
+      .or('left_reason.is.null,left_reason.eq.later')
+      .order('created_at', { ascending: true })
+      .limit(100),
+    // One drop is at most RECEIVED_PER_DROP rows per insert, all sharing created_at.
+    admin.from('admin_received_transactions').select('created_at').order('created_at', { ascending: false }).limit(RECEIVED_PER_DROP),
+    withWaiting
+      ? admin
+          .from('payments')
+          .select('payment_id, amount_php, reference_number, created_at, order:orders(public_id, created_at), user:users!payments_user_id_fkey(email)')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .limit(200)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (rec.error) logQueryError('admin focus: received pile', rec.error);
+  if (last.error) logQueryError('admin focus: last drop', last.error);
+  if (pays.error) logQueryError('admin focus: waiting payments', pays.error);
+  type PayRow = {
+    payment_id: string;
+    amount_php: number;
+    reference_number: string | null;
+    order: { public_id: string | null; created_at: string | null } | null;
+    user: { email: string | null } | null;
+  };
+  return {
+    read: rec.error ? { kind: 'failed' } : { kind: 'ok', rows: (rec.data ?? []) as ReceivedOpenRow[] },
+    waiting: pays.error
+      ? null
+      : ((pays.data ?? []) as unknown as PayRow[]).map((p) => ({
+          payment_id: p.payment_id,
+          amount_php: Number(p.amount_php),
+          reference_number: p.reference_number,
+          order_created_at: p.order?.created_at ?? null,
+          label: p.user?.email ?? p.order?.public_id ?? '—',
+        })),
+    lastDrop: last.error ? null : lastDropOf((last.data ?? []) as Array<{ created_at: string }>),
+  };
 }

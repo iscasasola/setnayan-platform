@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {
   AUTO_MATCH_ENABLED,
   candidatesFor,
+  lastDropOf,
   ocrDigitFix,
+  receivedFor,
+  shortReference,
   readReceivedTime,
   readReceivedTranscript,
   referenceNamesTransfer,
@@ -71,7 +74,7 @@ test('whole reference or the full invoice suffix names the transfer; a short tai
   assert.equal(referenceNamesTransfer(null, '6991560'), false);
 });
 
-test('candidates: same centavos only, strong first, reasons in plain words', () => {
+test('candidates: strong first, a centavo off is a different amount, reasons in plain words', () => {
   const row = readReceivedTranscript(BDO_RECEIVED);
   const rowLike = { reference_norm: row.referenceNorm, amount_php: row.amountPhp, received_at: row.receivedAt };
   const c = candidatesFor(rowLike, [
@@ -79,11 +82,13 @@ test('candidates: same centavos only, strong first, reasons in plain words', () 
     pay({ payment_id: 'other-amount', amount_php: 2499.01 }),
     pay({ payment_id: 'strong' }),
   ]);
-  assert.deepEqual(c.map((x) => x.payment.payment_id), ['strong', 'tail']);
+  assert.deepEqual(c.map((x) => x.payment.payment_id), ['strong', 'other-amount', 'tail']);
+  assert.deepEqual(c[1]!.reasons, ['Reference matches', '₱0.01 short']);
+  assert.equal(c[1]!.strong, false);
   assert.equal(c[0]!.strong, true);
   assert.deepEqual(c[0]!.reasons, ['Same amount', 'Reference matches']);
-  assert.deepEqual(c[1]!.reasons, ['Same amount', 'Ends in 1560']);
-  assert.equal(c[1]!.strong, false);
+  assert.deepEqual(c[2]!.reasons, ['Same amount', 'Ends in 1560']);
+  assert.equal(c[2]!.strong, false);
 });
 
 test('money that arrived before the order existed is never strong, and says so', () => {
@@ -96,8 +101,53 @@ test('money that arrived before the order existed is never strong, and says so',
   assert.ok(c[0]!.reasons.includes('Arrived before the order was placed'));
 });
 
-test('an unread amount gives no candidates', () => {
+test('an unread amount offers reference matches only', () => {
   assert.deepEqual(candidatesFor({ reference_norm: 'X', amount_php: null, received_at: null }, [pay()]), []);
+  const c = candidatesFor({ reference_norm: 'GXCHPHM2XXXB000000006991560', amount_php: null, received_at: null }, [pay()]);
+  assert.deepEqual(c[0]!.reasons, ['Reference matches']);
+  assert.equal(c[0]!.strong, false);
+});
+
+test('a reference match with a different amount is listed with what is short, and is never strong', () => {
+  const c = candidatesFor(
+    { reference_norm: 'GXCHPHM2XXXB000000004880047', amount_php: 2450, received_at: null },
+    [
+      pay({ payment_id: 'carlo', amount_php: 2500, reference_number: '4880047' }),
+      pay({ payment_id: 'ana', amount_php: 2450, reference_number: '7712044' }),
+      pay({ payment_id: 'over', amount_php: 2400, reference_number: '4880047' }),
+      pay({ payment_id: 'nothing', amount_php: 999, reference_number: '1111111' }),
+    ],
+  );
+  assert.deepEqual(c.map((x) => x.payment.payment_id).sort(), ['ana', 'carlo', 'over']);
+  const carlo = c.find((x) => x.payment.payment_id === 'carlo')!;
+  assert.deepEqual(carlo.reasons, ['Reference matches', '₱50 short']);
+  assert.equal(carlo.diffPhp, -50);
+  assert.equal(carlo.strong, false);
+  assert.deepEqual(c.find((x) => x.payment.payment_id === 'over')!.reasons, ['Reference matches', '₱50 over']);
+  assert.deepEqual(c.find((x) => x.payment.payment_id === 'ana')!.reasons, ['Same amount']);
+});
+
+test('the short reference reads as the drawing prints it', () => {
+  assert.equal(shortReference('GXCHPHM2XXXB000000006991560'), '…XXXB 000000006991560');
+  assert.equal(shortReference('BDO12345'), 'BDO12345');
+  assert.equal(shortReference(null), null);
+});
+
+test('the last drop is the rows stamped with the newest time', () => {
+  assert.deepEqual(
+    lastDropOf([{ created_at: '2026-11-17T07:12:00Z' }, { created_at: '2026-11-17T07:12:00Z' }, { created_at: '2026-11-16T01:00:00Z' }]),
+    { count: 2, at: '2026-11-17T07:12:00Z' },
+  );
+  assert.equal(lastDropOf([]), null);
+});
+
+test('from the buyer side: same-amount received rows first', () => {
+  const rows = [
+    { id: 1, reference_norm: 'ZZZ', amount_php: 2499, received_at: null },
+    { id: 2, reference_norm: 'GXCHPHM2XXXB000000006991560', amount_php: 2000, received_at: null },
+    { id: 3, reference_norm: 'Q', amount_php: 5, received_at: null },
+  ];
+  assert.deepEqual(receivedFor(pay(), rows).map((x) => x.row.id), [1, 2]);
 });
 
 test('buyers who say paid with no received row of their amount', () => {

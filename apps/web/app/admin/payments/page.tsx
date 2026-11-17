@@ -46,7 +46,8 @@ import { receivingAccounts, type ChannelSettings } from '@/lib/payment-channels'
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import type { ReceivedOpenRow, ReceivedPileRead } from './_components/received-pile';
+import type { ReceivedPileRead } from './_components/received-pile';
+import { readReceivedDesk } from './received';
 import { readRemedyDesk } from '@/lib/admin/service-remedies.server';
 export const metadata = { title: 'Payments · Admin' };
 
@@ -254,18 +255,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // ── RECEIVED SCREENSHOTS FROM OUR BDO (owner 2026-11-17) ──────────────────
   // The open pile: not matched, not set aside as "not Setnayan". A refused read
   // is drawn as a failure, never as "nothing received".
-  let received: ReceivedPileRead;
-  {
-    const { data, error } = await admin
-      .from('admin_received_transactions')
-      .select('received_id, reference, reference_norm, amount_php, received_at, read_status, left_reason')
-      .is('matched_payment_id', null)
-      .or('left_reason.is.null,left_reason.eq.later')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) logQueryError('admin/payments: received pile', error);
-    received = error ? { kind: 'failed' } : { kind: 'ok', rows: (data ?? []) as ReceivedOpenRow[] };
-  }
+  const receivedDesk = await readReceivedDesk({ withWaiting: false });
+  const received: ReceivedPileRead = receivedDesk.read;
+
 
   // ── SAME-DAY FIRST (owner 2026-08-02) ─────────────────────────────────────
   // "have an emergency purchase part if the event day is the day itself. these
@@ -370,6 +362,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
               readFailed={readFailed}
               query={qDisplay}
               received={received}
+              receivedLastDrop={receivedDesk.lastDrop}
             />
           )}
         </>

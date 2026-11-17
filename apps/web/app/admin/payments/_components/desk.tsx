@@ -505,9 +505,12 @@ export function PaymentsList({
   readFailed,
   query,
   received,
+  receivedLastDrop = null,
 }: {
   /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
   received?: ReceivedPileRead;
+  /** The newest drop: how many rows one press read, and when. */
+  receivedLastDrop?: { count: number; at: string } | null;
   /** 🏷 F-A-15: an event type's admin-managed name (the opened payment uses it). */
   typeName: EventTypeName;
   /** Where the desk is — each row opens its payment on top of it. */
@@ -576,6 +579,7 @@ export function PaymentsList({
       {received ? (
         <ReceivedPile
           read={received}
+          lastDrop={receivedLastDrop}
           query={query}
           waiting={payments
             .filter((p) => p.status === 'pending')

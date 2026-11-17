@@ -20,6 +20,7 @@ import { useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { approvePayment } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { Sheet } from '@/app/_components/sheet';
 
 const PER_DROP = 25; // = RECEIVED_PER_DROP in ../received.ts
 const READER_PATHS = {
@@ -55,31 +56,58 @@ export function ReceivedDropTile() {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The v5 drawing: the gallery opens, then a sheet says "6 picked." with
+  // Read 6 · Cancel · Paste a text instead.
+  const [picked, setPicked] = useState<File[] | null>(null);
+  const [pasting, setPasting] = useState(false);
+  const [pasted, setPasted] = useState('');
 
-  async function send(files: File[]) {
+  async function save(texts: string[]) {
+    setBusy('Saving…');
+    for (let i = 0; i < texts.length; i += PER_DROP) {
+      const fd = new FormData();
+      fd.set('intent', 'received-drop');
+      for (const t of texts.slice(i, i + PER_DROP)) fd.append('texts', t);
+      // The action revalidates the page, so its answer carries the new pile.
+      await approvePayment(fd);
+    }
+  }
+
+  async function readPicked(pictures: File[]) {
     setError(null);
-    const pictures = files.filter((f) => f.type.startsWith('image/'));
-    if (pictures.length === 0) return;
     const total = formatCount(pictures.length);
     try {
       setBusy('Getting the reader ready…');
       const texts = await readOnThisPhone(pictures, (n) => setBusy(`Reading ${formatCount(n)} of ${total}…`));
-      setBusy('Saving…');
-      for (let i = 0; i < texts.length; i += PER_DROP) {
-        const fd = new FormData();
-        fd.set('intent', 'received-drop');
-        for (const t of texts.slice(i, i + PER_DROP)) fd.append('texts', t);
-        // The action revalidates the page, so its answer carries the new pile.
-        await approvePayment(fd);
-      }
+      await save(texts);
     } catch {
       setError('The pictures could not be read on this phone. Check your connection and try again.');
     } finally {
       setBusy(null);
-      if (input.current) input.current.value = '';
     }
   }
 
+  async function savePasted() {
+    const text = pasted.trim();
+    if (!text) return;
+    setError(null);
+    try {
+      await save([text]);
+      setPasted('');
+    } catch {
+      setError('That text could not be saved. Try again.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function close() {
+    setPicked(null);
+    setPasting(false);
+    if (input.current) input.current.value = '';
+  }
+
+  const count = picked?.length ?? 0;
   return (
     <div data-payments-received-drop="">
       <button
@@ -101,8 +129,53 @@ export function ReceivedDropTile() {
         accept="image/*"
         multiple
         hidden
-        onChange={(e) => void send(Array.from(e.currentTarget.files ?? []))}
+        onChange={(e) => {
+          const files = Array.from(e.currentTarget.files ?? []).filter((f) => f.type.startsWith('image/'));
+          if (files.length > 0) setPicked(files);
+        }}
       />
+      <Sheet open={picked !== null} onClose={close} labelledById="received-picked-title" title="Add received screenshots">
+        <div className="flex flex-col gap-3 p-4">
+          <h2 id="received-picked-title" className="text-[16px] font-semibold text-ink">
+            {pasting ? 'Paste a text instead' : count === 1 ? '1 picked.' : `${formatCount(count)} picked.`}
+          </h2>
+          {pasting ? (
+            <textarea
+              className="min-h-32 w-full rounded-md border p-3 text-[15px]"
+              style={{ borderColor: 'var(--sn-line)' }}
+              placeholder="Paste the alert from your BDO app"
+              value={pasted}
+              onChange={(e) => setPasted(e.currentTarget.value)}
+              aria-label="Paste the alert from your BDO app"
+            />
+          ) : (
+            <p className="text-[14px] text-[color:var(--sn-ink-500)]">Read on this phone. Nothing is uploaded.</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="ab ab-ok min-h-11"
+              disabled={pasting ? pasted.trim() === '' : count === 0}
+              onClick={() => {
+                const files = picked ?? [];
+                const paste = pasting;
+                close();
+                void (paste ? savePasted() : readPicked(files));
+              }}
+            >
+              {pasting ? 'Read it' : `Read ${formatCount(count)}`}
+            </button>
+            <button type="button" className="ab min-h-11" onClick={close}>
+              Cancel
+            </button>
+            {!pasting ? (
+              <button type="button" className="ab min-h-11" onClick={() => setPasting(true)}>
+                Paste a text instead
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </Sheet>
       {error ? (
         <p role="alert" className="mt-2 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
           {error}

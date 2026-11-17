@@ -17,6 +17,14 @@ Owner, 17 Nov 2026: "ok build it", on the drawing in specs `prototypes/admin_pay
   - Authorship FKs use `ON DELETE SET NULL`.
   - Related updates: exposure baseline regenerated, Ugat baseline line added, and "Download my data" exclusions updated (staff stamps on our own bank record).
 
+- **v5 parity (same PR).**
+  - **Focus, one card at a time.** "From your BDO" sits in Focus. Tapping a row opens its oldest item as one card in the shipped `FocusCardSheet` (`/admin?card=received:<id>` or `buyer:<payment_id>`), with "‹ Focus", "1 of N" and "Next". After you act, the next card opens. The `next` value is accepted only as `/admin` or `/admin?card=…`.
+  - **"₱50 short" reference matches.** A payment whose reference matches is listed even at a different amount, with "₱50 short" / "₱50 over" as its reason. Picking it never approves from here: it opens that payment (`/admin/payments?open=…`), where the shipped shortfall guard decides.
+  - **"Buyer says paid" card.** The amount, the invoice, "Not in your BDO screenshots yet. Checked at the X drop.", and their receipt photo. It has "Match to a received one" and "Not received" (No money arrived · Wrong amount · Photo unreadable — ask again · Paid to the wrong account). Those go through the shipped `rejectPayment` / `requestPaymentResubmit`, as a fourth intent, `received-not`.
+  - **Last-drop line.** "Last drop · N read · time", plus "Pictures are read on this phone, never uploaded."
+  - The picker sheet reads "N picked." with "Read N", "Cancel" and "Paste a text instead". The button names who was picked ("Match to Carlo M.").
+  - Not built yet: search inside the payment dropdown, and the receipt photo shown inline (it is a link).
+
 **Phase 2 (not here):** with the BDO pay flow, auto-match strong ones behind a 30-minute hold with Undo, a toast + Focus line (no email), and the money-test amendment.
 
 SPEC IMPACT: specs `DECISION_LOG.md` gained the 2026-11-17 "read on the admin's phone" row (pushed, 0b45c923). The other rulings are the earlier 2026-11-17 admin payment verify rows and the drawing is in `prototypes/admin_payment_verify_2026-11-17/`.

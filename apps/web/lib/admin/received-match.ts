@@ -161,6 +161,13 @@ export type Candidate = {
   /** The transfer arrived BEFORE the order existed — a reused picture, or not theirs. */
   receivedBeforeOrder: boolean;
   /**
+   * Received minus owed, in pesos (0 = exact). A reference match with a
+   * different amount is LISTED ("₱50 short") but never approved from the
+   * received card: the server sends the admin to that payment's own card,
+   * where the shipped shortfall guard decides.
+   */
+  diffPhp: number;
+  /**
    * Whole reference (or the full BDO invoice suffix, ruled the same) + exact
    * centavos + arrived after the order. Drawn first; NEVER acted on in phase 1.
    */
@@ -180,36 +187,71 @@ export function referenceNamesTransfer(receivedNorm: string | null, typed: strin
   return receivedNorm === y || receivedNorm.endsWith(y);
 }
 
+const peso = (n: number) =>
+  `₱${Math.abs(n).toLocaleString('en-PH', { minimumFractionDigits: Number.isInteger(Math.abs(n)) ? 0 : 2, maximumFractionDigits: 2 })}`;
+
 /**
- * The waiting payments one received row could settle: same amount to the
- * centavo, strong ones first. An unread amount gives no candidates — the admin
- * sees the row and matches from the payment card instead.
+ * The waiting payments one received row could settle, as the v5 drawing lists
+ * them: same amount to the centavo, PLUS a payment whose reference names this
+ * transfer at a different amount ("Reference matches · ₱50 short"). Strong ones
+ * first, then reference matches, then amount-only. An unread amount gives
+ * reference matches only.
  */
 export function candidatesFor(row: ReceivedRow, waiting: WaitingPayment[]): Candidate[] {
-  if (row.amount_php == null) return [];
-  const want = cents(row.amount_php);
   const out: Candidate[] = [];
   for (const p of waiting) {
-    if (cents(p.amount_php) !== want) continue;
     const refHit = referenceNamesTransfer(row.reference_norm, p.reference_number);
     const tail = normalizeReference(p.reference_number);
     const tailHit =
       !refHit && tail.length > 0 && !!row.reference_norm && row.reference_norm.endsWith(tail);
+    const same = row.amount_php != null && cents(p.amount_php) === cents(row.amount_php);
+    if (!same && !refHit) continue;
+    const diffPhp = row.amount_php == null ? 0 : (cents(row.amount_php) - cents(p.amount_php)) / 100;
     const before =
       !!row.received_at &&
       !!p.order_created_at &&
       Date.parse(row.received_at) < Date.parse(p.order_created_at);
-    const reasons = ['Same amount'];
+    const reasons: string[] = [];
+    if (same) reasons.push('Same amount');
     if (refHit) reasons.push('Reference matches');
     else if (tailHit) reasons.push(`Ends in ${tail}`);
+    if (!same && row.amount_php != null) reasons.push(diffPhp < 0 ? `${peso(diffPhp)} short` : `${peso(diffPhp)} over`);
     if (before) reasons.push('Arrived before the order was placed');
-    out.push({ payment: p, reasons, receivedBeforeOrder: before, strong: refHit && !before });
+    out.push({ payment: p, reasons, receivedBeforeOrder: before, diffPhp, strong: same && refHit && !before });
   }
-  return out.sort(
-    (a, b) =>
-      Number(b.strong) - Number(a.strong) ||
-      b.reasons.length - Number(b.receivedBeforeOrder) - (a.reasons.length - Number(a.receivedBeforeOrder)),
-  );
+  const rank = (c: Candidate) =>
+    (c.strong ? 8 : 0) + (c.reasons.includes('Reference matches') ? 4 : 0) + (c.diffPhp === 0 ? 2 : 0) + (c.reasons.some((r) => r.startsWith('Ends in')) ? 1 : 0) - (c.receivedBeforeOrder ? 1 : 0);
+  return out.sort((a, b) => rank(b) - rank(a));
+}
+
+/** "…XXXB 000000006991560" — the tail an admin compares, as the v5 drawing prints it. */
+export function shortReference(ref: string | null): string | null {
+  if (!ref) return null;
+  const r = ref.replace(/\s+/g, '');
+  if (r.length <= 19) return r;
+  return `…${r.slice(-19, -15)} ${r.slice(-15)}`;
+}
+
+/**
+ * The last drop: every row of one insert shares its `created_at`, so the rows
+ * stamped with the newest time are what the last press read.
+ */
+export function lastDropOf(rows: ReadonlyArray<{ created_at: string }>): { count: number; at: string } | null {
+  if (rows.length === 0) return null;
+  const at = rows.reduce((m, r) => (r.created_at > m ? r.created_at : m), rows[0]!.created_at);
+  return { count: rows.filter((r) => r.created_at === at).length, at };
+}
+
+/**
+ * The open received rows one waiting payment could be — the "Match to a
+ * received one" list on the Buyer-says-paid card. Same rules as
+ * `candidatesFor`, seen from the payment.
+ */
+export function receivedFor<R extends ReceivedRow>(p: WaitingPayment, rows: R[]): Array<{ row: R; c: Candidate }> {
+  return rows
+    .map((row) => ({ row, c: candidatesFor(row, [p])[0] }))
+    .filter((x): x is { row: R; c: Candidate } => !!x.c)
+    .sort((a, b) => Number(b.c.diffPhp === 0) - Number(a.c.diffPhp === 0) || Number(b.c.strong) - Number(a.c.strong));
 }
 
 /**

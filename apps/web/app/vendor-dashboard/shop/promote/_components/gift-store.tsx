@@ -30,7 +30,7 @@ import {
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { GiftTicketArt, GiftTicketPile } from './gift-ticket-art';
-import { bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
+import { GIFT_HOLD_RULE, bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
 import s from './gift-store.module.css';
 
 /**
@@ -112,6 +112,9 @@ export function GiftTicketSheet({
         </div>
         <small className="mt-3 block text-[13px] text-ink/60" data-gift-ticket-available="">
           {available === null ? 'Couldn’t read your gifts right now' : `You have ${formatCount(available)} available`}
+        </small>
+        <small className="mt-0.5 block text-[12.5px] text-ink/55" data-gift-hold-rule="">
+          {GIFT_HOLD_RULE}
         </small>
         {canBuy ? (
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -287,7 +290,9 @@ export function GiftStore({
     );
 
   const firstShape = bundles[0] ? bundleShape(bundles[0]) : null;
-  const rail = openRails.find((r) => r.id === 'bdo')?.id ?? openRails[0]?.id ?? '';
+  // 🏦 BDO only (owner 17 Nov: "we will make all our transactions enter BDO Account"). No fallback to another rail: with
+  // BDO closed the store says payments are paused, as it does with nothing open. (#7926 makes the same rule app-wide.)
+  const rail = openRails.find((r) => r.id === 'bdo')?.id ?? '';
   const total = formatPhp(sum.totalCentavos / 100);
 
   const head = (
@@ -325,7 +330,7 @@ export function GiftStore({
         </b>
       </div>
       <div className="mt-2">
-        {openRails.length === 0 ? (
+        {rail === '' ? (
           <PaymentsPausedNote />
         ) : sum.lines.length > 0 ? (
           <form action={formAction}>

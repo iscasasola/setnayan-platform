@@ -620,7 +620,10 @@ export default async function VendorOverviewPage({
   const view = assembleSupplierToday({
     needsAnswer,
     closed: nothingToAnswer,
-    deskIncomplete,
+    // 🔎 An unreadable bill list is not "you owe nothing" (supplier dashboard audit, 2026-11-17). Drawn as `[]` it
+    // let Today say "Nothing waiting on you" with a booking fee unpaid; an incomplete desk says "Some answers
+    // couldn't load — may be missing … a payment" and drops the count.
+    deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
     schedules,
     firstSteps,

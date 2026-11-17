@@ -129,6 +129,13 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: mobileAppAnswer(),
       },
       {
+        // 🏅 The public badges (owner 2026-11-15, specs 4b8cc3a3 · 7fbff0cd). Names only — no counts or steps here, so this
+        // answer never claims a tier the app does not draw.
+        slug: 'what-supplier-badges-mean',
+        title: 'What do the badges on a supplier mean?',
+        body: 'Setnayan Verified means Setnayan checked the owner, the business papers and the work — it shows beside the shop’s name and on each of its service cards. A shop that is not verified shows its real name, without the check. Suppliers also earn badges as their work is counted — Completed bookings, Five-star reviews, Gifts given, Trusted by and Invites — and seals such as Verified Partner or Top 10 Supplier, and a service card can hold medals such as Hot Booking or Rave Reviews. A badge only appears once Setnayan has counted it; none is shown on a guess.',
+      },
+      {
         slug: 'how-are-vendors-verified',
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
@@ -330,6 +337,18 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     label: 'People & Memories',
     roles: ['couple', 'vendor'],
     articles: [
+      {
+        // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable", "order by supplier plan",
+        // "story with many suppliers", "Supplier Ultra scenes") — the story's own ⓘ says the short version.
+        slug: 'story-suppliers',
+        title: 'How are our suppliers shown in our event story?',
+        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Supplier Ultra, then Supplier Pro, Supplier Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: Supplier Pro and Supplier Ultra open a card with their cover, rating, best work and a Book button, the rest open their shop. Each Supplier Ultra that shares its album from your event also gets its own scene in your story.',
+      },
+      {
+        slug: 'share-album-to-story',
+        title: 'Supplier: how do I share my album to an event’s story?',
+        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
+      },
       {
         slug: 'people-page',
         title: 'What is People?',

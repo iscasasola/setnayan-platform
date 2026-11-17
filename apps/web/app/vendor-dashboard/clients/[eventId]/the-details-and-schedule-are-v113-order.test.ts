@@ -52,9 +52,9 @@ test('2 · Suppliers come from the brief’s roster; absent draws nothing', asyn
 // drawn from the thread's one draw. The no-own-read half of this test moved to `a-client-open-draws-the-thread-once`
 // (which measures it: Details adds 0 requests); here, only that Details mounts it with the thread it already holds.
 test('4 · Decisions is the list in place, mounted with the thread Details already holds (Build 2 #42)', () => {
-  assert.match(PAGE, /<DetailsDecisions threadId=\{threadId\} eventId=\{eventId\} \/>/);
+  assert.match(PAGE, /<DetailsDecisions threadId=\{threadId\} eventId=\{eventId\} threadSearch=\{pickedCtx\.threadSearch\} \/>/);
   const comp = stripComments(readFileSync(join(HERE, '_components/details-decisions.tsx'), 'utf8'));
-  assert.match(comp, /<SupplierThreadBody threadId=\{threadId\} view="decisions" \/>/, 'the list is not the thread page\u2019s draw');
+  assert.match(comp, /<SupplierThreadBody threadId=\{threadId\} view="decisions" search=\{threadSearch\} \/>/, 'the list is not the thread page\u2019s draw');
   assert.doesNotMatch(comp, /\.from\(|fetch\(|supabase/, 'the Decisions body reads on its own');
 });
 

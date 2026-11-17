@@ -34,13 +34,13 @@ import { ShopServicesHead } from './_components/shop-services-head';
 import { ShopBundles, type ShopBundle } from './_components/shop-bundles';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
+import { cardsLiveBits, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { siteOrigin } from '@/lib/site-origin';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeTracker, nextBadgeShort, shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import { shopBadgeRow, type BadgeTile } from '@/lib/shop-badge-row';
@@ -111,6 +111,10 @@ type ShopData = {
   scanSettings: Map<number, ScanSetting> | null;
   /** 🏅 The one badge row (`shopBadgeRow`) — null = unread. */
   badges: BadgeTile[] | null;
+  /** 🏅 The cover's earned circles (milestone + award, as the public shop hero draws them); null = facts unread. */
+  earned: ShopBadge[] | null;
+  /** The cover's honest next step when nothing is earned yet; null = unread or every step reached. */
+  nextBadge: string | null;
   /** The cover's "★ 4.8 · 120 events" — null = unread. */
   rating: string | null;
   /** "38 reviews" beside the ★ — the cover's link into Your page › Reviews and stories (§10 #31). */
@@ -444,6 +448,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     // RW-311: this counts events FINISHED on Setnayan (the Events badge's own number) — said so, so "0 events done"
     // next to the shop's open bookings never reads as a contradiction (a booked event is not done until its day).
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'} done`,
+    // 🏅 The SAME filter the public shop hero applies to `shopBadges` (milestone + award circles; Verified is the seal).
+    earned: facts
+      ? shopBadges({ ...facts, verified: false }).filter((b) => b.kind === 'milestone' || b.kind === 'award')
+      : null,
+    nextBadge: nextBadgeShort(facts?.completedEvents ?? null),
     analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:
@@ -532,12 +541,8 @@ function servicesCompact(d: ShopData): string {
   const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
   const bits: string[] = [];
   if (packageAuthoringEnabled() && d.bundles && d.bundles.length > 0) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
-  const cards = cardsOf(d);
-  if (cards !== null && cards > 0) {
-    bits.push(n(cards, 'card', 'cards'));
-    const live = (d.serviceRows ?? []).filter((r) => r.live).length;
-    if (live > 0) bits.push(`${formatCount(live)} live`);
-  }
+  // Cards and live CARDS — one unit (lib/shop-services-summary.ts `cardsLiveBits`).
+  bits.push(...cardsLiveBits(d.serviceRows));
   return bits.join(' · ');
 }
 /** How many service cards the shop has — null when the rows were unread. */
@@ -618,6 +623,8 @@ async function ShopHome({
     rating: data.rating,
     reviews: data.reviews,
     events: data.events,
+    earned: data.earned,
+    nextBadge: data.nextBadge,
     planLabel: planWord(data.tier),
     publicPath,
     websiteLive: data.websiteLive,
@@ -646,6 +653,11 @@ async function ShopHome({
           promoteBody={
             <Suspense fallback={<SheetOpening />}>
               <PromoteBody search={qrSearch} part="promote" />
+            </Suspense>
+          }
+          printsBody={
+            <Suspense fallback={<SheetOpening />}>
+              <PromoteBody search={qrSearch} part="prints" />
             </Suspense>
           }
           qrBody={

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BOOKED_THIS_MONTH_HREF } from '@/lib/booked-this-month';
 import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import type { TodayStats as Stats } from '@/lib/supplier-today-view';
@@ -21,7 +22,8 @@ import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 export const TODAY_STAT_HREFS = {
   views: '/vendor-dashboard/shop',
   inquiries: '/vendor-dashboard/customers?door=asking',
-  booked: '/vendor-dashboard/customers?door=booked',
+  // Owner 75a46e3c item 9: Clients filtered to this month, so it shows this same number (`lib/booked-this-month.ts`).
+  booked: BOOKED_THIS_MONTH_HREF,
   portfolio: '/vendor-dashboard/collections',
   money: customerLandingHref('payday'),
 } as const;

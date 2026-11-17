@@ -27,6 +27,7 @@ import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
+import { maybeRunBadgeRewardSweep } from '@/lib/badge-earned.server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -290,6 +291,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // …) and writes it to email_deliveries, which the home strip and the
   // Notifications tab read. Bounded (20 per run); never throws.
   after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
+  // 🏅 Badge rewards (owner 2026-11-15) — the backstop for a reward whose count moved but whose after() was lost.
+  // CRON-FREE: admin traffic + a ~daily DB claim; bounded (150 shops per run); never throws.
+  after(() => maybeRunBadgeRewardSweep().catch(() => {}));
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
@@ -362,7 +366,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {urgency.overdue > 0 ? (
         <Link
           href="/admin/work"
-          className="fd-urgency relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          className="fd-urgency sn-hit relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity hover:opacity-90"
           aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />

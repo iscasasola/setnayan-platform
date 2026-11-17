@@ -169,7 +169,7 @@ export async function VenuesSurface({
           return (
             <Link
               key={t.value}
-              href={`/admin/venues?type=${t.value}`}
+              href={`/admin/accounts?tab=venues&type=${t.value}`}
               className={
                 t.value === typeFilter
                   ? 'rounded-lg border border-terracotta bg-terracotta/5 px-2 py-2 text-left text-xs'
@@ -237,7 +237,7 @@ export async function VenuesSurface({
           </button>
           {(q || typeFilter || cityFilter) ? (
             <Link
-              href="/admin/venues"
+              href="/admin/accounts?tab=venues"
               className="button-secondary ml-2 px-5"
             >
               Clear

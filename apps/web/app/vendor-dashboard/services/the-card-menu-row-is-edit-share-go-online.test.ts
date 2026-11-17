@@ -64,7 +64,8 @@ test('NO FRAME: the card and its row sit in an <li> that draws nothing', () => {
   assert.match(li, /data-shop-card=""/, 'the card <li> lost the hook Shop’s thumb row narrows by');
   // A DIVIDER between cards is the prototype (one bottom rule); a box around the card + row is not.
   assert.doesNotMatch(li, /\bborder(?!-b\b|-ink\/)|rounded-|bg-|background|overflow-hidden|\bp-\d|px-\d|py-\d|\bborder-(?:t|l|r|x|y)\b/, `the card is framed again: ${li}`);
-  assert.match(li, /border-b border-ink\/10 pb-5 last:border-b-0/, 'the divider between cards is gone');
+  // No divider between cards (owner 17 Nov): the card's own edges separate them, the list's even gap between.
+  assert.doesNotMatch(li, /border-b/, 'a divider line is back between the cards');
   // The manager no longer draws the old framed <li> or a bordered strip around the row.
   assert.doesNotMatch(MANAGER, /className="scroll-mt-24 overflow-hidden rounded-2xl border"/, 'the old framed <li> is back');
   assert.doesNotMatch(managerItem(), /border-t px-4 py-3/, 'a bordered strip is back around the row');
@@ -88,9 +89,18 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const at = ROW.indexOf('data-card-menu-line=""');
   assert.ok(at > 0, 'the row line was not found — re-anchor this guard');
   const line = ROW.slice(ROW.lastIndexOf('<div', at), ROW.indexOf('<StayForm', at));
-  const buttons = line.match(/<ActionButton\b/g) ?? [];
-  assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share');
-  assert.equal((line.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
+  // The computer's hover Delete (owner 17 Nov, one card) is the ONLY other button: hover/keyboard only, never on touch.
+  const hoverAt = line.indexOf('data-card-delete-hover=""');
+  const del = hoverAt > 0 ? line.slice(line.lastIndexOf('<span', hoverAt), line.indexOf('</span>', hoverAt)) : '';
+  if (del) {
+    assert.match(del, /\bhidden\b[^"]*\[@media\(hover:hover\)_and_\(pointer:fine\)\]:inline-flex/, 'the row’s Delete shows on a touch screen — it must be hover-only');
+    assert.match(del, /opacity-0[^"]*group-hover\/card:opacity-100/, 'the row’s Delete is visible at rest — it must show on hover only');
+    assert.match(del, /onClick=\{onDelete\}/, 'the row’s Delete does not go through the card’s own delete (warning + Undo)');
+  }
+  const kept = del ? line.replace(del, '') : line;
+  const buttons = kept.match(/<ActionButton\b/g) ?? [];
+  assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share (plus the hover Delete)');
+  assert.equal((kept.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
   // RW-286b (re-walk 14 Nov): one size for both, at the 44 px floor of the T02/T04 size round (was 40×40).
   assert.match(line, /\[&>\.ab\]:h-11 \[&>\.ab\]:min-h-11 \[&>\.ab\]:w-11/, 'the two icon buttons are not one 44×44 size');
   const edit = line.indexOf('name="Edit"');
@@ -98,7 +108,7 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const sw = line.indexOf('role="switch"');
   assert.ok(edit > 0 && share > edit && sw > share, 'the row is not Edit · Share · switch, in that order');
   assert.equal((line.match(/role="switch"/g) ?? []).length, 1, 'the row holds one switch');
-  assert.match(line, /<SwitchTrack on=\{isActive\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
+  assert.match(line, /<SwitchTrack on=\{shown\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the switch is not the worded Online/Offline track (T20)');
   assert.match(line, /className=\{SWITCH_BUTTON\}/, 'the switch is not the shipped SWITCH_BUTTON');
   assert.match(line, /\{held \? \(\s*<PlanHoldTag \/>/, 'a card the plan holds no longer shows "On hold" in place of the switch');
   assert.doesNotMatch(line, /Go online|Go offline/, 'a worded Go online button is back in place of the switch');

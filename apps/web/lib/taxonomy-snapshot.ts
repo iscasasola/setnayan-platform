@@ -8,6 +8,7 @@
  */
 import {
   ADMIN_ONLY_TILES,
+  MERGED_TILES,
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SHORT_LABEL,
@@ -138,8 +139,9 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     // filing tiles. Hard-coding {} here meant that on any DB read failure the
     // fallback quietly promoted them to ordinary visible branches. Derived from
     // ADMIN_ONLY_TILES so a fifth is covered without editing this line.
+    // …and the categories T1 merged away (MERGED_TILES), which the database keeps hidden too.
     hiddenCategories: Object.fromEntries(
-      [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
+      [...ADMIN_ONLY_TILES, ...Object.keys(MERGED_TILES)].map((t) => [t, true as const]),
     ) as Record<string, true>,
     tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
     categoryHints: {}, // the constant has no admin-written ⓘ — the fallback chain answers instead

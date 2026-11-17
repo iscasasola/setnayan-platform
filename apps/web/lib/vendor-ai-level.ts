@@ -1,4 +1,5 @@
 import type { VendorAddonSku } from './vendor-addon-tier-pricing';
+import { endedPlanReadsFree } from './vendor-tier-lapse';
 
 /**
  * vendor-ai-level.ts — the Vendor AI ladder LEVEL (owner-locked 2026-07-25).
@@ -71,11 +72,40 @@ export function isVendorAiAdvanced(raw: string | null | undefined): boolean {
   return coerceVendorAiLevel(raw) === 'advanced';
 }
 
+/**
+ * 💳 THE CHATBOT A PLAN INCLUDES — owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 3: the AI chatbot is
+ * included on Pro (today's chatbot) and Ultra (the smarter level: the shop's voice, the couple's language); Free,
+ * Verified and Plus have none and Plus cannot buy it. A chatbot window a shop BOUGHT before the fold keeps working
+ * until it runs out (item 11) — that is `windowActive` below, never this table.
+ */
+export const PLAN_CHATBOT_LEVEL: Readonly<Record<string, VendorAiLevel | 'none'>> = Object.freeze({
+  free: 'none',
+  verified: 'none',
+  solo: 'none',
+  pro: 'basic',
+  enterprise: 'advanced',
+});
+
+/** The chatbot a plan row includes — read as the sweep would write it (a plan whose day passed reads as Free). */
+export function planChatbotLevel(
+  plan: { tier_state?: string | null; tier_expires_at?: string | null } | null | undefined,
+  nowMs: number = Date.now(),
+): VendorAiLevel | 'none' {
+  const row = endedPlanReadsFree(plan ?? null, nowMs);
+  const tier = row?.tier_state ?? 'free';
+  return PLAN_CHATBOT_LEVEL[tier] ?? 'none';
+}
+
+/** Is the chatbot still sold as an add-on? No — folded into Pro and Ultra on 2026-11-14 (item 3). The buy action reads it. */
+export const AI_CHATBOT_SOLD_ON_ITS_OWN: boolean = false;
+
 export type VendorAiEntitlement = {
   /** `vendor_profiles.ai_addon_level`, as stored. */
   level: string | null | undefined;
   /** `isVendorAiAddonActive(ai_addon_expires_at)` — the ONE shared window. */
   windowActive: boolean;
+  /** The shop's plan (`tier_state`, `tier_expires_at`) — Pro includes Basic, Ultra includes Advanced (2026-11-14). */
+  plan?: { tier_state?: string | null; tier_expires_at?: string | null } | null;
 };
 
 /**
@@ -89,7 +119,7 @@ export type VendorAiEntitlement = {
  * paid cycle.
  */
 export function vendorAiAdvancedActive(e: VendorAiEntitlement): boolean {
-  return e.windowActive && isVendorAiAdvanced(e.level);
+  return (e.windowActive && isVendorAiAdvanced(e.level)) || planChatbotLevel(e.plan) === 'advanced';
 }
 
 /**
@@ -98,7 +128,7 @@ export function vendorAiAdvancedActive(e: VendorAiEntitlement): boolean {
  * feature" true by construction.
  */
 export function vendorAiBasicActive(e: VendorAiEntitlement): boolean {
-  return e.windowActive;
+  return e.windowActive || planChatbotLevel(e.plan) !== 'none';
 }
 
 /**

@@ -205,9 +205,13 @@ test('a slug that matches no event 404s, on every sub-route that answers for one
   const INVITE = readFileSync(join(HERE, '..', 'invite', 'page.tsx'), 'utf8');
   const missingEvent = INVITE.indexOf('if (!event) {');
   assert.notEqual(missingEvent, -1, 'the missing-event branch is gone');
-  const branch = INVITE.slice(missingEvent, missingEvent + 1200);
+  const branch = INVITE.slice(missingEvent, missingEvent + 2000);
+  // 🔗 Since the address move (owner 2026-11-15) a word no event has may be a SHOP: the branch hands it to the shop's
+  // invite (`/{shop}/invite`), which 404s itself when there is no live shop — so a junk word is still a 404.
+  const VENDOR_INVITE = readFileSync(join(HERE, '..', '..', 'vendor-invite', '[slug]', 'page.tsx'), 'utf8');
   assert.ok(
-    /notFound\(\);/.test(branch),
+    /notFound\(\);/.test(branch) ||
+      (/<VendorInvitePage\b/.test(branch) && /if \(!vendor \|\| !isShopLive\(vendor\)\) notFound\(\);/.test(VENDOR_INVITE)),
     'A slug that matches no event must 404. Rendering a plate for it tells a ' +
       'person their link is stale when no such event ever existed, and returns ' +
       'an indexable 200 for every junk URL.',

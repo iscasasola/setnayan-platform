@@ -14,9 +14,9 @@
  *   (1 · "Not available" on the shop's own booked date is CHAT-29, `thread-day-answer-own-booking-reads-booked.test.ts`
  *    on #7870. 5 · the clipped newest bubble is open — not changed here.)
  *
- * 🛡 SABOTAGE (seen RED, then restored — 17 Nov 2026): `answeredAs` dropped from the stream's `<StreamLineCard` → 2 RED;
- * the answered branch removed from the card → 2 RED; `data-picked-menu-more` / `MENU_FADE` removed → 4 RED;
- * `uppercase tracking-[0.08em]` put back on the card kicker → 6 RED.
+ * 🛡 SABOTAGE (seen RED, then restored — 17 Nov 2026): `answeredAs` dropped from the stream's `<StreamLineCard` → test 2 RED;
+ * the answered branch removed from the card → test 2 RED; `data-picked-menu-more` / `MENU_FADE` removed → test 4 RED;
+ * `uppercase tracking-[0.08em]` put back on the card kicker → test 6 RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

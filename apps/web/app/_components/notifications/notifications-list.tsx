@@ -168,7 +168,7 @@ export function NotificationsList({ items, returnTo, emptyState, onRead, inset =
         group.rows.length === 0 ? null : (
           <section key={group.key} aria-label={group.label}>
             <h3
-              className={`block px-6 pb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--m-slate-3)] ${
+              className={`sn-sheet-k px-6 pb-1.5 ${
                 gi > 0 && today.length > 0 ? 'pt-3' : 'pt-2'
               }`}
             >

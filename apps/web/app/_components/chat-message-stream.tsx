@@ -21,6 +21,7 @@
 // resubscribe we refetch the latest messages so any inserts that happened
 // while we were offline catch up without a page reload.
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE, BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
 import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -1152,7 +1153,7 @@ export function ChatMessageStream({
         plus?.returnPath ??
         (viewerRole === 'couple' && messages[0]
           ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
-          : `/vendor-dashboard/messages/${threadId}`),
+          : supplierThreadPageHref(threadId)),
       eventDate,
       supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
     }),
@@ -1236,7 +1237,7 @@ export function ChatMessageStream({
     (m: ChatMessageRow) =>
       viewerRole === 'couple'
         ? `/dashboard/${m.event_id}/messages/${threadId}`
-        : `/vendor-dashboard/messages/${threadId}`,
+        : supplierThreadPageHref(threadId),
     [viewerRole, threadId],
   );
 
@@ -2081,7 +2082,7 @@ export function ChatMessageStream({
                         lockHandshake?.eventVendorId ? (
                           <LockAnswerForms
                             eventVendorId={lockHandshake.eventVendorId}
-                            returnTo={`/vendor-dashboard/messages/${threadId}`}
+                            returnTo={supplierThreadPageHref(threadId)}
                             agreeLock={supplierReplyActions.agreeLock}
                             declineLock={supplierReplyActions.declineLock}
                             feeForecast={feeForecast}
@@ -2417,7 +2418,11 @@ export function ChatMessageStream({
                 openSheetAtStart={labFileRemove?.openSheetFor === m.message_id}
                 onRemoved={(done) => fileRemoved(m.message_id, done)}
               >
-              <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
+              {/* 📐 `w-full` IS LOAD-BEARING (17 Nov): the <li> is a column flex with items-end/-start, so without it this
+                  row shrinks to its content and the bubble's `max-w-[75%]` resolves against THAT — "Hello" drew as
+                  "He / llo". Full width, the 75 % is of the thread. Your own file keeps its swipe's sizing.
+                  🔒 lib/nothing-is-squeezed-by-its-own-content.test.ts */}
+              <div className={`flex max-w-full ${ownFile ? '' : 'w-full'} items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
                   shopLogoUrl && !shopLogoBroken && m.sender_role === 'vendor' ? (

@@ -35,6 +35,7 @@
  * `lint-port-no-lost-controls` can see it (the host learned this on its guided
  * flow's door).
  */
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import { feeDueStage, feePesos, type DueFeeBill, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
@@ -800,7 +801,7 @@ export function todayNextSecond(
     return { label: 'See the day', to: 'given', href: `/vendor-dashboard/customers?seg=dates&day=${answer.eventDate}` };
   }
   if (answer.kind === 'lock_request' && answer.threadId) {
-    return { label: 'Chat', to: 'given', href: `/vendor-dashboard/messages/${answer.threadId}` };
+    return { label: 'Chat', to: 'given', href: supplierChatHref(answer.eventId, answer.threadId) };
   }
   return null;
 }

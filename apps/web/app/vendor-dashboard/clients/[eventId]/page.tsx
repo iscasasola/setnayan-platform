@@ -1,4 +1,4 @@
-import { supplierChatHref, customerCardHref } from '@/lib/upcoming-schedule-door';
+import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
@@ -2280,6 +2280,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     feeUnlocked,
     eventVendorId,
     eventDate: brief.event.event_date,
+    threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
   };
 
   // Files: the ONE shared builder, read once; the page body (`_pages/files.tsx`, C1) draws the rows.
@@ -2640,7 +2641,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         />
       ) : null}
       {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} />
+      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
       <DetailsFormsDoor />
     </div>
   );

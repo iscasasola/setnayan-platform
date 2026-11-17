@@ -15698,8 +15698,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/customers",
-        "/vendor-dashboard/messages/[seg]"
+        "/vendor-dashboard/customers"
       ],
       "actions": [
         "acceptInquiry",

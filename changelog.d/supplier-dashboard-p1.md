@@ -30,3 +30,9 @@ SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECI
   - The thread page itself forwards a plain arrival (stored bell notices, old pushes) to the client's Chat, and "Update this quote" to its Quotation.
   - It still draws for: a thread with no event, the computer inbox pane (`?pane=1`, owner 13 Nov D3), a return carrying its own notice, a released inquiry, and an older or closed chat on the event. The client's Chat draws the event's newest thread (`readClientChatThreadId`), so those must not forward.
   - Guard: `lib/a-conversation-opens-the-client-chat.test.ts` (sabotaged three ways, each red).
+- **An action inside the client's Chat returns to the client's Chat, its notice said there** (owner 17 Nov via controller). Covers agree / decline a booking ask, send a quote, log a payment, and refusals.
+  - Every return from inside the conversation is built with `supplierThreadPageHref`, and the thread page decides where it lands.
+  - The forward now carries the notice params (`SUPPLIER_THREAD_NOTICE_KEYS`: notice · lock_agree · lock_decline · fee · taken · free · competing · error · msg) onto `?tab=chat`.
+  - The client page hands them back to the ONE thread draw (`PickedPageContext.threadSearch` → `SupplierThreadBody search`). The same notice lines are drawn in the same chat box.
+  - The page still draws for its own tools (Decisions `view`, counter-offer `compose=deal`), the computer pane, an unknown param, and an older chat on the event.
+  - The guard's allow-list is now the helpers file alone.

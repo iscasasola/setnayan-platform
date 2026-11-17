@@ -9,34 +9,40 @@
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
  *   1. No source in app/ or lib/ types a link to `/vendor-dashboard/messages/${…}` — links go through
  *      `supplierChatHref` (the client's Chat), `supplierThreadPaneHref` (the computer inbox's pane, owner 13 Nov D3) or
- *      `supplierThreadPageHref` (a closed / archived / older chat the client's Chat does not draw). The reasoned
- *      exceptions below are RETURNS from inside the thread, not ways in.
- *   2. `supplierThreadForward` — a plain arrival forwards to the client's Chat, "Update this quote" to its Quotation;
- *      a notice, the pane, an older chat or a thread with no event keeps the page.
+ *      `supplierThreadPageHref` (a closed / archived / older chat, and every RETURN from inside the conversation —
+ *      the page then decides where it lands). Only the helpers file may type the path.
+ *   2. `supplierThreadForward` — a plain arrival AND a notice return forward to the client's Chat (the notice params
+ *      carried), "Update this quote" to its Quotation; the page's own tools (Decisions, counter-offer), the pane, an
+ *      unknown param, an older chat or a thread with no event keep the page.
+ *   5. The client page hands those notice params to the one thread draw (owner 17 Nov: an action inside the client's
+ *      Chat returns to the client's Chat with its notice said there).
  *   3. The thread page itself forwards (stored links: notices already in bells, old pushes) — only when it is not an
  *      embed, only a chat the client page admits (accepted, or pending and not archived), and only after asking which
  *      thread the client's Chat draws.
  *
  * SABOTAGE (each run once, each went red): the Today "Reply" typed back to the thread page → 1; the forward without the
- * `drawn === threadId` check → 3; `supplierThreadForward` forwarding a `?notice=` return → 2.
+ * `drawn === threadId` check → 3; `supplierThreadForward` dropping the carried notice → 2; the Chat embed not passing
+ * `search` → 5.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { supplierChatHref, supplierThreadForward, supplierThreadPageHref, supplierThreadPaneHref } from '@/lib/upcoming-schedule-door';
+import {
+  supplierChatHref,
+  supplierThreadForward,
+  supplierThreadNoticeSearch,
+  supplierThreadPageHref,
+  supplierThreadPaneHref,
+} from '@/lib/upcoming-schedule-door';
 
 const WEB = join(import.meta.dirname, '..');
 
-/** Files allowed to type the thread path, each with its reason. A folder ends in `/`. */
+/** Files allowed to type the thread path, each with its reason. Since 17 Nov only the helpers themselves: every
+ *  return from inside the conversation is built with `supplierThreadPageHref` too, so the PAGE decides where it lands. */
 const ALLOWED: Record<string, string> = {
   'lib/upcoming-schedule-door.ts': 'the helpers themselves',
-  'app/vendor-dashboard/messages/': "the thread route's own returns and revalidations (a notice comes back to the page)",
-  'app/_components/chat-message-stream.tsx': 'returns from an action taken inside the thread (they carry its notice)',
-  'lib/chat-actions.ts': "acceptInquiry's return, which carries `?error=` back to the thread",
-  'app/dashboard/[eventId]/vendors/actions.ts':
-    'inquiry_displaced — a released inquiry keeps the thread page (the reasoned exception in supplier-notices-open-the-picked-client.test.ts)',
 };
 
 const TYPED = /\/vendor-dashboard\/messages\/(?:\$\{|['"`]\s*\+)/;
@@ -66,19 +72,45 @@ test('1 · no link is typed to the full-screen thread page — it goes through t
   assert.deepEqual(offenders, [], `a way into a conversation is typed to the old thread page — use supplierChatHref:\n${offenders.join('\n')}`);
 });
 
-test('2 · supplierThreadForward: a plain arrival opens the client, anything carrying state keeps the page', () => {
+test('2 · supplierThreadForward: arrivals and notice returns open the client, its own tools keep the page', () => {
   assert.equal(supplierThreadForward('ev1', undefined, true), '/vendor-dashboard/clients/ev1?tab=chat');
   assert.equal(supplierThreadForward('ev1', {}, true), '/vendor-dashboard/clients/ev1?tab=chat');
   assert.equal(supplierThreadForward('ev1', { compose: 'quote' }, true), '/vendor-dashboard/clients/ev1?tab=quote');
+  // 🚪 An action inside the client's Chat returns to the client's Chat, its notice carried (owner 17 Nov).
+  assert.equal(
+    supplierThreadForward('ev1', { notice: 'proposal_sent' }, true),
+    '/vendor-dashboard/clients/ev1?tab=chat&notice=proposal_sent',
+  );
+  assert.equal(
+    supplierThreadForward('ev1', { lock_agree: 'ok', fee: 'held', competing: '2' }, true),
+    '/vendor-dashboard/clients/ev1?tab=chat&lock_agree=ok&fee=held&competing=2',
+  );
+  assert.equal(supplierThreadForward('ev1', { error: '1', msg: 'No' }, true), '/vendor-dashboard/clients/ev1?tab=chat&error=1&msg=No');
   assert.equal(supplierThreadForward('ev1', { compose: 'deal' }, true), null, 'the counter-offer panel lives on the page');
-  assert.equal(supplierThreadForward('ev1', { notice: 'proposal_sent' }, true), null, 'a notice must still be said');
-  assert.equal(supplierThreadForward('ev1', { lock_agree: 'ok' }, true), null);
+  assert.equal(supplierThreadForward('ev1', { view: 'decisions' }, true), null, 'the Decisions view lives on the page');
+  assert.equal(supplierThreadForward('ev1', { notice: 'proposal_sent', surprise: 'x' }, true), null, 'an unknown param keeps the page');
   assert.equal(supplierThreadForward('ev1', { pane: '1' }, true), null, 'the computer inbox pane draws the thread');
-  assert.equal(supplierThreadForward('ev1', undefined, false), null, 'an older chat on the event is not the one Chat draws');
+  assert.equal(supplierThreadForward('ev1', { notice: 'proposal_sent' }, false), null, 'an older chat on the event keeps its page');
   assert.equal(supplierThreadForward(null, undefined, true), null, 'no event → no client to open');
+  assert.deepEqual(supplierThreadNoticeSearch({ notice: 'a', view: 'decisions', compose: 'deal', msg: ['m1', 'm2'] }), { notice: 'a', msg: 'm1' });
   assert.equal(supplierChatHref('ev1', 't1'), '/vendor-dashboard/clients/ev1?tab=chat');
   assert.equal(supplierChatHref(null, 't1'), supplierThreadPageHref('t1'));
   assert.equal(supplierThreadPaneHref('t1'), '/vendor-dashboard/messages/t1?pane=1');
+});
+
+test('5 · the client page hands the notice params to the ONE thread draw, and the draw says them in the chat box', () => {
+  const read = (f: string) => stripComments(readFileSync(join(WEB, f), 'utf8'));
+  const card = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  assert.match(card, /threadSearch: supplierThreadNoticeSearch\(search/, 'the client page does not read the notice params');
+  for (const f of ['app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx', 'app/vendor-dashboard/clients/[eventId]/_pages/quotation.tsx']) {
+    assert.match(read(f), /<SupplierThreadBody[^>]*search=\{ctx\.threadSearch\}/, `${f}: the embed drops the notice params`);
+  }
+  assert.match(read('app/vendor-dashboard/clients/[eventId]/_components/details-decisions.tsx'), /search=\{threadSearch\}/);
+  assert.match(read('app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body.tsx'), /searchParams=\{Promise\.resolve\(\{ \.\.\.\(search \?\? \{\}\), __embed: view \}\)\}/);
+  const page = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
+  assert.match(page, /const carried = supplierThreadNoticeSearch\(sp/, 'the embed does not read the carried notice params');
+  assert.match(page, /askedOnce\(viewer, THREAD_EMBEDS_DRAW, \[threadId, carriedKey\]/, 'embeds with different notices would share one draw');
+  assert.match(page, /drawVendorThread\(threadId, embedSearch, true\)/, 'the embed draws without its notice');
 });
 
 test('3 · the thread page forwards a plain arrival — never an embed, a released inquiry or another thread', () => {

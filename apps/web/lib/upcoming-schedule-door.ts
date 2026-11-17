@@ -137,12 +137,13 @@ export function openClientHref(eventId: string, f: ClientDoorFacts): string {
  * (🔒 lib/a-conversation-opens-the-client-chat.test.ts):
  *   1. a thread that names no event — there is no client to open (`supplierChatHref` with no event);
  *   2. the computer inbox's pane beside the list (owner 13 Nov D3) — `supplierThreadPaneHref`, marked `?pane=1`;
- *   3. a return carrying the page's own state (`?notice=` · `?lock_agree=` · `?compose=deal` · `?error=` …), so the
- *      sentence that says what happened is still drawn — `supplierThreadForward` never forwards those;
+ *   3. a tool the page itself opens (`?view=` Decisions · `?compose=deal`) — `supplierThreadForward` keeps those;
  *   4. an older or closed chat on an event (archived, turned down, booked someone else, withdrawn): the client's Chat
  *      draws the event's NEWEST thread (`readClientChatThreadId`), so these keep the full page.
- * Everything else — stored notices already in bells, old push taps, any link still typed to the page — is FORWARDED
- * by the page itself to the client's Chat (`supplierThreadForward`, read in `messages/[threadId]/page.tsx`).
+ * Everything else — stored notices already in bells, old push taps, and every return from an action inside the
+ * conversation (its notice params carried along, `SUPPLIER_THREAD_NOTICE_KEYS`) — is FORWARDED by the page itself to
+ * the client's Chat (`supplierThreadForward`, read in `messages/[threadId]/page.tsx`). Returns are built with
+ * `supplierThreadPageHref` so the page, not the caller, decides.
  *
  * This EXACT chat, full screen — for a closed, archived or older chat the picked client's Chat does not draw.
  */
@@ -156,11 +157,44 @@ export function supplierThreadPaneHref(threadId: string): string {
 }
 
 /**
- * Where a request for the full-screen thread page goes instead: the client's Chat for a plain arrival, the client's
- * Quotation for "Update this quote" (`?compose=quote` — the Quotation page opens the builder on the live quote), or
- * null when the page must draw itself: no event, the computer pane, any other state in the address, or a thread that
- * is NOT the one the client's Chat draws (`clientDrawsThisThread` false — an older or closed chat on the same event, a
- * released inquiry; forwarding it would open a different conversation). Pure.
+ * The thread page's NOTICE params — what an action inside the conversation hands back so the page can say what
+ * happened (`?notice=` quote outcomes · `?lock_agree=` / `?lock_decline=` with `fee` · `taken` · `free` · `competing` ·
+ * the toast bridge's `?error=` / `?msg=`). They are CARRIED onto the client's Chat (owner 17 Nov: an action inside the
+ * client's Chat returns to the client's Chat, its notice said there), and the client page hands them back to the one
+ * thread draw (`SupplierThreadBody` `search`), which draws the same notice lines in the same chat box.
+ */
+export const SUPPLIER_THREAD_NOTICE_KEYS = [
+  'notice',
+  'lock_agree',
+  'lock_decline',
+  'fee',
+  'taken',
+  'free',
+  'competing',
+  'error',
+  'msg',
+] as const;
+
+/** The notice params in a search, as plain strings (an array keeps its first). Never anything else. Pure. */
+export function supplierThreadNoticeSearch(
+  search: Readonly<Record<string, string | string[] | undefined>> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of SUPPLIER_THREAD_NOTICE_KEYS) {
+    const v = search?.[k];
+    const one = Array.isArray(v) ? v[0] : v;
+    if (typeof one === 'string') out[k] = one;
+  }
+  return out;
+}
+
+/**
+ * Where a request for the full-screen thread page goes instead: the client's Chat — carrying any notice params, so
+ * the line that says what happened is drawn THERE — or the client's Quotation for "Update this quote"
+ * (`?compose=quote`, the Quotation page opens the builder on the live quote). Null when the page must draw itself: no
+ * event, the computer pane (`pane`), the Decisions view (`view`), the counter-offer panel (`compose=deal`), any param
+ * this rule does not know, or a thread that is NOT the one the client's Chat draws (`clientDrawsThisThread` false —
+ * an older or closed chat on the same event; forwarding it would open a different conversation). Pure.
  */
 export function supplierThreadForward(
   eventId: string | null | undefined,
@@ -169,9 +203,18 @@ export function supplierThreadForward(
 ): string | null {
   if (!eventId || !clientDrawsThisThread) return null;
   const keys = Object.keys(search ?? {}).filter((k) => search?.[k] !== undefined);
-  if (keys.length === 0) return customerCardHref(eventId, 'chat');
-  if (keys.length === 1 && keys[0] === 'compose' && search?.compose === 'quote') return customerCardHref(eventId, 'quote');
-  return null;
+  const notice = new Set<string>(SUPPLIER_THREAD_NOTICE_KEYS);
+  let page: 'chat' | 'quote' = 'chat';
+  for (const k of keys) {
+    if (notice.has(k)) continue;
+    if (k === 'compose' && search?.compose === 'quote') {
+      page = 'quote';
+      continue;
+    }
+    return null;
+  }
+  const carried = new URLSearchParams(supplierThreadNoticeSearch(search)).toString();
+  return carried ? `${customerCardHref(eventId, page)}&${carried}` : customerCardHref(eventId, page);
 }
 
 /**

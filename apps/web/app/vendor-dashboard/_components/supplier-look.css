@@ -105,6 +105,31 @@ html:not(.dark):has([data-supplier-look]) {
   --sn-label-count-ink: rgb(var(--color-ink));
   --sn-label-count-weight: 600;
   --sn-label-count-size: 13px;
+  /* the sheets' labels and name (`.sn-sec` / `.sn-sheet-name`): the app sans, bold — the drawing's `.sec b` and its
+     name at 1.15em · 700, never the mono caps or the editorial serif */
+  --sn-label-font: var(--font-sans);
+  --sn-sec-size: 15px;
+  --sn-name-font: var(--font-sans);
+  --sn-name-size: 19px;
+  --sn-name-weight: 700;
+  /* the account sheet's name card wears no warm glow */
+  --sn-cover-glow: transparent;
+
+  /* ── THE MOBILE PALETTE (`--m-*`, :root hexes) — the account and Notifications sheets, the active row, ✓, the pill
+     tags, "Mark all read", "View all" and the unread dots read these. Re-pointed to the drawing so a sheet opened from
+     a supplier page (portalled to <body>, still under this <html> scope) never goes gold (owner 17 Nov). White on
+     #2272E6 4.55:1 · #175AB9 on white 6.56:1 · #566275 on white 6.18:1 · #6B7789 on white 4.62:1. */
+  --m-nav-active: #2272e6;
+  --m-orange: #2272e6;
+  --m-orange-2: #1b66d2;
+  --m-orange-3: #7db1ff;
+  --m-orange-4: #dce6f2;
+  --m-orange-deep: #1553b0;
+  --m-ivory: #e8f0fa;
+  --m-slate: #2e3a4f;
+  --m-slate-2: #566275;
+  --m-slate-3: #6b7789;
+  --m-slate-4: #aab4c3;
 
   /* ── EVERY OTHER TOKEN A SAVED ADMIN › COLOURS SET WRITES, held at its code default, so none shows through ── */
   /* the band's angle and its WHITE words are the blue look's own (white on #2272E6 4.55:1 AA) — never the clean warm

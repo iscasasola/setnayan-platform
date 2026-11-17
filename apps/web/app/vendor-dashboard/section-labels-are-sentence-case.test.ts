@@ -124,3 +124,26 @@ test('5 · round 3 (owner 17 Nov): no supplier section heading types the old upp
   const look = cssNoComments(read('app/vendor-dashboard/_components/supplier-look.css'));
   assert.match(look, /--sn-canvas:\s*#eef2f8;/i, 'the warm canvas (#F7F5F0) still shows as a beige band on supplier pages');
 });
+
+test('6 · a sheet opened from a supplier page reads the supplier tokens: no gold, no serif name, sentence-case labels, client ⚙ full screen', () => {
+  const look = cssNoComments(read('app/vendor-dashboard/_components/supplier-look.css'));
+  // the --m-* palette the account and Notifications sheets read (active row · ✓ · tags · Mark all read · View all · dots)
+  for (const k of ['--m-nav-active', '--m-orange', '--m-orange-2', '--m-orange-3', '--m-orange-4', '--m-ivory', '--m-slate-2', '--m-slate-3']) {
+    assert.match(look, new RegExp(`${k}:\\s*#[0-9a-f]{6};`, 'i'), `the supplier look leaves ${k} at its warm :root value`);
+  }
+  assert.match(look, /--sn-cover-glow:\s*transparent;/, 'the name card keeps its warm glow');
+  assert.match(look, /--sn-name-font:\s*var\(--font-sans\);/, 'the sheet name stays in the serif');
+  assert.match(look, /--sn-label-font:\s*var\(--font-sans\);/, 'the sheet labels stay in mono');
+  const css = cssNoComments(read('app/globals.css'));
+  assert.match(rule(css, '.sn-sheet-k'), /text-transform:\s*var\(--sn-label-case,\s*uppercase\)/);
+  assert.match(rule(css, '.sn-sheet-name'), /font-family:\s*var\(--sn-name-font,\s*var\(--font-editorial-display\)\)/);
+  const acct = stripComments(read('app/_components/account-switcher/account-switcher.tsx'));
+  assert.equal((acct.match(/className="sn-sheet-k /g) ?? []).length, 3, 'Switch to · You are in / Your shop · the third label are not all the sheet label');
+  assert.match(acct, /sn-sheet-name[^"]*">\{name\}/, 'the account name is not the sheet name class');
+  assert.match(acct, /var\(--sn-cover-glow,/, 'the cover glow is typed, not the token');
+  assert.match(stripComments(read('app/_components/notifications/notifications-list.tsx')), /className=\{`sn-sheet-k /, 'Today / Earlier are not the sheet label');
+  assert.match(stripComments(read('app/_components/notices/notices.tsx')), /<p className="sn-sheet-k">Waiting on this page<\/p>/);
+  const settings = stripComments(read('app/vendor-dashboard/clients/[eventId]/_components/picked-client-settings.tsx'));
+  assert.doesNotMatch(settings, /\buppercase\b/, 'This client / Notes are typed uppercase');
+  assert.match(stripComments(read('app/_components/picked/picked-shell.tsx')), /<MenuSettingsButton menu="client" rise\b/, 'the client ⚙ opens a half sheet, not full screen (owner 10 Nov)');
+});

@@ -109,7 +109,7 @@ html.dark .sn-sheet{background:rgb(var(--color-cream));--sn-new:var(--m-orange)}
 .sn-sheet-card>*+*::before{content:"";position:absolute;left:68px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none}
 .sn-sheet-card>.sn-row-sm+*::before,.sn-sheet-card>*+.sn-row-sm::before{left:60px}
 .sn-sheet-card>[data-on]+*::before,.sn-sheet-card>[data-on]::before{display:none}
-.sn-sheet-cover{background:radial-gradient(90% 120% at 100% 0%,color-mix(in srgb,var(--m-orange) 28%,transparent),transparent 60%),var(--m-paper)}
+.sn-sheet-cover{background:radial-gradient(90% 120% at 100% 0%,var(--sn-cover-glow,color-mix(in srgb,var(--m-orange) 28%,transparent)),transparent 60%),var(--m-paper)}
 `;
 
 /** The round mark at the start of a row. */
@@ -361,7 +361,7 @@ export function SwitcherPanelBody({
             {me}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-[family-name:var(--font-editorial-display)] text-[22px] font-semibold leading-[1.1] text-ink">{name}</span>
+            <span className="sn-sheet-name block truncate leading-[1.1] text-ink">{name}</span>
             {data.displayName && data.email ? (
               <span className="mt-[3px] block truncate text-[12.5px] text-[var(--m-slate-2)]">{data.email}</span>
             ) : null}
@@ -374,7 +374,7 @@ export function SwitcherPanelBody({
       </div>
 
       {/* ── 2 · Switch to — every place this login can be, one card ── */}
-      <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+      <span className="sn-sheet-k px-6 pb-1.5 pt-3">
         Switch to
       </span>
       <nav aria-label="Switch to" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-switch="">
@@ -480,7 +480,7 @@ export function SwitcherPanelBody({
           heads the card as "You are in": its row (✓) and View page ↗, then these rows (v113/v114). ── */}
       {(shopRows && shopRows.length > 0) || youAreIn ? (
         <>
-          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+          <span className="sn-sheet-k px-6 pb-1.5 pt-3">
             {youAreIn ? 'You are in' : 'Your shop'}
           </span>
           <nav
@@ -515,7 +515,7 @@ export function SwitcherPanelBody({
       {/* ── 3a · Admin — the admin-of-admin, admin layout only (owner 13 Nov 2026). ── */}
       {adminRows && adminRows.length > 0 ? (
         <>
-          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+          <span className="sn-sheet-k px-6 pb-1.5 pt-3">
             Admin
           </span>
           <nav aria-label="Admin" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-switcher-admin-rows="">

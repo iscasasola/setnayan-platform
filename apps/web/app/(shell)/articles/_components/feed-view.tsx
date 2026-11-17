@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MessageCircle, PenLine } from 'lucide-react';
+import { MessageCircle, Plus } from 'lucide-react';
 import type { ArticleCard, ArticleRead, ArticleSort } from '@/lib/articles.server';
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapters';
@@ -45,11 +45,11 @@ export function ArticlesFeedView({
           options={sortOptions}
           buttonText={`Sort · ${sort === 'replies' ? 'Most replies' : 'Newest'}`}
         />
-        <Link href="/articles/write" className="ab ab-brand ab-main ml-auto inline-flex min-h-11 items-center gap-1.5">
-          <PenLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Write a post
-        </Link>
       </div>
+      <Link href="/articles/write" className="ab ab-brand ab-main mt-3 inline-flex min-h-11 items-center gap-1.5">
+        <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Write a post
+      </Link>
 
       {!res.ok ? (
         <p role="alert" className="mt-6 text-sm font-medium text-danger-700">
@@ -60,26 +60,30 @@ export function ArticlesFeedView({
           {tag ? `No posts tagged “${tag}” yet.` : 'No posts yet.'} Be the first — write a post.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-ink/10">
+        <ul className="sn-frame mt-4 divide-y divide-ink/10 px-4">
           {res.data.articles.map((a) => (
-            <li key={a.slug} className="py-4">
-              <p className="flex flex-wrap items-center gap-1 text-[13px] text-ink/70">
-                <BylineName byline={a.byline} />
-                <span aria-hidden>·</span>
-                <span>{articleWhen(a.publishedAt)}</span>
-              </p>
-              <Link href={articleHref(a.slug)} className="mt-1 block text-base font-semibold text-ink hover:underline">
-                {a.title}
-              </Link>
-              {a.excerpt ? <p className="mt-1 line-clamp-2 text-sm text-ink/75">{a.excerpt}</p> : null}
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <TagChips tags={a.tags} />
-                <span className="ml-auto inline-flex items-center gap-1 text-[13px] text-ink/70">
-                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {a.replyCount}
-                  <span className="sr-only"> replies</span>
-                </span>
+            <li key={a.slug} className="flex gap-3 py-4">
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-1 text-[13px] text-ink/70">
+                  <BylineName byline={a.byline} />
+                  <span aria-hidden>·</span>
+                  <span>{articleWhen(a.publishedAt, undefined, a.byline.kind === 'journal')}</span>
+                </p>
+                <Link href={articleHref(a.slug)} className="mt-1 block text-base font-semibold text-ink hover:underline">
+                  {a.title}
+                </Link>
+                {a.excerpt && a.byline.kind !== 'journal' ? (
+                  <p className="mt-1 line-clamp-2 text-sm text-ink/75">{a.excerpt}</p>
+                ) : null}
+                <div className="mt-2">
+                  <TagChips tags={a.tags} />
+                </div>
               </div>
+              <span className="inline-flex shrink-0 items-start gap-1 pt-6 text-[13px] text-ink/70">
+                <MessageCircle aria-hidden className="mt-0.5 h-3.5 w-3.5" strokeWidth={1.75} />
+                {a.replyCount}
+                <span className="sr-only"> replies</span>
+              </span>
             </li>
           ))}
         </ul>

@@ -5,25 +5,26 @@ import { segmentParagraph } from '@/lib/article-links';
 
 /**
  * Small, server-rendered pieces shared by the feed and the article page (drawing v15 · Articles · An article).
- * Text and links only: a setnayan.com link is a link (and, on the article page, a card from our own data);
- * an outside link is PLAIN TEXT — no anchor, no preview, no outside image (owner 2026-11-17).
+ * Text and links only: a setnayan.com link becomes a card read from our own data (where we can place it); an
+ * outside link is ONLY a link — no card, no preview, no outside image (owner 2026-11-17).
  */
 
-/** "2h" · "3d" · "17 Nov" — the feed's own short time, in Manila. */
-export function articleWhen(iso: string | null, now: Date = new Date()): string {
+/** "2h" · "3d" · "17 Nov" — the feed's own short time, in Manila. A Journal post always shows its date (drawing). */
+export function articleWhen(iso: string | null, now: Date = new Date(), dated = false): string {
   if (!iso) return '';
+  if (dated) return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
   const ms = now.getTime() - new Date(iso).getTime();
   if (ms < 60_000) return 'now';
   if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
   if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d`;
-  return new Date(iso).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
 }
 
 /** The writer's name — a shop wears the Supplier mark; Setnayan's own posts read "Setnayan Journal". */
 export function BylineName({ byline }: { byline: Byline }) {
   return (
-    <span className="inline-flex items-center gap-1 font-medium text-ink">
+    <span className={`inline-flex items-center gap-1 font-medium ${byline.kind === 'journal' ? 'text-mulberry' : 'text-ink'}`}>
       {byline.name}
       {byline.kind === 'shop' ? (
         <span className="inline-flex items-center gap-0.5 rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[11px] font-semibold text-ink/80">
@@ -64,10 +65,17 @@ export function ArticleParagraph({ text }: { text: string }) {
             {seg.text}
           </Link>
         ) : (
-          // An outside link stays plain text (ruled 2026-11-17): no anchor, nothing fetched.
-          <span key={i} className="break-all">
+          // An outside link is ONLY a link (owner 2026-11-17: "Outside link will only be a link"): no card, no
+          // preview, nothing fetched. Opened in a new tab, and `nofollow ugc` because a reader wrote it, not us.
+          <a
+            key={i}
+            href={/^https?:\/\//i.test(seg.text) ? seg.text : `https://${seg.text}`}
+            target="_blank"
+            rel="nofollow ugc noopener noreferrer"
+            className="break-all text-link underline decoration-ink/25 underline-offset-2"
+          >
             {seg.text}
-          </span>
+          </a>
         ),
       )}
     </p>
@@ -97,4 +105,11 @@ export function LinkCardView({ card }: { card: LinkCard }) {
       </span>
     </Link>
   );
+}
+
+/** Two letters for a reply's round mark ("tagaytaybride" → "TA", "Taal Vista Hotel" → "TV"). */
+export function initialsOf(name: string): string {
+  const words = name.replace(/[._]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const two = words.length > 1 ? words[0]![0]! + words[1]![0]! : (words[0] ?? '?').slice(0, 2);
+  return two.toUpperCase();
 }

@@ -27,8 +27,7 @@ export default async function ArticlesLabPage({ searchParams }: { searchParams: 
     const w = screen === 'write' ? LAB_WRITER_FIRST : LAB_WRITER_SHOP;
     return (
       <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-4 sm:px-6">
-        <h1 className="text-xl font-semibold text-ink">Write a post</h1>
-        <div className="mt-4">
+        <div>
           <WriteSheet shopName={w.signedIn ? w.shopName : null} postingName={w.signedIn ? w.postingName : null} error={null} />
         </div>
       </main>

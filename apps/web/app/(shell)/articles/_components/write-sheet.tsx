@@ -6,6 +6,8 @@ import { CHAPTER_BODY_MAX, PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapt
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { createChapter } from '@/app/dashboard/(account)/creator/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import Link from 'next/link';
+import { X } from 'lucide-react';
 
 /**
  * Write a post (drawing v15 "Write a post", approved 17 Nov · rises full screen). Text and links. No photos or
@@ -36,6 +38,16 @@ export function WriteSheet({
   return (
     <form action={createChapter} className="space-y-4" data-write-sheet>
       <input type="hidden" name="surface" value="articles" />
+      {/* The sheet's head, as drawn: ✕ · the title · Post — Post sits where the thumb finishes, not under the form. */}
+      <div className="flex items-center gap-2">
+        <Link href="/articles" aria-label="Close" className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-ink/[0.06]">
+          <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </Link>
+        <h1 className="flex-1 text-lg font-semibold text-ink">Write a post</h1>
+        <SubmitButton className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center" pendingLabel="Posting…">
+          Post
+        </SubmitButton>
+      </div>
       <p className="text-sm text-ink/75">Text and links. No photos or videos.</p>
 
       {!askName ? (
@@ -99,6 +111,7 @@ export function WriteSheet({
           value=""
           fieldName="body"
           long
+          boxed
           required
           maxLength={CHAPTER_BODY_MAX}
           placeholder="We’re torn between these two. Has anyone booked them? Paste a link as it is."
@@ -119,9 +132,9 @@ export function WriteSheet({
                 {l.text}
               </p>
             ) : (
-              <p key={l.text} className="rounded-xl bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
-                <span className="block break-all">{l.text}</span>
-                <span className="block text-[12px] text-ink/70">Outside link · shown as text</span>
+              <p key={l.text} className="px-1 text-sm">
+                <span className="block break-all text-link underline decoration-ink/25 underline-offset-2">{l.text}</span>
+                <span className="block text-[12px] text-ink/70">Outside link · a link only, no card</span>
               </p>
             ),
           )}
@@ -138,9 +151,6 @@ export function WriteSheet({
       ) : null}
 
       <p className="text-[12px] text-ink/70">ⓘ {PUBLIC_POSTS_ARE_FINDABLE}</p>
-      <SubmitButton className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center" pendingLabel="Posting…">
-        Post
-      </SubmitButton>
     </form>
   );
 }

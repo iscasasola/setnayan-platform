@@ -1,7 +1,7 @@
 /**
  * articles-follow-the-rulings.test.ts — the 17 Nov article rulings, held where a person would meet them.
  *
- *   1. Text and links only: an outside link is PLAIN TEXT (never an anchor, never a card); a setnayan.com link
+ *   1. Text and links only: an outside link is ONLY a link (nofollow ugc, never a card); a setnayan.com link
  *      is ours; only an article or a shop/page address may carry a card; /signup, files and queries do not.
  *   2. One byline rule: a shop-linked post shows the shop (the Supplier mark), a Journal post "Setnayan
  *      Journal", anyone else their posting name — never the account.
@@ -10,7 +10,7 @@
  *      Write sheet posts through the shipped createChapter (no new server action); the article reuses the
  *      shipped Report for the post AND each reply; a read failure renders as a failure, never as empty.
  *
- * SABOTAGE (run 2026-11-17; each turned this file red): making an outside link an <a> in article-bits ·
+ * SABOTAGE (run 2026-11-17; each turned this file red): dropping `nofollow ugc` from the outside link ·
  * letting `cardTarget` accept `/signup` · putting the shop check after the Journal check in `bylineFor` ·
  * deleting the error branch of the feed · deleting PUBLIC_POSTS_ARE_FINDABLE from the Write sheet.
  */
@@ -62,7 +62,10 @@ test('1c · an outside link renders as words, never as an anchor', () => {
   const bits = code(read('(shell)/articles/_components/article-bits.tsx'));
   const outsideBranch = bits.slice(bits.indexOf(") : seg.kind === 'setnayan' ?"), bits.indexOf('</p>', bits.indexOf(") : seg.kind === 'setnayan' ?")));
   const afterElse = outsideBranch.slice(outsideBranch.indexOf(') : ('));
-  assert.doesNotMatch(afterElse, /<Link|<a\b|href=/, 'the outside branch must not link anywhere');
+  // Owner, verbatim: "Outside link will only be a link" — a link, never a card, and marked as the reader's own.
+  assert.match(afterElse, /<a\b/, 'an outside link is still a link');
+  assert.match(afterElse, /rel="nofollow ugc noopener noreferrer"/, 'a reader-written outside link is nofollow ugc');
+  assert.doesNotMatch(afterElse, /LinkCardView|<img/, 'an outside link never becomes a card or a picture');
 });
 
 test('2 · one byline rule: shop first, then the Journal, then the chosen name — never the account', () => {

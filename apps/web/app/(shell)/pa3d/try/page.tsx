@@ -27,7 +27,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Walk a real reception in 3D — right now, no sign-up';
 const PAGE_DESCRIPTION = studioDescription('pa3d');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: PAGE_TITLE,

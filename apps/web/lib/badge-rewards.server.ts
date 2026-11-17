@@ -225,7 +225,7 @@ export async function readGiftPoints(admin: SupabaseClient, vendorProfileId: str
 }
 
 /** The shop's 5★ reviews by the public stars' own rule; null on a refused read (never 0). */
-async function readFiveStarCount(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+export async function readFiveStarCount(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
   const { data, error } = await admin.rpc('shop_trusted_five_star_count', { p_vendor_profile_id: vendorProfileId });
   if (error) {
     logQueryError('badgeRewards.fiveStars', error, { vendorProfileId }, 'graceful_degrade');

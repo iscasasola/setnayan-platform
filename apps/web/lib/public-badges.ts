@@ -83,7 +83,7 @@ export type PublicBadgeView = {
 export const PUBLIC_BADGE_GAPS: Readonly<Record<string, string>> = {
   shopBadges: 'J0 — wired (#7753): `tiersFromCounts` on the shop page; Invites has no counter yet (no import door)',
   seals: 'J2 — wired (#7825): `sealsFromEngine` reads `readShopSeals`; the shop page passes it (app/v/[slug])',
-  cardMedals: 'J3 — the card-badge holds (service_card_badge_holds); only Setnayan Verified has a source today',
+  cardMedals: 'J3 — read by lib/card-badges.server.ts (facts + open holds, keyed on CARD_MEDALS) and drawn by CardBadgeRow on the card face and the full card (a slot); the adapter view itself carries none yet',
   sheetVerified: 'the shop page passes no verification to the service card yet (app/v/[slug] — F2 / J3 own its callers)',
 };
 

@@ -75,7 +75,9 @@ test('4 · an unverified shop shows its REAL name on the explore card (ruling 7f
 test('5 · the service card draws Verified and the medals only from the adapter view', () => {
   const sheet = src(SHEET);
   assert.match(sheet, /\{badges\?\.verified \? \(\s*<BadgeCheck aria-label="Setnayan Verified"/);
-  assert.match(sheet, /\{badges && badges\.cardMedals\.length > 0 \? <CardMedalRow medals=\{badges\.cardMedals\} \/> : null\}/);
+  // The J3 row comes in as a slot (the gallery hands the same CardBadgeRow the face draws); without one, only the
+  // adapter's names-only row may draw.
+  assert.match(sheet, /\{cardBadgeRow \? \([\s\S]*?\{cardBadgeRow\}[\s\S]*?\) : badges && badges\.cardMedals\.length > 0 \? \(\s*<CardMedalRow medals=\{badges\.cardMedals\} \/>\s*\) : null\}/);
   assert.match(sheet, /badges = null,/, 'with no caller passing badges, nothing may draw');
 });
 

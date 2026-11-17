@@ -45,7 +45,7 @@ export function ReportPageButton({
   className,
 }: {
   /** 'vendor' added 2026-09-22 (CTRL-B3 build 9) — the id is `vendor_profiles.vendor_profile_id`. */
-  targetType: 'event' | 'user_profile' | 'chapter' | 'vendor';
+  targetType: 'event' | 'user_profile' | 'chapter' | 'vendor' | 'chapter_reply';
   targetId: string;
   label?: string;
   className?: string;

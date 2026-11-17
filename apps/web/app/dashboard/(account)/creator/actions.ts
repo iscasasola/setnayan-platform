@@ -1,5 +1,7 @@
 'use server';
 
+import { normalizePostingName, normalizeTags } from '@/lib/article-links';
+import { articleHref } from '@/lib/journal-move';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -21,9 +23,12 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 const SURFACE = '/dashboard/creator';
 
-function fail(message: string): never {
-  redirect(`${SURFACE}?error=${encodeURIComponent(message)}`);
+function fail(message: string, surface: string = SURFACE): never {
+  redirect(`${surface}?error=${encodeURIComponent(message)}`);
 }
+
+/** The Write sheet (drawing v15 "Write a post") posts through createChapter too; its refusals come back to it. */
+const WRITE_SHEET = '/articles/write';
 
 /**
  * Turn a database refusal into a sentence a person can act on.
@@ -222,8 +227,54 @@ async function readEventLink(
   return picked;
 }
 
+/**
+ * 📰 POST AN ARTICLE — the Write sheet's path through this same action (Build 2; no new server action).
+ * Text and links only (the sheet has no video or teaser field and none is read). Goes live at once (Q6 ruled:
+ * "new posts show at once"; Report takes one down) — as an ARTICLE, which is public at its own address under
+ * the writer's posting name, so it never switches on their personal profile page. The first post asks for the
+ * posting name; an account tied to a shop skips it, because it always posts as the shop (the database stamps
+ * that, not this code).
+ */
+async function postArticle(formData: FormData, supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], userId: string) {
+  const rawTitle = formData.get('title');
+  const title = typeof rawTitle === 'string' ? rawTitle.trim().slice(0, 160) : '';
+  if (!title) fail('Your post needs a title.', WRITE_SHEET);
+  const body = normalizeChapterBody(formData.get('body'));
+  if (!body) fail('Write your post first.', WRITE_SHEET);
+  const tags = normalizeTags(formData.getAll('tags').flatMap((t) => (typeof t === 'string' ? t.split(',') : [])));
+
+  const wantsName = formData.get('posting_name');
+  if (typeof wantsName === 'string' && wantsName.trim()) {
+    const name = normalizePostingName(wantsName);
+    if (!name) fail('Pick a name of 3–30 letters, numbers, dots or underscores.', WRITE_SHEET);
+    const { error: nameError } = await supabase.from('users').update({ posting_name: name }).eq('user_id', userId);
+    if (nameError) {
+      fail(/duplicate|unique/i.test(nameError.message) ? 'That name is taken — try another.' : 'We couldn’t save your name. Please try again.', WRITE_SHEET);
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('creator_chapters')
+    .insert({
+      user_id: userId,
+      title,
+      kind: 'lifestyle',
+      body,
+      tags,
+      status: 'published',
+      published_at: new Date().toISOString(),
+    })
+    .select('slug')
+    .single();
+  if (error || !data?.slug) fail('That didn’t post. Please try again.', WRITE_SHEET);
+  clearHomeShelf('stories');
+  revalidatePath('/articles');
+  redirect(articleHref(data.slug as string));
+}
+
 export async function createChapter(formData: FormData) {
   const { supabase, userId } = await requireUser();
+  if (formData.get('surface') === 'articles') return postArticle(formData, supabase, userId);
   const title = readTitle(formData);
   const kind = readKind(formData);
   const eventId = await readEventLink(formData, supabase, userId);

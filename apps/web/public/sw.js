@@ -273,6 +273,7 @@ const RESERVED = new Set([
   'admin',
   'alaala',
   'api',
+  'articles',
   'auth',
   'budget',
   'claim',

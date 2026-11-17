@@ -41,7 +41,8 @@ type Reason = (typeof REASONS)[number];
 // 'vendor' added 2026-09-22 (CTRL-B3 build 9): the marketplace was the only
 // public surface with no report route, which is the one place strangers meet
 // strangers and money changes hands.
-const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter', 'vendor'] as const;
+// 'chapter_reply' added 2026-11-17 (Build 2): a reply under an article; target_id = reply_id, no event.
+const PUBLIC_TARGETS = ['event', 'user_profile', 'chapter', 'vendor', 'chapter_reply'] as const;
 type PublicTarget = (typeof PUBLIC_TARGETS)[number];
 
 export type FileReportInput = {
@@ -111,6 +112,16 @@ export async function fileReport(input: FileReportInput): Promise<FileReportResu
       .select('public_id')
       .eq('public_id', targetId)
       .eq('status', 'published')
+      .maybeSingle();
+    if (!data) return { ok: false, error: 'invalid_target' };
+    eventId = null;
+  } else if ((targetType as PublicTarget) === 'chapter_reply') {
+    // A reply is reportable only while it stands (a removed one is already down).
+    const { data } = await admin
+      .from('creator_chapter_replies')
+      .select('reply_id')
+      .eq('reply_id', targetId)
+      .is('removed_at', null)
       .maybeSingle();
     if (!data) return { ok: false, error: 'invalid_target' };
     eventId = null;

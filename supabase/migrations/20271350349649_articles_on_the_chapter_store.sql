@@ -94,7 +94,10 @@ DECLARE
   v_try  TEXT := v_base;
   v_n    INT  := 1;
 BEGIN
-  WHILE EXISTS (SELECT 1 FROM public.creator_chapters c
+  -- `/articles/write` is the Write sheet's own route (a fixed segment wins over [slug]), so a post titled
+  -- "Write" must not take that address — it starts at "-2" like any other taken word.
+  WHILE v_try IN ('write', 'new', 'tag', 'tags')
+     OR EXISTS (SELECT 1 FROM public.creator_chapters c
                  WHERE c.slug = v_try AND c.chapter_id IS DISTINCT FROM p_chapter_id) LOOP
     v_n := v_n + 1;
     v_try := v_base || '-' || v_n;

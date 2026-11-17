@@ -1,3 +1,4 @@
+import { articleHref, journalArticleSlug } from '@/lib/journal-move';
 /**
  * lib/legacy-redirects.ts — the ONE map of retired page paths that still
  * forward, read by `middleware.ts`.
@@ -92,6 +93,7 @@ const MOVED_SETTINGS: readonly (readonly [from: string, to: string])[] = [
 const MOVED_SETTINGS_MAP: ReadonlyMap<string, string> = new Map(MOVED_SETTINGS);
 
 /** Every moved setting's old address, with `<eventId>` as the placeholder — for tests and docs. */
+
 export const MOVED_SETTING_OLD_PATHS: readonly string[] = MOVED_SETTINGS.map(([from]) => `/dashboard/<eventId>/${from}`);
 
 /** Whole-path pairs (no event id in them). */
@@ -208,11 +210,32 @@ export function exploreRedirectTarget(search: string): string {
  * `lib/legacy-redirects.test.ts`.
  */
 export const RETIRED_TREES: readonly (readonly [from: string, to: string])[] = [
-  ['/blog', '/features'],
   ['/realstories', '/'],
 ];
 
+/**
+ * 📰 THE JOURNAL MOVED INTO ARTICLES (owner 2026-11-17, DECISION_LOG "THE JOURNAL MOVES INTO DISCOVER'S ARTICLES";
+ * drawing v15: "each /blog/{slug} forwards to /articles/{slug} instead of /features"). Supersedes the 2026-11-16
+ * row above for `/blog` only:
+ *   /blog                → /articles (the list)
+ *   /blog/{journal-slug} → /articles/{slug} — through `journalArticleSlug`, so the four renamed slugs land too
+ *   /blog/{anything else}→ /articles (never an address that would 404)
+ * A last segment with a dot is still a FILE (`/blog/setnayan-wedding-checklist.pdf` is the printable planner a
+ * moved post links to) and is never forwarded.
+ */
+function journalTarget(path: string): string | null {
+  if (path === '/blog') return '/articles';
+  if (!path.startsWith('/blog/')) return null;
+  const rest = path.slice('/blog/'.length);
+  const last = rest.slice(rest.lastIndexOf('/') + 1);
+  if (last.includes('.')) return null;
+  const slug = rest.includes('/') ? null : journalArticleSlug(rest);
+  return slug ? articleHref(slug) : '/articles';
+}
+
 function retiredTreeTarget(path: string): string | null {
+  const journal = journalTarget(path);
+  if (journal) return journal;
   for (const [from, to] of RETIRED_TREES) {
     if (path === from) return to;
     if (path.startsWith(`${from}/`)) {
@@ -234,6 +257,8 @@ export const LEGACY_REDIRECT_OLD_PATHS: readonly string[] = [
   '/explore',
   '/dashboard/<eventId>/studio/papic',
   ...RETIRED_TREES.flatMap(([from]) => [from, `${from}/<anything>`]),
+  '/blog',
+  '/blog/<anything>',
   '/admin/event-types/<type>/categories',
   '/admin/event-types/<type>/profile',
   '/admin/event-types/<type>/onboarding',

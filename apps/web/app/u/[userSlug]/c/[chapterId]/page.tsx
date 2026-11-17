@@ -1,7 +1,9 @@
 import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { articleSlugForChapter } from '@/lib/articles.server';
+import { articleHref } from '@/lib/journal-move';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import {
   fetchPublishedChapterByPublicId,
@@ -113,6 +115,10 @@ export default async function ChapterDetailPage({ params }: Props) {
   const { userSlug, chapterId } = await params;
   const resolved = await resolve(userSlug, chapterId);
   if (!resolved) notFound();
+  // 📰 A published chapter is an ARTICLE now, with its own readable address (owner 2026-11-17). The old address
+  // keeps working by forwarding — permanently, so a saved or indexed link moves with it.
+  const articleSlug = await articleSlugForChapter(resolved.chapter.public_id);
+  if (articleSlug) permanentRedirect(articleHref(articleSlug));
 
   const { user, chapter } = resolved;
   const canonicalSlug = user.slug ?? userSlug;

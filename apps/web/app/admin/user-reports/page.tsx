@@ -1,3 +1,4 @@
+import { articleHref } from '@/lib/journal-move';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { EyeOff, UserX, ArrowUpRight, Check, X } from 'lucide-react';
@@ -43,7 +44,8 @@ type ReportRow = {
     | 'event'
     | 'user_profile'
     | 'chapter'
-    | 'vendor';
+    | 'vendor'
+    | 'chapter_reply';
   target_id: string;
   reason: string;
   details: string | null;
@@ -97,8 +99,9 @@ const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
   // Storytellers S0 safety floor).
   event: 'this event page',
   user_profile: 'a public profile',
-  chapter: 'a creator chapter',
+  chapter: 'an article',
   vendor: 'a supplier’s shop',
+  chapter_reply: 'a reply under an article',
 };
 const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   photo: 'photo',
@@ -107,8 +110,9 @@ const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   ai_output: 'AI output',
   event: 'event page',
   user_profile: 'profile',
-  chapter: 'chapter',
+  chapter: 'article',
   vendor: 'shop',
+  chapter_reply: 'reply',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -204,9 +208,9 @@ export default async function AdminUserReportsPage({
       chapterTargetIds.length
         ? admin
             .from('creator_chapters')
-            .select('public_id, title, status, user_id')
+            .select('public_id, title, status, user_id, slug, removed_at')
             .in('public_id', chapterTargetIds)
-        : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null }[], error: null }),
+        : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null; slug: string | null; removed_at: string | null }[], error: null }),
       /*
         A 'photo' report can name a SEAT photograph (papic_photos) — every
         picture the Story is built from, and what a guest's "take this down"
@@ -294,6 +298,8 @@ export default async function AdminUserReportsPage({
     title: string | null;
     status: string | null;
     user_id: string | null;
+    slug: string | null;
+    removed_at: string | null;
   }[];
   const chapterOwnerIds = Array.from(
     new Set(chapterRows.map((c) => c.user_id).filter((v): v is string => Boolean(v))),
@@ -310,8 +316,39 @@ export default async function AdminUserReportsPage({
     const slug = c.user_id ? chapterOwnerSlug.get(c.user_id) ?? null : null;
     chapterMeta.set(c.public_id, {
       title: (c.title ?? '').trim() || 'Untitled chapter',
-      href: slug ? `/u/${slug}/c/${c.public_id}` : null,
-      published: c.status === 'published',
+      // 📰 An article opens at its own address (Build 2); the profile path is the fallback for older rows.
+      href: c.slug ? articleHref(c.slug) : slug ? `/u/${slug}/c/${c.public_id}` : null,
+      published: c.status === 'published' && !c.removed_at,
+    });
+  }
+
+  /*
+    📰 REPLY REPORTS (Build 2): the moderator reads the reply's own words and the article it sits under, so
+    "Remove reply" is decided on what was actually written. A failed read says so — never "no longer exists".
+  */
+  const replyTargetIds = Array.from(
+    new Set(rows.filter((r) => r.target_type === 'chapter_reply').map((r) => r.target_id)),
+  );
+  const { data: replyData, error: replyLookupError } = replyTargetIds.length
+    ? await admin
+        .from('creator_chapter_replies')
+        .select('reply_id, body, removed_at, creator_chapters ( slug, title )')
+        .in('reply_id', replyTargetIds)
+    : { data: [] as unknown[], error: null };
+  if (replyLookupError) logQueryError('AdminUserReportsPage (replies lookup)', replyLookupError);
+  const replyMeta = new Map<string, { body: string; removed: boolean; href: string | null; title: string | null }>();
+  for (const r of (replyData ?? []) as {
+    reply_id: string;
+    body: string;
+    removed_at: string | null;
+    creator_chapters: { slug: string | null; title: string | null } | { slug: string | null; title: string | null }[] | null;
+  }[]) {
+    const parent = Array.isArray(r.creator_chapters) ? r.creator_chapters[0] : r.creator_chapters;
+    replyMeta.set(r.reply_id, {
+      body: r.body,
+      removed: Boolean(r.removed_at),
+      href: parent?.slug ? articleHref(parent.slug) : null,
+      title: parent?.title ?? null,
     });
   }
 
@@ -463,6 +500,31 @@ export default async function AdminUserReportsPage({
                       </p>
                     );
                   })()}
+                  {r.target_type === 'chapter_reply' && (() => {
+                    const rep = replyMeta.get(r.target_id);
+                    return (
+                      <p className="text-xs text-ink/65">
+                        {rep ? (
+                          <>
+                            <span className="font-medium">“{rep.body.slice(0, 280)}”</span>
+                            {rep.removed ? <span className="text-ink/50"> · already taken down</span> : null}
+                            {rep.href ? (
+                              <>
+                                {' · under '}
+                                <a href={rep.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-terracotta-700">
+                                  {rep.title ?? 'the article'}
+                                </a>
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-ink/50">
+                            {replyLookupError ? 'Couldn’t look up this reply' : 'Reply no longer exists'}
+                          </span>
+                        )}
+                      </p>
+                    );
+                  })()}
                   {r.target_type === 'ai_output' && (
                     <p className="text-[12px] text-ink/45 tabular-nums">
                       generation {r.target_id}
@@ -507,7 +569,19 @@ export default async function AdminUserReportsPage({
                             className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                             pendingLabel="Removing…"
                           >
-                            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove from Real Stories
+                            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Take the article down
+                          </SubmitButton>
+                        </form>
+                      )}
+                      {r.target_type === 'chapter_reply' && (
+                        <form action={resolveReport}>
+                          <input type="hidden" name="report_id" value={r.report_id} />
+                          <input type="hidden" name="action" value="hide" />
+                          <SubmitButton
+                            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            pendingLabel="Removing…"
+                          >
+                            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Take the reply down
                           </SubmitButton>
                         </form>
                       )}

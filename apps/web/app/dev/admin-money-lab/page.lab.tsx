@@ -13,9 +13,13 @@
  *   ?v=open          one payment opened — pending, not clean ?v=open-dup · ?v=open-clean · ?v=open-paid
  *   ?v=record        a search naming one order → Record a payment received
  *   ?v=refunds       Money · Refunds                         ?v=refunds-empty · ?v=refunds-fail
+ *   ?v=received      From your BDO on the desk               ?v=received-fail
+ *   ?v=focus-received  Focus card: in your BDO, no order (1 of 2) · ?v=focus-received-2 (₱50 short)
+ *   ?v=focus-buyer   Focus card: buyer says paid, not in your BDO yet
  *
  * The buttons post to the real server actions, which refuse without an admin session — a lab press changes nothing.
  */
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
@@ -42,6 +46,14 @@ import {
   type PaymentJoined,
   type ReceiptReadRow,
 } from '@/app/admin/payments/_components/desk';
+import {
+  BuyerSaysPaidCard,
+  ReceivedCard,
+  ReceivedTileBlock,
+  type ReceivedOpenRow,
+} from '@/app/admin/payments/_components/received-pile';
+import { FocusCardSheet } from '@/app/admin/_components/focus-card-sheet';
+import type { WaitingPayment } from '@/lib/admin/received-match';
 import { SupplierRefundsView, type SupplierRefundRow } from '@/app/admin/payments/supplier-refunds/supplier-refunds-view';
 
 const ACCOUNT = { signedIn: true, initials: 'SA', shopName: null, isAdmin: true } as const;
@@ -176,6 +188,44 @@ const SUPPLIER_REFUNDS: SupplierRefundRow[] = [
   { refund_id: 'r2', event_id: 'ev2', vendor_profile_id: 'v2', amount_php: 1000, refunded_on: '2026-11-02', reason: 'Overcharged', proof_r2_key: null, created_at: '2026-11-02T03:00:00Z', removed_at: '2026-11-03T03:00:00Z' },
 ];
 
+/** One exact match (Jose, ₱2,499), one reference match ₱50 short (Maria), one picture that could not be read. */
+const RECEIVED: ReceivedOpenRow[] = [
+  { received_id: 1, reference: '0000067890012', reference_norm: '0000067890012', amount_php: 2499, received_at: HOURS(1), read_status: 'read', left_reason: null },
+  { received_id: 2, reference: 'S89O3PQ10032', reference_norm: 'S89O3PQ10032', amount_php: 97, received_at: HOURS(1), read_status: 'read', left_reason: null },
+  { received_id: 3, reference: null, reference_norm: null, amount_php: null, received_at: null, read_status: 'unreadable', left_reason: null },
+];
+const LAST_DROP = { count: 3, at: HOURS(0.5) };
+const WAITING: WaitingPayment[] = PAYMENTS.filter((p) => p.status === 'pending').map((p) => ({
+  payment_id: p.payment_id,
+  amount_php: Number(p.amount_php),
+  reference_number: p.reference_number,
+  order_created_at: p.order?.created_at ?? null,
+  label: p.user?.email ?? p.order?.public_id ?? '—',
+}));
+
+/** The Focus card as `focus-received.tsx` draws it, on fixtures. */
+function LabFocusCard({ v }: { v: string }) {
+  const buyer = v === 'focus-buyer';
+  const kicker = buyer ? 'Buyer says paid' : 'In your BDO, no order';
+  const at = v === 'focus-received-2' ? 1 : 0;
+  const total = buyer ? 1 : 2;
+  const next = !buyer && at === 0 ? '/dev/admin-money-lab?v=focus-received-2' : '/admin';
+  return (
+    <FocusCardSheet title={kicker} kicker={kicker}>
+      <div className="flex items-center justify-between gap-3 text-[13px] text-[color:var(--sn-ink-500)]" data-focus-received-position="">
+        <Link href="/dev/admin-money-lab?v=focus-home" className="underline underline-offset-2">‹ Focus</Link>
+        <span className="tabular-nums">{`${at + 1} of ${total}`}</span>
+        {at + 1 < total ? <Link href={next} className="underline underline-offset-2">Next</Link> : <span />}
+      </div>
+      {buyer ? (
+        <BuyerSaysPaidCard payment={WAITING.find((w) => w.amount_php === 899)!} rows={RECEIVED} lastDrop={LAST_DROP} query="" next={next} />
+      ) : (
+        <ReceivedCard row={RECEIVED[at]!} waiting={WAITING} query="" next={next} />
+      )}
+    </FocusCardSheet>
+  );
+}
+
 export default async function AdminMoneyLab({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -192,7 +242,19 @@ export default async function AdminMoneyLab({ searchParams }: { searchParams: Pr
   const openOne =
     v === 'open' ? PAYMENTS[1]! : v === 'open-dup' ? PAYMENTS[2]! : v === 'open-clean' ? PAYMENTS[0]! : v === 'open-paid' ? PAYMENTS[4]! : null;
 
-  const body = refunds ? (
+  const focus = v.startsWith('focus-');
+  const body = focus ? (
+    <section aria-label="From your BDO" data-focus-received="">
+      <p className="sn-eye mb-1">From your BDO</p>
+      <ReceivedTileBlock
+        rows={RECEIVED}
+        waiting={WAITING}
+        lastDrop={LAST_DROP}
+        hrefs={{ noOrder: '/dev/admin-money-lab?v=focus-received', buyers: '/dev/admin-money-lab?v=focus-buyer' }}
+      />
+      {v === 'focus-home' ? null : <LabFocusCard v={v} />}
+    </section>
+  ) : refunds ? (
     <SupplierRefundsView
       rows={v === 'refunds-fail' ? null : v === 'refunds-empty' ? [] : SUPPLIER_REFUNDS}
       readError={v === 'refunds-fail' ? { message: 'lab' } : null}
@@ -258,6 +320,8 @@ export default async function AdminMoneyLab({ searchParams }: { searchParams: Pr
           channelSettings={{}}
           readFailed={v === 'desk-fail' ? 'queue' : null}
           query=""
+          received={v === 'received' ? { kind: 'ok', rows: RECEIVED } : v === 'received-fail' ? { kind: 'failed' } : undefined}
+          receivedLastDrop={v === 'received' ? LAST_DROP : null}
         />
       )}
     </>

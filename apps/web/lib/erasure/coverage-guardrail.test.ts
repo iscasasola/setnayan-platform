@@ -366,6 +366,7 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Table DROPPED 2026-09-18 — the dual e-signature evidence table from the retired in-app signing flow; never written to. Nothing left to erase. (Had it lived, the DPO note stands: a signature image + IP is a heavier retention than a receipt.)',
 
   // ── accountability: audit trails ──
+  admin_received_transactions: 'Our own BDO bank record (owner 2026-11-17): reference, amount and time of money that arrived, read from the ADMIN\'s screenshots. No customer column — the only user ids are created_by / matched_by, STAFF stamps that ON DELETE SET NULL clears when that staff account goes; the customer is reached only through matched_payment_id, whose payment row is retained on the lawful-retention basis payments always carry.',
   admin_data_access_log: 'Record of ADMIN access to an account. Erasing the subject id destroys the accountability trail that protects that same subject.',
   admin_approval_requests: 'Two-admin governance record.',
   vendor_plan_contents: 'Setnayan plan configuration (owner 2026-11-13); changed_by/confirmed_by are the two admins who approved a plan change — the accountability stamp of a two-admin decision.',

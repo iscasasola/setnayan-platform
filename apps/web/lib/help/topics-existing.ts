@@ -835,8 +835,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         // app/papic/guest/_components/add-from-phone-sheet.tsx "Out of Credits" … "Nothing was sent." (ruling 1, 14 Nov).
         slug: 'papic-credits-run-out',
         title: 'What happens if our Papic credits run out during the event?',
-        appBody:
-          'Nothing is lost. Guests can keep shooting with the Papic camera: their shots are kept on their phone and send by themselves as soon as the event has credits again. Photos a guest picks from their phone’s gallery are not added while the credits are out — they see Out of Credits, and nothing is sent.',
+        // The app names no paid service (lib/the-app-names-no-paid-service.test.ts) — like its Papic siblings, web only.
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'Nothing is lost. Guests can keep shooting with the Papic camera: their shots are kept on their phone and send by themselves as soon as you add more. Photos a guest picks from their phone’s gallery are not added while the credits are out — they see Out of Credits, and nothing is sent. To add more, tap Add more on the Papic card in Memories.',
       },
     ],

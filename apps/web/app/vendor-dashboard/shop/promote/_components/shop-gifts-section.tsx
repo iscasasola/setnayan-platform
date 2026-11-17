@@ -236,7 +236,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
       <div className="mt-2">
         {/* 🔢 One card, five cells (prototype v16): Total (available + held) · Available · Held · Given · History. */}
         <div
-          className="grid grid-cols-5 divide-x divide-ink/[0.08] rounded-2xl bg-white shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]"
+          className="grid grid-cols-5 divide-x divide-ink/[0.08] rounded-2xl bg-frame shadow-sn-frame"
           data-gift-stats=""
         >
           {cell(totals ? totals.available + totals.held : null, 'Total', 'total')}
@@ -261,7 +261,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         ) : null}
 
         {sent ? (
-          <div className="mt-3 flex items-center gap-2 rounded-[14px] border border-sn-accent bg-white px-3.5 py-3 text-[14px] text-ink" role="status" data-gift-payment-sent="">
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-frame px-3.5 py-3 shadow-sn-frame text-[14px] text-ink" role="status" data-gift-payment-sent="">
             <span aria-hidden className="text-success-700">✓</span>
             <span>
               <b>{GIFT_PAYMENT_SENT.lead}</b>
@@ -298,13 +298,13 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
                 type="button"
                 onClick={() => setSheetCode(t.pack.code)}
                 aria-label={`${t.pack.title}: ${n === null ? 'unread' : `${formatCount(n)} available`}`}
-                className="sn-press grid min-w-0 content-start gap-1.5 rounded-2xl bg-white px-2.5 pb-3 pt-2.5 text-left shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]"
+                className="sn-press grid min-w-0 content-start gap-1.5 rounded-2xl bg-frame px-2.5 pb-3 pt-2.5 text-left shadow-sn-frame-tile"
                 data-gift-tile={t.pack.code}
               >
                 {inner}
               </button>
             ) : (
-              <div key={t.pack.code} className="grid min-w-0 content-start gap-1.5 rounded-2xl bg-white px-2.5 pb-3 pt-2.5 shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]" data-gift-tile={t.pack.code}>
+              <div key={t.pack.code} className="grid min-w-0 content-start gap-1.5 rounded-2xl bg-frame px-2.5 pb-3 pt-2.5 shadow-sn-frame-tile" data-gift-tile={t.pack.code}>
                 {inner}
               </div>
             );

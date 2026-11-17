@@ -69,7 +69,7 @@ export function GiftTicketPile({
       <span className="absolute left-0 top-0">
         <GiftTicketArt pack={pack} width={width} />
       </span>
-      <b className="absolute -right-1 -top-1 rounded-full bg-success-700 px-1.5 py-0.5 text-[9.5px] font-extrabold leading-none tracking-wide text-white">
+      <b className="absolute -right-1 -top-1 rounded-full bg-success-100 px-1.5 py-0.5 text-[9.5px] font-extrabold leading-none tracking-wide text-success-800">
         FREE
       </b>
       <em className="absolute bottom-0 left-0 right-0 text-center text-[10.5px] font-bold not-italic text-ink/70">{label}</em>

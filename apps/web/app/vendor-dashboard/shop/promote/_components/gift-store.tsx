@@ -162,7 +162,7 @@ function AddButton({
       disabled={off}
       aria-label={off ? `${word} — ${why}` : `${word}, ${price}`}
       data-testid={data}
-      className={`sn-press grid min-h-[56px] content-center justify-items-center rounded-[14px] px-2 py-1.5 ${
+      className={`sn-press grid min-h-[56px] content-center justify-items-center rounded-xl px-2 py-1.5 ${
         main ? 'bg-sn-accent text-sn-on-accent' : 'border border-sn-accent/40 bg-sn-accent/[0.09] text-sn-accent'
       } ${off ? 'opacity-45' : ''}`}
     >
@@ -271,7 +271,7 @@ export function GiftStore({
     list.length === 0 ? null : (
       <section key={name}>
         <p className="mx-0.5 mb-1.5 mt-3.5 text-[15px] font-bold text-ink">{name}</p>
-        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]">
+        <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-frame shadow-sn-frame">
           {list.map((p) =>
             row(
               p.code,
@@ -290,7 +290,7 @@ export function GiftStore({
   const total = formatPhp(sum.totalCentavos / 100);
 
   const head = (
-    <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-white px-2">
+    <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-frame px-2">
       <button type="button" onClick={onClose} className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[15px] font-semibold text-sn-accent">
         <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         Your gifts
@@ -302,7 +302,7 @@ export function GiftStore({
   );
 
   const foot = (
-    <div className="border-t border-ink/10 bg-white px-4 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3" data-gift-cart-bar="">
+    <div className="border-t border-ink/10 bg-frame px-4 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3" data-gift-cart-bar="">
       <div className="flex items-baseline justify-between gap-3 text-[14.5px] font-bold text-ink">
         <span data-gift-cart-count="">
           {sum.tickets > 0 ? (
@@ -363,7 +363,7 @@ export function GiftStore({
                 pay {formatCount(firstShape.paid)}, get {formatCount(firstShape.paid + firstShape.free)}
               </span>
             </p>
-            <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]">
+            <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-frame shadow-sn-frame">
               {bundles.map((b) => {
                 const save = Math.max(0, b.quantity * b.pack.srpCentavos - b.priceCentavos);
                 return row(
@@ -389,7 +389,7 @@ export function GiftStore({
           <div
             key={toast.key}
             role="status"
-            className={`${s.toast} pointer-events-none fixed left-1/2 top-[44%] z-[80] w-[min(300px,80%)] rounded-[20px] bg-white px-[18px] pb-4 pt-[18px] text-center shadow-[0_24px_50px_-16px_rgba(16,27,48,0.45)]`}
+            className={`${s.toast} pointer-events-none fixed left-1/2 top-[44%] z-[80] w-[min(300px,80%)] rounded-2xl bg-frame px-[18px] pb-4 pt-[18px] text-center shadow-sn-frame`}
             data-gift-added-toast=""
           >
             <span className="mx-auto mb-2 grid h-11 w-11 place-items-center rounded-full bg-success-100 text-[22px] font-extrabold text-success-700">✓</span>
@@ -435,7 +435,7 @@ export function GiftHistory({
     else months.push({ month: m, rows: [r] });
   }
   const head = (
-    <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-white px-2">
+    <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-frame px-2">
       <button type="button" onClick={onClose} className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[15px] font-semibold text-sn-accent">
         <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         Your gifts
@@ -478,7 +478,7 @@ export function GiftHistory({
               months.map((m) => (
                 <div key={m.month}>
                   <p className="mb-1.5 mt-4 text-[12.5px] font-semibold uppercase tracking-[0.06em] text-ink/55">{m.month}</p>
-                  <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_-6px_rgba(16,27,48,0.3)]">
+                  <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-frame shadow-sn-frame">
                     {m.rows.map((r) => (
                       <HistoryItem key={r.key} row={r} />
                     ))}

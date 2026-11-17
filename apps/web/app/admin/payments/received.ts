@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { lastDropOf, readReceivedTranscript, type WaitingPayment } from '@/lib/admin/received-match';
 import type { ReceivedOpenRow, ReceivedPileRead } from './_components/received-pile';
+import { holdAutoMatches, readHeld, type HeldRow } from './received-auto';
 
 /**
  * app/admin/payments/received.ts — the three things the admin does with a
@@ -22,7 +23,8 @@ import type { ReceivedOpenRow, ReceivedPileRead } from './_components/received-p
  *
  * ⛔ NOTHING HERE APPROVES BY ITSELF. `matchReceived` only runs because a human
  * pressed Match, and it approves through the SAME `approvePaymentCore` path
- * (handed in, so this file cannot reach it any other way). Auto-match is phase 2.
+ * (handed in, so this file cannot reach it any other way). Phase 2's exact
+ * matches live in ./received-auto.ts: a drop HOLDS them 30 minutes, pays nothing.
  */
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -55,6 +57,8 @@ export async function dropReceived(userId: string, formData: FormData): Promise<
   });
   const { error } = await createAdminClient().from('admin_received_transactions').insert(rows);
   if (error) throw new Error(`Could not save what was read: ${error.message}`);
+  // Phase 2: the exact ones are recorded on a 30-minute hold. Nothing pays here.
+  await holdAutoMatches(userId);
 }
 
 export type ApproveCore = (args: {
@@ -93,6 +97,16 @@ export async function matchReceived(
   if (!r) return { notice: 'That received payment is gone. Refresh and try again.', warn: true };
   if (r.matched_payment_id) return { notice: 'That received payment is already matched.', warn: true };
   if (!p || p.status !== 'pending') return { notice: 'That payment is no longer waiting.', warn: true };
+  // Phase 2: a payment another BDO row is holding (matched by itself, Undo
+  // window open) is not offered here — Undo that one first.
+  const { data: holding } = await admin
+    .from('admin_received_transactions')
+    .select('received_id')
+    .eq('matched_payment_id', paymentId)
+    .limit(1);
+  if (holding && holding.length > 0) {
+    return { notice: 'That payment already matched by itself and is on its 30-minute hold. Undo it first.', warn: true };
+  }
   // 🔒 To the centavo, re-checked here — the picker only offers equal amounts,
   // and a stale page must not approve a different sum.
   //    A reference match at a different amount ("₱50 short") is LISTED on the
@@ -164,9 +178,11 @@ export async function readReceivedDesk({ withWaiting = true }: { withWaiting?: b
   read: ReceivedPileRead;
   waiting: WaitingPayment[] | null;
   lastDrop: { count: number; at: string } | null;
+  /** Phase 2: matched by themselves, Undo window open. NULL = the read was refused. */
+  held: HeldRow[] | null;
 }> {
   const admin = createAdminClient();
-  const [rec, last, pays] = await Promise.all([
+  const [rec, last, pays, held] = await Promise.all([
     admin
       .from('admin_received_transactions')
       .select('received_id, reference, reference_norm, amount_php, received_at, read_status, left_reason')
@@ -184,7 +200,10 @@ export async function readReceivedDesk({ withWaiting = true }: { withWaiting?: b
           .order('created_at', { ascending: true })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
+    readHeld(),
   ]);
+  // A held payment is no longer "buyer says paid" — its money is on the hold list.
+  const heldIds = new Set((held ?? []).map((h) => h.matched_payment_id));
   if (rec.error) logQueryError('admin focus: received pile', rec.error);
   if (last.error) logQueryError('admin focus: last drop', last.error);
   if (pays.error) logQueryError('admin focus: waiting payments', pays.error);
@@ -199,7 +218,7 @@ export async function readReceivedDesk({ withWaiting = true }: { withWaiting?: b
     read: rec.error ? { kind: 'failed' } : { kind: 'ok', rows: (rec.data ?? []) as ReceivedOpenRow[] },
     waiting: pays.error
       ? null
-      : ((pays.data ?? []) as unknown as PayRow[]).map((p) => ({
+      : ((pays.data ?? []) as unknown as PayRow[]).filter((p) => !heldIds.has(p.payment_id)).map((p) => ({
           payment_id: p.payment_id,
           amount_php: Number(p.amount_php),
           reference_number: p.reference_number,
@@ -207,5 +226,6 @@ export async function readReceivedDesk({ withWaiting = true }: { withWaiting?: b
           label: p.user?.email ?? p.order?.public_id ?? '—',
         })),
     lastDrop: last.error ? null : lastDropOf((last.data ?? []) as Array<{ created_at: string }>),
+    held,
   };
 }

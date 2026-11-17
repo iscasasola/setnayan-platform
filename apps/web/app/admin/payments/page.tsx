@@ -363,6 +363,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
               query={qDisplay}
               received={received}
               receivedLastDrop={receivedDesk.lastDrop}
+              receivedHeld={receivedDesk.held}
             />
           )}
         </>

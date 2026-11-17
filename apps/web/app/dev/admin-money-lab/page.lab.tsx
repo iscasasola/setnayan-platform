@@ -54,6 +54,7 @@ import {
 } from '@/app/admin/payments/_components/received-pile';
 import { FocusCardSheet } from '@/app/admin/_components/focus-card-sheet';
 import type { WaitingPayment } from '@/lib/admin/received-match';
+import type { HeldRow } from '@/app/admin/payments/received-auto';
 import { SupplierRefundsView, type SupplierRefundRow } from '@/app/admin/payments/supplier-refunds/supplier-refunds-view';
 
 const ACCOUNT = { signedIn: true, initials: 'SA', shopName: null, isAdmin: true } as const;
@@ -195,6 +196,16 @@ const RECEIVED: ReceivedOpenRow[] = [
   { received_id: 3, reference: null, reference_norm: null, amount_php: null, received_at: null, read_status: 'unreadable', left_reason: null },
 ];
 const LAST_DROP = { count: 3, at: HOURS(0.5) };
+
+/** Phase 2 — matched by themselves. Times are relative to the render so the lab shows both states. */
+function labHeld(): HeldRow[] {
+  const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  return [
+    { received_id: 31, reference: 'GXCHPHM2XXXB000000006991560', amount_php: 2499, matched_at: ago(4), matched_payment_id: 'lab-held-1', label: 'jose@example.ph' },
+    { received_id: 32, reference: 'GXCHPHM2XXXB000000004880047', amount_php: 2899, matched_at: ago(4), matched_payment_id: 'lab-held-2', label: 'ana.reyes@example.ph' },
+    { received_id: 30, reference: 'GXCHPHM2XXXB000000001207733', amount_php: 147, matched_at: ago(31), matched_payment_id: 'lab-held-3', label: 'carlo.m@example.ph' },
+  ];
+}
 const WAITING: WaitingPayment[] = PAYMENTS.filter((p) => p.status === 'pending').map((p) => ({
   payment_id: p.payment_id,
   amount_php: Number(p.amount_php),
@@ -251,8 +262,10 @@ export default async function AdminMoneyLab({ searchParams }: { searchParams: Pr
         waiting={WAITING}
         lastDrop={LAST_DROP}
         hrefs={{ noOrder: '/dev/admin-money-lab?v=focus-received', buyers: '/dev/admin-money-lab?v=focus-buyer' }}
+        held={v === 'focus-held' ? labHeld() : v === 'focus-held-fail' ? null : undefined}
+        next="/dev/admin-money-lab?v=focus-held"
       />
-      {v === 'focus-home' ? null : <LabFocusCard v={v} />}
+      {v === 'focus-home' || v.startsWith('focus-held') ? null : <LabFocusCard v={v} />}
     </section>
   ) : refunds ? (
     <SupplierRefundsView

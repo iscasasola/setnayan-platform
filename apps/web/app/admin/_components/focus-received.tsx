@@ -34,7 +34,7 @@ export function isReceivedCardKey(cardKey: string | undefined): boolean {
 }
 
 export async function FocusReceived({ cardKey }: { cardKey?: string }) {
-  const { read, waiting, lastDrop } = await readReceivedDesk();
+  const { read, waiting, lastDrop, held } = await readReceivedDesk();
 
   if (read.kind === 'failed') {
     return (
@@ -95,6 +95,8 @@ export async function FocusReceived({ cardKey }: { cardKey?: string }) {
         rows={rows}
         waiting={waiting}
         lastDrop={lastDrop}
+        held={held}
+        next="/admin"
         hrefs={{
           noOrder: receivedKeys[0] ? cardHref(receivedKeys[0]) : undefined,
           buyers: buyerKeys[0] ? cardHref(buyerKeys[0]) : undefined,

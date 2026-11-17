@@ -87,6 +87,7 @@ const JOBS = [
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
   // per window, and an admin-only mount would leave a supplier's fuse waiting on
   // somebody opening /admin.
+  { fn: 'maybeReleaseReceivedHolds', what: 'confirming BDO payments that matched by themselves after their 30-minute Undo window' },
   { fn: 'maybeRunLockRequestExpiry', what: 'the lock-request nudge + 7-day expiry' },
   // S40. Same dual-mount reasoning as the lock-request nudge directly above.
   {

@@ -17,6 +17,7 @@ import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
+import { undoAutoMatch } from './received-auto';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
@@ -188,6 +189,15 @@ export async function approvePayment(formData: FormData) {
   // A card opened from Focus carries `next` — the following card ("after you
   // act, the next one opens", v5 drawing). Only an /admin address is followed.
   const next = focusNext(formData.get('next'));
+  // ⏳ Phase 2: Undo on a match that happened by itself, inside its 30 minutes.
+  // The payment was never touched by the hold; the received row goes back.
+  if (intent === 'received-undo') {
+    const res = await undoAutoMatch(userId, formData);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin');
+    if (next && !res.warn) redirect(next);
+    redirect(deskUrl(q, res.notice, res.warn));
+  }
   if (intent === 'received-leave') {
     await leaveReceived(formData);
     revalidatePath('/admin/payments');

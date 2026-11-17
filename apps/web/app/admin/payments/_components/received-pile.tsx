@@ -32,6 +32,8 @@ import { approvePayment } from '../actions';
 import { NOT_RECEIVED_REASONS } from '../received';
 import { ReceivedDropTile } from './received-drop-tile';
 import { ReceivedMatchPick } from './received-match-pick';
+import { ReceivedHeldList } from './received-held';
+import type { HeldRow } from '../received-auto';
 
 export type ReceivedOpenRow = {
   received_id: number;
@@ -120,11 +122,19 @@ export function ReceivedTileBlock({
   waiting,
   lastDrop,
   hrefs,
+  held,
+  query = '',
+  next,
 }: {
   rows: ReceivedOpenRow[];
   waiting: WaitingPayment[] | null;
   lastDrop: LastDrop;
   hrefs?: { noOrder?: string; buyers?: string };
+  /** Phase 2 — matched by themselves, Undo open. Absent (the lab) → not drawn. */
+  held?: HeldRow[] | null;
+  query?: string;
+  /** Where Undo returns to (Focus passes `/admin`). */
+  next?: string;
 }) {
   const { unreadable, noOrder, buyers } = pileCounts(rows, waiting);
   return (
@@ -165,6 +175,7 @@ export function ReceivedTileBlock({
           />
         ) : null}
       </ul>
+      {held !== undefined ? <ReceivedHeldList held={held} query={query} next={next} /> : null}
     </>
   );
 }
@@ -174,11 +185,13 @@ export function ReceivedPile({
   waiting,
   lastDrop = null,
   query,
+  held,
 }: {
   read: ReceivedPileRead;
   waiting: WaitingPayment[];
   lastDrop?: LastDrop;
   query: string;
+  held?: HeldRow[] | null;
 }) {
   if (read.kind === 'failed') {
     return (
@@ -193,7 +206,7 @@ export function ReceivedPile({
   const rows = [...read.rows].sort((a, b) => Number(a.left_reason === 'later') - Number(b.left_reason === 'later'));
   return (
     <TemplateSection label="From your BDO" tip={TIP} data="payments-received">
-      <ReceivedTileBlock rows={rows} waiting={waiting} lastDrop={lastDrop} />
+      <ReceivedTileBlock rows={rows} waiting={waiting} lastDrop={lastDrop} held={held} query={query} />
       <div className="mt-3 space-y-3">
         {rows.map((r) => (
           <div key={r.received_id} className="sn-card p-3">

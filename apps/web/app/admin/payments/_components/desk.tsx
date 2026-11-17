@@ -506,7 +506,10 @@ export function PaymentsList({
   query,
   received,
   receivedLastDrop = null,
+  receivedHeld,
 }: {
+  /** Phase 2: BDO payments that matched by themselves, Undo open. */
+  receivedHeld?: import('../received-auto').HeldRow[] | null;
   /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
   received?: ReceivedPileRead;
   /** The newest drop: how many rows one press read, and when. */
@@ -581,8 +584,9 @@ export function PaymentsList({
           read={received}
           lastDrop={receivedLastDrop}
           query={query}
+          held={receivedHeld}
           waiting={payments
-            .filter((p) => p.status === 'pending')
+            .filter((p) => p.status === 'pending' && !(receivedHeld ?? []).some((h) => h.matched_payment_id === p.payment_id))
             .map((p) => ({
               payment_id: p.payment_id,
               amount_php: Number(p.amount_php),

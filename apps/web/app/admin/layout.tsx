@@ -28,6 +28,8 @@ import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
 import { maybeRunBadgeRewardSweep } from '@/lib/badge-earned.server';
+import { maybeReleaseReceivedHolds } from '@/app/admin/payments/received-auto';
+import { approvePaymentCore } from '@/app/admin/payments/actions';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -297,6 +299,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
+  // 💳 BDO matches that happened by themselves (owner 2026-11-17, "Hold 30 min, then pay"): once a hold's
+  // 30-minute Undo window is over, the SAME approvePaymentCore a Match press runs. CRON-FREE, 5-min claim.
+  after(() => maybeReleaseReceivedHolds(approvePaymentCore).catch(() => {}));
 
   // Admin-of-admin under the avatar; a row another slice is still building has no address yet and is not drawn.
   const avatarRows = ADMIN_AVATAR_ROWS.flatMap((r) => (r.href ? [{ key: r.key, href: r.href, label: r.label }] : []));

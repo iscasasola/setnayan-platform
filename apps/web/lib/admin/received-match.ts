@@ -11,19 +11,23 @@
  * test file are the contract. The model only TRANSCRIBES (lib/payment-receipt-
  * read.server.ts); everything below is plain code deciding what the text says.
  *
- * ⛔ PHASE 1 MATCHES NOTHING BY ITSELF. {@link AUTO_MATCH_ENABLED} is false and
- * no caller in this PR reads `strong` to write anything: a strong candidate is
- * drawn FIRST and labelled, and the admin presses Match. Auto-match ships with
- * the BDO pay flow, whose buyer side carries the whole reference, behind the
- * owner's 30-minute hold (owner 2026-11-17: "Hold 30 min, then pay" · "Wait for
- * the BDO pay flow").
+ * ⛔ THIS FILE MATCHES NOTHING BY ITSELF. `strong` only orders and labels the
+ * hand-match list. What may match by itself is decided in ONE place,
+ * lib/admin/received-auto-match.ts (phase 2: whole reference or the FULL
+ * InstaPay invoice — never the ≥6-character tail `strong` accepts — exact
+ * amount, exactly one payment, a 30-minute hold with Undo).
  */
 import { scanPaymentProof } from '@/lib/payment-proof-scan';
 import { normalizeReference, MIN_CONTAINMENT_LENGTH } from '@/lib/payment-reference-match';
 import { NOT_A_RECEIPT, UNREADABLE } from '@/lib/payment-receipt-read';
 
-/** Off until the BDO pay flow + 30-minute hold ship (phase 2). */
-export const AUTO_MATCH_ENABLED = false;
+/**
+ * Phase 2 (owner 2026-11-17): ON. Exact matches HOLD 30 minutes, then pay —
+ * decided by lib/admin/received-auto-match.ts, never by `strong` below.
+ * Ships with the BDO pay flow (#7926), whose buyer side carries the read
+ * reference; it must not merge ahead of it.
+ */
+export const AUTO_MATCH_ENABLED = true;
 
 export type ReceivedRead = {
   reference: string | null;

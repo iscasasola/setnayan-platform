@@ -161,8 +161,8 @@ describe('🔢 Papic counted in packs (2026-11-14)', () => {
     assert.equal(v.shortKind, 'papic');
     assert.equal(v.shortPack, 'PAPIC_GUEST_1K');
     assert.equal(v.shortBy, 1);
-    assert.equal(judgeQuoteGifts([P150, P150], PACKS, big, BOOKING_FEE, LIMIT, free).state, 'ok');
-    assert.equal(judgeQuoteGifts(Array(4).fill('PAPIC_GUEST_150'), PACKS, big, BOOKING_FEE, LIMIT, free).shortBy, 1);
+    assert.equal(judgeQuoteGifts([P150, P150], PACKS, big, BOOKING_FEE, LIMIT, free, 'none', null, 9).state, 'ok');
+    assert.equal(judgeQuoteGifts(Array(4).fill('PAPIC_GUEST_150'), PACKS, big, BOOKING_FEE, LIMIT, free, 'none', null, 9).shortBy, 1);
   });
   it('freeOfPack answers per pack for Papic and per kind for an unlock; null when unread', () => {
     const free = F(2, 1);
@@ -211,7 +211,7 @@ describe('judging a quote', () => {
     assert.equal(v.valueCentavos, 49_900);
   });
   it('refuses gifts over the limit', () => {
-    const v = judgeQuoteGifts(['PAPIC_GUEST', 'PAPIC_GUEST', 'PAPIC_GUEST'], PACKS, 10_000_00, BOOKING_FEE, LIMIT, F(99_999));
+    const v = judgeQuoteGifts(['PAPIC_GUEST', 'PAPIC_GUEST', 'PAPIC_GUEST'], PACKS, 10_000_00, BOOKING_FEE, LIMIT, F(99_999), 'none', null, 9);
     assert.ok(v.valueCentavos > v.limitCentavos);
     assert.equal(v.state, 'over_limit');
   });
@@ -221,7 +221,7 @@ describe('judging a quote', () => {
     assert.equal(v.alwaysAllowed, true);
     assert.equal(v.state, 'ok');
     // …but two of them are not the always-allowed gift any more
-    assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, 1_00, BOOKING_FEE, LIMIT, F(500)).state, 'over_limit');
+    assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, 1_00, BOOKING_FEE, LIMIT, F(500), 'none', null, 9).state, 'over_limit');
   });
   it('buy first: refuses what stock cannot cover, and an unread stock covers nothing', () => {
     const short = judgeQuoteGifts(['PAPIC_GUEST_1K'], PACKS, big, BOOKING_FEE, LIMIT, F(0));
@@ -243,11 +243,11 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
   });
   it('are counted from their own stock, never from the Papic credits', () => {
     assert.equal(judgeQuoteGifts(['EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(99_999, 0)).state, 'short');
-    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(0, 1));
+    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(0, 1), 'none', null, 9);
     assert.equal(v.state, 'short');
     assert.equal(v.shortKind, 'event_plus');
     assert.equal(v.shortBy, 1);
-    const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
+    const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
     assert.equal(ok.state, 'ok');
     assert.equal(ok.credits, 150, 'Papic credits only');
     assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0, event_ultra: 0 });
@@ -255,11 +255,11 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
   it('a plan gift and Papic combine — WITHIN the limit (owner 15 Nov, gift-for-services decisions)', () => {
     // Both on one quote: together they must fit; Papic 150 beside a plan is not the always-allowed gift any more.
     const pair = ['EVENT_PLUS', 'PAPIC_GUEST_150'];
-    const fits = judgeQuoteGifts(pair, UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
+    const fits = judgeQuoteGifts(pair, UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
     assert.equal(fits.state, 'ok');
     assert.equal(fits.valueCentavos, 299_000 + 9_900);
     // A quote whose limit covers the plan alone (₱2,990) but not the plan + Papic 150 (₱3,089).
-    const at = (pesos: number) => judgeQuoteGifts(pair, UNLOCKS, pesos * 100, BOOKING_FEE, LIMIT, F(150, 1));
+    const at = (pesos: number) => judgeQuoteGifts(pair, UNLOCKS, pesos * 100, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
     let tight = 0;
     for (let p = 1_000; p < 2_000_000; p += 1_000) {
       const lim = giftLimitCentavos(p * 100, BOOKING_FEE, LIMIT);
@@ -332,7 +332,7 @@ describe('💎 Event Ultra — Black Diamond\'s reward, and BOUGHT at its list p
 
 describe('the add menu', () => {
   it('says why each pack cannot go on now', () => {
-    const menu = addGiftMenu(['PAPIC_GUEST_1K'], PACKS, 100_000_00, BOOKING_FEE, LIMIT, F(1));
+    const menu = addGiftMenu(['PAPIC_GUEST_1K'], PACKS, 100_000_00, BOOKING_FEE, LIMIT, F(1), 'none', null, 9);
     assert.equal(menu.find((o) => o.code === 'PAPIC_GUEST_150')?.ok, true);
     const k1 = menu.find((o) => o.code === 'PAPIC_GUEST_1K');
     assert.equal(k1?.ok, false);

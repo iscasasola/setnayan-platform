@@ -11,7 +11,7 @@ import { formatCentavos } from '@/lib/vendor-proposals';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   addGiftMenu,
-  MAX_GIFTS_PER_QUOTE,
+  giftCapFor,
   alwaysAllowedPack,
   giftCount,
   giftPackLine,
@@ -50,6 +50,7 @@ export function QuoteShopGifts({
   codes,
   onChange,
   buy = null,
+  cardCount = 0,
 }: {
   basis: ShopGiftQuoteBasis;
   /** The quote's net payable — the figure the fee and the limit are priced from. */
@@ -57,15 +58,18 @@ export function QuoteShopGifts({
   codes: string[];
   onChange: (next: string[]) => void;
   buy?: QuoteShopGiftsBuy | null;
+  /** 🎁 Service cards this quote is built from — one gift each, never fewer than one (`giftCapFor`). */
+  cardCount?: number;
 }) {
   const [buying, setBuying] = useState(false);
+  const maxGifts = giftCapFor(cardCount);
   const verdict = useMemo(
-    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null),
-    [codes, basis, totalCentavos],
+    () => judgeQuoteGifts(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null, maxGifts),
+    [codes, basis, totalCentavos, maxGifts],
   );
   const menu = useMemo(
-    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null),
-    [codes, basis, totalCentavos],
+    () => addGiftMenu(codes, basis.packs, totalCentavos, basis.schedule, basis.limitPct, basis.free, basis.eventHas, basis.rewardFree ?? null, maxGifts),
+    [codes, basis, totalCentavos, maxGifts],
   );
   const smallest = alwaysAllowedPack(basis.packs);
   const feeCentavos = totalCentavos > 0 ? Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100) : 0;
@@ -201,7 +205,7 @@ export function QuoteShopGifts({
         </p>
       ) : verdict.state === 'too_many' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-too-many">
-          <b className="font-semibold">A quote holds one gift.</b> Take the others off.
+          <b className="font-semibold">One gift per service card.</b> Take one off, or add a card.
         </p>
       ) : verdict.state === 'unknown_pack' ? (
         <p className="text-xs text-danger-700" role="status">
@@ -209,9 +213,9 @@ export function QuoteShopGifts({
         </p>
       ) : null}
 
-      {codes.length >= MAX_GIFTS_PER_QUOTE ? (
+      {codes.length >= maxGifts ? (
         <p className="text-xs text-ink/60" data-testid="quote-shop-gifts-one">
-          One gift per quote. Swipe it off to pick another.
+          One gift per service card. Add a card for another.
         </p>
       ) : (
       <PickMenu

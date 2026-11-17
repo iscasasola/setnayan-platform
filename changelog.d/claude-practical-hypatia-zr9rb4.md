@@ -73,3 +73,13 @@ Ultra can be bought; 10 + 1 bundles for ALL gifts; every ₱ read from `platform
 - Not built (on hold for the owner): "0 stock blocks booking"; the multi-item cart (a later branch on top of this one).
 
 SPEC IMPACT: None — implements the 17 Nov rulings as written in the brief; no new ruling.
+
+## 2026-11-18 · feat(gifts): one gift per service card on a quote
+
+Owner, 17 Nov: "should it be 1 gift per card used? so if they have 2 service cards, thos are 2 gifts?" → "Just counted".
+A quote may hold as many shop gifts as the service cards it is built from, never fewer than one; the 40% limit stays
+on the whole quote. `giftCapFor` + a `too_many` verdict in `judgeQuoteGifts`; the composer hides "＋ Add a gift" at the
+cap; `writeQuoteShopGifts` re-counts the shop's own ACTIVE `vendor_services` rows from the sent card ids, so a crafted
+list cannot raise the cap. Guard: `lib/a-quote-holds-one-gift.test.ts`.
+
+SPEC IMPACT: specs DECISION_LOG a74f265b (logged by the controller); its OPEN "tied or count" is answered "count only".

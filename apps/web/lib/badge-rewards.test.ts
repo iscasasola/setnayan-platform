@@ -468,11 +468,11 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
 
   it('reward stock pays whole lines, the most valuable first; the rest is measured', () => {
     // One Event Plus from rewards + one bought Event Plus: the bought one is measured, and is over.
-    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 2), 'none', F(0, 1));
+    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 2), 'none', F(0, 1), 9);
     assert.deepEqual(v.fromReward, [true, false]);
     assert.equal(v.state, 'over_limit');
     // 150 reward credits cover one Papic 150 line; a second one (bought) is still the always-allowed pack.
-    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(300), 'none', F(150));
+    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(300), 'none', F(150), 9);
     assert.deepEqual(p.fromReward, [true, false]);
     assert.equal(p.state, 'ok');
   });

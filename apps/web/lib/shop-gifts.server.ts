@@ -14,6 +14,7 @@ import {
   giftCount,
   giftItemsOf,
   judgeQuoteGifts,
+  giftCapFor,
   rewardFreeByKind,
   shopGiftBundlesFrom,
   shopGiftPacksFrom,
@@ -341,11 +342,32 @@ export async function writeQuoteShopGifts(
     eventId: string | null;
     totalCentavos: number;
     codes: readonly string[];
+    /** The service cards the quote was built from, as the composer sent them — re-counted here, never trusted. */
+    serviceCardIds?: readonly string[] | null;
   },
 ): Promise<WriteQuoteGiftsResult> {
   const codes = args.codes.filter((c) => typeof c === 'string' && c.length > 0).slice(0, 20);
   if (codes.length === 0) return { ok: true, credits: 0 };
   if (!args.eventId) return { ok: false, message: 'A gift needs the couple’s event.' };
+
+  // 🎁 One gift per service card (a74f265b): count only this shop's own ACTIVE cards — a crafted list of ids cannot
+  // raise the cap. Nothing to count ⇒ one gift, the floor.
+  const cardIds = [...new Set((args.serviceCardIds ?? []).filter((c) => typeof c === 'string' && c.length > 0))].slice(0, 50);
+  let cardCount = 0;
+  if (cardIds.length > 0 && codes.length > 1) {
+    const { data: cards, error: cardErr } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .eq('is_active', true)
+      .in('vendor_service_id', cardIds);
+    if (cardErr) {
+      console.error('[supabase-error] shop-gifts: count quote cards', cardErr);
+      return { ok: false, message: 'Couldn’t check your service cards. Please try again.' };
+    }
+    cardCount = (cards ?? []).length;
+  }
+  const maxGifts = giftCapFor(cardCount);
 
   const basis = await fetchShopGiftQuoteBasis(admin, args.vendorProfileId, args.eventId);
   if (!basis) return { ok: false, message: 'Gifts are not on sale right now — send the quote without them.' };
@@ -360,9 +382,10 @@ export async function writeQuoteShopGifts(
     basis.free,
     basis.eventHas,
     basis.rewardFree ?? null,
+    maxGifts,
   );
   if (v.state === 'unknown_pack') return { ok: false, message: 'One of those gifts is not on sale any more.' };
-  if (v.state === 'too_many') return { ok: false, message: 'A quote holds one gift — take the others off.' };
+  if (v.state === 'too_many') return { ok: false, message: 'One gift per service card on this quote — take one off.' };
   if (v.state === 'already_has') {
     return basis.eventHas === 'ultra'
       ? { ok: false, message: 'Their event already has Event Ultra — take Event Plus, Event Pro and Event Ultra off.' }

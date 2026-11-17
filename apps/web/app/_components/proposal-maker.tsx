@@ -2262,6 +2262,7 @@ export function ProposalMaker({
             codes={shopGiftCodes}
             onChange={setShopGiftCodes}
             buy={shopGiftsBuy}
+            cardCount={cards.filter((c) => pickedCards[c.id]).length}
           />
         ) : null}
       </div>

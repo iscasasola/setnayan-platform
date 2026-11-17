@@ -776,6 +776,7 @@ export async function sendCustomProposalCore(
       eventId,
       totalCentavos,
       codes: input.shopGiftCodes,
+      serviceCardIds: input.serviceCardIds ?? null,
     });
     if (!gifts.ok) {
       // The draft never reached the couple; a draft left behind is invisible to them, so a failed delete is logged.

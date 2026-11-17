@@ -27,3 +27,5 @@ the CHAT-09 layout (plan card, strip, jump pills, where the poll/decision opens)
 - CHAT-33 · the Hub says "Crew for the day" and "View only — ask the hosts" once.
 
 SPEC IMPACT: None
+
+- **A re-quote keeps "Quoted after site check"** (owner screenshot 17 Nov, "Debut 18"; controller-approved, added beside CHAT-31 because both edit `lib/quote-revision-seed.ts`). A null-amount transport line whose detail was "Quoted after site check" used to seed as a free line, so the revision told the couple that transport was free. Now it is not seeded: the builder reopens in distance mode (`transportAfterSiteCheck`) and writes the same line on send. No amount changes. Held by `lib/a-requote-keeps-the-site-check-transport.test.ts` (both tests were seen red under sabotage).

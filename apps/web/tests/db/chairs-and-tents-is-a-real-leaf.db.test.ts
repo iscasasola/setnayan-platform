@@ -41,22 +41,36 @@ test('the new leaf resolves to an ACTIVE tier-1 parent', async () => {
   assert.equal(row.p_status, 'active');
 });
 
-test('scoped to wake · birthday · simple_event — never a wedding', async () => {
+test('scoped to wake · birthday · simple_event — and, since T1 part 2, every event its merged categories served', async () => {
+  // T1 part 2 (20271350082350) folds Outdoor, Fireworks and Dance Floor into this category ("Rentals & Special
+  // Effects"); the merge keeps each one's event reach, so the wedding's generator, fireworks and LED floor are still
+  // there for a wedding. The original three stay; the rest is exactly the union of the three merged categories.
   const r = await db.query<{ t: string[] | null }>(
     `SELECT applicable_event_types AS t FROM public.service_categories WHERE id = 'chairs_tents'`,
   );
-  assert.deepEqual([...(r.rows[0]?.t ?? [])].sort(), ['birthday', 'simple_event', 'wake']);
+  const merged = await db.query<{ t: string }>(
+    `SELECT DISTINCT unnest(applicable_event_types) AS t FROM public.service_categories WHERE id IN ('outdoor', 'fireworks', 'dance_floor')`,
+  );
+  const want = [...new Set(['birthday', 'simple_event', 'wake', ...merged.rows.map((x) => x.t)])].sort();
+  assert.ok(want.includes('wedding'), 'fixture: the merged categories no longer serve a wedding — re-read this test');
+  assert.deepEqual([...(r.rows[0]?.t ?? [])].sort(), want);
 });
 
 test('its services exist and INHERIT the tile scope', async () => {
   const r = await db.query<{ canonical_service: string; t: string[] | null }>(
     `SELECT canonical_service, applicable_event_types AS t
-       FROM public.canonical_service_taxonomy WHERE tile_id = 'chairs_tents'
+       FROM public.canonical_service_taxonomy WHERE tile_id = 'chairs_tents' AND merged_into IS NULL
       ORDER BY canonical_service`,
   );
+  // T1 (20271349668764): event_lights_rental folded into Lights & Sounds; the approved additions joined. T1 part 2
+  // (20271350082350): Outdoor, Fireworks and Dance Floor's services moved in (three of them ⛔ hidden by part 1).
   assert.deepEqual(
     r.rows.map((x) => x.canonical_service),
-    ['chair_table_rental', 'event_lights_rental', 'tent_canopy_rental'],
+    [
+      'bug_repellent_station', 'chair_table_rental', 'cold_sparks', 'cooling_fans_misters', 'fireworks_pyro',
+      'generator_rental', 'led_dance_floor', 'lounge_set_rental', 'mobile_restroom_rental', 'parasol_hat_rental',
+      'ribbon_cutting_set', 'stage_truss', 'tent_canopy_rental', 'wedding_day_weather_forecaster',
+    ],
   );
   for (const x of r.rows) {
     assert.equal(x.t, null, `${x.canonical_service} overrides the tile — owner edits would stop reaching it`);

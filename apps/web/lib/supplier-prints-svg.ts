@@ -42,7 +42,7 @@ export type PrintShop = {
   line: string;
   /** The monogram's letters (`shopInitials`). */
   ini: string;
-  /** `setnayan.com/v/<slug>` — the card back's handle. */
+  /** `setnayan.com/<slug>` — the card back's handle. */
   handle: string;
   verified: boolean;
   rating: { avg: number; count: number } | null;

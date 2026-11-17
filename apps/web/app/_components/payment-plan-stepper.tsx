@@ -83,10 +83,16 @@ export function PaymentPlanStepper({
   steps,
   clearedAt,
   className,
+  lined = false,
 }: {
   steps: StepperInstallment[];
   clearedAt: string | null;
   className?: string;
+  /**
+   * 💳 The supplier chat's folded plan (CHAT-09, 16 Nov): rows split by LINES, not spaced boxes, each a 44 px row — the
+   * same rows, words and states.
+   */
+  lined?: boolean;
 }) {
   const cleared = clearedAt != null;
   // 📅 Pay order, and a plain line when the plan's dates disagree with it (CHAT-10) — said, never re-sorted away.
@@ -114,7 +120,7 @@ export function PaymentPlanStepper({
           No payment schedule — pay the supplier directly.
         </p>
       ) : (
-        <ol className="space-y-2" role="list">
+        <ol className={lined ? 'divide-y divide-ink/10' : 'space-y-2'} role="list">
           {ordered.map((s) => {
             const meta = STATE_META[s.state];
             const Icon = meta.Icon;
@@ -127,7 +133,7 @@ export function PaymentPlanStepper({
             return (
               <li
                 key={s.seq}
-                className="flex items-center gap-2.5"
+                className={lined ? 'flex min-h-11 items-center gap-2.5 py-1' : 'flex items-center gap-2.5'}
                 aria-label={`${s.label}: ${meta.label}`}
               >
                 <span

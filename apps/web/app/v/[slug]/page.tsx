@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
 import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
@@ -244,6 +245,9 @@ import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
+import { readCardBadges } from '@/lib/card-badges.server';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import type { CardBadgesRead } from '@/lib/card-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
@@ -967,8 +971,19 @@ export async function renderVendorBySlug({
   // Only on the genuine miss (`!vendor`) — a hidden or archived shop must keep
   // 404ing rather than disclose that it exists, so the visibility check below is
   // deliberately NOT part of this branch.
+  //
+  // 🔗 EVERY KIND OF RENAMED WORD, since the address move (owner 2026-11-15): a shop lives at the bare `/{shop}` now,
+  // and the middleware answers a stranger's bare word that is clearly NOT an event from this page's cached copy. A
+  // renamed event's or person's OLD word is exactly such a word (no event has it any more), so this page must forward
+  // it as the bare root's dispatcher always did (`app/[slug]/page.tsx`, `resolveRenamedPath(admin, slug)`) — or a
+  // printed save-the-date QR would 404 here. Same function, same rules (it refuses a word that is live elsewhere).
   if (!vendor) {
-    const movedTo = await resolveRenamedPath(createAdminClient(), slug, ['vendor']);
+    let movedTo: string | null = null;
+    try {
+      movedTo = await resolveRenamedPath(createAdminClient(), slug);
+    } catch {
+      // a failed forwarding read is still a 404 for a word that matches nothing, as at the bare root
+    }
     if (movedTo) redirect(movedTo);
   }
 
@@ -1141,6 +1156,26 @@ export async function renderVendorBySlug({
       : Promise.resolve(null),
   );
   const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
+     blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
+  const cardBadgesP = startRead(
+    (async (): Promise<CardBadgesRead> => {
+      const shopVerified = vendor.verification_state === 'verified';
+      /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
+         medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
+         never a quiet "not a partner". */
+      const shopSeals = await readShopSeals(vendor.vendor_profile_id, shopVerified);
+      if (!shopSeals) return { kind: 'unreadable' };
+      return readCardBadges(admin, {
+        vendorProfileId: vendor.vendor_profile_id,
+        shopVerified,
+        verifiedPartner: shopSeals.seals.includes('verified_partner'),
+      });
+    })().catch((err: unknown): CardBadgesRead => {
+      console.error('[renderVendorBySlug] card badges unreadable', err);
+      return { kind: 'unreadable' };
+    }),
+  );
   const favoritesCountP = startRead((async () => {
     const { data, error } = await admin.rpc('count_saves_for_vendor', {
       p_vendor_profile_id: vendor.vendor_profile_id,
@@ -2291,7 +2326,10 @@ export async function renderVendorBySlug({
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
   // The service cards' inputs, ONCE: the Services section draws them and 📸 photos by service (owner 2026-11-14)
   // gathers the same cards by their service for the Portfolio's "Photos by service" row.
+  const serviceCardBadges = await cardBadgesP;
   const servicesProps: ServicesPricingProps = {
+    cardBadges: serviceCardBadges,
+    badgesNow: Date.now(),
             /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
        (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
     countOpensFor: !isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null,
@@ -2791,14 +2829,14 @@ export async function renderVendorBySlug({
                     unverified page has no Check a date (DECISION_LOG 2026-11-15). */}
                 {dateCheckable ? (
                   <CheckADateLink
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival, { dates: '1' })}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {bookable && canShowBooth ? (
                   <Link
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/booth`, shopArrival)}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}/booth`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   >
                     Walk into my booth
@@ -3559,7 +3597,7 @@ export async function renderVendorBySlug({
           <CheckADateOverShop
             slug={vendor.business_slug ?? slug}
             logoUrl={logoDisplayUrl}
-            shopHref={withShopArrival(`/v/${vendor.business_slug ?? slug}`, shopArrival)}
+            shopHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival)}
             search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
           />
         </Suspense>
@@ -3658,6 +3696,10 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
 }
 
 type ServicesPricingProps = {
+  /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
+  cardBadges: CardBadgesRead | null;
+  /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
+  badgesNow: number;
   /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
   ownerCheckFor: string | null;
   /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
@@ -3867,7 +3909,7 @@ function buildServiceGroups({
 
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
-  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor } = props;
+  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor, cardBadges, badgesNow } = props;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -3887,6 +3929,8 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         shopName={businessName}
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
+        cardBadges={cardBadges}
+        badgesNow={badgesNow}
       />
     </section>
   );

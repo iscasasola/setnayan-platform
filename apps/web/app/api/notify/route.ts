@@ -18,12 +18,12 @@
  * - android/ios → stubbed; native FCM/APNs wired in V1.5.
  */
 
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import 'server-only';
 
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { webhookSecretAuthorized } from '@/lib/webhook-secret-auth';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { chatSentence, pushMessage, pushWireBody, type PushMessage } from '@/lib/push-message';
 
 export const runtime = 'nodejs';
@@ -218,7 +218,7 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
     // Dedup: skip if we notified this thread within the last 10 minutes.
     const { data: thread, error: threadError } = await admin
       .from('chat_threads')
-      .select('last_push_notified_at, event_id')
+      .select('last_push_notified_at')
       .eq('thread_id', thread_id)
       .single();
 
@@ -258,8 +258,7 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
     const pushPayload: PushPayload = pushMessage({
       subject: { kind: 'shop', name: (shop as { business_name?: string | null } | null)?.business_name ?? null },
       sentence: chatSentence({ from: null, preview: body }),
-      // 🚪 The picked client on Chat, where the notice in the tray opens too (CHAT-07) — not the bare thread page.
-      url: supplierChatHref((thread as { event_id?: string | null }).event_id ?? null, thread_id),
+      url: supplierChatHref(record.event_id, thread_id),
       collapseKey: `chat:${thread_id}`,
       level: 'normal',
       fallbackUrl: '/vendor-dashboard',

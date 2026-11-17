@@ -11,7 +11,7 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
 import { coupleChatHref } from '@/lib/couple-chat-door';
 import { markThreadNoticesRead } from '@/lib/thread-notices-read.server';
@@ -465,7 +465,7 @@ export async function acceptInquiry(formData: FormData) {
   const back =
     isSafeNext(returnTo)
       ? returnTo
-      : `/vendor-dashboard/messages/${threadId}`;
+      : supplierThreadPageHref(threadId);
   const fail = (msg: string): never =>
     redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
 

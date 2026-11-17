@@ -39,7 +39,8 @@ test('(b) the pinned row reads "Clients · N booked · ₱X to collect · ⚙" �
   assert.match(title, /\{gear\}/);
   assert.doesNotMatch(title, /<PickMenu\b/, 'the one screen grew a view picker again');
   assert.match(PAGE, /title=\{\{ counts: pinCounts \}\}/);
-  assert.match(PAGE, /booked · \$\{picture\.totals \? formatPhp\(picture\.totals\.toComePhp\) : '—'\} to collect/, '₱X to collect is not the exact money figure');
+  // "booked this month" when Today's stat narrowed the list (EB-219) — the money figure is the same exact one either way.
+  assert.match(PAGE, /booked(?:\$\{monthIds \? ' this month' : ''\})? · \$\{picture\.totals \? formatPhp\(picture\.totals\.toComePhp\) : '—'\} to collect/, '₱X to collect is not the exact money figure');
 });
 
 test('(c) the tiles are their own row under the month, never on the pinned row', () => {

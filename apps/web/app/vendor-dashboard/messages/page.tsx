@@ -1,3 +1,4 @@
+import { supplierThreadPaneHref } from '@/lib/upcoming-schedule-door';
 import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
@@ -180,7 +181,7 @@ async function readSupplierChats(
       archived: isArchived,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={SUPPLIER_CHATS_HREF} archived={isArchived} />,
       // 🖥 From 701 the row opens the event's newest thread beside this list (`ChatPanes`), not the picked client over it.
-      paneHref: `/vendor-dashboard/messages/${r.threadId}`,
+      paneHref: supplierThreadPaneHref(r.threadId),
       // 🚦 TODO(Build 3 · Lane B): `needsYou: needsYouLevel(...)` — the one rule; no row guesses a level meanwhile.
     };
   };

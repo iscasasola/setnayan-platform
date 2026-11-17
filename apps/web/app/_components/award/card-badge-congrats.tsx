@@ -22,10 +22,8 @@ export const CARD_CONGRATS_COPY = {
   tap: 'Tap anywhere to close',
 } as const;
 
-/** The Today line that opens it, verbatim: "Congratulations, your [card] service card earned [badge]". */
-export function cardCongratsTodayLine(cardName: string, badgeName: string): string {
-  return `Congratulations, your ${cardName} service card earned ${badgeName}`;
-}
+/** The Today line that opens it — one copy, in a plain module the server sweep can call too. */
+export { cardCongratsTodayLine } from './card-congrats-words';
 
 export type CardBadgeCongratsProps = {
   /** The service card's name ("Full-day photo & video"). */

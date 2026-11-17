@@ -335,15 +335,16 @@ export function ShopCover({
             Cover
           </button>
         </div>
-        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Prints ·
+        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Promote ·
             Your gifts · Plan — each a 40 px icon square on the wash. Every tile opens a place that already ships:
-            Prints and Your gifts are the Promote sheet's own sections (`#prints`, `#gifts`), opened and scrolled to;
+            Promote is the Promote sheet itself (owner 17 Nov: *"Prints should be renamed as Promote, since when you open
+            it, it promotes"*); Your gifts is its own `#gifts` section, opened and scrolled to;
             Plan is the cover's `#plan` door (the ⚙ sheet's Plan and billing fold), with the plan name the cover already
             read (`planLabel`). No new read. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-three.test.ts */}
         <div className="grid grid-cols-3 gap-2.5 pt-1" data-shop-quick-row="">
-          <button type="button" onClick={() => openPromoteAt('prints')} className={QUICK_TILE} data-shop-quick="prints">
+          <button type="button" onClick={() => openSheet('promote')} className={QUICK_TILE} data-shop-quick="promote">
             <QuickIcon icon={IdCard} />
-            <b className="text-[15px] font-semibold leading-tight text-ink">Prints</b>
+            <b className="text-[15px] font-semibold leading-tight text-ink">Promote</b>
             <small className="text-[12px] leading-tight text-ink/60">{PRINTS_LINE}</small>
           </button>
           <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">

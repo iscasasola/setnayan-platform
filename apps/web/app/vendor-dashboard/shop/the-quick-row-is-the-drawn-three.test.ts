@@ -1,11 +1,12 @@
 /**
  * GUARD — THE SHOP COVER'S QUICK ROW IS THE DRAWN THREE (controller re-audit of #7901, 17 Nov; P1 drawing
- * `supplier_shop_clean_2026-11-16`, `.quick`: Prints · Your gifts · Plan, three centred white lifted tiles, each a 40 px
- * icon square).
+ * `supplier_shop_clean_2026-11-16`, `.quick`: three centred white lifted tiles, each a 40 px icon square). The first tile,
+ * drawn "Prints", is PROMOTE since 17 Nov (owner: *"Prints should be renamed as Promote, since when you open it, it
+ * promotes"*) and opens the Promote sheet itself.
  *
  *   1. Three tiles, in the drawn order, in one 3-column row.
- *   2. Each opens a place that already ships: Prints and Your gifts are the Promote sheet's own sections (`#prints`,
- *      `#gifts`, which exist in their components); Plan is the cover's `#plan` door, worded from `planLabel` — no read.
+ *   2. Each opens a place that already ships: Promote is the Promote sheet; Your gifts is its own `#gifts` section (which
+ *      exists in its component); Plan is the cover's `#plan` door, worded from `planLabel` — no read.
  *   3. The tile is the frame's white with its lift and no line (never a bordered card), the icon square 40 px on the wash.
  *
  * Sabotage: drop the Plan tile (1 red) · point Your gifts at `prints` (2 red) · give the tile a border (3 red).
@@ -20,15 +21,16 @@ const COVER = stripComments(readFileSync(join(import.meta.dirname, '_components/
 const ROW = COVER.slice(COVER.indexOf('data-shop-quick-row=""'), COVER.indexOf('</div>', COVER.indexOf('data-shop-quick-row=""')));
 const read = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');
 
-test('1 · three tiles — Prints · Your gifts · Plan — in one 3-column row', () => {
+test('1 · three tiles — Promote · Your gifts · Plan — in one 3-column row', () => {
   assert.match(COVER, /className="grid grid-cols-3[^"]*" data-shop-quick-row=""/);
   const tiles = [...ROW.matchAll(/data-shop-quick="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(tiles, ['prints', 'gifts', 'plan']);
-  for (const w of ['>Prints<', '>Your gifts<', '>Plan<']) assert.ok(ROW.includes(w), `the tile word ${w} is gone`);
+  assert.deepEqual(tiles, ['promote', 'gifts', 'plan']);
+  assert.ok(!ROW.includes('>Prints<'), 'the tile still says Prints (owner 17 Nov: it is Promote)');
+  for (const w of ['>Promote<', '>Your gifts<', '>Plan<']) assert.ok(ROW.includes(w), `the tile word ${w} is gone`);
 });
 
 test('2 · each tile opens a shipped place, with no new read', () => {
-  assert.match(ROW, /openPromoteAt\('prints'\)[^>]*data-shop-quick="prints"/);
+  assert.match(ROW, /onClick=\{\(\) => openSheet\('promote'\)\}[^>]*data-shop-quick="promote"/);
   assert.match(ROW, /openPromoteAt\('gifts'\)[^>]*data-shop-quick="gifts"/);
   assert.match(ROW, /<a href="#plan"[^>]*data-shop-quick="plan"/);
   assert.match(ROW, /\{d\.planLabel\} plan/);

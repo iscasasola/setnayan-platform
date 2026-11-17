@@ -22,7 +22,8 @@ as the third.
 
 SPEC IMPACT: None — builds the approved drawing; no decision changes. Flagged for the owner: DECISION_LOG 75a46e3c
 item 12 ("Memories on desktop is a 48rem column") and the later 16 Nov "Yes, all 8" row ("Memories full width") disagree;
-this follows the later row and the drawing.
+this follows the later row and the drawing. **Owner answered 17 Nov (via controller):** Memories full width from 1024 ·
+desk zoom steps 6·8·12·16 · "Now/Next" stays inside the event card (the 2 Nov ruling holds; the drawing yields).
 
 Audit fixes (controller, 17 Nov): the profile sheet's back names the page from the shipped route map (`pageOwnLabel` in
 `lib/page-home.ts`, via `lib/sheet-back-label.ts`), so Today reads "‹ Today", not the couple's names; the 1280 board

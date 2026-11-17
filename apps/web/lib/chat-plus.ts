@@ -114,6 +114,13 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
  * row (and `/poll`) is drawn greyed with this reason; the database holds the same rule (`chat_polls_one_open_per_thread`).
  * A SENT poll never keeps the (+) shut — only its draft does (the 8 Nov one-(+)-card rule).
  */
+/**
+ * ⤴ The drafts that RISE FULL SCREEN instead of filling a card at the foot of the chat (DECISION_LOG 2026-11-16 CHAT-09):
+ * the poll and the decision. Their card draws itself through `RiseScreen` (`ChatStepCard`'s `rise`); the openers do not
+ * scroll the chat to them, and the stream hides its jump row while one is up.
+ */
+export const RISING_DRAFTS: ReadonlySet<PlusCardKind> = new Set<PlusCardKind>(['poll', 'decision']);
+
 export const ONE_POLL_REASON = 'One poll at a time · close the open one first';
 
 /** The Poll row — under Chat, right after Decision, on both sides (the host's chat mirrors the supplier's, 8 Nov 🪞). */

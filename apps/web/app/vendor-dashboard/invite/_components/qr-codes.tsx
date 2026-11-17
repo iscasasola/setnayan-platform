@@ -69,8 +69,8 @@ export type IssuedRow = {
 
 /**
  * Each code's words (the prototype's "what it does" list): the row line is the shipped caption cut at the dash; the
- * sheet shows it whole. ⚠ Reviews: the prototype's "They scan to review you" describes `/v/<slug>/review` (PR #7329,
- * not merged) — this code opens `/v/<slug>#reviews` today, so its words say what it does now.
+ * sheet shows it whole. ⚠ Reviews: the prototype's "They scan to review you" describes `/<slug>/review` (PR #7329,
+ * not merged) — this code opens `/<slug>#reviews` today, so its words say what it does now.
  */
 const WORDS: Record<SupplierQrMode, { name: string; sub?: string; perEvent?: boolean; line: string; sheetLine: string }> = {
   dates: { name: 'Check a date', sub: 'free', line: 'They scan and see which days you can still be booked', sheetLine: 'They scan and see which days you can still be booked — never who booked or who is asking.' },
@@ -128,9 +128,9 @@ export function QrCodes({
     scope: string;
   } | null;
   booked: Booked | null;
-  /** 📅 Check a date (owner 2026-10-28): the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`). */
+  /** 📅 Check a date (owner 2026-10-28): the shop's one permanent code → `/<slug>/dates` (`lib/check-a-date-qr.ts`). */
   checkADate?: ShopCode | null;
-  /** 🔳 My page (owner 2026-10-29): the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`). */
+  /** 🔳 My page (owner 2026-10-29): the shop's own Setnayan page → `/<slug>` (`lib/supplier-qr-codes.ts`). */
   myPage?: ShopCode | null;
   /** ⭐ Reviews (Option B, 2026-11-06): the shop's page at its reviews — the address the printed code opens (`printQrUrl`). */
   reviews?: ShopCode | null;

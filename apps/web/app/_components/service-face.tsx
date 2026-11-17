@@ -174,7 +174,7 @@ export function ServiceFace({
       data-service-face=""
       className={
         framed
-          ? 'relative flex h-full w-full flex-col gap-2 rounded-2xl border border-[var(--m-line)] bg-[var(--m-paper)] p-3 transition-colors hover:border-[var(--m-orange-2)]' // no-card-ok: the service card is pressable — the face opens the Service card grown (or the Card Maker); 11 Nov "the card is the only frame"
+          ? 'sn-frame relative flex h-full w-full flex-col gap-2 p-3 transition-shadow hover:shadow-m-lg' // ✨ the frame (16 Nov 2026): white, the token lift, no line — pressable, it opens the Service card grown; 11 Nov "the card is the only frame"
           : 'relative flex flex-col gap-2'
       }
     >

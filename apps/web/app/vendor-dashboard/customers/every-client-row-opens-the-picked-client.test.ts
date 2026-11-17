@@ -160,7 +160,7 @@ test('3 · Accept lands in the chat — full screen it starts the quote; inside 
   const chat = code('app/vendor-dashboard/messages/[threadId]/page.tsx');
   const card = chat.slice(chat.indexOf('<InquiryAnswers'), chat.indexOf('/>', chat.indexOf('<InquiryAnswers')));
   assert.match(card, /embedded\s*\?\s*\{ chatHref: `\/vendor-dashboard\/clients\/\$\{thread\.event_id\}\?tab=chat` \}/, 'inside the picked client the answers leave its Chat page');
-  assert.match(card, /acceptTo: `\/vendor-dashboard\/messages\/\$\{threadId\}\?compose=quote`/, 'full screen, Accept no longer starts the quote in the chat');
+  assert.match(card, /acceptTo: `\$\{supplierThreadPageHref\(threadId\)\}\?compose=quote`/, 'full screen, Accept no longer starts the quote in the chat');
 });
 
 test('4 · from 701 the row still opens beside the list — the door is the phone’s', () => {

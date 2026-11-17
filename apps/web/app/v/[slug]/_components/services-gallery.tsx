@@ -34,6 +34,8 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
+import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import type { CardBadgesRead } from '@/lib/card-badges';
 
 export type ServiceGroup = {
   key: string;
@@ -67,7 +69,17 @@ export function ServicesGallery({
   shopName = null,
   countOpensFor = null,
   ownerCheckFor = null,
+  cardBadges = null,
+  badgesNow = 0,
 }: {
+  /**
+   * 🏅 THE CARD BADGES (badge build J3) — per card, its medals in order, Verified last; read on the server
+   * (`lib/card-badges.server.ts`). `unreadable` says so once above the cards — never an empty row that reads as
+   * "no badges". null = not read here (a lab, a demo).
+   */
+  cardBadges?: CardBadgesRead | null;
+  /** The server's clock for the medals' "time held", so server and client draw the same words. */
+  badgesNow?: number;
   /**
    * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
    * it? Then the grown card carries hide per card, 👁 Couple view and the card's opens. The database decides
@@ -243,7 +255,17 @@ export function ServicesGallery({
       {/* ONE GRID, NOT ONE PER GROUP (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE"): every visible card in one list —
           1 column on a phone, 2, then 3 — so a group with a single card never strands half a row. The group is said on
           each card's path line, and the chips above still filter by it. */}
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
+      {cardBadges?.kind === 'unreadable' ? (
+        <p data-card-badges-unreadable="" className="text-[13px] text-ink/65">
+          We couldn’t check these cards’ badges just now.
+        </p>
+      ) : null}
+      {/* 📐 THE COLUMN COUNT READS THE GRID'S OWN WIDTH, NEVER THE WINDOW'S (17 Nov). From md this list sits in the
+          column BESIDE the 300/360 px card, so `sm:grid-cols-2 lg:grid-cols-3` cut a 424 px column into 206 px cards at
+          an 800 px window (the face's words got 90 px) and a 556 px column into 177 px cards at 1024 (61 px). Each card
+          is now at least 300 px — still 1 column, then 2, then 3, as the room allows.
+          🔒 lib/nothing-is-squeezed-by-its-own-content.test.ts */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3" data-services-one-grid="">
         {visible.flatMap((g) =>
           g.cards.map((c) => (
             <li key={c.id}>
@@ -260,6 +282,11 @@ export function ServicesGallery({
                     : null
                 }
                 detailsEnabled={detailsEnabled}
+                footer={
+                  cardBadges?.kind === 'ok' && (cardBadges.byCard[c.id]?.length ?? 0) > 0 ? (
+                    <CardBadgeRow badges={cardBadges.byCard[c.id]!} cardName={c.label} shopName={shopName} now={badgesNow} />
+                  ) : null
+                }
                 onOpen={(from) => {
                   originRef.current = from;
                   setOpenCardId(c.id);
@@ -288,6 +315,12 @@ export function ServicesGallery({
           shopName={shopName}
           from={originRef.current}
           owner={ownerFor(openCard.id)}
+          // 🏅 The same J3 row the card's face draws, on the full card too (layout D on every card).
+          cardBadgeRow={
+            cardBadges?.kind === 'ok' && (cardBadges.byCard[openCard.id]?.length ?? 0) > 0 ? (
+              <CardBadgeRow badges={cardBadges.byCard[openCard.id]!} cardName={openCard.label} shopName={shopName} now={badgesNow} />
+            ) : null
+          }
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

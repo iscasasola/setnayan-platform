@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
 import { ShopLink } from '@/app/_components/shop-link';
 import type { Metadata } from 'next';
@@ -970,7 +971,7 @@ function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
       <ul className="uprof-inf-list">
         {vendors.map((v) => (
           <li key={v.slug}>
-            <ShopLink href={`/v/${v.slug}`} className="uprof-inf-card">
+            <ShopLink href={`${shopPath(v.slug)}`} className="uprof-inf-card">
               {v.logoUrl ? (
                 <span className="uprof-inf-logo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

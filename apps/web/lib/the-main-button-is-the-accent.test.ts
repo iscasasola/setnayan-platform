@@ -82,6 +82,10 @@ const OFF = BOTH.flatMap((b) => [`${b}:disabled`, `${b}[aria-disabled='true']`])
 
 /* The `:root` tokens the second button and the grey state name, as the stylesheet declares them. */
 const hexOf = (name: string): [number, number, number] => {
+  // A token may point at its kit twin (`--sn-surface: var(--m-paper)`, the token layer 14 Nov 2026): follow
+  // the alias to the hex it resolves to, so the contrast below is still measured on the real colour.
+  const alias = new RegExp(`${name}:\\s*var\\((--[\\w-]+)\\)\\s*;`).exec(css);
+  if (alias) return hexOf(alias[1]!);
   const m = new RegExp(`${name}:\\s*#([0-9a-fA-F]{6})\\b`).exec(css);
   assert.ok(m, `${name} is not a hex in the stylesheet`);
   const n = parseInt(m[1]!, 16);
@@ -156,7 +160,9 @@ test('(4) both are the full pill; “cannot be used yet” is grey and flat, for
 });
 
 test('(5) guest pages and public pages are not reached — and the one guest-look island inside a dashboard is left alone', () => {
-  assert.equal(DASH.length, 6, `the dashboards’ button rules are ${DASH.length}, not the six this guard reads`);
+  // 8 since 16 Nov 2026: the clean warm look's soft grey secondary and its hover (`:not(.sn-editorial *)`, so (c) below
+  // holds them out of the Look sample).
+  assert.equal(DASH.length, 8, `the dashboards’ button rules are ${DASH.length}, not the eight this guard reads`);
   /* (a) EVERY selector of every such rule starts at the dashboards' root: no dashboard root above, no match. */
   for (const r of DASH) for (const s of r.sels) assert.match(s, /^\.app-surface\s/, `“${s}” reaches a button outside the dashboards`);
   /* (b) …and that root is set by the three dashboards' layouts, nowhere else — never on a guest or a public page. */

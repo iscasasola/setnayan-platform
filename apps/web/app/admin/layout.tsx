@@ -27,6 +27,7 @@ import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
+import { maybeRunBadgeRewardSweep } from '@/lib/badge-earned.server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -290,6 +291,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // …) and writes it to email_deliveries, which the home strip and the
   // Notifications tab read. Bounded (20 per run); never throws.
   after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
+  // 🏅 Badge rewards (owner 2026-11-15) — the backstop for a reward whose count moved but whose after() was lost.
+  // CRON-FREE: admin traffic + a ~daily DB claim; bounded (150 shops per run); never throws.
+  after(() => maybeRunBadgeRewardSweep().catch(() => {}));
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));

@@ -81,10 +81,11 @@ async function ownedServiceIds(
 /** Redirect to a specific calendar (pool) after a create/edit. */
 function backToCalendarPool(month: string, poolId: string, notice: string): never {
   const params = new URLSearchParams();
+  params.set('tab', 'calendar');
   if (month) params.set('m', month);
   params.set('pool', poolId);
   params.set('notice', notice);
-  redirect(`/vendor-dashboard/calendar?${params.toString()}`);
+  redirect(`/vendor-dashboard/customers?${params.toString()}`);
 }
 
 async function requireVendor() {

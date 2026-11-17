@@ -28,6 +28,7 @@ import {
   WEDDING_TILE_LABEL,
   WEDDING_TILE_ORDER,
   WEDDING_TILE_SLUG,
+  forwardTile,
   type WeddingFolder,
   type WeddingTile,
 } from './taxonomy';
@@ -83,7 +84,8 @@ test('the 12 net-new canonicals place at their same-named tile (the admin Studio
   for (const leaf of NET_NEW) {
     const entry = TAXONOMY_MAP[leaf];
     assert.ok(entry, `${leaf}: no TAXONOMY_MAP canonical`);
-    assert.equal(entry.tile, leaf, `${leaf}: canonical must place at its same-named tile`);
+    // …or at the tile its own was merged into (T1 part 2: AV / Production → Speakers & AV).
+    assert.equal(entry.tile, forwardTile(leaf), `${leaf}: canonical must place at its same-named tile`);
     assert.equal(entry.folder, GAP_LEAF_PARENT[leaf], `${leaf}: canonical folder mismatch`);
     assert.notEqual(entry.marketplaceHidden, true, `${leaf}: gap leaf must be marketplace-visible`);
   }
@@ -110,7 +112,7 @@ test('couple-side VendorCategory carries all 14 keys with labels + a service gro
     // 1:1 tile anchor (bucket A) — the marketplace deep-link target.
     const anchor = VENDOR_CATEGORY_CANONICAL[cat];
     assert.equal(anchor.kind, 'tile', `${leaf}: must anchor to a single tile`);
-    assert.deepEqual(tilesForVendorCategory(cat), [leaf], `${leaf}: anchor tile mismatch`);
+    assert.deepEqual(tilesForVendorCategory(cat), [forwardTile(leaf)], `${leaf}: anchor tile mismatch`);
   }
 });
 

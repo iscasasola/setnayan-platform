@@ -148,7 +148,7 @@ test('every anchor on the page lands on an id on it; the sample shop link is the
   assert.ok(anchors.length >= 1, 'anti-vacuity: no anchor read');
   const dead = anchors.filter((a) => !PAGE.includes(`id="${a}"`));
   assert.deepEqual(dead, [], 'an anchor goes nowhere: ' + dead.join(', '));
-  assert.match(PAGE, /href=\{`\/v\/\$\{SAMPLE_SHOP\.slug\}`\}/);
+  assert.match(PAGE, /href=\{`\$\{shopPath\(SAMPLE_SHOP\.slug\)\}`\}/);
   assert.ok(existsSync(join(APP, 'v', '[slug]', 'page.tsx')), '/v/[slug] is gone');
   assert.doesNotMatch(PAGE, /href="https?:/, 'an absolute link — the page links inside the app');
 });

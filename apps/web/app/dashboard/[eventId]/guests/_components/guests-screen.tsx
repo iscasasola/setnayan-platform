@@ -2246,6 +2246,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 cards={summaryCards}
                 label="Guest summary"
                 attrs={{ 'data-guests-carousel': '' }}
+                rowFrom="xl"
                 holdKey={replyFilter ? 'replies' : plusFilter ? 'plus' : null}
               />
               {/* What a search or a door is showing — "N of M shown · × Clear" — only while one is on. */}

@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, ClipboardList } from 'lucide-react';
@@ -424,7 +425,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
               // The #3266 anonymization placeholder renders inside untouched.
               <li key={r.thread_id} className="sn-row overflow-hidden">
                 <Link
-                  href={`/vendor-dashboard/messages/${r.thread_id}`}
+                  href={supplierChatHref(r.event_id, r.thread_id)}
                   className="group flex items-start justify-between gap-3 p-4 transition-colors hover:bg-terracotta/5"
                 >
                   <div className="min-w-0 flex-1 space-y-1">

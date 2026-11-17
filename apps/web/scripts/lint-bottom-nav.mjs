@@ -62,19 +62,30 @@ const REQUIRED_MARKERS = [
   // makes the press bloom invisible. 🌗 Since dark B1 (2026-10-23) the bar reads
   // it as a TOKEN (so dark has a pair) and the LIGHT value is pinned where the
   // token is declared — see LOCKED_TOKENS below.
+  // ✨ 16 Nov 2026 (clean warm look, owner "yes the template looks good"): the bar is a FLOATING WHITE PILL with its
+  // own lift and the active item is a FILLED terracotta pill. The fill moved from the dock onto the bar, and the lift
+  // is a token too — both still read only tokens with a dark pair.
   "background: 'var(--sn-dock-bg)'",
+  "boxShadow: 'var(--sn-dock-lift)'",
   "background: 'var(--sn-dock-pill)'",
   "background: 'var(--sn-dock-press)'",
 ];
 
-// 🌗 The dock's three surfaces, as tokens (dark B1, 2026-10-23). LIGHT must stay
-// byte-for-byte the NAV-9 values (owner: light does not move by one pixel), and
-// each must have an html.dark pair — painted inline, the bar stayed light in dark
-// and its near-white labels read 1.15:1 (dark_mode_rollout_2026-10-22 §3).
+// 🌗 The dock's surfaces, as tokens (dark B1, 2026-10-23). LIGHT is pinned to the
+// owner's ruled values, and each must have an html.dark pair — painted inline, the
+// bar stayed light in dark and its near-white labels read 1.15:1
+// (dark_mode_rollout_2026-10-22 §3).
+// ✨ REWRITTEN TO THE 16 Nov 2026 RULING (DECISION_LOG "THE CLEAN WARM LOOK IS
+// APPROVED": "floating pill bottom nav, active = filled terracotta"). NAV-9's
+// frosted paper rgba(248,246,240,.92) and ink-15 % pill are superseded: the bar
+// is the FRAME's white and the active pill is the ACCENT, both read as tokens so
+// Admin › Colours moves them with every other frame and toggle. The press-light
+// keeps its NAV-9 value — it now blooms over the filled pill.
 const GLOBALS_ABS = join(WEB_ROOT, 'app/globals.css');
 const LOCKED_TOKENS = {
-  '--sn-dock-bg': 'rgba(248, 246, 240, 0.92)',
-  '--sn-dock-pill': 'rgba(30, 34, 41, 0.15)',
+  '--sn-dock-bg': 'rgb(var(--sn-frame-bg))',
+  '--sn-dock-pill': 'rgb(var(--sn-accent))',
+  '--sn-dock-on-pill': 'rgb(var(--sn-on-accent))',
   '--sn-dock-press': 'rgba(255, 255, 255, 0.95)',
 };
 
@@ -156,8 +167,8 @@ if (globalsCss) {
     const got = valueIn(rootBodies, name);
     if (got !== light) {
       errors.push(
-        `app/globals.css :root ${name} is ${got === null ? 'missing' : `\`${got}\``}; NAV-9 locks it at \`${light}\`.\n` +
-          `    → light must not move (the press-light reads against this surface).`,
+        `app/globals.css :root ${name} is ${got === null ? 'missing' : `\`${got}\``}; the bar is locked at \`${light}\` (NAV-9, rewritten 16 Nov 2026).\n` +
+          `    → light must not move without an owner ruling (the bar reads the frame + accent tokens).`,
       );
     }
     const dark = valueIn(darkBodies, name);

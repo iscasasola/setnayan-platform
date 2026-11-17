@@ -17,7 +17,9 @@ import { ServiceCardView } from '@/app/_components/service-card-view';
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { EmptyShelf } from './empty-shelf';
 import { StoryCard } from './front-door-feed';
+import { dayMonth } from '@/lib/format-date';
 import type {
+  DiscoverArticle,
   DiscoverInspirationPart,
   DiscoverInspirationPhoto,
   DiscoverServiceCard,
@@ -103,16 +105,49 @@ export function EventStoriesShelf({ stories }: { stories: FrontDoorStory[] | nul
   );
 }
 
-/* ── 5 · ARTICLES — a placeholder until the articles return ───────────────────────────────────────── */
+/* ── 5 · ARTICLES — every public post, newest first (Build 3 of Find · Build · Book, owner 17 Nov) ──────────── */
 
-export function ArticlesShelf() {
+/**
+ * "17 Nov" — the drawing's byline date, from the shared `dayMonth` (day first, built by hand, never by a locale).
+ * The timestamp is turned into its Manila calendar day first, so a post at 11 pm is not filed under tomorrow.
+ */
+function postedOn(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const manilaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  return dayMonth(manilaDay);
+}
+
+export function ArticlesShelf({ shelf }: { shelf: Shelf<DiscoverArticle> }) {
   return (
-    // Hidden in the store app until the articles return (`data-coming-soon`, the store-shell rule).
-    <section data-discover-part="articles" data-coming-soon="">
+    <section data-discover-part="articles">
       <h2 className="fd-sechead">
         <span>Articles</span>
       </h2>
-      <EmptyShelf line="Articles are coming soon." />
+      {shelf.status === 'unavailable' ? (
+        <EmptyShelf line="Articles couldn’t load just now — try again in a moment." />
+      ) : shelf.items.length === 0 ? (
+        <EmptyShelf line="No articles yet — the first public posts will land right here." />
+      ) : (
+        <ul className="fd-arts" data-discover-articles="">
+          {shelf.items.map((a) => {
+            const when = postedOn(a.postedAt);
+            return (
+              <li key={a.key} className="fd-art">
+                <Link href={a.href} className="fd-art-go" data-discover-article="">
+                  <small className="fd-art-by">
+                    {a.isJournal ? <b className="fd-art-jby">{a.by}</b> : a.by}
+                    {when ? ` · ${when}` : null}
+                  </small>
+                  <b className="fd-art-title">{a.title}</b>
+                  {a.line ? <small className="fd-art-line">{a.line}</small> : null}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

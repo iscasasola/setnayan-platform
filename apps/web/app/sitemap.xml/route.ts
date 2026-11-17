@@ -14,6 +14,7 @@
  *   /sitemap-venues.xml       ← venue_directory rows · lastmod = created_at
  *   /sitemap-vendors.xml      ← verified vendor_profiles · lastmod = updated_at
  *   /sitemap-weddings.xml     ← Phase 4 editorials (empty until feature ships)
+ *   /sitemap-articles.xml     ← Discover's public articles · lastmod = updated_at (17 Nov)
  *
  * The Next.js `app/sitemap.ts` convention collides with manual route
  * handlers at the same URL — that file was deleted in the same PR.
@@ -56,6 +57,8 @@ export async function GET(): Promise<Response> {
     // that pass the gate in lib/supplier-landing.ts. Added 2026-09-27.
     { slug: 'sitemap-suppliers.xml', lastmod: now },
     { slug: 'sitemap-weddings.xml', lastmod: now },
+    // Discover's articles — every public post from the moment it posts (owner 17 Nov, Build 3). lib/articles-index.ts.
+    { slug: 'sitemap-articles.xml', lastmod: now },
   ];
 
   const sitemapTags = children

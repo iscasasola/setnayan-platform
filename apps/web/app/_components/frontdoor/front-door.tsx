@@ -44,7 +44,7 @@ import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-suppli
 import type { MarketplaceSearchParams } from '@/app/(shell)/explore/_lib/marketplace-view';
 import { redirect } from 'next/navigation';
 import { discoverViewOf, eventStoriesShelfInput, signedOutRedirect } from '@/lib/discover-six-parts';
-import { loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
+import { loadDiscoverArticles, loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
 import {
   ArticlesShelf,
   EventStoriesShelf,
@@ -123,7 +123,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     once more with the event type.
   */
   const feedShelves = account.signedIn && !searchQuery && !supplierView;
-  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions] = await Promise.all([
+  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions, articleShelf] = await Promise.all([
     feedShelves && !ownView ? loadDiscoverServiceCards(8) : null,
     feedShelves && view.kind !== 'stories'
       ? loadDiscoverInspiration(view.kind === 'inspiration' ? 48 : 12, view.kind === 'inspiration' ? view.part : null)
@@ -131,6 +131,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     feedShelves && view.kind !== 'stories' ? resolveRailStudioEvent() : null,
     feedShelves && view.kind === 'stories' ? loadPublishedShowcasesResult(48).catch(() => null) : null,
     feedShelves && view.kind === 'stories' ? getEventTypeVocab() : [],
+    // Part 5 · Articles (Build 3, owner 17 Nov) — the same one read the sitemap and llms.txt list.
+    feedShelves && !ownView ? loadDiscoverArticles(4) : null,
   ]);
   const saveHref = studio ? moodBoardSaveHref(studio) : null;
 
@@ -389,7 +391,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
                 <>
                   {serviceCardShelf ? <ServiceCardsShelf shelf={serviceCardShelf} /> : null}
                   <EventStoriesShelf stories={eventStoriesShelfInput(data.stories, data.editorialsMeasured)} />
-                  <ArticlesShelf />
+                  {articleShelf ? <ArticlesShelf shelf={articleShelf} /> : null}
                   {inspirationShelf ? <InspirationShelf shelf={inspirationShelf} saveHref={saveHref} /> : null}
                 </>
               }

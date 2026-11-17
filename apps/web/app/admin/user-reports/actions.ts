@@ -12,6 +12,7 @@ import { deletePageCopyAfterTakedown } from '@/lib/supplier-page-notice.server';
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { CHAPTER_HIDE_NOTE } from '@/lib/articles-index';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
 //   · hidden     — hide the reported photo (papic_photos OR papic_guest_captures
@@ -107,6 +108,11 @@ export async function resolveReport(formData: FormData) {
       .eq('public_id', report.target_id as string);
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('stories');
+    // 🔎 A HIDDEN ARTICLE LEAVES GOOGLE AND AI ANSWERS TOO (owner 17 Nov): its page turns noindex and it leaves
+    // sitemap-articles.xml, Discover and llms.txt — all of them read this report's note (lib/articles-index.ts
+    // `hiddenChapterIds`). Refresh the two crawler files now rather than at their hourly revalidate.
+    revalidatePath('/sitemap-articles.xml');
+    revalidatePath('/llms.txt');
   }
 
   if (action === 'block') {
@@ -175,12 +181,14 @@ export async function resolveReport(formData: FormData) {
     );
   }
 
-  // A chapter "hide" is really an unfeature (the content stays on the
-  // creator's own page) — say so honestly in the resolution note. A photo
+  // A chapter "hide" unfeatures it AND takes it off Discover, the sitemap and
+  // search engines (the content stays on the creator's own page) — say so
+  // honestly in the resolution note, which is also what marks it hidden
+  // (CHAPTER_HIDE_NOTE, lib/articles-index.ts). A photo
   // "hide" that found no photograph says THAT, never "Content hidden".
   const actionNote =
     action === 'hide' && report.target_type === 'chapter'
-      ? 'Removed from the Real Stories Storytellers shelf by Setnayan moderator (stays on the creator’s own page).'
+      ? CHAPTER_HIDE_NOTE
       : action === 'hide' && report.target_type === 'photo' && !hiddenIn
         ? 'Nothing hidden — the reported photo was not found in this event.'
         : ACTION_NOTE[action];

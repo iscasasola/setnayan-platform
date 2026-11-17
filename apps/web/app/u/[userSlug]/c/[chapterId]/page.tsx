@@ -21,6 +21,15 @@ import { ChapterEmbedFrame } from '@/app/dashboard/(account)/creator/_components
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 import { fetchAudienceRatesForCreatorVendors } from '@/lib/inquiry-attribution';
+import { articleIsHidden } from '@/lib/articles-index.server';
+import {
+  articleHref,
+  articleRobots,
+  articleStructuredData,
+  articleSummary,
+  jsonLdText,
+  type IndexedArticle,
+} from '@/lib/articles-index';
 
 // Creator "Adventure Chapter" — PUBLIC chapter detail (CP-3 / CP-4).
 //
@@ -61,6 +70,25 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
+/** This page's article, as the search-engine files see it (lib/articles-index.ts) — one shape for all of them. */
+function indexedArticleOf(
+  user: { slug: string | null; display_name: string | null },
+  userSlug: string,
+  chapter: { public_id: string; title: string; body: string | null; published_at: string | null },
+): IndexedArticle {
+  const slug = user.slug ?? userSlug;
+  return {
+    publicId: chapter.public_id,
+    title: chapter.title,
+    authorSlug: slug,
+    authorName: user.display_name?.trim() || slug,
+    isJournal: false,
+    publishedAt: chapter.published_at,
+    updatedAt: null,
+    summary: articleSummary(chapter.body),
+  };
+}
+
 async function resolve(userSlug: string, chapterId: string) {
   const profile = await resolvePublicProfile(userSlug);
   if (!profile) return null;
@@ -83,12 +111,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const name = resolved.user.display_name?.trim() || 'Setnayan';
   const title = `${resolved.chapter.title} · ${name}`;
-  // A chapter is a shareable surface, but the individual event/vendor pages carry
-  // the real SEO — keep it out of the index, allow follow so the embed/vendor
-  // links are crawled. OG uses the CHAPTER's own card (share-asset completion
+  // 🔎 A PUBLIC ARTICLE IS INDEXED FROM THE MOMENT IT POSTS (owner 17 Nov, DECISION_LOG "DISCOVER ARTICLES ARE FOUND
+  // ON GOOGLE AND BY AI ANSWER ENGINES"; drawing v16 Q8). This page used to keep every chapter out of the index
+  // ("the event/vendor pages carry the real SEO") — that is overturned. Only a post an admin HID turns noindex
+  // (`articleRobots`); a removed one has no page at all (the branch above). The canonical is `articleHref`, the
+  // same address the sitemap and llms.txt list. OG uses the CHAPTER's own card (share-asset completion
   // 2026-07-17) — title + storyteller byline + Storyteller badge over the
   // YouTube-derived thumb — under the same public gate as this metadata (the
   // route independently re-gates and 302s to the brand card when not public).
+  const hidden = await articleIsHidden(resolved.chapter.public_id);
+  const canonical = `${SITE_URL}${articleHref(indexedArticleOf(resolved.user, userSlug, resolved.chapter))}`;
   const ogImage = {
     url: `${SITE_URL}/api/og/chapter/${resolved.chapter.public_id}`,
     width: 1200,
@@ -97,7 +129,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
   return {
     title,
-    robots: { index: false, follow: true },
+    robots: articleRobots(hidden),
+    alternates: { canonical },
     openGraph: {
       type: 'article',
       title,
@@ -180,6 +213,13 @@ export default async function ChapterDetailPage({ params }: Props) {
   return (
     <main className="uchap">
       <style>{UCHAP_CSS}</style>
+      {/* A member's post is a DiscussionForumPosting (owner 17 Nov). Replies join it as Comments when Build 2 ships them. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLdText(articleStructuredData(indexedArticleOf(user, userSlug, chapter), SITE_URL)),
+        }}
+      />
 
       {/* Audience view beacon — counts one public chapter view out of band,
           keeping this page ISR-cacheable. The RPC self-gates to published +

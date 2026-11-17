@@ -3275,3 +3275,50 @@ a.fd-insp-shop:hover {
 .fd-insp-save:hover {
   text-decoration: underline;
 }
+
+/* Articles (Build 3 of Find · Build · Book, owner 17 Nov) — one row per post, our Reddit, cleaner: byline · date,
+   the title, its first line. Text and links only; no picture. */
+.fd-arts {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  border: 1px solid var(--fd-line);
+  border-radius: var(--m-r-md);
+  background: var(--fd-cream);
+}
+.fd-art + .fd-art {
+  border-top: 1px solid var(--fd-line);
+}
+.fd-art-go {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.fd-art-go:hover .fd-art-title {
+  text-decoration: underline;
+}
+.fd-art-by {
+  font-size: 12.5px;
+  color: var(--fd-m1);
+}
+.fd-art-jby {
+  font-weight: 700;
+  color: var(--fd-link);
+}
+.fd-art-title {
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--fd-ink);
+}
+.fd-art-line {
+  font-size: 13.5px;
+  color: var(--fd-m1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

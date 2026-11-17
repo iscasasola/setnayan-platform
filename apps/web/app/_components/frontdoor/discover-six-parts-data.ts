@@ -8,7 +8,11 @@ import 'server-only';
  * viewer only (`front-door.tsx`). Each degrades on its own: a refused read is `unavailable` and the shelf SAYS it
  * could not load — never an empty shelf that reads as "nothing here".
  *
- * Both are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
+ * Articles (5) — Build 3 of Find · Build · Book (owner 17 Nov): every public article, newest first, the moment it
+ * posts (Q6) — the same one read the sitemap and llms.txt list (`readPublicArticles`), so a hidden post leaves all
+ * three together.
+ *
+ * Service cards and Inspiration are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
  * Discover-only copy of it):
  *   · Service cards — the marketplace's own card read (`fetchMarketplaceServiceCards`, findable), drawn with
  *     the shipped `ServiceCardView` from the supplier view's own faces (`readMarketplaceCardFaces`): prices from the
@@ -30,6 +34,8 @@ import { libraryPartLabel } from '@/lib/moodboard-gallery-upload';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { inspirationPartsInOrder } from '@/lib/inspiration-parts';
 import { readTagEventLines, shownTagFilter } from '@/lib/inspiration-tags.server';
+import { readPublicArticles } from '@/lib/articles-index.server';
+import { articleHref } from '@/lib/articles-index';
 
 export type Shelf<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
 
@@ -143,4 +149,38 @@ export async function loadDiscoverInspiration(
     logQueryError('discover.inspiration', error, {}, 'graceful_degrade');
     return { status: 'unavailable', parts };
   }
+}
+
+/* ── 5 · ARTICLES ───────────────────────────────────────────────────────────────────────────────────── */
+
+export type DiscoverArticle = {
+  key: string;
+  title: string;
+  href: string;
+  /** "Setnayan Journal" for a Journal post, else the name the author posts under. */
+  by: string;
+  isJournal: boolean;
+  /** ISO — drawn as a date. */
+  postedAt: string | null;
+  /** The first paragraph, one line. */
+  line: string | null;
+};
+
+/** The newest public articles (Build 3, 17 Nov). Shown at once (Q6); a hidden one is left out with the sitemap's. */
+export async function loadDiscoverArticles(limit = 4): Promise<Shelf<DiscoverArticle>> {
+  // Over-read: a chapter whose author's profile is private is dropped after the read, never shown.
+  const { ok, items } = await readPublicArticles(limit * 4);
+  if (!ok) return { status: 'unavailable' };
+  return {
+    status: 'ok',
+    items: items.slice(0, limit).map((a) => ({
+      key: a.publicId,
+      title: a.title,
+      href: articleHref(a),
+      by: a.isJournal ? 'Setnayan Journal' : a.authorName,
+      isJournal: a.isJournal,
+      postedAt: a.publishedAt,
+      line: a.summary,
+    })),
+  };
 }

@@ -785,7 +785,8 @@ export async function reassignCategoryPool(formData: FormData): Promise<void> {
       .from('vendor_schedule_pool_categories')
       .select('category_key', { count: 'exact', head: true })
       .eq('pool_id', fromPool);
-    // 🔎 A refused count is not 0 — read as 0 it switched off a schedule that still had services.
+    // 🔎 A refused count is not 0 — read as 0 it switched off a schedule that still had services. Left on instead.
+    if (countErr) console.error('[calendar] pool category count failed; schedule left on:', countErr.message);
     if (!countErr && count === 0) {
       await supabase
         .from('vendor_schedule_pools')

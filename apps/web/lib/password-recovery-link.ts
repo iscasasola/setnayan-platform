@@ -82,3 +82,41 @@ export async function sendPasswordRecoveryLink(
 
   return { sent: result.ok };
 }
+
+/**
+ * W1-B24 (walk 2, 16 Nov 2026) — a NEW sign-in link after a dead one, the same shape as the recovery link above: the
+ * admin API mints a `magiclink` token (no mail from GoTrue), we spell our own /auth/confirm URL, Resend delivers it.
+ * Not bound to a browser, so the phone that could not finish the first link can finish this one; verifying it also
+ * confirms an address that never got confirmed. `{ sent: false }` for "no such account" and "Resend refused" alike —
+ * the caller shows one neutral answer.
+ */
+export async function sendSignInLink(rawEmail: string, next: string): Promise<{ sent: boolean }> {
+  const email = rawEmail.trim();
+  if (!email) return { sent: false };
+  let tokenHash: string | undefined;
+  try {
+    const { data, error } = await createAdminClient().auth.admin.generateLink({ type: 'magiclink', email });
+    if (error) return { sent: false };
+    tokenHash = data?.properties?.hashed_token;
+  } catch {
+    return { sent: false };
+  }
+  if (!tokenHash) return { sent: false };
+  const link = buildConfirmUrl({ appUrl: appUrl(), tokenHash, type: 'magiclink', next });
+  const result = await sendEmail({
+    to: email,
+    subject: 'Your new Setnayan link',
+    text: [
+      `Here is a new link for your Setnayan account. It works once, on any device —`,
+      `your phone or your computer, whichever you open it on:`,
+      ``,
+      link,
+      ``,
+      `If you didn't ask for this, you can ignore this email.`,
+      ``,
+      `—`,
+      `Set na 'yan.`,
+    ].join('\n'),
+  });
+  return { sent: result.ok };
+}

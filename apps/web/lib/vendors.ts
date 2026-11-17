@@ -788,11 +788,13 @@ export function isVendorNameRevealed(
  * already-revealed path.
  */
 export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
-  if (isVendorNameRevealed(input)) {
-    return input.business_name && input.business_name.length > 0
-      ? input.business_name
-      : 'Supplier';
-  }
+  // 🏷 A SHOP SHOWS ITS REAL NAME EVERYWHERE (owner ruling 2026-11-16 (15), widening 7fbff0cd item 9 from the explore
+  // card to every surface): an UNVERIFIED shop is named by its stored business name on the public shop page, its
+  // <title>/metadata, the marketplace cards and everywhere else — only the check and the Verified seal are missing.
+  // No "<City> <Category> #N" screen name and no "<Service> · <City>" stub while a real name is on file.
+  const real = (input.business_name ?? '').trim();
+  if (real.length > 0) return real;
+  if (isVendorNameRevealed(input)) return 'Supplier';
   // Prefer the stored screen_name (Bark format with monotonic ID per
   // (city, canonical_service) namespace per CLAUDE.md 2026-05-30
   // refinement row · e.g., "Manila Wedding Photographer #4218") when
@@ -810,6 +812,15 @@ export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
   return input.location_city
     ? `${taxonomyLabel} · ${input.location_city}`
     : taxonomyLabel;
+}
+
+/**
+ * TRUE only when a surface has no real shop name to draw (no business name on file, or the read withheld it), so the
+ * label `resolveVendorDisplayName` returned is a stand-in. Since ruling 2026-11-16 (15) this is NOT "the shop is
+ * unverified" — an unverified shop with a name is named.
+ */
+export function isShopNameWithheld(input: Pick<VendorAnonymityInput, 'business_name'>): boolean {
+  return (input.business_name ?? '').trim().length === 0;
 }
 
 /**

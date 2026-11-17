@@ -182,12 +182,15 @@ test('the switcher\'s Home carries the bypass', () => {
   );
 });
 
-test('the create-event redirect for empty console accounts is untouched', () => {
+test('the empty-console redirect still fires — to the person\'s own console, never into the @modal intercept', () => {
   // Guard against over-correction: the OTHER landing branch was never the bug,
   // and quietly removing it would strand a vendor with no events on a blank board.
+  // W1-B25 (walk 2, 16 Nov 2026): it used to send them to /dashboard/create-event, which `@modal/(.)create-event`
+  // intercepts on a client navigation and draws over THIS page, which redirected again — a replaceState loop. The
+  // branch stays; its target is the console (a supplier's shop, an admin's HQ). See a-console-user-never-loops-….
   assert.match(
     launcher(),
-    /active\.length\s*===\s*0\s*&&\s*hasConsole[\s\S]{0,80}redirect\(['"]\/dashboard\/create-event['"]\)/,
+    /active\.length\s*===\s*0\s*&&\s*hasConsole[\s\S]{0,1200}redirect\(roles\.hasVendorAccess \? '\/vendor-dashboard' : '\/admin'\)/,
     'The 0-event console redirect was removed. That branch was correct — only the ' +
       'single-event one was over-firing.',
   );

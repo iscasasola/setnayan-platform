@@ -21,6 +21,9 @@
  *   · Dots show the position (decorative — each card is labelled "N of M"); `dots={false}` draws none.
  *   · `advanceMs={0}` = no auto-advance (THE ONE BUILD 8 Nov: Shop's Analytics, Today's next events) — the loop stays.
  *   · Reduced motion: no auto-advance and no smooth scrolling; a swipe still loops.
+ *   · 🖥 `rowFrom="xl"` (owner "Yes, all 8", 16 Nov 2026 — event dashboard drawing v13 Q1, Guests' three summary cards
+ *     "in one row on a computer"): from 1280 the real cards sit side by side in one row — no scroller, no copies, no
+ *     dots, nothing moves. Below 1280 it is the carousel above, unchanged. Absent: the carousel at every width.
  *
  * Writes the dots and the settled index as ATTRIBUTES, never React state: a scroll never re-renders the cards.
  * 🔒 lib/every-carousel-snaps-to-centre-and-loops.test.ts
@@ -74,6 +77,7 @@ export function SnapCarousel({
   attrs,
   holdKey = null,
   dots = true,
+  rowFrom,
 }: {
   cards: CarouselCard[];
   /** The region's name ("Guest summary"). */
@@ -90,6 +94,8 @@ export function SnapCarousel({
   attrs?: Record<string, string>;
   /** ✋ The card to hold in the centre (its `key`) — no rotation while set. `null`/absent: the usual rotation. */
   holdKey?: string | null;
+  /** 🖥 From this width the cards sit in one row, all in sight (`xl` = 1280). Absent: a carousel at every width. */
+  rowFrom?: 'xl';
 }) {
   const n = cards.length;
   const heldIndex = holdKey === null ? -1 : cards.findIndex((c) => c.key === holdKey);
@@ -258,6 +264,7 @@ export function SnapCarousel({
       aria-label={label}
       data-snap-carousel=""
       data-snap-held={heldIndex >= 0 ? holdKey! : undefined}
+      data-snap-row-from={rowFrom}
       {...attrs}
     >
       <div ref={trackRef} className={styles.track} data-snap-track="" data-looping={looping ? '' : undefined}>

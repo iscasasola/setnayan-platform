@@ -1171,6 +1171,7 @@ export async function renderVendorBySlug({
       giftPoints: null,
       trustedBy: null,
     })),
+  );
   /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
      blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
   const cardBadgesP = startRead(

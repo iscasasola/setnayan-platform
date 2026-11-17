@@ -669,11 +669,18 @@ export async function searchCategoryVendors(input: {
 
   // Vendors already in this event's picks (RLS-bounded to the user's events)
   // → render "✓ Added" instead of an Add button.
-  const { data: pickRows } = await supabase
+  const { data: pickRows, error: pickErr } = await supabase
     .from('event_vendors')
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .not('marketplace_vendor_id', 'is', null);
+  // ⛔ A refused read used to fall through as "nothing added": every supplier the couple
+  // had already added was drawn with a fresh Add button instead of "✓ Added". Same
+  // answer as the other refusals in this action — say the list could not be read.
+  if (pickErr) {
+    logQueryError('searchCategoryVendors.picks', pickErr, { event_id: eventId }, 'graceful_degrade');
+    return { ...EMPTY, unreadable: true };
+  }
   const addedIds = new Set<string>(
     (pickRows ?? [])
       .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)

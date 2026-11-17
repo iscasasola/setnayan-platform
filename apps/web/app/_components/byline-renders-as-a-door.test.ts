@@ -85,6 +85,7 @@ const FRONT_DOOR_DATA = {
   articleTotal: 0,
   stories: [STORY],
   storyCount: 1,
+  editorialsMeasured: true,
   shops: [],
   liveShopCount: 0,
   realShopCount: 0,

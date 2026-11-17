@@ -43,7 +43,7 @@ import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
 import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
 import type { MarketplaceSearchParams } from '@/app/(shell)/explore/_lib/marketplace-view';
 import { redirect } from 'next/navigation';
-import { discoverViewOf, signedOutRedirect } from '@/lib/discover-six-parts';
+import { discoverViewOf, eventStoriesShelfInput, signedOutRedirect } from '@/lib/discover-six-parts';
 import { loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
 import {
   ArticlesShelf,
@@ -388,7 +388,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
               afterShops={
                 <>
                   {serviceCardShelf ? <ServiceCardsShelf shelf={serviceCardShelf} /> : null}
-                  <EventStoriesShelf stories={data.stories} />
+                  <EventStoriesShelf stories={eventStoriesShelfInput(data.stories, data.editorialsMeasured)} />
                   <ArticlesShelf />
                   {inspirationShelf ? <InspirationShelf shelf={inspirationShelf} saveHref={saveHref} /> : null}
                 </>

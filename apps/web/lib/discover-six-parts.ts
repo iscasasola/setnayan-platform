@@ -26,7 +26,11 @@ function firstOf(v: string | string[] | undefined): string {
   return typeof one === 'string' ? one.trim() : '';
 }
 
-/** Event stories' "See all" — Sort ▾. "Most read" waits on a read count stories do not have yet. */
+/**
+ * Event stories' "See all" — Sort ▾. NEWEST ONLY, on purpose: the drawing also has "Most read", but no read count
+ * ships for an event story — Event stories are editorials, and an editorial's `viewCount` is `null` BY DESIGN (a
+ * couple's write-up never carries a public counter; `FrontDoorStory.viewCount`). Inventing one is an owner call.
+ */
 export const STORY_ORDERS = [{ value: 'newest', label: 'Newest' }] as const;
 export type StoryOrder = (typeof STORY_ORDERS)[number]['value'];
 
@@ -65,4 +69,13 @@ export function signedOutRedirect(params: ParamBag): string | null {
   }
   const query = qs.toString();
   return signInBackHereHref(query ? `/?${query}` : '/');
+}
+
+/**
+ * What the Event stories shelf is handed: the stories when the read ANSWERED, `null` when it did not. An error is not
+ * empty — `null` draws "Stories couldn't load", `[]` draws "The first event stories will land right here". The same
+ * rule as `fetchGuestsByEventMeasured` (`lib/guests.ts`): the rows of a refused read are not the truth.
+ */
+export function eventStoriesShelfInput<S>(stories: S[], measured: boolean): S[] | null {
+  return measured ? stories : null;
 }

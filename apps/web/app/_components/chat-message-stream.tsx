@@ -2425,7 +2425,11 @@ export function ChatMessageStream({
                 openSheetAtStart={labFileRemove?.openSheetFor === m.message_id}
                 onRemoved={(done) => fileRemoved(m.message_id, done)}
               >
-              <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
+              {/* 📐 `w-full` IS LOAD-BEARING (17 Nov): the <li> is a column flex with items-end/-start, so without it this
+                  row shrinks to its content and the bubble's `max-w-[75%]` resolves against THAT — "Hello" drew as
+                  "He / llo". Full width, the 75 % is of the thread. Your own file keeps its swipe's sizing.
+                  🔒 lib/nothing-is-squeezed-by-its-own-content.test.ts */}
+              <div className={`flex max-w-full ${ownFile ? '' : 'w-full'} items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
                   shopLogoUrl && !shopLogoBroken && m.sender_role === 'vendor' ? (

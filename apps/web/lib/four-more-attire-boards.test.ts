@@ -56,7 +56,7 @@ import { fallbackInspirationParts } from './inspiration-parts';
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
     if (request === 'server-only' || request === 'client-only') return {};
-    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }) };
+    if (request === 'next/navigation') return { useRouter: () => ({ refresh() {} }), usePathname: () => '/dashboard/e/studio/mood-board' };
     if (/(?:^|\/)(?:actions|wizard-actions|hub-draft-actions|colour-access-actions)$/.test(request)) {
       return new Proxy({}, { get: () => async () => ({}) });
     }
@@ -160,6 +160,9 @@ const boardOrder = (markup: string) => [...markup.matchAll(/data-mood-board-atti
 test('1 · the four are stored slots, each on the trades that dress those people — and no children’s tile is invented', () => {
   for (const k of FOUR) assert.ok((MOODBOARD_SLOT_KEYS as readonly string[]).includes(k), `${k} is not a stored slot`);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridesmaids], ['womens_attire', 'filipiniana_barongs']);
+  // The SEEDED categories. T1 part 2 (20271350082350) merged Men's Attire into Entourage & Sponsors (`womens_attire`);
+  // the four boards still reach only their own people because each keeps the services its seeded categories held
+  // before the merge (`fallbackInspirationParts`, `mergedFrom`) — the reach checks below are what prove it.
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.groomsmen], ['mens_attire', 'filipiniana_barongs']);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.flower_girl], ['womens_attire', 'filipiniana_barongs']);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.ring_bearer], ['mens_attire', 'filipiniana_barongs']);
@@ -176,8 +179,8 @@ test('1 · the four are stored slots, each on the trades that dress those people
   assert.ok(reach('ring_bearer').has('ring_bearer_suit') && !reach('ring_bearer').has('flower_girl_dress'), 'Ring bearer does not reach ring-bearer suits (or reaches the flower girl’s)');
   /* 🧒 The honest answer about children's attire: no tile of its own — the two services live under the grown-ups' tiles. */
   assert.ok(!Object.keys(WEDDING_TILE_LABEL).some((t) => /child|kids?_attire|flower_girl|ring_bearer/.test(t)), 'a children’s-attire tile now exists — give Flower girl and Ring bearer that tile');
-  assert.ok(canonicalServicesForTile('womens_attire').includes('flower_girl_dress'), 'the flower girl’s dress is no longer under Women’s Attire');
-  assert.ok(canonicalServicesForTile('mens_attire').includes('ring_bearer_suit'), 'the ring bearer’s suit is no longer under Men’s Attire');
+  assert.ok(canonicalServicesForTile('womens_attire').includes('flower_girl_dress'), 'the flower girl’s dress is no longer under Entourage & Sponsors');
+  assert.ok(canonicalServicesForTile('womens_attire').includes('ring_bearer_suit'), 'the ring bearer’s suit is no longer under Entourage & Sponsors');
 });
 
 /* ── 2 ─────────────────────────────────────────────────────────────────────── */

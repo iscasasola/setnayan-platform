@@ -202,25 +202,29 @@ const HAND =
   'M9 11V5.5a1.5 1.5 0 0 1 3 0V10l.5-.1a1.5 1.5 0 0 1 2 1.2l.1.4a1.5 1.5 0 0 1 2.4.9V13a1.4 1.4 0 0 1 2.5.9v2.6c0 3-2.4 5.5-5.4 5.5h-1.4a5.5 5.5 0 0 1-4.6-2.5L5.4 15a1.4 1.4 0 0 1 2.2-1.8L9 14.6';
 
 /* The sample's own CSS, scoped to `.sn-spot-*`. Colours come from the --m-* family so the tip
-   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both. */
+   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both.
+   🧱 THE CARD IS SOLID (walker W1-B14, 16 Nov 2026: "the tour card is see-through over text"): its fill is ONE
+   token, `--sn-spot-card` = the opaque paper (#FFFFFF light · #232019 dark), never a glass or scrim token, and it
+   takes no backdrop blur — the words under it never show through. 🔒 lib/the-supplier-tour-plays-once.test.ts */
 const CSS_TEXT = `
+[data-sn-spot]{--sn-spot-card:var(--m-paper,#fff)}
 .sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px var(--sn-scrim);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--sn-spot-card);-webkit-backdrop-filter:none;backdrop-filter:none;isolation:isolate;color:var(--m-ink);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-brand{margin-bottom:8px}
-.sn-spot-step{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-orange,#A9834B);margin-bottom:2px}
+.sn-spot-step{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-orange);margin-bottom:2px}
 .sn-spot-tip h4{margin:0 0 4px;font-size:17px;font-weight:600;line-height:1.3}
-.sn-spot-tip p{margin:0 0 12px;font-size:14px;line-height:1.4;color:var(--m-slate,#3a3e45)}
-.sn-spot-hint{font-size:13px;color:var(--m-mulberry,#C24E25);font-weight:600;margin:-6px 0 10px}
+.sn-spot-tip p{margin:0 0 12px;font-size:14px;line-height:1.4;color:var(--m-slate)}
+.sn-spot-hint{font-size:13px;color:var(--m-mulberry);font-weight:600;margin:-6px 0 10px}
 .sn-spot-row{display:flex;justify-content:space-between;align-items:center}
-.sn-spot-prog{height:4px;border-radius:var(--m-r-xs,4px);background:var(--m-line,#efe9df);flex:1;margin:0 12px;overflow:hidden}
-.sn-spot-prog i{display:block;height:100%;background:var(--m-mulberry,#C24E25);transition:width .5s}
-.sn-spot-skip{background:none;border:0;color:var(--m-slate-2,#6b6f76);font:inherit;font-size:14px;min-height:44px;padding:0 4px;cursor:pointer}
-.sn-spot-go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:var(--m-r-full,999px);font:inherit;font-weight:600;font-size:14px;border:0;background:var(--m-ink,#1e2229);color:var(--m-paper,#fff);cursor:pointer}
+.sn-spot-prog{height:4px;border-radius:var(--m-r-xs,4px);background:var(--m-line);flex:1;margin:0 12px;overflow:hidden}
+.sn-spot-prog i{display:block;height:100%;background:var(--m-mulberry);transition:width .5s}
+.sn-spot-skip{background:none;border:0;color:var(--m-slate-2);font:inherit;font-size:14px;min-height:44px;padding:0 4px;cursor:pointer}
+.sn-spot-go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:var(--m-r-full,999px);font:inherit;font-weight:600;font-size:14px;border:0;background:var(--m-ink);color:var(--m-paper,#fff);cursor:pointer}
 .sn-spot-finger{position:fixed;z-index:2147483002;width:34px;height:34px;pointer-events:none;opacity:0;transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),opacity .3s}
 .sn-spot-finger.tap{animation:sn-spot-tap .9s ease-in-out infinite}
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
@@ -626,7 +630,7 @@ export function SpotlightTour({
         {step.welcome ? (
           /* The mark, larger — this once (prototype P4). */
           <div className="sn-spot-brand" data-spot-welcome="">
-            <Wordmark size={18} color="var(--m-ink,#1e2229)" />
+            <Wordmark size={18} color="var(--m-ink)" />
           </div>
         ) : null}
         <div className="sn-spot-step">

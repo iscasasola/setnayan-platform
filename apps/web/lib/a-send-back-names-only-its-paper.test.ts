@@ -13,6 +13,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { paperState } from '@/lib/paper-intake-shared';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -127,9 +128,12 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
     2,
     'rejectApplication and the work list’s "Needs a fix" must both name their papers',
   );
-  assert.match(actions, /sentBackUploads = markSentBack\(/);
-  assert.match(actions, /if \(!sentBackUploads\) \{\s*return \{ ok: false, error: 'Pick the paper that needs a new copy\.' \};/);
-  assert.match(actions, /if \(sentBackUploads\) updatePayload\.doc_uploads = sentBackUploads;/, 'the marker is not written with the status');
+  // The decision engine lives in lib/verification-decision.server.ts (moved out of the 'use server' file, #7624) —
+  // the admin actions and the automatic path both write through it.
+  const engine = code('lib/verification-decision.server.ts');
+  assert.match(engine, /sentBackUploads = markSentBack\(/);
+  assert.match(engine, /if \(!sentBackUploads\) \{\s*return \{ ok: false, error: 'Pick the paper that needs a new copy\.' \};/);
+  assert.match(engine, /if \(sentBackUploads\) updatePayload\.doc_uploads = sentBackUploads;/, 'the marker is not written with the status');
   // The two forms offer a tick per required paper.
   for (const rel of ['app/admin/verify/page.tsx', 'app/admin/work/_components/supplier-inbox.tsx']) {
     const src = code(rel);
@@ -141,12 +145,19 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
   assert.match(docs, /status === 'rejected' \? seedDraftAfterSendBack\(/);
   assert.match(docs, /doc_uploads: seed,/);
   // The reason is drawn on the named paper, and the one line above the rows is only for an old send-back.
-  assert.match(code('app/vendor-dashboard/shop/_components/verify-pairs.tsx'), /!paperPresent && sentBackOf\(entry\)/);
-  const rows = code('app/vendor-dashboard/_components/setup-papers.tsx');
-  assert.match(rows, /p\.reason \? `\$\{PAPER_STATE_WORD\.new_copy\} · \$\{p\.reason\}`/);
-  assert.match(rows, /&& !papers\.some\(\(p\) => p\.reason\)/, 'the reason is said above every paper again');
+  // (#7624: the paired cards became the one upload place; the line moved with them.)
+  // 🔁 RETARGETED 16 Nov 2026 (walk W1-B12, one paper one state): the reason is now the named paper's OWN state line —
+  // `paperState(…, { sentBackReason })`, said only while no new copy is filed (`lib/one-paper-one-state.test.ts`).
+  assert.match(code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), /sentBackReason: sentBackOf\(payload\.docMap\[r\.slot\] as DocUpload\)\?\.reason \?\? null/);
+  {
+    assert.equal(paperState({ attempts: 0 }, null, { sentBackReason: 'Blurry' }).text, 'Needs a new copy · Blurry');
+    assert.equal(paperState({ r2_key: 'r2://new', attempts: 0, evidence: { model: {} } }, null, { sentBackReason: 'Blurry' }).text, 'Recognised', 'the reason outlived the new copy');
+  }
+  // Today's step 5 is the same place (15 Nov 2026); its one line is only for an old send-back that named no paper.
+  const today = code('app/vendor-dashboard/_components/setup-paper-place.tsx');
+  assert.match(today, /payload\?\.status === 'rejected' && reason && !namedSendBack/, 'the reason is said above every paper again');
   // The supplier's notice names the papers too (through the one notification pipeline the bell and #7631 read).
-  assert.match(actions, /sentBackPapers:\s*input\.decision === 'rejected'/, 'the send-back notice does not name its papers');
+  assert.match(engine, /sentBackPapers:\s*input\.decision === 'rejected'/, 'the send-back notice does not name its papers');
   const notify = code('lib/vendor-status-notify.ts');
   assert.match(notify, /Needs a new copy: \$\{args\.sentBackPapers\.join\(', '\)\}/);
   assert.match(notify, /Your other papers are kept/);

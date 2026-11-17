@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { Copy, Send, Check, X, Undo2 } from 'lucide-react';
+import { Copy, Send, Check, Undo2 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { useModalA11y } from '@/lib/use-modal-a11y';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
 
 type Props = {
   guestName: string;
@@ -55,11 +55,8 @@ export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [text, setText] = useState(message ?? '');
-  const dialogRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const headingId = useId();
-
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +82,7 @@ export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-sm text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+        className="inline-flex min-h-11 items-center gap-1 text-sm text-ink/75 underline-offset-4 hover:text-ink hover:underline"
       >
         {sentAt ? (
           <Check aria-hidden className="h-3.5 w-3.5 text-mulberry" strokeWidth={2.25} />
@@ -95,111 +92,85 @@ export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props
         {sentAt ? 'Sent' : 'Send'}
       </button>
 
-      {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center p-3 focus:outline-none sm:items-center sm:p-6"
-        >
-          <OverlayBackdrop onClose={() => setOpen(false)} />
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-ink/10 bg-cream shadow-2xl">
-            <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-                  Their own invitation
-                </p>
-                <h2 id={headingId} className="font-display text-2xl italic text-ink">
-                  Send to {guestName}
-                </h2>
-                <p className="mt-1 text-xs text-ink/55">
-                  Edit freely, copy, then paste into Viber, Messenger or email.
-                  Setnayan doesn&rsquo;t send it for you &mdash; you press send.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-md p-1 text-ink/50 hover:bg-ink/5 hover:text-ink"
+      {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 3 · 6 · 9 · 13): the house Sheet (✕, Esc, the phone's Back) instead of a
+          hand-drawn overlay; grey capitals over a bold title; the empty state is one plain line; the presses are the
+          shared pills (grey Copy, the one terracotta Mark sent). */}
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+        <div className="space-y-3 px-4 pb-4 pt-3.5">
+          <div className="pr-12">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Their own invitation</p>
+            <h2 id={headingId} className="text-xl font-bold tracking-tight text-ink">
+              Send to {guestName}
+            </h2>
+            <p className="mt-1 text-[13px] text-ink/75">
+              Edit freely, copy, then paste into Viber, Messenger or email.
+              Setnayan doesn&rsquo;t send it for you &mdash; you press send.
+            </p>
+          </div>
+
+          {message === null ? (
+            /* ⚠ The honest empty state. This guest has no invitation link,
+               so there is no message to send — saying so here is the whole
+               point, because the alternative is a message that arrives
+               looking complete and opens nothing. */
+            <p className="py-2 text-sm text-ink/75">
+              This guest doesn&rsquo;t have their <em>own</em> invitation link yet,
+              so there&rsquo;s no personal message to copy. Re-issue their QR on
+              this page to give them one, then come back.
+            </p>
+          ) : (
+            <>
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={14}
+                className="input-field w-full p-3 font-sans text-sm leading-relaxed"
+              />
+              <p className="text-[13px] text-ink/75">
+                The link in this message is {guestName}&rsquo;s alone &mdash; it opens
+                their invitation and carries their QR for the day. Don&rsquo;t paste
+                the same one to everybody.
+              </p>
+            </>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
+            {message === null ? null : (
+              <ActionButton
+                tone="neutral"
+                icon={Copy}
+                label={copied ? 'Copied' : 'Copy to clipboard'}
+                onClick={copyToClipboard}
+              />
+            )}
+            {/* The guest is bound into `markSent` on the server
+                (markGuestInvitationSent.bind(null, eventId, guestId)), so no
+                guest id is posted — the bound one is the only one. */}
+            <form action={markSent}>
+              {/* The form posts the state it wants to END UP at, so the
+                  button's label and the outcome cannot drift apart. */}
+              <input type="hidden" name="sent" value={sentAt ? '0' : '1'} />
+              <SubmitButton
+                pendingLabel={sentAt ? 'Undoing…' : 'Marking sent…'}
+                className={sentAt ? 'ab ab-neutral' : 'ab ab-brand ab-main'}
               >
-                <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </button>
-            </header>
-
-            <div className="px-5 py-4">
-              {message === null ? (
-                /* ⚠ The honest empty state. This guest has no invitation link,
-                   so there is no message to send — saying so here is the whole
-                   point, because the alternative is a message that arrives
-                   looking complete and opens nothing. */
-                <p className="rounded-xl border border-dashed border-ink/25 bg-white/60 px-4 py-6 text-sm text-ink/70">
-                  This guest doesn&rsquo;t have their <em>own</em> invitation link yet,
-                  so there&rsquo;s no personal message to copy. Re-issue their QR on
-                  this page to give them one, then come back.
-                </p>
-              ) : (
-                <>
-                  <textarea
-                    ref={textareaRef}
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    rows={14}
-                    className="w-full rounded-xl border border-ink/15 bg-white/70 p-3 font-sans text-sm leading-relaxed text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
-                  />
-                  <p className="mt-2 text-xs text-ink/45">
-                    The link in this message is {guestName}&rsquo;s alone &mdash; it opens
-                    their invitation and carries their QR for the day. Don&rsquo;t paste
-                    the same one to everybody.
-                  </p>
-                </>
-              )}
-            </div>
-
-            <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 px-5 py-4">
-              {message === null ? null : (
-                <button
-                  type="button"
-                  onClick={copyToClipboard}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:border-terracotta hover:text-terracotta-700"
-                >
-                  <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {copied ? 'Copied' : 'Copy to clipboard'}
-                </button>
-              )}
-              {/* The guest is bound into `markSent` on the server
-                  (markGuestInvitationSent.bind(null, eventId, guestId)), so no
-                  guest id is posted — the bound one is the only one. */}
-              <form action={markSent}>
-                {/* The form posts the state it wants to END UP at, so the
-                    button's label and the outcome cannot drift apart. */}
-                <input type="hidden" name="sent" value={sentAt ? '0' : '1'} />
-                <SubmitButton
-                  pendingLabel={sentAt ? 'Undoing…' : 'Marking sent…'}
-                  className={
-                    sentAt
-                      ? 'inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-ink/30'
-                      : 'inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600'
-                  }
-                >
-                  {sentAt ? (
-                    <>
-                      <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Not sent yet
-                    </>
-                  ) : (
-                    <>
-                      <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Mark sent
-                    </>
-                  )}
-                </SubmitButton>
-              </form>
-            </footer>
+                {sentAt ? (
+                  <>
+                    <Undo2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    Not sent yet
+                  </>
+                ) : (
+                  <>
+                    <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    Mark sent
+                  </>
+                )}
+              </SubmitButton>
+            </form>
           </div>
         </div>
-      ) : null}
+      </Sheet>
     </>
   );
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { paymentStillWaiting } from '@/lib/payment-logged';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getQueueSource } from '@/lib/admin/queue-counts';
@@ -29,26 +30,27 @@ import { paymentLight, type PaymentLightRow } from '@/lib/admin/green-payments';
 export const GREEN_READ_CAP = 200;
 
 const PAYMENT_COLS =
-  'payment_id, order_id, amount_php, channel, reference_number, screenshot_url, created_at, ' +
-  'order:orders(public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key, status), ' +
+  'payment_id, order_id, status, amount_php, channel, reference_number, screenshot_url, created_at, ' +
+  'order:orders!inner(status, public_id, reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key), ' +
   'user:users!payments_user_id_fkey(email, display_name)';
 
 type PendingJoined = {
   payment_id: string;
   order_id: string;
+  status: string;
   amount_php: number;
   channel: string | null;
   reference_number: string | null;
   screenshot_url: string | null;
   created_at: string;
   order: {
+    status: string | null;
     public_id: string | null;
     reference_code: string | null;
     requested_total_php: number | null;
     confirmed_total_php: number | null;
     voucher_discount_centavos: number | null;
     service_key: string | null;
-    status: string | null;
   } | null;
   user: { email: string | null; display_name: string | null } | null;
 };
@@ -71,6 +73,8 @@ export async function readPaymentLights(
   if (!src) return { ok: false };
   let q = src
     .filter(admin.from(src.table).select(PAYMENT_COLS, { count: 'exact' }), { nowIso: new Date().toISOString() })
+    // An order already paid is not waiting on anyone — the same exclusion the queue's count makes (queue-counts.ts).
+    .neq('order.status', 'paid')
     .order('created_at', { ascending: true })
     .limit(GREEN_READ_CAP);
   if (opts.paymentIds) q = q.in('payment_id', [...opts.paymentIds]);
@@ -87,7 +91,11 @@ export async function readPaymentLights(
     logQueryError('readPaymentLights (money already counted)', priorsRes.error ?? null, {}, 'graceful_degrade');
     return { ok: false };
   }
-  const pending = pendingRes.data as unknown as PendingJoined[];
+  // AW-4: a bill's placeholder on an order already paid is not waiting (lib/payment-logged.ts) — the same rule the
+  // queue's count and the Payments desk apply, so the drawer, the badge and the desk list the same rows.
+  const read = pendingRes.data as unknown as PendingJoined[];
+  const pending = read.filter((p) => paymentStillWaiting(p, p.order?.status));
+  const dropped = read.length - pending.length;
   const priors: PriorPayment[] = (priorsRes.data as Array<{
     payment_id: string;
     order_id: string;
@@ -135,5 +143,5 @@ export async function readPaymentLights(
       }),
     };
   });
-  return { ok: true, rows, total: pendingRes.count ?? rows.length };
+  return { ok: true, rows, total: pendingRes.count != null ? Math.max(0, pendingRes.count - dropped) : rows.length };
 }

@@ -308,6 +308,11 @@ function dateSpanFromKeys(
   return { start: toDate(valid[0]!), end: toDate(valid[valid.length - 1]!) };
 }
 
+/** The PostgREST clause "the shop's own name contains the typed words" (already wildcard- and comma-safe). */
+export function nameMatchesFilter(safe: string): string {
+  return `business_name.ilike.%${safe}%`;
+}
+
 export async function fetchWizardVendorRecommendations(
   admin: SupabaseClient,
   args: Args,
@@ -412,28 +417,30 @@ export async function fetchWizardVendorRecommendations(
     );
   }
 
-  // Event-type scope · same NULL-safe OR shape. A vendor with no declared
-  // event_types is admitted (covers all); one that lists them must include the
-  // couple's type — excludes e.g. corporate-only vendors from a wedding search.
-  if (args.eventType) {
-    query = query.or(`event_types.is.null,event_types.cs.{${args.eventType}}`);
-  }
-
   // Free-text search · ilike on business_name | location_city | tagline.
   // Used by the grid card's [Search] submit. Maintains compatibility +
   // exclusion filters so a host searching while in-flight on a category
   // never sees vendors they've already locked elsewhere.
-  if (args.searchQuery && args.searchQuery.trim().length > 0) {
-    const safe = args.searchQuery
-      .trim()
-      .replace(/[%_,]/g, ' ') // strip ilike wildcards + or-syntax separators
-      .replace(/\s+/g, ' ')
-      .slice(0, 64);
-    if (safe.length > 0) {
-      query = query.or(
-        `business_name.ilike.%${safe}%,location_city.ilike.%${safe}%,tagline.ilike.%${safe}%`,
-      );
-    }
+  // Event-type scope · same NULL-safe OR shape. A vendor with no declared
+  // event_types is admitted (covers all); one that lists them must include the
+  // couple's type — excludes e.g. corporate-only vendors from a wedding search.
+  const safe = (args.searchQuery ?? '')
+    .trim()
+    .replace(/[%_,]/g, ' ') // strip ilike wildcards + or-syntax separators
+    .replace(/\s+/g, ' ')
+    .slice(0, 64);
+  if (args.eventType) {
+    // 🔎 CYC-05 (owner 2026-11-15, DECISION_LOG e8650540 "C2's SIX OPEN QUESTIONS — ANSWERED"): a shop found by typing
+    // its NAME shows even when the event types it lists do not cover this event (a weddings-only shop for a birthday).
+    // Browsing a category and every other filter still go by what the shop serves; only its typed name lets it past.
+    query = query.or(
+      safe.length > 0
+        ? `event_types.is.null,event_types.cs.{${args.eventType}},${nameMatchesFilter(safe)}`
+        : `event_types.is.null,event_types.cs.{${args.eventType}}`,
+    );
+  }
+  if (safe.length > 0) {
+    query = query.or(`business_name.ilike.%${safe}%,location_city.ilike.%${safe}%,tagline.ilike.%${safe}%`);
   }
 
   // 🧪 Demo scope (owner 2026-11-06): a real search never lists a demo shop, a demo event's lists only demo shops.

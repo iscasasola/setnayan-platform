@@ -414,7 +414,7 @@ export function StudioWishList({
         <WishHead summary={null} />
         <div role="alert" className="flex flex-col items-start gap-2.5 border-t border-ink/10 pb-1 pt-4 text-[14px]">
           <b className="font-medium text-danger-800">{WISH_LIST_UNREAD_TITLE}</b>
-          <span className="text-ink/60">{WISH_LIST_UNREAD_LINE}</span>
+          <span className="text-ink/70">{WISH_LIST_UNREAD_LINE}</span>
           <ActionButton tone="neutral" icon={RotateCw} label="Try again" data-testid="wish-retry" onClick={() => requestMakerRefresh()} />
         </div>
       </section>
@@ -481,7 +481,7 @@ export function StudioWishList({
               </div>
             ))}
           </div>
-          <p className="px-1.5 pb-2.5 pt-1 text-center text-[12px] text-ink/50">{WISH_LIST_EMPTY}</p>
+          <p className="px-1.5 pb-2.5 pt-1 text-center text-[12px] text-ink/70">{WISH_LIST_EMPTY}</p>
           {addButton}
           {/* A gift toward no wish can be shown to a couple with no wish list at all. */}
           {gifts.length > 0 ? giftsDoor : null}
@@ -522,8 +522,8 @@ export function StudioWishList({
                       )}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <b className={`truncate text-[14.5px] font-semibold ${got ? 'text-ink/55' : 'text-ink'}`}>{w.name}</b>
-                      <span className="truncate text-[12.5px] text-ink/60">
+                      <b className={`truncate text-[14.5px] font-semibold ${got ? 'text-ink/70' : 'text-ink'}`}>{w.name}</b>
+                      <span className="truncate text-[12.5px] text-ink/70">
                         {line.sentPhp != null ? <Count value={line.sentPhp} format="peso" id={`wish-sent-${w.id}`} /> : null}
                         {line.rest}
                       </span>
@@ -544,7 +544,7 @@ export function StudioWishList({
                     disabled={pending}
                     aria-label={`Move ${w.name} — drag, or use the arrow keys`}
                     data-wish-grip={w.id}
-                    className="flex h-11 w-9 shrink-0 cursor-grab touch-none items-center justify-center text-ink/30 active:cursor-grabbing"
+                    className="flex h-11 w-9 shrink-0 cursor-grab touch-none items-center justify-center text-ink/70 active:cursor-grabbing"
                     onPointerDown={(e) => {
                       e.preventDefault();
                       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -688,10 +688,10 @@ function WishFields({
           <InfoTip label="Price" align="start">
             {WISH_PRICE_TIP}
           </InfoTip>
-          <small className="text-[12px] text-ink/50">optional</small>
+          <small className="text-[12px] text-ink/70">optional</small>
         </span>
         <span className="relative block">
-          <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/60">
+          <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 text-[15px] text-ink/70">
             ₱
           </span>
           <input
@@ -708,7 +708,7 @@ function WishFields({
       </div>
       <label className="block border-t border-ink/10 pt-3" htmlFor={`${id}-link`}>
         <span className={LABEL}>
-          Link <small className="text-[12px] text-ink/50">optional</small>
+          Link <small className="text-[12px] text-ink/70">optional</small>
         </span>
         <input
           id={`${id}-link`}
@@ -725,7 +725,7 @@ function WishFields({
       </label>
       <label className="block border-t border-ink/10 pt-3" htmlFor={`${id}-note`}>
         <span className={LABEL}>
-          Note <small className="text-[12px] text-ink/50">optional</small>
+          Note <small className="text-[12px] text-ink/70">optional</small>
         </span>
         <input
           id={`${id}-note`}
@@ -845,7 +845,7 @@ function OpenWish({
       onClose={() => void close()}
       pill={
         pill ? (
-          <span data-wish-pill="" className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${got ? 'bg-success-600/10 text-success-700' : 'bg-gild/15 text-ink/60'}`}>
+          <span data-wish-pill="" className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${got ? 'bg-success-600/10 text-success-700' : 'bg-gild/15 text-ink/70'}`}>
             {pill}
           </span>
         ) : null
@@ -854,7 +854,7 @@ function OpenWish({
       <label htmlFor={switchId} data-wish-got-switch="" className="mt-3 flex min-h-[52px] cursor-pointer items-center justify-between gap-3">
         <span className="flex min-w-0 flex-col">
           <b className="text-[14.5px] font-semibold text-ink">Got it</b>
-          <span className="text-[12.5px] text-ink/60">{wishGotLine(wish)}</span>
+          <span className="text-[12.5px] text-ink/70">{wishGotLine(wish)}</span>
         </span>
         <input
           id={switchId}
@@ -887,7 +887,7 @@ function OpenWish({
               />
             ))}
           </ul>
-          <p className="pb-1 pt-1 text-[12px] text-ink/55">{WISH_GIFTS_ONLY_YOU}</p>
+          <p className="pb-1 pt-1 text-[12px] text-ink/70">{WISH_GIFTS_ONLY_YOU}</p>
         </>
       ) : null}
 
@@ -905,7 +905,7 @@ function OpenWish({
           }}
         />
       </div>
-      <p className="flex items-center justify-center gap-1 pt-3.5 text-center text-[12px] text-ink/50">
+      <p className="flex items-center justify-center gap-1 pt-3.5 text-center text-[12px] text-ink/70">
         {WISH_SHEET_KEEPS} · hold <GripVertical aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> in the list to reorder
       </p>
       {refused ? (

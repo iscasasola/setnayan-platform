@@ -25,7 +25,7 @@ import {
   type HomeFace,
   type HomeTileModel,
 } from './home-control-faces';
-import { HomeTile, HubViewLink } from './home-tile';
+import { HomeTile, HomeTileCountKey, HubViewLink } from './home-tile';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { HomeLater, HomeReload } from './home-parts';
@@ -91,7 +91,7 @@ export function HomeControlRow({
         ) : null}
         {rest.map(tile)}
       </div>
-      <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
+      <div className="hc-two hidden md:grid xl:hidden" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
           <DetailCard k="count" input={input} tile={tiles.find((t) => t.key === 'count') ?? null} hubPick={hubPick} />
           {/* 📅 The Schedule, after the Countdown — the same card as the phone's (its faces, dots and doors). */}
@@ -107,6 +107,53 @@ export function HomeControlRow({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * 🖥 THE 1280 BOARD — one of Home's three columns from `xl` (owner-approved 16 Nov 2026, event dashboard drawing v13,
+ * `event_dashboard_clean_2026-11-16_fable.html` · clean look screen 2b): the event card, Next and To do | Guests ·
+ * Budget · Schedule | Suppliers · Event Hub, then Prints · Your services · Memories. The same detail cards, the same
+ * doors — drawn a third time, like the phone tiles and the tablet cards, and shown only from 1280 (`hidden xl:flex`),
+ * where the two-column detail hides. Each column is its own stack, so the eye and the Tab key read it column by column
+ * (the-home-grid-reads-in-order.test.ts). The Countdown rides the event card and To do is the list in the first
+ * column, so the board draws neither card.
+ */
+export const HOME_BOARD_COLUMNS = {
+  middle: ['guests', 'budget', 'sched'],
+  right: ['sup', 'hub'],
+} as const satisfies Record<string, readonly (HomeControlKey | 'sched')[]>;
+
+export function HomeControlBoardColumn({
+  input,
+  side,
+  hubPick = null,
+}: {
+  input: HomeControlInput;
+  side: keyof typeof HOME_BOARD_COLUMNS;
+  hubPick?: HomeHubPickRead | null;
+}) {
+  const { tiles } = homeControlTiles(input);
+  return (
+    <div
+      className="hc-bcol hidden min-w-0 flex-col gap-3 xl:flex"
+      data-home-control="board"
+      data-home-board={side}
+      /* 🧭 The welcome tour's "Start here" ring (lib/tours.ts, anchor `home-tiles`) — the board is what shows from 1280. */
+      data-tour={side === 'middle' ? 'home-tiles' : undefined}
+    >
+      {HOME_BOARD_COLUMNS[side].map((k) => {
+        if (k === 'sched') {
+          const sched = tiles.find((t) => t.key === 'sched') ?? null;
+          return sched ? (
+            <HomeTileCountKey key={k} value="-board">
+              <HomeTile model={sched} eventId={input.eventId} stagger={0} />
+            </HomeTileCountKey>
+          ) : null;
+        }
+        return <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={k === 'hub' ? hubPick : null} countKey="-board" />;
+      })}
+    </div>
   );
 }
 
@@ -277,11 +324,18 @@ function DetailCard({
   input,
   tile,
   hubPick = null,
+  countKey = '',
 }: {
   k: HomeControlKey;
   input: HomeControlInput;
   tile: HomeTileModel | null;
   hubPick?: HomeHubPickRead | null;
+  /**
+   * 🔢 The count-up's id suffix. Each `<Count id>` remembers the last value it showed and plays once per id
+   * (components/count.tsx): the 1280 board draws these cards a second time while the tablet copy is hidden, so with
+   * the same id the hidden copy used the animation up. The board's copies count under their own ids.
+   */
+  countKey?: string;
 }) {
   if (!tile) return null;
   const e = input.eventId;
@@ -296,7 +350,7 @@ function DetailCard({
               <Dot mood="ok">Date set{c.placeLine ? ` · ${c.placeLine}` : ''}</Dot>
               <span className="sg-status" data-glance-status="">
                 <span>
-                  <b>{c.days !== null ? <Count value={c.days} id="home-count" /> : c.value}</b> {c.label}
+                  <b>{c.days !== null ? <Count value={c.days} id={`home-count${countKey}`} /> : c.value}</b> {c.label}
                 </span>
               </span>
             </>
@@ -335,22 +389,22 @@ function DetailCard({
           {g.total > 0 ? (
             <span className="sg-status hc-figs" data-glance-status="" data-tour="home-faces">
               {/* The faces, side by side — each opens the exact list it counts. */}
-              <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig">
-                <b><Count value={g.coming} id="home-guests-coming" /></b> coming
+              <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig sn-hit">
+                <b><Count value={g.coming} id={`home-guests-coming${countKey}`} /></b> coming
               </Link>
               <span aria-hidden className="hc-sep">·</span>
-              <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig">
-                <b><Count value={g.noReply} id="home-guests-noreply" /></b> no reply
+              <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig sn-hit">
+                <b><Count value={g.noReply} id={`home-guests-noreply${countKey}`} /></b> no reply
               </Link>
               <span aria-hidden className="hc-sep">·</span>
-              <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig">
-                <b><Count value={g.declined} id="home-guests-declined" /></b> can’t come
+              <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig sn-hit">
+                <b><Count value={g.declined} id={`home-guests-declined${countKey}`} /></b> can’t come
               </Link>
               {/* 🪑 Seats (R4 → Guests › Seats) — the phone tile's own face, so both draw one fact. */}
               {seats ? (
                 <>
                   <span aria-hidden className="hc-sep">·</span>
-                  <Link href={seats.href} className="hc-fig" data-home-fig={seats.id}>
+                  <Link href={seats.href} className="hc-fig sn-hit" data-home-fig={seats.id}>
                     <b>{seats.big}</b> {seats.id === 'guests-seats-unread' ? 'seats · couldn’t load' : seats.unit}
                   </Link>
                 </>
@@ -463,7 +517,7 @@ function DetailCard({
           </Dot>
           {s.replied > 0 ? (
             <span className="sg-status" data-glance-status="">
-              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig">
+              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig sn-hit">
                 <b>{formatCount(s.replied)}</b> replied · waiting on you
               </Link>
             </span>
@@ -471,7 +525,7 @@ function DetailCard({
           {/* 💡 The inspiration board (R5 → Suppliers › Find) — the phone tile's own face. */}
           {board ? (
             <span className="sg-status" data-glance-status="">
-              <Link href={board.href} className="hc-fig" data-home-fig={board.id}>
+              <Link href={board.href} className="hc-fig sn-hit" data-home-fig={board.id}>
                 <b>{board.big}</b> {board.unit} · {board.sm}
               </Link>
             </span>
@@ -543,18 +597,18 @@ function DetailCard({
           <div className="home-money mt-2">
             <div>
               <div className="home-k">Paid</div>
-              <div className="home-v"><Count value={b.paidPhp} format="peso" id="home-paid" /></div>
+              <div className="home-v"><Count value={b.paidPhp} format="peso" id={`home-paid${countKey}`} /></div>
             </div>
             <div className="text-right">
               <div className="home-k">Still owing</div>
-              <div className="home-v"><Count value={b.owingPhp} format="peso" id="home-owing" /></div>
+              <div className="home-v"><Count value={b.owingPhp} format="peso" id={`home-owing${countKey}`} /></div>
             </div>
           </div>
           {pct !== null ? <GlanceMeter mood="ok" pct={pct} label="Paid" /> : null}
           <Dot mood="ok">
             {pct !== null ? (
               <>
-                <b className="font-medium"><Count value={pct} format="pct" id="home-paid-pct" /> paid</b> · of {formatPhpRounded(agreed)} agreed
+                <b className="font-medium"><Count value={pct} format="pct" id={`home-paid-pct${countKey}`} /> paid</b> · of {formatPhpRounded(agreed)} agreed
               </>
             ) : (
               'Nothing agreed yet'

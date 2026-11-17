@@ -39,13 +39,15 @@ const PORTED = [
   'app/vendor-dashboard/shop/_components/shop-settings-rows.tsx',
 ];
 
-test('(1) rise is the only frame; `inLayer` has exactly one caller, the picked client', () => {
+test('(1) rise is the only frame; `inLayer` has no caller (the picked client rises, 17 Nov)', () => {
   const door = read('app/_components/menu-settings-button.tsx');
   assert.doesNotMatch(door, /\brise\??:\s*boolean/, 'the `rise` switch is back');
   const callers = walk(join(WEB, 'app'))
     .filter((p) => /<MenuSettingsButton\b[^>]*\binLayer\b/.test(stripComments(readFileSync(p, 'utf8'))))
     .map((p) => relative(WEB, p));
-  assert.deepEqual(callers, ['app/_components/picked/picked-shell.tsx'], 'a ⚙ other than the picked client opens the old sheet');
+  // main bf8998a1 (17 Nov, "the client gear rises full screen like the other gear sheets") took the picked client off
+  // the sheet too, so `inLayer` now has NO caller — every ⚙ rises.
+  assert.deepEqual(callers, [], 'a ⚙ opens the old sheet (`inLayer`) — the picked client rises since 17 Nov');
   const rise = walk(join(WEB, 'app')).filter((p) => /<MenuSettingsButton\b[^>]*\srise[\s>]/.test(stripComments(readFileSync(p, 'utf8'))));
   assert.deepEqual(rise, [], 'a caller still passes the retired `rise` switch');
 });

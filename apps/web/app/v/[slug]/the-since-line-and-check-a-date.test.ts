@@ -19,7 +19,7 @@ test('the page draws the since line, fed by the by-kind counter', () => {
   assert.doesNotMatch(PAGE, /\+ weddings</, 'the old "N+ weddings" pill came back beside the events count');
 });
 
-test('Check a date sits in the action row, after Add to your event and before Share, inside the bookable gate', () => {
+test('Check a date sits in the action row, after Add to your event and before Share, inside the verified-only gate', () => {
   // Order (prototype public_pages_three_2026-11-13, owner 13 Nov): Inquire · Add to your event, then Check a date · Share.
   const add = PAGE.indexOf('label="Add to your event"');
   assert.ok(add > 0, 'the action row moved — update this test with the markup');
@@ -28,22 +28,28 @@ test('Check a date sits in the action row, after Add to your event and before Sh
   const share = PAGE.indexOf('<ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />');
   assert.ok(share > door && share - door < 600, 'Share does not follow Check a date');
   // The row itself opens on `canMessage` since an unverified shop takes messages (DECISION_LOG 2026-11-07, #7373), so
-  // the `bookable` gate is no longer the ROW's — it is the door's own, and it must sit between Add and the door.
-  const gate = PAGE.lastIndexOf('{bookable ? (', door);
-  assert.ok(gate > add && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
+  // the gate is the door's own, and it must sit between Add and the door. 15 Nov ("AN UNVERIFIED SHOP HAS THE SAME
+  // WEBSITE AS A VERIFIED ONE"): an unverified shop is now `bookable`, but Check a date stays verified-only — so the
+  // door's gate is `dateCheckable` (verified visibility AND bookable), never plain `bookable`.
+  const gate = PAGE.lastIndexOf('{dateCheckable ? (', door);
+  assert.ok(gate > add && gate < door, 'Check a date is not inside its own dateCheckable gate — an unverified shop would show it');
+  assert.match(PAGE, /const dateCheckable = isBookable\(visibility\) && bookable;/, 'dateCheckable no longer requires a verified shop');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
+  // Walk 14 Nov 2026: the About panel ("What their own website can't do") drew a second Check a date under the header one.
+  const panel = stripComments(readFileSync(join(HERE, '_components', 'shop-can-do-panel.tsx'), 'utf8'));
+  assert.doesNotMatch(panel, /<CheckADateLink\b/, 'the About panel draws a second Check a date button');
 });
 
 test('Check a date opens the live landing (#7007) — never a 404', () => {
-  // #7065 waited for #7007 (`/v/[slug]/dates`), now on main. The door must point at a page that exists.
-  assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — the door would 404');
-  // Since 2026-11-07 the door also carries where the visit came from (`withShopArrival`, lib/shop-back.ts), so the
-  // shop's Back stays right after the round trip. It still points at the same landing.
+  // #7065 waited for #7007 (`/v/[slug]/dates`), now on main. That printed address must keep existing (it forwards now).
+  assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — every printed QR would 404');
+  // SHOP-02 v7 (14 Nov 2026): the door opens the sheet OVER the shop — the shop's own `?dates` address, still carrying
+  // where the visit came from (`withShopArrival`, lib/shop-back.ts), so the shop's Back stays right.
   assert.match(
     PAGE,
-    /<CheckADateLink\s+href=\{withShopArrival\(`\/v\/\$\{vendor\.business_slug \?\? slug\}\/dates`, shopArrival\)\}/,
-    'the door does not point at /v/<slug>/dates',
+    /<CheckADateLink\s+href=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival, \{ dates: '1' \}\)\}/,
+    'the door does not open the sheet over the shop (?dates=1)',
   );
 });
 

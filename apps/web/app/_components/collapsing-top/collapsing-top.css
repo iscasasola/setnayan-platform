@@ -13,7 +13,7 @@
   position: sticky;
   top: calc(var(--ct-bar) + var(--ct-before, 0px) + var(--ct-row, var(--sn-pin-h, 44px)) - var(--ct-h));
   z-index: 5;
-  background: rgb(var(--color-cream));
+  background: rgb(var(--sn-page-bg)); /* the page behind it (16 Nov: the page is #F7F5F4, no longer the card white) */
 }
 /* The big content fades as the row comes in — only in the last 48 px (the progress is linear in scroll). */
 .sn-ct-full {
@@ -27,7 +27,7 @@
   height: var(--ct-row, var(--sn-pin-h, 44px));
   display: flex;
   align-items: center;
-  background: rgb(var(--color-cream));
+  background: rgb(var(--sn-page-bg)); /* the page behind it (16 Nov: the page is #F7F5F4, no longer the card white) */
   opacity: var(--q, 0);
   pointer-events: none;
 }

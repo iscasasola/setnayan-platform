@@ -100,9 +100,9 @@ const SAID_TO_PEOPLE = [
   'lib/vendor-first-steps.ts',
   'lib/verified-badge.ts',
   'lib/feature-pages/plan-b.ts',
-  'app/vendor-dashboard/_components/setup-papers.tsx',
+  'app/vendor-dashboard/_components/setup-paper-place.tsx',
   'app/vendor-dashboard/shop/_components/verify-section.tsx',
-  'app/vendor-dashboard/shop/_components/verify-pairs.tsx',
+  'app/vendor-dashboard/shop/_components/paper-upload-place.tsx',
   'app/vendor-dashboard/shop/_components/docs-body.tsx',
   'app/vendor-dashboard/shop/_components/shop-settings-rows.tsx',
   'app/for-suppliers/_components/supplier-front-data.ts',
@@ -117,7 +117,7 @@ test('4 · no supplier-facing sentence asks for, counts or names a bank proof �
     assert.doesNotMatch(src, /\bfour (required )?papers\b|\b4 (required )?papers\b/i, `${rel} still says four papers`);
   }
   // The anti-vacuity: the files are real and carry the three papers in words.
-  assert.match(read('app/vendor-dashboard/_components/setup-papers.tsx'), /The three required papers/);
+  assert.match(read('app/vendor-dashboard/_components/setup-paper-place.tsx'), /The three required papers/);
 });
 
 test('5 · the retired guide is gone from Help, and its address forwards to the verification answer', () => {

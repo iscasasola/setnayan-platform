@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { ChevronRight, Heart, MessageCircle } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -75,7 +76,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
   if (vendor.businessSlug) {
     return (
       <li className={shell}>
-        <Link href={`/v/${vendor.businessSlug}`} className="flex min-w-0 flex-1 items-center gap-2">
+        <Link href={`${shopPath(vendor.businessSlug)}?src=favorites`} className="flex min-w-0 flex-1 items-center gap-2">
           {inner}
           <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} />
         </Link>
@@ -85,7 +86,7 @@ export function SavedVendorCardItem({ vendor }: { vendor: SavedVendorCardData })
           label="Contact"
           className="!h-11"
           name={`Contact ${vendor.displayName}`}
-          href={`/v/${vendor.businessSlug}?src=favorites`}
+          href={`${shopPath(vendor.businessSlug)}?src=favorites`}
         />
       </li>
     );

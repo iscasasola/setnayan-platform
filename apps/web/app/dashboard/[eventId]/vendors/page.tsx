@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -183,7 +183,7 @@ import {
   formatDayKey,
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
-import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { CONFIRMED_VENDOR_STATUSES, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
@@ -317,7 +317,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (profile.marketplaceEnabled !== true) {
     return (
-      <section className="sn-col space-y-6" data-suppliers-not-listed="">
+      <section className="sn-col sn-col-wide space-y-6" data-suppliers-not-listed="">
         <PageMasthead title="Suppliers" />
         <p className="text-[15px] text-ink/65">Suppliers aren&rsquo;t listed for this kind of event yet.</p>
       </section>
@@ -392,7 +392,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // empty bench. Say what happened instead (your-team-read-is-honest.test.ts).
   if (!vendorsRead.measured) {
     return (
-      <section className="sn-col space-y-4">
+      <section className="sn-col sn-col-wide space-y-4">
         <PageMasthead title="Suppliers" />
         {/* 📐 Design template rule 1: no visible title that restates the menu — the masthead names the page. */}
         <BookedBody
@@ -527,6 +527,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 🧾 Each self-added card priced per guest / per hour: "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
   // 2026-11-13). `null` = refused — the cards then draw their one total as shipped, never a made-up line.
   const selfAddedPriceLinesRead = startRead(readSelfAddedPriceLines(supabase, eventId));
+  // ⚡ The one-per-event groups need nothing but the session — started with the rest (speed pass 2026-11-14; it was
+  // awaited alone, mid-page). It never throws; awaited where it was.
+  const onePerEventStarted = startRead(readOnePerEventGroups(supabase));
   // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
   // button is gone; the search shows the categories when nothing is typed): the
   // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
@@ -727,7 +730,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -737,7 +740,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -811,7 +814,20 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .eq('event_id', eventId)
         .eq('kind', 'claim')
         .eq('status', 'answered'),
+      // 📖 CYC-15b (owner 2026-11-15, DECISION_LOG e8650540): each picked shop's confirmed bookings on Setnayan, so a
+      // shop with bookings and no reviews reads "No reviews yet", never "New to Setnayan". Same round trip; one column.
+      enrichmentAdmin
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .in('marketplace_vendor_id', marketplaceIds)
+        .in('status', [...CONFIRMED_VENDOR_STATUSES]),
     ]);
+    // A refused read is UNKNOWN (null), never 0 — 0 would call an established shop "New".
+    if (bookedRes.error) logQueryError('dashboard/[eventId]/vendors/page.tsx: booked counts', bookedRes.error, { event_id: eventId });
+    const bookedByProfile = bookedRes.error ? null : new Map<string, number>();
+    for (const r of ((bookedRes.data as { marketplace_vendor_id: string | null }[] | null) ?? [])) {
+      if (bookedByProfile && r.marketplace_vendor_id) bookedByProfile.set(r.marketplace_vendor_id, (bookedByProfile.get(r.marketplace_vendor_id) ?? 0) + 1);
+    }
     if (claimAsksRes.error) {
       // Refused → nobody is revealed and nothing is marked: the anonymous name is the safe side to fail on.
       logQueryError('dashboard/[eventId]/vendors/page.tsx: answered claim asks', claimAsksRes.error, { event_id: eventId });
@@ -840,6 +856,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       verification_state: string | null;
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
+      is_demo: boolean | null;
     };
 
     if (statsRes.error) {
@@ -1015,6 +1032,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
+        booked_count: bookedByProfile ? (bookedByProfile.get(pid) ?? 0) : null,
         // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
         // deadline (hasVerifiedBadge), separate from public_visibility
         // (listing/bookability, untouched — stays listed past the deadline).
@@ -1023,6 +1041,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           next_renewal_due_at: a?.next_renewal_due_at ?? null,
         }),
         is_setnayan_service: s.is_setnayan_service === true,
+        // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
+        // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
+        not_yet_verified: threadShowsNotYetVerified(a),
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -1399,7 +1420,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
   // ONE PER EVENT — the categories' switch (owner 2026-10-29), read once; display-only here (the database guard
   // refuses a second booking where it is on, whatever this read says).
-  const onePerEventRead = await readOnePerEventGroups(supabase);
+  const onePerEventRead = await onePerEventStarted;
   const onePerEventGroups = onePerEventRead.ok ? onePerEventRead.groups : new Set<string>();
   // eslint-disable-next-line no-console
   if (!onePerEventRead.ok) console.warn('[suppliers] One per event unreadable — every category drawn as multi-pick');
@@ -2305,6 +2326,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         reviewStatus: reviewStatusByVendorId.get(row.vendor_id) ?? null,
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
+        notYetVerified: ext?.not_yet_verified === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
@@ -2606,34 +2628,38 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       try {
         const admin = createAdminClient();
         const byColumn: Record<string, CompareDatesInfo> = {};
-        for (const col of cols) {
-          const set = col.picks
-            .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
-            .filter((x): x is { profileId: string; name: string } => Boolean(x));
-          if (set.length === 0) {
-            byColumn[col.key] = {
-              connectedCount: 0,
-              totalAvailable: 0,
-              dayLabels: [],
-              moreCount: 0,
-              conflictText: null,
-            };
-            continue;
-          }
-          const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
-          byColumn[col.key] = {
-            connectedCount: r.connectedVendorCount,
-            totalAvailable: r.availableDayKeys.length,
-            dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
-            moreCount: Math.max(0, r.availableDayKeys.length - 3),
-            conflictText:
-              r.availableDayKeys.length === 0
-                ? r.conflictPair
-                  ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
-                  : 'No single date works for this combination — swap a supplier.'
-                : null,
-          };
-        }
+        // ⚡ Each column's dates are its own question — asked together, not one after another (speed pass 2026-11-14).
+        // A failure still lands in the same catch below; the columns keep their order.
+        const answered = await Promise.all(
+          cols.map(async (col): Promise<readonly [string, CompareDatesInfo]> => {
+              const set = col.picks
+                .map((p) => (p.vendorId ? profileByVendorId.get(p.vendorId) : undefined))
+                .filter((x): x is { profileId: string; name: string } => Boolean(x));
+              if (set.length === 0) {
+                return [col.key, {
+                  connectedCount: 0,
+                  totalAvailable: 0,
+                  dayLabels: [],
+                  moreCount: 0,
+                  conflictText: null,
+                }] as const;
+              }
+              const r = await getAvailableDaysForVendorSet(admin, set, range.start, range.end);
+              return [col.key, {
+                connectedCount: r.connectedVendorCount,
+                totalAvailable: r.availableDayKeys.length,
+                dayLabels: r.availableDayKeys.slice(0, 3).map(fmt),
+                moreCount: Math.max(0, r.availableDayKeys.length - 3),
+                conflictText:
+                  r.availableDayKeys.length === 0
+                    ? r.conflictPair
+                      ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
+                      : 'No single date works for this combination — swap a supplier.'
+                    : null,
+              }] as const;
+          }),
+        );
+        for (const [key, info] of answered) byColumn[key] = info;
         return {
           windowLabel: formatEventDateWithPrecision(eventDate, matchPrecision).replace(
             /^Sometime in /,
@@ -3071,6 +3097,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                   bookSlot={
                     <BookThisBuild
                       eventId={eventId}
+                      inBuild={buildLines.filter((l) => l.pick || l.booked).length}
                       picks={buildLines.flatMap((l) =>
                         l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]

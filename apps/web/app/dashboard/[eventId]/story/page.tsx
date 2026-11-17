@@ -18,6 +18,8 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { eventSkuActive } from '@/lib/entitlements';
+import { EVENT_PLUS_SKU } from '@/lib/hub-parts';
 import { STORY_PRO_EXTRA_KEYS, storyProExtrasOf, type StoryProExtras } from '@/lib/story-pro-extras';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { deskIsClear, percentDecided } from '@/lib/story-desk';
@@ -113,7 +115,7 @@ export default async function EditorialEditorPage({
   });
   if (!gate.open) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-2xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
           {/*
             NO EYEBROW. A "Not yet" kicker above this headline only repeats the
@@ -307,6 +309,14 @@ export default async function EditorialEditorPage({
     isPro = await isEditorialProActive(await eventEntitlementClient(eventId), eventId);
   } catch {
     isPro = false;
+  }
+  /* 📸 FREE ADDS EVENT PHOTOS ONE AT A TIME (owner 2026-11-13, specs DECISION_LOG "Story: Free adds event photos one
+     at a time"): Event Plus / Pro / Ultra add many at once. Plus is the shipped feature gate (`EVENT_PLUS_SKU`, the
+     same read the Setnayan mark asks); Ultra confers Pro. A read that fails keeps the Free behaviour — one at a time is
+     a slower path, never a lost photo. */
+  let addsManyAtOnce = isPro;
+  if (!addsManyAtOnce) {
+    addsManyAtOnce = await eventSkuActive(await eventEntitlementClient(eventId), eventId, EVENT_PLUS_SKU).catch(() => false);
   }
 
   /* 💎 TRIED FREE, ASKED AT APPLY. A couple without Pro who wrote a moment's
@@ -581,10 +591,10 @@ export default async function EditorialEditorPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-[1010px] px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1010px] tab:max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/dashboard/${eventId}/launch`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        className="mb-6 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>Back to Event Hub</span>
@@ -622,6 +632,7 @@ export default async function EditorialEditorPage({
         initial={initial}
         uploadDisplayUrls={uploadDisplayUrls}
         isPro={isPro}
+        addsManyAtOnce={addsManyAtOnce}
         heldForPro={heldForPro}
         chapterCards={chapterCards.cards}
         chapterOverrides={tried.chapterOverrides ?? chapterCards.overrides}

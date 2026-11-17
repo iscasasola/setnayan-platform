@@ -147,3 +147,16 @@ test('6 · the payment card holds the walk RW-301 fixes', async () => {
   assert.match(feed, /<RowPending \/>/, 'the Work row lost its pending mark');
   assert.match(code(read('app/admin/queues/_components/row-pending.tsx')), /useLinkStatus\(\)/);
 });
+
+test('7 · an order already paid is not counted as waiting (walk RW-308a)', () => {
+  const counts = code(read('lib/admin/queue-counts.ts'));
+  // The payments queue counts through `countPaymentsWaiting` (AW-4), so the RW-308a rule is read in that digest.
+  const def = counts.slice(counts.indexOf("key: 'payments',"), counts.indexOf("key: 'payouts',"));
+  assert.match(def, /digest: countPaymentsWaiting/, 'the payments queue no longer counts through its digest');
+  const digest = counts.slice(counts.indexOf('export async function countPaymentsWaiting'), counts.indexOf('export async function countOpenDisputes'));
+  assert.match(digest, /order:orders!inner\(status\)/, 'the payments count no longer goes through the order');
+  assert.match(digest, /\.neq\('order\.status', 'paid'\)/, 'the payments count counts paid orders again');
+  const lights = code(read('lib/admin/green-payments.server.ts'));
+  assert.match(lights, /order:orders!inner\(/, 'the payments read no longer joins the order');
+  assert.match(lights, /\.neq\('order\.status', 'paid'\)/, 'the payments read shows paid orders again — the cards and the count disagree');
+});

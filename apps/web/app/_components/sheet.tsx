@@ -100,26 +100,26 @@ const SHEET_AT: Record<
   lg: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
     panel:
-      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl bg-frame shadow-sn-sheet lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-sn-sheet-side',
     narrow: 'lg:w-[22rem]',
     wide: 'lg:w-[min(34rem,92vw)]',
-    full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none max-lg:border-0',
+    full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none',
     half: 'max-lg:max-h-[52dvh]',
     max: 'max-lg:max-h-[calc(100dvh-48px)]',
     handle: 'lg:hidden',
     page:
-      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:mx-auto lg:my-6 lg:h-[calc(100dvh-3rem)] lg:max-h-none lg:w-[min(50rem,calc(100vw-3.5rem))] lg:rounded-3xl lg:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl bg-frame shadow-sn-sheet lg:mx-auto lg:my-6 lg:h-[calc(100dvh-3rem)] lg:max-h-none lg:w-[min(50rem,calc(100vw-3.5rem))] lg:rounded-3xl lg:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
   },
   tab: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
     panel:
-      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:h-full tab:max-h-none tab:rounded-l-3xl tab:rounded-tr-none tab:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl bg-frame shadow-sn-sheet tab:h-full tab:max-h-none tab:rounded-l-3xl tab:rounded-tr-none tab:shadow-sn-sheet-side',
     /* 📐 ONE PANEL WIDTH ON THE COUPLE DASHBOARD — the system's 440 (owner 2026-10-19, DECISION_LOG "APPROVED —
        COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)", Q2: "440 · one token"). `wide` is the SAME panel here: the
        prototype narrows the Suppliers date sheet (≈540 at 1280) to match. Other surfaces keep `lg` as shipped. */
     narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
-    full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
+    full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none',
     half: 'max-tab:max-h-[52dvh]',
     max: 'max-tab:max-h-[calc(100dvh-48px)]',
     handle: 'tab:hidden',
@@ -127,7 +127,7 @@ const SHEET_AT: Record<
        column on a tablet and a computer, and "always maximize the screen", owner 2026-10-29): centred, as wide as
        the drawing's column (50rem) or the screen allows, never the 440 drawer pinned right. Opt-in (`page`). */
     page:
-      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] tab:mx-auto tab:my-6 tab:h-[calc(100dvh-3rem)] tab:max-h-none tab:w-[min(50rem,calc(100vw-3.5rem))] tab:rounded-3xl tab:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
+      'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl bg-frame shadow-sn-sheet tab:mx-auto tab:my-6 tab:h-[calc(100dvh-3rem)] tab:max-h-none tab:w-[min(50rem,calc(100vw-3.5rem))] tab:rounded-3xl tab:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]', // no-card-ok: the modal sheet's own panel, the same surface as `panel` above, centred
   },
 };
 
@@ -306,7 +306,7 @@ export function Sheet({
             {head}
           </div>
         ) : pinned && back ? (
-          <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
+          <header data-sheet-pinned="" data-peek-toast-under="" className="sn-pin-hair flex min-h-14 shrink-0 items-center gap-1 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
               onClick={back.onBack}
@@ -323,7 +323,7 @@ export function Sheet({
             {pinned.more ?? null}
           </header>
         ) : title ? (
-          <header className={`flex items-center justify-between gap-3 border-b border-ink/10 py-3 ${back ? 'pl-2 pr-5' : 'px-5'}`}>
+          <header className={`flex items-center justify-between gap-3 py-3 ${back ? 'pl-2 pr-5' : 'px-5'}`}>
             {back ? (
               <button
                 type="button"
@@ -356,7 +356,7 @@ export function Sheet({
             type="button"
             onClick={close}
             aria-label="Close"
-            className="absolute right-[calc(0.75rem+var(--sn-safe-r))] top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
+            className="absolute right-[calc(0.75rem+var(--sn-safe-r))] top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-frame text-ink/70 shadow-sn-frame hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>

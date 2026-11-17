@@ -24,9 +24,11 @@
  * day when EVERY schedule it belongs to is; the day is not bookable when every service is. A shop whose services all
  * share one schedule answers once (`perService` is null).
  */
+import { shopPath } from '@/lib/shop-address';
 import { buildCustomerCalendarMonth, type CalendarBlockInput, type CalendarBookingInput } from './vendor-customers';
 import type { SchedulePool, VendorCalendarDayState } from './vendor-schedule';
 import { blockClosesDay } from './not-available';
+import { arrivalParams, withShopArrival } from './shop-back';
 
 /** The two answers a couple ever reads. */
 export type CheckDateState = 'available' | 'not_bookable';
@@ -37,12 +39,26 @@ export const CHECK_DATE_WORDS: Readonly<Record<CheckDateState, string>> = {
   not_bookable: 'Not bookable',
 };
 
-/** How far ahead the calendar answers, in months (this month + the next 23). Later days are not offered. */
-export const CHECK_DATE_MONTHS_AHEAD = 24;
+/** One of the viewer's own events, offered at Check a date's "For which event?" step. */
+export type CheckDateEvent = {
+  eventId: string;
+  name: string;
+  typeLabel: string | null;
+  eventType: string;
+  date: string | null;
+  endDate: string | null;
+};
+
+/**
+ * How far ahead the calendar answers, in months: this month + the next 36, so November 2026 reaches November 2029
+ * (SHOP-02 v7, approved 14 Nov 2026: "it runs from today up to three years ahead"; it was two years). Later days are
+ * not offered.
+ */
+export const CHECK_DATE_MONTHS_AHEAD = 37;
 
 /** The page a shop's "Check a date" QR opens. `origin` has no trailing slash (`siteOrigin()`). */
 export function checkADatePath(slug: string): string {
-  return `/v/${encodeURIComponent(slug)}/dates`;
+  return `${shopPath(encodeURIComponent(slug))}/dates`;
 }
 export function checkADateUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${checkADatePath(slug)}`;
@@ -209,4 +225,14 @@ export function checkDateResumeHref(slug: string, day: string, serviceIds: reado
 /** The line the shop reads in the chat: the date asked about (the services ride as the conversation's interests). */
 export function checkDateAskLine(day: string): string {
   return `Is ${checkDateWords(day)} free? (asked from your Check-a-date code)`;
+}
+
+/** The shop with the Check a date sheet open — the day, services and step ride along (pure, so it is tested). SHOP-02 v7: the printed QR
+ * address `/v/<slug>/dates` forwards here.. */
+export function datesSheetHref(slug: string, search: { d?: string; s?: string; step?: string; src?: string; event?: string }): string {
+  const extra: Record<string, string> = { dates: '1' };
+  if (typeof search.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.d)) extra.d = search.d;
+  if (typeof search.s === 'string' && search.s) extra.s = search.s;
+  if (search.step === 'event') extra.step = 'event';
+  return withShopArrival(shopPath(encodeURIComponent(slug)), arrivalParams(search), extra);
 }

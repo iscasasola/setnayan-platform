@@ -1,4 +1,6 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
+import { ShopLink } from '@/app/_components/shop-link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { Check, Clapperboard, Globe, Handshake, Plus, Sparkles, Trash2 } from 'lucide-react';
@@ -325,9 +327,9 @@ function OfferInbox({
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-semibold text-ink">
                   {o.vendorSlug ? (
-                    <Link href={`/v/${o.vendorSlug}`} className="hover:underline">
+                    <ShopLink href={`${shopPath(o.vendorSlug)}`} className="hover:underline">
                       {o.vendorName}
-                    </Link>
+                    </ShopLink>
                   ) : (
                     o.vendorName
                   )}

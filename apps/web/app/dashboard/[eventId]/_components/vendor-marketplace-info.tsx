@@ -40,7 +40,9 @@
 //     marketplaceProfile fetch returns data.
 // ============================================================================
 
+import { shopPath } from '@/lib/shop-address';
 import type { ReactNode } from 'react';
+import { ShopLink } from '@/app/_components/shop-link';
 import Link from 'next/link';
 import {
   MessageCircle,
@@ -569,14 +571,14 @@ function ReviewsCard({
           Reviews
         </h2>
         {vendorProfileSlug ? (
-          <Link
-            href={`/v/${vendorProfileSlug}#reviews`}
+          <ShopLink
+            href={`${shopPath(vendorProfileSlug)}#reviews`}
             className="inline-flex min-h-11 items-center text-sm font-semibold text-sn-accent"
             target="_blank"
             rel="noopener noreferrer"
           >
             See all
-          </Link>
+          </ShopLink>
         ) : null}
       </header>
 

@@ -455,7 +455,7 @@ test('the room still does not grow a chat of its own', () => {
   // conversation across three places." The call sheet LINKS to the thread the
   // organiser and the supplier already have; it does not open a new one.
   const desk = stripComments(read(DESK));
-  assert.match(desk, /vendor-dashboard\/messages\/\$\{desk\.threadId\}/);
+  assert.match(desk, /supplierChatHref\(desk\.vendorEventId, desk\.threadId\)/); // 🚪 the client's Chat (owner 17 Nov)
   const loader = stripComments(read(LOADER));
   assert.match(loader, /from\('chat_threads'\)/);
   assert.doesNotMatch(

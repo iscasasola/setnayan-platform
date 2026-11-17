@@ -1,24 +1,22 @@
 /**
- * today-gear-rides-the-header.test.ts — ⚙ TODAY'S SETTINGS LIVE IN THE HEADER, AND RIDE THE PINNED ROW.
+ * today-gear-rides-the-header.test.ts — ⚙ TODAY'S SETTINGS LIVE IN THE HEADER, AND ONLY THERE.
  *
- * Owner, 11 Nov, approving ask e of the Supplier queued-asks prototype (`supplier_queued_asks_2026-11-11`, *"shouldn't
- * today's settings be inside header"*): *"Today settings yes"*. Today's ⚙ sits top-right on the photo header like
- * Shop's and Portfolio's; once the header has scrolled away it rides onto the right end of the pinned "Needs you today"
- * row — Portfolio's shipped `pin` (`useHeroPin`), the house pinned-row template. It is no longer beside the hours
- * ("N · 12 MN – 12 MN") mid-page. Same ⚙, same sheet — only its place moves.
+ * Owner, 11 Nov (`supplier_queued_asks_2026-11-11` ask e, *"Today settings yes"*): Today's ⚙ sits top-right on the photo
+ * header like Shop's and Portfolio's. Until 17 Nov it also rode onto the pinned "Needs you today" row once the header
+ * scrolled away. The clean look (`prototypes/dashboards_clean_look_2026-11-16_fable.html`, owner 17 Nov on the #7901
+ * preview) REMOVES that: *"Supplier: the second ⚙, pinned beside 'Needs you today'. It opens the same Today settings as
+ * the hero ⚙ (DASH-05). One ⚙ stays, in the header. This undoes 'the gear rides the header'"*. Same ⚙, same sheet — the
+ * ride is gone, the check stays (it now holds the new rule).
  *
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
- *   1. Header on screen (the server render / first paint): exactly ONE ⚙, in the hero's top-right slot on the cover;
- *      none on the pinned Needs-you row, none anywhere else.
- *   2. Header gone: the ONE ⚙ is on the pinned Needs-you row's right end (after the hours), and the cover has none.
- *   3. The wiring: Today hands the cover the `cover` slot and the Needs-you row the `pin` slot, inside ONE
- *      `TodayGearRide`; a new shop hands neither (its six steps draw their own ⚙).
- *   4. One mechanism, one mount: the ride uses Portfolio's `useHeroPin` (Portfolio still does too), and
- *      `<TodaySettings` is mounted only by the ride (plus the new shop's setup ⚙ on the page) — no second ⚙ component.
+ *   1. Exactly ONE ⚙ on Today, in the hero's top-right slot on the cover.
+ *   2. The pinned Needs-you row never holds a ⚙ — it has no slot for one.
+ *   3. The wiring: Today hands the cover `<TodaySettings cover />`, and the first screen no `gear`; no ride.
+ *   4. One mount: `<TodaySettings` is mounted by Today's screen (the header) and the new shop's setup only. Portfolio
+ *      keeps its own pin (`useHeroPin`), which this never needed.
  *
- * SABOTAGE (each run once, each went red): hand `<TodaySettings />` straight to the first screen's `gear` again → 1 + 3
- * + 4; drop the cover's `gear` → 1 + 3; invert the slot test in `TodayGearSlot` → 1 + 2; Portfolio back on its own
- * scroll listener → 4.
+ * SABOTAGE (each run once, each went red): put a `gear` slot back on the pinned row → 2; hand the first screen a
+ * `gear` again → 3; drop the cover's `gear` → 1 + 3.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,10 +53,9 @@ async function view() {
 const parts = (html: string) => ({
   cover: html.slice(html.indexOf('data-today-cover=""'), html.indexOf('</header>')),
   pin: html.slice(html.indexOf('data-today-needs-pin=""'), html.indexOf('data-today-needs-rows')),
-  hours: html.indexOf('12 MN – 12 MN'),
 });
 
-test('1 · header on screen: the one ⚙ is top-right on the header, never beside the hours', async () => {
+test('1 · exactly one ⚙ on Today, top-right on the header', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SupplierTodayScreen } = await import('./supplier-today-screen');
   const v = await view();
@@ -67,50 +64,35 @@ test('1 · header on screen: the one ⚙ is top-right on the header, never besid
   assert.ok(cover.length > 0 && pin.length > 0, 'anti-vacuity: the cover or the pinned Needs-you row did not render');
   assert.equal([...html.matchAll(GEAR)].length, 1, 'not exactly one ⚙ on Today');
   assert.match(cover, /data-supplier-hero-gear=""[\s\S]*aria-label="Today settings"/, 'the ⚙ is not in the header’s top-right slot');
-  assert.doesNotMatch(pin, GEAR, 'the ⚙ sits on the pinned Needs-you row (beside the hours) while the header is up');
-  assert.match(pin, /data-today-needs-gear=""/, 'the pinned row lost the slot the ⚙ rides onto');
 });
 
-test('2 · header gone: the one ⚙ rides the pinned Needs-you row’s right end', async () => {
+test('2 · the pinned Needs-you row never holds a ⚙ — no slot for one', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { SupplierTodayFirstScreen } = await import('./supplier-today-first-screen');
-  const { TodayCover } = await import('./today-cover');
-  const { TodayGearPinned, TodayGearSlot } = await import('./today-gear-ride');
+  const { SupplierTodayScreen } = await import('./supplier-today-screen');
   const v = await view();
-  const slot = (at: 'cover' | 'pin') => React.createElement(TodayGearSlot, { at });
-  const screen = React.createElement(SupplierTodayFirstScreen, {
-    cover: React.createElement(TodayCover, { shopName: 'SetnaProd', tasks: 3, todayIso: TODAY, now: NOW, gear: slot('cover') }),
-    gear: slot('pin'),
-    needs: v.needs, needsCount: 3, comingUp: v.comingUp, shop: v.shop,
-  });
-  const html = renderToStaticMarkup(React.createElement(TodayGearPinned.Provider, { value: true }, screen));
-  const { cover, pin, hours } = parts(html);
-  assert.ok(cover.length > 0 && hours > 0, 'anti-vacuity: the cover or the hours did not render');
-  assert.equal([...html.matchAll(GEAR)].length, 1, 'not exactly one ⚙ once the header has gone');
-  assert.doesNotMatch(cover, GEAR, 'the ⚙ stayed on a header that has scrolled away');
-  assert.match(pin, /data-today-needs-gear=""[\s\S]*aria-label="Today settings"/, 'the ⚙ is not on the pinned row');
-  assert.ok(html.search(GEAR) > hours, 'the ⚙ is not at the pinned row’s right end (after the count)');
+  const html = renderToStaticMarkup(React.createElement(SupplierTodayScreen, { view: v, outcome: null, shopName: 'SetnaProd', todayIso: TODAY, now: NOW }));
+  const { pin } = parts(html);
+  assert.doesNotMatch(pin, GEAR, 'a ⚙ sits on the pinned Needs-you row (the clean look removes it)');
+  assert.doesNotMatch(pin, /data-today-needs-gear=/, 'the pinned row still has a slot for a second ⚙');
+  const first = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'), 'utf8'));
+  assert.doesNotMatch(first, /data-today-needs-gear|\bgear\?: ReactNode/, 'the first screen still takes a ⚙ for the pinned row');
 });
 
 const SUPPLIER = join(process.cwd(), 'app/vendor-dashboard');
 const read = (rel: string) => stripComments(readFileSync(join(SUPPLIER, rel), 'utf8'));
 
-test('3 · Today hands the header and the pinned row the two slots of ONE ride', () => {
+test('3 · Today hands the header its ⚙, and the first screen none — no ride', () => {
   const src = read('_components/supplier-today-screen.tsx');
-  assert.equal((src.match(/<TodayGearRide>/g) ?? []).length, 1, 'Today is not wrapped in exactly one TodayGearRide');
-  assert.match(src, /<TodayCover[\s\S]*?gear=\{setup \? null : <TodayGearSlot at="cover" \/>\}/, 'the header no longer gets the ⚙');
-  assert.match(src, /<SupplierTodayFirstScreen[\s\S]*?gear=\{setup \? null : <TodayGearSlot at="pin" \/>\}/, 'the pinned row no longer gets the ⚙ slot');
-  assert.doesNotMatch(src, /<TodaySettings\b/, 'Today mounts the ⚙ directly again, outside the ride');
+  assert.match(src, /<TodayCover[\s\S]*?gear=\{setup \? null : <TodaySettings cover \/>\}/, 'the header no longer gets the ⚙');
+  const first = src.slice(src.indexOf('<SupplierTodayFirstScreen'), src.indexOf('/>', src.indexOf('<SupplierTodayFirstScreen')));
+  assert.ok(first.length > 0, 'anti-vacuity: Today no longer mounts the first screen');
+  assert.doesNotMatch(first, /\bgear=/, 'the first screen is handed a ⚙ again');
+  assert.doesNotMatch(src, /TodayGearRide|TodayGearSlot/, 'the ⚙ ride is back');
 });
 
-test('4 · Portfolio’s pin is the one mechanism, and the ride is the one Today mount', () => {
-  const ride = read('_components/today-gear-ride.tsx');
-  assert.match(ride, /useHeroPin\(/, 'Today’s ⚙ does not ride Portfolio’s pin');
-  assert.match(ride, /pin >= 0\.5/, 'the ride’s hand-off point drifted from Portfolio’s (pin ≥ 0.5)');
+test('4 · one mount: the header and the new shop’s setup only', () => {
   const portfolio = read('collections/_components/portfolio-view.tsx');
-  assert.match(portfolio, /useHeroPin\(/, 'Portfolio left the shared pin (two mechanisms for one hand-off)');
-  assert.doesNotMatch(portfolio, /addEventListener\('scroll'/, 'Portfolio grew its own scroll listener again');
-
+  assert.match(portfolio, /useHeroPin\(/, 'Portfolio left the shared pin');
   const seats: string[] = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {
@@ -122,8 +104,9 @@ test('4 · Portfolio’s pin is the one mechanism, and the ride is the one Today
     }
   };
   walk(SUPPLIER);
-  assert.deepEqual(seats.sort(), ['_components/today-gear-ride.tsx', 'page.tsx'], `TodaySettings seats: ${seats.join(', ')}`);
-  // page.tsx's one mount is the NEW SHOP's setup ⚙ (`SupplierSetupScreen gear`), never the running Today.
+  assert.deepEqual(seats.sort(), ['_components/supplier-today-screen.tsx', 'page.tsx'], `TodaySettings seats: ${seats.join(', ')}`);
   const page = read('page.tsx');
   assert.equal((page.match(/<TodaySettings\b/g) ?? []).length, 1, 'page.tsx mounts more than the new shop’s ⚙');
+  const today = read('_components/supplier-today-screen.tsx');
+  assert.equal((today.match(/<TodaySettings\b/g) ?? []).length, 1, 'Today mounts more than one ⚙');
 });

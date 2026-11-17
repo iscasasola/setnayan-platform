@@ -1,5 +1,6 @@
 'use server';
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -66,6 +67,8 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   plan_not_in_full: 'proposal_plan_not_in_full',
   // 🧪 the demo rule — one notice per sentence (`demoNotice` picks it from the core's own message).
   demo_scope: 'proposal_demo_shop',
+  // 🧾 OWN-01 — the offer's first-N couples already have it.
+  offer_taken: 'proposal_offer_taken',
   failed: 'proposal_failed',
 };
 
@@ -83,7 +86,7 @@ function refusalNotice(code: Exclude<SendProposalError, 'unauthenticated' | 'not
 export async function sendProposalFromChat(formData: FormData) {
   const supabase = await createClient();
   const threadId = String(formData.get('thread_id') ?? '');
-  const back = `/vendor-dashboard/messages/${threadId}`;
+  const back = supplierThreadPageHref(threadId);
 
   const totalPhpRaw = Number(formData.get('total_php'));
   const result = await sendProposalCore(supabase, {
@@ -497,7 +500,7 @@ export async function loadServiceCardLinesForQuote(input: {
 export async function sendCustomProposalFromChat(formData: FormData) {
   const supabase = await createClient();
   const threadId = String(formData.get('thread_id') ?? '');
-  const back = `/vendor-dashboard/messages/${threadId}`;
+  const back = supplierThreadPageHref(threadId);
 
   let lineItems: ProposalLineItem[] = [];
   let validUntil: string | null = null;

@@ -52,7 +52,6 @@ export const SUPPLIER_WORD_ALLOWED: ReadonlyArray<{ prefix: string; why: string 
   { prefix: 'app/(shell)/explore/', why: 'public Explore pages — the same SEO pass' },
   { prefix: 'app/(shell)/about/', why: 'public About page — the same SEO pass' },
   { prefix: 'app/(shell)/pricing/', why: 'public pricing page — the same SEO pass' },
-  { prefix: 'app/(shell)/realstories/', why: 'public stories — the same SEO pass' },
   { prefix: 'app/(shell)/tl/', why: 'public Tagalog pages — the same SEO pass' },
   { prefix: 'app/features/', why: 'public feature pages — the same SEO pass' },
   { prefix: 'app/(shell)/waitlist/', why: 'public waitlist page — the same SEO pass' },

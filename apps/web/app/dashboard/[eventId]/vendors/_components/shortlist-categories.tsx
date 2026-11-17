@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
@@ -299,7 +300,7 @@ import {
 import type { RequirementField } from '@/lib/requirements-capture';
 import { shopInitials } from '@/lib/shop-initials';
 import { benchCardImage } from '@/lib/bench-card-image';
-import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { NEW_TO_SETNAYAN_LABEL, NO_REVIEWS_YET_LABEL } from '@/lib/reviews';
 import {
   loadCategoryRequirements,
   saveCategoryRequirements,
@@ -316,7 +317,7 @@ const SLCAT_CSS = `
 .slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
 .slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.7)}
 
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+.slcat{--paper:var(--m-paper);--ink:var(--m-ink);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
      (2026-09-09). An undefined custom property makes the declaration invalid at
      computed-value time, so every one of those rules fell back to INHERITED ink
@@ -325,7 +326,7 @@ const SLCAT_CSS = `
      Same family as the --font-serif and --sn-warn traps this repo has
      already paid for: rejected, not thrown, and the only symptom is an absence. */
   --ink-faint:#6B7079;
-  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --gold:var(--m-orange);--gold-deep:var(--m-orange-2);
   /* THE ONLY GOLD THAT MAY CARRY TEXT. globals.css already worked this out and
      wrote the answer next to the token: #A9834B / #8A6B39 score 3.37:1 / 4.21:1
      on the pale gold wash — below the 4.5:1 AA floor — and #5C4726 clears it.
@@ -334,7 +335,7 @@ const SLCAT_CSS = `
      --gold-deep keeps its job as a FILL (white on it is fine); this is for
      letters. */
   --gold-text:var(--m-orange-deep,#5C4726);
-  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
+  --mulberry:var(--m-mulberry);--line:var(--m-line,rgba(30,26,18,.12));
   --line-soft:rgba(30,26,18,.07);--card:#fff;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
      The bench sits on the app-wide .sn-ambient ground. The original defect: the
@@ -610,7 +611,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--sans);font-style:normal;font-size:26px;color:rgba(255,255,255,.7)}
-.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
 /* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
 .slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
 .slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
@@ -663,7 +664,7 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--sans);font-size:12px;letter-spacing:.03em;color:var(--ink-soft)}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.02em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#1F5C39;background:rgba(46,125,79,.1)}
 /* OUR OWN NAME WAS THE LEAST READABLE TEXT ON THE BENCH — 3.89:1, worse than
    either pairing the design review flagged, and behind no flag at all.
@@ -673,7 +674,7 @@ html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .bdg.setnayan{color:#A83E19;background:rgba(30, 26, 18,.1)}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.02em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
 .slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
 .slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
@@ -1610,18 +1611,19 @@ function VendorCard({
           // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
           // number for a marketplace-linked vendor (never an off-platform /
           // manual pick, which carries no enrichment at all).
-          <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
+          // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
+          <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
         ) : null}
         {v.isVerified || v.isSetnayan ? (
           <span className="badges">
             {v.isSetnayan ? (
               <span className="bdg setnayan">
-                <Sparkles size={9} strokeWidth={2} aria-hidden /> Setnayan
+                <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
               </span>
             ) : null}
             {v.isVerified ? (
               <span className="bdg verified">
-                <BadgeCheck size={9} strokeWidth={2} aria-hidden /> Verified
+                <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
               </span>
             ) : null}
           </span>
@@ -1745,7 +1747,15 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    return v.buildFit === 'clash' || unavailable ? <div className="vcw is-dim">{card}</div> : card;
+    const told = v.notYetVerified ? <NotYetVerifiedThreadLine /> : null;
+    return v.buildFit === 'clash' || unavailable || told ? (
+      <div className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}`}>
+        {card}
+        {told}
+      </div>
+    ) : (
+      card
+    );
   }
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
@@ -1815,6 +1825,9 @@ function VendorCard({
         </div>
       ) : null}
       {card}
+      {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line, under the card (its ⓘ
+          is a button, so it cannot sit inside the card's link). */}
+      {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
       <BenchVendorActions
         actions={actions}
         eventId={eventId}
@@ -2054,7 +2067,7 @@ function InlineMoreCard({
             ) : null}
             {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
             {v.rating == null && typeof v.reviewCount === 'number' ? (
-              <span className="text-xs text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+              <span className="text-xs text-[var(--m-slate-2)]">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
             ) : null}
             {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
             {sunk ? (

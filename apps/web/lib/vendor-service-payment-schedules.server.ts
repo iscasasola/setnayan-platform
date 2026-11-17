@@ -8,6 +8,7 @@
  */
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   computeStepper,
   rowToCoupleFacing,
@@ -217,7 +218,10 @@ export async function readPlanProgressForVendor(opts: {
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
   const evRows = (bookings ?? []) as Array<{ vendor_id: string; vendor_name: string | null }>;
-  if (bookingsError) return { plans: [], complete: false };
+  if (bookingsError) {
+    logQueryError('readPlanProgressForVendor.bookings', bookingsError, { eventId, vendorProfileId }, 'graceful_degrade');
+    return { plans: [], complete: false };
+  }
   if (evRows.length === 0) return { plans: [], complete: true };
   const eventVendorIds = evRows.map((b) => b.vendor_id).filter(Boolean);
 
@@ -232,7 +236,10 @@ export async function readPlanProgressForVendor(opts: {
     instances_json: unknown;
     cleared_at: string | null;
   }>;
-  if (plansError) return { plans: [], complete: false };
+  if (plansError) {
+    logQueryError('readPlanProgressForVendor.plans', plansError, { eventId, vendorProfileId }, 'graceful_degrade');
+    return { plans: [], complete: false };
+  }
   if (planRows.length === 0) return { plans: [], complete: true };
 
   // 3. All logged payments on those bookings (seq + confirm flag).
@@ -285,6 +292,7 @@ export async function readPlanProgressForVendor(opts: {
       reservationAcknowledgedAt: ackByVendor.get(plan.event_vendor_id) ?? null,
     };
   });
+  if (payError) logQueryError('readPlanProgressForVendor.payments', payError, { eventId, vendorProfileId }, 'graceful_degrade');
   return { plans: rows, complete: !payError };
 }
 

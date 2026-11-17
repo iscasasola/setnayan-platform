@@ -2466,6 +2466,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2795,6 +2796,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -3406,6 +3408,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3542,6 +3545,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3583,6 +3587,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3981,6 +3986,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4165,6 +4171,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4618,6 +4625,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4803,6 +4811,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4952,6 +4961,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5052,6 +5062,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5649,6 +5660,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",

@@ -167,7 +167,7 @@
   "app/admin/launch-offer/page.tsx": 3,
   "app/admin/moodboard-library/_components/library-editor.tsx": 7,
   "app/admin/queues/_components/queues-triage-feed.tsx": 15,
-  "app/admin/reveal-studio/std-video-moderation.tsx": 2,
+  "app/admin/reveal-studio/std-video-moderation.tsx": 1,
   "app/admin/reveal-studio/studio.tsx": 7,
   "app/admin/settings/_components/qr-upload-form.tsx": 1,
   "app/creators/_components/creator-story-hero.tsx": 1,

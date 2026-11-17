@@ -24,6 +24,7 @@ export async function writeCardPayPlan(
       .update({ pay_plan_id: null })
       .eq('vendor_service_id', cardId)
       .eq('vendor_profile_id', vendorProfileId);
+    if (error) console.error('[supabase-error] lib/vendor-pay-plans.server.ts · from:vendor_services.update (detach)', error);
     return error ? 'its pay plan' : null;
   };
   const apply = async (planId: string, ids: string[]) => {

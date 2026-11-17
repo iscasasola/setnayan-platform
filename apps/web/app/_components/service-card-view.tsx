@@ -120,7 +120,6 @@ export function ServiceCardView({
         ) : null
       }
       door={door}
-      footer={footer}
     />
   );
 }

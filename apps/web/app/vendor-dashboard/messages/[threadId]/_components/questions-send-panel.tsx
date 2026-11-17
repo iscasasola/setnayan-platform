@@ -22,12 +22,18 @@ export async function QuestionsSendPanel({
   eventId,
   vendorProfileId,
   coupleName,
+  quietWhenEmpty = false,
 }: {
   supabase: SupabaseClient;
   threadId: string;
   eventId: string;
   vendorProfileId: string;
   coupleName: string;
+  /**
+   * The picked client's Forms page mounts this UNDER `QuestionsSection`, which already says there are no questions —
+   * so the empty line is drawn once there, not three times (owner, 17 Nov). The chat keeps its line (default).
+   */
+  quietWhenEmpty?: boolean;
 }) {
   const [questionsRes, askRes, answers] = await Promise.all([
     supabase
@@ -60,6 +66,7 @@ export async function QuestionsSendPanel({
       asked={askedQuestions((questionsRes.data ?? []) as VendorQuestion[])}
       sentAt={(askRes.data as { sent_at: string } | null)?.sent_at ?? null}
       answered={answers.unread ? null : answers.questionnaire.answered}
+      quietWhenEmpty={quietWhenEmpty}
     />
   );
 }
@@ -71,6 +78,7 @@ export function QuestionsSendBody({
   asked,
   sentAt,
   answered,
+  quietWhenEmpty = false,
 }: {
   threadId: string;
   coupleName: string;
@@ -78,8 +86,10 @@ export function QuestionsSendBody({
   sentAt: string | null;
   /** null = the answers could not be read; never drawn as "0 answered". */
   answered: number | null;
+  quietWhenEmpty?: boolean;
 }) {
   if (asked.length === 0) {
+    if (quietWhenEmpty) return null;
     return (
       <p className="text-sm leading-relaxed text-ink/70">
         You have no questions yet.{' '}

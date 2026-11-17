@@ -139,6 +139,8 @@ import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-wor
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { clientPaymentView } from '@/lib/client-payment-view';
+import { readClientNoun } from '@/lib/client-words.server';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
 import type { ClientRefundView } from './_components/client-refunds';
 import { CLIENT_REFUND_SELECT, clientRefundOf, type ClientRefundDbRow } from '@/lib/client-refunds';
@@ -2221,6 +2223,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     be a door that always refuses.
   */
   const askNotice = typeof search.ask === 'string' ? search.ask : null;
+  // 💸 The ask form's suggestion — the plan's next unpaid payment, from the SAME fold the Payment page draws
+  // (`clientPaymentView`), so the panel never types a figure of its own and never says "nothing outstanding" over it.
+  const askNext = isBooked
+    ? clientPaymentView({ steps: planStepRows?.steps ?? null, clearedAt: planStepRows?.clearedAt ?? null, ledgerMoney, ledgerUnreadable }).next
+    : null;
+  const askSuggestion = askNext && !askNext.check ? askNext : null;
   // Rendered when the shop CAN ask, or when it just tried and needs to be told
   // why it could not — never nothing in the second case.
   const askPanel = isBooked || askNotice ? (
@@ -2243,6 +2251,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       measured={asksMeasured}
       notice={askNotice}
       canAsk={isBooked}
+      suggest={askSuggestion}
     />
   ) : null;
 
@@ -2386,6 +2395,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
+  // 🔤 The event kind's word for this client ("celebrant" on a debut — owner, 17 Nov: "about this couple" on a debut).
+  const clientNoun = await readClientNoun(eventId);
   const activityNode = (
     <>
       {!notesMeasured ? (
@@ -2396,7 +2407,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} clientNoun={clientNoun} />
     </>
   );
 

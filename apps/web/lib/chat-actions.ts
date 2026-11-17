@@ -11,6 +11,8 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
+import { returningClientLine } from '@/lib/client-words';
+import { readClientNoun } from '@/lib/client-words.server';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -274,7 +276,8 @@ export async function notifyOtherParty(args: {
       const body = founderSeat
         ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
         : priorLocked
-          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+          ? // 🔤 The event kind's own word (a debut is not "This couple" — owner, 17 Nov), via `returningClientLine`.
+            `${returningClientLine(await readClientNoun(args.eventId, admin), priorLocked)} ${args.body.slice(0, 200)}`
           : args.body.slice(0, 200);
       tellShop = (userId) =>
         emitNotification({

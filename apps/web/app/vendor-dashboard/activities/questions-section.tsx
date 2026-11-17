@@ -32,11 +32,17 @@ export async function QuestionsSection({
   supabase,
   vendorProfileId,
   starters: tradeStarters,
+  clientNoun,
 }: {
   supabase: SupabaseClient;
   vendorProfileId: string;
   /** The shop's trade set; omitted = the host's emcee set (the original). */
   starters?: ReadonlyArray<StarterQuestion>;
+  /**
+   * 🔤 Mounted on ONE client (the picked client's Forms page): that event kind's own word (`readClientNoun` —
+   * "celebrant" on a debut, "couple" on a wedding). Omitted = the shared questions page, unchanged.
+   */
+  clientNoun?: string;
 }) {
   const { data, error } = await supabase
     .from('vendor_questions')
@@ -53,6 +59,7 @@ export async function QuestionsSection({
       measured={!error && data !== null}
       all={(data ?? []) as VendorQuestion[]}
       starters={tradeStarters}
+      clientNoun={clientNoun}
     />
   );
 }
@@ -62,11 +69,17 @@ export function QuestionsSectionBody({
   measured,
   all,
   starters: tradeStarters,
+  clientNoun,
 }: {
   measured: boolean;
   all: VendorQuestion[];
   starters?: ReadonlyArray<StarterQuestion>;
+  clientNoun?: string;
 }) {
+  // 🔤 One client's page names that client by its event kind; the every-client lines say "client" (owner, 17 Nov:
+  // "Questions for the couple" on a debut). The shared page (no noun) keeps its shipped words.
+  const one = clientNoun ?? 'couple';
+  const every = clientNoun ? 'client' : 'couple';
   const asked = askedQuestions(all);
   const retired = all.filter((q) => !q.is_asked);
   const starters = measured ? startersNotYetAdded(all, tradeStarters) : [];
@@ -76,17 +89,17 @@ export function QuestionsSectionBody({
       <header className="space-y-2">
         <h2 className="inline-flex items-center gap-2 font-pahina text-2xl font-light leading-tight tracking-tight text-ink">
           <MessageCircleQuestion aria-hidden className="h-5 w-5 text-gild" strokeWidth={1.7} />
-          Questions for the couple
+          Questions for the {one}
         </h2>
         {/* ⓘ Title + one short line visible; the rest inside the tip (house rule). */}
         <InfoTip
-          label="Write them once — every couple you work with answers them."
+          label={`Write them once — every ${every} you work with answers them.`}
           labelAs="p"
           labelClassName="max-w-prose text-sm leading-relaxed text-ink/70"
           align="start"
         >
-          Couples who book you answer them in their event. Before a booking, send them from the
-          chat: ＋ › Questions for the couple. You read the answers on their customer card. Their
+          {every === 'client' ? 'Clients' : 'Couples'} who book you answer them in their event. Before a booking, send them from the
+          chat: ＋ › Questions for the {one}. You read the answers on their customer card. Their
           answers stay with their event — only your questions carry on.
         </InfoTip>
       </header>
@@ -101,7 +114,7 @@ export function QuestionsSectionBody({
         </p>
       ) : asked.length === 0 ? (
         <p className="border border-dashed border-ink/15 px-4 py-6 text-center text-sm leading-relaxed text-ink/65">
-          You are not asking couples anything yet. Start from the suggestions below, or write
+          You are not asking {every}s anything yet. Start from the suggestions below, or write
           your own.
         </p>
       ) : (
@@ -125,7 +138,7 @@ export function QuestionsSectionBody({
                       defaultValue={q.hint ?? ''}
                       maxLength={QUESTION_HINT_MAX}
                       aria-label="Hint shown under the answer box"
-                      placeholder="Hint for the couple (optional)"
+                      placeholder={`Hint for the ${one} (optional)`}
                       className="w-full border border-ink/15 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40"
                     />
                   </div>
@@ -194,8 +207,8 @@ export function QuestionsSectionBody({
         <input
           name="hint"
           maxLength={QUESTION_HINT_MAX}
-          aria-label="Hint for the couple"
-          placeholder="Hint for the couple (optional)"
+          aria-label={`Hint for the ${one}`}
+          placeholder={`Hint for the ${one} (optional)`}
           className="w-full border border-ink/15 bg-white px-3 py-2 text-xs text-ink placeholder:text-ink/40"
         />
         <button
@@ -212,7 +225,7 @@ export function QuestionsSectionBody({
             Not asking · {retired.length}
           </summary>
           <p className="mt-2 text-xs leading-relaxed text-ink/60">
-            Kept, not deleted — couples who already answered these still have their answers.
+            Kept, not deleted — {every}s who already answered these still have their answers.
           </p>
           <ul className="mt-3 space-y-2">
             {retired.map((q) => (

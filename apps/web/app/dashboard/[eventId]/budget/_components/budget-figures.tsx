@@ -52,7 +52,16 @@ export type BudgetFigureCell = {
 };
 
 export type BudgetFiguresNext =
-  | { amountPhp: number; name: string; dueDate: string | null; action: ReactNode }
+  | {
+      amountPhp: number;
+      name: string;
+      dueDate: string | null;
+      action: ReactNode;
+      /** Optional due words that replace the bare day ("Was due Nov 13") — the plan row's own badge words. */
+      dueText?: string | null;
+      /** Past due: the due words draw in the wine "bad news" tone. */
+      late?: boolean;
+    }
   | 'unread'
   | null;
 
@@ -125,7 +134,18 @@ export function BudgetFigures({
               <Peso value={next.amountPhp} id="budget-next" />
             </b>{' '}
             · {next.name}
-            {next.dueDate ? ` · ${shortDate(next.dueDate)}` : ''}
+            {next.dueText ? (
+              <>
+                {' · '}
+                <span className={next.late ? styles.wine : undefined} data-budget-next-late={next.late ? '' : undefined}>
+                  {next.dueText}
+                </span>
+              </>
+            ) : next.dueDate ? (
+              ` · ${shortDate(next.dueDate)}`
+            ) : (
+              ''
+            )}
           </span>
           {next.action}
         </div>

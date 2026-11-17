@@ -24,7 +24,7 @@ import { readPlanHolds } from '@/lib/service-plan-hold.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { StayOnSection } from './stay-on-section';
-import { ServiceCardItem } from './service-card-item';
+import { ServiceCardItem, ServiceCardItemFooter } from './service-card-item';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { readShareTargets } from '@/lib/service-share-targets.server';
@@ -744,8 +744,9 @@ export async function VendorServicesManager({
               const svcInclusions =
                 inclusionsByService.get(svc.vendor_service_id) ?? [];
               const planHold = planHolds?.get(svc.vendor_service_id) ?? null;
-              // 🃏 THE CARD, THEN ONE ROW UNDER IT — Edit · Share icons, then the Online/Offline switch; swipe left to
-              // delete (owner 10 Nov on PR #7464). No frame around card + row. Tapping the card face opens the Card
+              // 🃏 THE CARD HOLDS EVERYTHING — the face, then (inside the card's own frame, `footInFace`) one meta line and
+              // the row: Edit · Share icons, the Online/Offline switch, a computer's hover Delete; swipe left to delete
+              // (owner 10 Nov on PR #7464; one card, owner 17 Nov). No second frame around card + row. Tapping the card face opens the Card
               // Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
               const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}`;
               const cardName = svc.title?.trim() || displayServiceLabel(svc.category);
@@ -813,6 +814,7 @@ export async function VendorServicesManager({
                         detailsEnabled={false}
                         path={displayServiceLabel(svc.category)}
                         coverUrl={svc.primary_photo_r2_key ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null : null}
+                        footer={<ServiceCardItemFooter />}
                       />
                       <Link
                         href={editHref}
@@ -838,14 +840,27 @@ export async function VendorServicesManager({
                   }
                   warningLines={deleteWarningLines(cardBookings?.get(svc.vendor_service_id)?.picked ?? 0)}
                   remove={removeVendorServiceFromList}
+                  footInFace
                   below={
                     <>
-                    <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {/* ONE meta line (owner 17 Nov, "i see so many spaces"): the price basis · the branch · the
+                        coverage · the reach this card's price is earning — on the card itself, every time the shop
+                        looks at the list, not in a report they would have to go and find.
+                        ⛔ TWO STATES ONLY. A bigger price never earns more reach; that would be selling placement. */}
+                    <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }} data-card-meta="">
                       {paxLabel} · assigned to {branchLabel}
                       {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                         ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                         : ''}
                       {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
+                      {' · '}
+                      <span
+                        style={{ color: reach.level === 'full' ? undefined : 'var(--m-orange-deep)' }}
+                        data-card-reach={reach.level}
+                      >
+                        {reach.label}
+                        {reach.level === 'full' ? '' : ' · open the card'}
+                      </span>
                     </p>
                     {planHold?.hold === 'held' ? (
                       <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
@@ -856,35 +871,6 @@ export async function VendorServicesManager({
                         {HOLD_WORDS.scheduledLine(planHold.startsOn)}
                       </p>
                     ) : null}
-                    {/* The reach this card's price is earning — on the card
-                        itself, every time the shop looks at the list, not in
-                        a report they would have to go and find.
-                        ⛔ TWO STATES ONLY. A bigger price never earns more
-                        reach; that would be selling placement. */}
-                    <p
-                      className="mt-1 flex items-center gap-1.5 text-[11px]"
-                      style={{
-                        color:
-                          reach.level === 'full'
-                            ? 'var(--m-slate-2)'
-                            : 'var(--m-orange-deep)',
-                      }}
-                    >
-                      <span
-                        aria-hidden
-                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{
-                          background:
-                            reach.level === 'full'
-                              ? 'var(--m-slate-3)'
-                              : 'var(--m-orange-deep)',
-                        }}
-                      />
-                      <span className="truncate">
-                        {reach.label}
-                        {reach.level === 'full' ? '' : ' · open the card'}
-                      </span>
-                    </p>
                     {svcDiscount ? (
                       <DiscountBadge
                         type={svcDiscount.discount_type}

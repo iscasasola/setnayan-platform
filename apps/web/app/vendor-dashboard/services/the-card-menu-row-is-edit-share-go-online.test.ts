@@ -88,9 +88,18 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
   const at = ROW.indexOf('data-card-menu-line=""');
   assert.ok(at > 0, 'the row line was not found — re-anchor this guard');
   const line = ROW.slice(ROW.lastIndexOf('<div', at), ROW.indexOf('<StayForm', at));
-  const buttons = line.match(/<ActionButton\b/g) ?? [];
-  assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share');
-  assert.equal((line.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
+  // The computer's hover Delete (owner 17 Nov, one card) is the ONLY other button: hover/keyboard only, never on touch.
+  const hoverAt = line.indexOf('data-card-delete-hover=""');
+  const del = hoverAt > 0 ? line.slice(line.lastIndexOf('<span', hoverAt), line.indexOf('</span>', hoverAt)) : '';
+  if (del) {
+    assert.match(del, /\bhidden\b[^"]*\[@media\(hover:hover\)_and_\(pointer:fine\)\]:inline-flex/, 'the row’s Delete shows on a touch screen — it must be hover-only');
+    assert.match(del, /opacity-0[^"]*group-hover\/card:opacity-100/, 'the row’s Delete is visible at rest — it must show on hover only');
+    assert.match(del, /onClick=\{onDelete\}/, 'the row’s Delete does not go through the card’s own delete (warning + Undo)');
+  }
+  const kept = del ? line.replace(del, '') : line;
+  const buttons = kept.match(/<ActionButton\b/g) ?? [];
+  assert.equal(buttons.length, 2, 'the row should hold exactly two ActionButtons: Edit and Share (plus the hover Delete)');
+  assert.equal((kept.match(/\biconOnly\b/g) ?? []).length, 2, 'Edit and Share are icon buttons');
   // RW-286b (re-walk 14 Nov): one size for both, at the 44 px floor of the T02/T04 size round (was 40×40).
   assert.match(line, /\[&>\.ab\]:h-11 \[&>\.ab\]:min-h-11 \[&>\.ab\]:w-11/, 'the two icon buttons are not one 44×44 size');
   const edit = line.indexOf('name="Edit"');

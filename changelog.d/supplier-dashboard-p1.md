@@ -43,3 +43,21 @@ SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECI
 - **Round 3 labels + CI.** Shop (Makers · Bundles · Services · Badges), Offers, Performance, Team access, the client page (Payments · Quotation · Your next move · Day-of timeline · Your handovers) and the Files heading move onto the house label (sentence case); the Offer editor's "As couples see it" too. `--sn-canvas` is the page's cool white on supplier pages, so no beige band shows. CI: "Message the couple" on the fee lock gets its `eventId`; `threadSearch` is optional on the picked-page context; `readClientChatThreadId` logs a refused read; five older guards follow the helper links; screens map + port baseline regenerated.
 - **Sheets read the supplier tokens (owner 17 Nov).** The account and Notifications sheets wore gold because they read the `--m-*` palette (`--m-nav-active`, `--m-orange*`, `--m-ivory`, warm slates: `:root` hexes), not because they portal: the supplier scope is on `<html>`, so it reaches `<body>` portals. `supplier-look.css` now re-points that palette to the drawing, so the active row, ✓, the SHOP tag, "Profile & settings", "Mark all read", "View all" and the unread dots go blue, and the name card loses its warm glow (`--sn-cover-glow`). The name is the app sans, bold (`.sn-sheet-name`, the drawing's 1.15em · 700). The sheet labels (Switch to · You are in · Your shop · Today · Earlier · Waiting on this page) are the new token-read `.sn-sheet-k`, sentence case on supplier pages; the couple side keeps the mono caps. Client settings rises full screen (`MenuSettingsButton menu="client" rise`, owner 10 Nov), and its This client / Notes labels are the house label. Guard: `section-labels-are-sentence-case.test.ts` test 6.
 - **The Shop quick row's "Prints" tile is "Promote" (owner 17 Nov: *"Prints should be renamed as Promote, since when you open it, it promotes"*).** The word is typed once (`shop-cover.tsx`; no registry or route title carries it). The tile now opens the Promote sheet itself (already titled "Promote") instead of scrolling to its Prints section; `data-shop-quick="promote"`. The route is unchanged and the screens map is unchanged. Guards `the-quick-row-is-the-drawn-three` and `prints-are-the-drawn-seven-rows` follow.
+
+## 2026-11-17 · fix(shop): one service card holds everything — meta line and Edit · Share · Online · Delete inside its frame
+
+Owner on the #7901 preview, Shop › Services ("Ballroom Uplighting"): *"i see so many spaces"* — the card stopped 44 px
+short (the computer's hover Delete took its own column outside it), the Edit/Share/Online row sat apart below it, and
+"flat · assigned to You" and "• Full reach" hung as two loose lines under that. Now the card's OWN frame holds it all,
+through the footer slot `ServiceFace` already had ("Inside the frame, under the face"): the face, then ONE meta line
+(price basis · branch · coverage · reach), then the row (✎ · ⇪ · Online switch · 🗑). `ServiceCardView` passes `footer`
+through; `ServiceCardItem` gains `footInFace` and `ServiceCardItemFooter` (reads the row + delete from context, since a
+server list cannot hand the client item a render function). Still ONE frame, never a box around the card (10 Nov
+ruling and its guard hold). The 🗑 is the same SwipeToDelete-backed Delete (open-booking refusal → warning sheet →
+Undo), hover/keyboard only on a computer, never on a touch screen (DECISION_LOG 2026-11-03); a phone still swipes.
+Measured in `/dev/service-card-row-lab`: card fills the list at 1280 (was 44 px short), gutters 16 / 16 at 390, all
+row buttons 44×44. Reposition only — no data or action added or lost.
+Guards: `the-card-menu-row-is-edit-share-go-online.test.ts` admits only a hover-only Delete wired to `onDelete`
+(sabotage-proven); `no-delete-x-on-list-rows.test.ts` ALLOWED names the row file with why.
+
+SPEC IMPACT: None

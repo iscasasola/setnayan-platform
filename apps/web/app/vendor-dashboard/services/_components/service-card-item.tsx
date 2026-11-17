@@ -18,9 +18,17 @@
  *     back everything — nothing was written. A card a couple ever picked is HIDDEN by the server instead of deleted
  *     (their record stays): it comes back here, offline, and the toast says so.
  *
+ * 🧩 ONE CARD HOLDS EVERYTHING (owner 17 Nov on the #7901 preview, *"i see so many spaces"*): with `footInFace`, the
+ *   shop-only facts and the row move INSIDE the card's own frame — the `footer` slot `ServiceFace` already has
+ *   ("Inside the frame, under the face") — through `<ServiceCardItemFooter />`, which the manager drops into the card
+ *   face and which reads this item's row and delete from context (a server list cannot hand the client item a render
+ *   function). Still ONE frame — the card's own — never a second box around it (the 10 Nov ruling holds). The
+ *   computer's hover Delete moves from its own column OUTSIDE the card (which cut the card short) into the row's end,
+ *   still hover-only (DECISION_LOG 2026-11-03: no visible ✕ on rows); a phone still swipes.
+ *
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
  */
-import { useId, useState, type ReactNode } from 'react';
+import { createContext, useContext, useId, useState, type ReactNode } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { Sheet } from '@/app/_components/sheet';
@@ -50,9 +58,32 @@ export type ServiceCardItemProps = {
   remove: (vendorServiceId: string) => Promise<{ ok: true; retired: boolean } | { ok: false; error: string }>;
   /** A lab's stand-in for the Undo window (ms). */
   windowMs?: number;
+  /** The row and the shop-only facts are drawn INSIDE the card (`<ServiceCardItemFooter />` in the face's footer). */
+  footInFace?: boolean;
 };
 
-export function ServiceCardItem({ liId, live, nameLower, face, below, row, action, save, deleteRefusal, warningLines, remove, windowMs }: ServiceCardItemProps) {
+type FootCtx = {
+  row: ServiceCardItemProps['row'];
+  action: ServiceCardItemProps['action'];
+  save: ServiceCardItemProps['save'];
+  below: ReactNode;
+  onDelete: () => void;
+};
+const CardFoot = createContext<FootCtx | null>(null);
+
+/** The card's own bottom: the shop-only facts, then the one row (✎ · ⇪ · switch · hover 🗑) — inside the frame. */
+export function ServiceCardItemFooter() {
+  const f = useContext(CardFoot);
+  if (!f) return null;
+  return (
+    <div className="mt-1 space-y-2 border-t border-ink/10 pt-2.5" data-card-foot="">
+      {f.below}
+      <ServiceCardMenuRow {...f.row} action={f.action} save={f.save} onDelete={f.onDelete} />
+    </div>
+  );
+}
+
+export function ServiceCardItem({ liId, live, nameLower, face, below, row, action, save, deleteRefusal, warningLines, remove, windowMs, footInFace = false }: ServiceCardItemProps) {
   const [gone, setGone] = useState(false);
   const [warn, setWarn] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -97,13 +128,19 @@ export function ServiceCardItem({ liId, live, nameLower, face, below, row, actio
       data-shop-card-live={live ? '1' : '0'}
       data-shop-card-name={nameLower}
       hidden={gone}
-      className="scroll-mt-24 space-y-2 border-b border-ink/10 pb-5 last:border-b-0 last:pb-0"
+      className="group/card scroll-mt-24 space-y-2 border-b border-ink/10 pb-5 last:border-b-0 last:pb-0"
     >
-      <SwipeToDelete label={`Delete ${row.cardName}`} onDelete={onSwipeDelete} radiusClass="rounded-xl" surfaceClass="bg-cream">
-        {face}
-      </SwipeToDelete>
-      <ServiceCardMenuRow {...row} action={action} save={save} />
-      {below}
+      <CardFoot.Provider value={footInFace ? { row, action, save, below, onDelete: () => onSwipeDelete(() => {}) } : null}>
+        <SwipeToDelete label={`Delete ${row.cardName}`} onDelete={onSwipeDelete} radiusClass="rounded-xl" surfaceClass="bg-cream" hover={!footInFace}>
+          {face}
+        </SwipeToDelete>
+      </CardFoot.Provider>
+      {footInFace ? null : (
+        <>
+          <ServiceCardMenuRow {...row} action={action} save={save} />
+          {below}
+        </>
+      )}
       {refusal ? (
         <p role="alert" className="whitespace-pre-line text-[12.5px] leading-snug text-terracotta-700" data-card-delete-refusal="">
           {refusal}

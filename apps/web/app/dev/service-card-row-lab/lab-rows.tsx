@@ -13,7 +13,7 @@ import { ChevronRight, Copy } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-import { ServiceCardItem } from '@/app/vendor-dashboard/services/_components/service-card-item';
+import { ServiceCardItem, ServiceCardItemFooter } from '@/app/vendor-dashboard/services/_components/service-card-item';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { toggleVendorServiceActive } from '@/app/vendor-dashboard/services/actions';
 import { publishRefusalFor, unmetPublishRequirements, type PublishFacts } from '@/lib/service-publish-gate';
@@ -67,7 +67,7 @@ export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolea
               nameLower={c.name.toLowerCase()}
               face={
                 <div className="relative" data-card-face={c.id}>
-                  <ServiceCardView card={c.card} detailsEnabled={false} />
+                  <ServiceCardView card={c.card} detailsEnabled={false} footer={<ServiceCardItemFooter />} />
                   <Link href="#" aria-label={`Open ${c.name} in the Card Maker`} className="absolute inset-0 rounded-xl" data-card-face-opens="" />
                 </div>
               }
@@ -84,6 +84,7 @@ export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolea
               deleteRefusal={c.deleteRefusal}
               warningLines={c.warningLines}
               remove={labRemove}
+              footInFace
               below={
                 <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
                   {c.factsLine}

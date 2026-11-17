@@ -25,10 +25,13 @@ import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 const LAB_PRICES = {
   soloMonthly: '₱ · · ·',
   soloAnnual: '₱ · · ·',
+  soloAnnualSave: '₱ · · ·',
   proMonthly: '₱ · · ·',
   proAnnual: '₱ · · ·',
+  proAnnualSave: '₱ · · ·',
   enterpriseMonthly: '₱ · · ·',
   enterpriseAnnual: '₱ · · ·',
+  enterpriseAnnualSave: '₱ · · ·',
   branch: '₱ · · ·',
   seat: '₱ · · ·',
   // Every SKU the plan table names reads the same placeholder (Build 6 Lane J) — no figure is typed.

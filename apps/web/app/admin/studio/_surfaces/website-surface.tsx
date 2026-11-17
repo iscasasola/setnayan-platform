@@ -1,3 +1,6 @@
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ArrowUpRight } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -36,7 +39,7 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-ink/75">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Page
           </span>
           <PageSelector currentPage={page} />
@@ -45,7 +48,7 @@ export async function WebsiteSurface({ page: pageRaw }: { page?: string }) {
           href={pageEntry.url}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-medium text-mulberry hover:underline"
+          className="sn-hit inline-block text-xs font-medium text-mulberry hover:underline"
         >
           View live →
         </Link>
@@ -76,32 +79,15 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
       // Inline submit on change for a single dropdown.
     >
       <input type="hidden" name="tab" value="website" />
-      <select
-        name="page"
-        defaultValue={currentPage}
-        className="input-field min-w-[10rem]"
-        // SSR-only — no `onChange` (client form would require 'use client').
-        // Admin can hit Enter or use the Apply button.
-      >
-        {SITE_WIDGET_PAGES.map((p) => (
-          <option key={p.key} value={p.key}>
-            {p.label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="submit"
-        className="ml-2 inline-flex h-11 items-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs text-ink/75 hover:bg-ink/5"
-      >
-        Open
-      </button>
+      <FieldPick name="page" label="Page" defaultValue={currentPage} className="min-h-11 min-w-[10rem]" options={SITE_WIDGET_PAGES.map((p) => ({ key: p.key, label: p.label }))} />
+      <ActionButton tone="neutral" icon={<ArrowUpRight aria-hidden />} label="Open" type="submit" />
     </form>
   );
 }
 
 function EmptyPage({ page }: { page: SiteWidgetPage }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
+    <div className="border-dashed py-10 text-center border-t border-ink/10">
       <p className="text-base font-medium text-ink/75">
         No widgets seeded for <code>{page}</code> yet.
       </p>

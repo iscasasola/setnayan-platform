@@ -183,9 +183,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {resubmitRequested ? (
         <div
           role="alert"
-          className="space-y-2 rounded-2xl border border-warn-300/60 bg-warn-50 p-5 text-warn-900"
+          className="border-l-[3px] border-l-[rgb(var(--color-warn))] py-2 pl-3 space-y-2 text-warn-800"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
+          <p className="text-xs uppercase tracking-[0.06em] text-warn-900/70">
             Please upload your payment again
           </p>
           <p className="text-sm">
@@ -204,7 +204,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             &mdash; you don&rsquo;t need to create a new order.
           </p>
           {resubmitRequested.reviewedAt ? (
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/60">
+            <p className="text-xs uppercase tracking-[0.06em] text-warn-900/60">
               Requested {resubmitRequested.reviewedAt.slice(0, 10)}
             </p>
           ) : null}
@@ -214,9 +214,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {awaitingVerification ? (
         <div
           role="status"
-          className="space-y-2 rounded-2xl border border-warn-300/60 bg-warn-50 p-5 text-warn-900"
+          className="border-l-[3px] border-l-[rgb(var(--color-warn))] py-2 pl-3 space-y-2 text-warn-800"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
+          <p className="text-xs uppercase tracking-[0.06em] text-warn-900/70">
             Verifying your payment
           </p>
           <p className="text-sm">
@@ -230,7 +230,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           {latestPayment?.reference_number ? (
             <p className="text-xs text-warn-900/85">
               We&rsquo;re looking for reference{' '}
-              <span className="font-mono font-semibold">
+              <span className="font-semibold">
                 {latestPayment.reference_number}
               </span>
               . If that doesn&rsquo;t match your receipt, log the payment again below with
@@ -245,17 +245,17 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </div>
       ) : null}
 
-      <header className="sn-tile sn-reveal space-y-3 p-5">
+      <header className="py-2 sn-reveal space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="sn-eye">Order <span className="font-mono normal-case">{order.public_id}</span></p>
+            <p className="sn-eye">Order <span className="normal-case">{order.public_id}</span></p>
             <h1 className="sn-sec text-xl">
               Reference{' '}
-              <span className="font-mono text-terracotta-700">{order.reference_code}</span>
+              <span className="text-terracotta-700">{order.reference_code}</span>
             </h1>
           </div>
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+            className={`rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
               ORDER_STATUS_TONE[order.status]
             }`}
           >
@@ -278,11 +278,11 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             tone={totals.remaining > 0 ? 'warn' : 'good'}
           />
         </dl>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs text-ink/70">
           {order.confirmed_total_php != null ? 'Confirmed' : 'Requested'} base ={' '}
           <span className="font-mono">{formatPhp(totals.base)}</span>. PH VAT (
           {totals.vatRatePct}%) is added on top &mdash; what you actually pay is{' '}
-          <span className="font-mono font-semibold">{formatPhp(totals.gross)}</span>.
+          <span className="font-semibold">{formatPhp(totals.gross)}</span>.
           {totals.matched > 0
             ? ` So far we've matched ${formatPhp(totals.matched)} of that.`
             : ''}
@@ -290,7 +290,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
 
         {order.admin_notes ? (
           <p className="rounded-md bg-ink/[0.04] p-3 text-sm text-ink/75">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <span className="text-xs uppercase tracking-[0.06em] text-ink/70">
               Note from Setnayan
             </span>
             <br />
@@ -314,8 +314,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </header>
 
       {receipt ? (
-        <section className="space-y-2 rounded-2xl border border-success-300/60 bg-success-50/60 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900">
+        <section className="py-2 space-y-2">
+          <p className="text-xs uppercase tracking-[0.06em] text-success-900">
             Transaction receipt issued
           </p>
           <p className="text-base font-semibold text-success-900">
@@ -351,7 +351,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           they were charged, the admin's note when we ask for a better picture,
           the receipt, cancelling, and the payment log below. */}
       {totals.remaining > 0 && order.status !== 'cancelled' ? (
-        <section className="sn-tile space-y-3 p-5">
+        <section className="py-2 space-y-3">
           <h2 className="sn-eye">Paying for this</h2>
           {/* 🔑 NOT A SENTENCE TYPED HERE. What the code on /pay actually
               carries is decided by `resolveQrAmount` against the SAME stored
@@ -380,10 +380,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="sn-tile space-y-3 p-5">
+      <section className="py-2 space-y-3">
         <h2 className="sn-eye">Payment log</h2>
         {payments.length === 0 ? (
-          <p className="sn-row border-dashed p-4 text-center text-xs text-ink/55">
+          <p className="sn-row border-dashed p-4 text-center text-xs text-ink/70">
             Nothing logged yet.
           </p>
         ) : (
@@ -395,13 +395,13 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               >
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm">
-                    <span className="font-mono font-semibold">{formatPhp(p.amount_php)}</span>
+                    <span className="font-semibold">{formatPhp(p.amount_php)}</span>
                     <span className="ml-2 text-ink/65">
                       · <PaymentChannelName settings={settings} channel={p.channel} />
                       {p.reference_number ? ` · ref ${p.reference_number}` : ''}
                     </span>
                   </p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
                     Paid {p.paid_at}
                     {p.reviewed_at ? ` · reviewed ${p.reviewed_at.slice(0, 10)}` : ''}
                   </p>
@@ -421,7 +421,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   ) : null}
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${
                     PAYMENT_STATUS_TONE[p.status]
                   }`}
                 >
@@ -447,7 +447,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-md bg-ink/[0.03] p-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <dt className="text-xs uppercase tracking-[0.06em] text-ink/70">
         {label}
       </dt>
       <dd
@@ -457,7 +457,7 @@ function Stat({
             : tone === 'good'
               ? 'text-success-700'
               : tone === 'muted'
-                ? 'text-ink/55'
+                ? 'text-ink/70'
                 : 'text-ink'
         }`}
       >

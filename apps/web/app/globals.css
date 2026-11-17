@@ -199,15 +199,19 @@
      * declared only by the admin's saved set (`<style id="sn-app-colours">`, `lib/app-colours.ts`), which resets them to
      * `initial` inside every guest island. Held by `lib/app-colours-in-globals.test.ts`.
      *
-     * The band and frame tokens below are for the next waves (band on PageMasthead/CollapsingTop · frame on
-     * .sn-tile/.sn-row/.sn-card): NOTHING READS THEM YET, so they move no pixel. Defaults = today's values. */
-    --sn-band-from: 194 78 37;          /* #C24E25 — flat terracotta */
-    --sn-band-to: 194 78 37;
-    --sn-band-angle: 135deg;
-    --sn-on-band: 255 255 255;          /* the band's words are always white; the gate darkens a pale stop */
-    --sn-frame-bg: 255 255 255;         /* = --m-paper */
+     * ✨ THE CLEAN WARM LOOK (owner 16 Nov 2026, "yes the template looks good" — specs DECISION_LOG 2026-11-16 "THE
+     * CLEAN WARM LOOK IS APPROVED", drawing `prototypes/clean_warm_look_2026-11-16_fable.html` § "What changes in the
+     * token layer"). These are the values that drawing set: the band is pale peach → white with INK words, and a
+     * frame is pure white with the soft lift and no line. `.sn-band`, `.sn-frame`, `.sn-tile`, `.sn-row`, `.home-card`
+     * and the bottom bar read them, so one value here changes every screen that wears them. Admin › Colours
+     * (`lib/app-colours.ts` APP_COLOURS_DEFAULT) holds the same values as its "Current" set. */
+    --sn-band-from: 250 224 209;        /* #FAE0D1 — pale peach (was #C24E25 flat terracotta) */
+    --sn-band-to: 255 255 255;          /* #FFFFFF */
+    --sn-band-angle: 180deg;            /* top to bottom */
+    --sn-on-band: 44 42 41;             /* ink #2C2A29 — 11.3:1 on #FAE0D1, 14.3:1 on white. The gate picks ink on a pale band */
+    --sn-frame-bg: 255 255 255;         /* = --m-paper — the white card */
     --sn-frame-radius: 14px;            /* = --m-r-md */
-    --sn-frame-shadow: none;            /* today a frame is a line, not a float */
+    --sn-frame-shadow: var(--m-shadow-md); /* the soft lift — one value for tile, row and card (was none: a line) */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
      * token; anchors inherited ink. Scope is deliberately NARROW (owner):
      * inline links and secondary/ghost buttons only. It is NOT a decorative
@@ -260,7 +264,7 @@
      * Measured on the #F0F2F5 trial (lighter values only raise these): ink 12.74:1 · link 7.58:1 · gold 3.10:1 (UI only) ·
      * terracotta as TEXT straight on the page 4.25:1 — under 4.5, so it stays a fill/large-text colour (the CTA label
      * sits on the fill and is unchanged). */
-    --sn-page-bg: 255 255 255;            /* #FFFFFF — owner 12 Nov: "keep the background white"; the life goes in the frames + buttons on top */
+    --sn-page-bg: 247 245 244;            /* #F7F5F4 — owner 16 Nov: "netural background color f7f5f4 / so framed can be white. ffffff" (supersedes 12 Nov "keep the background white"; DECISION_LOG 2026-11-16 "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Ink on it 13.1:1 · terracotta-700 words 6.1:1 · terracotta as TEXT 4.38:1 (stays a fill/large-text colour) */
     /* 🎨 THE FOUR CATEGORY COLOURS (owner, THE ONE BUILD item 13, 8 Nov 2026 — supplier-menu-r2.v113 `--c-ev/--c-sch/
      * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
      * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
@@ -273,6 +277,75 @@
      * `box-shadow: 0 1px 0 var(--sn-hair)` (class `sn-pin-hair`), never a `border-b`. 🔒
      * app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
     --sn-hair: rgb(44 42 41 / 0.08);
+
+    /* ── THE TOKEN LAYER (14 Nov 2026 · docs/design-token-map.md, owner: "keep house names") ──────────────────
+     * One home for the shape, size and type values the app types by hand today, so a restyle edits a token,
+     * not 7,000 class strings. Every value below EQUALS what ships now — nothing reads them yet except
+     * where noted, and wiring a component to them moves no pixel.
+     *
+     * 🔑 WHAT IS NOT HERE ON PURPOSE — button COLOURS. They come from `--sn-decision`, `--color-mulberry`,
+     * `--color-ink`, `--color-cream`, which a hub theme / `[data-art]` / Admin › Colours re-point on their
+     * own scope. A `:root` alias resolves ONCE at the root and would freeze those scopes (the trap above).
+     * Colour hooks are read at the USE SITE with today's expression as the fallback, e.g.
+     * `var(--sn-btn-primary-bg, rgb(var(--sn-decision, var(--color-mulberry))))`, and declared nowhere.
+     * Colour tokens HERE read only sources declared on :root + html.dark alone (both on <html>, so dark
+     * re-resolves correctly). */
+    /* buttons — shape */
+    --sn-btn-min-height: 44px;          /* the touch floor every <button> gets (rule below: `min-height: 44px`) */
+    --sn-btn-height: 40px;              /* ActionButton — the 40 px pill (THE BUTTON RULE 2026-10-07) */
+    --sn-btn-height-lg: 44px;           /* .button-primary / .button-secondary (h-11) — 44 vs 40 is an open owner call */
+    --sn-btn-icon-size: 44px;           /* round icon buttons (h-11 rounded-full) */
+    --sn-btn-radius: var(--m-r-full);   /* pill */
+    --sn-btn-radius-rect: var(--m-r-sm);/* .button-primary outside .app-surface (rounded-md) */
+    /* frames — joins --sn-frame-bg/-radius/-shadow above */
+    --sn-frame-line: transparent;       /* .sn-tile / .sn-row edge — OFF (16 Nov: "no 1 px border"; was --m-line) */
+    --sn-frame-padding: 18px;           /* .sn-tile padding */
+    --sn-frame-shadow-tile: var(--sn-frame-shadow); /* tile, row and card now share ONE lift (was a 1 px hairline shadow) */
+    /* the line between sections and rows — OFF (16 Nov: "lines between sections/rows/nav removed (space separates)").
+       `TemplateRows`, `TemplateNums` and the shared row lists read it. The pinned row's soft hairline (`--sn-hair`)
+       is a different job and stays. */
+    --sn-divider: transparent;
+    /* the secondary button — a soft grey fill, no outline (16 Nov). Read by `.ab-neutral` and `.button-secondary`. */
+    --sn-btn-secondary-bg: rgb(44 42 41 / 0.06);   /* ink 6 % → #F0EFEF on white; ink on it 12.4:1 */
+    --sn-btn-secondary-bg-hover: rgb(44 42 41 / 0.1);
+    --sn-btn-secondary-border: transparent;
+    --sn-btn-secondary-fg: 44 42 41;    /* ink (was link slate on .button-secondary) */
+    /* the sheet — the one floating surface */
+    --sn-sheet-radius: var(--m-r-lg);   /* rounded-t-2xl */
+    --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
+    /* semantic colour — root-only sources */
+    --sn-surface-soft: var(--m-paper-2);
+    --sn-text-muted: var(--m-slate-2);
+    /* border widths */
+    --sn-border-w: 1px;
+    --sn-border-w-strong: 1.5px;        /* tick boxes, picked outlines */
+    --sn-border-w-edge: 3px;            /* the "needs action" edge (template sheet rule 11) */
+    /* spacing — template sheet rule 14 (4 · 8 · 12 · 16 · 24) */
+    --sn-space-1: 4px;
+    --sn-space-2: 8px;
+    --sn-space-3: 12px;
+    --sn-space-4: 16px;
+    --sn-space-5: 24px;
+    /* tap heights + icon boxes */
+    --sn-tap-md: 48px;
+    --sn-tap-lg: 52px;
+    --sn-tap-xl: 56px;
+    --sn-icon-sm: 18px;
+    --sn-icon-md: 22px;
+    /* type scale — the exact sizes the app types as text-[Npx]; half-pixel sizes are NOT here (merging them is a restyle) */
+    --sn-fs-3xs: 9px;
+    --sn-fs-2xs: 10px;
+    --sn-fs-xs: 11px;
+    --sn-fs-sm: 12px;
+    --sn-fs-md: 13px;
+    --sn-fs-base: 14px;
+    --sn-fs-lg: 15px;
+    --sn-fs-xl: 17px;
+    --sn-fs-2xl: 19px;
+    --sn-fs-3xl: 22px;
+    --sn-fs-title: 30px;                /* the ONE screen title, 30 px / 700 (16 Nov; Tailwind `text-sn-title`) */
   }
 
   html.dark {
@@ -341,6 +414,15 @@
     --sn-cat-asked: 240 130 90;        /* #F0825A */
     --sn-cat-collect: 217 138 192;     /* #D98AC0 */
     --sn-hair: rgb(251 250 247 / 0.1);
+    /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
+       (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */
+    --sn-frame-shadow-tile: var(--sn-frame-shadow);
+    --sn-btn-secondary-bg: rgb(251 250 247 / 0.08);
+    --sn-btn-secondary-bg-hover: rgb(251 250 247 / 0.12);
+    --sn-btn-secondary-fg: 251 250 247;
+    --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
+    --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
   }
 
   /*
@@ -380,6 +462,31 @@
     --ramp-champagne: 224 204 160; --ramp-champagne-deep: 197 160 89;
     /* sage: the pale fill becomes a dark sage wash, the readable tone goes light (#9CC093, 8.0:1 on the card) */
     --ramp-sage: 54 58 45; --ramp-sage-deep: 156 192 147;
+  }
+
+  /* 🏝 THE GUEST ISLANDS KEEP THEIR LOOK (clean warm look, 16 Nov 2026). The guest Event Hub (`.sn-editorial`, worn on
+   * every page of `app/[slug]`) and the pieces of a guest page drawn inside a dashboard wear the COUPLE's design — the
+   * same four selectors as `GUEST_ISLANDS` in `lib/app-colours.ts`. So the 16 Nov values stop at their edge: inside
+   * one, a frame is still a line, a row still has its hairline, the secondary button is still the slate outline on
+   * white, and the band is the old flat terracotta with white words. Zero specificity, so any theme rule still wins.
+   * 🔒 lib/app-colours.test.ts · lib/app-colours-in-globals.test.ts */
+  :where(.sn-editorial, [data-look-sample], [data-hub-theme], [data-art]) {
+    --sn-band-from: 194 78 37;
+    --sn-band-to: 194 78 37;
+    --sn-band-angle: 135deg;
+    --sn-on-band: 255 255 255;
+    --sn-frame-shadow: none;
+    --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06);
+    --sn-frame-line: var(--m-line);
+    --sn-divider: var(--m-line);
+    --sn-btn-secondary-bg: rgb(var(--color-cream));
+    --sn-btn-secondary-bg-hover: rgb(var(--color-cream));
+    --sn-btn-secondary-border: rgb(var(--color-link) / 0.3);
+    --sn-btn-secondary-fg: var(--color-link);
+  }
+  /* …and the guest Event Hub's page stays WHITE (owner 16 Nov: "every screen except the guest Event Hub"). */
+  html:not(.dark) body:has(.sn-editorial) {
+    --sn-page-bg: 255 255 255;
   }
 
   html {
@@ -466,6 +573,25 @@
     position: absolute;
     left: 0;
     right: 0;
+    top: min(0px, calc((100% - 46px) / 2));
+    bottom: min(0px, calc((100% - 46px) / 2));
+  }
+
+  /*
+   * 👆 `.sn-hit-2d` — `.sn-hit` in BOTH directions, for a small control that stands ALONE (an icon in a top bar, a
+   * tick, a ✕, a pager dot, a footer link) — never in a `useFitRow` row, whose width a sideways bleed would break.
+   * The same invisible `::after`, reaching 46 px across as well as tall around the control's centre; a control
+   * already 46 or larger on an axis is left as it is on that axis. The drawing does not change (controller round,
+   * 15 Nov 2026). Held by `lib/small-targets-press-at-44.test.ts`.
+   */
+  :where(.sn-hit-2d) {
+    position: relative;
+  }
+  .sn-hit-2d::after {
+    content: '';
+    position: absolute;
+    left: min(0px, calc((100% - 46px) / 2));
+    right: min(0px, calc((100% - 46px) / 2));
     top: min(0px, calc((100% - 46px) / 2));
     bottom: min(0px, calc((100% - 46px) / 2));
   }
@@ -1133,8 +1259,16 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    * Label #3B4E67 on cream = 8.22:1 (AAA).
    */
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-link/30 bg-cream px-6 text-sm font-medium text-link transition hover:border-link/60 hover:text-link-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex h-11 items-center justify-center rounded-md border px-6 text-sm font-medium transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
+  /* ✨ SOFT GREY, NO OUTLINE (clean warm look, owner 16 Nov 2026): the secondary is a grey fill with ink words —
+   * it no longer competes with the terracotta main verb by colour, only by weight. Read from the secondary tokens. */
+  .button-secondary {
+    background-color: var(--sn-btn-secondary-bg);
+    border-color: var(--sn-btn-secondary-border);
+    color: rgb(var(--sn-btn-secondary-fg));
+  }
+  .button-secondary:hover { background-color: var(--sn-btn-secondary-bg-hover); }
 
   .input-field {
     @apply h-11 w-full rounded-md border border-ink/20 bg-cream px-3 text-base text-ink placeholder-ink/40 transition-colors focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta;
@@ -3458,11 +3592,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 :root {
   /* paper & ink */
   --sn-paper:      #FBFAF7;
-  --sn-surface:    #FFFFFF;
-  --sn-hairline:   #EDE8DE;
-  --sn-line:       #E1DCD1;
+  /* = their --m-* twins in BOTH themes, so they point there (token layer 14 Nov 2026): one value, one home. */
+  --sn-surface:    var(--m-paper);
+  --sn-hairline:   var(--m-line-soft);
+  --sn-line:       var(--m-line);
   --sn-ink-300:    #A09A8E;
-  --sn-ink-500:    #6E6A62;
+  --sn-ink-500:    var(--m-slate-2);
   --sn-ink-700:    #3A382F;
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
@@ -3529,14 +3664,17 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --seat-hot-line: #A9834B;
   /* a day you can neither ask about nor book: filled grey, striped */
   --seat-off: #EEEAE3;  --seat-off-ink: #5B5752;  --seat-off-line: #D9D3C8;  --seat-off-hatch: #CFC8BC;
+  /* 📅 CLIENTS-CAL (owner 2026-11-14): the supplier's Clients calendar draws a day that cannot take a booking as an
+     OUTLINED near-white seat (Check a date greys it instead). Fable's values, approved in the ruling. */
+  --seat-out: #F7F5F1;  --seat-out-line: #A9A196;
 
   /* type — via next/font variables (see header note) */
   --sn-font: var(--font-hanken), system-ui, sans-serif;
   --sn-mono: var(--font-space-mono), ui-monospace, monospace;
 
   /* radius */
-  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: 14px;
-  --sn-r-xl: 18px; --sn-r-pill: 999px;
+  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: var(--m-r-md); /* 14 = --m-r-md */
+  --sn-r-xl: 18px; --sn-r-pill: var(--m-r-full);
 
   /* elevation (warm, never grey) */
   --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
@@ -3682,8 +3820,14 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
      The bar painted `rgba(248,246,240,.92)` inline under html.dark too, so its
      near-white labels read 1.15:1 on every screen. */
-  --sn-dock-bg:    rgba(248, 246, 240, 0.92); /* the frosted paper @ 92 % */
-  --sn-dock-pill:  rgba(30, 34, 41, 0.15);    /* the travelling active pill — ink @ 15 % */
+  /* ✨ THE FLOATING WHITE PILL (clean warm look, owner 16 Nov 2026 — DECISION_LOG "THE CLEAN WARM LOOK IS APPROVED"):
+     the bar is the frame's white with its own lift, floating 14 px above the edge; the active item is a FILLED
+     terracotta pill (the accent — the toggle job) with its icon and word in --sn-on-accent (white, 4.76:1). Was the
+     frosted paper @ 92 % with an ink @ 15 % pill (NAV-9). The press-light is unchanged. */
+  --sn-dock-bg:    rgb(var(--sn-frame-bg));   /* the white pill */
+  --sn-dock-pill:  rgb(var(--sn-accent));     /* the active item, filled terracotta */
+  --sn-dock-on-pill: rgb(var(--sn-on-accent)); /* the active item's icon + word on it */
+  --sn-dock-lift:  0 12px 32px -10px rgba(30, 26, 18, 0.28), 0 2px 6px -2px rgba(30, 26, 18, 0.1); /* the drawing's .nav lift */
   --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
@@ -3716,12 +3860,12 @@ html.dark {
      `lib/every-colour-token-has-a-dark-pair.test.ts`: the `--sn-ob-*` obsidian
      surface (dark in both themes) and the `--sn-glass-dark-*` glass over photos. */
   --sn-paper:      #1E1C15;
-  --sn-surface:    #232019;
-  --sn-hairline:   rgba(251,250,247,.10);
-  --sn-line:       rgba(251,250,247,.16);
+  --sn-surface:    var(--m-paper);       /* #232019 in dark */
+  --sn-hairline:   var(--m-line-soft);   /* rgba(251,250,247,.10) */
+  --sn-line:       var(--m-line);        /* rgba(251,250,247,.16) */
   --sn-ink-300:    #7E796F;
   --sn-ink-400:    #9A958C;
-  --sn-ink-500:    #B3AEA3;
+  --sn-ink-500:    var(--m-slate-2);     /* #B3AEA3 */
   --sn-ink-700:    #D6D1C7;
   --sn-ink-900:    #FBFAF7;
   /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */
@@ -3747,6 +3891,8 @@ html.dark {
   --seat-top: #B4E5AE;  --seat-bottom: #B4E5AE;  --seat-ink: #14281D;  --seat-shine: 0.14;
   --seat-hot-line: #A9834B;
   --seat-off: #2A2620;  --seat-off-ink: #CFCAC0;  --seat-off-line: #423D35;  --seat-off-hatch: #4A443B;
+  /* the outlined seat in dark: the dark seat-off ground, its hatch tone as the outline (no new colour) */
+  --seat-out: #2A2620;  --seat-out-line: #4A443B;
   --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
 
   --sn-glass-bg:   rgba(35,32,25,.5);
@@ -3767,8 +3913,10 @@ html.dark {
   --sn-glass-bg-raised: rgba(35,32,25,.86);
   /* The dock: the card #232019 frosted at the same 92 %, the pill = ink #FBFAF7 @ 15 %,
      and a softer press-light (a 95 % white bloom is a flashbulb on the dark page). */
-  --sn-dock-bg:    rgba(35, 32, 25, 0.92);
-  --sn-dock-pill:  rgba(251, 250, 247, 0.15);
+  --sn-dock-bg:    rgb(35 32 25);
+  --sn-dock-pill:  rgb(229 121 78);
+  --sn-dock-on-pill: rgb(23 22 15);
+  --sn-dock-lift:  0 12px 32px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
   --sn-dock-press: rgba(251, 250, 247, 0.28);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
@@ -5891,8 +6039,13 @@ body {
  *
  * SCOPE: every logged-in surface — SidebarShell (customer event dashboard,
  * /vendor-dashboard, /admin), the home launcher, and the account spokes. */
+/* ✨ 16 Nov 2026: THE PAGE TOKEN, not its own hex — owner "netural background color f7f5f4 / so framed can be white"
+   (DECISION_LOG "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Every signed-in shell's ground is now the ONE page colour, so
+   Admin › Colours reaches it; #F7F5F4 is the same "white cards must read" band this note measured above. */
 .sn-ambient {
-  background: #F7F5F0;
+  /* 🎨 A token, so a scope can repaint the ground (the supplier glow, owner 16 Nov) without a per-component rule;
+     unset = the one page colour (16 Nov, `--sn-page-bg`), exactly as before. */
+  background: var(--sn-ambient, rgb(var(--sn-page-bg)));
   background-attachment: fixed;
 }
 /* Dark counterpart. There was none before — `.sn-ambient` hardcoded light
@@ -5902,6 +6055,16 @@ body {
    `--color-cream` (#17160F) the body already uses. */
 html.dark .sn-ambient {
   background: #17160F;
+}
+
+/* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
+   ONLY THE MAIN BUTTON (the drawing lifts `.btn.pri` alone — re-audit 17 Nov): `.button-primary` and the filled brand
+   ActionButton (`.ab-main`); an outlined or quiet brand button is never lifted.
+   Zero specificity (`:where`), so any shadow a component already gives the button still wins, and never while the
+   button shows its keyboard focus ring (`.button-primary`'s ring IS a box-shadow). The supplier blue look sets it
+   (`vendor-dashboard/_components/supplier-look.css`). */
+:where(.button-primary:not(:focus-visible), :is(button, a).ab.ab-brand.ab-main:not(:focus-visible)) {
+  box-shadow: var(--sn-forward-lift, none);
 }
 
 /* ---------- glass surfaces ---------- */
@@ -6523,12 +6686,14 @@ div:has(> [data-apply-pro-sheet]),
    *
    * REVERSIBLE IN ONE PLACE. If the owner wants the glass back, it is this
    * block and nothing else. */
+  /* ✨ ON THE FRAME TOKENS (clean warm look, owner 16 Nov 2026): white, the soft lift, no line. (`--sn-frame-bg`
+   * equals `--m-paper` in both themes — #FFFFFF / #232019 — so the fill is unchanged; Admin › Colours now reaches it.) */
   .sn-tile {
-    background: var(--m-paper);
-    border: 1px solid var(--m-line);
-    border-radius: var(--m-r-md);
-    padding: 18px;
-    box-shadow: 0 1px 3px rgba(30, 26, 18, 0.06);
+    background: rgb(var(--sn-frame-bg));
+    border: var(--sn-border-w) solid var(--sn-frame-line);
+    border-radius: var(--sn-frame-radius);
+    padding: var(--sn-frame-padding);
+    box-shadow: var(--sn-frame-shadow-tile);
     transition:
       transform var(--sn-dur-elem) var(--sn-ease),
       box-shadow var(--sn-dur-elem) var(--sn-ease);
@@ -6581,10 +6746,28 @@ div:has(> [data-apply-pro-sheet]),
    * looked detached from the panels holding them. Token-aware for the same
    * reason as `.sn-tile` above. */
   .sn-row {
-    background: var(--m-paper);
-    border: 1px solid var(--m-line);
-    border-radius: var(--m-r-md);
+    background: rgb(var(--sn-frame-bg));
+    border: var(--sn-border-w) solid var(--sn-frame-line);
+    border-radius: var(--sn-frame-radius);
+    box-shadow: var(--sn-frame-shadow);
   }
+  /* ✨ THE FRAME — the ONE lifted white card (clean warm look, owner 16 Nov 2026). Every value is a frame token, so
+   * Admin › Colours moves every frame at once. Use it (or `.sn-tile` / `.sn-row`) instead of typing
+   * `bg-white border rounded-xl shadow-…` — `scripts/lint-no-card.mjs` counts the hand-typed kind. */
+  .sn-frame {
+    background: rgb(var(--sn-frame-bg));
+    border-radius: var(--sn-frame-radius);
+    box-shadow: var(--sn-frame-shadow);
+    padding: var(--sn-frame-padding);
+  }
+  .sn-frame-flush { padding: 0; overflow: hidden; }
+  /* ✨ THE HEADER BAND — pale peach into white, top to bottom, ink words (16 Nov). Reads the band tokens only. */
+  .sn-band {
+    background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%);
+    color: rgb(var(--sn-on-band));
+  }
+  /* The ONE screen title — 30 px / 700 (16 Nov). */
+  .sn-screen-title { font-size: var(--sn-fs-title); font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; }
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */
   html.dark .sn-row {
@@ -6734,6 +6917,17 @@ div:has(> [data-apply-pro-sheet]),
   .app-surface .button-secondary:not(.sn-editorial *):hover {
     border-color: var(--sn-ink-900);
     transform: translateY(-2px);
+  }
+  /* ✨ SOFT GREY, NO OUTLINE (clean warm look, owner 16 Nov 2026) — outside a guest-look island only; the island keeps
+     the two rules above. */
+  .app-surface .button-secondary:not(.sn-editorial *):not([data-look-sample] *) {
+    background: var(--sn-btn-secondary-bg);
+    color: rgb(var(--sn-btn-secondary-fg));
+    border-color: var(--sn-btn-secondary-border);
+  }
+  .app-surface .button-secondary:not(.sn-editorial *):not([data-look-sample] *):hover {
+    background: var(--sn-btn-secondary-bg-hover);
+    border-color: var(--sn-btn-secondary-border);
   }
   /* The same pill for both. */
   .app-surface .button-primary:not(.sn-editorial *),
@@ -7327,8 +7521,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 /* 💬 AN OPEN CHAT THREAD DOES NOT RISE ON A PHONE (2026-10-29, one chat for both sides). The rise is a TRANSFORM, and
  * any transform on an ancestor is the containing block for a fixed child — so for those 400ms the thread's full-screen
  * takeover (`[data-chat-takeover]`, the open-thread rule further down) drew INSIDE the page, under
- * the top bar, then jumped to full screen. The thread arrives as the screen it is. */
-@media (max-width: 1023.98px) {
+ * the top bar, then jumped to full screen. The thread arrives as the screen it is. Below 701 only — the takeover's own
+ * line (owner 2026-11-13, D3). */
+@media (max-width: 700.98px) {
   .sn-page-enter:has([data-chat-takeover]) { animation: none; }
 }
 
@@ -8132,10 +8327,13 @@ html:has([data-sticky-top]) [data-home-after-cover] {
  * canvas block: `the-canvas-fails-visible.test.ts` reads everything after `.hub-canvas`
  * as the canvas, and these animations are not the canvas's. */
 .home-card {
-  border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
-  border-radius: 16px;
-  padding: 14px;
-  background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream)));
+  /* ✨ On the frame tokens (clean warm look, 16 Nov): white, the soft lift, no line — was a 1 px line, 16 px corner,
+     14 px pad and a 2 % ink fill. */
+  border: var(--sn-border-w) solid var(--sn-frame-line);
+  border-radius: var(--sn-frame-radius);
+  padding: var(--sn-frame-padding);
+  background: rgb(var(--sn-frame-bg));
+  box-shadow: var(--sn-frame-shadow);
   text-align: left;
   color: rgb(var(--color-ink));
   min-width: 0;
@@ -8174,7 +8372,10 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 .home-money .home-v { font-size: 20px; }
 .home-meter { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); overflow: hidden; margin-top: 10px; }
 .home-meter > .meter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgb(var(--color-ok)); }
-.home-k2 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 14px 0 6px; }
+/* 🏷 THE HOUSE SECTION LABEL reads tokens (owner 17 Nov, the clean look: "Removes: uppercase section labels … become
+   bold sentence-case titles"). Unset = the small uppercase grey label, exactly as before; a scope re-points them
+   (supplier-look.css) — no per-component rule. 🔒 app/vendor-dashboard/section-labels-are-sentence-case.test.ts */
+.home-k2 { font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 14px 0 6px; }
 .home-s { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 13px; }
 .home-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); min-width: 0; }
 .home-row .home-t { font-weight: 500; }
@@ -8303,7 +8504,7 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 /* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — prototype `.ecard`): the countdown and NOW ride
    the cover band. Every colour is the band's own ink (currentColor), so a paper, image or colour ground all read. */
 .hc-ecard-cd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; margin-top: 6px; color: inherit; text-decoration: none; }
-.hc-ecard-n { font-family: Georgia, "Times New Roman", serif; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-ecard-n { font-family: var(--sn-font, inherit); font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .hc-ecard-n.hc-ecard-word { font-size: 34px; }
 .hc-ecard-w { min-width: 0; font-size: 14px; }
 .hc-ecard-d { display: block; margin-top: 2px; font-size: 12px; opacity: 0.8; }
@@ -8315,14 +8516,21 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-now.hc-calm { padding-right: 14px; }
 /* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
    the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
-.hc-ecard-plain { background: linear-gradient(180deg, #201d1b 0%, #3a3230 100%); color: #f6efe7; }
+.hc-ecard-plain { background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%); color: rgb(var(--sn-on-band)); } /* ✨ the header band (16 Nov) — was a dark gradient */
 html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
-.hc-ecard-plain .hc-ecard-name { color: #e7c9b6; }
-.hc-ecard-plain .hc-now-k { color: #f0b490; opacity: 1; }
+.hc-ecard-plain .hc-ecard-name { color: inherit; }
+.hc-ecard-plain .hc-now-k { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }
 /* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
-.hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
-.hc-k2 em { margin-left: auto; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.hc-k2 { display: flex; align-items: center; gap: var(--sn-label-gap, 6px); font-size: var(--sn-label-size, 11px); font-weight: var(--sn-label-weight, 400); letter-spacing: var(--sn-label-track, 0.12em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent)); margin: 6px 0 -4px; }
+/* The label's count: far right and bare by default; a scope can sit it after the title in a pale pill. */
+.hc-k2 em { margin-left: var(--sn-label-count-push, auto); padding: var(--sn-label-count-pad, 0); border-radius: 999px; background: var(--sn-label-count-bg, transparent); color: var(--sn-label-count-ink, inherit); font-weight: var(--sn-label-count-weight, inherit); font-style: normal; text-transform: none; letter-spacing: 0; font-size: var(--sn-label-count-size, 12px); }
+/* 🏷 THE SHEET SECTION LABEL (Switch to · You are in · Today · Earlier · Waiting on this page; `.sn-sheet-k`) and THE SHEET NAME read
+   tokens too: the defaults are the old mono uppercase label and the editorial display name, so the couple side is
+   unchanged; the supplier look sets the clean look's bold sentence case and the app sans (owner 17 Nov).
+   🔒 app/vendor-dashboard/section-labels-are-sentence-case.test.ts */
+.sn-sheet-k { display: block; font-family: var(--sn-label-font, var(--font-mono)); font-size: var(--sn-sec-size, 10px); font-weight: var(--sn-label-weight, 500); letter-spacing: var(--sn-label-track, 0.2em); text-transform: var(--sn-label-case, uppercase); color: var(--sn-label-ink, var(--m-slate-3)); }
+.sn-sheet-name { font-family: var(--sn-name-font, var(--font-editorial-display)); font-size: var(--sn-name-size, 22px); font-weight: var(--sn-name-weight, 600); }
 .hc-k2-name { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
 /* ✅ Home's one To do (prototype `.nx` · `.todoline`): rows on the page, a hairline between, the plan's own tick. */
 .hc-todo { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
@@ -10344,13 +10552,14 @@ input.sn-switch:focus-visible {
 :is(button, a).ab.ab-info { --ab-tone: var(--color-info); }
 :is(button, a).ab.ab-warn { --ab-tone: var(--color-warn); }
 :is(button, a).ab.ab-danger { --ab-tone: var(--color-danger); }
-:is(button, a).ab.ab-neutral { --ab-tone: var(--color-ink); background: transparent; border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent); }
+/* ✨ The secondary — a soft grey fill, no outline (clean warm look, owner 16 Nov 2026). */
+:is(button, a).ab.ab-neutral { --ab-tone: var(--sn-btn-secondary-fg); background: var(--sn-btn-secondary-bg); border-color: var(--sn-btn-secondary-border); }
 /* `quiet` — the prototype's `.btn.quiet`: a secondary that should not compete
  * (Skip · Not now). Hairline border, muted word, no wash — any tone. Muted word
  * = ink at 72% on white, measured 5.75:1, AA. Ignored on `main`. */
 :is(button, a).ab.quiet:not(.ab-main) {
   background: transparent;
-  border-color: color-mix(in srgb, rgb(var(--color-ink)) 18%, transparent);
+  border-color: var(--sn-btn-secondary-border);
   color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent);
 }
 :is(button, a).ab.ab-main {
@@ -10830,10 +11039,14 @@ html.dark .sn-acc-head[data-open] {
  * at rest, which makes it the containing block for a `position: fixed` child AND a stacking context below the top bar
  * (the trap the guests-glass and open-panel rules above record). So while a thread is open the name is off (it comes
  * back for the bottom-nav slide, `html[data-sn-nav-dir]`) and the page is lifted above the shell's chrome, and the
- * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it. From 1024 the thread stays in
- * the page's column with its own quiet frame. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
+ * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it.
+ *
+ * 🖥 THE LINE IS 701, THE SYSTEM'S (owner 2026-11-13, D3: *"chat shows the list and the open thread side by side from
+ * 701; the phone stays full-screen"*). It was 1024 until then, so a 768 tablet got the phone's full-screen thread beside
+ * the rail. From 701 the thread is the right column of the system's two (`.sn-cols`, `ChatPanes` — the rules after this
+ * block) and keeps a quiet frame anywhere else it stands. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
  */
-@media (max-width: 1023.98px) {
+@media (max-width: 700.98px) {
   html:not([data-sn-nav-dir]) .sn-vt-page:has([data-chat-takeover]) {
     view-transition-name: none;
     isolation: isolate;
@@ -10858,12 +11071,57 @@ html.dark .sn-acc-head[data-open] {
     z-index: var(--sn-z-raised);
   }
 }
-@media (min-width: 1024px) {
+@media (min-width: 701px) {
   [data-chat-takeover] {
     border: 1px solid rgb(var(--color-ink) / 0.1);
     border-radius: 1rem;
     background-color: rgb(var(--color-cream));
   }
+}
+
+/*
+ * 🖥 THE LIST BESIDE THE OPEN THREAD (owner 2026-11-13, D3; `messages/_components/chat-panes.tsx`). The two columns are
+ * the system's (`.sn-cols` in supplier-frame.css — from 701 1 : 1, from 1100 5 : 6, the right one sticky under the pin
+ * line and scrolling on its own); these rules only seat the chat in them.
+ *   · Below 701, while a thread is open, the list steps aside and the pane — which `.sn-cols` does not draw on a phone —
+ *     is drawn: the thread inside it is the full-screen takeover above, so the phone sees exactly what it saw before.
+ *   · From 701 the thread fills its column edge to edge (no card frame, no fixed `100dvh` guess): the column's height is
+ *     the window under the pin line (`.sn-cols-pane` is a flex column; the frame takes what is left). Its ‹ steps aside — the list it would go back to is already on the left — and the
+ *     thread's own xl conversation column (`ConversationColumn`) is not drawn a second time beside the real list.
+ *   · The supplier's list is itself a takeover on a phone (its full-screen Chats); in the left column it loses the frame.
+ */
+@media (max-width: 700.98px) {
+  [data-chat-panes][data-chat-open] [data-supplier-cols-list] { display: none; }
+  [data-chat-panes][data-chat-open] [data-supplier-cols-pane] { display: block; }
+}
+@media (min-width: 701px) {
+  /* The pane ends at the window's foot even where the page's column starts below the pin line (`ChatPanes` measures it). */
+  [data-chat-panes] [data-supplier-cols-pane] {
+    height: calc(100dvh - var(--sn-chat-pane-top, var(--sn-pin-top, var(--fd-bar, 0px))));
+  }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] { flex: 1 1 0; height: auto; min-height: 0; }
+  /* The supplier's thread page keeps its own gutter (its tree has no event column); in the pane it passes the height on. */
+  [data-chat-panes] [data-supplier-cols-pane] > div:has(> [data-chat-thread-frame]) {
+    display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; padding: 0.75rem 1rem 0;
+  }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] > aside { display: none; }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-takeover] { border: 0; border-radius: 0; }
+  [data-chat-panes] [data-supplier-cols-pane] [data-chat-back] { display: none; }
+  [data-chat-panes] [data-supplier-cols-list] [data-chat-takeover] { border: 0; border-radius: 0; background-color: transparent; }
+}
+
+/* ✍ THE MESSAGE BOX IS ALWAYS IN THE WINDOW, AND ON TOP (W1, RW-327 → RW-330). Wherever the open thread scrolls as one
+   — the phone's full-screen takeover, the chat column from 701, a picked page's chat — a busy thread (head, notice, a
+   payment plan, the stream's 14rem floor) outgrows the window and the composer scrolled away with the rest: supplier
+   390 × 844, its foot at 879. It holds the scroller's foot instead while the rest scrolls above it. It sits on the
+   sticky layer: a message bubble is `relative z-10` (`swipe-to-delete.tsx`, `--sn-z-raised`) and drew OVER a composer
+   at z 1 (supplier 1280); menus and sheets (`--sn-z-pop` and up) still open over it.
+   🔒 tests/e2e/the-chat-box-is-in-the-window.spec.ts (measured) · lib/the-chat-composer-stays-in-the-window.test.ts */
+[data-chat-takeover] > [data-chat-composer-gutter] {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--sn-z-sticky);
+  background-color: rgb(var(--color-cream));
 }
 
 /* 📌 A CHAT INSIDE A PICKED PAGE IS IN FLOW (owner, 9 Nov: "the pinned on top should stay pinned"). The thread's phone
@@ -10933,6 +11191,45 @@ html[data-tour-running] [data-notice-slot='top'] {
   display: none;
 }
 
+
+/* ── 🏅 THE SERVICE-CARD BADGE MEDALS (badge build J3; approved badge-milestones_v86 `AW` · `VBo`) ───────────────
+ * One medal per card badge, keyed by `CARD_MEDALS` (lib/public-badges.ts) + the Verified Partner seal that takes
+ * Verified's slot. `-fill` is the medal (the design's own colour, the same in dark); `-ink` is the badge's LABEL colour,
+ * the nearest tone of the hue that reads at 4.5:1 on the card (`--m-paper` / `--m-paper-2`), light and dark.
+ * Read ONLY through `lib/card-badges-art.ts` (var(...) strings) — never a raw hex in a component.
+ * 🔒 lib/card-badges.test.ts § 7 measures every ink on both papers, read from THIS file. */
+:root {
+  --sn-cb-hot-booking-fill: #2F8F5B;      --sn-cb-hot-booking-ink: #1F6E43;
+  --sn-cb-quick-responder-fill: #2C5FC8;  --sn-cb-quick-responder-ink: #2C5FC8;
+  --sn-cb-trending-now-fill: #D9561E;     --sn-cb-trending-now-ink: #B7330E;
+  --sn-cb-rave-reviews-fill: #B8871F;     --sn-cb-rave-reviews-ink: #8A6410;
+  --sn-cb-generous-giver-fill: #B03A78;   --sn-cb-generous-giver-ink: #B03A78;
+  --sn-cb-verified-fill: #1F4CBA;         --sn-cb-verified-ink: #1F4CBA;
+  --sn-cb-partner-fill: #7A4E08;          --sn-cb-partner-ink: #7A4E08;
+  /* The lifted medal's gold rim (v86 `.awc i.on`): the light gold, then its dark edge. */
+  --sn-cb-rim-gold: #E2BE6E;
+  --sn-cb-rim-edge: #6B4A10;
+}
+/* Dark: each medal keeps the design's own colour (the medal is the badge — v86 draws it the same on the dark card); the
+   LABEL inks lift to a tone that reads on the dark paper. */
+html.dark {
+  --sn-cb-hot-booking-fill: #2F8F5B;
+  --sn-cb-quick-responder-fill: #2C5FC8;
+  --sn-cb-trending-now-fill: #D9561E;
+  --sn-cb-rave-reviews-fill: #B8871F;
+  --sn-cb-generous-giver-fill: #B03A78;
+  --sn-cb-verified-fill: #1F4CBA;
+  --sn-cb-partner-fill: #7A4E08;
+  --sn-cb-rim-gold: #E2BE6E;
+  --sn-cb-rim-edge: #6B4A10;
+  --sn-cb-hot-booking-ink: #4FB37A;
+  --sn-cb-quick-responder-ink: #7FA3E8;
+  --sn-cb-trending-now-ink: #FF9A4D;
+  --sn-cb-rave-reviews-ink: #FFE08A;
+  --sn-cb-generous-giver-ink: #E07AB0;
+  --sn-cb-verified-ink: #8AB6FF;
+  --sn-cb-partner-ink: #FFE27A;
+}
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -11079,4 +11376,3 @@ html[data-tour-running] [data-notice-slot='top'] {
     animation-range: normal;
   }
 }
-

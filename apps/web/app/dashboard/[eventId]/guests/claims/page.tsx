@@ -33,7 +33,7 @@ import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { preMatchFor } from '@/lib/find-me';
 import { invitationLinkOn } from '@/lib/invitation-link';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata = { title: 'Requests' };

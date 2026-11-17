@@ -77,7 +77,7 @@ test('2b · a refused Go online names EVERY missing item, one per line', () => {
   for (const p of problems) assert.ok(said.includes(p.message), `the refusal dropped “${p.message}”`);
   assert.equal(said.split('\n').length, problems.length, 'each missing item is not on its own line');
   assert.equal(bundleRowRefusal({ status: 'ok', packageId: 'x' }), null);
-  assert.match(CARD, /const why = bundleRowRefusal\(res\);\s*if \(why\) setRefusal\(why\);/, 'the card no longer says the refusal under the row');
+  assert.match(CARD, /const why = res \? bundleRowRefusal\(res\) : COULD_NOT_SAVE;\s*if \(why\) \{\s*setRefusal\(why\);/, 'the card no longer says the refusal under the row');
 });
 
 test('3 · swipe left deletes — after the house warning, with Cancel · Delete at equal widths, then Undo', () => {

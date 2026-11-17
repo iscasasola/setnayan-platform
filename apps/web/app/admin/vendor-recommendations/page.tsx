@@ -248,7 +248,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           Recommendation map ({recs.length})
         </h2>
         {groupedLeaves.length === 0 ? (
-          <p className="sn-tile px-4 py-6 text-center text-sm text-ink/60">
+          <p className="py-6 text-center text-sm text-ink/60 border-t border-ink/10">
             No recommendations yet — add one below.
           </p>
         ) : (
@@ -297,7 +297,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           </InfoTip>
         </div>
         {feedbackRows.length === 0 ? (
-          <p className="sn-tile px-4 py-6 text-center text-sm text-ink/60">
+          <p className="py-6 text-center text-sm text-ink/60 border-t border-ink/10">
             No pending flags.
           </p>
         ) : (

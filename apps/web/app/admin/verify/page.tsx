@@ -2222,20 +2222,16 @@ async function VisibilitySurface({
   error?: string;
 }) {
   const statusFilter = parseVisibilityTab(statusParam);
-  // 🔎 "Out of Find" (DECISION_LOG 2026-11-07): shops Setnayan has not decided
-  // yet whose first inquiry or import locked them out of search and Find —
-  // the queue the lift is for. Every other tab filters on the listing state.
-  const lockedTab = statusParam === 'locked';
   const admin = createAdminClient();
   const base = admin
     .from('vendor_profiles')
     .select(
       `vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,created_at,next_renewal_due_at,find_lock_reason,find_lock_lifted_at, ${FINDABLE_INPUT_COLUMNS}`,
     );
-  const { data, error: queryError } = await (lockedTab
-    ? base.not('find_locked_at', 'is', null).in('verification_state', ['unverified', 'pending_review'])
-    : base.in('public_visibility', statusFilter)
-  )
+  // 🔎 No "Out of Find" tab since 15 Nov ("Verified only"): every shop not yet verified is out of Find, and no lock
+  // decides it, so the lift queue it served is gone.
+  const { data, error: queryError } = await base
+    .in('public_visibility', statusFilter)
     .order('created_at', { ascending: false })
     .limit(200);
 
@@ -2351,7 +2347,6 @@ function parseVisibilityTab(raw: string | undefined): VendorPublicVisibility[] {
 function VisibilityTabs({ current }: { current: string }) {
   const tabs: ReadonlyArray<{ key: string; label: string }> = [
     { key: 'hidden', label: 'Not listed' },
-    { key: 'locked', label: 'Out of Find' },
     { key: 'verified', label: 'Verified' },
     { key: 'archived', label: 'Archived' },
     { key: 'all', label: 'All' },
@@ -2561,7 +2556,7 @@ function VerifyCard({
             </p>
             {slug ? (
               <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                /v/{slug}
+                /{slug}
               </p>
             ) : null}
           </div>

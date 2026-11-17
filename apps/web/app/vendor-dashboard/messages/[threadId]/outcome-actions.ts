@@ -1,5 +1,6 @@
 'use server';
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -37,7 +38,7 @@ export async function recordInquiryOutcome(formData: FormData) {
   if (!profile) redirect('/vendor-dashboard');
 
   const threadId = String(formData.get('thread_id') ?? '');
-  const back = `/vendor-dashboard/messages/${threadId}`;
+  const back = supplierThreadPageHref(threadId);
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) {

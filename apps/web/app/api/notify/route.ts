@@ -18,6 +18,7 @@
  * - android/ios → stubbed; native FCM/APNs wired in V1.5.
  */
 
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import 'server-only';
 
 import { after, NextResponse, type NextRequest } from 'next/server';
@@ -257,7 +258,7 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
     const pushPayload: PushPayload = pushMessage({
       subject: { kind: 'shop', name: (shop as { business_name?: string | null } | null)?.business_name ?? null },
       sentence: chatSentence({ from: null, preview: body }),
-      url: `/vendor-dashboard/messages/${thread_id}`,
+      url: supplierChatHref(record.event_id, thread_id),
       collapseKey: `chat:${thread_id}`,
       level: 'normal',
       fallbackUrl: '/vendor-dashboard',

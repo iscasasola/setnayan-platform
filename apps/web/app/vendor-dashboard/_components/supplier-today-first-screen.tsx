@@ -27,7 +27,7 @@ import { formatCount } from '@/lib/format-number';
 import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { fromToday } from '@/lib/picked-client-close';
 import { EventsYouRunRows } from './events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
@@ -47,8 +47,8 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 export function nextHref(t: SupplierNextTarget): string {
   switch (t.to) {
     case 'thread': {
-      const href = `/vendor-dashboard/messages/${t.threadId}`;
-      return href;
+      // A `thread` target names no event (lib/supplier-today.ts), so this is the full-screen thread on purpose.
+      return supplierChatHref(null, t.threadId);
     }
     case 'card': {
       // THE ONE BUILD integration: every door into a client is built by ONE function (`customerCardHref`).

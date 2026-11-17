@@ -75,7 +75,7 @@ export function FilesPage(props: FilesPageProps) {
           </InfoTip>
           {threadId ? (
             <Link
-              href={`/vendor-dashboard/messages/${threadId}`}
+              href="?tab=chat"
               className="inline-flex min-h-11 items-center font-semibold text-sn-accent"
             >
               Share files in chat ›
@@ -88,7 +88,7 @@ export function FilesPage(props: FilesPageProps) {
 
       {hasAny && threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href="?tab=chat"
           className="inline-flex min-h-11 items-center text-[15px] font-semibold text-sn-accent"
         >
           Share more files in chat ›

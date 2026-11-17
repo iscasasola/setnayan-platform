@@ -26,6 +26,7 @@ import {
   fetchReturningClientFlags,
   fetchLeadTrustActivePlanner,
   fetchThreadById,
+  readClientChatThreadId,
   fetchVendorThreads,
   formatChatTimestamp,
 } from '@/lib/chat';
@@ -110,7 +111,7 @@ import {
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
-import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { customerCardHref, supplierThreadForward } from '@/lib/upcoming-schedule-door';
 // ⚡ The heavy client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
 // each in its own chunk — server-rendered and preloaded where they are on screen, so this page paints as before, and
 // out of the picked client's first load (Details' Decisions renders this page).
@@ -323,6 +324,25 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // 🚪 EVERY WAY IN LANDS ON THE CLIENT'S CHAT (owner 17 Nov, #7901 preview): a plain arrival — a stored notice, an old
+  // push, any link still typed to this page — is forwarded to the picked client's Chat (or Quotation for "Update this
+  // quote"). The page still draws for a thread with no event, the computer inbox's pane (`?pane=1`), a return that
+  // carries its own notice, and an older or closed chat on the event. Rule + reasons: `supplierThreadForward` (lib/upcoming-schedule-door.ts).
+  // Only a chat the client page admits — accepted, or pending and not archived (the brief's 'inquiry' rung, as
+  // `briefOpensOnThread`). A released ('displaced'), declined or withdrawn chat keeps this page: it is where
+  // `closingCopy` says who closed it, and the client page may no longer open for this shop.
+  const clientAdmits =
+    thread.inquiry_status === 'accepted' || (thread.inquiry_status === 'pending' && !thread.archived_at);
+  if (!embedded && thread.event_id && clientAdmits) {
+    const search = sp as Readonly<Record<string, string | string[] | undefined>> | undefined;
+    // Only the thread the client's Chat draws (the event's newest) — an older or closed chat keeps this page.
+    if (supplierThreadForward(thread.event_id, search, true)) {
+      const drawn = await readClientChatThreadId(supabase, profile.vendor_profile_id, thread.event_id);
+      const forward = supplierThreadForward(thread.event_id, search, drawn === threadId);
+      if (forward) redirect(forward);
+    }
+  }
 
   /*
     📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a

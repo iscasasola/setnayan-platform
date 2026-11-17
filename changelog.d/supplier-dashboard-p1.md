@@ -25,3 +25,8 @@ SPEC IMPACT: None. The look and the words are the 16 Nov rulings already in DECI
     - Plan is the cover's `#plan` door, worded from `planLabel`.
     - No new read. Guard: `shop/the-quick-row-is-the-drawn-three.test.ts`.
   - `printsCountLine` goes through `formatCount`, and the Promote page's docblock now says seven rows.
+- **Every way into a client conversation lands on the client's Chat** (owner 17 Nov on the #7901 preview: a pop-up's Reply opened the old full-screen thread page; owner rule 11 Nov, "a redesign moves every way in").
+  - The links now go through `supplierChatHref`: Today's Reply and "Open the conversation", Today's Agree second action, the push notification, the ongoing "Reply to …" task, the dispute row, the upcoming-date row, the day sheet's Chat, the money row's Log payment, the day-check asks, Bookings, the fee lock, the inquiry lines, the on-the-day console, the public-page desk, the quote's "Back to conversation", the client page's Open chat / Log payment / Build quote, and Files' "Share files in chat".
+  - The thread page itself forwards a plain arrival (stored bell notices, old pushes) to the client's Chat, and "Update this quote" to its Quotation.
+  - It still draws for: a thread with no event, the computer inbox pane (`?pane=1`, owner 13 Nov D3), a return carrying its own notice, a released inquiry, and an older or closed chat on the event. The client's Chat draws the event's newest thread (`readClientChatThreadId`), so those must not forward.
+  - Guard: `lib/a-conversation-opens-the-client-chat.test.ts` (sabotaged three ways, each red).

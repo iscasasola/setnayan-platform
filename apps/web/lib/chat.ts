@@ -447,6 +447,31 @@ export async function fetchCoupleThreads(
 }
 
 /**
+ * The thread the picked client's Chat draws for one event — the event's NEWEST thread for this shop, in the SAME order
+ * `fetchVendorThreadsDetailed` reads (updated_at desc, thread_id asc), which is how `clients/[eventId]/page.tsx` picks
+ * it (`threads.find((t) => t.event_id === eventId)`). The full-screen thread page asks this before forwarding to the
+ * client (lib/upcoming-schedule-door.ts `supplierThreadForward`): an older chat on the same event must not forward.
+ * A refused read is `null` — the caller then draws the page it was asked for, never a different conversation.
+ */
+export async function readClientChatThreadId(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('chat_threads')
+    .select('thread_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('event_id', eventId)
+    .order('updated_at', { ascending: false })
+    .order('thread_id', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { thread_id?: string } | null)?.thread_id ?? null;
+}
+
+/**
  * Every thread this shop has, newest first — and whether the read got them ALL.
  *
  * 🔴 IT DID NOT, PAST A THOUSAND. This was one un-ranged SELECT, and PostgREST

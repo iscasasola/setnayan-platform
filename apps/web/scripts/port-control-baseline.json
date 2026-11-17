@@ -1412,7 +1412,6 @@
         "/terms",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/on-the-day?event=[seg]"
       ],
@@ -14217,7 +14216,6 @@
         "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -14609,9 +14607,7 @@
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/messages/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -14762,7 +14758,6 @@
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -15307,7 +15302,6 @@
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
@@ -15741,6 +15735,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "Explain",
         "HTMLElement",
         "Icon",
         "InfoTip",
@@ -15757,6 +15752,7 @@
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
+        "PickedHeadLine",
         "PipelinePressureLine",
         "PlusDoor",
         "ProposalMaker",
@@ -15781,6 +15777,7 @@
         "SupplierChatsPage",
         "Suspense",
         "ThreadAnswerLine",
+        "ThreadAskRow",
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadDrawn",
@@ -16987,6 +16984,7 @@
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
+        "I",
         "Icon",
         "IdentityFieldSaveResult",
         "ImageBadge",
@@ -17033,6 +17031,7 @@
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
+        "QuickIcon",
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",

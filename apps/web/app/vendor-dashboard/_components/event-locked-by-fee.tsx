@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { ArrowLeft, Lock, MessageSquare, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -70,7 +71,7 @@ export function EventLockedByFee({
             {threadId ? (
               <ActionButton
                 tone="info"
-                href={`/vendor-dashboard/messages/${threadId}`}
+                href={supplierChatHref(eventId, threadId)}
                 icon={<MessageSquare className="h-4 w-4" aria-hidden />}
                 label="Message the couple"
               />

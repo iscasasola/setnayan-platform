@@ -1,3 +1,4 @@
+import { supplierChatHref, customerCardHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
@@ -2054,7 +2055,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {runsThisEvent ? <OpenTheirEvent eventId={eventId} /> : null}
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href={supplierChatHref(eventId, threadId)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
@@ -2090,7 +2091,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </Link>
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}#pending-payments`}
+          href={`${supplierChatHref(eventId, threadId)}#pending-payments`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
@@ -3620,7 +3621,7 @@ function QuoteTab(props: {
           // that tool, with the proposals list only when there is no thread.
           href={
             threadId
-              ? `/vendor-dashboard/messages/${threadId}#build-quote`
+              ? customerCardHref(eventId, 'quote')
               : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"

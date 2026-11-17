@@ -29,6 +29,8 @@ import {
   giftLimitCentavos,
   giftUnitPrice,
   judgeQuoteGifts,
+  allocateRewardLines,
+  shopGiftBuyable,
   shopGiftCodeOf,
   shopGiftKindOf,
   shopGiftPacksFrom,
@@ -43,7 +45,7 @@ const PACKS = shopGiftPacksFrom([
 ]);
 
 /** What is free to offer, per kind — Papic credits, then Event Plus and Event Pro counts. */
-const F = (papic: number, event_plus = 0, event_pro = 0) => ({ papic, event_plus, event_pro });
+const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
 
 const UNLOCKS = shopGiftPacksFrom([
   ...[
@@ -158,7 +160,7 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
     const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
     assert.equal(ok.state, 'ok');
     assert.equal(ok.credits, 150, 'Papic credits only');
-    assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0 });
+    assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0, event_ultra: 0 });
   });
   it('count toward the 40% limit at the price couples pay', () => {
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], UNLOCKS, 100_000_00, BOOKING_FEE, LIMIT, F(0, 0, 1));
@@ -179,6 +181,43 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
       'Gift from Saysay Studio 🎁 · 150 Papic credits · Event Plus',
     );
     assert.equal(coupleGiftHeadline(0, 'Saysay Studio', ['Event Pro']), 'Gift from Saysay Studio 🎁 · Event Pro');
+  });
+});
+
+describe('💎 Event Ultra — Black Diamond\'s reward, earned never bought (owner 15 Nov)', () => {
+  // The Ultra row as the catalogue shapes it: one unlock, its list price read, and NO gift price (none is set).
+  const WITH_ULTRA = shopGiftPacksFrom([
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
+    { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990, giftPricePhp: null },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+  ]);
+  const big = 100_000_00;
+  it('is a giftable kind that can never be a gift ORDER', () => {
+    assert.equal(shopGiftKindOf('EVENT_ULTRA'), 'event_ultra');
+    assert.equal(shopGiftBuyable('EVENT_ULTRA'), false);
+    assert.equal(shopGiftBuyable('COUPLE_WEBSITE_PRO'), true);
+    assert.equal(shopGiftCodeOf('vendor_gift__EVENT_ULTRA'), null, 'an Ultra gift order would mint stock nobody priced');
+    assert.deepEqual(WITH_ULTRA.map((p) => p.kind), ['papic', 'event_plus', 'event_pro', 'event_ultra']);
+  });
+  it('goes on a quote from its own (reward) stock, outside the limit', () => {
+    const free = F(0, 0, 0, 1);
+    assert.deepEqual(allocateRewardLines(WITH_ULTRA.filter((p) => p.kind === 'event_ultra'), free), [true]);
+    const v = judgeQuoteGifts(['EVENT_ULTRA'], WITH_ULTRA, 2_000_000, BOOKING_FEE, LIMIT, free, 'none', free);
+    assert.equal(v.state, 'ok');
+    assert.deepEqual(v.unlocks, { event_plus: 0, event_pro: 0, event_ultra: 1 });
+    // No Ultra in stock (a Pro unit is not one): it cannot go on.
+    assert.notEqual(judgeQuoteGifts(['EVENT_ULTRA'], WITH_ULTRA, big, BOOKING_FEE, LIMIT, F(0, 0, 1)).state, 'ok');
+  });
+  it('upgrades an event that has Event Pro; an Ultra event takes no plan at all', () => {
+    const free = F(0, 1, 1, 1);
+    assert.equal(judgeQuoteGifts(['EVENT_ULTRA'], WITH_ULTRA, big, BOOKING_FEE, LIMIT, free, 'pro', free).state, 'ok');
+    assert.equal(judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], WITH_ULTRA, big, BOOKING_FEE, LIMIT, free, 'pro', free).state, 'already_has');
+    for (const code of ['EVENT_ULTRA', 'COUPLE_WEBSITE_PRO', 'EVENT_PLUS']) {
+      assert.equal(judgeQuoteGifts([code], WITH_ULTRA, big, BOOKING_FEE, LIMIT, free, 'ultra', free).state, 'already_has', code);
+    }
+    const menu = addGiftMenu([], WITH_ULTRA, big, BOOKING_FEE, LIMIT, free, 'ultra', free);
+    assert.equal(menu.find((o) => o.code === 'EVENT_ULTRA')?.why, 'Their event already has Event Ultra');
   });
 });
 

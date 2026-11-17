@@ -187,7 +187,8 @@ test('"Book this build" stays mounted, so its toast outlives the last pick it bo
   assert.doesNotMatch(BODY, /bar\.book \? bookSlot/, 'the bar unmounts the booking with its button — the toast is lost');
   // Always on the bar now (frame 12); with nothing to book it says so instead of disappearing.
   assert.match(BOOK, /<ActionButton tone="brand" main icon=\{CalendarCheck\} label="Book this build" onClick=\{press\}/);
-  assert.match(BOOK, /if \(picks\.length === 0\) \{\s*setToast\(NOTHING_TO_BOOK\);/);
+  // With nothing to send it says ONE true line (EB-173): lib/book-this-build.ts `nothingToBookNote`.
+  assert.match(BOOK, /const note = nothingToBookNote\(inBuild, picks\.length\);/);
 });
 
 test('the shell draws the Build body whole, and keeps both anchors', () => {

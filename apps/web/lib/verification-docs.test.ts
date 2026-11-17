@@ -2105,7 +2105,7 @@ async function requireAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
+  if (!user) redirect('/login');
   const { data } = await supabase
     .from('users')
     .select('is_internal')

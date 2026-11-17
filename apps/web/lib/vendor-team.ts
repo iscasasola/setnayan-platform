@@ -117,6 +117,10 @@ export type AssignableService = {
   vendor_service_id: string;
   category: string;
   is_active: boolean;
+  /** The card's own name — Who works what names each service by it (owner 2026-11-14, item 9). */
+  title?: string | null;
+  /** The branch the card is filed under; null = the main location. */
+  branch_id?: string | null;
 };
 
 /** The vendor's own services — the assignable set for agent scoping. */
@@ -126,11 +130,32 @@ export async function fetchAssignableServices(
 ): Promise<AssignableService[]> {
   const { data, error } = await supabase
     .from('vendor_services')
-    .select('vendor_service_id,category,is_active')
+    .select('vendor_service_id,category,is_active,title,branch_id')
     .eq('vendor_profile_id', vendorProfileId)
     .order('category', { ascending: true });
   if (error) throw new Error(`fetchAssignableServices failed: ${error.message}`);
   return (data ?? []) as AssignableService[];
+}
+
+/**
+ * 🏢 WHOLE BRANCH (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 9) — map of vendor_team_member_id → the locations the
+ * person works in full (`vendor_team_members.whole_branch_keys`: a branch id, or 'main'). The person's visible services
+ * are still their `vendor_service_agents` rows; a database trigger adds the row for each card filed there later.
+ */
+export async function fetchWholeBranchKeys(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Record<string, string[]>> {
+  const { data, error } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_team_member_id,whole_branch_keys')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`fetchWholeBranchKeys failed: ${error.message}`);
+  const map: Record<string, string[]> = {};
+  for (const row of (data ?? []) as { vendor_team_member_id: string; whole_branch_keys: string[] | null }[]) {
+    if (row.whole_branch_keys && row.whole_branch_keys.length > 0) map[row.vendor_team_member_id] = row.whole_branch_keys;
+  }
+  return map;
 }
 
 /**

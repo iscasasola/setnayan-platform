@@ -56,6 +56,9 @@ import {
 } from '@/lib/supplier-today';
 import { badgeDeadline } from '@/lib/verified-badge';
 
+/** The "How is business" line for a shop Setnayan has not verified yet — true before and after Verified's reach. */
+export const UNVERIFIED_BUSINESS_LINE = 'Couples can open your page by its link and message you';
+
 /** The page's `cardTimestamp` — handed in so this file stays free of the overview module's server reads. */
 export type CardSince = (card: WhatsNewCard) => Date;
 
@@ -459,7 +462,9 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     lockWord: input.feeEnforced ? 'Locked until the fee is paid' : 'Your booking is not affected',
     shop: { name: input.shop.name, line: shopLine, pill },
     business: {
-      line: input.verified ? businessLine({ views: input.views, asked: input.inquiries28 }) : 'Couples see your shop once you are live',
+      // An unverified shop is not hidden (DECISION_LOG 2026-11-15 "AN UNVERIFIED SHOP HAS THE SAME WEBSITE…"): couples open
+      // it by its link or QR and message it now. Verified is what adds it to Discover and Suppliers › Find.
+      line: input.verified ? businessLine({ views: input.views, asked: input.inquiries28 }) : UNVERIFIED_BUSINESS_LINE,
     },
     needs,
     needsCount,

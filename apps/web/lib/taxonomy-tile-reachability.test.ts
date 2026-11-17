@@ -60,7 +60,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WEDDING_TILE_ORDER, TILE_PARENT, ADMIN_ONLY_TILES } from './taxonomy';
+import { WEDDING_TILE_ORDER, TILE_PARENT, ADMIN_ONLY_TILES, MERGED_TILES } from './taxonomy';
 import { fallbackSnapshot } from './taxonomy-snapshot';
 import { canonicalServicesForTile } from './vendor-counts';
 
@@ -104,7 +104,7 @@ test('every marketplace tile resolves to at least one canonical service', () => 
   // that every member really is invisible and really is empty, so this
   // exemption can never cover a branch a couple can reach.
   const dead = WEDDING_TILE_ORDER.filter(
-    (tile) => !ADMIN_ONLY_TILES.has(tile) && canonicalServicesForTile(tile).length === 0,
+    (tile) => !ADMIN_ONLY_TILES.has(tile) && !(tile in MERGED_TILES) && canonicalServicesForTile(tile).length === 0,
   );
 
   const unexpected = dead
@@ -153,6 +153,20 @@ test('every allowlisted tile is a real tile (typo guard)', () => {
     [],
     `KNOWN_DEAD_TILES names tiles that do not exist in WEDDING_TILE_ORDER: ${bogus.join(', ')}`,
   );
+});
+
+test('a merged category (T1 part 2) is invisible AND empty, and names a LIVE category it went into', () => {
+  // The same two halves as the admin-only exemption below, for MERGED_TILES — plus the third that makes it a merge:
+  // where it went is a real, visible, non-empty category (never a chain, never another merged one).
+  const snapshot = fallbackSnapshot();
+  const known = new Set<string>(WEDDING_TILE_ORDER);
+  for (const [tile, dest] of Object.entries(MERGED_TILES)) {
+    assert.ok(known.has(tile) && known.has(dest!), `${tile} → ${dest} names a tile that does not exist`);
+    assert.equal(snapshot.hiddenCategories[tile], true, `${tile} was merged away but the fallback renders it as a visible branch`);
+    assert.equal(canonicalServicesForTile(tile as never).length, 0, `${tile} was merged away but still holds services`);
+    assert.ok(!(dest! in MERGED_TILES) && !snapshot.hiddenCategories[dest!], `${tile} merged into ${dest}, which is itself hidden or merged`);
+    assert.ok(canonicalServicesForTile(dest as never).length > 0, `${tile} merged into ${dest}, which holds no service`);
+  }
 });
 
 test('an admin-only branch is invisible AND empty — the exemption cannot cover a live shelf', () => {

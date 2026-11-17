@@ -172,10 +172,13 @@ test('🔑 6 · the hash opener is mounted, so a deep link from elsewhere still 
 });
 
 test('🔑 7 · every hash the client brief deep-links here is one of these ids', () => {
-  const deepLinks = [...brief.matchAll(/\/vendor-dashboard\/messages\/\$\{threadId\}#([a-z-]+)/g)]
-    .map((m) => m[1]!);
-  // ≥ 2 since 12 Nov 2026 — the Details page's old shortcut pills (with their #build-quote) were removed.
-  assert.ok(deepLinks.length >= 2, `expected the brief to deep-link the thread; found ${deepLinks.length}`);
+  const deepLinks = [
+    ...brief.matchAll(/\/vendor-dashboard\/messages\/\$\{threadId\}#([a-z-]+)/g),
+    // 17 Nov: the brief's links into the conversation go to the client's Chat (`supplierChatHref`), hash and all.
+    ...brief.matchAll(/\$\{supplierChatHref\(eventId, threadId\)\}#([a-z-]+)/g),
+  ].map((m) => m[1]!);
+  // ≥ 1 since 17 Nov 2026 — the Quote door now opens the client's Quotation page, not the thread's #build-quote.
+  assert.ok(deepLinks.length >= 1, `expected the brief to deep-link the thread; found ${deepLinks.length}`);
   const unknown = deepLinks.filter((h) => !PANEL_IDS.has(h) && !ANCHOR_IDS.has(h));
   assert.deepEqual(
     unknown,

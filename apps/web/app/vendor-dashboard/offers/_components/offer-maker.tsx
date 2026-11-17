@@ -322,7 +322,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
         {offers ? summaryLine(live, cards, today) : 'Couldn’t load your offers'}
       </p>
       <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-4">
-        <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Offers</h2>
+        <h2 className="home-k2 !my-0">Offers</h2>
         <small className="text-xs text-ink/70" data-offers-count="">
           {offers ? `${live.length ? `${formatCount(running)} of ${formatCount(live.length)} running · ` : ''}the best one wins` : ''}
         </small>

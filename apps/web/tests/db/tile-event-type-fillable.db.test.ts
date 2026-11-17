@@ -81,13 +81,12 @@ const KNOWN_UNFILLABLE: Record<string, string> = {
   // the redundant leaf override, or append gala_night to it) — deliberately not
   // bundled into the date/hangout PR that added this guard, because widening
   // another event type's reach is its own reviewable change.
-  'av_production:gala_night':
-    "leaf av_production is scoped ['corporate','wedding','debut']; its tile also claims gala_night.",
   'event_insurance:gala_night':
     'leaf event_insurance predates gala_night; its tile claims it.',
   'personal_accident_insurance:gala_night':
     'leaf personal_accident_insurance predates gala_night; its tile claims it.',
-  // event_medic, speaker_talent (gala_night) and kids_entertainer (christening) were removed by T1
+  // av_production:gala_night was removed by T1 part 2 (20271350082350): AV / Production merged into Speakers & AV,
+  // whose leaves serve gala_night. event_medic, speaker_talent (gala_night) and kids_entertainer (christening) were removed by T1
   // (20271349668764): its new services inherit their tile, so the pairs fill.
 
   // ── editorial: ZERO canonicals — already tracked, with its owner sign-off,

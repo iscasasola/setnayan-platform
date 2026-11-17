@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { DEFAULT_LOGO_FRAME, formCarriesLogoFrame, logoFrameColumns, logoNeedsQrScan, readLogoFrameFromForm } from '@/lib/open-shop-logo';
 import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
@@ -842,7 +843,7 @@ export async function updateVendorProfileField(
       .maybeSingle();
     const slug = (slugRow as { business_slug?: string | null } | null)?.business_slug;
     if (slug) {
-      revalidatePath(`/v/${slug}`);
+      revalidatePath(`${shopPath(slug)}`);
       revalidatePath(`/${slug}`);
     }
   }
@@ -1269,7 +1270,7 @@ export async function updateVendorWebsiteField(
   // One public path now, not two: the address cannot move, so there is no old
   // one to also revalidate.
   if (currentSlug) {
-    revalidatePath(`/v/${currentSlug}`);
+    revalidatePath(`${shopPath(currentSlug)}`);
     revalidatePath(`/${currentSlug}`);
   }
   return { ok: true };
@@ -1351,7 +1352,7 @@ export async function applyVendorPageDraft(
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/shop');
   if (rowTyped.business_slug) {
-    revalidatePath(`/v/${rowTyped.business_slug}`);
+    revalidatePath(`${shopPath(rowTyped.business_slug)}`);
     revalidatePath(`/${rowTyped.business_slug}`);
   }
   return { ok: true };

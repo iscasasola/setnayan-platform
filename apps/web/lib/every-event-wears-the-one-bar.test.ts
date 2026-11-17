@@ -204,7 +204,7 @@ test('the event day page hands the console that row, and the console draws it be
 
 test('with More gone, Home draws Your services in every phase — first screen, the event day, after the day', () => {
   const page = code('app/dashboard/[eventId]/page.tsx');
-  const day = page.slice(page.indexOf('{dayOfActive ? (\n        <>'), page.indexOf(') : afterActive && afterSummary ? ('));
+  const day = page.slice(page.indexOf('{dayOfActive ? (\n        <div data-home-day="on"'), page.indexOf(') : afterActive && afterSummary ? ('));
   assert.match(day, /<YourServices[\s\S]*?services=\{homeServiceRowAll\.filter\(\(s\) => s\.key !== 'papic'\)\}/, 'the event day lost Your services');
   const after = page.slice(page.indexOf(') : afterActive && afterSummary ? ('));
   // 📷 Papic's row stands down where its card is drawn in Memories (THE ONE BUILD, 2026-11-08).

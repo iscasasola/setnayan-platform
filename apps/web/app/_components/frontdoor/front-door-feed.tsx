@@ -94,40 +94,6 @@ function CountText({ value }: { value: number | null }) {
   return <span className="fd-mono">{value}</span>;
 }
 
-function ArticleCard({ a }: { a: FrontDoorData['articles'][number] }) {
-  return (
-    <Link href={`/blog/${a.slug}`} className="fd-item">
-      <div className="fd-thumb">
-        {/* `next/image` with `fill`, matching what /blog already does for the
-            same covers — these are local public paths, so the optimizer works
-            and the aspect-ratio box means no layout shift. */}
-        <Image
-          src={a.cover}
-          alt={a.coverAlt}
-          fill
-          sizes="(max-width: 700px) 50vw, (max-width: 1023px) 33vw, 266px"
-          className="fd-cover"
-        />
-        {/* Reading time is REAL data — the Journal already computes it — so it
-            is the one number allowed on the card. */}
-        <span className="fd-dur">{a.readingMinutes} min</span>
-      </div>
-      <div className="fd-imeta">
-        <span className="fd-ava" aria-hidden="true">
-          SN
-        </span>
-        <div className="fd-itxt">
-          <p className="fd-ttl">{a.title}</p>
-          <p className="fd-by">
-            <span className="fd-kindtag">Article</span> Setnayan
-          </p>
-          <p className="fd-by">{a.category}</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 /**
  * THE CHANNEL LINE IS A DOOR. The storyteller's name presses through to their
  * own page at `/u/{ownerSlug}` — the thing the reference this page is ported
@@ -363,8 +329,6 @@ export function FrontDoorFeed({
   shopTools?: ReactNode;
 } & DiscoverSlots) {
   const {
-    articles,
-    articleTotal,
     stories,
     storyCount,
     shops,
@@ -378,10 +342,8 @@ export function FrontDoorFeed({
   // hard-coding it silently drops articles (see splitShelfRows). Unchanged
   // from the chip era: every story and every article is always in scope now,
   // so this runs over the full arrays rather than a chip-selected subset.
-  const { leadStories, leadArticles, trailingArticles } = splitShelfRows(
-    stories,
-    articles,
-  );
+  // 🗞✂ 2026-11-16 — the blog is retired, so the shelf is stories only (no articles to top it up).
+  const { leadStories } = splitShelfRows(stories, []);
 
   /*
     Every rail's shape comes from the shared composer, not from `if`s written
@@ -395,7 +357,7 @@ export function FrontDoorFeed({
   */
   const shape = composeFrontDoor({
     chapters: stories.length,
-    articles: articleTotal,
+    articles: 0,
     stories: realWeddingCount,
     // 🔢 The heading counts REAL shops only — 20 demo shops must never make the shelf "Trending" (owner 2026-11-06:
     // "demo numbers never count in real totals"). Emptiness still reads `liveShopCount`, demo shops included.
@@ -528,9 +490,6 @@ export function FrontDoorFeed({
         {leadStories.map((s) => (
           <StoryCard key={s.href} s={s} />
         ))}
-        {leadArticles.map((a) => (
-          <ArticleCard key={a.slug} a={a} />
-        ))}
       </div>
 
       <h2 className="fd-sechead">
@@ -538,16 +497,13 @@ export function FrontDoorFeed({
           ◎
         </span>
         {/*
-          THE HEADING IS THE DOOR TO THE HUB — the only PERMANENT link from
-          the front page to `/realstories`, which keeps the event-type filter
-          and the search box this page does not have.
+          🗞✂ 2026-11-16 — this heading was the door to the stories hub, and the shelf mixed in blog articles
+          ("ours"). Both are retired (owner, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"): the heading
+          is a heading, and the count is the stories people shared.
         */}
-        <Link href="/realstories" className="fd-sechead-go">
-          New uploads
-        </Link>
+        <span>New uploads</span>
         <span className="fd-meta">
-          <CountText value={articleTotal} /> ours ·{' '}
-          <CountText value={storyCount} /> theirs
+          <CountText value={storyCount} /> shared
         </span>
       </h2>
 
@@ -558,30 +514,8 @@ export function FrontDoorFeed({
         <EmptyShelf
           line="The first real weddings will land right here."
           tip="When a couple decides to share their day it joins this shelf — their photos, their suppliers, their timeline, in their own words. Nothing appears without them saying yes."
-          href="/realstories"
-          go="See how sharing works"
         />
       )}
-
-      {trailingArticles.length > 0 ? (
-        <div className="fd-grid">
-          {trailingArticles.map((a) => (
-            <ArticleCard key={a.slug} a={a} />
-          ))}
-        </div>
-      ) : null}
-
-      {/* THE ARCHIVE'S OWN PAGE, NOT A FAKE "LOAD MORE" BUTTON. `articles` is
-          capped at 12 (see data.ts); `/blog` already lists the rest, so the
-          honest door is a real link there rather than pagination this page
-          does not implement. */}
-      {articleTotal > articles.length ? (
-        <p className="fd-more">
-          <Link href="/blog" className="fd-go">
-            See all <CountText value={articleTotal} /> articles &rarr;
-          </Link>
-        </p>
-      ) : null}
 
       {/* ═ TRENDING — chapters ranked by real views, honestly empty today ═ */}
       <h2 className="fd-sechead">
@@ -595,8 +529,6 @@ export function FrontDoorFeed({
         <EmptyShelf
           line="No story has earned a spot yet."
           tip="The first story to earn its place appears here on its own."
-          href="/realstories"
-          go="Browse all stories"
         />
       ) : (
         <div className="fd-grid">

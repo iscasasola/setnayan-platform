@@ -121,6 +121,14 @@ export const VENUE_PROBE_SWEEP_GAP_MS = 60 * 60 * 1000;
 export const SUPPLIER_PAGE_PUBLISH_GAP_MS = 60 * 60 * 1000;
 
 /**
+ * 🏅 The badge-reward backstop (owner 2026-11-15, DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS": *"plus a
+ * claim_periodic_job backstop sweep"*). A reward is paid from `after()` the moment a count moves; this daily sweep
+ * pays any whose after() was lost (shops whose counts moved in the last four days, `lib/badge-earned.server.ts`).
+ * Paying late is the safe direction — each reward still pays exactly once (the database's key).
+ */
+export const BADGE_REWARD_SWEEP_GAP_MS = DAILY_GAP_MS;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -382,6 +390,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: DAILY_GAP_MS,
     what: 'The day-3 reminder to a supplier sitting on a deletion request',
+    reportsCount: true,
+  },
+  {
+    key: 'badge-reward-sweep',
+    kind: 'operational',
+    gapMs: BADGE_REWARD_SWEEP_GAP_MS,
+    what: 'Badge rewards paid to suppliers whose counts moved but whose reward was not paid at that moment',
     reportsCount: true,
   },
   {

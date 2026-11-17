@@ -22,7 +22,7 @@ const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'
 const PAGE = read('page.tsx');
 
 test('1 · one row and the count row; the ▾ is the three views, each its own address', () => {
-  assert.match(PAGE, /<EventHubBar[\s\S]*?exitHref=\{hubHref\(eventId\)\}[\s\S]*?chatHref=\{booking\.threadId \? `\/vendor-dashboard\/messages\/\$\{booking\.threadId\}` : null\}/);
+  assert.match(PAGE, /<EventHubBar[\s\S]*?exitHref=\{hubHref\(eventId\)\}[\s\S]*?chatHref=\{booking\.threadId \? supplierChatHref\(eventId, booking\.threadId\) : null\}/);
   assert.match(PAGE, /<EventHubCounts tiles=\{counts\} \/>/);
   assert.deepEqual([...EVENT_HUB_VIEWS], ['day', 'scanner', 'announce']);
   assert.equal(eventHubViewHref('e1', 'day'), '/vendor-dashboard/on-the-day/live/e1');

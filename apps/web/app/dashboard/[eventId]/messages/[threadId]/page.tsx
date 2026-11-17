@@ -520,6 +520,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       vendorProfileId: thread.vendor_profile_id,
       messages: msgs,
       revealed: v.revealed,
+      shopName: v.name,
     });
   })();
 
@@ -616,6 +617,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     hostsRead,
     shopNotYetVerifiedRead,
   ]);
+  // Owner 16 Nov: the Book confirm on the quote card tells the couple, never blocks (`AccordionLockButton`).
+  if (quoteLockTarget) quoteLockTarget.notYetVerified = shopNotYetVerified;
   const chatPins = await chatPinsRead;
   const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
@@ -953,6 +956,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
+            // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the same read as the head's line.
             lockTarget={quoteLockTarget}
             // 🚦 RW-26: the live switch, so a closed booking door says so before the press.
             bookingsOpen={quoteLockTarget ? await areBookingsOpen() : true}

@@ -52,8 +52,10 @@ function members(name: string): string[] {
  * email notifications everytime a person confirms rsvp. How much does that cost
  * us?" → "Yes. The notification on the phone not on the app."). 51 now.
  */
+// + 'badge_earned' — owner 2026-11-15, DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS": "a new badge_earned
+//   notification/email via emitNotification" (his word, cited in the PR).
 const EMAILED_ON_MAIN: readonly string[] = [
-  'ai_payment_due', 'appointment_reminder', 'booking_confirmed',
+  'ai_payment_due', 'appointment_reminder', 'badge_earned', 'booking_confirmed',
   'booking_fee_waived', 'chat_message', 'colour_changed_in_lane',
   'completion_accepted', 'date_change_answered', 'date_change_closed',
   'date_change_requested', 'date_moved', 'deletion_request_agreed',
@@ -93,7 +95,7 @@ function compare(name: string, frozen: readonly string[], what: string): void {
 }
 
 test('anchor — the three lists were really read', () => {
-  assert.equal(EMAILED_ON_MAIN.length, 52); // 51 + vendor_plan_gift_ending (owner, 14 Nov 2026)
+  assert.equal(EMAILED_ON_MAIN.length, 53); // 51 + badge_earned (owner 2026-11-15) + vendor_plan_gift_ending (owner, 14 Nov 2026)
   assert.equal(new Set(EMAILED_ON_MAIN).size, EMAILED_ON_MAIN.length, 'the frozen list repeats a type');
   assert.ok(members('EMAIL_ENABLED_TYPES').length >= 40, 'the email allowlist parsed as nearly empty');
 });

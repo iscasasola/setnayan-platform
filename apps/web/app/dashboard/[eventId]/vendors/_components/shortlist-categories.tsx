@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { ServiceFace } from '@/app/_components/service-face';
 import {
@@ -299,7 +300,7 @@ import {
 import type { RequirementField } from '@/lib/requirements-capture';
 import { shopInitials } from '@/lib/shop-initials';
 import { benchCardImage } from '@/lib/bench-card-image';
-import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
+import { NEW_TO_SETNAYAN_LABEL, NO_REVIEWS_YET_LABEL } from '@/lib/reviews';
 import {
   loadCategoryRequirements,
   saveCategoryRequirements,
@@ -1610,7 +1611,8 @@ function VendorCard({
           // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
           // number for a marketplace-linked vendor (never an off-platform /
           // manual pick, which carries no enrichment at all).
-          <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
+          // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
+          <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
         ) : null}
         {v.isVerified || v.isSetnayan ? (
           <span className="badges">
@@ -1745,7 +1747,15 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    return v.buildFit === 'clash' || unavailable ? <div className="vcw is-dim">{card}</div> : card;
+    const told = v.notYetVerified ? <NotYetVerifiedThreadLine /> : null;
+    return v.buildFit === 'clash' || unavailable || told ? (
+      <div className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}`}>
+        {card}
+        {told}
+      </div>
+    ) : (
+      card
+    );
   }
   return (
     // `.is-dim` is the SOFT tier's whole visual: a lowered card, not a removed
@@ -1815,6 +1825,9 @@ function VendorCard({
         </div>
       ) : null}
       {card}
+      {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line, under the card (its ⓘ
+          is a button, so it cannot sit inside the card's link). */}
+      {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
       <BenchVendorActions
         actions={actions}
         eventId={eventId}
@@ -2054,7 +2067,7 @@ function InlineMoreCard({
             ) : null}
             {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
             {v.rating == null && typeof v.reviewCount === 'number' ? (
-              <span className="text-xs text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+              <span className="text-xs text-[var(--m-slate-2)]">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
             ) : null}
             {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
             {sunk ? (

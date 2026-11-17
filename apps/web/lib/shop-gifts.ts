@@ -358,7 +358,7 @@ export type QuoteGiftsVerdict = {
   fromReward: boolean[];
   /** Value of the badge-reward lines, at the price couples pay — not measured against the limit. */
   rewardCentavos: number;
-  state: 'none' | 'ok' | 'over_limit' | 'short' | 'unknown_pack' | 'already_has';
+  state: 'none' | 'ok' | 'over_limit' | 'short' | 'unknown_pack' | 'already_has' | 'too_many';
   /** Missing from stock (state 'short') — credits for Papic, units for an unlock. */
   shortBy: number;
   /** Which kind is short (state 'short'). */
@@ -398,6 +398,21 @@ export function allocateRewardLines(
 }
 
 /**
+ * 🎁 ONE GIFT PER SERVICE CARD — owner 17 Nov 2026, verbatim: "should it be 1 gift per card used? so if they have
+ * 2 service cards, thos are 2 gifts?" then "Just counted" (specs DECISION_LOG a74f265b; refines 636a249a "only 1
+ * will be held for any quote"). A COUNT, not a pairing: a quote may hold as many gifts as the service cards it uses,
+ * never fewer than one (a from-scratch quote with no card still holds one). The 40% limit stays on the whole quote.
+ * The picker, the server write and the guard all read this.
+ */
+export const GIFTS_PER_CARD = 1;
+
+/** How many gifts a quote built from `cardCount` service cards may hold. */
+export function giftCapFor(cardCount: number): number {
+  const n = Number.isFinite(cardCount) ? Math.floor(cardCount) : 0;
+  return Math.max(1, n) * GIFTS_PER_CARD;
+}
+
+/**
  * Judge the gifts a supplier put on a quote. The server runs this before it writes the lines; the composer runs the
  * SAME function to draw the block, so the two can never disagree.
  *
@@ -406,6 +421,7 @@ export function allocateRewardLines(
  * @param free     what is free to offer of each kind, from `freeByKind` — `null` (stock unread) judges as short
  * @param eventHas what the couple's event already holds — `eventCanTake` says which unlocks it can still take
  * @param rewardFree what is left of the shop's BADGE-REWARD stock, per kind — those lines sit outside the limit
+ * @param maxGifts how many gifts this quote may hold — `giftCapFor(service cards used)`; defaults to one
  */
 export function judgeQuoteGifts(
   codes: readonly string[],
@@ -416,6 +432,7 @@ export function judgeQuoteGifts(
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
   rewardFree: FreeByKind | null = null,
+  maxGifts = 1,
 ): QuoteGiftsVerdict {
   const limitCentavos = giftLimitCentavos(totalCentavos, schedule, limitPct);
   const byCode = new Map(packs.map((p) => [p.code, p]));
@@ -460,6 +477,7 @@ export function judgeQuoteGifts(
 
   if (unknown) return { ...base, state: 'unknown_pack' };
   if (lines.length === 0) return { ...base, state: 'none' };
+  if (codes.length > maxGifts) return { ...base, state: 'too_many' };
   if (lines.some((p) => !eventCanTake(p.kind, eventHas))) return { ...base, state: 'already_has' };
   if (!alwaysAllowed && boughtCentavos > limitCentavos) return { ...base, state: 'over_limit' };
   // 🔢 Papic is offered PER PACK (2026-11-14): each pack's lines against that pack's own free count.
@@ -513,9 +531,11 @@ export function addGiftMenu(
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
   rewardFree: FreeByKind | null = null,
+  maxGifts = 1,
 ): GiftMenuOption[] {
   return packs.map((p) => {
-    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, limitPct, free, eventHas, rewardFree);
+    if (codes.length >= maxGifts) return { code: p.code, title: p.title, ok: false, why: 'One gift per service card' };
+    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, limitPct, free, eventHas, rewardFree, maxGifts);
     if (v.state === 'ok') return { code: p.code, title: p.title, ok: true, why: null };
     if (v.state === 'already_has') {
       return { code: p.code, title: p.title, ok: false, why: `Their event already has ${eventHas === 'ultra' ? 'Event Ultra' : 'Event Pro'}` };

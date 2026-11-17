@@ -149,7 +149,7 @@ export function journalArticleSlug(oldSlug: string): string | null {
 
 /** The public address of an article. One builder, so nothing hand-writes `/articles/` + a slug. */
 export function articleHref(slug: string): string {
-  return `/articles/${slug}`;
+  return "/articles/" + slug;
 }
 
 // ─── Body ────────────────────────────────────────────────────────────────────────────────────────────
@@ -177,7 +177,8 @@ export function journalLinkText(href: string): string {
   if (/^https?:\/\//i.test(href)) return href;
   const m = /^\/blog\/([^/?#.]+)$/.exec(href);
   const path = m ? articleHref(journalArticleSlug(m[1]!) ?? m[1]!) : href;
-  return `${SETNAYAN_LINK_HOST}${path.startsWith('/') ? path : `/${path}`}`;
+  // Joined, not templated: this is link TEXT for a post body, not a door the screens map should follow.
+  return SETNAYAN_LINK_HOST + (path.startsWith('/') ? '' : '/') + path;
 }
 
 /**

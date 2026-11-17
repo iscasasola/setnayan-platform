@@ -131,7 +131,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See the full percentage breakdown of where a Filipino wedding budget really goes.',
-        href: '/articles/wedding-budget-breakdown-philippines',
+        href: '/features',
         label: 'Read the budget breakdown',
       },
       {

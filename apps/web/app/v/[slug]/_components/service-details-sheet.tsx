@@ -131,6 +131,7 @@ export function ServiceDetailsSheet({
   from = null,
   owner = null,
   badges = null,
+  cardBadgeRow = null,
 }: {
   card: ServiceCard;
   inquireMode: ServiceInquireMode;
@@ -146,6 +147,12 @@ export function ServiceDetailsSheet({
    * caller passes none yet (services-gallery / the shop page) — draws no badge at all, never a guessed one.
    */
   badges?: PublicBadgeView | null;
+  /**
+   * 🏅 The card's J3 badge row (`CardBadgeRow`, app/_components/card-badges — the same row the card's face draws, medals,
+   * turning label and the rules pop-up), handed in by the gallery as a slot like the face's `footer`, so this sheet reads
+   * no badge engine itself. When given it takes the names-only row's place.
+   */
+  cardBadgeRow?: ReactNode;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -673,7 +680,13 @@ export function ServiceDetailsSheet({
 
           {/* ── The face, grown: the card's own name · shop · price · offer · how the price works ── */}
           <div className="px-4 pb-2 pt-3" data-grown-face="">
-            {badges && badges.cardMedals.length > 0 ? <CardMedalRow medals={badges.cardMedals} /> : null}
+            {cardBadgeRow ? (
+              <div className="mb-1.5" data-grown-card-badges="">
+                {cardBadgeRow}
+              </div>
+            ) : badges && badges.cardMedals.length > 0 ? (
+              <CardMedalRow medals={badges.cardMedals} />
+            ) : null}
             <h2 id="service-details-title" className="text-[16px] font-semibold leading-snug text-ink">
               {c.label}
             </h2>
@@ -848,8 +861,8 @@ export function ServiceDetailsSheet({
 
 /**
  * 🏅 LAYOUT D (approved, badge-milestones_v86 `sfCard`): the card's medals in ONE row, in the row's order, Setnayan
- * Verified last — no hanging ribbon. The art and the 2.6 s turn of the row come with the card-badge kit (J3,
- * `app/_components/card-badges/**`); until it lands the row says each medal by name and nothing more.
+ * Verified last — no hanging ribbon. The J3 row (art, the 2.6 s turn, the rules pop-up) comes in as `cardBadgeRow`; this
+ * names-only row is what a caller that passes only the adapter view gets.
  */
 function CardMedalRow({ medals }: { medals: PublicBadgeView['cardMedals'] }) {
   return (

@@ -141,7 +141,7 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'app/dashboard/[eventId]/vendors/_actions/category-search.ts',
-    { count: 3, why: 'Two feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal); one feeds computeCompatScore (a ranking input, not the badge). The badge field itself (verified:) now calls hasVerifiedBadge.' },
+    { count: 2, why: 'One feeds resolveVendorDisplayName (name-reveal); one feeds computeCompatScore (a ranking input, not the badge). The badge field itself (verified:) now calls hasVerifiedBadge. (The nameAnonymized site left 2026-11-16 — ruling (15) keys it on the business name, not verification.)' },
   ],
   [
     'app/dashboard/[eventId]/vendors/page.tsx',

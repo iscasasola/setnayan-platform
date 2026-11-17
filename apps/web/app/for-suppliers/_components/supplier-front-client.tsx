@@ -521,6 +521,8 @@ export type PlanCard = {
   plus: string | null;
   lines: GrowLine[];
   cta: string;
+  /** W1-B21: this card's own door — a paid plan carries `?plan=` (`openShopWithPlanHref`); absent = the picker's `href`. */
+  href?: string;
   /** Ruling 5735: this plan's shop-page preview row (`PlanPagePreview`). */
   preview?: ReactNode;
 };
@@ -606,7 +608,7 @@ export function PlanPicker({ cards, start, href }: { cards: readonly PlanCard[];
                 ))}
               </ul>
             ) : null}
-            <a className={`${s.btn} ${s.btnSm} ${s.pickCta}`} href={href} data-sf-cta="">
+            <a className={`${s.btn} ${s.btnSm} ${s.pickCta}`} href={c.href ?? href} data-sf-cta="">
               {c.cta}
             </a>
             {c.preview ?? null}

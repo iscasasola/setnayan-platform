@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7907
+# facts: 7911
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     642
-#   col       5687
-#   policy    1162
+#   tpriv     643
+#   col       5689
+#   policy    1163
 #   view      10
 #   func      402
 #
@@ -543,6 +543,7 @@ tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
 tpriv	public.vendor_form_service_links|authenticated	SID
 tpriv	public.vendor_forms|authenticated	SIU
+tpriv	public.vendor_graph_unlocks_kept|authenticated	S
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
 tpriv	public.vendor_guest_reviews|authenticated	S
 tpriv	public.vendor_ig_media|anon	SIUD
@@ -5245,6 +5246,8 @@ col	public.vendor_forms.retired_at	anon=- authenticated=SIU
 col	public.vendor_forms.title	anon=- authenticated=SIU
 col	public.vendor_forms.updated_at	anon=- authenticated=SIU
 col	public.vendor_forms.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_graph_unlocks_kept.kept_at	anon=- authenticated=S
+col	public.vendor_graph_unlocks_kept.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_guest_deliveries.created_at	anon=- authenticated=SIU
 col	public.vendor_guest_deliveries.delivered_at	anon=- authenticated=SIU
 col	public.vendor_guest_deliveries.delivered_by	anon=- authenticated=SIU
@@ -7307,6 +7310,7 @@ policy	public.vendor_follows|vendor_follows_vendor_select	mode=PERMISSIVE cmd=SE
 policy	public.vendor_form_service_links|vendor_form_service_links_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((form_id IN ( SELECT f.form_id FROM vendor_forms f WHERE (f.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) OR ( SELECT is_admin() AS is_admin)) check=((form_id IN ( SELECT f.form_id FROM vendor_forms f WHERE (f.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) OR ( SELECT is_admin() AS is_admin))
 policy	public.vendor_forms|vendor_forms_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.vendor_forms|vendor_forms_sent_couple_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(form_id IN ( SELECT s.form_id FROM event_form_sends s WHERE (s.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=NULL
+policy	public.vendor_graph_unlocks_kept|vendor_graph_unlocks_kept_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

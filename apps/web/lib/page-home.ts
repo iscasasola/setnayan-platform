@@ -113,6 +113,28 @@ const LABELS: Record<string, string> = {
   '/login': 'Sign in',
 };
 
+/**
+ * ‹ A PAGE'S OWN NAME, from a real address (`/dashboard/abc/guests`, `?seg=memories`) — the map's `LABELS`, matched
+ * with each `[param]` as one segment. For a back that names the page it sits over (the profile menu's full-screen
+ * sheet, owner-approved 16 Nov 2026: "‹ Budget"). Null where the map has no name for that page — the caller decides.
+ */
+export function pageOwnLabel(pathname: string, search = ''): string | null {
+  const q = new URLSearchParams(search);
+  const path = segs(pathname);
+  let best: { label: string; score: number } | null = null;
+  for (const [key, label] of Object.entries(LABELS)) {
+    const [kPath, kQuery] = key.split('?') as [string, string | undefined];
+    const k = segs(kPath);
+    if (k.length !== path.length) continue;
+    if (!k.every((s, i) => /^\[[^\]]+\]$/.test(s) || s === path[i])) continue;
+    const want = kQuery ? [...new URLSearchParams(kQuery)] : [];
+    if (!want.every(([n, v]) => q.get(n) === v)) continue;
+    const score = want.length * 100 + k.filter((s) => !s.startsWith('[')).length;
+    if (!best || score > best.score) best = { label, score };
+  }
+  return best?.label ?? null;
+}
+
 const E = '/dashboard/[eventId]';
 const ADMIN_ACCOUNTS = (tab: string) => `/admin/accounts?tab=${tab}`;
 /** `customerLandingHref` (app/vendor-dashboard/customers/anchors.ts) — the folds the old supplier rooms became. */

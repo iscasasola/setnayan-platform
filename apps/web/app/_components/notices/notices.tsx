@@ -242,7 +242,7 @@ export function NoticesWaiting() {
   if (more.length === 0) return null;
   return (
     <section aria-label="Waiting on this page" data-notices-waiting={more.length} className="border-b border-[var(--m-line)] px-4 pb-1 pt-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">Waiting on this page</p>
+      <p className="sn-sheet-k">Waiting on this page</p>
       {more.map((e, i) => (
         <NoticeLine key={e.id} entry={e} last={i === more.length - 1} />
       ))}

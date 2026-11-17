@@ -80,3 +80,14 @@ test('4 · Your collections’ switch is a draft change, never a save', () => {
   }
   assert.match(c, /Shown on your page after Apply/, 'the switch no longer says it waits for Apply');
 });
+
+test('5 · before verification the card says the page is OPEN to anyone with the link; Find waits (ruling 2026-11-16 (18))', () => {
+  const parts = src(PARTS);
+  assert.match(
+    parts,
+    /Anyone with the link can open it now\. Your shop shows in Find once Setnayan checks your documents\./,
+    'the not-yet-live line no longer says the page is open to anyone with the link',
+  );
+  assert.ok(!/Only you and your team can open it/.test(parts), 'the card still says only the team can open the page');
+  assert.ok(!/Couples see it once Setnayan checks/.test(parts), 'the card still says couples cannot see the page yet');
+});

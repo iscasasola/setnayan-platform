@@ -113,6 +113,11 @@ export function CardRecordSection({
     : null;
   const showRating = rating !== null && rating.count > 0 && rating.avg > 0;
 
+  // The compact line's tail, worked out here so the line stays one short sentence in source too.
+  const medalTail =
+    milestones.next !== null
+      ? `${formatCount(milestones.next - bookedCount)} more to the ${milestones.next}-event medal`
+      : 'every milestone reached';
   return (
     <section className={compact ? '' : 'mt-auto border-t border-ink/10 pt-3'} data-card-record={compact ? 'compact' : undefined}>
       <h4 className="sr-only">Card record</h4>
@@ -132,16 +137,7 @@ export function CardRecordSection({
           <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink/70" data-card-medal-line="">
             <Trophy className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
             <span className="truncate">
-              Booked <span className="font-mono font-medium text-ink">{formatCount(bookedCount)}×</span>
-              {milestones.next !== null ? (
-                <>
-                  {' · '}
-                  <span className="font-mono">{formatCount(milestones.next - bookedCount)}</span> more to the{' '}
-                  <span className="font-mono">{milestones.next}</span>-event medal
-                </>
-              ) : (
-                ' · every milestone reached'
-              )}
+              Booked <span className="font-medium text-ink">{formatCount(bookedCount)}×</span> · {medalTail}
             </span>
           </p>
         ) : (

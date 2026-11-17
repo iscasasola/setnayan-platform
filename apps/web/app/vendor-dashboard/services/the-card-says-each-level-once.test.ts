@@ -27,8 +27,9 @@ test('1 · the trail never says a level twice in a row', () => {
 
 test('2 · the meta line adds the coverage only where the heading and the category do not already say it', () => {
   assert.doesNotMatch(MANAGER, /` · \$\{coverageLabelById\.get\(svc\.coverage_id\)\}`/, 'the meta line appends the whole coverage path again');
-  assert.match(MANAGER, /const said = new Set\(\[\.\.\.covHeaderLabel\.split\(' › '\), displayServiceLabel\(svc\.category\)\]\);/);
-  assert.match(MANAGER, /return leaf && !said\.has\(leaf\) \? ` · \$\{leaf\}` : '';/);
+  assert.match(MANAGER, /const coverageSaid = new Set\(\[\.\.\.covHeaderLabel\.split\(' › '\), displayServiceLabel\(svc\.category\)\]\);/);
+  assert.match(MANAGER, /const coverageLeaf = coverageLeafWord && !coverageSaid\.has\(coverageLeafWord\) \? ` · \$\{coverageLeafWord\}` : '';/);
+  assert.match(MANAGER, /\{coverageLeaf\}/, 'the meta line draws the worked-out leaf');
 });
 
 test('3 · the record is one quiet line inside the card', () => {

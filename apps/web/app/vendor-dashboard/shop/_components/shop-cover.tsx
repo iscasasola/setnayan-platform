@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, Check, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
+import { Camera, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
 import { PRINTS_LINE } from '@/lib/prints-line';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { actionButtonClass } from '@/components/action-button';
@@ -20,6 +20,9 @@ import { HERO_UPLOAD_PILL, SupplierHero, type SupplierHeroPicture } from '../../
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
+import { ImageBadge } from '@/app/_components/image-badge';
+import { badgeImageOf } from '@/lib/shop-badge-row';
+import { verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 
 /** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
 const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
@@ -82,6 +85,14 @@ export type CoverData = {
   heroCaption?: string | null;
   /** 📂 The Upload door's facts (owner 9 Nov: Upload opens the device's picker, here). Absent = no door. */
   uploadFacts?: PortfolioUploadFacts | null;
+  /**
+   * 🏅 THE SHOP CARD'S EARNED BADGES (owner 17 Nov, "badges and seal is still not visible"): the milestone and award
+   * circles the public shop hero draws (`shopBadges`, the same facts) — so the supplier sees on their own card what
+   * couples see. null = the facts read was refused (draw nothing, never "no badges"); [] = none earned yet.
+   */
+  earned?: ShopBadge[] | null;
+  /** "Next badge: 10 events · 10 to go" (`nextBadgeShort`) — said when nothing is earned yet; null = unread. */
+  nextBadge?: string | null;
 };
 
 /**
@@ -249,10 +260,14 @@ export function ShopCover({
           titleData="shop-name"
           sub={
             <>
+              {/* 🏅 THE APP-DRAWN SEAL (owner 17 Nov: the only seal he saw was the one baked into the photo) — the SAME
+                  Setnayan Verified seal the public shop hero and the Find card draw, from `verification` data. */}
               {d.verified.isVerified ? (
-                <a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Verified
+                <a href="#docs" className="inline-flex min-h-11 items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
+                  <span className="inline-flex leading-[0]">
+                    <ImageBadge {...badgeImageOf(verifiedBadge())} uid="cover-verified" size={30} label="Setnayan Verified" />
+                  </span>
+                  Setnayan Verified
                 </a>
               ) : d.verified.inReview ? (
                 <a href="#docs" className="inline-flex min-h-11 items-center">Verification in review</a>
@@ -262,6 +277,16 @@ export function ShopCover({
                   Get verified · {formatCount(d.verified.papersIn)} of {formatCount(d.verified.papersOf)} papers
                 </a>
               )}
+              {(d.earned ?? []).map((b) => (
+                <a key={b.key} href="#badges" title={b.label} className="inline-flex min-h-11 items-center leading-[0]" data-shop-cover-badge={b.key}>
+                  <ImageBadge {...badgeImageOf(b)} uid={`cover-${b.key}`} size={30} label={b.label} />
+                </a>
+              ))}
+              {d.earned && d.earned.length === 0 && d.nextBadge ? (
+                <a href="#badges" className="inline-flex min-h-11 items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
+                  {d.nextBadge}
+                </a>
+              ) : null}
               {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
               {d.rating ? (
                 <Link href={REVIEWS_HREF} className="inline-flex items-center gap-1 underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">

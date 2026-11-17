@@ -29,7 +29,7 @@ import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/po
 import { LabPortfolioChats } from './portfolio-chats-lab';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
-import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeTracker, nextBadgeShort, shopBadges, type TrackerFacts } from '@/lib/shop-badges';
 import { badgeRowsWithRewards, FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
 import { shopBadgeRow } from '@/lib/shop-badge-row';
 import type { CollectionsInput } from '@/lib/supplier-collections';
@@ -93,6 +93,8 @@ function shopLab(fail: boolean, none: boolean) {
     rating: fail || none ? null : '4.8',
     reviews: fail || none ? null : '38 reviews',
     events: fail ? null : none ? '0 events' : '120 events',
+    earned: facts ? shopBadges({ ...facts, verified: false }).filter((b) => b.kind === 'milestone' || b.kind === 'award') : null,
+    nextBadge: nextBadgeShort(facts?.completedEvents ?? null),
     planLabel: 'Pro',
     publicPath: '/setnaprod',
     websiteLive: true,

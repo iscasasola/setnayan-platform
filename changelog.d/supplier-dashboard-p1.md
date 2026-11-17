@@ -92,3 +92,27 @@ a stand-in `sticky top-0 z-[5]` bar: the topmost element over the bar was the ca
 Also merged `origin/main` (the J3 badge row also uses `ServiceCardView`'s `footer`; one prop, both uses documented).
 
 SPEC IMPACT: None
+
+## 2026-11-17 · fix(shop): the shop's own card wears the app-drawn seal and badges
+
+Owner, 17 Nov: "badges and seal is still not visible" — the only seal on the supplier's Shop header was the one baked
+into the cover photo. Measured on prod (read-only): the test shop is verified and in good standing, holds 0 stored
+seals (0 platform-wide — the yearly run has not happened) and 0 card-badge holds; the public shop page and the Find
+card already drew the Setnayan Verified seal and each card's Verified medal. Only the supplier's OWN surfaces drew none.
+- Shop header: the "✓ Verified" text becomes the app's Setnayan Verified seal (`ImageBadge`, `verifiedBadge()`), then
+  the earned milestone/award circles (`shopBadges`, the public hero's filter), or the honest next step
+  (`nextToEarnLine`) when none is earned yet.
+- Shop › Services: each card draws its J3 medal row (`CardBadgeRow`) from the same read the public page makes
+  (`readShopSeals` → `readCardBadges`). A refused read draws nothing.
+- Guard: `the-shop-card-wears-its-seal-and-badges.test.ts` (sabotage-checked).
+
+SPEC IMPACT: None.
+
+## 2026-11-17 · fix(ci): Shop › Services back under its template-score baseline
+
+`template-score-ratchet` read the services page at 93 against a baseline of 91: the one-line meta line and the compact
+medal line each counted as a "long paragraph" because their inline expressions (an IIFE, a ternary of fragments) kept
+nested braces the scorer cannot collapse. Both now work their words out above the JSX (`coverageLeaf`, `medalTail`);
+the lines render the same. Guard regexes in `the-card-says-each-level-once.test.ts` follow the names.
+
+SPEC IMPACT: None.

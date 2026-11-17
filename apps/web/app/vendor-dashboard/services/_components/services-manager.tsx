@@ -16,6 +16,10 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readCardBadges } from '@/lib/card-badges.server';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import type { CardBadgesRead } from '@/lib/card-badges';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
@@ -355,6 +359,21 @@ export async function VendorServicesManager({
     screen_name?: string | null;
   } | null;
   const tier: string | null = tierRow?.tier_state ?? null;
+
+  // 🏅 EACH CARD'S MEDALS (owner 17 Nov, "badges and seal is still not visible") — the SAME read the public shop page
+  // makes (`readShopSeals` → `readCardBadges`, J3), so the shop sees on its own cards exactly the medals couples see. A
+  // refused read is `unreadable` and draws nothing (never "no medals").
+  const shopVerified = tierRow?.verification_state === 'verified';
+  const badgesNow = Date.now();
+  const cardBadges: CardBadgesRead = await (async (): Promise<CardBadgesRead> => {
+    const seals = await readShopSeals(profile.vendor_profile_id, shopVerified);
+    if (!seals) return { kind: 'unreadable' };
+    return readCardBadges(createAdminClient(), {
+      vendorProfileId: profile.vendor_profile_id,
+      shopVerified,
+      verifiedPartner: seals.seals.includes('verified_partner'),
+    });
+  })().catch((): CardBadgesRead => ({ kind: 'unreadable' }));
   const caps = tierCaps(tier);
 
   const allBranches =
@@ -721,6 +740,13 @@ export async function VendorServicesManager({
               // is derived from the SEARCH's own pricing function
               // (lib/service-reach → smart-sort), never written a second time.
               const reach = serviceReach(svc);
+              // The coverage's own level, only when it says something the group heading above and the card's category do
+              // not already say — never a repeated level, the same on every card (owner 17 Nov: the first card alone read
+              // "Styling, Flowers & Lights › Lights & Sounds › Lights & Sounds").
+              const coveragePath = svc.coverage_id ? coverageLabelById.get(svc.coverage_id) : undefined;
+              const coverageLeafWord = coveragePath?.split(' › ').pop() ?? '';
+              const coverageSaid = new Set([...covHeaderLabel.split(' › '), displayServiceLabel(svc.category)]);
+              const coverageLeaf = coverageLeafWord && !coverageSaid.has(coverageLeafWord) ? ` · ${coverageLeafWord}` : '';
               const priceLabel =
                 reach.startsAtPhp != null
                   ? `from ${formatPhp(reach.startsAtPhp)}`
@@ -843,23 +869,18 @@ export async function VendorServicesManager({
                   footInFace
                   below={
                     <>
+                    {cardBadges.kind === 'ok' && (cardBadges.byCard[svc.vendor_service_id]?.length ?? 0) > 0 ? (
+                      <div data-card-medals="">
+                        <CardBadgeRow badges={cardBadges.byCard[svc.vendor_service_id]!} cardName={cardName} shopName={null} now={badgesNow} />
+                      </div>
+                    ) : null}
                     {/* ONE meta line (owner 17 Nov, "i see so many spaces"): the price basis · the branch · the
                         coverage · the reach this card's price is earning — on the card itself, every time the shop
                         looks at the list, not in a report they would have to go and find.
                         ⛔ TWO STATES ONLY. A bigger price never earns more reach; that would be selling placement. */}
                     <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }} data-card-meta="">
                       {paxLabel} · assigned to {branchLabel}
-                      {(() => {
-                        // The coverage's own level, only when it says something the group heading above and the
-                        // card's category do not already say — never a repeated level, the same on every card
-                        // (owner 17 Nov: the first card alone read "Styling, Flowers & Lights › Lights & Sounds ›
-                        // Lights & Sounds").
-                        const path = svc.coverage_id ? coverageLabelById.get(svc.coverage_id) : undefined;
-                        if (!path) return '';
-                        const leaf = path.split(' › ').pop() ?? '';
-                        const said = new Set([...covHeaderLabel.split(' › '), displayServiceLabel(svc.category)]);
-                        return leaf && !said.has(leaf) ? ` · ${leaf}` : '';
-                      })()}
+                      {coverageLeaf}
                       {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
                       {' · '}
                       <span

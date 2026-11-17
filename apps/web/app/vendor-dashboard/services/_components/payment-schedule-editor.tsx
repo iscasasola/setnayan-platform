@@ -193,6 +193,12 @@ export function PaymentScheduleEditor({
     setSaveName('');
     setScope(null);
   };
+  const scopeLine = !plan
+    ? ''
+    : scope === 'this'
+      ? `This card gets its own copy. The other ${othersOnPlan.length === 1 ? 'card keeps' : `${othersOnPlan.length} keep`} “${plan.name}”.`
+      : `Saving changes “${plan.name}” on all ${othersOnPlan.length + 1} cards.`;
+  const applyLine = (n: number) => `On Save, ${n === 1 ? 'that card takes' : `those ${n} cards take`} these payments too.`;
   const applyChoices = (otherCards ?? []).filter((c) => c.id !== serviceId && !(plan && plan.cardIds.includes(c.id)));
 
   function update(i: number, patch: Partial<Row>) {
@@ -528,9 +534,7 @@ export function PaymentScheduleEditor({
                 </PillButton>
               </PillTrack>
               <p className="text-[12.5px] text-ink/55" aria-live="polite">
-                {scope === 'this'
-                  ? `This card gets its own copy. The other ${othersOnPlan.length === 1 ? 'card keeps' : `${othersOnPlan.length} keep`} “${plan.name}”.`
-                  : `Saving changes “${plan.name}” on all ${othersOnPlan.length + 1} cards.`}
+                {scopeLine}
               </p>
             </div>
           ) : null}
@@ -576,7 +580,7 @@ export function PaymentScheduleEditor({
               ))}
               {applyTo.length > 0 ? (
                 <p className="text-[12.5px] text-ink/55" aria-live="polite">
-                  {`On Save, ${applyTo.length === 1 ? 'that card takes' : `those ${applyTo.length} cards take`} these payments too.`}
+                  {applyLine(applyTo.length)}
                 </p>
               ) : null}
             </fieldset>

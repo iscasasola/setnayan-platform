@@ -163,8 +163,8 @@ export async function buildCanvasInitialFromCard(
     sourceTitle: src.title?.trim() || null,
     sourceWasOtherCategory: !sameCategory,
     title: src.title?.trim() || '',
-    description: typeof (src as { description?: unknown }).description === 'string' ? ((src as { description: string }).description) : '',
-    videoUrl: typeof (src as { video_url?: unknown }).video_url === 'string' ? ((src as { video_url: string }).video_url) : '',
+    description: (src as unknown as { description?: string | null }).description ?? '',
+    videoUrl: (src as unknown as { video_url?: string | null }).video_url ?? '',
     includesSetnayanGift: src.includes_setnayan_gift === true,
     // The card's shop gift pack copies like its Setnayan-gift yes/no — an offer the new card's owner sees and can change.
     giftPackCode: (() => {

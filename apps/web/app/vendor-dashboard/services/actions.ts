@@ -2209,7 +2209,7 @@ export async function commitVendorService(formData: FormData) {
         .eq('vendor_profile_id', profile.vendor_profile_id);
       if (aboutErr) partProblems.push('its description and video link');
     }
-    if (planIntent && planIntent.kind !== 'error') {
+    if (planIntent) {
       const planErr = await writeCardPayPlan(supabase, profile.vendor_profile_id, cardId, planIntent, scheduleRows);
       if (planErr) partProblems.push(planErr);
     }

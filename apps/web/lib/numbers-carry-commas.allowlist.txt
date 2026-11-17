@@ -14,6 +14,7 @@
 
 # ── TEXT: a string property whose digits were grouped where it was built ──
 app/_components/photo-group-header.tsx :: count :: TEXT — a worded line the caller builds (Find: `findHeaderCount` in lib/supplier-find.ts, which groups through formatCount)
+app/(shell)/for-suppliers/page.tsx :: papic150 :: TEXT — getCustomerSkuPrice (lib/v2-catalog.ts) returns the catalog price already grouped by formatPeso, a string
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — a string built by formatCount(PORTFOLIO_FREE_BASE) in supplier-front-data.ts
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — the second render of the same grouped string
 app/vendor-dashboard/customers/_components/customers-pin.tsx :: title.counts :: TEXT — the Clients title line, built in customers/page.tsx (`pinCounts`) from formatCount (`doorValue`) and formatPhp

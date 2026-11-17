@@ -175,7 +175,7 @@ export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
   'realstories', 'receipts', 'refunds', 'reset-password', 'samahan', 'sample', 'schedule',
   'seat-plan', 'setnayan-ai', 'signup', 'site-editor', 'start',
   'sitemap-features.xml', 'sitemap-help.xml', 'sitemap-static.xml',
-  'sitemap-suppliers.xml', 'sitemap-vendors.xml', 'sitemap-weddings.xml',
+  'sitemap-suppliers.xml', 'sitemap-vendors.xml', 'sitemap-weddings.xml', 'sitemap-articles.xml',
   'sitemap.xml', 'suppliers', 'terms', 'tl', 'tour', 'u', 'v', 'vendor',
   'vendor-dashboard', 'vendor-invite', 'waitlist', 'wall', 'web-only',
 ]);

@@ -332,6 +332,7 @@ const RESERVED = new Set([
   'sitemap-suppliers.xml',
   'sitemap-vendors.xml',
   'sitemap-weddings.xml',
+  'sitemap-articles.xml',
   'sitemap.xml',
   'terms',
   'tl',

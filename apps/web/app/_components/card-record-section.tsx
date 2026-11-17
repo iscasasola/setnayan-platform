@@ -73,10 +73,14 @@ export function CardRecordSection({
   record,
   variant,
   rating = null,
+  compact = false,
 }: {
   record: CompiledCardRecord;
   variant: 'couple' | 'vendor';
   rating?: CardRecordRating | null;
+  /** Inside the shop's own service card (Shop › Services, owner 17 Nov "one quiet line"): no rule above it, and the
+   *  distance to the next medal rides the "Booked N×" line instead of a block of its own. Vendor only. */
+  compact?: boolean;
 }) {
   // A card with no history shows NOTHING new. Enforced here as well as at every
   // mount site, so the section can never render an empty frame — through the
@@ -110,7 +114,7 @@ export function CardRecordSection({
   const showRating = rating !== null && rating.count > 0 && rating.avg > 0;
 
   return (
-    <section className="mt-auto border-t border-ink/10 pt-3">
+    <section className={compact ? '' : 'mt-auto border-t border-ink/10 pt-3'} data-card-record={compact ? 'compact' : undefined}>
       <h4 className="sr-only">Card record</h4>
 
       {/* ── The booked bar — the headline claim ──────────────────────────────
@@ -122,6 +126,25 @@ export function CardRecordSection({
           untrue. */}
       {bookedCount > 0 ? (
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {compact && variant === 'vendor' ? (
+          // ONE quiet line inside the shop's own card (owner 17 Nov): the count and the distance to the next medal,
+          // worded short enough to stay one line at 390; truncated rather than wrapped if a number grows.
+          <p className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink/70" data-card-medal-line="">
+            <Trophy className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
+            <span className="truncate">
+              Booked <span className="font-mono font-medium text-ink">{formatCount(bookedCount)}×</span>
+              {milestones.next !== null ? (
+                <>
+                  {' · '}
+                  <span className="font-mono">{formatCount(milestones.next - bookedCount)}</span> more to the{' '}
+                  <span className="font-mono">{milestones.next}</span>-event medal
+                </>
+              ) : (
+                ' · every milestone reached'
+              )}
+            </span>
+          </p>
+        ) : (
         <p className="inline-flex items-center gap-1.5 text-[12px] text-ink/70">
           <Trophy className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} aria-hidden />
           <span>
@@ -129,6 +152,7 @@ export function CardRecordSection({
             Setnayan
           </span>
         </p>
+        )}
 
         {topMedal !== null ? (
           <span
@@ -258,8 +282,8 @@ export function CardRecordSection({
       ) : null}
 
       {/* ── Vendor-only: the medal case + the distance to the next one ─────── */}
-      {variant === 'vendor' ? (
-        <div className="mt-2.5 space-y-1.5">
+      {variant === 'vendor' && !(compact && bookedCount > 0) ? (
+        <div className={compact ? 'space-y-1.5' : 'mt-2.5 space-y-1.5'}>
           {milestones.earned.length > 0 ? (
             <ul className="flex flex-wrap gap-1" aria-label="Milestones reached">
               {milestones.earned.map((t) => (

@@ -849,9 +849,17 @@ export async function VendorServicesManager({
                         ⛔ TWO STATES ONLY. A bigger price never earns more reach; that would be selling placement. */}
                     <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }} data-card-meta="">
                       {paxLabel} · assigned to {branchLabel}
-                      {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
-                        ? ` · ${coverageLabelById.get(svc.coverage_id)}`
-                        : ''}
+                      {(() => {
+                        // The coverage's own level, only when it says something the group heading above and the
+                        // card's category do not already say — never a repeated level, the same on every card
+                        // (owner 17 Nov: the first card alone read "Styling, Flowers & Lights › Lights & Sounds ›
+                        // Lights & Sounds").
+                        const path = svc.coverage_id ? coverageLabelById.get(svc.coverage_id) : undefined;
+                        if (!path) return '';
+                        const leaf = path.split(' › ').pop() ?? '';
+                        const said = new Set([...covHeaderLabel.split(' › '), displayServiceLabel(svc.category)]);
+                        return leaf && !said.has(leaf) ? ` · ${leaf}` : '';
+                      })()}
                       {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
                       {' · '}
                       <span
@@ -894,9 +902,7 @@ export async function VendorServicesManager({
                     const rec = cardRecordByService.get(svc.vendor_service_id);
                     if (!cardRecordHasSomethingToSayToTheShop(rec)) return null;
                     return (
-                      <div className="pt-1">
-                        <CardRecordSection record={rec} variant="vendor" />
-                      </div>
+                      <CardRecordSection record={rec} variant="vendor" compact />
                     );
                   })()}
                     </>

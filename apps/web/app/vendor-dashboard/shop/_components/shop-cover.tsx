@@ -106,9 +106,10 @@ export function replaceAddressParam(key: string, value: string | null) {
 }
 
 /** The cover's four sheets and the address param that names each (a deep link, a reload, a save coming back). */
-type CoverSheet = 'promote' | 'qr' | 'logo' | 'cover';
+type CoverSheet = 'promote' | 'prints' | 'qr' | 'logo' | 'cover';
 const SHEET_ADDRESS: Readonly<Record<CoverSheet, readonly [param: string, value: string]>> = {
   promote: ['sheet', 'promote'],
+  prints: ['sheet', 'prints'],
   qr: ['sheet', 'qr'],
   logo: ['view', 'logo'],
   cover: ['view', 'cover'],
@@ -140,6 +141,7 @@ export function ShopCover({
   d,
   gearBody,
   promoteBody,
+  printsBody,
   qrBody,
   logoBody,
   coverBody,
@@ -147,6 +149,8 @@ export function ShopCover({
   d: CoverData;
   gearBody: ReactNode | null;
   promoteBody: ReactNode | null;
+  /** The Prints tile's screen — the prints alone (`PromoteBody part="prints"`). */
+  printsBody: ReactNode | null;
   qrBody: ReactNode | null;
   logoBody: ReactNode | null;
   coverBody: ReactNode | null;
@@ -195,8 +199,8 @@ export function ShopCover({
     setSheet(null);
     replaceAddressParam(SHEET_ADDRESS[id][0], null);
   };
-  // The quick row's Prints / Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
-  const openPromoteAt = (section: 'prints' | 'gifts') => {
+  // The quick row's Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
+  const openPromoteAt = (section: 'gifts') => {
     openSheet('promote');
     requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })));
   };
@@ -335,16 +339,18 @@ export function ShopCover({
             Cover
           </button>
         </div>
-        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Promote ·
+        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Prints ·
             Your gifts · Plan — each a 40 px icon square on the wash. Every tile opens a place that already ships:
-            Promote is the Promote sheet itself (owner 17 Nov: *"Prints should be renamed as Promote, since when you open
-            it, it promotes"*); Your gifts is its own `#gifts` section, opened and scrolled to;
+            Prints opens the prints ALONE (owner 17 Nov, superseding that morning's rename to Promote: *"then we should
+            just have promote button and find gifts there? That also means change Promote on Shop to Prints"*) — the
+            same `ShopPrintsSection`, no gifts, no stories; Your gifts is the Promote sheet's `#gifts` section, opened
+            and scrolled to;
             Plan is the cover's `#plan` door (the ⚙ sheet's Plan and billing fold), with the plan name the cover already
             read (`planLabel`). No new read. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-three.test.ts */}
         <div className="grid grid-cols-3 gap-2.5 pt-1" data-shop-quick-row="">
-          <button type="button" onClick={() => openSheet('promote')} className={QUICK_TILE} data-shop-quick="promote">
+          <button type="button" onClick={() => openSheet('prints')} className={QUICK_TILE} data-shop-quick="prints">
             <QuickIcon icon={IdCard} />
-            <b className="text-[15px] font-semibold leading-tight text-ink">Promote</b>
+            <b className="text-[15px] font-semibold leading-tight text-ink">Prints</b>
             <small className="text-[12px] leading-tight text-ink/60">{PRINTS_LINE}</small>
           </button>
           <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
@@ -364,6 +370,7 @@ export function ShopCover({
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
       {viewOpen && d.publicPath ? <ViewShopScreen path={d.publicPath} live={d.websiteLive} shareUrl={d.shareUrl} onClose={() => setViewOpen(false)} /> : null}
       <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
+      <ParamSheet open={sheet === 'prints'} onClose={() => closeSheet('prints')} title="Prints" body={printsBody} data="prints" />
       <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
       <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody} data="logo" />
       <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />

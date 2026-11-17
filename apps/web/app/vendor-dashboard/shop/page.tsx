@@ -644,6 +644,11 @@ async function ShopHome({
               <PromoteBody search={qrSearch} part="promote" />
             </Suspense>
           }
+          printsBody={
+            <Suspense fallback={<SheetOpening />}>
+              <PromoteBody search={qrSearch} part="prints" />
+            </Suspense>
+          }
           qrBody={
             <Suspense fallback={<SheetOpening />}>
               <PromoteBody search={qrSearch} part="qr" />

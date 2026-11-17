@@ -24,7 +24,8 @@
  *   face and which reads this item's row and delete from context (a server list cannot hand the client item a render
  *   function). Still ONE frame — the card's own — never a second box around it (the 10 Nov ruling holds). The
  *   computer's hover Delete moves from its own column OUTSIDE the card (which cut the card short) into the row's end,
- *   still hover-only (DECISION_LOG 2026-11-03: no visible ✕ on rows); a phone still swipes.
+ *   still hover-only (DECISION_LOG 2026-11-03: no visible ✕ on rows); a phone still swipes. No divider between
+ *   cards — the card's edges separate them, the list's even gap between (owner 17 Nov).
  *
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
  */
@@ -128,7 +129,7 @@ export function ServiceCardItem({ liId, live, nameLower, face, below, row, actio
       data-shop-card-live={live ? '1' : '0'}
       data-shop-card-name={nameLower}
       hidden={gone}
-      className="group/card scroll-mt-24 space-y-2 border-b border-ink/10 pb-5 last:border-b-0 last:pb-0"
+      className="group/card scroll-mt-24 space-y-2"
     >
       <CardFoot.Provider value={footInFace ? { row, action, save, below, onDelete: () => onSwipeDelete(() => {}) } : null}>
         <SwipeToDelete label={`Delete ${row.cardName}`} onDelete={onSwipeDelete} radiusClass="rounded-xl" surfaceClass="bg-cream" hover={!footInFace}>

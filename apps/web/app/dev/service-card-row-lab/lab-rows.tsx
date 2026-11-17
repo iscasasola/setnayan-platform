@@ -13,6 +13,8 @@ import { ChevronRight, Copy } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { CardRecordSection } from '@/app/_components/card-record-section';
+import { EMPTY_CARD_RECORD, type CompiledCardRecord } from '@/lib/service-card-record';
 import { ServiceCardItem, ServiceCardItemFooter } from '@/app/vendor-dashboard/services/_components/service-card-item';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { toggleVendorServiceActive } from '@/app/vendor-dashboard/services/actions';
@@ -20,6 +22,9 @@ import { publishRefusalFor, unmetPublishRequirements, type PublishFacts } from '
 import type { StaySave } from '@/app/_components/stay-form';
 import type { ShareTarget } from '@/lib/service-share-targets';
 import type { OfferServiceResult } from '@/lib/offer-service-core';
+
+/** SAMPLE — a card booked twice, 8 short of the 10-event medal (the real thresholds). */
+const LAB_RECORD: CompiledCardRecord = { ...EMPTY_CARD_RECORD, bookedCount: 2 };
 
 export type LabCard = {
   id: string;
@@ -86,10 +91,14 @@ export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolea
               remove={labRemove}
               footInFace
               below={
-                <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  {c.factsLine}
-                  {c.live ? '' : ' · hidden'}
-                </p>
+                <>
+                  <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {c.factsLine}
+                    {c.live ? '' : ' · hidden'}
+                  </p>
+                  {/* SAMPLE record (booked 2×) — the shipped compact medal line, as Shop › Services draws it. */}
+                  {c.live ? <CardRecordSection record={LAB_RECORD} variant="vendor" compact /> : null}
+                </>
               }
             />
           ))}

@@ -64,7 +64,8 @@ test('NO FRAME: the card and its row sit in an <li> that draws nothing', () => {
   assert.match(li, /data-shop-card=""/, 'the card <li> lost the hook Shop’s thumb row narrows by');
   // A DIVIDER between cards is the prototype (one bottom rule); a box around the card + row is not.
   assert.doesNotMatch(li, /\bborder(?!-b\b|-ink\/)|rounded-|bg-|background|overflow-hidden|\bp-\d|px-\d|py-\d|\bborder-(?:t|l|r|x|y)\b/, `the card is framed again: ${li}`);
-  assert.match(li, /border-b border-ink\/10 pb-5 last:border-b-0/, 'the divider between cards is gone');
+  // No divider between cards (owner 17 Nov): the card's own edges separate them, the list's even gap between.
+  assert.doesNotMatch(li, /border-b/, 'a divider line is back between the cards');
   // The manager no longer draws the old framed <li> or a bordered strip around the row.
   assert.doesNotMatch(MANAGER, /className="scroll-mt-24 overflow-hidden rounded-2xl border"/, 'the old framed <li> is back');
   assert.doesNotMatch(managerItem(), /border-t px-4 py-3/, 'a bordered strip is back around the row');

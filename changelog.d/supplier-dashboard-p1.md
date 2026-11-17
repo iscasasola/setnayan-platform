@@ -61,3 +61,21 @@ Guards: `the-card-menu-row-is-edit-share-go-online.test.ts` admits only a hover-
 (sabotage-proven); `no-delete-x-on-list-rows.test.ts` ALLOWED names the row file with why.
 
 SPEC IMPACT: None
+
+## 2026-11-17 · fix(shop): the service card says each thing once; the Shop tile is Prints again
+
+Owner on the #7901 preview (Shop › Services list): the "🏆 Booked 2× · 8 more to the 10-event medal" record now rides
+INSIDE the card as one quiet line above the row (`CardRecordSection compact` — no rule, the distance on the same line,
+truncated never wrapped); no divider between cards (the cards' edges separate them, the list's even 20 px gap); and
+the first card no longer reads "Styling, Flowers & Lights › Lights & Sounds › Lights & Sounds" — `pathLabel`
+(`lib/vendor-coverages.ts`) never repeats a level, and the meta line adds the coverage only where the group heading
+and the card's category do not already say it, so every card reads the same. Order inside the card: face · meta ·
+medal line · ✎ ⇪ Online 🗑. Measured at 390 in `/dev/service-card-row-lab`: medal 1 line (19 px), gap 20, gutters 16/16.
+Owner ruling 17 Nov (superseding that morning's rename): *"then we should just have promote button and find gifts
+there? That also means change Promote on Shop to Prints."* — the Shop quick tile is **Prints** again, still worded
+`PRINTS_LINE`, and opens the prints ALONE (`PromoteBody part="prints"` in its own `?sheet=prints` screen; the gifts
+and stories are not read). The separate Promote button waits on a drawing.
+Guards: `the-card-says-each-level-once.test.ts` (new, sabotage-proven); the quick-row, prints, share-your-work and
+shop-sheets guards follow the ruling; the card-row guard now holds "no divider".
+
+SPEC IMPACT: None

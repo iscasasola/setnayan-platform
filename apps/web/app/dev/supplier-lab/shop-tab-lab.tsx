@@ -123,6 +123,7 @@ function shopLab(fail: boolean, none: boolean) {
             />
           }
           promoteBody={null}
+          printsBody={null}
           qrBody={null}
           logoBody={
             <div className="space-y-3" data-shop-logo-view="">

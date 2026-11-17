@@ -45,11 +45,11 @@ test('no count is typed — both are read from the tables', () => {
 test('one line, in the section and on the Shop\'s Prints tile', () => {
   assert.equal(PRINTS_LINE, 'Marketing materials, printed out');
   assert.match(SECTION, /\{PRINTS_LINE\}/);
-  assert.match(COVER, /data-shop-quick="promote"[\s\S]{0,700}\{PRINTS_LINE\}/, 'the Shop tile does not wear the line');
+  assert.match(COVER, /data-shop-quick="prints"[\s\S]{0,700}\{PRINTS_LINE\}/, 'the Shop tile does not wear the line');
   assert.doesNotMatch(COVER, /Marketing materials, printed out/, 'the tile types its own copy of the line');
-  assert.match(COVER, /data-shop-quick="promote"/); // the tile is "Promote" since 17 Nov (owner), still worded with this line
-  // The tile is one of the quick row's three (`the-quick-row-is-the-drawn-three.test.ts`); it opens the shipped Promote sheet.
-  assert.match(COVER, /onClick=\{\(\) => openSheet\('promote'\)\}[^>]*data-shop-quick="promote"/, 'the tile does not open the shipped Promote sheet');
+  assert.match(COVER, /data-shop-quick="prints"/); // "Prints" again (owner 17 Nov, later): it opens the prints alone
+  // The tile is one of the quick row's three (`the-quick-row-is-the-drawn-three.test.ts`); it opens the prints alone.
+  assert.match(COVER, /onClick=\{\(\) => openSheet\('prints'\)\}[^>]*data-shop-quick="prints"/, 'the tile does not open the prints');
 });
 
 test('the icon is a calling card, not a printer', () => {

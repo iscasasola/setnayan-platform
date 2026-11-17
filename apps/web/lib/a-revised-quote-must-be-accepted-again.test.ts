@@ -248,7 +248,10 @@ test('the card draws its label from the rule — the literal "See the quote" is 
 
 test('the supplier’s page sends the revise destination, opens the panel for it, and seeds the builder', () => {
   const v = read(VENDOR);
-  assert.equal(count(v, /reviseHref=\{`\?compose=quote`\}/g), 1, 'reviseHref not passed exactly once');
+  assert.equal(count(v, /reviseHref=\{composeQuoteHref\}/g), 1, 'reviseHref not passed exactly once');
+  // Full screen keeps `?compose=quote`; inside the picked client it is the Quotation page itself, because a relative
+  // `?compose=` there dropped `tab=chat` and opened Details (supplier dashboard audit, 2026-11-17).
+  assert.match(v, /composeQuoteHref = embedded && thread\.event_id \? customerCardHref\(thread\.event_id, 'quote'\) : `\?compose=quote`/);
   assert.match(v, /sp\?\.compose === 'quote' \? 'quote'/, '?compose=quote is not parsed on the server');
   /* ✏️ RE-ANCHORED 2026-11-08 (B2-D, one thread draw per client open). The panel list is now built by
      `vendorToolsFor(cm)`, so the open test reads `cm === 'quote'`; the page's rail is that function called

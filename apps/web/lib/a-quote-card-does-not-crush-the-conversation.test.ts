@@ -129,7 +129,14 @@ test('the in-stream quote card carries the inclusions and a way to counter', () 
 test('both thread pages supply the counter destination and honour it', () => {
   for (const [rel, name] of [[COUPLE, 'couple'], [VENDOR, 'supplier']] as const) {
     const s = read(rel);
-    assert.match(s, /counterHref=\{`\?compose=deal`\}/, `${name} page sends no counterHref`);
+    if (name === 'supplier') {
+      // Named once as `composeDealHref`: relative on full screen, absolute inside the picked client, where a relative
+      // `?compose=` lost `tab=chat` and landed on Details (supplier dashboard audit, 2026-11-17).
+      assert.match(s, /counterHref=\{composeDealHref\}/, 'supplier page sends no counterHref');
+      assert.match(s, /composeDealHref = embedded \? `\$\{supplierThreadPageHref\(threadId\)\}\?compose=deal` : `\?compose=deal`/);
+    } else {
+      assert.match(s, /counterHref=\{`\?compose=deal`\}/, `${name} page sends no counterHref`);
+    }
     assert.match(
       s,
       /initialMode=\{/,

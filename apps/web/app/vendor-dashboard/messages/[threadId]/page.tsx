@@ -1548,6 +1548,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     askPin && toolNodes['booking-ask']
       ? askPin
       : firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate: event?.event_date ?? null }, ['quote_expired', 'booking_fee', 'call_time', 'change_approval']);
+  // 🔗 THE COMPOSE DOORS ARE ABSOLUTE INSIDE THE PICKED CLIENT (supplier dashboard audit, 2026-11-17). This chat box
+  // is also drawn at /vendor-dashboard/clients/<id>?tab=chat, where a relative `?compose=…` dropped `tab=chat` and
+  // landed on Details: the client page never reads `compose`. Full screen keeps the relative form the page parses.
+  const composeQuoteHref = embedded && thread.event_id ? customerCardHref(thread.event_id, 'quote') : `?compose=quote`;
+  const composeDealHref = embedded ? `${supplierThreadPageHref(threadId)}?compose=deal` : `?compose=deal`;
   const chatBlocker = (() => {
     if (!blockFact) return null;
     const kind = BLOCKER_OF[blockFact.kind];
@@ -1582,7 +1587,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         topic: 'quote' as const,
         why: 'They can’t accept it any more. Send a new one — it opens filled in from the old quotation.',
         action: (
-          <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href="?compose=quote" className="!h-11 !min-h-11 w-full" />
+          <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href={composeQuoteHref} className="!h-11 !min-h-11 w-full" />
         ),
       };
     }
@@ -2348,9 +2353,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // 🏪 The shop's own name for the strip: a login that also hosts this event sees the shop, then You.
             {...(embedded ? { shopLabel: profile.business_name ?? null } : {})}
             dealEntry={dealEntry}
-            counterHref={`?compose=deal`}
+            counterHref={composeDealHref}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.
-            reviseHref={`?compose=quote`}
+            reviseHref={composeQuoteHref}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}

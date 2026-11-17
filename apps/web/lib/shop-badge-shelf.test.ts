@@ -5,13 +5,15 @@
  *   3 · honest states: unread is "Couldn't load", Invites is "Not counted yet", below Bronze is locked with a count;
  *   4 · nothing of the old sheet is lost: Now · progress · Next goal · reward · what it counts are all lines;
  *   5 · the row component opens the award kit's full screens, and the locked look rises.
+ *   6 · the Shop header's "Next badge" IS the Completed bookings tile's goal — one ladder, one goal (W1 F2);
+ *   7 · a sheet says what a badge counts ONCE (W1 F1: the not-earned Verified sheet printed its line twice).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { COULDNT_LOAD, NOT_COUNTED_YET, SHELF_FAMILY, badgeArtSrc, shelfLines, shopBadgeShelf } from './shop-badge-shelf';
+import { COULDNT_LOAD, NOT_COUNTED_YET, SHELF_FAMILY, VERIFIED_HOW, badgeArtSrc, shelfLines, shelfNextBadgeLine, shopBadgeShelf } from './shop-badge-shelf';
 import type { BadgeRewardFacts } from './badge-rewards';
 import { SHOP_BADGE_KEYS } from './badge-tiers';
 
@@ -85,4 +87,38 @@ test('5 · the row opens the award kit and lazy-loads the art', () => {
   assert.match(src, /loading="lazy"/);
   assert.match(src, /width=\{BADGE_ART_W\}\s+height=\{BADGE_ART_H\}/);
   assert.doesNotMatch(src, /ImageBadge|shop-badge-row'/, 'the old badge art is back');
+});
+
+test('6 · the Shop header’s "Next badge" is the Completed bookings tile’s own goal, at every count', () => {
+  // The fault: the header read the retired events ladder ("10 events · 10 to go") while the tile said "Bronze at 5".
+  const zero = shopBadgeShelf({ counts: counts({ completedBookings: 0, completedEvents: 0 }), verified: false, granted: [] });
+  assert.equal(shelfNextBadgeLine(zero), 'Next badge: Bronze at 5 bookings · 5 to go');
+  for (const n of [0, 1, 4, 5, 9, 10, 24, 25, 63, 99, 100, 249, 999]) {
+    const tiles = shopBadgeShelf({ counts: counts({ completedBookings: n, completedEvents: n + 7 }), verified: true, granted: [] });
+    const cb = tiles.find((t) => t.key === 'completed_bookings')!;
+    const m = /^Next goal: (.+) — (.+) to go$/.exec(cb.next ?? '');
+    assert.ok(m, `${n}: the tile has no next goal`);
+    // Same tier, same step, same "to go" — and nothing from the events count (which is deliberately different here).
+    assert.equal(shelfNextBadgeLine(tiles), `Next badge: ${m![1]} · ${m![2]} to go`, `${n}: the header and the tile disagree`);
+  }
+  // At the top, unread, and no row at all: the header says nothing rather than a guess.
+  const top = shopBadgeShelf({ counts: counts({ completedBookings: 1000 }), verified: true, granted: [] });
+  assert.equal(shelfNextBadgeLine(top), null);
+  assert.equal(shelfNextBadgeLine(shopBadgeShelf({ counts: null, verified: true, granted: [] })), null);
+  assert.equal(shelfNextBadgeLine(null), null);
+  // Both Shop callers hand the header the shelf — never a ladder of their own.
+  for (const f of ['app/vendor-dashboard/shop/page.tsx', 'app/dev/supplier-lab/shop-tab-lab.tsx']) {
+    const src = stripComments(readFileSync(join(WEB, f), 'utf8'));
+    assert.match(src, /nextBadge: shelfNextBadgeLine\((?:badges|tiles)\)/, `${f}: the header's next badge is not the tile's goal`);
+    assert.doesNotMatch(src, /nextBadgeShort|nextToEarnLine/, `${f}: a second ladder feeds the header`);
+  }
+});
+
+test('7 · a sheet says what a badge counts once', () => {
+  const row = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx'), 'utf8'));
+  // The locked tile says `takes` (the next goal, else `how`); the plain line repeats `how` only when it differs.
+  assert.match(row, /\{takes !== tile\.how \? <p [^>]*>\{tile\.how\}<\/p> : null\}/, 'the sheet repeats what the locked tile already says');
+  const v = shopBadgeShelf({ counts: counts(), verified: false, granted: [] }).find((t) => t.key === 'verified')!;
+  assert.equal(v.next, null, 'Verified grew a next goal — its sheet would say a different line');
+  assert.equal(v.how, VERIFIED_HOW);
 });

@@ -71,6 +71,8 @@ export type ShelfTile = {
   progress: string | null;
   /** "Next goal: Ruby at 100 bookings — 37 to go" — null at the top. */
   next: string | null;
+  /** The same goal, short: "Ruby at 100 bookings · 37 to go" — what the Shop header says (`shelfNextBadgeLine`). */
+  nextShort: string | null;
   /** The reward lines (the old sheet's Reward box): what it gave, and the next reward. */
   reward: { gave: string | null; next: string | null };
   /** ISO time the tier reached was granted (from the shop's rewards), for "Awarded …"; null when unknown. */
@@ -131,10 +133,10 @@ export function shelfBadge(badge: ShopBadgeKey, i: ShelfInput): ShelfTile {
   const raw = i.counts ? COUNT_OF[badge](i.counts) : null;
   const firstReward = rewardLineFor(badge, null, null, i.granted, i.names);
   if (!measured) {
-    return { ...base, state: 'not_counted', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: NOT_COUNTED_YET, pct: 0, now: null, progress: null, next: words.locked, reward: firstReward, awardedAt: null };
+    return { ...base, state: 'not_counted', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: NOT_COUNTED_YET, pct: 0, now: null, progress: null, next: words.locked, nextShort: null, reward: firstReward, awardedAt: null };
   }
   if (raw == null || !Number.isFinite(raw)) {
-    return { ...base, state: 'unread', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: COULDNT_LOAD, pct: 0, now: null, progress: null, next: null, reward: firstReward, awardedAt: null };
+    return { ...base, state: 'unread', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: COULDNT_LOAD, pct: 0, now: null, progress: null, next: null, nextShort: null, reward: firstReward, awardedAt: null };
   }
   const count = Math.max(0, Math.trunc(raw));
   const steps = SHOP_BADGE_STEPS[badge];
@@ -147,11 +149,14 @@ export function shelfBadge(badge: ShopBadgeKey, i: ShelfInput): ShelfTile {
   const unit = words.unit;
   const now = `Now: ${fmt(count)} ${unit(count)}`;
   const progress = nextStep !== null && nextTier ? `${pct}% of the way to ${tierName(nextTier)}` : null;
-  const next =
-    nextStep !== null && nextTier ? `Next goal: ${tierName(nextTier)} at ${fmt(nextStep)} ${unit(nextStep)} — ${fmt(nextStep - count)} to go` : null;
+  // ONE goal, two lengths: the tile's sheet says `next`, the Shop header says `nextShort` — built from the same step.
+  const goalAt = nextStep !== null && nextTier ? `${tierName(nextTier)} at ${fmt(nextStep)} ${unit(nextStep)}` : null;
+  const goalToGo = nextStep !== null ? `${fmt(nextStep - count)} to go` : null;
+  const next = goalAt && goalToGo ? `Next goal: ${goalAt} — ${goalToGo}` : null;
+  const nextShort = goalAt && goalToGo ? `${goalAt} · ${goalToGo}` : null;
   const reward = rewardLineFor(badge, count, null, i.granted, i.names);
   if (!reached) {
-    return { ...base, state: 'locked', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: 'Not yet', pct, now, progress, next, reward, awardedAt: null };
+    return { ...base, state: 'locked', tier: null, tierName: null, src: badgeArtSrc(family, 1), sub: 'Not yet', pct, now, progress, next, nextShort, reward, awardedAt: null };
   }
   const tier = ri + 1;
   return {
@@ -165,6 +170,7 @@ export function shelfBadge(badge: ShopBadgeKey, i: ShelfInput): ShelfTile {
     now,
     progress,
     next,
+    nextShort,
     reward,
     awardedAt: grantedAt(i.granted, tierRewardKey(badge, reached)),
   };
@@ -173,7 +179,7 @@ export function shelfBadge(badge: ShopBadgeKey, i: ShelfInput): ShelfTile {
 /** Setnayan Verified's tile — the blue check, no tiers. */
 export function shelfVerified(i: ShelfInput): ShelfTile {
   const reward = rewardLineFor('verified', null, i.verified, i.granted, i.names);
-  const base = { key: 'verified' as const, title: 'Setnayan Verified', family: null, tier: null, tierName: null, src: null, goal: false, how: VERIFIED_HOW, now: null, progress: null, next: null, reward, ring: 'found' as const };
+  const base = { key: 'verified' as const, title: 'Setnayan Verified', family: null, tier: null, tierName: null, src: null, goal: false, how: VERIFIED_HOW, now: null, progress: null, next: null, nextShort: null, reward, ring: 'found' as const };
   if (i.verified === null) return { ...base, state: 'unread', sub: COULDNT_LOAD, pct: 0, awardedAt: null, door: null };
   if (i.verified) return { ...base, state: 'earned', sub: 'Verified', pct: 100, awardedAt: grantedAt(i.granted, 'verified'), door: null };
   return { ...base, state: 'locked', sub: 'Not yet', pct: 0, awardedAt: null, door: { label: 'Send your documents', href: '/vendor-dashboard/profile#docs' } };
@@ -203,6 +209,18 @@ export function shopBadgeShelf(i: ShelfInput): ShelfTile[] {
     const toGo = /— (.+) to go$/.exec(t.next ?? '')?.[1];
     return toGo ? { ...t, goal: true, sub: `${toGo} to go` } : t;
   });
+}
+
+/**
+ * 🔒 THE SHOP HEADER'S "NEXT BADGE" IS THE COMPLETED BOOKINGS TILE'S OWN GOAL (W1 F2, 18 Nov: the header said
+ * "Next badge: 10 events · 10 to go" from the retired events ladder while the tile said "Bronze at 5 bookings · 5 to
+ * go"). It reads the tile — never a ladder of its own — so the two cannot disagree.
+ * "Next badge: Bronze at 5 bookings · 5 to go"; null when the row is unread, the count is unread, or at the top.
+ * 🔒 lib/shop-badge-shelf.test.ts
+ */
+export function shelfNextBadgeLine(tiles: readonly ShelfTile[] | null): string | null {
+  const t = tiles?.find((x) => x.key === 'completed_bookings');
+  return t?.nextShort ? `Next badge: ${t.nextShort}` : null;
 }
 
 /** The full screen's caption lines, under "Tier · Title · Awarded …" — nothing of the old sheet is lost. */

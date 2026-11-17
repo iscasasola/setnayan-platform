@@ -40,10 +40,10 @@ import { siteOrigin } from '@/lib/site-origin';
 import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { nextBadgeShort, shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges';
+import { shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { type TrackerRewardInput } from '@/lib/badge-rewards';
-import { shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
+import { shelfNextBadgeLine, shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
@@ -450,7 +450,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     earned: facts
       ? shopBadges({ ...facts, verified: false }).filter((b) => b.kind === 'milestone' || b.kind === 'award')
       : null,
-    nextBadge: nextBadgeShort(facts?.completedEvents ?? null),
+    // 🔒 The header's next step IS the Completed bookings tile's goal (one ladder, one goal — lib/shop-badge-shelf.ts).
+    nextBadge: shelfNextBadgeLine(badges),
     analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:

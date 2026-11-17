@@ -188,7 +188,8 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
           {tile.title}
         </h2>
         <LockedTile art={<BadgeArtLarge tile={tile} />} group={what} name={tile.title} how={tile.state === 'not_counted' ? `${tile.sub} · ${takes}` : takes} />
-        <p className="text-[13.5px] text-ink/70">{tile.how}</p>
+        {/* What it counts — once: when the locked tile already says it (Verified, or no next goal), it is not repeated. */}
+        {takes !== tile.how ? <p className="text-[13.5px] text-ink/70" data-badge-how="">{tile.how}</p> : null}
         {tile.now ? (
           <div>
             <div className="flex items-baseline justify-between gap-3">

@@ -16,7 +16,7 @@ import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import {
   customerCardHref,
   upcomingScheduleDoor,
-  vendorThreadHref,
+  supplierChatHref,
 } from '@/lib/upcoming-schedule-door';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -909,7 +909,7 @@ export async function fetchVendorOverviewData(
       eventName: meta?.displayName ?? 'A booked event',
       label: d.label,
       createdAt: d.deliveredAt,
-      threadHref: disputeThread ? vendorThreadHref(disputeThread.thread_id) : null,
+      threadHref: disputeThread ? supplierChatHref(d.eventId, disputeThread.thread_id) : null,
     });
   }
 
@@ -930,7 +930,7 @@ export async function fetchVendorOverviewData(
       id: `ong-inq-${t.thread_id}`,
       label: `Reply to ${t.event?.display_name ?? 'a new inquiry'}`,
       dueChip: awaitingChip(t.created_at),
-      href: `/vendor-dashboard/messages/${t.thread_id}`,
+      href: supplierChatHref(t.event_id, t.thread_id),
     });
   }
 

@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import type { ReactNode } from 'react';
 import { WhyRow } from './why-row';
 import {
@@ -400,7 +401,7 @@ export function WhatsNewFeed({
  */
 function rowAct(card: WhatsNewCard, confirmLock: (formData: FormData) => void | Promise<void>): ReactNode {
   if (card.kind === 'inquiry' || card.kind === 'message') {
-    const href = `/vendor-dashboard/messages/${card.threadId}`;
+    const href = supplierChatHref(card.eventId, card.threadId);
     return <ActionButton tone="neutral" icon={<MessageSquare {...ico} />} label="Reply" name={`Reply — ${card.kind === 'message' ? card.coupleName : card.descriptor}`} href={href} className={TAP} />;
   }
   if (card.kind === 'lock') {
@@ -1249,7 +1250,7 @@ function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }
           main
           icon={<MessageSquare {...ico} />}
           label="Open the conversation"
-          href={`/vendor-dashboard/messages/${card.threadId}`}
+          href={supplierChatHref(card.eventId, card.threadId)}
           className={TAP}
         />
       </div>

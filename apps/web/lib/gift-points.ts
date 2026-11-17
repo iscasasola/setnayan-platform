@@ -13,10 +13,13 @@
  * SQL twin `gift_points_for_price`; the db test holds the two equal. PURE.
  */
 
+/** One point per this many pesos of a gift's (rounded-off) regular price — the owner's ruled rate. Copy reads it from here. */
+export const PHP_PER_GIFT_POINT = 10;
+
 /** Points for one gift at `pricePhp` (its regular price). Null when the price is missing or not positive. */
 export function giftPointsForPrice(pricePhp: number | null | undefined): number | null {
   if (pricePhp == null || !Number.isFinite(pricePhp) || pricePhp <= 0) return null;
   const magnitude = 10 ** Math.floor(Math.log10(pricePhp));
   const rounded = Math.round(pricePhp / magnitude) * magnitude;
-  return Math.round(rounded / 10);
+  return Math.round(rounded / PHP_PER_GIFT_POINT);
 }

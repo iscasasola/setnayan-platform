@@ -135,7 +135,8 @@ test('c · full screen: the page root is the chat takeover — no bottom tabs, n
   assert.match(take.slice(0, 2600), /@media \(max-width: 700\.98px\) \{\s*html:not\(\[data-sn-nav-dir\]\) \.sn-vt-page:has\(\[data-chat-takeover\]\)/, 'the full-screen line is not 701');
   // From 701: Chats is the left column, the newest chat opens on the right (the ✉ lands on a conversation, not a blank).
   assert.match(PAGE, /<ChatPanes list=\{list\} open=\{false\} latestHref=\{latestHref\}>/, 'Chats is not the left column from 701');
-  assert.match(PAGE, /paneHref: `\/vendor-dashboard\/messages\/\$\{r\.threadId\}`,/, 'a row does not open its thread beside the list from 701');
+  // `supplierThreadPaneHref` = the thread page marked `?pane=1`, which draws beside the list rather than forwarding.
+  assert.match(PAGE, /paneHref: supplierThreadPaneHref\(r\.threadId\),/, 'a row does not open its thread beside the list from 701');
   const beside = read('app/vendor-dashboard/messages/[threadId]/layout.tsx');
   assert.match(beside, /import SupplierChatsPage from '\.\.\/page';/, 'the list beside an open thread is not this page');
   // In the left column it loses the takeover's frame (it is a column, not a card).

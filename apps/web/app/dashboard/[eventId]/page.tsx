@@ -480,8 +480,12 @@ export default async function EventHomePage({
               emailConfigured,
               broadcastsMeasured,
             };
-          } catch {
-            return undefined;
+          } catch (e) {
+            // ⛔ A thrown read used to return `undefined`, which draws the pre-P3 stub —
+            // "Coming soon · No broadcast yet" — on the event day, over a read that never
+            // answered. Hand the live card an UNMEASURED read so it says it could not load.
+            logQueryError('dashboard/day-of.broadcast', e);
+            return { items: [], senderRole: null, callTimeCount: 0, emailConfigured: false, broadcastsMeasured: false };
           }
         }
         return undefined;

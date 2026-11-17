@@ -185,11 +185,15 @@ function LiveBroadcastCard({
 }
 
 /**
- * Pre-P3 stub, byte-for-byte the shipped card — renders whenever the feature
- * flag is off (or the page passed no data), so flag-off = today's behavior.
+ * Pre-P3 stub — renders whenever the feature flag is off (or the page passed no
+ * data). A thrown read no longer lands here: the page hands the live card an
+ * unmeasured read instead, so a failure is never drawn as "Coming soon".
+ *
+ * ⛔ It carried a "Receive broadcasts on this device" checkbox held in local
+ * state only — ticking it saved nothing and reached nothing (audit 2026-11-17).
+ * A switch that does nothing is gone until there is something for it to switch.
  */
 function CoordinatorBroadcastStub() {
-  const [optedIn, setOptedIn] = useState(true);
 
   return (
     <section data-coming-soon aria-labelledby="day-of-broadcast" className="space-y-2">
@@ -207,15 +211,6 @@ function CoordinatorBroadcastStub() {
         No broadcast yet — your coordinator can send updates here on the day.
       </p>
 
-      <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 border-t border-ink/10 text-[15px] text-ink">
-        <span>Receive broadcasts on this device</span>
-        <input
-          type="checkbox"
-          checked={optedIn}
-          onChange={(e) => setOptedIn(e.target.checked)}
-          className="h-5 w-5 cursor-pointer accent-terracotta"
-        />
-      </label>
     </section>
   );
 }

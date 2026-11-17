@@ -250,8 +250,8 @@ function monthIndex(name: string): number {
   return MONTHS.indexOf(name.slice(0, 3).toLowerCase()) + 1;
 }
 
-/** The first real calendar date printed on the receipt, in reading order. */
-function extractDate(text: string): string | null {
+/** The first real calendar date printed on the receipt, in reading order, and where it starts. */
+function extractDateAt(text: string): { iso: string; at: number } | null {
   type Hit = { at: number; iso: string | null };
   const hits: Hit[] = [];
   const add = (re: RegExp, f: (m: RegExpExecArray) => string | null) => {
@@ -277,12 +277,33 @@ function extractDate(text: string): string | null {
     return a > 12 ? isoDate(Number(m[3]), b, a) : isoDate(Number(m[3]), a, b);
   });
   hits.sort((x, y) => x.at - y.at);
-  return hits.find((h) => h.iso)?.iso ?? null;
+  const hit = hits.find((h) => h.iso);
+  return hit?.iso ? { iso: hit.iso, at: hit.at } : null;
 }
 
-/** The first clock time printed on the receipt, normalised to 24-hour. */
-function extractTime(text: string): string | null {
+/**
+ * The clock time of the transfer, normalised to 24-hour.
+ *
+ * 🪤 A PHONE SCREENSHOT CARRIES A SECOND CLOCK — the status bar's ("9:41") at
+ * the very top. Measured 2026-11-17 on drawn BDO, InstaPay and QR Ph receipts
+ * read by the on-phone reader: the first time on the page was the status bar
+ * on every full-size screenshot. So a time on the DATE'S OWN LINE, or after it,
+ * wins; the first time anywhere is only the fallback when no date was read or
+ * nothing follows it.
+ */
+function extractTime(text: string, dateAt: number | null): string | null {
+  if (dateAt != null) {
+    const lineStart = text.lastIndexOf('\n', dateAt) + 1;
+    const near = firstTime(text, lineStart);
+    if (near) return near;
+  }
+  return firstTime(text, 0);
+}
+
+/** The first clock time at or after `from`. */
+function firstTime(text: string, from: number): string | null {
   const re = /\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])?\.?\s*(m\.?)?(?![a-z])/gi;
+  re.lastIndex = from;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     let h = Number(m[1]);
@@ -304,5 +325,18 @@ function extractTime(text: string): string | null {
 
 /** Read when the transfer was made off a transcribed receipt. Never throws. */
 export function extractReceiptPaidAt(text: string): ReceiptPaidAt {
-  return { date: extractDate(text), time: extractTime(text) };
+  const date = extractDateAt(text);
+  return { date: date?.iso ?? null, time: extractTime(text, date?.at ?? null) };
+}
+
+/**
+ * The on-phone reader (Tesseract) misreads a zero as the letter O inside long
+ * digit runs — measured 2026-11-17 on a drawn BDO screen: "B000…" came back
+ * "B0O00…". An O touching a digit is read as 0. Applied to a NORMALISED
+ * reference only, never to free text. It can only make a true match visible,
+ * never invent one, and a person still decides. (Moved here from
+ * lib/admin/received-match.ts so the buyer side runs the same rule.)
+ */
+export function ocrDigitFix(norm: string): string {
+  return norm.replace(/O(?=\d)|(?<=\d)O/g, '0');
 }

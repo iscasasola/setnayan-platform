@@ -30,16 +30,29 @@
  * picture and pictures are made in seconds. Only the bank's own message settles
  * it, and an admin still opens it.
  *
+ * 🔁 WHO TRANSCRIBES NOW (owner 17 Nov 2026, "Yes, swap it in"): the ON-PHONE
+ * reader, Tesseract.js (lib/on-phone-reader.ts). The buyer's screenshot is read
+ * on the buyer's own phone and only the TEXT is posted; no outside AI sees it.
+ * The split above is unchanged — the reader transcribes, this file decides —
+ * and so is every rule below. `RECEIPT_TRANSCRIBE_PROMPT` remains only for the
+ * verification-paper reader, which still shares the old model seam.
+ *
  * Pure and dependency-free so every rule below can be tested without a network,
  * a database or a key.
  */
 
-import { scanPaymentProof, extractReceiptPaidAt, preferredReference } from '@/lib/payment-proof-scan';
+import {
+  scanPaymentProof,
+  extractReceiptPaidAt,
+  preferredReference,
+  ocrDigitFix,
+} from '@/lib/payment-proof-scan';
 import {
   compareReferences,
   normalizeReference,
   MIN_CONTAINMENT_LENGTH,
 } from '@/lib/payment-reference-match';
+import { RECEIPT_FIELDS, type ReceiptFieldKey } from '@/lib/receipt-fields';
 
 /**
  * What we ask the model for. Transcription only — no judgement, no summarising,
@@ -206,6 +219,12 @@ export function readPaymentReceipt(args: {
   expectedPhp: number | null;
   /** The rail it was paid to — picks which reference is the matching key. Default BDO. */
   channel?: string | null;
+  /**
+   * TRUE when the transcript came from the on-phone reader, which reads a zero
+   * as the letter O inside digit runs — `ocrDigitFix` is applied to every
+   * reference it found. Never applied to free text.
+   */
+  ocr?: boolean;
 }): PaymentReceiptRead {
   const text = args.transcript.trim();
 
@@ -239,7 +258,10 @@ export function readPaymentReceipt(args: {
     };
   }
 
-  const scan = scanPaymentProof(text, args.expectedPhp ?? undefined);
+  const raw = scanPaymentProof(text, args.expectedPhp ?? undefined);
+  const scan = args.ocr
+    ? { ...raw, references: raw.references.map((r) => ({ ...r, value: ocrDigitFix(r.value) })) }
+    : raw;
   const seenReferences = scan.references.map((r) => r.value);
   const { matches, reason } = referenceVerdict(args.typed, seenReferences);
   const paidAt = extractReceiptPaidAt(text);
@@ -309,4 +331,219 @@ export function shouldAskBuyerToFix(
   read: { status: ReceiptReadStatus; referenceMatches: boolean | null } | null | undefined,
 ): boolean {
   return read?.status === 'ok' && read.referenceMatches === false;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * THE BUYER'S SIDE OF THE ON-PHONE READ (owner 17 Nov 2026)
+ *
+ * "Upload Payment Receipt" on /pay (gift store orders included) and in the
+ * couple checkout drawer: the picture is read on the buyer's phone, the four
+ * fields below are FILLED from it, and the buyer may correct any of them before
+ * sending. Then the server re-runs the same pure parser on the posted text for
+ * the admin's card, and notes anything the buyer changed.
+ *
+ * ⛔ STILL ADVISORY. A filled or corrected field is a lookup key beside the
+ * admin's own BDO record. Nothing here sets a status.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** What the four "we read this" fields start as. NULL = we could not read it. */
+export type ReceiptPrefill = {
+  amountPhp: number | null;
+  /** `YYYY-MM-DD` */
+  paidOn: string | null;
+  /** `HH:MM` 24-hour */
+  paidTime: string | null;
+  reference: string | null;
+};
+
+/**
+ * The peso figure to pre-fill. NEVER A GUESS: the owed amount when it is on the
+ * receipt; else the one figure when there is exactly one; else nothing, and
+ * the buyer types it. A receipt with an amount, a fee and a total would
+ * otherwise pre-fill whichever came first.
+ */
+function prefillAmount(amounts: number[], expectedPhp: number | null): number | null {
+  if (expectedPhp != null && Number.isFinite(expectedPhp)) {
+    const wanted = Math.round(expectedPhp * 100);
+    const hit = amounts.find((a) => Math.round(a * 100) === wanted);
+    if (hit != null) return hit;
+  }
+  return amounts.length === 1 ? amounts[0]! : null;
+}
+
+/**
+ * Turn the on-phone transcript into the four fields the buyer sees.
+ * Same parser as the admin's card (`readPaymentReceipt`), so what the buyer is
+ * shown and what the admin is told can never disagree.
+ */
+export function prefillFromReceipt(args: {
+  transcript: string;
+  expectedPhp: number | null;
+  channel?: string | null;
+}): ReceiptPrefill {
+  const read = readPaymentReceipt({
+    transcript: args.transcript,
+    typed: null,
+    expectedPhp: args.expectedPhp,
+    channel: args.channel,
+    ocr: true,
+  });
+  return {
+    amountPhp: prefillAmount(read.seenAmounts, args.expectedPhp),
+    paidOn: read.seenPaidOn,
+    // The time field is minutes-only; seconds are dropped, never rounded.
+    paidTime: read.seenPaidTime ? read.seenPaidTime.slice(0, 5) : null,
+    reference: read.readReference,
+  };
+}
+
+/* ── What the form posts, and how the server reads it back ─────────────────── */
+
+// The posted field names live in a tiny module (lib/receipt-fields.ts) so the
+// FORM can name them without pulling this parser into its first load.
+export { RECEIPT_FIELDS, type ReceiptFieldKey };
+
+function touchedFromForm(form: FormData): Set<ReceiptFieldKey> {
+  const raw = (form.get(RECEIPT_FIELDS.touched) ?? '').toString();
+  const keys: ReceiptFieldKey[] = ['amount', 'paidOn', 'paidTime', 'reference'];
+  return new Set(keys.filter((k) => raw.split(',').map((x) => x.trim()).includes(k)));
+}
+
+const TEXT_MAX = 4000;
+
+function field(form: FormData, name: string): string | null {
+  const v = form.get(name);
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t === '' ? null : t;
+}
+
+/** What the buyer left in the four fields — validated, never trusted further. */
+export type ReceiptConfirmed = ReceiptPrefill;
+
+/**
+ * Read the buyer-confirmed fields off a posted form. Anything malformed is
+ * NULL (dropped), never coerced: a bad date is no date.
+ */
+export function confirmedFromForm(form: FormData): ReceiptConfirmed {
+  const amountRaw = field(form, RECEIPT_FIELDS.amount)?.replace(/[₱,\s]|php/gi, '') ?? null;
+  const amount = amountRaw != null && /^\d{1,9}(\.\d{1,2})?$/.test(amountRaw) ? Number(amountRaw) : null;
+  const on = field(form, RECEIPT_FIELDS.paidOn);
+  const at = field(form, RECEIPT_FIELDS.paidTime);
+  const ref = field(form, RECEIPT_FIELDS.reference)?.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 64) ?? null;
+  const validDate =
+    on != null && /^\d{4}-\d{2}-\d{2}$/.test(on) && !Number.isNaN(Date.parse(`${on}T00:00:00Z`)) &&
+    new Date(`${on}T00:00:00Z`).toISOString().slice(0, 10) === on;
+  return {
+    amountPhp: amount != null && amount > 0 ? amount : null,
+    paidOn: validDate ? on : null,
+    paidTime: at != null && /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(at) ? at.slice(0, 5) : null,
+    reference: ref && ref.length > 0 ? ref : null,
+  };
+}
+
+/**
+ * The admin's advisory read, from what the buyer's phone posted.
+ *
+ * Returns NULL when the reader never ran (JavaScript off, or sent before the
+ * read finished) — "nobody has read this", exactly as before, and the admin can
+ * press Read it. A reader that RAN AND FAILED is a 'failed' read, drawn as a
+ * failure, never as an empty receipt.
+ *
+ * 🔑 THE SERVER PARSES THE TEXT ITSELF. The buyer's four fields are what they
+ * confirm; the card says what the picture said. When the two differ the card
+ * says so in words, so a corrected field is visible rather than silently
+ * replacing what was read.
+ */
+export function phoneReceiptRead(args: {
+  form: FormData;
+  /** A reference typed on an old tab (`reference_last6`), never the confirmed one. */
+  typed: string | null;
+  expectedPhp: number | null;
+  channel?: string | null;
+}): PaymentReceiptRead | null {
+  const status = field(args.form, RECEIPT_FIELDS.status);
+  if (status === 'failed') {
+    return {
+      status: 'failed',
+      referenceMatches: null,
+      amountMatches: null,
+      seenReferences: [],
+      seenAmounts: [],
+      readReference: null,
+      seenPaidOn: null,
+      seenPaidTime: null,
+      summary: 'The reader on their phone could not run. Open the picture yourself.',
+      error: 'on-phone reader failed to load or read',
+    };
+  }
+  if (status !== 'ok') return null;
+
+  const transcript = (args.form.get(RECEIPT_FIELDS.text) ?? '').toString().slice(0, TEXT_MAX);
+  const read = readPaymentReceipt({
+    transcript,
+    typed: args.typed,
+    expectedPhp: args.expectedPhp,
+    channel: args.channel,
+    ocr: true,
+  });
+  if (read.status !== 'ok') return read;
+
+  const confirmed = confirmedFromForm(args.form);
+  const changed = buyerCorrections(read, confirmed, touchedFromForm(args.form), args.expectedPhp);
+  if (changed.length === 0) return read;
+  // Before the closing "Still check your bank app" sentence, which stays last.
+  const tail = 'Still check your bank app';
+  const at = read.summary.lastIndexOf(tail);
+  const note = `They corrected ${changed.join(', ')}.`;
+  return {
+    ...read,
+    summary: at >= 0 ? `${read.summary.slice(0, at)}${note} ${read.summary.slice(at)}` : `${read.summary} ${note}`,
+  };
+}
+
+function buyerCorrections(
+  read: PaymentReceiptRead,
+  c: ReceiptConfirmed,
+  touched: Set<ReceiptFieldKey>,
+  expectedPhp: number | null,
+): string[] {
+  const out: string[] = [];
+  const pre = {
+    amountPhp: prefillAmount(read.seenAmounts, expectedPhp),
+    paidOn: read.seenPaidOn,
+    paidTime: read.seenPaidTime?.slice(0, 5) ?? null,
+    reference: read.readReference,
+  };
+  // Only a field the buyer actually changed counts — a pre-filled value posted
+  // back untouched is the reader's, not a correction (the amount field keeps
+  // whole pesos, so ₱2,499.50 posts as 2499 without anybody touching it).
+  if (touched.has('reference') && c.reference && c.reference !== pre.reference) out.push(`the reference to ${c.reference}`);
+  if (
+    touched.has('amount') &&
+    c.amountPhp != null &&
+    (pre.amountPhp == null || Math.round(c.amountPhp * 100) !== Math.round(pre.amountPhp * 100))
+  ) {
+    out.push(`the amount to ${php(c.amountPhp)}`);
+  }
+  if (touched.has('paidOn') && c.paidOn && c.paidOn !== pre.paidOn) out.push(`the date to ${c.paidOn}`);
+  if (touched.has('paidTime') && c.paidTime && c.paidTime !== pre.paidTime) out.push(`the time to ${c.paidTime}`);
+  return out;
+}
+
+/**
+ * What to LOG on the payment row: a field the buyer changed wins; otherwise
+ * what the reader read. (A read that failed leaves only what they typed.)
+ * Advisory lookup keys for the admin — never a status.
+ */
+export function loggedFromPhone(
+  form: FormData,
+  read: PaymentReceiptRead | null,
+): { reference: string | null; paidOn: string | null } {
+  const c = confirmedFromForm(form);
+  const touched = touchedFromForm(form);
+  return {
+    reference: (touched.has('reference') ? c.reference : null) ?? read?.readReference ?? null,
+    paidOn: (touched.has('paidOn') ? c.paidOn : null) ?? read?.seenPaidOn ?? null,
+  };
 }

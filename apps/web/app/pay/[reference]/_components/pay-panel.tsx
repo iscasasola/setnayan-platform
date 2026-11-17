@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
@@ -351,6 +352,7 @@ export function PayPanel({
               <ProofForm
                 orderId={orderId}
                 reference={reference}
+                amountPhp={amountPhp}
                 channel={channel}
                 rechecked={rechecked}
                 setup={setup}
@@ -516,17 +518,21 @@ function StepHead({ n, title }: { n: number; title: string }) {
 function ProofForm({
   orderId,
   reference,
+  amountPhp,
   channel,
   rechecked,
   setup,
 }: {
   orderId: string;
   reference: string;
+  amountPhp: number;
   channel: Channel;
   rechecked: boolean;
   setup: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
+  // The picked picture, handed to the on-phone reader (ReceiptReadFields).
+  const [picked, setPicked] = useState<File | null>(null);
   const [big, setBig] = useState(false);
   const urlRef = useRef<string | null>(null);
   const bigRef = useRef<HTMLDivElement>(null);
@@ -597,15 +603,22 @@ function ProofForm({
           const url = URL.createObjectURL(file);
           urlRef.current = url;
           setPreview(url);
+          setPicked(file);
         }}
       />
+
+      {/* 🔒 READ ON THIS PHONE (owner 17 Nov 2026, "Yes, swap it in"): the
+          amount, date, time and reference are filled from the picture by the
+          in-app reader, and the payer can fix any of them. No outside AI. */}
+      <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
 
       {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
           *"the don't have to type. we detect after they sent it and log the
           data for the admin to send his counterpart screenshot"*). The action
           reads the reference, the amount, the date and the time off this
-          picture with the receipt reader and stores them on the payment for
-          the admin to match. Advisory only — nothing read here approves money. */}
+          picture ON THIS PHONE (ReceiptReadFields, above) and stores them on
+          the payment for the admin to match. Advisory only — nothing read here
+          approves money. */}
       <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
         I&rsquo;ve sent the payment
       </SubmitButton>

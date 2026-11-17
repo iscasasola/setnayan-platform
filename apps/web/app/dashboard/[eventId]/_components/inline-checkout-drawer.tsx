@@ -77,6 +77,7 @@ import {
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
 import { CopyButton } from '@/app/_components/copy-button';
 import {
   ChannelToggle,
@@ -316,6 +317,8 @@ export function InlineCheckoutDrawer({
   const [submitResult, setSubmitResult] = useState<SubmitOrderResult | null>(null);
   const [submitPending, startSubmitTransition] = useTransition();
   const [screenshotRef, setScreenshotRef] = useState<string | null>(null);
+  // The picked receipt, read on this phone by ReceiptReadFields (owner 17 Nov 2026).
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   // Lets the brand loader's "Ready ✓" completion breathe before we swap the
   // drawer body to the success card. See the reveal effect below.
   const [revealSuccess, setRevealSuccess] = useState(false);
@@ -747,9 +750,10 @@ export function InlineCheckoutDrawer({
                 >
                   {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
                       *"the don't have to type. we detect after they sent it and
-                      log the data for the admin"*). The receipt reader takes
-                      the reference, amount, date and time off the screenshot
-                      below and files them on the payment (checkout/actions.ts). */}
+                      log the data for the admin"*). The in-app reader takes the
+                      reference, amount, date and time off the screenshot below,
+                      ON THIS PHONE, and the couple can fix any of them; the
+                      action files them on the payment (checkout/actions.ts). */}
                   <div>
                     {/* label passed to FileUpload so the field name renders with
                         the dropzone (whose own input is htmlFor-associated),
@@ -770,9 +774,13 @@ export function InlineCheckoutDrawer({
                       onChange={(v) => {
                         setScreenshotRef(typeof v === 'string' ? v : null);
                       }}
+                      onFilePicked={setReceiptFile}
                       help="Snap your payment receipt — nothing to type; we read it for you."
                     />
                   </div>
+
+                  {/* 🔒 Read on this phone, filled for them to check — no outside AI. */}
+                  <ReceiptReadFields file={receiptFile} expectedPhp={finalGrossPhp} channel={channel} />
 
                   {/* Submit result rejection (NOT a redirect · render inline). */}
                   {submitResult && submitResult.ok === false ? (

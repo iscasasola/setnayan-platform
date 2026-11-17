@@ -113,7 +113,7 @@ test('the pay lane enforces it, and refuses BEFORE the write', () => {
   assert.ok(check > 0, 'the pay action no longer refuses a send with no receipt');
   assert.ok(insert > 0, 'the pay action no longer inserts a payment — repoint this guard');
   assert.ok(check < insert, 'the refusal comes AFTER the insert, so an empty claim is already stored');
-  assert.match(src, /reference_number:\s*bankReference \?\? receiptRead\?\.readReference/);
+  assert.match(src, /reference_number:\s*bankReference \?\? logged\.reference/);
 });
 
 test('the pay lane stores the NORMALISED reference, not the raw field', () => {

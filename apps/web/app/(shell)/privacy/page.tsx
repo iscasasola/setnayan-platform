@@ -1030,35 +1030,31 @@ export default function PrivacyPage() {
 
         <Section title="Reading your payment receipt">
           <p>
-            When you upload a screenshot of your bank or GCash transfer as proof
-            of payment, we send that picture to <strong>Anthropic</strong> (United
-            States; see Subprocessors below) and ask it to do one thing:{' '}
-            <strong>type out the text it can see</strong>. We compare the result
-            against the reference number you typed and the amount your order owes,
-            so a mistyped reference is caught while you are still on the screen and
-            able to fix it.
+            When you upload a screenshot of your bank or wallet transfer as proof
+            of payment, <strong>your own phone reads it</strong>, inside our app,
+            with an open-source text reader (Tesseract). We use what it reads
+            &mdash; the amount, the date and time, and the reference number &mdash;
+            to fill in the payment details for you, and you can correct any of
+            them before you send. <strong>The picture is not sent to any AI
+            company to be read.</strong>
           </p>
           <p className="pt-2">
             <strong>A receipt is a bank document</strong>, and it usually shows an
-            account name and part of an account number. We are naming this
-            separately rather than leaving it inside &ldquo;AI features&rdquo;
-            because that is a different kind of information from the rest of what
-            we send.
+            account name and part of an account number. The screenshot itself is
+            stored privately as your proof of payment, exactly as before.
           </p>
           <p className="pt-2">
-            <strong>What we keep.</strong> Not the transcript. We store only the
-            reference numbers and the peso amounts found on the picture, whether
-            they matched, and one plain sentence for our reviewer. The screenshot
-            itself is kept exactly as it already was — it is your proof of payment,
-            and nothing about that changed. The AI is <strong>never</strong> asked
-            whether a payment is genuine, and it cannot approve, reject or settle
-            anything: a person does that.
+            <strong>What we keep.</strong> Not the text the reader produced. We
+            store only the reference numbers, the peso amounts and the date and
+            time found on the picture, whether they matched your order, and one
+            plain sentence for our reviewer. The reader is <strong>never</strong>{' '}
+            the thing that decides whether a payment is genuine, and it cannot
+            approve, reject or settle anything: a person does that.
           </p>
           <p className="pt-2">
-            <strong>Lawful basis.</strong> Contract — checking a payment you made
-            to us is part of providing what you bought (RA 10173 &sect; 12(b)),
-            minimised to a reference check with the transcript discarded. It is
-            never used for profiling, and it is never trained on.
+            <strong>Lawful basis.</strong> Contract &mdash; checking a payment you
+            made to us is part of providing what you bought (RA 10173 &sect; 12(b)).
+            It is never used for profiling.
           </p>
         </Section>
 
@@ -1982,11 +1978,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               Anthropic (AI features · United States · never trained on your
-              data) — AI web research for the supplier Deep Search tool, and
-              reading the payment receipt you upload so we can check the
-              reference number you typed. A receipt is a bank document: see
-              &ldquo;Reading your payment receipt&rdquo; above for exactly what
-              is sent and what is kept.
+              data) — AI web research for the supplier Deep Search tool.
+              Payment receipts are not sent: they are read on your own phone
+              (see &ldquo;Reading your payment receipt&rdquo; above).
             </li>
             <li>Suno (AI music generation for Music Maker and rendered videos · United States · no guest or personal data is sent)</li>
             <li>

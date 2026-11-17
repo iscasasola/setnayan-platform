@@ -53,6 +53,8 @@ import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/pay
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
+import { loggedFromPhone, phoneReceiptRead } from '@/lib/payment-receipt-read';
+import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
@@ -949,6 +951,23 @@ export async function submitOrderAction(
     }
   }
 
+  // ── THE RECEIPT IS READ ON THEIR PHONE, NOT TYPED (owner 2026-11-17) ───────
+  // *"the don't have to type. we detect after they sent it and log the data for
+  // the admin"* — and *"can we create our own in app reader so we do not need
+  // ai to run?"* → *"Yes, swap it in"*. The drawer read the screenshot on the
+  // couple's phone (lib/on-phone-reader.ts) and posted only the text and the
+  // four fields they confirmed; the same pure parser reads it here. No picture
+  // is fetched or sent anywhere to be read.
+  // ⚠ ADVISORY: it fills the lookup keys of THIS pending payment and nothing
+  // else — never a status, never an order. Approval stays the admin's.
+  const receiptRead = phoneReceiptRead({
+    form: formData,
+    typed: referenceNumberClean,
+    expectedPhp: finalAmountForPayment,
+    channel: typeof channel === 'string' ? channel : null,
+  });
+  const receiptLogged = loggedFromPhone(formData, receiptRead);
+
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
   // state · the order lands directly ready for admin reconciliation.
@@ -964,9 +983,9 @@ export async function submitOrderAction(
     {
       amount_php: finalAmountForPayment,
       channel,
-      reference_number: referenceNumberClean,
+      reference_number: referenceNumberClean ?? receiptLogged.reference,
       screenshot_url: screenshotUrl,
-      paid_at: new Date().toISOString().slice(0, 10),
+      paid_at: receiptLogged.paidOn ?? new Date().toISOString().slice(0, 10),
     },
   );
   if (idempotencyKey) {
@@ -997,38 +1016,14 @@ export async function submitOrderAction(
   }
   const paymentId = paymentRow.payment_id as string;
 
-  // ── THE RECEIPT IS READ, NOT TYPED (owner 2026-11-17) ─────────────────────
-  // *"the don't have to type. we detect after they sent it and log the data for
-  // the admin"*. The drawer no longer asks for a reference, so the receipt
-  // reader takes the reference, amount, date and time off the screenshot and
-  // files them for the admin — AFTER the response, so the couple never waits on
-  // it (this lane has no "check your digits" ask to make; nothing was typed).
-  // ⚠ ADVISORY: it fills the empty lookup keys of THIS pending payment and
-  // nothing else — never a status, never an order. Approval stays the admin's.
-  after(async () => {
-    const { readPaymentReceiptFromR2, recordPaymentReceiptRead } = await import(
-      '@/lib/payment-receipt-read.server'
-    );
-    const read = await readPaymentReceiptFromR2({
-      screenshotRef: screenshotUrl,
-      proofPolicy: inlineCheckoutProofPolicy(eventIdClean, user.id),
-      typedReference: referenceNumberClean,
-      expectedPhp: finalAmountForPayment,
-      channel: typeof channel === 'string' ? channel : null,
+  // File what the phone read for the admin's card — AFTER the response, so the
+  // couple never waits on a note about their payment.
+  if (receiptRead) {
+    after(async () => {
+      const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+      await recordPaymentReceiptRead(moneyWriter, paymentId, { ...receiptRead, model: ON_PHONE_READER_NAME });
     });
-    if (!read) return;
-    await recordPaymentReceiptRead(moneyWriter, paymentId, read);
-    const fill: Record<string, string> = {};
-    if (!referenceNumberClean && read.readReference) fill.reference_number = read.readReference;
-    if (read.seenPaidOn) fill.paid_at = read.seenPaidOn;
-    if (Object.keys(fill).length === 0) return;
-    const { error: fillErr } = await moneyWriter
-      .from('payments')
-      .update(fill)
-      .eq('payment_id', paymentId)
-      .eq('status', 'pending');
-    if (fillErr) console.error('[checkout] receipt read was not logged on the payment', paymentId, fillErr.message);
-  });
+  }
 
   // discount_code_redemptions row IF voucher applied. UNIQUE (order_id)
   // from PR #594 + UNIQUE (discount_code_id, couple_user_id) from PR #595

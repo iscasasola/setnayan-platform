@@ -15,7 +15,6 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { receivingAccounts } from '@/lib/payment-channels';
-import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
@@ -2055,22 +2054,20 @@ export async function releasePayoutHoldAction(formData: FormData) {
 }
 
 /**
- * Read this payment's screenshot again.
+ * Read this payment's screenshot again — ON THE ADMIN'S PHONE.
  *
  * Owner, 2026-08-28: *"can we assign an AI to verify if that last 6 digits do
- * exist on the photo?"* The buyer's own submission already triggers a read; this
- * is the button for the payments that predate it, and for retrying one that came
- * back 'failed' because a key or a network was down for a minute.
+ * exist on the photo?"*; then 17 Nov 2026: *"can we create our own in app reader
+ * so we do not need ai to run?"* → *"Yes, swap it in"*. The button
+ * (`_components/reread-on-this-phone.tsx`) opens the picture the admin's screen
+ * already holds (signed under `paymentProofPolicy` in page.tsx), reads it with
+ * the in-app reader (Tesseract, lib/on-phone-reader.ts) and posts only the TEXT
+ * here. No picture is fetched by the server and nothing is sent to an outside AI.
  *
  * ⛔ IT MOVES NOTHING. No status, no promotion, no notification — it writes one
  * advisory row and re-renders the page. The one-person admin plan (2026-07-11)
  * is the rule it obeys: the machine may prepare and may hold back, it may never
  * be the thing that lets money through.
- *
- * ⚠ `after()`, not awaited, for the same reason the buyer's path uses it: a
- * model call takes seconds and an admin pressing a button should not watch a
- * spinner. The consequence is honest and worth stating — the page they land on
- * still shows the OLD card, and the new one appears on their next refresh.
  */
 export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -2081,48 +2078,26 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   const admin = createAdminClient();
   const { data, error: readError } = await admin
     .from('payments')
-    .select('payment_id,order_id,user_id,screenshot_url,reference_number,amount_php')
+    .select('payment_id,screenshot_url,reference_number,amount_php,channel')
     .eq('payment_id', paymentId)
     .maybeSingle();
   if (readError) console.error('[rereadPaymentReceipt] payment read failed', readError.message);
 
   const row = data as {
-    order_id: string;
-    user_id: string | null;
     screenshot_url: string | null;
     reference_number: string | null;
     amount_php: number | string | null;
+    channel: string | null;
   } | null;
 
-  // 🔒 The reader opens only this payment's OWN proof folders — the same scope
-  // the admin's own screen signs the picture with (page.tsx, paymentProofPolicy),
-  // built from the ORDER row, never from the stored value (N5 · part B).
-  let orderEventId: string | null = null;
   if (row?.screenshot_url) {
-    const { data: order, error: orderError } = await admin
-      .from('orders')
-      .select('event_id')
-      .eq('order_id', row.order_id)
-      .maybeSingle();
-    if (orderError) console.error('[rereadPaymentReceipt] order read failed', orderError.message);
-    orderEventId = (order as { event_id: string | null } | null)?.event_id ?? null;
-  }
-
-  if (row?.screenshot_url) {
-    const proofPolicy = paymentProofPolicy({ orderId: row.order_id, eventId: orderEventId, userId: row.user_id });
-    after(async () => {
-      const { runPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-      await runPaymentReceiptRead({
-        admin,
-        paymentId,
-        screenshotRef: row.screenshot_url,
-        proofPolicy,
-        typedReference: row.reference_number,
-        // The amount ON THE PAYMENT ROW, which is the order's own figure — the
-        // pay page stamps it and the form cannot influence it. Reading the
-        // order again here would be a second source for one number.
-        expectedPhp: row.amount_php == null ? null : Number(row.amount_php),
-      });
+    const { recordPhoneReceiptRead } = await import('@/lib/payment-receipt-read.server');
+    await recordPhoneReceiptRead(admin, paymentId, {
+      form: formData,
+      typed: row.reference_number,
+      // The amount ON THE PAYMENT ROW, which is the order's own figure.
+      expectedPhp: row.amount_php == null ? null : Number(row.amount_php),
+      channel: row.channel,
     });
   }
 

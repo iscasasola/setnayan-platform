@@ -15,6 +15,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
+import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
 
 /**
  * The one proof submission, for every purchase.
@@ -187,28 +188,27 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // exist on the photo?"* and then *"if the reference code did not match, please
   // type again or upload a cleaner photo."*
   //
-  // So the read happens HERE, in the request, rather than after the response:
-  // the only moment a mistyped reference can still be fixed cheaply is while the
-  // person who typed it is looking at the screen. Once this row lands it becomes
-  // an admin's job and a round trip by email.
+  // 🔁 READ ON THEIR PHONE NOW, NOT BY AN OUTSIDE AI (owner 17 Nov 2026: "can
+  // we create our own in app reader so we do not need ai to run?" → "Yes, swap
+  // it in"). The in-app reader (lib/on-phone-reader.ts, Tesseract) read the
+  // picture on the payer's phone and posted only the TEXT and the four fields
+  // they confirmed; the same pure parser decides what that text says here.
+  // Nothing is fetched from R2 and nothing is sent anywhere to be read.
   //
-  // ⚠ IT MUST NEVER COST SOMEBODY A PAYMENT THEY HAVE ALREADY SENT. The reader
-  // is bounded (20s) and every failure — no key, timeout, unreadable picture —
-  // comes back as "we do not know", which falls through and accepts. Only a
-  // DEFINITE no sends them back, and only ONCE: see `askedAlready`.
+  // ⚠ IT MUST NEVER COST SOMEBODY A PAYMENT THEY HAVE ALREADY SENT. A reader
+  // that never ran (no JavaScript, or sent before it finished) is NULL, and a
+  // reader that failed is a 'failed' read — both fall through and accept. Only
+  // a DEFINITE no on a reference typed on an old tab sends them back, ONCE.
+  const { phoneReceiptRead, loggedFromPhone } = await import('@/lib/payment-receipt-read');
   const receiptRead = screenshotUrl
-    ? await (async () => {
-        const { readPaymentReceiptFromR2 } = await import('@/lib/payment-receipt-read.server');
-        return readPaymentReceiptFromR2({
-          screenshotRef: screenshotUrl,
-          // The same folder the ref was just admitted under, above.
-          proofPolicy: orderPaymentProofPolicy(payable.orderId),
-          typedReference: bankReference,
-          expectedPhp: payable.amountPhp,
-          channel,
-        });
-      })()
+    ? phoneReceiptRead({
+        form: formData,
+        typed: bankReference,
+        expectedPhp: payable.amountPhp,
+        channel,
+      })
     : null;
+  const logged = loggedFromPhone(formData, receiptRead);
 
   // 🔑 WE ASK ONCE, THEN WE GET OUT OF THE WAY. The second submit is accepted
   // whatever the picture says, and the disagreement travels to the admin's queue
@@ -220,7 +220,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // sure", which is exactly the answer we are willing to take.
   const askedAlready = formData.get('rechecked') === '1';
   if (!askedAlready) {
-    const { shouldAskBuyerToFix } = await import('@/lib/payment-receipt-read.server');
+    const { shouldAskBuyerToFix } = await import('@/lib/payment-receipt-read');
     if (shouldAskBuyerToFix(receiptRead)) {
       // ⚠ THE SENTENCE HAS TO SAY "ATTACH IT AGAIN", AND THAT IS NOT PADDING.
       // This redirect re-renders an empty form: the picture they picked lives in
@@ -261,10 +261,11 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
           // ⚠ ADVISORY: these are lookup keys beside the admin's own bank
           // record. Nothing here sets a status — `isDecisivePaymentMatch` and
           // the admin's approval stay the only way money is let through.
-          reference_number: bankReference ?? receiptRead?.readReference ?? null,
+          // A field the payer corrected wins over what the reader read.
+          reference_number: bankReference ?? logged.reference ?? null,
           screenshot_url: screenshotUrl,
-          // The date printed on the receipt when one was read, else today.
-          paid_at: receiptRead?.seenPaidOn ?? new Date().toISOString().slice(0, 10),
+          // The date on the receipt (as read, or as the payer corrected it), else today.
+          paid_at: logged.paidOn ?? new Date().toISOString().slice(0, 10),
           client_idempotency_key: idempotencyKey,
         },
       ),
@@ -326,7 +327,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   if (!error && newPaymentId && receiptRead) {
     after(async () => {
       const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-      await recordPaymentReceiptRead(moneyWriter, newPaymentId, receiptRead);
+      await recordPaymentReceiptRead(moneyWriter, newPaymentId, { ...receiptRead, model: ON_PHONE_READER_NAME });
     });
   }
 

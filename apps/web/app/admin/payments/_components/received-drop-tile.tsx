@@ -21,36 +21,10 @@ import { ImagePlus } from 'lucide-react';
 import { approvePayment } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
+// The ONE on-phone reader, shared with the buyer's receipt upload — never forked.
+import { readOnThisPhone } from '@/lib/on-phone-reader';
 
 const PER_DROP = 25; // = RECEIVED_PER_DROP in ../received.ts
-const READER_PATHS = {
-  workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
-  corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
-  langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
-};
-
-async function readOnThisPhone(
-  files: File[],
-  onProgress: (done: number) => void,
-): Promise<string[]> {
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker('eng', 1, READER_PATHS);
-  const texts: string[] = [];
-  try {
-    for (const file of files) {
-      onProgress(texts.length + 1);
-      try {
-        const { data } = await worker.recognize(file);
-        texts.push(data.text ?? '');
-      } catch {
-        texts.push(''); // → an "unreadable" row, so it is counted
-      }
-    }
-  } finally {
-    await worker.terminate();
-  }
-  return texts;
-}
 
 export function ReceivedDropTile() {
   const input = useRef<HTMLInputElement>(null);

@@ -18,7 +18,7 @@
  * owner's 30-minute hold (owner 2026-11-17: "Hold 30 min, then pay" · "Wait for
  * the BDO pay flow").
  */
-import { scanPaymentProof } from '@/lib/payment-proof-scan';
+import { scanPaymentProof, ocrDigitFix } from '@/lib/payment-proof-scan';
 import { normalizeReference, MIN_CONTAINMENT_LENGTH } from '@/lib/payment-reference-match';
 import { NOT_A_RECEIPT, UNREADABLE } from '@/lib/payment-receipt-read';
 
@@ -65,15 +65,11 @@ function manilaIso(y: number, mo: number, d: number, clock: [number, number] | n
 }
 
 /**
- * The on-phone reader (Tesseract) misreads a zero as the letter O inside long
- * digit runs — measured 2026-11-17 on a drawn BDO screen: "B000…" came back
- * "B0O00…". An O touching a digit is read as 0. Only the received side is
- * fixed; it can only make a true suffix match visible, never invent one, and
- * the admin still presses Match.
+ * The on-phone reader's O-for-0 fix now lives beside the scan it serves
+ * (`lib/payment-proof-scan.ts`), so the buyer's receipt read uses the SAME rule.
+ * Re-exported so existing callers keep their import.
  */
-export function ocrDigitFix(norm: string): string {
-  return norm.replace(/O(?=\d)|(?<=\d)O/g, '0');
-}
+export { ocrDigitFix } from '@/lib/payment-proof-scan';
 
 /**
  * The date + time a bank screen prints. Manila time, because that is the only

@@ -573,7 +573,13 @@ async function EventsBoard({
   // anywhere. The redirect itself is untouched for the person it was written for
   // — a console user with nothing at all still lands on create-event.
   if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
-    redirect('/dashboard/create-event');
+    // 🔁 W1-B25 (walk 2, 16 Nov 2026) — NEVER `/dashboard/create-event` FROM HERE. Reached by a CLIENT navigation (the
+    // supplier who had just opened a shop and signed in), that address is INTERCEPTED by `@modal/(.)create-event`,
+    // which keeps THIS page as the background — and this page redirects again: a loop the browser stopped after 100
+    // `history.replaceState` calls ("SecurityError … more than 100 times per 10 seconds", fault log, build afcef1e).
+    // A console user with nothing goes to their OWN console instead — a supplier's shop, an admin's HQ — neither of
+    // which this tree intercepts. Creating an event stays one tap away on the board's own add flow.
+    redirect(roles.hasVendorAccess ? '/vendor-dashboard' : '/admin');
   }
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────

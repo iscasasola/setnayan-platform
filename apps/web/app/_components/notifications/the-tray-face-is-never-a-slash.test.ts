@@ -2,9 +2,10 @@
  * the-tray-face-is-never-a-slash.test.ts — THE BELL'S FOUR LIVE FAULTS (owner, 17 Nov 2026, phone screenshot: "Yes, fix it").
  *
  *   1 · "New message from Liwanag Lights & Sound" drew a "/" where its face should be. Measured on prod: the row's place
- *       is the couple's event "Indalecio & Claire" (no monogram text), so the face is the letter "I" — drawn in the
- *       display face's ITALIC, which reads as a slash. The letter comes from the NAME (never a link or a path) and is
- *       drawn upright.
+ *       is the couple's event "Indalecio & Claire" (no monogram text), so the face was the one letter "I" — in Hanken
+ *       Grotesk, which ships no italic, so the browser slanted it into a bar that reads as a slash. The face is now the
+ *       event's INITIALS ("IC") by the shop face's shared rule (`deriveVendorInitials`), upright, from the NAME (never a
+ *       link or a path).
  *   2 · the place line "Indalecio & Claire · You org…" was cut on one line: it wraps to two, never truncates.
  *   3 · "Get an alert for every new inquiry" was crushed to a word per line in the bell's 320px card: the bell lays its
  *       notices out by ITS width (`BY_ITS_OWN_WIDTH`), with the buttons in one balanced row under the sentence.
@@ -17,31 +18,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { placeMarkLetter } from '@/lib/notification-place';
+import { placeMarkWords } from '@/lib/notification-place';
 import { deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import { stripComments } from '@/lib/strip-comments';
 
 const read = (...p: string[]) => stripComments(readFileSync(join(process.cwd(), ...p), 'utf8'));
 
-test('1 · the face letter comes from the name, never a slash, a path or a URL', () => {
-  assert.equal(placeMarkLetter({ monogram_text: null, display_name: 'Indalecio & Claire' }), 'I');
-  for (const name of ['/indalecio-claire', 'https://setnayan.com/x', '/', '// & /']) {
-    const ch = placeMarkLetter({ monogram_text: null, display_name: name });
-    assert.notEqual(ch, '/', `${name} → ${ch}`);
-    assert.match(ch, /^[\p{L}\p{N}?]$/u, `${name} → ${ch}`);
+test('1 · the event face is initials from the name, never a slash, a path or a URL', () => {
+  const initials = (monogram_text: string | null, display_name: string | null) => {
+    const w = placeMarkWords({ monogram_text, display_name });
+    return w ? deriveVendorInitials(w) : '?';
+  };
+  assert.equal(initials(null, 'Indalecio & Claire'), 'IC');
+  assert.equal(initials('M & J', 'Maria & Jose'), 'MJ');
+  assert.equal(initials('/', 'Maria & Jose'), 'MJ');
+  for (const name of ['/indalecio-claire', 'https://setnayan.com/x', '/', '// & /', 'Indalecio / Claire']) {
+    const got = initials(null, name);
+    assert.doesNotMatch(got, /[^\p{L}\p{N}?]/u, `${name} → ${got}`);
   }
-  assert.equal(placeMarkLetter({ monogram_text: '/', display_name: 'Maria & Jose' }), 'M');
-  // The shop face's initials, the shared helper: letters of the name.
+  // The shop face's initials, the same shared helper: letters of the name.
   assert.equal(deriveVendorInitials('Liwanag Lights & Sound'), 'LL');
 });
 
-test('1 · the event face letter is drawn upright — an italic "I" reads as "/"', () => {
+test('1 · the event face is drawn upright, by the shared initials rule — an italic "I" reads as "/"', () => {
   const list = read('app', '_components', 'notifications', 'notifications-list.tsx');
   const at = list.indexOf('data-notice-mark-letter');
   assert.ok(at > 0, 'the event face is found');
   const tag = list.slice(list.lastIndexOf('<span', at), at);
   assert.match(tag, /\bnot-italic\b/, 'the mark letter says not-italic');
   assert.doesNotMatch(tag.replace(/\bnot-italic\b/g, ''), /\bitalic\b/, 'the mark letter is never italic');
+  assert.match(list, /function eventInitials\([\s\S]*?deriveVendorInitials\(words\)/, 'the event face uses the shared initials helper');
 });
 
 test('2 · the place line wraps to two lines, never cut on one', () => {

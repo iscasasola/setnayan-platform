@@ -46,7 +46,7 @@ test('2 · both rises move on their own layer, open and close', () => {
 test('3 · RiseScreen: shell first behind a tap, the body in a transition; at once without one', () => {
   const screen = code('app/_components/rise/rise-screen.tsx');
   assert.match(screen, /useState\(\(\) => typeof window === 'undefined' \|\| riseOriginNow\(\) === null\)/, 'a deep link would wait for its body');
-  assert.match(screen, /if \(!bodyIn\) startTransition\(\(\) => setBodyIn\(true\)\);/, 'the body is not rendered after the shell');
+  assert.match(screen, /if \(!bodyIn\) startTransition\(\(\) => \{\s*setBodyIn\(true\);\s*\}\);/, 'the body is not rendered after the shell');
   assert.match(screen, /\{bodyIn \? children : null\}/, 'the body renders in the tap’s own frame again');
 });
 

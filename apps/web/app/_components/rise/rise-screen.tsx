@@ -129,7 +129,9 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     originRef.current = riseOriginNow();
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
     if (m && typeof el.animate === 'function') onItsOwnLayer(el, el.animate(m.frames, m.timing));
-    if (!bodyIn) startTransition(() => setBodyIn(true));
+    if (!bodyIn) startTransition(() => {
+      setBodyIn(true);
+    });
     // Once, when the portal lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);

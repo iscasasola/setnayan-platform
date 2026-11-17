@@ -832,6 +832,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
   },
   {
+    table: 'shop_gift_order_lines',
+    column: 'created_by',
+    why: 'Who pressed Buy now on a gift-store order. The lines are the SHOP’s money record and stay; the stamp goes.',
+  },
+  {
     table: 'shop_badge_rewards',
     column: 'revoked_by',
     why: 'Which admin took back a shop’s free booking fee (badge rewards, 2026-11-05). The reward is the SHOP’s record and stays — its key keeps the badge step from paying twice; the stamp goes.',

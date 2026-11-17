@@ -116,13 +116,26 @@ export function isShopGiftBundleCode(code: string | null | undefined): boolean {
 }
 
 /**
- * The gifted product's code, or null for any other key: a `PAPIC_GUEST*` pack, Event Plus / Pro / Ultra, or a
- * `GIFT_BUNDLE_*` bundle (an order that fills the stock with a bundle's packs).
+ * 🛒 A gift STORE order (owner-approved prototype 2026-11-17: "any mix of singles and bundles in ONE order, paid once")
+ * is keyed `vendor_gift__GIFT_CART`: what it bought is its `shop_gift_order_lines` rows, never the key. Not a catalogue
+ * code — it is the order's name for "many lines", the way `GIFT_BUNDLE_*` names a bundle.
+ */
+export const SHOP_GIFT_CART_CODE = 'GIFT_CART';
+
+/** Is this order key a gift STORE (many-line) order? */
+export function isShopGiftCartKey(serviceKey: string | null | undefined): boolean {
+  return serviceKey === SHOP_GIFT_KEY_PREFIX + SHOP_GIFT_CART_CODE;
+}
+
+/**
+ * The gifted product's code, or null for any other key: a `PAPIC_GUEST*` pack, Event Plus / Pro / Ultra, a
+ * `GIFT_BUNDLE_*` bundle (an order that fills the stock with a bundle's packs), or `GIFT_CART` (a store order whose
+ * lines say what it bought).
  */
 export function shopGiftCodeOf(serviceKey: string | null | undefined): string | null {
   if (typeof serviceKey !== 'string' || !serviceKey.startsWith(SHOP_GIFT_KEY_PREFIX)) return null;
   const code = serviceKey.slice(SHOP_GIFT_KEY_PREFIX.length);
-  return shopGiftKindOf(code) || isShopGiftBundleCode(code) ? code : null;
+  return shopGiftKindOf(code) || isShopGiftBundleCode(code) || code === SHOP_GIFT_CART_CODE ? code : null;
 }
 
 /** How many of one pack a single gift order may buy (the migration's CHECK says the same). */

@@ -279,6 +279,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'shop_gift_order_lines',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-store order, one row per item (which gift, how many, at what catalogue price), keyed to the ' +
+      'shop (vendor_profile_id), not to a person (gift store, 2026-11-17). `created_by` is an actor stamp on who ' +
+      'pressed Buy now; the order and payment it belongs to are exported with `orders` / `payments`, and erasure ' +
+      'clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
     table: 'event_supplier_files',
     decision: 'excluded',
     why:

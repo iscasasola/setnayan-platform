@@ -26,6 +26,14 @@ import {
   type ShopGiftStocks,
 } from '@/lib/shop-gifts';
 
+import {
+  boughtItemWords,
+  boughtTitle,
+  giftOrderState,
+  givenCount,
+  type GiftHistoryRow,
+} from '@/lib/shop-gift-history';
+
 export type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
 
 /**
@@ -214,6 +222,8 @@ export async function fetchEventGiftHolds(
 /** One row of the supplier's "Bought" list, newest first. */
 export type ShopGiftBoughtRow = {
   orderId: string;
+  /** The gift that landed (or lands) in stock — a pack's catalogue code. */
+  code?: string;
   title: string;
   kind: ShopGiftKind;
   quantity: number;
@@ -286,6 +296,7 @@ export async function fetchShopGiftBought(
     const bundleNote = p.bundle_code && paidFor > 0 && each > paidFor ? `Buy ${giftCount(paidFor)}, get ${giftCount(each - paidFor)} free` : null;
     return [{
       orderId: p.order_id,
+      code: p.service_code,
       title: titleOf.get(p.service_code) ?? p.service_code,
       kind: p.gift_kind,
       quantity: p.quantity,
@@ -299,6 +310,182 @@ export async function fetchShopGiftBought(
   });
 }
 
+
+/**
+ * 🎁 Your gifts' "Given" (prototype v16 top row): every ticket the shop has given to a couple's event — Papic counted in
+ * packs, an unlock in units (`givenCount`). Read with the shop's own client (RLS). Null on a read failure, never 0.
+ */
+export async function fetchShopGiftGivenTotal(client: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  const { data, error } = await client
+    .from('shop_gift_stock_entries')
+    .select('gift_kind, packs, delta')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('kind', 'given');
+  if (error) {
+    console.error('[supabase-error] shop-gifts: given total', error);
+    return null;
+  }
+  return ((data ?? []) as Array<{ gift_kind: string; packs: number | null; delta: number }>).reduce((s, r) => s + givenCount(r), 0);
+}
+
+/**
+ * 🧾 YOUR GIFTS › TRANSACTION HISTORY (prototype v16, 2026-11-17): every order the shop BOUGHT — the single-line ones
+ * (`shop_gift_purchases`, via `fetchShopGiftBought`) and the STORE ones (`shop_gift_order_lines`, one order of many lines)
+ * — and every gift it GAVE (`shop_gift_stock_entries` kind 'given'), newest first. Null on ANY read failure (never an
+ * empty list that reads as "nothing bought").
+ *
+ * The shop's own rows are read with ITS client (RLS); the order, payment and event details for exactly those rows are
+ * read with the service role, keyed on the ids RLS returned — never wider.
+ */
+export async function fetchShopGiftHistory(
+  client: SupabaseClient,
+  vendorProfileId: string,
+  limit = 40,
+): Promise<{ rows: GiftHistoryRow[]; onTheWay: Record<string, number> } | null> {
+  const [single, lines, entries, given] = await Promise.all([
+    fetchShopGiftBought(client, vendorProfileId, limit),
+    client
+      .from('shop_gift_order_lines')
+      .select('order_id, line_no, service_code, bundle_code, quantity, packs_each, line_total_php, created_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(limit * 12),
+    client
+      .from('shop_gift_stock_entries')
+      .select('order_id, kind')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('kind', ['bought', 'reversal'])
+      .not('order_id', 'is', null),
+    client
+      .from('shop_gift_stock_entries')
+      .select('entry_id, gift_kind, pack_code, packs, delta, event_id, created_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('kind', 'given')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ]);
+  if (!single || lines.error || entries.error || given.error) {
+    console.error('[supabase-error] shop-gifts: history', lines.error ?? entries.error ?? given.error ?? 'bought list');
+    return null;
+  }
+  const admin = createAdminClient();
+  const packs = await fetchShopGiftPacks(admin);
+  if (!packs) return null;
+  const titleOf = new Map(packs.map((p) => [p.code, p.title]));
+  const unlockTitle = (k: string) => titleOf.get(SHOP_GIFT_UNLOCK_CODE[k as keyof typeof SHOP_GIFT_UNLOCK_CODE]) ?? null;
+
+  const kinds = new Map<string, Set<string>>();
+  for (const e of (entries.data ?? []) as Array<{ order_id: string; kind: string }>) {
+    const set = kinds.get(e.order_id) ?? new Set<string>();
+    set.add(e.kind);
+    kinds.set(e.order_id, set);
+  }
+
+  type Line = {
+    order_id: string;
+    line_no: number;
+    service_code: string;
+    bundle_code: string | null;
+    quantity: number;
+    packs_each: number;
+    line_total_php: number | string;
+    created_at: string;
+  };
+  const byOrder = new Map<string, Line[]>();
+  for (const l of (lines.data ?? []) as Line[]) {
+    const arr = byOrder.get(l.order_id) ?? [];
+    arr.push(l);
+    byOrder.set(l.order_id, arr);
+  }
+
+  // The orders behind exactly these rows: status + reference (store orders), and whether a payment was SENT.
+  const orderIds = [...new Set([...byOrder.keys(), ...single.map((b) => b.orderId)])];
+  const [orders, pays] = orderIds.length
+    ? await Promise.all([
+        admin.from('orders').select('order_id, status, reference_code').in('order_id', orderIds),
+        admin.from('payments').select('order_id, reference_number, screenshot_url').in('order_id', orderIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (orders.error || pays.error) {
+    console.error('[supabase-error] shop-gifts: history orders', orders.error ?? pays.error);
+    return null;
+  }
+  const orderOf = new Map(
+    ((orders.data ?? []) as Array<{ order_id: string; status: string | null; reference_code: string | null }>).map((o) => [o.order_id, o]),
+  );
+  const sent = new Set(
+    ((pays.data ?? []) as Array<{ order_id: string; reference_number: string | null; screenshot_url: string | null }>)
+      .filter((p) => (p.reference_number ?? '').trim() !== '' || (p.screenshot_url ?? '').trim() !== '')
+      .map((p) => p.order_id),
+  );
+
+  const rows: GiftHistoryRow[] = [];
+  // 🚚 "+N on the way" on a ticket (prototype v16): what SENT payments will land once approved, per gift code.
+  const onTheWay: Record<string, number> = {};
+  const onWay = (code: string, n: number) => {
+    onTheWay[code] = (onTheWay[code] ?? 0) + n;
+  };
+  for (const [orderId, ls] of byOrder) {
+    const k = kinds.get(orderId);
+    const o = orderOf.get(orderId);
+    const state = giftOrderState({ landed: !!k?.has('bought'), reversed: !!k?.has('reversal'), orderStatus: o?.status, proofSent: sent.has(orderId) });
+    if (!state) continue;
+    const sorted = [...ls].sort((a, b) => a.line_no - b.line_no);
+    if (state === 'sent') for (const l of sorted) onWay(l.service_code, l.quantity * l.packs_each);
+    const named = sorted.map((l) => ({ title: titleOf.get(l.service_code) ?? l.service_code, qty: l.quantity, bundle: !!l.bundle_code }));
+    rows.push({
+      kind: 'bought',
+      key: `b-${orderId}`,
+      orderId,
+      referenceCode: o?.reference_code ?? null,
+      createdAt: sorted[0]!.created_at,
+      title: boughtTitle(named),
+      items: named.map(boughtItemWords).join(' · '),
+      paidPhp: sorted.reduce((s, l) => s + Number(l.line_total_php), 0),
+      tickets: sorted.reduce((s, l) => s + l.quantity * l.packs_each, 0),
+      state,
+    });
+  }
+  for (const b of single) {
+    const o = orderOf.get(b.orderId);
+    const state = b.state === 'checking' ? (sent.has(b.orderId) ? 'sent' : 'unpaid') : b.state;
+    if (state === 'sent' && b.code) onWay(b.code, b.packs);
+    const named = [{ title: b.title, qty: b.quantity, bundle: !!b.bundleNote }];
+    rows.push({
+      kind: 'bought',
+      key: `b-${b.orderId}`,
+      orderId: b.orderId,
+      referenceCode: o?.reference_code ?? null,
+      createdAt: b.createdAt,
+      title: boughtTitle(named),
+      items: named.map(boughtItemWords).join(' · '),
+      paidPhp: b.paidPhp,
+      tickets: b.packs,
+      state,
+    });
+  }
+
+  type Given = { entry_id: string; gift_kind: string; pack_code: string | null; packs: number | null; delta: number; event_id: string | null; created_at: string };
+  const givenRows = (given.data ?? []) as Given[];
+  const eventIds = [...new Set(givenRows.map((g) => g.event_id).filter((x): x is string => !!x))];
+  const events = eventIds.length ? await admin.from('events').select('event_id, display_name').in('event_id', eventIds) : { data: [], error: null };
+  // A name that cannot be read is left out (the row still says what was given and when) — never a guessed name.
+  const nameOf = new Map(
+    events.error ? [] : ((events.data ?? []) as Array<{ event_id: string; display_name: string | null }>).map((e) => [e.event_id, e.display_name]),
+  );
+  for (const g of givenRows) {
+    rows.push({
+      kind: 'given',
+      key: `g-${g.entry_id}`,
+      createdAt: g.created_at,
+      giftTitle: (g.gift_kind === 'papic' ? titleOf.get(g.pack_code ?? '') : unlockTitle(g.gift_kind)) ?? 'Gift',
+      count: givenCount(g),
+      eventName: (g.event_id && nameOf.get(g.event_id)) || null,
+    });
+  }
+  rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  return { rows, onTheWay };
+}
 
 /**
  * Resolved once on the server for the thread page. Null only when there is no pack to offer at all (nothing on

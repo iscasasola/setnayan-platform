@@ -66,7 +66,7 @@ import {
   shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
-import { shopGiftCodeOf } from '@/lib/shop-gifts';
+import { isShopGiftCartKey, shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -438,6 +438,8 @@ async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
  */
 async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
   if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  // 🛒 A STORE order (many lines, `vendor_gift__GIFT_CART`) lands through its own door.
+  if (isShopGiftCartKey(ctx.serviceKey)) return grantShopGiftCart(ctx);
   try {
     const { data, error } = await ctx.admin
       .from('shop_gift_purchases')
@@ -501,6 +503,81 @@ async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
     });
   } catch (e) {
     reportActivationFault('activate:shop_gift_purchase', ctx, e);
+  }
+}
+
+/**
+ * 🛒 2026-11-17 — a gift STORE order (owner-approved prototype v16: any mix of singles and 10 + 1 bundles in ONE order,
+ * paid once). What it bought is its `shop_gift_order_lines` rows; `shop_gift_grant_order_lines` lands every line once,
+ * in one transaction, and REFUSES when the lines do not add up to what the order charged. Idempotent: a re-approval
+ * lands nothing (one bought row per (order, line)). This runs only on an admin's approval — never on its own.
+ */
+async function grantShopGiftCart(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data: line, error } = await ctx.admin
+      .from('shop_gift_order_lines')
+      .select('vendor_profile_id')
+      .eq('order_id', ctx.orderId)
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_cart', ctx, error);
+      return;
+    }
+    const shop = (line as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    if (!shop) {
+      reportActivationFault('activate:shop_gift_cart', ctx, new Error(`gift store order ${ctx.orderId} has no lines`));
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, shop);
+    const { data, error: rpcErr } = await ctx.admin.rpc('shop_gift_grant_order_lines', {
+      p_order_id: ctx.orderId,
+      p_actor: ctx.actorUserId,
+    });
+    if (rpcErr) {
+      reportActivationFault('activate:shop_gift_cart', ctx, rpcErr);
+      return;
+    }
+    const r = (Array.isArray(data) ? data[0] : data) as { lines_total?: number; lines_landed?: number } | null;
+    if (!r || !(Number(r.lines_landed) > 0)) return; // already landed
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: shop,
+        shop_gift_cart_lines: Number(r.lines_total),
+        shop_gift_cart_lines_landed: Number(r.lines_landed),
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_cart', ctx, e);
+  }
+}
+
+/** 🛒 A refunded / un-approved STORE order takes back exactly what each of its lines landed, once. */
+async function reverseShopGiftCart(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin.rpc('shop_gift_reverse_order_lines', {
+      p_order_id: ctx.orderId,
+      p_actor: ctx.actorUserId,
+    });
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_cart', ctx, error);
+      return;
+    }
+    if (!(Number(data) > 0)) return; // nothing landed, or already taken back
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, shop_gift_cart_lines_reversed: Number(data) },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_cart', ctx, e);
   }
 }
 
@@ -2730,6 +2807,9 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.
     await reverseShopPapicWalletPack(ctx);
+  } else if (isShopGiftCartKey(ctx.serviceKey)) {
+    // 🛒 A gift STORE order — take back what each line landed.
+    await reverseShopGiftCart(ctx);
   } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
     // 🎁 A gift order — take its credits back out of the gift stock.
     await reverseShopGiftPurchase(ctx);

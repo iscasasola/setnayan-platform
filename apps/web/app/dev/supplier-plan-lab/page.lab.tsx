@@ -17,7 +17,7 @@
  *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
  *   ?s=gifts           Shop › Promote › Your gifts (supplier gift stock, 2026-11-04; on Plan until 2026-11-05; packs + bundles 2026-11-14)  &fail=1 (unread)
  *                      &app=1 (the iPhone app: stock + Bought, no Buy)
- *                      &buy=1 opens nothing by itself — press "Buy gifts"
+ *                      &sent=1 (a payment sent, waiting for approval) · press "Buy more" for the store, ⟲ for History
  *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment) · &unlock=1 (+ Event Plus)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
  *   ?s=prints          Shop › Promote › Prints (2026-11-05) — the REAL section; its pictures come from the lab's twin of
@@ -504,7 +504,7 @@ export default async function SupplierPlanLabPage({
       </>
     );
 
-  else if (s === 'gifts') body = giftsFixture(sp.fail === '1', sp.app === '1');
+  else if (s === 'gifts') body = giftsFixture(sp.fail === '1', sp.app === '1', sp.sent === '1');
   else if (s === 'prints')
     body = (
       <ShopPrintsSection
@@ -583,10 +583,21 @@ function labUpgrades(tier: string): BadgeUpgradeRow[] {
 const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
   { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
   // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
   { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+  { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990 },
 ]);
+
+/** 📦 Lab-only 10 + 1 bundles, one per gift — the page reads the catalogue's GIFT_BUNDLE_* rows (seeded 10 × list). */
+const LAB_GIFT_BUNDLES = LAB_GIFT_PACKS.map((p) => ({
+  code: `GIFT_BUNDLE_${p.code}`,
+  title: `11 × ${p.title}`,
+  pack: p,
+  quantity: 11,
+  priceCentavos: p.srpCentavos * 10,
+}));
 
 /** A lab badge reward row (`GrantedReward`) — fixture only. */
 function labReward(
@@ -601,7 +612,7 @@ function labReward(
 
 /** `inApp` — `&app=1`: the section as the iPhone app (store shell) draws it — the stock and Bought show, Buy does not
  * (`canBuy` is false there; `shop-gifts-data.ts`). */
-function giftsFixture(fail: boolean, inApp = false) {
+function giftsFixture(fail: boolean, inApp = false, sent = false) {
   return (
     <ShopGiftsSection
       data={{
@@ -611,27 +622,30 @@ function giftsFixture(fail: boolean, inApp = false) {
               papic: { balance: 2150, held: 1150 },
               event_plus: { balance: 3, held: 1 },
               event_pro: { balance: 1, held: 0 },
-              event_ultra: { balance: 0, held: 0 },
-              packs: { PAPIC_GUEST_150: { balance: 3, held: 1 }, PAPIC_GUEST_1K: { balance: 11, held: 0 } },
+              event_ultra: { balance: 1, held: 0 },
+              packs: { PAPIC_GUEST_150: { balance: 4, held: 1 }, PAPIC_GUEST_1K: { balance: 3, held: 1 }, PAPIC_GUEST: { balance: 0, held: 0 } },
             },
         packs: LAB_GIFT_PACKS,
-        // 📦 Lab-only bundle — the page reads the catalogue's GIFT_BUNDLE_* rows.
-        bundles: LAB_GIFT_PACKS[1]
-          ? [{ code: 'GIFT_BUNDLE_PAPIC_1K', title: '11 × Papic 1000', pack: LAB_GIFT_PACKS[1], quantity: 11, priceCentavos: 499_000 }]
-          : [],
-        bought: fail
+        bundles: LAB_GIFT_BUNDLES,
+        // 🧾 History (prototype v16): bought orders and gifts given. `&sent=1` — a payment sent, waiting for approval.
+        history: fail
           ? null
           : [
-              { orderId: 'o4', title: 'Event Plus', quantity: 3, paidPhp: 8070, createdAt: '2026-11-05T05:00:00Z', state: 'checking' },
-              { orderId: 'o3', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-11-04T05:00:00Z', state: 'checking' },
-              { orderId: 'o5', title: 'Papic 1000', quantity: 1, packs: 11, bundleNote: 'Buy 10, get 1 free', paidPhp: 4990, createdAt: '2026-11-06T05:00:00Z', state: 'in_stock' },
-              { orderId: 'o2', title: 'Papic 1000', quantity: 2, paidPhp: 898, createdAt: '2026-11-02T05:00:00Z', state: 'in_stock' },
-              { orderId: 'o1', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-10-30T05:00:00Z', state: 'in_stock' },
-            ],
-        openRails: [
-          { id: 'gcash', label: 'GCash' },
-          { id: 'bank', label: 'Bank transfer' },
-        ],
+              ...(sent
+                ? [{ kind: 'bought' as const, key: 'b-o9', orderId: 'o9', referenceCode: 'SNLAB0009', createdAt: '2026-11-17T09:00:00Z', title: 'You bought · 2 items', items: 'Papic 150 ×2 · Papic 1000 10 + 1', paidPhp: 5188, tickets: 13, state: 'sent' as const }]
+                : []),
+              { kind: 'bought' as const, key: 'b-o8', orderId: 'o8', referenceCode: 'SNLAB0008', createdAt: '2026-11-16T12:10:00Z', title: 'You bought · Event Pro', items: 'Event Pro', paidPhp: 5690, tickets: 1, state: 'unpaid' as const },
+              { kind: 'given' as const, key: 'g-1', createdAt: '2026-11-14T07:42:00Z', giftTitle: 'Papic 1000', count: 1, eventName: 'Wedding · Ana & Miguel' },
+              { kind: 'given' as const, key: 'g-2', createdAt: '2026-11-10T01:05:00Z', giftTitle: 'Event Plus', count: 1, eventName: 'Debut · Bea' },
+              { kind: 'bought' as const, key: 'b-o4', orderId: 'o4', referenceCode: 'SNLAB0004', createdAt: '2026-11-02T02:30:00Z', title: 'You bought · Event Plus', items: 'Event Plus', paidPhp: 2990, tickets: 1, state: 'in_stock' as const },
+              { kind: 'bought' as const, key: 'b-o1', orderId: 'o1', referenceCode: 'SNLAB0001', createdAt: '2026-10-15T08:05:00Z', title: 'You bought · Papic 150', items: 'Papic 150 ×5', paidPhp: 495, tickets: 5, state: 'in_stock' as const },
+              { kind: 'given' as const, key: 'g-3', createdAt: '2026-10-19T03:20:00Z', giftTitle: 'Papic 150', count: 1, eventName: 'Birthday · Tess' },
+            ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+        onTheWay: sent ? { PAPIC_GUEST_150: 2, PAPIC_GUEST_1K: 11 } : {},
+        givenTotal: fail ? null : 12,
+        // 💳 The admin setting's seeded value (owner 2026-11-17) — the page reads platform_settings.max_payment_php.
+        maxPaymentPhp: 100_000,
+        openRails: [{ id: 'bdo', label: 'BDO' }],
         canBuy: !inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {

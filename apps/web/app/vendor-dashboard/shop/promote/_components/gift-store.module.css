@@ -1,0 +1,26 @@
+/* 🛒 The gift store's two motions, from the owner-approved prototype gifts-interactive v16 (2026-11-17):
+   the row just added flashes (`rowFlash`, 1.4 s) and the "Added to your order" note rises then falls toward the cart
+   bar (`tstGo`, 2.4 s). Both are still under "reduce motion". */
+.flash {
+  animation: rowFlash 1.4s ease-out both;
+  background: rgb(37 99 235 / 0.06);
+}
+@keyframes rowFlash {
+  0% { box-shadow: inset 0 0 0 2px var(--sn-accent, #2563eb); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+.toast {
+  translate: -50% -50%;
+  animation: tstGo 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes tstGo {
+  0% { opacity: 0; transform: scale(0.85); }
+  12% { opacity: 1; transform: scale(1.03); }
+  18% { transform: scale(1); }
+  72% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(300px) scale(0.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash { animation: none; }
+  .toast { animation: none; opacity: 0; }
+}

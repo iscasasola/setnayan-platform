@@ -509,6 +509,9 @@ export async function savePaymentInstruments(formData: FormData) {
   ) {
     return saveReceivingAccount(adminUserId, intent, formData);
   }
+  if (intent === 'max_payment_save') {
+    return saveMaxPayment(adminUserId, formData);
+  }
 
   // ── THE MONTHLY LIMITS of the two migrated rails ─────────────────────────
   // The account names, numbers and switches moved into the list above. What is
@@ -578,6 +581,46 @@ export async function savePaymentInstruments(formData: FormData) {
   revalidatePath(PAYMENT_METHODS_PATH);
   revalidatePath('/receipts', 'layout');
   redirect(`${PAYMENT_METHODS_PATH}?saved=1`);
+}
+
+/**
+ * 💳 THE MOST IN ONE PAYMENT (owner 2026-11-17, verbatim: "We do not allow transactions above 100,000.") — the ONE
+ * writer of `platform_settings.max_payment_php`. A positive whole peso amount or refused; a no-op when unchanged; an
+ * `admin_audit_log` row (`max_payment_php_edit`, before → after); the settings tag cleared so the next buy reads it.
+ * The gift store's caps and its buy action read it through `getMaxPaymentPhp` (lib/max-payment.server.ts).
+ */
+async function saveMaxPayment(adminUserId: string, formData: FormData): Promise<never> {
+  const php = nullIfBlankNumber(formData.get('max_payment_php'));
+  if (php === null || !Number.isInteger(php)) {
+    return backToPaymentMethods(`error=${encodeURIComponent('The most in one payment must be a whole peso amount above 0.')}`);
+  }
+  const admin = createAdminClient();
+  const { data: prior, error: readError } = await admin.from('platform_settings').select('max_payment_php').eq('id', 1).maybeSingle();
+  if (readError) {
+    return backToPaymentMethods(`error=${encodeURIComponent('Couldn’t read the current amount just now, so nothing was changed. Refresh and try again.')}`);
+  }
+  const before = prior && (prior as { max_payment_php?: number | string | null }).max_payment_php != null
+    ? Number((prior as { max_payment_php: number | string }).max_payment_php)
+    : null;
+  if (before === php) return backToPaymentMethods('saved=1');
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ max_payment_php: php, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'max_payment_php_edit',
+    target_id: 'max_payment_php',
+    actor_user_id: adminUserId,
+    metadata: { table: 'platform_settings', before, after: php },
+  });
+  // The setting moved; an unwritten audit row is said, never swallowed (Supabase resolves with { error }).
+  if (auditErr) console.error('[saveMaxPayment] max_payment_php_edit audit row refused', auditErr);
+  revalidatePath(PAYMENT_METHODS_PATH);
+  return backToPaymentMethods(
+    auditErr ? `notice=${encodeURIComponent('Saved — but the audit row did not write. Tell the team.')}` : 'saved=1',
+  );
 }
 
 /** The two migrated rails' own QR columns — kept in step with the list. */

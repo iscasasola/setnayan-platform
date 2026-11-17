@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { bookedEventIdsOf } from '@/lib/new-inquiry';
 import { NoticeSlot } from '@/app/_components/notices/notices';
 import { VendorNoticeTop } from './_components/vendor-notice-top';
 import { redirect } from 'next/navigation';
@@ -200,14 +201,31 @@ export default async function VendorDashboardLayout({
   // parallel with the chrome batch); fail-soft to 0 so the badge simply omits on
   // any error — never fabricated. The Threads badge (unread chat threads) uses
   // the existing countUnreadMessages RPC in the batch below.
-  const bookingsPendingPromise = vendorProfilePromise
-    .then(async (vp) => {
+  // CYC-14 (16 Nov 2026) + the #7898 audit: the badge counts by the SAME rule as Today's cards (`isNewInquiry`) —
+  // pending, unanswered, and its event not already booked — in ONE exact head count (no row cap, no admin client).
+  // "Booked" is the database's own `current_vendor_booked_event_ids()` (the RLS helper; EXECUTE is granted to the
+  // signed-in role), read in parallel with the shop, so the badge waits on nothing new. A refused booked read only
+  // widens the count back to "pending and unanswered" — logged, never a fabricated 0.
+  const bookedEventIdsPromise = Promise.resolve(supabase.rpc('current_vendor_booked_event_ids'))
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('[supabase-error] app/vendor-dashboard/layout.tsx · rpc:current_vendor_booked_event_ids', error);
+        return [] as string[];
+      }
+      return bookedEventIdsOf(data);
+    })
+    .catch(() => [] as string[]);
+  const bookingsPendingPromise = Promise.all([vendorProfilePromise, bookedEventIdsPromise])
+    .then(async ([vp, booked]) => {
       if (!vp?.vendor_profile_id) return 0;
-      const { count, error } = await supabase
+      let q = supabase
         .from('chat_threads')
         .select('thread_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vp.vendor_profile_id)
-        .eq('inquiry_status', 'pending');
+        .eq('inquiry_status', 'pending')
+        .is('vendor_first_reply_at', null);
+      if (booked.length > 0) q = q.not('event_id', 'in', `(${booked.join(',')})`);
+      const { count, error } = await q;
       if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
       return error ? 0 : count ?? 0;
     })

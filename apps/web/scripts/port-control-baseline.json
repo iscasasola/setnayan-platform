@@ -1412,7 +1412,6 @@
         "/terms",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/on-the-day?event=[seg]"
       ],
@@ -6919,6 +6918,7 @@
         "HeadcountView",
         "HomeBoothCard",
         "HomeCardRow",
+        "HomeControlBoardColumn",
         "HomeControlKey",
         "HomeControlRow",
         "HomeCoverBand",
@@ -6943,6 +6943,7 @@
         "HomeSettingsGear",
         "HomeSettingsLanded",
         "HomeTile",
+        "HomeTileCountKey",
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
@@ -7128,6 +7129,7 @@
         "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
+        "TileCountKey.Provider",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -9401,6 +9403,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "ListPageSkeleton",
         "PageMasthead"
@@ -12449,10 +12452,12 @@
     },
     "/forgot-password": {
       "files": [
+        "forgot-password/_components/reset-sent.tsx",
         "forgot-password/actions.ts",
         "forgot-password/page.tsx"
       ],
       "destinations": [
+        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -12461,7 +12466,10 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "HTMLSpanElement",
         "Link",
+        "RememberResetEmail",
+        "ResetSent",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -12675,6 +12683,7 @@
         "/forgot-password"
       ],
       "actions": [
+        "sendRelink",
         "sendReset",
         "signInWithPassword",
         "submitInPlace"
@@ -12895,7 +12904,6 @@
         "open-shop/page.tsx"
       ],
       "destinations": [
-        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
@@ -12974,9 +12982,7 @@
         "open-shop/logo/_components/add-your-logo.tsx",
         "open-shop/logo/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -13488,7 +13494,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -13498,6 +13503,7 @@
         "DoorActions",
         "DoorNotice",
         "DoorShell",
+        "ExpiredResend",
         "Link",
         "PasswordField",
         "SubmitButton"
@@ -13910,6 +13916,8 @@
         "AxisStat",
         "BackButton",
         "BiggerMapButton",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardHidesRead",
         "CardLink",
         "CardMedalRow",
@@ -14135,6 +14143,7 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
+        "vendor-dashboard/_components/card-badge-congrats-mount.tsx",
         "vendor-dashboard/_components/claim-wait-lines.tsx",
         "vendor-dashboard/_components/client-day-answers.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
@@ -14178,7 +14187,6 @@
         "vendor-dashboard/_components/thumb-layer.ts",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/today-cover.tsx",
-        "vendor-dashboard/_components/today-gear-ride.tsx",
         "vendor-dashboard/_components/today-next-events.tsx",
         "vendor-dashboard/_components/today-settings.tsx",
         "vendor-dashboard/_components/today-stats.tsx",
@@ -14215,7 +14223,6 @@
         "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -14265,6 +14272,10 @@
         "BranchPinMap",
         "BranchPlace",
         "BranchRow",
+        "CardBadgeCongrats",
+        "CardBadgeCongratsLink",
+        "CardBadgeCongratsMount",
+        "CardBadgeIcon",
         "CardShell",
         "ClaimWaitLines",
         "ClientDayAnswersBody",
@@ -14400,9 +14411,6 @@
         "Tile",
         "TodayCover",
         "TodayEyebrow",
-        "TodayGearPinned.Provider",
-        "TodayGearRide",
-        "TodayGearSlot",
         "TodayNextEvents",
         "TodayNoteRow",
         "TodayRow",
@@ -14605,9 +14613,7 @@
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/messages/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -14758,7 +14764,6 @@
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -15303,7 +15308,6 @@
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
@@ -15700,8 +15704,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/customers",
-        "/vendor-dashboard/messages/[seg]"
+        "/vendor-dashboard/customers"
       ],
       "actions": [
         "acceptInquiry",
@@ -16248,11 +16251,13 @@
         "vendor-dashboard/performance/_components/calendar-strip.tsx",
         "vendor-dashboard/performance/_components/funnel-preview-card.tsx",
         "vendor-dashboard/performance/_components/ghost-track.tsx",
+        "vendor-dashboard/performance/_components/gifts-graph.tsx",
         "vendor-dashboard/performance/_components/graph-sample.ts",
         "vendor-dashboard/performance/_components/graph-tile.tsx",
         "vendor-dashboard/performance/_components/growth-motion.tsx",
         "vendor-dashboard/performance/_components/growth-recs-card.tsx",
         "vendor-dashboard/performance/_components/growth-view.ts",
+        "vendor-dashboard/performance/_components/invites-graph.tsx",
         "vendor-dashboard/performance/_components/new-graph-pics.tsx",
         "vendor-dashboard/performance/_components/one-analytics-section.tsx",
         "vendor-dashboard/performance/_components/price-rail.tsx",
@@ -16308,6 +16313,7 @@
         "HeldCount",
         "HeldFill",
         "InfoTip",
+        "InvitesPic",
         "Link",
         "LockedFeature",
         "LostPic",
@@ -16566,8 +16572,11 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardCheckInput",
         "CardChecksSummary",
+        "CardFoot.Provider",
         "CardPhotoGallery",
         "CardRecordSection",
         "CheckChip",
@@ -16593,6 +16602,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FootCtx",
         "FormCounter",
         "FormRow",
         "FormRows",
@@ -16646,6 +16656,7 @@
         "SelectChip",
         "ServiceCardFace",
         "ServiceCardItem",
+        "ServiceCardItemFooter",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
         "ServiceCardShareSheet",
@@ -16986,6 +16997,7 @@
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
+        "I",
         "Icon",
         "IdentityFieldSaveResult",
         "ImageBadge",
@@ -17032,6 +17044,7 @@
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
+        "QuickIcon",
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",

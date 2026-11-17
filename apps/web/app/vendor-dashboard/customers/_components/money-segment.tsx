@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -194,7 +195,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
     name: c.name,
     line: c.line,
     href: threadOf.has(c.eventId)
-      ? `/vendor-dashboard/messages/${threadOf.get(c.eventId)}#pending-payments`
+      ? `${supplierChatHref(c.eventId, threadOf.get(c.eventId) ?? '')}#pending-payments`
       : `/vendor-dashboard/clients/${c.eventId}`,
   }));
 

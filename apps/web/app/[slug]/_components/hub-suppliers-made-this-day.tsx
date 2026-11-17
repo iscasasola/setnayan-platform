@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import { ShopLink } from '@/app/_components/shop-link';
 import { ChevronRight, Heart } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -71,7 +72,7 @@ export function HubSuppliersMadeThisDay({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-semibold text-ink">
                   {v.businessSlug ? (
-                    <ShopLink href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
+                    <ShopLink href={`${shopPath(v.businessSlug)}`} className="hover:text-terracotta">
                       {v.displayName}
                     </ShopLink>
                   ) : (

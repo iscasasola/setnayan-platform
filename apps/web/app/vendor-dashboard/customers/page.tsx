@@ -108,6 +108,9 @@ import { DaySheet, type DaySheetData } from './_components/day-sheet';
 import { readOpenAsks } from './open-asks';
 import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf, oldPeopleAddressForward } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
+import { BOOKED_ALL_MONTHS_HREF, BOOKED_THIS_MONTH_HREF, BOOKED_WITHIN_MONTH, bookedEventIdsInMonth, bookedThisMonthCount } from '@/lib/booked-this-month';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
 import { DATES_NOTICES } from '../calendar/dates-notices';
@@ -188,6 +191,8 @@ type Props = {
     day?: string;
     /** Events' door (`asking · talking · booked · done`) a pager link keeps. */
     door?: string;
+    /** `?within=month` — Booked narrowed to this month (Today's "Booked · events this month", owner 75a46e3c item 9). */
+    within?: string;
     /** The archived-and-closed chats' page. */
     opage?: string;
     /** An outside booking just added (or a code just made for it) — its row opens. */
@@ -249,6 +254,16 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     of waiting behind them — one round of parallel reads, not a waterfall.
   */
   const outcomeRollupRead = fetchVendorOutcomeRollup(supabase, vendorProfileId);
+  /*
+    📊 BOOKED · THIS MONTH (owner 2026-11-16, DECISION_LOG 75a46e3c item 9; EB-219): Today's stat opens Booked with
+    `?within=month`, and the list then counts the SAME set Today counted — `bookedEventIdsInMonth` over the same read
+    (`fetchVendorRoomEventsDetailed`), never the roster's own all-dates lanes. Read only when asked for.
+    🔒 `booked-this-month-is-one-number.test.ts`.
+  */
+  const bookedThisMonthRead =
+    search.within === BOOKED_WITHIN_MONTH
+      ? fetchVendorRoomEventsDetailed(supabase, vendorProfileId).catch(() => ({ events: [], complete: false }))
+      : null;
   const keptNotesRead = supabase
     .from('vendor_client_notes')
     .select('note_id, body, created_at')
@@ -685,6 +700,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   */
   const DOOR_LANES = CUSTOMERS_LIST_LANES;
   const laneCounts = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, lanes[l].length])) as Record<CustomerLane, number>;
+  const monthRead = bookedThisMonthRead ? await bookedThisMonthRead : null;
+  const monthIds = monthRead ? bookedEventIdsInMonth(monthRead.events, todayIso.slice(0, 7)) : null;
+  // Today's number, from Today's function — null when the read fell short (the tile then says couldn't load).
+  const monthCount = monthRead ? bookedThisMonthCount(monthRead, todayIso.slice(0, 7)) : null;
   const doorCount = (k: CustomersDoorKey) =>
     DOOR_LANES[k].reduce((n, l) => n + laneCounts[l], 0) + (k === 'booked' ? outsideAll.length : 0);
 
@@ -694,6 +713,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const outsideIncomplete = !blocksRead.complete;
   /** "3" · "12+" when a read fell short · null (couldn't load) when it fell short with nothing to show. */
   const doorValue = (k: CustomersDoorKey): string | null => {
+    if (k === 'booked' && monthRead) return monthCount === null ? null : formatCount(monthCount);
     const n = doorCount(k);
     const short = rosterIncomplete || (k === 'booked' && outsideIncomplete);
     if (!short) return formatCount(n);
@@ -730,7 +750,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const views = Object.fromEntries(
     CUSTOMERS_LISTS.map((k) => {
       const subset = { ...noLanes };
-      for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
+      // This month: the month's booked events, whatever lane each sits in now (a day earlier this month may be Done).
+      if (k === 'booked' && monthIds) for (const l of CUSTOMER_LANES) subset[l] = lanes[l].filter((r) => monthIds.has(r.eventId));
+      else for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
       return [
         k,
         rosterView(subset, {
@@ -804,17 +826,24 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), k === 'all' ? '' : `door=${k}`]
       .filter(Boolean)
       .join('&');
-  const doorTotal = (k: CustomersListKey) => (k === 'all' ? allTotal : doorCount(k));
+  // Booked this month: the month's number, never the all-months lanes (the every-event total is left all-months).
+  const doorTotal = (k: CustomersListKey) =>
+    k === 'all' ? allTotal : k === 'booked' && monthIds ? (monthCount ?? 0) : doorCount(k);
 
   const rosterPanels = Object.fromEntries(
     CUSTOMERS_LISTS.map((k) => {
       const v = views[k];
       // The outside bookings are booked events: under Booked, and on the every-event list after the Setnayan rows.
-      const isBooked = k === 'booked' || k === 'all';
-      const counts = { ...Object.fromEntries(CUSTOMER_LANES.map((l) => [l, 0])), ...Object.fromEntries(DOOR_LANES[k].map((l) => [l, laneCounts[l]])) } as Record<CustomerLane, number>;
+      // Booked THIS MONTH is Today's number, which counts Setnayan bookings only — the outside ones are under All months.
+      const monthScoped = k === 'booked' && monthIds !== null;
+      const isBooked = (k === 'booked' && !monthScoped) || k === 'all';
+      const counts = monthScoped
+        ? (Object.fromEntries(CUSTOMER_LANES.map((l) => [l, lanes[l].filter((r) => monthIds!.has(r.eventId)).length])) as Record<CustomerLane, number>)
+        : ({ ...Object.fromEntries(CUSTOMER_LANES.map((l) => [l, 0])), ...Object.fromEntries(DOOR_LANES[k].map((l) => [l, laneCounts[l]])) } as Record<CustomerLane, number>);
       return [
         k,
         <>
+          {k === 'booked' ? <BookedMonthScope thisMonth={monthScoped} /> : null}
           <CustomersRoster
             rows={v.paged.items}
             paged={v.paged}
@@ -827,7 +856,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             otherMatches={isBooked ? outsideMatched.length : 0}
             otherTotal={isBooked ? outsideAll.length : 0}
             anchor={null}
-            emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
+            emptyLine={doorTotal(k) === 0 ? (monthScoped ? 'No events booked this month.' : DOOR_EMPTY[k]) : undefined}
             lines={lines}
             list={k === 'all' ? null : k}
             groupOf={groupKey}
@@ -919,13 +948,13 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadRows = unreadEvents(narrowed, unreadRead.countByThread);
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
-    { key: 'booked', value: doorValue('booked'), word: 'booked', dot: 'booked' },
+    { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
     { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
   // 📌 The pinned row's two figures (Build 2 #43b, v113 "6 booked · ₱48,000 to collect") — the SAME reads as the tiles.
-  const pinCounts = `${doorValue('booked') ?? '—'} booked · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
+  const pinCounts = `${doorValue('booked') ?? '—'} booked${monthIds ? ' this month' : ''} · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
   const overdue = overdueRead(picture.totals);
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
@@ -1482,6 +1511,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     .filter((a) => a.date === day)
     .map((a) => ({
       threadId: a.threadId,
+      // The holder's event, so its Chat opens the picked client (supplierChatHref), not the full-screen thread.
+      eventId: threadsRead.threads.find((t) => t.thread_id === a.threadId)?.event_id ?? null,
       title: a.name ?? 'A couple',
       // 📅 F-W1-68: an agreed booking waiting on its first payment is Booked — the date held once that payment is in.
       line: a.agreed ? BOOKED_DATE_HELD_LINE : `${askedOn(a.askedAt)} · not booked`,
@@ -1683,5 +1714,25 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {/* First visit only — the shipped MiniTour (every feature gets one). */}
       <MiniTour tourKey="vendor_customers_v1" after="vendor_welcome_v1" />
     </>
+  );
+}
+
+/**
+ * This month ▾ / All months — over Booked (owner 75a46e3c item 9). "This month" is Today's own count; "All months" is
+ * every booking, the outside ones included. ONE dropdown (owner 2026-09-28, any set of choices), each option the
+ * address its list is drawn from, so the page stays server-rendered.
+ */
+function BookedMonthScope({ thisMonth }: { thisMonth: boolean }) {
+  return (
+    <div className="mb-2" data-booked-month-scope={thisMonth ? 'month' : 'all'}>
+      <LinkPickMenu
+        label="Which months"
+        value={thisMonth ? 'month' : 'all'}
+        options={[
+          { key: 'month', label: 'This month', href: BOOKED_THIS_MONTH_HREF },
+          { key: 'all', label: 'All months', href: BOOKED_ALL_MONTHS_HREF },
+        ]}
+      />
+    </div>
   );
 }

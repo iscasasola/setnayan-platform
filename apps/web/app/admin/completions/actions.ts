@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -224,6 +225,10 @@ export async function forceCompleteVendor(formData: FormData) {
     afterStatus: 'confirmed',
     note,
   });
+
+  // 🏅 A booking HQ marked complete may climb the shop's Events badge — pay and tell after the response (owner
+  // 2026-11-15, "firing when earned").
+  sweepShopBadgesAfter(ev.marketplace_vendor_id);
 
   const vendorName = (ev.vendor_name ?? '').trim() || 'your supplier';
   // Notify couple(s) — best-effort, fail-soft.

@@ -23,3 +23,9 @@ Still reading the hide rule after this PR (listed in the PR body): the bench mar
 (`vendor-dashboard/services/actions.ts` + trigger in 20271222415682) · staff names in chat receipts.
 
 SPEC IMPACT: None beyond the owner's own DECISION_LOG ruling 15 (specs 61e7a2fb), which this implements.
+
+## 2026-11-17 · fix(names): the bench search card wears every shop's logo (ruling 15, after #7898)
+
+The one ruling-15 leftover that lived in a #7898 file: `bench-marketplace-search.ts` still returned
+`logoUrl: revealed ? … : null`. Now `logoUrl: r.logo_url ?? null`; its `isVendorNameRevealed` read (now unused) is
+gone. Badge bill reason updated. SPEC IMPACT: None.

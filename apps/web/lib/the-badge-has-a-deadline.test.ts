@@ -125,7 +125,7 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'app/dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts',
-    { count: 1, why: 'Feeds resolveVendorDisplayName/isVendorNameRevealed only — the returned row carries no verified field.' },
+    { count: 1, why: 'Feeds resolveVendorDisplayName only — the returned row carries no verified field. (Its isVendorNameRevealed logo gate left 2026-11-17 with ruling (15).)' },
   ],
   [
     'app/dashboard/[eventId]/vendors/_actions/category-search.ts',

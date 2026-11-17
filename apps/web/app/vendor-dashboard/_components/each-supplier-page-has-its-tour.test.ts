@@ -6,7 +6,7 @@
  *   1 · each of the four is a SPOTLIGHT with the drawn number of stops, on the drawn anchors, in order;
  *   2 · none repeats a stop the Today journey (`supplier_spotlight_v1`) already makes;
  *   3 · the address decides which one is on screen — and a page that is not one of the four gets none;
- *   4 · none plays before the Today journey is seen, none twice, none on a failed read;
+ *   4 · none plays before the Today journey is seen, none after it (the journey is the ONE tour, W1-B14), none on a failed read;
  *   5 · mounted ONCE, in the supplier layout — never in the couple tree the Maker loads under;
  *   6 · the words keep the house rules, and the free-booking count is the fee engine's own number.
  *
@@ -97,15 +97,12 @@ test('3 · the address decides which tour is on screen', () => {
   }
 });
 
-test('4 · none before the Today journey, none twice, none on a failed read', () => {
+test('4 · none before the Today journey, none after it (ONE tour — W1-B14), none on a failed read', () => {
   assert.deepEqual(supplierPageToursDue(null), [], 'a failed read replays tours');
   assert.deepEqual(supplierPageToursDue([]), [], 'a page tour stacks on the Today journey');
-  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER]), [...SUPPLIER_PAGE_TOURS]);
-  assert.deepEqual(
-    supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER, 'vendor_money_v1']),
-    SUPPLIER_PAGE_TOURS.filter((k) => k !== 'vendor_money_v1'),
-    'a finished tour plays again',
-  );
+  // W1-B14 (16 Nov 2026): finishing or skipping the journey ends every page tour — `lib/the-supplier-tour-plays-once.test.ts`.
+  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER]), [], 'a page tour opens after the journey ended');
+  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER, 'vendor_money_v1']), []);
 });
 
 function walk(dir: string, out: string[] = []): string[] {

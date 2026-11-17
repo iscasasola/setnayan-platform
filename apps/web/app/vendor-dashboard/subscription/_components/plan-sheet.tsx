@@ -139,6 +139,7 @@ export function PlanSheet({
   storeShell = false,
   papersProgress,
   gift = null,
+  offer = null,
 }: {
   /** `sheetPlans(...)` order — the shop's own first. */
   plans: readonly SheetPlan[];
@@ -154,6 +155,8 @@ export function PlanSheet({
   papersProgress: string;
   /** 🎁 A plan Setnayan gave: "Free until …" and ₱0 until its last week, then the current plan's Pay comes back (no forced Free gap). */
   gift?: { untilShort: string; untilFull: string; endsSoon?: boolean; startsShort?: string } | null;
+  /** W1-B21: the plan picked on /for-suppliers (`supplierPlanTier`) — its row opens too, offering its own button. */
+  offer?: string | null;
 }) {
   const [cycle, setCycle] = useState<Cycle>(startCycle);
   const anyPaid = plans.some((p) => p.paid);
@@ -252,7 +255,7 @@ export function PlanSheet({
               line={line}
               lead={<span className="mr-1 flex">{lead(isCurrent ? BadgeCheck : Gem)}</span>}
               aside={badge ? <Badge tone={badge.tone} data="plan-sheet">{badge.word}</Badge> : undefined}
-              defaultOpen={isCurrent}
+              defaultOpen={isCurrent || p.key === offer}
               data={`plan-sheet-${p.key}`}
               anchor={`plan-sheet-${p.key}`}
             >

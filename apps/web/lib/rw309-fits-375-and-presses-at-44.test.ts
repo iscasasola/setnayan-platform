@@ -83,7 +83,7 @@ test('6 · RW-314: Story, Invitation and the Shop cover — each named control h
   const reissue = read('app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx');
   assert.match(reissue, /className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap[^"]*"\s*>\s*<RefreshCw[^>]*\/>\s*Re-issue/, 'Re-issue wraps or is short');
   const cover = read('app/vendor-dashboard/shop/_components/shop-cover.tsx');
-  assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1 font-semibold">/, 'the Verified link');
+  assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1(?:\.5)? font-semibold"[^>]*>/, 'the Verified link');
   assert.match(cover, /<a href="#plan" className="inline-flex min-h-11 items-center[^"]*" data-shop-plan="">/, 'the plan link');
 });
 

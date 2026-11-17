@@ -28,7 +28,7 @@ export function ShopBundles({ bundles, cards, lock = null }: { bundles: readonly
   return (
     <div className="pb-1 pt-2" data-shop-bundles="">
       <div className="flex items-baseline justify-between pb-1.5">
-        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Bundles</p>
+        <p className="home-k2 !my-0">Bundles</p>
         <span className="text-xs text-ink/70">several cards as one price</span>
       </div>
       {lock ? (

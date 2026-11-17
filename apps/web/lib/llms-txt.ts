@@ -384,7 +384,7 @@ export const LINKED_ROUTES = [
   '/',
   // '/explore' left 2026-11-12 — it forwards to Discover `/` (Find suppliers moved inside Discover).
   '/explore/compare',
-  '/v/',
+  // '/v/' left 2026-11-16 — the bare /v/ directory is a 404 (W1-B20); shops live at setnayan.com/{shop}, found on Discover `/`.
   '/pricing',
   '/for-suppliers',
   '/for-coordinators', // Build 6 Lane K — the coordinator front page, live since 2026-11-04
@@ -400,14 +400,9 @@ export const LINKED_ROUTES = [
   '/monogram',
   '/alaala',
   '/about',
-  // ⚠ BOTH, and neither is spare. `/weddings` 308-redirects to `/realstories`
-  // (next.config.ts, 2026-06-14 rename) so the old path still resolves and stays
-  // allow-listed; the prose now links the DESTINATION, because pointing an AI
-  // crawler at a permanent redirect spends the hop for nothing.
-  '/weddings',
-  '/realstories',
+  // '/weddings', '/realstories' and '/blog' left 2026-11-16: the blog and the stories hub are retired and forward
+  // (owner, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED") — pointing a crawler at a redirect spends the hop.
   '/help',
-  '/blog',
   '/download',
   '/login',
   '/signup',
@@ -606,7 +601,7 @@ ${featurePagesSection()}
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
-- [Supplier pages](${url('/v/')}) — Each supplier has a public page at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and plan badge.
+- [Supplier pages](${url('/')}) — Each supplier has a public page at setnayan.com/[slug] (the old /v/[slug] address forwards there) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
 - [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
@@ -614,7 +609,7 @@ ${featurePagesSection()}
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
-- [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
+- [About](${url('/about')}) · [Help](${url('/help')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
 ## About Setnayan

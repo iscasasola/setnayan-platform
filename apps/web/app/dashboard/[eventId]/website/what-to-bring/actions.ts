@@ -45,7 +45,7 @@ export async function updateWhatToBring(
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/website/what-to-bring?error=${encodeURIComponent(
+      `/dashboard/${eventId}/website/editor?open=what-to-bring&error=${encodeURIComponent(
         'Could not save. Please try again.',
       )}`,
     );

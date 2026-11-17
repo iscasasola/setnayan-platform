@@ -7,7 +7,7 @@ Owner, 17 Nov 2026: "ok build it", on the drawing in specs `prototypes/admin_pay
   - a "Match to" dropdown listing waiting payments of the same amount to the centavo. Whole-reference / full BDO invoice-suffix matches come first, and each candidate shows its reasons ("Same amount · Reference matches", "Ends in 1560", "Arrived before the order was placed");
   - a "Set aside" dropdown: Leave for the next drop, or Not a Setnayan payment.
   
-  The summary lines are "N in your BDO, no order", "N buyers say paid, not in your BDO yet" and "N pictures could not be read". A refused read is drawn as a failure, never as "nothing received". If the reader key is unset, the tile says so and is off.
+  The summary lines are "N in your BDO, no order", "N buyers say paid, not in your BDO yet" and "N pictures could not be read". A refused read is drawn as a failure, never as "nothing received".
 - **Match is a human press.** It goes through the shipped `approvePaymentCore` path. The amount is re-checked to the centavo on the server, and a duplicate refusal is surfaced and matches nothing. `app/admin/payments/received.ts` joined `MONEY_GATES` in `an-ai-may-not-approve-money.test.ts`. A new test fails if it ever writes `match_kind 'auto'` or reads the strong-candidate flag.
 - **No new route.** These are three `intent` branches on `approvePayment` (`received-drop` · `received-match` · `received-leave`), the same way 'record' works.
 - **New dependency:** `tesseract.js@7.0.0` (apps/web), loaded only when the admin drops pictures.

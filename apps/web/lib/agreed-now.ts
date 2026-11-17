@@ -9,6 +9,7 @@
  * is already kept — quote VERSIONS (`lib/quote-versions.ts`, every sent quote is a row), and `booking_changes` for the
  * facts overwritten in place (event date · guest count · meeting time — `lib/booking-changes.ts`).
  */
+import { onePickedDay } from './event-anchor';
 import { changesFor, type BookingChange } from './booking-changes';
 import { formatPhp } from './php';
 import { shopPerGuestNote } from './claimed-per-guest-follow';
@@ -40,7 +41,24 @@ export type AgreedInputs = {
   viewerUserId: string;
   /** The supplier's quote versions on this event (any order) — `orderQuoteVersions` output for this pair. */
   quotes: readonly QuoteVersion[];
-  event: { eventDate: string | null; estimatedPax: number | null; finalPax: number | null };
+  event: {
+    eventDate: string | null;
+    estimatedPax: number | null;
+    finalPax: number | null;
+    /**
+     * 📅 The couple's date while it is still options (walk 16 Nov 2026, EB-286). `events.event_date` is the LOCKED
+     * day and stays empty until it locks, while the couple's own screens already show their picked date(s) from
+     * these columns — so reading `event_date` alone told a supplier "No date set yet" on an event the couple reads
+     * as June 19, 2027. Absent / null = as shipped.
+     */
+    dateOptions?: {
+      mode: string | null;
+      candidates: readonly string[] | null;
+      windowStart: string | null;
+      windowEnd: string | null;
+      days: number | null;
+    } | null;
+  };
   /** `booking_changes` rows, or null when the read was refused (the rows then say they could not load). */
   changes: readonly BookingChange[] | null;
   meetings: readonly { appointmentId: string; title: string; scheduledAt: string; status: string }[];
@@ -75,6 +93,32 @@ export function dayWords(iso: string | null | undefined): string | null {
   if (!m) return null;
   const ms = Date.parse(`${m[1]}T12:00:00+08:00`);
   return Number.isFinite(ms) ? dateFmt.format(ms) : null;
+}
+
+/**
+ * The event's date as the supplier should read it: the locked day, or the couple's ONE picked day (owner 14 Nov — it
+ * IS the date); else the couple's still-open options, said as not settled ("Not settled · 2 options · Jun 19, 2027 – Jul 3, 2027", "Not settled ·
+ * between …"); only when there is neither, "No date set yet". The years are kept — these dates can be a year out.
+ */
+export function eventDateWords(e: AgreedInputs['event']): string {
+  const locked = dayWords(e.eventDate);
+  if (locked) return locked;
+  const o = e.dateOptions;
+  if (o) {
+    const days = Math.max(1, Math.floor(o.days ?? 1) || 1);
+    const span = days > 1 ? ` · ${days} days` : '';
+    /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through
+       `withPickedDate`), so the supplier reads it as the date. Only 2+ options or a range are "Not settled". */
+    const picked = onePickedDay({ event_type: null, date_candidates: o.candidates ?? null });
+    if (picked && dayWords(picked)) return `${dayWords(picked)}${span}`;
+    const c = [...new Set((o.candidates ?? []).map((x) => (/^(\d{4}-\d{2}-\d{2})/.exec(x) ?? [])[1]).filter((x): x is string => !!x && !!dayWords(x)))].sort();
+    if (o.mode !== 'window' && c.length === 1) return `Not settled · ${dayWords(c[0])}${span}`;
+    if (o.mode !== 'window' && c.length > 1) return `Not settled · ${c.length} options · ${dayWords(c[0])} – ${dayWords(c[c.length - 1])}${span}`;
+    const a = dayWords(o.windowStart);
+    const b = dayWords(o.windowEnd);
+    if (a && b) return `Not settled · between ${a} and ${b}${span}`;
+  }
+  return 'No date set yet';
 }
 
 export function momentWords(iso: string | null | undefined): string | null {
@@ -145,7 +189,7 @@ export function agreedRows(i: AgreedInputs): AgreedRow[] {
     key: 'event_date',
     topic: 'details',
     label: 'Event date',
-    value: dayWords(i.event.eventDate) ?? 'No date set yet',
+    value: eventDateWords(i.event),
     history: historyOf(changesFor(changes, 'event_date'), v, i.names, dayWords),
   });
 

@@ -24,7 +24,8 @@ import { fileURLToPath } from 'node:url';
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FILES = ['editorial-content.tsx', 'living-moments.tsx'];
+// The story's supplier list moved its eyebrows and badges to ../story/story-suppliers.tsx (owner 2026-11-13) — read there too.
+const FILES = ['editorial-content.tsx', 'living-moments.tsx', '../story/story-suppliers.tsx'];
 
 /**
  * Blank every comment while KEEPING LINE NUMBERS, so the guard reads code and

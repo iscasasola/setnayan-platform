@@ -70,6 +70,7 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     // fixture stays a complete ShortlistVendor.
     // An ordinary card — not a supplier's "also covers" copy.
     includedWith: null,
+    notYetVerified: false,
     marketplaceVendorId: null,
     threadId: null,
     inquiryStatus: null,

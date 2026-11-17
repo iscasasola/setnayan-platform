@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -194,7 +195,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
     name: c.name,
     line: c.line,
     href: threadOf.has(c.eventId)
-      ? `/vendor-dashboard/messages/${threadOf.get(c.eventId)}#pending-payments`
+      ? `${supplierChatHref(c.eventId, threadOf.get(c.eventId) ?? '')}#pending-payments`
       : `/vendor-dashboard/clients/${c.eventId}`,
   }));
 
@@ -230,7 +231,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
           year,
           // 🔴 NAMES THE FEE. "We never take a cut" is only the whole truth WITH the booking fee beside it (owner
           // 2026-08-06); the terms are DERIVED, never typed.
-          lockedLine: `Totals by month start with Supplier Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
+          lockedLine: `Totals by month start with Plus. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
           legacy,
           wallet: {
             read: wallet.balance != null,

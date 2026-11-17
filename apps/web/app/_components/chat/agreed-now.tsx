@@ -22,6 +22,9 @@ import { agreedOutcome, agreedRows, type AgreedOutcome, type AgreedRow } from '@
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ChangedRow } from './changed-row';
 
+/** The event's facts this card reads — the locked day AND the couple's still-open date options (EB-286). */
+const EVENT_COLS = 'event_date, estimated_pax, final_pax, date_mode, date_candidates, date_window_start, date_window_end, event_days';
+
 export async function AgreedNow({
   eventId,
   vendorProfileId,
@@ -58,8 +61,8 @@ export async function AgreedNow({
      with it, or a quote of its own (both read above under RLS). */
   const onTheEvent = Boolean(threadId) || ((quotes.data ?? []) as unknown[]).length > 0;
   const ev = onTheEvent
-    ? await createAdminClient().from('events').select('event_date, estimated_pax, final_pax').eq('event_id', eventId).maybeSingle()
-    : await supabase.from('events').select('event_date, estimated_pax, final_pax').eq('event_id', eventId).maybeSingle();
+    ? await createAdminClient().from('events').select(EVENT_COLS).eq('event_id', eventId).maybeSingle()
+    : await supabase.from('events').select(EVENT_COLS).eq('event_id', eventId).maybeSingle();
   if (ev.error) logQueryError('AgreedNow.event', ev.error, { event_id: eventId }, 'graceful_degrade');
   if (quotes.error) logQueryError('AgreedNow.quotes', quotes.error, { event_id: eventId }, 'graceful_degrade');
   if (appts.error) logQueryError('AgreedNow.meetings', appts.error, { event_id: eventId }, 'graceful_degrade');
@@ -90,13 +93,33 @@ export async function AgreedNow({
   const perGuest = onTheEvent && versionsEmpty(quotes.data)
     ? (await readShopPerGuest(createAdminClient(), vendorProfileId, [eventId]))?.get(eventId) ?? null
     : null;
-  const event = ev.data as { event_date: string | null; estimated_pax: number | null; final_pax: number | null };
+  const event = ev.data as {
+    event_date: string | null;
+    estimated_pax: number | null;
+    final_pax: number | null;
+    date_mode: string | null;
+    date_candidates: string[] | null;
+    date_window_start: string | null;
+    date_window_end: string | null;
+    event_days: number | null;
+  };
   const versions = orderQuoteVersions((quotes.data ?? []) as unknown as QuoteVersionRow[]);
   const outcome = agreedOutcome({ isBooked, declined: false }, versions);
   const rows = agreedRows({
     viewerUserId,
     quotes: versions,
-    event: { eventDate: event.event_date, estimatedPax: event.estimated_pax, finalPax: event.final_pax },
+    event: {
+      eventDate: event.event_date,
+      estimatedPax: event.estimated_pax,
+      finalPax: event.final_pax,
+      dateOptions: {
+        mode: event.date_mode,
+        candidates: event.date_candidates,
+        windowStart: event.date_window_start,
+        windowEnd: event.date_window_end,
+        days: event.event_days,
+      },
+    },
     changes,
     meetings: ((appts.data ?? []) as { appointment_id: string; type: string; custom_label: string | null; scheduled_at: string | null; status: string }[])
       .filter((a) => a.scheduled_at)

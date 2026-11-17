@@ -10,7 +10,7 @@
 import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, hostPlusRows, supplierPlusRows, type PlusCardKind } from '@/lib/chat-plus';
+import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, RISING_DRAFTS, hostPlusRows, supplierPlusRows, type PlusCardKind } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { openPlusDoor, plusDoor } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatCardShell } from './chat-step-card';
@@ -37,8 +37,9 @@ export function PlusDraft({
   // card has a height — or before the anchor exists — and the card sat below the fold (Poll, 11 Nov review). For the
   // first moments of a draft, every growth of the anchor brings it back into view; after that the person scrolls.
   const startedAt = draft?.startedAt ?? null;
+  const rises = draft ? RISING_DRAFTS.has(draft.kind) : false;
   useEffect(() => {
-    if (startedAt == null || typeof ResizeObserver === 'undefined') return;
+    if (startedAt == null || rises || typeof ResizeObserver === 'undefined') return;
     const el = document.getElementById(PLUS_DRAFT_ANCHOR);
     if (!el) return;
     jumpTo(PLUS_DRAFT_ANCHOR);
@@ -49,7 +50,7 @@ export function PlusDraft({
       window.clearTimeout(stop);
       ro.disconnect();
     };
-  }, [startedAt]);
+  }, [startedAt, rises]);
   useEffect(() => {
     if (!toast) return;
     const id = window.setTimeout(() => patchPlus(threadId, { toast: null }), 3200);

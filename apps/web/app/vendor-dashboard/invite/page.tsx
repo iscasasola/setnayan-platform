@@ -337,6 +337,8 @@ export default async function VendorQrCodesPage({
         // Customers › People › an outside booking › "Send their code" (owner 2026-10-28): the code names that booking.
         blockId={blockId}
         initial={initial}
+        // 🔳 RW-378: a refused Generate reopens the form with what was typed (lib/locked-qr-draft.ts).
+        refused={Boolean(search.error)}
         servicePrices={Object.fromEntries(live.map((s) => [s.vendor_service_id, s.starting_price_php ?? null]))}
       />
     );

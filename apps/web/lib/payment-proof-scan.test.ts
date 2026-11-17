@@ -127,6 +127,49 @@ test('prose is not mistaken for a reference', () => {
   assert.deepEqual(s.references, []);
 });
 
+// ── GCash prints the reference and the date on ONE line (live fault 2026-11-17).
+// Before the fix every one of these read NO reference, silently.
+
+test('GCash same-line layout — reference followed by the date and time', () => {
+  const s = scanPaymentProof('Ref No. 4012345678901 Nov 16, 2026 8:10 PM');
+  assert.deepEqual(s.references.map((r) => r.value), ['4012345678901']);
+});
+
+test('GCash same-line layout — GROUPED reference followed by the date', () => {
+  const s = scanPaymentProof('Ref No. 0043 457 367694 Nov 16, 2026');
+  assert.deepEqual(s.references.map((r) => r.value), ['0043457367694']);
+});
+
+test('same-line reference followed by a time, a numeric date, a word or punctuation', () => {
+  for (const line of [
+    'Ref No. 4012345678901 8:10 PM',
+    'Ref No. 4012345678901 16/11/2026',
+    'Ref No. 4012345678901 2026-11-16',
+    'Ref No. 4012345678901 Sent via GCash',
+    'Ref No. 4012345678901 PHP 2,999.00',
+    'Ref No. 4012345678901, Nov 16',
+  ]) {
+    assert.deepEqual(
+      scanPaymentProof(line).references.map((r) => r.value),
+      ['4012345678901'],
+      line,
+    );
+  }
+});
+
+test('same-line InstaPay invoice still tagged as the invoice', () => {
+  const s = scanPaymentProof('InstaPay Invoice No. 6991560 Nov 16, 2026 8:10 PM');
+  assert.deepEqual(
+    s.references.map((r) => [r.kind, r.value]),
+    [['instapay_invoice', '6991560']],
+  );
+});
+
+test('a prose line with a reference label still yields nothing', () => {
+  const s = scanPaymentProof('Please keep your reference number for your records');
+  assert.deepEqual(s.references, []);
+});
+
 test('scanning empty text is safe', () => {
   const s = scanPaymentProof('', 100);
   assert.deepEqual(s.references, []);

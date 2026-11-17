@@ -1,3 +1,4 @@
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronRight, QrCode, X } from 'lucide-react';
@@ -308,7 +309,9 @@ export function OtherChatsFold({
             {paged.items.map((c) => (
               <li key={c.threadId} className="flex items-center gap-1 border-t border-ink/10 first:border-t-0" data-other-chat={c.archived ? 'archived' : 'closed'}>
                 <Link
-                  href={`/vendor-dashboard/messages/${c.threadId}`}
+                  // This exact closed / archived / older chat — the picked client's Chat draws the event's NEWEST thread,
+                  // so these keep the full-screen page (supplierThreadPageHref, lib/upcoming-schedule-door.ts).
+                  href={supplierThreadPageHref(c.threadId)}
                   className="sn-press grid min-h-14 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
                 >
                   <span className="min-w-0">

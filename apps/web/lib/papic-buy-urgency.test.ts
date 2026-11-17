@@ -151,7 +151,7 @@ test('a timestamp works as well as a plain date', () => {
 });
 
 test('the admin queue puts today first, above even a clean match', () => {
-  const src = noComments(read('app/admin/payments/page.tsx'));
+  const src = noComments((read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx')));
   assert.match(
     src,
     /Number\(b\.sameDay\) - Number\(a\.sameDay\) \|\| Number\(b\.decisive\) - Number\(a\.decisive\)/,
@@ -167,7 +167,7 @@ test('the admin queue puts today first, above even a clean match', () => {
 test('🪤 the queue read fails OPEN on the ordering, never on the page', () => {
   // Losing the jump costs an ordering an admin can work around. Throwing takes
   // down the payments console — during the event it was meant to rescue.
-  const src = read('app/admin/payments/page.tsx');
+  const src = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
   const fn = src.slice(src.indexOf('async function fetchSameDayOrderIds'));
   assert.match(fn, /catch\s*\{\s*\n?\s*return out;/, 'must swallow and return empty');
   assert.match(fn, /if \(error \|\| !Array\.isArray\(data\)\) return out;/);

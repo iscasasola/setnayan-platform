@@ -139,22 +139,37 @@ test('both thread pages supply the counter destination and honour it', () => {
   }
 });
 
-test('the jump pills exist and cost no layout height', () => {
+test('the jumps have their own row above the message box — and cost nothing when there is nowhere to jump', () => {
+  /*
+    ── EVOLVED 2026-11-16 (DECISION_LOG 2026-11-16 CHAT-09, owner "Yes, build it") ─────────────────────────────
+    This test used to demand both pills be `absolute` over the scroller, so they cost no layout height. The ruling
+    moves them OUT of the overlay: a pill floating over the first message covered words and pressed at ~26 px. They
+    now share ONE 44 px row directly above the message box, in the thumb zone. The property this test exists for —
+    the jumps never take height from the conversation for nothing — survives as: the row is drawn ONLY while a target
+    is off screen (0 px at rest), and never while a poll or decision form is up.
+    Sabotage (16 Nov): the `return null` guard dropped (the row always drawn) → RED; the pills put back `absolute`
+    over the scroller → RED.
+  */
   const s = read(STREAM);
-  assert.match(s, /Jump to the quote/, 'no way back to the quote from the conversation');
-  assert.match(s, /Latest messages/, 'no way back to the newest message');
-  // Absolute, or they take the very space this change exists to give back.
-  // Both pills, counted — removing `absolute` from one left the other's match
-  // satisfying a bare /absolute/ over the window.
-  const pills = s.slice(s.indexOf('Jump to the quote') - 700, s.indexOf('Latest messages') + 300);
-  const absolutes = pills.match(/className="absolute/g) ?? [];
-  assert.equal(
-    absolutes.length,
-    2,
-    `${absolutes.length} of 2 pills are absolutely positioned. One in flow costs ` +
-      'back the very height this change exists to return to the conversation.',
-  );
-  // And they must be conditional: a pill that is always there is a pinned bar.
-  assert.match(s, /quoteOffScreen && latestProposalId \?/);
-  assert.match(s, /awayFromBottom \?/);
+  assert.match(s, /aria-label="Jump to the quote"/, 'no way back to the quote from the conversation');
+  assert.match(s, /aria-label="Latest messages"/, 'no way back to the newest message');
+  const at = s.indexOf('data-chat-jump-row=""');
+  assert.ok(at > 0, 'the jumps have no row of their own');
+  // The row comes after the conversation list closes — below the messages, the last thing above the message box.
+  assert.ok(at > s.indexOf('</ol>'), 'the jump row is not below the messages');
+  // ONE row holds both, and neither floats over the words any more.
+  const block = s.slice(s.lastIndexOf('{(() => {', at), s.indexOf('})()}', at));
+  assert.match(block, /aria-label="Jump to the quote"/, 'the quote jump left the row');
+  assert.match(block, /aria-label="Latest messages"/, 'the latest jump left the row');
+  assert.doesNotMatch(s, /className="absolute[^"]*"[^>]*>\s*📄 Jump to the quote|className="absolute[^"]*"[^>]*>\s*↓ Latest messages/, 'a pill floats over the messages again');
+  // Any bare `absolute` in the row (its press halo is `after:absolute`, which floats nothing) puts a jump back over the words.
+  assert.doesNotMatch(block, /(?<![\w:-])absolute\b/, 'a jump floats over the messages again');
+  // 0 px at rest: the row is not drawn unless a target is off screen, and never under a rising form.
+  assert.match(block, /const quoteJump = quoteOffScreen && latestProposalId !== null;/);
+  assert.match(block, /const formUp = plusState\.draft != null && RISING_DRAFTS\.has\(plusState\.draft\.kind\);/);
+  assert.match(block, /if \(formUp \|\| !\(quoteJump \|\| awayFromBottom\)\) return null;/, 'the row is drawn with nothing to jump to');
+  assert.match(block, /\{quoteJump \? \(/);
+  assert.match(block, /\{awayFromBottom \? \(/);
+  // A 44 px row — the drawn height (`h-11`), never taller.
+  assert.match(block, /className="flex h-11 shrink-0 [^"]*" data-chat-jump-row=""/);
 });

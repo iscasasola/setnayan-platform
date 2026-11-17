@@ -62,8 +62,8 @@ test('Next to earn uses the shipped thresholds — never a new number', () => {
   assert.equal(nextToEarnLine(96), 'Next to earn: 100 events · Gold · 4 to go');
   assert.equal(nextToEarnLine(0), 'Next to earn: 10 events · Bronze · 10 to go');
   assert.equal(nextToEarnLine(25), 'Next to earn: 50 events · Silver · 25 to go');
-  assert.equal(nextToEarnLine(100), 'Next to earn: 500 events · Platinum · 400 to go');
-  assert.equal(nextToEarnLine(4200), 'Next to earn: 5,000 events · Ruby · 800 to go');
+  assert.equal(nextToEarnLine(100), 'Next to earn: 500 events · Ruby · 400 to go');
+  assert.equal(nextToEarnLine(4200), 'Next to earn: 5,000 events · Diamond · 800 to go');
   assert.equal(nextToEarnLine(10000), null, 'there is no rung above 10,000');
   assert.equal(nextToEarnLine(null), null);
   for (let n = 0; n <= 12000; n += 7) {

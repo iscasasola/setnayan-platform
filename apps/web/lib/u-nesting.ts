@@ -86,7 +86,7 @@ export const EVENT_SUB_ROUTES: ReadonlySet<string> = new Set([
 
 /** A shop's pages under its bare address (lib/shop-address.ts `SHOP_SUB_PAGES`) — repeated here so this file stays
  *  free of imports; `u-nesting.test.ts` holds the two lists equal. */
-export const SHOP_SUB_ROUTES: ReadonlySet<string> = new Set(['dates', 'booth', 'review', 'guest-review']);
+export const SHOP_SUB_ROUTES: ReadonlySet<string> = new Set(['dates', 'booth', 'review', 'guest-review', 'story']);
 
 /** Second words that are never an event under a person. */
 export function isNotANestedEvent(second: string): boolean {

@@ -19,6 +19,7 @@
  *
  * The buttons post to the real server actions, which refuse without an admin session — a lab press changes nothing.
  */
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
@@ -212,9 +213,9 @@ function LabFocusCard({ v }: { v: string }) {
   return (
     <FocusCardSheet title={kicker} kicker={kicker}>
       <div className="flex items-center justify-between gap-3 text-[13px] text-[color:var(--sn-ink-500)]" data-focus-received-position="">
-        <a href="/dev/admin-money-lab?v=focus-home" className="underline underline-offset-2">‹ Focus</a>
+        <Link href="/dev/admin-money-lab?v=focus-home" className="underline underline-offset-2">‹ Focus</Link>
         <span className="tabular-nums">{`${at + 1} of ${total}`}</span>
-        {at + 1 < total ? <a href={next} className="underline underline-offset-2">Next</a> : <span />}
+        {at + 1 < total ? <Link href={next} className="underline underline-offset-2">Next</Link> : <span />}
       </div>
       {buyer ? (
         <BuyerSaysPaidCard payment={WAITING.find((w) => w.amount_php === 899)!} rows={RECEIVED} lastDrop={LAST_DROP} query="" next={next} />

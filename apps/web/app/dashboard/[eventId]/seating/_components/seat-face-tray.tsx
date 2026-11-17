@@ -303,7 +303,7 @@ export function SeatFaceTray({
           </span>
         </div>
       ) : null}
-      <div className="rounded-2xl bg-cream px-3.5 py-3 shadow-[0_8px_24px_-10px_rgb(var(--color-ink)/0.18),0_2px_6px_-2px_rgb(var(--color-ink)/0.08)]">
+      <div className="sn-frame px-3.5 py-3">
         <p className="flex items-baseline gap-2">
           <b className="shrink-0 text-[13.5px] font-semibold text-ink">To seat · {formatCount(total)}</b>
           <small className="min-w-0 text-xs text-ink/70" data-seat-tray-hint="">

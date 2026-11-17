@@ -954,6 +954,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     policyAck = null;
   }
 
+  // ⛔ A refused contracts read used to become `[]`: the chip said the booking had no contract and the panel said
+  // "No contracts uploaded yet" — over a read that never answered (audit 2026-11-17). Measured now.
+  const contractsMeasured = !contractsRes.error;
+  if (!contractsMeasured) logQueryError('workspace.contracts', contractsRes.error, { event_id: eventId });
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
     public_id: string;
@@ -2245,6 +2249,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <div className="flex items-center gap-2">
               {/* Derived contract indicator (2026-06-22) — shows this booking's
                   contract status at a glance, linking to the contract. */}
+              {contractsMeasured ? (
               <span
                 className={[
                   'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
@@ -2257,9 +2262,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               >
                 {bookingContractStateLabel(contractState)}
               </span>
+              ) : null}
               <Link
                 href={`/dashboard/${eventId}/contracts`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+                className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
               >
                 <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Manage
@@ -2272,6 +2278,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
+          ) : !contractsMeasured ? (
+            <p role="status" className="text-xs text-warn-800">
+              We couldn&rsquo;t load this booking&rsquo;s contracts just now &mdash; this does not mean there are none.
+              Reload in a moment, or open Manage to look.
+            </p>
           ) : contracts.length === 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-ink/55">
@@ -2283,7 +2294,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   in the thread. Deep-links straight to the conversation. */}
               <Link
                 href={conversationHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
               >
                 <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Ask {displayName} for a contract

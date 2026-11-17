@@ -9,3 +9,4 @@ Google's AI answers about Setnayan (pasted by the owner) filled three FAQ gaps w
 - `HELP_LASTMOD` → 2026-11-18 so the help sitemap tells crawlers the answers changed.
 
 SPEC IMPACT: None — FAQ copy describing what already ships.
+- FIX `supplier-what-verified-changes`: said a booking is refused before verification and the shop "always" shows in search. Since 15 Nov (`shopBookingRefusal`, `lib/findable-shop.ts`) it is the reverse — an unverified shop is messaged and booked on its own link or QR and shows in no search list until verified. The new freelancer answer says the same.

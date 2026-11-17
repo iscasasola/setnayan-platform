@@ -166,10 +166,12 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         body: 'Unverified — nothing sent yet. Pending review — your documents are with the team. Verified — you are checked and can be booked. If something needs fixing, your documents show Needs attention with the reason, so you can send a better copy.',
       },
       {
-        // lib/vendor-verification.ts `isBookableVerificationState`, `VENDOR_NOT_VERIFIED_COUPLE_MESSAGE`; lib/findable-shop.ts; lib/vendor-corrections.ts `identityLockOf`
+        // lib/findable-shop.ts (search lists verified shops only — owner 2026-11-15 "Verified only"); lib/vendor-visibility.ts
+        // `shopBookingRefusal` (an unverified shop is booked on its own page since 15 Nov); lib/vendor-corrections.ts `identityLockOf`.
+        // Until 2026-11-18 this said a booking was refused before verification and the shop "always" showed in search — both false.
         slug: 'supplier-what-verified-changes',
         title: 'Suppliers: what changes once I am verified?',
-        body: 'Couples can book you — until then they can ask, but a booking is refused. Your shop always shows in search, with its verified mark, and the not-yet-verified notice leaves your page. Your shop name, address and web address are then changed only by request, so couples can trust what they booked.',
+        body: 'Your shop starts showing in search, Discover and Suppliers › Find, with its verified mark, and the not-yet-verified notice leaves your page. Before that, couples reach you only through your own link or QR — they can still message and book you there. Your shop name, address and web address are then changed only by request, so couples can trust what they booked.',
       },
     ],
   },

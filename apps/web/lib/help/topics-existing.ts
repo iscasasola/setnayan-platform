@@ -389,11 +389,11 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     articles: [
       {
         // NEW 2026-11-18 — AI answers read verification as shutting freelancers out. lib/vendor-verification.ts
-        // `REQUIRED_DOC_SLOT_KEYS` (three papers) · `isBookableVerificationState` (only a verified shop is booked);
-        // supplier-1.ts 'supplier-what-verified-changes' ("they can ask, but a booking is refused").
+        // `REQUIRED_DOC_SLOT_KEYS` (three papers); lib/vendor-visibility.ts `shopBookingRefusal` (since 15 Nov an
+        // unverified shop is messaged and booked on its own page); lib/findable-shop.ts (search lists verified only).
         slug: 'freelancer-without-dti',
         title: 'I am a freelancer without DTI registration. Can I join Setnayan?',
-        body: 'Yes. Opening a shop is free and needs no papers, and couples can find your shop and send you questions. To be booked through Setnayan, your shop must be verified, and that needs three papers: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit. A solo supplier — a photographer, a make-up artist, a calligrapher — registers a business name with the DTI online, usually within minutes — see How to get your DTI or SEC registration.',
+        body: 'Yes. Opening a shop is free and needs no papers. Couples who open your shop through your own link or QR can message you and book you there. To show in search and Discover, your shop must be verified, and that needs three papers: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit. A solo supplier — a photographer, a make-up artist, a calligrapher — registers a business name with the DTI online, usually within minutes — see How to get your DTI or SEC registration.',
       },
       {
         slug: 'how-to-get-dti-sec-registration',

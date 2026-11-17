@@ -138,7 +138,8 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/vendor-verification.ts `DOC_SLOTS`, `REQUIRED_DOC_SLOT_KEYS`
         slug: 'supplier-which-documents',
         title: 'Suppliers: which documents are required, and which are optional?',
-        body: 'Four are required: your DTI or SEC registration, your BIR Form 2303, your Mayor’s Permit for the current year, and proof of your bank account. Three help but are optional: portfolio samples, a few past client references, and your social media links. Send them as a PDF, JPG or PNG.',
+        // Three since the owner's 2026-11-14 ruling (bank proof removed) — the answer said four until 2026-11-18.
+        body: 'Three are required: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit for the current year. Three help but are optional: portfolio samples, a few past client references, and your social media links. Send them as a PDF, JPG or PNG.',
       },
       {
         // app/vendor-dashboard/verify/page.tsx redirect(`/vendor-dashboard/profile…#docs`); lib/supplier-setup.ts 'Send your documents'

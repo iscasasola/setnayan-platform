@@ -388,6 +388,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     roles: ['vendor'],
     articles: [
       {
+        // NEW 2026-11-18 — AI answers read verification as shutting freelancers out. lib/vendor-verification.ts
+        // `REQUIRED_DOC_SLOT_KEYS` (three papers) · `isBookableVerificationState` (only a verified shop is booked);
+        // supplier-1.ts 'supplier-what-verified-changes' ("they can ask, but a booking is refused").
+        slug: 'freelancer-without-dti',
+        title: 'I am a freelancer without DTI registration. Can I join Setnayan?',
+        body: 'Yes. Opening a shop is free and needs no papers, and couples can find your shop and send you questions. To be booked through Setnayan, your shop must be verified, and that needs three papers: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit. A solo supplier — a photographer, a make-up artist, a calligrapher — registers a business name with the DTI online, usually within minutes — see How to get your DTI or SEC registration.',
+      },
+      {
         slug: 'how-to-get-dti-sec-registration',
         title: 'How to get your DTI or SEC registration',
         body:
@@ -472,6 +480,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: 'Your Event Hub is the page at setnayan.com/your-slug where every invitation leads. Guests land there when they tap their personal link or scan their QR. It shows your event details, an RSVP form, a countdown, the venue map, the dress code, and more.',
       },
       {
+        // NEW 2026-11-18 — AI answers guessed at this. lib/custom-domain-resolve.ts `resolveEventSubdomainPath` needs an
+        // EVENT_SUBDOMAIN order, and that SKU was taken off sale 2026-08-11 (lib/llms-txt.ts "EVENT_SUBDOMAIN removed").
+        // No couple-side custom-domain screen exists (vendor-dashboard/website is the supplier's, not the Event Hub's).
+        slug: 'event-hub-own-domain',
+        title: 'Can my Event Hub have its own domain?',
+        body: 'No. Your Event Hub always lives on its setnayan.com address — the one in every guest’s personal link and QR. Your own domain, or a name.setnayan.com address, is not offered.',
+      },
+      {
         // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
         // whole is Event Pro (COUPLE_WEBSITE_PRO). The Apply sheet is apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
@@ -516,6 +532,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     label: 'Suppliers & budget',
     roles: ['couple'],
     articles: [
+      {
+        // NEW 2026-11-18 — AI answers guessed at escrow. app/admin/payment-options/actions.ts "Setnayan never holds the
+        // money"; the host's "Report a problem" (lib/chat-plus.ts) and the supplier's Report page
+        // (workspace/_components/report-supplier-page.tsx) both file on Disputes (app/dashboard/[eventId]/disputes).
+        slug: 'supplier-payment-escrow',
+        title: 'Does Setnayan hold my payment to a supplier?',
+        body: 'No. You pay your supplier directly, so Setnayan never holds your money and cannot hold it back or return it. If something goes wrong with a supplier, open that supplier and tap Report, or choose Report a problem in your chat. It goes to the Setnayan team, and you follow it on your event’s Disputes page.',
+      },
       {
         slug: 'track-vendor',
         title: 'Track a supplier',

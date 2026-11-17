@@ -1,0 +1,11 @@
+## 2026-11-18 · fix(help): answer what Google's AI answers were guessing — freelancers, escrow, Event Hub domains
+
+Google's AI answers about Setnayan (pasted by the owner) filled three FAQ gaps with guesses, and one existing answer was false.
+
+- NEW `freelancer-without-dti` (Getting verified): a shop opens free with no papers; being booked needs verification and its three papers; a solo supplier registers a DTI business name online.
+- NEW `supplier-payment-escrow` (Suppliers & budget): couples pay suppliers directly, Setnayan never holds the money; a problem is reported from the supplier's Report page or Report a problem in chat and followed on Disputes.
+- NEW `event-hub-own-domain` (Event Hub): no own domain or name.setnayan.com address — EVENT_SUBDOMAIN is off sale since 2026-08-11.
+- FIX `supplier-which-documents`: said FOUR required papers including bank proof; `REQUIRED_DOC_SLOT_KEYS` has been THREE since the 2026-11-14 ruling.
+- `HELP_LASTMOD` → 2026-11-18 so the help sitemap tells crawlers the answers changed.
+
+SPEC IMPACT: None — FAQ copy describing what already ships.

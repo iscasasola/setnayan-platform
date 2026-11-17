@@ -36,7 +36,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Once you have your total, divide it the way real Filipino weddings divide. Catering and venue almost always take the largest share — often more than half the entire budget — because they scale directly with your guest count, which makes the guest list your single biggest lever. Photo and video usually land between ₱45,000 and ₱180,000 depending on hours and crew, and it is the one spend that outlives the day itself. Attire, florals, styling, hair and makeup, music, and stationery fill the rest. Knowing this shape stops you from overspending early on the pretty details and running short on the things that carry the day.',
+        text: 'Once you have your total, divide it the way real Filipino weddings divide. Catering and venue almost always take the largest share — often more than half the entire budget — because they scale directly with your guest count, which makes the guest list your single biggest lever. Photo and video depend on hours and crew — ask 3 suppliers for a quote — and it is the one spend that outlives the day itself. Attire, florals, styling, hair and makeup, music, and stationery fill the rest. Knowing this shape stops you from overspending early on the pretty details and running short on the things that carry the day.',
       },
       {
         type: 'ul',
@@ -78,7 +78,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       'Gold wedding rings and an invitation suite arranged on a styled table',
     title: 'The average cost of a wedding in the Philippines',
     excerpt:
-      'What a Filipino wedding really costs in 2026 — honest ranges by guest count, and why your number is in your control.',
+      'What really drives the cost of a Filipino wedding — by guest count, city and season — and why your number is in your control.',
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-07-17',
@@ -110,11 +110,11 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'h2',
-        text: 'Realistic 2026 ranges by guest count',
+        text: 'What changes with your guest count',
       },
       {
         type: 'p',
-        text: 'Rather than one average, think in bands. These are broad 2026 ranges Filipino couples actually encounter for a complete celebration — ceremony, reception, the core suppliers, and the day-of details. Where you land inside each band depends on your city, season, and how lavish your choices are. An intimate gathering of thirty to fifty guests can be remarkably modest, especially with a stripped-back civil wedding. A mid-size wedding of around a hundred to a hundred and fifty guests is the most common Filipino shape, with the venue, catering, and photo-video team driving most of the cost. Cross two hundred guests and every per-head cost multiplies, so the total climbs quickly — catering alone can dominate the budget.',
+        text: 'Rather than one average, think in sizes — and for real numbers, ask 3 suppliers for a quote on your own date and guest count. Where you land depends on your city, season, and how lavish your choices are. An intimate gathering of thirty to fifty guests can be remarkably modest, especially with a stripped-back civil wedding. A mid-size wedding of around a hundred to a hundred and fifty guests is the most common Filipino shape, with the venue, catering, and photo-video team driving most of the cost. Cross two hundred guests and every per-head cost multiplies, so the total climbs quickly — catering alone can dominate the budget.',
       },
       {
         type: 'h2',
@@ -122,7 +122,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Across almost every budget, the proportions hold steady. Catering and venue together take the largest share — frequently more than half — because they grow with your guest list. Photo and video commonly run ₱45,000 to ₱180,000 depending on hours and crew. Attire, florals, styling, hair and makeup, and music fill the middle, while stationery, the cake, the host, transport, and the marriage licence and church fees round out the rest. Plan for a buffer of around 10 to 15 percent on top, because overtime, corkage, and a few extra guests appear in nearly every wedding.',
+        text: 'Across almost every budget, the proportions hold steady. Catering and venue together take the largest share — frequently more than half — because they grow with your guest list. Photo and video depend on hours and crew, so ask 3 suppliers for a quote. Attire, florals, styling, hair and makeup, and music fill the middle, while stationery, the cake, the host, transport, and the marriage licence and church fees round out the rest. Plan for a buffer of around 10 to 15 percent on top, because overtime, corkage, and a few extra guests appear in nearly every wedding.',
       },
       {
         type: 'p',

@@ -340,7 +340,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
     coverAlt: 'Gold wedding rings, a letterpress invitation suite and eucalyptus on a styled table',
     title: 'How much do wedding suppliers cost in the Philippines?',
     excerpt:
-      'Typical 2026 price ranges for the most-booked wedding suppliers — and how to budget for them without surprises.',
+      'What drives the price of the most-booked wedding suppliers — and how to get quotes you can compare.',
     category: 'vendors',
     author: 'Setnayan Editorial',
     publishedAt: '2026-05-27',
@@ -368,18 +368,18 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'These are common ranges Filipino couples encounter for full-wedding coverage. Premium and celebrity-tier suppliers can run well above the top of each band.',
+        text: 'Prices move with the season, the city and the supplier, so we do not print ranges here. Ask 3 suppliers for a quote on the same date, hours and guest count, then compare what each one includes. What changes the price:',
       },
       {
         type: 'ul',
         items: [
-          'Photo and video team: roughly ₱45,000–₱180,000 depending on hours, crew size, and deliverables.',
-          'Catering: often ₱900–₱2,500 per head, so the total scales directly with your guest count.',
-          'Coordination: on-the-day coordination from about ₱25,000; full planning runs higher.',
-          'Hair and makeup: around ₱15,000–₱60,000 for the bride plus entourage add-ons.',
-          'Florals and styling: from about ₱40,000 for simple setups into the hundreds of thousands for full venue transformations.',
-          'Host or emcee: roughly ₱15,000–₱50,000.',
-          'Live music (acoustic to full band): about ₱20,000–₱120,000.',
+          'Photo and video team: hours of coverage, crew size and deliverables.',
+          'Catering: charged per head, so the total scales directly with your guest count.',
+          'Coordination: on-the-day coordination costs less than full planning.',
+          'Hair and makeup: the bride, plus how many in the entourage.',
+          'Florals and styling: a simple setup versus a full venue transformation.',
+          'Host or emcee: experience, and how long the program runs.',
+          'Live music: an acoustic set versus a full band, and the hours.',
         ],
       },
       {

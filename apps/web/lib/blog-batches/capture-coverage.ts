@@ -48,7 +48,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'In the Philippine market, wedding photo coverage commonly runs anywhere from around ₱25,000 for a newer solo shooter to ₱150,000 and up for an established team — and the number alone tells you almost nothing. What changes the price is hours of coverage, number of shooters, whether a prenup shoot is included, how the files are delivered, and whether you get a printed album. Two quotes that look far apart can describe nearly the same wedding once you line up the inclusions side by side.',
+        text: 'Wedding photo coverage varies a great deal between a newer solo shooter and an established team, so ask 3 suppliers for a quote on the same date and hours — and know that the number alone tells you almost nothing. What changes the price is hours of coverage, number of shooters, whether a prenup shoot is included, how the files are delivered, and whether you get a printed album. Two quotes that look far apart can describe nearly the same wedding once you line up the inclusions side by side.',
       },
       {
         type: 'ul',
@@ -113,7 +113,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Booking a combined photo-and-video team usually costs less than hiring two separate suppliers, and it removes the awkward dance of two rival crews fighting for the same angle and stepping into each other shots all day. As a rough guide, a bundled photo-and-video package in the Philippines commonly runs from around ₱45,000 for a smaller team to well past ₱180,000 for an established studio with multiple shooters, a dedicated cinematographer, and a same-day edit. The wide gap reflects real differences — hours of coverage, crew size, deliverables, and polish — so two quotes that look far apart can describe nearly the same wedding once you line up the inclusions. Always confirm what counts as photo and what counts as video inside a single bundled price, because sometimes the video is a lighter add-on rather than full, independent coverage.',
+        text: 'Booking a combined photo-and-video team usually costs less than hiring two separate suppliers, and it removes the awkward dance of two rival crews fighting for the same angle and stepping into each other shots all day. Bundled packages range widely, from a smaller team to an established studio with multiple shooters, a dedicated cinematographer and a same-day edit, so ask 3 suppliers for a quote on the same coverage. The gap reflects real differences — hours of coverage, crew size, deliverables, and polish — so two quotes that look far apart can describe nearly the same wedding once you line up the inclusions. Always confirm what counts as photo and what counts as video inside a single bundled price, because sometimes the video is a lighter add-on rather than full, independent coverage.',
       },
       {
         type: 'quote',
@@ -264,7 +264,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Many wedding photo packages already fold in a prenup session, so always check before booking it separately. As a standalone, an engagement shoot in the Philippines commonly runs from around ₱8,000 for a simple local session to ₱40,000 and beyond once you add multiple locations, hair and makeup, gown rentals, and travel to a destination like Tagaytay, Baguio, or the beach. The location and styling drive the price far more than the shooting itself.',
+        text: 'Many wedding photo packages already fold in a prenup session, so always check before booking it separately. As a standalone, an engagement shoot costs more once you add multiple locations, hair and makeup, gown rentals, and travel to a destination like Tagaytay, Baguio, or the beach — ask 3 suppliers for a quote on the same plan. The location and styling drive the price far more than the shooting itself.',
       },
       {
         type: 'quote',
@@ -424,7 +424,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'An SDE is an add-on, and it is not cheap, because it buys an editor a full extra day of intense work. In the Philippine market it often adds anywhere from a low five-figure amount to ₱30,000 or more on top of a video package, depending on the studio and the polish. Whether it is worth it depends on one question: do you want a moment for your guests during the reception, or are you content to relive the day privately afterward?',
+        text: 'An SDE is an add-on, and it is not cheap, because it buys an editor a full extra day of intense work. What it adds on top of a video package depends on the studio and the polish, so ask 3 suppliers for a quote with and without it. Whether it is worth it depends on one question: do you want a moment for your guests during the reception, or are you content to relive the day privately afterward?',
       },
       {
         type: 'ul',

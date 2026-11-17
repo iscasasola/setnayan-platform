@@ -100,3 +100,27 @@ test('5 · onboarding’s three "Not sure yet" articles exist and carry their ta
     assert.ok(tags.length <= ARTICLE_TAGS_MAX);
   }
 });
+
+test('6 · the committed import migration is exactly what the corrected source generates', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { journalImportSql } = await import('@/lib/journal-import-sql');
+  const file = path.resolve(
+    __dirname,
+    '../../../supabase/migrations/20271350850404_the_journal_moves_into_articles.sql',
+  );
+  assert.equal(
+    fs.readFileSync(file, 'utf8'),
+    journalImportSql(ALL_BLOG_ARTICLES),
+    'a post changed and the import did not. Before it reaches production: (cd apps/web && npx tsx ' +
+      'scripts/gen-journal-import.ts --write). AFTER it has been applied in production, write a NEW migration ' +
+      '(an UPDATE) instead — an applied migration is never edited.',
+  );
+});
+
+test('7 · Q4: no post carries a typed money figure (never guess money — "ask 3 suppliers for a quote")', () => {
+  for (const a of ALL_BLOG_ARTICLES) {
+    const text = `${a.title} ${a.excerpt} ${journalBodyFromBlocks(a.blocks)}`;
+    assert.doesNotMatch(text, /₱\s?\d|\bPHP\s?\d|\d[\d,]*\s?pesos|thousands of pesos|five[- ]figure/i, `${a.slug} prints a price`);
+  }
+});

@@ -24,7 +24,7 @@ import { useState } from 'react';
 import { CalendarClock, Check, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
-import { TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, TypedRow } from '@/app/_components/form-row';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 // Aliased, not relative: the field-parity scan (`canvas-field-parity.test.ts`) walks relative imports, and this shared
@@ -38,6 +38,7 @@ import {
   type ScheduleItemDraft,
 } from '@/lib/vendor-service-payment-schedules';
 import { parseReservationFee } from '@/lib/reservation-fee';
+import { PAY_PLAN_NAME_MAX, planScopeQuestion, samePlanRows, type PayPlanOption } from '@/lib/vendor-pay-plans';
 
 type Row = {
   label: string;
@@ -103,6 +104,26 @@ function blankRow(label: string): Row {
   };
 }
 
+/** A row on screen → the draft shape a saved plan is compared in. */
+function rowAsDraft(r: Row, i: number): ScheduleItemDraft {
+  const v = r.value.trim() === '' ? null : Number(r.value);
+  const days = r.due_offset_days.trim() === '' ? null : Number(r.due_offset_days);
+  const win = r.refund_window_days.trim() === '' ? null : Number(r.refund_window_days);
+  return {
+    seq: i,
+    label: r.label,
+    amount_kind: r.amount_kind,
+    percent: r.amount_kind === 'percent' ? v : null,
+    amount_php: r.amount_kind === 'fixed' ? v : null,
+    due_anchor: r.due_anchor === '' ? null : r.due_anchor,
+    due_offset_days: r.due_anchor === '' ? null : days,
+    cancellation_terms: r.cancellation_terms.trim() ? r.cancellation_terms : null,
+    downpayment_non_refundable: r.downpayment_non_refundable,
+    refund_window_days: win,
+    no_show_forfeit: r.no_show_forfeit,
+  };
+}
+
 /** What the one box shows for a saved first payment: "5000" or "10%". */
 function feeText(r: { amount_kind: AmountKind; value: string }): string {
   if (r.value.trim() === '') return '';
@@ -114,9 +135,22 @@ export function PaymentScheduleEditor({
   initial,
   bare = false,
   pricePhp = null,
+  plans,
+  otherCards,
+  cardPlanId = null,
 }: {
   serviceId: string;
   initial: ScheduleItemDraft[];
+  /**
+   * 💳 PAYMENT STRATEGIES (DECISION_LOG 2026-11-17, "made once, used on every card") — the shop's saved pay plans, the
+   * card maker only (bare). `undefined` = not offered · `null` = the read was refused: the plan part is SAID unread and
+   * posts nothing, so the save leaves the card's plan as it is.
+   */
+  plans?: PayPlanOption[] | null;
+  /** The shop's other cards, for "Use on other cards…". `null` = unread (the list is then not offered). */
+  otherCards?: { id: string; title: string; payPlanId: string | null }[] | null;
+  /** The saved plan this card follows now (`vendor_services.pay_plan_id`). */
+  cardPlanId?: string | null;
   /**
    * The rows only, posting with the card's ONE save (the simpler maker, 2026-10-14): no `<form>`, no heading, no
    * "Save schedule". Same field names, same row shape — `commitVendorService` parses them with the SAME parser as
@@ -133,6 +167,33 @@ export function PaymentScheduleEditor({
   const [rows, setRows] = useState<Row[]>(
     initial.length > 0 ? initial.map(draftToRow) : [],
   );
+
+  // 💳 The plan part (bare + plans read). '' = this card's own rows.
+  const planOn = bare && Array.isArray(plans);
+  const [planId, setPlanId] = useState<string>(() => (planOn && cardPlanId && plans?.some((p) => p.id === cardPlanId) ? cardPlanId : ''));
+  const [saveName, setSaveName] = useState('');
+  const [applyTo, setApplyTo] = useState<string[]>([]);
+  const [scope, setScope] = useState<'all' | 'this' | null>(null);
+  const plan = planOn ? (plans ?? []).find((p) => p.id === planId) ?? null : null;
+  const edited = plan ? !samePlanRows(rows.map(rowAsDraft), plan.items) : false;
+  /** The OTHER cards on the picked plan — when there are any, an edit asks once: all of them, or just this one. */
+  const othersOnPlan = plan ? plan.cardIds.filter((id) => id !== serviceId) : [];
+  const pickPlan = (key: string) => {
+    if (key === 'own') {
+      setPlanId('');
+      setScope(null);
+      return;
+    }
+    const p = (plans ?? []).find((x) => x.id === key);
+    if (!p) return;
+    const next = p.items.map(draftToRow);
+    setRows(next);
+    if (oneBox) setFeeRaw(next[0] ? feeText(next[0]) : '');
+    setPlanId(p.id);
+    setSaveName('');
+    setScope(null);
+  };
+  const applyChoices = (otherCards ?? []).filter((c) => c.id !== serviceId && !(plan && plan.cardIds.includes(c.id)));
 
   function update(i: number, patch: Partial<Row>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -182,7 +243,31 @@ export function PaymentScheduleEditor({
       className={bare ? 'space-y-2' : 'mt-3 space-y-2 sn-row p-3'}
     >
       {bare ? (
-        <input type="hidden" name="schedule_present" value="1" />
+        <>
+          <input type="hidden" name="schedule_present" value="1" />
+          {plans === null ? (
+            <p className="text-[13px] text-ink/60" role="status" data-pay-plan-unread="">
+              Your saved pay plans could not be read just now. This card’s own payments still save.
+            </p>
+          ) : planOn ? (
+            <div data-pay-plan="">
+              <input type="hidden" name="pay_plan_present" value="1" />
+              <input type="hidden" name="pay_plan_id" value={planId} />
+              <input type="hidden" name="pay_plan_edited" value={edited ? '1' : ''} />
+              <input type="hidden" name="pay_plan_scope" value={scope ?? ''} />
+              {(plans ?? []).length > 0 ? (
+                <ChosenRow
+                  name="Pay plan"
+                  about={{ title: 'Pay plan', words: 'Pick one of your saved plans, or set this card’s own payments.' }}
+                  value={planId || 'own'}
+                  options={[{ key: 'own', label: 'This card’s own' }, ...(plans ?? []).map((p) => ({ key: p.id, label: `${p.name} · yours` }))]}
+                  onPick={pickPlan}
+                  data="pay-plan"
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </>
       ) : (
         <>
           <input type="hidden" name="vendor_service_id" value={serviceId} />
@@ -428,6 +513,76 @@ export function PaymentScheduleEditor({
           ))}
         </ul>
       )}
+
+      {planOn && rows.length > 0 ? (
+        <div className="space-y-2 border-t border-[color:var(--m-line)] pt-3" data-pay-plan-more="">
+          {plan && edited && othersOnPlan.length > 0 ? (
+            <div className="space-y-2" role="group" aria-label={planScopeQuestion(othersOnPlan.length + 1)} data-pay-plan-scope="">
+              <p className="text-sm text-ink">{planScopeQuestion(othersOnPlan.length + 1)}</p>
+              <PillTrack>
+                <PillButton on={scope !== 'this'} aria-pressed={scope !== 'this'} onClick={() => setScope('all')} className="px-3">
+                  {`All ${othersOnPlan.length + 1} cards`}
+                </PillButton>
+                <PillButton on={scope === 'this'} aria-pressed={scope === 'this'} onClick={() => setScope('this')} className="px-3">
+                  Just this one
+                </PillButton>
+              </PillTrack>
+              <p className="text-[12.5px] text-ink/55" aria-live="polite">
+                {scope === 'this'
+                  ? `This card gets its own copy. The other ${othersOnPlan.length === 1 ? 'card keeps' : `${othersOnPlan.length} keep`} “${plan.name}”.`
+                  : `Saving changes “${plan.name}” on all ${othersOnPlan.length + 1} cards.`}
+              </p>
+            </div>
+          ) : null}
+          {!plan ? (
+            <TypedRow
+              name="Save as my plan"
+              about={{ title: 'Save as my plan', words: 'Name these payments to use them on other cards. Saved with the card.' }}
+              value={saveName}
+              empty="Name it, like My 3-step plan"
+              placeholder="My 3-step plan"
+              maxLength={PAY_PLAN_NAME_MAX}
+              onType={setSaveName}
+              onKeep={setSaveName}
+              data="pay-plan-name"
+            />
+          ) : null}
+          <input type="hidden" name="pay_plan_save_name" value={plan ? '' : saveName} />
+          {(plan || saveName.trim()) && applyChoices.length > 0 ? (
+            <fieldset className="space-y-1" data-pay-plan-apply="">
+              <legend className={SECTION_LABEL}>Use on other cards</legend>
+              <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={applyChoices.every((c) => applyTo.includes(c.id))}
+                  onChange={(e) => setApplyTo(e.target.checked ? applyChoices.map((c) => c.id) : [])}
+                  className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta focus:ring-terracotta"
+                />
+                <span>All cards</span>
+              </label>
+              {applyChoices.map((c) => (
+                <label key={c.id} className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={applyTo.includes(c.id)}
+                    onChange={(e) => setApplyTo((cur) => (e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)))}
+                    className="h-4 w-4 rounded border-[color:var(--m-line)] text-terracotta focus:ring-terracotta"
+                  />
+                  <span>{c.title}</span>
+                </label>
+              ))}
+              {applyTo.map((id) => (
+                <input key={id} type="hidden" name="pay_plan_apply_to" value={id} />
+              ))}
+              {applyTo.length > 0 ? (
+                <p className="text-[12.5px] text-ink/55" aria-live="polite">
+                  {`On Save, ${applyTo.length === 1 ? 'that card takes' : `those ${applyTo.length} cards take`} these payments too.`}
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ActionButton

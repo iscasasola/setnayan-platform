@@ -427,7 +427,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text,description,video_url,pay_plan_id',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -542,6 +542,8 @@ export async function loadCardForEdit(
     sourceTitle: c.title?.trim() || null,
     sourceWasOtherCategory: false,
     title: c.title?.trim() || '',
+    description: typeof c.description === 'string' ? c.description : '',
+    videoUrl: typeof c.video_url === 'string' ? c.video_url : '',
     includesSetnayanGift: c.includes_setnayan_gift === true,
     giftPackCode: typeof c.gift_pack_code === 'string' && c.gift_pack_code.length > 0 ? c.gift_pack_code : null,
     coverageId: str(c.coverage_id),
@@ -578,6 +580,7 @@ export async function loadCardForEdit(
   };
   const editing: MakerEditing = {
     serviceId,
+    payPlanId: typeof c.pay_plan_id === 'string' ? c.pay_plan_id : null,
     isActive: c.is_active === true,
     coverUrl: c.primary_photo_r2_key ? (mediaDisplayUrls[c.primary_photo_r2_key] ?? null) : null,
     coverKey: c.primary_photo_r2_key ?? null,

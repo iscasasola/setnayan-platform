@@ -31,6 +31,9 @@ export type CanvasInitial = {
   sourceWasOtherCategory: boolean;
 
   title: string;
+  /** 📝 A few sentences about the card and a link to a video hosted elsewhere (HYBRID Q3, 2026-11-17). Optional. */
+  description?: string;
+  videoUrl?: string;
   /**
    * Whether the copied card said yes to the Setnayan gift.
    *

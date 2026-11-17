@@ -9,6 +9,7 @@
  *   ?view=inspiration                          🔗🖼 Services (each card's looks strip) + the Inspiration section (2026-10-30)
  *   ?view=photos[&owner=1][&state=fail]       📸 photos by service — the service names + the Portfolio row (owner 2026-11-14)
  *   ?view=card                                 🃏 one full card — tap it: the Service card grown (Build 5 Lane C)
+ *   ?view=card&about=1                         📝 …with the card's description and video link (Card Maker part 2)
  *   ?view=card&work=1|unread                   🃏📸 …with the photos of the events booked on it inside Events (record flag ON)
  *   ?events=N                                  the shop's badge pills under its name, as the page draws them
  *                                              (`lib/shop-badges.ts`: Verified · the step N reached · ★ 4.8 from 31)
@@ -58,7 +59,7 @@ export default async function ShopPreviewLabPage({
                 key: 'bar',
                 label: 'Bar & drinks',
                 // 🃏📸 &work=1 — the photos of the events booked on this card, inside Events (record flag ON) · &work=unread — the refusal said.
-                cards: [sp.work === '1' ? { ...LAB_GROWN_CARD, eventWork: LAB_COUPLE_EVENT_WORK } : sp.work === 'unread' ? { ...LAB_GROWN_CARD, eventWork: null } : LAB_GROWN_CARD],
+                cards: [sp.about === '1' ? { ...LAB_GROWN_CARD, about: 'Our bar comes to you: two bartenders, a lit mobile bar and a drinks menu we write with you.', videoLink: 'https://www.youtube.com/watch?v=sample' } : sp.work === '1' ? { ...LAB_GROWN_CARD, eventWork: LAB_COUPLE_EVENT_WORK } : sp.work === 'unread' ? { ...LAB_GROWN_CARD, eventWork: null } : LAB_GROWN_CARD],
               },
             ]}
             detailsEnabled

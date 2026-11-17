@@ -88,6 +88,10 @@ export type ServiceCard = {
    *  `serviceDetailsEnabled()`; with the flag off the key is ABSENT, so the
    *  card's serialized payload is byte-for-byte what it is today. */
   inclusionsFull?: string[];
+  /** 📝 The supplier's description of this card and a link to a video hosted elsewhere (HYBRID Q3, 2026-11-17) —
+   *  details-sheet only, and ABSENT when empty or the flag is off (the same byte-identical rule as `inclusionsFull`). */
+  about?: string;
+  videoLink?: string;
   /** "Not included" expectation flags, pre-formatted server-side
    *  ("Crew meal not included", "Transport: ₱1,500"). Empty → row hidden. */
   notIncluded: string[];
@@ -357,6 +361,8 @@ export function toServiceCard(
           publicId: row.public_id,
           // The sheet is the one place the "+N more included" tail is readable.
           inclusionsFull: allInclusions,
+          ...(row.description ? { about: row.description } : {}),
+          ...(row.video_url ? { videoLink: row.video_url } : {}),
         }
       : {}),
     notIncluded,

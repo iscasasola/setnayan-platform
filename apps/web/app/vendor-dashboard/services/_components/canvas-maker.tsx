@@ -84,6 +84,8 @@ import { CARD_MAX_PHOTOS } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
+import type { CardMakerLibrary } from '@/lib/card-maker-library';
+import { DESCRIPTION_MAX, VIDEO_URL_MAX, videoUrlProblem } from '@/lib/card-about';
 import { ServiceCardFace } from './service-card-face';
 import { commitVendorService, deleteVendorService } from '../actions';
 import { CopyToBranch } from './copy-to-branch';
@@ -180,6 +182,8 @@ export type MakerSchedule = { id: string; name: string; perDay: number | null };
 /** An existing card, opened in the maker (the edit sheet). */
 export type MakerEditing = {
   serviceId: string;
+  /** 💳 The saved pay plan this card follows (`vendor_services.pay_plan_id`), or null = its own rows. */
+  payPlanId?: string | null;
   isActive: boolean;
   /** The cover the card shows now — the face draws it while the key is unchanged. */
   coverUrl: string | null;
@@ -266,7 +270,13 @@ export function CanvasMaker({
   bookingsPerDate = null,
   checkRules = null,
   photoCheck,
+  library,
 }: {
+  /**
+   * 📚 Card Maker HYBRID part 2 — the shop's saved pay plans, its other cards and Setnayan's starting What's
+   * included for this service (`loadCardMakerLibrary`). Absent = none of the three is offered (a lab, an old caller).
+   */
+  library?: CardMakerLibrary;
   categoryValue: string;
   categoryLabel: string;
   /** 🗂 "Group › Category" of `categoryValue`, from the live taxonomy (`ctx.kindPath`) — the Services row's second line. */
@@ -1352,7 +1362,7 @@ export function CanvasMaker({
               tip="Every line is part of the price · swipe a line left to remove it."
             >
               <div data-maker-row="included">
-                <InclusionsEditor initial={initial?.inclusions ?? []} bare />
+                <InclusionsEditor initial={initial?.inclusions ?? []} bare templates={library ? library.includedTemplates : undefined} />
                 {incMissing && !inclusionsAreSet(snap.inclusionLabels) ? (
                   <p role="alert" className="mt-1.5 text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }} data-maker-inc-error="">
                     Add what’s included — at least one line.
@@ -1527,9 +1537,22 @@ export function CanvasMaker({
                     </FormRows>
                   </MakerGroup>
 
+                  {/* 📝 ABOUT THIS CARD (HYBRID map Q3, 2026-11-17 "Description + video link: add in this build"; the clean
+                      rebuild put both under More details). Optional; a link to a video hosted elsewhere, not the clip. */}
+                  <MakerGroup id="m-about" label="About this card" aside="optional" tip="A few sentences couples read on the full card, and a link to a video of your work.">
+                    <FormRows width="short" data="about-rows">
+                      <input type="hidden" name="about_present" value="1" />
+                      <AboutRows description={initial?.description ?? ''} videoUrl={initial?.videoUrl ?? ''} />
+                    </FormRows>
+                  </MakerGroup>
+
                   <MakerGroup id="m-pay" label="Payment schedule" tip="How couples pay · the reservation fee first · no-show terms.">
                     <div className="py-1">
-                      <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare pricePhp={basis === 'fixed' ? livePricePhp : null} />
+                      <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare pricePhp={basis === 'fixed' ? livePricePhp : null}
+                        plans={library ? library.payPlans : undefined}
+                        otherCards={library ? library.shopCards : undefined}
+                        cardPlanId={editing?.payPlanId ?? null}
+                      />
                     </div>
                   </MakerGroup>
 
@@ -2190,6 +2213,47 @@ export const SAME_DAY_QUESTION = 'How many events a day can this service take?';
  *     opening and saving never writes a figure nobody chose;
  *   · a card with time slots: the slots set how many at once — said, and the stored number posts unchanged.
  */
+/** 📝 The card's description and video link — the house typed rows, each posting its own column. */
+function AboutRows({ description, videoUrl }: { description: string; videoUrl: string }) {
+  const [words, setWords] = useState(description);
+  const [link, setLink] = useState(videoUrl);
+  return (
+    <>
+      <div data-maker-row="description">
+        <TypedRow
+          name="Description"
+          value={words}
+          empty="A few sentences about this card"
+          placeholder="What makes this service yours, in a few sentences."
+          long
+          boxed
+          maxLength={DESCRIPTION_MAX}
+          onType={setWords}
+          onKeep={setWords}
+          data="description"
+        />
+        <input type="hidden" name="description" value={words} />
+      </div>
+      <div data-maker-row="video-link">
+        <TypedRow
+          name="Video link"
+          about={{ title: 'Video link', words: 'A link to a video on YouTube, Facebook, TikTok or Vimeo. Not the 30-second clip.' }}
+          value={link}
+          empty="Paste a link"
+          placeholder="https://youtu.be/…"
+          inputMode="url"
+          maxLength={VIDEO_URL_MAX}
+          check={videoUrlProblem}
+          onType={setLink}
+          onKeep={setLink}
+          data="video-link"
+        />
+        <input type="hidden" name="video_url" value={link} />
+      </div>
+    </>
+  );
+}
+
 function SameDayRow({
   editing,
   bookingsPerDate,

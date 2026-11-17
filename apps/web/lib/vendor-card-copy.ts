@@ -80,7 +80,7 @@ export async function buildCanvasInitialFromCard(
   const { data, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,description,video_url',
     )
     .eq('vendor_service_id', sourceServiceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -163,6 +163,8 @@ export async function buildCanvasInitialFromCard(
     sourceTitle: src.title?.trim() || null,
     sourceWasOtherCategory: !sameCategory,
     title: src.title?.trim() || '',
+    description: typeof (src as { description?: unknown }).description === 'string' ? ((src as { description: string }).description) : '',
+    videoUrl: typeof (src as { video_url?: unknown }).video_url === 'string' ? ((src as { video_url: string }).video_url) : '',
     includesSetnayanGift: src.includes_setnayan_gift === true,
     // The card's shop gift pack copies like its Setnayan-gift yes/no — an offer the new card's owner sees and can change.
     giftPackCode: (() => {

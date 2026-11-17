@@ -66,6 +66,7 @@ import { coverPhotoList } from '@/lib/service-cover-show';
 import { cardItemKeys } from '@/lib/service-card-hides';
 import { focusServiceInquiry } from '@/lib/service-inquiry-focus';
 import { formatCount } from '@/lib/format-number';
+import { videoSiteName } from '@/lib/card-about';
 import type { ServiceCard } from './services-gallery';
 import type { PublicBadgeView } from '@/lib/public-badges';
 
@@ -710,6 +711,24 @@ export function ServiceDetailsSheet({
             ) : null}
             {c.priceDetail ? <p className="mt-1 text-[12px] leading-snug text-ink/55">{c.priceDetail}</p> : null}
             {c.givesSetnayanGift ? <SetnayanGiftLine className="mt-1.5 flex items-start gap-1.5 text-[12px] font-medium text-terracotta-700" /> : null}
+            {/* 📝 The supplier's own words about this card, and a link to a video of their work (HYBRID Q3, 17 Nov). */}
+            {c.about ? (
+              <p className="mt-2.5 whitespace-pre-line text-[13.5px] leading-relaxed text-ink/80" data-grown-about="">
+                {c.about}
+              </p>
+            ) : null}
+            {c.videoLink ? (
+              <a
+                href={c.videoLink}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-[13px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
+                data-grown-video-link=""
+              >
+                <Play aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span>{`Watch on ${videoSiteName(c.videoLink)}`}</span>
+              </a>
+            ) : null}
             {/* 📈 The card's opens — the shop's own number (Shop › Analytics' "opened"); no hide, in both views. */}
             {owner ? (
               <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink/60" data-grown-opens="">

@@ -65,6 +65,9 @@ import {
   writeSchedulePolicy,
   type ParsedScheduleRow,
 } from '@/lib/service-card-save-parts';
+import { readCardAbout } from '@/lib/card-about';
+import { readPlanIntent } from '@/lib/vendor-pay-plans';
+import { writeCardPayPlan } from '@/lib/vendor-pay-plans.server';
 import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
@@ -2087,6 +2090,14 @@ export async function commitVendorService(formData: FormData) {
       display_order: i,
     }));
 
+  // ---- 📝 Description + video link, 💳 the pay plan (Card Maker HYBRID part 2) — read BEFORE the RPC, so a bad
+  // value bounces while a bounce is still free; written AFTER it, like the gift pack (save_vendor_service is not
+  // re-defined). A screen that does not draw them posts neither marker and leaves the card's values alone.
+  const about = readCardAbout(formData);
+  if (about.present && !about.ok) return back(about.error);
+  const planIntent = readPlanIntent(formData);
+  if (planIntent?.kind === 'error') return back(planIntent.message);
+
   // ---- Payment schedule rows — the SAME parser as setServicePaymentSchedule (2026-10-14) ----
   // The RPC replace-alls the schedule WITHOUT the no-show terms, so they are written onto the first payment after
   // it (`writeSchedulePolicy`, below) — never dropped.
@@ -2190,6 +2201,18 @@ export async function commitVendorService(formData: FormData) {
     }
     const policyErr = await writeSchedulePolicy(supabase, cardId, profile.vendor_profile_id, scheduleRows);
     if (policyErr) partProblems.push('the no-show terms on the first payment');
+    if (about.present && about.ok) {
+      const { error: aboutErr } = await supabase
+        .from('vendor_services')
+        .update(about.about)
+        .eq('vendor_service_id', cardId)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (aboutErr) partProblems.push('its description and video link');
+    }
+    if (planIntent && planIntent.kind !== 'error') {
+      const planErr = await writeCardPayPlan(supabase, profile.vendor_profile_id, cardId, planIntent, scheduleRows);
+      if (planErr) partProblems.push(planErr);
+    }
     if (formData.get('addons_present') === '1') {
       const addonErr = await replaceServiceAddons(supabase, cardId, profile.vendor_profile_id, parseAddonRows(formData));
       if (addonErr) partProblems.push('the add-ons');

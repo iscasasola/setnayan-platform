@@ -25,6 +25,9 @@
  *   &host=add&read=tree           🔒 …when the service list could not be read: the line + Try again, never a blank picker
  *   &portfolio=albums|none|unread 🃏📸 the edit sheet's Portfolio fold as it reads with the card-record flag ON (frames 72 · 74 · 75):
  *                                 this card's event albums + own uploads last · own uploads only · Couldn't load · Retry
+ *   ?view=quick-forms&library=1   📋 Admin › Categories › a service's Quick Forms editor on the seed's Catering template
+ *   &library=1|unread             📚 Card Maker part 2: a saved pay plan (&plan=on: this card follows it), the shop's other cards,
+ *                                 Setnayan's starting list for the service — or every read refused · &about=1 a description + video link
  *   &tiers=1|unread               🪜 the tier grid on an edited card (Card Maker HYBRID, 17 Nov): Gold · Platinum · or a refused read
  *   &record=unread                🃏 the Record fold when the record read is refused (frame 75)
  *   &work=1|unread                🃏📸 Their work (frame 78): each album names the card(s) it was booked on · retired pill
@@ -43,6 +46,8 @@ import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
+import type { CardMakerLibrary } from '@/lib/card-maker-library';
+import { QuickFormsEditor } from '@/app/admin/categories/_components/quick-forms-editor';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
@@ -337,6 +342,66 @@ export default async function CardMakerLabPage({
       ],
     };
   }
+  // 📚 `&library=1|unread` — Card Maker HYBRID part 2: a saved pay plan on two cards, the shop's other cards, and
+  // Setnayan's starting list for this service (the seed's Catering rows), or every read refused. LAB FIXTURES.
+  const labCards = [
+    { id: '11111111-1111-4111-8111-111111111111', title: 'Garden reception', payPlanId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+    { id: '22222222-2222-4222-8222-222222222222', title: 'Poolside reception', payPlanId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+    { id: '33333333-3333-4333-8333-333333333333', title: 'Rooftop reception', payPlanId: null },
+  ];
+  const library: CardMakerLibrary | undefined =
+    sp.library === 'unread'
+      ? { payPlans: null, shopCards: null, includedTemplates: null }
+      : sp.library === '1'
+        ? {
+            payPlans: [
+              {
+                id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                name: 'My 3-step plan',
+                cardIds: labCards.filter((c) => c.payPlanId).map((c) => c.id),
+                items: [
+                  { seq: 0, label: 'Reservation fee', amount_kind: 'percent', percent: 30, amount_php: null, due_anchor: 'on_lock', due_offset_days: 0, cancellation_terms: null, downpayment_non_refundable: true, refund_window_days: null, no_show_forfeit: false },
+                  { seq: 1, label: 'Second payment', amount_kind: 'percent', percent: 40, amount_php: null, due_anchor: 'before_event', due_offset_days: 60, cancellation_terms: null, downpayment_non_refundable: false, refund_window_days: null, no_show_forfeit: false },
+                  { seq: 2, label: 'Pay the balance', amount_kind: 'percent', percent: 30, amount_php: null, due_anchor: 'before_event', due_offset_days: 7, cancellation_terms: null, downpayment_non_refundable: false, refund_window_days: null, no_show_forfeit: false },
+                ],
+              },
+            ],
+            shopCards: labCards,
+            includedTemplates: [
+              {
+                id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+                name: 'Catering basics',
+                isProposal: true,
+                rows: [
+                  { name: 'Type', kind: 'choice', options: ['Buffet', 'Plated'], basis: 'per_pax' },
+                  { name: 'Food tasting', kind: 'plain', basis: 'tasting' },
+                  { name: 'Tables and chairs', kind: 'plain', basis: 'none' },
+                  { name: 'Service booth', kind: 'plain', basis: 'none' },
+                  { name: 'Staff', kind: 'plain', basis: 'none' },
+                ],
+              },
+            ],
+          }
+        : undefined;
+  if (fx && library && sp.plan === 'on') {
+    fx.editing.serviceId = labCards[0]!.id;
+    fx.editing.payPlanId = labCards[0]!.payPlanId;
+    fx.editing.schedule = library.payPlans![0]!.items;
+  }
+  if (fx && sp.about === '1') {
+    fx.initial.description = 'A long table under the acacia trees, cooked on site. Our lechon is roasted the morning of your wedding.';
+    fx.initial.videoUrl = 'https://youtu.be/sample-video';
+  }
+  // 📋 `?view=quick-forms` — Admin › Categories › a service's Quick Forms editor (Card Maker part 2) on the seed's
+  // Catering template. Nothing saves here: with no admin session the dispatcher refuses.
+  if (sp.view === 'quick-forms') {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4" data-lab="quick-forms">
+        <h1 className="mb-3 text-[20px] font-semibold text-ink">Catering · Quick Forms</h1>
+        <QuickFormsEditor canonical="catering" label="Catering" templates={library?.includedTemplates ?? []} />
+      </div>
+    );
+  }
   const inToday = sp.host === 'today';
   const withChecks = sp.checks === '1';
   const labTrades = FAKE_TREE.flatMap((p) =>
@@ -378,6 +443,7 @@ export default async function CardMakerLabPage({
 
   const maker = (
       <CanvasMaker
+        library={library}
         recordSlot={recordSlot}
         portfolioSlot={portfolioSlot}
         portfolioLine={portfolioLine}

@@ -17,4 +17,4 @@ Owner, 17 Nov 2026, phone screenshot of the live bell tray: "Yes, fix it". Repos
 - Guard: `app/_components/notifications/the-tray-face-is-never-a-slash.test.ts` (sabotaged red, then restored).
 
 SPEC IMPACT: None in the corpus text — the 13 Nov notifications-place drawing's "ONE letter" event mark becomes two
-initials; flagged for owner sign-off in the PR.
+initials; owner approved, 18 Nov 2026: "Two initials OK".

@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 313 files · 741 boxes
+# 312 files · 739 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -125,7 +125,7 @@
 2 apps/web/app/dashboard/(account)/samahan/new/page.tsx
 2 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx
-2 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+1 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 1 apps/web/app/dashboard/[eventId]/_components/nikah-essentials-card.tsx
 5 apps/web/app/dashboard/[eventId]/_components/payment-plan-rows.tsx
 1 apps/web/app/dashboard/[eventId]/_components/supplier-share-button.tsx
@@ -255,7 +255,6 @@
 2 apps/web/app/papic/decorate/_components/kwento-decorator.tsx
 2 apps/web/app/papic/guest/_components/papic-guest-capture.tsx
 2 apps/web/app/papic/order/[token]/page.tsx
-1 apps/web/app/pay/[reference]/_components/pay-panel.tsx
 1 apps/web/app/signup/page.tsx
 2 apps/web/app/signup/you/_components/you-card.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx

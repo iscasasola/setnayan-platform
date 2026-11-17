@@ -183,7 +183,7 @@ export function ChannelToggle({
     return (
       <div
         data-pay-rail-row=""
-        className="flex w-full items-center gap-3 rounded-2xl border border-mulberry bg-mulberry/5 px-4 py-3 text-left"
+        className="flex w-full items-center gap-3 py-1 text-left"
       >
         <span
           aria-hidden

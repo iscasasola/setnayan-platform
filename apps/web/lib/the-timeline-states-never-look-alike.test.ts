@@ -133,7 +133,7 @@ test('(3) a refused read says so — before a run of show could be seeded over i
   assert.ok(said < story.indexOf("if (membership?.member_type !== 'couple')"));
   // A read that ANSWERED — no such event, not the couple — still redirects exactly as before.
   assert.match(story, /if \(!event\) redirect\(`\/dashboard\/\$\{eventId\}`\);/);
-  assert.match(story, /if \(membership\?\.member_type !== 'couple'\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/website`\);/);
+  assert.match(story, /if \(membership\?\.member_type !== 'couple'\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\/launch`\);/);
   // Neither problem uses the empty state's words.
   for (const src of [sched, story]) assert.doesNotMatch(src.slice(src.indexOf('<TimelineReadProblem'), src.indexOf('</TimelineReadProblem>')), /No moments yet|No chapters yet|nothing/i);
 });

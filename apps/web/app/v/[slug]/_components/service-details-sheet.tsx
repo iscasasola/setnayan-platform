@@ -49,7 +49,7 @@
 
 import Image from 'next/image';
 import { Explain } from '@/app/_components/explain';
-import { CalendarDays, Check, Eye, EyeOff, ImageIcon, Info, MessageCircle, Play, Tag, Users, X } from 'lucide-react';
+import { BadgeCheck, CalendarDays, Check, Eye, EyeOff, ImageIcon, Info, MessageCircle, Play, Tag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -67,6 +67,7 @@ import { cardItemKeys } from '@/lib/service-card-hides';
 import { focusServiceInquiry } from '@/lib/service-inquiry-focus';
 import { formatCount } from '@/lib/format-number';
 import type { ServiceCard } from './services-gallery';
+import type { PublicBadgeView } from '@/lib/public-badges';
 
 /**
  * How the grown card's "Choose this service" behaves, decided SERVER-side because only the server knows which composer
@@ -129,6 +130,8 @@ export function ServiceDetailsSheet({
   shopName = null,
   from = null,
   owner = null,
+  badges = null,
+  cardBadgeRow = null,
 }: {
   card: ServiceCard;
   inquireMode: ServiceInquireMode;
@@ -139,6 +142,17 @@ export function ServiceDetailsSheet({
   from?: HTMLElement | null;
   /** 🃏 Set only when the viewer runs this shop — hide per card, 👁 Couple view, the card's opens. */
   owner?: GrownCardOwner | null;
+  /**
+   * 🏅 The badges this card and its shop hold, ONLY as `lib/public-badges.ts` builds them (badge build J6). Null — the
+   * caller passes none yet (services-gallery / the shop page) — draws no badge at all, never a guessed one.
+   */
+  badges?: PublicBadgeView | null;
+  /**
+   * 🏅 The card's J3 badge row (`CardBadgeRow`, app/_components/card-badges — the same row the card's face draws, medals,
+   * turning label and the rules pop-up), handed in by the gallery as a slot like the face's `footer`, so this sheet reads
+   * no badge engine itself. When given it takes the names-only row's place.
+   */
+  cardBadgeRow?: ReactNode;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -376,7 +390,12 @@ export function ServiceDetailsSheet({
       title: 'The record',
       note: `Booked ${formatCount(c.record.bookedCount)}×`,
       // The ledger is drawn once, as Events (its own section, hideable per line) — not twice.
-      body: <CardRecordSection record={{ ...c.record, ledger: [] }} variant="couple" rating={c.recordRating} />,
+      body: (
+        <>
+          <CardRecordSection record={{ ...c.record, ledger: [] }} variant="couple" rating={c.recordRating} />
+          {badges ? <ShopAwards badges={badges} /> : null}
+        </>
+      ),
     });
   }
   if (c.reviews && (hosts || guests)) {
@@ -661,10 +680,25 @@ export function ServiceDetailsSheet({
 
           {/* ── The face, grown: the card's own name · shop · price · offer · how the price works ── */}
           <div className="px-4 pb-2 pt-3" data-grown-face="">
+            {cardBadgeRow ? (
+              <div className="mb-1.5" data-grown-card-badges="">
+                {cardBadgeRow}
+              </div>
+            ) : badges && badges.cardMedals.length > 0 ? (
+              <CardMedalRow medals={badges.cardMedals} />
+            ) : null}
             <h2 id="service-details-title" className="text-[16px] font-semibold leading-snug text-ink">
               {c.label}
             </h2>
-            {shopName ? <p className="mt-0.5 text-[12.5px] text-ink/55">by {shopName}</p> : null}
+            {shopName ? (
+              <p className="mt-0.5 flex items-center gap-1 text-[12.5px] text-ink/55">
+                <span>by {shopName}</span>
+                {/* Setnayan Verified beside the name — a shop that is not verified simply has none (ruling 7fbff0cd (9)). */}
+                {badges?.verified ? (
+                  <BadgeCheck aria-label="Setnayan Verified" role="img" className="h-4 w-4 shrink-0 text-link" strokeWidth={2} data-grown-verified="" />
+                ) : null}
+              </p>
+            ) : null}
             <p className="mt-1 text-[14px] font-semibold" style={{ color: 'var(--m-orange-2)' }}>
               {c.priceLabel}
             </p>
@@ -823,4 +857,54 @@ export function ServiceDetailsSheet({
   );
 
   return host ? createPortal(layer, host) : null;
+}
+
+/**
+ * 🏅 LAYOUT D (approved, badge-milestones_v86 `sfCard`): the card's medals in ONE row, in the row's order, Setnayan
+ * Verified last — no hanging ribbon. The J3 row (art, the 2.6 s turn, the rules pop-up) comes in as `cardBadgeRow`; this
+ * names-only row is what a caller that passes only the adapter view gets.
+ */
+function CardMedalRow({ medals }: { medals: PublicBadgeView['cardMedals'] }) {
+  return (
+    <ul aria-label="This card’s badges" className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1" data-grown-medals="">
+      {medals.map((m) => (
+        <li key={m.key} className="flex items-center gap-1 text-[12px] font-semibold text-ink/75" data-medal={m.key}>
+          {m.key === 'verified' ? <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-link" strokeWidth={2} /> : null}
+          {m.name}
+        </li>
+      ))}
+      <li>
+        <Explain title="This card’s badges" data="card-medals">
+          Badges this card holds right now. Setnayan Verified belongs to the shop, so each of its cards shows it. A card
+          keeps a badge only while it still qualifies.
+        </Explain>
+      </li>
+    </ul>
+  );
+}
+
+/**
+ * 🏅 THE SHOP'S AWARDS under the record (approved, v86 `sfz-seals` + `sfz-bdg`): the seals it holds — Setnayan Verified
+ * stays beside the shop's name, not repeated here — and each tiered badge as its name, tier and count. Only what the
+ * adapter hands over; with nothing held this draws nothing.
+ */
+function ShopAwards({ badges }: { badges: PublicBadgeView }) {
+  const seals = badges.seals.filter((s) => s.key !== 'verified');
+  if (seals.length === 0 && badges.shopBadges.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-1.5" data-grown-awards="">
+      {seals.length > 0 ? (
+        <p className="text-[12.5px] font-semibold text-ink/80">{seals.map((s) => s.name).join(' · ')}</p>
+      ) : null}
+      {badges.shopBadges.length > 0 ? (
+        <ul className="space-y-0.5 text-[12.5px] text-ink/70">
+          {badges.shopBadges.map((b) => (
+            <li key={b.family}>
+              <span className="font-semibold text-ink/80">{b.name}</span> · {b.tier} · {formatCount(b.count)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }

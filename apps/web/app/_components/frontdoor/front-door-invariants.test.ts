@@ -734,27 +734,14 @@ test('the story poster is not routed through the image optimizer', () => {
   );
 });
 
-/* ── THE STORIES HUB MUST NEVER BE ORPHANED ──────────────────────────────
-   Owner 2026-08-20: *"what we want is the stories menu to be inside this as
-   well"*. The rail's "Stories" destination was retired — it was a second door
-   to the shelf directly below it, reading the SAME three voices from the SAME
-   loaders as `/realstories`, with the chip row already carrying "Their
-   stories".
-
-   🔑 THE HUB ITSELF IS NOT RETIRED, AND THAT IS THE WHOLE RISK. `/realstories`
-   still holds the event-type filter and the search box the chips do not have,
-   and it is where all storyteller SEO equity is deliberately concentrated
-   (chapter detail pages are noindex so the hub keeps it). The front page's
-   ONLY other link to it lives inside the real-weddings written invitation,
-   which renders exclusively while that grid is UNEARNED — so it disappears on
-   the day the second couple publishes. Retiring the rail row without promoting
-   the shelf heading would have left the hub with zero links from the front
-   page at exactly the moment it started to matter: a page nobody can reach,
-   the defect this project has already paid for more than once.
-
-   These two assertions were mutation-checked by occurrence count. */
+/* ── THE STORIES HUB DOOR — RETIRED 2026-11-16 ───────────────────────────
+   This guard kept a permanent link from the front page into `/realstories`. The hub is retired with the blog +
+   Real Stories (PR #7847, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED") and its address forwards to
+   Discover — this page — so the door has no subject. `lib/no-page-links-a-retired-page.test.ts` now holds the
+   inverse: nothing links the retired address. What survives is the door to EVERY story, which is Event
+   stories' own "See all" on Discover. */
 test('Event stories keeps a permanent door to every story', () => {
-  /* 🔄 2026-11-16: the /realstories hub is being taken down (R1's blog takedown repoints it), so the door to every
+  /* 🔄 2026-11-16: the /realstories hub is retired (PR #7847) and forwards to Discover, so the door to every
      published story is Event stories' "See all", which opens on Discover itself with Event type ▾ and Sort ▾. */
   const SIX = code(readFileSync(join(HERE, 'discover-six-parts.tsx'), 'utf8'));
   assert.match(SIX, /SeeAll href=\{STORIES_SEE_ALL_HREF\}/, 'Event stories has no "See all" door');

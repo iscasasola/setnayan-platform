@@ -176,18 +176,7 @@ const SURFACES: Surface[] = [
     imports: MARKER_IMPORT,
     draws: [/liveEvent\.is_sample === true && triedTheme === null/, /<DemoOnlyMarker kind="event" align="center" \/>/, /\{demoEventMarker\}/],
   },
-  {
-    name: 'demo event story (/realstories/[slug])',
-    file: 'app/realstories/[slug]/page.tsx',
-    imports: MARKER_IMPORT,
-    draws: [/\{wedding\.isSample \? <DemoOnlyMarker kind="event" align="end" \/> : null\}/],
-  },
-  {
-    name: 'demo event story card (/realstories gallery)',
-    file: 'app/realstories/_components/gallery.tsx',
-    imports: LABEL_IMPORT,
-    draws: [/\{item\.isSample \? \([\s\S]{0,400}?\{DEMO_ONLY_LABEL\}/],
-  },
+  // The two Real Stories surfaces (story page + gallery card) left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
 ];
 
 test('the marker says the owner\'s words, exactly, from one place', () => {

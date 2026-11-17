@@ -122,7 +122,7 @@ describe('the views carry the links, decided on the server', () => {
     assert.equal(views[0]!.name, 'Liwanag Studio');
     assert.equal(views[0]!.tap, 'card');
     assert.equal(views[0]!.service, 'Photo & film');
-    assert.match(views[0]!.shopHref!, /^\/v\/liwanag\?src=/);
+    assert.match(views[0]!.shopHref!, /^\/liwanag\?src=/);
     assert.match(views[0]!.bookHref!, /inquire=1/);
     assert.equal(views[0]!.planName, 'Pro');
     assert.equal(views[1]!.shopHref, null);

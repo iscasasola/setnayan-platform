@@ -217,11 +217,12 @@ export async function RealStoriesSurface({
     <div>
       {/* The ONLY link to the public page used to live inside the retired (i)
           sentence. It is a door, not a description, so it moves to `actions`
-          rather than dying with the sentence. */}
+          rather than dying with the sentence. 🗞✂ 2026-11-16 — the public hub is retired (it forwards to Discover),
+          so the door goes where the stories now show: Discover's "New uploads" shelf. */}
       <PageMasthead
         title="Real Stories"
         actions={
-          <ActionButton tone="info" href="/realstories" icon={<Sparkles aria-hidden />} label="View the public page" />
+          <ActionButton tone="info" href="/" icon={<Sparkles aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />

@@ -11,6 +11,7 @@
  * gets one. The server half is `lib/ultra-story-pages.server.ts`.
  */
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { shopPath } from '@/lib/shop-address';
 
 /** The Ultra card's link words (drawing § 5). */
 export const OUR_STORY_LINK = 'Our story of this day';
@@ -28,7 +29,7 @@ export function hasStoryPages(tier: string | null | undefined): boolean {
 
 /** The shop's own page for one event — always on the shop's address. */
 export function storyPageHref(shopSlug: string, eventSlug: string): string {
-  return `/v/${encodeURIComponent(shopSlug)}/story/${encodeURIComponent(eventSlug)}`;
+  return shopPath(encodeURIComponent(shopSlug), `/story/${encodeURIComponent(eventSlug)}`);
 }
 
 /**

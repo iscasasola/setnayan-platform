@@ -356,12 +356,12 @@ function applyMarketplaceTextSearch(
 // `?category=setnayan_papic` grid is currently empty on prod (no publicly-
 // visible first-party listing yet — flagged for owner provisioning).
 const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
-  { label: 'Photographers', href: '/explore?category=photography' },
-  { label: 'Videographers', href: '/explore?category=videography' },
-  { label: 'Caterers', href: '/explore?category=catering' },
-  { label: 'Coordinators', href: '/explore?category=wedding_coordination' },
-  { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
-  { label: 'Cake', href: '/explore?category=wedding_cake' },
+  { label: 'Photographers', href: '/?category=photography' },
+  { label: 'Videographers', href: '/?category=videography' },
+  { label: 'Caterers', href: '/?category=catering' },
+  { label: 'Coordinators', href: '/?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/?category=bridal_hmua' },
+  { label: 'Cake', href: '/?category=wedding_cake' },
 ];
 
 // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
@@ -4078,7 +4078,7 @@ function FocusedModeSearchForm({
   };
 }) {
   return (
-    <form method="get" action="/explore" className="space-y-2">
+    <form method="get" action="/" className="space-y-2">
       <label className="block">
         <span className="sr-only">Search suppliers</span>
         {/* Reuses the same TaxonomySearch client component as FilterBar.
@@ -4715,7 +4715,7 @@ async function CatalogView({
     .slice(0, 6)
     .map(([key]) => ({
       label: taxonomyLabel(key),
-      href: `/explore?category=${encodeURIComponent(key)}`,
+      href: `/?category=${encodeURIComponent(key)}`,
     }));
   const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
@@ -4742,7 +4742,7 @@ async function CatalogView({
     .filter((t) => t.enabled)
     .map((t) => ({
       label: t.label,
-      href: `/explore?event_type=${encodeURIComponent(t.key)}`,
+      href: `/?event_type=${encodeURIComponent(t.key)}`,
     }));
 
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
@@ -5271,7 +5271,7 @@ async function CatalogView({
         ) : (
           <div className="mt-12 text-center">
             <Link
-              href="/explore?browse=1"
+              href="/?browse=1"
               className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
             >
               Browse all categories →
@@ -5359,7 +5359,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         only — the other folders are hidden so you can focus.
       </p>
       <Link
-        href="/explore"
+        href="/"
         className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
       >
         Browse all folders
@@ -5388,7 +5388,7 @@ function ReligionBanner({
         (photo, catering, attire) stay visible.
       </p>
       <Link
-        href="/explore?match=0"
+        href="/?match=0"
         className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all faiths

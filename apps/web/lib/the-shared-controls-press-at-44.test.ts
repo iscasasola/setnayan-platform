@@ -131,15 +131,17 @@ test('admin Receipts: the "View" link presses at 44 without growing the word', (
  * the public Stories page was drawn — and pressed — 18 px tall. It wears `.sn-hit` now: the word stays in its line,
  * its press reaches 46 around it, vertical only (the sentence does not reflow).
  */
-test('Event Hub privacy: the in-sentence "Stories" link presses at 44 without growing the word', () => {
+// 2026-11-16 (PR #7847): the public Stories hub is retired and forwards to Discover, so the in-sentence link now reads
+// "Discover" and points at `/` — same link, same 44-px press rule.
+test('Event Hub privacy: the in-sentence "Discover" link presses at 44 without growing the word', () => {
   const src = stripComments(read('app/dashboard/[eventId]/website/privacy/page.tsx'));
-  const m = src.match(/href="\/realstories"\s+className="([^"]+)"\s*>\s*Stories\s*</);
-  assert.ok(m, 'the privacy page\'s "Stories" link is gone or no longer reads as one className — the guard cannot see it');
+  const m = src.match(/href="\/"\s+className="([^"]+)"\s*>\s*Discover\s*</);
+  assert.ok(m, 'the privacy page\'s "Discover" link is gone or no longer reads as one className — the guard cannot see it');
   const cls = m![1]!;
   const p = press(cls);
-  assert.ok(p.height >= 44, `privacy "Stories" presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
-  assert.ok(!p.sideways, 'privacy "Stories": its press bleeds sideways');
-  assert.equal(drawnHeight(cls).drawn, 0, 'privacy "Stories" was given a drawn height — the fix is the press, never a bigger link');
+  assert.ok(p.height >= 44, `privacy "Discover" presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
+  assert.ok(!p.sideways, 'privacy "Discover": its press bleeds sideways');
+  assert.equal(drawnHeight(cls).drawn, 0, 'privacy "Discover" was given a drawn height — the fix is the press, never a bigger link');
 });
 
 test('the toast’s own buttons (Undo, Try again) press at 44 inside the 48-px pill', () => {

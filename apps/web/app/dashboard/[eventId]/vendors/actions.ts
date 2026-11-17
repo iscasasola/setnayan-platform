@@ -35,7 +35,7 @@ import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -2650,7 +2650,7 @@ export async function finalizeVendor(
                 // lib/supplier-notices-open-the-picked-client.test.ts): a released
                 // inquiry may no longer open the picked client, and this page is
                 // where `closingCopy` says who closed it.
-                relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                relatedUrl: supplierThreadPageHref(t.thread_id),
                 eventId,
               });
             }

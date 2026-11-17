@@ -71,7 +71,7 @@ const ACCOUNT_DOORS: Record<string, HelpDoor> = {
 const SHOP_DOORS: Record<string, HelpDoor> = {
   'getting-started': { href: '/vendor-dashboard', opens: 'your shop’s Today' },
   'supplier-fees': { href: '/vendor-dashboard/booking-fees', opens: 'Booking fees' },
-  'getting-verified': { href: '/vendor-dashboard/verify', opens: 'Verify your shop' },
+  'getting-verified': { href: '/vendor-dashboard/profile#docs', opens: 'Verify your shop' },
   messaging: { href: '/vendor-dashboard/messages', opens: 'Messages' },
   'account-privacy': { href: '/vendor-dashboard/settings', opens: 'Settings' },
 };

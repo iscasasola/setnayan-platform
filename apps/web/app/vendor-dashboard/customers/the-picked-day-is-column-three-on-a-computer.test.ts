@@ -21,7 +21,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const CAL = stripComments(readFileSync(join(import.meta.dirname, '_components/customers-calendar.tsx'), 'utf8'));
 const PIN = stripComments(readFileSync(join(import.meta.dirname, '_components/customers-pin.tsx'), 'utf8'));
-const CSS = readFileSync(join(import.meta.dirname, '../_components/supplier-frame.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(import.meta.dirname, '../_components/supplier-frame.css'), 'utf8'));
 
 test('1 · the picked day is one block: head, day bar and rows inside data-dates-picked-col', () => {
   const i = CAL.indexOf('<div data-dates-picked-col="">');

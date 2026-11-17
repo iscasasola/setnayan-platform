@@ -25,7 +25,7 @@ import { stripComments } from '@/lib/strip-comments';
 const TSX = stripComments(readFileSync(join(import.meta.dirname, 'supplier-today-first-screen.tsx'), 'utf8'));
 const STATS = stripComments(readFileSync(join(import.meta.dirname, 'today-stats.tsx'), 'utf8'));
 const HOST = stripComments(readFileSync(join(import.meta.dirname, 'supplier-today-screen.tsx'), 'utf8'));
-const CSS = readFileSync(join(import.meta.dirname, 'supplier-frame.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(import.meta.dirname, 'supplier-frame.css'), 'utf8'));
 
 const at = (s: string) => TSX.indexOf(s);
 const SIDE = TSX.slice(at('<aside data-today-side=""'), at('</aside>'));

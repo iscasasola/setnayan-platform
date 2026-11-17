@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const PAGE = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), 'utf8'));
-const CSS = readFileSync(join(import.meta.dirname, '../_components/supplier-frame.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(import.meta.dirname, '../_components/supplier-frame.css'), 'utf8'));
 const SHOP = CSS.slice(CSS.indexOf('[data-shop-desk],'));
 
 test('1 · the side column is Analytics → Badges → Makers, then the services, all in one wrapper', () => {

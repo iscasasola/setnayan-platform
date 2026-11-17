@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const TSX = stripComments(readFileSync(join(import.meta.dirname, 'supplier-today-first-screen.tsx'), 'utf8'));
-const CSS = readFileSync(join(import.meta.dirname, 'supplier-frame.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(import.meta.dirname, 'supplier-frame.css'), 'utf8'));
 
 const at = (s: string) => TSX.indexOf(s);
 

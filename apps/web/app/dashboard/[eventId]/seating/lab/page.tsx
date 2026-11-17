@@ -268,6 +268,10 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     const name = ((v as { vendor_name: string | null }).vendor_name ?? '').trim();
     if (name) vendorNameById.set((v as { vendor_id: string }).vendor_id, name);
   }
+  // ⛔ A refused finalization read used to become `[]`: every zone a supplier had AGREED (frozen) drew as freely
+  // editable, with no word that the agreements were never read (audit 2026-11-17). Now it is said, above the room.
+  const finalizationsUnread = Boolean(finalizationRes.error);
+  if (finalizationsUnread) logQueryError('seating-lab.finalizations', finalizationRes.error, { event_id: eventId });
   const finalizedByPart: Record<string, { vendorName: string | null; agreedAt: string | null }> = {};
   for (const [partId, who] of finalizedPartsNow(
     (finalizationRes.data ?? []) as unknown as PartFinalizationRecord[],
@@ -549,6 +553,9 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
           stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
           fix) — no longer an overlay that crowds the Build panel. */}
+      {finalizationsUnread ? (
+        <ReadRefusedNotice what="which zones your suppliers have already agreed on" partial />
+      ) : null}
       <SeatingLabLoader
         eventId={eventId}
         inMaker={inMaker}

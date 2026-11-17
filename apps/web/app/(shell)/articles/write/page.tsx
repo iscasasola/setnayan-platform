@@ -7,8 +7,6 @@ import { redirect } from 'next/navigation';
 import { writerState } from '@/lib/articles.server';
 import { WriteSheet } from '../_components/write-sheet';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'Write a post',
   robots: { index: false, follow: false },

@@ -6,6 +6,7 @@ import { CHAPTER_BODY_MAX, PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapt
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { createChapter } from '@/app/dashboard/(account)/creator/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 
@@ -36,7 +37,7 @@ export function WriteSheet({
   const keep = () => undefined;
 
   return (
-    <form action={createChapter} className="space-y-4" data-write-sheet>
+    <StayForm door="accCreator.createChapter" action={createChapter} className="space-y-4" data-write-sheet>
       <input type="hidden" name="surface" value="articles" />
       {/* The sheet's head, as drawn: ✕ · the title · Post — Post sits where the thumb finishes, not under the form. */}
       <div className="flex items-center gap-2">
@@ -139,7 +140,7 @@ export function WriteSheet({
             ),
           )}
           <p className="text-[12px] text-ink/70">
-            ⓘ The card is read from Setnayan’s own data for that page. Nothing is fetched from outside sites.
+            The card is read from Setnayan’s own data for that page. Nothing is fetched from outside sites.
           </p>
         </div>
       ) : null}
@@ -150,7 +151,7 @@ export function WriteSheet({
         </p>
       ) : null}
 
-      <p className="text-[12px] text-ink/70">ⓘ {PUBLIC_POSTS_ARE_FINDABLE}</p>
-    </form>
+      <p className="text-[12px] text-ink/70">{PUBLIC_POSTS_ARE_FINDABLE}</p>
+    </StayForm>
   );
 }

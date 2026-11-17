@@ -80,6 +80,7 @@ const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
 /** A home's own name, for a back link that is not given one. */
 const LABELS: Record<string, string> = {
   '/': 'Discover',
+  '/articles': 'Articles',
   '/dashboard': 'Home',
   '/dashboard?hub=1': 'Home',
   '/dashboard?seg=memories': 'Memories',

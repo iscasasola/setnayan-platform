@@ -57,6 +57,14 @@ export function TagChips({ tags }: { tags: string[] }) {
 export function ArticleParagraph({ text }: { text: string }) {
   return (
     <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink/90">
+      <Segments text={text} />
+    </p>
+  );
+}
+
+function Segments({ text }: { text: string }) {
+  return (
+    <>
       {segmentParagraph(text).map((seg, i) =>
         seg.kind === 'text' ? (
           <span key={i}>{seg.text}</span>
@@ -78,7 +86,7 @@ export function ArticleParagraph({ text }: { text: string }) {
           </a>
         ),
       )}
-    </p>
+    </>
   );
 }
 

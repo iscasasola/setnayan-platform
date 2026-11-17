@@ -4,6 +4,7 @@ import type { ArticleCard, ArticleRead, ArticleSort } from '@/lib/articles.serve
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapters';
 import { articleHref } from '@/lib/journal-move';
+import { formatCount } from '@/lib/format-number';
 import { articleWhen, BylineName, TagChips } from './article-bits';
 
 /** The feed, drawn from a read (drawing v15 "Articles"). A refused read renders as a refusal, never as empty. */
@@ -81,7 +82,7 @@ export function ArticlesFeedView({
               </div>
               <span className="inline-flex shrink-0 items-start gap-1 pt-6 text-[13px] text-ink/70">
                 <MessageCircle aria-hidden className="mt-0.5 h-3.5 w-3.5" strokeWidth={1.75} />
-                {a.replyCount}
+                {formatCount(a.replyCount)}
                 <span className="sr-only"> replies</span>
               </span>
             </li>
@@ -89,7 +90,7 @@ export function ArticlesFeedView({
         </ul>
       )}
 
-      <p className="mt-6 text-[12px] text-ink/70">ⓘ {PUBLIC_POSTS_ARE_FINDABLE}</p>
+      <p className="mt-6 text-[12px] text-ink/70">{PUBLIC_POSTS_ARE_FINDABLE}</p>
     </main>
   );
 }

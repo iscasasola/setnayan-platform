@@ -356,21 +356,22 @@ export async function writerState(): Promise<WriterState> {
   const { data } = await supabase.auth.getUser();
   const uid = data?.user?.id;
   if (!uid) return { signedIn: false };
-  const admin = createAdminClient();
-  const [me, owned, team] = await Promise.all([
-    admin.from('users').select('posting_name').eq('user_id', uid).maybeSingle(),
-    admin.from('vendor_profiles').select('business_name').eq('user_id', uid).order('created_at').limit(1),
-    admin.from('vendor_team_members').select('vendor_profiles ( business_name )').eq('user_id', uid).order('created_at').limit(1),
+  // Which shop this account posts as is the DATABASE's answer (`article_shop_of`, the same function the insert
+  // trigger stamps with) — one rule, never re-derived here, so the sheet can never promise a name the post won't carry.
+  const [me, shop] = await Promise.all([
+    createAdminClient().from('users').select('posting_name').eq('user_id', uid).maybeSingle(),
+    supabase.rpc('article_shop_of', { p_user_id: uid }),
   ]);
-  const failed = Boolean(me.error || owned.error || team.error);
-  if (failed) logQueryError('articles.writerState', me.error ?? owned.error ?? team.error);
-  const teamShop = (team.data?.[0] as { vendor_profiles?: { business_name?: string | null } | { business_name?: string | null }[] } | undefined)
-    ?.vendor_profiles;
-  const teamName = Array.isArray(teamShop) ? teamShop[0]?.business_name : teamShop?.business_name;
+  const shopId = (shop.data as string | null) ?? null;
+  const shopRow = shopId
+    ? await createAdminClient().from('vendor_profiles').select('business_name').eq('vendor_profile_id', shopId).maybeSingle()
+    : { data: null, error: null };
+  const failed = Boolean(me.error || shop.error || shopRow.error);
+  if (failed) logQueryError('articles.writerState', me.error ?? shop.error ?? shopRow.error);
   return {
     signedIn: true,
     userId: uid,
-    shopName: (owned.data?.[0]?.business_name as string | undefined) ?? teamName ?? null,
+    shopName: (shopRow.data?.business_name as string | undefined) ?? (shopId ? 'Your shop' : null),
     postingName: (me.data?.posting_name as string | null | undefined) ?? null,
     readFailed: failed,
   };

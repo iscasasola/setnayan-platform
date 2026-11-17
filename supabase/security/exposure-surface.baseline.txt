@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7928
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     642
-#   col       5684
-#   policy    1160
+#   tpriv     644
+#   col       5699
+#   policy    1167
 #   view      10
-#   func      401
+#   func      404
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -105,6 +105,8 @@ tpriv	public.coordinator_feature_recommendations|authenticated	SIUD
 tpriv	public.couple_event_type_notify_signups|authenticated	SIUD
 tpriv	public.couple_photo_shares|authenticated	S
 tpriv	public.couple_wedding_type_notify_signups|authenticated	SIUD
+tpriv	public.creator_chapter_replies|anon	S
+tpriv	public.creator_chapter_replies|authenticated	SID
 tpriv	public.creator_chapters|anon	SIUD
 tpriv	public.creator_chapters|authenticated	SIUD
 tpriv	public.cron_job_runs|authenticated	S
@@ -1280,6 +1282,15 @@ col	public.couple_wedding_type_notify_signups.notified_at	anon=- authenticated=S
 col	public.couple_wedding_type_notify_signups.region	anon=- authenticated=SIU
 col	public.couple_wedding_type_notify_signups.signup_id	anon=- authenticated=SIU
 col	public.couple_wedding_type_notify_signups.user_id	anon=- authenticated=SIU
+col	public.creator_chapter_replies.body	anon=S authenticated=SIU
+col	public.creator_chapter_replies.chapter_id	anon=S authenticated=SI
+col	public.creator_chapter_replies.created_at	anon=S authenticated=SI
+col	public.creator_chapter_replies.id	anon=S authenticated=SI
+col	public.creator_chapter_replies.posted_as_vendor_id	anon=S authenticated=SI
+col	public.creator_chapter_replies.removed_at	anon=S authenticated=SI
+col	public.creator_chapter_replies.reply_id	anon=S authenticated=SI
+col	public.creator_chapter_replies.updated_at	anon=S authenticated=SIU
+col	public.creator_chapter_replies.user_id	anon=S authenticated=SI
 col	public.creator_chapters.body	anon=SIU authenticated=SIU
 col	public.creator_chapters.chapter_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.created_at	anon=SIU authenticated=SIU
@@ -1289,13 +1300,18 @@ col	public.creator_chapters.event_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.happened_on	anon=SIU authenticated=SIU
 col	public.creator_chapters.host_included_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.id	anon=SIU authenticated=SIU
+col	public.creator_chapters.is_journal	anon=SIU authenticated=SIU
 col	public.creator_chapters.kind	anon=SIU authenticated=SIU
+col	public.creator_chapters.posted_as_vendor_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.public_id	anon=SIU authenticated=SIU
 col	public.creator_chapters.published_at	anon=SIU authenticated=SIU
+col	public.creator_chapters.removed_at	anon=SIU authenticated=SIU
 col	public.creator_chapters.showcase_feature_rank	anon=SIU authenticated=SIU
 col	public.creator_chapters.showcase_featured_at	anon=SIU authenticated=SIU
+col	public.creator_chapters.slug	anon=SIU authenticated=SIU
 col	public.creator_chapters.status	anon=SIU authenticated=SIU
 col	public.creator_chapters.substrate	anon=SIU authenticated=SIU
+col	public.creator_chapters.tags	anon=SIU authenticated=SIU
 col	public.creator_chapters.teaser_r2_key	anon=SIU authenticated=SIU
 col	public.creator_chapters.title	anon=SIU authenticated=SIU
 col	public.creator_chapters.updated_at	anon=SIU authenticated=SIU
@@ -4829,6 +4845,7 @@ col	public.users.name_search	anon=S authenticated=SU
 col	public.users.name_suffix	anon=S authenticated=SU
 col	public.users.phone	anon=S authenticated=SU
 col	public.users.planner_mode	anon=S authenticated=SU
+col	public.users.posting_name	anon=S authenticated=SU
 col	public.users.profile_focal_x	anon=S authenticated=SU
 col	public.users.profile_focal_y	anon=S authenticated=SU
 col	public.users.profile_photo_url	anon=S authenticated=SU
@@ -6484,8 +6501,15 @@ policy	public.couple_photo_shares|couple_photo_shares_vendor_read	mode=PERMISSIV
 policy	public.couple_wedding_type_notify_signups|notify_signups_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=true
 policy	public.couple_wedding_type_notify_signups|notify_signups_read_own_or_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.creator_chapter_replies|replies_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.creator_chapter_replies|replies_author_deletes	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.creator_chapter_replies|replies_author_inserts	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL)))))
+policy	public.creator_chapter_replies|replies_author_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.creator_chapter_replies|replies_author_updates	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
+policy	public.creator_chapter_replies|replies_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((removed_at IS NULL) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL))))) check=NULL
 policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
+policy	public.creator_chapters|public_can_read_published_article	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (slug IS NOT NULL) AND (removed_at IS NULL)) check=NULL
 policy	public.creator_chapters|public_can_read_published_chapter	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = creator_chapters.user_id) AND (u.public_profile_enabled = true))))) check=NULL
 policy	public.cron_job_runs|cron_job_runs_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.csp_violation_reports|csp_violation_reports_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
@@ -7545,6 +7569,9 @@ func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind te
 func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
+func	public.article_shop_of(p_user_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.article_slug_base(p_title text)	secdef=no exec=anon,authenticated search_path=public
+func	public.article_unique_slug(p_title text, p_chapter_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.ask_for_a_change(p_thread_id uuid, p_subject text, p_note text, p_proposal_id uuid, p_form_id uuid, p_amount_centavos bigint, p_scope_label text, p_proposed_plan jsonb, p_good_until date, p_counters uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ask_hosts_for_more_access(p_event_id uuid, p_area text, p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp

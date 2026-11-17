@@ -122,6 +122,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'couple_event_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'couple_wedding_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'creator_chapters', decision: 'exported', as: 'creator_chapters' },
+  { table: 'creator_chapter_replies', decision: 'exported', as: 'article_replies' },
   { table: 'discount_code_eligible_users', decision: 'exported', as: 'vouchers_you_were_offered' },
   { table: 'event_moderators', decision: 'exported', as: 'cohost_roles' },
   { table: 'event_preparation_items', decision: 'exported', as: 'prep_items_added' },

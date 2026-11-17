@@ -12,7 +12,7 @@
  */
 import { notFound } from 'next/navigation';
 import { ArticlesFeedView } from '@/app/(shell)/articles/_components/feed-view';
-import { ArticleView } from '@/app/(shell)/articles/_components/article-view';
+import { ArticleView } from '@/app/(shell)/articles/[slug]/article-view';
 import { WriteSheet } from '@/app/(shell)/articles/_components/write-sheet';
 import { LAB_ARTICLE, LAB_FEED, LAB_SIGNED_OUT, LAB_TAGS, LAB_WRITER_FIRST, LAB_WRITER_SHOP } from './fixture';
 

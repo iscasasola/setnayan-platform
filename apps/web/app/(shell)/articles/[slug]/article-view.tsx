@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { ChevronLeft, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { segmentParagraph } from '@/lib/article-links';
 import type { Article, ArticleRead, WriterState } from '@/lib/articles.server';
 import { splitChapterParagraphs, PUBLIC_POSTS_ARE_FINDABLE } from '@/lib/creator-chapters';
 import { articleHref } from '@/lib/journal-move';
 import { ReportPageButton } from '@/app/_components/report-page-button';
-import { articleWhen, ArticleParagraph, BylineName, initialsOf, LinkCardView, TagChips } from './article-bits';
-import { ReplyBox } from './reply-box';
+import { articleWhen, ArticleParagraph, BylineName, initialsOf, LinkCardView, TagChips } from '../_components/article-bits';
+import { ReplyBox } from '../_components/reply-box';
 
 /** One article, drawn from a read (drawing v15 "An article"). `null` is handled by the page (a real 404). */
 export function ArticleView({ res, writer }: { res: ArticleRead<Article>; writer: WriterState }) {
@@ -32,10 +33,7 @@ export function ArticleView({ res, writer }: { res: ArticleRead<Article>; writer
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-4 sm:px-6">
-      <Link href="/articles" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-ink/80 hover:text-ink">
-        <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Articles
-      </Link>
+      <BackButton route="/articles/[slug]" params={{ slug: a.slug }} />
 
       <article className="sn-frame mt-2 p-4">
         <p className="flex flex-wrap items-center gap-1 text-[13px] text-ink/70">
@@ -65,7 +63,7 @@ export function ArticleView({ res, writer }: { res: ArticleRead<Article>; writer
           })}
         </div>
 
-        <p className="mt-4 text-[12px] text-ink/70">ⓘ {PUBLIC_POSTS_ARE_FINDABLE}</p>
+        <p className="mt-4 text-[12px] text-ink/70">{PUBLIC_POSTS_ARE_FINDABLE}</p>
       </article>
       <div className="mt-2 flex items-center gap-1 px-1 text-[13px] text-ink/75">
         <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -99,13 +97,13 @@ export function ArticleView({ res, writer }: { res: ArticleRead<Article>; writer
                   <div className="mt-0.5">
                     <ArticleParagraph text={r.body} />
                   </div>
-                  <p className="mt-1 flex items-center gap-3 text-[12px] text-ink/70">
+                  <div className="mt-1 flex items-center gap-3 text-[12px] text-ink/70">
                     {/* One level deep: "Reply" answers the article, so it opens the one reply box. */}
                     <a href="#write-a-reply" className="font-medium hover:text-ink">
                       Reply
                     </a>
                     {r.mine ? null : <ReportPageButton targetType="chapter_reply" targetId={r.replyId} label="Report" />}
-                  </p>
+                  </div>
                 </div>
               </li>
             ))}

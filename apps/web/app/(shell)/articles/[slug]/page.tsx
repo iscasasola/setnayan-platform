@@ -12,9 +12,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { articleBySlug, writerState } from '@/lib/articles.server';
 import { articleHref } from '@/lib/journal-move';
-import { ArticleView } from '../_components/article-view';
-
-export const dynamic = 'force-dynamic';
+import { ArticleView } from './article-view';
 
 type Props = { params: Promise<{ slug: string }> };
 

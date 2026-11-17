@@ -115,6 +115,8 @@ const ANCHORS: Record<string, RegExp> = {
   couple_event_type_notify_signups: eqUid('user_id'),
   couple_wedding_type_notify_signups: eqUid('user_id'),
   creator_chapters: eqUid('user_id'),
+  // 📰 Build 2 (2026-11-17): the replies a person wrote under articles — their own words.
+  creator_chapter_replies: eqUid('user_id'),
   discount_code_eligible_users: eqUid('user_id'),
   event_moderators: eqUid('user_id'), // the role holder — never the inviter
   founder_seats: eqUid('user_id'),

@@ -10,9 +10,7 @@
  */
 import type { Metadata } from 'next';
 import { listArticles, type ArticleSort } from '@/lib/articles.server';
-import { ArticlesFeedView } from './_components/feed-view';
-
-export const dynamic = 'force-dynamic';
+import { ArticlesFeedView } from '../_components/feed-view';
 
 export const metadata: Metadata = {
   title: 'Articles',

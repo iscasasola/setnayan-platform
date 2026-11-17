@@ -56,11 +56,11 @@ test('1b · only an article or a page address carries a card', () => {
   assert.equal(cardTarget('/'), null);
 });
 
-test('1c · an outside link renders as words, never as an anchor', () => {
+test('1c · an outside link is only a link — nofollow ugc, never a card', () => {
   const segs = segmentParagraph('Read setnayan.com/articles/x then pagasa.dost.gov.ph/y.');
   assert.deepEqual(segs.map((s) => s.kind), ['text', 'setnayan', 'text', 'outside', 'text']);
   const bits = code(read('(shell)/articles/_components/article-bits.tsx'));
-  const outsideBranch = bits.slice(bits.indexOf(") : seg.kind === 'setnayan' ?"), bits.indexOf('</p>', bits.indexOf(") : seg.kind === 'setnayan' ?")));
+  const outsideBranch = bits.slice(bits.indexOf(") : seg.kind === 'setnayan' ?"), bits.indexOf('</>', bits.indexOf(") : seg.kind === 'setnayan' ?")));
   const afterElse = outsideBranch.slice(outsideBranch.indexOf(') : ('));
   // Owner, verbatim: "Outside link will only be a link" — a link, never a card, and marked as the reader's own.
   assert.match(afterElse, /<a\b/, 'an outside link is still a link');
@@ -86,7 +86,7 @@ test('3 · tags and posting names are stored the way the database checks them', 
 
 test('4 · the pages say what the drawing says, and refuse honestly', () => {
   const feed = code(read('(shell)/articles/_components/feed-view.tsx'));
-  const article = code(read('(shell)/articles/_components/article-view.tsx'));
+  const article = code(read('(shell)/articles/[slug]/article-view.tsx'));
   const sheet = code(read('(shell)/articles/_components/write-sheet.tsx'));
   for (const [name, src] of [['feed', feed], ['article', article], ['write sheet', sheet]] as const) {
     // Rendered, not merely imported — an import line alone would keep this green with the words gone.

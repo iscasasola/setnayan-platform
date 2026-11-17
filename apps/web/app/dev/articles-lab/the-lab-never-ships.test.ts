@@ -22,6 +22,6 @@ test('the articles lab calls notFound() in production, before anything else', ()
 
 test('the lab draws the REAL views', () => {
   assert.match(LAB, /from '@\/app\/\(shell\)\/articles\/_components\/feed-view'/);
-  assert.match(LAB, /from '@\/app\/\(shell\)\/articles\/_components\/article-view'/);
+  assert.match(LAB, /from '@\/app\/\(shell\)\/articles\/\[slug\]\/article-view'/);
   assert.match(LAB, /from '@\/app\/\(shell\)\/articles\/_components\/write-sheet'/);
 });

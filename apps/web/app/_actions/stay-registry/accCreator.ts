@@ -7,7 +7,9 @@ import { kind, type Door } from './_door';
 
 /** Creator's refusals already carry the page's own sentence (`fail()` / `back()` → `?error=<sentence>`, shown as
  *  given). Signed out → `/login`, navigates. An account screen — no event, no limited-helper area. */
-const ACC_CREATOR_WORDS: StayWords = { within: [/^\/dashboard\/creator$/], refuse: (q) => q.get('error') };
+// 📰 /articles/write (Build 2) posts through createChapter too: a refusal comes back to the sheet and is said in place;
+// a post that lands goes to its new article (outside `within`, so it navigates).
+const ACC_CREATOR_WORDS: StayWords = { within: [/^\/dashboard\/creator$/, /^\/articles\/write$/], refuse: (q) => q.get('error') };
 const accCreator = kind(ACC_CREATOR_WORDS, false);
 
 export const ACC_CREATOR: Readonly<Record<AccCreatorStayDoor, Door>> = {

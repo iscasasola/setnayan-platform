@@ -187,7 +187,8 @@ test('+ · the client tabs speak in sentence case', () => {
   ]) {
     const src = read(f);
     assert.ok(src.length > 300, `anti-vacuity: ${f} is empty`);
-    assert.doesNotMatch(src, /\bhome-k2\b/, `${f} still uses the uppercase section label`);
+    // `.home-k2` is the house label: on supplier pages `supplier-look.css` sets it to sentence case (main 15268c6dbc,
+    // held by `section-labels-are-sentence-case.test.ts`), so it is allowed here.
     // Every uppercase label in the client workspace's own files is gone (the deferred shared parts live elsewhere).
     // Any class string — className, labelClassName, a `const H = '…'` — that still carries `uppercase`.
     const caps = src.match(/["'`][^"'`\n]*\buppercase\b[^"'`\n]*["'`]/g) ?? [];

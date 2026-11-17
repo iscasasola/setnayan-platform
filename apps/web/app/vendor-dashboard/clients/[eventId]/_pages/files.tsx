@@ -56,7 +56,7 @@ export function FilesPage(props: FilesPageProps) {
     <div className="space-y-4 pb-24" data-client-files="">
       {/* 📁 Piece 3b: This booking · From the chat · Links · one group per QUOTED service, with the two doors. */}
       {board}
-      {board ? <h3 className="pt-2 text-[13px] font-semibold text-ink/70">Shared in the chat · contracts · handover</h3> : null}
+      {board ? <h3 className="home-k2 !mb-0 pt-2">Shared in the chat · contracts · handover</h3> : null}
       {!chatFilesMeasured ? (
         <div role="status" className="text-[13px] font-semibold text-warn-800" data-files-chat-unread="">
           <InfoTip label="Couldn’t load the chat’s files — this list may be incomplete" align="start">
@@ -75,7 +75,7 @@ export function FilesPage(props: FilesPageProps) {
           </InfoTip>
           {threadId ? (
             <Link
-              href={`/vendor-dashboard/messages/${threadId}`}
+              href="?tab=chat"
               className="inline-flex min-h-11 items-center font-semibold text-sn-accent"
             >
               Share files in chat ›
@@ -88,7 +88,7 @@ export function FilesPage(props: FilesPageProps) {
 
       {hasAny && threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href="?tab=chat"
           className="inline-flex min-h-11 items-center text-[15px] font-semibold text-sn-accent"
         >
           Share more files in chat ›

@@ -70,7 +70,7 @@ test('ONE Check a date per screen: the side card’s month on a computer, the ac
   assert.match(CARD, /className="hidden w-full[^"]*md:block"[^>]*data-shop-side-card=""/);
   assert.match(PAGE, /\{cinematicHero \? \(\s*<ShopSideCard/, 'the side card is not verified-only (the unverified one is S6)');
   // A green day opens Check a date on that day; the link opens it on the first.
-  assert.match(CARD, /onPick=\{\(d\) => router\.push\(`\$\{datesHref\}&d=\$\{d\}`, \{ scroll: false \}\)\}/);
+  assert.match(CARD, /onPick=\{\(d\) => \{\s*noteDatesFromShop\(\);\s*router\.push\(`\$\{datesHref\}&d=\$\{d\}`, \{ scroll: false \}\);\s*\}\}/);
   assert.match(PAGE, /datesHref=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival, \{ dates: '1' \}\)\}/);
 });
 

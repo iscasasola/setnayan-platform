@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7928
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     642
-#   col       5684
-#   policy    1160
+#   tpriv     644
+#   col       5704
+#   policy    1164
 #   view      10
-#   func      401
+#   func      402
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -434,6 +434,7 @@ tpriv	public.service_catalog|anon	SIUD
 tpriv	public.service_catalog|authenticated	SIUD
 tpriv	public.service_categories|anon	SIUD
 tpriv	public.service_categories|authenticated	SIUD
+tpriv	public.service_included_templates|authenticated	S
 tpriv	public.service_slot_day_state|authenticated	S
 tpriv	public.service_slot_reservations|authenticated	S
 tpriv	public.setnayan_ai_guard_log|authenticated	SIUD
@@ -574,6 +575,7 @@ tpriv	public.vendor_papic_portfolio_credit_grants|authenticated	S
 tpriv	public.vendor_papic_portfolio_photos|authenticated	SI
 tpriv	public.vendor_partnerships|anon	SIUD
 tpriv	public.vendor_partnerships|authenticated	SIUD
+tpriv	public.vendor_pay_plans|authenticated	SIU
 tpriv	public.vendor_payment_asks|authenticated	SI
 tpriv	public.vendor_payment_methods|authenticated	SD
 tpriv	public.vendor_payouts|authenticated	SIUD
@@ -4401,6 +4403,16 @@ col	public.service_categories.sort_order	anon=SIU authenticated=SIU
 col	public.service_categories.status	anon=SIU authenticated=SIU
 col	public.service_categories.tier	anon=SIU authenticated=SIU
 col	public.service_categories.updated_at	anon=SIU authenticated=SIU
+col	public.service_included_templates.canonical_service	anon=- authenticated=S
+col	public.service_included_templates.created_at	anon=- authenticated=S
+col	public.service_included_templates.is_proposal	anon=- authenticated=S
+col	public.service_included_templates.name	anon=- authenticated=S
+col	public.service_included_templates.rows	anon=- authenticated=S
+col	public.service_included_templates.sort_order	anon=- authenticated=S
+col	public.service_included_templates.source	anon=- authenticated=S
+col	public.service_included_templates.template_id	anon=- authenticated=S
+col	public.service_included_templates.updated_at	anon=- authenticated=S
+col	public.service_included_templates.updated_by	anon=- authenticated=S
 col	public.service_slot_day_state.created_at	anon=- authenticated=S
 col	public.service_slot_day_state.reserved_date	anon=- authenticated=S
 col	public.service_slot_day_state.seats_capacity	anon=- authenticated=S
@@ -5543,6 +5555,13 @@ col	public.vendor_partnerships.recommended_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommending_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.relationship_type	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.status	anon=SIU authenticated=SIU
+col	public.vendor_pay_plans.created_at	anon=- authenticated=SIU
+col	public.vendor_pay_plans.items	anon=- authenticated=SIU
+col	public.vendor_pay_plans.name	anon=- authenticated=SIU
+col	public.vendor_pay_plans.pay_plan_id	anon=- authenticated=SIU
+col	public.vendor_pay_plans.retired_at	anon=- authenticated=SIU
+col	public.vendor_pay_plans.updated_at	anon=- authenticated=SIU
+col	public.vendor_pay_plans.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_payment_asks.amount_php	anon=- authenticated=SI
 col	public.vendor_payment_asks.ask_id	anon=- authenticated=SI
 col	public.vendor_payment_asks.asked_by_user_id	anon=- authenticated=SI
@@ -6095,6 +6114,7 @@ col	public.vendor_services.crew_meal_required	anon=S authenticated=SIU
 col	public.vendor_services.crew_size	anon=S authenticated=SIU
 col	public.vendor_services.daily_capacity	anon=S authenticated=SIU
 col	public.vendor_services.demo_batch_id	anon=S authenticated=SIU
+col	public.vendor_services.description	anon=S authenticated=SIU
 col	public.vendor_services.exclusive_perk_text	anon=S authenticated=SIU
 col	public.vendor_services.extra_hour_php	anon=S authenticated=SIU
 col	public.vendor_services.gift_pack_code	anon=S authenticated=SIU
@@ -6108,6 +6128,7 @@ col	public.vendor_services.last_minute_surcharge_pct	anon=S authenticated=SIU
 col	public.vendor_services.min_hours	anon=S authenticated=SIU
 col	public.vendor_services.min_pax	anon=S authenticated=SIU
 col	public.vendor_services.package_inclusions	anon=S authenticated=SIU
+col	public.vendor_services.pay_plan_id	anon=S authenticated=SIU
 col	public.vendor_services.per_pax_price_php	anon=S authenticated=SIU
 col	public.vendor_services.plan_held_at	anon=S authenticated=SIU
 col	public.vendor_services.plan_hold	anon=S authenticated=SIU
@@ -6130,6 +6151,7 @@ col	public.vendor_services.transport_included	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
+col	public.vendor_services.video_url	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
 col	public.vendor_songs.performance_url	anon=SIU authenticated=SIU
 col	public.vendor_songs.song_id	anon=SIU authenticated=SIU
@@ -7128,6 +7150,8 @@ policy	public.seo_suggestions|seo_suggestions_admin_all	mode=PERMISSIVE cmd=ALL 
 policy	public.service_catalog|service_catalog_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.service_categories|service_categories_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.service_categories|service_categories_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.service_included_templates|service_included_templates_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.service_included_templates|service_included_templates_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.service_slot_day_state|sscds_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.service_slot_day_state|sscds_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_service_id IN ( SELECT ev.service_id FROM event_vendors ev WHERE ((ev.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (ev.service_id IS NOT NULL)))))) check=NULL
 policy	public.service_slot_day_state|sscds_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(slot_id IN ( SELECT s.slot_id FROM vendor_service_time_slots s WHERE (s.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=NULL
@@ -7365,6 +7389,8 @@ policy	public.vendor_partnerships|proposer inserts vendor partnership	mode=PERMI
 policy	public.vendor_partnerships|proposer withdraws vendor partnership	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=((recommending_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = 'withdrawn'::text))
 policy	public.vendor_partnerships|public read accepted vendor partnerships	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((is_active = true) AND (status = 'accepted'::text)) check=NULL
 policy	public.vendor_partnerships|recipient responds to vendor partnership	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=((recommended_vendor_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (status = ANY (ARRAY['accepted'::text, 'declined'::text])))
+policy	public.vendor_pay_plans|vendor_pay_plans_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.vendor_pay_plans|vendor_pay_plans_manage	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_payment_asks|vendor_payment_asks_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_payment_asks|vendor_payment_asks_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.vendor_payment_asks|vendor_payment_asks_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((event_id IS NULL) OR (NOT (event_id IN ( SELECT money_hidden_event_ids() AS money_hidden_event_ids))) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
@@ -7543,6 +7569,7 @@ func	public.answer_event_date_change(p_event_vendor_id uuid, p_answer text)	secd
 func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes exec=authenticated search_path=public
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
 func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.apply_vendor_pay_plan(p_vendor_profile_id uuid, p_pay_plan_id uuid, p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public

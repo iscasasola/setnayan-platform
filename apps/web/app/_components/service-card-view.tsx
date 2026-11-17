@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
@@ -8,7 +9,6 @@ import {
   type ServiceFaceDoor,
 } from '@/app/_components/service-face';
 import type { ServiceCard } from '@/lib/service-card-view-model';
-import type { ReactNode } from 'react';
 
 /**
  * The shop a marketplace card belongs to — its logo, its name, and the address
@@ -79,7 +79,8 @@ export function ServiceCardView({
   pathLead?: { label: string; onPress: () => void; ariaLabel: string } | null;
   /** The card's own cover (`primary_photo_r2_key`, resolved). Falls back to its first photo — Find's rule. */
   coverUrl?: string | null;
-  /** 🏅 Under the face, inside the frame — the card's badge row (badge build J3, `card-badges/card-badge-row.tsx`). */
+  /** Inside the frame, under the face (`ServiceFace` `footer`): the card's badge row (badge build J3,
+   * `card-badges/card-badge-row.tsx`), then the shop page's "Add to quote" row (v16 `.sc .ft`). */
   footer?: ReactNode;
 }) {
   // A LINK when the caller gave an address, a BUTTON when it gave a callback — one door, never two.
@@ -92,6 +93,7 @@ export function ServiceCardView({
         : undefined;
   return (
     <ServiceFace
+      footer={footer}
       id={c.anchorId}
       name={c.label}
       coverUrl={coverUrl ?? c.photos[0] ?? null}
@@ -117,7 +119,6 @@ export function ServiceCardView({
         ) : null
       }
       door={door}
-      footer={footer}
     />
   );
 }

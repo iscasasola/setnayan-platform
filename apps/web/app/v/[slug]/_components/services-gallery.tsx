@@ -34,6 +34,9 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
+import { CardQuoteActions, QuoteTray } from './shop-quote';
+import { setShopQuote } from './shop-quote-store';
+import { toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgesRead } from '@/lib/card-badges';
 
@@ -69,6 +72,7 @@ export function ServicesGallery({
   shopName = null,
   countOpensFor = null,
   ownerCheckFor = null,
+  quote = null,
   cardBadges = null,
   badgesNow = 0,
 }: {
@@ -97,6 +101,11 @@ export function ServicesGallery({
   viewerSignedIn?: boolean;
   detailsEnabled?: boolean;
   inquireMode?: ServiceInquireMode;
+  /**
+   * 🧾 v16 S3 — "Add to quote" + "Inquire" under each card and the quote tray. The cards' shown starting prices,
+   * decided server-side (`quotePriceOf`). null = no quote (a page with no Inquire pop-up to send it through).
+   */
+  quote?: { cards: QuoteCard[] } | null;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -198,6 +207,18 @@ export function ServicesGallery({
         }
       : null;
 
+  // 🧾 The quote — on the device only, in the order picked (prototype `ST.svc`); the tray's Inquire sends it.
+  const [picked, setPicked] = useState<string[]>([]);
+  // 🧾 v16 S3: "Add to quote" + "Choose this service" under a card's face (`ServiceFace` `footer`, v16 `.sc .ft`).
+  const quoteActionsFor = (c: ServiceCard) =>
+    quote ? (
+      <CardQuoteActions card={c} inQuote={picked.includes(c.id)} onToggle={() => setPicked((p) => toggleQuote(p, c.id))} />
+    ) : null;
+  // The ONE Inquire reads the quote when its button names no card (v16 `inquire()` opens with the quote picked).
+  useEffect(() => {
+    setShopQuote(picked);
+  }, [picked]);
+
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;
     for (const g of groups) {
@@ -263,7 +284,11 @@ export function ServicesGallery({
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
         {visible.flatMap((g) =>
           g.cards.map((c) => (
-            <li key={c.id}>
+            <li
+              key={c.id}
+              data-in-quote={picked.includes(c.id) ? '' : undefined}
+              className={picked.includes(c.id) ? 'rounded-3xl ring-2 ring-sn-accent/40 ring-offset-2 ring-offset-page' : undefined}
+            >
               <ServiceCardView
                 card={withViewerLooks(c)}
                 path={g.label}
@@ -277,20 +302,28 @@ export function ServicesGallery({
                     : null
                 }
                 detailsEnabled={detailsEnabled}
-                footer={
-                  cardBadges?.kind === 'ok' && (cardBadges.byCard[c.id]?.length ?? 0) > 0 ? (
-                    <CardBadgeRow badges={cardBadges.byCard[c.id]!} cardName={c.label} shopName={shopName} now={badgesNow} />
-                  ) : null
-                }
                 onOpen={(from) => {
                   originRef.current = from;
                   setOpenCardId(c.id);
                 }}
+                // The badge row (#7819), then the quote buttons (v16 S3) — one slot, both kept.
+                footer={
+                  cardBadges?.kind === 'ok' && (cardBadges.byCard[c.id]?.length ?? 0) > 0 ? (
+                    <>
+                      <CardBadgeRow badges={cardBadges.byCard[c.id]!} cardName={c.label} shopName={shopName} now={badgesNow} />
+                      {quoteActionsFor(c)}
+                    </>
+                  ) : (
+                    quoteActionsFor(c)
+                  )
+                }
               />
             </li>
           )),
         )}
       </ul>
+
+      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} /> : null}
 
       <PhotosByServiceSheet
         view={photoServices.find((v) => v.key === openService) ?? null}

@@ -45,7 +45,9 @@ test("a chat bubble's 75% is of the thread, not of a row shrunk to the bubble", 
   assert.equal(rows.length, 1, `expected the ONE message row, found ${rows.length}`);
   assert.match(
     rows[0],
-    /\$\{ownFile \? '' : 'w-full'\}|\bw-full\b/,
+    // NOT `\bw-full\b` — that matches inside `max-w-full` (a hyphen is a word boundary), which is what this row
+    // already had while broken. Sabotage-measured.
+    /[\s'`]w-full[\s'`]/,
     `the message row is not full width — the bubble's max-w-[75%] resolves against its own text again ("He / llo"): ${rows[0]}`,
   );
   assert.match(stream, /max-w-\[75%\]/, 'the bubble lost its 75% cap — this guard needs re-reading');

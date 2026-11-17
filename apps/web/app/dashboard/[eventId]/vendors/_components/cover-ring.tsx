@@ -69,7 +69,7 @@ export function CoveredLine() {
   const ring = useContext(CoverRingContext)?.ring ?? null;
   if (!ring || ring.total <= 0) return null;
   return (
-    <p data-covered-line="" className="mb-2 text-xs text-ink/60">
+    <div data-covered-line="" className="mb-2 text-xs text-ink/60">
       <InfoTip
         align="start"
         label="Covered categories"
@@ -83,6 +83,6 @@ export function CoveredLine() {
       >
         A category is covered when a supplier is booked there, or it comes with another booking, or you marked it done.
       </InfoTip>
-    </p>
+    </div>
   );
 }

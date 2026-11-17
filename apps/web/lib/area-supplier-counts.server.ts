@@ -4,7 +4,7 @@ import { logQueryError } from './supabase/error-detect';
 import { countSuppliersByArea, type AreaPoint, type AreaShop } from './area-supplier-counts';
 
 /**
- * 📍 THE ONE GROUPED READ behind "Areas that fit" (owner 2026-11-17): every verified, published shop's pin, tier and
+ * 📍 THE ONE GROUPED READ behind "Areas that fit" (owner 2026-11-17): every live shop's pin (verified + publicly visible), tier and
  * declared rings, counted against the areas the Where step offers (`countSuppliersByArea`). The rows are public facts
  * of public shops; the admin client is used because `vendor_profiles` rings are not all on the public projection.
  *
@@ -15,8 +15,10 @@ export async function readAreaSupplierCounts(areas: readonly AreaPoint[]): Promi
   const { data, error } = await createAdminClient()
     .from('vendor_profiles')
     .select('hq_latitude, hq_longitude, tier_state, inner_radius_km, outer_radius_km')
-    .eq('verification_state', 'verified')
-    .eq('is_published', true);
+    // A LIVE shop, in the one definition (lib/one-definition-of-live.test.ts) — what /admin/verify writes and what
+    // /explore and the public-read policy filter on. Never the dead `is_published`.
+    .eq('public_visibility', 'verified')
+    .eq('verification_state', 'verified');
   if (error || !data) {
     logQueryError('readAreaSupplierCounts', error, {}, 'graceful_degrade');
     return null;

@@ -2,7 +2,7 @@
  * area-supplier-counts.ts — 📍 "AREAS THAT FIT · BY SUPPLIERS WE HAVE THERE" (owner 2026-11-17, drawing v15 Where ·
  * "Not sure yet"; the controller accepted the definition on PR #7920).
  *
- * A supplier is "here" when it is a verified, published shop whose OWN reach covers the area's centre: its declared
+ * A supplier is "here" when it is a LIVE shop (verified + publicly visible — the one definition) whose OWN reach covers the area's centre: its declared
  * outer ring, tier-clamped (`resolveDeclaredRings` — the same clamp the bench's badge uses), or — when it declared none —
  * its tier's radius (`tierCaps().serviceRadiusKm`, the card's own fallback). An unpinned shop, or a tier with no reach,
  * is counted nowhere: it cannot be said to serve an area. Real counts only — never "most popular on Setnayan".

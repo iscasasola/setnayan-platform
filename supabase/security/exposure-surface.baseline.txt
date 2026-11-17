@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7904
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     642
-#   col       5684
+#   col       5687
 #   policy    1160
 #   view      10
 #   func      401
@@ -2187,9 +2187,11 @@ col	public.event_type_onboarding.reveal_overrides	anon=SIU authenticated=SIU
 col	public.event_type_onboarding.updated_at	anon=SIU authenticated=SIU
 col	public.event_type_profiles.budget_taxonomy_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.camera_default	anon=SIU authenticated=SIU
+col	public.event_type_profiles.core_categories	anon=SIU authenticated=SIU
 col	public.event_type_profiles.created_at	anon=SIU authenticated=SIU
 col	public.event_type_profiles.enabled_surfaces	anon=SIU authenticated=SIU
 col	public.event_type_profiles.event_class	anon=SIU authenticated=SIU
+col	public.event_type_profiles.event_size	anon=SIU authenticated=SIU
 col	public.event_type_profiles.event_type	anon=SIU authenticated=SIU
 col	public.event_type_profiles.gifts_mode	anon=SIU authenticated=SIU
 col	public.event_type_profiles.guest_word	anon=SIU authenticated=SIU
@@ -2500,6 +2502,7 @@ col	public.events.created_at	anon=S authenticated=S
 col	public.events.date_candidates	anon=SIU authenticated=SIU
 col	public.events.date_forced_by_lock_of	anon=- authenticated=S
 col	public.events.date_mode	anon=SIU authenticated=SIU
+col	public.events.date_months	anon=- authenticated=SIU
 col	public.events.date_status	anon=SIU authenticated=SIU
 col	public.events.date_window_end	anon=SIU authenticated=SIU
 col	public.events.date_window_start	anon=SIU authenticated=SIU

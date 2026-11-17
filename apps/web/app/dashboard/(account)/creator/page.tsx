@@ -16,6 +16,7 @@ import {
   CHAPTER_KINDS,
   CHAPTER_KIND_LABEL,
   EMBED_PROVIDER_LABEL,
+  PUBLIC_POSTS_ARE_FINDABLE,
   type ChapterKind,
   type ChapterStatus,
   type EmbedProvider,
@@ -214,6 +215,9 @@ async function CreatorBody({
         <h2 className="sn-sec">New chapter</h2>
         <StayForm door="accCreator.createChapter" action={createChapter} className="space-y-4">
           <ChapterFields myEvents={myEvents} prefillEventId={prefillEventId} />
+          <p className="text-xs leading-snug text-ink/70">
+            Text and links. No photos or videos. {PUBLIC_POSTS_ARE_FINDABLE}
+          </p>
           <SubmitButton
             className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-2"
             pendingLabel="Creating…"
@@ -492,17 +496,8 @@ function ChapterCard({
           <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Preview</p>
           <ChapterEmbedFrame src={c.embed_url} title={c.title} />
         </div>
-      ) : (
-        /* ⚠ THIS USED TO READ "No embed yet — paste your finished edit below,
-           then publish", inside a dashed box, on EVERY chapter without a video
-           INCLUDING published ones. It described the retired rule as a required
-           step, so a finished written story permanently read as unfinished and
-           blocked — the publish wall rebuilt in copy after it was removed from
-           the code. A video is optional; its absence needs no warning. */
-        <p className="text-xs text-ink/70">
-          No video on this chapter — that’s fine, your story stands on its own. Add a link below any time.
-        </p>
-      )}
+      ) : null /* 📝 Text and links only (2026-11-17): a chapter without a video needs no line about one —
+           and "Add a link below any time" would now point at a field new posts no longer have. */}
 
       {published && slug ? (
         /* Truthful build state (readiness verdict 2026-07-16 · B5): the public
@@ -525,7 +520,11 @@ function ChapterCard({
         </p>
       ) : null}
 
-      <TeaserGenerator chapterId={c.chapter_id} existingTeaserUrl={teaserUrl} />
+      {/* 📝 Text and links only (2026-11-17): the teaser upload is gone from posts; a chapter that already
+          has a teaser keeps it, so nothing an author made is lost. */}
+      {c.teaser_r2_key ? (
+        <TeaserGenerator chapterId={c.chapter_id} existingTeaserUrl={teaserUrl} />
+      ) : null}
 
       {/* Edit */}
       <details className="group">
@@ -580,6 +579,7 @@ function ChapterCard({
         <p className="text-xs leading-snug text-ink/70">
           {CHAPTER_AUDIENCE_NOTE[c.status]}
         </p>
+        <p className="text-xs leading-snug text-ink/70">{PUBLIC_POSTS_ARE_FINDABLE}</p>
         {/* Everything the "Everyone" answer depends on, said BEFORE it is
             pressed — a privacy-relevant change is never discovered afterwards.
             (2026-07-16 · B5, extended 2026-08-12: choosing Everyone also
@@ -703,14 +703,17 @@ function ChapterFields({
           className="input-field"
         />
         <span className="block text-xs text-ink/70">
-          This is your chapter. Needed to publish — a video is optional. Blank
-          lines become paragraphs.
+          This is your chapter, and it is needed to publish. Blank lines become
+          paragraphs; paste a link as it is.
         </span>
       </label>
 
+      {/* 📝 TEXT AND LINKS ONLY (owner 2026-11-17): new posts carry no video. The field stays ONLY on an
+          older chapter that already has one, so its author can still replace or remove it. */}
+      {chapter?.embed_url ? (
       <label className="block space-y-1">
         <span className="block text-xs font-medium text-ink">
-          Video link — optional (YouTube · Instagram · TikTok)
+          Video link (YouTube · Instagram · TikTok)
         </span>
         <input
           name="embed_url"
@@ -720,11 +723,11 @@ function ChapterFields({
           className="input-field"
         />
         <span className="block text-xs text-ink/70">
-          Leave this empty if you don’t have one — your story stands on its own.
-          If you paste a link we store a privacy-enhanced embed only; Setnayan
+          Clear it to remove the video. If you paste a link we store a privacy-enhanced embed only; Setnayan
           never hosts your video, it stays on your platform.
         </span>
       </label>
+      ) : null}
 
       {/* WHEN — the one question that puts a chapter in the right year.
           Rendered beside the story, not buried in the optional fieldset: a

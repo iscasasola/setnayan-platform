@@ -133,7 +133,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     ],
   },
   {
-    slug: 'holiday-season-vendor-booking-crunch',
+    slug: 'holiday-season-supplier-booking-crunch',
     cover: '/blog/christmas.webp',
     coverAlt:
       'A warm, candlelit December wedding reception with festive touches',
@@ -379,7 +379,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Free is only sustainable if it is honest, so here is the plain version. The planning workspace stays free because it costs us very little to run for each couple, and because we would rather earn your trust early than charge you for the basics. There are optional extras a couple can choose to add — the kind of premium touches that go beyond plain planning — but you are never required to buy anything to organise your wedding from start to finish. The default is free, and it is a real default, not a teaser. There is no trial timer counting down, no feature greyed out until you upgrade, no card you must enter just to begin. You can plan your entire wedding and never reach a paywall, because the everyday tools are not the part we charge for.',
+        text: 'Free is only sustainable if it is honest, so here is the plain version. The planning workspace stays free because it costs us very little to run for each couple, and because we would rather earn your trust early than charge you for the basics. There are optional extras a couple can choose to add — the kind of premium touches that go beyond plain planning — but you are never required to buy anything to organise your wedding from start to finish. The default is free, and it is a real default, not a teaser. There is no trial timer counting down and no card you must enter just to begin. The planning tools are free; Event Pro is there if you want the extras, and it is optional. You can plan your entire wedding without ever buying it, because the everyday tools are not the part we charge for.',
       },
       {
         type: 'p',
@@ -433,7 +433,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'ul',
         items: [
-          'Couples pay suppliers directly, to their GCash or bank — the money never passes through Setnayan.',
+          'Your payments to suppliers go straight to them, to their GCash or bank — that money never passes through Setnayan.',
           'Couples pay no hidden platform markup folded into the supplier’s price.',
           'The quoted price is the real price, set by the supplier and agreed with you.',
           'Suppliers can price competitively without padding for a commission they would otherwise lose.',
@@ -468,7 +468,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     ],
   },
   {
-    slug: 'free-wedding-website-how-it-helps',
+    slug: 'free-event-hub-how-it-helps',
     cover: '/blog/news.webp',
     coverAlt:
       'A couple planning their wedding together over a laptop and a checklist',
@@ -518,7 +518,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A good Event Hub meets your guests where they are. The tech-comfortable cousin RSVPs in seconds on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because it is free and built in, there is no reason to skip it and no premium tier holding the useful parts hostage. You get a real, working Event Hub and a real RSVP system as the default, not as an upsell. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
+        text: 'A good Event Hub meets your guests where they are. The tech-comfortable cousin RSVPs in seconds on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because the Event Hub and its RSVP are free and built in, there is no reason to skip it. You get a real, working Event Hub and a real RSVP system as the default; Event Pro adds optional extras on top, and you never need it to collect RSVPs. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
       },
       {
         type: 'p',
@@ -539,7 +539,7 @@ export const HOOKS_DECNEWS: Record<string, string> = {
     'Cool air, Christmas lights, and everyone finally home — December is the dream month to marry in the Philippines. It is also the first to fully book out. Here is how to claim the date before the rush does. ✨',
   'christmas-themed-wedding-ideas-philippines':
     'The lights are already up, the mood is already warm — a December wedding has a head start most couples would pay for. The secret is borrowing the season gently, the Filipino way. Here is how.',
-  'holiday-season-vendor-booking-crunch':
+  'holiday-season-supplier-booking-crunch':
     'Every year the same heartbreak: couples fall for a supplier whose December dates are long gone. The fix is not luck — it is order and timing. Here is who to lock first so you are not the one left scrambling.',
   'new-years-eve-wedding-philippines':
     'Picture your first kiss as a married couple landing exactly as the fireworks go up and the whole country counts down. A New Year’s Eve wedding ends the year and begins your marriage in one breath. Here is how to plan it. ✨',
@@ -549,6 +549,6 @@ export const HOOKS_DECNEWS: Record<string, string> = {
     'Your venue costs money. Your caterer costs money. But the checklist, the guest list, the budget that simply keeps it all from falling apart? That part should cost nothing — and here is exactly why we built it that way.',
   'what-zero-commission-means-for-couples':
     'When a platform takes a cut of every booking, somebody quietly pays for it — usually you, hidden inside the price. Here is what changes when that cut is zero, and why both sides come out ahead.',
-  'free-wedding-website-how-it-helps':
+  'free-event-hub-how-it-helps':
     'It sounds like a nice-to-have — a pretty page with your date. In practice it answers the hundred questions you would otherwise answer one guest at a time, and counts your RSVPs for you. Here is the real work it does.',
 };

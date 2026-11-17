@@ -226,17 +226,14 @@ export async function createChapter(formData: FormData) {
   const { supabase, userId } = await requireUser();
   const title = readTitle(formData);
   const kind = readKind(formData);
-  const embed = readEmbed(formData, { allowEmpty: true });
   const eventId = await readEventLink(formData, supabase, userId);
   const substrate = readSubstrate(formData, eventId);
 
   const body = readBody(formData);
 
+  // 📝 TEXT AND LINKS ONLY (owner 2026-11-17, DECISION_LOG "DISCOVER ARTICLES ARE OUR REDDIT"): a NEW post
+  // carries no video and no teaser. `embed_url` is never read here, so a crafted form cannot add one either.
   const insert: Record<string, unknown> = { user_id: userId, title, kind };
-  if (embed) {
-    insert.embed_url = embed.embed_url;
-    insert.embed_provider = embed.embed_provider;
-  }
   if (body !== undefined) insert.body = body;
   const happenedOn = readHappenedOn(formData);
   if (happenedOn !== undefined) insert.happened_on = happenedOn;
@@ -270,6 +267,10 @@ export async function updateChapter(formData: FormData) {
     update.embed_url = embed.embed_url;
     update.embed_provider = embed.embed_provider;
   }
+  // 📝 TEXT AND LINKS ONLY (2026-11-17): an older chapter that already carries a video keeps it — it may
+  // be replaced or removed — but a chapter without one can no longer gain one. Held by the row filter
+  // below, never by the form alone.
+  const addsVideo = !!embed && embed.embed_url !== null;
   const body = readBody(formData);
   if (body !== undefined) update.body = body;
   // Clearing the day is a real answer, so `null` must be written, not skipped.
@@ -282,14 +283,19 @@ export async function updateChapter(formData: FormData) {
   const substrate = readSubstrate(formData, eventId);
   if (substrate) update.substrate = substrate;
 
-  const { error } = await supabase
+  let write = supabase
     .from('creator_chapters')
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
+  if (addsVideo) write = write.not('embed_url', 'is', null);
+  const { data: written, error } = await write.select('chapter_id');
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('stories');
   if (error) failWithDbMessage(error.message);
+  if (addsVideo && (written ?? []).length === 0) {
+    fail('Posts are text and links now — a video can only stay on a chapter that already had one.');
+  }
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?saved=1`);

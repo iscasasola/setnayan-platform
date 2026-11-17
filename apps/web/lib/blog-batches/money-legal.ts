@@ -76,7 +76,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     cover: '/blog/budget.webp',
     coverAlt:
       'Gold wedding rings and an invitation suite arranged on a styled table',
-    title: 'The average cost of a wedding in the Philippines (2026)',
+    title: 'The average cost of a wedding in the Philippines',
     excerpt:
       'What a Filipino wedding really costs in 2026 — honest ranges by guest count, and why your number is in your control.',
     category: 'planning',
@@ -131,7 +131,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See the full percentage breakdown of where a Filipino wedding budget really goes.',
-        href: '/features',
+        href: '/articles/wedding-budget-breakdown-philippines',
         label: 'Read the budget breakdown',
       },
       {

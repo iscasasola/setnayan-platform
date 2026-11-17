@@ -175,6 +175,13 @@ export const CHAPTER_AUDIENCE_NOTE: Record<ChapterStatus, string> = {
 };
 
 /**
+ * 🔎 THE ONE LINE BESIDE EVERY PUBLIC POST (owner 2026-11-17, drawing v15 Q8 "Indexed from the moment they
+ * post": DECISION_LOG "DISCOVER ARTICLES ARE FOUND ON GOOGLE AND BY AI ANSWER ENGINES"). Said BEFORE the post
+ * is public, on the Write sheet and beside the "Everyone" choice — one constant, so the two never drift.
+ */
+export const PUBLIC_POSTS_ARE_FINDABLE = 'Public posts can appear on Google and in AI answers.';
+
+/**
  * Is this chapter readable by somebody other than its author?
  *
  * The single question behind "needs a story before you can share it" and behind

@@ -70,7 +70,6 @@ import {
   samplePlanCaption,
   type SampleShopPlan,
 } from '@/app/v/[slug]/_components/sample-shop-page';
-import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {

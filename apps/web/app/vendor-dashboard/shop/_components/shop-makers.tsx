@@ -138,7 +138,7 @@ export function ShopMakers({
   return (
     <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-makers-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <h2 id="shop-makers-h" className="home-k2 !my-0">
           Makers
         </h2>
       </div>

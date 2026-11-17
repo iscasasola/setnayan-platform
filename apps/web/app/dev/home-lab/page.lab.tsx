@@ -603,7 +603,7 @@ export default async function HomeLab({
       { block_id: 'b3', label: 'Dinner & toasts', start_at: at(30), end_at: at(150), location: 'Main hall' },
     ];
     const day = (
-      <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
+      <div className="mx-auto min-h-screen w-full bg-page px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
         <DayOfModeGrid
           eventId={E}
           blocks={blocks}
@@ -718,7 +718,7 @@ export default async function HomeLab({
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
     <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateCookie="lab_home_date">
-    <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <div className="mx-auto min-h-screen w-full bg-page px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
         /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */

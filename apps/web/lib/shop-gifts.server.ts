@@ -362,6 +362,7 @@ export async function writeQuoteShopGifts(
     basis.rewardFree ?? null,
   );
   if (v.state === 'unknown_pack') return { ok: false, message: 'One of those gifts is not on sale any more.' };
+  if (v.state === 'too_many') return { ok: false, message: 'A quote holds one gift — take the others off.' };
   if (v.state === 'already_has') {
     return basis.eventHas === 'ultra'
       ? { ok: false, message: 'Their event already has Event Ultra — take Event Plus, Event Pro and Event Ultra off.' }

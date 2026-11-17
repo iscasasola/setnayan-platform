@@ -11,6 +11,7 @@ import { formatCentavos } from '@/lib/vendor-proposals';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   addGiftMenu,
+  MAX_GIFTS_PER_QUOTE,
   alwaysAllowedPack,
   giftCount,
   giftPackLine,
@@ -198,12 +199,21 @@ export function QuoteShopGifts({
             </>
           )}
         </p>
+      ) : verdict.state === 'too_many' ? (
+        <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-too-many">
+          <b className="font-semibold">A quote holds one gift.</b> Take the others off.
+        </p>
       ) : verdict.state === 'unknown_pack' ? (
         <p className="text-xs text-danger-700" role="status">
           One of these gifts is not on sale any more — remove it.
         </p>
       ) : null}
 
+      {codes.length >= MAX_GIFTS_PER_QUOTE ? (
+        <p className="text-xs text-ink/60" data-testid="quote-shop-gifts-one">
+          One gift per quote. Swipe it off to pick another.
+        </p>
+      ) : (
       <PickMenu
         label="Add a gift from your stock"
         value={null}
@@ -217,6 +227,7 @@ export function QuoteShopGifts({
         }}
         dataAttr="data-quote-shop-gifts-add"
       />
+      )}
 
       {buy ? (
         <BuyGiftsSheet

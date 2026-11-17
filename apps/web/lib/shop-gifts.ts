@@ -345,7 +345,7 @@ export type QuoteGiftsVerdict = {
   fromReward: boolean[];
   /** Value of the badge-reward lines, at the price couples pay — not measured against the limit. */
   rewardCentavos: number;
-  state: 'none' | 'ok' | 'over_limit' | 'short' | 'unknown_pack' | 'already_has';
+  state: 'none' | 'ok' | 'over_limit' | 'short' | 'unknown_pack' | 'already_has' | 'too_many';
   /** Missing from stock (state 'short') — credits for Papic, units for an unlock. */
   shortBy: number;
   /** Which kind is short (state 'short'). */
@@ -383,6 +383,12 @@ export function allocateRewardLines(
   }
   return out;
 }
+
+/**
+ * 🎁 ONE GIFT PER QUOTE — owner 17 Nov 2026, verbatim: "only 1 will be held for any quote." (DECISION_LOG
+ * "Gifts: a quote holds at most ONE gift ticket"). The picker, the server write and the guard all read this.
+ */
+export const MAX_GIFTS_PER_QUOTE = 1;
 
 /**
  * Judge the gifts a supplier put on a quote. The server runs this before it writes the lines; the composer runs the
@@ -447,6 +453,7 @@ export function judgeQuoteGifts(
 
   if (unknown) return { ...base, state: 'unknown_pack' };
   if (lines.length === 0) return { ...base, state: 'none' };
+  if (codes.length > MAX_GIFTS_PER_QUOTE) return { ...base, state: 'too_many' };
   if (lines.some((p) => !eventCanTake(p.kind, eventHas))) return { ...base, state: 'already_has' };
   if (!alwaysAllowed && boughtCentavos > limitCentavos) return { ...base, state: 'over_limit' };
   // 🔢 Papic is offered PER PACK (2026-11-14): each pack's lines against that pack's own free count.
@@ -502,6 +509,7 @@ export function addGiftMenu(
   rewardFree: FreeByKind | null = null,
 ): GiftMenuOption[] {
   return packs.map((p) => {
+    if (codes.length >= MAX_GIFTS_PER_QUOTE) return { code: p.code, title: p.title, ok: false, why: 'One gift per quote · remove it to change' };
     const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, limitPct, free, eventHas, rewardFree);
     if (v.state === 'ok') return { code: p.code, title: p.title, ok: true, why: null };
     if (v.state === 'already_has') {

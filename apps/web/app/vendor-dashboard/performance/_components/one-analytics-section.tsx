@@ -79,6 +79,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
 import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
+import { badgeGate, graphUnlocks, type UnlockFacts } from '@/lib/graph-unlocks';
+import { readGiftPointExamples, readGiftsToBookings, readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
+import { readFiveStarCount, readGiftPoints } from '@/lib/badge-rewards.server';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 
 
@@ -231,6 +234,12 @@ export async function OneAnalyticsSection({
   // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
   // 🌱 Analytics, growing (owner-approved 6 Nov 2026): the 12-month figures are read the SAME honest way, so the pinned
   // row, the sentence and the funnel follow the ONE window — the old 365-day read folded a refusal into zeros.
+  // 🏅 J5 — which badge graphs this shop sees (lib/graph-unlocks.ts): the keep marker and every badge step ever earned
+  // (ONE call), and main's own badge counters (badge-rewards.server.ts) — started here beside the rest.
+  const unlockRead = safeRead(readGraphUnlockFacts(bookingsAdmin, profile.vendor_profile_id), null, 'graph_unlocks');
+  const fiveStarRead = safeRead(readFiveStarCount(bookingsAdmin, profile.vendor_profile_id), null, 'badge_five_star');
+  const giftPointsRead = safeRead(readGiftPoints(bookingsAdmin, profile.vendor_profile_id), null, 'badge_gift_points');
+
   const pinNowRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
   const pinYearRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
 
@@ -620,9 +629,40 @@ export async function OneAnalyticsSection({
     pro: gateOn && !canMarket,
   });
 
+  // 🏅 J5 — EACH BADGE'S BRONZE OPENS ITS OWN GRAPHS (badge-unlock_v6). Completed bookings is the count the page already
+  // read (badge facts); five-star reviews and gift points are main's counters (Trusted by is not read: it opens no graph until its ruling closes). A refused read is `null` — the
+  // adapter keeps those graphs showing ("Couldn’t load") rather than calling a shop "below Bronze" on a count it could
+  // not read. Invites waits while it is not counted (`notCountedYet`, BADGE_REWARDS.invites.measured).
+  const [unlockFacts, fiveStars, giftPoints] = await Promise.all([unlockRead, fiveStarRead, giftPointsRead]);
+  const facts: UnlockFacts = {
+    kept: unlockFacts ? unlockFacts.kept : null,
+    earned: unlockFacts ? unlockFacts.earned : null,
+    counts: {
+      completed_bookings: badgeFacts ? badgeFacts.completedEvents : null,
+      five_star_reviews: fiveStars,
+      gifts_given: giftPoints,
+    },
+  };
+  const unlocks = graphUnlocks(facts);
+  // The NEW gifts graph is read and drawn only once its badge has OPENED it — never on "we couldn't tell".
+  const giftsOpen = badgeGate('gifts_given', facts) === 'open';
+  const [gifts30, gifts12, giftExamples] = giftsOpen
+    ? await Promise.all([
+        safeRead(readGiftsToBookings(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)), null, 'gifts_to_bookings_30'),
+        safeRead(readGiftsToBookings(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)), null, 'gifts_to_bookings_12'),
+        safeRead(readGiftPointExamples(bookingsAdmin), null, 'gift_point_examples'),
+      ])
+    : [null, null, null];
+
   return (
     <>
-      <AnalyticsCarousel view={growthView} graphs={newGraphs} />
+      <AnalyticsCarousel
+        view={growthView}
+        graphs={newGraphs}
+        unlocks={{ hidden: [...unlocks.hidden], locked: unlocks.locked, unsure: unlocks.unsure }}
+        gifts={giftsOpen ? { '30': gifts30, '12': gifts12 } : null}
+        giftsRecFacts={{ giftPoints, examplePoints: giftExamples }}
+      />
       {verifiedMedian ? (
         <div className="px-4 pt-4">
           <VerifiedMedianCard data={verifiedMedian} />

@@ -7,11 +7,14 @@
  *
  *  · `TemplateSection` — rule 2: a small grey capitals label, no box, 18 of air above; an optional ⓘ (rule 7) and
  *    words on its right ("₱750 on 2 bookings").
- *  · `TemplateRows` + `TemplateRow` — rule 2: plain rows on the page, one hairline between them, ≥ 56 high: bold
- *    name, one dark-grey line under it, the right side (money bold, a chip, one button, ⋯), and a terracotta › when
- *    the whole row opens something.
+ *  · `TemplateRows` + `TemplateRow` — rule 2, REWRITTEN 16 Nov 2026 (clean warm look, owner "yes the template looks
+ *    good" — DECISION_LOG "THE CLEAN WARM LOOK IS APPROVED", which UNDOES "bands, not boxes"): a section's rows sit
+ *    in ONE lifted white frame (`.sn-frame`, the frame tokens), with NO line between them — space separates. ≥ 56
+ *    high: bold name, one dark-grey line under it, the right side (money bold, a chip, one button, ⋯), and a
+ *    terracotta › when the whole row opens something. The divider is the `--sn-divider` token (off; a guest island
+ *    turns it back on).
  *  · `edge` — rule 11: a gold edge = due, red = late; the edge is the only colour on the row.
- *  · `TemplateNums` — rule 13 / the Money frame: read-only numbers between two hairlines, never in cards.
+ *  · `TemplateNums` — rule 13 / the Money frame: read-only numbers in one lifted frame (16 Nov), never a card each.
  *  · `TemplateFail` — rule 6: a failed read never looks like "none" — amber words with their own Try again.
  *  · `TemplateEmpty` — rule 6: empty is one plain line where the rows would be. No card, no icon box.
  *
@@ -74,7 +77,7 @@ export function TemplateSection({
 
 export function TemplateRows({ children, label }: { children: ReactNode; label?: string }) {
   return (
-    <ul aria-label={label} className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+    <ul aria-label={label} className="sn-frame sn-frame-flush px-4 [&>li+li]:border-t [&>li+li]:border-[color:var(--sn-divider)]">
       {children}
     </ul>
   );
@@ -142,11 +145,11 @@ export function TemplateRow({
   );
 }
 
-/** Read-only numbers between two hairlines (rule 2/13 — never number cards). */
+/** Read-only numbers in one lifted frame (rule 2/13, 16 Nov — never a card per number). */
 export function TemplateNums({ items }: { items: readonly { label: string; value: ReactNode; tone?: 'warn' | 'danger' | 'ok' }[] }) {
   return (
     <dl
-      className="my-2.5 grid gap-1 border-y border-[color:var(--m-line)] py-3 text-center"
+      className="sn-frame my-2.5 grid gap-1 px-2 py-3 text-center"
       style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
     >
       {items.map((it) => (

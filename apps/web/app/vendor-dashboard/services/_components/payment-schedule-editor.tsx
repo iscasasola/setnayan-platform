@@ -248,10 +248,10 @@ export function PaymentScheduleEditor({
                     {/* The house typed row (lint:field-template): what is typed is read live into row 0's kind and value. */}
                     <TypedRow
                       name="Reservation fee"
-                      about={{ title: 'Reservation fee', words: '5000 is pesos · 10% is a percent of the price.' }}
+                      about={{ title: 'Reservation fee', words: 'A plain number is pesos. Add % for a percent of the price.' }}
                       value={feeRaw}
-                      empty="10% or 5000"
-                      placeholder="10% or 5000"
+                      empty="Pesos, or add %"
+                      placeholder="Pesos, or add %"
                       inputMode="text"
                       check={(t) => (t.trim() === '' ? null : (() => { const f = parseReservationFee(t, pricePhp); return f.ok ? null : f.error; })())}
                       onType={typeFee}
@@ -259,7 +259,7 @@ export function PaymentScheduleEditor({
                       data="reservation-fee"
                     />
                     <span className="block text-[12.5px] text-ink/55" aria-live="polite" data-reservation-fee-reads="">
-                      {fee.ok ? (fee.kind === 'percent' ? `${fee.value}% of the price` : `₱${fee.value.toLocaleString('en-PH')}`) : (fee.error ?? '5000 is pesos · 10% is a percent')}
+                      {fee.ok ? (fee.kind === 'percent' ? `${fee.value}% of the price` : `₱${fee.value.toLocaleString('en-PH')}`) : (fee.error ?? 'A plain number is pesos · add % for a percent')}
                     </span>
                   </div>
                 ) : (

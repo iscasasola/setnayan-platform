@@ -13,10 +13,10 @@ export function parseReservationFee(
   const t = raw.trim().replace(/[₱,\s]/g, '');
   if (t === '') return { ok: false, error: null };
   const m = /^(\d+(?:\.\d+)?)(%?)$/.exec(t);
-  if (!m) return { ok: false, error: 'Type a number: 5000 for pesos, or 10% for a percent.' };
+  if (!m) return { ok: false, error: 'Type a number for pesos, or a number with % for a percent.' };
   const n = Number(m[1]);
   if (m[2] === '%') {
-    if (n > 100) return { ok: false, error: 'A percent goes up to 100%.' };
+    if (n > 100) return { ok: false, error: 'A percent can’t be more than the whole price.' };
     return { ok: true, kind: 'percent', value: Math.round(n) };
   }
   if (pricePhp != null && pricePhp > 0 && n > pricePhp) {

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ExternalLink, KeyRound, SlidersHorizontal } from 'lucide-react';
 import {
   STORE_LABEL,
   secretFields,
@@ -9,24 +8,31 @@ import {
 import { STATUS_LABEL, type SecretStatus } from '@/lib/secrets/status';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { Fold } from '@/app/_components/fold';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { SecretValueInput } from './secret-value-input';
 import { updateVercelSecret, updateDbSecret, clearDbSecret, markRotated } from '../actions';
 
-// One row on the Secrets & Rotation board.
+// One row on the Secrets & Rotation board — avatar › Secrets & integrations (owner go 14 Nov 2026; the approved
+// drawing `admin_five_tabs_2026-11-13/admin.html` `secretFold`).
 //
-// Server component: nothing here has, wants, or can reach a secret VALUE. It
-// renders public metadata (label, env var names, instructions, timestamps) plus
-// the write-only inputs. Collapsed by default via <details> so the board reads
-// as a scannable list of alarms, with the full runbook one click away and no
-// client JS needed to open it.
+// Server component: nothing here has, wants, or can reach a secret VALUE. It renders public metadata (label, env var
+// names, instructions, timestamps) plus the write-only inputs. It is the house Fold (one open at a time; `#<id>` opens
+// it), so the board reads as a scannable list of alarms with the full runbook one tap away.
 
-const STATUS_CHIP: Record<SecretStatus, string> = {
-  ok: 'bg-emerald-100 text-emerald-900',
-  'due-soon': 'bg-amber-100 text-amber-900',
-  overdue: 'bg-rose-100 text-rose-900',
-  manual: 'bg-ink/10 text-ink/70',
-  unknown: 'bg-rose-100 text-rose-900',
+/** The status chip's tone — the edge of the drawing's `secTone`: red = needs you, amber = coming up. */
+const STATUS_TONE: Record<SecretStatus, string> = {
+  ok: 'bg-[rgb(var(--color-ok)/0.12)] text-[rgb(var(--color-ok))]',
+  'due-soon': 'bg-[rgb(var(--color-warn)/0.14)] text-[rgb(var(--color-warn))]',
+  overdue: 'bg-[rgb(var(--color-danger)/0.12)] text-[rgb(var(--color-danger))]',
+  manual: 'bg-ink/[0.06] text-[color:var(--m-slate-2)]',
+  unknown: 'bg-[rgb(var(--color-danger)/0.12)] text-[rgb(var(--color-danger))]',
 };
+
+/** T19 look on a pending-aware submit (`SubmitButton`) — the class names the `ActionButton` writes. */
+const MAIN_BRAND = 'ab ab-brand ab-main';
+const OK = 'ab ab-ok';
+const DANGER = 'ab ab-danger';
 
 export function SecretRow({
   def,
@@ -54,190 +60,150 @@ export function SecretRow({
   const dbFields = def.editable === 'db-paste' ? dbPasteFields(def) : [];
 
   return (
-    <details
-      id={def.id}
-      className="group rounded-2xl border border-ink/10 bg-cream px-5 py-4 open:bg-white/60"
-    >
-      <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 marker:content-['']">
-        <KeyRound
-          aria-hidden
-          className="h-4 w-4 shrink-0 text-terracotta"
-          strokeWidth={1.75}
-        />
-        <span className="text-sm font-semibold tracking-tight">{def.label}</span>
-        <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/60">
-          {STORE_LABEL[def.store]}
-        </span>
-        <span className="text-xs text-ink/55">{ageLabel}</span>
-        <span
-          className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_CHIP[status]}`}
-        >
-          {STATUS_LABEL[status]}
-          {def.policyDays !== null ? ` · every ${def.policyDays}d` : ''}
-        </span>
-      </summary>
+    <li data-secret-row={def.id}>
+      <Fold
+        anchor={def.id}
+        data={`secret-${def.id}`}
+        title={def.label}
+        summary={`${STORE_LABEL[def.store]} · ${ageLabel}`}
+        aside={
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-[12px] font-semibold ${STATUS_TONE[status]}`}>
+            {STATUS_LABEL[status]}
+            {def.policyDays !== null ? ` · every ${def.policyDays}d` : ''}
+          </span>
+        }
+      >
+        <div className="space-y-3 pb-3">
+          <p className={`text-[14px] ${TEMPLATE_SUBLINE}`}>{def.impact}</p>
 
-      <div className="mt-4 space-y-4 border-t border-ink/10 pt-4">
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          {def.impact}
-        </p>
+          <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 border-y border-[color:var(--m-line)] py-2 text-[14px]">
+            <dt className={TEMPLATE_SUBLINE}>Variables</dt>
+            <dd className="break-words font-mono text-[13px] text-ink">{def.envVars.join(' · ')}</dd>
+            <dt className={TEMPLATE_SUBLINE}>Currently</dt>
+            <dd className="text-ink">
+              {configured === null ? 'Unknown from here' : configured ? 'A value is set' : 'Not configured'}
+            </dd>
+            <dt className={TEMPLATE_SUBLINE}>Policy</dt>
+            <dd className="text-ink">
+              {STATUS_LABEL[status]}
+              {def.policyDays !== null ? ` · every ${def.policyDays}d` : ''}
+            </dd>
+          </dl>
 
-        <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-[160px_1fr]">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            Variables
-          </dt>
-          <dd className="font-mono text-xs text-ink/80">{def.envVars.join(' · ')}</dd>
-          <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            Currently
-          </dt>
-          <dd className="text-ink/80">
-            {configured === null
-              ? 'Unknown from here'
-              : configured
-                ? 'A value is set'
-                : 'Not configured'}
-          </dd>
-        </dl>
-
-        <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ink/80">
-          {def.steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-
-        <p>
-          <a
-            href={def.providerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-          >
-            Get a fresh value
-            <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          </a>
-        </p>
-
-        {/* Control — one of three shapes, never nested inside another form. */}
-        {canWriteHere ? (
-          <form action={updateVercelSecret} className="space-y-3">
-            <input type="hidden" name="secret_id" value={def.id} />
-            {secretFields(def).map((field) => (
-              <SecretValueInput
-                key={field.envVar}
-                name={`value__${field.envVar}`}
-                label={`${field.label} — ${field.envVar}`}
-                generateHint={def.generateHint}
-              />
+          <ol className="list-decimal space-y-1 pl-5 text-[14px] text-ink">
+            {def.steps.map((step) => (
+              <li key={step}>{step}</li>
             ))}
-            <SubmitButton
-              pendingLabel="Saving to Vercel…"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+          </ol>
+
+          <p>
+            <a
+              href={def.providerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-1 text-[14px] font-semibold text-mulberry"
             >
-              Save to Vercel
-            </SubmitButton>
-            <p className="text-xs text-ink/55">
-              Written to Production + Preview. A production redeploy is required
-              before the running app sees it — use the button at the top of this
-              page.
-            </p>
-          </form>
-        ) : null}
-
-        {def.editable === 'vercel-api' && !vercelWritable ? (
-          <p className="rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900/90">
-            In-app editing is off because VERCEL_API_TOKEN / VERCEL_PROJECT_ID
-            aren&rsquo;t set in this environment. Change the value in the Vercel
-            dashboard, then use &ldquo;Mark rotated&rdquo; below.
+              Get a fresh value ↗
+            </a>
           </p>
-        ) : null}
 
-        {dbFields.length > 0 ? (
-          <>
-            <form action={updateDbSecret} className="space-y-3">
+          {/* Control — one of three shapes, never nested inside another form. */}
+          {canWriteHere ? (
+            <form action={updateVercelSecret} className="space-y-2">
               <input type="hidden" name="secret_id" value={def.id} />
-              {dbFields.map((field) => (
+              {secretFields(def).map((field) => (
                 <SecretValueInput
-                  key={field.column}
-                  name={`value__${field.column}`}
-                  label={field.label}
+                  key={field.envVar}
+                  name={`value__${field.envVar}`}
+                  label={`${field.label} — ${field.envVar}`}
+                  generateHint={def.generateHint}
                 />
               ))}
-              <SubmitButton
-                pendingLabel="Saving…"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-              >
-                Save key
+              <SubmitButton pendingLabel="Saving to Vercel…" className={MAIN_BRAND}>
+                Save to Vercel
               </SubmitButton>
-              {/* No redeploy nudge here — that is a Vercel-env step. A value
-                  saved into Setnayan's own database is live on the next request. */}
-              <p className="text-xs text-ink/55">
-                Stored encrypted in Setnayan&rsquo;s own database and live on the
-                very next request — no redeploy needed. Saving here also resets
-                this rotation clock.
-                {dbFields.length > 1
-                  ? ' Each key is stored on its own: fill in only the one you’re replacing and the other stays exactly as it is.'
-                  : ''}
+              <p className={`text-[13px] ${TEMPLATE_SUBLINE}`}>
+                Written to Production + Preview. A production redeploy is required before the running app sees it — use
+                “Redeploy production” at the top of this page.
               </p>
             </form>
+          ) : null}
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/10 pt-4">
-              {def.consoleHref ? (
-                <Link
-                  href={def.consoleHref}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
-                >
-                  <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Advanced settings &rarr;
-                </Link>
-              ) : null}
-              {configured ? (
-                <ConfirmForm
-                  action={clearDbSecret}
-                  title="Remove this saved key?"
-                  confirmLabel="Remove it"
-                  message={
-                    dbFields.length > 1
-                      ? 'Both stored keys are deleted. Anything that uses them stops working on the next request unless a matching value is still set in Vercel. You can paste a new pair here anytime.'
-                      : 'The stored key is deleted. Anything that uses it stops working on the next request unless the same key is still set in Vercel. You can paste a new one here anytime.'
-                  }
-                >
-                  <input type="hidden" name="secret_id" value={def.id} />
-                  <SubmitButton
-                    pendingLabel="Removing…"
-                    className="inline-flex items-center justify-center gap-2 text-xs font-medium text-ink/55 underline underline-offset-2 transition-colors hover:text-rose-700"
+          {def.editable === 'vercel-api' && !vercelWritable ? (
+            <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+              In-app editing is off because VERCEL_API_TOKEN / VERCEL_PROJECT_ID aren&rsquo;t set in this environment.
+              Change the value in the Vercel dashboard, then use &ldquo;Mark rotated&rdquo; below.
+            </p>
+          ) : null}
+
+          {dbFields.length > 0 ? (
+            <>
+              <form action={updateDbSecret} className="space-y-2">
+                <input type="hidden" name="secret_id" value={def.id} />
+                {dbFields.map((field) => (
+                  <SecretValueInput key={field.column} name={`value__${field.column}`} label={field.label} />
+                ))}
+                <SubmitButton pendingLabel="Saving…" className={MAIN_BRAND}>
+                  Save key
+                </SubmitButton>
+                {/* No redeploy nudge here — that is a Vercel-env step. A value
+                    saved into Setnayan's own database is live on the next request. */}
+                <p className={`text-[13px] ${TEMPLATE_SUBLINE}`}>
+                  Stored encrypted in Setnayan&rsquo;s own database and live on the very next request — no redeploy
+                  needed. Saving here also resets this rotation clock.
+                  {dbFields.length > 1
+                    ? ' Each key is stored on its own: fill in only the one you’re replacing and the other stays exactly as it is.'
+                    : ''}
+                </p>
+              </form>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {def.consoleHref ? (
+                  <Link href={def.consoleHref} className="inline-flex min-h-11 items-center text-[14px] font-semibold text-mulberry">
+                    Advanced settings ›
+                  </Link>
+                ) : null}
+                {configured ? (
+                  <ConfirmForm
+                    action={clearDbSecret}
+                    title={dbFields.length > 1 ? 'Remove both saved keys?' : 'Remove this saved key?'}
+                    confirmLabel={dbFields.length > 1 ? 'Remove them' : 'Remove it'}
+                    message={
+                      dbFields.length > 1
+                        ? 'Both stored keys are deleted. Anything that uses them stops working on the next request unless a matching value is still set in Vercel. You can paste a new pair here anytime.'
+                        : 'The stored key is deleted. Anything that uses it stops working on the next request unless the same key is still set in Vercel. You can paste a new one here anytime.'
+                    }
                   >
-                    {dbFields.length > 1 ? 'Remove saved keys' : 'Remove saved key'}
-                  </SubmitButton>
-                </ConfirmForm>
-              ) : null}
-            </div>
-          </>
-        ) : null}
+                    <input type="hidden" name="secret_id" value={def.id} />
+                    <SubmitButton pendingLabel="Removing…" className={DANGER}>
+                      {dbFields.length > 1 ? 'Remove saved keys' : 'Remove saved key'}
+                    </SubmitButton>
+                  </ConfirmForm>
+                ) : null}
+              </div>
+            </>
+          ) : null}
 
-        {/* Always available: record a rotation performed elsewhere. */}
-        <form action={markRotated} className="space-y-2 border-t border-ink/10 pt-4">
-          <input type="hidden" name="secret_id" value={def.id} />
-          <label className="block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              Note (optional — never paste the secret itself)
-            </span>
-            <input
-              type="text"
-              name="note"
-              autoComplete="off"
-              maxLength={500}
-              placeholder="e.g. rolled after the laptop was replaced"
-              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-terracotta/50"
-            />
-          </label>
-          <SubmitButton
-            pendingLabel="Recording…"
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/50 hover:text-ink"
-          >
-            Mark rotated
-          </SubmitButton>
-        </form>
-      </div>
-    </details>
+          {/* Always available: record a rotation performed elsewhere. */}
+          <form action={markRotated} className="space-y-2 border-t border-[color:var(--m-line)] pt-3">
+            <input type="hidden" name="secret_id" value={def.id} />
+            <label className="block">
+              <span className={`text-[13px] ${TEMPLATE_SUBLINE}`}>Note (optional — never paste the secret itself)</span>
+              <input
+                type="text"
+                name="note"
+                autoComplete="off"
+                maxLength={500}
+                placeholder="e.g. rolled after the laptop was replaced"
+                className="sn-input mt-1 w-full"
+              />
+            </label>
+            <SubmitButton pendingLabel="Recording…" className={OK}>
+              Mark rotated
+            </SubmitButton>
+          </form>
+        </div>
+      </Fold>
+    </li>
   );
 }

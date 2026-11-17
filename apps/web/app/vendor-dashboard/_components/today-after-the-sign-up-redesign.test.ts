@@ -78,9 +78,11 @@ test('the prototype’s words on the other steps', () => {
   const v = view(['logo']);
   const at = (k: string) => v.folds.find((f) => f.key === k)!;
   assert.equal(at('logo').line, 'Shows on your page and your QR');
-  assert.equal(at('logo').badge?.word, 'Needed to go live');
+  // 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"; profile gate "Yes, remove it"): the logo
+  // no longer gates going live, so its step carries no "Needed to go live" badge.
+  assert.equal(at('logo').badge, null);
   assert.equal(at('offer').line, 'Photography · no card yet');
-  assert.equal(at('docs').line, 'Setnayan checks them before you go live');
+  assert.equal(at('docs').line, 'Setnayan checks them, then you get the Verified check');
   assert.equal(at('docs').badge?.word, 'none sent yet');
     // Step 6 follows open-shop v21 (#7369, folded into THE ONE BUILD by lane C1): "Download your QR"; the days-off row
   // still sits under the QR in the step's body.

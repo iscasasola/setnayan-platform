@@ -158,28 +158,32 @@ export function CoordinatorLevelAsk({
                   {LEVEL_WORD.limited}: {LEVEL_MORE.limited} {LEVEL_WORD.full}: {LEVEL_MORE.full} You can change it any
                   time in Event details › Access.
                 </InfoTip>
-                <p className="text-sm text-ink/60">Joined as your coordinator. What can they do?</p>
+                <p className="text-sm text-ink/75">Joined as your coordinator. What can they do?</p>
               </div>
             </div>
-            <div className="mt-4 flex flex-col gap-2" role="group" aria-label="Their access">
+            {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): the two answers are plain hairline rows — bold word, one
+                grey line, a terracotta › — and the whole row answers; the primary (Full access) wears the main-button colour on
+                its word. No hand-painted filled box, no pale ink. */}
+            <ul className="mt-4 divide-y divide-ink/10 border-y border-ink/10" role="group" aria-label="Their access">
               {CHOICES.map(({ level, Icon, primary }) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => answer(openFor, level)}
-                  disabled={busy}
-                  data-testid={`coordinator-level-${level}`}
-                  className={`sn-press flex min-h-14 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${primary ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/15 bg-cream text-ink hover:border-ink/30'}`} // no-card-ok: each choice row is a <button> (it gives that access)
-                >
-                  <Icon aria-hidden className={`h-5 w-5 shrink-0 ${primary ? 'text-cream' : 'text-mulberry'}`} strokeWidth={1.9} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold">{LEVEL_WORD[level]}</span>
-                    <span className={`block text-[13px] ${primary ? 'text-cream/80' : 'text-ink/60'}`}>{LEVEL_LINE[level]}</span>
-                  </span>
-                  <ChevronRight aria-hidden className={`h-4 w-4 shrink-0 ${primary ? 'text-cream/80' : 'text-ink/35'}`} strokeWidth={2} />
-                </button>
+                <li key={level}>
+                  <button
+                    type="button"
+                    onClick={() => answer(openFor, level)}
+                    disabled={busy}
+                    data-testid={`coordinator-level-${level}`}
+                    className="sn-press flex min-h-14 w-full items-center gap-3 py-3 text-left text-ink disabled:opacity-60"
+                  >
+                    <Icon aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.9} />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-[15px] font-semibold ${primary ? 'text-mulberry' : ''}`}>{LEVEL_WORD[level]}</span>
+                      <span className="block text-[13px] text-ink/75">{LEVEL_LINE[level]}</span>
+                    </span>
+                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ) : null}
       </Sheet>

@@ -82,14 +82,14 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
                     <>
                       {u.full_name}
                       <span
-                        className="ml-1 font-mono text-xs"
+                        className="ml-1 text-xs tabular-nums"
                         style={{ color: 'var(--m-slate)' }}
                       >
                         ({u.email})
                       </span>
                     </>
                   ) : (
-                    <span className="font-mono text-xs">{u.email}</span>
+                    <span className="text-xs tabular-nums">{u.email}</span>
                   )}
                 </span>
                 <form action={removeEligibleUser}>
@@ -171,7 +171,7 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
           The account must already exist on Setnayan — they sign up first,
           then you add their email here.{' '}
           <Link
-            href="/admin/users"
+            href="/admin/accounts?tab=users"
             className="underline-offset-2 hover:underline"
           >
             Browse users →

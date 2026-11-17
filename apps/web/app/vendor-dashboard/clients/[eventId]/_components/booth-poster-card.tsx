@@ -1,9 +1,10 @@
 'use client';
 
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { setBoothPoster } from '../cocktail/actions';
 import {
@@ -86,14 +87,7 @@ export function BoothPosterCard({
             unoptimized
             className="h-[120px] w-20 rounded-md border border-ink/10 object-cover"
           />
-          <button
-            type="button"
-            onClick={() => persist(null, null)}
-            disabled={pending}
-            className="text-sm font-medium text-ink/70 underline hover:text-ink disabled:opacity-50"
-          >
-            Remove poster
-          </button>
+          <ActionButton type="button" tone="danger" icon={Trash2} label="Remove poster" onClick={() => persist(null, null)} disabled={pending} />
         </div>
       ) : null}
 

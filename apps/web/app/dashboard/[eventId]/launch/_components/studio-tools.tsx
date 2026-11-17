@@ -503,7 +503,7 @@ export function StudioHubSettings({
   bare = false,
 }: {
   /**
-   * ⚙ DRAWN IN THE HUB'S ⚙ EVENT HUB SETTINGS (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign)"; 27 Oct
+   * ⚙ DRAWN IN THE HUB'S ⚙ EVENT HUB SETTINGS (owner 2026-10-30, DECISION_LOG "EVENT PRO (look redesign)"; 27 Oct
    * "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address stays in Event Hub ⚙): the same rows, open — no "More for
    * guests" fold around them, and the "these change right away" line is the group's ⓘ (the sheet draws it).
    */
@@ -1261,7 +1261,7 @@ export type StudioToolProps =
   | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0])
   /* 🎠 Studio › Prints' carousel — one print per slide, its toolbar under it (owner 2026-10-26, `studio-prints-carousel.tsx`). */
   | ({ part: 'prints-carousel' } & Parameters<typeof StudioPrintsCarousel>[0])
-  /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
+  /* 🗂 An all-in-one file (◆ Event Pro) and one guest's pass, free (owner 2026-10-16). */
   /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
   | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
   /* ⚙ …and its one door, the Prints page's top bar ⚙ (owner 2026-10-31) — the same lazy door, no stand-in of its own. */

@@ -272,7 +272,7 @@ export function FormMaker({
             label={forEventId ? `Save for ${coupleName?.trim() || 'this event'}` : 'Save to library'}
             onClick={() => run('save')}
             waiting={pending}
-            className="flex-1"
+            className="flex-1 !h-11"
             data-testid="form-maker-save"
           />
           {eventId ? (
@@ -283,7 +283,7 @@ export function FormMaker({
               label="Send to chat"
               onClick={() => run('send')}
               waiting={pending}
-              className="flex-1"
+              className="flex-1 !h-11"
               data-testid="form-maker-send"
             />
           ) : null}
@@ -337,7 +337,7 @@ export function FormMaker({
                       <button
                         type="button"
                         aria-label={`Move ${rowName(r)} — drag, or use the arrow keys`}
-                        className="flex h-11 w-9 flex-none touch-none items-center justify-center text-ink/70"
+                        className="flex h-11 w-11 flex-none touch-none items-center justify-center text-ink/70"
                         onPointerDown={(e) => onHandleDown(e, r.key)}
                         onPointerMove={onHandleMove}
                         onPointerUp={onHandleUp}

@@ -106,7 +106,7 @@ test('(2) one chain: the page the browser check plays takes its canvases from th
 });
 
 test('(3) the lab draws the chain as the guest page draws scenes, and the Maker can reach it', () => {
-  const guest = read('app/dev/maker-lab/guest/page.tsx');
+  const guest = read('app/dev/maker-lab/guest/page.lab.tsx');
   assert.match(guest, /const scrub = sp\.scrub === '1';/);
   /* The real renderer, Pro on, one node a scene: its marker and its framed scene in one fragment. */
   assert.match(
@@ -141,7 +141,7 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   assert.match(read('app/[slug]/_components/site-body.tsx'), /isEditorCanvas && editorBridge \? <span hidden data-maker-section=\{key\} \/> : null;/, 'the real page’s marker is no longer the Maker’s canvas alone');
   /* The chain's canvases: its start, and what was saved here — from the chain's own cookie, on both sides. */
   assert.match(guest, /get\(labWidgetsCookie\(scrub\)\)[\s\S]*?drafted = labScrubCanvases\(scrub, drafted\);/);
-  const lab = read('app/dev/maker-lab/page.tsx');
+  const lab = read('app/dev/maker-lab/page.lab.tsx');
   assert.match(lab, /const scrub = sp\.scrub === '1';[\s\S]*?get\(labWidgetsCookie\(scrub\)\)[\s\S]*?drafted = labScrubCanvases\(scrub, drafted\);/);
   assert.match(lab, /scrub=\{scrub\}/);
   assert.notEqual(labWidgetsCookie(true), labWidgetsCookie(false));
@@ -160,7 +160,7 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   /* The Maker writes `?phase=…&editor=1` after the address: it must be a path with a page behind it that turns the chain on. */
   assert.doesNotMatch(LAB_SCRUB_GUEST, /[?#]/);
   assert.equal(LAB_SCRUB_GUEST, '/dev/maker-lab/guest/scrub');
-  assert.match(read('app/dev/maker-lab/guest/scrub/page.tsx'), /MakerLabGuestPage\(\{ searchParams: searchParams\.then\(\(sp\) => \(\{ \.\.\.sp, scrub: '1' \}\)\) \}\)/);
+  assert.match(read('app/dev/maker-lab/guest/scrub/page.lab.tsx'), /MakerLabGuestPage\(\{ searchParams: searchParams\.then\(\(sp\) => \(\{ \.\.\.sp, scrub: '1' \}\)\) \}\)/);
 });
 
 test('(4) while editing nothing is held: the Maker’s canvas arms only when the page is shown as a guest', () => {
@@ -278,7 +278,7 @@ test('(5) off is never silent: the page carries the reason, and the lab’s badg
   assert.match(badge, /const SAVED = 'lab_widgets_scrub';/);
   assert.equal(labWidgetsCookie(true), 'lab_widgets_scrub');
   assert.match(badge, /setSaved\(document\.querySelector\('\[data-maker-section\]'\) === null && document\.cookie\.split\('; '\)\.some\(\(c\) => c\.startsWith\(`\$\{SAVED\}=`\)\)\);/);
-  const guest = read('app/dev/maker-lab/guest/page.tsx');
+  const guest = read('app/dev/maker-lab/guest/page.lab.tsx');
   /* 🔁 2026-10-10: the first marker is now handed over WITH the cover (`HubCoverHold`'s `cover`) — the badge is
      still before it, and outside the cover's own box. */
   assert.match(guest, /\{scrub && !only && !preview \? <LabScrubBadge \/> : null\}\s*<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}/, 'the badge is not before the first marker, on the chain alone');

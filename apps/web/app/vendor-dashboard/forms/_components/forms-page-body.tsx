@@ -266,7 +266,7 @@ export function FormsPageBody({
           <ThumbRow
             name="client-forms"
             right={[{ icon: FolderOpen, label: 'Load a form', onClick: () => setLoadOpen(true), testId: 'forms-load' }]}
-            action={{ node: <ActionButton tone="brand" main icon={Plus} label="New form" onClick={fresh} data-testid="forms-new" /> }}
+            action={{ node: <ActionButton tone="brand" main icon={Plus} label="New form" onClick={fresh} data-testid="forms-new" className="!h-11" /> }}
           />
         }
       />
@@ -291,7 +291,7 @@ export function FormsPageBody({
             main
             icon={Plus}
             label="New form"
-            className="w-full"
+            className="w-full !h-11"
             onClick={() => {
               setLoadOpen(false);
               fresh();
@@ -440,7 +440,7 @@ export function ShopFormsMaker({
           {said}
         </p>
       ) : null}
-      <ActionButton tone="brand" main icon={Plus} label="New form" className="w-full" onClick={() => setMaker({ open: true, draft: null })} />
+      <ActionButton tone="brand" main icon={Plus} label="New form" className="w-full !h-11" onClick={() => setMaker({ open: true, draft: null })} />
       <FormMaker
         open={maker.open}
         onClose={() => setMaker((m) => ({ ...m, open: false }))}

@@ -11,7 +11,7 @@
  * FOLLOW": *"also adapt the frontpages that shows a sample page and where the websites are presented"*). Since #7574 the
  * shop page has two looks, and this drawing is built from the SAME shipped pieces `/v/[slug]` renders:
  *   · verified (Verified · Solo · Pro · Ultra alike) → `ShopHero` (the name on the photo, the circular Verified seal +
- *     `SealCaption`), the calling card (`SHOP_CALLING_CARD_CLASS`) with the open-dates peek (`OpenDatesPeek`) and the
+ *     `SealCaption`), the calling card (`SHOP_CALLING_CARD_CLASS`) and the
  *     one filled Inquire, `ShopSectionBar` (About · Services · Reviews), the "can't do" panel (`ShopCanDoPanel`);
  *   · free (not verified yet) → the calm column (`SHOP_CALM_COLUMN_CLASS`) under `NotYetVerifiedNotice`, the section bar
  *     Services · Reviews · Where, the pin-only map under Where; no date check, no web address.
@@ -44,22 +44,19 @@ import { NotYetVerifiedNotice } from './not-yet-verified-notice';
 import { ShopHero, SealCaption, shopMotion } from './shop-hero';
 import { ShopSectionBar, type ShopSectionTab } from './shop-section-bar';
 import { ShopCanDoPanel } from './shop-can-do-panel';
-import { OpenDatesPeek } from './open-dates-peek';
 import { CheckADateLink } from './check-a-date-link';
 import { SHOP_CALLING_CARD_CLASS, SHOP_CALM_COLUMN_CLASS, SHOP_CARD_SECTION_CLASS } from './shop-columns';
 import { verifiedBadge } from '@/lib/shop-badges';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { pinnedQuote } from '@/lib/shop-page-plan';
 import { micrositeAccentVars } from '@/lib/vendor-microsite';
-import { todayInManila } from '@/lib/schedule-shift-notice';
-import { SAMPLE, SAMPLE_CARDS, samplePeekDays, samplePlanShop, type SampleShopPlan } from './sample-shop-plan';
+import { SAMPLE, SAMPLE_CARDS, samplePlanShop, type SampleShopPlan } from './sample-shop-plan';
 
 // The plan rules live in a pure module (tests read them without the page's CSS); every importer keeps this address.
 export {
   SAMPLE_BRANCH_CITIES,
   SAMPLE_SHOP_PLAN_TIER,
   SAMPLE_SHOP_PLANS,
-  samplePeekDays,
   samplePlanBranchCities,
   samplePlanCaption,
   samplePlanShop,
@@ -166,7 +163,6 @@ export function SampleShopPage({
                   </span>
                 </div>
                 {branchCities.length > 0 ? <ShopBranchesLine cities={branchCities} hqCity={SAMPLE.city} /> : null}
-                {d.verified ? <OpenDatesPeek days={samplePeekDays(todayInManila())} checkHref={null} /> : null}
                 {/* The calling card's row, in the page's order: Inquire (filled) · Add to your event, then Check a date
                     (verified only) · Share. Drawn — there is no shop behind the sample to message. */}
                 <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -186,7 +182,7 @@ export function SampleShopPage({
                 </div>
                 {d.verified ? (
                   <>
-                    <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} />
+                    <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} mapHref={null} />
                     <ShopAddresses setnayanAddress={SAMPLE.setnayanAddress} ownAddress={d.ownAddress} />
                   </>
                 ) : null}
@@ -212,7 +208,7 @@ export function SampleShopPage({
                   </section>
                 ) : null}
                 <div className="py-6">
-                  <ShopCanDoPanel checkHref={null} hasPackages={false} />
+                  <ShopCanDoPanel hasPackages={false} />
                 </div>
               </div>
             ) : null}
@@ -264,7 +260,7 @@ export function SampleShopPage({
                   <p className="text-sm text-ink/70">
                     <ShopReachLine reach={d.reach} city={SAMPLE.city} />
                   </p>
-                  <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} />
+                  <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} mapHref={null} />
                 </section>
               </div>
             )}

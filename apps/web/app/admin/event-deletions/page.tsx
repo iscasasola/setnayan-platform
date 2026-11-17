@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { Trash2, Undo2 } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
@@ -76,11 +79,13 @@ export default async function EventDeletionsPage() {
         `admin-page-starts-at-its-content.test.ts` holds it).
       */}
       <PageMasthead title="Event removals" />
-      <p className="max-w-prose text-sm text-ink/70">
-        A couple can remove their own event. They can’t when money has
+      <div className="max-w-prose">
+        <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          A couple can remove their own event. They can’t when money has
         moved — a bill we confirmed, a receipt, or a payment nobody has checked
         yet. Those come here.
-      </p>
+        </InfoTip>
+      </div>
 
       {open === null ? (
         <p
@@ -99,13 +104,13 @@ export default async function EventDeletionsPage() {
           {open.map((r) => (
             <li
               key={r.id as string}
-              className="rounded-xl border border-ink/15 bg-white p-4"
+              className="py-4 border-t border-ink/10"
             >
               <p className="text-base font-bold text-ink">
                 {r.event_name as string}
               </p>
               <p className="mt-0.5 text-[13px] text-ink/60">
-                Asked {new Date(r.created_at as string).toLocaleString('en-PH')}
+                Asked {new Date(r.created_at as string).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
               </p>
               <p className="mt-2 text-sm text-ink">
                 <span className="font-semibold">
@@ -138,16 +143,18 @@ export default async function EventDeletionsPage() {
                   <button
                     type="submit"
                     formAction={approveEventDeletion}
-                    className="rounded-full bg-[color:var(--sn-danger)] px-3 py-1.5 text-[13px] font-bold text-cream"
+                    className={actionButtonClass('danger', { main: true })}
                   >
-                    Remove it for good
+                    <Trash2 aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Remove it for good</span>
                   </button>
                   <button
                     type="submit"
                     formAction={rejectEventDeletion}
-                    className="rounded-full border border-ink/25 px-3 py-1.5 text-[13px] font-bold text-ink/80"
+                    className={actionButtonClass('neutral')}
                   >
-                    Keep it, and tell them why
+                    <Undo2 aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Keep it, and tell them why</span>
                   </button>
                   <span className="text-[12px] text-ink/50">
                     Removing destroys its photos and ends what was paid for.
@@ -189,7 +196,7 @@ export default async function EventDeletionsPage() {
                   ? 'removed by them'
                   : (r.status as string)}
                 {' · '}
-                {new Date(r.created_at as string).toLocaleDateString('en-PH')}
+                {new Date(r.created_at as string).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
               </span>
             </li>
           ))}

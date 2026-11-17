@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
 import { ExternalLink, Globe } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -63,10 +64,12 @@ export async function RecapsSurface({
           somebody's guests' photographs, and the only control is take it
           down — an operator needs both facts before pressing anything. */}
       <PageMasthead title="Recaps" />
-      <p className="max-w-prose text-sm text-ink/70">
-        Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
+      <div className="max-w-prose">
+        <InfoTip label="What this tab shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Every couple-published Auto-Recap that&rsquo;s live right now. These are public pages with
         guest photos and messages — take one down if you need to (the couple can re-publish).
-      </p>
+        </InfoTip>
+      </div>
 
       {ok ? (
         <p className="rounded-md border border-success-300 bg-success-50 px-4 py-3 text-sm text-success-900">
@@ -83,7 +86,7 @@ export async function RecapsSurface({
         // A refused read is not "No published recaps yet" — public pages could be live.
         <ReadFailed what="the published recaps" />
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
+        <div className="border-dashed py-10 text-center border-t border-ink/10">
           <Globe aria-hidden className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-3 text-sm font-medium text-ink">No published recaps yet.</p>
           <p className="mt-1 text-sm text-ink/55">
@@ -96,7 +99,7 @@ export async function RecapsSurface({
             const slug = ev?.slug as string | null;
             const name = (ev?.display_name as string) ?? UNNAMED_EDITORIAL_LABEL;
             const publishedAt = recap.published_at
-              ? new Date(recap.published_at as string).toLocaleDateString('en-PH', {
+              ? new Date(recap.published_at as string).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -107,7 +110,7 @@ export async function RecapsSurface({
               <li
                 key={recap.event_id as string}
                 id={`rc-${anchor}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-surface p-4"
+                className="flex flex-wrap items-center justify-between gap-3 bg-surface py-4 border-t border-ink/10"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{name}</p>

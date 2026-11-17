@@ -136,7 +136,7 @@ export function serviceLabelOf(key: string): string {
 const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
-  COUPLE_WEBSITE_PRO: 'Event Hub PRO',
+  COUPLE_WEBSITE_PRO: 'Event Pro',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
@@ -268,6 +268,41 @@ export type VendorCredit = {
   tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | null;
   logoUrl: string | null;
   slug: string | null;
+  /** The linked shop, when there is one (owner 2026-11-13: every BOOKED supplier is tappable). */
+  vendorProfileId?: string | null;
+  /** 🤝 The rich card a Supplier Pro / Ultra raises first (owner 2026-11-13). Null on every other plan. */
+  card?: StorySupplierCard | null;
+};
+
+/**
+ * The full card a Supplier Pro / Ultra tap raises before their shop (owner 2026-11-13, "every booked supplier is
+ * tappable; Supplier Pro / Ultra get a rich card"): their cover, rating, best work and a Book button. Every value is
+ * READ — the cover and best work are the shop's own portfolio, the rating the shop page's trusted rating. A shop with
+ * no reviews shows no stars (never "0.0").
+ */
+export type StorySupplierCard = {
+  coverUrl: string | null;
+  bestWork: string[];
+  rating: number | null;
+  reviews: number;
+};
+
+/** One item of a Supplier Ultra's shared album, as its story scene draws it. */
+export type UltraAlbumItem = { stillUrl: string; videoUrl: string | null };
+
+/**
+ * 🎬 A Supplier Ultra's own scene (owner 2026-11-13, "every Supplier Ultra on the event gets its own scene"): the
+ * album the supplier SHARED to this event's story — screened, not hidden. Only Ultra shops, only when the switch is on.
+ */
+export type UltraAlbum = {
+  vendorProfileId: string;
+  name: string;
+  category: string | null;
+  slug: string | null;
+  logoUrl: string | null;
+  items: UltraAlbumItem[];
+  photos: number;
+  videos: number;
 };
 
 // Which optional blocks the couple chose to show (editorial editor →
@@ -336,6 +371,8 @@ export {
 } from './custom-columns';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { readReadsAs, readSceneLooks, type PostEventReadsAs, type PostEventSceneLooks } from '@/lib/post-event-draft';
+import { readStorySupplierCards, readUltraAlbums } from '@/lib/story-suppliers.server';
+import { ultraSuppliers } from '@/lib/story-suppliers';
 export type { CustomColumn };
 export { readCustomColumns };
 
@@ -525,6 +562,8 @@ export type EditorialData = {
   metrics: ImpactMetrics;
   archetype: Archetype;
   vendors: VendorCredit[];
+  /** 🎬 One scene per Supplier Ultra that shared its album to this story (owner 2026-11-13). Absent on samples. */
+  ultraAlbums?: UltraAlbum[];
   // Vendors the couple explicitly RECOMMENDED post-wedding (vendor_recommendations,
   // §6.3 referral loop) — distinct from `vendors` (the auto-generated credit list).
   // Each carries the couple's optional one-line endorsement.
@@ -1182,6 +1221,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // Setnayan, regardless of vendor tier). The DISPLAYED team list, however,
   // hides Free vendors and gives Pro/Enterprise a richer card — §3.
   const vendors: VendorCredit[] = [];
+  let ultraAlbums: UltraAlbum[] = [];
   let firstPickNum = 0;
   let firstPickDen = 0;
   try {
@@ -1199,13 +1239,13 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       );
       const profiles = new Map<
         string,
-        { tier: VendorCredit['tier']; logoUrl: string | null; slug: string | null }
+        { tier: VendorCredit['tier']; logoUrl: string | null; slug: string | null; portfolioKeys: string[] }
       >();
       if (profileIds.length > 0) {
         try {
           const { data: profRows } = await admin
             .from('vendor_profiles')
-            .select('vendor_profile_id, tier_state, logo_url, business_slug')
+            .select('vendor_profile_id, tier_state, logo_url, business_slug, portfolio_r2_keys')
             .in('vendor_profile_id', profileIds);
           for (const p of (profRows ?? []) as Array<Record<string, unknown>>) {
             const id = asString(p.vendor_profile_id);
@@ -1218,6 +1258,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
               tier,
               logoUrl: await displayUrlForStoredAsset(asString(p.logo_url)),
               slug: asString(p.business_slug),
+              portfolioKeys: Array.isArray(p.portfolio_r2_keys)
+                ? (p.portfolio_r2_keys as unknown[]).filter((k): k is string => typeof k === 'string')
+                : [],
             });
           }
         } catch {
@@ -1249,8 +1292,25 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           tier,
           logoUrl: tagged ? prof?.logoUrl ?? null : null,
           slug: tagged ? prof?.slug ?? null : null,
+          vendorProfileId: prof ? asString(r.linked_vendor_profile_id) : null,
+          card: null,
         });
       }
+
+      // 🤝 The rich card (Supplier Pro / Ultra) and each Supplier Ultra's own scene (owner 2026-11-13). A failed read
+      // keeps the plain credits and draws no Ultra scene — it never empties the list.
+      const cardProfiles = [...profiles.entries()]
+        .filter(([, p]) => p.tier === 'pro' || p.tier === 'enterprise')
+        .map(([vendorProfileId, p]) => ({ vendorProfileId, portfolioKeys: p.portfolioKeys }));
+      const cards = await readStorySupplierCards(admin, cardProfiles).catch(() => null);
+      if (cards) for (const v of vendors) if (v.vendorProfileId) v.card = cards.get(v.vendorProfileId) ?? null;
+      const seenUltra = new Set<string>();
+      const ultraShops = ultraSuppliers(vendors).flatMap((v) =>
+        v.vendorProfileId && !seenUltra.has(v.vendorProfileId) && (seenUltra.add(v.vendorProfileId), true)
+          ? [{ vendorProfileId: v.vendorProfileId, name: v.name, category: v.category, slug: v.slug, logoUrl: v.logoUrl }]
+          : [],
+      );
+      ultraAlbums = (await readUltraAlbums(admin, eventId, ultraShops).catch(() => null)) ?? [];
     }
   } catch {
     // leave vendors empty
@@ -1814,7 +1874,8 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       // 24 is what `LivePhotoWall` draws; slicing here keeps the presigning to
       // the tiles that are actually rendered, as the day-of caller does.
       const snap = await getWallSnapshot(eventId, null, { limit: 24 });
-      photoWallPhotos = snap.tiles.map((t) => t.url).filter((u) => Boolean(u));
+      /* 📷 Memory lane on the story holds the day's photos only (F-W2-49) — the same window as the gallery. */
+      photoWallPhotos = snap.tiles.filter((t) => capturedOnTheDay(t.sortAt, dayWindow)).map((t) => t.url).filter((u) => Boolean(u));
     } catch {
       photoWallPhotos = [];
     }
@@ -1932,7 +1993,11 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     attending,
     replied,
     rsvpPct: typeof frozen.rsvp_pct === 'number' ? (frozen.rsvp_pct as number) : rsvpPct,
-    photos: typeof frozen.photos === 'number' ? (frozen.photos as number) : photos,
+    /* 📷 ONE COUNT OF THE DAY'S PHOTOS (F-W2-49, the walk after #7628: the gallery said nothing was shot on the day
+       while the cover, By the numbers, Memory lane and the Powered-by line all counted seven photos from four days
+       before). Where the event has a date, every "photos" figure on the story is the day-window count
+       (`dayPhotoCount`) — a frozen or all-time count may hold the shots from before the day. */
+    photos: typeof galleryDayTotal === 'number' ? galleryDayTotal : typeof frozen.photos === 'number' ? (frozen.photos as number) : photos,
     clips: typeof frozen.clips === 'number' ? (frozen.clips as number) : clips,
     // `chapters` is finalized after the timeline is built (dayChapters.length);
     // prefer a frozen value when present, else fill from the live count below.
@@ -2955,6 +3020,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     metrics,
     archetype,
     vendors,
+    ultraAlbums,
     vendorsWeLoved,
     reviews,
     servicesAvailed,

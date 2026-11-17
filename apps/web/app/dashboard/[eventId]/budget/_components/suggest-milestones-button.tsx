@@ -14,6 +14,7 @@ import { Sparkles } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { addSuggestedMilestones } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
 
 export function SuggestMilestonesButton({
   eventId,
@@ -48,15 +49,15 @@ export function SuggestMilestonesButton({
     });
   }
 
+  // 📐 DESIGN TEMPLATE (14 Nov 2026, rule 3): the shared pill, not a hand-drawn button — outlined in the forward
+  // step's colour (it is not the page's one main button), the 44-px floor, grey `waiting` while it adds (`run` ignores a second press).
   return (
-    <button
-      type="button"
+    <ActionButton
+      tone="brand"
+      icon={Sparkles}
+      label={pending ? 'Adding…' : 'Suggest a first payment + balance split'}
       onClick={run}
-      disabled={pending}
-      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/[0.06] px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10 disabled:opacity-60"
-    >
-      <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {pending ? 'Adding…' : 'Suggest a first payment + balance split'}
-    </button>
+      waiting={pending}
+    />
   );
 }

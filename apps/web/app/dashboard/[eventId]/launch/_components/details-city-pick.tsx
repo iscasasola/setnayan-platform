@@ -12,6 +12,7 @@ import {
   type WeddingCity,
 } from '@/app/onboarding/wedding/_data/wedding-cities';
 import type { PhPlace } from '@/app/onboarding/wedding/_data/ph-places';
+import { ActionButton } from '@/components/action-button';
 import { askLocationOnce } from '@/lib/location-ask';
 import { TOP_PLACES_HEAD, nearestCity, topPlaces } from '@/lib/your-place';
 
@@ -136,24 +137,24 @@ export function CityPick({
   return (
     <div className="flex flex-col gap-2" data-city-pick="">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">City or area</span>
+        <span className="text-[12px] uppercase tracking-[0.18em] text-ink/70">City or area</span>
         <button
           type="button"
           aria-expanded={open}
           aria-label="City or area"
           onClick={() => setOpen((o) => !o)}
           data-city-pick-button=""
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 text-sm text-ink dark:bg-cream"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 text-sm text-ink dark:bg-cream"
         >
           {value ? `${value}${shown ? ` · ${area(shown.r)}` : ''}` : 'Pick a city or area'}
-          <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={2} />
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/70" strokeWidth={2} />
         </button>
       </div>
       {open ? (
         <div className="flex flex-col gap-2 rounded-md border border-ink/10 bg-white p-2.5 dark:bg-cream" role="dialog" aria-label="City or area">
           <div className="flex items-center gap-2">
-            <label className="flex min-h-10 flex-1 items-center gap-2 rounded-md border border-ink/15 px-2.5">
-              <Search aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={2} />
+            <label className="flex min-h-11 flex-1 items-center gap-2 rounded-md border border-ink/15 px-2.5">
+              <Search aria-hidden className="h-3.5 w-3.5 text-ink/70" strokeWidth={2} />
               <input
                 type="text"
                 inputMode="search"
@@ -167,21 +168,17 @@ export function CityPick({
             </label>
             {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
                 first paint — it declares no location (DECISION_LOG 2026-10-19 (1)). */}
-            <button
-              type="button"
+            <ActionButton
+              tone="neutral"
+              icon={Crosshair}
+              label={locating ? 'Finding…' : 'Near me'}
               onClick={nearMe}
               aria-pressed={Boolean(me)}
               data-asks-location=""
-              className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-xs font-medium text-ink/80"
-            >
-              <Crosshair aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {locating ? 'Finding…' : 'Near me'}
-            </button>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/60">
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
+            />
+            <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
           </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">{header}</p>
+          <p className="text-[12px] uppercase tracking-[0.16em] text-ink/70">{header}</p>
           <ul className="flex max-h-72 flex-col overflow-y-auto" role="listbox" aria-label="Places">
             {rows.map(({ c, d, rank }) => {
               const on = c.n === value;
@@ -197,16 +194,16 @@ export function CityPick({
                   >
                     <span className="flex min-w-0 items-center gap-2.5">
                     {rank != null ? (
-                      <span aria-hidden className="w-[18px] shrink-0 text-right font-mono text-[11px] text-ink/45" data-city-rank={rank}>
+                      <span aria-hidden className="w-[18px] shrink-0 text-right text-[12px] text-ink/70" data-city-rank={rank}>
                         {rank}
                       </span>
                     ) : null}
                     <span className="flex flex-col">
                       <span className="text-sm font-medium text-ink">
                         {c.n}
-                        {d != null ? <span className="font-normal text-ink/55"> · {d} km</span> : null}
+                        {d != null ? <span className="font-normal text-ink/70"> · {d} km</span> : null}
                       </span>
-                      <span className="text-xs text-ink/55">{c.r}</span>
+                      <span className="text-xs text-ink/70">{c.r}</span>
                     </span>
                     </span>
                     <span aria-hidden className={`h-4 w-4 shrink-0 rounded-full border ${on ? 'border-terracotta bg-terracotta' : 'border-ink/25'}`} />

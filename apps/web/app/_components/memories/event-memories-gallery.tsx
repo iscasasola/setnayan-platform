@@ -56,6 +56,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import {
   DESK_FROM_PX,
+  WIDE_FROM_PX,
   ZOOM_KEY_DESK,
   ZOOM_KEY_PHONE,
   defaultFor,
@@ -79,10 +80,15 @@ function useScale(): ZoomScale {
   const [scale, setScale] = useState<ZoomScale>('phone');
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${DESK_FROM_PX}px)`);
-    const on = () => setScale(mq.matches ? 'desk' : 'phone');
+    const wide = window.matchMedia(`(min-width: ${WIDE_FROM_PX}px)`);
+    const on = () => setScale(wide.matches ? 'wide' : mq.matches ? 'desk' : 'phone');
     on();
     mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
+    wide.addEventListener('change', on);
+    return () => {
+      mq.removeEventListener('change', on);
+      wide.removeEventListener('change', on);
+    };
   }, []);
   return scale;
 }
@@ -104,7 +110,7 @@ function writeLocal(key: string, v: string) {
 
 /** The remembered column count for this scale — localStorage may be refused (a private window); then the default. */
 function useColumns(scale: ZoomScale): [number, (next: number) => void] {
-  const key = scale === 'desk' ? ZOOM_KEY_DESK : ZOOM_KEY_PHONE;
+  const key = scale === 'phone' ? ZOOM_KEY_PHONE : ZOOM_KEY_DESK;
   const [cols, setCols] = useState<number>(() => defaultFor(scale));
   useEffect(() => setCols(readColumns(readLocal(key), scale)), [key, scale]);
   const setTo = useCallback(
@@ -249,8 +255,6 @@ export function EventMemoriesGallery({
   const { snap } = useGridPinch({ gridRef, cols, stepFrom, setCols });
 
   const steps = stepsFor(scale);
-  const zoomWords =
-    scale === 'desk' ? '+ / − change the columns' : 'Pinch to change the columns — 3 · 5 · 7, or one large';
 
   // The count is the album's: measured where it can be (All · Papic), what the page holds otherwise.
   const albumRefused = refusedParts.includes(album);
@@ -401,7 +405,7 @@ export function EventMemoriesGallery({
             </>
           ) : null}
         </p>
-        {scale === 'desk' ? (
+        {scale !== 'phone' ? (
           <span className="inline-flex gap-1.5" data-memories-zoom="">
             <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer columns" disabled={cols === steps[0]} onClick={() => snap(-1)} />
             <ActionButton tone="neutral" iconOnly icon={Plus} label="More columns" disabled={cols === steps[steps.length - 1]} onClick={() => snap(1)} />
@@ -462,9 +466,13 @@ export function EventMemoriesGallery({
         {body}
       </div>
 
-      <p className="pt-2.5 text-[12px] text-ink/55" data-memories-foot="">
-        {zoomWords} · remembered on this device{footLine ? ` · ${footLine}` : ''}
-      </p>
+      {/* 🧹 F-W2-34 (walk 14 Nov): no gesture manual and no "remembered on this device" under the grid — the
+          pinch and the +/− just work. Only the line that says something about THESE photos stays. */}
+      {footLine ? (
+        <p className="pt-2.5 text-[12px] text-ink/55" data-memories-foot="">
+          {footLine}
+        </p>
+      ) : null}
       {cappedLine ? (
         <p className="pt-1 text-[12px] text-ink/55" data-memories-capped="">
           {cappedLine}

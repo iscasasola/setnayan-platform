@@ -1,5 +1,7 @@
+import { shopPath } from '@/lib/shop-address';
+import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
-import { OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
+import { arrivalInquirySourceOf } from '@/lib/supplier-qr-codes';
 import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
 import { manilaToday } from '@/lib/std-views';
 import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
@@ -8,7 +10,9 @@ import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { onSetnayanSinceLine } from '@/lib/in-business-since';
 import { eventsByKind } from '@/lib/shop-events-by-kind';
 import { ShopSinceLine } from './_components/shop-since-line';
+import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
+import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -16,6 +20,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
@@ -27,6 +32,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
   displayServiceLabel,
+  isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
   VENDOR_PLACEHOLDER_PHOTO,
@@ -35,6 +41,7 @@ import {
 import { formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
+  isShopBookable,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -66,7 +73,6 @@ import { buildServesLine } from '@/lib/service-serves-line';
 import {
   fetchTrustedByVendors,
   TRUSTED_BY_UNREADABLE,
-  type TrustedByVendor,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
 import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
@@ -125,6 +131,13 @@ import {
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
+// 🤝 The page's new ending (owner 2026-11-14, DECISION_LOG "A SHOP PAGE ENDS WITH ITS PARTNERS, THEN SIMILAR SHOPS
+// NEARBY — APPROVED AS DRAWN"): Trusted by as an endless row of shop photos, then "More <kind of work> near <area>".
+import { TrustedByCarousel, type TrustedByTile } from './_components/trusted-by-carousel';
+import { SimilarShopsRow } from './_components/similar-shops-row';
+import './_components/shop-end.css';
+import { rememberedSimilarShopRows, type SimilarShopRow } from '@/lib/similar-shops.server';
+import { shopInitials } from '@/lib/shop-initials';
 import { parseVideoLink } from '@/lib/video-embed';
 import { videoTitlesOf } from '@/lib/video-link-titles';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
@@ -150,10 +163,15 @@ import { buildCardReviews } from '@/lib/card-reviews';
 import { cardWithoutHidden, pairPhotoRefs, withCardHides, type CardHidesRead } from '@/lib/service-card-hides';
 import { readCardHides, viewerRunsShop } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
-import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
+import { ownWebAddress, pinnedQuote, shopReach, shopWhere } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
+import { readShopWork } from '@/lib/card-portfolio-albums.server';
+import { startRead } from '@/lib/start-read';
+import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
+import { servicesFromCards } from '@/lib/photos-by-service';
+import { PhotosByServiceRow } from './_components/photos-by-service';
 import {
   cardRecordHasSomethingToSay,
   cardRecordRatingFromTrusted,
@@ -189,6 +207,7 @@ import {
   type StorytellerTileItem,
 } from '@/lib/storytellers';
 import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import { featuredStoryLink } from '@/lib/ultra-story-pages';
 import {
   fetchVendorMicrosite,
   isSectionVisible,
@@ -207,13 +226,15 @@ import {
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { recordShopViewWith } from '@/lib/shop-view-count';
+import { readShopViewContext } from '@/lib/shop-view-context';
 import { ShopViewBeacon } from './_components/shop-view-beacon';
 import { wearShopPageTags } from '@/lib/shop-page-cache';
 import { onTheCachedHub } from '@/lib/hub-request';
 import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
+import { listedFilesGate, readTagEventLines } from '@/lib/inspiration-tags.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-model';
 import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
@@ -224,6 +245,9 @@ import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
+import { readCardBadges } from '@/lib/card-badges.server';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import type { CardBadgesRead } from '@/lib/card-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
@@ -235,10 +259,8 @@ import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
 import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
-import { OpenDatesPeek, nextSaturdays, type PeekDay } from './_components/open-dates-peek';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
-import { readCheckADate } from '@/lib/check-a-date.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -464,7 +486,9 @@ async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id
 // `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
 // fallback (a second hand-rolled query would silently fall out of sync with
 // this one the next time a column is added or renamed here).
-export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+// ⚡ One read per render (speed pass 2026-11-14): `generateMetadata` and the page body each asked for the same shop row
+// before the first byte. `cache()` hands them one answer; outside a render (the OG route) it reads as before.
+export const fetchVendor = cache(async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -514,7 +538,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
       .maybeSingle());
   }
   return (data ?? null) as PublicVendorRow | null;
-}
+});
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
@@ -947,8 +971,19 @@ export async function renderVendorBySlug({
   // Only on the genuine miss (`!vendor`) — a hidden or archived shop must keep
   // 404ing rather than disclose that it exists, so the visibility check below is
   // deliberately NOT part of this branch.
+  //
+  // 🔗 EVERY KIND OF RENAMED WORD, since the address move (owner 2026-11-15): a shop lives at the bare `/{shop}` now,
+  // and the middleware answers a stranger's bare word that is clearly NOT an event from this page's cached copy. A
+  // renamed event's or person's OLD word is exactly such a word (no event has it any more), so this page must forward
+  // it as the bare root's dispatcher always did (`app/[slug]/page.tsx`, `resolveRenamedPath(admin, slug)`) — or a
+  // printed save-the-date QR would 404 here. Same function, same rules (it refuses a word that is live elsewhere).
   if (!vendor) {
-    const movedTo = await resolveRenamedPath(createAdminClient(), slug, ['vendor']);
+    let movedTo: string | null = null;
+    try {
+      movedTo = await resolveRenamedPath(createAdminClient(), slug);
+    } catch {
+      // a failed forwarding read is still a 404 for a word that matches nothing, as at the bare root
+    }
     if (movedTo) redirect(movedTo);
   }
 
@@ -980,11 +1015,13 @@ export async function renderVendorBySlug({
   const teamPreview = gate.open === 'team' ? gate.reason : null;
 
   const visibility = parseVisibility(vendor.public_visibility);
-  const bookable = isBookable(visibility);
-  // 💬 DECISION_LOG 2026-11-07 rulings (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — found in a
-  // list or opened by its own link/QR — but not BOOK it. `canMessage` opens the Inquire doors only; every booking
-  // door (packages Lock, Check a date, the booth, the waitlist, package asks) stays on `bookable`, verified-only.
-  // The first message is the first inquiry, and the chat_messages trigger stamps the find lock.
+  // 🌐 15 Nov (DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE"; owner "We allow booking. Since
+  // they can get bookings on their website"): a shop Setnayan has not decided yet is BOOKED on its page — packages
+  // Lock, package asks, the waitlist, the booth — with the booking fee. `bookable` is the ONE booking rule
+  // (`isShopBookable`, the same one every server booking door and the database trigger ask). Check a date stays
+  // verified-only (`dateCheckable`): the 15 Nov row keeps "no Check a date" on the unverified page.
+  const bookable = isShopBookable(vendor);
+  const dateCheckable = isBookable(visibility) && bookable;
   const canMessage = shopTakesMessages(vendor, bookable);
   // D2 (2026-09-11): a downgrade must REVERT the paid look — computed ONCE
   // here and threaded into every tier gate below (tierCaps, micrositeCan,
@@ -1102,6 +1139,56 @@ export async function renderVendorBySlug({
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
   // A REFUSED read is not the same [] — say we couldn't check instead of
   // silently reading as "nobody endorsed this shop" (S41, reads-are-honest).
+  // 🏪 "More <kind of work> near <area>" — its ONE remembered read starts here, beside Trusted by's, and is awaited
+  // where the row draws (`SimilarShopsRow`). Keyed on (kind of work, demo) only, so every shop of that kind shares it.
+  const similarService = vendor.services[0] ?? null;
+  const similarRows: Promise<SimilarShopRow[] | null> = similarService
+    ? rememberedSimilarShopRows(similarService, vendor.is_demo === true)
+    : Promise.resolve(null);
+  // Handled where it is awaited; this only stops a refusal that lands first from counting as unhandled.
+  similarRows.catch(() => undefined);
+  /* ⚡ "Trusted by", the typical price, the favourites count and the awards each need only the shop row and the batch
+     above — they START together here and are still awaited where they were (speed pass 2026-11-14: they ran one after
+     another before this page's first byte). Same reads, same fail-softs, same "couldn't check" markers. */
+  const verifiedMedianP = startRead(
+    verifiedMedianEnabled() && !hidePricesPublicly
+      ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
+      : Promise.resolve(null),
+  );
+  const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
+     blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
+  const cardBadgesP = startRead(
+    (async (): Promise<CardBadgesRead> => {
+      const shopVerified = vendor.verification_state === 'verified';
+      /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
+         medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
+         never a quiet "not a partner". */
+      const shopSeals = await readShopSeals(vendor.vendor_profile_id, shopVerified);
+      if (!shopSeals) return { kind: 'unreadable' };
+      return readCardBadges(admin, {
+        vendorProfileId: vendor.vendor_profile_id,
+        shopVerified,
+        verifiedPartner: shopSeals.seals.includes('verified_partner'),
+      });
+    })().catch((err: unknown): CardBadgesRead => {
+      console.error('[renderVendorBySlug] card badges unreadable', err);
+      return { kind: 'unreadable' };
+    }),
+  );
+  const favoritesCountP = startRead((async () => {
+    const { data, error } = await admin.rpc('count_saves_for_vendor', {
+      p_vendor_profile_id: vendor.vendor_profile_id,
+    });
+    if (error) {
+      // The fail-soft (hide the badge) stays — see the comment above — but a
+      // refused call should not vanish the way the pre-20271141980127 P0001s did.
+      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
+        vendor_profile_id: vendor.vendor_profile_id,
+      });
+    }
+    return !error && typeof data === 'number' ? data : 0;
+  })());
   const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
   const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
   const trustedBy = trustedByUnreadable ? [] : trustedByRead;
@@ -1110,10 +1197,7 @@ export async function renderVendorBySlug({
   // The median of this vendor's OWN locked-booking declared prices. Read ONLY
   // when the flag is on AND the vendor isn't hiding prices publicly. Returns the
   // vendor's own rounded typical price — no cross-vendor comparison (comp-law).
-  const verifiedTypicalPrice =
-    verifiedMedianEnabled() && !hidePricesPublicly
-      ? await fetchVendorVerifiedMedian(vendor.vendor_profile_id)
-      : null;
+  const verifiedTypicalPrice = await verifiedMedianP;
 
   // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
   // distinct couples who follow OR saved this vendor (count_saves_for_vendor
@@ -1136,19 +1220,7 @@ export async function renderVendorBySlug({
   //
   // The fail-soft stays: a transient blip must hide the badge, never break a
   // public shop page. But it is now the LAST resort rather than the only path.
-  const favoritesCount = await (async () => {
-    const { data, error } = await admin.rpc('count_saves_for_vendor', {
-      p_vendor_profile_id: vendor.vendor_profile_id,
-    });
-    if (error) {
-      // The fail-soft (hide the badge) stays — see the comment above — but a
-      // refused call should not vanish the way the pre-20271141980127 P0001s did.
-      logQueryError('app/v/[slug]/page.tsx: count_saves_for_vendor', error, {
-        vendor_profile_id: vendor.vendor_profile_id,
-      });
-    }
-    return !error && typeof data === 'number' ? data : 0;
-  })();
+  const favoritesCount = await favoritesCountP;
 
   // Spec §5 experience tier — surfaced as a subtle hero badge. We render the
   // tier even for "New to Setnayan" on the profile (honest, not negative).
@@ -1158,7 +1230,7 @@ export async function renderVendorBySlug({
   // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
   // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
   // `fetchVendorCurrentAwards` contract).
-  const spotlightAwards = await fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []);
+  const spotlightAwards = await awardsP;
   const pagePills = shopBadges({
     verified: false,
     completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
@@ -1243,7 +1315,8 @@ export async function renderVendorBySlug({
   // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
   // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
   const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
-    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts))
+    // 🏷 A Files photo tagged to an inspiration shows only while that photo shows on the shop (DECISION_LOG 2026-11-14).
+    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts, listedFilesGate(admin)))
     .catch(() => null);
   // Coverage ids behind the active cards — drive the "Serves" line (event
   // types + faiths). Legacy services (coverage_id null) simply show no line.
@@ -1298,9 +1371,27 @@ export async function renderVendorBySlug({
   //
   // Flag-gated so OFF costs not one extra query — the map stays empty, every
   // card's `record` is null, and the gallery renders byte-identically to today.
+  // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14).
+  const shopWorkP = cardRecordEnabled()
+    ? startRead(
+        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null),
+      )
+    : undefined;
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(admin, activeServiceIds)
     : new Map<string, CompiledCardRecord>();
+  // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frame 77) — each live card's albums from the events it was
+  // booked on, read ONCE for the shop (the same albums the supplier's Their work holds). Rides the same flag: OFF → not
+  // read, no card carries `albums`, the grown card is as before. A refused read → every card says "Couldn't load".
+  // No ids reach the page: `toAlbumViews` without an href is labels and photo URLs only.
+  // 📸 …and the same read gives each card its event photos for PHOTOS BY SERVICE (owner 2026-11-14): one entry per
+  // photo, captioned kind · month, keyed to an opaque per-page event number — never the event id.
+  const shopWork = shopWorkP === undefined ? undefined : await shopWorkP;
+  const albumsByService: Map<string, AlbumView[] | null> | null =
+    shopWork === undefined
+      ? null
+      : new Map(activeServiceIds.map((id) => [id, shopWork ? toAlbumViews(cardAlbums(shopWork.albums, id)) : null]));
+  const eventPhotosByService = shopWork === undefined ? null : eventPhotosOf(shopWork, activeServiceIds);
 
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
@@ -1336,12 +1427,15 @@ export async function renderVendorBySlug({
   const liveCardById = new Map(activeServices.map((s) => [s.vendor_service_id, s]));
   const shownLooks = (shopInspiration ?? []).filter((l) => !l.vendorServiceId || liveCardById.has(l.vendorServiceId));
   const inspirationByService = shopInspiration === null ? null : looksByCard(shownLooks);
+  // 🏷 Ruling (4): a tagged Files photo names its event as type · venue · month — never a name, never an id.
+  const tagLines = await readTagEventLines(admin, shownLooks.filter((l) => l.fromEvent).map((l) => l.id));
   const inspirationTiles: InspirationTile[] = shownLooks.map((l) => {
     const s = l.vendorServiceId ? liveCardById.get(l.vendorServiceId) : undefined;
     return {
       id: l.id,
       url: l.url,
       part: l.part,
+      eventLine: tagLines.get(l.id)?.line ?? null,
       card: s
         ? { label: serviceLabel(s), priceLabel: servicePriceLabel(s), anchorId: cardAnchorId(s.public_id, s.vendor_service_id) }
         : null,
@@ -1405,8 +1499,30 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  const orderedServices = orderFeaturedFirst(
+  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
+  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  const trustedByTiles: TrustedByTile[] = showTrustedBy
+    ? await Promise.all(
+        trustedBy.map(async (v) => ({
+          id: v.vendorProfileId,
+          name: v.displayName,
+          href: v.href,
+          kindLabel: PARTNERSHIP_PUBLIC_LABEL[v.relationshipType],
+          kindHint: PARTNERSHIP_PUBLIC_HINT[v.relationshipType],
+          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          initials: shopInitials(v.displayName, 2, 'SN'),
+        })),
+      )
+    : [];
+  // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
+  // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
+  const distinctServiceKeys = distinctShopServices(
     vendor.services,
+    Object.fromEntries(vendor.services.filter(isCanonicalService).map((k) => [k, displayServiceLabel(k)])),
+    displayServiceLabel,
+  ).map((s) => s.key);
+  const orderedServices = orderFeaturedFirst(
+    distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
@@ -1738,7 +1854,7 @@ export async function renderVendorBySlug({
 
   /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
-  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
+  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId, q: arrivalParams(search).q, from: arrivalParams(search).from };
   const shopBack = shopBackDoor(shopArrival);
   /*
     💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
@@ -1790,18 +1906,7 @@ export async function renderVendorBySlug({
   // them"; walk F-W1-58). Every link the supplier hands out carries `?src=own` (`ownPageUrl`) → 'website', their own
   // client, an import. An arrival with NO tag found the shop on Setnayan → 'shop_page', SOURCED. It used to be null,
   // which is an import: a booking made wholly in the app read "This client did not come from Setnayan".
-  const arrivalInquirySource =
-    search.src === OWN_LINK_SRC
-      ? 'website'
-      : search.src === 'editorial'
-        ? 'editorial'
-        : search.src === 'favorites'
-          ? 'favorites'
-          : search.src === 'explore'
-            ? 'explore'
-            : search.src === 'search'
-              ? 'search'
-              : 'shop_page';
+  const arrivalInquirySource = arrivalInquirySourceOf(search.src);
   const arrivalChapter =
     typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
   // Head count for the package configurator's per-head option upgrades
@@ -2185,13 +2290,17 @@ export async function renderVendorBySlug({
     // ⚡ The cached copy counts its views in the browser (`ShopViewBeacon`, rendered below) — this render runs once
     // for many opens. Same action, same row; the campaign tags are read off the address there.
     if (!cachedCopy) {
+      // 👁 W1-B15: who is looking is read NOW — Next refuses `headers()`/`cookies()` inside a render's `after()`, so
+      // the old in-callback read wrote every live view with no visitor (`lib/shop-view-context.ts`). The recorder skips
+      // bots and the shop's own people, and keys the visitor so one device is one couple (`lib/shop-view-count.ts`).
+      const viewCtx = await readShopViewContext();
       after(() =>
-        recordVendorProfileView({
+        recordShopViewWith(createAdminClient(), {
           vendorProfileId: viewVendorProfileId,
           source: viewSource,
           utm: utmParam,
           eventId: viewEventId,
-        }),
+        }, viewCtx),
       );
     }
   }
@@ -2213,25 +2322,74 @@ export async function renderVendorBySlug({
     }
   }
 
-  // 📅 "THEIR REAL CALENDAR" — the peek in the calling card. Verified + bookable only (owner 13 Nov "date check only for
-  // verified"), from the one read behind /v/[slug]/dates, so the two can never disagree. Anything but `ok` draws no
-  // days: a failed read never paints a closed day open.
-  const checkDateHref = withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival);
-  let peekDays: PeekDay[] = [];
-  if (cinematicHero && bookable) {
-    const dates = await readCheckADate(vendor.business_slug ?? slug).catch(() => null);
-    if (dates && dates.kind === 'ok') {
-      peekDays = nextSaturdays(dates.today, { from: dates.from, to: dates.to }, dates.notBookable);
-    }
-  }
-
   // 🧭 The section bar's tabs — only sections that render. Verified: About · Services · Portfolio · Reviews.
   // Unverified: Services · Reviews · Where. NO Inquire tab (owner 13 Nov, "Yes, only one"): the bar carries the ONE
   // Inquire as its button instead, so it stays in reach on a phone (`inquire` prop below).
+  // The service cards' inputs, ONCE: the Services section draws them and 📸 photos by service (owner 2026-11-14)
+  // gathers the same cards by their service for the Portfolio's "Photos by service" row.
+  const serviceCardBadges = await cardBadgesP;
+  const servicesProps: ServicesPricingProps = {
+    cardBadges: serviceCardBadges,
+    badgesNow: Date.now(),
+            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
+       (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
+    countOpensFor: !isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null,
+    services: activeServices,
+    businessName: displayLabel,
+    inclusionsByService: inclusionsByService,
+    discountsByService: discountsByService,
+    servesByService: servesByService,
+    showcaseByService: showcaseByService,
+    coverUrlByService: coverUrlByService,
+    tileByCardKind: tileByCardKind,
+    coarseSource: coarseSource,
+    hidePrices: hidePricesPublicly,
+    coupleEventDate: coupleEventDate,
+    cardRecordByService: cardRecordByService,
+    albumsByService: albumsByService,
+    eventPhotosByService: eventPhotosByService,
+    couplePhotosByService: couplePhotosByService,
+    cardHides: cardHidesByService,
+    viewerCuratesCards: viewerCuratesCards,
+    ownerCheckFor: viewerCuratesCards ? vendor.vendor_profile_id : null,
+    /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
+    viewerSignedIn: user !== null,
+    /* Reuses the SAME trusted aggregate the hero stars read — the only
+       source the anti-fraud lock permits for a public rating number —
+       so the record block can never disagree with the top of the page,
+       and costs no extra query. Vendor-level by nature: reviews carry
+       no service dimension, which is why the badge says "shop rating". */
+    cardRecordRating: cardRecordRatingFromTrusted(trustedReviewStats),
+    /* The details sheet (flag-dark). OFF ⇒ every card renders as the
+       static div it does today and no sheet is mounted. */
+    detailsEnabled: detailsEnabled,
+    /* Whether the sheet's "Choose this service" can reach the Inquire
+       pop-up — decided here because only the server knows. */
+    inquireMode: canMessage ? 'anchor' : 'none',
+    openServicePublicId: openServicePublicId,
+    inspirationByService: inspirationByService,
+    reviewsByService: reviewsByService,
+
+  };
+  const photoServiceViews = activeServices.length > 0 ? servicesFromCards(buildServiceGroups(servicesProps).flatMap((g) => g.cards)) : [];
+  const hasPhotosByService = showPortfolio && photoServiceViews.some((v) => v.photos > 0);
   const hasPortfolioSection =
     (showPortfolio && (portfolioUrls.length > 0 || featuredVideos.length > 0 || igMedia.length > 0)) ||
     (showEditorials && (featuredEditorials.length > 0 || featuredChapterCredits.length > 0)) ||
-    inspirationTiles.length > 0;
+    inspirationTiles.length > 0 ||
+    hasPhotosByService;
+  // 📍 No pin, no address, no city → no Where tab and no Where section (`shopHasWhere`, re-walk 2026-11-14).
+  // An unverified shop shows its city only — no pin, no directions, no street (`shopWhere`, DECISION_LOG 2026-11-15).
+  const where = shopWhere(
+    {
+      latitude: vendor.hq_latitude,
+      longitude: vendor.hq_longitude,
+      address: vendor.hq_address,
+      city: vendor.location_city,
+    },
+    cinematicHero,
+  );
+  const hasWhere = where.has;
   const shopSectionTabs: ShopSectionTab[] = cinematicHero
     ? [
         { id: 'shop-about', label: 'About' },
@@ -2242,7 +2400,7 @@ export async function renderVendorBySlug({
     : [
         { id: 'shop-services', label: 'Services' },
         { id: 'shop-reviews', label: 'Reviews' },
-        { id: 'shop-where', label: 'Where' },
+        ...(hasWhere ? [{ id: 'shop-where', label: 'Where' }] : []),
       ];
 
   // 🏅 THE BADGE ROW, drawn ONCE in source and placed by the look: on the hero photo for a verified shop (the seal
@@ -2326,6 +2484,7 @@ export async function renderVendorBySlug({
       ) : null}
       </div>
   );
+
   return (
     <main
       id="shop-top"
@@ -2427,7 +2586,10 @@ export async function renderVendorBySlug({
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
-          <div className="min-w-0 space-y-2">
+          {/* 📐 RW-270 (owner-seen 14 Nov, 390 px): `w-full`, as the sample card (`SampleShopPage`) — in the phone's
+              column flex (`items-start`) a fit-content column grew to its widest line and dragged the map and the
+              Directions row past the right gutter, cutting the map's credit. Pinned to the card's width, they fit. */}
+          <div className="w-full min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
@@ -2623,9 +2785,9 @@ export async function renderVendorBySlug({
                 reason, and the button was missed. Share is NOT dropped: the
                 hero has no Share, so removing the whole row would leave an
                 Enterprise shop with no way to share it at all. */}
-            {/* 📅 THEIR REAL CALENDAR — the open-dates peek. Verified + bookable only (owner 13 Nov "date check only for
-                verified"); nothing at all when the dates could not be read. */}
-            {cinematicHero && bookable ? <OpenDatesPeek days={peekDays} checkHref={checkDateHref} /> : null}
+            {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
+                APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
+                stays the action row's door. */}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
@@ -2656,19 +2818,18 @@ export async function renderVendorBySlug({
                     then Check a date · Share. */}
                 {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
-                    Available · Not bookable, nothing about other couples' asks. A BOOKING door, so it keeps `bookable`
-                    (verified only) while the row itself opens on `canMessage` — an unverified shop takes messages,
-                    never a date check or a booking (DECISION_LOG 2026-11-07). */}
-                {bookable ? (
+                    Available · Not bookable, nothing about other couples' asks. Verified only (`dateCheckable`): the
+                    unverified page has no Check a date (DECISION_LOG 2026-11-15). */}
+                {dateCheckable ? (
                   <CheckADateLink
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival)}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
                 {bookable && canShowBooth ? (
                   <Link
-                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/booth`, shopArrival)}
+                    href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}/booth`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   >
                     Walk into my booth
@@ -2776,7 +2937,6 @@ export async function renderVendorBySlug({
 
         {cinematicHero && bookable ? (
           <ShopCanDoPanel
-            checkHref={checkDateHref}
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}
@@ -2934,13 +3094,7 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {showTrustedBy ? (
-          <TrustedBySection
-            vendors={trustedBy}
-            businessName={displayLabel}
-            unreadable={trustedByUnreadable}
-          />
-        ) : null}
+        {/* 🤝 Trusted by MOVED to the end of the page (owner 2026-11-14) — just before "See more suppliers". */}
         </div>
 
         {/* ── SERVICES: the cards, the typical price, the packages (Lock lives on each package card, nowhere else). */}
@@ -2950,42 +3104,12 @@ export async function renderVendorBySlug({
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
           <ServicesPricingSection
-            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
-               (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
-            countOpensFor={!isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null}
-            services={activeServices}
-            businessName={displayLabel}
-            inclusionsByService={inclusionsByService}
-            discountsByService={discountsByService}
-            servesByService={servesByService}
-            showcaseByService={showcaseByService}
-            coverUrlByService={coverUrlByService}
-            tileByCardKind={tileByCardKind}
-            coarseSource={coarseSource}
-            hidePrices={hidePricesPublicly}
-            coupleEventDate={coupleEventDate}
-            cardRecordByService={cardRecordByService}
-            couplePhotosByService={couplePhotosByService}
-            cardHides={cardHidesByService}
-            viewerCuratesCards={viewerCuratesCards}
+            {...servicesProps}
+            /* Said again here, where the section is drawn, so the page's own guards read them in place
+               (the same values as in `servicesProps`, which photos by service reads). */
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
-            /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
-            viewerSignedIn={user !== null}
-            /* Reuses the SAME trusted aggregate the hero stars read — the only
-               source the anti-fraud lock permits for a public rating number —
-               so the record block can never disagree with the top of the page,
-               and costs no extra query. Vendor-level by nature: reviews carry
-               no service dimension, which is why the badge says "shop rating". */
-            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
-            /* The details sheet (flag-dark). OFF ⇒ every card renders as the
-               static div it does today and no sheet is mounted. */
-            detailsEnabled={detailsEnabled}
-            /* Whether the sheet's "Choose this service" can reach the Inquire
-               pop-up — decided here because only the server knows. */
             inquireMode={canMessage ? 'anchor' : 'none'}
-            openServicePublicId={openServicePublicId}
-            inspirationByService={inspirationByService}
-            reviewsByService={reviewsByService}
+            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
           />
         ) : null}
 
@@ -3056,14 +3180,19 @@ export async function renderVendorBySlug({
             renders here, embedded or not. Unparseable video entries are also
             dropped upstream. Governed by the vendor's Portfolio visibility
             toggle; auto-hidden when there's nothing to show. */}
-        {showPortfolio &&
+        {(showPortfolio &&
         (portfolioUrls.length > 0 ||
           featuredVideos.length > 0 ||
-          igMedia.length > 0) ? (
+          igMedia.length > 0)) || hasPhotosByService ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
             </h2>
+            {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
+                opening that service's photos from every card — the same photos, by reference. */}
+            {hasPhotosByService ? (
+              <PhotosByServiceRow views={photoServiceViews} ownerShopId={viewerCuratesCards ? vendor.vendor_profile_id : null} />
+            ) : null}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {/* 👁 Each photo opens full size on a tap, and that open is ONE view of that photo (Lane E item 11) — the
                   shop's own people and admins never count (the RPC refuses them; a team preview counts nothing). */}
@@ -3169,10 +3298,15 @@ export async function renderVendorBySlug({
             </h2>
             {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
-              {featuredEditorials.map((story, idx) => (
+              {featuredEditorials.map((story, idx) => {
+                // ULTRA STORY PAGES (owner 2026-11-14, item 8): on Ultra the card opens the shop's OWN page for that
+                // event on the shop's address; Free · Plus · Pro keep "Read their story" (lib/ultra-story-pages.ts).
+                const storyLink = featuredStoryLink({ tier: effectiveTierState, shopSlug: vendor.business_slug, eventSlug: story.slug });
+                return (
                 <a
                   key={story.eventId}
-                  href={`/${story.slug}`}
+                  href={storyLink.own ? storyLink.href : `/${story.slug}`}
+                  data-story-link={storyLink.own ? 'own' : 'couple'}
                   className={`group flex flex-col justify-between rounded-2xl border border-ink/10 bg-cream/50 p-5 transition-colors hover:border-terracotta/40 ${
                     idx === 0 ? 'sm:col-span-3 sm:flex-row sm:items-end sm:gap-6' : ''
                   }`}
@@ -3193,11 +3327,12 @@ export async function renderVendorBySlug({
                     </p>
                   </div>
                   <span className="mt-3 inline-flex shrink-0 items-center gap-1 text-sm font-medium text-terracotta group-hover:underline sm:mt-0">
-                    Read their story
+                    {storyLink.label}
                     <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                   </span>
                 </a>
-              ))}
+                );
+              })}
             </div>
             ) : null}
             {/* Storyteller chapters crediting this vendor — their own tile
@@ -3250,26 +3385,19 @@ export async function renderVendorBySlug({
         />
         </div>
 
-        {/* 📍 WHERE — the unverified shop's map has its own section (prototype: Services · Reviews · Where · Inquire), a
-            pin only: no reach ring before verification, the reach line says "distance search opens once verified". */}
-        {cinematicHero ? null : (
+        {/* 📍 WHERE — the unverified shop's own section (prototype: Services · Reviews · Where · Inquire): its CITY only.
+            No pinned map, no Get directions, no street — "no exact address" until verified (`shopWhere`, DECISION_LOG
+            2026-11-15). */}
+        {cinematicHero || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Where</h2>
               <p className="text-sm text-ink/70">
                 <ShopReachLine reach={reach} city={vendor.location_city ?? null} />
               </p>
-              <ShopReachMap
-                reach={reach}
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                city={vendor.location_city ?? null}
-              />
-              <DirectionsMenu
-                latitude={vendor.hq_latitude}
-                longitude={vendor.hq_longitude}
-                query={vendor.hq_address ?? vendor.location_city ?? null}
-              />
+              <p data-shop-exact-address-held="" className="text-[13px] text-ink/60">
+                {where.addressNote}
+              </p>
             </section>
           </div>
         )}
@@ -3365,6 +3493,31 @@ export async function renderVendorBySlug({
             />
           ) : null}
 
+          {/* 🤝 THE PAGE'S ENDING (owner 2026-11-14, "shop ending page approved"): the shop's partners — still the shop's
+              own choice to show (`trusted_by`) — then up to four similar shops nearby, then the door below, unchanged. */}
+          {showTrustedBy ? (
+            <TrustedBySection
+              vendors={trustedByTiles}
+              businessName={displayLabel}
+              unreadable={trustedByUnreadable}
+            />
+          ) : null}
+          {similarService ? (
+            <SimilarShopsRow
+              rows={similarRows}
+              service={similarService}
+              kindLabel={displayServiceLabel(similarService)}
+              self={{
+                vendorProfileId: vendor.vendor_profile_id,
+                city: vendor.location_city,
+                latitude: vendor.hq_latitude,
+                longitude: vendor.hq_longitude,
+              }}
+              excludeIds={trustedBy.map((v) => v.vendorProfileId)}
+              arrival={shopArrival}
+            />
+          ) : null}
+
           <div className="flex flex-wrap gap-3 py-8">
             {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
                 was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
@@ -3429,6 +3582,19 @@ export async function renderVendorBySlug({
           </div>
         </footer>
       </article>
+      {/* 📅 CHECK A DATE, OVER THE SHOP (SHOP-02 v7, owner-approved 14 Nov 2026): the shop's own `?dates` address opens
+          the sheet on top of it — the shop button above, the printed QR (`/v/<slug>/dates` forwards here) and the
+          sign-in resume all land here. Verified shops only (`dateCheckable`), the same rule as the door. */}
+      {dateCheckable && search.dates === '1' ? (
+        <Suspense fallback={null}>
+          <CheckADateOverShop
+            slug={vendor.business_slug ?? slug}
+            logoUrl={logoDisplayUrl}
+            shopHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival)}
+            search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
+          />
+        </Suspense>
+      ) : null}
     </main>
   );
 }
@@ -3522,32 +3688,11 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
   );
 }
 
-function ServicesPricingSection({
-  services,
-  businessName,
-  inclusionsByService,
-  discountsByService,
-  servesByService,
-  showcaseByService,
-  coverUrlByService,
-  tileByCardKind,
-  coarseSource,
-  hidePrices,
-  coupleEventDate,
-  cardRecordByService,
-  couplePhotosByService,
-  viewerSignedIn,
-  cardRecordRating,
-  detailsEnabled,
-  inquireMode,
-  openServicePublicId,
-  inspirationByService,
-  reviewsByService,
-  countOpensFor,
-  cardHides,
-  viewerCuratesCards,
-  ownerCheckFor,
-}: {
+type ServicesPricingProps = {
+  /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
+  cardBadges: CardBadgesRead | null;
+  /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
+  badgesNow: number;
   /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
   ownerCheckFor: string | null;
   /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
@@ -3586,6 +3731,10 @@ function ServicesPricingSection({
    *  ENABLED is off (the reader is not even called), so every card's record is
    *  null and the gallery renders exactly as it does today. */
   cardRecordByService: Map<string, CompiledCardRecord>;
+  /** 🃏📸 Each card's albums (flag on) — null = the flag is off, so no card carries any. */
+  albumsByService: Map<string, AlbumView[] | null> | null;
+  /** 📸 Each card's event photos for photos by service (flag on) — null = the flag is off. */
+  eventPhotosByService: Map<string, { url: string; caption: string; event: string }[] | null> | null;
   /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
   couplePhotosByService: Map<string, CoupleLook[]>;
   /** A signed-in viewer → the gallery asks, after the page, for the non-public couple photos they are inside. */
@@ -3604,7 +3753,38 @@ function ServicesPricingSection({
   inspirationByService: Map<string, ShopInspirationLook[]> | null;
   /** ⭐ Each live card's own reviews (`buildCardReviews`) — absent for a card with none. */
   reviewsByService: ReadonlyMap<string, CardReviews>;
-}) {
+};
+
+/** The shop page's service cards, in their coverage groups — built ONCE per input, read by the gallery and by
+ *  📸 photos by service (owner 2026-11-14), so the two can never draw a different card. */
+function buildServiceGroups({
+  services,
+  businessName,
+  inclusionsByService,
+  discountsByService,
+  servesByService,
+  showcaseByService,
+  coverUrlByService,
+  tileByCardKind,
+  coarseSource,
+  hidePrices,
+  coupleEventDate,
+  cardRecordByService,
+  albumsByService,
+  eventPhotosByService,
+  couplePhotosByService,
+  viewerSignedIn,
+  cardRecordRating,
+  detailsEnabled,
+  inquireMode,
+  openServicePublicId,
+  inspirationByService,
+  reviewsByService,
+  countOpensFor,
+  cardHides,
+  viewerCuratesCards,
+  ownerCheckFor,
+}: ServicesPricingProps): ServiceGroup[] {
   /*
     ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
     Measured on the live shop 2026-09-15: the one published supplier's two
@@ -3682,6 +3862,9 @@ function ServicesPricingSection({
         couplePhotosByService.get(row.vendor_service_id),
       ))
         .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
+        // 🃏📸 The card's event photos ride along only while the flag is on (`eventWork` absent otherwise).
+        .map((card) => (albumsByService ? { ...card, eventWork: albumsByService.get(card.id) ?? null } : card))
+        .map((card) => (eventPhotosByService ? { ...card, eventPhotos: eventPhotosByService.get(card.id) ?? null } : card))
         // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
         .map((card) =>
           detailsEnabled
@@ -3714,6 +3897,12 @@ function ServicesPricingSection({
     }
   }
 
+  return groups;
+}
+
+function ServicesPricingSection(props: ServicesPricingProps) {
+  const groups = buildServiceGroups(props);
+  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor, cardBadges, badgesNow } = props;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -3733,6 +3922,8 @@ function ServicesPricingSection({
         shopName={businessName}
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
+        cardBadges={cardBadges}
+        badgesNow={badgesNow}
       />
     </section>
   );
@@ -3772,7 +3963,8 @@ function TrustedBySection({
   businessName,
   unreadable,
 }: {
-  vendors: ReadonlyArray<TrustedByVendor>;
+  /** The partners as tiles, strongest kind first (`trustedByTiles`). */
+  vendors: ReadonlyArray<TrustedByTile>;
   businessName: string;
   /** true = the vendor_profiles half of the read was refused; `vendors` is []
    *  because nothing was read, not because nobody endorsed this shop. */
@@ -3791,8 +3983,10 @@ function TrustedBySection({
     );
   }
   if (vendors.length === 0) return null;
+  // 🤝 Each partner as its round shop photo, name and kind, in an endless row (owner 2026-11-14, "carousel
+  // infinity") — `TrustedByCarousel` swipes, wraps last → first, and draws arrows only on a computer when they overflow.
   return (
-    <section className="space-y-4 border-b border-ink/10 py-8">
+    <section className="space-y-4 border-b border-ink/10 py-8" data-trusted-by="">
       <header className="space-y-1">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Trusted by
@@ -3801,35 +3995,7 @@ function TrustedBySection({
           Fellow suppliers who endorsed {businessName} — each one confirmed it.
         </p>
       </header>
-      <ul className="flex flex-wrap gap-2">
-        {vendors.map((v) => {
-          const body = (
-            <>
-              <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
-              <span className="font-medium text-ink">{v.displayName}</span>
-              <span className="text-ink/45" title={PARTNERSHIP_PUBLIC_HINT[v.relationshipType]}>
-                · {PARTNERSHIP_PUBLIC_LABEL[v.relationshipType]}
-              </span>
-            </>
-          );
-          return (
-            <li key={v.vendorProfileId}>
-              {v.href ? (
-                <a
-                  href={v.href}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70 transition-colors hover:border-success-300/60 hover:text-ink"
-                >
-                  {body}
-                </a>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1 text-[12px] text-ink/70">
-                  {body}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <TrustedByCarousel tiles={vendors} label={`Suppliers who trust ${businessName}`} />
     </section>
   );
 }

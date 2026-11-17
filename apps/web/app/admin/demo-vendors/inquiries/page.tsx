@@ -46,7 +46,7 @@ const ROW_LIMIT = 300;
 function fmt(iso: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('en-PH', {
+    return new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
@@ -177,7 +177,7 @@ export default async function DemoInquiriesPage() {
             header: 'Status',
             cell: (t) => (
               <span
-                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}
+                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}
               >
                 {t.inquiry_status}
               </span>

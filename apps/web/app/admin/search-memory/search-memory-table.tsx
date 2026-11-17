@@ -1,7 +1,9 @@
 'use client';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton } from '@/components/action-button';
 
 import { useState, useTransition } from 'react';
-import { BrainCircuit, GraduationCap, Trash2 } from 'lucide-react';
+import { BrainCircuit, GraduationCap, Save, Trash2, X } from 'lucide-react';
 
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import type { SearchMemoryRow } from '@/lib/admin-search-memory';
@@ -16,7 +18,7 @@ const LEARNED_STYLE: Record<'ai' | 'admin', string> = {
 
 function formatWhen(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function SearchMemoryTable({
@@ -130,39 +132,23 @@ export function SearchMemoryTable({
               if (teaching === row.phrase) {
                 return (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <select
+                    <PickMenu
+                      label="Where this phrase should go"
                       value={pickHref}
-                      onChange={(e) => setPickHref(e.target.value)}
-                      className="rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[12px] text-ink"
-                    >
-                      {destinations.map((d) => (
-                        <option key={d.href} value={d.href}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleTeach(row.phrase)}
-                      disabled={busy.has(row.phrase)}
-                      className="rounded-md bg-success-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-success-700 disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTeaching(null)}
-                      className="rounded-md border border-ink/15 px-2 py-1 text-[11px] text-ink/70"
-                    >
-                      Cancel
-                    </button>
+                      options={destinations.map((d) => ({ key: d.href, label: d.label }))}
+                      onPick={setPickHref}
+                      dataAttr="data-teach-destination"
+                      className="min-h-11"
+                    />
+                    <ActionButton tone="ok" icon={Save} label="Save" type="button" onClick={() => handleTeach(row.phrase)} disabled={busy.has(row.phrase)} />
+                    <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setTeaching(null)} />
                   </div>
                 );
               }
               return (
                 <>
                   <div className="font-medium text-ink">{label}</div>
-                  <div className="break-all font-mono text-[10.5px] text-ink/50">{href}</div>
+                  <div className="break-all text-[12px] text-ink/50 tabular-nums">{href}</div>
                 </>
               );
             },
@@ -174,7 +160,7 @@ export function SearchMemoryTable({
               const from = overrides.has(row.phrase) ? 'admin' : row.learnedFrom;
               return (
                 <span
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium ${LEARNED_STYLE[from]}`}
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-medium ${LEARNED_STYLE[from]}`}
                 >
                   {from === 'admin' ? 'taught by an admin' : 'the AI'}
                 </span>
@@ -201,24 +187,8 @@ export function SearchMemoryTable({
               const isBusy = busy.has(row.phrase);
               return (
                 <span className="whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => openTeach(row.phrase, overrides.get(row.phrase)?.href ?? row.href)}
-                    disabled={isBusy || teaching === row.phrase}
-                    className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-[12px] text-ink hover:bg-ink/5 disabled:opacity-50"
-                  >
-                    <GraduationCap className="h-3.5 w-3.5" aria-hidden />
-                    Teach it this instead
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(row.phrase)}
-                    disabled={isBusy}
-                    className="ml-2 inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-[12px] text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    Delete
-                  </button>
+                  <ActionButton tone="neutral" icon={GraduationCap} label="Teach it this instead" type="button" onClick={() => openTeach(row.phrase, overrides.get(row.phrase)?.href ?? row.href)} disabled={isBusy || teaching === row.phrase} />
+                  <ActionButton tone="neutral" icon={Trash2} label="Delete" type="button" onClick={() => handleDelete(row.phrase)} disabled={isBusy} />
                 </span>
               );
             },

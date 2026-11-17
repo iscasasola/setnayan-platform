@@ -78,7 +78,7 @@ const LEGACY_BATCH_ID = '00000000-0000-0000-0000-000000000001';
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('en-PH', {
+    return new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
       year: 'numeric',
       month: 'short',
       day: '2-digit',

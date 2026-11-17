@@ -36,6 +36,50 @@ export function shopReach(input: {
   return Number.isFinite(km) && km > 0 ? { kind: 'ring', km } : { kind: 'city_only' };
 }
 
+/**
+ * 📍 DOES THE SHOP HAVE A "WHERE"? (map card follow-up, live re-walk 2026-11-14.) The calm shop page's Where tab and
+ * its section are drawn only when there is something to put behind them: a pin (a map + Get directions) or an address
+ * or city (the reach line + a Get directions search). A shop with none of those got a "Where" tab that scrolled to an
+ * empty heading. One answer for the tab AND the section, so they can never disagree.
+ */
+export function shopHasWhere(place: {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  address: string | null | undefined;
+  city: string | null | undefined;
+}): boolean {
+  const pinned =
+    place.latitude != null && place.longitude != null && Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
+  return pinned || Boolean(place.address?.trim()) || Boolean(place.city?.trim());
+}
+
+/** The line an unverified shop's Where section carries in place of its street. */
+export const EXACT_ADDRESS_ONCE_VERIFIED = 'The exact address shows once Setnayan verifies this shop.';
+
+/**
+ * 📍 WHAT A SHOP'S WHERE SECTION MAY SHOW. DECISION_LOG 2026-11-15 "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED
+ * ONE": the unverified page has *"no exact address"* — the approved prototype (`shop_website_two_looks_2026-11-15/site.html`)
+ * prints the city and "the exact address shows once verified", with no pin and no Get directions. So a shop Setnayan has
+ * not verified shows its CITY only: no pinned map (a pin is the street), no directions (they print and search the
+ * address). A verified shop keeps everything `shopHasWhere` allows.
+ */
+export function shopWhere(
+  place: { latitude: number | null | undefined; longitude: number | null | undefined; address: string | null | undefined; city: string | null | undefined },
+  verified: boolean,
+): { has: boolean; map: boolean; directionsQuery: string | null; addressNote: string | null } {
+  if (!verified) {
+    return { has: Boolean(place.city?.trim()), map: false, directionsQuery: null, addressNote: EXACT_ADDRESS_ONCE_VERIFIED };
+  }
+  const pinned =
+    place.latitude != null && place.longitude != null && Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
+  return {
+    has: shopHasWhere(place),
+    map: pinned,
+    directionsQuery: place.address?.trim() || place.city?.trim() || null,
+    addressNote: null,
+  };
+}
+
 /** The reach fact line's words. Null when there is no city to say it about. */
 export function shopReachLine(reach: ShopReach, city: string | null | undefined): string | null {
   const c = city?.trim();

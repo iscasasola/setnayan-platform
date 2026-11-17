@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BOOKED_THIS_MONTH_HREF } from '@/lib/booked-this-month';
 import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import type { TodayStats as Stats } from '@/lib/supplier-today-view';
@@ -21,7 +22,8 @@ import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 export const TODAY_STAT_HREFS = {
   views: '/vendor-dashboard/shop',
   inquiries: '/vendor-dashboard/customers?door=asking',
-  booked: '/vendor-dashboard/customers?door=booked',
+  // Owner 75a46e3c item 9: Clients filtered to this month, so it shows this same number (`lib/booked-this-month.ts`).
+  booked: BOOKED_THIS_MONTH_HREF,
   portfolio: '/vendor-dashboard/collections',
   money: customerLandingHref('payday'),
 } as const;
@@ -35,7 +37,9 @@ export function todayStatsOf(s: Stats): Stat[] {
   return [
     { id: 'views', figure: n(s.views), label: 'Views', line: s.views === null ? UNREAD : 'last 28 days' },
     { id: 'inquiries', figure: n(s.inquiries), label: 'Inquiries', line: s.inquiries === null ? UNREAD : 'asked · last 28 days' },
-    { id: 'booked', figure: n(s.booked), label: 'Booked', line: s.booked === null ? UNREAD : 'this month' },
+    // RW-84 (walk 13 Nov 2026): it counts events DATED this month (owner Q2) — said so, so 4 bookings MADE this month for
+    // later dates are not read as missing.
+    { id: 'booked', figure: n(s.booked), label: 'Booked', line: s.booked === null ? UNREAD : 'events this month' },
     s.portfolio === undefined
       ? { id: 'portfolio', figure: null, label: 'Portfolio', line: 'your photos' }
       : s.portfolio === null

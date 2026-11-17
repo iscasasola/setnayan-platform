@@ -333,7 +333,12 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   }
 
   return (
-    <>
+    /* 🖥 From 701 the library sits in the 48-rem reading column, centred (owner 2026-11-16, DECISION_LOG 75a46e3c
+       item 12: "Memories on desktop is a 48rem column" — it was the 64-rem wide stage, RW-343); FROM 1024 IT TAKES THE
+       FULL WIDTH (owner "Yes, all 8", the later 16 Nov row — event dashboard drawing v13 Q4: "Memories full width
+       (6 photos/row at 1280, 8 at 1600)"; the columns are `lib/gallery-zoom.ts`). Below 701 this div is an unstyled
+       block, so the phone is unchanged. 🔒 `the-memories-stage-is-48rem-then-full-width.test.ts`. */
+    <div className="tab:mx-auto tab:w-full tab:max-w-3xl lg:max-w-none" data-memories-stage="">
     {/* 🔒 WITHHELD, NOT ABSENT — a viewer the couple's sources do not reach (a coordinator) is told the guests' and
         crew's photos exist and are the couple's; zero photos must never read as "there are none". Moved with the
         library from the Papic page (`lib/papic-gallery-scope.test.ts`). */}
@@ -386,6 +391,6 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     />
     {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
     <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
-    </>
+    </div>
   );
 }

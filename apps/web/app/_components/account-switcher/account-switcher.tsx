@@ -1,5 +1,6 @@
 'use client';
 
+import { realNameOrNull } from '@/lib/no-name';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -9,7 +10,9 @@ import {
   ShieldCheck,
   UserRound,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  X,
   Check,
   Plus,
   ExternalLink,
@@ -34,6 +37,7 @@ import { signOutAllAction } from '@/lib/account-sign-out-path';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { appearanceSwitchShown } from '@/lib/appearance';
 import { AppearanceChoice } from './appearance-choice';
+import { sheetBackLabel } from '@/lib/sheet-back-label';
 
 type Props = {
   data: SwitcherData;
@@ -108,7 +112,7 @@ html.dark .sn-sheet{background:rgb(var(--color-cream));--sn-new:var(--m-orange)}
 .sn-sheet-card>*+*::before{content:"";position:absolute;left:68px;right:0;top:0;height:1px;background:var(--m-line);pointer-events:none}
 .sn-sheet-card>.sn-row-sm+*::before,.sn-sheet-card>*+.sn-row-sm::before{left:60px}
 .sn-sheet-card>[data-on]+*::before,.sn-sheet-card>[data-on]::before{display:none}
-.sn-sheet-cover{background:radial-gradient(90% 120% at 100% 0%,color-mix(in srgb,var(--m-orange) 28%,transparent),transparent 60%),var(--m-paper)}
+.sn-sheet-cover{background:radial-gradient(90% 120% at 100% 0%,var(--sn-cover-glow,color-mix(in srgb,var(--m-orange) 28%,transparent)),transparent 60%),var(--m-paper)}
 `;
 
 /** The round mark at the start of a row. */
@@ -172,10 +176,14 @@ function shopInitials(name: string): string {
   return (caps.length >= 2 ? caps.slice(0, 2) : w.slice(0, 2)).replace(/^./, (c) => c.toUpperCase());
 }
 
+/* 📝 NAMES ARE WHOLE (owner-approved 16 Nov 2026, profile menu drawing — event dashboard v13 #profile-menu): shipped,
+   the name, the email and every row were cut with "…" at 320px ("Maria Josefina Dela Cr…"). In the sheet a long name
+   or email wraps onto a second line (`overflow-wrap: anywhere`, so an email with no spaces still breaks) — nothing is
+   cut. The trigger pill and the rail plaque keep their one-line caps: they sit in a bar. */
 const ROW = 'flex min-h-[62px] w-full items-center gap-3 py-2 pl-3 pr-3.5 text-left transition-colors hover:bg-[var(--m-paper-2)]';
 const ROW_SM = 'sn-row-sm flex min-h-[52px] w-full items-center gap-3 py-1.5 pl-3 pr-3.5 text-left transition-colors hover:bg-[var(--m-paper-2)]';
-const NAME = 'block truncate text-base font-semibold leading-tight text-ink';
-const SUB = 'mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-[var(--m-slate-2)]';
+const NAME = 'block [overflow-wrap:anywhere] text-base font-semibold leading-tight text-ink';
+const SUB = 'mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[var(--m-slate-2)]';
 const TILE = 'flex min-h-[44px] flex-1 basis-0 flex-col items-center gap-[7px] rounded-card bg-[var(--m-paper)] px-1 pb-2.5 pt-3 text-center text-[11.5px] font-medium leading-[1.15] text-ink';
 const TILE_MARK = 'flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--m-ivory)]';
 
@@ -290,7 +298,7 @@ export function SwitcherPanelBody({
         <span className="min-w-0 flex-1">
           <span className={NAME}>{shop.name}</span>
           <span className={SUB}>
-            <span className="truncate">{shop.owned ? 'Your shop' : 'Helper'}</span>
+            <span className="[overflow-wrap:anywhere]">{shop.owned ? 'Your shop' : 'Helper'}</span>
             <NewCount n={unread?.shop} />
           </span>
         </span>
@@ -334,7 +342,7 @@ export function SwitcherPanelBody({
             <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
               <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">View page ↗</span>
+            <span className="min-w-0 flex-1 [overflow-wrap:anywhere] text-[15px] font-medium text-ink">View page ↗</span>
           </Link>
         ) : null}
       </Fragment>
@@ -360,9 +368,9 @@ export function SwitcherPanelBody({
             {me}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-[family-name:var(--font-editorial-display)] text-[22px] font-semibold leading-[1.1] text-ink">{name}</span>
+            <span className="sn-sheet-name block [overflow-wrap:anywhere] leading-[1.1] text-ink">{name}</span>
             {data.displayName && data.email ? (
-              <span className="mt-[3px] block truncate text-[12.5px] text-[var(--m-slate-2)]">{data.email}</span>
+              <span className="mt-[3px] block [overflow-wrap:anywhere] text-[12.5px] text-[var(--m-slate-2)]">{data.email}</span>
             ) : null}
             <span className="mt-1 flex items-center gap-[3px] text-xs font-semibold text-[var(--m-nav-active)]">
               Profile &amp; settings <ChevronRight aria-hidden className="h-[13px] w-[13px]" strokeWidth={2.5} />
@@ -373,7 +381,7 @@ export function SwitcherPanelBody({
       </div>
 
       {/* ── 2 · Switch to — every place this login can be, one card ── */}
-      <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+      <span className="sn-sheet-k px-6 pb-1.5 pt-3">
         Switch to
       </span>
       <nav aria-label="Switch to" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-switch="">
@@ -388,7 +396,7 @@ export function SwitcherPanelBody({
           <span className="min-w-0 flex-1">
             <span className={NAME}>Your events</span>
             <span className={SUB}>
-              <span className="truncate">{name}</span>
+              <span className="[overflow-wrap:anywhere]">{name}</span>
               <NewCount n={unread?.events} />
             </span>
           </span>
@@ -415,7 +423,7 @@ export function SwitcherPanelBody({
             <span className="min-w-0 flex-1">
               <span className={NAME}>Setnayan HQ</span>
               <span className={SUB}>
-                <span className="truncate">Team</span>
+                <span className="[overflow-wrap:anywhere]">Team</span>
                 <NewCount n={unread?.admin} />
               </span>
             </span>
@@ -447,12 +455,12 @@ export function SwitcherPanelBody({
           <form key={acct.uid} action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>
             <input type="hidden" name="uid" value={acct.uid} />
             <button type="submit" className={ROW}>
-              <RowMark className="bg-[var(--m-ivory)] text-ink">{(acct.name?.trim() || acct.email).charAt(0).toUpperCase()}</RowMark>
+              <RowMark className="bg-[var(--m-ivory)] text-ink">{(realNameOrNull(acct.name) ?? acct.email).charAt(0).toUpperCase()}</RowMark>
               <span className="min-w-0 flex-1">
-                <span className={NAME}>{acct.name?.trim() || acct.email}</span>
+                <span className={NAME}>{realNameOrNull(acct.name) ?? acct.email}</span>
                 <span className={SUB}>
                   <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
-                  <span className="truncate">{acct.email}</span>
+                  <span className="[overflow-wrap:anywhere]">{acct.email}</span>
                 </span>
               </span>
               <Tag>Account</Tag>
@@ -479,7 +487,7 @@ export function SwitcherPanelBody({
           heads the card as "You are in": its row (✓) and View page ↗, then these rows (v113/v114). ── */}
       {(shopRows && shopRows.length > 0) || youAreIn ? (
         <>
-          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+          <span className="sn-sheet-k px-6 pb-1.5 pt-3">
             {youAreIn ? 'You are in' : 'Your shop'}
           </span>
           <nav
@@ -492,13 +500,16 @@ export function SwitcherPanelBody({
             {(shopRows ?? []).map((r) => {
               const Icon = SHOP_ROW_ICON[r.key] ?? ChevronRight;
               return (
-                <Link key={r.key} href={r.href} onClick={close} data-switcher-shop-row={r.key} className={ROW_SM}>
+                // ⤴ Inside the supplier dashboard a row's page RISES over the page you are on (`@rise/(.)<page>`,
+                // build-sessions/RISE-AUDIT-2026-11-13.md § H): the sheet stays open under it — stepped aside — so ✕
+                // falls back into this row. Anywhere else the row is a page jump and closes the sheet as before.
+                <Link key={r.key} href={r.href} onClick={supplierSheet ? undefined : close} data-switcher-shop-row={r.key} data-rise-from={supplierSheet ? '' : undefined} className={ROW_SM}>
                   <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium text-ink">{r.label}</span>
-                    <span className="block truncate text-[12.5px] text-[var(--m-slate-2)]">{r.sub}</span>
+                    <span className="block [overflow-wrap:anywhere] text-[15px] font-medium text-ink">{r.label}</span>
+                    <span className="block [overflow-wrap:anywhere] text-[12.5px] text-[var(--m-slate-2)]">{r.sub}</span>
                   </span>
                   <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
                 </Link>
@@ -511,7 +522,7 @@ export function SwitcherPanelBody({
       {/* ── 3a · Admin — the admin-of-admin, admin layout only (owner 13 Nov 2026). ── */}
       {adminRows && adminRows.length > 0 ? (
         <>
-          <span className="block px-6 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
+          <span className="sn-sheet-k px-6 pb-1.5 pt-3">
             Admin
           </span>
           <nav aria-label="Admin" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-switcher-admin-rows="">
@@ -522,7 +533,7 @@ export function SwitcherPanelBody({
                   <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">{r.label}</span>
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere] text-[15px] font-medium text-ink">{r.label}</span>
                   <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
                 </Link>
               );
@@ -540,7 +551,7 @@ export function SwitcherPanelBody({
             <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
               <Receipt className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">Billing &amp; receipts</span>
+            <span className="min-w-0 flex-1 [overflow-wrap:anywhere] text-[15px] font-medium text-ink">Billing &amp; receipts</span>
             <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
           </Link>
           {appearanceSwitchShown() ? (
@@ -708,6 +719,8 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
   // ─── Inner panel content ────────────────────────────────────────────────
 
   function renderPanel() {
+    // Drawn only once open and mounted (the portal below), so this reads the address and title in the browser, never on the server.
+    const backTo = sheetBackLabel({ pathname: window.location.pathname, search: window.location.search, title: document.title });
     return (
       <div
         ref={panelRef}
@@ -716,8 +729,12 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
         aria-label="Account switcher"
         className={[
           'focus:outline-none',
-          // Mobile: bottom sheet — inset-x + fixed bottom, slides up
-          'fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
+          /*
+            📱 PHONE: IT RISES FULL SCREEN (owner 10 Nov 2026 "fullscreen everything" · profile menu drawing approved
+            16 Nov): the whole screen inside the safe areas, a back at the top left that names the page it opened over
+            and ✕ at the top right. Shipped, it was a bottom sheet up to 90% tall with a grab bar and no back.
+          */
+          'fixed inset-0 z-[52] flex pl-[var(--sn-safe-l)] pr-[var(--sn-safe-r)] pt-[env(safe-area-inset-top)] flex-col overflow-hidden sn-sheet pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl',
           /*
             ⚠ ON DESKTOP THIS USED TO BE A FULL-HEIGHT DRAWER PINNED TO THE FAR
             LEFT, AND THE OWNER ASKED WHY (2026-08-17): *"sign in is a pop up on
@@ -753,7 +770,9 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
             repo keeps meeting: the engine DECLINES quietly and the only symptom
             is that something is not where it should be. Test 4 pins it.
           */
-          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-80 lg:max-h-[min(80vh,34rem)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
+          /* 🖥 COMPUTER: ONE PANEL UNDER THE AVATAR, 360 WIDE, AS TALL AS ITS ROWS UP TO THE SCREEN (profile menu
+             drawing, approved 16 Nov 2026) — then it scrolls. Shipped, 320 × 544 at most hid the lower rows. */
+          'lg:inset-x-auto lg:bottom-auto lg:right-[max(0.75rem,var(--sn-safe-r))] lg:pl-0 lg:pr-0 lg:pt-0 lg:top-[calc(var(--fd-bar,56px)_+_8px)] lg:w-[360px] lg:max-h-[calc(100dvh_-_var(--fd-bar,56px)_-_16px)] lg:rounded-2xl lg:border lg:border-ink/10 lg:pb-0',
         ].join(' ')}
         style={{
           animation: 'sn-switcher-in 0.3s ease',
@@ -774,8 +793,29 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
           }
         `}</style>
 
-        {/* Drag handle (mobile only) */}
-        <div aria-hidden className="mx-auto mb-1.5 mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--m-line)] lg:hidden" />
+        {/* ‹ Back · ✕ — the phone's full-screen head (no grab bar: the sheet is the whole screen). Both close it,
+            back to the page it opened over, which the back names. The computer's panel has neither: a press outside
+            or Esc closes it. */}
+        <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-2 lg:hidden" data-account-sheet-head="">
+          <button
+            type="button"
+            onClick={close}
+            data-account-sheet-back=""
+            className="inline-flex min-h-[44px] min-w-0 items-center gap-1 rounded-full px-2 text-[15px] font-medium text-ink"
+          >
+            <ChevronLeft aria-hidden className="h-5 w-5 shrink-0" strokeWidth={2} />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{backTo}</span>
+          </button>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close"
+            data-account-sheet-close=""
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink"
+          >
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+          </button>
+        </div>
 
         <SwitcherPanelBody
           data={data}
@@ -847,7 +887,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
       {/* ── Backdrop + Panel (portaled to body) ───────────────── */}
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
-            <>
+            <div data-account-sheet-layer="">
               {/* Backdrop */}
               <OverlayBackdrop onClose={close} label="Close account switcher" className="z-[51]" />
               <style>{`
@@ -857,7 +897,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
                 }
               `}</style>
               {renderPanel()}
-            </>,
+            </div>,
             document.body,
           )
         : null}
@@ -1024,7 +1064,7 @@ export function SwitcherPlaqueTrigger({
 
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
-            <>
+            <div data-account-sheet-layer="">
               <OverlayBackdrop onClose={close} label="Close account menu" className="z-[51]" />
               <style>{`
                 @keyframes sn-switcher-backdrop { from { opacity:0; } to { opacity:1; } }
@@ -1040,7 +1080,7 @@ export function SwitcherPlaqueTrigger({
               >
                 <SwitcherPanelBody data={data} close={close} />
               </div>
-            </>,
+            </div>,
             document.body,
           )
         : null}

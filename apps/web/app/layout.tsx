@@ -17,6 +17,7 @@ import './_components/pinned-row/pin-glide.css';
 import './_components/pinned-row/pin-fold.css';
 import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
+import './service-icons.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
@@ -34,6 +35,7 @@ import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { PressFeel } from './_components/press-feel';
+import { ServiceIconPlay } from './_components/service-icon-play';
 import { RevealDetailsOnOpen } from './_components/reveal-on-open';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
@@ -515,7 +517,7 @@ const organizationJsonLd = {
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -746,6 +748,7 @@ export default async function RootLayout({
         {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
             Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
         <PressFeel />
+        <ServiceIconPlay />
         {/* 🔭 A <details> a user opens glides its summary to the pin line when it runs past the bottom (owner
             2026-11-04, app-wide) — one capture listener. See _components/reveal-on-open.ts. */}
         <RevealDetailsOnOpen />
@@ -768,6 +771,15 @@ export default async function RootLayout({
           visitors make no request and see nothing. (Perf sweep 2026-07-02.)
         */}
         <DemoModeBanner />
+        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO — at the very TOP (a live notice, one notice system 2026-11-14). We deploy every 15–25
+            minutes and a page left open can break in a way that throws NOTHING
+            — no exception, so no error boundary and no stale-bundle reload,
+            just a blank screen that reads as an outage (it did, to the owner,
+            on 2026-09-20). Mounted at the ROOT so it covers a couple's
+            dashboard, a supplier's workspace AND a guest on an invitation; it
+            renders null unless two different real build versions are known.
+            See lib/build-version.ts. */}
+        <StaleTabNotice />
         {/* SiteChrome = the ONE persistent marketing top nav, mounted once
             here so it survives page navigations (the body swaps, the nav
             stays). It self-gates to public marketing routes and renders null
@@ -811,15 +823,6 @@ export default async function RootLayout({
             only — sign-in, security, a guest's pass, the person's own Appearance
             choice — so there is nothing optional to ask about. The guard is
             app/_components/essential-cookies-only.test.ts. */}
-        {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
-            minutes and a page left open can break in a way that throws NOTHING
-            — no exception, so no error boundary and no stale-bundle reload,
-            just a blank screen that reads as an outage (it did, to the owner,
-            on 2026-09-20). Mounted at the ROOT so it covers a couple's
-            dashboard, a supplier's workspace AND a guest on an invitation; it
-            renders null unless two different real build versions are known.
-            See lib/build-version.ts. */}
-        <StaleTabNotice />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

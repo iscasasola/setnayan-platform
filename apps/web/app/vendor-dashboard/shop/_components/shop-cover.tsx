@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { Camera, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
+import { PRINTS_LINE } from '@/lib/prints-line';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
+import { formatCount } from '@/lib/format-number';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -18,6 +20,9 @@ import { HERO_UPLOAD_PILL, SupplierHero, type SupplierHeroPicture } from '../../
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
+import { ImageBadge } from '@/app/_components/image-badge';
+import { badgeImageOf } from '@/lib/shop-badge-row';
+import { verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 
 /** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
 const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
@@ -26,7 +31,7 @@ const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
  * 🏪 SHOP'S COVER + PINNED ROW (THE ONE BUILD A3 W1–W6, lane C4; v113 `V.shop`).
  *
  *   cover band — the cover photo (Your page's pick, else the first portfolio photo — the page's own rule) · the logo
- *   (tap → its viewer) · where · the name · "✓ Verified" (or the shipped "Get verified · N of 2") · ★ · events · the plan
+ *   (tap → its viewer) · where · the name · "✓ Verified" (or "Get verified · N of 3 papers" — 2026-11-14, the papers are the only step) · ★ · events · the plan
  *   pill · View shop ↗ · Share · Promote · QR · ⚙.
  *   pinned row — "Shop · ★ 4.8 · 120 events · View shop ↗ · ⚙", fading in over the last 48 px as the cover leaves.
  *
@@ -58,7 +63,8 @@ export type CoverData = {
   logoUnavailable: boolean;
   coverUrl: string | null;
   city: string | null;
-  verified: { isVerified: boolean; inReview: boolean; stepsDone: number };
+  /** `papersIn` of `papersOf` required papers (2026-11-14: verification is the papers and one Submit — no other steps). */
+  verified: { isVerified: boolean; inReview: boolean; papersIn: number; papersOf: number };
   /** "★ 4.8 · 120 events" pieces — null = the read was refused: the events piece says `EVENTS_UNREAD`, never "—" or 0. */
   rating: string | null;
   /** "38 reviews" — the trusted-review count beside the ★ (null = unread or none); with `rating` it is the link into
@@ -79,6 +85,14 @@ export type CoverData = {
   heroCaption?: string | null;
   /** 📂 The Upload door's facts (owner 9 Nov: Upload opens the device's picker, here). Absent = no door. */
   uploadFacts?: PortfolioUploadFacts | null;
+  /**
+   * 🏅 THE SHOP CARD'S EARNED BADGES (owner 17 Nov, "badges and seal is still not visible"): the milestone and award
+   * circles the public shop hero draws (`shopBadges`, the same facts) — so the supplier sees on their own card what
+   * couples see. null = the facts read was refused (draw nothing, never "no badges"); [] = none earned yet.
+   */
+  earned?: ShopBadge[] | null;
+  /** "Next badge: 10 events · 10 to go" (`nextBadgeShort`) — said when nothing is earned yet; null = unread. */
+  nextBadge?: string | null;
 };
 
 /**
@@ -103,9 +117,10 @@ export function replaceAddressParam(key: string, value: string | null) {
 }
 
 /** The cover's four sheets and the address param that names each (a deep link, a reload, a save coming back). */
-type CoverSheet = 'promote' | 'qr' | 'logo' | 'cover';
+type CoverSheet = 'promote' | 'prints' | 'qr' | 'logo' | 'cover';
 const SHEET_ADDRESS: Readonly<Record<CoverSheet, readonly [param: string, value: string]>> = {
   promote: ['sheet', 'promote'],
+  prints: ['sheet', 'prints'],
   qr: ['sheet', 'qr'],
   logo: ['view', 'logo'],
   cover: ['view', 'cover'],
@@ -137,6 +152,7 @@ export function ShopCover({
   d,
   gearBody,
   promoteBody,
+  printsBody,
   qrBody,
   logoBody,
   coverBody,
@@ -144,6 +160,8 @@ export function ShopCover({
   d: CoverData;
   gearBody: ReactNode | null;
   promoteBody: ReactNode | null;
+  /** The Prints tile's screen — the prints alone (`PromoteBody part="prints"`). */
+  printsBody: ReactNode | null;
   qrBody: ReactNode | null;
   logoBody: ReactNode | null;
   coverBody: ReactNode | null;
@@ -192,6 +210,11 @@ export function ShopCover({
     setSheet(null);
     replaceAddressParam(SHEET_ADDRESS[id][0], null);
   };
+  // The quick row's Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
+  const openPromoteAt = (section: 'gifts') => {
+    openSheet('promote');
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })));
+  };
   // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
   const openGear = () => replaceAddressParam('gear', '1');
   const counts = [d.rating ? `★ ${d.rating}` : null, d.events ?? EVENTS_UNREAD].filter(Boolean).join(' · ');
@@ -226,7 +249,7 @@ export function ShopCover({
               type="button"
               onClick={openGear}
               aria-label="Shop settings"
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
+              className="sn-hit-2d grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
               data-shop-cover-gear=""
               data-tour="shop-gear"
             >
@@ -237,19 +260,33 @@ export function ShopCover({
           titleData="shop-name"
           sub={
             <>
+              {/* 🏅 THE APP-DRAWN SEAL (owner 17 Nov: the only seal he saw was the one baked into the photo) — the SAME
+                  Setnayan Verified seal the public shop hero and the Find card draw, from `verification` data. */}
               {d.verified.isVerified ? (
-                <a href="#docs" className="inline-flex items-center gap-1 font-semibold">
-                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Verified
+                <a href="#docs" className="inline-flex min-h-11 items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
+                  <span className="inline-flex leading-[0]">
+                    <ImageBadge {...badgeImageOf(verifiedBadge())} uid="cover-verified" size={30} label="Setnayan Verified" />
+                  </span>
+                  Setnayan Verified
                 </a>
               ) : d.verified.inReview ? (
-                <a href="#docs">Verification in review</a>
+                <a href="#docs" className="inline-flex min-h-11 items-center">Verification in review</a>
               ) : (
-                <a href="#docs" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                <a href="#docs" className="sn-hit inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  Get verified · {d.verified.stepsDone} of 2
+                  Get verified · {formatCount(d.verified.papersIn)} of {formatCount(d.verified.papersOf)} papers
                 </a>
               )}
+              {(d.earned ?? []).map((b) => (
+                <a key={b.key} href="#badges" title={b.label} className="inline-flex min-h-11 items-center leading-[0]" data-shop-cover-badge={b.key}>
+                  <ImageBadge {...badgeImageOf(b)} uid={`cover-${b.key}`} size={30} label={b.label} />
+                </a>
+              ))}
+              {d.earned && d.earned.length === 0 && d.nextBadge ? (
+                <a href="#badges" className="inline-flex min-h-11 items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
+                  {d.nextBadge}
+                </a>
+              ) : null}
               {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
               {d.rating ? (
                 <Link href={REVIEWS_HREF} className="inline-flex items-center gap-1 underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
@@ -259,7 +296,7 @@ export function ShopCover({
                 </Link>
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
-              <a href="#plan" className="inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
+              <a href="#plan" className="inline-flex min-h-11 items-center gap-0.5 text-white/75" data-shop-plan="">
                 {d.planLabel} plan
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
               </a>
@@ -327,11 +364,38 @@ export function ShopCover({
             Cover
           </button>
         </div>
+        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Prints ·
+            Your gifts · Plan — each a 40 px icon square on the wash. Every tile opens a place that already ships:
+            Prints opens the prints ALONE (owner 17 Nov, superseding that morning's rename to Promote: *"then we should
+            just have promote button and find gifts there? That also means change Promote on Shop to Prints"*) — the
+            same `ShopPrintsSection`, no gifts, no stories; Your gifts is the Promote sheet's `#gifts` section, opened
+            and scrolled to;
+            Plan is the cover's `#plan` door (the ⚙ sheet's Plan and billing fold), with the plan name the cover already
+            read (`planLabel`). No new read. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-three.test.ts */}
+        <div className="grid grid-cols-3 gap-2.5 pt-1" data-shop-quick-row="">
+          <button type="button" onClick={() => openSheet('prints')} className={QUICK_TILE} data-shop-quick="prints">
+            <QuickIcon icon={IdCard} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Prints</b>
+            <small className="text-[12px] leading-tight text-ink/60">{PRINTS_LINE}</small>
+          </button>
+          <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
+            <QuickIcon icon={Gift} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Your gifts</b>
+            {/* The words sell, so the iPhone app never shows them (App Store #5/#14; the Promote section gates its own Buy). */}
+            <small className="text-[12px] leading-tight text-ink/60" data-web-only="">Buy gifts</small>
+          </button>
+          <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
+            <QuickIcon icon={Gem} />
+            <b className="text-[15px] font-semibold leading-tight text-ink">Plan</b>
+            <small className="text-[12px] leading-tight text-ink/60">{d.planLabel} plan</small>
+          </a>
+        </div>
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
       {viewOpen && d.publicPath ? <ViewShopScreen path={d.publicPath} live={d.websiteLive} shareUrl={d.shareUrl} onClose={() => setViewOpen(false)} /> : null}
       <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
+      <ParamSheet open={sheet === 'prints'} onClose={() => closeSheet('prints')} title="Prints" body={printsBody} data="prints" />
       <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
       <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody} data="logo" />
       <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
@@ -340,6 +404,19 @@ export function ShopCover({
 }
 
 /** The cover's equal-weight doors: one row, equal widths, a 40 px pill with an icon and a word (the house rule). */
+/** The quick row's tile (drawing `.qk`): centred, the frame's white with its lift, no line. */
+const QUICK_TILE =
+  'sn-press relative flex min-h-[96px] min-w-0 flex-col items-center gap-0.5 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-1.5 pb-2.5 pt-3 text-center shadow-[var(--sn-frame-shadow-tile)]';
+
+/** The tile's 40 px icon square on the wash (drawing `.qi`), the icon in the link colour. */
+function QuickIcon({ icon: I }: { icon: LucideIcon }) {
+  return (
+    <i aria-hidden className="mb-1 grid h-10 w-10 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
+      <I className="h-5 w-5" strokeWidth={1.8} />
+    </i>
+  );
+}
+
 const COVER_PILL =
   'inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-raised px-2 text-[13px] font-medium text-ink disabled:opacity-40';
 

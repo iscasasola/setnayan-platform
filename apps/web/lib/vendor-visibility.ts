@@ -184,13 +184,14 @@ export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as cons
  * that had vanished from Find could still be locked by a couple who had it on
  * their shortlist, and the couple was charged a booking fee.
  *
- * Bookable = live (`isShopLive`, both columns) AND not fraud-suspended AND not
- * fraud-banned. The database half is `enforce_booking_requires_verified_vendor`
- * (re-created by `20271335513615_the_booking_gate_reads_hide_suspend_and_ban.sql`):
- * it refuses not-verified, suspended, banned and archived — but NOT yet 'hidden'
- * (the column default its DB-test fixtures sit at; see that header). So an
- * admin-hidden verified shop is refused HERE, by every app door, and not by a raw
- * write. Fail-closed: an absent column reads as not bookable, so a `.select()`
+ * Bookable = not fraud-suspended AND not fraud-banned AND EITHER live
+ * (`isShopLive`, both columns) OR not yet decided (unverified / pending_review) and
+ * not archived — 15 Nov: an unverified shop is booked through its own page. The database half is `enforce_booking_requires_verified_vendor`
+ * (re-created by `20271346561709_a_hidden_shop_takes_no_new_ask_or_booking.sql`,
+ * owner 2026-11-14 "Yes, block them"): it asks the SAME four columns, refuses a
+ * shop that is not listed ('hidden' and 'archived' alike), and guards a couple's
+ * new ASK as well as a new booking — so a raw write past these app doors is refused
+ * too. Fail-closed: an absent column reads as not bookable, so a `.select()`
  * must name all of `SHOP_BOOKABLE_COLUMNS`.
  */
 export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned';
@@ -206,8 +207,20 @@ export function shopBookingRefusal(row: {
   // `undefined` (the column was not selected) is refused, never read as "clear".
   if (row.fraud_banned_at !== null) return 'banned';
   if (row.fraud_suspended_at !== null) return 'suspended';
+  // 🌐 15 Nov (DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", owner "We allow booking. Since
+  // they can get bookings on their website"): a shop Setnayan has not decided yet is asked and booked through its own
+  // page, with the booking fee, unless it is closed. Its default `hidden` is not an admin hide — it was never listed.
+  if (row.verification_state === 'unverified' || row.verification_state === 'pending_review') {
+    // Fail closed: a visibility that was not read (absent) is never "not archived".
+    if (row.public_visibility === undefined || row.public_visibility === null) return 'not_listed';
+    return parseVisibility(row.public_visibility) === 'archived' ? 'not_listed' : null;
+  }
   if (row.verification_state !== 'verified') return 'not_verified';
   if (!isShopLive(row)) return 'not_listed';
+  // ⚠ A lapsed papers stamp (`papers_lapsed_at`) is deliberately NOT read here: the owner ruled (DECISION_LOG
+  // 481b9b6b) that a lapsed shop only drops out of search and Discover — it keeps importing clients and working
+  // with events that already inquired. Whether an inquired event can still be BOOKED after the lapse is unconfirmed,
+  // so that path stays as it is today.
   return null;
 }
 

@@ -79,8 +79,8 @@ test('2 · the ruled default is named only where a value must fall back to it', 
     'lib/setnayan-gift.ts', // its home
     'lib/gift-limit-settings.server.ts', // the reader's fallback
     'app/admin/gifts/gift-limit-actions.ts', // the save's "before" when the row has no value
-    'app/dev/supplier-chat-lab/page.tsx', // a dev lab fixture
-    'app/dev/supplier-plan-lab/page.tsx', // a dev lab fixture
+    'app/dev/supplier-chat-lab/page.lab.tsx', // a dev lab fixture
+    'app/dev/supplier-plan-lab/page.lab.tsx', // a dev lab fixture
   ]);
   const users = SOURCES.filter((f) => /\bGIFT_LIMIT_PCT_DEFAULT\b/.test(code(read(f))));
   const stray = users.filter((f) => !allowed.has(f));

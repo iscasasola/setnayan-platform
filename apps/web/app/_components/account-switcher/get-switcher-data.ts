@@ -1,5 +1,7 @@
+import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 
+import { realNameOrNull } from '@/lib/no-name';
 import { cache } from 'react';
 import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { createClient } from '@/lib/supabase/server';
@@ -66,7 +68,7 @@ export type SwitcherShop = {
   name: string;
   /** Display URL of the shop's logo (presigned), or null → the sheet draws its initials. */
   logoUrl: string | null;
-  /** Public page address `/v/<slug>` — the "View page ↗" row. Null → no row. */
+  /** Public page address `/<slug>` — the "View page ↗" row. Null → no row. */
   publicHref: string | null;
   owned: boolean;
 };
@@ -278,14 +280,15 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
       id: v.vendor_profile_id,
       name: v.business_name,
       logoUrl: logoUrls[i] ?? null,
-      publicHref: v.business_slug ? `/v/${encodeURIComponent(v.business_slug)}` : null,
+      publicHref: v.business_slug ? `${shopPath(encodeURIComponent(v.business_slug))}` : null,
       owned: v.owned,
     })),
   };
 
   return {
     userId,
-    displayName: profile?.display_name ?? null,
+    // RW-64: a stand-in ("Someone —") is no name — the switcher then shows its own no-name words, never the stand-in.
+    displayName: realNameOrNull(profile?.display_name),
     // Anon-draft: hide the non-routable placeholder email from the switcher
     // (it would read "anon+<uuid>@…"); the dashboard banner carries the secure CTA.
     email: isPlaceholderEmail(profile?.email) ? '' : (profile?.email ?? ''),

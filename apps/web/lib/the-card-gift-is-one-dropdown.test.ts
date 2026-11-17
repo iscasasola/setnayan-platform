@@ -53,7 +53,7 @@ const PACKS: ShopGiftPack[] = [
 ];
 
 test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short pack listed with "buy first"', () => {
-  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0 }, GIFT_NONE, true);
+  const menu = giftMenu(PACKS, { papic: 100, event_plus: 0, event_pro: 0, event_ultra: 0 }, GIFT_NONE, true);
   assert.deepEqual(menu.map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN, 'PAPIC_GUEST', 'EVENT_PLUS']);
   assert.equal(menu[0]!.label, 'No gift');
   assert.equal(menu[1]!.label, 'Setnayan gift');
@@ -62,7 +62,7 @@ test('1 · the dropdown: No gift · Setnayan gift · the shop’s packs, a short
   // Unreadable stock is said as unreadable, never as empty.
   for (const o of giftMenu(PACKS, null, GIFT_NONE, true).slice(2)) assert.equal(o.disabledNote, 'Couldn’t read your gift stock right now');
   // A saved card's own pack stays pickable whatever the stock says — opening it never strands its gift.
-  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0 }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
+  assert.equal(giftMenu(PACKS, { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0 }, 'EVENT_PLUS', true)[3]!.disabledNote, undefined);
   // Unread catalogue: only the two answers that need no catalogue.
   assert.deepEqual(giftMenu(null, null).map((o) => o.key), [GIFT_NONE, GIFT_SETNAYAN]);
 });
@@ -97,14 +97,22 @@ test('4 · the save touches the pack only when the row was drawn', () => {
   assert.ok(src.indexOf('giftColumns(', at) > at, 'the pack is no longer checked through giftColumns');
 });
 
-test('5 · one page of fields, in the prototype’s order, none of them inside More settings', () => {
+test('5 · the short form: name · price · included · photos first; extras and the gift under More options', () => {
+  /* 🔁 RE-AIMED 2026-11-14 (cut 3, owner-approved — DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVED"): the first page
+     is name · price · what's included · photos; Extras and the Gift moved under More options, in the same sheet. The claim
+     is unchanged in kind and stricter in place: each field has ONE place, in the order drawn. */
   const src = read(MAKER);
   // The JSX attribute (` data-maker-row="…"`), never the save's `[data-maker-row="included"]` selector.
-  const order = ['name', 'price', 'included', 'extras', 'gift', 'photos'].map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
-  order.forEach((at, i) => assert.ok(at > 0, `the ${['name', 'price', 'included', 'extras', 'gift', 'photos'][i]} field is gone`));
+  const first = ['name', 'price', 'included', 'photos'];
+  const order = first.map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));
+  order.forEach((at, i) => assert.ok(at > 0, `the ${first[i]} field is gone`));
   for (let i = 1; i < order.length; i++) assert.ok(order[i]! > order[i - 1]!, 'the first page is out of the prototype’s order');
   const more = src.indexOf('data-maker-more-wrap=');
-  assert.ok(more > order[order.length - 1]!, 'a first-page field sits inside More settings');
+  assert.ok(more > order[order.length - 1]!, 'a first-page field sits inside More options');
+  for (const k of ['specialties', 'extras', 'gift']) {
+    const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`));
+    assert.ok(at > more, `${k} is back on the first page`);
+  }
   // The folds the first page took over are not drawn twice.
   for (const gone of ['data="m-price"', 'data="m-addons"', 'data="m-details"', 'data="photos"', 'data="price"', 'data="included"']) {
     assert.ok(!src.includes(gone), `${gone} is drawn again — a field must have one place`);
@@ -121,7 +129,7 @@ test('6 · the couple’s line for a pack names the kind, never a count', () => 
 });
 
 test('7 · 🚧 shop packs are not offered while they reach nobody — and are offered once the switch is on', () => {
-  const free = { papic: 1000, event_plus: 5, event_pro: 5 };
+  const free = { papic: 1000, event_plus: 5, event_pro: 5, event_ultra: 0 };
   const keys = (deliver: boolean) => giftMenu(PACKS, free, GIFT_NONE, deliver).map((o) => o.key);
   // The default follows the switch: hidden while false, listed while true.
   const def = giftMenu(PACKS, free).map((o) => o.key);

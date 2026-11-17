@@ -35,6 +35,7 @@ import { formatCount } from '@/lib/format-number';
 import type { CoverPhoto } from '@/lib/service-cover-show';
 import { BUNDLE_DELETE_WARNING, bundleHoldLine, bundleRowRefusal } from '@/lib/bundle-card-row';
 import { bundleCardRow } from '@/app/vendor-dashboard/packages/actions';
+import { COULD_NOT_SAVE } from '@/lib/save-in-place';
 
 const php = formatPhpRounded;
 
@@ -68,17 +69,23 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
   const n = bundle.cardNames.length;
 
   function toggle() {
+    if (pending) return;
     if (live && hold) {
       setRefusal(hold);
       return;
     }
     setRefusal(null);
     const next = !live;
+    // ⚡ The switch flips the moment it is pressed (owner 15 Nov: "pressing online offline takes too long to update");
+    // the row says it is saving while the call runs. A refusal (or a call that failed) flips it straight back.
+    setLive(next);
     start(async () => {
-      const res = await bundleCardRow(bundle.id, next ? 'online' : 'offline');
-      const why = bundleRowRefusal(res);
-      if (why) setRefusal(why);
-      else setLive(next);
+      const res = await bundleCardRow(bundle.id, next ? 'online' : 'offline').catch(() => null);
+      const why = res ? bundleRowRefusal(res) : COULD_NOT_SAVE;
+      if (why) {
+        setRefusal(why);
+        setLive(!next);
+      }
     });
   }
 
@@ -165,8 +172,8 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
         </div>
         <div className="px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <EqualRow data="bundle-delete">
-            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setWarn(false)} data-bundle-delete-cancel="" />
-            <ActionButton tone="danger" main icon={Trash2} label="Delete" onClick={confirmDelete} data-bundle-delete-confirm="" />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setWarn(false)} data-bundle-delete-cancel="" className="!h-11" />
+            <ActionButton tone="danger" main icon={Trash2} label="Delete" onClick={confirmDelete} data-bundle-delete-confirm="" className="!h-11" />
           </EqualRow>
         </div>
       </Sheet>

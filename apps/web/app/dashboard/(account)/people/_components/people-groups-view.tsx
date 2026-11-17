@@ -69,7 +69,7 @@ export function PeopleGroupsView({
       </div>
       </HomePinPortal>
       {rows.length === 0 ? (
-        <p className="py-4 text-sm text-ink/60" data-people-groups-empty="">
+        <p className="py-4 text-sm text-ink/70" data-people-groups-empty="">
           {unreadable
             ? 'We couldn’t load your groups just now. Nothing is lost — refresh in a moment.'
             : 'No group yet — tap ＋ New and name it whatever your group calls itself.'}

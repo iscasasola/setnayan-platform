@@ -94,7 +94,7 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-1.5 pr-1.5">
+      <div className="border-t border-ink/10 flex items-center gap-1.5 p-1.5 pr-1.5">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -112,7 +112,7 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
             type="button"
             onClick={onRemove}
             aria-label={removeLabel ?? `Remove ${name}`}
-            className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700"
+            className="rounded-md p-1 text-ink/70 hover:bg-ink/5 hover:text-danger-700"
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
@@ -132,7 +132,7 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
           extra={
             <div className="flex flex-col gap-3" data-swatch-extra="">
               <div className="space-y-1.5">
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+                <label className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">
                   Search by color name
                   <input
                     type="text"
@@ -147,7 +147,7 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
                     <div className="flex flex-wrap gap-1.5">{results.matches.map((m) => chip(m, false))}</div>
                   ) : (
                     <div className="space-y-1">
-                      <p className="text-[12px] text-ink/55">
+                      <p className="text-[12px] text-ink/70">
                         No color named that{results.suggestions.length > 0 ? ' — here are the closest' : ''}.
                       </p>
                       {results.suggestions.length > 0 ? (

@@ -9,6 +9,7 @@ import {
   Users,
   Tag,
   Send,
+  Gift,
 } from 'lucide-react';
 import type { GrowthRec, GrowthRecKey, GrowthImpact } from '@/lib/vendor-growth-recs';
 
@@ -31,6 +32,7 @@ export const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
   offer_on_card: <Tag className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   offer_for_month: <Tag className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   requote_expired: <Send className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  give_gifts: <Gift className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
 };
 
 export function impactChipStyle(impact: GrowthImpact): React.CSSProperties {
@@ -75,7 +77,7 @@ function GrowthCard({ rec }: { rec: GrowthRec }) {
       </p>
       <Link
         href={rec.ctaHref}
-        className="group mt-3 inline-flex items-center gap-1.5 text-sm font-medium"
+        className="group mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium"
         style={{ color: 'var(--m-orange-2)' }}
       >
         {rec.ctaLabel}

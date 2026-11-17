@@ -20,7 +20,7 @@ import {
 } from '@/app/v/[slug]/_components/sample-shop-plan';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAB = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const LAB = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
 const DRAWING = stripComments(readFileSync(join(HERE, '../../v/[slug]/_components/sample-shop-page.tsx'), 'utf8'));
 /** The drawing's pure plan rules (split out 13 Nov 2026 so tests read them without the page's CSS). */
 const RULES = stripComments(readFileSync(join(HERE, '../../v/[slug]/_components/sample-shop-plan.ts'), 'utf8'));

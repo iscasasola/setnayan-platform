@@ -17,7 +17,7 @@ import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
-import { HomeControlRow } from './home-control-row';
+import { HomeControlBoardColumn, HomeControlRow } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { countdownDoor, homeNowAction, homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
@@ -219,7 +219,12 @@ export function HomeFirstScreen({
   return (
     /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
     <HomeTodayFold eventId={eventId} kind={next.kind}>
-    <section data-home-first-screen aria-label="Today" className="flex w-full flex-col gap-3">
+    <section data-home-first-screen aria-label="Today" className="flex w-full flex-col gap-3 xl:grid xl:grid-cols-3 xl:items-start xl:gap-x-5 xl:gap-y-0">
+      {/* 🖥 THE 1280 BOARD (owner-approved 16 Nov 2026, event dashboard drawing v13): from `xl` Home is three columns —
+          the event card, Next and To do | Guests · Budget · Schedule | Suppliers · Event Hub, then Prints · Your
+          services · Memories. Each column is a wrapper that is `display: contents` below 1280, so the phone and the
+          tablet read the shipped order unchanged; from 1280 each is its own stack, read column by column. */}
+      <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-3" data-home-board-col="left">
       {/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — the GCash balance-card shape): the name, the
           countdown (the Date Finder's door) and NOW, the ONE thing to do with its verb. It still wears the Event Hub's
           main background (owner 2026-10-07, #6394) and still pins as one line. */}
@@ -245,7 +250,7 @@ export function HomeFirstScreen({
           </div>
 
           {/* 🎛 YOUR EVENT — the widgets; tap a name to open its page. */}
-          <p className="hc-k2" data-home-your-event="">
+          <p className="hc-k2 xl:hidden" data-home-your-event="">
             <span className="hc-k2-name">Your event</span>
             <em>tap a name to open it</em>
           </p>
@@ -268,6 +273,16 @@ export function HomeFirstScreen({
           <HomeControlRow input={control} hubPick={hubPick} />
           {/* 📅 The Countdown's Date Finder, in place — the couple's (who change the date); a helper's Countdown opens Event Details. */}
           {eventSettings ? <HomeDateFinder eventId={eventId} openAtFirst={dateFinderOpen} /> : null}
+        </div>
+      </div>
+
+      {/* 🖥 The board's middle column — Guests · Budget · Schedule (1280 and up only). */}
+      <HomeControlBoardColumn input={control} side="middle" hubPick={hubPick} />
+
+      <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-3" data-home-board-col="right">
+        <div data-home-column="" className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
+          {/* 🖥 The board's right column opens with Suppliers · Event Hub (1280 and up only); what follows is shared. */}
+          <HomeControlBoardColumn input={control} side="right" hubPick={hubPick} />
 
           {/* 📷 PAPIC — its ONE card moved to Memories (THE ONE BUILD, 2026-11-08); Today draws none. */}
 
@@ -325,6 +340,7 @@ export function HomeFirstScreen({
             </details>
           ) : null}
         </div>
+      </div>
     </section>
     </HomeTodayFold>
   );
@@ -675,7 +691,7 @@ function paidCard(eventId: string, svc: HomeService, row: PaidRow): ReactNode {
 
 /**
  * 🧾 A PAID ROW (owner 2026-10-14 🧾 + ✅; prototype `rowFull` / `rowSlim`) — the shipped service
- * glance, never a new card. Owned: name · brand · "On" (Event Hub Pro: "Pro on · …") and the
+ * glance, never a new card. Owned: name · brand · "On" (Event Pro: "Pro on · …") and the
  * main door where it is another page; waiting for approval: the dashed words; not added: the SLIM
  * line — its catalogue price under the name and **Add**, which opens the service's own page,
  * where the shipped purchase already lives. No meter: only Papic has a true total.

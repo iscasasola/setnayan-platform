@@ -497,7 +497,8 @@ export function SupplierStoriesScene({
           </div>
         );
       })}
-      <span className="mt-7 block font-script text-[2rem] text-cream/90">thank you</span>
+      {/* (No bare "thank you" sign-off — F-W2-52, the walk after #7628: a script "thank you" from nobody, under the
+          last supplier, read as a stray word. The couple's own thanks is the Thank You scene.) */}
     </div>
   );
 }

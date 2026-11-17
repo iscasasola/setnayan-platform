@@ -20,6 +20,9 @@ import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
+import { bookConfirmCopy } from '@/lib/explore-info-copy';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   finalizeVendor,
@@ -194,12 +197,10 @@ export function AccordionLockButton({
   className?: string;
   wrapperClassName?: string;
   /**
-   * Marketplace-vendor verification state (owner 2026-07-24 booking gate).
-   * `undefined` = off-platform / not-yet-enriched → no indicator, lock proceeds
-   * (server + DB still enforce). `false` = a marketplace vendor still verifying:
-   * shows a "Verifying" pill and the tap surfaces the friendly block WITHOUT a
-   * round-trip. `true` = verified → normal lock. This is a UX nicety only; the
-   * server gate + DB trigger are the real enforcement.
+   * Marketplace-vendor verification. It NEVER gates the press (2026-11-15, "We allow booking": the server and the DB
+   * trigger decide). `false` = not yet verified: the one confirm carries the shipped "Not yet verified by Setnayan"
+   * line (owner 16 Nov, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET VERIFIED"). `undefined` = off-platform
+   * or not read, so no line is drawn from an absence.
    */
   isVerified?: boolean;
 }) {
@@ -218,6 +219,8 @@ export function AccordionLockButton({
   // another card; a dismiss leaves it false, so "Not yet" really means not yet.
   const impactConfirmedRef = useRef(false);
   const save = useSaveLoader();
+  // 🛑 ONE CONFIRM BEFORE ANYTHING IS SENT (owner 2026-11-16; walk EB-175) — the shipped `useConfirm` box.
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -234,19 +237,9 @@ export function AccordionLockButton({
   // proceed straight to the one-tap lock. Keeps the happy path one-tap for the
   // vast majority of vendors (no slots → no extra round-trip in the UI flow).
   const requestLock = () => {
-    // Booking-requires-verified gate (owner 2026-07-24) — fast client-side
-    // short-circuit when we already know this marketplace vendor is unverified,
-    // so the couple gets the explanation without a round-trip. `undefined`
-    // (off-platform / not-yet-enriched) still goes to the server, which is the
-    // authority (+ the DB trigger).
-    if (isVerified === false) {
-      setState({
-        kind: 'error',
-        message:
-          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.",
-      });
-      return;
-    }
+    // 2026-11-15 ("We allow booking"): an unverified shop CAN be booked, so there is no client short-circuit on
+    // verification any more. The server (`shopBookingRefusal`) and the DB trigger decide, and refuse only a rejected,
+    // demoted, archived or frozen shop.
     startTransition(async () => {
       let slots: VendorServiceTimeSlot[] = [];
       try {
@@ -498,7 +491,7 @@ export function AccordionLockButton({
   if (state.kind === 'requested') {
     return (
       <div className={wrapperClassName}>
-        <p role="status" className="text-[12px] text-ink/70">
+        <p role="status" className="text-xs text-ink/70">
           Booking requested — waiting for {state.vendorName} to agree.
         </p>
       </div>
@@ -507,12 +500,27 @@ export function AccordionLockButton({
 
   return (
     <div className={wrapperClassName}>
+      {confirmDialog}
       <button
         type="button"
         className={className}
         disabled={isPending}
-        onClick={() => {
+        onClick={async () => {
           haptic('confirm');
+          // Asked OUTSIDE any transition: in React 19 a state update inside an async `startTransition` is held until the
+          // action settles, so a confirm awaited in there never opens (bench-vendor-actions.tsx measured it, 2026-10-12).
+          const copy = bookConfirmCopy(vendorName);
+          // Told, never blocked: a shop we READ as not yet verified carries the shipped line under the ask.
+          const notYetVerified = isVerified !== undefined && !isVerified;
+          const body = notYetVerified ? (
+            <>
+              {copy.body}
+              <NotYetVerifiedThreadLine />
+            </>
+          ) : (
+            copy.body
+          );
+          if (!(await confirm({ ...copy, body }))) return;
           requestLock();
         }}
       >
@@ -520,27 +528,14 @@ export function AccordionLockButton({
         <span className="lbl">{isPending && state.kind === 'idle' ? pendingLabel : label}</span>
       </button>
 
-      {/* Booking-requires-verified indicator (owner 2026-07-24) — surfaces the
-          block BEFORE the tap so it isn't a surprise. Shown only for a known-
-          unverified marketplace vendor. */}
-      {isVerified === false ? (
-        <p
-          role="status"
-          className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-medium text-[rgb(var(--color-warn))]"
-        >
-          <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-          Verifying — can&apos;t book yet
-        </p>
-      ) : null}
-
       {state.kind === 'error' ? (
-        <p role="alert" className="mt-2 text-[12px] text-[rgb(var(--color-danger))]">
+        <p role="alert" className="mt-2 text-xs text-[rgb(var(--color-danger))]">
           {state.message}
         </p>
       ) : null}
 
       {state.kind === 'proposed' ? (
-        <p role="status" className="mt-2 text-[12px] text-ink/70">
+        <p role="status" className="mt-2 text-xs text-ink/70">
           Proposed to the couple — {state.vendorName} will book once they confirm.
         </p>
       ) : null}
@@ -778,7 +773,7 @@ function DownpaymentModal({
             number the couple types into their bank app. Fits no control kind yet
             (2026-10-12 look sweep); drawn in the accent, flipping in dark mode. */}
         <fieldset className="space-y-1.5">
-          <legend className="text-[12px] font-semibold uppercase tracking-wide text-ink/55">
+          <legend className="text-xs font-semibold uppercase tracking-wide text-ink/70">
             How you paid
           </legend>
           {methods.map((m) => (
@@ -802,19 +797,19 @@ function DownpaymentModal({
                 <span className="block text-xs font-medium text-ink">
                   {m.label || m.provider || m.method_type.toUpperCase()}
                   {m.is_primary ? (
-                    <span className="ml-1.5 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-ink/70">
+                    <span className="ml-1.5 rounded-full bg-ink/[0.07] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-ink/70">
                       Primary
                     </span>
                   ) : null}
                 </span>
-                <span className="block truncate text-[12px] text-ink/60">{methodDetail(m)}</span>
+                <span className="block truncate text-xs text-ink/70">{methodDetail(m)}</span>
               </span>
             </label>
           ))}
         </fieldset>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_php" className="block text-[12px] font-medium text-ink/70">
+          <label htmlFor="downpayment_php" className="block text-xs font-medium text-ink/70">
             Amount you paid (₱)
           </label>
           <input
@@ -831,7 +826,7 @@ function DownpaymentModal({
             className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-sn-accent focus:outline-none focus:ring-1 focus:ring-sn-accent"
           />
           {minimumAmountPhp ? (
-            <p id="downpayment_php_min" className="text-[12px] text-ink/55">
+            <p id="downpayment_php_min" className="text-xs text-ink/70">
               {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on booking in the
               quote you accepted. At least that amount — you may pay more.
             </p>
@@ -839,7 +834,7 @@ function DownpaymentModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[12px] font-medium text-ink/70">
+          <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-xs font-medium text-ink/70">
             <Upload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Payment screenshot <span className="font-semibold text-ink">(required)</span>
           </label>
@@ -855,8 +850,8 @@ function DownpaymentModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="downpayment_ref" className="block text-[12px] font-medium text-ink/70">
-            Reference <span className="text-ink/40">(optional)</span>
+          <label htmlFor="downpayment_ref" className="block text-xs font-medium text-ink/70">
+            Reference <span className="text-ink/70">(optional)</span>
           </label>
           <input
             id="downpayment_ref"

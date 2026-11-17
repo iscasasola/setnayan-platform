@@ -73,7 +73,7 @@ export function BookedCountRule({
       >
         <span className="min-w-0">
           <span className="block text-ink">Who they count</span>
-          <span className="block truncate text-[12.5px] text-ink/55">
+          <span className="block truncate text-[12.5px] text-ink/70">
             {words}
             {service.booked ? '' : ' · quoted, not booked'}
           </span>
@@ -82,7 +82,7 @@ export function BookedCountRule({
           <b className="block text-[20px] font-medium leading-none tabular-nums text-ink" data-booked-count={shown.counted}>
             {shown.counted}
           </b>
-          <span className="block text-[12px] text-ink/55">counted</span>
+          <span className="block text-xs text-ink/70">counted</span>
         </span>
         <ChevronRight aria-hidden strokeWidth={2} className="h-4 w-4 text-sn-accent" />
       </button>
@@ -186,7 +186,7 @@ function CountRuleSheet({
                     </span>
                     <span className="min-w-0 flex-1 text-[15px] text-ink">
                       {a.label}
-                      <small className="block text-[12.5px] text-ink/55">
+                      <small className="block text-[12.5px] text-ink/70">
                         {a.type} · {a.n} attending
                       </small>
                     </span>
@@ -200,7 +200,7 @@ function CountRuleSheet({
           <b className="block font-medium text-ink">
             {shop} counts {c.counted}
           </b>
-          <span className="text-ink/60">{sheetWords(c, mode)}</span>
+          <span className="text-ink/70">{sheetWords(c, mode)}</span>
         </p>
         {error ? (
           <p className="text-[12.5px] text-[rgb(var(--color-danger))]" role="alert">

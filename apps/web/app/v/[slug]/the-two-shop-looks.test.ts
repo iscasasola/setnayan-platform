@@ -16,13 +16,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { nextSaturdays } from './_components/open-dates-peek';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 const PAGE = read('page.tsx');
 const PANEL = read('_components/shop-can-do-panel.tsx');
-const PEEK = read('_components/open-dates-peek.tsx');
 
 test('the verified look is every verified shop — not a plan', () => {
   assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
@@ -30,45 +28,18 @@ test('the verified look is every verified shop — not a plan', () => {
   assert.match(PAGE, /\{cinematicHero \? \(\s*<ShopHero\b/, 'the hero is not drawn for the verified look');
 });
 
-test('Check a date and the peek exist only behind the verified + bookable gate', () => {
-  // The action-row door keeps its own `bookable` gate (the-since-line-and-check-a-date.test.ts); the panel and the
-  // peek ride the verified look AND bookable; the dates read itself never runs for an unverified shop.
+test('Check a date exists only behind the verified + bookable gate; the old day strip is gone (15 Nov)', () => {
+  // The action-row door keeps its own `bookable` gate (the-since-line-and-check-a-date.test.ts); the panel rides the
+  // verified look AND bookable. "Their real calendar · Open Saturdays coming up" is gone: DECISION_LOG 2026-11-15
+  // "THE OWNER APPROVES THE SUPPLIER WEBSITE DESIGN…" — the website's own day strip is gone.
   assert.match(PAGE, /\{cinematicHero && bookable \? \(\s*<ShopCanDoPanel\b/, 'the "can\'t do" panel left its gate');
-  assert.match(PAGE, /\{cinematicHero && bookable \? <OpenDatesPeek\b/, 'the open-dates peek left its gate');
   assert.equal((PAGE.match(/<ShopCanDoPanel\b/g) ?? []).length, 1);
-  assert.equal((PAGE.match(/<OpenDatesPeek\b/g) ?? []).length, 1);
-  assert.match(PAGE, /if \(cinematicHero && bookable\) \{\s*const dates = await readCheckADate\(/);
-  assert.equal((PAGE.match(/readCheckADate\(/g) ?? []).length, 1, 'a second, ungated dates read');
-  // The panel's Check a date is the shipped door to the shipped landing.
-  assert.match(PANEL, /<CheckADateLink href=\{checkHref\}/);
-  assert.match(PEEK, /Check your own date/);
-});
-
-test('a failed dates read draws no days — never an open Saturday', () => {
-  assert.match(PAGE, /if \(dates && dates\.kind === 'ok'\) \{/);
-  assert.match(PEEK, /if \(days\.length === 0\) return null;/);
-});
-
-test('the peek lists the coming Saturdays, open unless the read says not bookable', () => {
-  // 2026-11-13 is a Friday → first Saturday 14 Nov.
-  const days = nextSaturdays('2026-11-13', { from: '2026-11-01', to: '2027-04-30' }, ['2026-11-21']);
-  assert.deepEqual(
-    days.map((d) => [d.iso, d.open]),
-    [
-      ['2026-11-14', true],
-      ['2026-11-21', false],
-      ['2026-11-28', true],
-      ['2026-12-05', true],
-      ['2026-12-12', true],
-    ],
-  );
-  assert.equal(days[0]!.day, '14');
-  // A Saturday today counts; the window's end stops the list.
-  assert.deepEqual(
-    nextSaturdays('2026-11-14', { from: '2026-11-01', to: '2026-11-22' }, []).map((d) => d.iso),
-    ['2026-11-14', '2026-11-21'],
-  );
-  assert.deepEqual(nextSaturdays('nonsense', { from: 'x', to: 'y' }, []), []);
+  const sample = read('_components/sample-shop-page.tsx');
+  for (const [name, src] of [['page', PAGE], ['sample', sample]] as const) {
+    assert.doesNotMatch(src, /Their real calendar|Open Saturdays coming up|<OpenDatesPeek\b/i, `the ${name} draws the old day strip again`);
+  }
+  // RW-269 (owner-seen 14 Nov): the panel has NO Check a date door — the header's, beside Add to your event, is the one.
+  assert.doesNotMatch(PANEL, /<CheckADateLink\b/);
 });
 
 test('Lock lives only on the package cards', () => {
@@ -107,10 +78,10 @@ test('the section bar: verified About · Services · Portfolio · Reviews; unver
   assert.doesNotMatch(bar, /history\.|localStorage|sessionStorage/, 'the bar writes history or storage');
 });
 
-test('the unverified page prints no web address and draws its map under Where', () => {
+test('the unverified page prints no web address, and its Where is the city alone — no map (15 Nov "no exact address")', () => {
   assert.match(PAGE, /\{cinematicHero \? <ShopAddresses setnayanAddress=\{setnayanAddress\} ownAddress=\{ownAddress\} \/> : null\}/);
   const where = PAGE.slice(PAGE.indexOf('id="shop-where"'), PAGE.indexOf('id="get-in-touch"'));
-  assert.match(where, /<ShopReachMap\b/);
+  assert.doesNotMatch(where, /<ShopReachMap\b|<DirectionsMenu\b/);
   assert.match(where, /<ShopReachLine\b/);
 });
 
@@ -146,4 +117,25 @@ test('motion: the seal\'s ring and tick draw, and the reach ring draws itself �
   assert.match(map, /pathLength=\{1\}\s*strokeDasharray="1"[\s\S]{0,80}data-reach-ring=""/);
   const reach = read('_components/shop-reach.tsx');
   assert.match(reach, /<ReachMap[\s\S]{0,260}\bkmTag\b/, 'the shop page\'s ring lost its km tag');
+});
+
+test('the shop page\'s reach ring is the map card: 9 : 5 capped at 250 px, the credit tag, the bigger-map door (re-walk 2026-11-14)', () => {
+  const reach = read('_components/shop-reach.tsx');
+  // The card's shape is asked for at the public caller only — the supplier's own "Where you work" map keeps 240 px.
+  assert.match(reach, /<ReachMap[\s\S]{0,300}\bcard\b/, 'the shop page\'s ring lost the card shape (it drew 3 : 2 again)');
+  assert.match(reach, /mapHref === null \? null : <BiggerMapButton href=\{openStreetMapUrl\(lat, lng, \d+\)\} \/>/, 'the bigger-map door must open OSM at the shop pin, and stay shut on the sample');
+  assert.match(reach, /credit=\{mapHref !== null\}/, 'the sample\'s credit must be words, not a link');
+  const map = stripComments(readFileSync(join(HERE, '../../vendor-dashboard/shop/_components/reach-map.tsx'), 'utf8'));
+  assert.match(map, /card \? 'aspect-\[9\/5\] max-h-\[250px\]'/, 'the card shape is the map card\'s 9 : 5, never taller than 250 px');
+  assert.match(map, /height: card \? undefined : H/, 'the dashboard map keeps its fixed height');
+  assert.match(map, /<MapCredit link=\{credit\} \/>/);
+  const dash = stripComments(readFileSync(join(HERE, '../../vendor-dashboard/shop/_components/service-radius-fields.tsx'), 'utf8'));
+  assert.doesNotMatch(dash, /<ReachMap[^>]*\bcard\b/, 'the supplier\'s own Where you work map is not the public card');
+});
+
+test('the Where tab and the Where section share one answer — a shop with nowhere to show has neither (re-walk 2026-11-14)', () => {
+  assert.match(PAGE, /const where = shopWhere\(/);
+  assert.match(PAGE, /const hasWhere = where\.has;/);
+  assert.match(PAGE, /\.\.\.\(hasWhere \? \[\{ id: 'shop-where', label: 'Where' \}\] : \[\]\)/, 'the Where tab is drawn whatever the shop has');
+  assert.match(PAGE, /\{cinematicHero \|\| !hasWhere \? null : \(\s*<div id="shop-where"/, 'the Where section is drawn whatever the shop has');
 });

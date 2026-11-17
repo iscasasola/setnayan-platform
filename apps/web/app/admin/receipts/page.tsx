@@ -39,7 +39,7 @@ function monthBucket(iso: string): string {
 function monthLabel(bucket: string): string {
   const [year, month] = bucket.split('-');
   if (!year || !month) return bucket;
-  return new Date(Number(year), Number(month) - 1, 1).toLocaleString(undefined, {
+  return new Date(Number(year), Number(month) - 1, 1).toLocaleString(undefined, { timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'long',
   });
@@ -215,7 +215,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
                 href={`/receipts/${r.receipt_id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-link hover:underline"
+                className="sn-hit inline-flex items-center gap-1 text-xs text-link hover:underline"
               >
                 View
                 <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />

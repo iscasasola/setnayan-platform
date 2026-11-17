@@ -35,6 +35,7 @@
  * runs full-bleed (`DOORWAY_BLEED_PATHS`). Look: `_for-coordinators.css`, the prototype's CSS on the app's tokens.
  */
 
+import { shopPath } from '@/lib/shop-address';
 import type { ReactElement } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -620,7 +621,7 @@ export default async function ForCoordinatorsPage() {
                   {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303, permit and bank proof are approved) puts you in search{' '}
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
                   {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
                   and branches. See Plans below.
                 </p>
@@ -978,7 +979,7 @@ export default async function ForCoordinatorsPage() {
               <p>Climb a badge, and we reward you, free.</p>
               <InfoToggle id="fc-i11" label="Fees, badges and rewards">
                 <p>
-                  The fee counts only on couples Setnayan brings you. Your own clients, imported or returning, never carry a
+                  The fee counts only on couples Setnayan brings you. Clients who found you outside Setnayan never carry a
                   fee. Your first bookings through Setnayan are free.
                 </p>
                 <p>
@@ -1089,7 +1090,7 @@ export default async function ForCoordinatorsPage() {
                 <p className="fc-pzero">{pesoWords(TIER_PRICE_PHP.verified.monthly)}, once your papers are approved</p>
                 <p>Couples can find you.</p>
                 <p className="fc-spec">{verifiedSpec()}</p>
-                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit · Bank proof</p>
+                <p className="fc-small fc-muted">Your papers: DTI or SEC · BIR 2303 · Permit</p>
               </div>
               <div className="fc-planstep fc-grow">
                 <span className="fc-n">STEP 3</span>
@@ -1160,13 +1161,13 @@ export default async function ForCoordinatorsPage() {
               </Link>
             </div>
             <div>
-              <Link className="fc-realshop" href={`/v/${SAMPLE_SHOP.slug}`}>
+              <Link className="fc-realshop" href={`${shopPath(SAMPLE_SHOP.slug)}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a 44 px SVG mark; next/image adds nothing */}
                 <img className="fc-mark" src={`${SHOT6}/sw-logo-round-dark.svg`} alt="" width={44} height={44} />
                 <span className="fc-t">
                   <small>SEE THE SAMPLE SHOP</small>
                   <b style={{ fontSize: '1.02rem', letterSpacing: '.01em' }}>{SAMPLE_SHOP.name}</b>
-                  <span className="fc-mono">setnayan.com/v/{SAMPLE_SHOP.slug}</span>
+                  <span className="fc-mono">setnayan.com/{SAMPLE_SHOP.slug}</span>
                 </span>
               </Link>
             </div>

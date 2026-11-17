@@ -180,7 +180,7 @@ const OFFER_SHAPES = [
 const EXEMPT: Record<string, string> = {
   'app/onboarding/wedding/_components/onboarding-shell.tsx':
     'the wedding has no Suppliers choice (no needs screen; suppliers_on is never written ⇒ ON)',
-  'app/dev/home-lab/page.tsx': 'a dev lab fixture, not a host surface',
+  'app/dev/home-lab/page.lab.tsx': 'a dev lab fixture, not a host surface',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

@@ -176,7 +176,7 @@ export default async function AdminVendorPlanPage({
             <>
               {' '}· expires{' '}
               <span className="font-medium text-ink">
-                {new Date(currentTierExpiresAt).toLocaleDateString('en-PH', {
+                {new Date(currentTierExpiresAt).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -187,7 +187,7 @@ export default async function AdminVendorPlanPage({
           {!currentTierExpiresAt && currentTier !== 'free' && (
             <span className="ml-1 text-warn-700">(open-ended — no auto-downgrade)</span>
           )}
-          . Set Supplier Pro/Supplier Ultra after confirming an off-platform subscription payment
+          . Set Pro/Ultra after confirming an off-platform subscription payment
           (self-serve checkout is a later phase).
         </p>
         <form action={setVendorTier} className="space-y-3">
@@ -246,8 +246,8 @@ export default async function AdminVendorPlanPage({
           </div>
           <p className="text-xs text-ink/50">
             Leave end date blank for open-ended comp access (you&rsquo;ll need to revert manually).
-            Supplier Pro/Supplier Ultra billing is 28-day cycles — 1 cycle from today ={' '}
-            {new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toLocaleDateString('en-PH', {
+            Pro/Ultra billing is 28-day cycles — 1 cycle from today ={' '}
+            {new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
               month: 'short',
               day: 'numeric',
               year: 'numeric',
@@ -321,7 +321,7 @@ export default async function AdminVendorPlanPage({
             <>
               {' '}· expires{' '}
               <span className="font-medium text-ink">
-                {new Date(photoChallengeExpiresAt).toLocaleDateString('en-PH', {
+                {new Date(photoChallengeExpiresAt).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

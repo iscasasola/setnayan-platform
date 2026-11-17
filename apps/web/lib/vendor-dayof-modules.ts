@@ -70,6 +70,7 @@ const FOLDER_FAMILY: Record<WeddingFolder, DayOfFamily> = {
   look: 'setup',
   booths: 'serve',
   prints: 'serve',
+  gifts_giveaways: 'serve',
   transport: 'setup',
   // Non-wedding event-type families (gap leaves, 2026-07-20): tours/dining
   // hand an experience to guests (serve); referees/medics run the floor
@@ -292,7 +293,7 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     id: 'vendor_papic',
     label: 'Papic capture',
     blurb:
-      'Shoot photos and clips of the event you’re working. Free Papic Lite (50 credits, photos + video); Papic Ltd (70 credits) when you accepted the booking with a token.',
+      'Shoot photos and clips of the event you’re working. It spends your Papic credits for this event.',
     // ON FOR NOBODY BY DEFAULT — deliberately, and `alwaysAvailable` keeps it
     // one tap away for any vendor who wants it.
     //

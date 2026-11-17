@@ -23,10 +23,10 @@ const base = (over: Partial<CheckDateInput> = {}): CheckDateInput => ({
 });
 const at = (a: { notBookable: string[] }) => ({ notBookable: new Set(a.notBookable), today: TODAY, to: W.to });
 
-test('the window runs from the 1st of this month for 24 months', () => {
+test('the window runs from the 1st of this month for three years (SHOP-02 v7: to the same month three years on)', () => {
   assert.equal(W.from, '2026-10-01');
-  assert.equal(W.to, '2028-09-30');
-  assert.equal(W.months.length, 24);
+  assert.equal(W.to, '2029-10-31');
+  assert.equal(W.months.length, 37);
 });
 
 test('an all-day closure is Not bookable; a morning block leaves the day Available', () => {
@@ -77,7 +77,8 @@ test("the shop's own hold is Not bookable; approve-first stays Available", () =>
 test('past days and days beyond the window are not answered', () => {
   const a = checkDateAnswer(base());
   assert.equal(checkDateStateOf('2026-10-27', at(a)), null);
-  assert.equal(checkDateStateOf('2028-10-01', at(a)), null);
+  assert.equal(checkDateStateOf('2029-10-31', at(a)), 'available', 'the last day of the third year is answered');
+  assert.equal(checkDateStateOf('2029-11-01', at(a)), null);
   assert.equal(checkDateStateOf(TODAY, at(a)), 'available');
   assert.ok(a.notBookable.every((d) => d >= TODAY), 'no past day is ever listed');
 });
@@ -118,6 +119,6 @@ test('a shop with no schedule still honours its typed closures', () => {
 
 test('words and addresses', () => {
   assert.equal(checkDateWords('2026-11-22'), 'Sun, 22 Nov 2026');
-  assert.equal(checkADateUrl('https://setnayan.com/', 'tita-nenas-catering'), 'https://setnayan.com/v/tita-nenas-catering/dates');
-  assert.equal(checkDateResumeHref('tita', '2026-11-22', ['a', 'b']), '/v/tita/dates?d=2026-11-22&step=event&s=a%2Cb');
+  assert.equal(checkADateUrl('https://setnayan.com/', 'tita-nenas-catering'), 'https://setnayan.com/tita-nenas-catering/dates');
+  assert.equal(checkDateResumeHref('tita', '2026-11-22', ['a', 'b']), '/tita/dates?d=2026-11-22&step=event&s=a%2Cb');
 });

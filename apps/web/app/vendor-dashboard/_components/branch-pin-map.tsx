@@ -269,8 +269,8 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
 
       {/* Zoom controls */}
       <div className="absolute right-2 top-2 flex flex-col gap-1">
-        <ActionButton tone="neutral" filled iconOnly icon={Plus} label="Zoom in" onClick={() => bumpZoom(1)} />
-        <ActionButton tone="neutral" filled iconOnly icon={Minus} label="Zoom out" onClick={() => bumpZoom(-1)} />
+        <ActionButton tone="neutral" filled iconOnly icon={Plus} label="Zoom in" onClick={() => bumpZoom(1)} className="!h-11 !w-11" />
+        <ActionButton tone="neutral" filled iconOnly icon={Minus} label="Zoom out" onClick={() => bumpZoom(-1)} className="!h-11 !w-11" />
       </div>
 
       <a

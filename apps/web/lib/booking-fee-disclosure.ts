@@ -38,6 +38,7 @@ import {
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
 import {
+  BOOKING_FEE_CHARGED_WHEN,
   FIRST_BOOKING_ON_US_CLAUSE,
   FREE_BOOKING_LIMIT,
   freeHeldBackSentence,
@@ -265,8 +266,10 @@ export function bookingFeeForecast(
         tone: 'good',
         headline: 'No Setnayan booking fee on this booking.',
         detail:
-          'This client did not come from Setnayan, so they are yours free — ' +
-          'imported and returning clients never carry a fee.',
+          // 🧾 Owner 2026-11-16 ("yes change the wording"): a client who first came THROUGH Setnayan still pays on
+          // every repeat, so the old line (every returning client is free) was untrue. Say who is free, by how they found you.
+          'This client did not come from Setnayan, so they are yours free. ' +
+          'Clients who found you outside Setnayan never carry a fee.',
       };
 
     /*
@@ -776,7 +779,7 @@ export function feeDueCopy(
         tone: 'due',
         headline: `Booking fee due${by} — ${amount}${who}`,
         detail:
-          'Setnayan charges this once a couple we brought you agrees to book. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
+          `${BOOKING_FEE_CHARGED_WHEN} Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.`,
       };
   }
 }

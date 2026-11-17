@@ -34,6 +34,8 @@ export function shotFields(shot: QueuedShot): Record<string, unknown> {
   if (shot.ownerTag) base.owner_tag = shot.ownerTag;
   // 📷 The chapter the camera showed at the shutter — every op, so sign and record judge the same shot the same way.
   if (shot.chapterId) base.chapter_id = shot.chapterId;
+  // 📲 Added from the phone's gallery — priced at the upload price, held to the event day (guest upload v2).
+  if (shot.source === 'phone') base.source = 'phone';
   if (shot.lane === 'vendor') base.consent = shot.consent === true;
   return base;
 }

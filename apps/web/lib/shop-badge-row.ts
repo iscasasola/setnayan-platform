@@ -14,7 +14,7 @@
  * not be read.
  *
  * 🔑 HONEST: an unread count is "Couldn't load" on a grey face with "—", never "0". A badge with no counter in the
- * app says "Not counted yet" (1st Pick, the first 5★ review — spec §4: shown, never counted, pays nothing). The
+ * app says "Not counted yet" (1st Pick — spec §4: shown, never counted, pays nothing; the first 5★ review is counted since 15 Nov). The
  * BOOKED LOOP (and the first loop, which hangs off it) is counted by C2's `shop_booked_loop_count` (spec §9 #11) and
  * HIDDEN whenever that count was not read — "Without the counter the badge is HIDDEN, never shown as 'not yet reached'".
  * 🔒 lib/shop-badge-row.test.ts
@@ -27,16 +27,16 @@ import type { ShopBadge, TrackerRow } from '@/lib/shop-badges';
 /** The badge faces, from the approved corpus art (`prototypes/for_suppliers_2026-11-06`, "ibgrid"). */
 export type BadgeShape = 'seal' | 'hex' | 'star' | 'rosette';
 export type BadgeFace = 'navy' | 'ivory' | 'gold' | 'first' | 'month' | LadderMaterial;
-/** One per rung of a ladder, bottom first — the shipped tier names (`lib/badge-tiers.ts` MATERIALS). */
-export const LADDER_MATERIALS = ['bronze', 'silver', 'gold', 'plat', 'diamond', 'ruby', 'black'] as const;
+/** One per rung of a ladder, bottom first — the shipped tier names (`lib/badge-tiers.ts` MATERIALS, owner 2026-11-15). */
+export const LADDER_MATERIALS = ['bronze', 'silver', 'gold', 'ruby', 'emerald', 'diamond', 'black'] as const;
 export type LadderMaterial = (typeof LADDER_MATERIALS)[number];
 export const LADDER_MATERIAL_NAME: Readonly<Record<LadderMaterial, string>> = {
   bronze: 'Bronze',
   silver: 'Silver',
   gold: 'Gold',
-  plat: 'Platinum',
-  diamond: 'Diamond',
   ruby: 'Ruby',
+  emerald: 'Emerald',
+  diamond: 'Diamond',
   black: 'Black Diamond',
 };
 
@@ -141,6 +141,8 @@ const LADDERS = {
   'reward:inspiration': { badge: 'inspiration', mini: 'PHOTOS', how: 'Your inspiration photos that Setnayan approved for the library.' },
   'reward:branches': { badge: 'branches', mini: 'BRANCHES', how: 'Your paid, live branches.' },
   'reward:booked_loop': { badge: 'booked_loop', mini: 'LOOP', how: 'Families who booked you again for another event.' },
+  // 🤝 Owner 2026-11-15: suppliers who recommend this shop (accepted, active partnerships).
+  'reward:trusted_by': { badge: 'trusted_by', mini: 'TRUSTED', how: 'Other suppliers who recommend you — each one once.' },
 } as const;
 
 const FIRSTS: Readonly<Record<string, { num: string; mini: string; how: string }>> = {
@@ -197,7 +199,7 @@ function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
       on: row.state === 'earned',
       sub: stateSub(row),
       goal: false,
-      how: 'Documents approved — DTI or SEC, BIR 2303, Mayor’s Permit and bank proof.',
+      how: 'Documents approved — DTI or SEC, BIR 2303 and Mayor’s Permit.',
       ladder: null,
       row,
     };
@@ -277,7 +279,9 @@ function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
               ? c.inspirationPhotos
               : lad.badge === 'booked_loop'
                 ? (c.bookedLoops ?? null)
-                : c.branchIds === null
+                : lad.badge === 'trusted_by'
+                  ? (c.trustedBy ?? null)
+                  : c.branchIds === null
                   ? null
                   : new Set(c.branchIds).size;
     return ladderTile(row, row.title, lad.mini, lad.how, count, stepsOf(lad.badge), unitOf(lad.badge));

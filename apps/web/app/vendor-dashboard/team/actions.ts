@@ -31,6 +31,7 @@ import {
   SEAT_PERIOD_DAYS,
 } from '@/lib/vendor-seats';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { MAIN_BRANCH_KEY, keyOfBranchId } from '@/lib/branch-copy';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
@@ -153,8 +154,11 @@ export async function inviteVendorTeamMember(formData: FormData) {
     if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role } })) {
       // The fee is the live catalogue price (`vendor_extra_seat`), read the same
       // way the buy-a-seat action and the Team page read it — never typed here.
+      const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
       const moreHint = canBuyExtraSeats(ctx.tierState)
-        ? `Add a seat (${formatPhp(await fetchSeatFeePhp(supabase))}/${SEAT_PERIOD_DAYS}d) for more.`
+        ? seatFee !== null
+          ? `Add a seat (${formatPhp(seatFee)}/${SEAT_PERIOD_DAYS}d) for more.`
+          : 'Add a seat for more.'
         : 'Upgrade for more.';
       const helperHint =
         role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
@@ -443,6 +447,8 @@ export async function buyExtraSeat(formData: FormData) {
   const channel = await railForNewOrder(supabase, formData.get('channel'));
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const feePhp = await fetchSeatFeePhp(supabase);
+  // 💰 No readable catalogue price ⇒ no order: never mint a seat at a remembered figure.
+  if (feePhp === null) return err('We couldn’t read the seat price just now. Please try again.');
   const referenceCode = generateSeatReferenceCode();
 
   // ── SEC-4b · service-role mint ─────────────────────────────────────────────
@@ -550,14 +556,36 @@ export async function setVendorAgentServices(formData: FormData) {
 
   const { data: services } = await supabase
     .from('vendor_services')
-    .select('vendor_service_id')
+    .select('vendor_service_id,branch_id')
     .eq('vendor_profile_id', ctx.vendorProfileId);
-  const valid = new Set(
-    (services ?? []).map((s) => (s as { vendor_service_id: string }).vendor_service_id),
+  const rows = (services ?? []) as { vendor_service_id: string; branch_id: string | null }[];
+  const valid = new Set(rows.map((s) => s.vendor_service_id));
+
+  // 🏢 WHOLE BRANCH (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 9): a ticked branch gives the person every service
+  // filed there now — added below — and every one filed later (the database trigger reads `whole_branch_keys`). A key is
+  // 'main' or one of THIS shop's branch ids; anything else is dropped, never trusted.
+  const { data: branchRows } = await supabase
+    .from('vendor_branches')
+    .select('branch_id')
+    .eq('parent_vendor_profile_id', ctx.vendorProfileId);
+  const validKeys = new Set<string>([MAIN_BRANCH_KEY, ...((branchRows ?? []) as { branch_id: string }[]).map((b) => b.branch_id)]);
+  const wholeKeys = Array.from(
+    new Set(formData.getAll('whole_branch').filter((v): v is string => typeof v === 'string' && validKeys.has(v))),
   );
-  const selected = formData
-    .getAll('service_ids')
-    .filter((v): v is string => typeof v === 'string' && valid.has(v));
+  const wholeSet = new Set(wholeKeys);
+  const selected = Array.from(
+    new Set([
+      ...formData.getAll('service_ids').filter((v): v is string => typeof v === 'string' && valid.has(v)),
+      ...rows.filter((r) => wholeSet.has(keyOfBranchId(r.branch_id))).map((r) => r.vendor_service_id),
+    ]),
+  );
+
+  const { error: keysErr } = await supabase
+    .from('vendor_team_members')
+    .update({ whole_branch_keys: wholeKeys })
+    .eq('vendor_team_member_id', memberIdRaw)
+    .eq('vendor_profile_id', ctx.vendorProfileId);
+  if (keysErr) return err(keysErr.message);
 
   const { error: delErr } = await supabase
     .from('vendor_service_agents')
@@ -574,6 +602,8 @@ export async function setVendorAgentServices(formData: FormData) {
     if (insErr) return err(insErr.message);
   }
 
+  // It now writes `vendor_team_members` (whole_branch_keys), which the shop page tree reads — clear its cached copy.
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }

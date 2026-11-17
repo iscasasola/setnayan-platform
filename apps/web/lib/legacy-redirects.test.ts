@@ -66,6 +66,15 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}/memories?papic=open#papic`],
   // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27; "all mapping will be kept", 2026-10-28).
   [`/dashboard/${EID}/studio/thank-you`, `/dashboard/${EID}/memories/thank-you`],
+  // 🔑 F-W3-01 (walk 13 Nov 2026): the two spellings people type for sign-in were a 404.
+  ['/signin', '/login'],
+  ['/sign-in', '/login'],
+  // 🗞✂ THE BLOG AND REAL STORIES ARE RETIRED (owner 2026-11-16) — whole subtrees; the supplier stub with them.
+  ['/vendor-dashboard/real-stories', '/vendor-dashboard'],
+  ['/blog', '/features'],
+  ['/blog/how-to-plan-a-wedding-in-tagaytay', '/features'],
+  ['/realstories', '/'],
+  ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/'],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -94,6 +103,13 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/website/dress-code/page.tsx',
   'dashboard/[eventId]/studio/papic/page.tsx',
   'dashboard/[eventId]/studio/thank-you/page.tsx',
+  'signin/page.tsx', // never a page — a forward (F-W3-01)
+  'sign-in/page.tsx',
+  'vendor-dashboard/real-stories/page.tsx',
+  '(shell)/blog/page.tsx',
+  'blog/[slug]/page.tsx',
+  '(shell)/realstories/page.tsx',
+  'realstories/[slug]/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {
@@ -139,6 +155,31 @@ test('the Studio’s old deep links keep their query, so they land on the same t
   assert.equal(legacyRedirectTarget('/admin/taxonomy', ''), '/admin/categories');
   // Every other row still drops it, exactly as the stub did.
   assert.equal(legacyRedirectTarget('/admin/marketing', '?x=1'), '/admin/studio');
+});
+
+test('🗞✂ the retired blog and Real Stories forward at every depth, but their sample MEDIA is never forwarded', () => {
+  assert.equal(legacyRedirectTarget('/blog/'), '/features');
+  assert.equal(legacyRedirectTarget('/blog/a/b', '?utm_source=x'), '/features');
+  assert.equal(legacyRedirectTarget('/realstories/'), '/');
+  assert.equal(legacyRedirectTarget('/realstories/a-wedding-in-cavite/'), '/');
+  // public/realstories/ still holds the photos and clips other screens show — a file is never a page.
+  for (const file of [
+    '/realstories/maria-juan-tagaytay.jpg',
+    '/realstories/jack-jill-cebu.mp4',
+    '/realstories/clips/jack-jill-vclip.mp4',
+  ]) {
+    assert.equal(legacyRedirectTarget(file), null, `${file} is a file under public/ and must not be forwarded`);
+  }
+  // Neighbours that merely start with the same letters are not the retired trees.
+  assert.equal(legacyRedirectTarget('/blogger'), null);
+  assert.equal(legacyRedirectTarget('/realstoriesx'), null);
+});
+
+test('F-W3-01 · /signin and /sign-in land on /login and keep where they were going', () => {
+  assert.equal(legacyRedirectTarget('/signin'), '/login');
+  assert.equal(legacyRedirectTarget('/sign-in/'), '/login');
+  assert.equal(legacyRedirectTarget('/signin', '?next=%2Fdashboard'), '/login?next=%2Fdashboard');
+  assert.equal(legacyRedirectTarget('/sign-in', '?next=/dashboard/people'), '/login?next=/dashboard/people');
 });
 
 test('the map and this test agree on the full list (nothing forwards unpinned)', () => {

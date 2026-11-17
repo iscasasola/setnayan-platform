@@ -15,6 +15,11 @@ import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
+import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsToBookings, type LockedBadge, type UnlockBadge } from '@/lib/graph-unlocks';
+import { COULDNT_LOAD } from '@/lib/shop-badge-row';
+import { giftsSpec } from './gifts-graph';
+import { invitesSpec } from './invites-graph';
+import type { InviteMonth } from '@/lib/graph-unlocks';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -101,9 +106,26 @@ function countSpec(k: CountKind, win: GrowthWindow, totals: Totals | null, view:
   };
 }
 
+/**
+ * 🏅 J5 — which badge graphs this shop sees (lib/graph-unlocks.ts, decided on the server). `hidden` graphs are never
+ * drawn, not even greyed; each `locked` badge leaves ONE plain line under the carousel instead (badge-unlock_v6).
+ */
+export type CarouselUnlocks = { hidden: readonly string[]; locked: readonly LockedBadge[]; unsure?: readonly UnlockBadge[] };
+
 type Props =
-  | { view: GrowthView; graphs: Record<GrowthWindow, NewGraphs>; locked?: undefined }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined };
+  | {
+      view: GrowthView;
+      graphs: Record<GrowthWindow, NewGraphs>;
+      unlocks?: CarouselUnlocks;
+      /** The gifts graph, per window — present only once Gifts given Bronze has opened it (null = a refused read). */
+      gifts?: Record<GrowthWindow, GiftsToBookings | null> | null;
+      /** What the gifts recommendation reads besides the graph (gift points, the drawing's worked examples). */
+      giftsRecFacts?: GiftsRecFacts;
+      /** The Invites graph (a fixed 12 months) — present only once Invites Bronze has opened it; null = a refused read. */
+      invites?: InviteMonth[] | null;
+      locked?: undefined;
+    }
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
 
 export function AnalyticsCarousel(props: Props) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
@@ -111,13 +133,25 @@ export function AnalyticsCarousel(props: Props) {
   const setWin = (k: CardKey, w: GrowthWindow) => setWins((cur) => ({ ...cur, [k]: w }));
 
   // The graphs of BOTH windows, built once each from the same reads (no refetch when a switch slides).
-  const specs = useMemo(
+  const base = useMemo(
     () =>
       props.view
         ? { '30': graphSpecsFor({ view: props.view, graphs: props.graphs['30'], win: '30' }), '12': graphSpecsFor({ view: props.view, graphs: props.graphs['12'], win: '12' }) }
         : null,
     [props.view, props.graphs],
   );
+  // 🎁 The gifts graph (J5) joins the same per-window lookup, so the same one card builder below draws it.
+  const specs = useMemo(
+    () =>
+      base
+        ? {
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+          }
+        : null,
+    [base, props.gifts, props.giftsRecFacts, props.invites],
+  );
+  const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 
   const control = (k: CardKey, title: string): ReactNode =>
     FIXED_WINDOW[k] ? (
@@ -143,6 +177,8 @@ export function AnalyticsCarousel(props: Props) {
       continue;
     }
     if (!specs) continue;
+    // 🏅 A graph its badge has not opened is never drawn — not greyed, not a placeholder card (badge-unlock_v6).
+    if (hidden.has(k)) continue;
     const g = specs[winOf(k)][k as GraphKey];
     if (!g) continue;
     cards.push({ key: k, label: g.title, node: <GraphCard g={g} control={control(k, g.title)} /> });
@@ -162,15 +198,39 @@ export function AnalyticsCarousel(props: Props) {
   return (
     <section aria-labelledby="shop-analytics-h" data-shop-analytics="" data-tour="shop-analytics" id="analytics" className="scroll-mt-24" data-growth="" data-analytics-carousel={props.locked ? 'locked' : 'full'}>
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-analytics-h" className="sn-eye">
+        <h2 id="shop-analytics-h" className="home-k2 !my-0">
           Analytics
         </h2>
-        <span className="text-[11.5px] text-ink/70">
-          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'} · swipe · tap one
+        <span className="text-xs text-ink/70">
+          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
         </span>
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
       <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
+      {/* 🏅 Under the carousel, as drawn (badge-unlock_v6 `.more`): the head, then one plain line per badge whose graphs
+          are still shut — and, for a badge we could not read, its line says "Couldn’t load" (never "locked", never 0). */}
+      {(() => {
+        const shut = (props.unlocks?.locked ?? []).flatMap((l) => {
+          const line = lockedLine(l);
+          return line ? [{ key: l.badge, lead: line.lead, rest: `${line.rest}.` }] : [];
+        });
+        const unread = (props.unlocks?.unsure ?? []).flatMap((b) => {
+          const line = BRONZE_LINES[b];
+          return line ? [{ key: b, lead: line.lead, rest: `— ${COULDNT_LOAD}.` }] : [];
+        });
+        const rows = [...shut, ...unread];
+        if (rows.length === 0) return null;
+        return (
+          <div className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
+            <p className="font-semibold text-ink">{LOCKED_HEAD}</p>
+            {rows.map((r) => (
+              <p key={r.key} data-graph-unlock-line={r.key}>
+                <b>{r.lead}</b> {r.rest}
+              </p>
+            ))}
+          </div>
+        );
+      })()}
     </section>
   );
 }

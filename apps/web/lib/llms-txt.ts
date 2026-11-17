@@ -198,13 +198,13 @@ const REQUIRED_RETAIL = [
   // not theoretical — it happened in production hours earlier when
   // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
   // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
-  // Logo & QR part of Event Hub PRO then (2026-10-26: Event Hub PRO, sold whole). 🪤 Entry and prose went together.
+  // Logo & QR part of Event Pro then (2026-10-26: Event Pro, sold whole). 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
   // 💎 Event Ultra (owner 2026-11-13, migration 20271344860040_event_ultra_plan) — the third event plan. Its price is
   // the row, read by R('EVENT_ULTRA'); its grants are `EVENT_ULTRA_GRANTS` (lib/event-ultra.ts).
   'EVENT_ULTRA',
-  // COUPLE_HUB_PART_* (the eleven Event Hub Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
-  // event hub pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
+  // COUPLE_HUB_PART_* (the eleven Event Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
+  // Event Pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
   // together: a quoted retired row throws and drops the whole file to its stub.
   // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
   // its prose line went with it. 🪤 THE DEACTIVATION ALONE WOULD HAVE BEEN A
@@ -261,7 +261,7 @@ const REQUIRED_RETAIL = [
   // The fourteen other rungs left this list the same day, with their prose: they are off sale.
   'PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', // gitleaks:allow — catalog service_codes, not secrets
   // CUSTOM_QR_GUEST left this list 2026-09-28: the "Custom QR per guest"
-  // product folded into Event Hub Pro (owner 2026-09-27) and its row is off
+  // product folded into Event Pro (owner 2026-09-27) and its row is off
   // sale. A retired code kept here throws MissingSkuError and drops this whole
   // document to its stub — the PAPIC_ADDON_STORIES lesson.
 ] as const;
@@ -384,7 +384,7 @@ export const LINKED_ROUTES = [
   '/',
   // '/explore' left 2026-11-12 — it forwards to Discover `/` (Find suppliers moved inside Discover).
   '/explore/compare',
-  '/v/',
+  // '/v/' left 2026-11-16 — the bare /v/ directory is a 404 (W1-B20); shops live at setnayan.com/{shop}, found on Discover `/`.
   '/pricing',
   '/for-suppliers',
   '/for-coordinators', // Build 6 Lane K — the coordinator front page, live since 2026-11-04
@@ -400,14 +400,9 @@ export const LINKED_ROUTES = [
   '/monogram',
   '/alaala',
   '/about',
-  // ⚠ BOTH, and neither is spare. `/weddings` 308-redirects to `/realstories`
-  // (next.config.ts, 2026-06-14 rename) so the old path still resolves and stays
-  // allow-listed; the prose now links the DESTINATION, because pointing an AI
-  // crawler at a permanent redirect spends the hop for nothing.
-  '/weddings',
-  '/realstories',
+  // '/weddings', '/realstories' and '/blog' left 2026-11-16: the blog and the stories hub are retired and forward
+  // (owner, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED") — pointing a crawler at a redirect spends the hop.
   '/help',
-  '/blog',
   '/download',
   '/login',
   '/signup',
@@ -606,7 +601,7 @@ ${featurePagesSection()}
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
-- [Supplier pages](${url('/v/')}) — Each supplier has a public page at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and plan badge.
+- [Supplier pages](${url('/')}) — Each supplier has a public page at setnayan.com/[slug] (the old /v/[slug] address forwards there) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
 - [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
@@ -614,7 +609,7 @@ ${featurePagesSection()}
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
 - Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
-- [About](${url('/about')}) · [Stories](${url('/realstories')}) · [Help](${url('/help')}) · [Articles](${url('/blog')}) · [Download](${url('/download')}).
+- [About](${url('/about')}) · [Help](${url('/help')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
 ## About Setnayan
@@ -659,7 +654,7 @@ Pricing in PHP. All sales final on digital deliverables.
 
 The visual mood board — palette, location feel, dress codes — is included free with every account. No paywall.
 
-## Supplier plans — Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra
+## Supplier plans — Free · Plus · Pro · Ultra
 
 Every cell below is read from the code that enforces it and every peso from the live supplier catalogue — the same table a supplier sees at [/for-suppliers](${url('/for-suppliers')}).
 
@@ -667,9 +662,9 @@ ${supplierPlanTable(input)}
 
 ${supplierFee}
 
-A shop starts on **Free** the moment it is opened, and shows in search until its first inquiry (the plan table's "${FREE_FINDABLE}") — then it waits for **Verified**: the supplier sends business papers (DTI or SEC registration, BIR 2303, a business permit and bank proof) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
+A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
 
-Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Supplier Ultra? Supplier Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
+Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 
 ## Answering couples (included free)
 
@@ -692,7 +687,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
-- **How are suppliers verified?** The supplier sends business papers — DTI or SEC registration, BIR 2303, a business permit and bank proof — and proves their email; a Setnayan admin reviews them and contacts the supplier for a final confirmation. Free, for good.
+- **How are suppliers verified?** The supplier sends three business papers — DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit — and proves their email; a Setnayan admin reviews them and contacts the supplier for a final confirmation. Free, for good.
 - **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: dpo@setnayan.com.
 - **How do I contact support?** The contact form at /help.
 

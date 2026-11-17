@@ -4,6 +4,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { buildVerificationDocsReport } from '@/lib/verification-docs-server';
+import { verificationDocSupplierNames } from '@/lib/verification-doc-suppliers.server';
 import {
   formatDocSize,
   verificationDocShelves,
@@ -16,7 +17,8 @@ import { DOC_SLOTS } from '@/lib/vendor-verification';
  * ADMIN · Vendor verification documents.
  *
  * What a vendor uploaded to prove who they are: a government ID, a DTI
- * certificate, a BIR 2303, a mayor's permit, a bank proof. The most sensitive
+ * certificate, a BIR 2303, a mayor's permit — and, from before they were retired
+ * (2026-07-03, 2026-11-14), a government ID or a bank proof. The most sensitive
  * personal data on the platform, in its own bucket, on its own page — a
  * passport photo has no business sitting in a screen called "Website media".
  *
@@ -31,6 +33,8 @@ import { DOC_SLOTS } from '@/lib/vendor-verification';
  * file sat inside it with Delete switched on. Here the label and the button
  * come from the SAME check, re-derived at press time, so they cannot disagree.
  */
+
+export const metadata = { title: 'Verification documents · Admin' };
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +108,8 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
   // to `true` (Delete beside a live government ID). A React server component is
   // not renderable by `node:test`, so those were unguardable where they sat.
   const shelves = verificationDocShelves(report);
+  // 🏷 F-A-08: each paper names its supplier.
+  const supplierNames = await verificationDocSupplierNames(report.docs.map((d) => d.vendorProfileId ?? ''));
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
@@ -112,7 +118,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
           IDs and the only control is a permanent delete with no undo. */}
       <PageMasthead title="Supplier verification documents" />
       <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
-        What suppliers uploaded to prove who they are — government IDs, permits, bank proofs.
+        What suppliers uploaded to prove who they are — registration papers and permits, and older government IDs and bank proofs.
         Each file is checked against every supplier record: if nothing points at it any more,
         it is left over and you can remove it. Deleting is permanent and there is no undo.
       </p>
@@ -154,6 +160,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
         shelf.state === 'unrecognised' && shelf.docs.length === 0 ? null : (
           <Group
             key={shelf.state}
+            supplierNames={supplierNames}
             title={SHELVES[shelf.state].title}
             icon={SHELVES[shelf.state].icon}
             blurb={SHELVES[shelf.state].blurb}
@@ -174,12 +181,15 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
 
 function Group({
   title,
+  supplierNames,
   icon,
   blurb,
   docs,
   deletable,
 }: {
   title: string;
+  /** Shop name per supplier id; null = the read was refused. */
+  supplierNames: Map<string, string> | null;
   icon: React.ReactNode;
   blurb: string;
   docs: VerificationDoc[];
@@ -210,6 +220,13 @@ function Group({
                 ) : (
                   <p className="truncate font-mono text-xs text-ink">{d.key}</p>
                 )}
+                {d.vendorProfileId ? (
+                  <p className="truncate text-xs text-ink/70" data-doc-supplier="">
+                    {supplierNames === null
+                      ? 'Supplier name couldn’t load'
+                      : (supplierNames.get(d.vendorProfileId) ?? 'A supplier with no shop name')}
+                  </p>
+                ) : null}
                 <p className="mt-0.5 text-xs text-ink/55">
                   {formatDocSize(d.size)}
                   {d.lastModified ? ` · uploaded ${manilaDay(d.lastModified)}` : ''}

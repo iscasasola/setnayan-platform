@@ -84,7 +84,7 @@ const ENTRY_POINTS: Record<string, 'GuestCard' | 'GuestCardSheet'> = {
   [`${EVENT}/launch/_components/details-people.tsx`]: 'GuestCardSheet', // Details › Parents & hosts
   [`${EVENT}/_components/home-cards/home-whos-here-guest-sheet.tsx`]: 'GuestCardSheet', // Home › Who's here — a guest viewing the Event Hub (lazy)
   'app/dev/details-lab/lab-march-cards.tsx': 'GuestCard', // the march lab's stand-in read
-  'app/dev/guests-lab/page.tsx': 'GuestCard', // the Guest list lab
+  'app/dev/guests-lab/page.lab.tsx': 'GuestCard', // the Guest list lab
 };
 
 test('2 · EVERY entry point opens the one card — `GuestCard`, or `GuestCardSheet` whose shipped read draws it', () => {

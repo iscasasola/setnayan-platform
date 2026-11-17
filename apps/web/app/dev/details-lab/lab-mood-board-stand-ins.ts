@@ -50,6 +50,9 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
         return { op: 'card_owner', result: { status: 'not_owner' } };
       case 'card_hide':
         return { op: 'card_hide', result: { status: 'refused' } };
+      // 📸 Photos by service, the shop's own view — the lab is never the shop.
+      case 'service_private':
+        return { op: 'service_private', result: { status: 'not_owner' } };
     }
   },
 };

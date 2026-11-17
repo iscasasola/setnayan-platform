@@ -45,7 +45,7 @@ export function SuggestionsNotice({
     <div className={STUDIO_GROUP} data-mood-board-suggestions="">
       <div className="pb-0 pt-3.5">
         <p className="text-[17px] font-medium leading-tight text-ink">{suggestionNoticeTitle(waiting.length)}</p>
-        <p className="mt-1 text-[14px] text-ink/60">{SUGGESTION_NOTICE_LINE}</p>
+        <p className="mt-1 text-[14px] text-ink/70">{SUGGESTION_NOTICE_LINE}</p>
       </div>
       <div className="mt-2 flex flex-col">
         {waiting.map((sg) => (
@@ -59,7 +59,7 @@ export function SuggestionsNotice({
             <Pic src={sg.url} className="h-11 w-11 flex-none rounded-xl object-cover" />
             <span className="min-w-0 flex-1">
               <b className="block truncate text-[16px] font-medium text-ink">{partLabelOf(sg.slotKey)}</b>
-              <span className="mt-px block truncate text-[13px] text-ink/60">{suggestionFrom(sg.shop)}</span>
+              <span className="mt-px block truncate text-[13px] text-ink/70">{suggestionFrom(sg.shop)}</span>
             </span>
             <ChevronRight aria-hidden className="h-5 w-5 flex-none text-terracotta" />
           </button>
@@ -87,7 +87,7 @@ export function KeepFullSheet({
     <StudioSheet label={`Keep ${suggestion.shop}’s photo`} onClose={onClose}>
       <div className="flex flex-col gap-3 px-3 pb-2" data-mood-board-keep-full={suggestion.id}>
         <h4 className="font-serif text-[21px] font-medium leading-tight text-ink">{fullSheetTitle(part)}</h4>
-        <p className="text-[14px] text-ink/60">{fullSheetLine(suggestion.shop)}</p>
+        <p className="text-[14px] text-ink/70">{fullSheetLine(suggestion.shop)}</p>
         <div className="grid grid-cols-3 gap-2.5">
           {photos.map((url, i) => (
             <button

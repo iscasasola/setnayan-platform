@@ -294,6 +294,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
       { key: '', name: 'hint_en', note: 'service_categories: the ⓘ text of a group or category, written on /admin/categories (owner 2026-10-31) — Find\u2019s ⓘ reads it first, never hidden · canonical_service_schemas: a service\u2019s one-line ⓘ definition, same field (plan D4, 2026-11-07) — empty = no ⓘ, read by lib/service-definitions.server.ts' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
+      { key: '', name: 'merged_into', note: 'a folded SERVICE\u2019s forward (merge_canonical_service): the row stays hidden so an old key resolves \u2014 T1 folded 41 (16 Nov 2026)' },
+      { key: '', name: 'merged_into_category_id', note: 'service_categories: a folded CATEGORY\u2019s forward \u2014 first written by T1 part 2 (20271350082350, 13 categories); the row stays hidden, never deleted. Code mirror: MERGED_TILES / forwardTile() in lib/taxonomy.ts' },
     ],
     edges: [
       { verb: 'preferences', to: 'TYPE-EVENTS' },
@@ -2328,6 +2330,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      // 🎁 THE GIFT MOMENT'S CLAIM (owner 2026-11-14: "once the redeem is pressed they already claimed it … redeem
+      // cannot duplicate"): one row per claimed gift, UNIQUE (source, ref_id) — a supplier gift keyed to the accepted
+      // quote whose 'given' stock rows reached the event, a badge reward to its shop_badge_rewards row. Grants nothing
+      // (the gift already landed); written only by gift_moment_claim.
+      { kind: 'table', table: 'gift_moment_claims' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'gift_moment_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'gift_moment_claims', name: 'gift_moment_claims_source_allowed', mentions: 'source' },
       {
         kind: 'check',
         table: 'shop_gift_stock_entries',
@@ -2374,7 +2384,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by ONE request door, GET /api/vendor/badges?view=facts, fetched after Today, Shop and Performance draw (never inside a page render, since 2026-11-08), and by the admin’s manual award; the one reward table is lib/badge-rewards.ts) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by the request door GET /api/vendor/badges?view=facts, fetched after Today, Shop and Performance draw (never inside a page render, since 2026-11-08), by the admin’s manual award, and since 2026-11-15 from after() where a count moves (booking delivered/complete, review posted, partnership accepted, gift given) plus the daily badge-reward-sweep backstop, all through lib/badge-earned.server.ts, which tells the shop once per new grant (badge_earned); the one reward table is lib/badge-rewards.ts — since 2026-11-15 ONE tier ladder, four Papic packs (read from the catalogue) · Event Plus · Event Pro · Event Ultra (the real plan: an earned-only event_ultra gift, delivered like Event Pro, migration 20271348181787); a claim is a gift_moment_claims row, never stock) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
@@ -4295,13 +4305,42 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'One plan order per event (EVENT_PLUS · COUPLE_WEBSITE_PRO · EVENT_ULTRA); each refused once owned (order-charge-authority, iap-actions). A higher plan includes the lower one.',
     implementedBy:
-      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO, PATIKTOK_COMPILER and the Pro alias lists) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order) · lib/event-ultra-gates.ts (canvas prints)',
+      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO, PATIKTOK_COMPILER and the Pro alias lists) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order, or — since 2026-11-15 — of a plan a SUPPLIER GAVE the event (a given shop_gift_stock_entries row’s unlocks_sku), so a supplier-gifted Ultra is full Ultra; an admin comp keeps the plain 3 months) · lib/event-ultra-gates.ts (canvas prints)',
     writtenBy:
       'the couple checkout and the App Store purchase (`com.setnayan.app.event_plus` · `event_pro` · `event_ultra`) → admin approval runs the activation hook; migration 20271344860040 adds the Ultra row',
     guardedBy:
       'lib/event-ultra.test.ts · tests/db/event-ultra-keeps-originals-12-months.db.test.ts · app/_components/frontdoor/the-plan-prices-come-from-the-list.test.ts · lib/iap/products.test.ts',
     traps:
       'Aliases are NOT transitive: a list that confers something with COUPLE_WEBSITE_PRO must name EVENT_ULTRA too (event-ultra.test.ts holds it). The extra hold reads only APPROVED orders — a pending Ultra keeps nothing longer. Canvas prints are in Ultra but no surface sells them until the Our Day poster ships; a Pro bought before CANVAS_LEFT_PRO_AT keeps canvas.',
+  },
+  {
+    /**
+     * 🏷 A FILES PHOTO TAGGED TO INSPIRATIONS (migration 20271345380761 · DECISION_LOG 2026-11-14). The tag IS the shipped
+     * inspiration record (moodboard_library_assets, supplier_gallery, the part in asset_subtype) made from a Files photo:
+     * one new pointer back to that photo, one row per (photo, part). The slot stays in asset_subtype — J45's no_column
+     * on slot_key still holds.
+     */
+    id: 'J72',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'event_file_id', references: 'event_supplier_files' },
+      { kind: 'unique', table: 'moodboard_library_assets', columns: ['asset_subtype', 'event_file_id'] },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'slot_key' },
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'event_file_slot_key' },
+    ],
+    chain: 7,
+    pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
+    title: 'Files photo → its inspirations (one row per photo × part, shown only while the shop shows the photo)',
+    joint: 'moodboard_library_assets.event_file_id',
+    cardinality:
+      'A Files photo (event_supplier_files, grp service, kind photo) has 0..n inspiration rows, at most one per part (UNIQUE event_file_id × asset_subtype); every other library row has NULL',
+    implementedBy:
+      'moodboard_library_assets.event_file_id → event_supplier_files ON DELETE SET NULL · trigger inspiration_tag_follows_its_files_photo (copies source_event_id + vendor_service_id from the photo; a part its card offers in inspiration_part_services; photos only) · public read policy + inspiration_photo_is_on_the_shop (the view event_supplier_photos_listed) · retire_tags_of_a_files_photo · inspiration_tag_event_lines (type · venue · month, also-in)',
+    writtenBy:
+      'importEditorialMediaToGallery’s Files arm (app/vendor-dashboard/moodboard-library/actions.ts → storeScreenedAsset: screen · watermark · store · scan, approved_at NULL) from the Files board (event-files-board.tsx); untag through eventFilesAction op untag (app/_actions/event-files-actions.ts)',
+    guardedBy:
+      'tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts (card parts · nothing before the shop shows it · one per photo × part · no public read of source_event_id/event_file_id · removed → retired) · column grants (event_file_id: service role only)',
+    traps:
+      'Never DELETE a tag that was ever approved — event_inspiration_assets.library_asset_id CASCADES, so a delete takes the tile off every saved board; untag RETIRES. The shop page reads on the service role, which skips the policy, so it filters by the listing view itself (lib/inspiration-tags.server.ts). The gate is LIVE: a Hide or a moved date takes the tag off at once — never copy “shown” into a column.',
   },
 ];
 

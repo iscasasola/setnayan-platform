@@ -65,7 +65,7 @@ export const BASE_ROWS: BaseRow[] = [
   // permanently empty by construction — it costs a row and a glance every day
   // forever. /admin/payouts itself STAYS, reachable from the Money menu, because
   // legacy orders may still need it. This removes the daily prompt, not the page.
-  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Supplier Pro / Supplier Ultra upgrades awaiting confirmation.' },
+  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Pro / Ultra upgrades awaiting confirmation.' },
   { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Supplier payment destinations awaiting a fraud screen.' },
   { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and supplier disputes.' },
   { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },
@@ -103,7 +103,7 @@ export const BASE_ROWS: BaseRow[] = [
   { key: 'supplier-refunds', label: 'Supplier refunds', href: '/admin/payments/supplier-refunds', icon: Undo2, description: 'Refunds suppliers recorded this week — you only watch these.' },
   { key: 'service-requests', label: 'Service requests', href: '/admin/categories/requests', icon: Lightbulb, description: 'Suppliers asking for a service we don’t list.' },
   { key: 'problems', label: 'Problems', href: '/admin/app-performance?tab=connection-logs', icon: Bug, description: 'Things failing in the app right now.' },
-  { key: 'email-bounces', label: 'Email bounces', href: '/admin/settings?tab=notifications', icon: MailWarning, description: 'Emails this week that did not arrive.' },
+  { key: 'email-bounces', label: 'Email bounces', href: '/admin/email-delivery', icon: MailWarning, description: 'Emails this week that did not arrive.' },
 ];
 
 /**

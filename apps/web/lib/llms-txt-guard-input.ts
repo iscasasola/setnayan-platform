@@ -85,8 +85,8 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
   // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.
   { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
-  // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
+  // 💎 Event Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
+  // (owner: "just have the upgrade Event Pro" — migration 20271290543004). Re-check with the select above.
   { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
   { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: false },
   { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: false },
@@ -185,7 +185,7 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'PAPIC_ONE_100', title: '(retired — see service_code)', retail_price_php: 100, is_active: false },
   { service_code: 'PAPIC_CAMERA_MINI_DAY', title: '(retired — see service_code)', retail_price_php: 50, is_active: false },
   // CUSTOM_QR_GUEST is OFF SALE since 2026-09-28: the "Custom QR per guest"
-  // product folded into Event Hub Pro (owner 2026-09-27), deactivated in prod by
+  // product folded into Event Pro (owner 2026-09-27), deactivated in prod by
   // the `_custom_qr_guest_folds_into_event_hub_pro` migration. Kept listed,
   // inactive, so the change is legible here — the KWENTO convention above.
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: false },
@@ -213,13 +213,13 @@ export const RETAIL: RetailRow[] = [
 ];
 
 export const VENDOR = [
-  // 💰 Final price sheet 2026-11-04: per 4 weeks / per year (year = 10×). Extra branch ₱990 since 2026-11-06 ("ULTRA ADD-ON PRICES"), Ultra only.
-  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 990, is_active: true },
-  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 9900, is_active: true },
-  { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 2490, is_active: true },
-  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 24900, is_active: true },
-  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 5990, is_active: true },
-  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 59900, is_active: true },
+  // 💰 Simpler supplier plans 2026-11-14: per 4 weeks / per year (year = 10×). Extra branch ₱990 since 2026-11-06 ("ULTRA ADD-ON PRICES"), Ultra only.
+  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 1490, is_active: true },
+  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 14900, is_active: true },
+  { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 4990, is_active: true },
+  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 49900, is_active: true },
+  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 9990, is_active: true },
+  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 99900, is_active: true },
   { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 990, is_active: true },
 ];
 

@@ -6,7 +6,7 @@
  *   1 · each of the four is a SPOTLIGHT with the drawn number of stops, on the drawn anchors, in order;
  *   2 · none repeats a stop the Today journey (`supplier_spotlight_v1`) already makes;
  *   3 · the address decides which one is on screen — and a page that is not one of the four gets none;
- *   4 · none plays before the Today journey is seen, none twice, none on a failed read;
+ *   4 · none plays before the Today journey is seen, none after it (the journey is the ONE tour, W1-B14), none on a failed read;
  *   5 · mounted ONCE, in the supplier layout — never in the couple tree the Maker loads under;
  *   6 · the words keep the house rules, and the free-booking count is the fee engine's own number.
  *
@@ -21,7 +21,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { TOURS, TOUR_KEYS } from '@/lib/tours';
+import { bookingFeeTourLine, TOURS, TOUR_KEYS } from '@/lib/tours';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import {
   SUPPLIER_PAGE_TOURS,
@@ -42,7 +43,7 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_dates_v1: ['dates-calendar', 'customers-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
-  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
+  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-post-update', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
   // THE ONE BUILD A13 (8 Nov): the new Today's stops (v2 was the Next card's).
   vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],
@@ -96,15 +97,12 @@ test('3 · the address decides which tour is on screen', () => {
   }
 });
 
-test('4 · none before the Today journey, none twice, none on a failed read', () => {
+test('4 · none before the Today journey, none after it (ONE tour — W1-B14), none on a failed read', () => {
   assert.deepEqual(supplierPageToursDue(null), [], 'a failed read replays tours');
   assert.deepEqual(supplierPageToursDue([]), [], 'a page tour stacks on the Today journey');
-  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER]), [...SUPPLIER_PAGE_TOURS]);
-  assert.deepEqual(
-    supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER, 'vendor_money_v1']),
-    SUPPLIER_PAGE_TOURS.filter((k) => k !== 'vendor_money_v1'),
-    'a finished tour plays again',
-  );
+  // W1-B14 (16 Nov 2026): finishing or skipping the journey ends every page tour — `lib/the-supplier-tour-plays-once.test.ts`.
+  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER]), [], 'a page tour opens after the journey ended');
+  assert.deepEqual(supplierPageToursDue([SUPPLIER_PAGE_TOURS_AFTER, 'vendor_money_v1']), []);
 });
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -143,7 +141,9 @@ test('6 · the words keep the house rules; the free booking is the fee engine’
   }
   const fee = TOURS.vendor_money_v1.spotlight!.steps.find((x) => x.anchor === 'money-fees')!.body;
   // ⚖ One free booking (owner 2026-10-23) — the tour says the fee engine's own sentence.
-  assert.ok(fee.includes(FIRST_BOOKING_ON_US), 'the Money tour does not say the fee engine’s free-booking sentence');
+  // RW-20 (walk 13 Nov 2026): the step follows the fee switch — with the fee on it carries the free-booking sentence.
+  assert.equal(fee, bookingFeeTourLine(isBookingFeeEnabled()), 'the Money tour’s fee step is not the rule’s own line');
+  assert.ok(bookingFeeTourLine(true).includes(FIRST_BOOKING_ON_US), 'the Money tour does not say the fee engine’s free-booking sentence');
   const src = readFileSync(join(WEB, 'lib', 'tours.ts'), 'utf8');
   assert.match(src, /\$\{FIRST_BOOKING_ON_US\}/, 'the free booking is typed into the tour instead of read from the fee engine');
 });

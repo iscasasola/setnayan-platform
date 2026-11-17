@@ -139,7 +139,7 @@ export default async function OurStoryEditorPage({
   // Couple-only, like the website hub (moderators are read-only on events —
   // the form would silently no-op for them).
   if (membership?.member_type !== 'couple') {
-    redirect(`/dashboard/${eventId}/website`);
+    redirect(`/dashboard/${eventId}/launch`);
   }
 
   /* 📦 LOVE STORY MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —
@@ -199,7 +199,7 @@ export default async function OurStoryEditorPage({
   const storeShell = iapGate.storeShell;
   /* 🍎 The store shell FOR PRO TRYING only (the Maker editor's `proShell`, owner 2026-10-18): where Apple sells Pro at
      Apply, more stories and photos are TRIED here as on the web, and Apply asks for Pro through Apple's sheet.
-     Every price, link and tour keeps `storeShell` (no ₱, no "Go Event Hub Pro" link in the app). */
+     Every price, link and tour keeps `storeShell` (no ₱, no "Go Event Pro" link in the app). */
   const proShell = storeShell && !iapGate.iap;
 
   // Every photo the page draws, signed in ONE pass.

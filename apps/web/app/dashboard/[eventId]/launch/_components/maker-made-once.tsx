@@ -234,7 +234,7 @@ export async function MakerHeroPanel({
       ) : canUpload ? (
         <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
-            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />
+            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Pro')} text="Event Pro" size="xs" />
           ) : null}
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
@@ -409,7 +409,7 @@ export async function MakerLogoPanel({
      their layers, else their mark or upload as one layer, else their initials —
      `lib/maker-logo-opening.ts`. Opening writes nothing (the page's save gate). */
   const opening = makerLogoOpening(m.drafted);
-  /* Each layer's motion plays for guests with the Animated Monogram (Event Hub
+  /* Each layer's motion plays for guests with the Animated Monogram (Event
      Pro includes it) — the same gate as every moving mark (`HeroMonogram`). */
   const ownsMotion = await eventEntitlementClient(eventId)
     .then((ent) => eventOwnsAnimatedMonogram(ent, eventId))

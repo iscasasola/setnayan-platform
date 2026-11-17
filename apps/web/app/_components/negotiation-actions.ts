@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
+import { CLOSED_DAY_COUPLE_MESSAGE } from '@/lib/closed-day.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
@@ -44,6 +45,7 @@ import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
 import { demoBookingRefusal } from '@/lib/demo-scope';
 import { askRefusal, LOCK_REFUSAL_WORDS } from '@/lib/supplier-locks';
+import { acceptClaimChangeQuote } from '@/lib/supplier-purchase-change.server';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -618,6 +620,16 @@ export async function respondAmendmentFromChat(formData: FormData): Promise<void
     .select('amendment_id');
 
   if (updated && updated.length > 0) {
+    // 🔒 AN APPROVED CLAIM CHANGE IS LOCKABLE (DECISION_LOG 2026-11-13): when the couple accepts a supplier's claim-door
+    // change, the quote staged beside it becomes their accepted quote, so Lock can book it. A no-op for any other Deal.
+    if (decision === 'accept' && ctx!.role === 'couple') {
+      await acceptClaimChangeQuote(createAdminClient(), {
+        amendmentId,
+        eventId: ctx!.thread.event_id,
+        shopId: ctx!.thread.vendor_profile_id,
+        coupleUserId: ctx!.userId,
+      }).catch((e: unknown) => console.error('[negotiation] claim quote accept failed:', e));
+    }
     await notifyChangeCounterparty(ctx!, 'Deal', decision === 'accept' ? 'accepted' : 'declined');
   }
 
@@ -855,6 +867,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'bookings_closed') {
       failBack(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+    }
+    if (outcome.status === 'date_closed') {
+      failBack(CLOSED_DAY_COUPLE_MESSAGE);
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(

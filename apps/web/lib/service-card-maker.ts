@@ -54,6 +54,8 @@ export const SUPPLIER_TYPE_WORD: Record<SupplierType, string> = {
 /** Kinds that are a church's own, whatever the taxonomy calls their family. */
 const CHURCH_KINDS = new Set(['religious_venue', 'ceremony_venue', 'church_fees', 'officiant']);
 const PHOTOGRAPHER_KINDS = new Set(['photographer', 'pre_nup_photographer']);
+/** A feast-family kind that is a caterer's own (per guest). The code taxonomy's catering · crew_meals · stations tiles. */
+const CATERING_KIND_RE = /cater|lechon|lauriat|buffet|meal|station|banquet|food|_package$/; // `christening_package` (catering tile)
 
 /**
  * The supplier type a card's kind belongs to.
@@ -67,9 +69,15 @@ export function supplierTypeForKind(kind: string, folder: string | null): Suppli
   if (CHURCH_KINDS.has(k) || /church|parish|chapel|mass|baptism|blessing/.test(k)) return 'church';
   if (PHOTOGRAPHER_KINDS.has(k)) return 'photographer';
   const f = folder ?? familyOfLegacyKind(k);
-  if (f === 'feast') return 'caterer';
+  // 🎂 W1-B27 (supplier walk 16 Nov 2026): the feast family is more than catering — a cake shop opened "Per guest". Only a
+  // caterer's own kinds (meals, buffets, lechon, lauriat, food stations) take the caterer's per-guest defaults; a cake,
+  // desserts or anything else in the family falls to 'other' (One price, nothing filled for the wrong trade).
+  if (f === 'feast') return CATERING_KIND_RE.test(k) ? 'caterer' : 'other';
   if (f === 'documentary') return 'studio';
-  if (f === 'design') return 'florist';
+  // 🌸 RW-262 (re-walk 14 Nov 2026): the design family is more than flowers — a Lights & Sound card opened "Filled for a
+  // florist". Only florals, decor and styling take the florist's defaults; lights, sound, LED walls, dance floors, tents,
+  // fireworks and the rest fall to 'other' (nothing pre-filled, never filled for the wrong trade).
+  if (f === 'design') return /flor|flower|decor|styl|chuppah|mandap|tea_set|backdrop/.test(k) ? 'florist' : 'other';
   if (f === 'venue') return 'venue';
   if (f === 'program') return 'performer';
   return 'other';

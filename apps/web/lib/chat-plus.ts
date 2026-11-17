@@ -114,6 +114,13 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
  * row (and `/poll`) is drawn greyed with this reason; the database holds the same rule (`chat_polls_one_open_per_thread`).
  * A SENT poll never keeps the (+) shut — only its draft does (the 8 Nov one-(+)-card rule).
  */
+/**
+ * ⤴ The drafts that RISE FULL SCREEN instead of filling a card at the foot of the chat (DECISION_LOG 2026-11-16 CHAT-09):
+ * the poll and the decision. Their card draws itself through `RiseScreen` (`ChatStepCard`'s `rise`); the openers do not
+ * scroll the chat to them, and the stream hides its jump row while one is up.
+ */
+export const RISING_DRAFTS: ReadonlySet<PlusCardKind> = new Set<PlusCardKind>(['poll', 'decision']);
+
 export const ONE_POLL_REASON = 'One poll at a time · close the open one first';
 
 /** The Poll row — under Chat, right after Decision, on both sides (the host's chat mirrors the supplier's, 8 Nov 🪞). */
@@ -128,8 +135,15 @@ function pollRow(pollOpen: boolean | undefined): PlusRow {
   };
 }
 
-/** Before any quote, the supplier's first Negotiate row — the shipped builder's own name (`VENDOR_THREAD_TOOLS` build-quote). */
+/** The shipped builder's own name (`VENDOR_THREAD_TOOLS` build-quote) — "Full quotation" in the Make a quote card. */
 export const SEND_A_QUOTE_LABEL = 'Send a quote';
+
+/**
+ * 🧾 Before any quote, the supplier's first Negotiate row (cut 7, 2026-11-14): a CARD in the chat — pick cards, the
+ * offer, Good until (filled, 14 days), a note — that lands as the shipped quote card. Its Full quotation opens the
+ * builder. It was a door straight to the builder (walk 13 Nov), which left the chat for ~8 taps.
+ */
+export const MAKE_A_QUOTE_LABEL = 'Make a quote';
 
 /** See every version — both sides, last in Negotiate. */
 const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
@@ -158,7 +172,8 @@ export function supplierPlusRows(opts: {
     // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
     // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
     noQuoteYet
-      ? { key: 'quote', label: SEND_A_QUOTE_LABEL, line: 'From your card, a saved quote or blank', card: null, door: 'build-quote' }
+      ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
+        { key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' }
       : {
           key: 'quote',
           label: 'Change quote',

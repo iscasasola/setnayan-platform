@@ -273,7 +273,7 @@ export type GalleryAsset = {
   credit: string;
   /** So a couple can walk from the photo to the shop. */
   vendorProfileId: string;
-  /** The shop's public page (`/v/<slug>`) — Studio's "Shop ›"; null when the shop has no address yet. */
+  /** The shop's public page (`/<slug>`) — Studio's "Shop ›"; null when the shop has no address yet. */
   shopSlug: string | null;
   /** The 6 sampled colours written onto the board row when this is picked. */
   swatches: string[];
@@ -286,6 +286,14 @@ export type GalleryAsset = {
    * raw event id is not).
    */
   isEventLinked: boolean;
+  /**
+   * 🏷 A photo a supplier tagged from Files (DECISION_LOG 2026-11-14, ruling 4): its event as TYPE · VENUE · MONTH —
+   * "Wedding · Makati Shangri-La · Sep 2026" — never a name, never an id. Read through
+   * `inspiration_tag_event_lines` for a tag that is publicly shown right now; absent for every other photo.
+   */
+  eventLine?: string | null;
+  /** 🏷 The other inspirations the same Files photo is shown in ("Also in"). */
+  alsoIn?: { slotKey: string; label: string }[];
 };
 
 export type GalleryPage = {

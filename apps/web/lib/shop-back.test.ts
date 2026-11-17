@@ -21,7 +21,7 @@
  *      in; and the foot door is drawn only cold ("The low button stays for cold arrivals") — never two "Back"s.
  *
  * Sabotage (each must fail): put `<Link href="/explore" …>Back to suppliers` back on the shop page; return
- * `/explore` for `discover`; make "See the shop" on Check a date a bare `/v/${…}`; drop `withShopArrival` from the
+ * `/explore` for `discover`; make "See the shop" on Check a date a bare `/${…}`; drop `withShopArrival` from the
  * Discover shelf's ShopCard. 2026-11-12: drop the header `<BackButton … inPlace />`; make `shopTopBack`'s cold
  * signed-out fallback `/explore`; draw the foot door with an arrival too.
  */
@@ -51,13 +51,13 @@ const EVENT = 'c0ffee00-0000-4000-8000-000000000001';
 const CASES: ReadonlyArray<[string, { src: string | null; eventId: string | null }, string, boolean]> = [
   ['Discover shelf', { src: 'discover', eventId: null }, '/', true],
   ['Discover search', { src: 'search', eventId: null }, '/', true],
-  ['the marketplace', { src: 'explore', eventId: null }, '/explore', true],
+  ['the marketplace (now inside Discover)', { src: 'explore', eventId: null }, '/', true],
   ['a saved supplier', { src: 'favorites', eventId: null }, '/dashboard?seg=memories&tab=vendors', true],
   ["an event's Suppliers", { src: null, eventId: EVENT }, `/dashboard/${EVENT}/vendors`, true],
-  ['the marketplace, then an event picked', { src: 'explore', eventId: EVENT }, '/explore', true],
+  ['the marketplace, then an event picked', { src: 'explore', eventId: EVENT }, '/', true],
   ['Discover, then an event picked', { src: 'discover', eventId: EVENT }, '/', true],
-  ['a Journal credit (no back of its own)', { src: 'editorial', eventId: null }, '/explore', false],
-  ['a shared link', { src: null, eventId: null }, '/explore', false],
+  ['a Journal credit (no back of its own)', { src: 'editorial', eventId: null }, '/', false],
+  ['a shared link', { src: null, eventId: null }, '/', false],
 ];
 
 for (const [who, arrival, href, back] of CASES) {
@@ -69,11 +69,14 @@ for (const [who, arrival, href, back] of CASES) {
   });
 }
 
-test('"Back" never lands on /explore unless the visit came from /explore', () => {
+test('no door goes to /explore (it only forwards to Discover), and a door named for a place lands on that place', () => {
   for (const s of [null, ...Object.values(SHOP_ARRIVAL_SRC), 'editorial', 'nonsense']) {
     for (const eventId of [null, EVENT]) {
       const door = shopBackDoor({ src: s, eventId });
-      if (door.back && door.href === '/explore') assert.equal(s, 'explore', `src=${s} event=${eventId}`);
+      assert.notEqual(door.href, '/explore', `src=${s} event=${eventId}`);
+      // W1 15 Nov: "Suppliers" landed on Discover. "Suppliers" now only ever opens an event's Suppliers.
+      if (/suppliers$/i.test(door.label) && door.back && !/saved/i.test(door.label)) assert.match(door.href, /^\/dashboard\/[^/]+\/vendors$/, `src=${s} event=${eventId}`);
+      if (/Discover$/.test(door.label)) assert.equal(door.href, '/', `src=${s} event=${eventId}`);
     }
   }
 });
@@ -93,9 +96,9 @@ test('every screen the shop opens carries the arrival there and back', () => {
   for (const [, arrival] of CASES) {
     const before = shopBackDoor(arrival);
     const out = [
-      withShopArrival('/v/setnaprod/dates', arrival),
+      withShopArrival('/setnaprod/dates', arrival),
       withShopArrival('/setnaprod?reviewsPage=2#reviews', arrival),
-      withShopArrival('/v/setnaprod/booth', arrival),
+      withShopArrival('/setnaprod/booth', arrival),
       withShopArrival('/setnaprod', arrival, { wl: 'joined' }),
     ];
     for (const href of out) {
@@ -107,7 +110,7 @@ test('every screen the shop opens carries the arrival there and back', () => {
     }
   }
   assert.equal(withShopArrival('/x?reviewsPage=2#reviews', { src: 'discover' }), '/x?reviewsPage=2&src=discover#reviews');
-  assert.equal(shopHrefForEvent('setnaprod', EVENT, '#reviews'), `/v/setnaprod?event=${EVENT}#reviews`);
+  assert.equal(shopHrefForEvent('setnaprod', EVENT, '#reviews'), `/setnaprod?event=${EVENT}#reviews`);
 });
 
 test('Share sends the shop page, never where this visitor came from', () => {
@@ -135,11 +138,13 @@ test('the shop page draws its back door from shopBackDoor — no fixed /explore 
 });
 
 test('Check a date, the booth and the waitlist send you back onto the shop with the arrival', () => {
+  // SHOP-02 v7: Check a date is a sheet OVER the shop. "See the shop" is gone (× is the one way out) and × lands on the
+  // shop carrying the arrival; the printed address forwards with it.
   const cal = src('app/v/[slug]/dates/_components/check-a-date-calendar.tsx');
-  assert.ok(!/href=\{`\/v\/\$\{encodeURIComponent\(shop\.slug\)\}`\}/.test(cal), '"See the shop" dropped the arrival');
-  assert.equal((cal.match(/label="See the shop" href=\{shopHref\}/g) ?? []).length, 2);
-  assert.match(src('app/v/[slug]/dates/page.tsx'), /withShopArrival\(`\/v\/\$\{encodeURIComponent\(slug\)\}`, arrival\)/);
-  assert.match(src('app/v/[slug]/booth/page.tsx'), /withShopArrival\(`\/v\/\$\{slug\}`/);
+  assert.equal((cal.match(/label="See the shop"/g) ?? []).length, 0, '"See the shop" came back — × is the one way out');
+  assert.match(src('app/v/[slug]/page.tsx'), /shopHref=\{withShopArrival\(`\$\{shopPath\(vendor\.business_slug \?\? slug\)\}`, shopArrival\)\}/);
+  assert.match(src('lib/check-a-date.ts'), /withShopArrival\(shopPath\(encodeURIComponent\(slug\)\), arrivalParams\(search\), extra\)/);
+  assert.match(src('app/v/[slug]/booth/page.tsx'), /withShopArrival\(`\$\{shopPath\(slug\)\}`/);
   const wl = src('app/v/[slug]/waitlist-actions.ts');
   assert.ok(!/redirect\(`\$\{backTo\}\?wl=/.test(wl), 'a waitlist redirect dropped the arrival');
   assert.match(wl, /withShopArrival\(backTo, arrival/);
@@ -147,7 +152,7 @@ test('Check a date, the booth and the waitlist send you back onto the shop with 
 
 test('the doors into a shop say where they are', () => {
   assert.match(src('app/_components/frontdoor/front-door-feed.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.discover \}\)/);
-  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search \}\)/);
+  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search, q: query \}\)/);
   assert.match(src('app/(shell)/explore/_components/vendor-card.tsx'), /\?src=explore/);
   for (const rel of [
     'app/dashboard/[eventId]/vendors/categories/page.tsx',
@@ -184,7 +189,9 @@ test('‹ with an arrival goes to the SAME place as the arrival’s own door, na
     }
   }
   assert.equal(shopTopBack({ src: 'discover', eventId: null }, false).label, 'Discover');
-  assert.equal(shopTopBack({ src: 'explore', eventId: null }, true).label, 'Suppliers');
+  // W1 15 Nov: this read "Suppliers" and landed on Discover. The words and the place now agree.
+  assert.deepEqual(shopTopBack({ src: 'explore', eventId: EVENT }, true), { href: '/', label: 'Discover' });
+  assert.deepEqual(shopTopBack({ src: null, eventId: EVENT }, true), { href: `/dashboard/${EVENT}/vendors`, label: 'Suppliers' });
   assert.equal(shopTopBack({ src: 'favorites', eventId: null }, true).label, 'Saved suppliers');
 });
 

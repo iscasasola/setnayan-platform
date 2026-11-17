@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { SAMPLE_SHOP_PLANS, samplePeekDays, samplePlanCaption, samplePlanShop } from './_components/sample-shop-plan';
+import { SAMPLE_SHOP_PLANS, samplePlanCaption, samplePlanShop } from './_components/sample-shop-plan';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
@@ -27,7 +27,6 @@ test('the sample mounts the shipped shop-page pieces — the same ones /v/[slug]
     ['ShopHero', './shop-hero'],
     ['ShopSectionBar', './shop-section-bar'],
     ['ShopCanDoPanel', './shop-can-do-panel'],
-    ['OpenDatesPeek', './open-dates-peek'],
     ['NotYetVerifiedNotice', './not-yet-verified-notice'],
   ] as const) {
     assert.match(SAMPLE, new RegExp(`import \\{[^}]*\\b${piece}\\b[^}]*\\} from '${from.replace('.', '\\.')}';`), `${piece} is not imported`);
@@ -54,18 +53,20 @@ test('the look follows verified, like the page — never a plan', () => {
 test('one Inquire, and a drawing has no door to a shop that does not exist', () => {
   assert.equal((SAMPLE.match(/^\s*Inquire\s*$/gm) ?? []).length, 1, 'the sample draws more than one Inquire');
   assert.doesNotMatch(SAMPLE, /<(a|Link)\b[^>]*href=/, 'the sample links somewhere — it is a drawing');
-  assert.match(SAMPLE, /<OpenDatesPeek days=\{samplePeekDays\(todayInManila\(\)\)\} checkHref=\{null\} \/>/);
-  assert.match(SAMPLE, /<ShopCanDoPanel checkHref=\{null\}/);
+  assert.match(SAMPLE, /<ShopCanDoPanel hasPackages=\{false\}/);
   assert.match(SAMPLE, /<CheckADateLink href=\{null\}/);
+  // RW-81 (walk 13 Nov 2026): the map's "View larger map →" too — every map the sample draws passes `mapHref={null}`,
+  // and both map components honour it by drawing no <a>.
+  const maps = SAMPLE.match(/<ShopReachMap\b[^>]*\/>/g) ?? [];
+  assert.ok(maps.length >= 1, 'the sample no longer draws its map — re-anchor this check');
+  for (const m of maps) assert.match(m, /mapHref=\{null\}/, `a sample map still links out: ${m}`);
+  assert.doesNotMatch(SAMPLE, /<VendorLocationMap\b(?![^>]*mapHref=\{null\})[^>]*\/>/, 'a sample VendorLocationMap links out');
+  for (const f of ['app/v/[slug]/_components/shop-reach.tsx', 'app/_components/vendor-location-map.tsx']) {
+    assert.match(read(f), /mapHref === null \?/, `${f} no longer draws the map link without a link for the sample`);
+  }
   // Its anchors are its own, per plan: five drawings on one page must not share an id or a ↑ Top target.
   assert.match(SAMPLE, /const id = \(part: string\) => `sample-\$\{plan\}-\$\{part\}`;/);
   assert.match(SAMPLE, /<ShopSectionBar tabs=\{tabs\} topId=\{id\('top'\)\} \/>/);
-});
-
-test('the sample peek shows both states on coming Saturdays', () => {
-  const days = samplePeekDays('2026-11-13');
-  assert.equal(days[0]!.iso, '2026-11-14');
-  assert.deepEqual(days.map((d) => d.open), [true, false, true, true, true]);
 });
 
 test('/for-coordinators presents the page itself, through the same miniature row as /for-suppliers', () => {

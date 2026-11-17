@@ -1,3 +1,4 @@
+import { paymentStillWaiting } from '@/lib/payment-logged';
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -9,6 +10,7 @@ import {
 } from '@/lib/admin/completions-stuck';
 import { ACTIVE_STATUSES, BUNDLE_CHILD_SKUS } from '@/lib/entitlements';
 import { formatCount } from '@/lib/format-number';
+import { countOpenProblems } from '@/lib/telemetry/problem-merge';
 import { FAILED_DELIVERY_EVENTS, SUMMARY_WINDOW_MS } from '@/lib/email-delivery-log';
 
 /**
@@ -405,6 +407,42 @@ export async function countStuckCompletions(
  * confident wrong total, which is how an admin is told there is less work
  * waiting than there is.
  */
+/**
+ * 🧾 AW-4 (admin walk 14 Nov 2026): payments still waiting on an admin. A head count of `status = 'pending'` also
+ * counted a bill's placeholder row whose order was already paid (its logged payment matched, a receipt issued), so
+ * Work said "2 waiting" over one real item. Pending rows are few, so they are read and judged by the ONE rule
+ * (`paymentStillWaiting`, lib/payment-logged.ts) the Payments desk and the Work drawer use. A refused read is null.
+ */
+/* 🔑 The payments queue's count carries both rules (merge of AW-4 + walk RW-308a, 14 Nov 2026): an order already PAID
+   is not waiting on you (RW-308a — through the order, inner join; `payments.order_id` is NOT NULL, so no payment is
+   lost), and a bill's placeholder on a paid order is not either (AW-4, `paymentStillWaiting`). `readPaymentLights`
+   reads the same way, so the count and the cards agree. */
+export async function countPaymentsWaiting(
+  admin: SupabaseClient,
+  _nowMs: number,
+): Promise<AdminQueueDigestRow> {
+  const { data, error } = await admin
+    .from('payments')
+    .select('created_at, status, reference_number, screenshot_url, order:orders!inner(status)')
+    .eq('status', 'pending')
+    // RW-308a: an order already paid is not waiting on anyone.
+    .neq('order.status', 'paid')
+    .order('created_at', { ascending: true })
+    .limit(5000);
+  if (error || !Array.isArray(data)) {
+    logQueryError('countPaymentsWaiting', error ?? null, {}, 'graceful_degrade');
+    return { count: null, oldestAt: null };
+  }
+  const waiting = (data as unknown as Array<{
+    created_at: string;
+    status: string;
+    reference_number: string | null;
+    screenshot_url: string | null;
+    order: { status: string | null } | null;
+  }>).filter((p) => paymentStillWaiting(p, p.order?.status));
+  return { count: waiting.length, oldestAt: waiting[0]?.created_at ?? null };
+}
+
 export async function countOpenDisputes(
   admin: SupabaseClient,
   _nowMs: number,
@@ -556,7 +594,10 @@ const QUEUE_DEFS: QueueDef[] = [
     table: 'payments',
     lane: 'money',
     slaHours: 24,
+    // Coarse cut only — the COUNT comes from `digest`, which also drops a bill's placeholder on an order already paid
+    // (AW-4). Every consumer that LISTS rows applies the same `paymentStillWaiting` after this filter.
     filter: (q) => q.eq('status', 'pending'),
+    digest: countPaymentsWaiting,
   },
   // lane money — a vendor is waiting for money.
   {
@@ -804,6 +845,8 @@ const QUEUE_DEFS: QueueDef[] = [
     slaHours: null,
     filter: (q) => q.eq('status', 'open'),
     tsCol: 'first_seen',
+    // RW-285e: the count is the Problems page's own merged rows, never the raw row count.
+    digest: (admin) => countOpenProblems(admin),
     digestLine: { label: 'Problems', say: (n) => `${formatCount(n)} ${n === 1 ? 'thing is' : 'things are'} failing in the app` },
   },
   {

@@ -114,7 +114,8 @@ export function stepName(t: number): string | null {
   return tierForStep(t)?.name ?? null;
 }
 
-function milestoneBadge(t: number): ShopBadge {
+/** One milestone step as its pill — also the gift moment's old → new badge (`lib/gift-moment.ts`). */
+export function milestoneBadge(t: number): ShopBadge {
   const name = stepName(t);
   return {
     key: `milestone:${t}`,
@@ -326,6 +327,13 @@ export function nextToEarnLine(completedEvents: number | null): string | null {
   if (completedEvents === null) return null;
   const l = milestoneLadder(completedEvents);
   return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${stepName(l.next)} · ${COUNT.format(l.toGo!)} to go`;
+}
+
+/** The Shop header's one-line form (owner 17 Nov — the long form wrapped to two lines at 390): "Next badge: 10 events · 10 to go". */
+export function nextBadgeShort(completedEvents: number | null): string | null {
+  if (completedEvents === null) return null;
+  const l = milestoneLadder(completedEvents);
+  return l.next === null ? null : `Next badge: ${COUNT.format(l.next)} events · ${COUNT.format(l.toGo!)} to go`;
 }
 
 /* ── Shop › How it is going — the badges shelf (owner 2026-10-29) ───────────────────────────────────────────── */

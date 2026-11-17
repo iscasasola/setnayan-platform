@@ -328,8 +328,22 @@ const securityHeaders = [
   },
 ];
 
+/*
+ * ─── THE /dev LABS ARE NOT BUILT FOR PRODUCTION (2026-11-14) ─────────────────
+ * Every route file under app/dev is named `page.lab.tsx` / `layout.lab.tsx` / `route.lab.ts`.
+ * `next dev` (labs, `E2E_LABS=1`, the lab e2e specs) treats `lab.tsx`/`lab.ts` as page extensions;
+ * `next build` / `next start` (NODE_ENV=production — Vercel production AND previews) do not, so the
+ * labs are never compiled: no page, no .rsc route, no server-action id counts toward Vercel's
+ * 2,048-route cap. The `notFound()` gate in app/dev/layout.lab.tsx stays as the second lock.
+ * Held by app/dev/the-labs-never-ship.test.ts.
+ */
+const PAGE_EXTENSIONS = ['tsx', 'ts', 'jsx', 'js'];
+const LAB_PAGE_EXTENSIONS = ['lab.tsx', 'lab.ts'];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  pageExtensions:
+    process.env.NODE_ENV === 'production' ? PAGE_EXTENSIONS : [...LAB_PAGE_EXTENSIONS, ...PAGE_EXTENSIONS],
   /*
    * WHICH BUILD THIS BUNDLE IS, readable from the browser.
    *
@@ -707,7 +721,7 @@ const nextConfig: NextConfig = {
   // files in public/ are served directly by Next.js; the rewrite is a
   // URL-only remap so a deep-link in marketing email or social card lands
   // on the right slide deck without a 404 + redirect dance.
-  // 2026-06-14 — Real Weddings showcase renamed `/weddings` → `/realstories`
+  // 2026-06-14 — Real Weddings showcase renamed /weddings → /realstories (retired 2026-11-16, see below)
   // (owner "rename it as /realstories"). 301-redirect the old paths so the
   // already-indexed `/weddings` URLs consolidate their ranking to the new path
   // and any in-flight nav links still pointing at `/weddings` (the nav PR #1391
@@ -726,6 +740,18 @@ const nextConfig: NextConfig = {
       {
         source: '/help/papic-pool-vs-papic-one',
         destination: '/help/papic-giving-a-camera-its-own-shots',
+        permanent: true,
+      },
+      // 2026-11-14 — the bank account proof is no longer a verification paper
+      // (owner, DECISION_LOG f69ec167: "delete bank account proof. we do not
+      // need that. just the 3. DTI/SEC, BIR, Mayor's/Business Permit"). Its
+      // guide was removed; the address is kept and lands on the verification
+      // answer, which names the three papers, instead of a 404. (It pointed at
+      // /help#getting-verified until main split lib/help.ts into lib/help/*.ts,
+      // which put that section out of the root map's sight.)
+      {
+        source: '/help/how-to-prepare-bank-account-proof',
+        destination: '/help/how-are-vendors-verified',
         permanent: true,
       },
       /*
@@ -758,8 +784,10 @@ const nextConfig: NextConfig = {
         a page nobody can have linked to.
       */
       { source: '/why-setnayan', destination: '/features', permanent: true },
-      { source: '/weddings', destination: '/realstories', permanent: true },
-      { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+      // 2026-11-16 — the stories hub is retired and forwards to Discover (owner, DECISION_LOG "RETIRED ADDRESSES
+      // FORWARD"), so the older /weddings address goes STRAIGHT there: one hop, never via the stories hub.
+      { source: '/weddings', destination: '/', permanent: true },
+      { source: '/weddings/:slug', destination: '/', permanent: true },
       // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`
       // (owner routing change). Permanent (308) so already-indexed URLs,
       // bookmarks, email links, and QR codes carry their ranking to the new
@@ -786,7 +814,8 @@ const nextConfig: NextConfig = {
       // (307) on purpose: the verdict's Phase S4 leaves room for a future
       // standalone page once chapter volume outgrows the shelf — a permanent
       // redirect would be cached against that promotion.
-      { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
+      // 2026-11-16 — the stories hub it pointed into is retired (forwards to Discover), so it goes straight there.
+      { source: '/storytellers', destination: '/', permanent: false },
       // 2026-07-25 — Live Studio route rename: the customer-facing surface moved
       // from `/studio/live-studio-roam` → `/studio/live-studio-control` (owner:
       // "one unified controller, not Cast-vs-Roam"). Redirect the old path (detail

@@ -10,8 +10,8 @@
  *   3 · closed still lets through what is not a supplier booking: the couple's own hand-added rows, a
  *       shortlist, and a claim approval's link stamped onto an already-booked hand-added row (the founders'
  *       event, "cater our event");
- *   4 · open (TRUE) ⇒ today's behaviour exactly: a verified shop books, an unverified one is still refused by
- *       the verified trigger; FALSE is closed again.
+ *   4 · open (TRUE) ⇒ today's behaviour exactly: a verified shop books, an unverified one books too (2026-11-15
+ *       "We allow booking"), a rejected one is still refused by the verified trigger; FALSE is closed again.
  * The app half (each door asks first, the fee mint makes nothing) is `lib/bookings-closed-doors.test.ts`.
  */
 import { test, before, after } from 'node:test';
@@ -22,16 +22,17 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 let replay: ReplayResult;
 let db: ReplayResult['db'];
 
-async function newVendor(email: string, state: 'unverified' | 'verified'): Promise<string> {
+async function newVendor(email: string, state: 'unverified' | 'verified' | 'rejected'): Promise<string> {
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email, raw_user_meta_data)
      VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
     [email],
   );
   const v = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
      VALUES ($1, 'Closed Gate Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state,
-             CASE WHEN $2 = 'verified' THEN NOW() END)
+             CASE WHEN $2 = 'verified' THEN NOW() END,
+             (CASE WHEN $2 = 'verified' THEN 'verified' ELSE 'hidden' END)::public.vendor_public_visibility)
      RETURNING vendor_profile_id`,
     [u.rows[0]!.id, state],
   );
@@ -126,7 +127,7 @@ test('3 · closed: the couple’s own rows, a shortlist, and a claim approval’
   assert.equal(await insertRow(await newEvent(), shortlist, 'shortlisted'), null, 'a shortlist is not a booking');
 });
 
-test('4 · open: today’s behaviour exactly — verified books, unverified is still refused by verification', async () => {
+test('4 · open: today’s behaviour exactly — verified and unverified book, rejected is still refused by verification', async () => {
   await setSwitch(true);
   const r = await db.query<{ open: boolean }>(`SELECT public.bookings_are_open() AS open`);
   assert.equal(r.rows[0]!.open, true);
@@ -134,8 +135,10 @@ test('4 · open: today’s behaviour exactly — verified books, unverified is s
   const verified = await newVendor('open-verified@gate.test', 'verified');
   assert.equal(await insertRow(event, verified, 'contracted'), null, 'a verified shop books while open');
   const unverified = await newVendor('open-unverified@gate.test', 'unverified');
-  const err = await insertRow(await newEvent(), unverified, 'contracted');
-  assert.match(String(err), /vendor_not_verified/, 'opening bookings must not open them to unverified shops');
+  assert.equal(await insertRow(await newEvent(), unverified, 'contracted'), null, 'an unverified shop books while open (15 Nov)');
+  const rejected = await newVendor('open-rejected@gate.test', 'rejected');
+  const err = await insertRow(await newEvent(), rejected, 'contracted');
+  assert.match(String(err), /vendor_not_verified/, 'opening bookings must not open them to rejected shops');
   assert.doesNotMatch(String(err), /bookings_closed/);
 });
 

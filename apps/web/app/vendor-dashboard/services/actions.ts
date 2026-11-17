@@ -97,6 +97,7 @@ import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { cardPhotoFields } from '@/lib/card-photos';
 import { SERVICE_REQUESTS_HREF, SERVICE_REQUEST_NEW_HREF, sameNameKey } from '@/lib/service-requests';
 import { draftSaysExisting, loadRequestTree } from '@/lib/service-requests.server';
 
@@ -316,10 +317,26 @@ function parseSetnayanGift(formData: FormData): boolean {
  * which the explore + public cards already render (logo/placeholder fallback).
  */
 function parsePrimaryPhoto(formData: FormData): string | null {
+  return parseCardPhotos(formData).primary_photo_r2_key;
+}
+
+/**
+ * 🖼 THE CARD'S PHOTOS, READ AS ONE LIST (owner 2026-11-13 — the maker draws the primary + the showcase photos as one
+ * gallery). Both stored fields come from here, through `cardPhotoFields` (lib/card-photos.ts), so the server keeps the
+ * grid's two rules whatever was posted: a card with photos always has a PRIMARY (the first showcase photo is promoted
+ * when none was posted), the primary never repeats in the showcase, and the showcase never passes the DB CHECK
+ * (`cardinality(showcase_photo_r2_keys) <= 5`). An event-album photo never goes on a card (`withoutAlbumRefs`).
+ */
+function parseCardPhotos(formData: FormData): { primary_photo_r2_key: string | null; showcase_photo_r2_keys: string[] } {
   const raw = formData.get('primary_photo_r2_key');
-  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-  // An event-album photo never goes on a card — no guest notice, no takedown reach (`withoutAlbumRefs`).
-  return withoutAlbumRefs([raw.trim()])[0] ?? null;
+  const primary = typeof raw === 'string' && raw.trim().length > 0 ? withoutAlbumRefs([raw.trim()])[0] ?? null : null;
+  const showcase = withoutAlbumRefs(
+    formData
+      .getAll('showcase_photo_r2_keys')
+      .map((v) => String(v).trim())
+      .filter((v) => v.length > 0),
+  );
+  return cardPhotoFields(primary, showcase);
 }
 
 /**
@@ -335,12 +352,8 @@ function parseShowcaseMedia(formData: FormData): {
   const videoRaw = formData.get('showcase_video_r2_key');
   const showcase_video_r2_key =
     typeof videoRaw === 'string' && videoRaw.trim().length > 0 ? videoRaw.trim() : null;
-  const showcase_photo_r2_keys = withoutAlbumRefs(
-    formData
-      .getAll('showcase_photo_r2_keys')
-      .map((v) => String(v).trim())
-      .filter((v) => v.length > 0),
-  ).slice(0, 5);
+  // One list with the primary (`parseCardPhotos`): never past the CHECK, never repeating the primary.
+  const { showcase_photo_r2_keys } = parseCardPhotos(formData);
   return { showcase_video_r2_key, showcase_photo_r2_keys };
 }
 
@@ -817,7 +830,9 @@ export async function createVendorService(formData: FormData) {
   const { data: existingRows } = await supabase
     .from('vendor_services')
     .select('category')
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    // A "Copy to another branch" card is the same service at another location — it uses no card (owner 2026-11-14).
+    .is('branch_copy_of', null);
   const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
   // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
@@ -2013,7 +2028,9 @@ export async function commitVendorService(formData: FormData) {
     const { data: existingRows } = await supabase
       .from('vendor_services')
       .select('category')
-      .eq('vendor_profile_id', profile.vendor_profile_id);
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      // A "Copy to another branch" card uses no card (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 10).
+      .is('branch_copy_of', null);
     const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
     if (caps.servicesPerLeaf !== Infinity) {

@@ -36,6 +36,9 @@ import {
   type ColourDomain,
 } from '@/lib/colour-access';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 
 type Result = { status: string };
 
@@ -96,28 +99,25 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
     .join('');
 
   return (
-    <section
-      id="colour-access"
-      aria-labelledby="colour-access-heading"
-      className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-    >
-      <header className="space-y-1">
-        <h2
-          id="colour-access-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 4 · 5 · 7 · 13): no card and no card inside it — the section's grey
+    // capitals with the explaining behind ⓘ, then a setting row (who, and the switch on the right; on/off a soft chip),
+    // the scope as plain lines, the log as hairline rows, and Reject the shared red pill.
+    <section id="colour-access" aria-labelledby="colour-access-heading" className="space-y-1">
+      <h2 id="colour-access-heading" className="mb-1 mt-[18px] flex items-center gap-2">
+        <Palette aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        <InfoTip
+          label="Colour access"
+          labelAs="span"
+          labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70"
+          align="start"
         >
-          <Palette aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Colour access
-        </h2>
-        <p className="text-xs text-ink/65">
-          Let this supplier adjust colours in their own part of your design — you’ll always
-          see what changed, and you can undo any single change without touching their
-          access.
-        </p>
-      </header>
+          Let this supplier adjust colours in their own part of your design — you’ll always see what changed, and you can
+          undo any single change without touching their access.
+        </InfoTip>
+      </h2>
 
-      <div className="rounded-lg border border-ink/10 bg-cream/70 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-ink/10 pb-4">
+      <div>
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-4 border-b border-ink/10 pb-3">
           <div className="flex items-center gap-3">
             <span
               aria-hidden
@@ -126,26 +126,14 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
               {initials || '—'}
             </span>
             <div>
-              <p className="text-sm font-bold text-ink">{displayName}</p>
-              <p className="text-xs text-ink/55">{tradeLine}</p>
+              <p className="text-[15px] font-semibold text-ink">{displayName}</p>
+              <p className="text-[13px] text-ink/70">{tradeLine}</p>
             </div>
           </div>
 
           {lane.length > 0 ? (
             <div className="flex flex-none items-center gap-2.5">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-[0.08em] ${
-                  isOn
-                    ? 'bg-success-100 text-success-900'
-                    : 'bg-ink/5 text-ink/50'
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="h-[5px] w-[5px] rounded-full bg-current"
-                />
-                {isOn ? 'On' : 'Off'}
-              </span>
+              <Badge tone={isOn ? 'ok' : 'quiet'}>{isOn ? 'On' : 'Off'}</Badge>
               <button
                 type="button"
                 role="switch"
@@ -172,29 +160,28 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
             keyed to the PERSON, and the workspace draws the Promote-your-
             coordinator card for them instead (Hosts fold, 2026-09-30). */}
         {lane.length === 0 ? (
-          <p className="pt-4 text-xs italic text-ink/55">
+          <p className="pt-3 text-sm text-ink/70">
             This trade doesn’t shape any colour on your board, so there’s nothing here to
             hand over. Florists, stylists and attire makers are the ones who can.
           </p>
         ) : isOn ? (
           <>
-            <p className="pt-4 text-[13px] leading-relaxed text-ink/70">
+            <p className="pt-3 text-sm leading-relaxed text-ink/70">
               Can change: <b className="font-semibold text-ink">{scopeLine(lane)}</b>.
               {laneIsWide(lane) ? '' : ' Nothing else in your board.'}
             </p>
             {laneIsWide(lane) ? (
-              <div className="mt-2.5 flex items-start gap-2.5 rounded-lg bg-terracotta/10 px-3.5 py-3 text-xs leading-relaxed text-ink/70">
+              <p className="mt-2 flex items-center gap-2 text-sm text-ink">
                 <span aria-hidden>🔑</span>
-                <span>
-                  <b className="font-semibold text-ink">Wider than most suppliers.</b> A change
-                  here can ripple into your palette, your 3D room, and anything else that
-                  reads your main colours. You’ll be notified every time, either way.
-                </span>
-              </div>
+                <InfoTip label="Wider than most suppliers" labelAs="span" labelClassName="font-semibold text-ink" align="start">
+                  A change here can ripple into your palette, your 3D room, and anything else that reads your main
+                  colours. You’ll be notified every time, either way.
+                </InfoTip>
+              </p>
             ) : null}
           </>
         ) : (
-          <p className="pt-4 text-[13px] italic text-ink/55">
+          <p className="pt-3 text-sm text-ink/70">
             Access is off. {displayName} cannot change any colours until you turn this on —
             turning it on or off never affects anything they’ve already built.
           </p>
@@ -203,11 +190,11 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
         {/* ── the log ─────────────────────────────────────────────────────── */}
         {lane.length > 0 ? (
           <>
-            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
+            <p className="mb-1 mt-[18px] text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
               Recent changes
             </p>
             {changes.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-ink/55">No changes yet.</p>
+              <p className="py-2 text-sm text-ink/70">No changes yet.</p>
             ) : (
               <ul className="divide-y divide-ink/10">
                 {changes.map((row) => (
@@ -232,7 +219,7 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
         ) : null}
 
         {message ? (
-          <p role="alert" className="mt-3 text-xs text-danger-700">
+          <p role="alert" className="mt-3 text-[13px] text-[rgb(var(--color-danger))]">
             {message}
           </p>
         ) : null}
@@ -263,7 +250,7 @@ export function ColourChangeRowView({
   const said = describeColourChange(row);
   const reverted = row.reverted_at !== null;
   return (
-    <li className="flex items-center gap-3 py-2.5">
+    <li className="flex min-h-14 items-center gap-3 py-2.5">
       <span
         aria-hidden
         className="h-[26px] w-[26px] flex-none rounded-md border border-ink/10"
@@ -271,29 +258,21 @@ export function ColourChangeRowView({
       />
       <div className="min-w-0 flex-1">
         <p
-          className={`text-[13px] ${reverted ? 'text-ink/45 line-through' : 'text-ink'}`}
+          className={`text-[15px] ${reverted ? 'text-ink/70 line-through' : 'text-ink'}`}
         >
           {said.what} — {said.from ? `${said.from} → ` : ''}
           <b className="font-semibold">{said.to}</b>
         </p>
-        <p className="mt-0.5 font-mono text-[10.5px] text-ink/45">
+        <p className="mt-0.5 text-[13px] text-ink/70">
           {formatWhen(row.created_at)}
           {row.actor_label ? ` · ${row.actor_label}` : ''}
           {showDomain ? ` · ${COLOUR_DOMAIN_LABEL[row.domain as ColourDomain] ?? row.domain}` : ''}
         </p>
       </div>
       {reverted ? (
-        <span className="px-1 py-1.5 text-xs italic text-ink/45">Reverted by you</span>
+        <Badge tone="quiet">Reverted by you</Badge>
       ) : (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onReject}
-          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-md bg-danger-100 px-2.5 py-1.5 text-xs font-semibold text-danger-700 dark:text-danger-800 transition-[filter] hover:brightness-95 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        >
-          <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          {busy ? 'Rejecting…' : 'Reject'}
-        </button>
+        <ActionButton tone="danger" icon={Undo2} label={busy ? 'Rejecting…' : 'Reject'} onClick={onReject} waiting={busy} />
       )}
     </li>
   );
@@ -308,5 +287,6 @@ function formatWhen(iso: string): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'Asia/Manila',
   });
 }

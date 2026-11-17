@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -41,10 +42,12 @@ export default async function EditorialReviewPage() {
           not know that leaving this queue alone leaves a couple waiting. */}
       <div>
         <PageMasthead title="Editorial review" />
-        <p className="text-sm text-ink/70">
-          Editorials are scanned for vulgarity (OpenAI Moderation) before the
+        <div>
+          <InfoTip label="How the review works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Editorials are scanned for vulgarity (OpenAI Moderation) before the
           couple sees their draft. Resolve red flags here, then unlock.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       {flagged.length > 0 && (
@@ -145,7 +148,7 @@ function EditorialRow({ row }: { row: RowData }) {
             : 'No date'}{' '}
           · Scanned{' '}
           {row.scan_completed_at
-            ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', {
+            ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                 month: 'short', day: 'numeric',
               })
             : 'not yet'}

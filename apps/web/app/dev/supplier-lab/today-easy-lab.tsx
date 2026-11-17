@@ -37,12 +37,13 @@ import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import type { SpotlightScript } from '@/lib/tours';
-import { LAB_PAPER_URLS, labSetupDetails, type LabDocs } from './page-lab';
+import { labPaperPayload, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
 import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
@@ -481,7 +482,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         serviceCount: labCards.length,
         docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : 'none',
         docsIn: 0,
-        docsTotal: 4,
+        docsTotal: REQUIRED_DOC_COUNT,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
         // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).
@@ -595,7 +596,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
               maker={<p className="py-6 text-center text-[13.5px] text-ink/65" data-lab-maker="">The service maker opens here, over Today — the shipped maker on the real page.</p>}
               qr={{ svg: qrSvg, url: LAB_SHOP_QR_URL }}
               tour={tourScript ? { script: tourScript, seen: false, lab: true } : null}
-              paperUrls={LAB_PAPER_URLS}
+              paperPayload={labPaperPayload(docs)}
               today={TODAY}
               lab
               gear={<TodaySettings />}
@@ -632,13 +633,13 @@ function sinceOf(c: WhatsNewCard): string {
   }
 }
 
-/** 🔎 DECISION_LOG 2026-11-07 — the notice an unverified shop sees once its first inquiry locked it out of Find. */
+/** 🔎 15 Nov ("Verified only"): no find lock speaks any more — the `findlock` moment now shows no notice. */
 function labFindLockNotice() {
   const n = findabilityNotice(
     shopFindability({
       publicVisibility: 'hidden',
       railShowing: false,
-      findLock: { state: 'locked', reason: 'inquiry', since: ago(20) },
+      findLock: { state: 'until_verified' },
     }),
   );
   return n ? { title: n.title, body: n.body, cta: n.cta ?? null } : null;

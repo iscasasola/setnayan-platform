@@ -8,6 +8,7 @@ import {
   type ServiceFaceDoor,
 } from '@/app/_components/service-face';
 import type { ServiceCard } from '@/lib/service-card-view-model';
+import type { ReactNode } from 'react';
 
 /**
  * The shop a marketplace card belongs to — its logo, its name, and the address
@@ -60,7 +61,9 @@ export function ServiceCardView({
   detailsHref,
   shop,
   path = null,
+  pathLead = null,
   coverUrl = null,
+  footer = null,
 }: {
   card: ServiceCard;
   detailsEnabled: boolean;
@@ -72,8 +75,14 @@ export function ServiceCardView({
   shop?: ServiceCardShop;
   /** "Mobile Bar · Booths, carts & bars" — the card's category, said on the face. */
   path?: string | null;
+  /** 📸 The card's service, pressable — opens photos by service (`ServiceFace` `pathLead`). */
+  pathLead?: { label: string; onPress: () => void; ariaLabel: string } | null;
   /** The card's own cover (`primary_photo_r2_key`, resolved). Falls back to its first photo — Find's rule. */
   coverUrl?: string | null;
+  /** Inside the card's own frame, under the face (`ServiceFace` `footer`): the card's badge row (badge build J3,
+   *  `card-badges/card-badge-row.tsx`), and on Shop › Services the shop's own meta line and action row too — so the
+   *  card is the ONE frame holding everything (owner 17 Nov, "i see so many spaces"). */
+  footer?: ReactNode;
 }) {
   // A LINK when the caller gave an address, a BUTTON when it gave a callback — one door, never two.
   const door: ServiceFaceDoor | undefined = !detailsEnabled
@@ -92,6 +101,7 @@ export function ServiceCardView({
       photos={c.photos}
       discount={c.discountLabel}
       path={path}
+      pathLead={pathLead}
       shop={
         shop
           ? { name: shop.name, href: shop.href, logoUrl: shop.logoUrl, verified: shop.verified, isDemo: shop.isDemo }
@@ -109,6 +119,7 @@ export function ServiceCardView({
         ) : null
       }
       door={door}
+      footer={footer}
     />
   );
 }

@@ -173,7 +173,7 @@ function fakeClient(tables: Record<string, Row[] | 'refused'>, calls: Call[]) {
   };
 }
 
-const LIVE = { public_visibility: 'verified', verification_state: 'verified', is_findable: true, same_day_available: true, tier_state: 'pro' };
+const LIVE = { public_visibility: 'verified', verification_state: 'verified', is_findable: true, papers_current: true, same_day_available: true, tier_state: 'pro' };
 const SHOPS: Row[] = [
   { vendor_profile_id: 'real-1', business_name: 'Real Shop', is_demo: false, ...LIVE },
   { vendor_profile_id: 'demo-1', business_name: 'Demo Shop', is_demo: true, ...LIVE },

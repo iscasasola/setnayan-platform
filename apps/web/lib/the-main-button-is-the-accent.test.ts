@@ -82,6 +82,10 @@ const OFF = BOTH.flatMap((b) => [`${b}:disabled`, `${b}[aria-disabled='true']`])
 
 /* The `:root` tokens the second button and the grey state name, as the stylesheet declares them. */
 const hexOf = (name: string): [number, number, number] => {
+  // A token may point at its kit twin (`--sn-surface: var(--m-paper)`, the token layer 14 Nov 2026): follow
+  // the alias to the hex it resolves to, so the contrast below is still measured on the real colour.
+  const alias = new RegExp(`${name}:\\s*var\\((--[\\w-]+)\\)\\s*;`).exec(css);
+  if (alias) return hexOf(alias[1]!);
   const m = new RegExp(`${name}:\\s*#([0-9a-fA-F]{6})\\b`).exec(css);
   assert.ok(m, `${name} is not a hex in the stylesheet`);
   const n = parseInt(m[1]!, 16);
@@ -156,7 +160,9 @@ test('(4) both are the full pill; “cannot be used yet” is grey and flat, for
 });
 
 test('(5) guest pages and public pages are not reached — and the one guest-look island inside a dashboard is left alone', () => {
-  assert.equal(DASH.length, 6, `the dashboards’ button rules are ${DASH.length}, not the six this guard reads`);
+  // 8 since 16 Nov 2026: the clean warm look's soft grey secondary and its hover (`:not(.sn-editorial *)`, so (c) below
+  // holds them out of the Look sample).
+  assert.equal(DASH.length, 8, `the dashboards’ button rules are ${DASH.length}, not the eight this guard reads`);
   /* (a) EVERY selector of every such rule starts at the dashboards' root: no dashboard root above, no match. */
   for (const r of DASH) for (const s of r.sels) assert.match(s, /^\.app-surface\s/, `“${s}” reaches a button outside the dashboards`);
   /* (b) …and that root is set by the three dashboards' layouts, nowhere else — never on a guest or a public page. */
@@ -171,10 +177,12 @@ test('(5) guest pages and public pages are not reached — and the one guest-loo
   /* ONE dev lab draws the supplier dashboard's root on purpose: `/dev/supplier-lab?…&shell=1` wraps a lab body in the
      REAL One Shell exactly as `app/vendor-dashboard/layout.tsx` does (2026-10-25), so a desktop walk sees the
      dashboard's own buttons. `/dev/*` is `notFound()` in production — never a guest or a public page.
-     `/dev/admin-shell-lab` (2026-11-13) does the same for the admin's five-tab shell, as `app/admin/layout.tsx` does. */
+     `/dev/admin-shell-lab` (2026-11-13) does the same for the admin's five-tab shell, as `app/admin/layout.tsx` does —
+     and `/dev/admin-people-lab` (2026-11-14) draws the People records inside that same shell, as `/dev/admin-money-lab`
+     draws the Money screens. */
   // `join/crew/[token]` (2026-10-29): a supplier's CREW phone on the shop's Event Hub — a supplier tool outside the
   // dashboard's frame on purpose (crew see no Today/Customers/Shop), not a guest or public page.
-  assert.deepEqual(setsRoot.sort(), ['app/admin/layout.tsx', 'app/dashboard/layout.tsx', 'app/dev/_components/supplier-lab-shell.tsx', 'app/dev/admin-shell-lab/page.tsx', 'app/join/crew/[token]/_components/crew-screens.tsx', 'app/vendor-dashboard/layout.tsx'], 'the dashboards’ root is set somewhere new — check it is not a guest or public page');
+  assert.deepEqual(setsRoot.sort(), ['app/admin/layout.tsx', 'app/dashboard/layout.tsx', 'app/dev/_components/supplier-lab-shell.tsx', 'app/dev/admin-money-lab/page.lab.tsx', 'app/dev/admin-people-lab/page.lab.tsx', 'app/dev/admin-shell-lab/page.lab.tsx', 'app/join/crew/[token]/_components/crew-screens.tsx', 'app/vendor-dashboard/layout.tsx'], 'the dashboards’ root is set somewhere new — check it is not a guest or public page');
   /* (c) THE ISLAND. The Maker's Look sample is guest look drawn inside a dashboard. A rule either cannot match in
          it (`:not(.sn-editorial *)`), or sets ONLY properties the island's own rule hands back — which is written
          later, outside every layer, at the same weight, so it wins. */

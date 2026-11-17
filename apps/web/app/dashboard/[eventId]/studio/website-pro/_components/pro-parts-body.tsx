@@ -5,6 +5,7 @@ import { InlineCheckoutDrawer, type InlineCheckoutDrawerProps } from '@/app/dash
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import {
+  EVENT_PLUS_SKU,
   FULL_PRO_SKU,
   HUB_PARTS,
   HUB_PARTS_ORDER_KEY,
@@ -15,6 +16,9 @@ import {
   type HubOwnershipView,
   type HubPartId,
 } from '@/lib/hub-parts';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
+import type { PlanKey } from '@/lib/plan-buy-doors';
 
 /**
  * 💎 THE PARTS PAGE'S BODY (owner 2026-10-22, prototype `pro_part_by_part_2026-10-22.html` frame 4) — everything it
@@ -22,7 +26,7 @@ import {
  * the Apply sheet's `?buy=` pick. No reads here, so the page and its lab (`/dev/pro-parts-lab`) draw the same thing.
  * Every figure is handed in; nothing is typed.
  *
- * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade Event Pro" → "no more by part as well on the
  * website"): the parts' catalogue rows are off sale, so no part price is handed in. Then the page is ONE unlock —
  * Everything — and the parts below are only the honest list of what it opens (each part's gates), with no price, no
  * button and no "counts toward" line. The catalogue is the one switch (`hubPartPrices().onSale`).
@@ -30,6 +34,8 @@ import {
 export type ProPartsBodyProps = {
   eventId: string;
   title: string;
+  /** The plan's own name — `COUPLE_WEBSITE_PRO`'s catalogue title (RW-306), never typed here. */
+  planName: string;
   back: { href: string; label: string };
   fromMaker: boolean;
   hubHref: string;
@@ -40,9 +46,13 @@ export type ProPartsBodyProps = {
   buy: string | undefined;
   settings: InlineCheckoutDrawerProps['settings'];
   vatRatePct: number;
+  /** 💰 Free · Event Plus above Event Pro, each read from the catalogue (F-W2-29). Absent in the lab → not drawn. */
+  plans?: PlanOfferFacts;
+  /** 💰 RW-13: the plan a public door opened this page for — its card is ringed and anchored (`#plan-<key>`). */
+  focusPlan?: PlanKey | null;
 };
 
-export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct }: ProPartsBodyProps) {
+export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct, plans, focusPlan = null }: ProPartsBodyProps) {
   const HERO = { label: title };
   const has = (o: HubOwnershipView | null, id: HubPartId) => Boolean(o && (o.full || o.parts.includes(id)));
   /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). */
@@ -57,7 +67,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
   const partsOnSale = HUB_PARTS.some((p) => partPrice(p.id) !== null);
 
   /* `?buy=` — the Apply sheet's pick, carried here: "style,motion" or "full". Unknown or owned parts are dropped. */
-  const buyFull = buy === 'full';
+  const buyFull = buy === 'full' || focusPlan === 'pro';
   const buyParts = buyFull
     ? []
     : (buy ?? '')
@@ -107,11 +117,21 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
         </p>
       </header>
 
+      {/* ── 💰 THE PLANS — Free · Event Plus, then Event Pro (the card below). Read, never typed. ── */}
+      {plans ? (
+        <PlanOffer
+          facts={plans}
+          focus={focusPlan}
+          proHeld={Boolean(active?.full || owned?.full)}
+          plusDrawer={(php) => drawer({ serviceKey: EVENT_PLUS_SKU, name: 'Event Plus', php, label: 'Get Event Plus' })}
+        />
+      ) : null}
+
       {/* ── EVERYTHING — one tap, on top. ── */}
       {active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', planName)} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
             Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''} and the &ldquo;Powered by Setnayan&rdquo; footer is off.
@@ -130,7 +150,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
           </p>
           <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Event Hub Pro order. Our team reconciles within one business day — everything unlocks
+            We&rsquo;ve received your {planName} order. Our team reconciles within one business day — everything unlocks
             automatically once it is approved.
           </p>
           <Link href={`/dashboard/${eventId}/orders`} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
@@ -138,7 +158,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           </Link>
         </div>
       ) : restPhp !== null ? (
-        <div className={`rounded-3xl bg-ink/[0.04] p-5 ${buyFull ? 'ring-2 ring-terracotta/50' : ''}`} data-pro-everything="buy">
+        <div id="plan-pro" className={`rounded-3xl bg-ink/[0.04] p-5 ${buyFull ? 'ring-2 ring-terracotta/50' : ''}`} data-pro-everything="buy">
           <p className="flex items-baseline justify-between gap-3">
             <span className="text-lg font-semibold text-ink">Everything</span>
             <span className="font-mono text-lg font-bold text-ink">{paidPhp > 0 ? `${formatPhp(restPhp)} more` : formatPhp(restPhp)}</span>
@@ -149,20 +169,30 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
               : partsOnSale
                 ? `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`
                 : `Everything below, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
+            {plans && proCreditsLine(plans.proCredits) ? ` ${proCreditsLine(plans.proCredits)}` : ''}
           </p>
           <div className="mt-3">
             {drawer({
               serviceKey: FULL_PRO_SKU,
-              name: partsOnSale ? 'Event Hub Pro · everything' : 'Event Hub Pro',
+              name: partsOnSale ? `${planName} · everything` : planName,
               php: restPhp,
               // The drawer's own trigger shows the figure beside the words — the label is words only.
-              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : 'Unlock Event Hub Pro',
+              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : `Unlock ${planName}`,
             })}
           </div>
         </div>
       ) : (
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
       )}
+
+      {/* ── 💎 EVENT ULTRA (#7601) — after Event Pro; the drawer quotes the difference for a Plus/Pro event. ── */}
+      {plans ? (
+        <UltraOffer
+          facts={plans}
+          focus={focusPlan === 'ultra'}
+          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Get Event Ultra' })}
+        />
+      ) : null}
 
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
       {partsOnSale && !active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (
@@ -175,7 +205,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           <div className="mt-3">
             {drawer({
               serviceKey: buyParts.length === 1 ? hubPart(buyParts[0]!).sku : HUB_PARTS_ORDER_KEY,
-              name: `Event Hub Pro · ${hubPartsLabel(buyParts)}`,
+              name: `${planName} · ${hubPartsLabel(buyParts)}`,
               php: chargeOf(buyPricePhp),
               label: `Unlock ${hubPartsLabel(buyParts)}`,
               ...(buyParts.length > 1 ? { hubParts: buyParts } : {}),
@@ -190,7 +220,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             { title: 'Big parts', parts: big },
             { title: 'Small parts', parts: small },
           ]
-        : [{ title: 'What Event Hub Pro unlocks', parts: HUB_PARTS }]
+        : [{ title: `What ${planName} unlocks`, parts: HUB_PARTS }]
       ).map((band) => (
         <section key={band.title} aria-label={band.title} data-pro-parts-band={band.title}>
           <p className="flex items-baseline justify-between border-b border-ink/15 pb-2 pt-2">
@@ -219,7 +249,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
                           <span className="text-sm font-semibold text-mulberry">Under review</span>
                         ) : php !== null ? (
                           <span className="inline-flex items-center gap-1.5 font-mono text-sm text-ink">
-                            <PaidMark state="try" bare label="Event Hub Pro" size="xs" /> {formatPhp(php)}
+                            <PaidMark state="try" bare label={planName} size="xs" /> {formatPhp(php)}
                           </span>
                         ) : null}
                         <ChevronRight aria-hidden className="h-4 w-4 text-ink/40 transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -240,7 +270,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
                         <div className="mt-3">
                           {drawer({
                             serviceKey: p.sku,
-                            name: `Event Hub Pro · ${p.name}`,
+                            name: `${planName} · ${p.name}`,
                             php: chargeOf(php),
                             label: `Unlock ${p.name}`,
                           })}

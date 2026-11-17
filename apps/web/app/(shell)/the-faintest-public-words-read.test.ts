@@ -6,8 +6,8 @@
  *     #A8A4A0 on the #F2F2F0 card, 2.2:1) and the card's hints (3.1:1);
  *   - the onboarding card's step eyebrow and "You can change this anytime"
  *     (ink/45 and ink/40, 2.6 and 2.3:1);
- *   - grey fine print: Real Stories' "The palette" / "The team", the blog's
- *     date lines (ink/45 at 10–12px, 2.6:1).
+ *   - (Real Stories' and the blog's grey fine print were here until both were
+ *     retired, 2026-11-16, PR #7847.)
  * Each is pinned where it is drawn, and the colour is checked by arithmetic.
  */
 import { test } from 'node:test';
@@ -64,14 +64,11 @@ test('the sign-in card labels, divider and hints are 12px and 4.5:1 on the card'
   assert.ok(hfg && ratio(hfg, '#f2f2f0') >= 4.5, `sign-in hints ${hfg} under 4.5:1`);
 });
 
-test('the onboarding card, Real Stories and blog fine print are not tiny or faint', () => {
+test('the onboarding card fine print is not tiny or faint', () => {
   const pins: Array<[string, string]> = [
     ['app/onboarding/_shared/setup-card.tsx', '{footer}</p>'],
     ['app/onboarding/_shared/setup-card.tsx', '{r.line}</p>'],
-    ['app/realstories/[slug]/page.tsx', '>The palette</p>'],
-    ['app/realstories/[slug]/page.tsx', '>The team</p>'],
-    ['app/blog/_components/story-card.tsx', '{metaLine(article)}</p>'],
-    ['app/(shell)/blog/page.tsx', '{metaLine(article)}</p>'],
+    // Real Stories' and the blog's fine-print pins left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
   ];
   const bad: string[] = [];
   for (const [file, needle] of pins) {

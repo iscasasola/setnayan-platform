@@ -122,7 +122,7 @@ export async function PriceBandsSurface({
             <>
               Last recomputed{' '}
               <strong>
-                {new Date(lastComputed).toLocaleString('en-PH', {
+                {new Date(lastComputed).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -166,7 +166,7 @@ export async function PriceBandsSurface({
             <>
               Last recomputed{' '}
               <strong>
-                {new Date(funnelLast).toLocaleString('en-PH', {
+                {new Date(funnelLast).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

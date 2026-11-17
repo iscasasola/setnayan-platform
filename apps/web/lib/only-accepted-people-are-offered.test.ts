@@ -26,6 +26,6 @@ test('one row per person — a confirmed connection is not listed again under th
 });
 
 test('the roster placeholder is never a guest’s name', () => {
-  assert.match(src, /if \(p\.name === ROSTER_UNNAMED\) continue;/);
+  assert.match(src, /if \(realNameOrNull\(p\.name\) === null\) continue;/); // RW-64: one rule for every stand-in name
   assert.match(stripComments(readFileSync(join(import.meta.dirname, 'people-roster.ts'), 'utf8')), /\?\? ROSTER_UNNAMED,/);
 });

@@ -61,24 +61,26 @@ export function LiveScheduleCard({ eventId, blocks, failed = false }: Props) {
   const { timed: upcoming, tba } = useMemo(() => upNext(blocks, venueNowMs()), [blocks]);
 
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-      <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-          <CalendarClock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+    // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 6 · 13 · 14): no box — grey capitals, the › to the full schedule on the
+    // label's row, one hairline row per chapter (time and place in plain grey words, never a 10 px typewriter caption).
+    <section aria-labelledby="day-of-up-next" className="space-y-1">
+      <header className="flex min-h-11 items-center justify-between gap-2">
+        <h2 id="day-of-up-next" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <CalendarClock aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={2} />
           Up next
-        </p>
+        </h2>
         <Link
           href={`/dashboard/${eventId}/schedule`}
-          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 hover:text-terracotta"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-terracotta-700 hover:underline"
         >
-          Full schedule <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Full schedule <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </header>
 
       {failed ? (
         <ScheduleUnread />
       ) : upcoming.length === 0 && tba.length === 0 ? (
-        <p className="text-sm text-ink/55">
+        <p className="py-2 text-sm text-ink/75">
           Nothing else queued for today.
         </p>
       ) : (
@@ -86,30 +88,30 @@ export function LiveScheduleCard({ eventId, blocks, failed = false }: Props) {
           {upcoming.map((b) => {
             const startMs = new Date(b.start_at).getTime();
             return (
-              <li key={b.block_id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+              <li key={b.block_id} className="flex min-h-14 items-start gap-3 py-3">
                 <span
                   aria-hidden
                   className="mt-1 inline-flex h-2 w-2 shrink-0 rounded-full bg-terracotta/60"
                 />
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="truncate text-sm font-medium text-ink">{b.label}</p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <p className="truncate text-[15px] font-semibold text-ink">{b.label}</p>
+                  <p className="text-[13px] text-ink/75">
                     {formatClock(b.start_at)}
                     {b.location ? ` · ${b.location}` : null}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-[11px] font-medium text-terracotta-700">
+                <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
                   {formatRelativeMs(startMs - venueNowMs())}
                 </span>
               </li>
             );
           })}
           {tba.map((b) => (
-            <li key={b.block_id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            <li key={b.block_id} className="flex min-h-14 items-start gap-3 py-3">
               <span aria-hidden className="mt-1 inline-flex h-2 w-2 shrink-0 rounded-full bg-ink/25" />
               <div className="min-w-0 flex-1 space-y-0.5">
-                <p className="truncate text-sm font-medium text-ink">{b.label}</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <p className="truncate text-[15px] font-semibold text-ink">{b.label}</p>
+                <p className="text-[13px] text-ink/75">
                   {TIME_TBA}
                   {b.location ? ` · ${b.location}` : null}
                 </p>
@@ -118,6 +120,6 @@ export function LiveScheduleCard({ eventId, blocks, failed = false }: Props) {
           ))}
         </ol>
       )}
-    </article>
+    </section>
   );
 }

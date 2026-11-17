@@ -57,7 +57,7 @@ export function SheetSections({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="sn-press inline-flex min-h-10 max-w-full items-center gap-1 rounded-full bg-ink/[0.06] px-3 text-[13px] font-semibold text-ink"
+        className="sn-press inline-flex min-h-11 max-w-full items-center gap-1 rounded-full bg-ink/[0.06] px-3 text-[13px] font-semibold text-ink"
       >
         <span className="min-w-0 truncate">{current ?? here}</span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
@@ -70,12 +70,12 @@ export function SheetSections({
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('button')) setOpen(false);
           }}
-          className="absolute right-0 top-full z-40 mt-1 flex max-h-[40dvh] w-[min(18rem,calc(100vw-2rem))] flex-col gap-0.5 overflow-y-auto rounded-xl bg-white p-1 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)] ring-1 ring-ink/10 [&_[data-details-piece]]:w-full [&_[data-details-piece]]:self-stretch [&_[data-details-piece]]:rounded-lg"
+          className="absolute right-0 top-full z-40 mt-1 flex max-h-[40dvh] w-[min(18rem,calc(100vw-2rem))] flex-col gap-0.5 overflow-y-auto rounded-xl bg-white p-1 shadow-sn-md ring-1 ring-ink/10 [&_[data-details-piece]]:w-full [&_[data-details-piece]]:self-stretch [&_[data-details-piece]]:rounded-lg"
         >
           {pieces ? <div className="flex flex-col gap-0.5">{pieces}</div> : null}
           {others.length > 0 ? (
             <>
-              {pieces ? <span className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">Also here</span> : null}
+              {pieces ? <span className="px-3 pb-1 pt-2 text-[12px] font-bold uppercase tracking-[0.14em] text-ink/70">Also here</span> : null}
               {items.map((i) => (
                 <button
                   key={i.key}

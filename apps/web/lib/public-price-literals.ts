@@ -91,23 +91,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────
 
-  // ── the ONE payment page · a BANK's fee, not ours ─────────────────────────
-  {
-    file: 'app/pay/[reference]/_components/pay-panel.tsx',
-    literal: '₱10',
-    sku: null,
-    reason:
-      "The InstaPay fee the payer's OWN bank charges to send into BDO (measured " +
-      '2026-07-31: ₱2.17 sent + ₱10 fee). Setnayan neither sets nor receives it; ' +
-      'it is on the page so a wallet payer picks the free GCash rail knowingly.',
-  },
-  {
-    file: 'app/pay/[reference]/_components/pay-panel.tsx',
-    literal: '₱15',
-    sku: null,
-    reason: 'Top of the same bank-side InstaPay fee range. Not a Setnayan charge.',
-  },
-
   // ── non-SKU figures: commission thresholds, free markers, examples ─────────
   /*
     ─── THREE MORE ENTRIES RETIRED 2026-09-22, THE SAME WAY AS 2026-08-13 ────
@@ -174,70 +157,70 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'A made-up supplier’s own "from" price on the DEV-ONLY lab service card (404 in production) that shows an approved couple photo — not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/inquire-lab/page.tsx',
+    file: 'app/dev/inquire-lab/page.lab.tsx',
     literal: '₱45,000',
     sku: null,
     reason:
       'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/inquire-lab/page.tsx',
+    file: 'app/dev/inquire-lab/page.lab.tsx',
     literal: '₱38,000',
     sku: null,
     reason:
       'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/supplier-chat-lab/page.tsx',
+    file: 'app/dev/supplier-chat-lab/page.lab.tsx',
     literal: '₱33,750',
     sku: null,
     reason:
       'A made-up 2nd-payment amount on a Due-now pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/supplier-chat-lab/page.tsx',
+    file: 'app/dev/supplier-chat-lab/page.lab.tsx',
     literal: '₱11,250',
     sku: null,
     reason:
       'A made-up receipt amount on a Waiting pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱80,000',
     sku: null,
     reason:
       'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱20,000',
     sku: null,
     reason:
       'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱15,000',
     sku: null,
     reason:
       'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱5,000',
     sku: null,
     reason:
       'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱30,000',
     sku: null,
     reason:
       'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
   },
   {
-    file: 'app/dev/clients-lab/page.tsx',
+    file: 'app/dev/clients-lab/page.lab.tsx',
     literal: '₱10,000',
     sku: null,
     reason:

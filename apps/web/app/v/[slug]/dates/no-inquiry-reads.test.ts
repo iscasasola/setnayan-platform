@@ -26,7 +26,13 @@ import path from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const WEB = path.resolve(__dirname, '../../../..');
-const ROUTE = 'app/v/[slug]/dates/page.tsx';
+/**
+ * SHOP-02 v7 (14 Nov 2026): Check a date opens as a sheet OVER the shop, so its reads start at the slot the shop page
+ * mounts on `?dates` — the entry walked here. The old `/v/[slug]/dates` address only forwards (asserted below). The shop
+ * page itself is NOT the entry: it carries the Inquire sheet, which talks to conversations by design.
+ */
+const ROUTE = 'app/v/[slug]/_components/check-a-date-over-shop.tsx';
+const OLD_ROUTE = 'app/v/[slug]/dates/page.tsx';
 const THE_SEND = 'app/v/[slug]/inquiry-actions.ts';
 
 export const INQUIRY_TABLES = [
@@ -91,7 +97,7 @@ export function walkRoute(entry: string): { reached: string[]; doors: string[]; 
 const walk = walkRoute(ROUTE);
 
 test('the walk sees the route: page, server read, pure answer and the client calendar are all reached', () => {
-  for (const must of [ROUTE, 'lib/check-a-date.server.ts', 'lib/check-a-date.ts', 'app/v/[slug]/dates/_components/check-a-date-calendar.tsx', 'lib/vendor-customers.ts']) {
+  for (const must of [ROUTE, 'lib/check-a-date.server.ts', 'lib/check-a-date-viewer.server.ts', 'lib/check-a-date.ts', 'app/v/[slug]/dates/_components/check-a-date-calendar.tsx', 'app/v/[slug]/dates/_components/seat-months.tsx', 'lib/vendor-customers.ts']) {
     assert.ok(walk.reached.includes(must), `the walk did not reach ${must} — it cannot vouch for what it never read`);
   }
   assert.ok(walk.reached.length >= 10, `only ${walk.reached.length} modules reached — the import walk is broken`);
@@ -123,4 +129,12 @@ test('one scan is ONE read: the title and the body share the request-cached read
   assert.match(server, /export const readCheckADate = cache\(/, 'the read the page calls is not request-cached — a scan pays for it twice');
   const page = stripComments(fs.readFileSync(path.join(WEB, ROUTE), 'utf8'));
   assert.doesNotMatch(page, /readCheckADateFresh/, 'the page calls the uncached read');
+});
+
+test('SHOP-02 v7 · the old address only forwards, and the shop mounts the walked slot only on ?dates', () => {
+  const old = stripComments(fs.readFileSync(path.join(WEB, OLD_ROUTE), 'utf8'));
+  assert.match(old, /redirect\(datesSheetHref\(slug, await searchParams\)\)/, 'the printed QR address no longer forwards to the sheet');
+  assert.doesNotMatch(old, /readCheckADate|createClient|fetchUserEvents/, 'the forwarding address reads something again');
+  const shop = stripComments(fs.readFileSync(path.join(WEB, 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.match(shop, /\{dateCheckable && search\.dates === '1' \? \(\s*<Suspense fallback=\{null\}>\s*<CheckADateOverShop/, 'the shop no longer mounts the walked slot on ?dates (or mounts it for an unverified shop)');
 });

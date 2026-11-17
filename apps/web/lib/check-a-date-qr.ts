@@ -1,6 +1,6 @@
 import { renderUrlQrSvg } from '@/lib/qr';
 import { siteOrigin } from '@/lib/site-origin';
-import { checkADateUrl } from '@/lib/check-a-date';
+import { ownDatesUrl } from '@/lib/supplier-qr-codes';
 
 /**
  * THE SHOP'S "CHECK A DATE" CODE (owner 2026-10-28, DECISION_LOG "🔳 ALL OF A SHOP'S QR CODES IN ONE PLACE — PLUS A
@@ -12,7 +12,7 @@ import { checkADateUrl } from '@/lib/check-a-date';
  * rasterises it and scans it back with `jsqr` to the exact address.
  */
 export async function checkADateQr(slug: string, origin: string = siteOrigin()): Promise<{ url: string; svg: string | null }> {
-  const url = checkADateUrl(origin, slug);
+  const url = ownDatesUrl(origin, slug); // 💳 RW-19: the supplier's own code → ?src=own
   const svg = await renderUrlQrSvg(url, 220).catch(() => null);
   return { url, svg };
 }

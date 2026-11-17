@@ -139,6 +139,8 @@ export type SetupFold = {
 export type SetupDocs = {
   /** The latest application's status (`vendor_verification_applications.status`), null when none. */
   status: string | null;
+  /** The required papers IN — counted by the papers' own rule (`isSlotComplete`, the same rule each paper row draws:
+   *  `paperState(...).isIn`, `lib/paper-intake-shared.ts`). */
   docsIn: number;
   docsTotal: number;
 };
@@ -165,6 +167,8 @@ export type SetupView = {
   folds: SetupFold[];
   done: number;
   of: number;
+  /** The papers are with Setnayan (sent for review, or approved) — "All done" may then say Setnayan checks you next. */
+  papersSent?: boolean;
   /** The fold that opens on arrival — the first one not done (none when all six are). */
   firstOpen: SetupFoldKey | null;
 };
@@ -198,6 +202,11 @@ export function assembleSetup(input: SetupInput): SetupView {
   const step = (k: string) => input.rail.steps.find((s) => s.key === k);
   const status = input.docs.status;
   const checking = status === 'pending_review' || status === 'in_review';
+  // 📄 THE SAME RULE THE PAPER ROWS USE (walk W1-B10, 16 Nov 2026): a paper is done once it is IN — the rows tick it
+  // ("Recognised" / "A person at Setnayan…"), so the step ticks when all of them are in, not only once they are sent.
+  // A send-back is not done (its named paper needs a new copy). The badge still names the Send while it is left.
+  const papersAllIn = input.docs.docsTotal > 0 && input.docs.docsIn >= input.docs.docsTotal;
+  const docsApproved = step('documents')?.state === 'done';
   const docsBadge: SetupFold['badge'] =
     step('documents')?.state === 'done'
       ? { word: 'Approved', tone: 'ok' }
@@ -207,7 +216,10 @@ export function assembleSetup(input: SetupInput): SetupView {
           ? { word: 'Needs a fix', tone: 'no' }
           : input.docs.docsIn === 0
             ? { word: 'none sent yet', tone: 'quiet' }
-            : { word: `${formatCount(input.docs.docsIn)} of ${formatCount(input.docs.docsTotal)} in`, tone: 'quiet' };
+            : papersAllIn
+              ? // Every paper row reads in — the one thing left is the Send.
+                { word: 'Send them', tone: 'wait' }
+              : { word: `${formatCount(input.docs.docsIn)} of ${formatCount(input.docs.docsTotal)} in`, tone: 'quiet' };
   const offer = input.offer;
   // ✓ ONLY WHEN ITS OWN METER IS FULL (owner 2026-11-06, the redesign's Today): "Your details" shows "7 of 8 in" —
   // the count of ITS rows — and is ticked from that same count, never from a different one.
@@ -243,7 +255,9 @@ export function assembleSetup(input: SetupInput): SetupView {
       title: 'Add your logo',
       line: 'Shows on your page and your QR',
       done: step('logo')?.state === 'done',
-      badge: step('logo')?.state === 'done' ? null : { word: 'Needed to go live', tone: 'quiet' },
+      // No "Needed to go live" since 2026-11-14 (owner, DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT";
+      // profile gate: "Yes, remove it") — the logo no longer gates verification, so the badge would be untrue.
+      badge: null,
     },
     {
       key: 'offer',
@@ -258,9 +272,10 @@ export function assembleSetup(input: SetupInput): SetupView {
       key: 'docs',
       n: 5,
       title: 'Send your documents',
-      line: 'Setnayan checks them before you go live',
-      // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing").
-      done: step('documents')?.state === 'done' || checking,
+      line: 'Setnayan checks them, then you get the Verified check',
+      // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing"). All
+      // papers in counts too — the rows below say so; the badge says the Send is left.
+      done: docsApproved || checking || (status !== 'rejected' && papersAllIn),
       badge: docsBadge,
     },
     {
@@ -273,12 +288,51 @@ export function assembleSetup(input: SetupInput): SetupView {
     },
   ];
   const done = folds.filter((f) => f.done).length;
-  return { folds, done, of: folds.length, firstOpen: folds.find((f) => !f.done)?.key ?? null };
+  return { folds, done, of: folds.length, firstOpen: folds.find((f) => !f.done)?.key ?? null, papersSent: docsApproved || checking };
 }
 
 /** "3 of 6 done" — or, once all six are, what happens next. */
-export function setupHeadline(v: Pick<SetupView, 'done' | 'of'>): string {
-  return v.done >= v.of ? 'All done — Setnayan checks you next' : `${formatCount(v.done)} of ${formatCount(v.of)} done`;
+export function setupHeadline(v: Pick<SetupView, 'done' | 'of'> & Pick<Partial<SetupView>, 'papersSent'>): string {
+  if (v.done < v.of) return `${formatCount(v.done)} of ${formatCount(v.of)} done`;
+  return v.papersSent === false ? 'All done — send your papers for review' : 'All done — Setnayan checks you next';
+}
+
+/**
+ * 🔢 ONE CHECKLIST, ONE COUNT (walk W1-B10, 16 Nov 2026): Today's "Get your shop live" and Your details' "N of 6"
+ * counted two different sixes for one shop. Both now draw THIS view (`assembleSetup`) — Your details says it as one
+ * line, "2 of 6 done · left: Add your logo · What you offer …", the same steps Today folds.
+ * 🔒 lib/one-checklist-one-count.test.ts
+ */
+export function setupLine(v: SetupView): string {
+  const head = setupHeadline(v);
+  const left = v.folds.filter((f) => !f.done).map((f) => f.title);
+  return left.length > 0 ? `${head} · left: ${left.join(' · ')}` : head;
+}
+
+/**
+ * The six steps for one shop, from the reads both surfaces hold — Today (`supplier-setup-screen.tsx`) and Your
+ * details (`profile/page.tsx`) call THIS, so they can never assemble the six differently.
+ */
+export function shopSetupView(input: {
+  d: { checklist: readonly BusinessProfileItem[]; verify: { status: string | null }; docsIn: number; docsTotal: number; businessName: string; slug?: string | null };
+  rail: FirstStepsRail;
+  /** Step 6's record (`users.tour_seen_keys` holds `SETUP_TOUR_KEY`); null = the read was refused. */
+  qrSaved: boolean | null;
+  /** The display name of a service key (`displayServiceLabel`, `lib/vendors.ts`) — handed in to keep this file light. */
+  serviceLabel: (key: string) => string;
+}): SetupView {
+  const { d, rail } = input;
+  return assembleSetup({
+    checklist: d.checklist,
+    rail,
+    offer: rail.offer,
+    docs: { status: d.verify.status, docsIn: d.docsIn, docsTotal: d.docsTotal },
+    shopName: d.businessName,
+    slug: d.slug ?? null,
+    // "Photography · no card yet" — the shop's first service, by the name couples read.
+    serviceLabel: rail.offer?.services[0] ? input.serviceLabel(rail.offer.services[0].service) : null,
+    qrSaved: input.qrSaved,
+  });
 }
 
 /**

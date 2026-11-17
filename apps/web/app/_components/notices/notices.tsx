@@ -32,7 +32,7 @@ import {
 } from './notice-store';
 import type { ReactNode } from 'react';
 import { useHydrated } from '@/lib/use-hydrated';
-import { NOTICE_ACTION, NOTICE_QUIET } from './notice-styles';
+import { BY_ITS_OWN_WIDTH, NOTICE_ACTION, NOTICE_QUIET } from './notice-styles';
 export { NOTICE_ACTION };
 
 function useStore() {
@@ -55,6 +55,8 @@ export type NoticeProps = {
   closable?: boolean;
   tone?: NoticeTone;
   at?: number;
+  /** Also listed in the bell while it sits at the top (`NoticeView.bell`). */
+  bell?: boolean;
   legacy?: () => CloseRecord | null;
   onClose?: () => void;
 };
@@ -64,7 +66,7 @@ export function Notice(props: NoticeProps) {
   const id = useId();
   const ref = useRef(props);
   ref.current = props;
-  const { noticeKey, kind, title, titleNode, detail, actions, mark, blocking, ask, closable, tone, at } = props;
+  const { noticeKey, kind, title, titleNode, detail, actions, mark, blocking, ask, closable, tone, at, bell } = props;
   useEffect(
     () =>
       register({
@@ -81,10 +83,11 @@ export function Notice(props: NoticeProps) {
         closable,
         tone,
         at,
+        bell,
         legacy: () => ref.current.legacy?.() ?? null,
         onClose: () => ref.current.onClose?.(),
       }),
-    [id, noticeKey, kind, title, titleNode, detail, actions, mark, blocking, ask, closable, tone, at],
+    [id, noticeKey, kind, title, titleNode, detail, actions, mark, blocking, ask, closable, tone, at, bell],
   );
   return null;
 }
@@ -227,14 +230,29 @@ export function NoticeSlot({ place, guest = false, className = '' }: { place: 't
   );
 }
 
+/** What the bell lists: whatever waits behind "N more", then the top lines that ask to be in the bell too. */
+function inBell(a: ReturnType<typeof arranged>): NoticeEntry[] {
+  return [...a.more, ...a.top.filter((e) => e.bell)];
+}
+
+/** In the bell, a notice's buttons split the row evenly (house rule: buttons uniform, rows balanced). */
+const BELL_ACTIONS_BALANCED = '[&_[data-notice-actions]]:flex-nowrap [&_[data-notice-actions]>*]:flex-1 [&_[data-notice-actions]>*]:justify-center';
+
 /** The bell's "Waiting on this page" group. Nothing when nothing waits. */
 export function NoticesWaiting() {
   const s = useStore();
-  const more = arranged(s).more;
+  const more = inBell(arranged(s));
   if (more.length === 0) return null;
   return (
-    <section aria-label="Waiting on this page" data-notices-waiting={more.length} className="border-b border-[var(--m-line)] px-4 pb-1 pt-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">Waiting on this page</p>
+    // 📐 By the BELL'S width, not the screen's (owner 17 Nov, live tray): from 1024 the bell is a 320px card, where the
+    // 768px one-row look crushed "Get an alert for every new inquiry" to a word per line beside its two buttons. Here
+    // the sentence always takes its own full line and the buttons share one balanced row under it.
+    <section
+      aria-label="Waiting on this page"
+      data-notices-waiting={more.length}
+      className={`${BY_ITS_OWN_WIDTH} ${BELL_ACTIONS_BALANCED} border-b border-[var(--m-line)] px-4 pb-1 pt-2`}
+    >
+      <p className="sn-sheet-k">Waiting on this page</p>
       {more.map((e, i) => (
         <NoticeLine key={e.id} entry={e} last={i === more.length - 1} />
       ))}
@@ -244,7 +262,7 @@ export function NoticesWaiting() {
 
 /** How many wait on this page — the bell's dot (its number stays the notifications count). */
 export function useNoticesWaiting(): number {
-  return arranged(useStore()).more.length;
+  return inBell(arranged(useStore())).length;
 }
 
 /** Whether "N more" asked the bell to open. */

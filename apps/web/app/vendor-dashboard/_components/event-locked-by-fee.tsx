@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { ArrowLeft, Lock, MessageSquare, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -33,6 +34,7 @@ export function EventLockedByFee({
   access,
   withheld,
   threadId,
+  eventId = null,
   className,
 }: {
   stage: EventAccessStage;
@@ -40,6 +42,8 @@ export function EventLockedByFee({
   withheld: readonly WithheldBriefField[];
   /** The couple's thread, so "talk to them" is one click. */
   threadId?: string | null;
+  /** The event, so "Message the couple" opens the client's Chat (owner 17 Nov); with none, the thread page. */
+  eventId?: string | null;
   className?: string;
 }) {
   if (stage === 'unlocked') return null;
@@ -70,7 +74,7 @@ export function EventLockedByFee({
             {threadId ? (
               <ActionButton
                 tone="info"
-                href={`/vendor-dashboard/messages/${threadId}`}
+                href={supplierChatHref(eventId, threadId)}
                 icon={<MessageSquare className="h-4 w-4" aria-hidden />}
                 label="Message the couple"
               />
@@ -113,7 +117,7 @@ export function EventLockedPage({
     <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
       <Link
         href={backHref ?? `/vendor-dashboard/clients/${eventId}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink/70 transition hover:text-ink"
+        className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         {backLabel}
@@ -123,6 +127,7 @@ export function EventLockedPage({
         access={gate.access}
         withheld={withheld}
         threadId={threadId}
+        eventId={eventId}
       />
     </section>
   );

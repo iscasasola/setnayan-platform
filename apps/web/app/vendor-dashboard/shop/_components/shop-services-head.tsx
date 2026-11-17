@@ -49,15 +49,14 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
       >
         <div className="flex min-h-11 items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h2 id="shop-services-h" className="sn-eye truncate">
+            <h2 id="shop-services-h" className="home-k2 truncate" style={{ margin: 0 }}>
               Your bundles and services
               <span
                 className="font-sans normal-case tracking-normal text-ink/70"
                 style={{ opacity: stuck ? 1 : 0, transition: 'opacity var(--sn-pill-dur) var(--sn-pill-spring)' }}
                 aria-hidden={!stuck}
               >
-                {' '}
-                · {compact}
+                {compact ? <>{' '}· {compact}</> : null}
               </span>
             </h2>
             <p

@@ -118,8 +118,8 @@ export function toolNeedsUnlock(tool: string): boolean {
 
 /** The floor for buying the unlock and for the trial: Verified and up (owner 2026-11-09). */
 export const SPECIALIZED_TOOLS_MIN_TIER: VendorTier = 'verified';
-/** The plans that INCLUDE the unlock — no purchase (owner 2026-11-09). */
-export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['pro', 'enterprise'];
+/** The plans that INCLUDE the unlock — no purchase (Pro/Ultra owner 2026-11-09; Plus owner 2026-11-14 "SIMPLER SUPPLIER PLANS"). */
+export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['solo', 'pro', 'enterprise'];
 
 /** The facts the decision reads — the same columns the SQL reads. */
 export type SpecializedToolsFacts = {

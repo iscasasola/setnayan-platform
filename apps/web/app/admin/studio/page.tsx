@@ -146,7 +146,7 @@ export default async function AdminStudioPage({ searchParams }: Props) {
         <div className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:gap-4 lg:overflow-visible lg:pb-0">
           {GROUPS.map((group) => (
             <div key={group} className="flex shrink-0 items-center gap-1 lg:flex-col lg:items-stretch lg:gap-1">
-              <p className="hidden px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45 lg:block">
+              <p className="hidden px-3 pb-1 lg:block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 {group}
               </p>
               {RAIL.filter((i) => i.group === group).map((item) => {
@@ -157,7 +157,7 @@ export default async function AdminStudioPage({ searchParams }: Props) {
                     key={item.key}
                     href={railHref(item)}
                     aria-current={active ? 'page' : undefined}
-                    className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:whitespace-normal ${
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:whitespace-normal ${
                       active
                         ? 'bg-terracotta/10 text-terracotta-700'
                         : 'text-ink/65 hover:bg-ink/5 hover:text-ink'

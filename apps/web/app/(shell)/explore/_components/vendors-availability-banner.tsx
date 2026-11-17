@@ -31,6 +31,8 @@ import { CalendarRange, Users } from 'lucide-react';
 import { updateEventDate } from '@/app/dashboard/[eventId]/actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
+import { dayMonth } from '@/lib/format-date';
+import { formatRecordedAt } from '@/lib/recorded-at';
 
 type Props = {
   eventId: string;
@@ -192,17 +194,11 @@ function prettyDay(iso: string): string {
   const month = Number(monthStr);
   const day = Number(dayStr);
   if (!year || !month || !day) return iso;
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year:
-      // Drop the year on within-year windows ("Aug 15" reads cleaner than
-      // "Aug 15, 2027" when the banner already shows the year in its
-      // window label). Keep the year on year-precision so multi-month
-      // displays don't ambiguate ("Aug 15" vs "Aug 15 of next year").
-      // Simple heuristic: emit year for non-current-year dates always —
-      // safer than threading the precision through.
-      d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
-  });
+  const key = iso.slice(0, 10);
+  // Day first, Philippine style. Drop the year on within-year windows ("15 Aug"
+  // reads cleaner than "15 Aug 2027" when the banner already shows the year in
+  // its window label). Keep the year otherwise so multi-month displays don't
+  // ambiguate ("15 Aug" vs "15 Aug of next year").
+  const sameYear = year === new Date().getFullYear();
+  return (sameYear ? dayMonth(key) : formatRecordedAt(key)) ?? iso;
 }

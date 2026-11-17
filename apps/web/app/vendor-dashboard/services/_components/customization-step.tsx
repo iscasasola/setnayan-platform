@@ -279,7 +279,7 @@ export function CustomizationStep({
           <section key={group} className="pt-2" data-customization-group={group}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className={SECTION_LABEL}>{LINE_GROUP_LABEL[group]}</h3>
-              <ActionButton tone="neutral" icon={Plus} label="Add" onClick={() => addLine(group)} />
+              <ActionButton tone="neutral" icon={Plus} label="Add" onClick={() => addLine(group)} className="!h-11" />
             </div>
             <p className={`mt-1 ${SUBLINE}`}>{GROUP_BLURB[group]}</p>
 
@@ -369,7 +369,7 @@ function LineRow({
           placeholder={autoNamePlaceholder('item', index)}
           onChange={(e) => onPatch(item.ref, { service_description: e.target.value })}
         />
-        <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove this line" onClick={() => onRemove(item.ref)} />
+        <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove this line" onClick={() => onRemove(item.ref)} className="!h-11 !w-11" />
       </div>
 
       {/* State. A FOLLOW-UP is never offered "Always" or "Included" — the
@@ -483,8 +483,7 @@ function LineRow({
                   quiet
                   icon={CornerDownRight}
                   label="Ask something else"
-                  onClick={() => onAddFollowUp(item.ref, o.ref)}
-                />
+                  onClick={() => onAddFollowUp(item.ref, o.ref)} className="!h-11" />
                 {item.options.length > 2 ? (
                   <ActionButton
                     tone="danger"
@@ -492,8 +491,7 @@ function LineRow({
                     iconOnly
                     icon={Trash2}
                     label="Remove this option"
-                    onClick={() => onRemoveOption(item.ref, o.ref)}
-                  />
+                    onClick={() => onRemoveOption(item.ref, o.ref)} className="!h-11 !w-11" />
                 ) : null}
                 {problemsFor(item.ref, o.ref).map((p) => (
                   <span key={p.code} className="basis-full text-sm text-danger-700">
@@ -504,7 +502,7 @@ function LineRow({
             ))}
           </ul>
 
-          <ActionButton tone="neutral" quiet icon={Plus} label="Add another option" onClick={() => onAddOption(item.ref)} />
+          <ActionButton tone="neutral" quiet icon={Plus} label="Add another option" onClick={() => onAddOption(item.ref)} className="!h-11" />
 
           {/* PICK-N. Both bounds or neither — the DB refuses a half-set pair
               (vendor_package_items_pick_range_ck), so the toggle writes and

@@ -1,0 +1,67 @@
+/* SHOP-02 v7 · Check a date: days read like a cinema seat plan. Every colour is a token (globals.css "🎟 SHOP-02"). */
+.wrap { position: relative; }
+.months {
+  display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none; margin: 0 -16px; padding: 0 16px; scroll-padding: 0 16px; scroll-behavior: smooth;
+}
+.months::-webkit-scrollbar { display: none; }
+.month { flex: 0 0 88%; scroll-snap-align: start; scroll-snap-stop: always; }
+.title { font-size: 15px; font-weight: 700; text-align: center; margin: 10px 0 8px; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dh { text-align: center; font-size: 11.5px; color: rgb(var(--color-ink) / 0.55); padding: 4px 0; }
+.day {
+  position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; isolation: isolate;
+  border-radius: var(--m-r-sm) var(--m-r-sm) var(--m-r-xs) var(--m-r-xs); font: inherit; font-size: 14px; font-weight: 600; border: 0; cursor: pointer;
+  background: var(--seat-top); color: var(--seat-ink);
+}
+.day:focus-visible { outline: 2px solid rgb(var(--color-ink)); outline-offset: 2px; }
+.off {
+  background-color: var(--seat-off); color: var(--seat-off-ink); font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--seat-off-line);
+  background-image: repeating-linear-gradient(135deg, var(--seat-off-hatch) 0 2px, transparent 2px 6px);
+}
+.past { background: none; color: rgb(var(--color-ink) / 0.25); font-weight: 400; cursor: default; }
+.today { background: none; color: rgb(var(--color-ink)); box-shadow: inset 0 0 0 1.5px rgb(var(--color-ink) / 0.7); }
+.pop:not(.today) { box-shadow: inset 0 0 0 1.5px var(--seat-hot-line); }
+.pop::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / var(--seat-shine)) 50%, transparent 70%);
+  background-size: 250% 100%; background-position: 120% 0; animation: seat-pass 2.8s ease-in-out infinite;
+}
+@keyframes seat-pass { 0% { background-position: 120% 0; } 60%, 100% { background-position: -120% 0; } }
+.mark { position: absolute; top: 2px; right: 3px; font-size: 9px; font-style: normal; line-height: 1; }
+.pick { background: rgb(var(--color-ink)) !important; color: rgb(var(--color-cream)) !important; box-shadow: 0 0 0 2px rgb(var(--color-cream)), 0 0 0 4px var(--seat-top); }
+.off.pick { background-color: var(--seat-off) !important; color: var(--seat-off-ink) !important; box-shadow: 0 0 0 2px rgb(var(--color-cream)), 0 0 0 4px rgb(var(--color-ink) / 0.6); }
+.arrow {
+  display: none; position: absolute; top: 4px; z-index: 2; width: 44px; height: 44px; border-radius: var(--m-r-full);
+  place-items: center; font-size: 22px; background: rgb(var(--color-cream)); border: 1px solid rgb(var(--color-ink) / 0.15);
+  color: rgb(var(--color-ink) / 0.75);
+}
+.arrow:disabled { opacity: 0.35; }
+.prev { left: 0; } .next { right: 0; }
+.dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.dots i { width: 6px; height: 6px; border-radius: var(--m-r-full); background: rgb(var(--color-ink) / 0.2); }
+.dots i.on { background: rgb(var(--color-ink)); width: 16px; border-radius: var(--m-r-xs); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: rgb(var(--color-ink) / 0.7); margin-top: 12px; }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.sw { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--m-r-xs); overflow: hidden; }
+.swAv { background: var(--seat-top); }
+.swPop { background: var(--seat-top); box-shadow: inset 0 0 0 1.5px var(--seat-hot-line); color: var(--seat-ink); font-size: 9px; }
+.swOff {
+  background-color: var(--seat-off); box-shadow: inset 0 0 0 1px var(--seat-off-line);
+  background-image: repeating-linear-gradient(135deg, var(--seat-off-hatch) 0 2px, transparent 2px 6px);
+}
+@media (min-width: 768px) {
+  .months { margin: 0; padding: 0; scroll-padding: 0; }
+  .month { flex-basis: 100%; }
+  .title { margin: 10px 52px 8px; }
+  .arrow { display: grid; }
+  .grid { gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .months { scroll-behavior: auto; }
+  .pop::after {
+    animation: none;
+    background: linear-gradient(105deg, transparent 55%, rgb(255 255 255 / calc(var(--seat-shine) * 0.7)) 55% 70%, transparent 70%);
+  }
+}

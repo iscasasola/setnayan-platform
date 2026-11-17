@@ -101,7 +101,9 @@ const KNOWN_DRIFT: Record<string, { count: number; why: string }> = {
     // bill shrank because the drift was fixed, not because the check was moved.
     // 3 → 2 on 2026-09-29: the closing pull-quote became the Thank You scene
     // (Post Event styles, `post-event-scene-views.tsx`), which draws no column.
-    count: 2,
+    // 2 → 1 on 2026-11-14 (RW-167): the empty "What They Said" plate is gone (never an empty scene), and its max-w-xl
+    // line with it — the bill shrank because the drift was removed.
+    count: 1,
     why: 'A caption and a figure. TYPOGRAPHIC, not columns — the reading measure is ch-based. Decide while looking at the page.',
   },
   // (recap left 2026-11-13: `/{slug}/recap` now only sends to the story — owner, "POST EVENT = A STORY" (5).)

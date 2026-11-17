@@ -14,7 +14,8 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 import {
   Apple,
@@ -308,6 +309,16 @@ export type TourDefinition = {
   /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
   spotlight?: SpotlightScript;
 };
+
+/**
+ * 💳 The Money tour's fee step, from the rule itself (walk RW-20): ON → when it is charged + the free first booking + own
+ * clients free; OFF → that no booking fee is charged right now. `NEXT_PUBLIC_BOOKING_FEE_ENABLED` (`isBookingFeeEnabled`).
+ */
+export function bookingFeeTourLine(feeOn: boolean): string {
+  return feeOn
+    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
+    : 'No booking fee is charged right now. Your own clients are always free.';
+}
 
 export const TOURS: Record<TourKey, TourDefinition> = {
   couple_welcome_v1: {
@@ -770,6 +781,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Users,
         title: 'Your guests’ bar after the day',
         body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+      },
+      {
+        // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable" · "Supplier Ultra scenes").
+        Icon: Users,
+        title: 'The people who made it',
+        body: 'Every supplier booked on Setnayan is in your story, ordered by their plan &mdash; <b>See all</b> lists them all, with a search when there are many. Tap one to open their shop; Supplier Pro and Supplier Ultra open a card first. A supplier you added yourself is named, with no link. Each Supplier Ultra that shares its album from your day gets its own scene.',
       },
       {
         Icon: Wand2,
@@ -1512,7 +1529,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-next-days',
           title: 'Your events',
-          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
+          // RW-20 / F-W1-75 (walk 13 Nov 2026): no fee rule typed here — whether a day waits on its fee is a live setting,
+          // and a day that does says so on its own row (`feeLockCopy`).
+          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
         },
         {
           anchor: 'hub-empty',
@@ -1524,6 +1543,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'hub-day-launch',
           title: 'Run the day',
           body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
+        },
+        {
+          // 📣 Post an update (cut 6, 2026-11-14) — on top of each booked event's page.
+          anchor: 'hub-post-update',
+          title: 'Post an update',
+          body: 'Tell the couple where you are — On site, Setup done, Running late. Need help also reaches their coordinator.',
         },
         {
           anchor: 'hub-setup',
@@ -1549,7 +1574,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'dates-calendar',
           title: 'Your month at a glance',
           // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
-          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Struck-through days are off. Tap a day to see what is on it — or block it off.',
+          // 🎨 EB-231 (16 Nov 2026): the FILL says whether a day can still take a booking (owner 2026-11-14, "THE CLIENTS
+          // CALENDAR KEEPS WHAT IT HAS — ONLY THE COLOUR CODING CHANGES": open = seat green, cannot = outlined); the
+          // DOTS say what is on it. This step said "Green is booked here" over a month of open green days.
+          // Held by `app/vendor-dashboard/customers/the-calendar-key-says-what-green-means.test.ts`.
+          body: 'A green day can still take a booking; an outlined day cannot. The dots say what is on it: green booked here, grey booked elsewhere, gold a couple asking. Tap a day to see it — or block it off.',
         },
         {
           // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.
@@ -1590,8 +1619,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'money-fees',
           title: 'Setnayan’s fee',
-          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
-          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+          // RW-20 (walk 13 Nov 2026): the sentences are the lock's own — WHEN it is charged and what is waived — and the
+          // switch decides whether it is charged at all; never "due after the day", which no code does.
+          body: bookingFeeTourLine(isBookingFeeEnabled()),
         },
       ],
       finale: {
@@ -1790,7 +1820,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'client-chat',
           title: 'Chat with your client',
-          body: 'Every message for this event stays here, so you can pick up the conversation any time. Phone numbers and emails are kept out of the chat.',
+          // 🧾 Cut 7 (2026-11-14): the quote can start right here.
+          body: 'Every message for this event stays here, so you can pick up the conversation any time. Phone numbers and emails are kept out of the chat. Tap ＋ and Make a quote to send a quote without leaving it. Your call time goes on their Schedule, even before they build their program.',
         },
         {
           anchor: 'client-quote',
@@ -1812,9 +1843,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Until you tick the box, this tour plays again each time you sign in. To see it later, open your account menu and tap Show me around.',
+        /* 🧰 SHOWN ONCE (owner 2026-11-14, cut 1 of the supplier's eleven jobs — DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE
+           APPROVED"): no tick box. Done, Skip or closing it all record the tour as seen; it no longer plays at every
+           sign-in. "Show me around" in the account menu still replays it. */
+        body: 'To see this again, open your account menu and tap Show me around.',
         button: 'Done',
-        tick: 'I’ve seen it — don’t show this tour again',
       },
     },
   },
@@ -1914,7 +1947,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
           anchor: 'papic-settings',
           title: 'Your camera, your rules',
-          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
+          // 📲 Guest upload v2 (2026-11-13): the "Photos from guests' phones" row sits in these settings.
+          body: 'Pick the filter, set challenges, choose face tagging, and whether photos from guests’ phones show right away or after you check. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -2142,7 +2176,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'suppliers-segments',
           title: 'Find · Build · Booked',
-          body: 'Find suppliers, build your set with its total, and see who you booked.',
+          // 🏅 J6 (2026-11-15): the one badge a couple meets on a supplier today is Setnayan Verified.
+          body: 'Find suppliers, build your set with its total, and see who you booked. The check beside a name means Setnayan Verified.',
         },
         {
           anchor: 'suppliers-category',
@@ -2423,7 +2458,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'camera-shots',
           title: 'My shots',
-          body: 'Everything you took, right here.',
+          // 📲 Guest upload v2 (2026-11-13): My shots holds "Add from your phone".
+          body: 'Everything you took, right here — and Add from your phone, for photos you took on the day.',
         },
         {
           anchor: 'camera-shutter',

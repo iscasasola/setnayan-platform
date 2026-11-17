@@ -11,7 +11,7 @@
  *
  *   · The Problem / Solution lines are the corpus table's (§11, "draft copy; the owner may edit"). Lines marked
  *     `draft: true` are not in that table yet — the owner reads them in the PR before they ship.
- *   · `opens` says what lifts the lock: `verified` (the four papers + the call) or a plan (`solo` · `pro` · `enterprise`).
+ *   · `opens` says what lifts the lock: `verified` (the three papers, approved by Setnayan) or a plan (`solo` · `pro` · `enterprise`).
  *     EVERY verify lock lifts the moment the shop is Verified (§10 🔑).
  *   · `server` names the server gate that enforces it, or null while only the UI shows it. 🔑 A UI-only lock is a bug
  *     (Lane B "Done when"): the null ones are the work still to wire, listed by the guard so the list can only shrink.
@@ -90,6 +90,9 @@ export const LOCKS = {
     opens: 'verified',
     // Build 6 Lane I: the one Analytics (the Shop tab's carousel, owner 11 Nov 2026) reads only the counts for an
     // unverified shop and returns before any graph read.
+    // 🏅 J5 (owner 15 Nov, badge-unlock_v6): past this lock, each BADGE'S Bronze opens its own graphs — that is not a
+    // lock row (an unearned graph is never drawn, not even greyed; one plain line stands under the carousel), so it is
+    // decided by `graphUnlocks` (lib/graph-unlocks.ts), on the same server file.
     server: 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx',
   },
   teamSeats: {
@@ -158,9 +161,9 @@ export function canUse(key: LockKey, shop: LockShop): CanUse {
   return isTierAtLeast(asVendorTier(shop.tier), def.opens) ? { ok: true } : { ok: false, needs: 'plan', plan: def.opens };
 }
 
-/** "2 of 4 papers in · then a short call" — the verify lock's progress, from the shipped four-paper count. */
+/** "2 of 3 papers in · then press Submit" — the verify lock's progress, from the shipped three-paper count. No call since 2026-11-14 (DECISION_LOG "VERIFICATION IS THREE PAPERS AND ONE SUBMIT"). */
 export function papersProgress(input: { done: number; of: number } | null): string {
   if (!input) return 'Couldn’t read your papers — open Get verified to see them';
-  if (input.done >= input.of) return `All ${formatCount(input.of)} papers in · Setnayan checks them, then a short call`;
-  return `${formatCount(input.done)} of ${formatCount(input.of)} papers in · then a short call`;
+  if (input.done >= input.of) return `All ${formatCount(input.of)} papers in · press Submit and Setnayan checks them`;
+  return `${formatCount(input.done)} of ${formatCount(input.of)} papers in · then press Submit`;
 }

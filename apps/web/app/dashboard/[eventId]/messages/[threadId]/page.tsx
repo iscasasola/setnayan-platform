@@ -520,6 +520,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       vendorProfileId: thread.vendor_profile_id,
       messages: msgs,
       revealed: v.revealed,
+      shopName: v.name,
     });
   })();
 
@@ -616,6 +617,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     hostsRead,
     shopNotYetVerifiedRead,
   ]);
+  // Owner 16 Nov: the Book confirm on the quote card tells the couple, never blocks (`AccordionLockButton`).
+  if (quoteLockTarget) quoteLockTarget.notYetVerified = shopNotYetVerified;
   const chatPins = await chatPinsRead;
   const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
@@ -857,7 +860,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             ) : composerOpen ? (
               <div className="space-y-1.5">
                 {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
-                  <p className="px-1 text-xs text-ink/55">
+                  <p className="px-1 text-xs text-ink/70">
                     You can send one follow-up while you wait for {vendorLabel} to
                     accept.
                   </p>
@@ -882,7 +885,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 <form action={withdrawInquiry}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="thread_id" value={threadId} />
-                  <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
+                  <SubmitButton pendingLabel="Withdrawing…" className="text-[12px] uppercase tracking-[0.15em] text-ink/70 underline-offset-2 hover:text-terracotta hover:underline">Withdraw inquiry</SubmitButton>
                 </form>
               </div>
             ) : (
@@ -893,7 +896,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                     {closing.showSimilarVendors ? (
                       <Link
                         href={similarVendorsHref}
-                        className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                        className="ab ab-brand ab-main"
                       >
                         See similar suppliers
                       </Link>
@@ -902,7 +905,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                       <form action={withdrawInquiry}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="thread_id" value={threadId} />
-                        <SubmitButton pendingLabel="Withdrawing…" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline">
+                        <SubmitButton pendingLabel="Withdrawing…" className="text-[12px] uppercase tracking-[0.15em] text-ink/70 underline-offset-2 hover:text-terracotta hover:underline">
                           Withdraw inquiry
                         </SubmitButton>
                       </form>
@@ -953,6 +956,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
+            // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the same read as the head's line.
             lockTarget={quoteLockTarget}
             // 🚦 RW-26: the live switch, so a closed booking door says so before the press.
             bookingsOpen={quoteLockTarget ? await areBookingsOpen() : true}

@@ -42,7 +42,7 @@ export default async function LivingHeroPage({
 
   if (error || !event) notFound();
 
-  // 🎞 A living hero is the couple's own film at the top — Event Hub Pro (owner
+  // 🎞 A living hero is the couple's own film at the top — Event Pro (owner
   // 2026-09-24, "A"). `saveLivingHero` refuses it for a free couple; the studio
   // is not offered either. One they already have stays on the page and is
   // removed from the hero-photo editor.
@@ -54,7 +54,7 @@ export default async function LivingHeroPage({
           eventId={eventId}
           backHref={`/dashboard/${eventId}/website`}
           featureName="Living hero"
-          description="Turn a few seconds of your own video into a gentle, looping hero at the top of your Event Hub. It's part of Event Hub PRO."
+          description="Turn a few seconds of your own video into a gentle, looping hero at the top of your Event Hub. It's part of Event Pro."
         />
       </div>
     );
@@ -71,7 +71,7 @@ export default async function LivingHeroPage({
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href={`/dashboard/${eventId}/website/hero-photo`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/75 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>Back to hero photo</span>

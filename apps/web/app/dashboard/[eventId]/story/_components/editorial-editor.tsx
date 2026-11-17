@@ -109,11 +109,11 @@ const EDITORIAL_IMAGE_TYPES = [
 type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
 // 💎 TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29). The Pro touches here are
-// open to every couple; a couple without Event Hub Pro has them kept in the
+// open to every couple; a couple without Event Pro has them kept in the
 // Event Hub draft, and the Maker's Apply sheet names them and asks for Pro
 // ("Unlock Pro and Apply"). This is where that Apply lives — the Maker, on the
 // Post Event stage. There is no separate "Editorial PRO" name in the copy: to a
-// couple it is Event Hub Pro (the EDITORIAL_PRO SKU still exists in the catalogue
+// couple it is Event Pro (the EDITORIAL_PRO SKU still exists in the catalogue
 // and still counts — `isEditorialProActive`).
 const makerApplyHref = (eventId: string) => `/dashboard/${eventId}/launch?stage=editorial`;
 
@@ -240,7 +240,7 @@ const inputCls =
 // blocks; there are no padlocks"). ◆ to try, ◆ owned once it is theirs.
 function ProChip({ owned }: { owned: boolean }) {
   const state = owned ? 'unlocked' : 'try';
-  return <PaidMark state={state} label={paidMarkLabel(state, 'Event Hub Pro')} text="Pro" size="xs" />;
+  return <PaidMark state={state} label={paidMarkLabel(state, 'Event Pro')} text="Pro" size="xs" />;
 }
 
 // The one line on a ◆ card for a couple without Pro: write it now, it goes live
@@ -255,7 +255,7 @@ function ProTryLine({ eventId, held }: { eventId: string; held: boolean }) {
         href={makerApplyHref(eventId)}
         className="font-medium text-[#8A6A2F] underline underline-offset-2 hover:text-[#6E5323]"
       >
-        Apply with Event Hub Pro
+        Apply with Event Pro
       </Link>
       .
     </p>
@@ -280,6 +280,7 @@ export function EditorialEditor({
   initial,
   uploadDisplayUrls = {},
   isPro = false,
+  addsManyAtOnce = false,
   heldForPro = [],
   chapterCards = [],
   chapterOverrides = [],
@@ -310,10 +311,12 @@ export function EditorialEditor({
   /** Presigned display URLs (r2://ref → URL) for the couple's already-uploaded
    *  hero + gallery images, so the FileUpload widgets show them on mount. */
   uploadDisplayUrls?: Record<string, string>;
-  /** Event Hub Pro active (the EDITORIAL_PRO SKU OR Couple Website PRO). Never
+  /** Event Pro active (the EDITORIAL_PRO SKU OR Couple Website PRO). Never
    *  disables anything: without it the Pro touches (moments, own columns, wishes)
    *  are kept in the Event Hub draft and asked for at Apply; the server decides. */
   isPro?: boolean;
+  /** 📸 Event Plus / Pro / Ultra add event photos many at once; a Free couple adds them one at a time (owner 2026-11-13). */
+  addsManyAtOnce?: boolean;
   /** The Pro touches this couple wrote that are held in the Event Hub draft. */
   heldForPro?: readonly StoryProExtraKey[];
   /** Auto-built "As the Day Unfolded" chapters (unfiltered, timeline order). */
@@ -1055,7 +1058,11 @@ export function EditorialEditor({
           </Field>
           <Field
             label="From the Day photos"
-            help={`Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day".`}
+            help={
+              addsManyAtOnce
+                ? `Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day".`
+                : `Up to ${formatCount(GALLERY_UPLOADS_MAX)} images for "From the Day", one at a time. Event Plus adds many at once.`
+            }
           >
             <FileUpload
               bucket="media"
@@ -1063,6 +1070,7 @@ export function EditorialEditor({
               name="editorial_gallery_uploads"
               unsavedHint="it goes in when you choose Draft, Guests only or Published"
               multiple
+              pickOneAtATime={!addsManyAtOnce}
               maxFiles={GALLERY_UPLOADS_MAX}
               acceptedTypes={EDITORIAL_IMAGE_TYPES}
               maxSizeMB={10}
@@ -1078,7 +1086,7 @@ export function EditorialEditor({
         </div>
       </section>
 
-      {/* As the Day Unfolded — per-chapter curation (◆ Event Hub Pro).
+      {/* As the Day Unfolded — per-chapter curation (◆ Event Pro).
           Hidden entirely when the event has no Papic timeline media (nothing to
           curate). Every couple can name, tell, hide and reorder; without Pro it
           is kept in the Event Hub draft and asked for at Apply. */}
@@ -1311,7 +1319,7 @@ export function EditorialEditor({
           for. Give it a name and put it wherever you like in the running order.
         </p>
         {/*
-          ◆ A COLUMN OF THEIR OWN IS EVENT HUB PRO — `saveEditorial` has only
+          ◆ A COLUMN OF THEIR OWN IS EVENT PRO — `saveEditorial` has only
           ever stored it for a Pro couple. It is open to every couple now: without
           Pro it is kept in the Event Hub draft (not dropped, as it used to be)
           and asked for at Apply. Moving it is free, like every section.
@@ -1384,7 +1392,7 @@ export function EditorialEditor({
         )}
       </section>
 
-      {/* What They Said — the manual guest-wishes editor (◆ Event Hub Pro).
+      {/* What They Said — the manual guest-wishes editor (◆ Event Pro).
           Open to every couple; without Pro it waits in the draft for Apply. */}
       <section className={card}>
         <div className="flex items-start justify-between gap-3">

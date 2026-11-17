@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Eye, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { askToTakeMyPhotoDown } from '../actions';
 import {
   SUPPLIER_PAGE_NOTICE_DAYS,
@@ -84,18 +85,25 @@ function SupplierGroup({
   const [open, setOpen] = useState(false);
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-ink/80">{guestNoticeLine(group)}</p>
-        <ActionButton
-          tone="neutral"
-          quiet
-          icon={Eye}
-          label={open ? 'Hide' : 'See them'}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0"
-        />
-      </div>
+      {/* 🔔 Inventory #37 — News (one notice system, owner approved 14 Nov 2026): the line, "See them · Remove" stay; the
+          answers are the close, so it has no close word — it leaves when the photos are removed or the window ends. */}
+      <InlineNotice
+        kind="news"
+        closable={false}
+        noticeKey={`supplier-page:${group.key}`}
+        title={guestNoticeLine(group)}
+        actions={
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={Eye}
+            label={open ? 'Hide' : 'See them'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="shrink-0"
+          />
+        }
+      />
       {open ? (
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {group.photos.map((p) => (

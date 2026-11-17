@@ -145,13 +145,13 @@ export function downgradeFit(
         fix: { label: 'Pick which stay on', href: FIX_HREF.services },
       });
     }
-    // ── Bookings a day per card ──
+    // ── Bookings a day per service ──
     const perDay = limitOf(plan, 'bookingsPerDate', opts.paywallOn);
     const overDaily = on.filter((c) => c.daily !== null && c.daily > perDay);
     if (Number.isFinite(perDay) && overDaily.length > 0) {
       rows.push({
         key: 'dailyBookings',
-        title: 'Bookings a day per card',
+        title: 'Bookings a day per service',
         line: `${plural(overDaily.length, 'service takes', 'services take')} more than ${name}’s ${limitWords('bookingsPerDate', perDay)} a day.`,
         state: 'over',
         fix: { label: 'Set bookings a day', href: FIX_HREF.dailyBookings },

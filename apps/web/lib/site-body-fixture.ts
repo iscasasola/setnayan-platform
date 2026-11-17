@@ -3,7 +3,7 @@
  * from on a machine with NO database. TEST TOOLING ONLY: nothing under `app/` imports this file, and it draws nothing
  * itself — `lib/site-body-fixture-render.ts` hands it to the REAL component.
  *
- * THE COUPLE IS THE LAB'S (`app/dev/maker-lab/guest/page.tsx`, read-only from production 2026-10-05): "Maria & Jose",
+ * THE COUPLE IS THE LAB'S (`app/dev/maker-lab/guest/page.lab.tsx`, read-only from production 2026-10-05): "Maria & Jose",
  * 12 December 2026, Santuario de San Antonio → Seda Vertis North, the same four-moment run of show. The lab keeps its
  * copies as unexported constants inside a Next page (a page may export nothing but its own handlers), so the VALUES
  * are repeated here, one for one; the Scrub canvases are imported from the lab's own module (`lab-scrub.ts`).

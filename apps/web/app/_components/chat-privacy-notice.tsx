@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronDown, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
+import { Notice } from '@/app/_components/notices/notices';
+import type { CloseRecord } from '@/lib/notices';
 
 /**
  * Pinned, non-dismissible system notice at the top of every chat thread
@@ -142,6 +144,7 @@ export function ChatPrivacyNotice({
  * Dismissal still PERSISTS (localStorage, as before): this was checked before
  * the redraw, and nothing here made it ephemeral.
  */
+/** The older hand-written close — read only, as the notice's legacy (one notice system, 14 Nov 2026). */
 const SAFETY_DISMISS_KEY = 'setnayan_chat_safety_banner_dismissed';
 
 const SAFETY_POINTS = [
@@ -151,8 +154,6 @@ const SAFETY_POINTS = [
   'A supplier rushing you to pay off Setnayan is a red flag — tell us via Help.',
 ] as const;
 
-const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 px-3 py-0.5 sm:px-4`;
-const SAFETY_STANDALONE = `${NOTE_LINE} rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-1.5`;
 
 /** The four safety points, drawn once — by the in-box banner and by the picked chat's ⓘ (`ChatPrivacyTip`). */
 function SafetyPoints({ inline = false }: { inline?: boolean }) {
@@ -173,73 +174,25 @@ function SafetyPoints({ inline = false }: { inline?: boolean }) {
   );
 }
 
-export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
-  // Default to visible so SSR + first paint never flash the banner in-then-out;
-  // the remembered dismissal is applied after hydration if it was set.
-  const [dismissed, setDismissed] = useState(false);
-  const [tips, setTips] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(SAFETY_DISMISS_KEY) === '1') setDismissed(true);
-    } catch {
-      // Private mode / storage disabled — treat as not dismissed.
-    }
-  }, []);
-
-  function onDismiss() {
-    setDismissed(true);
-    try {
-      localStorage.setItem(SAFETY_DISMISS_KEY, '1');
-    } catch {
-      // No-op; banner stays hidden in-memory regardless.
-    }
-  }
-
-  if (dismissed) return null;
-
+/**
+ * 🔔 Inventory #22 — News (one notice system, owner approved 14 Nov 2026): "Plan with peace of mind", shown once; the
+ * safety points are behind the ⓘ. Drawn by the event pages' top slot.
+ */
+export function ChatSafetyBanner(_props: { inBox?: boolean }) {
   return (
-    <div
-      role="note"
-      aria-label="Staying safe while you plan"
-      className={inBox ? SAFETY_IN_BOX : SAFETY_STANDALONE}
-    >
-      <ShieldCheck
-        aria-hidden
-        className="mt-[3px] h-3.5 w-3.5 shrink-0 text-terracotta"
-        strokeWidth={1.75}
-      />
-      <div className="min-w-0 flex-1 self-center">
-        {tips ? (
-          <>
-            <p className="font-medium text-ink">Plan with peace of mind</p>
-            <SafetyPoints />
-          </>
-        ) : (
-          <p className="truncate">
-            <span className="font-medium text-ink">{SAFETY_POINTS[0]}</span>
-          </p>
-        )}
-      </div>
-      {/* ⌄ folds the line open (chat prototype 2026-10-28, frame B — Messenger's pinned strip); the words are its name. */}
-      <button
-        type="button"
-        onClick={() => setTips((v) => !v)}
-        aria-expanded={tips}
-        aria-label={tips ? 'Fewer safety tips' : 'More safety tips'}
-        className="-my-1 grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/50 hover:bg-ink/5 hover:text-ink"
-      >
-        <ChevronDown aria-hidden className={`h-4 w-4 transition-transform ${tips ? 'rotate-180' : ''}`} strokeWidth={2} />
-      </button>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Dismiss safety tips"
-        className="-my-1 -mr-1 grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/40 hover:bg-ink/5 hover:text-ink/70"
-      >
-        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      </button>
-    </div>
+    <Notice
+      kind="news"
+      noticeKey="chat-safety"
+      title="Plan with peace of mind"
+      detail={<SafetyPoints inline />}
+      legacy={(): CloseRecord | null => {
+        try {
+          return localStorage.getItem(SAFETY_DISMISS_KEY) === '1' ? { closedAt: Date.now(), count: 1 } : null;
+        } catch {
+          return null;
+        }
+      }}
+    />
   );
 }
 

@@ -28,8 +28,11 @@
  * would then re-request rows already seen and stall short of the end.
  */
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { shopPath } from '@/lib/shop-address';
+import { useCallback, useEffect, useId, useState, useTransition } from 'react';
+import { ShopLink } from '@/app/_components/shop-link';
 import { Check, ImageOff, Search, Sparkles } from 'lucide-react';
+import { Sheet } from '@/app/_components/sheet';
 import type { GalleryAsset, GalleryPage } from '@/lib/moodboard-gallery';
 import { GALLERY_FROM, type GalleryFromKey } from '@/lib/inspiration-slots';
 import { photoMatchesColours } from '@/lib/mood-board-studio';
@@ -116,6 +119,9 @@ export function GalleryPicker({
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** 🏷 A photo opened (frame 9 of `inspiration_tags_2026-11-14_fable.html`): its shop, its event, its other parts. */
+  const [opened, setOpened] = useState<GalleryAsset | null>(null);
+  const openedId = useId();
 
   /* 🔍 The page read, with Studio's filters laid on it — never a limit (the server clamps). */
   const fetchAction = useCallback(
@@ -196,7 +202,7 @@ export function GalleryPicker({
       {studio ? (
         <div className="space-y-2" data-gallery-search="">
           <label className="flex min-h-11 items-center gap-2 rounded-full bg-ink/5 px-4">
-            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/50" />
+            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/70" />
             <span className="sr-only">Search ideas</span>
             <input
               type="search"
@@ -248,7 +254,7 @@ export function GalleryPicker({
               them as one grey grid is the failure this whole build arc is
               about. `withheld` is measured per fetch, so the third sentence
               corrects itself the day those shops get verified. */}
-          <p className="text-sm text-ink/65">
+          <p className="text-sm text-ink/70">
             {loading && assets.length === 0
               ? 'Finding photos…'
               : loadError
@@ -264,7 +270,7 @@ export function GalleryPicker({
           <button
             type="button"
             onClick={onClose}
-            className="sn-press text-[12px] font-bold text-ink/60 underline underline-offset-2 hover:text-ink"
+            className="sn-press text-[12px] font-bold text-ink/70 underline underline-offset-2 hover:text-ink"
           >
             Close
           </button>
@@ -288,13 +294,13 @@ export function GalleryPicker({
       ) : null}
 
       {free === null && assets.length > 0 ? (
-        <p className="text-xs text-ink/60">
+        <p className="text-xs text-ink/70">
           This slot already holds its three photos — remove one to save another.
         </p>
       ) : null}
 
       {hiddenByMatch > 0 ? (
-        <p className="text-xs text-ink/60" data-gallery-match-hidden="">
+        <p className="text-xs text-ink/70" data-gallery-match-hidden="">
           {formatCount(hiddenByMatch)} {hiddenByMatch === 1 ? 'photo is' : 'photos are'} hidden — not near your colours.
         </p>
       ) : null}
@@ -305,15 +311,21 @@ export function GalleryPicker({
           const isSaving = savingId === asset.assetId && pending;
           const saved = savedIds.has(asset.assetId);
           return (
-            <li key={asset.assetId} className="sn-tile space-y-2 p-2">
-              <div className="aspect-square overflow-hidden rounded-lg border border-ink/12">
+            <li key={asset.assetId} className="border-t border-ink/10 space-y-2 p-2">
+              <button
+                type="button"
+                onClick={() => setOpened(asset)}
+                aria-label={`Open — ${asset.label || asset.credit}`}
+                className="block aspect-square w-full overflow-hidden rounded-lg border border-ink/12"
+                data-gallery-open=""
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={asset.imageUrl}
                   alt={asset.label || `Supplier photo — ${asset.credit}`}
                   className="h-full w-full object-cover"
                 />
-              </div>
+              </button>
               {/* MB22 — driven per-row by asset.isEventLinked, never hard-coded
                   (see event-linked-badge.tsx for why that distinction is the
                   whole point). */}
@@ -321,11 +333,17 @@ export function GalleryPicker({
               {/* THE CREDIT. Never conditional, never abbreviated: a gallery
                   photo whose shop is not named is a stock photo, and the
                   server withholds those rather than sending them here. */}
-              <p className="px-0.5 text-[11px] font-semibold leading-tight text-ink">
+              <p className="px-0.5 text-[12px] font-semibold leading-tight text-ink">
                 {asset.credit}
               </p>
+              {/* 🏷 Ruling (4): a photo tagged from Files names its event as type · venue · month — never a name. */}
+              {asset.eventLine ? (
+                <p className="px-0.5 text-[12px] leading-tight text-ink/70" data-gallery-event-line="">
+                  {asset.eventLine}
+                </p>
+              ) : null}
               {asset.label ? (
-                <p className="line-clamp-2 px-0.5 text-[10px] text-ink/60">{asset.label}</p>
+                <p className="line-clamp-2 px-0.5 text-[12px] text-ink/70">{asset.label}</p>
               ) : null}
               <div className="flex flex-wrap gap-1 px-0.5">
                 {asset.swatches.slice(0, 6).map((hex, i) => (
@@ -341,7 +359,7 @@ export function GalleryPicker({
                 type="button"
                 onClick={() => save(asset)}
                 disabled={isSaving || free === null || saved}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-terracotta/40 px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/10 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-terracotta/40 px-3 py-1.5 text-[12px] font-medium text-terracotta-700 transition hover:bg-terracotta/10 disabled:opacity-50"
               >
                 {saved ? (
                   <>
@@ -357,26 +375,85 @@ export function GalleryPicker({
               </button>
               {/* 🛍 Shop › — the photo's shop, in its own tab so the Maker stays where it is. */}
               {studio && asset.shopSlug ? (
-                <a
-                  href={`/v/${asset.shopSlug}`}
+                <ShopLink
+                  href={`${shopPath(asset.shopSlug)}`}
                   target="_blank"
                   rel="noopener"
-                  className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[11px] font-semibold text-ink/70 hover:bg-ink/5"
+                  className="sn-press inline-flex min-h-9 w-full items-center justify-center rounded-full px-3 text-[12px] font-semibold text-ink/70 hover:bg-ink/5"
                   data-gallery-shop=""
                 >
                   Shop ›
-                </a>
+                </ShopLink>
               ) : null}
             </li>
           );
         })}
       </ul>
 
+      {/* 🏷 The opened photo (frame 9). ✕ goes back to the grid. */}
+      <Sheet open={opened !== null} onClose={() => setOpened(null)} labelledById={openedId} rise>
+        {opened ? (
+          <div className="space-y-3 px-4 pb-4 pt-3" data-gallery-opened={opened.assetId}>
+            <h2 id={openedId} className="pr-12 text-[17px] font-semibold text-ink">
+              {slotLabel}
+            </h2>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={opened.imageUrl} alt={opened.label || `Supplier photo — ${opened.credit}`} className="w-full rounded-xl object-contain" />
+            <dl className="space-y-1.5 text-[14px]">
+              <div className="flex gap-2">
+                <dt className="w-28 flex-none text-ink/70">From</dt>
+                <dd className="min-w-0 text-ink">
+                  {opened.shopSlug ? (
+                    <ShopLink href={`${shopPath(opened.shopSlug)}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                      {opened.credit} ›
+                    </ShopLink>
+                  ) : (
+                    opened.credit
+                  )}
+                </dd>
+              </div>
+              {opened.eventLine ? (
+                <div className="flex gap-2" data-gallery-from-event="">
+                  <dt className="w-28 flex-none text-ink/70">From this event</dt>
+                  <dd className="min-w-0 text-ink">
+                    {opened.shopSlug ? (
+                      <ShopLink href={`${shopPath(opened.shopSlug)}`} target="_blank" rel="noopener" className="font-medium underline-offset-2 hover:underline">
+                        {opened.eventLine} ›
+                      </ShopLink>
+                    ) : (
+                      opened.eventLine
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {opened.alsoIn && opened.alsoIn.length > 0 ? (
+                <div className="flex gap-2" data-gallery-also-in="">
+                  <dt className="w-28 flex-none text-ink/70">Also in</dt>
+                  <dd className="min-w-0 text-ink">{opened.alsoIn.map((x) => x.label).join(' · ')}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <button
+              type="button"
+              onClick={() => (save(opened), setOpened(null))}
+              disabled={pending || free === null || savedIds.has(opened.assetId)}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-[14px] font-medium text-cream disabled:opacity-50"
+            >
+              {savedIds.has(opened.assetId) ? 'Saved' : studio ? `Save to ${slotLabel}` : 'Save to this slot'}
+            </button>
+          </div>
+        ) : (
+          <h2 id={openedId} className="sr-only">
+            Photo
+          </h2>
+        )}
+      </Sheet>
+
       {/* Rows we fetched and did not show, alongside ones we did — the couple
           is told the shelf is partly hidden rather than left to assume the
           gallery is small. */}
       {assets.length > 0 && withheld > 0 ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-ink/55">
+        <p className="flex items-center gap-1.5 text-[12px] text-ink/70">
           <ImageOff className="h-3 w-3" aria-hidden />
           {withheld} more {withheld === 1 ? 'photo' : 'photos'} here {withheld === 1 ? 'is' : 'are'}{' '}
           waiting on its shop&rsquo;s verification.

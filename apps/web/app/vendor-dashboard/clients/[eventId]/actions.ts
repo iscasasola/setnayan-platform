@@ -20,6 +20,7 @@ import { postThreadSystemLine } from '@/lib/chat-system-line.server';
 import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
+import { closedDayOfAsk } from '@/lib/closed-day.server';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -44,6 +45,8 @@ import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
+import { isOwnClock } from '@/lib/supplier-own-times';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -370,7 +373,7 @@ export async function createClientNote(formData: FormData) {
   const eventId = formData.get('event_id');
   const body = formData.get('body');
   if (typeof eventId !== 'string' || typeof body !== 'string' || body.trim().length === 0) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -416,7 +419,7 @@ export async function toggleClientNoteDone(formData: FormData) {
   const noteId = formData.get('note_id');
   const done = formData.get('done') === '1';
   if (typeof eventId !== 'string' || typeof noteId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -438,7 +441,7 @@ export async function deleteClientNote(formData: FormData) {
   const eventId = formData.get('event_id');
   const noteId = formData.get('note_id');
   if (typeof eventId !== 'string' || typeof noteId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -470,6 +473,10 @@ export async function deleteClientNote(formData: FormData) {
  *                       the host OKs; Auto-agree applies it at once. The host hears it in the app only.
  *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
  *                       by the database until they unlock. Their own requests still go through.
+ *   'own_times'       — 🕕 Your times (owner-approved cut 5, 2026-11-14): the call time, arrival and finish, kept on
+ *                       `supplier_own_times` (migration 20271346335702) BEFORE the hosts build their program. With a
+ *                       `chapter_id` (a chapter they are linked to, once there is one) the arrival and finish also slot
+ *                       in — filed exactly as My times files them — and `filed_at` records it.
  *
  * Every write is the database's to allow (`schedule_suggestions_vendor_insert`, 20271263061583 + 20271300619930): own
  * items only for an edit or a delete, own linked chapters only for an add, words only on anybody else's. After an ask
@@ -506,6 +513,23 @@ function venueHoursFromForm(
   return { ok: true, start, end: endRaw || null, ingress, egress };
 }
 
+/** 🕕 Your times as posted: three wall clocks ('HH:MM' or blank). At least one; a bad one is refused, never guessed. */
+function ownTimesFromForm(
+  fd: FormData,
+): { ok: true; call: string | null; arrive: string | null; done: string | null } | { ok: false; error: string } {
+  const read = (k: string): string | null | 'bad' => {
+    const v = String(fd.get(k) ?? '').trim();
+    if (!v) return null;
+    return isOwnClock(v) ? v : 'bad';
+  };
+  const call = read('call');
+  const arrive = read('arrive');
+  const done = read('done');
+  if (call === 'bad' || arrive === 'bad' || done === 'bad') return { ok: false, error: 'That time could not be read — pick it again.' };
+  if (!call && !arrive && !done) return { ok: false, error: 'Add a call time, an arrival or a finish first.' };
+  return { ok: true, call, arrive, done };
+}
+
 export async function suggestScheduleChange(formData: FormData): Promise<SupplierScheduleAnswer | void> {
   const eventId = formData.get('event_id');
   const quiet = formData.get('quiet') === '1';
@@ -513,10 +537,16 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
   const sheetAsk =
-    request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours' || request === 'where';
+    request === 'take_back' ||
+    isMark ||
+    request === 'times' ||
+    request === 'answer' ||
+    request === 'hours' ||
+    request === 'where' ||
+    request === 'own_times';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -677,6 +707,66 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   }
 
   // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
+  // ── 🕕 Your times — kept before the program exists; slotted in once a linked chapter does (cut 5) ─────────────
+  if (request === 'own_times') {
+    const own = ownTimesFromForm(formData);
+    if (!own.ok) return { ok: false, error: own.error };
+    // RLS: the shop's own row, on an event it is booked for, signed as this user (supplier_own_times_shop_*).
+    const { error: saveErr } = await supabase.from('supplier_own_times').upsert(
+      {
+        event_id: eventId,
+        vendor_profile_id: profile.vendor_profile_id,
+        call_clock: own.call,
+        arrive_clock: own.arrive,
+        done_clock: own.done,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,vendor_profile_id' },
+    );
+    if (saveErr) return { ok: false, error: NOT_SENT_WORDS };
+    const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+    if (!chapterId || (!own.arrive && !own.done)) return done({ ok: true, outcome: 'done' });
+    const { data: chapter } = await supabase
+      .from('event_schedule_blocks')
+      .select('block_id, start_at, time_tba')
+      .eq('event_id', eventId)
+      .eq('block_id', chapterId)
+      .is('parent_block_id', null)
+      .maybeSingle();
+    if (!chapter) return done({ ok: true, outcome: 'done' });
+    let applied = 0;
+    const wanted = timesRequests({
+      shop: supplierName,
+      chapter: chapter as { block_id: string; start_at: string | null },
+      arrive: own.arrive ?? '',
+      done: own.done ?? '',
+    });
+    for (const t of wanted) {
+      const r = await ask({
+        kind: 'new',
+        block_id: null,
+        proposed_label: t.label,
+        proposed_start_at: t.start,
+        proposed_end_at: t.end,
+        proposed_location: null,
+        proposed_parent_block_id: t.parent,
+        note: t.label,
+        itemLabel: t.label,
+      });
+      if (!r.ok) return { ok: false, error: r.code === '42501' ? 'You can only give times for the chapters you are linked to.' : NOT_SENT_WORDS };
+      if (r.outcome === 'applied') applied += 1;
+    }
+    // The requests are in; a failed stamp only means the next visit offers to slot them again — said in the log.
+    const { error: filedErr } = await supabase
+      .from('supplier_own_times')
+      .update({ filed_at: new Date().toISOString(), updated_by: user.id })
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+    if (filedErr) logQueryError('suggestScheduleChange.ownTimesFiled', filedErr, { event_id: eventId }, 'graceful_degrade');
+    return done({ ok: true, outcome: applied === wanted.length ? 'applied' : 'waits' });
+  }
+
   if (request === 'times') {
     const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
     const { data: chapters } = ids.length
@@ -765,7 +855,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
         ? `Adds “${proposed.proposed_label ?? 'a moment'}”`
         : `Changes “${blockLabel ?? 'a moment'}”`;
   if (kind === 'adjust' && !typedNote && !proposed.proposed_label && !proposed.proposed_start_at && !(crew && crew.length)) {
-    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/clients');
+    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const r = await ask({
@@ -811,7 +901,7 @@ export async function createVendorChallengeAction(formData: FormData) {
     typeof prompt !== 'string' ||
     prompt.trim().length === 0
   ) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -893,7 +983,7 @@ export async function vendorPostHandover(formData: FormData) {
       ? kindRaw
       : null;
   if (typeof eventId !== 'string' || !kind) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1057,7 +1147,7 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   const title = formData.get('title');
   if (typeof eventId !== 'string' || typeof title !== 'string' || title.trim().length === 0) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
   const magnitude = parseAmount(formData.get('amount_php'));
   if (magnitude === null) {
@@ -1178,7 +1268,7 @@ export async function vendorRespondChangeOrder(formData: FormData) {
     typeof changeOrderId !== 'string' ||
     (decision !== 'accept' && decision !== 'decline')
   ) {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1251,7 +1341,7 @@ export async function vendorWithdrawChangeOrder(formData: FormData) {
   const eventId = formData.get('event_id');
   const changeOrderId = formData.get('change_order_id');
   if (typeof eventId !== 'string' || typeof changeOrderId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
 
   const supabase = await createClient();
@@ -1333,6 +1423,13 @@ export async function vendorAgreeToLock(formData: FormData) {
   // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
   if (await heldServiceOfAsk(supabase, eventVendorId)) {
     redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=service_on_hold`);
+  }
+
+  // ⬜ A DAY YOU CLOSED TAKES NO BOOKING (owner 2026-11-14, "Grey: no ask, no book" — `lib/closed-day.server.ts`). The
+  // couple's ask is refused on it too; this catches an ask made before the day was closed. The same closed-day source
+  // the date sheet reads. Before the RPC: nothing booked, no fee minted. Fails open on a read error.
+  if ((await closedDayOfAsk(supabase, eventVendorId)) === 'closed') {
+    redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=day_closed`);
   }
 
   // 💸 THE CARRY-OVER (owner 2026-11-12, booking-fee top-up rule 4): while a top-up from another booking is OVERDUE
@@ -1864,7 +1961,7 @@ export async function vendorAskForPayment(formData: FormData): Promise<void> {
   if (res.ok) {
     redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }
-  if (res.code === 'event') redirect('/vendor-dashboard/clients');
+  if (res.code === 'event') redirect('/vendor-dashboard/customers?tab=clients');
   if (res.code === 'signin') redirect('/login');
   if (res.code === 'shop') redirect('/vendor-dashboard');
   redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: res.code } }));
@@ -1967,7 +2064,7 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
   const eventId = formData.get('event_id');
   const askId = formData.get('ask_id');
   if (typeof eventId !== 'string' || typeof askId !== 'string') {
-    redirect('/vendor-dashboard/clients');
+    redirect('/vendor-dashboard/customers?tab=clients');
   }
   const supabase = await createClient();
   const {

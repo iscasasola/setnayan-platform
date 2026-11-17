@@ -36,7 +36,7 @@ function AskRow({ ask, types, back }: { ask: EventTypeAsk; types: readonly Choic
     <li className="space-y-2 rounded-2xl bg-info-50/40 p-3 dark:bg-raised" data-ask-row="">
       <p className="text-sm text-ink">
         <span className="font-semibold">“{ask.label}”</span> from {ask.askedBy}
-        <span className="text-ink/70"> · {new Date(ask.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>
+        <span className="text-ink/70"> · {new Date(ask.createdAt).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })}</span>
       </p>
       {linkedTo ? (
         <p className="text-xs text-ink/70">Linked to {linkedTo} — they’re told when its Status is “In the picker”.</p>

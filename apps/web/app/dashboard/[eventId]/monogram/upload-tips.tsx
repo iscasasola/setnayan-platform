@@ -26,11 +26,11 @@ export function UploadTips({ open }: { open?: boolean }) {
   return (
     <details
       open={open}
-      className="overflow-hidden rounded-xl border border-ink/10 bg-cream [&_summary::-webkit-details-marker]:hidden"
+      className="overflow-hidden border-y border-ink/10 [&_summary::-webkit-details-marker]:hidden"
     >
       <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span className="text-sm font-semibold text-ink">What uploads best</span>
-        <span className="text-xs font-medium text-ink/50">20 seconds · saves a retry</span>
+        <span className="text-xs font-medium text-ink/75">20 seconds · saves a retry</span>
       </summary>
 
       <ul className="space-y-3 px-4 pb-4">

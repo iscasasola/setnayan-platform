@@ -18,7 +18,7 @@ import { pickNextPayment } from '@/lib/budget-page-view';
 import { labMoney } from './fixture';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAB = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const LAB = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
 
 test('the budget lab calls notFound() in production, before anything else', () => {
   assert.match(LAB, /import \{ notFound \} from 'next\/navigation';/, 'notFound is not imported');

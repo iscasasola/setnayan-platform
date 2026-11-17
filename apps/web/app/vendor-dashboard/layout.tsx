@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { bookedEventIdsOf } from '@/lib/new-inquiry';
+import { NoticeSlot } from '@/app/_components/notices/notices';
+import { VendorNoticeTop } from './_components/vendor-notice-top';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -92,8 +95,12 @@ import './_components/supplier-frame.css';
  */
 export default async function VendorDashboardLayout({
   children,
+  rise,
 }: {
   children: React.ReactNode;
+  /** ⤴ A page reached by a soft tap (the avatar sheet's rows), risen full screen OVER `children` — `@rise/(.)…`
+   *  (build-sessions/RISE-AUDIT-2026-11-13.md § H). Null when nothing is risen. */
+  rise: React.ReactNode;
 }) {
   const user = await getCurrentUser();
   // Keep the page they asked for — a deep link to a chat or a booking must
@@ -195,14 +202,31 @@ export default async function VendorDashboardLayout({
   // parallel with the chrome batch); fail-soft to 0 so the badge simply omits on
   // any error — never fabricated. The Threads badge (unread chat threads) uses
   // the existing countUnreadMessages RPC in the batch below.
-  const bookingsPendingPromise = vendorProfilePromise
-    .then(async (vp) => {
+  // CYC-14 (16 Nov 2026) + the #7898 audit: the badge counts by the SAME rule as Today's cards (`isNewInquiry`) —
+  // pending, unanswered, and its event not already booked — in ONE exact head count (no row cap, no admin client).
+  // "Booked" is the database's own `current_vendor_booked_event_ids()` (the RLS helper; EXECUTE is granted to the
+  // signed-in role), read in parallel with the shop, so the badge waits on nothing new. A refused booked read only
+  // widens the count back to "pending and unanswered" — logged, never a fabricated 0.
+  const bookedEventIdsPromise = Promise.resolve(supabase.rpc('current_vendor_booked_event_ids'))
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('[supabase-error] app/vendor-dashboard/layout.tsx · rpc:current_vendor_booked_event_ids', error);
+        return [] as string[];
+      }
+      return bookedEventIdsOf(data);
+    })
+    .catch(() => [] as string[]);
+  const bookingsPendingPromise = Promise.all([vendorProfilePromise, bookedEventIdsPromise])
+    .then(async ([vp, booked]) => {
       if (!vp?.vendor_profile_id) return 0;
-      const { count, error } = await supabase
+      let q = supabase
         .from('chat_threads')
         .select('thread_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vp.vendor_profile_id)
-        .eq('inquiry_status', 'pending');
+        .eq('inquiry_status', 'pending')
+        .is('vendor_first_reply_at', null);
+      if (booked.length > 0) q = q.not('event_id', 'in', `(${booked.join(',')})`);
+      const { count, error } = await q;
       if (error) console.error('[supabase-error] app/vendor-dashboard/layout.tsx · from:chat_threads.select', error);
       return error ? 0 : count ?? 0;
     })
@@ -670,11 +694,15 @@ export default async function VendorDashboardLayout({
               is left at every width is the floating thumb row's measured room
               (`--sn-thumb-room`, lib/thumb-room.ts). */}
           <div className="pb-[max(calc(env(safe-area-inset-bottom)+92px),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]">
-            {/* Live vendor deal announcement (self-gates to null when
-                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
-                vendor right now). */}
-            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            {/* 🔔 The supplier pages' TOP for notices (one notice system, owner approved 14 Nov 2026) — every page but
+                Today, whose top sits under the photo (badge-earned-line.tsx). */}
+            <VendorNoticeTop />
             <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
+            {rise}
+            {/* Live vendor deal — an OFFER, registered for the END of the page (one notice system). Self-gates to null when
+                PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS vendor right now. */}
+            <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
+            <NoticeSlot place="end" className="mt-6 px-4" />
           </div>
         </main>
       </div>

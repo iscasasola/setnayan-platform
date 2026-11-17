@@ -7,6 +7,7 @@ import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supp
 import { ProfileChecklistEditor } from '../../shop/_components/profile-checklist-editor';
 import { VenueMatchCard } from '../../shop/_components/venue-match-card';
 import { VenueTypeCard } from '../../shop/_components/venue-type-card';
+import { asksVenueType } from '@/lib/vendor-venue-type';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
 import { SuggestedCoverageCard } from '../../shop/_components/suggested-coverage-card';
 import { VisibilityCard } from '../../shop/_components/visibility-card';
@@ -22,6 +23,7 @@ import { updateBusinessStartDate } from '../../actions';
 import type { DetailsData } from '../details-data';
 import { ON_SETNAYAN_SINCE_LABEL, onSetnayanSinceLine } from '@/lib/in-business-since';
 import { DeepSearchCard, deepSearchFoldLine } from './deep-search-card';
+import { setupLine, type SetupView } from '@/lib/supplier-setup';
 
 /**
  * YOUR DETAILS — the form, as ONE list (simpler supplier dashboard step 5 · prototype moment 6, `SCREENS.details`).
@@ -43,11 +45,19 @@ import { DeepSearchCard, deepSearchFoldLine } from './deep-search-card';
  */
 export function DetailsScreen({
   d,
+  live,
   payBody,
   branchBody,
   gearBody = null,
 }: {
   d: DetailsData;
+  /**
+   * 🔢 THE ONE "N OF 6" (walk W1-B10): Today's "Get your shop live" six (`shopSetupView`) — the headline, the bar and
+   * the strip's "steps done" all draw it. `null` = a verified shop (Today counts nothing then, so neither does this);
+   * `'unread'` = the steps could not be read (said, never guessed). Absent = the dev lab, which draws its fixture's
+   * own details count.
+   */
+  live?: SetupView | null | 'unread';
   /** ⚙ The Shop ⚙'s rows while its sheet is open (`?gear=1`) — `shopGearBody` on the real page. */
   gearBody?: ReactNode | null;
   /** The payment surface, embedded (a server component with its own actions) — the lab hands in a stand-in. */
@@ -67,9 +77,23 @@ export function DetailsScreen({
       </Badge>
     );
   };
-  const pct = Math.round((p.done / p.of) * 100);
+  const steps = live && live !== 'unread' ? live : null;
+  const count = steps ? { done: steps.done, of: steps.of } : live === undefined ? { done: p.done, of: p.of } : null;
+  const pct = count ? Math.round((count.done / count.of) * 100) : 0;
   // 🎁 Frame B4: a shop from Setnayan's own invite reads "2 of 6 done · from your invite" until it is all in.
-  const line = d.fromInvite && p.done < p.of ? `${formatCount(p.done)} of ${formatCount(p.of)} done · from your invite` : detailsLine(p);
+  const line = steps
+    ? d.fromInvite && steps.done < steps.of
+      ? `${formatCount(steps.done)} of ${formatCount(steps.of)} done · from your invite`
+      : setupLine(steps)
+    : live === null
+      ? p.left.length > 0
+        ? `Verified · left: ${p.left.map((r) => r.leftWord).join(' · ')}`
+        : 'Verified · everything is in'
+      : live === 'unread'
+        ? 'Your steps could not be counted just now'
+        : d.fromInvite && p.done < p.of
+          ? `${formatCount(p.done)} of ${formatCount(p.of)} done · from your invite`
+          : detailsLine(p);
   const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
   // Each service by its taxonomy name (`details-data.ts` → `serviceNames`), never its key — Build 5 F5.
@@ -80,26 +104,28 @@ export function DetailsScreen({
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
-        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: p.done, of: p.of })} gearBody={gearBody} />
+        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: count ? count.done : null, of: count ? count.of : null, steps: live !== null })} gearBody={gearBody} />
         <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">
             <b className="font-semibold">{head}</b>
             {rest}
           </p>
-          <div
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
-            role="meter"
-            aria-label="Your details"
-            aria-valuemin={0}
-            aria-valuemax={p.of}
-            aria-valuenow={p.done}
-          >
-            <span
-              className="block h-full rounded-full bg-sn-accent transition-[width] duration-500 ease-out motion-reduce:transition-none"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+          {count ? (
+            <div
+              className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
+              role="meter"
+              aria-label={steps ? 'Get your shop live' : 'Your details'}
+              aria-valuemin={0}
+              aria-valuemax={count.of}
+              aria-valuenow={count.done}
+            >
+              <span
+                className="block h-full rounded-full bg-sn-accent transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="divide-y divide-ink/10" data-details-list="">
@@ -169,7 +195,8 @@ export function DetailsScreen({
                 showProgress={false}
                 asks={asks}
               />
-              <VenueTypeCard initialVenueType={d.venueType} />
+              {/* W1-B26: asked of a venue only, never a cake shop (`asksVenueType`). */}
+              {asksVenueType(d.profileFields.services, d.venueType) ? <VenueTypeCard initialVenueType={d.venueType} /> : null}
               <VenueMatchCard
                 initialVenueSettings={d.compatibleVenueSettings}
                 initialCeremonyTypes={d.compatibleCeremonyTypes}
@@ -219,14 +246,6 @@ export function DetailsScreen({
                 showProgress={false}
                 asks={asks}
               />
-              <p className="flex flex-wrap gap-2" data-details-confirmed="">
-                <Badge tone={d.verify.phoneConfirmedAt ? 'ok' : 'quiet'} data="phone-confirmed">
-                  {d.verify.phoneConfirmedAt ? 'Phone confirmed' : 'Phone not confirmed yet'}
-                </Badge>
-                <Badge tone={d.verify.emailConfirmedAt ? 'ok' : 'quiet'} data="email-confirmed">
-                  {d.verify.emailConfirmedAt ? 'Email confirmed' : 'Email not confirmed yet'}
-                </Badge>
-              </p>
               <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} fairWords={d.fairWords} />
               <VisibilityCard
                 initialSameDayAvailable={d.sameDayAvailable}

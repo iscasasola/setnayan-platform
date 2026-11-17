@@ -220,11 +220,10 @@ export function PageParts({
         {d.showBeforeVerified?.offer ? (
           <ShowBeforeVerifiedRow shown={d.showBeforeVerified.shown} />
         ) : !d.live ? (
-          <div className="border-t border-[color:var(--m-line)] px-3.5 py-2.5">
-            <InfoTip label="Only you and your team can open it for now" align="start" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
-              Couples see it once Setnayan checks your documents and lists your shop.
-            </InfoTip>
-          </div>
+          <p className="border-t border-[color:var(--m-line)] px-3.5 py-2.5 text-[13px] text-[color:var(--m-slate-2)]">
+            {/* Ruling 2026-11-16 (18): the page is open to anyone with the link before verification; Find waits for it. */}
+            Anyone with the link can open it now. Your shop shows in Find once Setnayan checks your documents.
+          </p>
         ) : null}
       </div>
 
@@ -247,7 +246,7 @@ export function PageParts({
 
         <Fold anchor="cover" data="page-cover" lead={<RowIcon icon={ImageIcon} />} title={`Cover photo${diamond(d.proAsks)}`} line={shown.hero ? 'Your pick' : 'Automatic — your first photo'}>
           <div className="space-y-2 pb-4">
-            {d.proAsks ? <PlanAsk plan="Supplier Pro" /> : null}
+            {d.proAsks ? <PlanAsk plan="Pro" /> : null}
             {d.portfolio.length === 0 ? (
               <DatesRow data="page-cover-empty" title="No photos yet" line="Add photos to your collections first" href="/vendor-dashboard/collections" />
             ) : (
@@ -263,7 +262,7 @@ export function PageParts({
 
         <Fold anchor="about" data="page-about" lead={<RowIcon icon={Pencil} />} title={`About${diamond(d.personalizeAsks)}`} line={shown.about ? shown.about.split(/(?<=[.!?])\s/)[0] : 'One paragraph · optional'}>
           <div className="space-y-2 pb-4">
-            {d.personalizeAsks ? <PlanAsk plan="Supplier Plus" /> : null}
+            {d.personalizeAsks ? <PlanAsk plan="Plus" /> : null}
             <textarea
               value={shown.about}
               onChange={(e) => change({ about: e.target.value })}
@@ -336,7 +335,7 @@ export function PageParts({
         <Fold anchor="reviews" data="page-reviews" lead={<RowIcon icon={Star} />} title="Reviews and stories" line={ratingLine ?? 'Could not be read just now'}>
           <div className="space-y-1 pb-4">
             <p className="pt-1 text-[13px] font-semibold text-ink">Pinned at the top{diamond(d.proAsks)}</p>
-            {d.proAsks ? <PlanAsk plan="Supplier Pro" /> : null}
+            {d.proAsks ? <PlanAsk plan="Pro" /> : null}
             {d.reviews === null ? (
               <p role="alert" className="text-sm text-[rgb(var(--color-warn))]">Your reviews could not be read just now — not the same as none.</p>
             ) : d.reviews.length === 0 ? (
@@ -429,7 +428,7 @@ export function PageParts({
           }
         >
           <div className="space-y-2 pb-4">
-            {d.personalizeAsks ? <PlanAsk plan="Supplier Plus" /> : null}
+            {d.personalizeAsks ? <PlanAsk plan="Plus" /> : null}
             <PickMenu
               label="Your colour"
               value={shown.accent || MICROSITE_DEFAULT_ACCENT_KEY}

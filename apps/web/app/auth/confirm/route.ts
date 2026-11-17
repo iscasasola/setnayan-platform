@@ -24,7 +24,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { stampLastLogin } from '@/lib/login-activity';
-import { parseConfirmOtpType } from '@/lib/auth-confirm-link';
+import { confirmNextFrom, deadLinkLanding, isDeadLinkError, landingForAccount, parseConfirmOtpType } from '@/lib/auth-confirm-link';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
   // An UNRECOGNISED type is refused, never defaulted — see parseConfirmOtpType.
   const type = parseConfirmOtpType(url.searchParams.get('type'));
   // Same open-redirect guard every other auth door uses.
-  const next = safeNext(url.searchParams.get('next'));
+  // W1-B24: the sign-up template passes `.RedirectTo` (an absolute `…/auth/callback?next=/x`) — unwrapped to `/x`.
+  const next = safeNext(confirmNextFrom(url.searchParams.get('next')));
 
   if (!tokenHash || !type) {
     // No proof on the link at all. Say the true thing — a link this shape is
@@ -51,6 +52,10 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
 
+  if (error && isDeadLinkError(error.message)) {
+    // W1-B24: an expired or spent link gets plain words and a "Send a new link" button on the sign-in card.
+    return NextResponse.redirect(new URL(deadLinkLanding(next), url.origin));
+  }
   if (error) {
     // 🚨 THE RAW MESSAGE IS NOT SHOWN. humanAuthError() at the render decides
     // what a person reads; this only carries it. That gate is what stopped a
@@ -61,5 +66,14 @@ export async function GET(request: NextRequest) {
   }
 
   await stampLastLogin(supabase);
-  return NextResponse.redirect(new URL(next, url.origin));
+  // W1-B25: a link with no destination of its own lands a supplier on the shop, not the front door.
+  let accountType: string | null = null;
+  if (next === '/') {
+    const { data: auth } = await supabase.auth.getUser();
+    if (auth.user?.id) {
+      const { data: row } = await supabase.from('users').select('account_type').eq('user_id', auth.user.id).maybeSingle();
+      accountType = (row?.account_type as string | null | undefined) ?? null;
+    }
+  }
+  return NextResponse.redirect(new URL(landingForAccount(next, accountType), url.origin));
 }

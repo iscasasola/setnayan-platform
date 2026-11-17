@@ -1,3 +1,4 @@
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { CHAT_SENT_AS_FIELD } from '@/lib/chat-sent-as';
 import { CheckCircle2, CircleDashed, MessageSquareReply, XCircle } from 'lucide-react';
@@ -20,6 +21,8 @@ export function ThreadAnswerLine({
   todayIso,
   answer,
   askOpen,
+  compact = false,
+  showDate = true,
 }: {
   initials: string;
   /** The couple's date (`YYYY-MM-DD`), or null. */
@@ -28,9 +31,40 @@ export function ThreadAnswerLine({
   /** Null = the read could not answer → the date alone, never a guessed "Free". */
   answer: ThreadDayAnswer | null;
   askOpen: boolean;
+  /**
+   * 📅 IN THE HEAD, UNDER THE TITLE (DECISION_LOG 2026-11-16 CHAT-09): the same date door and the same word, as one
+   * short line — no initials, no row of its own, no ask button (the page keeps "They asked to book" in the band while
+   * an ask is open). `showDate={false}` when the head's own line already says the date (the full-screen head).
+   */
+  compact?: boolean;
+  showDate?: boolean;
 }) {
   const words = answer ? threadDayWords(answer) : null;
   const Icon = words?.tone === 'ok' ? CheckCircle2 : words?.tone === 'danger' ? XCircle : CircleDashed;
+  const tone = words?.tone === 'ok' ? 'text-success-700' : words?.tone === 'danger' ? 'text-danger-700' : 'text-ink/60';
+  if (compact) {
+    const day = showDate && eventDay ? eventDay : null;
+    if (!day && !words) return null;
+    return (
+      <span data-thread-day-answer={answer?.kind ?? 'unknown'} className="inline-flex min-w-0 items-center gap-x-1.5">
+        {day ? (
+          // The door keeps a 44 px press without growing the head: an invisible halo around the words.
+          <Link href={daySheetHref(day)} className="relative underline-offset-2 after:absolute after:-inset-y-3 after:inset-x-0 after:content-[''] hover:underline">
+            {dayTitle(todayIso, day)}
+          </Link>
+        ) : null}
+        {words ? (
+          <>
+            {day ? <span aria-hidden className="text-ink/40">·</span> : null}
+            <b className={`inline-flex items-center gap-1 font-semibold ${tone}`}>
+              <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              {words.word}
+            </b>
+          </>
+        ) : null}
+      </span>
+    );
+  }
   return (
     <div data-thread-day-answer={answer?.kind ?? 'unknown'} className="flex min-h-14 items-center gap-3 border-b border-[color:var(--m-line)] px-3 py-2 sm:px-4">
       <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sn-accent/10 text-[13px] font-semibold text-ink">
@@ -65,6 +99,16 @@ export function ThreadAnswerLine({
   );
 }
 
+/** 🤝 While their booking ask is open, its one tap keeps a slim row of its own (the answer line moved into the head —
+ *  CHAT-09). */
+export function ThreadAskRow() {
+  return (
+    <div className="flex justify-end border-b border-ink/10 px-3 py-1.5 sm:px-4" data-answer-ask-row="">
+      <AnswerAskButton />
+    </div>
+  );
+}
+
 /**
  * QUICK REPLIES (prototype "Yes po, that day is free · Let me check and reply today · Sending our price now"). Each is
  * the shipped send (`sendChatMessage`) as a plain form — it works without JavaScript and lands back in the thread.
@@ -92,7 +136,7 @@ export function QuickReplies({
           {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />
           <input type="hidden" name="body" value={q} />
-          <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
+          <input type="hidden" name="return_to" value={supplierThreadPageHref(threadId)} />
           {/* Rule 3 · the button piece (grey = plain), never a hand-made pill. */}
           <SupplierSubmit
             tone="neutral"

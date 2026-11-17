@@ -130,6 +130,7 @@ export const SUPPLIER_ACCESS_BY_PARENT: Readonly<Record<WeddingFolder, readonly 
   look: [SEAT_PLAN, ...EVERY_SUPPLIER],
   booths: [GUEST_COUNTS, SEAT_PLAN, ...EVERY_SUPPLIER],
   prints: [...EVERY_SUPPLIER],
+  gifts_giveaways: [...EVERY_SUPPLIER],
   transport: [...EVERY_SUPPLIER],
   experience: [...EVERY_SUPPLIER],
   dining: [...EVERY_SUPPLIER],

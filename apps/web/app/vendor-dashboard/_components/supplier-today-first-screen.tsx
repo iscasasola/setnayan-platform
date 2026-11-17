@@ -27,7 +27,7 @@ import { formatCount } from '@/lib/format-number';
 import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { fromToday } from '@/lib/picked-client-close';
 import { EventsYouRunRows } from './events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
@@ -47,8 +47,8 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 export function nextHref(t: SupplierNextTarget): string {
   switch (t.to) {
     case 'thread': {
-      const href = `/vendor-dashboard/messages/${t.threadId}`;
-      return href;
+      // A `thread` target names no event (lib/supplier-today.ts), so this is the full-screen thread on purpose.
+      return supplierChatHref(null, t.threadId);
     }
     case 'card': {
       // THE ONE BUILD integration: every door into a client is built by ONE function (`customerCardHref`).
@@ -238,13 +238,6 @@ export type SupplierTodayFirstScreenProps = {
   nextEvents?: ReactNode;
   /** 📊 The five stats (`TodayStats`). */
   stats?: ReactNode;
-  /**
-   * ⚙ The pinned Needs-you-today row's ⚙ SLOT (`TodayGearSlot at="pin"`): since 11 Nov (owner *"Today settings yes"*)
-   * Today's ONE ⚙ sits on the photo header and fills this slot only once the header has scrolled away (`TodayGearRide`,
-   * Portfolio's `pin`). Null on a new shop — its six steps draw their own ⚙ — and then this heading does not pin
-   * either: the setup heading is the pinned row.
-   */
-  gear?: ReactNode;
   /** 📋 Needs you today — every row, in order; each JUMPS (`nextHref(row.target)`). */
   needs: readonly TodayNeed[];
   /** "N" — the same count as the cover's chip (null = the desk could not be read and shows nothing). */
@@ -292,7 +285,6 @@ const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', '
  */
 export function SupplierTodayFirstScreen({
   cover = null,
-  gear = null,
   nextEvents = null,
   stats = null,
   needs,
@@ -337,17 +329,20 @@ export function SupplierTodayFirstScreen({
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
             section) is Today's own page tour's. */}
         {/* 📌 THE ONE PINNED ROW ON TODAY (owner 10 Nov: *"Needs you today is the correct one to be pinned rather than
-            the row above it."*): the heading + its count stick under the bar while the rows scroll under them, and
-            Today's ⚙ rides onto its right end once the header has gone (owner 11 Nov); the cover, Next events and the stats scroll away. The pinned-row template (Clients' `customers-pin`):
-            sticky at the top, the page's own ground, the soft hairline (never a cut line), joined to the pin line
-            (`data-pinned-row`). A new shop (no ⚙ handed in) leaves it in the flow — its setup heading pins instead. */}
+            the row above it."*): the heading + its count stick under the bar while the rows scroll under them; the cover,
+            Next events and the stats scroll away. Joined to the pin line (`data-pinned-row`). No ⚙ here since 17 Nov
+            ("Removes: the second ⚙ pinned beside Needs you today … One ⚙ stays, in the header"). A new shop leaves it
+            in the flow — its setup heading pins instead. 🔒 today-gear-rides-the-header.test.ts */}
         <div
           className={
             setup
               ? 'hc-k2'
-              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sn-pin-hair sm:-mx-6 sm:px-6'
+              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sm:-mx-6 sm:px-6'
           }
-          style={setup ? undefined : { background: 'var(--sn-canvas)', marginTop: 0, marginBottom: 0 }}
+          // 🧼 THE CLEAN LOOK (owner 17 Nov, `dashboards_clean_look_2026-11-16`): the title sits ON the page — no band,
+          // no line under it, no ⚙ (the one ⚙ stays in the header). It still pins (owner 10 Nov), so it wears the
+          // page's OWN ground, fixed like `.sn-ambient`, and the rows slide under it unseen.
+          style={setup ? undefined : { background: 'var(--sn-ambient, rgb(var(--sn-page-bg)))', backgroundAttachment: 'fixed', marginTop: 0, marginBottom: 0 }}
           data-tour="today-next"
           data-today-needs-pin={setup ? undefined : ''}
           data-pinned-row={setup ? undefined : ''}
@@ -358,11 +353,6 @@ export function SupplierTodayFirstScreen({
               you", and a bare "0" read as a stray mark (Build 3 empty modes, 9 Nov). The "12 MN – 12 MN" hours that used to
               follow the count are gone — a midnight-to-midnight range says nothing (owner walkthrough, Nov). */}
           {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
-          {gear ? (
-            <span className={`inline-flex shrink-0 normal-case tracking-normal ${needsCount ? '' : 'ml-auto'}`} data-today-needs-gear="">
-              {gear}
-            </span>
-          ) : null}
         </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
           {needs.map((n) => (

@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
@@ -67,10 +68,10 @@ export async function updateVenueMatching(
     formData.getAll('compatible_venue_settings'),
     ALLOWED_VENUE_SETTINGS,
   );
-  const ceremonyTypes = parseCompatibility(
-    formData.getAll('compatible_ceremony_types'),
-    ALLOWED_CEREMONY_TYPES,
-  );
+  // Ruling 16 (16 Nov 2026): no ceremony ticked is BLANK (`[]`, matches nobody in Find) — never NULL, which the
+  // readers take as "serves every ceremony". Venues keep NULL = "any venue".
+  const ceremonyTypes =
+    parseCompatibility(formData.getAll('compatible_ceremony_types'), ALLOWED_CEREMONY_TYPES) ?? [];
 
   const { error } = await supabase
     .from('vendor_profiles')
@@ -112,7 +113,7 @@ export async function updateVenueMatching(
   // Both the shop editor and the public profile that renders the badges.
   revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
-  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
+  if (profile.business_slug) revalidatePath(`${shopPath(profile.business_slug)}`);
 
   return { ok: true, venueSettings, ceremonyTypes };
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { TodayGearRide, TodayGearSlot } from './today-gear-ride';
+import { TodaySettings } from './today-settings';
 import { InfoTip } from '@/app/_components/info-tip';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
@@ -88,9 +88,9 @@ export function SupplierTodayScreen({
     AWAY with the page — no `CollapsingTop` locks them any more; the Needs-you-today heading with its count is the one
     row that sticks. A new shop (the six steps) keeps its own setup heading as the pinned row and draws its ⚙ there, so
     none is handed in here.
-    ⚙ IN THE HEADER (owner 11 Nov, *"Today settings yes"*): Today's ONE ⚙ sits top-right on the photo header and rides
-    onto the pinned row's right end only once the header has scrolled away — Portfolio's shipped `pin` (`TodayGearRide`
-    measures the cover; the two `TodayGearSlot`s draw the one mount). Never beside the hours while the header is up.
+    ⚙ IN THE HEADER, ONLY (owner 11 Nov, *"Today settings yes"*; 17 Nov, the clean look: "Removes: the second ⚙, pinned
+    beside Needs you today … One ⚙ stays, in the header"): Today's ONE ⚙ sits top-right on the photo header and nowhere
+    else — it no longer rides onto the pinned row.
     🔒 app/vendor-dashboard/_components/today-pins-needs-you-today.test.ts
     🔒 app/vendor-dashboard/_components/today-gear-rides-the-header.test.ts
   */
@@ -101,12 +101,12 @@ export function SupplierTodayScreen({
       todayIso={todayIso}
       now={now}
       hero={hero}
-      gear={setup ? null : <TodayGearSlot at="cover" />}
+      gear={setup ? null : <TodaySettings cover />}
     />
   );
   const statsTop = <TodayStats stats={view.stats} />;
   return (
-    <TodayGearRide>
+    <>
       <SupplierTodayFirstScreen
         cover={
           <>
@@ -114,7 +114,6 @@ export function SupplierTodayScreen({
             {earned}
           </>
         }
-        gear={setup ? null : <TodayGearSlot at="pin" />}
         nextEvents={nextEvents}
         stats={statsTop}
         needs={view.needs}
@@ -153,6 +152,6 @@ export function SupplierTodayScreen({
           </>
         }
       />
-    </TodayGearRide>
+    </>
   );
 }

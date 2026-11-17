@@ -44,8 +44,7 @@
 export type DemoOverlayId =
   | 'papic-demo'
   | 'panood-demo'
-  | 'plan3d-demo'
-  | 'alaala-editorial';
+  | 'plan3d-demo';
 
 type Listener = (id: DemoOverlayId) => void;
 

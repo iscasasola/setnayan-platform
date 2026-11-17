@@ -79,6 +79,7 @@
 /dev/shop-back-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-card-lab	# 2026-11-10 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-end-lab	# 2026-11-14 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-preview-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -103,4 +104,5 @@
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/dev/award-lab	# 2026-11-15 · internal (dev lab, 404 in production) · the shared award kit (badge, reward tickets, seal plaque, story video) on sample data; reached by typing its address
 /dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address

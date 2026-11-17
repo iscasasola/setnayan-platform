@@ -816,14 +816,14 @@ export function BottomDock({
         data-bottom-dock
         className={
           boundary === 'tab'
-            ? 'fixed inset-x-0 bottom-0 z-sn-nav flex flex-col backdrop-blur tab:hidden'
-            : 'fixed inset-x-0 bottom-0 z-sn-nav flex flex-col backdrop-blur lg:hidden'
+            ? 'pointer-events-none fixed inset-x-0 bottom-0 z-sn-nav flex flex-col tab:hidden'
+            : 'pointer-events-none fixed inset-x-0 bottom-0 z-sn-nav flex flex-col lg:hidden'
         }
         style={{
+          // ✨ THE DOCK IS CLEAR NOW (clean warm look, owner 16 Nov 2026): it stays the ONE anchored box, flush to
+          // the edge with the home indicator inside it, but it paints nothing — the bar inside it is the floating
+          // white pill (NavShell). Clicks fall through the clear margin around the pill to the page.
           paddingBottom: 'env(safe-area-inset-bottom)',
-          background: 'var(--sn-dock-bg)', // the frosted paper @ 92% — dark pair in globals.css
-          // Cast UPWARD: the page is above the dock, not below it.
-          boxShadow: '0 -10px 30px -14px rgba(30, 34, 41, 0.28)',
         }}
       >
         {children}
@@ -864,9 +864,14 @@ function NavShell({ children }: { children: ReactNode }) {
       // IN the dock's flow — never `fixed` itself. The dock is the anchored
       // box; the bar is its bottom row. `px-1.5` keeps the outer tabs' pills
       // off the screen edge now that the bar runs edge to edge.
-      className="relative w-full px-1.5"
+      className="pointer-events-auto relative mx-3.5 mb-3.5 rounded-full px-1.5"
       style={
         {
+          // ✨ THE FLOATING WHITE PILL (clean warm look, owner 16 Nov 2026 — "floating pill bottom nav, active =
+          // filled terracotta"): the bar reads the frame's fill and lift and floats 14 px above the edge. Its
+          // room is still reserved by `--sn-bottomdock-h` (the dock measures the pill + its margin).
+          background: 'var(--sn-dock-bg)',
+          boxShadow: 'var(--sn-dock-lift)',
           // 🔒 The four central tuning knobs (owner-locked baseline 2026-06-13).
           // Retune the whole app's nav feel by editing ONLY these four.
           '--bn-dur': '500ms',
@@ -892,12 +897,13 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute top-1/2 z-0"
+      className="pointer-events-none absolute inset-y-1 z-0"
       style={{
         left: 0,
         width: `${colW}%`,
-        height: 44,
-        transform: `translateY(-50%) translateX(${index * 100}%)`,
+        // ✨ The active item is a FILLED pill around its icon and word (16 Nov) — so the capsule spans the cell's
+        // height (4 px in from the bar's own edge), not a 44 px band through its middle.
+        transform: `translateX(${index * 100}%)`,
         transition: 'transform var(--bn-dur) cubic-bezier(0.34, 1.4, 0.5, 1)',
       }}
     >
@@ -914,9 +920,9 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
           left: 0,
           right: 0,
           marginInline: 'auto',
-          width: 'min(52px, calc(100% - 8px))',
+          width: 'min(76px, calc(100% - 4px))',
           borderRadius: 'var(--m-r-full)',
-          background: 'var(--sn-dock-pill)', // ink @ 15% — bolder so the active tab reads at a glance
+          background: 'var(--sn-dock-pill)', // the accent, filled (16 Nov) — the active tab's words read on it in --sn-on-accent
         }}
       />
     </span>
@@ -1154,7 +1160,7 @@ function BottomNavTab({
         onPointerCancel={onPressEnd}
         className="flex min-h-[56px] min-h-[44pt] select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
-          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
+          color: active ? 'var(--sn-dock-on-pill)' : 'var(--m-slate)',
           outlineColor: 'var(--m-nav-active)',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
@@ -1171,7 +1177,7 @@ function BottomNavTab({
             className="h-[22px] w-[22px]"
             strokeWidth={1.75}
             style={{
-              color: active ? 'var(--m-nav-active)' : 'var(--m-slate)',
+              color: active ? 'var(--sn-dock-on-pill)' : 'var(--m-slate)',
               transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
               transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
@@ -1270,10 +1276,10 @@ function AccordionCell({
             color:
               role === 'hinge'
                 ? active
-                  ? 'var(--m-nav-active)'
+                  ? 'var(--sn-dock-on-pill)'
                   : 'var(--m-ink)'
                 : active
-                  ? 'var(--m-nav-active)'
+                  ? 'var(--sn-dock-on-pill)'
                   : 'var(--m-slate)',
             transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
             transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -1315,7 +1321,7 @@ function AccordionCell({
   const className =
     'flex min-h-[56px] min-h-[44pt] h-full w-full select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
   const contentStyle: CSSProperties = {
-    color: active ? 'var(--m-ink)' : 'var(--m-slate)',
+    color: active ? 'var(--sn-dock-on-pill)' : 'var(--m-slate)',
     outlineColor: 'var(--m-nav-active)',
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation',

@@ -49,7 +49,7 @@ import { CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-inp
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 import { useTapAway } from '@/app/_components/typing-band';
 import { SlashList } from '@/app/_components/chat/slash-list';
-import { filterSlash, plusGate, slashPick, slashQuery, PLUS_CARD_TITLE, type SlashRow } from '@/lib/chat-plus';
+import { filterSlash, plusGate, slashPick, slashQuery, PLUS_CARD_TITLE, RISING_DRAFTS, type SlashRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import {
   CHAT_PENDING_EVENT,
@@ -183,7 +183,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     setSlashText(null);
     setHasDraft(false);
     patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
-    window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+    // ⤴ A poll or decision rises full screen (CHAT-09) — the chat under it stays where it was.
+    if (!RISING_DRAFTS.has(row.card)) window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
   };
   // Either door turning private mode on (or changing who) puts the cursor in the box.
   const privateUserId = privateTo ? privateTo.map((p) => p.userId).join(',') : null;

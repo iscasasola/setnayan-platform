@@ -1,3 +1,4 @@
+import { shopInvitePath } from '@/lib/shop-address';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -121,7 +122,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   if (et) scopeQs.set('et', et);
   if (cat) scopeQs.set('cat', cat);
   const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : '';
-  const nextPath = `/vendor-invite/${slug}${scopeSuffix}`;
+  const nextPath = `${shopInvitePath(slug)}${scopeSuffix}`;
   const statusMessage = status ? STATUS_COPY[status] ?? null : null;
 
   return (

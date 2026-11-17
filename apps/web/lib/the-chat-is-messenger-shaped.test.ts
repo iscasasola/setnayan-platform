@@ -147,7 +147,9 @@ test('from 701 the list and the open thread stand side by side — the system’
     const p = read(page);
     assert.match(p, /<ChatPanes list=\{list\} open=\{false\} latestHref=\{latestHref\}>\s*<ThreadArrival \/>\s*<\/ChatPanes>/, `${page}: the right column has no default`);
     assert.match(p, /\.find\(\(r\) => !r\.archived\)\?\.paneHref/, `${page}: the default is not the newest active chat`);
-    assert.match(p, /paneHref: `\/[^`]*messages\/\$\{r\.threadId\}`/, `${page}: a row does not open its thread beside the list`);
+    // The supplier's pane goes through `supplierThreadPaneHref` (`?pane=1`), so the thread page draws beside the list
+    // instead of forwarding to the client's Chat (lib/a-conversation-opens-the-client-chat.test.ts).
+    assert.match(p, /paneHref: (?:`\/[^`]*messages\/\$\{r\.threadId\}`|supplierThreadPaneHref\(r\.threadId\))/, `${page}: a row does not open its thread beside the list`);
     assert.match(p, /if \(besideThread\) return list;/, `${page}: beside a thread the list draws a second pair of columns`);
     const l = read(layout);
     assert.match(l, /<ChatPanes\s+open\s+list=\{\s*<Suspense fallback=\{null\}>\s*<\w+Page [^>]*searchParams=\{Promise\.resolve\(\{ __in: 'thread' \}\)\} \/>/, `${layout}: the list beside the thread is not the Chats page itself`);

@@ -237,7 +237,20 @@ export type ProfileSetup = {
   lookSet: string[];
   /** Papic's starting posture. 'quiet' = no party challenges, no confetti (a wake). */
   cameraDefault: CameraDefault;
+  /**
+   * 👥 small · medium · large (migration 20271350215206, owner 2026-11-17) — the guest step's starting number
+   * (`lib/event-size.ts`). Absent/null = not set (Admin has not chosen): no start number, never a guess.
+   */
+  eventSize?: EventSize | null;
+  /**
+   * 🛒 The bench tiles a NEW event of this type starts with, each an empty category in Build (owner 2026-11-17, Q4).
+   * Absent/null = not set: the shipped starter ring (`popularTilesFor`). Never `teamFirst` (suggestions).
+   */
+  coreCategories?: string[] | null;
 };
+
+export type EventSize = 'small' | 'medium' | 'large';
+export const EVENT_SIZES: readonly EventSize[] = ['small', 'medium', 'large'];
 
 export type EventTypeProfile = {
   eventType: string;
@@ -343,6 +356,10 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     teamFirst: ['venue', 'catering', 'photo_video', 'coordinator', 'florist', 'stylist_decorator', 'hmua', 'cake'],
     lookSet: ['velvet', 'vintage', 'regency', 'cinderella'],
     cameraDefault: 'on',
+    // Mirrors the wedding row's seed (migration 20271350215206) — the hard-coded profile keeps a DB read error on
+    // yesterday's shape, as every field above does.
+    eventSize: 'large',
+    coreCategories: ['reception', 'ceremony_venue', 'catering', 'coordinator', 'photo_video'],
   },
   onboardingEngine: false,
 };
@@ -605,6 +622,9 @@ export type ProfileRow = {
   team_first?: string[] | null;
   look_set?: string[] | null;
   camera_default?: string | null;
+  /** Migration 20271350215206. Optional: absent before it applies. */
+  event_size?: string | null;
+  core_categories?: string[] | null;
 };
 
 /**
@@ -620,6 +640,11 @@ function toSetup(row: ProfileRow, fb: ProfileSetup): ProfileSetup {
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0) : null;
   const teamFirst = textArray(row.team_first);
   const lookSet = textArray(row.look_set);
+  // The two columns of 20271350215206: a row that does not carry them (undefined — read before the migration, or
+  // through a narrower select) keeps the fallback's value; a row that carries NULL is "not set" and says so.
+  const sizeRaw = row.event_size;
+  const coreRaw = row.core_categories;
+  const coreCategories = textArray(coreRaw);
   return {
     guestWord:
       typeof row.guest_word === 'string' && row.guest_word.trim() ? row.guest_word.trim() : fb.guestWord,
@@ -631,6 +656,13 @@ function toSetup(row: ProfileRow, fb: ProfileSetup): ProfileSetup {
     cameraDefault: (CAMERA_DEFAULTS as readonly string[]).includes(row.camera_default ?? '')
       ? (row.camera_default as CameraDefault)
       : fb.cameraDefault,
+    eventSize:
+      sizeRaw === undefined
+        ? (fb.eventSize ?? null)
+        : (EVENT_SIZES as readonly string[]).includes(sizeRaw ?? '')
+          ? (sizeRaw as EventSize)
+          : null,
+    coreCategories: coreRaw === undefined ? (fb.coreCategories ?? null) : coreCategories && coreCategories.length > 0 ? coreCategories : null,
   };
 }
 
@@ -733,6 +765,8 @@ const PROFILE_BASE_COLUMNS =
   'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
 const PROFILE_OPTIONAL_COLUMNS =
   'marketplace_enabled, event_class, layer_mode, multi_day, max_days, guest_word, gifts_mode, team_first, look_set, camera_default';
+/** Migration 20271350215206 — read in a tier of its own, so code that ships before it never costs the columns above. */
+const PROFILE_SIZE_COLUMNS = 'event_size, core_categories';
 
 /**
  * `maxDays` is the source of truth; `multiDay` is `maxDays > 1`. A row that
@@ -810,6 +844,12 @@ async function readProfileRow(eventType: string): Promise<ProfileRow | null> {
   // optional columns: the row's terminology/surfaces/packs are preserved
   // and each optional field falls back to its code default. Once the
   // migrations are applied the first select succeeds and the columns read.
+  const sized = await sb
+    .from('event_type_profiles')
+    .select(`${PROFILE_BASE_COLUMNS}, ${PROFILE_OPTIONAL_COLUMNS}, ${PROFILE_SIZE_COLUMNS}`)
+    .eq('event_type', eventType)
+    .maybeSingle();
+  if (!sized.error) return (sized.data as ProfileRow | null) ?? null;
   const full = await sb
     .from('event_type_profiles')
     .select(`${PROFILE_BASE_COLUMNS}, ${PROFILE_OPTIONAL_COLUMNS}`)

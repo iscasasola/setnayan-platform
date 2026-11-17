@@ -1,5 +1,7 @@
 'use server';
 
+import { EVENT_SIZES } from '@/lib/event-type-profile';
+import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
@@ -330,6 +332,16 @@ export async function upsertEventTypeProfile(formData: FormData) {
   };
   if (formData.get('marketplace_enabled_shown') === '1') {
     row.marketplace_enabled = formData.get('marketplace_enabled') === 'on';
+  }
+  // 👥 · 🛒 SIZE AND CORE CATEGORIES (migration 20271350215206, owner 2026-11-17 — "editable in Admin"). Written only
+  // when the form shows them (`size_shown`), so a form without the fields can never clear them by omission. An
+  // unrecognised size or tile is DROPPED, never stored: an empty choice is "not set", which every reader handles.
+  if (formData.get('size_shown') === '1') {
+    const size = String(formData.get('event_size') ?? '');
+    row.event_size = (EVENT_SIZES as readonly string[]).includes(size) ? size : null;
+    const known = new Set<string>(WEDDING_TILE_ORDER);
+    const core = WEDDING_TILE_ORDER.filter((t) => formData.get(`core_${t}`) === 'on' && known.has(t));
+    row.core_categories = core.length > 0 ? core : null;
   }
   const admin = createAdminClient();
   const { error } = await admin

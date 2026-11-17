@@ -19,7 +19,7 @@ import {
   ringBuildCount,
   withAddedCategory,
 } from './explore-in-plan';
-import { popularTilesFor } from './supplier-find';
+import { popularTilesFor, starterTilesFor } from './supplier-find';
 import { stripComments } from './strip-comments';
 import { categoriesForTile, LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import {
@@ -315,14 +315,14 @@ test('kept: the page shows a wedding its own picks plus what it added, and hands
   const planned = page.slice(page.indexOf('const plannedTiles = (() => {'), page.indexOf('})();', page.indexOf('const plannedTiles = (() => {')));
   assert.doesNotMatch(planned, /=== 'wedding'\) return undefined/, 'a wedding’s own picks are ignored again');
   assert.match(planned, /const tiles = plannedTileIdSet\(picks\);\s*for \(const t of addedCategoriesOf\(prefs\)\) tiles\.add\(t\);/);
-  assert.match(page, /starterTiles=\{\[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\]\}/);
+  assert.match(page, /starterTiles=\{\[\.\.\.starterTilesFor\(ev\?\.event_type \?\? null, profileSetup\(profile\)\.coreCategories\)\]\}/);
   const bench = stripComments(
     readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'shortlist-categories.tsx'), 'utf8'),
   );
   assert.match(bench, /starterTiles: replan \? starterTiles : undefined,/);
   // The bench and the page build the ring through the SAME call.
   assert.match(bench, /const inPlanResolution = resolveBenchRing\(\{/);
-  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.popularTilesFor\(ev\?\.event_type \?\? null\)\],\s*listedOnly: true,\s*\}\);/);
+  assert.match(page, /const ring = resolveBenchRing\(\{\s*tiles: ringTiles,\s*excludedTiles,\s*pinnedTile: sp\.open \?\? null,\s*starterTiles: \[\.\.\.starterTilesFor\(ev\?\.event_type \?\? null, profileSetup\(profile\)\.coreCategories\)\],\s*listedOnly: true,\s*\}\);/);
   assert.match(page, /return \{ \.\.\.money, \.\.\.ringBuildCount\(ringTiles, ring\.inPlan\) \};/);
 });
 
@@ -364,4 +364,11 @@ test('📋 listed only (owner 2026-11-12): Find lists the categories the couple 
   const fresh = resolveBenchRing({ tiles: tiles.map((t) => ({ ...t, vendorCount: 0, lockedCount: 0 })), excludedTiles: [], starterTiles: ['cake'], listedOnly: true });
   assert.equal(fresh.inPlan.size, 0);
   assert.equal(fresh.coverage.size, 0);
+});
+
+test('🛒 a new event starts with its type’s core categories when Admin set them — else the shipped starter ring (owner 2026-11-17, Q4)', () => {
+  const core = ['reception', 'ceremony_venue', 'catering', 'coordinator', 'photo_video'];
+  assert.deepEqual([...starterTilesFor('wedding', core)], core);
+  assert.deepEqual([...starterTilesFor('birthday', null)], [...popularTilesFor('birthday')], 'unset is today’s ring, never empty');
+  assert.deepEqual([...starterTilesFor('birthday', [])], [...popularTilesFor('birthday')], 'an empty list is not a list');
 });

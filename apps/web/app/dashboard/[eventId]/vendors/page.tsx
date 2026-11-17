@@ -22,7 +22,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
-import { resolveProfileByEvent } from '@/lib/event-type-profile';
+import { profileSetup, resolveProfileByEvent } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
@@ -58,7 +58,7 @@ import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
 import { addedCategoriesOf, resolveBenchRing, ringBuildCount } from '@/lib/explore-in-plan';
-import { popularTilesFor } from '@/lib/supplier-find';
+import { starterTilesFor } from '@/lib/supplier-find';
 import { readFindList } from '@/lib/supplier-find-read';
 import { FindCategoryList } from './_components/find-category-list';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -2388,7 +2388,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         excludedTiles={excludedTiles}
         // The starter ring for an event with no plan of its own — the four a
         // host of its type books first (the Find page's own "Popular" list).
-        starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
+        starterTiles={[...starterTilesFor(ev?.event_type ?? null, profileSetup(profile).coreCategories)]}
         // The bottom search, tapped empty: the Find page's own category list.
         findPanel={findPanel}
         // Each pick's own service card (name · offer · price · what's included).
@@ -2533,7 +2533,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         })),
         excludedTiles,
         pinnedTile: sp.open ?? null,
-        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+        starterTiles: [...starterTilesFor(ev?.event_type ?? null, profileSetup(profile).coreCategories)],
       });
       const priceByVendorId = new Map<string, number | null>();
       // What each price comes with — the two lists the old "Current" column
@@ -2908,7 +2908,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         tiles: ringTiles,
         excludedTiles,
         pinnedTile: sp.open ?? null,
-        starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+        starterTiles: [...starterTilesFor(ev?.event_type ?? null, profileSetup(profile).coreCategories)],
         // 📋 Build N/M counts the SAME rows Find lists — only the categories the couple added (owner 2026-11-12).
         listedOnly: true,
       });

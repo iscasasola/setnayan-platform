@@ -1,5 +1,6 @@
 'use client';
 
+import { WithdrawAskButton } from './withdraw-ask-button';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -492,7 +493,9 @@ export function AccordionLockButton({
     return (
       <div className={wrapperClassName}>
         <p role="status" className="text-xs text-ink/70">
-          Booking requested — waiting for {state.vendorName} to agree.
+          Booking requested — waiting for {state.vendorName} to agree.{' '}
+          {/* ↩ Undo — the shipped withdraw (`withdrawVendorLockRequest`), the same one the bench's "Take it back" uses. */}
+          <WithdrawAskButton vendorId={vendorId} vendorName={state.vendorName} label="Undo" className="underline" />
         </p>
       </div>
     );
@@ -520,7 +523,11 @@ export function AccordionLockButton({
           ) : (
             copy.body
           );
-          if (!(await confirm({ ...copy, body }))) return;
+          // 👆 ASK = ONE TAP (owner 2026-11-17, Q11 — supersedes the 16 Nov EB-175 confirm for an ask; Undo sits on
+          // the answer below). The one exception keeps the 16 Nov rule "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT
+          // YET VERIFIED": that line has no other home before the ask, so a shop we read as not yet verified still
+          // asks once, with the line under it.
+          if (notYetVerified && !(await confirm({ ...copy, body }))) return;
           requestLock();
         }}
       >

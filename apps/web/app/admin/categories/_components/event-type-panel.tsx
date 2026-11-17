@@ -16,6 +16,9 @@
  * one press wrote the defaults over the real terminology; a refused onboarding
  * read showed the defaults in an armed editor. Both are carried over below.
  */
+import { EVENT_SIZES } from '@/lib/event-type-profile';
+import { EVENT_SIZE_LABEL, EVENT_SIZE_START_GUESTS } from '@/lib/event-size';
+import { WEDDING_TILE_LABEL, WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -132,6 +135,17 @@ export async function EventTypePanel({
     .eq('event_type', eventType)
     .maybeSingle<ProfileRow>();
   const profileReadFailed = Boolean(profileError);
+  // 👥 · 🛒 Size and core categories (migration 20271350215206) — read on their own, so a prod that has not applied
+  // the migration hides ONLY this section (and never sends `size_shown`, so nothing can be cleared by omission).
+  const { data: sizeData, error: sizeError } = await admin
+    .from('event_type_profiles')
+    .select('event_size, core_categories')
+    .eq('event_type', eventType)
+    .maybeSingle<{ event_size: string | null; core_categories: string[] | null }>();
+  if (sizeError) logQueryError('EventTypePanel (size)', sizeError, { eventType }, 'graceful_degrade');
+  const sizeReadOk = !sizeError && !profileReadFailed;
+  const sizeNow = sizeData?.event_size ?? '';
+  const coreNow = new Set(sizeData?.core_categories ?? []);
   if (profileError) {
     logQueryError('EventTypePanel (profile)', profileError, { eventType }, 'graceful_degrade');
   }
@@ -302,6 +316,51 @@ export async function EventTypePanel({
         <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
+      </Section>
+
+      {/* 👥 · 🛒 SIZE AND STARTING CATEGORIES (owner 2026-11-17, "editable in Admin"). The size picks the guest step's
+          start number (small 30 · medium 50 · large 150, worded as the minimum); the categories are the empty ones a NEW
+          event of this type starts with in Build. Unset = today's behaviour (no start number · the shipped starter ring). */}
+      <Section title="Size and starting categories">
+        {sizeReadOk ? (
+          <>
+            <input type="hidden" name="size_shown" value="1" form={formId} />
+            <KeyRow label="Size">
+              <FieldPick
+                label="Size"
+                name="event_size"
+                defaultValue={sizeNow}
+                choices={[
+                  { key: '', label: 'Not set — no start number' },
+                  ...EVENT_SIZES.map((z) => ({ key: z, label: `${EVENT_SIZE_LABEL[z]} · starts at ${formatCount(EVENT_SIZE_START_GUESTS[z])}` })),
+                ]}
+                form={formId}
+              />
+            </KeyRow>
+            <ReadOnly>Starting categories — none ticked means the shipped starter list.</ReadOnly>
+            <div className="grid gap-1 sm:grid-cols-3" data-core-categories="">
+              {WEDDING_TILE_ORDER.map((tile) => (
+                <label key={tile} className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    name={`core_${tile}`}
+                    form={formId}
+                    defaultChecked={coreNow.has(tile)}
+                    className="h-4 w-4 accent-terracotta"
+                  />
+                  {WEDDING_TILE_LABEL[tile]}
+                </label>
+              ))}
+            </div>
+            <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
+              Save
+            </SubmitButton>
+          </>
+        ) : (
+          <div role="alert" className="text-sm text-ink">
+            Couldn’t load this type’s size — refresh to try again.
+          </div>
+        )}
       </Section>
 
       <Section title="Words">

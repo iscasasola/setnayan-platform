@@ -289,7 +289,7 @@ export function ShopCover({
               ) : null}
               {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
               {d.rating ? (
-                <Link href={REVIEWS_HREF} className="inline-flex items-center gap-1 underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
+                <Link href={REVIEWS_HREF} className="inline-flex min-h-11 items-center gap-1 underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
                   <Star aria-hidden className="h-3 w-3 fill-current" strokeWidth={0} />
                   {d.rating}
                   {d.reviews ? ` · ${d.reviews}` : ''}
@@ -503,7 +503,7 @@ function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live:
       title="Your page"
       line={`${where} · ${live ? 'as couples see it' : 'a preview for your team'}`}
       actions={
-        <a href={path} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1 rounded-full border border-ink/15 bg-raised px-3 text-[13px] font-medium text-ink" data-view-shop-browser="">
+        <a href={path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-raised px-3 text-[13px] font-medium text-ink" data-view-shop-browser="">
           Open in browser
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         </a>

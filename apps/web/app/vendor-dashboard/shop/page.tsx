@@ -587,13 +587,13 @@ async function ShopHome({
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Shop</h1>
           <p className="max-w-prose text-base text-ink/65">Everything that defines your shop and your reach.</p>
         </header>
-        <div>
-          <p className="text-sm text-ink/70">
-            Set up your business profile first — once it&rsquo;s created, your storefront, reach, and reputation all live
-            here.
-          </p>
-          <Link href="/open-shop" className="button-primary mt-4 inline-flex items-center gap-2" data-tour="shop-details">
-            Set up my shop
+        {/* 🔎 `data` is null ONLY when the loader threw — a shop with no profile already left for /open-shop above.
+            So this is "we could not read your shop", never "set one up": that door invited a supplier who HAS a
+            shop to make a second one (supplier dashboard audit, 2026-11-17). */}
+        <div className="space-y-4" data-shop-unread="">
+          <CouldNotLoad what="your shop" />
+          <Link href="/vendor-dashboard/shop" className="button-primary inline-flex min-h-11 items-center gap-2" data-tour="shop-details">
+            Try again
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>

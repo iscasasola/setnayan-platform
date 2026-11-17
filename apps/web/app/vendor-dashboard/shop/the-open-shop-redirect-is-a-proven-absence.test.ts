@@ -152,3 +152,18 @@ test('the membership read keeps its error instead of destructuring it away', () 
     `${ACTIVE_SHOP}: a shop read no longer routes through classifyShopRead — the (rows, error) decision has been re-implemented inline where nothing executes it`,
   );
 });
+
+/**
+ * The LINK is a doorway too (supplier dashboard audit, 2026-11-17). My Shop's "loader threw" branch used to draw
+ * "Set up your business profile first" with a `href="/open-shop"` button. That branch is reached ONLY by a failed
+ * read, because the proven absence has already redirected, so a supplier who HAS a shop was offered the wizard.
+ */
+test('My Shop never LINKS to the /open-shop wizard', () => {
+  const src = readFileSync(SHOP_PAGE, 'utf8');
+  const links = src
+    .split('\n')
+    .map((text, i) => ({ text, line: i + 1 }))
+    .filter((l) => !isComment(l.text) && /href=\{?\s*['"`]\/open-shop['"`]/.test(l.text));
+  assert.equal(links.length, 0, links.map((l) => `${SHOP_PAGE}:${l.line} ${l.text.trim()}`).join('\n'));
+  assert.match(src, /data-shop-unread=""[\s\S]{0,80}<CouldNotLoad what="your shop" \/>/, 'the unread branch says it could not load');
+});

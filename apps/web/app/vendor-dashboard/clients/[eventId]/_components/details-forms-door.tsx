@@ -12,7 +12,7 @@ export function DetailsFormsDoor() {
   if (!nav) return null;
   return (
     <section data-details-forms="" aria-label="Forms sent to this couple">
-      <p className="home-k2 pb-1">Forms · sent to this couple</p>
+      <p className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Forms · sent to this couple</p>
       <button type="button" onClick={() => nav.select('forms')} className="sn-press flex min-h-12 w-full items-center gap-3 py-2 text-left" data-details-forms-open="">
         <span className="min-w-0 flex-1 text-sm text-ink">Open Forms</span>
         <ChevronRight aria-hidden className="h-4 w-4 text-ink/70" />

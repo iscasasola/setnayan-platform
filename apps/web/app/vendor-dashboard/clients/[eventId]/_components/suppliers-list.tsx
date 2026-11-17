@@ -8,7 +8,7 @@ export function SuppliersList({ rows }: { rows: SupplierRow[] | undefined }) {
   if (rows === undefined) return null;
   return (
     <section data-details-suppliers="" aria-label="Suppliers on this event">
-      <p className="home-k2 pb-1">Suppliers on this event · {rows.length}</p>
+      <p className="mt-[14px] mb-1.5 text-[13px] font-semibold text-ink/70">Suppliers on this event · {rows.length}</p>
       {rows.length === 0 ? (
         <p className="text-[13px] text-ink/70">No other supplier is booked yet.</p>
       ) : (

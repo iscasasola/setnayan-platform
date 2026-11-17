@@ -1968,7 +1968,10 @@ export function ChatMessageStream({
                       {!quoteState.history && quoteVersion?.plan ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteVersion.plan}</p>
                       ) : null}
+                      {/* 💳 Said ONCE (owner screenshot 17 Nov): inside the picked client its Details page carries the
+                          nudge, so the quote card does not repeat it; the full-screen chat has no Details beside it. */}
                       {viewerRole === 'vendor' &&
+                      !inPicked &&
                       isLatestProposal &&
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />

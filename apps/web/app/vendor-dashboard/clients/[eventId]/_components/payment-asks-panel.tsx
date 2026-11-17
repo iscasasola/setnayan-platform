@@ -88,7 +88,7 @@ export function PaymentAsksPanel({
   const NOTE = 'py-2 text-[13px] font-semibold';
   return (
     <div data-payment-asks="">
-      <h3 className="pt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Ask for a payment</h3>
+      <h3 className="pt-4 text-[13px] font-semibold text-ink/70">Ask for a payment</h3>
 
       {/*
         EVERY REFUSAL HAS SOMEWHERE TO BE SHOWN. The action refuses for four

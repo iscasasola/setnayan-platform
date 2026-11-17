@@ -44,7 +44,7 @@ import type { BookingMoney } from '@/lib/vendor-cashflow';
 import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/vendor-payment-live';
 import { BookingMoneySummary } from './booking-money-summary';
 
-const H = 'text-xs uppercase tracking-[0.08em] text-ink/70';
+const H = 'text-[13px] font-semibold text-ink/70';
 const V = 'mt-0.5 text-[22px] font-medium leading-tight tabular-nums';
 
 /** "Oct 3" — the Manila day the couple logged it. */

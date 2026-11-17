@@ -58,8 +58,10 @@ import {
 } from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
+  readPlanProgressForVendor,
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
+import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
 import { loadRoleNames } from '@/lib/role-names.server';
@@ -1036,7 +1038,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       .limit(1)
       .maybeSingle()) : null;
   const plansP = isBooked ? startRead(Promise.all([
-      fetchPlanProgressForVendor({
+      readPlanProgressForVendor({
         adminClient: admin,
         eventId,
         vendorProfileId: profile.vendor_profile_id,
@@ -1357,9 +1359,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // this used to render "No payments to confirm yet" over a real deposit. Now
   // the Quote and Payments tabs say the payments couldn't load.
   let ledgerUnreadable = false;
+  // ⚖ The plan read was whole (bookings, plans AND payments) — else Details says "couldn't load", never "₱0 paid".
+  let planReadComplete = true;
   if (isBooked) {
-    const [plans, pending, payday] = (await plansP)!;
+    const [planRead, pending, payday] = (await plansP)!;
+    const plans = planRead.plans;
     planRowsAll = plans;
+    planReadComplete = planRead.complete;
     if (!payday.complete) {
       logQueryError(
         'VendorClientPage.paydayInstallments',
@@ -2024,7 +2030,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           key={c}
           className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
         >
-          {isBooked ? 'Booked · ' : ''}
+          {/* "Booked" is said ONCE — by the stage pill (owner screenshot 17 Nov: "Booked · In-house · Booked · …"). */}
           {displayServiceLabel(c)}
         </span>
       ))}
@@ -2541,7 +2547,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     todayIso: manilaTodayIso(),
     eventDate: brief.event.event_date,
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
-    onPlan: planRowsAll.length > 0,
+    plan: !planReadComplete
+      ? 'unread'
+      : planRowsAll.length > 0
+        ? {
+            rollup: computePlanRollup(planRowsAll.flatMap((p) => p.steps ?? [])),
+            cleared: planRowsAll.every((p) => p.clearedAt != null),
+          }
+        : null,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
     perGuest: shopPerGuest,
     peso: (php) => fmtPeso(php),

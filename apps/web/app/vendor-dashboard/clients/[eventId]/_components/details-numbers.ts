@@ -6,13 +6,15 @@
  *
  * 🛑 NEVER "all paid" WITHOUT A BOOKING (spec §4 / §9 #22): a client who owes nothing because nothing is booked is a
  * false green. And never "all paid" when no amount was ever set — nothing owed is not everything paid.
- * READS ARE HONEST: an unread ledger or quote list says "couldn't load", never ₱0; a booking whose money lives on a
- * frozen plan points at Payment rather than inventing a sum here.
+ * READS ARE HONEST: an unread ledger, plan or quote list says "couldn't load", never ₱0; a booking whose money lives on
+ * a frozen plan reads that plan's own figures (received · left · the next payment, overdue once its day passed).
  *
  * Pure: every input is a fact the client page already read (no new request).
  */
 import type { PickedClientPage } from '@/lib/upcoming-schedule-door';
 import { monthDay } from '@/lib/format-date';
+import { planNextWords } from '@/lib/chat-plan-fold';
+import type { PlanRollup } from '@/lib/vendor-service-payment-schedules';
 
 export type DetailsNumber = {
   key: 'paid' | 'balance' | 'quote' | 'schedules' | 'event';
@@ -30,8 +32,11 @@ export type DetailsNumbersInput = {
   eventDate: string | null;
   /** Booked only. `null` = the ledger could not be read. */
   ledger: { receivedPhp: number; expectedPhp: number } | null;
-  /** Booked only: the booking's money lives on a frozen plan (the Payment page reads it). */
-  onPlan: boolean;
+  /**
+   * Booked only: the booking's frozen plan, rolled up (`computePlanRollup`) — its money is the plan's, not the ledger's.
+   * `'unread'` = the plan read was refused or cut short (never drawn as ₱0); null = no frozen plan (the ledger speaks).
+   */
+  plan: { rollup: PlanRollup; cleared: boolean } | 'unread' | null;
   /** Not booked only. `null` = the quotes could not be read; `undefined` = no quote sent. */
   sentQuotePhp: number | null | undefined;
   /** 👥 RW-108: a claimed per-guest booking's figure and count (`readShopPerGuest`), when no quote was sent. */
@@ -77,9 +82,26 @@ export function detailsNumbers(i: DetailsNumbersInput): DetailsNumber[] {
   if (i.ledger === null) {
     paid = { key: 'paid', label: 'Paid', value: '—', sub: 'couldn’t load', page: 'payments' };
     balance = { key: 'balance', label: 'Balance', value: '—', sub: 'couldn’t load', page: 'payments' };
-  } else if (i.onPlan) {
-    paid = { key: 'paid', label: 'Paid', value: '—', sub: 'on Payment', page: 'payments' };
-    balance = { key: 'balance', label: 'Balance', value: '—', sub: 'on Payment', page: 'payments' };
+  } else if (i.plan === 'unread') {
+    paid = { key: 'paid', label: 'Paid', value: '—', sub: 'couldn’t load', page: 'payments' };
+    balance = { key: 'balance', label: 'Balance', value: '—', sub: 'couldn’t load', page: 'payments' };
+  } else if (i.plan) {
+    // 💳 The plan's own figures (owner screenshot 17 Nov: "Paid — · Balance — · on Payment" on a booked ₱26,750 plan).
+    const { rollup, cleared } = i.plan;
+    const left = cleared ? 0 : Math.max(0, rollup.total - rollup.received);
+    paid = {
+      key: 'paid',
+      label: 'Paid',
+      value: i.peso(rollup.received),
+      sub: rollup.pending > 0 ? `${i.peso(rollup.pending)} to confirm` : 'received',
+      page: 'payments',
+    };
+    balance =
+      rollup.total <= 0
+        ? { key: 'balance', label: 'Balance', value: '—', sub: 'no amount set', page: 'payments' }
+        : left === 0
+          ? { key: 'balance', label: 'Balance', value: i.peso(0), sub: 'all paid', page: 'payments' }
+          : { key: 'balance', label: 'Balance', value: i.peso(left), sub: planNextWords(rollup, i.todayIso) ?? 'to collect', page: 'payments' };
   } else {
     const left = Math.max(0, i.ledger.expectedPhp - i.ledger.receivedPhp);
     paid = { key: 'paid', label: 'Paid', value: i.peso(i.ledger.receivedPhp), sub: 'received', page: 'payments' };

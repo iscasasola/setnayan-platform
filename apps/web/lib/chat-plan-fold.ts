@@ -30,16 +30,23 @@ export function planFoldLine(rollup: PlanRollup, cleared: boolean, hasSteps: boo
   if (!hasSteps || rollup.total <= 0) return 'no payment schedule';
   const head = `${peso(rollup.received)} of ${peso(rollup.total)}`;
   if (rollup.pending > 0) return `${head} · ${peso(rollup.pending)} to confirm`;
-  if (rollup.next) {
-    const when = planShortDate(rollup.next.dueDate);
-    // ⏰ A due date already past is OVERDUE, never "next" (owner screenshot 17 Nov: "next ₱5,350 Nov 13" on the 17th).
-    // `todayIso` is Manila's today from the server; null (unknown) keeps the plain "next" — never a guessed "overdue".
-    if (when && todayIso && rollup.next.dueDate && rollup.next.dueDate.slice(0, 10) < todayIso.slice(0, 10)) {
-      return `${head} · ${peso(rollup.next.amountPhp)} overdue since ${when}`;
-    }
-    return `${head} · next ${peso(rollup.next.amountPhp)}${when ? ` ${when}` : ''}`;
+  const next = planNextWords(rollup, todayIso);
+  return next ? `${head} · ${next}` : `${head} · all confirmed`;
+}
+
+/**
+ * The plan's next payment in a few words — "next ₱1,750 Nov 15", or "₱5,350 overdue since Nov 13" once its day has
+ * passed (owner screenshot 17 Nov: "next ₱5,350 Nov 13" on the 17th). `todayIso` is Manila's today from the server;
+ * null (unknown) keeps the plain "next" — never a guessed "overdue". Null when nothing is left to pay.
+ * One source for the chat's plan row and the client's Details numbers.
+ */
+export function planNextWords(rollup: PlanRollup, todayIso: string | null): string | null {
+  if (!rollup.next) return null;
+  const when = planShortDate(rollup.next.dueDate);
+  if (when && todayIso && rollup.next.dueDate && rollup.next.dueDate.slice(0, 10) < todayIso.slice(0, 10)) {
+    return `${peso(rollup.next.amountPhp)} overdue since ${when}`;
   }
-  return `${head} · all confirmed`;
+  return `next ${peso(rollup.next.amountPhp)}${when ? ` ${when}` : ''}`;
 }
 
 /** The device's memory of the logged payments already shown, per chat. */

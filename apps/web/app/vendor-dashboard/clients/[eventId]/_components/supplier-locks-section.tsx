@@ -92,7 +92,7 @@ export function SupplierLocksView({
   const empty = !quote && forms.length === 0 && questionsLocked == null;
   return (
     <section data-supplier-locks="" data-read={failed ? 'failed' : empty ? 'empty' : 'ok'} className="mb-5">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Your locks</h2>
+      <h2 className="text-[13px] font-semibold text-ink/70">Your locks</h2>
       {failed ? (
         <p role="status" className="mt-1 text-[15px] font-semibold text-warn-800">Couldn&rsquo;t load your locks. Pull to refresh, or open it again in a moment.</p>
       ) : empty ? (

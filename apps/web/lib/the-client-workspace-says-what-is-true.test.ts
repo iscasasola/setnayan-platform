@@ -28,7 +28,7 @@ import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import { QUOTED_AFTER_SITE_CHECK, quoteLineDetailWords, quoteLinePriceWords } from './quote-line-price-words';
-import { quoteChanges, versionsSideBySide, type QuoteVersion } from './quote-versions';
+import { quoteChanges, versionsSideBySide, type QuoteSide, type QuoteVersion } from './quote-versions';
 import { isPastDue } from './chat-plan-fold';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -91,8 +91,8 @@ test('7b · no quote file decides "Complimentary" for itself — only the one ru
 });
 
 test('7c · what changed and side by side say the unpriced transport as it is (render + data)', async () => {
-  const before = { lines: [{ label: 'Lights', amount_centavos: 2_500_000 }], plan: null, totalCentavos: 2_500_000 };
-  const after = {
+  const before: QuoteSide = { lines: [{ label: 'Lights', amount_centavos: 2_500_000 }], plan: null, totalCentavos: 2_500_000 };
+  const after: QuoteSide = {
     lines: [
       { label: 'Lights', amount_centavos: 2_500_000 },
       { label: 'Transportation', detail: QUOTED_AFTER_SITE_CHECK, amount_centavos: null },
@@ -107,7 +107,7 @@ test('7c · what changed and side by side say the unpriced transport as it is (r
   assert.match(t, /Transportation Quoted after site check/, `what changed calls the transport free: ${t}`);
   assert.match(t, /Stage lights Complimentary/, 'anti-vacuity: a freebie is still free');
 
-  const v = (n: number, side: typeof before): QuoteVersion =>
+  const v = (n: number, side: QuoteSide): QuoteVersion =>
     ({ proposalId: `p${n}`, pair: 'x', version: n, at: '2026-11-13T00:00:00Z', ...side, previous: null }) as unknown as QuoteVersion;
   const rows = versionsSideBySide(v(1, before), v(2, after));
   const transport = rows.find((r) => r.label === 'Transportation');

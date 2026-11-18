@@ -5,10 +5,14 @@
  * is the shop's own rows in the shared form rows (`FormRows` · `TypedRow` · `ChosenRow` · `SwitchRow` · `Counter`), so
  * nothing here is a new control. Every save runs in the background and the screen takes the server's fresh read back.
  *
- * Supplier-only. The drawn plan (Grid · Move · Line up · tables on a sized room) is the SHARED seat-plan core (owner
- * 18 Nov: "they are already coded … improve and adapt them"), built by its own session — not redrawn here.
+ * Supplier-only. The drawn plan (Grid · Move · Line up · tables on a sized room) is the SHARED seat-plan maker
+ * (`app/_components/plan-maker/plan-maker.tsx`, owner 18 Nov: "they are already coded … improve and adapt them"),
+ * mounted per dining area in its 'move' tools: the rows below it keep adding, editing and deleting; the plan only
+ * moves tables and lines them up. Floor plan on Pro and up (ruling 35); Grid for every shop.
  */
 import { useMemo, useState, useTransition } from 'react';
+import { PlanMaker } from '@/app/_components/plan-maker/plan-maker';
+import { planFromShopPlan, placementsChanged, type Plan } from '@/lib/plan-maker';
 import { useRouter } from 'next/navigation';
 import { Check, DoorOpen, Plus, RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -29,6 +33,7 @@ import {
   countsLine,
   doorWords,
   shapeDrawn,
+  shopPlanOf,
   tableWords,
   unitsOf,
   type Along,
@@ -46,7 +51,18 @@ import { roomsSeatingWrite as w, type RoomsSeatingResult } from '../actions';
 type HallSize = { widthM: number; lengthM: number } | null;
 const NEW = '__new__';
 
-export function RoomsSeatingScreen({ initial, hallSize: hallInitial, show: showInitial }: { initial: RoomsSeating | null; hallSize: HallSize; show: Section }) {
+export function RoomsSeatingScreen({
+  initial,
+  hallSize: hallInitial,
+  show: showInitial,
+  floorPlanOpen = false,
+}: {
+  initial: RoomsSeating | null;
+  hallSize: HallSize;
+  show: Section;
+  /** The drawn Floor plan view — Pro and up (DECISION_LOG 2026-11-18, ruling 35). Grid is every shop's. */
+  floorPlanOpen?: boolean;
+}) {
   const router = useRouter();
   const [data, setData] = useState<RoomsSeating | null>(initial);
   const [hall, setHall] = useState<HallSize>(hallInitial);
@@ -117,7 +133,7 @@ export function RoomsSeatingScreen({ initial, hallSize: hallInitial, show: showI
       ) : null}
       {show === 'rooms' ? <RoomsSection data={data} run={run} /> : null}
       {show === 'halls' ? <HallSection data={data} hall={hall} run={run} /> : null}
-      {show === 'tables' ? <TablesSection data={data} run={run} /> : null}
+      {show === 'tables' ? <TablesSection data={data} run={run} floorPlanOpen={floorPlanOpen} /> : null}
     </div>
   );
 }
@@ -159,7 +175,7 @@ function HallSection({ data, hall, run }: { data: RoomsSeating; hall: HallSize; 
 
 /* ── Dining areas and tables ─────────────────────────────────────────────────────────────────────────────────── */
 
-function TablesSection({ data, run }: { data: RoomsSeating; run: Run }) {
+function TablesSection({ data, run, floorPlanOpen }: { data: RoomsSeating; run: Run; floorPlanOpen: boolean }) {
   const areas = data.groups.filter((g) => g.kind === 'dining_area');
   return (
     <section className="space-y-5" data-rooms-section="tables">
@@ -168,10 +184,51 @@ function TablesSection({ data, run }: { data: RoomsSeating; run: Run }) {
         <GroupBlock key={a.id} group={a} units={unitsOf(data.units, a.id)} groups={areas} run={run}>
           <SizeRows what="area" widthM={a.widthM} lengthM={a.lengthM} onSave={(wd, dp) => run(() => w({ op: 'setAreaSize', id: a.id, width: wd, depth: dp }), 'Room size saved')} />
           <DoorList doors={data.doors.filter((d) => d.groupId === a.id)} groupId={a.id} run={run} />
+          <AreaPlan data={data} areaId={a.id} run={run} floorPlanOpen={floorPlanOpen} />
         </GroupBlock>
       ))}
       <AddUnits kind="table" groups={areas} run={run} />
     </section>
+  );
+}
+
+/**
+ * One dining area, drawn by the shared plan maker. A drag or Line up saves only the tables that moved
+ * (`placeTable`, one at a time); while those saves run the plan stays where the supplier left it — a save never
+ * resets the screen — and the fresh read takes over once they have all landed (or at once, if one is refused).
+ */
+function AreaPlan({ data, areaId, run, floorPlanOpen }: { data: RoomsSeating; areaId: string; run: Run; floorPlanOpen: boolean }) {
+  const saved = useMemo(() => {
+    const sp = shopPlanOf(data, areaId, null);
+    return sp ? planFromShopPlan(sp) : null;
+  }, [data, areaId]);
+  const [mine, setMine] = useState<Plan | null>(null);
+  if (!saved || saved.tables.length === 0) return null;
+  const plan = mine ?? saved;
+  return (
+    <div data-rooms-area-plan={areaId}>
+      <PlanMaker
+        plan={plan}
+        onChange={(next) => {
+          const moves = placementsChanged(plan, next);
+          if (moves.length === 0) return;
+          setMine(next);
+          void (async () => {
+            for (const m of moves) {
+              const ok = await run(() => w({ op: 'placeTable', id: m.id, x: m.x, y: m.y, rotationDeg: m.rotationDeg }));
+              if (!ok) break;
+            }
+            setMine(null);
+          })();
+        }}
+        options={{
+          views: floorPlanOpen ? ['floor', 'grid'] : ['grid'],
+          floorPlanNote: floorPlanOpen ? undefined : 'On Pro, Max and Ultra',
+          showNames: false,
+          tools: 'move',
+        }}
+      />
+    </div>
   );
 }
 

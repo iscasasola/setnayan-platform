@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readRoomsSeating } from '@/lib/rooms-seating.server';
 import { isSection } from '@/lib/rooms-seating';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { RoomsSeatingScreen } from './_components/rooms-seating-screen';
 
 export const metadata = { title: 'Rooms & seating' };
@@ -30,6 +32,16 @@ export default async function RoomsSeatingPage({ searchParams }: { searchParams:
   if (!profile) redirect('/vendor-dashboard');
 
   const data = await readRoomsSeating(supabase, profile.vendor_profile_id);
+  // 🗺 Floor plan on Pro and up (DECISION_LOG 2026-11-18, ruling 35) — the same question every supplier gate asks:
+  // the plan has it, or the paywall switch is off. Grid is every shop's either way. A refused tier read reads as Free:
+  // the Floor plan is offered greyed with its reason, never a wrong "you have it".
+  const { data: tierRow } = await supabase
+    .from('vendor_profiles')
+    .select('tier_state')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
+  const floorPlanOpen = !vendorPaywallApplies(isTierAtLeast(tier, 'pro'));
   const hallSize =
     profile.venue_width_m != null && profile.venue_length_m != null
       ? { widthM: Number(profile.venue_width_m), lengthM: Number(profile.venue_length_m) }
@@ -42,7 +54,7 @@ export default async function RoomsSeatingPage({ searchParams }: { searchParams:
       </div>
       <h1 className="text-[22px] font-semibold text-ink">Rooms &amp; seating</h1>
       <p className="mt-1 text-[14px] text-ink/70">Make your rooms, halls and tables once. Each service card then picks the ones it sells.</p>
-      <RoomsSeatingScreen initial={data} hallSize={hallSize} show={isSection(sp.show) ? sp.show : 'rooms'} />
+      <RoomsSeatingScreen initial={data} hallSize={hallSize} show={isSection(sp.show) ? sp.show : 'rooms'} floorPlanOpen={floorPlanOpen} />
     </div>
   );
 }

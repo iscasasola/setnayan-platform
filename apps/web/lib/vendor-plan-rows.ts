@@ -17,7 +17,7 @@ import type { BookingFeeStanding } from './booking-fee-disclosure';
 import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
-import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
+import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
@@ -77,7 +77,7 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'services',
       title: 'Services you can put up',
-      line: `${n(c.servicesPerLeaf)} per kind · ${Number.isFinite(c.parentCategories) ? `${formatCount(c.parentCategories)} ${plural(c.parentCategories, 'kind of work', 'kinds of work')}` : 'every kind of work'}`,
+      line: `${n(c.serviceCardsTotal)} in total · ${Number.isFinite(c.parentCategories) ? `${formatCount(c.parentCategories)} ${plural(c.parentCategories, 'kind of work', 'kinds of work')}` : 'every kind of work'}`,
     },
     {
       key: 'helpers',
@@ -89,7 +89,8 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'waitlist',
       title: 'Waiting list',
-      line: waitlist > 0 ? `${n(waitlist)} a date` : 'Not on this plan',
+      // No plan limit since 2026-11-18 (ruling 32): at the setting's own ceiling the shop chooses its number.
+      line: waitlist >= WAITLIST_SETTING_MAX ? `You choose, up to ${n(waitlist)} a date` : waitlist > 0 ? `${n(waitlist)} a date` : 'Not on this plan',
     },
     {
       key: 'holding',

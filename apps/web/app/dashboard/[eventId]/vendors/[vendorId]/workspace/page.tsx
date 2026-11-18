@@ -1855,6 +1855,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
   // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
   const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
+  // R12 · an unbooked quote's rows are terms, not debts — no "that day has already passed" on them.
+  const quoteBooked = stage !== null;
   const statusSection = (
       <section id="payments" aria-label="Payment" className="space-y-1">
         <PaymentAsksCard
@@ -1906,12 +1908,17 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             tip={quoteSchedule.tip}
             data="schedule"
           >
+            {quoteSchedule.line ? (
+              <p className={`${TEMPLATE_SUBLINE} pb-2`} data-schedule-not-owed="">
+                {quoteSchedule.line}
+              </p>
+            ) : null}
             <TemplateRows label="Payment schedule">
               {acceptedQuote.schedule.map((row, i) => (
                 <TemplateRow
                   key={`${i}-${row.label}`}
                   title={row.label}
-                  line={`Due ${scheduleDueText(row, manilaToday())}`}
+                  line={`Due ${scheduleDueText(row, manilaToday(), quoteBooked)}`}
                   right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
                 />
               ))}

@@ -34,7 +34,7 @@ import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   ALBUM_STATS_UNREAD,
-  ALBUM_VIEWS_INFO,
+  ALBUM_UNCOUNTED_NOTE,
   albumMatches,
   albumRowHeading,
   albumRowLine,
@@ -80,8 +80,8 @@ import { recordAlbumOpen } from '@/lib/portfolio-album-opens';
  * "Couldn't load" and never wears an Example.
  *   BEST WORK  (ruling 5940) the FIRST section: the page photos couples opened most (`lib/portfolio-best-work.ts`, the
  *              shipped view counter). Empty = its title, the placeholder tile and the Upload door.
- *   REORDER    (ruling 5940) the closing row under More: ↑ ↓ per section, stored as `portfolio_section_order`
- *              (`reorder-sections.tsx`, `lib/portfolio-section-order.ts`). No stored order can hide a section.
+ *   REORDER    (removed 2026-11-19, Portfolio simpler — four fixed ways in leave nothing to reorder; `portfolio_section_order` stays stored, unused)
+ *              The ↑ ↓ sheet was removed with it; `lib/portfolio-section-order.ts` stays for the stored column.
  * 🔒 collections/the-portfolio-is-collections.test.ts
  */
 
@@ -496,7 +496,7 @@ export function CollectionsList({
               {albumRowHeading(sort)}
             </h2>
             <InfoTip label={albumRowLine(sort, albumStats)} labelClassName="text-[12.5px] text-ink/60" align="start">
-              {ALBUM_VIEWS_INFO}
+              {ALBUM_UNCOUNTED_NOTE}
             </InfoTip>
           </div>
           {gear ? <span className="flex-none">{gear}</span> : null}

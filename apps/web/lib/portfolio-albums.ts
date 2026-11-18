@@ -151,7 +151,7 @@ export function albumRowLine(sort: PortfolioSort, stats: AlbumStats): string {
 }
 
 /** The ⓘ beside Row 1 — why some albums wear no count (one line, the owner's "never show a fake 0"). */
-export const ALBUM_VIEWS_INFO =
+export const ALBUM_UNCOUNTED_NOTE =
   'Views count couples opening a service card or a photo on your page. Event albums are private to your shop and inspiration photos can’t be opened on your page, so they have no count and come after the counted ones.';
 
 /** The badge on a tile — "212 views"; nothing when the album is not counted. */

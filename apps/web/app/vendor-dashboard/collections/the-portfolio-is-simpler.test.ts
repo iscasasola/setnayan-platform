@@ -41,7 +41,7 @@ test('1 · no header: no photo band, no pinned row — and the ⚙ is at the rig
 test('2 · Row 1 is the albums in the Sort’s order; an uncounted album wears no count, and the ⓘ says why', () => {
   assert.match(LIST, /const rowAlbums = sortAlbums\(\s*everyAlbum\.filter\(\(a\) => showKeepsAlbum\(show, a\.kind\) && albumMatches\(a, words\)\),\s*sort,\s*\);/, 'Row 1 is not sorted and filtered by the one rule');
   assert.match(LIST, /sub=\{albumViewsLabel\(a\.views\)\}/, 'a tile’s count is not the one label (null → no badge)');
-  assert.match(LIST, /\{ALBUM_VIEWS_INFO\}/, 'Row 1 does not say why some albums have no count');
+  assert.match(LIST, /\{ALBUM_UNCOUNTED_NOTE\}/, 'Row 1 does not say why some albums have no count');
   assert.match(LIST, /data-portfolio-all-albums=""/, 'the “All N albums” tile is gone');
   assert.equal((LIST.match(/data-portfolio-way=\{w\.key\}/g) ?? []).length, 1, 'the ways in are not one row template');
 });

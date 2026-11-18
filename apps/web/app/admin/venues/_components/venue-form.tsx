@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VENUE_TYPES, CEREMONY_TYPES } from '../_constants';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * Shared form for creating + editing a `venue_directory` row.
@@ -204,7 +205,7 @@ export function VenueForm({
         </label>
       </section>
 
-      <fieldset className="rounded-2xl border border-ink/10 bg-cream p-4">
+      <fieldset className={`${ADMIN_FRAME} p-4`}>
         <legend className="px-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           Compatible ceremony types
         </legend>

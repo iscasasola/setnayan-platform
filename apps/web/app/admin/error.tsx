@@ -15,6 +15,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { recoverStaleTab } from '@/lib/stale-bundle';
+import { ActionButton } from '@/components/action-button';
+import { RotateCcw } from 'lucide-react';
 
 export default function AdminError({
   error,
@@ -56,12 +58,7 @@ export default function AdminError({
         ) : null}
       </div>
       <div className="flex items-center gap-3">
-        <button
-          onClick={reset}
-          className="rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-semibold text-cream transition hover:opacity-90"
-        >
-          Try again
-        </button>
+        <ActionButton tone="brand" main icon={<RotateCcw aria-hidden strokeWidth={1.9} />} onClick={reset} label="Try again" />
         <Link
           href="/admin"
           className="rounded-md border border-ink/15 px-5 py-2.5 text-sm font-medium text-ink hover:bg-ink/5"

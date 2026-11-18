@@ -366,7 +366,7 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
       {groups.map((g) => (
         <section key={g.key} aria-label={g.title} className="space-y-2" data-files-group={g.key}>
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/60">
+            <h3 className="text-[13px] font-semibold text-ink/60">
               {g.title} · {formatCount(g.rows.length)}
               {g.key === 'booking' ? <span className="ml-1 normal-case tracking-normal text-ink/45">kept after the event, never on your shop</span> : null}
             </h3>
@@ -793,7 +793,7 @@ function InspirationRow({
 }) {
   return (
     <div className="space-y-2 border-t border-ink/10 pt-3" data-files-inspiration="">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">Inspiration</p>
+      <p className="text-[12px] font-semibold text-ink/60">Inspiration</p>
       {tags === null ? (
         <p role="alert" className="text-sm text-ink/70">
           We couldn’t load this photo’s inspirations just now. Reload in a moment — nothing was lost.
@@ -1013,7 +1013,7 @@ function Door({ icon: Icon, label, line, onClick }: { icon: typeof Plus; label: 
 function Choice({ label, value, onPick, options }: { label: string; value: string; onPick: (v: string) => void; options: [string, string][] }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">{label}</p>
+      <p className="text-[12px] font-semibold text-ink/60">{label}</p>
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
         {options.map(([k, words]) => (
           <button

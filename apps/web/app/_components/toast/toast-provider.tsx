@@ -67,7 +67,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       if (!message) return;
       seq.current += 1;
       const id = seq.current;
-      setToasts((list) => [...list, { id, variant, message }]);
+      // W1-B42 (live walk, 18 Nov 2026): three failed sends stacked three identical errors over the bottom nav. The
+      // same words replace the earlier copy instead of stacking under it.
+      setToasts((list) => [...list.filter((t) => t.variant !== variant || t.message !== message), { id, variant, message }]);
       setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
     },
     [dismiss],

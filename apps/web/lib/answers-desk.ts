@@ -152,7 +152,16 @@ export function meetingAskPhase(scheduledAt: string | null, now: number): Meetin
  * question that survives the enum growing.
  */
 export function threadOwesReply(lastSenderRole: string | null): boolean {
-  return lastSenderRole !== null && lastSenderRole !== 'vendor';
+  return lastSenderRole !== null && lastSenderRole !== 'vendor' && !isSystemLine(lastSenderRole);
+}
+
+/**
+ * 🤖 A LINE THE APP WROTE IS NOBODY WAITING (CHAT-13, W1 walk 16 Nov 2026): 7 of Today's 8 "Reply to" rows quoted
+ * "Booked ✓" or "Event date set" — `sender_role = 'system'` rows the app posts into the chat. Nobody asked anything,
+ * so they are skipped when finding the conversation's last word (`fetchOwedThreadReplies`), and never owe a reply here.
+ */
+export function isSystemLine(senderRole: string | null): boolean {
+  return senderRole === 'system';
 }
 
 /**

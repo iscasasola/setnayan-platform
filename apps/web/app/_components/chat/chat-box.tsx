@@ -88,7 +88,7 @@ export function ChatBox({
     <div data-chat-box data-chat-takeover="" className="flex min-w-0 flex-1 flex-col [&>*:not([data-chat-stream-area])]:shrink-0">
       {/* Inside a picked page the shell's pinned row IS the head (`header={null}`): no empty 52 px band, no stray line. */}
       {header ? (
-        <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5">
+        <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5" data-chat-thread-head="">
           {header}
         </div>
       ) : null}

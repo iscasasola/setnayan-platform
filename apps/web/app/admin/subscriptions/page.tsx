@@ -9,6 +9,7 @@ import { approveSubscription, rejectSubscription } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { planWord } from '@/lib/vendor-plan-change-words';
 export const metadata = {
   title: 'Subscriptions · Admin',
   robots: { index: false, follow: false },
@@ -34,7 +35,6 @@ type SubscriptionRow = {
 };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
-const TIER_LABEL: Record<string, string> = { pro: 'Pro', enterprise: 'Ultra' };
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleString('en-PH', { timeZone: 'Asia/Manila',
@@ -162,7 +162,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   }
   const planName = (p: SubscriptionRow): string =>
     planTitle.get(p.sku_code) ??
-    `${TIER_LABEL[p.tier] ?? 'Supplier plan'}${p.billing_cycle === 'annual' ? ' · yearly' : p.billing_cycle === 'monthly' ? ' · 4 weeks' : ''}`;
+    `${p.tier === 'solo' || p.tier === 'pro' || p.tier === 'enterprise' ? planWord(p.tier) : 'Supplier plan'}${p.billing_cycle === 'annual' ? ' · yearly' : p.billing_cycle === 'monthly' ? ' · 4 weeks' : ''}`;
 
   const pendingTotal = pending.reduce((s, p) => s + Number(p.amount_php ?? 0), 0);
 

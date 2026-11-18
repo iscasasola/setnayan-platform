@@ -11,6 +11,8 @@ import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
   VENDOR_PAPIC_VIDEO_MIN_POINTS,
 } from '@/lib/vendor-papic-tier';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_MONEY } from '@/app/_components/template-rows';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
@@ -277,7 +279,7 @@ export function PapicCaptureController({
             Before you shoot
           </h1>
         </div>
-        <div className="sn-tile space-y-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+        <div className="space-y-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-[14px]" style={{ color: 'var(--m-slate-2)' }}>
           <p>
             You’re capturing guests at <strong>{coupleName}</strong>. By continuing you confirm:
           </p>
@@ -288,14 +290,9 @@ export function PapicCaptureController({
             <li>Your captures stay in your shop’s event photos; location is never stored.</li>
           </ul>
         </div>
-        <button
-          type="button"
-          onClick={() => setAccepted(true)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white"
-          style={{ background: 'var(--m-ink)' }}
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Agree & open camera
-        </button>
+        <span className="block [&_.ab]:w-full">
+          <ActionButton tone="brand" main icon={Camera} label="Agree & open camera" onClick={() => setAccepted(true)} />
+        </span>
       </div>
     );
   }
@@ -334,7 +331,7 @@ export function PapicCaptureController({
           </div>
         ) : null}
         {recording ? (
-          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[11px] font-semibold text-white">
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold text-white" style={{ background: 'rgb(var(--color-danger))' }}>
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC
           </div>
         ) : null}
@@ -343,7 +340,7 @@ export function PapicCaptureController({
           <PapicUploadChip surface="bg-black/55 text-white" />
         </div>
         {toast ? (
-          <div className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-black/65 px-3 py-1.5 text-xs font-medium text-white">
+          <div className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-black/65 px-3 py-1.5 text-[13px] font-medium text-white">
             {toast}
           </div>
         ) : null}
@@ -356,7 +353,7 @@ export function PapicCaptureController({
               onClick={cam.flip}
               disabled={cam.switching}
               aria-label="Flip camera"
-              className="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-white backdrop-blur"
+              className="grid h-11 w-11 place-items-center rounded-full bg-black/45 text-white backdrop-blur"
             >
               <RefreshCw aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </button>
@@ -368,7 +365,7 @@ export function PapicCaptureController({
                   key={f}
                   type="button"
                   onClick={() => cam.selectLens(f)}
-                  className="px-2.5 py-1.5 text-xs font-semibold"
+                  className="min-h-11 px-2.5 py-1.5 text-[13px] font-semibold"
                   style={{ opacity: cam.lens === f ? 1 : 0.55 }}
                 >
                   {f}×
@@ -395,7 +392,7 @@ export function PapicCaptureController({
             }}
             className="grid h-16 w-16 place-items-center rounded-full border-4 border-white disabled:opacity-40"
             style={{
-              background: recording ? '#dc2626' : 'rgba(255,255,255,0.25)',
+              background: recording ? 'rgb(var(--color-danger))' : 'rgba(255,255,255,0.25)',
               touchAction: 'manipulation',
               WebkitUserSelect: 'none',
               WebkitTouchCallout: 'none',
@@ -406,7 +403,7 @@ export function PapicCaptureController({
               style={{ width: recording ? 22 : 48, height: recording ? 22 : 48, borderRadius: recording ? 6 : 999 }}
             />
           </button>
-          <span className="text-[11px] font-medium text-white/80">
+          <span className="text-[13px] font-medium text-white">
             {canClip
               ? 'Tap photo · hold for a 10s clip'
               : allowVideo
@@ -442,24 +439,24 @@ function TierMeter({
 }) {
   const pct = pointsCap != null ? Math.min(100, Math.round((spent / pointsCap) * 100)) : 0;
   return (
-    <div className="sn-tile">
+    <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Camera aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          <span className="text-[15px] font-semibold" style={{ color: 'var(--m-ink)' }}>
             {TIER_LABEL[tier]}
           </span>
           {allowVideo ? (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-              <Video aria-hidden className="h-3 w-3" strokeWidth={1.75} /> photos + video
+            <span className="inline-flex items-center gap-1 text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
+              <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> photos + video
             </span>
           ) : (
-            <span className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+            <span className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
               photos only
             </span>
           )}
         </div>
-        <span className="font-mono text-sm font-bold" style={{ color: 'var(--m-ink)' }}>
+        <span className={`text-[15px] ${TEMPLATE_MONEY}`}>
           {pointsCap == null ? 'Unlimited' : `${formatCount(pointsLeft)} left`}
         </span>
       </div>

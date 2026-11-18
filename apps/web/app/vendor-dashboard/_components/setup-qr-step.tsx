@@ -26,7 +26,7 @@ export function SetupQrStep({ svg, url, title }: { svg: string | null; url: stri
       primary="download"
       onDownloaded={tour?.qrSaved}
       note={
-        <div className="mt-1 w-full max-w-[24rem] space-y-2 text-left text-[13.5px] leading-snug text-ink/75" data-setup-qr-lines="">
+        <div className="mt-1 w-full max-w-[24rem] space-y-2 text-left text-[13.5px] leading-snug text-[color:var(--m-slate-2)]" data-setup-qr-lines="">
           <p className="flex items-start gap-2.5">
             <ScanLine aria-hidden className="mt-0.5 h-4 w-4 flex-none text-sn-accent" strokeWidth={1.9} />
             <span>

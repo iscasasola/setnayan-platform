@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { Loader2, Upload } from 'lucide-react';
 import jsQR from 'jsqr';
 import { uploadMerchantQr } from '../actions';
+import { ActionButton } from '@/components/action-button';
 
 // Square edge length we down-scale the cropped QR to before upload.
 const TARGET_SIZE = 512;
@@ -248,24 +249,14 @@ export function QrUploadForm({
       ) : null}
 
       <div className="flex justify-end">
-        <button
+        <ActionButton
+          tone="brand"
+          main
           type="submit"
           disabled={submitDisabled}
-          aria-busy={isPending}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-              Uploading…
-            </>
-          ) : (
-            <>
-              <Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {replace ? 'Replace' : 'Upload'}
-            </>
-          )}
-        </button>
+          icon={isPending ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : <Upload aria-hidden strokeWidth={1.9} />}
+          label={isPending ? 'Uploading…' : replace ? 'Replace' : 'Upload'}
+        />
       </div>
     </form>
   );

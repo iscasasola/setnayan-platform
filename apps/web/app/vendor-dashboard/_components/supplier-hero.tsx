@@ -88,7 +88,7 @@ export function SupplierHero({
       </div>
       {sample ? (
         <div className="mt-2 flex items-center justify-between gap-2" data-supplier-hero-chips="">
-          <span className="min-w-0 truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
+          <span className="min-w-0 truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
             Sample photo · Upload yours
           </span>
           {upload ? (
@@ -104,7 +104,7 @@ export function SupplierHero({
         </div>
       ) : caption ? (
         <div className="mt-2 flex justify-end" data-supplier-hero-chips="">
-          <span className="max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
+          <span className="max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
             {caption}
           </span>
         </div>

@@ -6,9 +6,10 @@ import type { ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { formatCount } from '@/lib/format-number';
 import { HOME_SEG_LABEL, homeSegHref, type HomeSeg } from '@/lib/home-segments';
 import hp from './home-profile.module.css';
-import { HomePinPortal } from './home-segment-bar';
+import { HomePinPortal, useHomeSegCounts, type HomeSegCounts } from './home-segment-bar';
 
 /**
  * home-pin.tsx — 📌 HOME'S ONE PINNED ROW (owner 11 Nov 2026, "One profile page approve" — v3 row 7).
@@ -22,10 +23,10 @@ import { HomePinPortal } from './home-segment-bar';
  * none, so the seat stays empty); ⚙ is Profile & settings. People keeps its OWN shipped pinned row
  * (`people-pinned-row.tsx`), whose picker gains the same "Home" group — so each section still has exactly one row.
  *
- * WHERE IT SHOWS (v3 row 7): in Home's top, above the tabs, once the header has scrolled away — the shared
- * `CollapsingTop` locks and the row fades in (`HomePinPortal` carries it up into the top's seat). At rest it is not
- * drawn: "＋ Create an event" and the tabs (with their numbers) say the same things there — the header's pill doors
- * were removed 13 Nov 2026 (owner: "dupes … just 1"), so the tabs are the one row of sections.
+ * WHERE IT SHOWS (owner 17 Nov 2026, "Yes, all 3" — "the pinned row is the one switch"): in Home's top, right under
+ * the header AT REST, and it stays when the header scrolls away (`HomePinPortal` carries it into the top's seat; the
+ * shared `CollapsingTop` draws that seat with `rowAtRest`). The tab row and the big "＋ Create an event" it replaced
+ * are gone: the picker lists the sections (with their numbers), and "＋ Event" is the row's action.
  *
  * Everything crossing from the server is plain data (hrefs, words, numbers); the row turns it into presses here.
  * 🔒 lib/home-is-the-profile.test.ts
@@ -35,9 +36,23 @@ export type HomePinOption = { key: string; label: string; group: string; href: s
 export type HomePinDoor = { key: string; n: number; word: string; href: string; hot?: boolean };
 export type HomePinAction = { label: string; ariaLabel?: string; href: string; mark: string };
 
-/** The picker's "Home" group — the sections, as `seg:<section>` keys. */
-export function homeSegOptions(segs: readonly HomeSeg[]): HomePinOption[] {
-  return segs.map((s) => ({ key: `seg:${s}`, label: HOME_SEG_LABEL[s], group: 'Home', href: homeSegHref(s) }));
+export type HomeSegOption = HomePinOption & Pick<PickOption, 'dot' | 'dotNote' | 'trail'>;
+
+/**
+ * The picker's "Home" group — the sections, as `seg:<section>` keys. Since the tab row went (owner 17 Nov 2026) the
+ * group carries the tabs' numbers: a section's count as the row's trailing mark, and a number that waits on you
+ * ("2 asking") as the picker's dot. A number Home did not read is not drawn — never a 0.
+ */
+export function homeSegOptions(segs: readonly HomeSeg[], nums: HomeSegCounts = { counts: {}, hot: {} }): HomeSegOption[] {
+  return segs.map((s) => {
+    const n = nums.counts[s];
+    const word = nums.hot[s];
+    const base = { key: `seg:${s}`, label: HOME_SEG_LABEL[s], group: 'Home', href: homeSegHref(s) };
+    if (typeof n !== 'number') return base;
+    return word
+      ? { ...base, dot: true, dotNote: `${formatCount(n)} ${word}` }
+      : { ...base, trail: { text: formatCount(n), tone: 'muted' as const } };
+  });
 }
 
 /** ⚙ — Profile & settings (the avatar sheet's same door). A link, so it needs no sheet of its own. */
@@ -78,10 +93,10 @@ export function HomePinnedRow({
   action?: HomePinAction | null;
 }) {
   const go = useGo();
-  const options: (PickOption & { href: string })[] = [...homeSegOptions(segs), ...sub];
+  const options: (PickOption & { href: string })[] = [...homeSegOptions(segs, useHomeSegCounts()), ...sub];
   return (
     <HomePinPortal>
-    <div className={hp.pin} data-home-pin={seg}>
+    <div className={hp.pin} data-home-pin={seg} data-tour="home-segments">
       <PinnedRow
         data={{ 'data-home-pinned': seg }}
         picker={{

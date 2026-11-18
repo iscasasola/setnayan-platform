@@ -75,6 +75,10 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     // Same answer as "no such reference" — never confirm a stranger's code.
     redirect('/dashboard');
   }
+  if (payable.status === 'unchecked') {
+    // A plan whose row could not be read may already be confirmed — never log a payment against it blind.
+    back(reference, 'error', "We couldn't check this payment just now. Nothing was logged — please try again in a moment.");
+  }
   if (payable.status !== 'awaiting_payment') {
     back(reference, 'error', 'This one is already settled — nothing more to send.');
   }

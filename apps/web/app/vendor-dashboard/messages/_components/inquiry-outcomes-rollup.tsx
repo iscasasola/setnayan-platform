@@ -56,7 +56,7 @@ export function InquiryOutcomesRollup({
           return (
             <div
               key={key}
-              className="rounded-lg border border-ink/10 bg-white px-3 py-2.5 text-center"
+              className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-2.5 text-center"
             >
               <Icon
                 className={`mx-auto h-4 w-4 ${meta.tone}`}

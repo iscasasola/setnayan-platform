@@ -23,22 +23,66 @@
  * The decision is `staleTabAction` / `hasUnsavedTyping` in `lib/build-version.ts`, executed by its tests.
  * `lib/stale-bundle.ts` still auto-reloads its own case, because there the page is ALREADY broken.
  *
+ * ── IT IS NEVER UNDER A SHEET, AND IT IS DRAWN ONCE (walk RW-7853-a, 16 Nov 2026) ───────────────────────────────
+ * The typing page it speaks to is most often the phone's full-screen chat thread (z 45), which hid the in-flow notice.
+ * While a layer covers the page (`aLayerCoversThePage`, `lib/build-version.ts`) the notice rides the app's top
+ * notification layer instead (`stale-tab-notice-lift.tsx`, the peek toast's place); on a plain page it stays in the
+ * flow, never fixed over the page. Its wrapper is no longer a second live region. 🔒 lib/the-update-notice-is-on-top.test.ts
+ *
  * It also never retries a failed check. If `/api/health` does not answer, that
  * is a network problem, not a version problem, and inventing a version bar out
  * of a failed fetch would be the same class of lie as rendering an empty list
  * for a refused read.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { LazyInlineNotice } from './notices/inline-notice-lazy';
 import {
+  LAYER_ATTRIBUTES,
+  LAYER_OVER_THE_PAGE,
   LOADED_BUILD_VERSION,
+  MODAL_LAYER,
+  SEND_RUN_LAYER,
   SELF_UPDATE_KEY_PREFIX,
+  THREAD_HEAD,
+  whereTheNoticeLifts,
   claimSelfUpdate,
   hasUnsavedTyping,
   servingVersionFrom,
   staleTabAction,
 } from '@/lib/build-version';
+
+/** The notice on the app's top notification layer, while a sheet or the full-screen thread covers the page. */
+const StaleTabNoticeLift = lazy(() => import('./stale-tab-notice-lift'));
+
+/** Where the notice stands on the screen while it is lifted: the element it is drawn on, and its top in px (null = the
+ *  peek toast's own place). */
+type Lifted = { host: Element | null; top: number | null };
+
+/** Is a Sheet, a RiseScreen, a blocker, the phone's full-screen thread or the guest send-run over the page right now —
+ *  and if so, where does the notice go (`whereTheNoticeLifts`, owner rulings 8–10)? Null = the page is not covered. */
+function whereToLift(): Lifted | null {
+  const els = Array.from(document.querySelectorAll(LAYER_OVER_THE_PAGE));
+  const layers = els.map((el) => {
+    const cs = window.getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return {
+      modal: el.matches(MODAL_LAYER),
+      sendRun: el.matches(SEND_RUN_LAYER),
+      position: cs.position,
+      display: cs.display,
+      visibility: cs.visibility,
+      width: r.width,
+      height: r.height,
+      headBottom: el.querySelector(THREAD_HEAD)?.getBoundingClientRect().bottom ?? null,
+    };
+  });
+  const place = whereTheNoticeLifts(layers);
+  if (!place) return null;
+  return { host: place.host === 'send-run' ? (els.find((el) => el.matches(SEND_RUN_LAYER)) ?? null) : null, top: place.top };
+}
+
+const samePlace = (a: Lifted | null, b: Lifted | null) => a === b || (!!a && !!b && a.host === b.host && a.top === b.top);
 
 function tabStorage(): Storage | null {
   try {
@@ -73,6 +117,8 @@ function inAppLinkHref(e: MouseEvent): string | null {
 export function StaleTabNotice() {
   const [stale, setStale] = useState(false);
   const [servingVersion, setServingVersion] = useState<string | null>(null);
+  /** A layer is over the page — the notice is drawn on the top notification layer instead of the flow. */
+  const [lift, setLift] = useState<Lifted | null>(null);
   /** A served version this tab should take silently on its next in-app link press. */
   const armed = useRef<string | null>(null);
   /** Fields the person typed into — React keeps a controlled field's default in step, so value≠default is not enough. */
@@ -154,30 +200,74 @@ export function StaleTabNotice() {
     };
   }, [check, typing]);
 
+  // 🪟 Only while the notice is up: follow the layers that open and close over the page (a sheet is mounted or
+  // unmounted; the thread fixes itself at the phone width), at most once a frame. Nothing runs on a current tab.
+  const showing = stale && Boolean(servingVersion);
+  useEffect(() => {
+    if (!showing) {
+      setLift(null);
+      return;
+    }
+    let frame = 0;
+    const measure = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const next = whereToLift();
+        setLift((was) => (samePlace(was, next) ? was : next));
+      });
+    };
+    measure();
+    const watch = new MutationObserver(measure);
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [...LAYER_ATTRIBUTES] });
+    window.addEventListener('resize', measure);
+    return () => {
+      watch.disconnect();
+      window.removeEventListener('resize', measure);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [showing]);
+
   // 🔔 Inventory #46 — a LIVE notice (info) in the one notice system (owner approved 14 Nov 2026): "Reload · Hide", at the
   // very top, never fixed over the page. Since 16 Nov it shows ONLY on a page holding unsaved typing (or once the one
   // self-update for this version is spent) — that page never reloads by itself. "Hide" is kept by the one notice memory against the
   // SERVING version, so the next deploy is a new fact and speaks again. (The fixed bottom bar and its body-padding
   // reserve went with it: "No bar fixed to the screen.")
   if (!stale || !servingVersion) return null;
+  // 🔁 ONE notice, ONE live region (walk RW-7853-a): `NoticeLine` is already the `role="status"`, so the wrapper no
+  // longer announces a second copy. It is drawn in the flow OR on the top layer — never both.
+  const notice = (
+    <LazyInlineNotice
+      kind="live"
+      tone="info"
+      noticeKey={`app-updated:${servingVersion}`}
+      title="Setnayan was updated while this page was open"
+      actions={
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="sn-press inline-flex min-h-11 items-center rounded-full bg-mulberry px-4 text-sm font-semibold text-cream"
+        >
+          Reload
+        </button>
+      }
+      onClose={() => setStale(false)}
+    />
+  );
+  if (lift) {
+    // A sheet or the full-screen thread is over the page: the flow is underneath it, so the notice rides the app's
+    // top notification layer until that layer goes (`stale-tab-notice-lift.tsx`).
+    return (
+      <Suspense fallback={null}>
+        <StaleTabNoticeLift host={lift.host} top={lift.top}>
+          {notice}
+        </StaleTabNoticeLift>
+      </Suspense>
+    );
+  }
   return (
-    <div data-app-chrome="" role="status" aria-live="polite" className="px-4">
-      <LazyInlineNotice
-        kind="live"
-        tone="info"
-        noticeKey={`app-updated:${servingVersion}`}
-        title="Setnayan was updated while this page was open"
-        actions={
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="sn-press inline-flex min-h-11 items-center rounded-full bg-mulberry px-4 text-sm font-semibold text-cream"
-          >
-            Reload
-          </button>
-        }
-        onClose={() => setStale(false)}
-      />
+    <div data-app-chrome="" data-stale-tab-notice="" className="px-4">
+      {notice}
     </div>
   );
 }

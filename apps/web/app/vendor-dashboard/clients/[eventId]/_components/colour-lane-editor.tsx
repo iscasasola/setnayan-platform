@@ -20,6 +20,8 @@
 
 import { useState, useTransition } from 'react';
 import { Palette } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import {
   COLOUR_DOMAIN_LABEL,
   type ColourDomain,
@@ -89,66 +91,56 @@ export function ColourLaneEditor({
   }
 
   return (
-    <section
-      aria-labelledby="colour-lane-heading"
-      className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
+    <TemplateSection
+      label="Colours you can adjust"
+      data="colour-lane"
+      tip={
+        <>
+          The couple gave you standing permission for{' '}
+          {domains.map((d) => COLOUR_DOMAIN_LABEL[d].toLowerCase()).join(' and ')}. They are told
+          about every change and can put any one back.
+        </>
+      }
     >
-      <header className="space-y-1">
-        <h2
-          id="colour-lane-heading"
-          className="flex items-center gap-2 text-sm font-semibold text-ink"
-        >
-          <Palette aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Colours you can adjust
-        </h2>
-        <p className="text-xs text-ink/65">
-          This couple gave you standing permission for{' '}
-          {domains.map((d) => COLOUR_DOMAIN_LABEL[d].toLowerCase()).join(' and ')}. You don’t
-          need to ask each time — but they are told about every change, and they can put any
-          single one back.
-        </p>
-      </header>
-
-      <ul className="divide-y divide-ink/10">
+      <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
         {swatches.map((s) => {
           const k = keyOf(s);
           const value = draft[k] ?? s.current;
           const dirty = value.toUpperCase() !== s.current.toUpperCase();
           return (
-            <li key={k} className="flex flex-wrap items-center gap-3 py-2.5">
+            <li key={k} className="flex min-h-14 flex-wrap items-center gap-3 py-2">
               <input
                 type="color"
                 value={value}
                 aria-label={s.label}
                 disabled={busy === k}
                 onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
-                className="h-8 w-10 flex-none cursor-pointer rounded-md border border-ink/15 bg-transparent p-0.5 disabled:opacity-50"
+                className="h-11 w-11 flex-none cursor-pointer rounded-xl border border-[color:var(--m-line)] bg-transparent p-0.5 disabled:opacity-50"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] text-ink">{s.label}</p>
-                <p className="mt-0.5 font-mono text-[10.5px] uppercase text-ink/45">
+                <p className="text-[15px] font-semibold text-ink">{s.label}</p>
+                <p className={`mt-0.5 uppercase ${TEMPLATE_SUBLINE}`}>
                   {s.current}
                   {dirty ? ` → ${value.toUpperCase()}` : ''}
                 </p>
               </div>
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                icon={Palette}
+                label={busy === k ? 'Saving…' : 'Save'}
                 disabled={!dirty || busy === k}
                 onClick={() => save(s, value.toUpperCase())}
-                className="inline-flex flex-none items-center rounded-md bg-terracotta-700 px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                {busy === k ? 'Saving…' : 'Save'}
-              </button>
+              />
             </li>
           );
         })}
       </ul>
 
       {message ? (
-        <p role="status" className="text-xs text-ink/70">
+        <p role="status" className={`py-2 ${TEMPLATE_SUBLINE}`}>
           {message}
         </p>
       ) : null}
-    </section>
+    </TemplateSection>
   );
 }

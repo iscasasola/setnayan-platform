@@ -47,7 +47,7 @@ export function ShopReachMap({
   // 2026-11-14 re-walk it also takes the card's SHAPE (`card`: 9 : 5, never taller than 250 px), not the dashboard's
   // fixed 240 px (3 : 2 on a phone); the bigger map opens on openstreetmap.org with the shop's pin dropped.
   return (
-    <div data-shop-reach-map="" className="relative overflow-hidden rounded-card border border-ink/15">{/* no-card-ok: the approved map card's frame (2026-11-14) — the map is the only framed thing on the page */}
+    <div data-shop-reach-map="" className="relative overflow-hidden rounded-[var(--sn-frame-radius)] shadow-sn-frame">{/* the approved map card's frame (2026-11-14), on the frame tokens since the clean warm look (16 Nov) */}
       <ReachMap
         lat={lat}
         lng={lng}

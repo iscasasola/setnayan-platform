@@ -196,6 +196,7 @@ function LabShelf() {
     liveShopCount: 3,
     realShopCount: 1,
     realWeddingCount: 0,
+    editorialsMeasured: true,
     yourPeopleOk: true,
     bookingFee: null,
   };

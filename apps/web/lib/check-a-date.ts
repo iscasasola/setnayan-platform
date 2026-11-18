@@ -39,6 +39,13 @@ export const CHECK_DATE_WORDS: Readonly<Record<CheckDateState, string>> = {
   not_bookable: 'Not bookable',
 };
 
+/**
+ * ✦ A popular day, in v16's words (shop website v16 S5, `site.src.html` `.leg` and `cadDaySheet`): the legend reads
+ * "Popular day" and a tapped popular day's sheet carries "✦ Popular day". Which days are popular is the SHIPPED hot-date
+ * rule (`dayShines`, lib/hot-date.ts) — In demand and Hottest. It stays an Available day: popular never stops an ask.
+ */
+export const CHECK_DATE_POPULAR = 'Popular day';
+
 /** One of the viewer's own events, offered at Check a date's "For which event?" step. */
 export type CheckDateEvent = {
   eventId: string;

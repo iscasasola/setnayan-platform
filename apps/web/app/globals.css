@@ -1789,6 +1789,184 @@ html.dark {
 }
 
 /*
+ * 🎁 THE GIFT BOX'S MATERIALS (J7, owner-approved gift-box_APPROVED_2026-11-15): the paper, foil, wax, lining, light
+ * and shadow colours of the CSS-3D box (`app/_components/gift-moment/gift-box.module.css`, `close-x.module.css`), as
+ * tokens. Art, not UI: the same in every theme — the `html.dark` block under this one writes each out unchanged (an
+ * explicit "same", per lib/every-colour-token-has-a-dark-pair.test.ts). Ordered dark → light per family.
+ * Shades with an alpha are drawn with color-mix(in srgb, var(--sn-gift-…) N%, transparent).
+ */
+:root {
+  --sn-gift-black: #000000;
+  --sn-gift-white: #ffffff;
+  --sn-gift-glow-1: #c9982f;
+  --sn-gift-glow-2: #ffaa50;
+  --sn-gift-glow-3: #ffba60;
+  --sn-gift-glow-4: #ffbe64;
+  --sn-gift-glow-5: #e9c46a;
+  --sn-gift-glow-6: #ebc66a;
+  --sn-gift-glow-7: #edc867;
+  --sn-gift-glow-8: #ffc674;
+  --sn-gift-glow-9: #ffc7a0;
+  --sn-gift-glow-10: #ffce80;
+  --sn-gift-glow-11: #f3d58a;
+  --sn-gift-glow-12: #ffceb0;
+  --sn-gift-glow-13: #ffd782;
+  --sn-gift-glow-14: #ffd68c;
+  --sn-gift-glow-15: #ffd9bf;
+  --sn-gift-glow-16: #fbe3a0;
+  --sn-gift-glow-17: #ffe2c4;
+  --sn-gift-glow-18: #ffe2c8;
+  --sn-gift-glow-19: #f6e7c8;
+  --sn-gift-glow-20: #f6e8ce;
+  --sn-gift-glow-21: #ffe6d2;
+  --sn-gift-glow-22: #fbe9c8;
+  --sn-gift-glow-23: #ffe8d0;
+  --sn-gift-glow-24: #ffecbe;
+  --sn-gift-glow-25: #ffecd8;
+  --sn-gift-glow-26: #fff1bc;
+  --sn-gift-glow-27: #ffeedc;
+  --sn-gift-glow-28: #fff1c9;
+  --sn-gift-glow-29: #fff0d7;
+  --sn-gift-glow-30: #fff1e4;
+  --sn-gift-glow-31: #fff4e6;
+  --sn-gift-glow-32: #fff6ea;
+  --sn-gift-glow-33: #fff9e6;
+  --sn-gift-glow-34: #fffae4;
+  --sn-gift-glow-35: #fffae6;
+  --sn-gift-glow-36: #fffbea;
+  --sn-gift-glow-37: #fffdf2;
+  --sn-gift-night-1: #0b1124;
+  --sn-gift-night-2: #1c2d57;
+  --sn-gift-night-3: #8cb9ff;
+  --sn-gift-rose-1: #4e0b21;
+  --sn-gift-rose-2: #541027;
+  --sn-gift-rose-3: #701330;
+  --sn-gift-rose-4: #992f55;
+  --sn-gift-rose-5: #9a3a58;
+  --sn-gift-rose-6: #c77590;
+  --sn-gift-umber-1: #140006;
+  --sn-gift-umber-2: #04060c;
+  --sn-gift-umber-3: #0a0603;
+  --sn-gift-umber-4: #0e0502;
+  --sn-gift-umber-5: #140602;
+  --sn-gift-umber-6: #1a0602;
+  --sn-gift-umber-7: #1e0600;
+  --sn-gift-umber-8: #21040e;
+  --sn-gift-umber-9: #1a0802;
+  --sn-gift-umber-10: #180a03;
+  --sn-gift-umber-11: #140a0f;
+  --sn-gift-umber-12: #2a0411;
+  --sn-gift-umber-13: #1e0a02;
+  --sn-gift-umber-14: #140e08;
+  --sn-gift-umber-15: #1e0c02;
+  --sn-gift-umber-16: #2a0a02;
+  --sn-gift-umber-17: #260c04;
+  --sn-gift-umber-18: #1e0f05;
+  --sn-gift-umber-19: #1e1002;
+  --sn-gift-umber-20: #2a0e05;
+  --sn-gift-umber-21: #330d03;
+  --sn-gift-umber-22: #1e1406;
+  --sn-gift-umber-23: #26141c;
+  --sn-gift-umber-24: #2a1608;
+  --sn-gift-umber-25: #2b1a05;
+  --sn-gift-umber-26: #3a2410;
+  --sn-gift-umber-27: #5a1c08;
+  --sn-gift-umber-28: #3e2632;
+  --sn-gift-umber-29: #462c08;
+  --sn-gift-umber-30: #4a3410;
+  --sn-gift-umber-31: #7a4e0e;
+  --sn-gift-umber-32: #7a5113;
+  --sn-gift-umber-33: #8a5e16;
+  --sn-gift-umber-34: #9a6a19;
+}
+
+/* 🎁 The gift box's materials in dark: the SAME colours on purpose (the box is a drawn object, not page chrome). */
+html.dark {
+  --sn-gift-black: #000000;
+  --sn-gift-white: #ffffff;
+  --sn-gift-glow-1: #c9982f;
+  --sn-gift-glow-2: #ffaa50;
+  --sn-gift-glow-3: #ffba60;
+  --sn-gift-glow-4: #ffbe64;
+  --sn-gift-glow-5: #e9c46a;
+  --sn-gift-glow-6: #ebc66a;
+  --sn-gift-glow-7: #edc867;
+  --sn-gift-glow-8: #ffc674;
+  --sn-gift-glow-9: #ffc7a0;
+  --sn-gift-glow-10: #ffce80;
+  --sn-gift-glow-11: #f3d58a;
+  --sn-gift-glow-12: #ffceb0;
+  --sn-gift-glow-13: #ffd782;
+  --sn-gift-glow-14: #ffd68c;
+  --sn-gift-glow-15: #ffd9bf;
+  --sn-gift-glow-16: #fbe3a0;
+  --sn-gift-glow-17: #ffe2c4;
+  --sn-gift-glow-18: #ffe2c8;
+  --sn-gift-glow-19: #f6e7c8;
+  --sn-gift-glow-20: #f6e8ce;
+  --sn-gift-glow-21: #ffe6d2;
+  --sn-gift-glow-22: #fbe9c8;
+  --sn-gift-glow-23: #ffe8d0;
+  --sn-gift-glow-24: #ffecbe;
+  --sn-gift-glow-25: #ffecd8;
+  --sn-gift-glow-26: #fff1bc;
+  --sn-gift-glow-27: #ffeedc;
+  --sn-gift-glow-28: #fff1c9;
+  --sn-gift-glow-29: #fff0d7;
+  --sn-gift-glow-30: #fff1e4;
+  --sn-gift-glow-31: #fff4e6;
+  --sn-gift-glow-32: #fff6ea;
+  --sn-gift-glow-33: #fff9e6;
+  --sn-gift-glow-34: #fffae4;
+  --sn-gift-glow-35: #fffae6;
+  --sn-gift-glow-36: #fffbea;
+  --sn-gift-glow-37: #fffdf2;
+  --sn-gift-night-1: #0b1124;
+  --sn-gift-night-2: #1c2d57;
+  --sn-gift-night-3: #8cb9ff;
+  --sn-gift-rose-1: #4e0b21;
+  --sn-gift-rose-2: #541027;
+  --sn-gift-rose-3: #701330;
+  --sn-gift-rose-4: #992f55;
+  --sn-gift-rose-5: #9a3a58;
+  --sn-gift-rose-6: #c77590;
+  --sn-gift-umber-1: #140006;
+  --sn-gift-umber-2: #04060c;
+  --sn-gift-umber-3: #0a0603;
+  --sn-gift-umber-4: #0e0502;
+  --sn-gift-umber-5: #140602;
+  --sn-gift-umber-6: #1a0602;
+  --sn-gift-umber-7: #1e0600;
+  --sn-gift-umber-8: #21040e;
+  --sn-gift-umber-9: #1a0802;
+  --sn-gift-umber-10: #180a03;
+  --sn-gift-umber-11: #140a0f;
+  --sn-gift-umber-12: #2a0411;
+  --sn-gift-umber-13: #1e0a02;
+  --sn-gift-umber-14: #140e08;
+  --sn-gift-umber-15: #1e0c02;
+  --sn-gift-umber-16: #2a0a02;
+  --sn-gift-umber-17: #260c04;
+  --sn-gift-umber-18: #1e0f05;
+  --sn-gift-umber-19: #1e1002;
+  --sn-gift-umber-20: #2a0e05;
+  --sn-gift-umber-21: #330d03;
+  --sn-gift-umber-22: #1e1406;
+  --sn-gift-umber-23: #26141c;
+  --sn-gift-umber-24: #2a1608;
+  --sn-gift-umber-25: #2b1a05;
+  --sn-gift-umber-26: #3a2410;
+  --sn-gift-umber-27: #5a1c08;
+  --sn-gift-umber-28: #3e2632;
+  --sn-gift-umber-29: #462c08;
+  --sn-gift-umber-30: #4a3410;
+  --sn-gift-umber-31: #7a4e0e;
+  --sn-gift-umber-32: #7a5113;
+  --sn-gift-umber-33: #8a5e16;
+  --sn-gift-umber-34: #9a6a19;
+}
+
+/*
  * ⚠ `.sn-sidebar` IS GONE (2026-08-15). It was applied to exactly one element
  * in the app — the desktop `<aside>` inside `sidebar-shell.tsx` — and that
  * file was deleted once all five signed-in trees wore the shared rail. It
@@ -3764,6 +3942,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-z-toast:  60;
   --sn-z-scrim:  74;
   --sn-z-panel:  75;
+  /* 👍 THE SUPPLIER'S FLOATING ROW (`supplier-thumb-row.module.css` .lower): its own height (44 px controls + 10 px
+     above and below), and how far above the screen's foot its top stands — the lift it rides on (`--sn-ride-h`, the
+     bottom dock, or the safe area + 64 px: the row's own `bottom`) plus that height plus a 1 rem gap. A scroll box
+     that the row floats over keeps this much at its foot (the card maker, walk step 3, 2026-11-16). A CSS module
+     cannot declare :root, so the row's token lives here and the row reads it back. */
+  --sn-thumb-row-h: 64px;
+  --sn-thumb-clear: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))) + var(--sn-thumb-row-h) + 1rem);
 
   /* 🌫 THE SCRIM — the dark behind anything popped up over the page (`.sn-popup-dark`, `<OverlayBackdrop>`, the side
      panel's and the guest card's scrims all read these; nothing else may draw one — `lib/one-scrim.test.ts`). The
@@ -8222,6 +8407,16 @@ header[data-cover-tone='cream'] [data-cover-foot] .button-primary {
 .sn-hub-cards h2 {
   font-size: 1.5rem;
   line-height: 1.2;
+}
+
+/* 🧰 THE CARD MAKER'S FIELDS NEVER SIT UNDER ITS CANCEL · CREATE ROW (walk step 3, 2026-11-16). The row is fixed at the
+   foot of the screen (`supplier-thumb-row.tsx`; how far up it reaches is the row's token `--sn-thumb-clear`), so a field brought into
+   view — focused, typed into, a new line added — must stop above it, on the page and inside Today's New service
+   sheet alike. scroll-padding on the box that scrolls does it for every field at once.
+   🔒 app/vendor-dashboard/services/the-maker-fields-clear-the-bar.test.ts */
+html:has([data-card-maker]),
+[data-sheet-panel] > .overflow-y-auto:has([data-card-maker]) {
+  scroll-padding-bottom: var(--sn-thumb-clear);
 }
 
 /* The invitation's pinned top bar (invitation-shell.tsx, data-sticky-top) is

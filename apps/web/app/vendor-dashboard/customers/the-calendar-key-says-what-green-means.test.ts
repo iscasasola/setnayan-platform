@@ -12,7 +12,8 @@
  * outlined, not green. Then the tour's own words must pair green-the-fill with "can still take a booking" and put
  * "booked" on the dots — and never call a green day booked.
  *
- * SABOTAGE (run 16 Nov 2026): restoring "Green is booked here, grey is booked elsewhere…" turns test 2 red.
+ * SABOTAGE (run 16 Nov 2026): restoring "Green is booked here, grey is booked elsewhere…" turned test 2 red. Test 2
+ * left with the Dates tour itself (retired 16 Nov 2026, W1-B14).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +21,6 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { CalendarGrid } from '@/app/_components/calendar';
-import { TOURS } from '@/lib/tours';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -52,12 +52,5 @@ test('1 · the month itself: green = can still take a booking; booked = a dot', 
   }
 });
 
-test('2 · the tour — the only key on Clients — says the same', () => {
-  const step = TOURS.vendor_dates_v1.spotlight?.steps.find((s) => s.anchor === 'dates-calendar');
-  assert.ok(step, 'the Dates tour lost its calendar step — this guard is pointed at nothing');
-  const body = step.body;
-  assert.doesNotMatch(body, /green (day )?is booked|green is booked/i, 'the tour calls a green day booked — green is an OPEN day');
-  assert.match(body, /green day can still take a booking/i, 'the tour does not say what the green fill means');
-  assert.match(body, /outlined day cannot/i, 'the tour does not say what an outlined day means');
-  assert.match(body, /dots[^.]*green booked here/i, 'the tour does not put "booked" on the dots');
-});
+// 2 · (retired 16 Nov 2026, W1-B14) the Dates page tour whose words this test held was deleted with the other supplier
+// page tours (owner: the supplier's journey is the one tour). Test 1 still holds the month itself.

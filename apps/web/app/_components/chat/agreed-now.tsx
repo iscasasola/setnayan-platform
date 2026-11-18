@@ -71,7 +71,7 @@ export async function AgreedNow({
   if (failed) {
     return (
       <section data-agreed-now="" data-read="failed">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/55">Agreed now</h2>
+        <h2 className="text-[15px] font-semibold text-ink">Agreed now</h2>
         <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load what is agreed. Pull to refresh, or open it again in a moment.</p>
       </section>
     );
@@ -165,7 +165,7 @@ export function AgreedNowView({
         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         {outcome.line}
       </p>
-      <h2 className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/55">Agreed now</h2>
+      <h2 className="mt-4 text-[15px] font-semibold text-ink">Agreed now</h2>
       <ul className="mt-1">
         {rows.map((r) => (
           <ChangedRow key={r.key} row={r} loaded={r.key === 'quote' || historyLoaded} initialOpen={r.key === openKey} />

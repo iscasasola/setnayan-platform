@@ -60,7 +60,7 @@ export default async function PricingPlanPage() {
     ] as Array<[PlanKey, number | null]>
   ).filter((r): r is [PlanKey, number] => r[1] != null);
   return (
-    <main className="bg-cream text-ink">
+    <main className="bg-page text-ink">
       <PlanQuiz prices={plan} />
       {planRows.length > 0 ? (
         <section aria-label="Plans for your event" className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6" data-plan-doors="">

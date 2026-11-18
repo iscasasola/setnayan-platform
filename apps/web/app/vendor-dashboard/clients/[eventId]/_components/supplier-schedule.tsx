@@ -27,7 +27,7 @@ import { markDay } from '@/lib/supplier-schedule-marks';
 import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
 import { formatCount } from '@/lib/format-number';
-import { OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, type OwnTimes } from '@/lib/supplier-own-times';
+import { CALL_TIME_ANCHOR, OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, type OwnTimes } from '@/lib/supplier-own-times';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -370,7 +370,7 @@ export function SupplierSchedule({
         </p>
       ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
         <section data-asked-of-you="" aria-label="Asked of you">
-          <InfoTip label="Asked of you" labelAs="h3" labelClassName="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" align="start">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="text-[13px] font-semibold text-[color:var(--m-slate-2)]" align="start">
             The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
             once; Decline tells them, with your reason.
           </InfoTip>
@@ -404,7 +404,7 @@ export function SupplierSchedule({
 
       {day.otherWaiting.length > 0 ? (
         <section aria-label="Also waiting for the host">
-          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Also waiting</h3>
+          <h3 className="text-[13px] font-semibold text-[color:var(--m-slate-2)]">Also waiting</h3>
           <ul className="mt-1 divide-y divide-ink/10">
             {day.otherWaiting.map((r) => (
               <WaitingRow
@@ -421,7 +421,7 @@ export function SupplierSchedule({
 
       {answered.length > 0 ? (
         <section aria-label="Your answered requests">
-          <h3 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Answered</h3>
+          <h3 className="text-[13px] font-semibold text-[color:var(--m-slate-2)]">Answered</h3>
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
@@ -517,7 +517,7 @@ function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: b
         {m.optional ? <span className="ml-1.5 text-xs text-ink/70">if kept</span> : null}
         {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
         {m.section !== 'Event' ? (
-          <span data-backstage-moment="" className="block text-xs uppercase tracking-[0.06em] text-gold-deep">
+          <span data-backstage-moment="" className="block text-xs font-medium text-gold-deep">
             {m.section} · {BACKSTAGE_WORDS}
           </span>
         ) : null}
@@ -1019,12 +1019,13 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
   const keep = (k: 'call' | 'arrive' | 'done') => (hhmm: string) => {
     const next = { ...times, [k]: hhmm };
     setTimes(next);
-    if (!next.call && !next.arrive && !next.done) return { ok: true as const };
+    // 🕕 Clearing the last time saves too — the hosts are told (owner 16 Nov); nothing kept, nothing to clear.
+    if (!next.call && !next.arrive && !next.done && !own?.call && !own?.arrive && !own?.done) return { ok: true as const };
     return save(next);
   };
 
   return (
-    <section data-own-times="" data-tour="client-own-times" aria-label="Your times" className="space-y-1">
+    <section id={CALL_TIME_ANCHOR} data-own-times="" data-tour="client-own-times" aria-label="Your times" className="scroll-mt-24 space-y-1">
       {own === null ? (
         <p role="alert" className="text-sm font-semibold text-danger-700">
           Your times couldn’t be read just now. Nothing is lost — pull to refresh.

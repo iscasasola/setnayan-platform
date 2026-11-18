@@ -21,6 +21,8 @@ import {
   toggleInstagramMediaVisibility,
   disconnectInstagram,
 } from '../instagram-actions';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Vendor "Connect Instagram" card. Three states:
@@ -48,26 +50,23 @@ export function InstagramConnectCard({
 
   return (
     <section className="mt-10 space-y-4">
-      <div className="space-y-1">
-        <h2 className="m-label-mono flex items-center gap-2" style={{ color: 'var(--m-slate)' }}>
-          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Instagram
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          Connect your Business or Creator Instagram account and sync your recent
-          posts straight into your public portfolio. Photos are copied to
-          Setnayan so they keep showing even after Instagram&rsquo;s links expire;
-          videos link back to your post.
-        </p>
-      </div>
+      {/* Template rule 2 + 7: a grey capitals label, the how-it-works behind its ⓘ. */}
+      <InfoTip
+        label="Instagram"
+        labelAs="h2"
+        align="start"
+        labelClassName="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
+      >
+        Connect your Business or Creator Instagram account and sync your recent posts straight into your public
+        portfolio. Photos are copied to Setnayan so they keep showing even after Instagram&rsquo;s links expire; videos
+        link back to your post.
+      </InfoTip>
 
       {flash ? (
         <div
           role="status"
-          className={`rounded-lg border px-3 py-2 text-sm ${
-            flash.kind === 'ok'
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-              : 'border-amber-300 bg-amber-50 text-amber-800'
+          className={`py-1 text-sm ${
+            flash.kind === 'ok' ? 'text-[rgb(var(--color-ok))]' : 'text-[rgb(var(--color-warn))]'
           }`}
         >
           {flash.message}
@@ -85,13 +84,7 @@ export function InstagramConnectCard({
 
 function CardShell({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="space-y-4 rounded-2xl p-5"
-      style={{
-        background: 'var(--m-paper)',
-        border: '1px solid var(--m-hairline, rgba(0,0,0,0.08))',
-      }}
-    >
+    <div className="space-y-4 border-t border-[color:var(--m-line)] pt-4">
       {children}
     </div>
   );
@@ -100,18 +93,17 @@ function CardShell({ children }: { children: React.ReactNode }) {
 function NotConnected() {
   return (
     <CardShell>
-      <p className="text-sm text-ink/60">
-        You haven&rsquo;t connected Instagram yet. You&rsquo;ll be sent to
-        Instagram to approve access, then you can sync your posts.
-      </p>
+      <InfoTip label="You haven&rsquo;t connected Instagram yet" align="start" labelClassName="text-sm text-[color:var(--m-slate-2)]">
+        You&rsquo;ll be sent to Instagram to approve access, then you can sync your posts.
+      </InfoTip>
       {/* A plain link → the OAuth start route (a server-side 302 redirect to
           Meta, NOT a Next page) so <Link> prefetch/routing doesn't apply. */}
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/api/vendor/instagram/connect"
-        className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream transition-opacity hover:opacity-90"
+        className={actionButtonClass('brand')}
       >
-        <Link2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+        <Link2 aria-hidden strokeWidth={1.9} />
         Connect Instagram
       </a>
     </CardShell>
@@ -137,42 +129,36 @@ function Connected({
           <p className="text-sm font-medium text-ink">
             Connected{connection.igUsername ? ` · @${connection.igUsername}` : ''}
           </p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-[color:var(--m-slate-2)]">
             {lastSynced ? `Last synced ${lastSynced}` : 'Not synced yet'}
           </p>
           {connection.status === 'error' && connection.statusDetail ? (
-            <p className="text-xs text-amber-700">{connection.statusDetail}</p>
+            <p className="text-xs text-[rgb(var(--color-warn))]">{connection.statusDetail}</p>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <ActionButton
+            tone="neutral"
+            icon={RefreshCw}
+            label={syncing ? 'Syncing…' : 'Sync now'}
             disabled={syncing}
             onClick={() => startSync(() => syncInstagramMediaAction())}
-            className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink/30 disabled:opacity-60"
-          >
-            <RefreshCw
-              aria-hidden
-              className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
-              strokeWidth={2}
-            />
-            {syncing ? 'Syncing…' : 'Sync now'}
-          </button>
+          />
           <form action={disconnectInstagram}>
-            <button
+            <ActionButton
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-ink/55 transition-colors hover:text-ink"
+              tone="danger"
+              quiet
+              icon={Unlink}
+              label="Disconnect"
               title="Disconnect Instagram and remove synced posts"
-            >
-              <Unlink aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Disconnect
-            </button>
+            />
           </form>
         </div>
       </div>
 
       {media.length === 0 ? (
-        <p className="text-sm text-ink/55">
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">
           No posts synced yet. Press <span className="font-medium">Sync now</span>{' '}
           to pull your latest Instagram posts.
         </p>
@@ -203,7 +189,7 @@ function MediaTile({ item }: { item: VendorIgMediaRow }) {
           className="object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-ink/30">
+        <div className="flex h-full w-full items-center justify-center text-[color:var(--m-slate-2)]">
           <Camera aria-hidden className="h-6 w-6" strokeWidth={1.5} />
         </div>
       )}

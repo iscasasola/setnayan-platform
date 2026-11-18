@@ -1,5 +1,5 @@
 import { MessageCircleQuestion } from 'lucide-react';
-import { formatCentavos } from '@/lib/vendor-proposals';
+import { quoteLineDetailWords, quoteLinePriceWords } from '@/lib/quote-line-price-words';
 
 /** A line as both callers hold it — the stream's stored row (label may be null) and the builder's composed one. */
 export type QuoteCardLine = { label: string | null; detail?: string | null; amount_centavos: number | null };
@@ -24,10 +24,10 @@ export function QuoteCardLines({ items, onAsk }: { items: readonly QuoteCardLine
           <>
             <span className="min-w-0 truncate">
               {li.label}
-              {li.detail ? <span className="text-ink/45"> · {li.detail}</span> : null}
+              {quoteLineDetailWords(li) ? <span className="text-ink/45"> · {quoteLineDetailWords(li)}</span> : null}
             </span>
             <span className="shrink-0 tabular-nums">
-              {typeof li.amount_centavos === 'number' ? formatCentavos(li.amount_centavos) : 'Complimentary'}
+              {quoteLinePriceWords(li)}
             </span>
           </>
         );

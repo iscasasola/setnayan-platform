@@ -10,7 +10,7 @@ import { Sk, SkCircle, SkLine } from '@/components/skeletons';
  */
 export default function BundleMakerLoading() {
   return (
-    <section aria-busy="true" aria-label="Opening the Bundle Maker" className="fixed inset-0 z-sn-pop flex flex-col bg-cream">
+    <section aria-busy="true" aria-label="Opening the Bundle Maker" className="fixed inset-0 z-sn-pop flex flex-col bg-page">
       <div className="border-b border-ink/10 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex min-h-[60px] w-full max-w-3xl items-center gap-2.5 px-4 py-2">
           <SkCircle />

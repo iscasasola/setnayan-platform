@@ -404,7 +404,12 @@ export function PickedShell<P extends string>({
         if (anchor) {
           requestAnimationFrame(() =>
             requestAnimationFrame(() => {
-              document.getElementById(anchor)?.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+              // Vertical only, inside the page's own scroller (§10 #26: a whole-element scroll also moved the body sideways).
+              const part = document.getElementById(anchor);
+              const scroller = part?.closest<HTMLElement>('[data-picked-body]');
+              if (!part || !scroller) return;
+              const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+              scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
             }),
           );
         }

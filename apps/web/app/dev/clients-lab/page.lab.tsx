@@ -412,7 +412,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
           workDefault="details"
-          nextStep={<ClientNextStepRow step={{ line: '₱242,830 due Wed, Dec 9', page: 'quote', anchor: 'payments' }} />}
+          nextStep={<ClientNextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
         />
       </div>
     );

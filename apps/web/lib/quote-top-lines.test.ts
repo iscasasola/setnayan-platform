@@ -37,5 +37,6 @@ test('the client page hands the lines to Quotation, booked only, from reads it a
   const body = page.slice(at, page.indexOf(') : null,', at));
   assert.doesNotMatch(body, /\.from\('|\.rpc\(|await /, 'the lines read on their own');
   const switcher = stripComments(readFileSync(join(HERE, '../app/vendor-dashboard/clients/[eventId]/_pages/switch.tsx'), 'utf8'));
-  assert.match(switcher, /<QuotationPage ctx=\{ctx\} shipped=\{shipped\.quote\} top=\{i\.quoteTop\} \/>/);
+  // 18 Nov 2026 (seven tabs): the lines head Book & Budget, above the payments and the quote.
+  assert.match(switcher, /ctx\.isBooked \?[\s\S]*\{i\.quoteTop\}[\s\S]*id="payments"[\s\S]*\{quotation\}/);
 });

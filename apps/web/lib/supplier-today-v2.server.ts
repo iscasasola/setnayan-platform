@@ -1,4 +1,5 @@
 import 'server-only';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { coverIsSet } from '@/lib/service-publish-gate';
@@ -30,8 +31,11 @@ export type TodayV2Reads = {
   cutoffs: { fewInquiries: number | null; fewBookings: number | null };
   /** Approved, live inspiration photos — the Inspiration box's own predicates (`badge-rewards.server.ts`); null unread. */
   inspirationPhotos: number | null;
-  /** Live service cards (active, not link-only — the Service cards count's predicates); null unread. */
-  cardsOnline: number | null;
+  /**
+   * ▦ The cards the plan holds and the cards made, counted as the create gate counts them (`services/actions.ts`:
+   * `fetchCapsWithAddOns(...).serviceCardsTotal`, a founder unlimited, every card but a branch copy). Null = unread.
+   */
+  cardRoom: { allowed: number; made: number } | null;
 };
 
 /** Manila midnight of `todayIso`, as an instant. */
@@ -68,20 +72,34 @@ async function readDoneToday(admin: SupabaseClient, vendorProfileId: string, sin
 
 async function readCards(supabase: SupabaseClient, admin: SupabaseClient, vendorProfileId: string) {
   const [services, holds] = await Promise.all([
-    supabase.from('vendor_services').select('vendor_service_id, title, primary_photo_r2_key, is_linked_only').eq('vendor_profile_id', vendorProfileId).eq('is_active', true).order('created_at', { ascending: true }),
+    supabase.from('vendor_services').select('vendor_service_id, title, primary_photo_r2_key').eq('vendor_profile_id', vendorProfileId).eq('is_active', true).order('created_at', { ascending: true }),
     admin.from('service_card_badge_holds').select('vendor_service_id').eq('vendor_profile_id', vendorProfileId).eq('badge', 'trending_now').is('lost_at', null).limit(1),
   ]);
   if (services.error) logQueryError('supplier-today-v2: cards', services.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
   if (holds.error) logQueryError('supplier-today-v2: trending hold', holds.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-  const rows = (services.error ? [] : (services.data ?? [])) as Array<{ vendor_service_id: string; title: string | null; primary_photo_r2_key: string | null; is_linked_only: boolean | null }>;
+  const rows = (services.error ? [] : (services.data ?? [])) as Array<{ vendor_service_id: string; title: string | null; primary_photo_r2_key: string | null }>;
   const bare = rows.find((r) => !coverIsSet(r.primary_photo_r2_key));
   const heldId = holds.error ? null : ((holds.data ?? []) as Array<{ vendor_service_id: string }>)[0]?.vendor_service_id ?? null;
   const held = heldId ? rows.find((r) => r.vendor_service_id === heldId) : null;
   return {
     noCover: bare ? { serviceId: bare.vendor_service_id, title: bare.title?.trim() || 'A service card' } : null,
     trendingCard: held ? { title: held.title?.trim() || 'service' } : null,
-    cardsOnline: services.error ? null : rows.filter((r) => r.is_linked_only !== true).length,
   };
+}
+
+async function readCardRoom(supabase: SupabaseClient, vendorProfileId: string): Promise<TodayV2Reads['cardRoom']> {
+  const [tier, made] = await Promise.all([
+    supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    supabase.from('vendor_services').select('vendor_service_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).is('branch_copy_of', null),
+  ]);
+  if (tier.error || !tier.data || made.error || made.count == null) {
+    logQueryError('supplier-today-v2: card room', tier.error ?? made.error ?? { message: 'no row' }, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const t = tier.data as { tier_state: string | null; is_founder: boolean | null };
+  if (t.is_founder === true) return null;
+  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, t.tier_state);
+  return Number.isFinite(caps.serviceCardsTotal) ? { allowed: caps.serviceCardsTotal, made: made.count } : null;
 }
 
 async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
@@ -105,13 +123,14 @@ async function readCutoffs(admin: SupabaseClient): Promise<TodayV2Reads['cutoffs
 
 export async function readTodayV2(args: { supabase: SupabaseClient; admin: SupabaseClient; vendorProfileId: string; todayIso: string }): Promise<TodayV2Reads> {
   const { supabase, admin, vendorProfileId, todayIso } = args;
-  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos] = await Promise.all([
+  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom] = await Promise.all([
     readDoneToday(admin, vendorProfileId, manilaMidnightIso(todayIso)).catch(() => null),
-    readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, trendingCard: null, cardsOnline: null })),
+    readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, trendingCard: null })),
     readCompletedBookingsCount(admin, vendorProfileId).catch(() => null),
     getVendorDemandRadar(supabase, vendorProfileId).catch(() => DEMAND_RADAR_UNREADABLE),
     readCutoffs(admin).catch(() => ({ fewInquiries: null, fewBookings: null })),
     readInspirationPhotos(admin, vendorProfileId).catch(() => null),
+    readCardRoom(supabase, vendorProfileId).catch(() => null),
   ]);
   return {
     done,
@@ -121,6 +140,6 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
     radar: radar === DEMAND_RADAR_UNREADABLE ? null : radar,
     cutoffs,
     inspirationPhotos,
-    cardsOnline: cards.cardsOnline,
+    cardRoom,
   };
 }

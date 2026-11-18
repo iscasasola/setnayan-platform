@@ -767,9 +767,6 @@ export default async function VendorOverviewPage({
     bookedThisMonth: data.bookedThisMonth ?? null,
     todayIso,
     library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
-    // ▦ The plan's card total arrives with the plans rebuild (#7975, `serviceCardsTotal`); until it is on main the
-    // allowance is not read here, and an unread allowance draws no row (never a guessed "room for more").
-    cardsAllowed: null,
   });
   const { events: eventsYouRun } = await eventsYouRunP;
 

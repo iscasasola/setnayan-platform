@@ -52,8 +52,6 @@ export type TodayV2Input = {
   todayIso: string;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
-  /** ▦ How many cards the shop's plan holds online; null = not read (no row). */
-  cardsAllowed: number | null;
 };
 
 const REC_BUTTON: Readonly<Record<string, string>> = {
@@ -108,7 +106,7 @@ export function buildTodayV2(i: TodayV2Input): {
     // each set aside for the day with "Not now" like the other gaps.
     ...roomToGrowRows({
       library: { open: i.library, photos: r?.inspirationPhotos ?? null, href: INSPIRATION_LIBRARY_HREF, label: INSPIRATION_LIBRARY_ROW.label },
-      cards: { allowed: i.cardsAllowed, online: r?.cardsOnline ?? null },
+      cards: { allowed: r?.cardRoom?.allowed ?? null, made: r?.cardRoom?.made ?? null },
     })
       .filter((g) => !asideKeys(i.aside).has(g.key))
       .map((g) => ({ ...g, tag: { word: 'Your page', page: true }, notNow: true })),

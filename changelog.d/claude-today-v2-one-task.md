@@ -18,10 +18,10 @@ drawing `Today, one task` v2 (artifact F4vQbaCwFtu2iawYd2r6q2).
 - Confirm-payment and I-delivered answered on Today now come back to Today (one exact `return_to` literal each).
 - **The shop's room to grow, as tasks** (owner 18 Nov, same day: *"we want tasks on inspiration library · or if you
   have a plan and there is more service cards to do … deplete their cards"*): "Add to the inspiration library" moves
-  from a door under the Shop row into the Today list (with the count of approved photos), and "You can put N more
-  cards online · Your plan holds X · Y online now" opens the card maker. Neither counts toward done; both take "Not
-  now". ⚠ The cards row needs the plan's card total from #7975 (`serviceCardsTotal`) — until that is on main the
-  page passes no allowance and the row is not drawn (an unread number draws nothing).
+  from a door under the Shop row into the Today list (with the count of approved photos), and "You can make N more service cards · Your plan holds X · you have Y" opens the card maker — counted exactly as
+  the create gate counts them (#7975's `serviceCardsTotal`, a founder unlimited, every card but a branch copy), so the
+  row never offers a card the maker would refuse. Neither row counts toward done; both take "Not now". An unread
+  allowance or count draws no cards row.
 - Admin › Settings: two new owner lines, "Few inquiries — in 28 days" and "Few bookings — this month". Blank = off.
 
 Migration `20271350875090_grow_lines_on_today_are_the_owners.sql`: two nullable INTEGER columns on `platform_settings`

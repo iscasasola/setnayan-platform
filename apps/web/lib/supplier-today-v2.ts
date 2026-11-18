@@ -342,8 +342,8 @@ export function nextBadgeWords(nextShort: string | null): { title: string; toGo:
  * Two rows in the "Also for your page" list — never counted toward done (pick 2), each clearable with "Not now":
  *   · the inspiration library, for a shop whose trades supply a part (the shipped `moodboardLibraryAccessForProfile`
  *     gate) — the shipped door's row (`INSPIRATION_LIBRARY_ROW`), now with the count of approved photos;
- *   · the cards the plan still holds — "You can put 2 more cards online" — only when BOTH the plan's allowance and the
- *     live-card count were read. An unread number decides nothing: no row (never a guessed "you have room").
+ *   · the cards the plan still lets the shop MAKE — "You can make 2 more service cards" — counted exactly as the
+ *     create gate counts them (#7975: `serviceCardsTotal` vs every card but a branch copy), and only when BOTH were read. An unread number decides nothing: no row (never a guessed "you have room").
  */
 export const LIBRARY_TASK_KEY = 'grow-library';
 export const CARDS_TASK_KEY = 'grow-cards';
@@ -353,16 +353,16 @@ export type RoomRow = { key: string; label: string; line: string; href: string; 
 
 export function roomToGrowRows(i: {
   library: { open: boolean; photos: number | null; href: string; label: string };
-  cards: { allowed: number | null; online: number | null };
+  cards: { allowed: number | null; made: number | null };
 }): RoomRow[] {
   const out: RoomRow[] = [];
-  const { allowed, online } = i.cards;
-  if (allowed !== null && online !== null && Number.isFinite(allowed) && allowed > online) {
-    const left = allowed - online;
+  const { allowed, made } = i.cards;
+  if (allowed !== null && made !== null && Number.isFinite(allowed) && allowed > made) {
+    const left = allowed - made;
     out.push({
       key: CARDS_TASK_KEY,
-      label: `You can put ${left} more ${left === 1 ? 'card' : 'cards'} online`,
-      line: `Your plan holds ${allowed} · ${online} online now`,
+      label: `You can make ${left} more service ${left === 1 ? 'card' : 'cards'}`,
+      line: `Your plan holds ${allowed} · you have ${made}`,
       href: NEW_CARD_HREF,
       button: 'Make a card',
       icon: 'shop',

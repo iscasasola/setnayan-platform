@@ -11,7 +11,7 @@
  *
  * SABOTAGE (each seen red once): make `meeting` a screen → 1 red; count `renewal` as a task → 2 red; default
  * `fewInquiries` to 20 in `growStage` → 3 red;
- * drop the `online !== null` check in `roomToGrowRows` → 7 red.
+ * drop the `made !== null` check in `roomToGrowRows` → 7 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -119,15 +119,15 @@ test('6 · Not now lapses at midnight; Got it stays and counts on its day', () =
 
 test('7 · the library and the unused cards are tasks; an unread number draws no cards row', () => {
   const lib = { open: true, photos: 0, href: '/l', label: 'Add to the inspiration library' };
-  const rows = roomToGrowRows({ library: lib, cards: { allowed: 3, online: 1 } });
+  const rows = roomToGrowRows({ library: lib, cards: { allowed: 3, made: 1 } });
   assert.deepEqual(rows.map((r) => r.key), [CARDS_TASK_KEY, LIBRARY_TASK_KEY]);
-  assert.equal(rows[0]!.label, 'You can put 2 more cards online');
-  assert.equal(rows[0]!.line, 'Your plan holds 3 · 1 online now');
+  assert.equal(rows[0]!.label, 'You can make 2 more service cards');
+  assert.equal(rows[0]!.line, 'Your plan holds 3 · you have 1');
   assert.equal(rows[1]!.line, 'None yet · couples find you through them');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: null, online: 1 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread allowance guessed room');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, online: null } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread count guessed room');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, online: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY]);
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: Infinity, online: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'no limit is not a count');
-  assert.deepEqual(roomToGrowRows({ library: { ...lib, open: false }, cards: { allowed: null, online: null } }), [], 'the library row drawn for a shop it refuses');
-  assert.equal(roomToGrowRows({ library: { ...lib, photos: null }, cards: { allowed: null, online: null } })[0]!.line, 'Your photos help couples find you');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: null, made: 1 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread allowance guessed room');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, made: null } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread count guessed room');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, made: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY]);
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: Infinity, made: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'no limit is not a count');
+  assert.deepEqual(roomToGrowRows({ library: { ...lib, open: false }, cards: { allowed: null, made: null } }), [], 'the library row drawn for a shop it refuses');
+  assert.equal(roomToGrowRows({ library: { ...lib, photos: null }, cards: { allowed: null, made: null } })[0]!.line, 'Your photos help couples find you');
 });

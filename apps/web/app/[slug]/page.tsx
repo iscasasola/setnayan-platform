@@ -560,7 +560,13 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
       const reqHeaders = await headers();
       if (reqHeaders.get('x-sn-u-nesting') === '1') notFound();
-      const { data: person } = await admin.from('users').select('user_id').eq('slug', slug.toLowerCase()).maybeSingle();
+      const { data: person, error: personErr } = await admin
+        .from('users')
+        .select('user_id')
+        .eq('slug', slug.toLowerCase())
+        .maybeSingle();
+      // A failed read is not "nobody has this name": never fall through to a not-found for a real person's page.
+      if (personErr) throw new Error(`Could not read who holds /${slug}: ${personErr.message}`);
       if (person) return AccountProfilePage({ params: Promise.resolve({ userSlug: slug.toLowerCase() }) });
     }
     // Not a renamed event → try a vendor at this slug. renderVendorBySlug

@@ -758,6 +758,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "Figure",
         "GuestSpotlight",
         "HubProWays",
@@ -788,6 +789,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "InfoTip",
         "Link",
         "PickMenu",
@@ -9295,6 +9297,7 @@
         "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "Icon",
         "LeftChatRow",
         "Link",
@@ -9306,6 +9309,7 @@
         "StartThreadPicker",
         "SubmitButton",
         "SupplierColumns",
+        "SwipeToDelete",
         "ThreadArchiveToggle",
         "ThreadArrival",
         "ThreadListAvatar",

@@ -9,19 +9,6 @@
 > previous picture; every number here was measured on 2026-09-28 and starts rotting at once —
 > re-measure with the command beside it before trusting it.
 
-## Shop › Badges v84 (#7925) — W1's three faults fixed · 2026-11-18
-
-Branch `claude/badge-popups-v84` (`do-not-auto-merge`, auto-merge off; the controller ships).
-
-- **F1** fixed: the not-earned Verified sheet said its papers line twice.
-- **F2** fixed: the Shop header's "Next badge" now reads the Completed bookings tile's own goal
-  (`shelfNextBadgeLine`), so both say "Bronze at 5 bookings · 5 to go". Held by `lib/shop-badge-shelf.test.ts` § 6.
-- **F3** fixed, and ⚠ **it was on `main` too**: the shared supplier hero (Today · Shop · Portfolio) placed its lines
-  absolutely in a fixed 208 px box, so a wrapped sub row drew over the eyebrow and the "Sample photo" chip. The rows
-  are now in flow; the hero is 208 px whenever they fit and grows rather than overlapping.
-- **Not this PR:** the earned pop-up on Today still opens the OLD gift box until #7802 (J7, the approved
-  gift box) merges. That's a ship-order fault, not a #7925 code fault.
-
 ## Admin People records (build A4) — old page → new home · 2026-11-14
 
 Branch `claude/admin-people` (draft PR, `do-not-auto-merge`; the controller audits and ships). Drawing:

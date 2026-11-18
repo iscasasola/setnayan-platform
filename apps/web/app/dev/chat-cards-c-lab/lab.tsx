@@ -62,6 +62,7 @@ const QUOTE: QuoteForCard = {
   ],
   pax: 150,
   requote: 'ok',
+  eventId: 'lab-event',
 };
 
 // 🤝 PR-3 negotiation fixture — ₱60,000, the first ₱30,000 paid; read against a fixed "today" so the shots are stable.
@@ -109,7 +110,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             seed={
               empty
                 ? { quote: null }
-                : { quote: QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
+                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
             }
           />
         );

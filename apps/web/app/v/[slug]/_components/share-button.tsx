@@ -13,9 +13,12 @@ import { shareableShopUrl } from '@/lib/shop-back';
 export function ShareButton({
   title,
   className,
+  iconOnly = false,
 }: {
   title: string;
   className?: string;
+  /** Only the icon on screen (the shop page's top bar); the word stays the button's name for a screen reader. */
+  iconOnly?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -52,12 +55,12 @@ export function ShareButton({
       {copied ? (
         <>
           <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
-          Copied
+          {iconOnly ? <span className="sr-only">Copied</span> : 'Copied'}
         </>
       ) : (
         <>
           <Share className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Share
+          {iconOnly ? <span className="sr-only">Share</span> : 'Share'}
         </>
       )}
     </button>

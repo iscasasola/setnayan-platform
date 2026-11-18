@@ -83,8 +83,10 @@ test('6 · RW-314: Story, Invitation and the Shop cover — each named control h
   const reissue = read('app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx');
   assert.match(reissue, /className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap[^"]*"\s*>\s*<RefreshCw[^>]*\/>\s*Re-issue/, 'Re-issue wraps or is short');
   const cover = read('app/vendor-dashboard/shop/_components/shop-cover.tsx');
-  assert.match(cover, /<a href="#docs" className="inline-flex min-h-11 items-center gap-1(?:\.5)? font-semibold"[^>]*>/, 'the Verified link');
-  assert.match(cover, /<a href="#plan" className="inline-flex min-h-11 items-center[^"]*" data-shop-plan="">/, 'the plan link');
+  // In the hero's sub row the press is `.sn-hit` (46 px, invisible) — a drawn `min-h-11` made every wrapped row 44 tall
+  // and pushed the hero's lines over its eyebrow (W1 F3, 18 Nov). Either way the finger gets 44.
+  assert.match(cover, /<a href="#docs" className="(?:sn-hit inline-flex|inline-flex min-h-11) items-center gap-1(?:\.5)? font-semibold"[^>]*>/, 'the Verified link');
+  assert.match(cover, /<a href="#plan" className="(?:sn-hit inline-flex|inline-flex min-h-11) items-center[^"]*" data-shop-plan="">/, 'the plan link');
 });
 
 test('8 · admin walk: the Studio section tabs (Moodboard library …) press at 44', () => {

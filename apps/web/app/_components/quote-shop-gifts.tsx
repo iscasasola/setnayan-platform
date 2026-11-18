@@ -45,6 +45,7 @@ export function QuoteShopGifts({
   codes,
   onChange,
   buy = null,
+  feeNotCharged = false,
 }: {
   basis: ShopGiftQuoteBasis;
   /** The quote's net payable — the figure the fee and the limit are priced from. */
@@ -52,6 +53,12 @@ export function QuoteShopGifts({
   codes: string[];
   onChange: (next: string[]) => void;
   buy?: QuoteShopGiftsBuy | null;
+  /**
+   * CHAT-31 (walk 16 Nov 2026): this booking carries NO Setnayan fee (the fee line's `not_sourced` — the client did not
+   * come from Setnayan). The limit is still sized from the fee the total WOULD carry (the same `bookingFeePhp` the
+   * server judges with), so the figure stays — but it is never "its ₱525 booking fee" beside "No Setnayan booking fee".
+   */
+  feeNotCharged?: boolean;
 }) {
   const [buying, setBuying] = useState(false);
   const verdict = useMemo(
@@ -86,7 +93,9 @@ export function QuoteShopGifts({
         <span className="min-w-0">
           <span className="block text-ink">This booking&rsquo;s gift limit</span>
           <span className="mt-0.5 block text-xs text-ink/60">
-            {basis.limitPct}% of its {formatCentavos(feeCentavos)} booking fee
+            {feeNotCharged
+              ? `${basis.limitPct}% of the ${formatCentavos(feeCentavos)} fee this total would carry · none is charged on this booking`
+              : `${basis.limitPct}% of its ${formatCentavos(feeCentavos)} booking fee`}
             {smallest ? ` · ${smallest.title} is always allowed` : ''}
           </span>
         </span>

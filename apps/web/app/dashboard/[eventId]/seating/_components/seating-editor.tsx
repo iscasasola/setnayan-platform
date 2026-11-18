@@ -95,6 +95,7 @@ import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { nearestWall } from '@/lib/plan-maker';
 import { guestSeatView } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
@@ -8508,15 +8509,12 @@ export function SeatingEditor({
               stays the mouth label. Sits under the pill (z-0). */}
           {entrance.enabled && entrance.kind === 'tunnel'
             ? (() => {
-                // Nearest wall (argmin distance) — same pattern as stageWallOf.
-                const dTop = entrance.y;
-                const dBottom = 100 - entrance.y;
-                const dLeft = entrance.x;
-                const dRight = 100 - entrance.x;
-                const min = Math.min(dTop, dBottom, dLeft, dRight);
+                // Nearest wall (argmin distance) — the shared plan core's rule (lib/plan-maker.ts), ties top · bottom ·
+                // left · right exactly as this block always tested them.
+                const wall = nearestWall(entrance.x, entrance.y);
                 // Depth as a % of the room dimension along the inward axis; a
                 // free board (no metre size) uses a fixed ~12% fallback.
-                const vertical = min === dTop || min === dBottom;
+                const vertical = wall === 'top' || wall === 'bottom';
                 const roomDim = venueScaled ? (vertical ? venue.length : venue.width) : 0;
                 const depthPct = roomDim > 0 ? Math.min(60, (entrance.depthM / roomDim) * 100) : 12;
                 const MOUTH = 13; // clear width of the walk-through, % of canvas
@@ -8524,17 +8522,17 @@ export function SeatingEditor({
                 let top: number;
                 let width: number;
                 let height: number;
-                if (min === dTop) {
+                if (wall === 'top') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 0;
-                } else if (min === dBottom) {
+                } else if (wall === 'bottom') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 100 - depthPct;
-                } else if (min === dLeft) {
+                } else if (wall === 'left') {
                   width = depthPct;
                   height = MOUTH;
                   left = 0;

@@ -4,6 +4,8 @@
  */
 import type { IntakeOutcome, IntakeReport } from '@/lib/paper-intake';
 import { formatCount } from '@/lib/format-number';
+import { isRecognisedRead } from '@/lib/paper-recognised';
+import type { ModelPaperRead } from '@/lib/verification-paper-read';
 
 /** Tries per paper (owner 2026-11-14: "3 tries per paper"). */
 export const MAX_TRIES = 3;
@@ -16,7 +18,8 @@ export const MAX_TRIES = 3;
  * paper; the row and the count both draw this. A report that names no paper (a file we could not open or place) is
  * never a paper's state — the list says it belongs to no paper.
  *
- *   in       a clean read is filed                                    — "Recognised"
+ *   in       a clean read is filed AND it passes `isRecognisedRead`   — "Recognised" (W1-B34: no test marker, every
+ *            line its type prints, issued by the government body for that type — `lib/paper-recognised.ts`)
  *   person   filed, and a person at Setnayan checks it: the third unclear try (owner ruling 17 — it goes to the
  *            admin verification queue instead of locking the supplier out), or a file with no read of its own
  *   reading  an upload is being checked right now (nothing filed for this paper yet)
@@ -49,6 +52,9 @@ export type PaperStateView = {
 export const PERSON_CHECKS_PAPER = 'A person at Setnayan is checking this paper';
 // W1-B35 (18 Nov 2026): ONE line for a kept paper, before it is sent — owner's own words.
 export const PERSON_WILL_CHECK_PAPER = 'Kept for a person to check. Send your papers when ready.';
+
+/** W1-B34: how the intake starts its word on a paper it KEPT but did not recognise — drawn under the row as the why. */
+export const NOT_RECOGNISED_PREFIX = 'Not recognised — ';
 
 /** Outcomes that leave a paper refused — the copy was not kept. */
 const REFUSALS: ReadonlySet<IntakeOutcome> = new Set<IntakeOutcome>([
@@ -89,12 +95,19 @@ export function paperState(
   const filed = typeof s?.r2_key === 'string';
   // W1-B35: a kept paper's state line already says it is kept for a person — the upload's own "kept" report would
   // say it a second time, so it is not drawn as a note.
-  const note = report && report.outcome !== 'read_ok' && report.outcome !== 'tries_used_kept' ? report.message : null;
-  if (filed && s?.manual !== true && s?.evidence?.model) {
+  // W1-B34: a kept-but-not-recognised paper's reason IS drawn (the state line says only that a person checks it).
+  const note =
+    report && ((report.outcome !== 'read_ok' && report.outcome !== 'tries_used_kept') || report.message.startsWith(NOT_RECOGNISED_PREFIX))
+      ? report.message
+      : null;
+  // 🛂 W1-B34: a read is not enough — the read must be RECOGNISED (`lib/paper-recognised.ts`). A filed paper that is
+  // not (a TEST stamp, a missing line, an issuer that is not the government body) is kept for a person instead.
+  if (filed && s?.manual !== true && isRecognisedRead(s?.evidence?.model as ModelPaperRead | null | undefined)) {
     return { kind: 'in', text: 'Recognised', reason: null, attempts, isIn: true, note };
   }
   if (filed) {
-    // The third unclear try (`manual`), or a file filed with no read of its own: either way a person checks it.
+    // The third unclear try (`manual`), a file filed with no read of its own, or a read that is not Recognised
+    // (W1-B34): in every case a person checks it.
     return { kind: 'person', text: sent ? PERSON_CHECKS_PAPER : PERSON_WILL_CHECK_PAPER, reason: null, attempts, isIn: true, note };
   }
   // 📨 Setnayan sent THIS paper back (owner 2026-11-14, "Only the named one") and no new copy is filed yet.

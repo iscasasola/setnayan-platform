@@ -35,11 +35,12 @@ import {
 import type { PaperRead } from '@/lib/verification-pairs';
 import { formatLongDate } from '@/lib/format-date';
 import { foldBusinessName, nameSimilarity } from '@/lib/auto-verify';
+import { notRecognisedBecause } from '@/lib/paper-recognised';
 
 /** Below this similarity (0..1, folded names) a paper is "from a different shop name". */
 export const DIFFERENT_NAME_BELOW = 0.6;
 
-import { MAX_TRIES } from '@/lib/paper-intake-shared';
+import { MAX_TRIES, NOT_RECOGNISED_PREFIX } from '@/lib/paper-intake-shared';
 export { MAX_TRIES };
 
 export type DetectedKind = 'dti' | 'sec' | 'bir' | 'lgu' | 'other' | 'unknown';
@@ -433,14 +434,19 @@ export function mergeIntake(
     keep.add(p.r2Key);
     if (prior && prior !== p.r2Key) keep.delete(prior);
     const crossKind = replacing && cur.kind && cur.kind !== kind && slot === 'dti_certificate';
+    // 🛂 W1-B34: filed is not Recognised. A paper with a TEST stamp, a missing line or an issuer that is not the
+    // government body is kept (the machine never refuses) and told plainly that a person checks it — never "Read as".
+    const held = notRecognisedBecause(p.model);
     say({
       outcome: replacing ? (crossKind ? 'only_one_needed' : 'replaced') : 'read_ok',
       slot,
-      message: replacing
-        ? crossKind
-          ? 'Only one of DTI or SEC is needed — this one was clearer, so it replaced the other.'
-          : `This replaced the ${PAPER_WORD[slot]} you sent before.`
-        : `Read as your ${PAPER_WORD[slot]}.`,
+      message: held
+        ? `${NOT_RECOGNISED_PREFIX}${held.charAt(0).toUpperCase()}${held.slice(1)}. A person at Setnayan will check it.`
+        : replacing
+          ? crossKind
+            ? 'Only one of DTI or SEC is needed — this one was clearer, so it replaced the other.'
+            : `This replaced the ${PAPER_WORD[slot]} you sent before.`
+          : `Read as your ${PAPER_WORD[slot]}.`,
       fields: fieldsFor(slot, p.model),
       attempts: cur.attempts,
     });

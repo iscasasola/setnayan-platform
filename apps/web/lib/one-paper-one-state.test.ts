@@ -29,9 +29,12 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const KEY = 'test-only-derived-key-not-a-secret';
 const CTX = { nowIso: '2026-11-16T02:00:00.000Z', todayManila: '2026-11-16', key: KEY };
+// W1-B34: a Recognised read names its issuing office and carries no "SAMPLE" (`lib/paper-recognised.ts`).
+const ISSUED_BY: Record<string, string> = { dti: 'Department of Trade and Industry', sec: 'Securities and Exchange Commission', bir: 'Bureau of Internal Revenue', lgu: 'Office of the City Mayor, Pasig City' };
 const m = (over: Partial<ModelPaperRead>): ModelPaperRead => ({
-  registry: 'bir', accountName: 'SAMPLE BLOOMS', ownerName: 'JUAN DELA CRUZ', registrationNumber: '210334871000',
-  rdo: null, address: '1 Sample St, Pasig', city: 'Pasig', barangay: null, expirationDate: null, readAs: null,
+  issuer: ISSUED_BY[over.registry ?? 'bir'] ?? null, markings: [],
+  registry: 'bir', accountName: 'LIWANAG BLOOMS', ownerName: 'JUAN DELA CRUZ', registrationNumber: '210334871000',
+  rdo: '043', address: '1 Kalayaan St, Pasig', city: 'Pasig', barangay: null, expirationDate: null, readAs: null,
   couldNotRead: [], tin: null, unsure: [], ...over,
 });
 const page = (r2Key: string, model: ModelPaperRead | null, extra: Partial<PageRead> = {}): PageRead => ({

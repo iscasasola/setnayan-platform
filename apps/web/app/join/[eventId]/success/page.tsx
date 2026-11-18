@@ -102,7 +102,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
             Your invitation is ready — your QR and everything shared with
             guests are waiting on it.
           </p>
-          <Link className={actionButtonClass('brand', { main: true, extra: 'w-full sm:w-auto !h-11' })} href={publicEventPath(event.slug)}>
+          <Link className={actionButtonClass('brand', { main: true, extra: 'w-full sm:w-auto !h-11' })} href={`${publicEventPath(event.slug)}`}>
             Open your invitation
           </Link>
         </>

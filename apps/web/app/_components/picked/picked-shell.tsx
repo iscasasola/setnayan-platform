@@ -390,7 +390,7 @@ export function PickedShell<P extends string>({
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
           {gear ? (
-            <MenuSettingsButton menu="client" rise open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
           ) : null}

@@ -145,5 +145,8 @@ test('6 · a sheet opened from a supplier page reads the supplier tokens: no gol
   assert.match(stripComments(read('app/_components/notices/notices.tsx')), /<p className="sn-sheet-k">Waiting on this page<\/p>/);
   const settings = stripComments(read('app/vendor-dashboard/clients/[eventId]/_components/picked-client-settings.tsx'));
   assert.doesNotMatch(settings, /\buppercase\b/, 'This client / Notes are typed uppercase');
-  assert.match(stripComments(read('app/_components/picked/picked-shell.tsx')), /<MenuSettingsButton menu="client" rise\b/, 'the client ⚙ opens a half sheet, not full screen (owner 10 Nov)');
+  // Settings v2 (#7760): rise is the ONLY frame — no `rise` switch — so full screen = a client ⚙ that is not `inLayer`.
+  const shell = stripComments(read('app/_components/picked/picked-shell.tsx'));
+  assert.match(shell, /<MenuSettingsButton menu="client"/, 'the client ⚙ is gone');
+  assert.doesNotMatch(shell, /<MenuSettingsButton menu="client"[^>]*\binLayer\b/, 'the client ⚙ opens a half sheet, not full screen (owner 10 Nov)');
 });

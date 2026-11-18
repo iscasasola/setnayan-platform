@@ -25,7 +25,7 @@
  * The tab you are on, tapped again (`sn:tab-reselect`), still goes to its top: the screen closes at once and the tab's
  * own handler runs (T5).
  *
- * Never a second copy: a ⚙ rises through `MenuSettingsButton rise`, everything else mounts this.
+ * Never a second copy: a ⚙ rises through `MenuSettingsButton` (Settings v2: every ⚙ rises), everything else mounts this.
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts
  */
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';

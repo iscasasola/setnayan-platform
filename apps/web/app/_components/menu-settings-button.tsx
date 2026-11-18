@@ -28,6 +28,16 @@
  * instead of opening a popup; prototype `settings_full_screen_2026-11-10`): with `rise`, the same rows open in the ONE
  * `RiseScreen` — it grows out of the ⚙ you tapped, the bars slide away, ✕ is the exact reverse — headed by the same
  * name, the same one line and the same ⓘ words. One door, one frame per mode; never a second ⚙.
+ *
+ * 🧭 SETTINGS V2 — ONE SETTINGS SHELL (owner 2026-11-13, *"one setting shell approved"*; prototype
+ * `prototypes/approved_2026-11-13/settings-shell-fable.html` v3, § 2 and build notes § 13). Rise is now the ONLY frame:
+ * every ⚙ grows full screen out of itself, the boxed sheet over a dimmed page is gone, and the `rise` switch with it.
+ * The head carries the ONE save seat (`state`, drawn in the head's action slot — `SettingsSaveState`) and the foot the
+ * ONE waiting bar (`thumb` — `SettingsDraftBar`), both passed straight through to `RiseScreen`.
+ *   · `inLayer` — the ONE exception, and it is named debt: the supplier's picked client is ALREADY a risen layer, and the
+ *     prototype has its ⚙ swap the body in place there (RiseScreen is one level, never a second screen on top). Since main
+ *     bf8998a1 (17 Nov) the picked client's ⚙ rises like the rest, so `inLayer` has NO caller today; it is kept for that
+ *     in-place swap. `lib/settings-v2-one-shell.test.ts` (1) holds it at zero callers.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,7 +56,9 @@ export function MenuSettingsButton({
   tour,
   cover = false,
   line,
-  rise = false,
+  state,
+  thumb,
+  inLayer = false,
   children,
 }: {
   menu: SettingsMenu;
@@ -58,8 +70,12 @@ export function MenuSettingsButton({
   cover?: boolean;
   /** The sheet's one line and its ⓘ, when this viewer's sheet holds other rows than the menu's (Home's ⚙ for a helper). */
   line?: { line: string; tip: string };
-  /** ⤴ Open the rows in Rise full screen (out of this ⚙) instead of the sheet. Default false: every other ⚙ as before. */
-  rise?: boolean;
+  /** 💾 The ONE save seat — "Saving…" / "Saved ✓" / "Not saved" (`SettingsSaveState`), in the head. */
+  state?: ReactNode;
+  /** ↺ ✓ The ONE waiting bar in the thumb zone — Undo · Apply (`SettingsDraftBar`); absent when nothing waits. */
+  thumb?: ReactNode;
+  /** Opened from INSIDE a layer that already rose (the picked client): the sheet, until its in-place swap lands. */
+  inLayer?: boolean;
   /** The sheet's rows — the shipped controls. Absent: the door only; the caller draws the sheet `open` names. */
   children?: ReactNode;
 }) {
@@ -80,11 +96,13 @@ export function MenuSettingsButton({
           className={cover ? 'home-cover-ab' : undefined}
         />
       </span>
-      {open && children !== undefined && rise ? (
+      {open && children !== undefined && !inLayer ? (
         <RiseScreen
           title={entry.sheet}
           line={line?.line ?? entry.line}
           info={gearText(line?.tip ?? entry.tip ?? MENU_SETTINGS_TIP)}
+          actions={state}
+          thumb={thumb}
           onClose={() => onOpenChange(false)}
           data={`settings-${menu}`}
         >

@@ -57,7 +57,10 @@ test('the slow-reply email lands on the Shop ⚙ › Notifications, a fold that 
   assert.match(src('app/vendor-dashboard/shop/_components/shop-gear-sections.ts'), /notifications: 'Notifications',/);
   assert.match(src('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /SHOP_GEAR_SECTIONS as readonly string\[\]\)\.includes\(at\)\) go\(true, at\)/, 'a #notifications arrival no longer opens the ⚙');
   const rows = src('app/vendor-dashboard/shop/_components/shop-settings-rows.tsx');
-  const fold = rows.slice(rows.indexOf('<Fold anchor="notifications"'));
-  assert.ok(rows.includes('<Fold anchor="notifications"'), 'the Shop ⚙ has no Notifications fold');
-  assert.match(fold.slice(0, fold.indexOf('</Fold>')), /<PushToggle\b/, 'the Notifications fold no longer holds the push switch the email asks for');
+  // 🧭 Settings v2 (2026-11-13): Notifications is an open section now, not a fold (one tap, not two) — the same
+  // `#notifications` place, holding the same push switch.
+  const at = rows.indexOf('id="notifications"');
+  assert.ok(at >= 0, 'the Shop ⚙ has no Notifications place for #notifications to land on');
+  const place = rows.slice(at, rows.indexOf('</SettingsSection>', at));
+  assert.match(place, /<PushToggle\b/, 'the Notifications place no longer holds the push switch the email asks for');
 });

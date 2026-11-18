@@ -1587,7 +1587,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'shop-gear',
           title: 'Shop settings',
-          body: 'Your page, your plan, who helps you run the shop and your documents are all in here.',
+          // 🧭 Settings v2 (2026-11-13): every ⚙ opens the same full screen.
+          body: 'Your page, your plan, who helps you run the shop and your documents are all in here. Every ⚙ opens the same full screen; ✕ takes you back.',
           go: true,
         },
         {

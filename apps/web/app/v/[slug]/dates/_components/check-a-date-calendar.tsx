@@ -215,15 +215,7 @@ export function CheckADateCalendar({
   return (
     <div className="flex w-full flex-col" data-check-date-shop={shop.slug}>
       <header className="flex items-center gap-2.5 border-b border-ink/10 px-4 py-3">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="grid h-10 w-10 flex-none place-items-center rounded-full border border-ink/15 bg-cream text-ink"
-          data-testid="check-date-close"
-        >
-          <X aria-hidden className="h-5 w-5" strokeWidth={1.8} />
-        </button>
+        <ActionButton tone="neutral" icon={X} label="Close" iconOnly onClick={onClose} className="flex-none" data-testid="check-date-close" />
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a 40px logo already resolved for the shop page above
           <img src={logoUrl} alt="" className="h-10 w-10 flex-none rounded-full object-cover" data-check-date-logo="" />

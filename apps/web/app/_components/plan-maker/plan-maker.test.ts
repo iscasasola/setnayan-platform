@@ -98,3 +98,15 @@ test('the shared maker never says "vendor"', () => {
     assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''), /\bvendor/i, f);
   }
 });
+
+test("'move' tools: Line up on the Floor plan, and nothing that adds, edits or deletes (the page's own rows do that)", async () => {
+  const floor = await render({ views: ['floor', 'grid'], tools: 'move' });
+  assert.match(floor, /data-plan-tools="move"/);
+  assert.match(floor, /data-plan-line-up/);
+  assert.doesNotMatch(floor, /data-plan-add-table|data-plan-add-door|data-plan-room-side/);
+  assert.doesNotMatch(floor, /data-plan-readonly/);
+  // Grid has nothing to line up — no tools at all, and its tiles do not open a sheet
+  const grid = await render({ views: ['grid'], tools: 'move' });
+  assert.doesNotMatch(grid, /data-plan-tools|data-plan-line-up/);
+  assert.match(grid, /<button type="button" disabled=""/);
+});

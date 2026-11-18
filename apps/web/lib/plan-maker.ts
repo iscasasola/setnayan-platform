@@ -43,6 +43,7 @@ import {
   type TableGeometry,
   type TableType,
 } from '@/lib/seating';
+import type { ShopPlan } from '@/lib/rooms-seating';
 
 // ── The plan ─────────────────────────────────────────────────────────────────
 
@@ -527,4 +528,42 @@ export function planFromSeating(
       linked: t.link_group_id != null,
     })),
   };
+}
+
+// ── The shop's plan (Rooms & seating), read as a Plan ────────────────────────
+
+/**
+ * One dining area of a shop (`shopPlanOf` in `lib/rooms-seating.ts`) as a Plan: its tables keep their shape, one chair
+ * count, "at the ends" and their saved spot; its doors land on their wall (front = the bottom wall, the storage's
+ * left / middle / right → a point along it). No guest is ever on it.
+ */
+export function planFromShopPlan(p: ShopPlan): Plan {
+  return {
+    room: { widthM: p.room?.widthM ?? null, depthM: p.room?.lengthM ?? null },
+    doors: p.doors.map((d) => ({ id: d.id, kind: d.kind, wall: SHOP_WALL_TO_PLAN[d.wall], at: alongToAt(d.along) })),
+    tables: p.tables.map((t) => ({
+      id: t.id,
+      label: t.label,
+      kind: t.shape,
+      chairs: t.chairs,
+      chairsAtEnds: t.chairsAtEnds,
+      x: t.x,
+      y: t.y,
+      rotationDeg: t.rotationDeg,
+    })),
+  };
+}
+
+/** The tables whose spot or turn changed between two plans — what a move or Line up has to save, and nothing else. */
+export function placementsChanged(before: Plan, after: Plan): Array<{ id: string; x: number; y: number; rotationDeg: number }> {
+  const was = new Map(before.tables.map((t) => [t.id, t]));
+  const out: Array<{ id: string; x: number; y: number; rotationDeg: number }> = [];
+  for (const t of after.tables) {
+    const b = was.get(t.id);
+    if (!b || t.x === null || t.y === null) continue;
+    if (b.x !== t.x || b.y !== t.y || (b.rotationDeg ?? 0) !== (t.rotationDeg ?? 0)) {
+      out.push({ id: t.id, x: t.x, y: t.y, rotationDeg: t.rotationDeg ?? 0 });
+    }
+  }
+  return out;
 }

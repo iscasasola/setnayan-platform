@@ -16,3 +16,9 @@ we just need to improve and adapt them properly"* (DECISION_LOG 2026-11-18, thre
   tie order; nothing it draws changes).
 
 SPEC IMPACT: None — implements the 2026-11-18 DECISION_LOG rows as written.
+
+- **Mounted** on the supplier's Rooms & seating page (#7968, merged into this branch): each dining area draws its
+  tables with the shared `PlanMaker` in its new `tools: 'move'` (drag a table, Line up — the page's own rows keep
+  adding, editing and deleting). Moves save through #7968's `placeTable`, only for the tables that moved, while the
+  plan stays where the supplier left it. Floor plan on Pro and up (`vendorPaywallApplies(isTierAtLeast(tier, 'pro'))`,
+  ruling 35); Grid for every shop. New core helpers: `planFromShopPlan`, `placementsChanged`.

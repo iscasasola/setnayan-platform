@@ -224,3 +224,35 @@ test('a couple’s plan reads as a Plan with nothing lost', () => {
   assert.equal(plan.tables[1]!.linked, true);
   assert.deepEqual(planTableGeometry(plan.tables[1]!), tableGeometry('serpentine', 5, true));
 });
+
+test('a shop’s dining area reads as a Plan: shapes, one chair count, ends, spots and doors on their wall', async () => {
+  const { planFromShopPlan } = await import('./plan-maker');
+  const plan = planFromShopPlan({
+    areaId: 'a',
+    name: 'Garden',
+    room: { widthM: 20, lengthM: 12 },
+    tables: [
+      { id: 't1', label: 'T1', shape: 'long', chairs: 8, chairsAtEnds: true, x: 30, y: 40, rotationDeg: 90 },
+      { id: 't2', label: 'T2', shape: 'half_moon', chairs: 4, chairsAtEnds: false, x: null, y: null, rotationDeg: 0 },
+    ],
+    doors: [{ id: 'd', kind: 'main', wall: 'front', along: 'left' }],
+  });
+  assert.deepEqual(plan.room, { widthM: 20, depthM: 12 });
+  assert.deepEqual(plan.doors, [{ id: 'd', kind: 'main', wall: 'bottom', at: 20 }]);
+  assert.deepEqual(plan.tables[0], { id: 't1', label: 'T1', kind: 'long', chairs: 8, chairsAtEnds: true, x: 30, y: 40, rotationDeg: 90 });
+  assert.equal(planSeatTotal(plan), 12);
+});
+
+test('only the tables that moved are saved', async () => {
+  const { placementsChanged } = await import('./plan-maker');
+  const before: Plan = {
+    room: { widthM: 20, depthM: 12 },
+    doors: [],
+    tables: [table({ id: 'a', kind: 'round', chairs: 8, x: 10, y: 10 }), table({ id: 'b', kind: 'round', chairs: 8, x: 50, y: 50 })],
+  };
+  const after: Plan = { ...before, tables: before.tables.map((t) => (t.id === 'b' ? { ...t, x: 60 } : t)) };
+  assert.deepEqual(placementsChanged(before, after), [{ id: 'b', x: 60, y: 50, rotationDeg: 0 }]);
+  assert.deepEqual(placementsChanged(before, before), []);
+  const lined = lineUpPlan(before);
+  assert.equal(placementsChanged(before, lined).length, 2);
+});

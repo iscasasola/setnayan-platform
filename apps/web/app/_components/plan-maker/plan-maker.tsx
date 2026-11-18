@@ -80,6 +80,11 @@ export type PlanMakerOptions = {
   showNames?: boolean;
   /** A new id for a table or door. Default a random one. */
   newId?: () => string;
+  /**
+   * 'all' (default): every tool. 'move': only drag a table and Line up — for a page whose own rows already add, edit
+   * and delete tables, doors and the room size (the supplier's Rooms & seating), so the plan never doubles them.
+   */
+  tools?: 'all' | 'move';
 };
 
 const VIEW_LABEL: Record<PlanView, string> = { grid: 'Grid', floor: 'Floor plan' };
@@ -165,6 +170,8 @@ export function PlanMaker({
   const views = options.views && options.views.length ? options.views : (['grid', 'floor'] as const);
   const [view, setView] = useState<PlanView>(options.view && views.includes(options.view) ? options.view : views[0]!);
   const editable = Boolean(onChange) && !options.readOnly;
+  /** Every tool (add, doors, size, the table sheet) — off in 'move', where only dragging a table and Line up remain. */
+  const full = editable && (options.tools ?? 'all') === 'all';
   const showNames = options.showNames ?? Boolean(options.namesByTable);
   const names = showNames ? options.namesByTable ?? null : null;
   const marked = options.markedTableId ?? null;
@@ -202,7 +209,7 @@ export function PlanMaker({
   };
 
   const onDown = (kind: 'table' | 'door', id: string) => (e: RPE<SVGGElement>) => {
-    if (!editable) return;
+    if (!editable || (kind === 'door' && !full)) return;
     e.stopPropagation();
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     drag.current = { kind, id, x0: e.clientX, y0: e.clientY, moved: false };
@@ -227,7 +234,7 @@ export function PlanMaker({
     drag.current = null;
     if (!d) return;
     if (d.moved && live) commit(live);
-    else setSel((s) => (s && s.kind === d.kind && s.id === d.id ? null : { kind: d.kind, id: d.id }));
+    else if (full) setSel((s) => (s && s.kind === d.kind && s.id === d.id ? null : { kind: d.kind, id: d.id }));
     setLive(null);
   };
 
@@ -278,7 +285,12 @@ export function PlanMaker({
         </p>
       </div>
 
-      {editable ? (
+      {editable && !full && view === 'floor' ? (
+        <div className="grid grid-cols-1 gap-2" data-plan-tools="move">
+          <ActionButton tone="neutral" icon={Rows3} label="Line up" onClick={() => commit(lineUpPlan(plan))} data-plan-line-up="" />
+        </div>
+      ) : null}
+      {full ? (
         <div className="grid grid-cols-3 gap-2" data-plan-tools="">
           <ActionButton tone="brand" icon={Armchair} label="＋ Table" onClick={addTable} data-plan-add-table="" />
           <ActionButton
@@ -296,7 +308,7 @@ export function PlanMaker({
         </div>
       ) : null}
 
-      {editable ? (
+      {full ? (
         <FormRows data="plan-room-size">
           {sideRow('widthM', 'Wide (m)')}
           {sideRow('depthM', 'Deep (m)')}
@@ -336,7 +348,7 @@ export function PlanMaker({
                 <g
                   key={d.id}
                   onPointerDown={onDown('door', d.id)}
-                  style={{ cursor: editable ? 'grab' : undefined }}
+                  style={{ cursor: full ? 'grab' : undefined }}
                   data-plan-door={d.kind}
                   data-plan-door-wall={d.wall}
                 >
@@ -413,7 +425,7 @@ export function PlanMaker({
               <li key={t.id}>
                 <button
                   type="button"
-                  disabled={!editable}
+                  disabled={!full}
                   onClick={() => setSel(isSel ? null : { kind: 'table', id: t.id })}
                   className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl border bg-white p-2 text-left disabled:cursor-default ${
                     isMarked || isSel ? 'border-terracotta ring-2 ring-terracotta/30' : 'border-ink/15'
@@ -449,7 +461,7 @@ export function PlanMaker({
         </ul>
       )}
 
-      {editable && selTable ? (
+      {full && selTable ? (
         <div className="sn-frame flex flex-col gap-2 p-3" data-plan-table-sheet={selTable.id}>
           <FormRows data="plan-table">
             <TypedRow
@@ -521,7 +533,7 @@ export function PlanMaker({
         </div>
       ) : null}
 
-      {editable && selDoor ? (
+      {full && selDoor ? (
         <DoorSheet
           door={selDoor}
           onKind={(kind) => commit({ ...plan, doors: plan.doors.map((d) => (d.id === selDoor.id ? { ...d, kind } : d)) })}

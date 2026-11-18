@@ -775,8 +775,11 @@ html.dark .fd {
      paragraph broke "Acceptable use" into "Acceptable / use". A 32 px line is the drawing's tap target. */
   display: block;
   white-space: nowrap;
-  min-height: 32px;
-  line-height: 32px;
+  /* 44, the locked press floor (W5 walk 2026-11-18: every Company / Legal link measured 32 at 390). A stacked row
+     cannot borrow its neighbour's room with an invisible halo — the next link sits on top of it — so the ROW itself
+     is 44 tall. Only the spacing changes; the words, columns and order are the approved drawing's. */
+  min-height: 44px;
+  line-height: 44px;
   font-size: 12.5px;
 }
 /* The two labelled columns — Company · Legal (owner 2026-11-11, drawn in

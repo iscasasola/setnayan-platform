@@ -279,7 +279,7 @@ export function TodayV2Needs({
 export function TodayNextBadge({ tile }: { tile: { src: string | null; title: string; toGo: string; locked: boolean; how: string } | null }) {
   if (!tile) return null;
   return (
-    <div data-today-next-badge="" className="my-3 grid grid-cols-[64px_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-[rgb(var(--sn-card-bg,255_255_255))] p-3 shadow-sm">
+    <div data-today-next-badge="" className="my-3 grid grid-cols-[64px_minmax(0,1fr)] items-center gap-3 rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-frame">
       <span className="relative block h-[61px] w-16">
         {tile.src ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -327,7 +327,7 @@ export function TodayGrow({ stage }: { stage: GrowStage | null }) {
   return (
     <div data-today-grow={stage.n}>
       <TodayEyebrow>Grow your business</TodayEyebrow>
-      <div className="rounded-2xl bg-[rgb(var(--sn-card-bg,255_255_255))] px-3.5 pb-1 pt-3 shadow-sm">
+      <div className="rounded-[var(--sn-frame-radius)] bg-frame px-3.5 pb-1 pt-3 shadow-sn-frame">
         <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]">Stage {stage.n} of 5</span>
         <b className="block text-[16px] font-extrabold leading-tight text-ink">{stage.title}</b>
         <span aria-hidden className="my-2 flex gap-1">
@@ -396,7 +396,7 @@ export function TodayTrending({ lines }: { lines: readonly TrendLine[] }) {
   return (
     <div data-today-trending="">
       <TodayEyebrow>What’s trending</TodayEyebrow>
-      <div className="rounded-2xl bg-[rgb(var(--sn-card-bg,255_255_255))] px-3.5 py-1 shadow-sm">
+      <div className="rounded-[var(--sn-frame-radius)] bg-frame px-3.5 py-1 shadow-sn-frame">
         {lines.map((t) => (
           <div key={t.key} className="grid grid-cols-[36px_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-ink/10 py-2.5 first:border-t-0">
             <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-ink/[0.05] text-[15px]">

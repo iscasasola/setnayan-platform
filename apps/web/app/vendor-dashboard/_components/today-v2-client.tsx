@@ -116,6 +116,7 @@ export function TodayAsideButton({ rowKey, how, label, onDesk, todayIso }: { row
           } catch {
             // A blocked cookie only means the row stays listed — nothing is lost.
           }
+          // one-render: keep (client-write) — the choice is a cookie this browser just wrote; no server action ran, so nothing else redraws the list
           router.refresh();
         }}
       />

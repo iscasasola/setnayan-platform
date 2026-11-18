@@ -238,3 +238,10 @@ ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands
 # not credentials. Pinned by the introducing commit.
 38e24802ad6d257b3f4cada74e65dac30eb27da4:apps/web/tests/db/every-test-purchase-is-deleted-cale-ice-keeps-its-credits.db.test.ts:generic-api-key:113
 38e24802ad6d257b3f4cada74e65dac30eb27da4:supabase/migrations/20271348457307_delete_every_test_purchase_cale_ice_keeps_its_credits.sql:generic-api-key:92
+
+# #7678 (G1, 99e2eb0e — one gift per service card, as a count): generic-api-key
+# flagged the catalogue SKU code 'PAPIC_GUEST_150' passed to judgeQuoteGifts in
+# two unit tests — a product identifier, not a credential. Pinned by the
+# introducing commit, like the ac766664 rows above.
+99e2eb0e92a9115459eaa506cb582abe05c9eaae:apps/web/lib/shop-gifts.test.ts:generic-api-key:224
+99e2eb0e92a9115459eaa506cb582abe05c9eaae:apps/web/lib/badge-rewards.test.ts:generic-api-key:475

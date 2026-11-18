@@ -185,6 +185,7 @@ export function GiftStore({
   setCart,
   packs,
   bundles,
+  bundlesUnread = false,
   maxPaymentPhp,
   openRails,
   flash,
@@ -196,6 +197,8 @@ export function GiftStore({
   setCart: (next: GiftCart) => void;
   packs: readonly ShopGiftPack[];
   bundles: readonly ShopGiftBundle[];
+  /** The bundle list could not be read (#7678): a line says so — never "no bundles"; the singles stay on sale. */
+  bundlesUnread?: boolean;
   maxPaymentPhp: number;
   openRails: OpenRail[];
   /** The item just added — the store opens scrolled to its row, which flashes. */
@@ -361,6 +364,11 @@ export function GiftStore({
       <div ref={scrollRef} className="bg-[rgb(238_242_248)] px-4 pb-4 pt-1" data-gift-store="">
         {group('Papic', packs.filter((p) => p.kind === 'papic'))}
         {group('Event', packs.filter((p) => p.kind !== 'papic'))}
+        {bundlesUnread ? (
+          <p data-gift-bundles-unread="" role="status" className="mx-0.5 mt-3.5 text-sm text-ink/70">
+            Couldn’t load the Buy 10, get 1 free bundles just now — reload to see them.
+          </p>
+        ) : null}
         {bundles.length > 0 && firstShape ? (
           <section>
             <p className="mx-0.5 mb-1.5 mt-3.5 text-[15px] text-ink">

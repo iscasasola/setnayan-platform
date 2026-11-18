@@ -70,9 +70,10 @@ export type ShopGiftsSectionData = {
   packs: ShopGiftPack[] | null;
   /**
    * 📦 BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14), from the catalogue. Every shop may buy them. [] ⇒ none on
-   * sale or unread — the singles stay on sale either way. ONE price per single gift: its list price.
+   * sale; null ⇒ the bundles could not be read (the Buy sheet says so — never "no bundles"). The singles stay on sale
+   * either way. ONE price per single gift: its list price.
    */
-  bundles: ShopGiftBundle[];
+  bundles: ShopGiftBundle[] | null;
   /**
    * 🧾 Transaction history (prototype v16, 2026-11-17): bought orders and gifts given, newest first
    * (`fetchShopGiftHistory`). null ⇒ could not be read — never "nothing bought".
@@ -112,7 +113,7 @@ const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[num
 };
 
 /** One ticket in "Available": a gift on sale, or one the shop still holds that is no longer on sale. */
-type Tile = { pack: ShopGiftPack; onSale: boolean; stock: ShopGiftStock | null; smallestPapic: boolean };
+type Tile = { pack: ShopGiftPack; onSale: boolean; stock: ShopGiftStock | null };
 
 /**
  * The tickets, in the store's order: every Papic pack (smallest first) then Event Plus / Pro / Ultra — each on sale or
@@ -121,11 +122,11 @@ type Tile = { pack: ShopGiftPack; onSale: boolean; stock: ShopGiftStock | null; 
 function tiles(packs: readonly ShopGiftPack[], stock: ShopGiftStocks | null): Tile[] {
   const out: Tile[] = [];
   const papic = packs.filter((p) => p.kind === 'papic');
-  papic.forEach((p, i) => out.push({ pack: p, onSale: true, stock: stock ? (stock.packs[p.code] ?? { balance: 0, held: 0 }) : null, smallestPapic: i === 0 }));
+  papic.forEach((p) => out.push({ pack: p, onSale: true, stock: stock ? (stock.packs[p.code] ?? { balance: 0, held: 0 }) : null }));
   for (const [code, st] of Object.entries(stock?.packs ?? {})) {
     if (out.some((t) => t.pack.code === code) || (st.balance === 0 && st.held === 0)) continue;
     // Held but off sale: its title is its code (the catalogue no longer names it); 1 credit so the Papic ticket prints.
-    out.push({ pack: { code, title: code, kind: 'papic', credits: 1, srpCentavos: 0 }, onSale: false, stock: st, smallestPapic: false });
+    out.push({ pack: { code, title: code, kind: 'papic', credits: 1, srpCentavos: 0 }, onSale: false, stock: st });
   }
   for (const k of SHOP_GIFT_UNLOCK_KINDS) {
     const pack = packs.find((p) => p.kind === k);
@@ -135,7 +136,6 @@ function tiles(packs: readonly ShopGiftPack[], stock: ShopGiftStocks | null): Ti
       pack: pack ?? { code: k, title: UNLOCK_FALLBACK_TITLE[k], kind: k, credits: 1, srpCentavos: 0 },
       onSale: !!pack,
       stock: stock ? (st ?? { balance: 0, held: 0 }) : null,
-      smallestPapic: false,
     });
   }
   return out;
@@ -209,16 +209,19 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const totals = stock
     ? list.reduce((acc, t) => ({ available: acc.available + (free(t) ?? 0), held: acc.held + (t.stock?.held ?? 0) }), { available: 0, held: 0 })
     : null;
+  // null ⇒ the bundle list could not be read (#7678): the store says so; the singles stay on sale.
+  const bundles = data.bundles ?? [];
+  const bundlesUnread = data.bundles === null;
   const sent = (history ?? []).some((r) => r.kind === 'bought' && r.state === 'sent');
   const sheetTile = list.find((t) => t.pack.code === sheetCode) ?? null;
-  const bundleOf = (code: string) => data.bundles.find((b) => b.pack.code === code) ?? null;
+  const bundleOf = (code: string) => bundles.find((b) => b.pack.code === code) ?? null;
 
   /** Add from a ticket's sheet: into the order, then the store opens on THAT row (prototype v16 — no "Just added" box). */
   const addFromSheet = (code: string) => {
-    if (canAdd(cart, code, buyPacks, data.bundles, data.maxPaymentPhp) !== 'ok') return;
+    if (canAdd(cart, code, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
     const next = bump(cart, code, 1);
     setCart(next);
-    const b = data.bundles.find((x) => x.code === code);
+    const b = bundles.find((x) => x.code === code);
     const title = b ? `${b.pack.title} · ${bundleShape(b).label}` : (buyPacks.find((p) => p.code === code)?.title ?? code);
     const n = next[code] ?? 0;
     setSheetCode(null);
@@ -284,7 +287,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         <div className="mt-2 grid grid-cols-2 gap-2.5" data-gift-tiles="">
           {list.map((t) => {
             const n = free(t);
-            const chip = t.smallestPapic || t.pack.kind !== 'papic' ? rewardChipOf(rewards?.left, t.pack) : null;
+            const chip = rewardChipOf(rewards?.left, t.pack);
             const onWay = data.onTheWay[t.pack.code] ?? 0;
             const tappable = t.onSale;
             const inner = (
@@ -416,7 +419,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         available={sheetTile ? free(sheetTile) : null}
         cart={cart}
         packs={buyPacks}
-        bundles={data.bundles}
+        bundles={bundles}
         maxPaymentPhp={data.maxPaymentPhp}
         canBuy={canOffer}
         onClose={() => setSheetCode(null)}
@@ -429,7 +432,8 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           cart={cart}
           setCart={setCart}
           packs={buyPacks}
-          bundles={data.bundles}
+          bundles={bundles}
+          bundlesUnread={bundlesUnread}
           maxPaymentPhp={data.maxPaymentPhp}
           openRails={data.openRails}
           flash={flash}
@@ -441,10 +445,12 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   );
 }
 
-/** The "🏅 N" line on a ticket when some of its stock is badge reward (Papic: the smallest pack, counted in packs). */
+/**
+ * The "🏅 N" line on a ticket when some of its stock is badge reward. Papic is kept PER PACK (#7678: a Gold reward is a
+ * Papic 1000, a Ruby a Papic 3000 — never six Papic 150s), so each Papic ticket reads its own pack's reward packs.
+ */
 function rewardChipOf(left: FreeByKind | null | undefined, pack: ShopGiftPack): string | null {
-  const raw = left?.[pack.kind] ?? 0;
-  const n = pack.kind === 'papic' ? Math.floor(raw / Math.max(1, pack.credits)) : raw;
+  const n = pack.kind === 'papic' ? Math.floor(left?.packs?.[pack.code] ?? 0) : Math.floor(left?.[pack.kind] ?? 0);
   return n > 0 ? `🏅 ${giftCount(n)} badge reward` : null;
 }
 
@@ -457,17 +463,20 @@ export function BuyGiftsSheet({
   open,
   onClose,
   packs,
-  bundles = [],
+  bundles: bundlesRead = [],
   openRails,
   initialCode,
 }: {
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
-  bundles?: ShopGiftBundle[];
+  /** null ⇒ the bundles could not be read: a line says so, the singles stay on sale. */
+  bundles?: ShopGiftBundle[] | null;
   openRails: OpenRail[];
   initialCode?: string | null;
 }) {
+  const bundles = bundlesRead ?? [];
+  const bundlesUnread = bundlesRead === null;
   const headingId = useId();
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
@@ -503,6 +512,11 @@ export function BuyGiftsSheet({
           <PaymentsPausedNote className="mt-4" />
         ) : (
           <form action={formAction} className="mt-4 space-y-4">
+            {bundlesUnread ? (
+              <p data-gift-bundles-unread="" role="status" className="text-sm text-ink/70">
+                Couldn’t load the Buy 10, get 1 free bundles just now — reload to see them.
+              </p>
+            ) : null}
             <input type="hidden" name="for" value="gift" />
             <input type="hidden" name="pack" value={picked.code} />
             <input type="hidden" name="quantity" value={qty} />

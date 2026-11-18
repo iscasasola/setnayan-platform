@@ -63,7 +63,7 @@ type RetailRow = {
   replaced_by_service_code: string | null;
   updated_at: string;
   updated_by_admin_id: string | null;
-  /** 📦 On a supplier gift bundle (20271350129549): the pack it holds and how many. NULL on every other row. */
+  /** 📦 On a supplier gift bundle (20271351048946): the pack it holds and how many. NULL on every other row. */
   bundle_of_service_code: string | null;
   bundle_quantity: number | null;
 };

@@ -149,3 +149,21 @@ test('4 · ✕ and Done for now ALWAYS land on the Guest list; Sent is the one w
   assert.match(RUN, /const out = await shareInvite\(/, 'Send left the one share');
   assert.match(RUN, /prefers-reduced-motion: reduce/, 'the card moves under reduced motion');
 });
+
+/*
+ * #7878 follow-up (walk W4/W5, 18 Nov 2026: "the [data-send-run] selector matches nothing"). Measured that day in a
+ * browser on the rendered run (`/dev/guests-lab?part=run`): `[data-send-run]` matched exactly ONE element, the run
+ * screen — the "nothing" was read before the page had mounted (the screen is portalled in after mount). So the
+ * selector is right; this pins it to the RENDER, not to a typed copy of the string: the attribute is read OUT of
+ * `SEND_RUN_LAYER`, and the element carrying it must be the full-screen z-110 run screen the notice is drawn inside.
+ */
+test('the update notice’s send-run selector matches the run screen as it is rendered', async () => {
+  const { SEND_RUN_LAYER, LAYER_OVER_THE_PAGE } = await import('@/lib/build-version');
+  const attr = SEND_RUN_LAYER.match(/^\[([a-z-]+)\]$/)?.[1];
+  assert.ok(attr, `SEND_RUN_LAYER is not a plain attribute selector (${SEND_RUN_LAYER}) — re-check this guard`);
+  assert.ok(LAYER_OVER_THE_PAGE.split(',').map((s) => s.trim()).includes(SEND_RUN_LAYER), 'the notice no longer looks for the send-run layer');
+  const html = await paint({ guests: [guest('Cita'), guest('Dan')] });
+  const marked = [...html.matchAll(new RegExp(`<div\\b[^>]*\\s${attr}=""[^>]*>`, 'g'))].map((m) => m[0]);
+  assert.equal(marked.length, 1, `the rendered run carries ${marked.length} element(s) the selector ${SEND_RUN_LAYER} matches — it must be exactly the run screen`);
+  assert.match(marked[0]!, /class="[^"]*\bfixed inset-0 z-\[110\]/, 'the element the selector matches is not the full-screen z-110 run screen');
+});

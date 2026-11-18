@@ -970,9 +970,9 @@ export function SupplierFrontPage({
               </a>
               <Info label="About prices">
                 <p>
-                  Prices are per 4 weeks, or a year at the price of ten blocks. Verified shops are always shown in search. A
-                  shop still waiting for its papers is shown until its first inquiry. Couples pay you directly; Setnayan
-                  never holds a peso.
+                  Prices are per 4 weeks, or a year at the price of ten blocks. Verified shops are shown in search. A shop
+                  still waiting for its papers is found only through its own link or QR, where couples can still book it.
+                  Couples pay you directly; Setnayan never holds a peso.
                 </p>
               </Info>
             </div>

@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { MODERATION_REASON_MAX, MODERATION_REASON_MIN } from '@/lib/service-card-moderation';
 import { moderateServiceCard } from '../card-actions';
+import { ActionButton } from '@/components/action-button';
+import { EyeOff } from 'lucide-react';
 
 /**
  * A take-down or a photo removal: the reason (the ONE Field template,
@@ -66,12 +68,7 @@ export function CardReasonForm({
         />
       </FormRows>
       {note ? <p className="text-xs text-ink/60">{note}</p> : null}
-      <button
-        type="submit"
-        className="inline-flex min-h-[44px] items-center rounded-lg bg-danger-100 px-4 text-sm font-medium text-danger-900 hover:bg-danger-200"
-      >
-        {submit}
-      </button>
+      <ActionButton tone="danger" type="submit" icon={<EyeOff aria-hidden strokeWidth={1.9} />} label={submit} />
     </form>
   );
 }

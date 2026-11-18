@@ -59,18 +59,21 @@ export function ActivityFeed({
   events,
   notes,
   noteFailed = false,
+  clientNoun,
 }: {
   eventId: string;
   events: ActivityEvent[];
   notes: ClientNote[];
   /** A note write was refused (`?note=error`). */
   noteFailed?: boolean;
+  /** The event kind's word for the client, for the note box (`readClientNoun`). */
+  clientNoun?: string;
 }) {
   const ordered = [...events].sort((a, b) => b.sortAt - a.sortAt);
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <p className="mb-3 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
           History · newest first
         </p>
         {ordered.length === 0 ? (
@@ -99,10 +102,10 @@ export function ActivityFeed({
       </div>
 
       <div>
-        <p className="mb-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <p className="mb-3 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
           Private notes · only your team
         </p>
-        <ClientNotes eventId={eventId} notes={notes} failed={noteFailed} />
+        <ClientNotes eventId={eventId} notes={notes} failed={noteFailed} clientNoun={clientNoun} />
       </div>
     </div>
   );

@@ -72,6 +72,7 @@ const STORY = {
   title: 'Our Batanes wedding, told in full',
   ownerName: 'Ana & Marco',
   ownerSlug: OWNER_SLUG,
+  kind: 'editorial',
   kindLabel: 'Wedding',
   hasVideo: false,
   readingMinutes: 3,
@@ -84,6 +85,7 @@ const FRONT_DOOR_DATA = {
   articleTotal: 0,
   stories: [STORY],
   storyCount: 1,
+  editorialsMeasured: true,
   shops: [],
   liveShopCount: 0,
   realShopCount: 0,
@@ -110,8 +112,14 @@ const TILE_ITEM = {
 async function renderFrontDoorFeed(): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FrontDoorFeed } = await import('@/app/_components/frontdoor/front-door-feed');
+  // 2026-11-16 — Discover in six parts: stories render in the Event stories shelf, which the door hands the feed
+  // as `afterShops`. Render it the same way, so the one StoryCard on the page is the one checked here.
+  const { EventStoriesShelf } = await import('@/app/_components/frontdoor/discover-six-parts');
   return renderToStaticMarkup(
-    React.createElement(FrontDoorFeed, { data: FRONT_DOOR_DATA } as never),
+    React.createElement(FrontDoorFeed, {
+      data: FRONT_DOOR_DATA,
+      afterShops: React.createElement(EventStoriesShelf, { stories: FRONT_DOOR_DATA.stories } as never),
+    } as never),
   );
 }
 

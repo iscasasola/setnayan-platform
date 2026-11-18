@@ -1,20 +1,16 @@
 /**
- * BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE — owner 2026-11-06 (DECISION_LOG), verbatim: *"Solo has 1 per
- * date/service, pro has 3 per date/service, ultra has 5 per date/service"*. And "ULTRA ADD-ON PRICES": Ultra buys
- * "+1 booking per date" (and +1 wait list, +1 category, +1 service card). Migration 20271316466285.
+ * BOOKINGS PER DATE — owner 2026-11-06 made them a plan allowance (Solo 1 · Pro 3 · Ultra 5, migration 20271316466285);
+ * owner 2026-11-18 REVERSED it (DECISION_LOG "SUPPLIER PLANS REBUILT", ruling 17, verbatim: *"a cake business can
+ * handle 30 cakes in a day. So they need to purchase unlimited from us. I think that is wrong pricing."*). Migration
+ * supplier_plans_rebuilt_2026_11_18.
  *
- * Proven as a REAL `authenticated` supplier session against the replayed migrations — the same way
- * the-day-check-agrees-with-the-yes.db.test.ts proves the yes:
- *   · a SOLO card already booked once on a date REFUSES the second booking (`daily_limit_reached`), and the day check
- *     says so before the tap;
- *   · a BLANK Solo card takes the plan's one, not "no limit";
- *   · a Solo card whose own number is higher (3) is held to 1 — and the bookings it already holds are kept
- *     (grandfathered: nothing is cancelled, only the NEW one is refused);
- *   · Pro takes 3, Ultra 5, and Ultra's bought "+1 booking per date" raises it;
- *   · FREE / VERIFIED take 1 each, like Solo (owner click 2026-11-06, "BOOKINGS PER DATE PER SERVICE — FREE AND
- *     VERIFIED") — a Free card booked once refuses the second, and the bookings it already holds are kept;
+ * Proven as a REAL `authenticated` supplier session against the replayed migrations:
+ *   · no tier serves a plan number for bookings per date, and no admin row holds one;
+ *   · a card's OWN number governs on every plan (a Free card set to 30 takes 30; a blank card has no per-card limit);
+ *   · a card set to 1 and booked once refuses the second booking, and the day check says so first;
+ *   · a bought "+1 booking per date" raises nothing;
  *   · a shop cannot write its own add-on counts (the entitlement guard), the activation path (service_role) can;
- *   · the waitlist ceiling counts the bought "+1 wait list".
+ *   · the waitlist has no plan limit — the column's own 10 is the ceiling.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -174,44 +170,50 @@ after(async () => {
   await db?.close();
 });
 
-test('the SQL twin says exactly what TIER_CAPS says — Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 10', async () => {
+test('2026-11-18 · bookings per date are NOT a plan limit: no tier serves a number for it (ruling 17)', async () => {
+  // Owner, verbatim: "a cake business can handle 30 cakes in a day. So they need to purchase unlimited from us. I think
+  // that is wrong pricing." Migration supplier_plans_rebuilt_2026_11_18 removed the key and the admin rows.
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     const r = await db.query<{ n: number | null }>(`SELECT public.vendor_tier_limit($1,'bookings_per_date_per_service') AS n`, [tier]);
-    assert.equal(r.rows[0]!.n, TIER_CAPS[tier].bookingsPerDatePerService, `${tier}`);
+    assert.equal(r.rows[0]!.n, null, `${tier} still serves a plan cap on bookings per date`);
+    assert.equal('bookingsPerDatePerService' in TIER_CAPS[tier], false, `${tier}: TIER_CAPS carries the cap again`);
   }
-  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, 1, 'owner click: Free "1 each, like Solo"');
-  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, 1, 'owner click: Verified "1 each, like Solo"');
-  assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1, 'owner: "Solo has 1 per date/service"');
-  assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3, 'owner: "pro has 3 per date/service"');
-  // Owner 2026-11-14 ("SIMPLER SUPPLIER PLANS"): Ultra takes 10 a day per service at each branch (was 5).
-  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 10, 'owner 2026-11-14: Ultra 10 a day per service');
+  const rows = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_plan_contents WHERE key = 'bookings_per_date_per_service'`);
+  assert.equal(rows.rows[0]!.n, 0, 'an admin row for the retired allowance is still there');
 });
 
-test('a SOLO card booked once on a date refuses the second booking — and the day check says so first', async () => {
-  const shop = await mkShop('Solo Studio', 'solo');
-  const card = await mkCard(shop.vpid, null); // blank → the plan's one
-  assert.equal(await limitOf(card), 1, 'a blank Solo card does not take the plan’s one');
+test('a card’s OWN number governs on every plan — 30 cakes a day on Free, a blank card takes no plan number', async () => {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
+    const shop = await mkShop(`${tier} Cakes`, tier);
+    assert.equal(await limitOf(await mkCard(shop.vpid, 30)), 30, `${tier}: a card's own 30 was held to a plan number`);
+    assert.equal(await limitOf(await mkCard(shop.vpid, null)), null, `${tier}: a blank card took a plan number`);
+  }
+});
+
+test('a card set to 1, booked once on a date, refuses the second booking — and the day check says so first', async () => {
+  const shop = await mkShop('One A Day', 'pro');
+  const card = await mkCard(shop.vpid, 1);
   await booked(shop.vpid, card);
   const second = await ask(couple, shop.vpid, card);
-  assert.equal(await verdict(shop.uid, second), 'daily_limit_reached', 'the day check called a full Solo date open');
+  assert.equal(await verdict(shop.uid, second), 'daily_limit_reached', 'the day check called a full date open');
   const r = await agree(shop.uid, second);
-  assert.equal(r.status, 'daily_limit_reached', 'the second booking on a Solo card went through');
+  assert.equal(r.status, 'daily_limit_reached', 'the second booking on a one-a-day card went through');
   assert.equal(r.daily_limit, 1);
   assert.equal(await bookingsOn(card), 1, 'the refused yes still booked');
 });
 
-test('a SOLO card set higher than its plan is held to 1 — and keeps the bookings it already holds', async () => {
-  const shop = await mkShop('Solo Over', 'solo');
-  const card = await mkCard(shop.vpid, 3); // set before the ruling
+test('a Free card set to 3 takes the third booking — the 2026-11-06 plan cap of 1 is gone', async () => {
+  const shop = await mkShop('Free Three', 'free');
+  const card = await mkCard(shop.vpid, 3);
   await booked(shop.vpid, card);
-  await booked(shop.vpid, card); // two bookings held from before
-  assert.equal(await limitOf(card), 1);
+  await booked(shop.vpid, card);
   const third = await ask(couple, shop.vpid, card);
-  assert.equal((await agree(shop.uid, third)).status, 'daily_limit_reached');
-  assert.equal(await bookingsOn(card), 2, 'a booking the card already held was touched');
+  assert.equal(await verdict(shop.uid, third), 'open', 'the day check held a Free card to a plan number');
+  assert.equal((await agree(shop.uid, third)).status, 'ok', 'a Free card was held to a plan number');
+  assert.equal(await bookingsOn(card), 3);
 });
 
-test('the first booking on an empty Solo date goes through', async () => {
+test('the first booking on an empty date goes through', async () => {
   const shop = await mkShop('Solo Open', 'solo');
   const card = await mkCard(shop.vpid, null);
   const first = await ask(couple, shop.vpid, card);
@@ -219,62 +221,11 @@ test('the first booking on an empty Solo date goes through', async () => {
   assert.equal((await agree(shop.uid, first)).status, 'ok');
 });
 
-test('Pro takes 3, Ultra 10, and an Ultra shop’s already-bought "+1 booking per date" still raises it', async () => {
-  const pro = await mkShop('Pro Studio', 'pro');
-  assert.equal(await limitOf(await mkCard(pro.vpid, null)), 3);
-  assert.equal(await limitOf(await mkCard(pro.vpid, 2)), 2, 'a card’s own lower number stopped counting');
-  assert.equal(await limitOf(await mkCard(pro.vpid, 9)), 3);
-
-  const ultra = await mkShop('Ultra Studio', 'enterprise');
-  const card = await mkCard(ultra.vpid, null);
-  assert.equal(await limitOf(card), 10);
-  // No longer sold (2026-11-14), but a shop that bought it keeps it until it runs out (item 11).
+test('an already-bought "+1 booking per date" raises nothing — there is no plan cap left to raise', async () => {
+  const ultra = await mkShop('Bought Before', 'enterprise');
+  const card = await mkCard(ultra.vpid, 4);
   await asService(() => db.query(`UPDATE public.vendor_profiles SET extra_bookings_per_date = 2 WHERE vendor_profile_id = $1`, [ultra.vpid]));
-  assert.equal(await limitOf(card), 12, 'an already-bought +1 booking per date stopped counting');
-
-  // Only Ultra (and Custom) buy it — a count on any other plan's row never counts.
-  const proWithCount = await mkShop('Pro With Count', 'pro');
-  await asService(() => db.query(`UPDATE public.vendor_profiles SET extra_bookings_per_date = 2 WHERE vendor_profile_id = $1`, [proWithCount.vpid]));
-  assert.equal(await limitOf(await mkCard(proWithCount.vpid, null)), 3);
-});
-
-test('FREE and VERIFIED take 1 each, like Solo — the second booking is refused, held bookings are kept', async () => {
-  // Owner click 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": "1 each, like Solo".
-  for (const tier of ['free', 'verified'] as const) {
-    const shop = await mkShop(`${tier} Studio`, tier);
-    assert.equal(await limitOf(await mkCard(shop.vpid, null)), 1, `a blank ${tier} card does not take the plan’s one`);
-    assert.equal(await limitOf(await mkCard(shop.vpid, 4)), 1, `a ${tier} card’s own 4 was not held to 1`);
-
-    // The first booking on an empty date goes through. (One shop per scenario, like the Solo tests above: an open ask
-    // left on a shop's date makes the next yes there answer 'resolve_others_first'.)
-    const openShop = await mkShop(`${tier} Open`, tier);
-    const open = await mkCard(openShop.vpid, null);
-    const first = await ask(couple, openShop.vpid, open);
-    assert.equal(await verdict(openShop.uid, first), 'open', `${tier}: an empty date was not open`);
-    assert.equal((await agree(openShop.uid, first)).status, 'ok', `${tier}: the first booking was refused`);
-
-    // Booked once → the second is refused, and the day check says so first.
-    const card = await mkCard(shop.vpid, null);
-    await booked(shop.vpid, card);
-    const second = await ask(couple, shop.vpid, card);
-    assert.equal(await verdict(shop.uid, second), 'daily_limit_reached', `${tier}: the day check called a full date open`);
-    const r = await agree(shop.uid, second);
-    assert.equal(r.status, 'daily_limit_reached', `${tier}: the second booking on one card went through`);
-    assert.equal(r.daily_limit, 1);
-    assert.equal(await bookingsOn(card), 1, `${tier}: the refused yes still booked`);
-
-    // Grandfathered: a card set to 3 before the ruling keeps the 2 it holds; only the NEW one is refused.
-    const overShop = await mkShop(`${tier} Over`, tier);
-    const over = await mkCard(overShop.vpid, 3);
-    await booked(overShop.vpid, over);
-    await booked(overShop.vpid, over);
-    assert.equal((await agree(overShop.uid, await ask(couple, overShop.vpid, over))).status, 'daily_limit_reached');
-    assert.equal(await bookingsOn(over), 2, `${tier}: a booking the card already held was touched`);
-
-    // A bought count on a Free/Verified row never counts (Ultra/Custom only).
-    await asService(() => db.query(`UPDATE public.vendor_profiles SET extra_bookings_per_date = 2 WHERE vendor_profile_id = $1`, [shop.vpid]));
-    assert.equal(await limitOf(await mkCard(shop.vpid, null)), 1, `${tier}: a bought count raised a non-Ultra cap`);
-  }
+  assert.equal(await limitOf(card), 4, 'a bought count changed a card’s own number');
 });
 
 test('a shop cannot write its own add-on counts; the paid activation path can', async () => {
@@ -293,7 +244,7 @@ test('a shop cannot write its own add-on counts; the paid activation path can', 
   assert.equal(r.rows[0]!.n, 2);
 });
 
-test('the waitlist ceiling counts the bought "+1 wait list" (Ultra), held under the column’s 10', async () => {
+test('the waitlist has no plan limit — the shop sets up to the column’s 10; a bought count never passes it', async () => {
   const ultra = await mkShop('Wait Ultra', 'enterprise');
   await db.query(`UPDATE public.platform_settings SET vendor_tier_pipeline_caps_enabled = TRUE WHERE id = 1`);
   try {
@@ -301,9 +252,11 @@ test('the waitlist ceiling counts the bought "+1 wait list" (Ultra), held under 
       await db.query(`UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = $2 WHERE vendor_profile_id = $1`, [ultra.vpid, n]);
       return (await db.query<{ n: number }>(`SELECT max_waitlist_acceptances AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [ultra.vpid])).rows[0]!.n;
     };
-    assert.equal(await set(9), TIER_CAPS.enterprise.waitlistAcceptances, 'Ultra’s own number');
+    // No plan limit since 2026-11-18 (ruling 32): every plan's allowance is the column's own ceiling (10).
+    assert.equal(TIER_CAPS.enterprise.waitlistAcceptances, 10);
+    assert.equal(await set(9), 9, 'the shop’s own 9 was held to a plan number');
     await db.query(`UPDATE public.vendor_profiles SET extra_waitlist_acceptances = 2 WHERE vendor_profile_id = $1`, [ultra.vpid]);
-    assert.equal(await set(9), TIER_CAPS.enterprise.waitlistAcceptances + 2, 'a bought +1 wait list did not raise the ceiling');
+    assert.equal(await set(10), 10, 'a bought count lowered the ceiling');
     await db.query(`UPDATE public.vendor_profiles SET extra_waitlist_acceptances = 50 WHERE vendor_profile_id = $1`, [ultra.vpid]);
     assert.equal(await set(10), 10, 'the ceiling went past the column’s own CHECK');
   } finally {
@@ -346,17 +299,18 @@ test('the seat and the branch stay on sale at the owner’s price; the four "+1"
 test('2026-11-14 · the day is counted PER SERVICE: two cards of one service at one branch share it; another service does not', async () => {
   // Owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 5: "Bookings are counted per service per branch, not
   // per card." service_card_bookings_on is the one count every reader uses.
+  // Each card set to 1 a day (the shop's own number — no plan cap since 2026-11-18).
   const shop = await mkShop('Per Service', 'solo');
-  const a = await mkCard(shop.vpid, null); // photo_booth, no branch
-  const b = await mkCard(shop.vpid, null); // the same service, the same (main) branch
-  const other = await mkCard(shop.vpid, null);
+  const a = await mkCard(shop.vpid, 1); // photo_booth, no branch
+  const b = await mkCard(shop.vpid, 1); // the same service, the same (main) branch
+  const other = await mkCard(shop.vpid, 1);
   await asService(() => db.query(`UPDATE public.vendor_services SET category = 'photography' WHERE vendor_service_id = $1`, [other]));
   await booked(shop.vpid, a);
   assert.equal(await bookingsOn(b), 1, 'a booking on card A did not count for card B of the same service');
   assert.equal(await bookingsOn(other), 0, 'a booking of another service counted');
   const onB = await ask(couple, shop.vpid, b);
   assert.equal(await verdict(shop.uid, onB), 'daily_limit_reached', 'the day check called the service’s full date open');
-  assert.equal((await agree(shop.uid, onB)).status, 'daily_limit_reached', 'a second card of the same service took the date past the plan');
+  assert.equal((await agree(shop.uid, onB)).status, 'daily_limit_reached', 'a second card of the same service took the date past its number');
   // Another service's day is its own: its count stays 0, so its limit is never what refuses it.
   assert.ok((await bookingsOn(other)) < ((await limitOf(other)) ?? 0), 'another service reads as full');
 });

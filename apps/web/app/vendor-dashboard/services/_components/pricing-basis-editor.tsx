@@ -193,6 +193,10 @@ export function PricingBasisEditor({
           <PField label={`From, per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'}>
             <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
           </PField>
+        ) : basis === 'per_unit' ? (
+          <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units. Couples see it as “from”.">
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+          </PField>
         ) : (
           <PField label="From (PHP)" id={`${idPrefix}-hourbase`} help="Covers your minimum hours (set under More settings).">
             <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
@@ -202,6 +206,8 @@ export function PricingBasisEditor({
     );
   }
   if (part === 'more') {
+    if (basis === 'per_unit') return <PerUnitFields idPrefix={idPrefix} defaults={defaults} />;
+    const keptMax = <KeptMax basis={basis} defaults={defaults} />;
     return basis === 'fixed' ? (
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -217,9 +223,11 @@ export function PricingBasisEditor({
     ) : basis === 'per_pax' ? (
       <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor — the card shows rate × minimum.">
         <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
+        {keptMax}
       </PField>
     ) : (
       <div className="grid gap-3 sm:grid-cols-2">
+        {keptMax}
         <PField label="Minimum hours" id={`${idPrefix}-minhours`} help="Hours the “from” price covers.">
           <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} placeholder="e.g. 5" className="input-field" />
         </PField>
@@ -238,6 +246,7 @@ export function PricingBasisEditor({
   return (
     <div className="space-y-3">
       <input type="hidden" name="pricing_basis" value={basis} />
+      <KeptMax basis={basis} defaults={defaults} />
       <div>
         <p className="mb-1.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
           How do you price this?
@@ -268,7 +277,14 @@ export function PricingBasisEditor({
         </div>
       </div>
 
-      {basis === 'fixed' ? (
+      {basis === 'per_unit' ? (
+        <div className="space-y-3">
+          <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units.">
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+          </PField>
+          <PerUnitFields idPrefix={idPrefix} defaults={defaults} />
+        </div>
+      ) : basis === 'fixed' ? (
         <div className="space-y-3">
           <PField
             label="Starting price (PHP)"
@@ -431,6 +447,34 @@ export function IncludedFlags({
           <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="e.g. 2000" className="input-field" />
         </PField>
       ) : null}
+    </div>
+  );
+}
+
+/** 📦 Part 7: a per guest / per hour card's Max rides through the older editors unchanged (they have no Max row). */
+function KeptMax({ basis, defaults }: { basis: Basis; defaults: PricingDefaults }) {
+  return (basis === 'per_pax' || basis === 'per_hour') && defaults.price_max != null ? (
+    <input type="hidden" name="price_max" value={defaults.price_max} />
+  ) : null;
+}
+
+/**
+ * 📦 Card Maker part 7 — a per-unit card in the older editors (Services list, wizard): its own fields, never the hour
+ * ones, so a per-unit card opened there posts what it is. The word, if any, is carried as it is.
+ */
+function PerUnitFields({ idPrefix, defaults }: { idPrefix: string; defaults: PricingDefaults }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {defaults.unit_word ? <input type="hidden" name="unit_word" value={defaults.unit_word} /> : null}
+      <PField label="Initial units" id={`${idPrefix}-initialunits`} help="How many the base price covers.">
+        <input id={`${idPrefix}-initialunits`} name="initial_units" type="number" min={1} step={1} defaultValue={defaults.initial_units ?? ''} placeholder="e.g. 10" className="input-field" />
+      </PField>
+      <PField label="Each extra (PHP)" id={`${idPrefix}-extraunit`} help="Blank fills in as base ÷ initial units.">
+        <input id={`${idPrefix}-extraunit`} name="extra_unit_php" type="number" min={0} step={1} defaultValue={defaults.extra_unit_php ?? ''} placeholder="e.g. 350" className="input-field" />
+      </PField>
+      <PField label="Max" id={`${idPrefix}-pricemax`} help="Empty = no limit. More than the initial units.">
+        <input id={`${idPrefix}-pricemax`} name="price_max" type="number" min={1} step={1} defaultValue={defaults.price_max ?? ''} placeholder="No limit" className="input-field" />
+      </PField>
     </div>
   );
 }

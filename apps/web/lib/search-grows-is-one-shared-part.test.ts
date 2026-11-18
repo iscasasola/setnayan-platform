@@ -87,7 +87,7 @@ test('3 · ONE part — defined once, called by the one row, re-drawn by no list
   assert.deepEqual(defines, [PART], `search-grows is written in more than one place: ${defines.join(', ')}`);
   assert.deepEqual(calls, ['components/thumb-row.tsx'], `search-grows is called from: ${calls.join(', ') || 'nowhere'}`);
   const row = read('components/thumb-row.tsx');
-  assert.match(row, /import \{ useSearchGrows \} from '@\/app\/_components\/search-grows';/);
+  assert.match(row, /import \{ focusSearchNow, playSearchGrows, useSearchGrows \} from '@\/app\/_components\/search-grows';/);
   assert.match(row, /useSearchGrows\(rowRef, riding, \{ field: "\[data-thumb-seat='field'\]", shape: 'data-riding' \}\);/);
   /* The seat and the shape the part is told about are the row's own. */
   assert.match(row, /data-thumb-seat="field"/);

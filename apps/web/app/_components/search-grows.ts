@@ -88,3 +88,16 @@ export function useSearchGrows(rowRef: RefObject<HTMLElement | null>, open: bool
     });
   }, [open, fieldSelector, shape, rowRef]);
 }
+
+/**
+ * 👆 TAP AND TYPE — put the cursor in the search NOW (owner 18 Nov 2026: *"it should be tap and type"*). Called from the
+ * seat's own click handler and nowhere else: iPhone Safari opens the keyboard only for a focus made INSIDE the user's
+ * gesture, so this is a plain synchronous `.focus()` — never inside a timer, a frame, a promise or an animation's end.
+ * (At rest the real input already lies over the whole icon, so the tap itself lands on it; this covers a tap that
+ * lands on the seat's edge, and a seat whose control draws its own box.) `preventScroll`: the row is already in view.
+ */
+export function focusSearchNow(seat: HTMLElement): void {
+  const input = seat.querySelector<HTMLInputElement>("input[type='search']");
+  if (!input || document.activeElement === input) return;
+  input.focus({ preventScroll: true });
+}

@@ -44,13 +44,13 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useId, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { useCallback, useId, useRef, type FocusEvent, type InputHTMLAttributes, type MouseEvent, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Plus, Search } from 'lucide-react';
 import { ClearButton, clearTyped } from '@/components/clear-field';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
-import { useSearchGrows } from '@/app/_components/search-grows';
+import { focusSearchNow, playSearchGrows, useSearchGrows } from '@/app/_components/search-grows';
 import { useRotatingHint } from '@/lib/use-rotating-hint';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
@@ -215,8 +215,31 @@ export function ThumbRow({
      folds back in Quick on Settle, the buttons fading back in — the fold was a cut. Every list's search sits in this
      row, so every list inherits it. A mode row (`children`) has no field and plays nothing. */
   useSearchGrows(rowRef, riding, { field: "[data-thumb-seat='field']", shape: 'data-riding' });
-  const onFieldFocus = ride.rowProps.onFocus;
-  const onFieldBlur = ride.rowProps.onBlur;
+  /* 👆 TAP AND TYPE (owner 18 Nov 2026, verbatim: *"so it stays as 1 click. when they press the search icon it
+     automatically places the text indicator on the search bar and directly type.. So it shouldn't be tap to expand and
+     press. it should be tap and type."*). AT REST a search is its ICON (thumb-row.module.css: the seat is a 44 round and
+     the real <input> lies over the whole of it, unseen) — so the ONE tap lands on the input itself: the cursor is in it
+     and the keyboard opens inside that same gesture (iPhone Safari opens the keyboard for nothing later). The click also
+     focuses it outright, synchronously (`focusSearchNow`) — never after a timer, a frame or an animation's end. With
+     the focus the field takes the row and GROWS into it (Move on Spring); when it loses the focus it folds back (Quick
+     on Settle) — to the icon when it is empty, to its place among the buttons when it holds words.
+     🔒 lib/a-search-is-tap-and-type.test.ts */
+  const forceShape = (shape: 'rest' | 'open') => () => {
+    const row = rowRef.current;
+    row?.setAttribute('data-search-force', shape);
+    return () => row?.removeAttribute('data-search-force');
+  };
+  const onFieldFocus = (e: FocusEvent<HTMLElement>) => {
+    ride.rowProps.onFocus(e);
+    const seat = e.currentTarget;
+    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, true, forceShape('rest'));
+  };
+  const onFieldBlur = (e: FocusEvent<HTMLElement>) => {
+    ride.rowProps.onBlur(e);
+    const seat = e.currentTarget;
+    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, false, forceShape('open'));
+  };
+  const onFieldClick = (e: MouseEvent<HTMLElement>) => focusSearchNow(e.currentTarget);
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
   const onFieldInput = ride.rowProps.onInput;
   /* 💡 The empty box's hint cycles its examples — the placeholder attribute only, never a render (rotating-hint.ts). */
@@ -246,11 +269,12 @@ export function ThumbRow({
               onFocus={onFieldFocus}
               onBlur={onFieldBlur}
               onInput={onFieldInput}
+              onClick={onFieldClick}
             >
               {field.node}
             </span>
           ) : field ? (
-            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}

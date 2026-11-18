@@ -69,3 +69,21 @@ stopped it — but the icons sit in tiles whose tap opens another screen, so the
 - Guard: new `lib/a-tapped-service-icon-is-seen.test.ts` (sabotaged six ways, each red).
 
 SPEC IMPACT: None
+
+## 2026-11-18 · feat(thumb-row): a search is tap and type — it rests as its icon, one tap puts the cursor in it
+
+Owner, verbatim: *"so it stays as 1 click. when they press the search icon it automatically places the text indicator
+on the search bar and directly type.. So it shouldn't be tap to expand and press. it should be tap and type."*
+
+- `components/thumb-row.module.css`: an empty search that is not being typed in is a 44 round showing its magnifier,
+  and the real `<input>` lies over the whole round (unseen) — the one tap lands on the input itself. Focused, or
+  holding words, it is the field again (the widest seat; the whole row on a touch screen, at once). Search sits on the
+  left of what is left in the row. Replaces the 22 Oct "field is always the widest seat" for the RESTING state only.
+- `components/thumb-row.tsx` + `app/_components/search-grows.ts`: the seat's click focuses the input synchronously
+  (`focusSearchNow` — never a timer, a frame or an animation's end); focus grows the field across the row (Move on
+  Spring), blur folds it (Quick on Settle) — to the icon when empty, to a field when it holds words.
+- Guard: new `lib/a-search-is-tap-and-type.test.ts` (sabotaged five ways, each red). The ≥ 60 % check
+  (`action-button-is-icon-and-word` T3b) is kept.
+- NOT built here: Search-or-add replacing ＋ Add, Show + Sort as the only other seats, the 🔍 → ＋ add mode.
+
+SPEC IMPACT: None

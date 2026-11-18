@@ -34,6 +34,7 @@ import { formatCount } from '@/lib/format-number';
 import { RequestCardView } from '../queues/_components/request-card-view';
 import { SETTLE_NOTICES } from '../queues/_components/queues-triage-feed';
 import { AdminAskPill } from './admin-ask-pill';
+import { FocusRecents } from './focus-recents';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readBadgeShopList, badgeTraceHref } from '../offers/_surfaces/badges-view';
 
@@ -265,6 +266,9 @@ export async function FocusHome({
           </ul>
         </section>
       ))}
+
+      {/* 🔦 Recent — the last things opened from Focus, under your needs list (Focus at Spotlight level, 18 Nov 2026). */}
+      {!answer ? <FocusRecents /> : null}
 
       {/* The phone's ask box — in the thumb zone, above the home indicator. */}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+14px)] left-[calc(var(--sn-safe-l)+0.75rem)] right-[calc(var(--sn-safe-r)+0.75rem)] z-30 lg:hidden">

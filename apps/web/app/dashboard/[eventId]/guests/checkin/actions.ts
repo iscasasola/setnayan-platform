@@ -94,8 +94,10 @@ async function deskPartRefusal(
     isCouple: false,
     isCoordinatorMember: user.memberType === 'coordinator',
   });
-  if (desk.parts.includes(part)) return null;
+  // Unread FIRST (opus review 2026-11-18): an unread `checkin_desk_access` parses to the DEFAULTS (helpers get
+  // Guests), so checking `parts` first let a helper the hosts switched Off check guests in whenever that read failed.
   if (desk.unread) return { error: COULD_NOT_CHECK, refused: false };
+  if (desk.parts.includes(part)) return null;
   return { error: 'The hosts haven’t given you this part of the desk.', refused: true };
 }
 
@@ -334,6 +336,8 @@ export async function saveDeskAccess(eventId: string, next: unknown): Promise<Sa
       .eq('user_id', access.door.userId)
       .eq('role_subtype', 'wedding_planner_external')
       .is('removed_at', null)
+      // The same seat readDeskViewer honours: an invite never accepted opens no desk, so it cannot be picked either.
+      .not('accepted_at', 'is', null)
       .maybeSingle();
     if (seatError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
     if (!seat) return { ok: false, error: 'That supplier no longer has access to this event.' };

@@ -166,3 +166,12 @@ test('(opus review) a refused read never answers yes — the hosts\' Off holds t
   assert.match(server, /deskPartsFor\(role, access, userId, unread\)/);
   assert.doesNotMatch(server, /partsForRole\(/);
 });
+
+test('(6) an unread desk choice refuses the write — it never falls back to the defaults (opus review 2026-11-18)', () => {
+  const actions = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/checkin/actions.ts'), 'utf8');
+  const body = actions.slice(actions.indexOf('async function deskPartRefusal'));
+  const unread = body.indexOf('if (desk.unread)');
+  const allowed = body.indexOf('if (desk.parts.includes(part)) return null;');
+  assert.ok(unread > 0 && allowed > 0, 'both checks must be in deskPartRefusal');
+  assert.ok(unread < allowed, 'the unread check must come first: an unread choice parses to the defaults');
+});

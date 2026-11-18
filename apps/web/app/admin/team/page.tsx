@@ -63,7 +63,7 @@ function AreaGrid({
               : 'Nothing here gives or takes anything, so Basic is the whole area.'}
           </InfoTip>
           <span className="flex items-center gap-4 text-sm">
-            <label className="flex items-center gap-1.5">
+            <label className="flex min-h-11 items-center gap-1.5">
               <input
                 type="checkbox"
                 name="basic"
@@ -75,7 +75,7 @@ function AreaGrid({
               Basic
             </label>
             {a.escalated ? (
-              <label className="flex items-center gap-1.5">
+              <label className="flex min-h-11 items-center gap-1.5">
                 <input
                   type="checkbox"
                   name="escalated"
@@ -197,7 +197,7 @@ export default async function AdminTeamPage() {
             <div>
               <SubmitButton
                 pendingLabel="Adding…"
-                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:text-cream"
+                className="min-h-11 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:text-cream"
               >
                 Add
               </SubmitButton>
@@ -276,7 +276,7 @@ export default async function AdminTeamPage() {
                             <div className="flex flex-wrap gap-2">
                               <SubmitButton
                                 pendingLabel="Saving…"
-                                className="rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream"
+                                className="min-h-11 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream"
                               >
                                 Save
                               </SubmitButton>
@@ -300,14 +300,14 @@ export default async function AdminTeamPage() {
                         <input type="hidden" name="user_id" value={p.user_id} />
                         <SubmitButton
                           pendingLabel="Taking away…"
-                          className="rounded-md border border-ink/20 bg-raised px-4 py-2 text-sm font-semibold text-ink"
+                          className="min-h-11 rounded-md border border-ink/20 bg-raised px-4 py-2 text-sm font-semibold text-ink"
                         >
                           Take all away
                         </SubmitButton>
                       </form>
                     ) : null}
                     <p className="mt-3 text-xs">
-                      <a className="text-link underline" href={`/admin/admin-log?person=${p.user_id}`}>
+                      <a className="inline-flex min-h-11 items-center text-link underline" href={`/admin/admin-log?person=${p.user_id}`}>
                         Their actions
                       </a>
                     </p>

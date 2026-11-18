@@ -139,7 +139,7 @@ export async function addAdminOp(formData: FormData) {
   const { data: target, error } = await admin
     .from('users')
     .select('user_id, email, display_name, is_internal, is_team_member, account_type')
-    .ilike('email', email)
+    .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`)) // exact, any case — `_` and `%` are not wildcards
     .maybeSingle();
   if (error) throw new Error(`Couldn’t look that email up, so nothing was changed: ${error.message}`);
   if (!target) throw new Error('No Setnayan account with that email — they need to sign up first.');

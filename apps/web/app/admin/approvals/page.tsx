@@ -259,7 +259,7 @@ export default async function AdminApprovalsPage() {
           <div className="sm:col-span-2">
             <SubmitButton
               pendingLabel="Submitting…"
-              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
+              className="min-h-11 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
               Submit for two-admin approval
             </SubmitButton>
@@ -368,7 +368,7 @@ export default async function AdminApprovalsPage() {
                                     />
                                     <SubmitButton
                                       pendingLabel="Starting…"
-                                      className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white dark:text-cream"
+                                      className="min-h-11 rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white dark:text-cream"
                                     >
                                       Approve my own request
                                     </SubmitButton>
@@ -393,7 +393,7 @@ export default async function AdminApprovalsPage() {
                                   <input type="hidden" name="approval_id" value={r.approval_id} />
                                   <SubmitButton
                                     pendingLabel="Cancelling…"
-                                    className="rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700"
+                                    className="min-h-11 rounded-md border border-danger-700/30 bg-raised px-3 py-1.5 text-xs font-bold text-danger-700"
                                   >
                                     Cancel
                                   </SubmitButton>
@@ -411,7 +411,7 @@ export default async function AdminApprovalsPage() {
                               <input type="hidden" name="approval_id" value={r.approval_id} />
                               <SubmitButton
                                 pendingLabel="Withdrawing…"
-                                className="rounded-md border border-ink/20 bg-raised px-3 py-1.5 text-xs font-bold text-ink"
+                                className="min-h-11 rounded-md border border-ink/20 bg-raised px-3 py-1.5 text-xs font-bold text-ink"
                               >
                                 Withdraw
                               </SubmitButton>
@@ -434,7 +434,7 @@ export default async function AdminApprovalsPage() {
                                   formAction={approveRequest}
                                   disabled={!canDecide}
                                   pendingLabel="Approving…"
-                                  className="rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="min-h-11 rounded-md bg-success-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   ✓ Approve &amp; execute
                                 </SubmitButton>
@@ -451,7 +451,7 @@ export default async function AdminApprovalsPage() {
                                   value="reject"
                                   disabled={!canDecide}
                                   pendingLabel="Rejecting…"
-                                  className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="min-h-11 rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   Reject
                                 </SubmitButton>
@@ -490,7 +490,7 @@ export default async function AdminApprovalsPage() {
                                   />
                                   <SubmitButton
                                     pendingLabel="Escalating…"
-                                    className="rounded-md border border-ink/20 bg-raised px-3 py-1 text-xs font-bold text-ink"
+                                    className="min-h-11 rounded-md border border-ink/20 bg-raised px-3 py-1 text-xs font-bold text-ink"
                                   >
                                     Escalate ▸
                                   </SubmitButton>
@@ -552,7 +552,7 @@ export default async function AdminApprovalsPage() {
                       <SubmitButton
                         disabled={!canResolve}
                         pendingLabel="Marking…"
-                        className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:text-cream"
+                        className="min-h-11 rounded-md bg-mulberry px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:text-cream"
                       >
                         Mark handled
                       </SubmitButton>

@@ -95,22 +95,34 @@ export default async function AdminLogPage({
   for (const u of (peopleRes.data ?? []) as Array<{ user_id: string; email: string | null; display_name: string | null }>) {
     names.set(u.user_id, u.display_name || u.email || u.user_id);
   }
+  let namesUnreadLate = false;
   // Actors who are no longer admins still need a name on their old rows.
   const missing = [...new Set((rows ?? []).map((r) => r.actor_user_id).filter((id): id is string => !!id && !names.has(id)))];
   if (missing.length > 0) {
     const { data: more, error } = await admin.from('users').select('user_id, email, display_name').in('user_id', missing);
-    if (error) logQueryError('AdminLogPage.actors', error, {}, 'graceful_degrade');
+    if (error) {
+      logQueryError('AdminLogPage.actors', error, {}, 'graceful_degrade');
+      namesUnreadLate = true;
+    }
     for (const u of (more ?? []) as Array<{ user_id: string; email: string | null; display_name: string | null }>) {
       names.set(u.user_id, u.display_name || u.email || u.user_id);
     }
   }
-  const nameOf = (id: string | null) => (id ? names.get(id) ?? 'A former admin' : 'System');
+  // A failed name read must not dress every actor up as "A former admin" (OPUS REVIEW 2026-11-18): show the id.
+  const namesUnread = !!peopleRes.error || namesUnreadLate;
+  const nameOf = (id: string | null) =>
+    id ? names.get(id) ?? (namesUnread ? `Account ${id.slice(0, 8)}` : 'A former admin') : 'System';
 
   const shown = (rows ?? []).filter((r) => !area || auditRowArea(r) === area);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead title="Admin log" />
+      {namesUnread ? (
+        <p role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Couldn’t read the admins’ names just now, so some rows show an account number instead. Reload to try again.
+        </p>
+      ) : null}
 
       <form method="get" className="mb-6 grid gap-3 sm:grid-cols-3">
         <PickField

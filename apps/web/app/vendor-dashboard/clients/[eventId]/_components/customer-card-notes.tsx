@@ -41,7 +41,19 @@ function fmtRemind(iso: string): string {
   });
 }
 
-export function ClientNotes({ eventId, notes, failed = false }: { eventId: string; notes: ClientNote[]; /** A note write was refused (`?note=error`) — said, never silent. */ failed?: boolean }) {
+export function ClientNotes({
+  eventId,
+  notes,
+  failed = false,
+  clientNoun = 'client',
+}: {
+  eventId: string;
+  notes: ClientNote[];
+  /** A note write was refused (`?note=error`) — said, never silent. */
+  failed?: boolean;
+  /** 🔤 The event kind's word (`readClientNoun`: "celebrant" on a debut). Unknown → "client", never "couple". */
+  clientNoun?: string;
+}) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-3">
@@ -132,7 +144,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
           required
           maxLength={2000}
           rows={2}
-          placeholder="Add a note about this couple…"
+          placeholder={`Add a note about this ${clientNoun}…`}
           className="w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">

@@ -9,6 +9,7 @@
  *
  * Pure data — no fetch, no server.
  */
+import { formatCount } from '@/lib/format-number';
 import { CLIENTS_CHOICE_MIN_EVENTS } from '@/lib/shop-seals';
 
 export type SealKind = 'no1' | 'medal' | 'heart' | 'crest' | 'verified' | 'partner';
@@ -56,7 +57,7 @@ export function AWARD_COPY(year: number | string): Record<SealKind, SealCopy> {
       // 🔒 lib/shop-seals.test.ts — "the Clients' Choice words say the engine's rule".
       how: [
         ['The most second bookings of the seal year: clients who booked you again', true],
-        [`At least ${CLIENTS_CHOICE_MIN_EVENTS} events completed through Setnayan that year`, true],
+        [`At least ${formatCount(CLIENTS_CHOICE_MIN_EVENTS)} events completed through Setnayan that year`, true],
         ['Setnayan Verified, with at least one second booking', true],
         ['One shop a year; a tie goes to the higher rating', false],
       ],

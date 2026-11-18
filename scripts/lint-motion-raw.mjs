@@ -14,8 +14,8 @@
  *     a style object uses (`transitionDuration: '300ms'`);
  *   · Tailwind `duration-NNN` / `duration-[…]` classes;
  *   · Web Animations literals — `duration: 300`, and `easing: 'cubic-bezier(…)'`.
- * Block comments are skipped in `.css`; in `.ts`/`.tsx` a comment that happens to spell one of these counts too (the
- * counts are compared like for like, so that only ever makes a line harder to add, never easier).
+ * Comments are skipped with the repo's one string-aware stripper (`apps/web/scripts/port-controls.mjs` `stripComments`,
+ * the plain-node twin of `lib/strip-comments.ts`), so prose about a timing never counts.
  *
  * It compares each file against `scripts/motion-raw.baseline.json` and FAILS when a file's count rises, or a file not
  * in the baseline has any. A count that falls passes and is reported — regenerate to lock the drop in:
@@ -29,6 +29,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '../apps/web/scripts/port-controls.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = path.join(ROOT, 'scripts', 'motion-raw.baseline.json');
@@ -60,7 +61,7 @@ const WAAPI_EASING = /(?<![\w$.-])easing\s*:\s*['"`]cubic-bezier\(/g;
 const count = (s, re) => (s.match(re) ?? []).length;
 
 export function countRaw(src, file) {
-  const text = file.endsWith('.css') ? src.replace(/\/\*[\s\S]*?\*\//g, '') : src;
+  const text = stripComments(src);
   let n = 0;
   for (const m of text.matchAll(DECL)) n += count(m[1], RAW_TIME) + count(m[1], BEZIER);
   if (!file.endsWith('.css')) {

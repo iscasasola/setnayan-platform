@@ -63,7 +63,7 @@ import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
-import { EVENT_ULTRA_SKU, ultraUpgradeCharge, type UltraUpgradeCharge } from '@/lib/event-ultra';
+import { EVENT_ULTRA_SKU, ultraPlanPaymentOpen, ultraUpgradeCharge, type UltraUpgradeCharge } from '@/lib/event-ultra';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersAccess } from '@/lib/entitlements';
@@ -434,11 +434,11 @@ export async function readUltraUpgradeCharge(
   const paid = (sku: string) => lines.some((r) => r.service_key === sku && orderStatusConfersAccess(r.status));
   const proPaid = paid(FULL_PRO_SKU);
   const plusPaid = paid(EVENT_PLUS_SKU);
-  // 💳 Owner 2026-11-16 ("Approved"): while a Pro (or, with no paid plan, a Plus) payment is still being checked —
-  // status 'submitted' — Ultra is refused with a plain line, not sold in full and not sold at the difference.
-  const beingChecked = (sku: string) => lines.some((r) => r.service_key === sku && r.status === 'submitted');
-  if (!proPaid && beingChecked(FULL_PRO_SKU)) return { status: 'plan_being_checked', plan: 'pro' };
-  if (!proPaid && !plusPaid && beingChecked(EVENT_PLUS_SKU)) return { status: 'plan_being_checked', plan: 'plus' };
+  // 💳 Owner 2026-11-16 ("Approved"): while a Pro (or, with no paid plan, a Plus) payment is still open — 'submitted' OR
+  // 'awaiting_payment' (`ultraPlanPaymentOpen`) — Ultra is refused with a plain line, not sold in full and not sold at the
+  // difference. (Opus money review: 'awaiting_payment' alone used to sell Ultra in full on top of a Pro still owed.)
+  const openPlan = ultraPlanPaymentOpen({ lines, proSku: FULL_PRO_SKU, plusSku: EVENT_PLUS_SKU, proPaid, plusPaid });
+  if (openPlan) return { status: 'plan_being_checked', plan: openPlan };
   if (!proPaid && !plusPaid && !(own.paidPhp > 0)) return { status: 'ok', charge: null };
   const ultraRow = await resolveRetailChargeCentavos(eventId, EVENT_ULTRA_SKU);
   if (ultraRow.status === 'error') return { status: 'error', message: ultraRow.message };

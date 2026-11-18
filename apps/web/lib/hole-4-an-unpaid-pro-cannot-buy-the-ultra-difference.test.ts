@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ultraUpgradeCharge } from '@/lib/event-ultra';
+import { ultraPlanPaymentOpen, ultraUpgradeCharge } from '@/lib/event-ultra';
 import { orderStatusConfersAccess, orderStatusConfersOwnership, RELINQUISHED_STATUSES } from '@/lib/entitlements';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { stripComments } from '@/lib/strip-comments';
@@ -112,10 +112,9 @@ test('CLOSED · 4b — cancelling an unpaid Pro takes nothing back, because no c
 
 test('owner 2026-11-16 ("Approved") — while the Pro payment is still being checked, Ultra is refused with a plain line', async () => {
   const body = ultraReaderBody();
-  // The reader answers 'plan_being_checked' for a 'submitted' Pro (or Plus, with no plan paid) — before any price.
-  assert.match(body, /r\.status === 'submitted'/, 'the reader no longer looks for a payment being checked');
-  assert.match(body, /return \{ status: 'plan_being_checked', plan: 'pro' \}/);
-  assert.match(body, /return \{ status: 'plan_being_checked', plan: 'plus' \}/);
+  // The reader answers 'plan_being_checked' for an open Pro (or Plus, with no plan paid) — before any price.
+  assert.match(body, /ultraPlanPaymentOpen\(\{ lines, proSku: FULL_PRO_SKU, plusSku: EVENT_PLUS_SKU, proPaid, plusPaid \}\)/);
+  assert.match(body, /return \{ status: 'plan_being_checked', plan: openPlan \}/);
   assert.ok(
     body.indexOf("status: 'plan_being_checked'") < body.indexOf('resolveRetailChargeCentavos'),
     'the refusal must come before Ultra is priced',
@@ -132,4 +131,27 @@ test('owner 2026-11-16 ("Approved") — while the Pro payment is still being che
     assert.match(refusalMessage(k), /only the difference/);
   }
   // Once Pro is verified ('paid'), the difference is quoted (the control in 4a).
+});
+
+/* ── Opus money review (2026-11-18): BOTH unpaid states hold Ultra, not only 'submitted' ── */
+const PRO = 'COUPLE_WEBSITE_PRO_TEST';
+const PLUS = 'EVENT_PLUS_TEST';
+const open = (lines: { service_key: string; status: string }[], proPaid = false, plusPaid = false) =>
+  ultraPlanPaymentOpen({ lines, proSku: PRO, plusSku: PLUS, proPaid, plusPaid });
+
+test('CLOSED · 4c — a Pro bounced back for better proof (awaiting_payment) holds Ultra too, so it is never billed twice', () => {
+  // Was OPEN on the PR head: only 'submitted' was checked, so an 'awaiting_payment' Pro fell through to Ultra's FULL
+  // row price — and once that Pro cleared, the couple had paid for Pro twice.
+  for (const s of UNPAID) {
+    assert.equal(open([{ service_key: PRO, status: s }]), 'pro', `a '${s}' Pro holds Ultra`);
+    assert.equal(open([{ service_key: PLUS, status: s }]), 'plus', `a '${s}' Plus holds Ultra`);
+    assert.equal(open([{ service_key: PRO, status: s }], false, true), 'pro', `a '${s}' Pro holds Ultra even over a paid Plus`);
+  }
+  // Nothing open → priced as usual.
+  for (const s of ['paid', 'fulfilled', 'cancelled', 'refunded', 'lapsed', 'draft']) {
+    assert.equal(open([{ service_key: PRO, status: s }], orderStatusConfersAccess(s)), null, `a '${s}' Pro does not hold Ultra`);
+  }
+  // A PAID Pro wins over a stray open Plus (its difference is the right price).
+  assert.equal(open([{ service_key: PLUS, status: 'submitted' }], true), null);
+  assert.equal(open([{ service_key: PLUS, status: 'awaiting_payment' }], false, true), null);
 });

@@ -13,7 +13,7 @@
  * made after verification; an unverified shop always pays) · 993cdb9 (a cancelled first supplier still uses the free
  * slot) · 1abf35b (the Shortlist QR is an import QR; a couple's own Find invite is free only when it created the shop).
  *
- * The fix is migrations 20271350679653 + 20271351371342 (`booking_fee_attribution_for` + `booking_fee_import_at` ·
+ * The fix is migrations 20271352882666 + 20271352968519 (`booking_fee_attribution_for` + `booking_fee_import_at` ·
  * `booking_fee_is_first_import` · `booking_fee_import_created_account`). Every fixture sets its own timestamps, so the
  * order of facts is the test, not the order the statements happen to run in.
  */

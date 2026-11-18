@@ -7,7 +7,7 @@
  * CLIENT BOOKS FREE FOR LIFE WITH THE SUPPLIER WHO BROUGHT THEM": "a SOURCED client still pays on the first booking
  * and every repeat").
  *
- * The fix is migration 20271349691846: `booking_fee_attribution_for` keeps the per-event rule
+ * The fix is migration 20271352180500: `booking_fee_attribution_for` keeps the per-event rule
  * (`booking_fee_attribution_for_event`) and adds one arm — a COUPLE member of this event who is a couple member of
  * another event where the shop is sourced (its frozen ledger stamp, else its facts), whose first contact with the shop
  * came no later than this event's (`booking_fee_first_contact_at`). The guard cases below pin what the arm must NOT

@@ -7,11 +7,11 @@
 --        `vendor_client_invites.created_at` (claimed onto the event) — every couple member's account must have been
 --        created at or after it. Static QRs (the Shortlist QR, the own link, prints) carry no per-couple invite, so the
 --        structural reading stays their only test (the client's first event, and the import is the first thing on it).
---   Q2 · a Find invite that creates a new, unverified shop stays free — already so (20271351371342).
+--   Q2 · a Find invite that creates a new, unverified shop stays free — already so (20271352968519).
 --   Q3 · close the coordinator loophole on the outside door too: a booking with nothing imported pays. The last arm of
 --        `booking_fee_attribution_for` is now 'sourced', not 'import'. What is free is exactly: the free year, the
 --        couple's Find invite that created the shop, and the event's one free import slot.
---   Q5 · imports made during a demotion gap pay — already so (20271351371342, "verified since").
+--   Q5 · imports made during a demotion gap pay — already so (20271352968519, "verified since").
 --   34909f1 / 1abf35b (1) · the shop's own link is an import QR: a chat through it (inquiry_source 'website') dates the
 --        import and takes the event's free slot (trigger on chat_threads + a backfill of empty slots).
 -- Functions, one trigger and a backfill of empty slots. No other data is written.
@@ -73,7 +73,7 @@ CREATE TRIGGER chat_threads_take_import_slot
   AFTER INSERT ON public.chat_threads
   FOR EACH ROW EXECUTE FUNCTION public.booking_fee_take_import_slot_from_thread();
 
--- Backfill own-link chats into empty slots, earliest first (supplier-brought rows were backfilled in 20271351371342).
+-- Backfill own-link chats into empty slots, earliest first (supplier-brought rows were backfilled in 20271352968519).
 INSERT INTO public.booking_fee_event_import_slots (event_id, vendor_profile_id, imported_at)
 SELECT DISTINCT ON (t.event_id) t.event_id, t.vendor_profile_id, t.created_at
   FROM public.chat_threads t

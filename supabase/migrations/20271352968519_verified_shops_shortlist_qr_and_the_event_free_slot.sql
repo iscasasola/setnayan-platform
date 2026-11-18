@@ -1,6 +1,6 @@
 -- verified_shops_shortlist_qr_and_the_event_free_slot
 --
--- Owner rulings of 2026-11-16 on top of d4899cd5 / 9fe95ebe (migration 20271350679653), specs DECISION_LOG:
+-- Owner rulings of 2026-11-16 on top of d4899cd5 / 9fe95ebe (migration 20271352882666), specs DECISION_LOG:
 --   · 34909f12 + 99b6ab50 — every QR is an import QR, but the import waivers (the free year, the first-supplier free
 --     booking) apply only to a VERIFIED shop, and only to imports made after it was verified. Every booking an
 --     UNVERIFIED shop gets pays the flat 5% fee — QR, import or found.
@@ -294,7 +294,7 @@ AS $$
    WHERE f.at < (SELECT max(r.rec_at) FROM rec r);
 $$;
 
--- (body unchanged from 20271350679653; restated so this file reads whole)
+-- (body unchanged from 20271352882666; restated so this file reads whole)
 CREATE OR REPLACE FUNCTION public.booking_fee_import_created_account(
   p_vendor_profile_id UUID,
   p_event_id UUID

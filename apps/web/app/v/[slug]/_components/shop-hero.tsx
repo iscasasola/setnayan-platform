@@ -8,6 +8,12 @@
  * A second Inquire here is exactly the duplicate `one-inquire-button.test.ts` forbids.
  *
  * Server-rendered; the motion is CSS (`shop-motion.module.css`), arrival-only, and the resting state is complete.
+ *
+ * 🖼 v16 S2 (owner-approved 15 Nov 2026, drawing `site.src.html` `.hero`): with `gallery` (the shop's photos —
+ * `ShopHeroGallery`, a client piece) the ONE background photo becomes the swipeable slides + dots + "All N photos", and
+ * with `bento` the desktop hero turns into the 5-photo mosaic with the name BELOW it on the page's own ground (the
+ * drawing's `@media (min-width:1024px)` block). Without them (a shop with one photo, the 'sample' frame) the hero is
+ * exactly as before.
  */
 import type { ReactNode } from 'react';
 import Image from 'next/image';
@@ -23,6 +29,8 @@ export function ShopHero({
   badges,
   marker,
   frame = 'page',
+  gallery,
+  bento = false,
 }: {
   /** The display label — the hybrid-anonymity placeholder while the name is hidden, never the raw business name. */
   name: string;
@@ -42,39 +50,53 @@ export function ShopHero({
    * and the sizes stay the phone's at any screen width, because the drawing sits in a phone-width frame.
    */
   frame?: 'page' | 'sample';
+  /** The hero's photos (`ShopHeroGallery`) — in place of the single background photo. */
+  gallery?: ReactNode;
+  /** The gallery draws the desktop mosaic: the hero's desktop layout follows (name below, on the page's ground). */
+  bento?: boolean;
 }) {
   const words = name.split(/\s+/).filter(Boolean);
   const sample = frame === 'sample';
   const Name = sample ? 'p' : 'h1';
+  const mosaic = !!gallery && bento && !sample;
+  /** On the desktop mosaic the copy sits on the page's own ground, so it reads in ink, not on-photo ivory. */
+  const lgInk = mosaic ? 'lg:text-ink' : '';
   return (
     <header
       data-shop-hero=""
-      className={`relative isolate h-[560px] w-full overflow-hidden bg-[var(--sn-ob-page)] text-[var(--sn-ob-text)] ${sample ? '' : 'lg:h-[640px]'}`}
+      data-shop-hero-mosaic={mosaic ? '' : undefined}
+      className={`relative isolate h-[560px] w-full overflow-hidden bg-[var(--sn-ob-page)] text-[var(--sn-ob-text)] ${
+        sample ? '' : mosaic ? 'lg:h-auto lg:overflow-visible lg:bg-page lg:text-ink' : 'lg:h-[640px]'
+      }`}
     >
-      <div className={`absolute inset-x-0 -bottom-[6%] -top-[6%] -z-20 ${m.heroDrift}`}>
-        <div className={`absolute inset-0 ${m.heroPhoto}`}>
-          {photoIsMarked ? (
-            <MarkedPhoto src={photoUrl} alt="" frame="square" displayAspect={16 / 9} priority={!sample} sizes={sample ? '430px' : '100vw'} />
-          ) : (
-            <Image src={photoUrl} alt="" fill priority={!sample} sizes={sample ? '430px' : '100vw'} className="object-cover" />
-          )}
+      {gallery ?? (
+        <div className={`absolute inset-x-0 -bottom-[6%] -top-[6%] -z-20 ${m.heroDrift}`}>
+          <div className={`absolute inset-0 ${m.heroPhoto}`}>
+            {photoIsMarked ? (
+              <MarkedPhoto src={photoUrl} alt="" frame="square" displayAspect={16 / 9} priority={!sample} sizes={sample ? '430px' : '100vw'} />
+            ) : (
+              <Image src={photoUrl} alt="" fill priority={!sample} sizes={sample ? '430px' : '100vw'} className="object-cover" />
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 bg-[linear-gradient(to_top,rgba(14,12,8,.92)_0%,rgba(14,12,8,.7)_30%,rgba(14,12,8,.25)_58%,rgba(14,12,8,0)_78%,rgba(14,12,8,.3)_100%)]"
+        className={`pointer-events-none absolute inset-0 -z-10 ${mosaic ? 'lg:hidden' : ''} bg-[linear-gradient(to_top,rgba(14,12,8,.92)_0%,rgba(14,12,8,.7)_30%,rgba(14,12,8,.25)_58%,rgba(14,12,8,0)_78%,rgba(14,12,8,.3)_100%)]`}
       />
       <div
-        className={`absolute inset-x-0 bottom-0 mx-auto grid max-w-screen-2xl gap-3 px-5 pb-16 ${sample ? '' : 'sm:px-8 lg:gap-4 lg:px-10 lg:pb-28'} ${m.heroBody}`}
+        className={`pointer-events-none absolute inset-x-0 bottom-0 mx-auto grid max-w-screen-2xl gap-3 px-5 pb-16 [&>*]:pointer-events-auto ${
+          sample ? '' : mosaic ? 'sm:px-8 lg:static lg:gap-4 lg:px-10 lg:pb-6 lg:pt-5' : 'sm:px-8 lg:gap-4 lg:px-10 lg:pb-28'
+        } ${m.heroBody}`}
       >
         {kicker ? (
-          <p className={`font-mono text-[0.66rem] font-bold uppercase tracking-[0.3em] text-[var(--sn-ob-text)] ${m.kicker}`}>
+          <p className={`font-mono text-[0.66rem] font-bold uppercase tracking-[0.3em] text-[var(--sn-ob-text)] ${lgInk} ${m.kicker}`}>
             {kicker}
           </p>
         ) : null}
         <Name
           aria-label={name}
-          className={`font-serif ${sample ? 'text-[3.1rem]' : 'text-[clamp(3.1rem,11vw,7rem)]'} font-normal italic leading-[0.94] tracking-[-0.02em] text-[var(--sn-ob-text)]`}
+          className={`font-serif ${sample ? 'text-[3.1rem]' : 'text-[clamp(3.1rem,11vw,7rem)]'} font-normal italic leading-[0.94] tracking-[-0.02em] text-[var(--sn-ob-text)] ${lgInk}`}
         >
           {words.map((w, i) => (
             <span key={`${w}-${i}`} aria-hidden="true">
@@ -87,7 +109,7 @@ export function ShopHero({
         </Name>
         {marker ? <div>{marker}</div> : null}
         {tagline ? (
-          <p className={`max-w-[30em] text-[1.05rem] text-[var(--sn-ob-text)] ${sample ? '' : 'lg:text-xl'} ${m.tagline}`}>{tagline}</p>
+          <p className={`max-w-[30em] text-[1.05rem] text-[var(--sn-ob-text)] ${lgInk} ${sample ? '' : 'lg:text-xl'} ${m.tagline}`}>{tagline}</p>
         ) : null}
         {badges}
       </div>

@@ -13,6 +13,10 @@ import { SampleEventSwitch } from '@/app/admin/settings/_components/sample-event
 import { DemoModeSurface } from '@/app/admin/settings/_surfaces/demo-mode-surface';
 import { AvatarScreen, ConfirmLines, SettingRow, SettingValue } from '../_components/avatar-screen';
 import { ConfirmButton, ConfirmPick } from '../_components/avatar-confirm';
+import EmailDeliveryPage from '../email-delivery/page';
+import LiveWatchChannelsPage from '../live-studio-channels/page';
+import ColoursPage from '../colours/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Switches · Admin' };
@@ -54,7 +58,7 @@ type Settings = {
 
 const onOff = (v: boolean | null | undefined): string | null => (typeof v === 'boolean' ? (v ? 'On' : 'Off') : null);
 
-export default async function AdminSwitchesPage({
+async function AdminSwitchesPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -269,4 +273,23 @@ export default async function AdminSwitchesPage({
       </TemplateSection>
     </AvatarScreen>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Setup › Switches & delivery · What ▾.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'email': EmailDeliveryPage,
+  'live-watch': LiveWatchChannelsPage,
+  'colours': ColoursPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminSwitchesPage, sp);
 }

@@ -48,6 +48,7 @@ import { LabSeedDraft } from './lab-seed-draft';
 import { AnalyticsLab } from './analytics-lab';
 import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
+import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
@@ -516,6 +517,15 @@ const EARNED_FACTS: Record<string, ShopBadgeFacts> = {
   milestone: { verified: true, completedEvents: 50, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
 };
 
+/** 🏅 The lab's award queue, from its facts: Verified, and the Completed bookings tier its events reach (no session). */
+function labAwardsUrl(f: { verified: boolean; completedEvents: number | null }): string {
+  const queue: Array<{ kind: 'seal' | 'badge'; key: string; title: string; earnedAt: string }> = [];
+  if (f.verified) queue.push({ kind: 'seal', key: 'verified', title: 'SETNAYAN Verified', earnedAt: '2026-11-01T00:00:00Z' });
+  const tier = shopBadgeTier('completed_bookings', f.completedEvents);
+  if (tier) queue.push({ kind: 'badge', key: `completed_bookings:${tier}`, title: `${tierName(tier)} Completed bookings`, earnedAt: '2026-11-10T00:00:00Z' });
+  return `data:application/json,${encodeURIComponent(JSON.stringify({ queue }))}`;
+}
+
 /** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs —
  *  `?s=clear&earned=verified|milestone` (page.tsx's Today states). Lives here, beside `badge-today`, so the lab's one
  *  print-file draw stays in one file (lib/every-logo-plays.test.ts's STILL entry for this file). */
@@ -528,6 +538,7 @@ export function LabEarnedLine({ which }: { which: string }) {
   return (
     <BadgeEarnedLine
       factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
+      awardsUrl={labAwardsUrl(facts)}
       labFiles={files}
     />
   );
@@ -681,6 +692,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
       <div className="min-h-screen bg-cream px-4 pt-4 text-ink" data-lab-badge-today="">
         <BadgeEarnedLine
           factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-${who}`, facts: bf }))}`}
+          awardsUrl={labAwardsUrl(bf)}
           labFiles={files}
         />
         <p className="text-[13px] text-ink/60">Today&rsquo;s rows continue below.</p>

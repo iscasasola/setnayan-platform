@@ -160,8 +160,8 @@ export default async function HostManpowerPage({
   // compiling. A note ABOVE the return is the only place it fits.
   return (
     <div
-      className="min-h-screen"
-      style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
+      className="min-h-screen bg-page"
+      style={{ color: 'var(--m-ink)' }}
     >
       <div className="mx-auto w-full max-w-4xl px-4 pb-24 pt-8 sm:px-6">
         <Link

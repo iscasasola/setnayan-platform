@@ -24,7 +24,7 @@ import {
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
-import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/lib/supplier-today';
+import { PERMIT_PAPERS_HREF, type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
@@ -186,7 +186,7 @@ export function TodayRow({ href, label, line, pill, lineTone, marker, rowIcon, a
       <span className="min-w-0">
         <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
         {line ? (
-          <span className="block truncate text-[13px] text-ink/60" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
+          <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
             {line}
           </span>
         ) : null}
@@ -212,7 +212,7 @@ export function TodayNoteRow({ label, line, pill, rowIcon, marker }: {
       <RowIcon name={rowIcon} />
       <span className="min-w-0">
         <span className="home-t block text-[15px] leading-tight text-ink">{label}</span>
-        {line ? <span className="block text-[13px] text-ink/60">{line}</span> : null}
+        {line ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">{line}</span> : null}
       </span>
       <span className="flex items-center gap-2">{pill}</span>
     </div>
@@ -263,9 +263,11 @@ export type SupplierTodayFirstScreenProps = {
   setup?: ReactNode;
   /** 🔍 The thumb row (`TodayThumbRow`: Search today · Show ▾) — drawn by the page. */
   thumb?: ReactNode;
+  /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
+  minis?: ReactNode;
 };
 
-const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
+const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
 
 /**
  * 📱 THE SUPPLIER'S TODAY — THE ONE BUILD (owner 8 Nov 2026, *"Approved suuplier dashboard"*; contract prototype
@@ -300,6 +302,7 @@ export function SupplierTodayFirstScreen({
   library = false,
   setup = null,
   thumb = null,
+  minis = null,
 }: SupplierTodayFirstScreenProps) {
   const nothing = needs.length === 0 && !hasBills;
   return (
@@ -307,15 +310,21 @@ export function SupplierTodayFirstScreen({
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28; no cover row, as shipped). */}
       {setup}
       {setup ? null : cover}
-      {setup ? null : nextEvents}
-      {setup ? null : stats}
+      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
+          draws nothing of its own. */}
+      {setup ? null : (
+        <div data-today-top-only="">
+          {nextEvents}
+          {stats}
+        </div>
+      )}
 
       {/* THE ANSWER'S STATUS LINE — the whole sentence of an answer that redirected here, with the door it asks for. */}
       {outcome ? (
         <div
           role="status"
           data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink'}`}
         >
           <span className="min-w-0 flex-1">{outcome.text}</span>
           {outcome.door ? (
@@ -324,6 +333,12 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      {/* 🖥 THE DESKTOP PANES (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED"): the work pane (Needs you
+          today · Also today · Events you run · Coming up) and the Shop pane sit side by side from 1280; from 1600 the
+          work pane splits again (Needs | Coming up). Below 1280 both wrappers are `display: contents` — the phone and the
+          701 column draw exactly as before. The grid lives in `supplier-frame.css`. */}
+      <div data-today-pane="work">
+      <div data-today-pane-needs="">
       {/* 📋 NEEDS YOU TODAY — one row per thing waiting, in the app's words; EVERY row is ONE link to its page. */}
       <div data-today-needs="" data-tour="today-needs" id="whats-new">
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
@@ -379,7 +394,7 @@ export function SupplierTodayFirstScreen({
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
-        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-ink/60">
+        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-[color:var(--m-slate-2)]">
           Nothing waiting matches that search
         </p>
       </div>
@@ -404,6 +419,8 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      </div>
+
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
@@ -420,6 +437,20 @@ export function SupplierTodayFirstScreen({
         )}
       </div>
 
+      </div>
+
+      {/* 🖥 THE SIDE PANE (owner 17 Nov, P1 drawing `supplier_desktop_main_2026-11-16`, `.rp`): from 1280 it is the
+          sticky right column — Next events · the numbers · the Shop block (with its three small cards, approved pick 2)
+          · Setnayan Verified. Below 1280 it draws nothing of its own: the phone sees the Shop block exactly where it
+          was, and the side-only copies stay hidden. The same components, read once by the page — no new request.
+          🔒 app/vendor-dashboard/_components/today-has-a-side-pane-on-a-computer.test.ts */}
+      <aside data-today-side="" aria-label="Your shop">
+      {setup ? null : (
+        <div data-today-side-only="">
+          {nextEvents}
+          {stats}
+        </div>
+      )}
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}
       <div data-today-shop data-tour="today-shop">
         <TodayEyebrow door={{ label: 'Open', href: '/vendor-dashboard/shop' }}>Shop</TodayEyebrow>
@@ -437,6 +468,7 @@ export function SupplierTodayFirstScreen({
             rowIcon="shop"
           />
           <TodayRow href="/vendor-dashboard/shop#analytics" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
+          {minis ? <div data-today-side-minis="">{minis}</div> : null}
           {library ? (
             <TodayRow
               href={INSPIRATION_LIBRARY_HREF}
@@ -448,6 +480,14 @@ export function SupplierTodayFirstScreen({
           ) : null}
         </div>
       </div>
+      {/* ✅ SETNAYAN VERIFIED — only once Setnayan has checked the papers (the Shop pill says Live or Not yet); while
+          they are being checked the Shop row already says so, and nothing here claims more. */}
+      {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
+        <div data-today-side-verified="" className="[&>a]:border-t-0">
+          <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
+        </div>
+      )}
+      </aside>
 
       {thumb}
     </section>

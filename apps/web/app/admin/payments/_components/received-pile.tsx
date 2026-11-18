@@ -194,9 +194,9 @@ export function ReceivedPile({
   return (
     <TemplateSection label="From your BDO" tip={TIP} data="payments-received">
       <ReceivedTileBlock rows={rows} waiting={waiting} lastDrop={lastDrop} />
-      <div className="mt-3 space-y-3">
+      <div className="mt-3 divide-y divide-ink/10">
         {rows.map((r) => (
-          <div key={r.received_id} className="sn-card p-3">
+          <div key={r.received_id} className="py-3">
             <ReceivedCard row={r} waiting={waiting} query={query} />
           </div>
         ))}
@@ -239,20 +239,19 @@ export function ReceivedCard({
       ? `The reference is on ${top.payment.label}’s payment, but they owe ${formatPhp(top.payment.amount_php)}.`
       : null;
   const leaveForm = `received-leave-${row.received_id}`;
+  const refLine =
+    (row.read_status === 'unreadable'
+      ? 'This picture could not be read.'
+      : row.reference
+        ? `Ref ${shortReference(row.reference)}`
+        : 'Reference not read') + (row.left_reason === 'later' ? ' · Left for the next drop' : '');
   return (
     <div data-payments-received-card={row.received_id}>
       <p className={TEMPLATE_SUBLINE}>BDO · read from your screenshot · {manilaWhen(row.received_at)}</p>
       <p className="mt-0.5 text-[22px] font-bold text-ink tabular-nums">
         {row.amount_php != null ? formatPhp(Number(row.amount_php)) : 'Amount not read'}
       </p>
-      <p className={`${TEMPLATE_SUBLINE} break-all tabular-nums`}>
-        {row.read_status === 'unreadable'
-          ? 'This picture could not be read.'
-          : row.reference
-            ? `Ref ${shortReference(row.reference)}`
-            : 'Reference not read'}
-        {row.left_reason === 'later' ? ' · Left for the next drop' : ''}
-      </p>
+      <p className={`${TEMPLATE_SUBLINE} break-all tabular-nums`}>{refLine}</p>
       <p className={TEMPLATE_SUBLINE}>Picture never uploaded</p>
       {lead ? <p className="mt-2 text-[14px] text-ink">{lead}</p> : null}
 

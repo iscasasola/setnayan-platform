@@ -38,3 +38,8 @@ own close is not yet the mirror at 80 %), the per-page sheets in #7595 / #7632 /
 
 SPEC IMPACT: None — implements the approved 2026-11-13 rows as drawn; the 0.7 s rulings (8 Oct press family, 10 Nov
 rise) were already superseded by that row.
+
+- 18 Nov (merge of `main`): two guards that landed on `main` after this branch — `the-today-maker-keeps-what-was-typed`
+  and `the-maker-fields-clear-the-bar` — anchored on the Sheet's old `if (!open) return null;`. The Sheet now stays drawn
+  only while its mirrored close plays and then returns null (`if (!open && !present) return null;`); both anchors accept
+  either form. Sabotage: removing the line from `sheet.tsx` turns both red (2 fail).

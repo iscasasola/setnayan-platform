@@ -36,7 +36,8 @@ test('1 · on a phone Today’s New service sheet is the whole screen', () => {
   const fulls = [...SHEET.matchAll(/\bfull:\s*'([^']+)'/g)].map((m) => m[1]!);
   assert.ok(fulls.length >= 2, 'anti-vacuity: the Sheet’s full geometries were not found');
   for (const f of fulls) assert.match(f, /max-(?:lg|tab):h-\[100dvh\]/, `a full sheet is not the screen on a phone: ${f}`);
-  assert.match(SHEET, /if \(!open\) return null;[\s\S]*\$\{full \? ` \$\{at\.full\}`/, 'the Sheet no longer applies `full`');
+  /* The Sheet may stay drawn only while its mirrored close plays (#7686 `present`); once shut it still returns null. */
+  assert.match(SHEET, /if \(!open(?: && !present)?\) return null;[\s\S]*\$\{full \? ` \$\{at\.full\}`/, 'the Sheet no longer applies `full`');
 });
 
 test('2 · the page and the sheet body keep the fields above the fixed Cancel · Create row — by the row’s own token', () => {

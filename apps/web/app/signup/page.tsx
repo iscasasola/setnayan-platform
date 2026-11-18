@@ -67,6 +67,7 @@ import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { GoogleAddressDoor } from '@/app/_components/auth/google-address-door';
 import '@/app/_components/home/home-reskin.css';
 import { PasswordField } from '@/app/_components/password-field';
+import { InfoTip } from '@/app/_components/info-tip';
 
 export const metadata: Metadata = {
   title: 'Create account',
@@ -204,8 +205,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
           {referralCode ? (
             <p role="status" className="hr-si-banner">
-              A couple invited you to Setnayan. Create your account and you&rsquo;ll both get a
-              little something when you book your first service.
+              A couple invited you to Setnayan.{' '}
+              <InfoTip label="" ariaLabel="About the invite" align="start">
+                Create your account and you&rsquo;ll both get a little something when you book your first service.
+              </InfoTip>
             </p>
           ) : null}
 

@@ -1,5 +1,6 @@
 'use server';
 
+import { agree } from '@/lib/client-words';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -665,8 +666,8 @@ export async function lockPackage(
         await emitNotification({
           userId: vendorUserId,
           type: 'lock_request_received',
-          title: `${who} wants to book your ${pkg.package_name}`,
-          body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          title: `${who} ${agree(who, 'wants', 'want')} to book your ${pkg.package_name}`,
+          body: `${who} ${agree(who, 'has', 'have')} asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
           eventId,
         });

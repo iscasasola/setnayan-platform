@@ -139,6 +139,8 @@ type DayAcc = {
   partClosed: boolean;
   locked: boolean;
   whitelist: boolean;
+  /** A `setnayan_booking` block covers the day on this pool: booked through Setnayan, so FULL — never "closed". */
+  bookedFull: boolean;
 };
 
 function daysInMonthOf(month: string): number {
@@ -187,6 +189,7 @@ export function buildCustomerCalendarMonth(
         partClosed: false,
         locked: false,
         whitelist: false,
+        bookedFull: false,
       });
     }
     acc.set(p.poolId, inner);
@@ -211,7 +214,15 @@ export function buildCustomerCalendarMonth(
     labelsByDate.set(b.bookedDate, set);
   }
 
-  // Blocks: external clients consume capacity; manual/synced blocks close.
+  // Blocks: external clients consume capacity; a Setnayan-booking block is a BOOKED day; manual/synced blocks close.
+  //
+  // 📅 SETNAYAN_BOOKING IS A BOOKING, NOT A CLOSURE (owner 2026-11-14, `lib/closed-day.ts`: "A `setnayan_booking` block
+  // marks a booked date … means full, not closed"). This loop used to fold it in with `manual` and draw the booked day
+  // struck "Not available" — so on a client's Schedule month (17 Nov, Debut 18 · May 12) the ONE booked day was the
+  // only day NOT marked, while every open day wore the seat-green the legend never named. Now the day is full on the
+  // pools it covers and carries one Setnayan booking (the green "Booked here" dot) — unless a pool booking already
+  // counted that day, so one booking is never counted twice.
+  const bookedBlockDays = new Set<string>();
   for (const blk of blocks) {
     const targets = blk.poolId === null ? [...poolIds] : [blk.poolId];
     for (const poolId of targets) {
@@ -225,6 +236,9 @@ export function buildCustomerCalendarMonth(
         if (!st) continue;
         if (blk.source === 'external_client') {
           if (blk.poolId === poolId) st.consumed += 1;
+        } else if (blk.source === 'setnayan_booking') {
+          st.bookedFull = true;
+          bookedBlockDays.add(date);
         } else if ((blk.dayPart ?? 'all_day') === 'all_day') {
           st.closed = true;
         } else {
@@ -279,9 +293,14 @@ export function buildCustomerCalendarMonth(
       if (st.locked) anyLocked = true;
       if (st.partClosed) anyPart = true;
       if (st.whitelist) anyWhitelist = true;
-      const poolFull = st.consumed >= (capById.get(p.poolId) ?? st.capacity);
+      const poolFull = st.bookedFull || st.consumed >= (capById.get(p.poolId) ?? st.capacity);
       if (poolFull && !st.closed) anyFull = true;
       if (!poolFull) everyFull = false;
+    }
+    // The Setnayan-booking block's ONE booking, when no pool booking already counted the day.
+    if (bookedBlockDays.has(date) && setnayanConsumed === 0) {
+      consumed += 1;
+      setnayanConsumed += 1;
     }
     const waitlistCount = waitlistByDate.get(date) ?? 0;
     // Read but NOT used in the precedence below — see `inquiryCount`'s docblock.
@@ -292,7 +311,7 @@ export function buildCustomerCalendarMonth(
     if (anyClosed && allClosed) state = 'blocked';
     else if (anyLocked) state = 'locked';
     else if (anyWhitelist) state = 'whitelist';
-    else if (everyFull && capacity > 0) state = 'full';
+    else if (everyFull && (capacity > 0 || bookedBlockDays.has(date))) state = 'full';
     else if (consumed > 0 || anyFull) state = 'booked';
     else if (waitlistCount > 0) state = 'waitlist';
     // A block on SOME (not all) pools still surfaces as booked/open on the rest;

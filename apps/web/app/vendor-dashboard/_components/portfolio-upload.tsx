@@ -103,7 +103,7 @@ export function PortfolioUploadBody({
   const [picked, setPicked] = useState(false);
   return (
     <div className="space-y-3" data-portfolio-upload-body="">
-      <p className="text-[13px] text-ink/65">From your files or your phone’s photos · it joins your Portfolio</p>
+      <p className="text-[13px] text-[color:var(--m-slate-2)]">From your files or your phone’s photos · it joins your Portfolio</p>
       <PortfolioForm
         vendorProfileId={facts.vendorProfileId}
         storedRefs={facts.storedRefs}
@@ -121,7 +121,7 @@ export function PortfolioUploadBody({
       />
       {picked ? (
         <div className="space-y-2" data-portfolio-upload-cover-picked="">
-          <p className="text-[13px] text-ink/65">Picked as your cover · it goes live when you Apply on Your page</p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">Picked as your cover · it goes live when you Apply on Your page</p>
           <ActionButton tone="brand" main href="/vendor-dashboard/website#cover" icon={ImageIcon} label="Open Your page" className="w-full" />
         </div>
       ) : null}

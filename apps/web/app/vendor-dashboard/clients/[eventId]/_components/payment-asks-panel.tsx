@@ -3,6 +3,7 @@ import { AskSubmit } from '@/app/_components/ask-submit';
 import { InfoTip } from '@/app/_components/info-tip';
 import { vendorAskForPayment, vendorWithdrawPaymentAsk } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
+import { formatPhp } from '@/lib/php';
 
 /**
  * "Ask for a payment" — on the customer, next to what they owe.
@@ -54,6 +55,13 @@ function dayLabel(iso: string): string {
   });
 }
 
+/**
+ * What the payment plan says is next (`clientPaymentView(...).next`) — the panel's suggestion. 🔒 Never typed here: the
+ * figure, the label and the due words all come from the plan read, so the empty line can say what IS due ("No ask sent
+ * yet · ₱X · First payment · Was due Nov 13") instead of "Nothing outstanding", and the form opens filled with it.
+ */
+export type PaymentAskSuggestion = { amountPhp: number; name: string; dueDate: string | null; late: boolean; dueText: string | null };
+
 export function PaymentAsksPanel({
   eventId,
   customerName,
@@ -61,6 +69,7 @@ export function PaymentAsksPanel({
   measured,
   notice,
   canAsk,
+  suggest = null,
   quoteAskLine = null,
 }: {
   eventId: string;
@@ -82,6 +91,8 @@ export function PaymentAsksPanel({
    * indistinguishable from one that passed.
    */
   canAsk: boolean;
+  /** The plan's next unpaid payment, or null when there is no plan / nothing left. Prefills the form; never invented. */
+  suggest?: PaymentAskSuggestion | null;
   /**
    * CHAT-32 (walk 16 Nov 2026) · the accepted quote's own first-payment ask, as Details says it
    * (`supplierFirstPaymentStatus(...).line` — "You asked for ₱1,750. Not recorded by the couple yet."). With no
@@ -96,7 +107,7 @@ export function PaymentAsksPanel({
   const NOTE = 'py-2 text-[13px] font-semibold';
   return (
     <div data-payment-asks="">
-      <h3 className="pt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Ask for a payment</h3>
+      <h3 className="home-k2 !mb-0 !mt-0 pt-4">Ask for a payment</h3>
 
       {/*
         EVERY REFUSAL HAS SOMEWHERE TO BE SHOWN. The action refuses for four
@@ -164,9 +175,22 @@ export function PaymentAsksPanel({
           {quoteAskLine}
         </p>
       ) : (
-        <p className="flex min-h-14 items-center gap-2 border-b border-ink/10 text-[15px] text-ink/70">
-          Nothing outstanding. {customerName} has not been asked for anything.
-        </p>
+        // 🔒 NO ASK SENT ≠ NOTHING OWED. This line used to read "Nothing outstanding" beside an overdue plan payment
+        // (owner, 17 Nov, Debut 18). It says only what it measured — no ask was sent — and then what the plan says is due.
+        <div className="border-b border-ink/10 py-3" data-payment-asks-none="">
+          <p className="text-[15px] text-ink/70">No ask sent yet. {customerName} has not been asked for a payment.</p>
+          {suggest ? (
+            <p className="text-[13px] text-ink/70" data-payment-asks-due={suggest.late ? 'late' : 'due'}>
+              Next on the plan: <b className="font-semibold tabular-nums text-ink">{formatPhp(suggest.amountPhp)}</b> · {suggest.name}
+              {suggest.dueText ? (
+                <>
+                  {' · '}
+                  <span className={suggest.late ? 'font-semibold text-warn-800' : undefined}>{suggest.dueText}</span>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
       )}
 
       {canAsk ? (
@@ -182,14 +206,15 @@ export function PaymentAsksPanel({
               How much
             </span>
             <input
+              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
               type="number"
               name="amount_php"
               min="1"
               step="0.01"
               required
               inputMode="decimal"
-              placeholder="18000"
-              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
+              // The plan's next payment, never an invented example figure (owner, 17 Nov: "18000" on every client).
+              defaultValue={suggest ? String(suggest.amountPhp) : undefined}
             />
           </label>
           <label className="min-w-32 flex-1">
@@ -197,9 +222,11 @@ export function PaymentAsksPanel({
               By when (optional)
             </span>
             <input
+              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
               type="date"
               name="due_date"
-              className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
+              // The plan's due day only while it is still ahead — a past day would ask them to pay "by" yesterday.
+              defaultValue={suggest && suggest.dueDate && !suggest.late ? suggest.dueDate : undefined}
             />
           </label>
         </div>
@@ -208,11 +235,12 @@ export function PaymentAsksPanel({
             What it is for (optional)
           </span>
           <input
+            className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
             type="text"
             name="note"
             maxLength={500}
             placeholder="Second payment"
-            className="h-12 w-full rounded-lg border border-ink/15 px-3 text-[15px]"
+            defaultValue={suggest ? suggest.name : undefined}
           />
         </label>
         <div className="mt-3 flex flex-wrap items-center gap-2">

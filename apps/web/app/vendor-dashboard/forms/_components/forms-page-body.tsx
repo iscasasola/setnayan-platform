@@ -202,7 +202,7 @@ export function FormsPageBody({
         <h2 id="forms-lib-h" className={H2}>
           Your forms · the library
         </h2>
-        <p className="text-sm text-ink/70">Every form is open to every service. Make it once, send it to any couple; they answer in their event.</p>
+        <p className="text-sm text-ink/70">Every form is open to every service. Make it once, send it to any client; they answer in their event.</p>
         {library === null ? (
           <Unread what="your forms" />
         ) : library.length === 0 ? (
@@ -389,7 +389,7 @@ export function FormsLibraryList({
           busy={busy}
         />
       ) : null}
-      <p className="text-[13px] text-ink/70">Every form is open to every service. A form is sent to the couple from the chat; they answer in their event.</p>
+      <p className="text-[13px] text-ink/70">Every form is open to every service. A form is sent to the client from the chat; they answer in their event.</p>
     </>
   );
 }

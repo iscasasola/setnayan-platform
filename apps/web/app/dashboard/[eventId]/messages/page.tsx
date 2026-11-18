@@ -46,6 +46,7 @@ import { StartThreadPicker } from './_components/start-thread-picker';
 import { ChatInbox, type InboxRow } from './_components/chat-inbox';
 import { formatLongDate } from '@/lib/format-date';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { coupleChatHref } from '@/lib/couple-chat-door';
 import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
 import { EventGroups } from './_components/event-groups';
 import { ChatPanes } from './_components/chat-panes';
@@ -270,9 +271,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     return {
       threadId: r.threadId,
       // 🪞 The picked supplier, already on its Chat page (drawn over this list); else the shipped full-screen thread.
-      href: eventVendorId
-        ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=chat`
-        : `/dashboard/${eventId}/messages/${r.threadId}`,
+      href: coupleChatHref(eventId, eventVendorId, r.threadId),
       opensPicked: Boolean(eventVendorId),
       name: r.displayName,
       logoUrl: logoByVendor.get(vendorId) ?? null,

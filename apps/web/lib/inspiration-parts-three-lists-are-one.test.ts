@@ -134,7 +134,8 @@ test('the wiring: each screen draws from the request’s ONE snapshot', () => {
   const studio = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
   assert.match(studio, /palettePhotoParts\(props\.inspirationParts\)/, 'the couple’s “Which part?” does not read the snapshot it is handed');
   const editor = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
-  assert.match(editor, /inspirationParts=\{await getInspirationParts\(\)\}/, 'the Studio is not handed the request’s snapshot');
+  // ⚡ Filtered to the parts it draws (`studioPartsSnapshot`, 2026-11-18) — still the request's ONE snapshot, never the consts.
+  assert.match(editor, /inspirationParts=\{studioPartsSnapshot\(await getInspirationParts\(\)\)\}/, 'the Studio is not handed the request’s snapshot');
   const access = read('lib/moodboard-library-access.ts');
   assert.match(access, /getInspirationParts\(\)/, 'the supplier’s library does not read the snapshot');
   assert.match(access, /moodboardLibraryAccessForProfile\(profile, parts\)/, 'the supplier’s dropdown is not built from the snapshot it read');

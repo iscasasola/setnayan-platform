@@ -89,10 +89,10 @@ export function CoupleLinkDoor({
           the one ActionButton (a link and the page's own decline form). */}
       <article className="space-y-6" data-claim-door="own-link">
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What they&rsquo;ve recorded
           </p>
-          <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
+          <dl className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
             <SnapshotField label="Business" value={businessName} bold />
             <SnapshotField label="Service" value={categoryLabel} />
             {contactPerson ? <SnapshotField label="Who they talk to" value={contactPerson} /> : null}
@@ -109,16 +109,16 @@ export function CoupleLinkDoor({
               value="Price · what’s included · your payment plan — after you join"
             />
           </dl>
-          <p className="mt-2 text-xs text-ink/55">
+          <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
             Package &amp; payment details stay private until you finish signup.
           </p>
         </section>
 
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What you get
           </p>
-          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+          <ul className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Calendar + payments + contracts tracking</Perk>
@@ -146,7 +146,7 @@ export function CoupleLinkDoor({
           />
           {decline}
         </div>
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           Already on Setnayan? Sign in with your supplier account to claim it.
           Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
         </p>
@@ -216,33 +216,33 @@ export function TeamInviteDoor({
       <article className="space-y-6" data-claim-door="team">
         {offer ? (
           <section data-claim-offer="">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Your offer</p>
-            <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
+            <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Your offer</p>
+            <dl className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
               {offer.plan ? (
-                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="plan">
-                  <dt className="shrink-0 text-[13px] text-ink/60">Plan</dt>
-                  <dd className="min-w-0 text-right text-sm text-ink">
+                <div className="flex min-h-14 items-center justify-between gap-4 py-2" data-claim-offer-row="plan">
+                  <dt className="shrink-0 text-[13px] text-[color:var(--m-slate-2)]">Plan</dt>
+                  <dd className="min-w-0 text-right text-[15px] text-ink">
                     <strong className="font-semibold">{offer.plan.word}</strong> · free until {offer.plan.until}
                   </dd>
                 </div>
               ) : null}
               {offer.photos ? (
-                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="photos">
-                  <dt className="shrink-0 text-[13px] text-ink/60">Portfolio photos</dt>
-                  <dd className="min-w-0 text-right text-sm text-ink">
+                <div className="flex min-h-14 items-center justify-between gap-4 py-2" data-claim-offer-row="photos">
+                  <dt className="shrink-0 text-[13px] text-[color:var(--m-slate-2)]">Portfolio photos</dt>
+                  <dd className="min-w-0 text-right text-[15px] text-ink">
                     <strong className="font-semibold">{formatCount(offer.photos)}</strong> · yours to keep
                   </dd>
                 </div>
               ) : null}
               <SnapshotField label="Booking fee" value={offer.fee} />
             </dl>
-            {offer.note ? <p className="mt-2 text-xs text-ink/55">{offer.note}</p> : null}
+            {offer.note ? <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">{offer.note}</p> : null}
           </section>
         ) : null}
 
         <section>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">What you get</p>
-          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">What you get</p>
+          <ul className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
             <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with couples in-app</Perk>
             <Perk>Calendar + bookings dashboard</Perk>
@@ -262,9 +262,74 @@ export function TeamInviteDoor({
           />
           {decline}
         </div>
-        <p className="text-xs text-ink/50">
+        <p className="text-[13px] text-[color:var(--m-slate-2)]">
           Not the right business? Just ignore this page — we won&rsquo;t follow up.
         </p>
+      </article>
+    </DoorShell>
+  );
+}
+
+/**
+ * 🤝 THE DOOR ON ANOTHER SUPPLIER'S INVITE LINK (`/i/<slug>`) — Invite a supplier v3 (owner 16 Nov 2026, specs
+ * cb1affde frame 3 "Proposed · invited by a supplier"). The shipped claim door's shape and perks, with a supplier as
+ * the inviter: eyebrow · title · one line · What you get · Create my free shop / I already have a Setnayan shop.
+ * `existing` is the second button — a link to sign in, or (signed in with a shop) the page's own join form.
+ */
+export function SupplierInviteDoor({
+  inviterName,
+  createHref,
+  existing,
+  note,
+}: {
+  inviterName: string;
+  createHref: string | null;
+  existing: ReactNode;
+  /** A plain line under the buttons (a refusal, "your own link", …). */
+  note?: ReactNode;
+}) {
+  return (
+    <DoorShell
+      width="lg"
+      eyebrow="Invited by a supplier"
+      title={
+        <>
+          <strong className="font-semibold">{inviterName}</strong> invited you to join Setnayan.
+        </>
+      }
+      sub={
+        <>
+          Once you&rsquo;re in, you are each other&rsquo;s <strong className="text-ink">preferred supplier</strong>.
+        </>
+      }
+    >
+      <article className="space-y-6" data-claim-door="supplier-invite">
+        <section>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">What you get</p>
+          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>
+              {inviterName} shows on your page as a preferred supplier, and you on theirs
+            </Perk>
+            <Perk>Chat with them in-app</Perk>
+            <Perk>Marketplace exposure to other PH couples</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
+          </ul>
+        </section>
+
+        <div className="flex flex-wrap gap-3">
+          {createHref ? (
+            <ActionButton
+              tone="brand"
+              main
+              icon={<UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+              label="Create my free shop"
+              href={createHref}
+            />
+          ) : null}
+          {existing}
+        </div>
+        {note ? <p className="text-xs text-ink/55">{note}</p> : null}
       </article>
     </DoorShell>
   );
@@ -282,10 +347,10 @@ export function SnapshotField({
   bold?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 py-2.5">
-      <dt className="shrink-0 text-[13px] text-ink/60">{label}</dt>
+    <div className="flex min-h-14 items-center justify-between gap-4 py-2">
+      <dt className="shrink-0 text-[13px] text-[color:var(--m-slate-2)]">{label}</dt>
       <dd
-        className={`inline-flex min-w-0 items-center gap-1.5 text-right text-sm text-ink ${
+        className={`inline-flex min-w-0 items-center gap-1.5 text-right text-[15px] text-ink ${
           bold ? 'font-semibold' : ''
         }`}
       >
@@ -304,8 +369,8 @@ export function Perk({
   className?: string;
 }) {
   return (
-    <li className={`flex items-start gap-2 py-2.5 ${className}`}>
-      <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sn-accent" strokeWidth={1.75} />
+    <li className={`flex min-h-11 items-center gap-2 py-2 ${className}`}>
+      <Sparkles aria-hidden className="h-4 w-4 flex-shrink-0 text-sn-accent" strokeWidth={1.75} />
       <span>{children}</span>
     </li>
   );

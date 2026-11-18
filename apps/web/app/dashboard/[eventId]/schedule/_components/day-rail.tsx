@@ -97,6 +97,7 @@ import { dayList } from '@/lib/day-list';
 import { DayList } from './day-list';
 import { EVERYONE, lensAllowed, type ViewLens } from '@/lib/schedule-view-as';
 import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
+import { ActionButton } from '@/components/action-button';
 
 type SheetState =
   | { kind: 'add'; dateKey: string | null; startMin: number }
@@ -1634,13 +1635,7 @@ function NoDateYet({ canEdit, onAdd }: { canEdit: boolean; onAdd: () => void }) 
       <CalendarClock aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/35" strokeWidth={1.5} />
       <p className="text-sm font-medium text-ink">No moments yet.</p>
       {canEdit ? (
-        <button
-          type="button"
-          onClick={onAdd}
-          className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add the first moment
-        </button>
+        <ActionButton tone="brand" main icon={Plus} label="Add the first moment" onClick={onAdd} className="mt-3" />
       ) : null}
     </div>
   );

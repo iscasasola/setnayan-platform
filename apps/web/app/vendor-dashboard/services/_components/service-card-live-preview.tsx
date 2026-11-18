@@ -67,7 +67,7 @@ export function ServiceCardLivePreview({
     <div ref={holderRef}>
       <div className="mb-1 flex items-center justify-between">
         <span
-          className="font-mono text-[10px] uppercase tracking-[0.13em]"
+          className="tabular-nums text-[12px] uppercase tracking-[0.13em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
           Card preview

@@ -108,14 +108,13 @@ const BILL: ReadonlyArray<readonly [string, number]> = [
   // fold (2026-09-30): the ShieldCheck ICON and the one shared CHECKBOX class (template T10, 14 Nov 2026) —
   // non-text, 3:1 — never a word.
   ['vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx', 2],
-  ['vendors/[vendorId]/workspace/_components/deposit-reservation.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/handover-inbox.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/host-service-details.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/quote-bridge.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/reservation-terms-ack.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx', 1],
   ['vendors/[vendorId]/workspace/_components/working-folder-notes.tsx', 1],
-  ['vendors/[vendorId]/workspace/page.tsx', 6],
+  ['vendors/[vendorId]/workspace/page.tsx', 5],
   ['vendors/_components/build-compare.tsx', 2],
   ['vendors/_components/build-locked.tsx', 1],
   ['vendors/_components/merkado-guard-banner.tsx', 1],

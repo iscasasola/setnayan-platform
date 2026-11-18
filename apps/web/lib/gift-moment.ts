@@ -18,10 +18,12 @@
  * 🔑 THE GIFT IS ALREADY THEIRS. Redeem only takes them to where it landed; the claim grants nothing.
  */
 
-import { BADGE_REWARDS, FALLBACK_REWARD_NAMES, rewardSourceWords, rewardWords, type BadgeRewardKind, type RewardBadge, type RewardNames } from '@/lib/badge-rewards';
+import { BADGE_REWARDS, FALLBACK_REWARD_NAMES, rewardSourceWords, rewardWords, tierOfRewardKey, type BadgeRewardKind, type BadgeRewardRule, type RewardBadge, type RewardNames } from '@/lib/badge-rewards';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { milestoneBadge, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { shopInitials } from '@/lib/shop-initials';
+import { TIER_KEYS } from '@/lib/badge-tiers';
+import type { TicketKind } from '@/app/_components/award/ticket-svg';
 
 /** What a gift is. G3 adds `setnayan_gift` here, in the migration's CHECK and in the two read functions. */
 export type GiftMomentSource = 'shop_gift' | 'badge_reward';
@@ -72,7 +74,68 @@ export type GiftMomentView = {
   landedAt: string;
   /** null = waiting (not claimed). */
   claimedAt: string | null;
+  /**
+   * 🎟 The reward ticket the box opens on (award kit #7752, `ticket-svg.ts`): its kind, and for a badge reward the tier
+   * (1 = Bronze … 7 = Black Diamond) whose metal its frame wears. Absent/null = no ticket for this gift on main.
+   */
+  ticket?: GiftTicketRef | null;
+  /**
+   * 🪪 The giving shop is not yet verified (owner 2026-11-16, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET
+   * VERIFIED"): the shipped line + its ⓘ — never hidden, never blocks. Absent for a verified shop and for Setnayan.
+   */
+  unverified?: { line: string; info: string } | null;
 };
+
+export type GiftTicketRef = { kind: TicketKind; tier: number | null };
+
+/**
+ * 🎟 WHICH TICKET A GIFT IS — read from the gift itself, never typed (prototype gift-box_APPROVED: "read from the gift
+ * itself"). A Papic gift is the ticket of its pack; a plan gift the plan's ticket. A free booking fee has no ticket
+ * kind in the award kit, so it opens on the lit lining (named gap, never a guessed ticket).
+ */
+const PLAN_TICKET = { event_plus: 'eplus', event_pro: 'epro', event_ultra: 'eultra' } as const satisfies Record<string, TicketKind>;
+/** The award kit's Papic tickets by the credits one pack holds (the ladder's packs: TIER_REWARDS in lib/badge-rewards). */
+const PAPIC_TICKET_BY_CREDITS = { 150: 'papic150', 1000: 'papic1000', 3000: 'papic3000' } as const satisfies Record<number, TicketKind>;
+/** A badge reward names its pack, not its credits: the smallest pack is the ladder's "Papic 150" (TIER_REWARDS tier1). */
+const PAPIC_TICKET_BY_PACK = { smallest: 'papic150', papic_1000: 'papic1000', papic_3000: 'papic3000' } as const satisfies Record<string, TicketKind>;
+
+function planTicket(kind: string): TicketKind | null {
+  return (PLAN_TICKET as Readonly<Record<string, TicketKind>>)[kind] ?? null;
+}
+
+/** A supplier's gift: the ticket of its FIRST line (the box shows one ticket — the prototype's). */
+export function shopGiftTicket(lines: readonly ShopGiftLine[]): GiftTicketRef | null {
+  const l = lines.find((x) => (x?.title ?? '').trim() !== '');
+  if (!l) return null;
+  const kind = l.kind === 'papic' ? ((PAPIC_TICKET_BY_CREDITS as Readonly<Record<number, TicketKind>>)[l.credits] ?? null) : planTicket(l.kind);
+  return kind ? { kind, tier: null } : null;
+}
+
+/** A badge reward: its granted kind, the pack its step pays (the reward table), and the tier of its key. */
+export function badgeRewardTicket(rewardKey: string, rewardKind: string): GiftTicketRef | null {
+  const t = tierOfRewardKey(rewardKey);
+  const tier = t ? TIER_KEYS.indexOf(t.tier) + 1 : null;
+  if (rewardKind !== 'papic') {
+    const kind = planTicket(rewardKind);
+    return kind ? { kind, tier } : null;
+  }
+  const [head, part] = rewardKey.split(':');
+  const rule = (BADGE_REWARDS as Readonly<Record<string, BadgeRewardRule>>)[head ?? ''];
+  const reward =
+    rule?.shape === 'once'
+      ? rule.reward
+      : rule?.shape === 'ladder'
+        ? (rule.steps.find((x) => x.tier === part || String(x.step) === part)?.reward ?? null)
+        : null;
+  if (!reward || reward.kind !== 'papic') return null;
+  return { kind: PAPIC_TICKET_BY_PACK[reward.pack ?? 'smallest'], tier };
+}
+
+/**
+ * On an OWN CLIENT's gift the ⓘ says only this (Own clients v4 answer 2, 16 Nov): the shipped ⓘ's "booking fee applies
+ * as usual" is not true for a shop's own client.
+ */
+export const OWN_CLIENT_NOT_VERIFIED_INFO = 'Setnayan hasn’t checked this shop’s documents yet.';
 
 const COUNT = new Intl.NumberFormat('en-PH');
 
@@ -151,6 +214,7 @@ export function shopGiftMomentView(row: ShopGiftMomentRow, eventId: string): Gif
     waitingLine: `A gift from ${giver} is waiting`,
     landedAt: row.landedAt,
     claimedAt: row.claimedAt,
+    ticket: shopGiftTicket(row.lines),
   };
 }
 
@@ -212,6 +276,7 @@ export function badgeRewardMomentView(row: BadgeRewardMomentRow, names: RewardNa
     waitingLine: 'A gift from Setnayan is waiting',
     landedAt: row.landedAt,
     claimedAt: row.claimedAt,
+    ticket: badgeRewardTicket(row.rewardKey, row.rewardKind),
   };
 }
 

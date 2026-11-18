@@ -143,7 +143,11 @@ function FileRow({ f }: { f: SharedFileEntry }) {
         <span className="block truncate text-[13px] text-ink/60">{[f.origin, f.typeLabel].filter(Boolean).join(' · ')}</span>
       </span>
       <span className="flex-none text-right text-[12.5px] leading-tight text-ink/60">
-        <span className="block">{f.expired ? CHAT_FILE_EXPIRED_LABEL : (f.sizeLabel ?? '—')}</span>
+        {/* The size line only when there IS a size (a chat attachment) or the file expired — contracts, handovers and
+            links carry no byte count, and a bare "—" above the day read as a missing value (owner, 17 Nov). */}
+        {f.expired || f.sizeLabel ? (
+          <span className="block" data-files-size="">{f.expired ? CHAT_FILE_EXPIRED_LABEL : f.sizeLabel}</span>
+        ) : null}
         <span className="block">{dateWord(f.at)}</span>
       </span>
     </>

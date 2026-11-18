@@ -204,7 +204,8 @@ test('an ordinary lookup keeps byte-identical navigation — no offset, no extra
 test('the ask offer renders ABOVE the page hits, not after them', () => {
   const src = palette();
   const offerIdx = src.indexOf('showAskEscapeHatch ? (');
-  const hitsIdx = src.indexOf('hits.map(');
+  // `pageHits` since Focus at Spotlight level (a whole public ID lists no pages beside its record).
+  const hitsIdx = src.indexOf('pageHits.map(');
   assert.ok(offerIdx > 0, 'the ask offer block is gone from the palette');
   assert.ok(hitsIdx > 0, 'the hit list is gone from the palette');
   assert.ok(
@@ -328,7 +329,7 @@ test('the palette passes the REAL gate into the nav list, and derives the offset
     // keeps this guard's original property — the real gate reaches the list —
     // and adds the same property for the record rows, which have the identical
     // failure mode: render, highlight, and not be what Enter opens.
-    /const navRows = useMemo\(\s*\(\) => buildNavRows\(\s*askRowSelectable,\s*hits,\s*records,?\s*(rec !== null)?\s*\)/,
+    /const navRows = useMemo\(\s*\(\) => buildNavRows\(\s*askRowSelectable,\s*pageHits,\s*records,?\s*(rec !== null)?\s*\)/,
     'the palette no longer builds its nav list from askRowSelectable — the ask row can render, highlight, and still not be what Enter opens (this is the #4892 bug)',
   );
   // …and that gate must itself come from the shared rule, not a constant.

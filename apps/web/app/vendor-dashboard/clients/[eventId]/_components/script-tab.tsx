@@ -221,7 +221,7 @@ export async function ScriptTab({
           <InfoTip
             label={`Get these right · ${attention.length}`}
             labelAs="h3"
-            labelClassName="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70"
+            labelClassName="home-k2 !m-0"
             align="start"
           >
             {coupleName} asked for something specific on these moments. Everything else you can ad-lib.
@@ -273,7 +273,7 @@ export async function ScriptTab({
                 // Never a subtler shade — a worded banner. He is holding a mic.
                 <p className="mb-2.5 flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-cream">
                   <EyeOff className="h-4 w-4 shrink-0" aria-hidden />
-                  <strong className="text-[13px] font-semibold uppercase tracking-[0.08em]">
+                  <strong className="text-[13px] font-semibold">
                     Don&rsquo;t read aloud
                   </strong>
                   <span className="ml-auto text-right text-[13px] leading-tight text-cream">
@@ -292,7 +292,7 @@ export async function ScriptTab({
 
               {e.note ? (
                 <div className="mt-2 border-l-2 border-gold pl-3">
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
+                  <p className="text-[13px] font-semibold text-ink/70">
                     {isPrivate ? 'They told you' : 'They asked'}
                   </p>
                   <p className="mt-0.5 text-[15px] text-ink">{e.note}</p>

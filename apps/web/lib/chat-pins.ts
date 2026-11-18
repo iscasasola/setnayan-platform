@@ -46,6 +46,29 @@ export type PinKind =
    */
   | 'schedule_change';
 
+/**
+ * 💳 THE LIVE QUOTE'S MONEY STEP in the chat — the couple's "Amount to pay" card (`DepositReservation`) and the
+ * supplier's Confirm sit there (`chat-message-stream.tsx`). Its DOM id, the place a money pin jumps to.
+ */
+export const MONEY_STEP_ANCHOR = 'chat-money-step';
+
+/**
+ * ⏭ CHAT-27 (walk 16 Nov 2026): a pin with no answer of its own to open in place ("Due now · Answer ›" on the couple's
+ * side, whose only bodies are decisions) did nothing. Its card in the chat is where it is answered — the row jumps there.
+ */
+export const PIN_JUMP_ANCHOR: Partial<Record<PinKind, string>> = {
+  payment_due: MONEY_STEP_ANCHOR,
+  booking_fee: MONEY_STEP_ANCHOR,
+  confirm_payment: MONEY_STEP_ANCHOR,
+};
+
+/** Where a pin's press goes: its body in place, else its card in the chat, else nothing to open. */
+export function pinPress(kind: PinKind, hasBody: boolean): { open: 'body' } | { jump: string } | null {
+  if (hasBody) return { open: 'body' };
+  const anchor = PIN_JUMP_ANCHOR[kind];
+  return anchor ? { jump: anchor } : null;
+}
+
 /** The topic each pin wears (its icon is `TOPIC_ICON[topic]` — never a glyph of its own). */
 export const PIN_TOPIC: Record<PinKind, ChatTopic> = {
   booking_ask: 'quote',

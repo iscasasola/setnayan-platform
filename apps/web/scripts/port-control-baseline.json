@@ -2466,6 +2466,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2480,6 +2481,7 @@
         "admin/_components/field-pick.tsx",
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
+        "admin/_components/focus-received.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
@@ -2601,6 +2603,7 @@
         "AppRailShell",
         "AskAnswer",
         "BottomNav",
+        "BuyerSaysPaidCard",
         "ConfirmChoice",
         "ConfirmDialog",
         "CountUp",
@@ -2608,6 +2611,7 @@
         "ErrorState",
         "FocusCardSheet",
         "FocusHome",
+        "FocusReceived",
         "Fold",
         "GuidedTour",
         "HTMLDivElement",
@@ -2624,12 +2628,15 @@
         "PageMasthead",
         "PickMenu",
         "PinnedRow",
+        "ReceivedCard",
+        "ReceivedTileBlock",
         "RequestCardView",
         "Row",
         "Screen",
         "Sheet",
         "Sk",
         "TabSettingsRows",
+        "TemplateFail",
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
@@ -2783,6 +2790,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -3381,6 +3389,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3517,6 +3526,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3558,6 +3568,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3956,6 +3967,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4140,6 +4152,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4410,13 +4423,19 @@
         "admin/payments/_components/desk.tsx",
         "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
+        "admin/payments/_components/received-drop-tile.tsx",
+        "admin/payments/_components/received-match-pick.tsx",
+        "admin/payments/_components/received-pile.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
+        "admin/payments/_components/reread-on-this-phone.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
-        "admin/payments/page.tsx"
+        "admin/payments/page.tsx",
+        "admin/payments/received.ts"
       ],
       "destinations": [
-        "/admin/accounts?tab=events&q=[seg]"
+        "/admin/accounts?tab=events&q=[seg]",
+        "/admin/payments?open=[seg]"
       ],
       "actions": [
         "action",
@@ -4444,6 +4463,7 @@
         "FormDate",
         "FormPick",
         "FormRows",
+        "HTMLFormElement",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
@@ -4455,14 +4475,24 @@
         "PaymentRow",
         "PaymentsList",
         "PendingDecision",
+        "PickMenu",
+        "PileRow",
         "ProofImage",
+        "Read",
         "ReadFailedNotice",
         "ReceiptReadCard",
+        "ReceivedCard",
+        "ReceivedDropTile",
+        "ReceivedMatchPick",
+        "ReceivedPile",
+        "ReceivedTileBlock",
         "RecordPaymentCard",
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "RereadOnThisPhone",
         "ServiceRemedyForms",
+        "Sheet",
         "SubmitButton",
         "TemplateEmpty",
         "TemplateFail",
@@ -4582,6 +4612,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4767,6 +4798,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4916,6 +4948,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5016,6 +5049,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5613,6 +5647,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",
@@ -7062,6 +7097,7 @@
         "ReadRefusedNotice",
         "Ready",
         "ReadyForNoSignal",
+        "ReceiptReadFields",
         "RecordCardFolds",
         "RecordLinkBlock",
         "ReleaseScheduleResult",
@@ -13410,6 +13446,7 @@
     "/pay/[reference]": {
       "files": [
         "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/page.tsx"
       ],
@@ -13424,6 +13461,7 @@
         "Channel",
         "ChannelToggle",
         "CopyButton",
+        "File",
         "FileUpload",
         "HTMLDivElement",
         "Link",
@@ -13432,6 +13470,8 @@
         "PayStage",
         "PaymentDetailsBlock",
         "ProofForm",
+        "ReceiptReadFields",
+        "SentScreen",
         "StageLink",
         "StageRail",
         "Step",
@@ -14136,6 +14176,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/back-when-not-risen.tsx",
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
@@ -14313,9 +14354,11 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HolderSlot",
         "I",
         "Icon",
         "Image",
+        "InSheet.Provider",
         "InfoTip",
         "InlineDocsPayload",
         "InlineNotice",
@@ -14421,6 +14464,7 @@
         "TodayNoteRow",
         "TodayRow",
         "TodaySettings",
+        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TrackRecordRow",
@@ -16374,6 +16418,8 @@
         "updateBusinessStartDate"
       ],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchPanel",
         "CouldNotLoad",
@@ -16859,6 +16905,8 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "DatesRow",
         "Fold",
         "Icon",
@@ -17303,6 +17351,8 @@
       "blocks": [
         "ActionButton",
         "AgentServiceAssignment",
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchScope",
         "ChosenRow",

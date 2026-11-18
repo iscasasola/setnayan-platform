@@ -26,8 +26,7 @@ export type PlanContentCapKey =
   | 'whitelistPerDate'
   | 'waitlistAcceptances'
   | 'branchesIncluded'
-  | 'bookingsPerDatePerService'
-  | 'servicesPerLeaf'
+  | 'serviceCardsTotal'
   | 'parentCategories'
   | 'agentAccounts';
 
@@ -46,9 +45,9 @@ export type PlanContentKeyDef = {
 
 export const EDITABLE_PLAN_KEYS: readonly PlanContentKeyDef[] = [
   {
-    key: 'services_per_leaf',
-    capKey: 'servicesPerLeaf',
-    label: 'Service cards per category',
+    key: 'service_cards_total',
+    capKey: 'serviceCardsTotal',
+    label: 'Service cards in total',
     readBy: 'the Add-a-service gate, the Card Maker and the plan picker',
     noLimitAllowed: true,
   },
@@ -73,13 +72,7 @@ export const EDITABLE_PLAN_KEYS: readonly PlanContentKeyDef[] = [
     readBy: 'the branch gate (in the database) and Add a branch',
     noLimitAllowed: false,
   },
-  {
-    key: 'bookings_per_date_per_service',
-    capKey: 'bookingsPerDatePerService',
-    label: 'Bookings per date, per service card',
-    readBy: 'the booking yes (in the database) and the Card Maker',
-    noLimitAllowed: false,
-  },
+  // ⛔ No `bookings_per_date_per_service` since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   {
     key: 'waitlist_acceptances',
     capKey: 'waitlistAcceptances',

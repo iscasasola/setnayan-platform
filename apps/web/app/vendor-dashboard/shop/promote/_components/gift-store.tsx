@@ -292,7 +292,7 @@ export function GiftStore({
   const firstShape = bundles[0] ? bundleShape(bundles[0]) : null;
   // 🏦 BDO only (owner 17 Nov: "we will make all our transactions enter BDO Account"). No fallback to another rail: with
   // BDO closed the store says payments are paused, as it does with nothing open. (#7926 makes the same rule app-wide.)
-  const rail = openRails.find((r) => r.id === 'bdo')?.id ?? '';
+  const rail = openRails.map((r) => r.id).includes('bdo') ? 'bdo' : '';
   const total = formatPhp(sum.totalCentavos / 100);
 
   const head = (

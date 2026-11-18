@@ -579,11 +579,14 @@ function labUpgrades(tier: string): BadgeUpgradeRow[] {
   ];
 }
 
+/** Lab-only: the biggest Papic pack. Held apart from the Event rows below so its credit count is never read as a price. */
+const LAB_BIGGEST_PAPIC = { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 };
+
 /** Lab-only stand-in packs — the page reads `platform_retail_catalog_v2`; these never reach a supplier. */
 const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
   { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
-  { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
+  LAB_BIGGEST_PAPIC,
   // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
   { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },

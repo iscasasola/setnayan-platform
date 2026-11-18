@@ -5,11 +5,13 @@
  * the sheet is the catalogue's.
  */
 import { bundleFreePacks, giftCount, type ShopGiftKind } from '@/lib/shop-gifts';
+import { formatCount } from '@/lib/format-number';
+import { papicPackSize } from './gift-store-sizes';
 
 export type GiftSheetWords = { eyebrow: string; forClient: string; forYou: string };
 
 export function giftSheetWords(pack: { kind: ShopGiftKind; credits: number }): GiftSheetWords {
-  const n = giftCount(pack.credits);
+  const n = formatCount(pack.credits);
   if (pack.kind === 'event_plus') {
     return {
       eyebrow: 'Event · a gift for your client',
@@ -32,14 +34,15 @@ export function giftSheetWords(pack: { kind: ShopGiftKind; credits: number }): G
     };
   }
   // Papic — the prototype's three sentences go with the pack's size: small, mid, the biggest.
-  if (pack.credits >= 3000) {
+  const size = papicPackSize(pack.credits);
+  if (size === 'biggest') {
     return {
       eyebrow: 'Papic · a gift for your client',
       forClient: `Every table, every dance, every corner of a full room: ${n} photos, so no moment is missed.`,
       forYou: 'The gift that tells your biggest clients you went further than anyone on their list.',
     };
   }
-  if (pack.credits >= 1000) {
+  if (size === 'mid') {
     return {
       eyebrow: 'Papic · a gift for your client',
       forClient: `Their whole day, seen through their guests’ eyes: ${n} photos from the first arrival to the last dance.`,

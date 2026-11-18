@@ -188,9 +188,14 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   const listLocked = settingsReadFailed || accountsReadFailed;
   // 💳 The most in one payment (owner 2026-11-17) — read fresh here, never the remembered copy, so the form shows the row.
   const maxRead = await admin.from('platform_settings').select('max_payment_php').eq('id', 1).maybeSingle();
+  if (maxRead.error) logQueryError('admin/settings/payment-methods: max_payment_php', maxRead.error);
   const maxPaymentPhp = maxRead.error
     ? null
     : Number((maxRead.data as { max_payment_php?: number | string | null } | null)?.max_payment_php ?? NaN);
+  const maxPaymentNote =
+    maxPaymentPhp === null || !Number.isFinite(maxPaymentPhp)
+      ? 'Couldn’t read the current amount — refresh before saving.'
+      : `Now ${formatPhp(maxPaymentPhp)}. The supplier gift store refuses an order above it, and says so.`;
   const cappedRails = PAY_CHANNELS.filter((id) => accounts.some((a) => a.id === id));
   const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400) : '';
 
@@ -332,7 +337,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       {/* ── THE MOST IN ONE PAYMENT (owner 2026-11-17: "We do not allow transactions above 100,000.") ── */}
       <form action={savePaymentInstruments} className="mt-10 space-y-3 border-t border-ink/10 pt-8" data-admin-max-payment="">
         <input type="hidden" name="intent" value="max_payment_save" />
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Most in one payment</h2>
+        <h2 className="text-sm font-medium text-ink">Most in one payment</h2>
         <Field label="Most in one payment (₱)" htmlFor="max_payment_php">
           <input
             id="max_payment_php"
@@ -346,11 +351,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             className="input-field font-mono"
           />
         </Field>
-        <p className="text-[12px] text-ink/60">
-          {maxPaymentPhp === null || !Number.isFinite(maxPaymentPhp)
-            ? 'Couldn’t read the current amount — refresh before saving.'
-            : `Now ${formatPhp(maxPaymentPhp)}. The supplier gift store refuses an order above it, and says so.`}
-        </p>
+        <p className="text-[12px] text-ink/60">{maxPaymentNote}</p>
         <SubmitButton className="button-primary inline-flex items-center gap-2" pendingLabel="Saving…" disabled={maxPaymentPhp === null}>
           Save
         </SubmitButton>

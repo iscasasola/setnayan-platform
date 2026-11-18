@@ -39,7 +39,7 @@ unreadable	orders	app/papic/buy/actions.ts	1
 unreadable	orders	app/vendor-dashboard/branches/actions.ts	1
 unreadable	orders	app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts	1
 unreadable	orders	app/vendor-dashboard/deep-search/actions.ts	1
-unreadable	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts	1
+unreadable	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/actions.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	2
@@ -101,7 +101,7 @@ waits	orders	app/pay/[reference]/actions.ts	1
 waits	orders	app/vendor-dashboard/branches/actions.ts	1
 waits	orders	app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts	1
 waits	orders	app/vendor-dashboard/deep-search/actions.ts	1
-waits	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts	1
+waits	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts	2
 waits	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2

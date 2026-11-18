@@ -200,9 +200,9 @@ test('T6 · the question is ONE dropdown of only the categories on the event', (
 /* ── T7 · the pinned header and the scope that follows it ────────────────── */
 
 test('T7 · an open category’s header pins under the shell’s block, and the body is not a scroll box', () => {
-  assert.match(BENCH, /\.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{position:sticky;top:var\(--stick-h,150px\);z-index:3;background:#F7F5F0;/);
+  assert.match(BENCH, /\.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{position:sticky;top:var\(--stick-h,150px\);z-index:3;background:var\(--sn-canvas\);/);
   assert.match(BENCH, /\.slcat \.fold\.flat \.fold-collapse>\.fold-body\{overflow:visible\}/, 'a hidden-overflow ancestor would stop the head pinning');
-  assert.match(BENCH, /html\.dark \.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{background:#17160F\}/);
+  assert.match(BENCH, /html\.dark \.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{background:rgb\(var\(--color-page\)\)\}/);
 });
 
 test('T7 · the scope is the ONE OPEN category the moment it opens: the words, the search and Add follow it', () => {

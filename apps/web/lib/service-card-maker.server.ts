@@ -27,6 +27,7 @@ import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
 import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
 import {
   coverageAskFor,
+  signupCoveredLeaves,
   supplierTypeForShop,
   type SupplierType,
 } from '@/lib/service-card-maker';
@@ -178,6 +179,10 @@ export async function loadMakerContext(
     (s, i, all) => leaves.label.has(s) && all.indexOf(s) === i && !vendorCoverages.some((c) => c.canonical_service === s),
   );
   const coveredLeafSet = new Set([...vendorCoverages.map((c) => c.canonical_service), ...signupLeaves]);
+  /* 🧰 …and the COARSE category sign-up stores first counts as covered too (walk step 3, 2026-11-16 — "Add Florals to
+     what you do?" after Create): each sign-up entry resolves through `coverageLeafForKind`, the same rule the question
+     asks with. Only the covered set grows — what "What you cover" lists is unchanged. Read only. */
+  for (const leaf of signupCoveredLeaves(tierRow?.services, leaves)) coveredLeafSet.add(leaf);
   const existingParents = new Set<string>([
     ...ownCategories.flatMap((c) => parentsOfKind(c, leaves)),
     ...[...coveredLeafSet].map((l) => leaves.folder.get(l)).filter((f): f is string => Boolean(f)),

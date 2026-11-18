@@ -104,11 +104,11 @@ function phpFormat(centavos: number): string {
 }
 
 const PREP_COLOURS: Record<CandidateInsight['prep']['status'], string> = {
-  very_generous: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  generous: 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
-  comfortable: 'bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
-  tight: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-  very_tight: 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+  very_generous: 'bg-emerald-50 dark:bg-[rgb(var(--color-ok)/0.14)] text-emerald-700 dark:text-[rgb(var(--color-ok))] border-emerald-200 dark:border-[rgb(var(--color-ok)/0.4)]',
+  generous: 'bg-green-50 dark:bg-[rgb(var(--color-ok)/0.14)] text-green-700 dark:text-[rgb(var(--color-ok))] border-green-200 dark:border-[rgb(var(--color-ok)/0.4)]',
+  comfortable: 'bg-sky-50 dark:bg-[rgb(var(--color-info)/0.14)] text-sky-700 dark:text-[rgb(var(--color-info))] border-sky-200 dark:border-[rgb(var(--color-info)/0.4)]',
+  tight: 'bg-amber-50 dark:bg-[rgb(var(--color-warn)/0.14)] text-amber-700 dark:text-[rgb(var(--color-warn))] border-amber-200 dark:border-[rgb(var(--color-warn)/0.4)]',
+  very_tight: 'bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] text-red-700 dark:text-[rgb(var(--color-danger))] border-red-200 dark:border-[rgb(var(--color-danger)/0.4)]',
 };
 
 type WinnerKey = 'vendors' | 'prep' | 'meaningful' | 'services';

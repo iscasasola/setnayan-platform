@@ -1372,12 +1372,12 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
 
       {/* Unsaved-2D-changes line (Sync verdict § 5 · GUN C door audit — visible, never silent staleness). */}
       {staleDirty ? (
-        <p className="pointer-events-none absolute inset-x-3 top-3 z-20 mx-auto max-w-sm rounded-full bg-black/55 px-4 py-2 text-center text-xs text-amber-100 dark:text-amber-900 backdrop-blur-md">
+        <p className="pointer-events-none absolute inset-x-3 top-3 z-20 mx-auto max-w-sm rounded-full bg-black/55 px-4 py-2 text-center text-xs text-amber-100 backdrop-blur-md">
           Unsaved 2D changes aren&rsquo;t shown here yet.
         </p>
       ) : null}
       {notice ? (
-        <div className="pointer-events-auto absolute inset-x-3 top-14 z-20 mx-auto flex max-w-sm items-center gap-3 rounded-2xl bg-black/55 px-4 py-2 text-sm text-amber-100 dark:text-amber-900 backdrop-blur-md">
+        <div className="pointer-events-auto absolute inset-x-3 top-14 z-20 mx-auto flex max-w-sm items-center gap-3 rounded-2xl bg-black/55 px-4 py-2 text-sm text-amber-100 backdrop-blur-md">
           <span className="min-w-0 flex-1">{notice}</span>
           <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notice" className="min-h-11 min-w-11 text-white/60 hover:text-white">
             <span aria-hidden>✕</span>

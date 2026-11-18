@@ -83,7 +83,7 @@ export async function GuestContributionsCard({ eventId }: { eventId: string }) {
             <span
               className={
                 r.settled
-                  ? 'text-xs font-medium text-emerald-700 dark:text-emerald-300'
+                  ? 'text-xs font-medium text-emerald-700 dark:text-[rgb(var(--color-ok))]'
                   : 'text-xs font-medium text-ink/70'
               }
             >

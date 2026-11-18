@@ -143,7 +143,7 @@ export function EntranceChart({
             No one is seated yet — seat your guests in the Seat plan first.
           </p>
         ) : unseated > 0 ? (
-          <p role="status" data-entrance-chart-unseated className="text-sm text-amber-800 dark:text-amber-200">
+          <p role="status" data-entrance-chart-unseated className="text-sm text-amber-800 dark:text-[rgb(var(--color-warn))]">
             {unseated} {unseated === 1 ? 'guest has' : 'guests have'} no seat yet — they won’t be on the chart.
           </p>
         ) : null}

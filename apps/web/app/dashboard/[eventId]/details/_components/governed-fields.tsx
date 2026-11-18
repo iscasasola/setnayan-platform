@@ -771,7 +771,7 @@ export function GovernedFields({
                       type="button"
                       onClick={() => removeConflict(c.vendor_id)}
                       disabled={pending}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-60"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-red-300 dark:hover:border-[rgb(var(--color-danger)/0.4)] hover:text-red-700 dark:hover:text-[rgb(var(--color-danger))] disabled:opacity-60"
                     >
                       <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                       Remove
@@ -910,7 +910,7 @@ function LockedRow({ label, value }: { label: string; value: string | null }) {
 
 function ErrorNote({ message }: { message: string }) {
   return (
-    <p className="rounded-xl border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+    <p className="rounded-xl border border-red-300 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-xs text-red-700 dark:text-[rgb(var(--color-danger))]">
       {message}
     </p>
   );

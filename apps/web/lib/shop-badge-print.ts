@@ -5,6 +5,7 @@ import { flattenSvgMark, type FlatMark } from '@/lib/print-mark';
 import { scalePath, type PrintOp } from '@/lib/print-layout';
 import type { ShopBadge } from '@/lib/shop-badges';
 import { TIERS } from '@/lib/badge-tiers';
+import { verifiedV84PrintG, verifiedV84Ops } from '@/lib/verified-v84-art';
 
 /**
  * 🖨 THE PILL ON PAPER — the badges as ONE vector file a printer can scale from a calling card to an 8 × 8 ft tarp
@@ -142,8 +143,12 @@ function pill(b: ShopBadge, F: number, ground: PrintGround, colour: string, idx:
   const tickSvg = tickD
     ? `<path d="${tickD}" fill="none" stroke="${g.fg}" stroke-width="${n(s2 * 0.16)}" stroke-linecap="round" stroke-linejoin="round"/>`
     : '';
+  // ✅ Setnayan Verified prints the APPROVED v84 blue check (owner 17 Nov: "Prints did not use Setnayan Verified
+  // badge") — the prototype's own vector, filling the pill's circle; every other mark is the Setnayan mark in gold.
   const inCircleSvg =
-    inCircle.kind === 'mark'
+    b.kind === 'verified'
+      ? verifiedV84PrintG(cx, cy, circle, `vr${idx}`)
+      : inCircle.kind === 'mark'
       ? setnayanMarkSvg(cx, cy, circle * 0.72, GOLD)
       : inCircle.kind === 'star'
         ? `<path d="${inCircle.d}" fill="${GOLD}"/>`
@@ -222,7 +227,8 @@ export function badgePillOps(b: ShopBadge, F: number, x: number, y: number, grou
     }
   }
   ops.push({ t: 'circle', cx: x + cx, cy: y + cy, r: circle / 2, fill: flat(g.mk, flat(g.bg, '#FFFFFF')) });
-  if (inCircle.kind === 'mark') ops.push(...setnayanMarkOps(x + cx, y + cy, circle * 0.72, GOLD));
+  if (b.kind === 'verified') ops.push(...verifiedV84Ops(x + cx, y + cy, circle));
+  else if (inCircle.kind === 'mark') ops.push(...setnayanMarkOps(x + cx, y + cy, circle * 0.72, GOLD));
   else ops.push({ t: 'path', d: at(inCircle.d), fill: inCircle.kind === 'star' ? GOLD : flat(glyphInk, GOLD) });
   ops.push({ t: 'path', d: at(line1D), fill: foil ? flat(paint?.foil[0], GOLD) : flat(g.fg, '#2B2620') });
   ops.push({ t: 'path', d: at(line2D), fill: flat(g.fg, '#2B2620') });

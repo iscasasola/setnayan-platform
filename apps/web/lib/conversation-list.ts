@@ -3,6 +3,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   isCancelledInquiryStatus,
   resolveThreadStage,
+  rowReadsBooked,
   rowReadsCompleted,
   type ThreadStage,
 } from '@/lib/vendor-thread-stage';
@@ -435,6 +436,8 @@ export async function buildVendorConversationRows({
       status: string | null;
     }>) {
       if (rowReadsCompleted(r)) completed.add(r.event_id);
+      // A contracted booking is booked on the supplier's list too (CHAT-05) — the couple's list already said so.
+      if (rowReadsBooked(r)) booked.add(r.event_id);
     }
   }
 
@@ -567,7 +570,7 @@ async function readCoupleStageFacts(
     // hold; a booking made in the app (quote → ask to confirm → agree) reached `event_vendors.status = 'contracted'`
     // with NO pool hold, so the couple's row stayed an inquiry — "Sent today" under a confirmed booking. The booking
     // row's own status now counts too.
-    if (r.marketplace_vendor_id && (r.status === 'contracted' || r.status === 'deposit_paid')) {
+    if (r.marketplace_vendor_id && rowReadsBooked(r)) {
       facts.booked.add(r.marketplace_vendor_id);
     }
   }

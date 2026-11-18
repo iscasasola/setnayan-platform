@@ -44,7 +44,8 @@ const SMALL_PRINT = [
   { selector: '.fd-tag2', file: 'front-door-shell.tsx', rendered: /className="fd-tag2"/ },
   // The Company · Legal column headings (owner 2026-11-11).
   { selector: '.fd-sp-h', file: 'front-door-shell.tsx', rendered: /className="fd-sp-h"/ },
-  { selector: '.fd-unknown', file: 'front-door-feed.tsx', rendered: /className="fd-unknown"/ },
+  // 🔄 2026-11-16: the feed's own count text left with New uploads; the Discover shelves still print it.
+  { selector: '.fd-unknown', file: 'front-door-discover.tsx', rendered: /className="fd-unknown"/ },
 ] as const;
 
 /** Every declaration block whose selector list is exactly `selector`. */

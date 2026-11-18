@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { MessageCircleQuestion, Plus } from 'lucide-react';
+import { Check, CircleOff, MessageCircleQuestion, Plus, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   askedQuestions,
@@ -32,11 +34,17 @@ export async function QuestionsSection({
   supabase,
   vendorProfileId,
   starters: tradeStarters,
+  clientNoun,
 }: {
   supabase: SupabaseClient;
   vendorProfileId: string;
   /** The shop's trade set; omitted = the host's emcee set (the original). */
   starters?: ReadonlyArray<StarterQuestion>;
+  /**
+   * 🔤 Mounted on ONE client (the picked client's Forms page): that event kind's own word (`readClientNoun` —
+   * "celebrant" on a debut, "couple" on a wedding). Omitted = the shared questions page, unchanged.
+   */
+  clientNoun?: string;
 }) {
   const { data, error } = await supabase
     .from('vendor_questions')
@@ -53,6 +61,7 @@ export async function QuestionsSection({
       measured={!error && data !== null}
       all={(data ?? []) as VendorQuestion[]}
       starters={tradeStarters}
+      clientNoun={clientNoun}
     />
   );
 }
@@ -62,92 +71,85 @@ export function QuestionsSectionBody({
   measured,
   all,
   starters: tradeStarters,
+  clientNoun,
 }: {
   measured: boolean;
   all: VendorQuestion[];
   starters?: ReadonlyArray<StarterQuestion>;
+  clientNoun?: string;
 }) {
+  // 🔤 One client's page names that client by its event kind; the every-client lines say "client" (owner, 17 Nov:
+  // "Questions for the couple" on a debut). The shared page (no noun) keeps its shipped words.
+  const one = clientNoun ?? 'couple';
+  const every = clientNoun ? 'client' : 'couple';
   const asked = askedQuestions(all);
   const retired = all.filter((q) => !q.is_asked);
   const starters = measured ? startersNotYetAdded(all, tradeStarters) : [];
 
   return (
-    <section id="questions" className="scroll-mt-4 space-y-4 border-t border-ink/10 pt-6">
-      <header className="space-y-2">
-        <h2 className="inline-flex items-center gap-2 font-pahina text-2xl font-light leading-tight tracking-tight text-ink">
+    <section id="questions" className="scroll-mt-4 space-y-2 border-t border-[color:var(--m-line)] pt-4">
+      <header className="space-y-1">
+        <h2 className="inline-flex items-center gap-2 text-[17px] font-bold leading-tight text-ink">
           <MessageCircleQuestion aria-hidden className="h-5 w-5 text-gild" strokeWidth={1.7} />
-          Questions for the couple
+          Questions for the {one}
         </h2>
         {/* ⓘ Title + one short line visible; the rest inside the tip (house rule). */}
         <InfoTip
-          label="Write them once — every couple you work with answers them."
+          label={`Write them once — every ${every} you work with answers them.`}
           labelAs="p"
-          labelClassName="max-w-prose text-sm leading-relaxed text-ink/70"
+          labelClassName={`max-w-prose ${TEMPLATE_SUBLINE}`}
           align="start"
         >
-          Couples who book you answer them in their event. Before a booking, send them from the
-          chat: ＋ › Questions for the couple. You read the answers on their customer card. Their
+          {every === 'client' ? 'Clients' : 'Couples'} who book you answer them in their event. Before a booking, send them from the
+          chat: ＋ › Questions for the {one}. You read the answers on their customer card. Their
           answers stay with their event — only your questions carry on.
         </InfoTip>
       </header>
 
       {!measured ? (
-        <p
-          role="alert"
-          className="border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm leading-relaxed text-ink/70"
-        >
-          <strong className="text-ink">We couldn&rsquo;t load your questions.</strong> They have
-          not been deleted — reload before writing them again.
-        </p>
+        <TemplateFail data="questions">
+          <strong>We couldn&rsquo;t load your questions.</strong> They have not been deleted —
+          reload before writing them again.
+        </TemplateFail>
       ) : asked.length === 0 ? (
-        <p className="border border-dashed border-ink/15 px-4 py-6 text-center text-sm leading-relaxed text-ink/65">
-          You are not asking couples anything yet. Start from the suggestions below, or write
+        <TemplateEmpty data="questions">
+          You are not asking {every}s anything yet. Start from the suggestions below, or write
           your own.
-        </p>
+        </TemplateEmpty>
       ) : (
-        <ol className="space-y-2">
+        <ol className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
           {asked.map((q, i) => (
-            <li key={q.question_id} className="border border-ink/10 bg-white p-3">
+            <li key={q.question_id} className="py-3">
               <StayForm door="supActivities.updateQuestion" action={updateQuestion} className="space-y-2">
                 <input type="hidden" name="question_id" value={q.question_id} />
                 <div className="flex items-start gap-2">
-                  <span className="pt-2 font-mono text-[0.66rem] text-ink/45">{i + 1}.</span>
+                  <span className="min-w-5 pt-3 text-[13px] font-semibold tabular-nums text-[color:var(--m-slate-2)]">{i + 1}.</span>
                   <div className="flex-1 space-y-2">
                     <input
                       name="prompt"
                       defaultValue={q.prompt}
                       maxLength={QUESTION_PROMPT_MAX}
                       aria-label="Question"
-                      className="w-full border border-ink/15 px-2.5 py-1.5 text-sm font-medium text-ink"
+                      className={`${FIELD} font-medium`}
                     />
                     <input
                       name="hint"
                       defaultValue={q.hint ?? ''}
                       maxLength={QUESTION_HINT_MAX}
                       aria-label="Hint shown under the answer box"
-                      placeholder="Hint for the couple (optional)"
-                      className="w-full border border-ink/15 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40"
+                      placeholder={`Hint for the ${one} (optional)`}
+                      className={FIELD}
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 pl-6">
-                  <button
-                    type="submit"
-                    className="border border-ink/15 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/75 transition-colors hover:border-gild"
-                  >
-                    Save
-                  </button>
+                <div className="flex items-center gap-3 pl-7">
+                  <ActionButton type="submit" tone="brand" icon={<Check aria-hidden />} label="Save" />
                 </div>
               </StayForm>
               <StayForm door="supActivities.toggleQuestionAsked" action={toggleQuestionAsked} className="mt-1 flex justify-end">
                 <input type="hidden" name="question_id" value={q.question_id} />
                 <input type="hidden" name="is_asked" value="false" />
-                <button
-                  type="submit"
-                  className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/55 underline-offset-4 hover:text-terracotta-700 hover:underline"
-                >
-                  Stop asking
-                </button>
+                <ActionButton type="submit" tone="neutral" quiet icon={<CircleOff aria-hidden />} label="Stop asking" />
               </StayForm>
             </li>
           ))}
@@ -155,11 +157,8 @@ export function QuestionsSectionBody({
       )}
 
       {starters.length > 0 ? (
-        <div className="space-y-2 border border-ink/10 bg-paper-deep p-4">
-          <h3 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-            Suggested — tap to add, then edit freely
-          </h3>
-          <ul className="space-y-1.5">
+        <TemplateSection label="Suggested — tap to add, then edit freely">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {starters.map((s) => (
               <li key={s.prompt}>
                 <StayForm door="supActivities.addQuestion" action={addQuestion}>
@@ -167,66 +166,55 @@ export function QuestionsSectionBody({
                   <input type="hidden" name="hint" value={s.hint} />
                   <button
                     type="submit"
-                    className="flex w-full items-start gap-2 border border-ink/12 bg-white px-3 py-2 text-left text-sm text-ink transition-colors hover:border-gild/60"
+                    className="sn-press flex min-h-14 w-full items-center gap-2.5 py-2 text-left text-[15px] text-ink"
                   >
-                    <Plus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gild" strokeWidth={2} />
+                    <Plus aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2} />
                     {s.prompt}
                   </button>
                 </StayForm>
               </li>
             ))}
           </ul>
-        </div>
+        </TemplateSection>
       ) : null}
 
-      <StayForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2 border border-ink/10 bg-paper-deep p-4">
-        <h3 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-          Write your own
-        </h3>
-        <input
-          name="prompt"
-          required
-          maxLength={QUESTION_PROMPT_MAX}
-          aria-label="Your question"
-          placeholder="e.g. Which song should play as you enter the reception?"
-          className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40"
-        />
-        <input
-          name="hint"
-          maxLength={QUESTION_HINT_MAX}
-          aria-label="Hint for the couple"
-          placeholder="Hint for the couple (optional)"
-          className="w-full border border-ink/15 bg-white px-3 py-2 text-xs text-ink placeholder:text-ink/40"
-        />
-        <button
-          type="submit"
-          className="bg-ink px-4 py-2 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper transition-opacity hover:opacity-90"
-        >
-          Add question
-        </button>
-      </StayForm>
+      <TemplateSection label="Write your own">
+        <StayForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2">
+          <input
+            name="prompt"
+            required
+            maxLength={QUESTION_PROMPT_MAX}
+            aria-label="Your question"
+            placeholder="e.g. Which song should play as you enter the reception?"
+            className={FIELD}
+          />
+          <input
+            name="hint"
+            maxLength={QUESTION_HINT_MAX}
+            aria-label={`Hint for the ${one}`}
+            placeholder={`Hint for the ${one} (optional)`}
+            className={FIELD}
+          />
+          <ActionButton type="submit" tone="brand" icon={<Plus aria-hidden />} label="Add question" />
+        </StayForm>
+      </TemplateSection>
 
       {retired.length > 0 ? (
-        <details className="border border-ink/10 bg-paper-deep p-4">
-          <summary className="cursor-pointer font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/60">
+        <details className="mt-[18px]">
+          <summary className="flex min-h-11 cursor-pointer items-center text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             Not asking · {retired.length}
           </summary>
-          <p className="mt-2 text-xs leading-relaxed text-ink/60">
-            Kept, not deleted — couples who already answered these still have their answers.
+          <p className={TEMPLATE_SUBLINE}>
+            Kept, not deleted — {every}s who already answered these still have their answers.
           </p>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-1 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {retired.map((q) => (
-              <li key={q.question_id} className="flex items-center justify-between gap-3">
-                <span className="text-sm text-ink/70">{q.prompt}</span>
+              <li key={q.question_id} className="flex min-h-14 items-center justify-between gap-3 py-2">
+                <span className="text-[15px] text-ink">{q.prompt}</span>
                 <StayForm door="supActivities.toggleQuestionAsked" action={toggleQuestionAsked}>
                   <input type="hidden" name="question_id" value={q.question_id} />
                   <input type="hidden" name="is_asked" value="true" />
-                  <button
-                    type="submit"
-                    className="border border-ink/15 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.14em] text-ink/70 transition-colors hover:border-gild"
-                  >
-                    Ask again
-                  </button>
+                  <ActionButton type="submit" tone="neutral" icon={<RotateCcw aria-hidden />} label="Ask again" />
                 </StayForm>
               </li>
             ))}
@@ -236,3 +224,7 @@ export function QuestionsSectionBody({
     </section>
   );
 }
+
+/** A typed field — the template's 12-corner field, 44 high, on the page's own paper. */
+const FIELD =
+  'w-full min-h-11 rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)]'; // no-card-ok: a typed field's own outline (inputs / selects / textareas), not a box around content

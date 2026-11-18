@@ -67,7 +67,8 @@ export default async function NewServiceCardPage({
             Shop
           </Link>
         )}
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
+        {/* Rule 1 — the way out is the back arrow; the page's name stays for a screen reader only. */}
+        <h1 className="sr-only">New service</h1>
       </div>
       <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} picker={{ tree, specialties }} />
     </div>

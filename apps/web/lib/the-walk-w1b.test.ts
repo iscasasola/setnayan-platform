@@ -29,7 +29,12 @@ test('F-W1-72 · "Also mark this supplier delivered" starts unticked and waits f
 test('F-W1-70 · a contracted booking is booked on the couple’s row, pool hold or not', () => {
   const src = code('lib/conversation-list.ts');
   const fn = src.slice(src.indexOf('async function readCoupleStageFacts'), src.indexOf('export const SUPPLIER_NAME_UNREADABLE'));
-  assert.match(fn, /r\.status === 'contracted' \|\| r\.status === 'deposit_paid'\)\) \{\s*facts\.booked\.add\(r\.marketplace_vendor_id\);/);
+  // 2026-11-16 (CHAT-05): the compare moved into the one predicate `rowReadsBooked`, shared with the supplier's list
+  // and the thread page — the call is held here, its words (contracted · deposit_paid) in
+  // a-contracted-booking-opens-the-supplier-tools.test.ts.
+  assert.match(fn, /r\.marketplace_vendor_id && rowReadsBooked\(r\)\) \{\s*facts\.booked\.add\(r\.marketplace_vendor_id\);/);
+  const stage = code('lib/vendor-thread-stage.ts');
+  assert.match(stage, /export function rowReadsBooked[\s\S]{0,200}?row\?\.status === 'contracted' \|\| row\?\.status === 'deposit_paid'/);
 });
 
 test('F-W1-71 · the handover sits in Files, once, and its notice opens Files', () => {

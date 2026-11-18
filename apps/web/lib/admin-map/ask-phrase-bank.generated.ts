@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:phrases
 //
 // The ⌘K box's phrase bank: every phrase and the ONE place its first row must open.
-// 1677 phrases — 332 page names · 344 job phrasings · 986 keyword-table phrasings · 15 misspellings.
+// 1689 phrases — 344 page names · 344 job phrasings · 986 keyword-table phrasings · 15 misspellings.
 // ask-phrase-bank.test.ts fails if this drifts from buildPhraseBank(), and holds the box's accuracy over it.
 
 import { parsePhraseBank } from './ask-phrase-bank';
@@ -342,6 +342,18 @@ supplier recommendations	/admin/vendor-recommendations	page
 open supplier recommendations	/admin/vendor-recommendations	page
 where is supplier recommendations	/admin/vendor-recommendations	page
 hanapin supplier recommendations	/admin/vendor-recommendations	page
+suppliers’ badge progress	/admin?ask=badges	page
+open suppliers’ badge progress	/admin?ask=badges	page
+where is suppliers’ badge progress	/admin?ask=badges	page
+hanapin suppliers’ badge progress	/admin?ask=badges	page
+payments to confirm	/admin?ask=payments	page
+open payments to confirm	/admin?ask=payments	page
+where is payments to confirm	/admin?ask=payments	page
+hanapin payments to confirm	/admin?ask=payments	page
+papers to verify	/admin?ask=papers	page
+open papers to verify	/admin?ask=papers	page
+where is papers to verify	/admin?ask=papers	page
+hanapin papers to verify	/admin?ask=papers	page
 account hold	/admin/accounts?tab=users	job
 add award manually	/admin/studio?tab=spotlight-awards	job
 create award manually	/admin/studio?tab=spotlight-awards	job

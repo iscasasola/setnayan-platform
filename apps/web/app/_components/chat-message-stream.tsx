@@ -29,7 +29,8 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { ArrowDown, Paperclip, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
 import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -151,7 +152,7 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
+import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
 import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -1260,6 +1261,29 @@ export function ChatMessageStream({
     scrollToBottom('auto');
   }, [scrollToBottom]);
 
+  // 📍 AND STAY THERE WHILE THE THREAD FINISHES DRAWING (CHAT-07, W1 walk 16 Nov 2026: a notice "lands mid-thread,
+  // not at the newest message"). The pin above runs once, at mount — but photos, cards and the pay plan draw their
+  // height AFTER it, so the newest message slid below the fold and the reader landed in the middle. Every row's own
+  // growth now re-pins, while the reader is still at the bottom (`stickToBottomRef`): a reader who scrolled up to read
+  // an older message is never pulled back down.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (stickToBottomRef.current) el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+    });
+    const watchRows = () => {
+      for (const row of Array.from(el.children)) ro.observe(row);
+    };
+    watchRows();
+    const mo = new MutationObserver(watchRows);
+    mo.observe(el, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Postgres CHANGES subscription — new/updated messages on this thread.
   // ---------------------------------------------------------------------------
@@ -1427,6 +1451,11 @@ export function ChatMessageStream({
     they cost NO layout height, and each only appears when its target is
     off-screen.
   */
+  // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
+  const bookAskAnswers = useMemo(
+    () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
+    [messages],
+  );
   const latestProposalRef = useRef<HTMLLIElement | null>(null);
   // The newest quote in the thread — what "jump to the quote" means, and the
   // only card that gets the ref. Older quotes stay in place as the audit trail.
@@ -1694,7 +1723,7 @@ export function ChatMessageStream({
   // `relative`: each scroller is the containing block of its own `sr-only` (absolute) labels, so a label scrolled out of
   // sight stays inside the scroller instead of stretching the box around it into a second scroller (measured 9 Nov in
   // the picked chat: the hearts' sr-only labels made the in-flow chat box scroll the pinned strip away).
-  const scrollerChrome = `relative ${flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4'}`;
+  const scrollerChrome = `relative ${flush ? 'px-0.5 py-3' : 'rounded-xl border border-[color:var(--m-line)] bg-cream p-4'}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1726,7 +1755,7 @@ export function ChatMessageStream({
                   return <Clip aria-hidden className="h-5 w-5" strokeWidth={1.9} />;
                 })()}
                 {files.length > 0 ? (
-                  <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-cream">
+                  <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[12px] font-bold leading-4 text-cream">
                     {files.length}
                   </span>
                 ) : null}
@@ -1740,7 +1769,7 @@ export function ChatMessageStream({
       {inPicked && filesOpen ? (
         <section ref={filesPanelRef} className="pb-2" aria-label="Files in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
-            <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
+            <h2 className="text-[15px] font-semibold text-ink">
               Files · {files.length} · newest first
             </h2>
             <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
@@ -1776,7 +1805,7 @@ export function ChatMessageStream({
         if (!showsExpiryWarning(new Date(), fileExpiry.eventDate, opts)) return null;
         const day = expiryDateFor(fileExpiry.eventDate, opts);
         return day ? (
-          <p className="mb-1 px-1 text-[12.5px] text-ink/65" role="note" data-chat-files-expiry="">
+          <p className="mb-1 px-1 text-[13px] text-[color:var(--m-slate-2)]" role="note" data-chat-files-expiry="">
             {expiryWarningLine(day)}
           </p>
         ) : null;
@@ -1849,14 +1878,16 @@ export function ChatMessageStream({
       aria-relevant="additions"
     >
       {cardsDegraded ? (
-        <li className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+        // Rule 6 · a read that failed says so in amber, one line — not a tinted box in raw palette shades.
+        <li role="alert" className="px-1 py-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
           Some quote or appointment cards in this conversation couldn&rsquo;t be loaded, so
           they&rsquo;re missing below. <strong>Nothing has been withdrawn or cancelled</strong>
           — reload to see them.
         </li>
       ) : null}
       {messages.length === 0 ? (
-        <li className="rounded-md border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+        // Rule 6 · empty is one plain line, no dashed box.
+        <li className="px-1 py-6 text-center text-[14px] text-[color:var(--m-slate-2)]">
           No messages yet — say hi to break the ice.
         </li>
       ) : (
@@ -1917,21 +1948,19 @@ export function ChatMessageStream({
                 <div
                   className={`w-full max-w-[92%] rounded-xl border p-3 ${
                     quoteState?.history
-                      ? 'border-ink/15 bg-ink/[0.03] opacity-80'
+                      ? 'border-[color:var(--m-line)] bg-[color:var(--m-paper-2)]'
                       : 'border-terracotta/40 bg-terracotta/[0.06]'
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                    <p className="whitespace-nowrap text-[12px] font-medium text-terracotta">
                       📄 Quote{quoteVersion ? ` · version ${quoteVersion.version}` : ''}
                     </p>
                     {quoteState?.badge ? (
+                      // Rule 5 · the shared status chip (Updated = information, anything else = waiting).
                       <span
-                        className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs ${
-                          quoteState.badge === 'Updated'
-                            ? 'bg-terracotta/15 text-terracotta-700'
-                            : 'bg-warn-100 text-warn-900'
-                        }`}
+                        className={BADGE_CLASS}
+                        style={badgeStyle(quoteState.badge === 'Updated' ? 'quiet' : 'wait')}
                         data-quote-badge=""
                       >
                         {quoteState.badge}
@@ -1941,7 +1970,7 @@ export function ChatMessageStream({
                   {card && quoteState ? (
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
-                      <p className="text-sm text-ink/70">
+                      <p className="text-sm text-[color:var(--m-slate-2)]">
                         {card.totalCentavos == null
                           ? HOSTS_ONLY
                           : card.totalCentavos > 0
@@ -1960,12 +1989,15 @@ export function ChatMessageStream({
                         )}
                       </p>
                       {quoteState.note ? (
-                        <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
+                        <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{quoteState.note}</p>
                       ) : null}
                       {!quoteState.history && quoteVersion?.plan ? (
-                        <p className="mt-0.5 text-xs text-ink/60">{quoteVersion.plan}</p>
+                        <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{quoteVersion.plan}</p>
                       ) : null}
+                      {/* 💳 Said ONCE (owner screenshot 17 Nov): inside the picked client its Details page carries the
+                          nudge, so the quote card does not repeat it; the full-screen chat has no Details beside it. */}
                       {viewerRole === 'vendor' &&
+                      !inPicked &&
                       isLatestProposal &&
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
@@ -1995,10 +2027,10 @@ export function ChatMessageStream({
                           href={`/proposals/${card.publicId}`}
                           className={
                             quoteState.primary.kind === 'review_accept' && !quoteState.offerAcceptUpdate
-                              ? 'inline-flex min-h-11 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600'
-                              : `inline-flex min-h-11 items-center rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]${
-                                  quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''
-                                }`
+                              ? actionButtonClass('brand', { filled: true, extra: 'min-h-11' })
+                              : actionButtonClass('neutral', {
+                                  extra: `min-h-11${quoteState.offerAcceptUpdate ? ' flex-1 justify-center whitespace-nowrap !px-2' : ''}`,
+                                })
                           }
                         >
                           {quoteState.primary.label}
@@ -2017,7 +2049,7 @@ export function ChatMessageStream({
                             <input type="hidden" name="return_to" value={returnPathFor(m)} />
                             <SubmitButton
                               pendingLabel="Accepting…"
-                              className="inline-flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-mulberry px-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              className={actionButtonClass('brand', { filled: true, extra: 'w-full justify-center whitespace-nowrap !px-2' })}
                             >
                               Accept the update
                             </SubmitButton>
@@ -2056,13 +2088,13 @@ export function ChatMessageStream({
                                   : `Book ${counterpartyLabel}`
                               }
                               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
-                              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                              className={actionButtonClass('brand', { filled: true })}
                               wrapperClassName="flex w-full flex-col items-start"
                             />
                           ) : (
                             <Link
                               href={lockTarget.benchHref}
-                              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                              className={actionButtonClass('brand', { filled: true, extra: 'min-h-11' })}
                             >
                               Book on your Suppliers page
                             </Link>
@@ -2096,7 +2128,7 @@ export function ChatMessageStream({
                         {quoteState.offerRevise && reviseHref ? (
                           <Link
                             href={reviseHref}
-                            className="inline-flex min-h-11 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                            className={actionButtonClass('brand', { extra: 'min-h-11' })}
                           >
                             {quoteState.reviseLabel}
                           </Link>
@@ -2124,7 +2156,7 @@ export function ChatMessageStream({
                           quoteState.offerCounter ? (
                             <Link
                               href={counterHref}
-                              className="inline-flex min-h-11 items-center rounded-lg border border-mulberry/40 px-4 text-sm font-medium text-mulberry hover:bg-mulberry/[0.06]"
+                              className={actionButtonClass('brand', { extra: 'min-h-11' })}
                             >
                               Counter-offer
                             </Link>
@@ -2178,7 +2210,7 @@ export function ChatMessageStream({
                               <input type="hidden" name="thread_id" value={threadId} />
                               <button
                                 type="submit"
-                                className="inline-flex min-h-11 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                                className={actionButtonClass('brand', { filled: true })}
                               >
                                 Confirm it reached you
                               </button>
@@ -2194,11 +2226,11 @@ export function ChatMessageStream({
                       ) : null}
                     </>
                   ) : (
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink/80">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink">
                       {m.body}
                     </p>
                   )}
-                  <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  <p className="mt-1.5 text-[12px] tabular-nums text-[color:var(--m-slate-2)]">
                     {formatChatTimestamp(m.created_at)}
                   </p>
                 </div>
@@ -2226,7 +2258,7 @@ export function ChatMessageStream({
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
-                    <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
                   </div>
                 )}
               </li>
@@ -2253,7 +2285,7 @@ export function ChatMessageStream({
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">
-                    <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
                   </div>
                 )}
               </li>
@@ -2321,6 +2353,7 @@ export function ChatMessageStream({
                     messageId={m.message_id}
                     meId={currentUserId}
                     nameOf={personName}
+                    answeredAs={bookAskAnswers.get(m.message_id) ?? null}
                   />
                 </li>
               );
@@ -2332,7 +2365,7 @@ export function ChatMessageStream({
                       and a raw card key reads in today's words; any other
                       system body is unchanged. */}
                   <p className="whitespace-pre-wrap break-words">{renderPerkUnlock(m.body ?? '')}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
+                  <p className="mt-1 text-[12px] tabular-nums text-[color:var(--m-slate-2)]">
                     Setnayan · {formatChatTimestamp(m.created_at)}
                   </p>
                 </div>
@@ -2385,7 +2418,7 @@ export function ChatMessageStream({
           if (!hasWords && (removedLine || (!m.attachment_r2_key && !m.attachment_url && !m.attachment_name))) {
             return (
               <li key={m.message_id} className="flex justify-center py-1">
-                <p className="text-center text-[12.5px] text-ink/55" data-chat-file-removed="">
+                <p className="text-center text-[13px] text-[color:var(--m-slate-2)]" data-chat-file-removed="">
                   {removedLine ?? CHAT_FILE_REMOVED_UNKNOWN}
                 </p>
               </li>
@@ -2403,7 +2436,7 @@ export function ChatMessageStream({
               data-chat-bubble={mine ? 'mine' : 'theirs'}
             >
               {staffName ? (
-                <span className="mb-0.5 ml-[38px] text-[12px] text-ink/55" data-chat-staff-name="">
+                <span className="mb-0.5 ml-[38px] text-[12px] text-[color:var(--m-slate-2)]" data-chat-staff-name="">
                   {staffName}
                 </span>
               ) : null}
@@ -2444,7 +2477,7 @@ export function ChatMessageStream({
                   ) : (
                     <span
                       aria-hidden
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper-2)] text-[12px] font-semibold text-ink"
                     >
                       {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
                     </span>
@@ -2512,7 +2545,7 @@ export function ChatMessageStream({
                   />
                 ) : !hiddenForMe && isExpired(m) ? (
                   // The file went with the 90-days-after rule (C2): its name stays, and it says so.
-                  <p className={`text-[13px] ${mine ? 'text-white/85' : 'text-ink/60'}`} data-chat-file-expired="">
+                  <p className={`text-[13px] ${mine ? 'text-white/85' : 'text-[color:var(--m-slate-2)]'}`} data-chat-file-expired="">
                     {CHAT_FILE_EXPIRED_LABEL} · {m.attachment_name}
                   </p>
                 ) : null}
@@ -2523,7 +2556,7 @@ export function ChatMessageStream({
                     The time now sits centred between runs (Messenger), so
                     only this label stays inside the bubble. */}
                 {m.is_bot ? (
-                  <p className={`mt-1 text-[11px] ${mine ? 'text-white/80' : 'text-ink/55'}`}>
+                  <p className={`mt-1 text-[12px] ${mine ? 'text-white/85' : 'text-[color:var(--m-slate-2)]'}`}>
                     {viewerRole === 'vendor' && mine ? '⚡ AI auto-reply' : `⚡ AI auto-reply · ${counterpartyLabel}`}
                   </p>
                 ) : null}
@@ -2534,7 +2567,7 @@ export function ChatMessageStream({
               </div>
               </MaybeChatFileSwipe>
               {removedLine ? (
-                <p className={`mt-0.5 text-[12px] text-ink/55 ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-removed="">
+                <p className={`mt-0.5 text-[12px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-removed="">
                   {removedLine}
                 </p>
               ) : null}
@@ -2571,7 +2604,7 @@ export function ChatMessageStream({
                 />
               ) : null}
               {fileLine?.messageId === m.message_id ? (
-                <p role="status" className={`mt-1 flex items-center gap-2 text-[13px] text-ink/70 ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-line="">
+                <p role="status" className={`mt-1 flex items-center gap-2 text-[13px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-line="">
                   {fileLine.text}
                   {fileLine.undo ? (
                     <button
@@ -2641,7 +2674,7 @@ export function ChatMessageStream({
               {/* The Running-topic pin's jump target (Build 3). */}
               <li id={`msg-${m.message_id}`} aria-hidden className="h-0 scroll-mt-3" />
               {brk ? (
-                <li aria-hidden className="pb-1 pt-3 text-center text-[12px] text-ink/50" data-chat-time="">
+                <li aria-hidden className="pb-1 pt-3 text-center text-[12px] tabular-nums text-[color:var(--m-slate-2)]" data-chat-time="">
                   {formatChatTimestamp(m.created_at)}
                 </li>
               ) : null}
@@ -2673,7 +2706,7 @@ export function ChatMessageStream({
         if (!line) return null;
         if (line.kind === 'failed') {
           return (
-            <li className="flex items-center justify-end gap-2 pr-1 text-[12px] text-terracotta" data-chat-last-line="failed" role="alert">
+            <li className="flex items-center justify-end gap-2 pr-1 text-[13px]" style={{ color: 'rgb(var(--color-danger))' }} data-chat-last-line="failed" role="alert">
               <span>
                 {LAST_LINE_WORDS.failed}
                 {line.reason ? ` — ${line.reason}` : ''}
@@ -2691,20 +2724,20 @@ export function ChatMessageStream({
           );
         }
         return (
-          <li className="pr-1 text-right text-[12px] text-ink/50" data-chat-last-line={line.kind}>
+          <li className="pr-1 text-right text-[12px] text-[color:var(--m-slate-2)]" data-chat-last-line={line.kind}>
             {LAST_LINE_WORDS[line.kind]}
           </li>
         );
       })()}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">
-          <div className="inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-3 py-1 text-xs text-ink/60">
+          <div className="inline-flex items-center gap-1 rounded-full bg-[color:var(--m-paper-2)] px-3 py-1 text-[13px] text-[color:var(--m-slate-2)]">
             <span className="sr-only">{counterpartyLabel} is typing</span>
             <span aria-hidden>{counterpartyLabel} is typing</span>
             <span aria-hidden className="ml-1 inline-flex gap-0.5">
-              <span className="h-1 w-1 animate-pulse rounded-full bg-ink/40" />
-              <span className="h-1 w-1 animate-pulse rounded-full bg-ink/40 [animation-delay:120ms]" />
-              <span className="h-1 w-1 animate-pulse rounded-full bg-ink/40 [animation-delay:240ms]" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)]" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)] [animation-delay:120ms]" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)] [animation-delay:240ms]" />
             </span>
           </div>
         </li>
@@ -2747,7 +2780,7 @@ export function ChatMessageStream({
               <span aria-hidden />
             )}
             {awayFromBottom ? (
-              <button type="button" onClick={() => scrollToBottom('smooth')} aria-label="Latest messages" className={`${pill} border-ink/12 text-ink`} data-chat-jump="latest">
+              <button type="button" onClick={() => scrollToBottom('smooth')} aria-label="Latest messages" className={`${pill} border-[color:var(--m-line)] text-ink`} data-chat-jump="latest">
                 <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={1.9} />
                 Latest
               </button>

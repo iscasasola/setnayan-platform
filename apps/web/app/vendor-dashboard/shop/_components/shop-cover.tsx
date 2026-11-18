@@ -91,7 +91,7 @@ export type CoverData = {
    * couples see. null = the facts read was refused (draw nothing, never "no badges"); [] = none earned yet.
    */
   earned?: ShopBadge[] | null;
-  /** "Next badge: 10 events · 10 to go" (`nextBadgeShort`) — said when nothing is earned yet; null = unread. */
+  /** "Next badge: Bronze at 5 bookings · 5 to go" — the Completed bookings tile's own goal (`shelfNextBadgeLine`); said when nothing is earned yet; null = unread. */
   nextBadge?: string | null;
 };
 
@@ -263,14 +263,14 @@ export function ShopCover({
               {/* 🏅 THE APP-DRAWN SEAL (owner 17 Nov: the only seal he saw was the one baked into the photo) — the SAME
                   Setnayan Verified seal the public shop hero and the Find card draw, from `verification` data. */}
               {d.verified.isVerified ? (
-                <a href="#docs" className="inline-flex min-h-11 items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
+                <a href="#docs" className="sn-hit inline-flex items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
                   <span className="inline-flex leading-[0]">
                     <ImageBadge {...badgeImageOf(verifiedBadge())} uid="cover-verified" size={30} label="Setnayan Verified" />
                   </span>
                   Setnayan Verified
                 </a>
               ) : d.verified.inReview ? (
-                <a href="#docs" className="inline-flex min-h-11 items-center">Verification in review</a>
+                <a href="#docs" className="sn-hit inline-flex items-center">Verification in review</a>
               ) : (
                 <a href="#docs" className="sn-hit inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -278,12 +278,12 @@ export function ShopCover({
                 </a>
               )}
               {(d.earned ?? []).map((b) => (
-                <a key={b.key} href="#badges" title={b.label} className="inline-flex min-h-11 items-center leading-[0]" data-shop-cover-badge={b.key}>
+                <a key={b.key} href="#badges" title={b.label} className="sn-hit inline-flex items-center leading-[0]" data-shop-cover-badge={b.key}>
                   <ImageBadge {...badgeImageOf(b)} uid={`cover-${b.key}`} size={30} label={b.label} />
                 </a>
               ))}
               {d.earned && d.earned.length === 0 && d.nextBadge ? (
-                <a href="#badges" className="inline-flex min-h-11 items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
+                <a href="#badges" className="sn-hit inline-flex items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
                   {d.nextBadge}
                 </a>
               ) : null}
@@ -296,7 +296,7 @@ export function ShopCover({
                 </Link>
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
-              <a href="#plan" className="inline-flex min-h-11 items-center gap-0.5 text-white/75" data-shop-plan="">
+              <a href="#plan" className="sn-hit inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
                 {d.planLabel} plan
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
               </a>

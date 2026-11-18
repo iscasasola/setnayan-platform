@@ -6,13 +6,13 @@
  * §3): a vendor's NAME is NEVER gated. A VERIFIED vendor's real business_name
  * reveals on EVERY tier from day 1 — the reveal is keyed on verification, NOT on
  * paid tier (a verified vendor on the free plan carries tier_state='free', since
- * verification never changes tier_state). Conversely an UNVERIFIED vendor never
- * reveals via this path, so surfaces that don't verification-gate at the query
- * layer can't leak an unverified real name.
+ * verification never changes tier_state). Since owner ruling 2026-11-16 (15)
+ * an UNVERIFIED shop is ALSO named by its real business name on every surface;
+ * the stand-in only draws when no name is on file.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveVendorDisplayName, isVendorNameRevealed, displayServiceLabel } from './vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed, isShopNameWithheld, displayServiceLabel } from './vendors';
 
 const BASE = {
   business_name: 'Aperture & Vine Studios',
@@ -41,21 +41,36 @@ test('verified vendor reveals real business_name on the FREE plan, no chat reply
   );
 });
 
-test('UNVERIFIED vendor stays anonymized (placeholder) — no over-exposure', () => {
-  // is_verified false + free tier + no reply → screen-name placeholder, NOT the
-  // real business_name. This is the safety property that lets the de-gate ship
-  // even on surfaces that don't verification-gate their query.
+test('UNVERIFIED vendor shows its REAL business name everywhere — never "<City> <Category> #N" (ruling 2026-11-16 (15))', () => {
+  // is_verified false + free tier + no reply used to draw the screen-name placeholder. The owner ruled the real
+  // name shows on the shop page, its metadata, the marketplace cards and everywhere else; only the check is missing.
   const name = resolveVendorDisplayName({
     ...BASE,
     is_verified: false,
     isPaidTier: false,
     name_revealed_at: null,
   });
-  assert.equal(name, BASE.screen_name);
+  assert.equal(name, 'Aperture & Vine Studios');
+  assert.notEqual(name, BASE.screen_name);
+  assert.equal(isShopNameWithheld({ business_name: BASE.business_name }), false);
+  // The reveal PREDICATE is unchanged (it still gates the logo/photos and is pinned to its SQL twin by a db test).
   assert.equal(
     isVendorNameRevealed({ name_revealed_at: null, isPaidTier: false, is_verified: false, services: BASE.services }),
     false,
   );
+});
+
+test('a shop with NO business name on file still gets a stand-in, never an empty label', () => {
+  for (const blank of [null, '', '   ']) {
+    const name = resolveVendorDisplayName({ ...BASE, business_name: blank, is_verified: false, isPaidTier: false });
+    assert.equal(name, BASE.screen_name);
+    assert.equal(isShopNameWithheld({ business_name: blank }), true);
+  }
+  assert.equal(
+    resolveVendorDisplayName({ ...BASE, business_name: '', screen_name: null, is_verified: false }),
+    'Photography · Cebu City',
+  );
+  assert.equal(resolveVendorDisplayName({ ...BASE, business_name: '', is_verified: true }), 'Supplier');
 });
 
 test('unverified vendor still reveals once it has replied (name_revealed_at) — legacy path intact', () => {

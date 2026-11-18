@@ -9,7 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const css = readFileSync(join(import.meta.dirname, 'pinned-row.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+import { stripComments } from '@/lib/strip-comments';
+
+const css = stripComments(readFileSync(join(import.meta.dirname, 'pinned-row.module.css'), 'utf8'));
 const rule = (sel: string) => {
   const i = css.indexOf(`${sel} {`);
   assert.ok(i >= 0, `no rule for ${sel}`);

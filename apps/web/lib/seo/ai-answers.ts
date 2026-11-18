@@ -22,6 +22,7 @@
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
 import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { SHOT_TTL_MS } from '@/lib/papic-upload/replayer';
@@ -90,6 +91,17 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       corrects: '"0% commission, no middleman fees" · to suppliers: "keep 100% of your bookings"',
       route: '/for-suppliers',
       evidence: 'lib/commission-promise.ts · lib/booking-fee.ts#bookingFeeScheduleSummary · lib/booking-fee-gate.ts',
+    },
+    {
+      id: 'bookings-not-capped',
+      question: 'Do Setnayan supplier plans limit how many bookings a supplier can take?',
+      answer:
+        `No. No plan, Free included, limits bookings, inquiries, shortlists or the waitlist — every booking a couple makes is one Setnayan can earn its booking fee on. ` +
+        `A supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}. ` +
+        `Paid plans add reach, size and tools: how far couples find you, how many service cards and main categories, team seats, branches and storage.`,
+      corrects: '"free plan limited to N bookings" · "upgrade to take more bookings"',
+      route: '/for-suppliers',
+      evidence: 'lib/vendor-tier-caps.ts (no bookings-per-date cap; DAILY_CAPACITY_MAX) · lib/card-bookings-per-date.ts · supabase/migrations/20271350427190_supplier_plans_rebuilt_2026_11_18.sql (service_card_daily_limit)',
     },
     {
       id: 'guest-photos-free',

@@ -43,7 +43,7 @@ import { aiAnswers } from './seo/ai-answers';
 // unlocks) — one sentence, two readers.
 import { PLUS_MORE, PRO_PEEK } from '@/app/_components/frontdoor/front-door-landing-data';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
-import { TIER_LABEL, type VendorTier } from './vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, TIER_LABEL, type VendorTier } from './vendor-tier-caps';
 // Build 6 Lane K — the supplier plans are the SAME table /for-suppliers draws (Lane J's one pure module), so what an
 // assistant quotes and what a supplier reads cannot disagree. Pure: no I/O, no env.
 import {
@@ -662,7 +662,7 @@ ${supplierPlanTable(input)}
 
 ${supplierFee}
 
-A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach — service area, categories, service cards per category, team seats, branches, search visibility and an own web address — never the right to take bookings.
+A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Paid plans buy reach, size and tools — service area, main categories, service cards in total, team seats, branches, storage, search visibility and an own web address — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
 Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 

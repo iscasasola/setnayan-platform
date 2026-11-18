@@ -71,7 +71,7 @@ export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Obj
     // Was +1 per category; since 2026-11-18 cards are counted in total (ruling 23/39), so a past purchase adds one card
     // to the total. Retired from sale 2026-11-14 — this only honours what was already bought.
     capKey: 'serviceCardsTotal',
-    label: '+1 service card per category',
+    label: '+1 service card',
   },
   waitlist: {
     sku: 'vendor_extra_waitlist',

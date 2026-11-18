@@ -233,7 +233,7 @@ export function SampleShopPage({
                 </div>
                 <p className="text-sm text-ink/60">
                   {d.verified
-                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} per category on this plan.`
+                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} in total on this plan.`
                     : `${d.cardsPerCategory} live · more open once verified.`}
                 </p>
               </section>

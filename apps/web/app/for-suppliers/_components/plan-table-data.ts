@@ -240,7 +240,7 @@ export function addonLines(bySku: Readonly<Record<string, string | null>>): { ki
 /** Ultra's add-ons as the table names them — the add-on module's own purchase labels. */
 const ULTRA_ADDON_LABEL: Record<UltraAddOnKind, string> = {
   category: '+1 category',
-  service_card: '+1 service card per category',
+  service_card: '+1 service card',
   seat: '+1 team seat',
   branch: '+1 branch',
   waitlist: '+1 waiting-list place per date',

@@ -792,7 +792,7 @@ export function canBuyExtraCategories(_tier: string | null | undefined): boolean
   return false;
 }
 
-/** May this tier buy +1 service card per category? No plan, since 2026-11-14 (Ultra includes 30). */
+/** May this tier buy +1 service card? No plan, since 2026-11-14 (the ₱990-per-10 pack, ruling 39, is not built yet). */
 export function canBuyExtraServiceCards(_tier: string | null | undefined): boolean {
   return false;
 }

@@ -106,7 +106,9 @@ test('5 · in Guests the editor asks first, applies the ticks, and says it done 
   assert.match(go, /for \(const x of along\) seatGuestHere\(target, x\.guestId, x\.seat\);/);
   /* 2026-11-16: the swap again is the LATEST trade (`seatOps.current`) — the move's own render still held the old seats,
      so its Undo swapped nobody (the-seat-plan-drags-on-a-phone.test.ts 4). */
-  assert.match(go, /if \(other\) return seatOps\.current\.tradeSeats\(mover\.guest_id, other\.guest_id\);/, 'Undo of a swap is not the swap again');
+  /* 2026-11-18 (#7906 follow-up): the Undo is `undoMove` — the swap again AND every +1 who came along put back
+     (lib/an-undo-puts-the-plus-one-back.test.ts). */
+  assert.match(go, /const undo = \(\) => undoMove\(mover\.guest_id, other\?\.guest_id \?\? null, before\);/, 'Undo of a swap is not the swap again');
   assert.match(ed, /const seatToast = moveNote\s*\? \{ text: moveNote\.text, onUndo: moveNote\.undo,/);
   assert.match(ed, /\{faceCardSheet\}\s*\{askMoveSheet\}/);
 });

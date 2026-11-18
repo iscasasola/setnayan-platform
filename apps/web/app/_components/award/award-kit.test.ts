@@ -175,6 +175,10 @@ test('12 · the approved seal words: No. 1 has its own body, titles match the pr
       assert.ok(row, k);
       assert.equal(c[k].title, row![2], `${k} title`);
       assert.equal(c[k].eyebrow, row![3]!.replace('2026', '2031'), `${k} eyebrow`);
+      // Clients' Choice's body and how lines follow the LATER ruling (owner 15 Nov, DECISION_LOG "CLIENTS' CHOICE COUNTS
+      // SECOND BOOKINGS"; the controller confirmed 18 Nov) — the prototype's "Top 5% by review-weighted score" is stale.
+      // Its words are held against the engine instead: lib/shop-seals.test.ts "the Clients' Choice words say the engine's rule".
+      if (k === 'heart') continue;
       assert.equal(c[k].body, row![4], `${k} body`);
       const how = [...row![5]!.matchAll(/\['(.*?)',([01])\]/g)].map((m) => [m[1], m[2] === '1']);
       assert.deepEqual(c[k].how, how, `${k} how`);
@@ -552,7 +556,7 @@ test('19 · Setnayan Verified: its own navy screen, v86 words verbatim, no plaqu
   assert.ok(css.includes('radial-gradient(120% 72% at 50% 36%, #1c2d57 0, #0b1124 52%, #04060e 100%)'), 'the navy stage');
 });
 
-test('20 · the locked look: grey art under a lock, the group, the name, what it takes — v86 words', async () => {
+test('20 · the locked look: the REAL art under a small lock, the group, the name, what it takes — v86 words', async () => {
   const { LockedTile, LOCKED_HOW, bronzeAtLine } = await import('./locked-tile');
   assert.equal(LOCKED_HOW.shield, 'Bronze when 1 supplier recommends you');
   assert.equal(bronzeAtLine('Bronze', 5, 'bookings'), 'Bronze at 5 bookings');
@@ -560,7 +564,10 @@ test('20 · the locked look: grey art under a lock, the group, the name, what it
   assert.ok(m.includes('aria-label="Top 10 Supplier, locked. Top 10 of the year"'));
   assert.ok(m.includes('>Seal<') && m.includes('<b>Top 10 Supplier</b>'));
   const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
-  assert.ok(css.includes('filter: grayscale(1) contrast(0.75) brightness(1.08)'), 'the art is greyed');
+  // Owner 18 Nov: "we still want to see how they look like" — a locked badge shows its real art, never grey.
+  const art = /\.lktArt \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.doesNotMatch(art, /grayscale/, 'the locked art is greyed again — the owner wants to see the real badge');
+  assert.match(art, /opacity: var\(--sn-locked-art-opacity, 1\)/, 'the locked art left the one opacity knob');
 });
 
 /* ── v86 · the seals: No. 1's #1 RANK medal, the gold-ray stage, matte velvet, the smooth landing, the named gaps ── */

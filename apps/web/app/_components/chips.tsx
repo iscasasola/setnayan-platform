@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { CHIP_PHONE_ROW_PX, chipColumns, chipWidthFor, guessLabelPx } from '@/lib/chips-grid';
 import { tellTheForm } from '@/lib/tell-the-form';
-import { PILL_ON_CLASS } from './pill-selector';
+import { chipClass } from './chip-classes';
 
 /**
  * CHIPS — choose SEVERAL from a few (`INTERACTION_RULES.md` § 9, kind 11 "Ticks, chips, badges"; approved gallery
@@ -31,17 +31,8 @@ import { PILL_ON_CLASS } from './pill-selector';
  * (`lib/the-accent-is-one-token.test.ts`).
  */
 
-/** One chip's shape — the same chosen or not. */
-export const CHIP_CLASS =
-  "sn-press relative inline-flex h-10 min-h-10 min-w-[84px] flex-none items-center justify-center whitespace-nowrap rounded-full border px-[18px] text-[14px] font-semibold transition-colors duration-sn-control ease-sn sn-hit motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40";
-/** Chosen: the accent, and the ink that reads on it. */
-export const CHIP_ON_CLASS = `border-sn-accent ${PILL_ON_CLASS}`;
-/** Not chosen: grey words on white — on the page's own ground in dark mode (white stayed white there). */
-export const CHIP_OFF_CLASS = 'border-ink/15 bg-white text-ink/55 dark:bg-raised';
-
-export function chipClass(on: boolean): string {
-  return `${CHIP_CLASS} ${on ? CHIP_ON_CLASS : CHIP_OFF_CLASS}`;
-}
+/** The chip's classes live in a plain module (`chip-classes.ts`) so a server file can wear them too. */
+export { CHIP_CLASS, CHIP_ON_CLASS, CHIP_OFF_CLASS, chipClass } from './chip-classes';
 
 export type ChipOption<K extends string> = {
   key: K;

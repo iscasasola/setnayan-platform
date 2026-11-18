@@ -68,7 +68,10 @@ function latestBody(fn: string): { file: string; body: string } {
   return { file, body: squash(sql.slice(bodyStart, bodyEnd)) };
 }
 
-const pools = latestBody('acquire_schedule_pools');
+// The pools side = the booking path's gate + the ONE count it calls (step 4, 2026-11-19).
+const acquire = latestBody('acquire_schedule_pools');
+const takenOn = latestBody('schedule_pool_taken_on');
+const pools = { file: `${acquire.file} + ${takenOn.file}`, body: `${acquire.body} ${takenOn.body}` };
 const slots = latestBody('acquire_service_time_slot');
 const resolver = latestBody('resolve_schedule_pool');
 const mirror = latestBody(MIRROR_FN);
@@ -242,22 +245,26 @@ const PREDICATES: Predicate[] = [
   {
     name: 'only live pool bookings count',
     side: 'pools',
-    booking: /pb\.booked_date = v_date AND pb\.released_at IS NULL/,
-    mirror: [['pool_refused', /pb\.booked_date = d\.day AND pb\.released_at IS NULL/]],
+    // Step 4 (2026-11-19): the count lives in ONE function, schedule_pool_taken_on, which the booking path and the
+    // mirror both call — so the mirror restates it by calling it.
+    booking: /pb\.booked_date = p_day AND pb\.released_at IS NULL/,
+    mirror: [['pool_refused', /public\.schedule_pool_taken_on\(ap\.pool_id, d\.day, NULL\)/]],
   },
   {
     name: 'external clients count toward the pool',
     side: 'pools',
-    booking: /b\.pool_id = v_pool\.pool_id AND b\.block_source = 'external_client'/,
-    mirror: [['pool_refused', /b\.pool_id = ap\.pool_id AND b\.block_source = 'external_client'/]],
+    booking: /b\.pool_id = p_pool_id AND b\.block_source = 'external_client'/,
+    mirror: [['pool_refused', /public\.schedule_pool_taken_on\(ap\.pool_id, d\.day, NULL\)/]],
   },
   {
     name: 'full at daily_booking_capacity',
     side: 'pools',
-    booking: /v_used >= v_pool\.daily_booking_capacity/,
+    // A booking takes its N pieces (N = 1 unless by the piece): used + N > cap. The mirror asks "is there room for
+    // one more" — used >= cap, the same rule at N = 1.
+    booking: /v_used := public\.schedule_pool_taken_on\(v_pool\.pool_id, v_date, p_event_vendor_id\); .*IF v_used \+ v_qty > v_pool\.daily_booking_capacity/,
     mirror: [
       ['active_pool', /p\.daily_booking_capacity AS cap/],
-      ['pool_refused', /\) >= ap\.cap/],
+      ['pool_refused', /schedule_pool_taken_on\(ap\.pool_id, d\.day, NULL\) >= ap\.cap/],
     ],
   },
   {
@@ -358,7 +365,8 @@ const PREDICATES: Predicate[] = [
   {
     name: 'the yes asks the SAME count, full AT the limit',
     side: 'agree',
-    booking: /AND public\.service_card_bookings_on\(v_service, v_date, p_event_vendor_id\) >= v_daily_cap THEN/,
+    // Step 4: the yes adds its OWN pieces (1 unless by the piece): out + mine > cap ⇔ out >= cap at mine = 1.
+    booking: /AND public\.service_card_bookings_on\(v_service, v_date, p_event_vendor_id\) \+ v_own_qty > v_daily_cap THEN/,
     mirror: [['capacity_refused', /AND public\.service_card_bookings_on\(svc\.sid, d\.day\) >= svc\.dcap/]],
   },
   {

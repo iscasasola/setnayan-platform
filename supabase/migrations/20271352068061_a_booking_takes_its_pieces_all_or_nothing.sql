@@ -894,4 +894,197 @@ BEGIN
 END;
 $function$;
 
+
+-- ── 9 · the bench search's mirror counts pieces too ─────────────────────────
+-- service_cards_unbookable_on (the H6 mirror of the booking path, read by Discover and the bench): body identical to
+-- 20271316466285 except its schedule count, which is now schedule_pool_taken_on — so a schedule whose 500 chairs are
+-- out reads FULL there too, not "2 bookings of 500". Guarded by lib/h6-mirrors-the-booking-path.test.ts.
+CREATE OR REPLACE FUNCTION public.service_cards_unbookable_on(
+  p_service_ids     uuid[],
+  p_dates           date[],
+  p_named_calendars boolean DEFAULT TRUE
+)
+RETURNS TABLE (service_id uuid, refused_on date)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+#variable_conflict use_column
+BEGIN
+  IF p_service_ids IS NULL OR p_dates IS NULL
+     OR cardinality(p_service_ids) = 0 OR cardinality(p_dates) = 0 THEN
+    RETURN;
+  END IF;
+  IF cardinality(p_service_ids) > 100 THEN
+    RAISE EXCEPTION 'too_many_service_ids' USING ERRCODE = '22023',
+      HINT = 'at most 100 service cards per call';
+  END IF;
+  IF cardinality(p_dates) > 31 THEN
+    RAISE EXCEPTION 'too_many_dates' USING ERRCODE = '22023',
+      HINT = 'at most 31 dates per call';
+  END IF;
+
+  RETURN QUERY
+  WITH
+  svc AS (
+    SELECT s.vendor_service_id AS sid, s.vendor_profile_id AS vpid, s.category,
+           public.service_card_daily_limit(s.vendor_service_id) AS dcap
+      FROM public.vendor_services s
+     WHERE s.vendor_service_id = ANY (p_service_ids)
+  ),
+  d AS (
+    SELECT DISTINCT x.day FROM unnest(p_dates) AS x(day) WHERE x.day IS NOT NULL
+  ),
+  -- A card on halls is on exactly its halls (2026-10-14 🏛) — whatever the flag.
+  hall AS (
+    SELECT h.vendor_service_id AS sid, h.pool_id
+      FROM public.vendor_service_halls h
+     WHERE h.vendor_service_id IN (SELECT sid FROM svc)
+  ),
+
+  -- ── Pool resolution, read-only (see 20271221805341 header §3) ────────────
+  wanted_category AS (
+    SELECT svc.sid, svc.vpid, svc.category AS category_key
+      FROM svc
+      LEFT JOIN public.vendor_schedule_calendar_services cs
+        ON cs.vendor_service_id = svc.sid
+     WHERE svc.category IS NOT NULL AND length(svc.category) > 0
+       AND (NOT p_named_calendars OR cs.pool_id IS NULL)
+       AND NOT EXISTS (SELECT 1 FROM hall WHERE hall.sid = svc.sid)
+    UNION
+    SELECT svc.sid, svc.vpid, l.linked_canonical_service
+      FROM svc
+      JOIN public.vendor_service_links l ON l.vendor_service_id = svc.sid
+     WHERE l.linked_canonical_service IS NOT NULL
+       AND length(l.linked_canonical_service) > 0
+  ),
+  real_pool AS (
+    SELECT hall.sid, hall.pool_id FROM hall
+    UNION
+    SELECT svc.sid, cs.pool_id
+      FROM svc
+      JOIN public.vendor_schedule_calendar_services cs ON cs.vendor_service_id = svc.sid
+     WHERE p_named_calendars
+       AND NOT EXISTS (SELECT 1 FROM hall WHERE hall.sid = svc.sid)
+    UNION
+    SELECT wc.sid, pc.pool_id
+      FROM wanted_category wc
+      JOIN public.vendor_schedule_pool_categories pc
+        ON pc.vendor_profile_id = wc.vpid AND pc.category_key = wc.category_key
+  ),
+  virtual_pool_card AS (
+    SELECT DISTINCT wc.sid, wc.vpid
+      FROM wanted_category wc
+     WHERE NOT EXISTS (
+       SELECT 1 FROM public.vendor_schedule_pool_categories pc
+        WHERE pc.vendor_profile_id = wc.vpid AND pc.category_key = wc.category_key)
+  ),
+  active_pool AS (
+    SELECT rp.sid, p.pool_id, p.vendor_profile_id AS vpid, p.daily_booking_capacity AS cap
+      FROM real_pool rp
+      JOIN public.vendor_schedule_pools p ON p.pool_id = rp.pool_id
+     WHERE p.is_active
+  ),
+
+  -- ── (a)+(a2) shop-wide: refuses every active pool, real or new ──────────
+  shop_closed AS (
+    SELECT DISTINCT c.vpid, d.day
+      FROM (SELECT vpid FROM active_pool UNION SELECT vpid FROM virtual_pool_card) c
+     CROSS JOIN d
+     WHERE EXISTS (
+             SELECT 1 FROM public.vendor_calendar_blocks b
+              WHERE b.vendor_profile_id = c.vpid
+                AND b.block_source IN ('manual', 'synced_calendar')
+                AND b.pool_id IS NULL
+                AND b.day_part = 'all_day'
+                AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, d.day))
+        OR EXISTS (
+             SELECT 1 FROM public.vendor_calendar_day_states ds
+              WHERE ds.vendor_profile_id = c.vpid
+                AND ds.state_date = d.day
+                AND ds.pool_id IS NULL
+                AND ds.day_state = 'locked')
+  ),
+
+  -- ── (a)+(a2)+(b) per REAL active pool ───────────────────────────────────
+  pool_refused AS (
+    SELECT ap.sid, d.day
+      FROM active_pool ap
+     CROSS JOIN d
+     WHERE EXISTS (
+             SELECT 1 FROM public.vendor_calendar_blocks b
+              WHERE b.vendor_profile_id = ap.vpid
+                AND b.block_source IN ('manual', 'synced_calendar')
+                AND (b.pool_id = ap.pool_id OR b.pool_id IS NULL)
+                AND b.day_part = 'all_day'
+                AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, d.day))
+        OR EXISTS (
+             SELECT 1 FROM public.vendor_calendar_day_states ds
+              WHERE ds.vendor_profile_id = ap.vpid
+                AND ds.state_date = d.day
+                AND (ds.pool_id = ap.pool_id OR ds.pool_id IS NULL)
+                AND ds.day_state = 'locked')
+        -- 🗓 STEP 4: the SAME count acquire_schedule_pools refuses by (pieces, NULL = 1, + outside clients).
+        OR public.schedule_pool_taken_on(ap.pool_id, d.day, NULL) >= ap.cap
+    UNION
+    SELECT vp.sid, sc.day
+      FROM virtual_pool_card vp
+      JOIN shop_closed sc ON sc.vpid = vp.vpid
+  ),
+
+  -- ── SLOTS (every plan since 2026-10-14), per acquire_service_time_slot ──
+  slot AS (
+    SELECT t.slot_id, t.vendor_service_id AS sid, t.vendor_profile_id AS vpid, t.slot_capacity AS cap,
+           t.start_time AS st, t.end_time AS et
+      FROM public.vendor_service_time_slots t
+     WHERE t.vendor_service_id IN (SELECT sid FROM svc)
+       AND t.is_active
+  ),
+  slot_refused AS (
+    SELECT sc.sid, d.day
+      FROM (SELECT DISTINCT sid, vpid FROM slot) sc
+     CROSS JOIN d
+     WHERE EXISTS (
+             SELECT 1 FROM public.vendor_calendar_day_states ds
+              WHERE ds.vendor_profile_id = sc.vpid
+                AND ds.state_date = d.day
+                AND ds.pool_id IS NULL
+                AND ds.day_state = 'locked')
+        OR NOT EXISTS (
+             -- a slot with room that day, whose hours are not "Not available"
+             SELECT 1 FROM slot sl
+              WHERE sl.sid = sc.sid
+                AND NOT public.calendar_blocks_refuse_slot(sl.sid, d.day, sl.st, sl.et)
+                AND (SELECT count(*)
+                       FROM public.event_vendors ev
+                       JOIN public.events e ON e.event_id = ev.event_id
+                      WHERE ev.service_time_slot_id = sl.slot_id
+                        AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
+                        AND ev.archived_at IS NULL
+                        AND e.event_date = d.day
+                        AND e.event_date_precision = 'day') < sl.cap)
+  ),
+
+  -- ── PER-CARD DAILY LIMIT (#2), per vendors/actions.ts finalizeVendor ─────
+  capacity_refused AS (
+    SELECT svc.sid, d.day
+      FROM svc
+     CROSS JOIN d
+     WHERE svc.dcap IS NOT NULL AND svc.dcap > 0
+       AND NOT EXISTS (SELECT 1 FROM slot sl WHERE sl.sid = svc.sid)
+       AND public.service_card_bookings_on(svc.sid, d.day) >= svc.dcap
+  )
+
+  SELECT r.sid, r.day FROM pool_refused r
+  UNION
+  SELECT r.sid, r.day FROM slot_refused r
+  UNION
+  SELECT r.sid, r.day FROM capacity_refused r;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) TO service_role;
+
 COMMIT;

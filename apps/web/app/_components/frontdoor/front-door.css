@@ -2026,6 +2026,15 @@ button.fd-ask.quiet {
   font-family: inherit;
   min-height: 0;
 }
+/* 📐 THE APP SHELL'S TWO NUMBERS, FOR A SCREEN OUTSIDE IT. A screen portalled to <body> (the picked client,
+   `app/_components/picked/picked-shell.tsx`) sits outside `.fd`, so `--fd-bar` / `--fd-rail` cannot reach it. These are
+   the app bar's height (the `.fd[data-chrome='app']` value just above) and the full rail's width from 1280 (`.fd`'s own),
+   published on :root. `vendor-dashboard/customers/an-event-takes-columns-two-and-three.test.ts` holds them equal to the
+   two `.fd` values, so the pair can never drift. */
+:root {
+  --fd-app-bar: 61px;
+  --fd-app-rail-wide: 240px;
+}
 
 /* The rail IS chrome, so it keeps the front door's face, ink and cream —
    which is what makes the two surfaces read as one shell. Scoped to the rail

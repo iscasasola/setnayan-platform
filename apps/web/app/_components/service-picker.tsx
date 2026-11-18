@@ -31,6 +31,12 @@ export type PickerBranchView = {
 };
 export type PickerParentView = { folderId: string; label: string; branches: PickerBranchView[] };
 
+/** W1-B2 — a service row's accessible name: its label (the service key if a catalogue row has none), then its path. */
+export function serviceRowName(leaf: { label: string; canonicalService: string }, path?: string): string {
+  const name = leaf.label.trim() || leaf.canonicalService.replace(/[_-]+/g, ' ');
+  return path ? `${name}, in ${path}` : name;
+}
+
 /**
  * Primary-service picker — parent → branch → leaf, phone first.
  *
@@ -172,7 +178,15 @@ export function ServicePicker({
         </span>
       </div>
     ) : (
-    <button type="button" className={rowStyle} onClick={() => onPick(leaf)} data-open-shop-service-row={leaf.canonicalService}>
+    <button
+      type="button"
+      className={rowStyle}
+      onClick={() => onPick(leaf)}
+      // W1-B2 (walk 16 Nov 2026): the walker's reader found these service buttons under an opened category unnamed —
+      // the name is said outright (the service, then where it lives), never left to the nested spans.
+      aria-label={serviceRowName(leaf, path)}
+      data-open-shop-service-row={leaf.canonicalService}
+    >
       <span className="min-w-0">
         <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
           {leaf.label}

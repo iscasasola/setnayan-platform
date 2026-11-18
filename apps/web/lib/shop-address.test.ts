@@ -49,7 +49,10 @@ test('1 · /v/{shop} and its sub-pages redirect to the bare address — nothing 
     ['/v/titanena/review', '/titanena/review'],
     ['/v/titanena/guest-review', '/titanena/guest-review'],
     ['/v/titanena/cached', null], // the internal cached copy — never addressed, never redirected
-    ['/v/titanena/story/our-day', null], // a sub-page the move has not given a bare form
+    ['/v/titanena/story/our-day', '/titanena/story/our-day'], // W1-B19 — an Ultra story page forwards too
+    ['/v/titanena/story/our-day/', '/titanena/story/our-day'],
+    ['/v/titanena/dates/our-day', null], // only `story` takes an event segment
+    ['/v/titanena/story/our-day/more', null],
     ['/v/', null],
     ['/vendors/titanena', null],
   ];

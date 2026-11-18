@@ -65,7 +65,12 @@ const config: Config = {
   // silently a no-op at runtime. It looked fine only because the heavily-used
   // files there (skeletons, sd-loader) happen to share every class with some
   // app/** file; ManualCheckoutModal, which doesn't, rendered fully unstyled.
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
+  // ⚡ TEST FILES ARE NOT SCANNED (speed pass 2026-11-18). ~4,300 `*.test.ts` guards quote class names in assertions
+  // and regexes; Tailwind generated a rule for every one, on every page's stylesheet. A class that appears ONLY in a
+  // test can never be on a shipped element, so dropping them is byte-for-byte neutral for every page: measured
+  // 650,417 → 642,976 B minified (−114 selectors). Labs (`*.lab.tsx`) stay scanned — `next dev` draws them.
+  // 🔒 lib/the-stylesheet-stays-in-budget.test.ts
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}', '!./**/*.test.{ts,tsx}'],
   theme: {
     screens: {
       sm: '640px',

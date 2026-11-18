@@ -10,7 +10,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TIER_LABEL, WAITLIST_SETTING_MAX } from '@/lib/vendor-tier-caps';
 import { formatCount } from '@/lib/format-number';
 import {
   COUNT_ADDONS,
@@ -53,9 +53,6 @@ function generateReferenceCode(): string {
       .toUpperCase()
   );
 }
-
-/** The column's own CHECK on `vendor_profiles.max_waitlist_acceptances` (0..10) — the most places a date can hold. */
-const WAITLIST_SETTING_MAX = 10;
 
 export async function buyUltraAddOn(formData: FormData): Promise<void> {
   const kind = formData.get('addon');

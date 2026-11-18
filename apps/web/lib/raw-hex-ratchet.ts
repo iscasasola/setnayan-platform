@@ -23,8 +23,10 @@ export function areaOf(rel: string): string {
 }
 
 /** A hex colour, not an id: `#7098` inside a word such as `PR #7098` is prose, and prose lives in comments (stripped). */
-export function countHex(source: string, isCss: boolean): number {
-  const code = isCss ? source.replace(/\/\*[\s\S]*?\*\//g, '') : stripComments(source);
+export function countHex(source: string, _isCss?: boolean): number {
+  // The repo's ONE stripper for both (`scripts/lint-one-comment-stripper.mjs`): it lexes strings, so `/*` inside a
+  // string never opens a comment. The second argument is kept for the callers' readability; a stylesheet goes through the same door.
+  const code = stripComments(source);
   return (code.match(HEX) ?? []).length;
 }
 

@@ -112,7 +112,9 @@ test('4 · ruling 17 — past the tries a paper goes to a person; it is never re
 
   // The words say a person checks it — never "you've used your tries".
   assert.doesNotMatch(INTAKE_MESSAGE.triesUsed, /used your three tries/);
-  assert.match(INTAKE_MESSAGE.keptTyped, /a person at Setnayan is checking this paper/i);
+  assert.match(INTAKE_MESSAGE.keptTyped, /kept it for a person at Setnayan to check/i);
+  // W1-B35: before the papers are sent nothing says a person is checking it NOW.
+  assert.doesNotMatch(INTAKE_MESSAGE.keptTyped + INTAKE_MESSAGE.triesUsed, /is (already )?checking/i);
 });
 
 test('audit #7898 · a sent-back paper\'s "Needs a new copy · …" line is still announced (role="alert")', () => {

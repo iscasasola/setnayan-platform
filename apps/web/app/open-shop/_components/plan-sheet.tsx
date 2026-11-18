@@ -70,7 +70,7 @@ function PlanBody({
           <b className="text-[15px] font-semibold" style={{ color: 'rgb(var(--color-ok))' }}>
             {split.free.name}
           </b>
-          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          <span className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
             {split.free.caps}
           </span>
           <span className="[overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
@@ -96,7 +96,7 @@ function PlanBody({
           </span>
         </div>
       </div>
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
         All of it stays on until that booking is done. Then {main} stays free; {split.held.name} keeps the rest.
       </p>
       <button

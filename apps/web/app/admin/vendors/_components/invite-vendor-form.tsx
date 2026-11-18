@@ -21,6 +21,7 @@ import {
 } from '@/lib/personal-invite-offer';
 import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 import { planWord } from '@/lib/vendor-plan-change-words';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 type Ok = Extract<AdminInviteResult, { status: 'ok' }>;
 
@@ -76,7 +77,7 @@ export function InviteVendorForm({
   const categoryOptions = [{ key: '', label: 'Not set' }, ...categories];
 
   return (
-    <section className="mb-6 rounded-xl border border-ink/10 bg-cream p-4 sm:p-5" data-invite-vendor="">
+    <section className={`${ADMIN_FRAME} mb-6 p-4 sm:p-5`} data-invite-vendor="">
       <h2 className="text-base font-semibold tracking-tight text-ink">
         Invite a supplier
       </h2>

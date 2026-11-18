@@ -26,7 +26,7 @@ const DESCRIPTION =
   'Plain-English explanation of the two optional Google connections Setnayan offers: YouTube, to set up the live broadcast of a wedding, and Google Drive, so photos land in a folder the couple owns. Setnayan only ever touches files it created itself.';
 
 /** The shared 1200×630 brand card, same asset the root layout and `/` serve. */
-const OG_IMAGE = '/brand/og-card.webp';
+const OG_IMAGE = '/brand/og-card-2026-11.png';
 
 export const GOOGLE_ACCESS_METADATA = {
   title: TITLE,
@@ -59,8 +59,8 @@ export const GOOGLE_ACCESS_METADATA = {
         url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
-        type: 'image/webp',
+        alt: 'Setnayan · Plan any event free. Every photo in one album.',
+        type: 'image/png',
       },
     ],
   },

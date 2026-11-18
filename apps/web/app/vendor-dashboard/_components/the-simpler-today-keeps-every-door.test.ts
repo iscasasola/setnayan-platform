@@ -300,13 +300,13 @@ test('7 · Coming up carries the bookings from outside, and the schedule’s nam
 
 /* ═══ 8 · THE SHOP ROW ═════════════════════════════════════════════════════ */
 
-test('8 · the Shop row says Checking · Live · Not yet, what is left of the details, and how business is doing', async () => {
+test('8 · the Shop row says Not sent · Checking · Live · Not yet, what is left of the details, and how business is doing', async () => {
   const shopOf = async (o: Opt) => text((await draw(o)).html.split('data-today-shop')[1] ?? '');
   assert.match(await shopOf({}), /Lumina Studio Photo & video · couples can find you Live How is business 312 looked · 14 asked/);
   assert.match(await shopOf({ findable: false }), /not shown yet Not yet/);
   assert.match(
     await shopOf({ verified: false, findable: false, views: null, shop: { name: 'San Agustin Parish', categoryWord: 'Church', details: { done: 4, total: 6, complete: false }, awardWord: null, milestoneWord: null } }),
-    /San Agustin Parish Church · send your documents to get Verified · details 4 of 6 Checking How is business Couples can open your page by its link and message you/,
+    /San Agustin Parish Church · send your documents to get Verified · details 4 of 6 Not sent How is business Couples can open your page by its link and message you/,
   );
   // A views read that did not come back prints no number at all — never 0.
   assert.doesNotMatch(await shopOf({ views: null }), /\b0 looked/);

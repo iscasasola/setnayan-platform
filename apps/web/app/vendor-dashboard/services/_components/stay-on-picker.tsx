@@ -97,7 +97,7 @@ export function StayOnPicker({
         className="!min-h-11 w-full"
       />
 
-      <p className="text-[13px] text-ink/70" data-stay-on-meter="">
+      <p className="text-[13px] text-[color:var(--m-slate-2)]" data-stay-on-meter="">
         {meterWords(kept, plan)}
       </p>
 
@@ -116,7 +116,7 @@ export function StayOnPicker({
                 <span className="min-w-0 flex-1 truncate text-sm text-ink">{c.name}</span>
                 <span
                   className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[12px] font-medium ${
-                    on ? 'bg-success-100 text-success-800' : 'bg-ink/5 text-ink/60'
+                    on ? 'bg-[rgb(var(--color-ok)/0.08)] text-[rgb(var(--color-ok))]' : 'bg-ink/5 text-[color:var(--m-slate-2)]'
                   }`}
                 >
                   {on ? 'Stays on' : offWord}
@@ -128,7 +128,7 @@ export function StayOnPicker({
       </ul>
 
       {refused ? (
-        <p role="status" className="text-[13px] text-warn-900" data-stay-on-refused="">
+        <p role="status" className="text-[13px] text-[rgb(var(--color-warn))]" data-stay-on-refused="">
           {refused}
         </p>
       ) : null}
@@ -160,7 +160,7 @@ export function StayOnPicker({
           }}
         />
       </StayForm>
-      {waitNote ? <p className="text-[12px] text-ink/60">{waitNote}</p> : null}
+      {waitNote ? <p className="text-[12px] text-[color:var(--m-slate-2)]">{waitNote}</p> : null}
     </section>
   );
 }

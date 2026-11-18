@@ -485,8 +485,8 @@ function TypedForm({
         {fileName(fileRef)} · try 3 · kept
       </p>
       <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
+        {/* W1-B35: the state line above already says it is kept for a person — no second or third sentence here. */}
         <strong className="block">{slot === 'mayors_permit' ? 'Type what’s on your permit (optional)' : 'Type what’s on this paper (optional)'}</strong>
-        We kept your last photo for a person at Setnayan to check. Typing what it says helps them.
       </p>
       <form
         className="space-y-2"
@@ -499,7 +499,8 @@ function TypedForm({
             fd.set('typed_json', JSON.stringify(values));
             const res = await updateDocUploadInline(null, fd);
             if (res.ok) {
-              toast.success('Sent — a person will check it, usually within 1 working day.');
+              // W1-B35/B36: nothing is SENT here — it goes with the papers when the supplier sends them.
+              toast.success('Saved — it goes with your papers when you send them.');
               onSaved();
             } else {
               toast.error(res.error);

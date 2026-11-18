@@ -12,6 +12,12 @@ import { ComplianceSurface } from '@/app/admin/settings/_surfaces/compliance-sur
 import { AvatarScreen, ConfirmLines, SettingRow } from '../_components/avatar-screen';
 import { ConfirmButton } from '../_components/avatar-confirm';
 import { BusinessIdentityForm } from './_components/business-identity-form';
+import ReceivingAccountsPage from '../settings/payment-methods/page';
+import SecretsPage from '../secrets/page';
+import IntegrationsPage from '../integrations/page';
+import PrivacyPage from '../data-privacy/page';
+import DataSheetPage from '../compliance/data-sheet/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Business & compliance · Admin' };
@@ -33,7 +39,7 @@ export const metadata = { title: 'Business & compliance · Admin' };
  * Official Receipt for a paid order is issued separately, offline — these are not BIR ORs. Getting that wrong is a tax
  * problem, not a layout one, so the sentence stays on the page.
  */
-export default async function AdminBusinessPage({
+async function AdminBusinessPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -182,4 +188,25 @@ export default async function AdminBusinessPage({
       <ComplianceSurface />
     </AvatarScreen>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Setup › Business, keys & privacy · What ▾ (receiving accounts moved here, call 11).
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'accounts': ReceivingAccountsPage,
+  'secrets': SecretsPage,
+  'integrations': IntegrationsPage,
+  'privacy': PrivacyPage,
+  'data-sheet': DataSheetPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminBusinessPage, sp);
 }

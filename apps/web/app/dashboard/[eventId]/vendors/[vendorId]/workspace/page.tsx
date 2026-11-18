@@ -1907,7 +1907,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 <TemplateRow
                   key={`${i}-${row.label}`}
                   title={row.label}
-                  line={`Due ${row.dueText}`}
+                  line={`Due ${scheduleDueText(row, manilaToday())}`}
                   right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
                 />
               ))}

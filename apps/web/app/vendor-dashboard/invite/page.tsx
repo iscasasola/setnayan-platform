@@ -29,6 +29,10 @@ import { CUSTOMERS_QR_MODES, PROMOTE_HREF, crewQrEvents, isPromoteQrMode, pickCr
 import { LockedQrGenerator, type LockedQrInitial } from './_components/locked-qr-generator';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
+import { AddClientBlock } from './_components/own-client-gift';
+import { ownGiftDataOf } from '@/lib/own-clients';
+import { fetchShopVerified } from '@/lib/own-clients.server';
+import { loadShopGiftsSection } from '../shop/promote/_components/shop-gifts-data';
 
 export const metadata = { title: 'QR codes · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -199,11 +203,24 @@ export default async function VendorQrCodesPage({
     return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
   }
 
+  // 🎁 OWN CLIENTS v4 (owner 16 Nov, drawing part 1): "Add a client" sits above Booked and Crew. Its gift step reads the
+  // SAME gift read Shop › Promote's "Your gifts" makes, so the two can never disagree about the stock.
+  // 🪪 Unverified shops keep it too ("UNVERIFIED SHOPS DO GET THE QR") — with the owner's get-verified line.
+  const addClient = (
+    <AddClientBlock
+      data={ownGiftDataOf(await loadShopGiftsSection(supabase, vendorProfileId))}
+      bookedHref={`${QR_HREF}?mode=locked&open=1`}
+      // 🪪 The ONE verified test the claim uses (`fetchShopVerified`); a failed read says "couldn't check".
+      verified={await fetchShopVerified(supabase, vendorProfileId)}
+    />
+  );
+
   if (mode === 'crew') {
     return (
       <QrCodes
         open={open}
         hrefs={hrefs}
+        addClient={addClient}
         backHref={DATES_HREF}
         canShare
         setupHref="/vendor-dashboard/shop"
@@ -348,6 +365,7 @@ export default async function VendorQrCodesPage({
     <QrCodes
       open={open}
       hrefs={hrefs}
+      addClient={addClient}
       // Came from an outside booking's "Send their code" → back to that customer's row, open (Customers › People).
       backHref={blockId ? `/vendor-dashboard/customers?block=${blockId}#outside` : DATES_HREF}
       canShare

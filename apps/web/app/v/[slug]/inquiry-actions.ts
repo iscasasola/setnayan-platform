@@ -31,6 +31,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ownLinkArrival } from '@/lib/own-clients.server';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
@@ -503,9 +504,23 @@ export async function startServiceInquiry(input: {
       input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
+    // 🔗🎁 OWN CLIENTS v4 (owner 2026-11-16, "a client who arrives through the supplier's own link is treated like an
+    // import"): a first ask through the shop's OWN link (`?src=own` → 'website') makes the couple its own client only
+    // with the link's Setnayan gift, given now from a VERIFIED shop's bought stock (once per shop + event). Measured "not
+    // own" (unverified, no gift, too little stock) → stamped as a visit to the shop's page on Setnayan ('shop_page' — the
+    // normal fee). A FAILED read is not evidence (controller audit, 16 Nov): the own-link stamp stays and the fee is left
+    // to the booking-fee logic — never charged on an unknown.
+    const arrival =
+      declaredSource === 'website' && !referral
+        ? await ownLinkArrival(admin, vendorProfileId, eventId).catch((e: unknown) => {
+            console.error('[own-clients] own-link arrival', e);
+            return 'unknown' as const;
+          })
+        : null;
+    const ownedSource = arrival === 'not_own' ? 'shop_page' : declaredSource;
     await stampThreadProvenance(threadId, {
       referringChapterId: referral?.chapterId ?? null,
-      inquirySource: referral ? 'influencer' : declaredSource,
+      inquirySource: referral ? 'influencer' : ownedSource,
       isReturning: returning,
     });
   }

@@ -110,7 +110,16 @@ export function QrCodes({
   reviews = null,
   crew = null,
   hrefs = {},
+  addClient = null,
+  ownLinkGift = null,
+  ownLinkNotice = null,
 }: {
+  /** 🎁 "Add a gift to your link so your clients book free." — on every own code's sheet, when the link has no gift. */
+  ownLinkNotice?: ReactNode;
+  /** 🎁 Own clients v4: the "Add a client" row + promise line, above Booked and Crew (Customers › QR codes only). */
+  addClient?: ReactNode;
+  /** 🎁 Own clients v4: "Gift with your link" — set once on the code, drawn in My page's sheet (Shop › Promote only). */
+  ownLinkGift?: ReactNode;
   /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
   place?: 'customers' | 'promote';
   /** The code whose sheet opens on arrival — a link that names one (`?mode=` with something to show). */
@@ -158,6 +167,7 @@ export function QrCodes({
             checkADate?.svg ?? null,
             checkADate ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={checkADate.svg} url={checkADate.url} title={checkADate.shopName} line={WORDS.dates.sheetLine} filename="setnayan-check-a-date-qr.svg" data="check-a-date" />
               </div>
             ) : null,
@@ -189,7 +199,9 @@ export function QrCodes({
             myPage?.svg ?? null,
             myPage ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={myPage.svg} url={myPage.url} title={myPage.shopName} line={WORDS.page.sheetLine} filename="setnayan-my-page-qr.svg" data="my-page" />
+                {ownLinkGift}
               </div>
             ) : null,
           ),
@@ -198,6 +210,7 @@ export function QrCodes({
             reviews?.svg ?? null,
             reviews ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={reviews.svg} url={reviews.url} title={reviews.shopName} line={WORDS.reviews.sheetLine} filename="setnayan-reviews-qr.svg" data="reviews" />
               </div>
             ) : null,
@@ -243,7 +256,10 @@ export function QrCodes({
           <DatesRow title="Name your shop first" line="Your codes are built from your shop’s web address" href={setupHref} />
         </div>
       ) : (
-        <QrCodeList rows={rows} openKey={open} />
+        <>
+          {addClient}
+          <QrCodeList rows={rows} openKey={open} />
+        </>
       )}
     </div>
   );

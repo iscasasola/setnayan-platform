@@ -79,6 +79,11 @@ export type GiftMomentView = {
    * (1 = Bronze … 7 = Black Diamond) whose metal its frame wears. Absent/null = no ticket for this gift on main.
    */
   ticket?: GiftTicketRef | null;
+  /**
+   * 🪪 The giving shop is not yet verified (owner 2026-11-16, "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT YET
+   * VERIFIED"): the shipped line + its ⓘ — never hidden, never blocks. Absent for a verified shop and for Setnayan.
+   */
+  unverified?: { line: string; info: string } | null;
 };
 
 export type GiftTicketRef = { kind: TicketKind; tier: number | null };
@@ -125,6 +130,12 @@ export function badgeRewardTicket(rewardKey: string, rewardKind: string): GiftTi
   if (!reward || reward.kind !== 'papic') return null;
   return { kind: PAPIC_TICKET_BY_PACK[reward.pack ?? 'smallest'], tier };
 }
+
+/**
+ * On an OWN CLIENT's gift the ⓘ says only this (Own clients v4 answer 2, 16 Nov): the shipped ⓘ's "booking fee applies
+ * as usual" is not true for a shop's own client.
+ */
+export const OWN_CLIENT_NOT_VERIFIED_INFO = 'Setnayan hasn’t checked this shop’s documents yet.';
 
 const COUNT = new Intl.NumberFormat('en-PH');
 

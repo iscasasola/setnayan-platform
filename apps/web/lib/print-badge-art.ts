@@ -22,7 +22,8 @@ function tierPicture(src: string): Promise<Uint8Array> {
   let p = tierPng.get(src);
   if (!p) {
     // `public/badges/v84/*.webp` is traced into the print routes (next.config.ts outputFileTracingIncludes)
-    p = readFile(join(process.cwd(), 'public', src.replace(/^\//, ''))).then((b) => sharp(b).png().toBuffer()).then((b) => new Uint8Array(b));
+    // rooted at public/badges/v84 itself — the one folder this file may open (lib/no-server-file-carries-public.test.ts)
+    p = readFile(join(process.cwd(), 'public', 'badges', 'v84', src.replace(/^\/badges\/v84\//, ''))).then((b) => sharp(b).png().toBuffer()).then((b) => new Uint8Array(b));
     p.catch(() => tierPng.delete(src));
     tierPng.set(src, p);
   }

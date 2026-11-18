@@ -61,11 +61,21 @@ export function supplierPageTourOn(
 }
 
 /**
- * The page tours this person has still to meet: none until the Today tour is
- * seen, then each one not yet seen. NULL seen keys (the read failed) = none —
- * never replay a tour to someone who finished it.
+ * 🔦 ONE TOUR, SHOWN ONCE (walker W1-B14, 16 Nov 2026). Skipping the first-login journey used to start the next page's
+ * tour, then the next — Profile, then Today, then Shop, three in a row. The journey (`supplier_spotlight_v1`) already
+ * walks all four tabs, so it is THE supplier tour: finishing or skipping it ends every page tour with it.
+ *
+ * Both halves hold that: `completeTour` writes these keys WITH the journey's (`toursEndedWith`, so the dismissal is on
+ * record), and none is due to anybody — before the journey it would stack on it, after it the journey ended it (a
+ * supplier who met the journey before this rule shipped is not walked through the pages one by one either).
+ * NULL seen keys (the read failed) = none — never replay a tour to someone who finished it.
  */
 export function supplierPageToursDue(seen: ReadonlyArray<string> | null): SupplierPageTourKey[] {
-  if (!seen || !seen.includes(SUPPLIER_PAGE_TOURS_AFTER)) return [];
-  return SUPPLIER_PAGE_TOURS.filter((k) => !seen.includes(k));
+  void seen; // the layout still hands the record it read — no page tour is due on any answer of it
+  return [];
+}
+
+/** The tours one finish (or skip) records: the journey takes every supplier page tour with it. */
+export function toursEndedWith(tourKey: string): string[] {
+  return tourKey === SUPPLIER_PAGE_TOURS_AFTER ? [tourKey, ...SUPPLIER_PAGE_TOURS] : [tourKey];
 }

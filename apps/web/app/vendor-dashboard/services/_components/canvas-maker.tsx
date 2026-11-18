@@ -109,6 +109,7 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
 import { revealFold } from '@/lib/reveal-sweep';
 import { GiftPickRow } from '@/app/_components/gift-pick';
+import { CardShopOffers } from './card-shop-offers';
 import { GIFT_SETNAYAN, coupleCardPackLine, giftPickOf, type GiftPick } from '@/lib/gift-pick';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -1552,6 +1553,21 @@ export function CanvasMaker({
                             </div>
                           </OpensRow>
                         </div>
+                        {/* 🏷 Shop offers on this card (Card Maker part 3, v36 "Offer"): the shipped Offer Maker's offers that reach
+                            it — take this card off one, put one on it, or start a new one. Only on a card that exists. */}
+                        {isEdit && editing ? (
+                          <div data-maker-group-row="m-shop-offers">
+                            <OpensRow
+                              name="Shop offers"
+                              about={{ title: 'Shop offers', words: 'Offers you made in the Offer Maker. One offer can sit on many cards; couples see only the best one.' }}
+                              answer=""
+                              empty="See"
+                              data="shop-offers"
+                            >
+                              <CardShopOffers cardId={editing.serviceId} />
+                            </OpensRow>
+                          </div>
+                        ) : null}
                       </FormRows>
                     </div>
                   </MakerGroup>

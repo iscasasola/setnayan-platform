@@ -7054,6 +7054,7 @@ export function SeatingEditor({
         faces={comingUnseated.map((g) => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url }))}
         groups={trayGroups}
         canEdit={canEdit}
+        hasTables={tables.length > 0}
         onTapFace={openMove}
         onMore={() => {
           setFaceOpen((c) => (c.has(SEAT_LIST_UNSEATED) ? c : new Set([...c, SEAT_LIST_UNSEATED])));
@@ -8725,7 +8726,22 @@ export function SeatingEditor({
           ))}
 
           {tables.length === 0 ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-center p-6"
+              /* 📐 In Guests the floor runs under the pinned row (`--gs-stick-h`) and under the tray + thumb row
+                 (`--sn-thumb-room`, less the dock the cell already stops at — the zoom stack's own footing), so the card
+                 centres in what shows, and on a phone keeps clear of the zoom column (right-3 + its 44-px buttons): its
+                 "Build my seating draft" step is in sight without a pan (#7906 walker, 390x844). */
+              style={
+                inGuests
+                  ? {
+                      paddingTop: 'calc(var(--gs-stick-h, 0px) + 1.5rem)',
+                      paddingBottom: 'max(1.5rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))',
+                      paddingRight: isPhone ? '4.25rem' : undefined,
+                    }
+                  : undefined
+              }
+            >
               {(() => {
                 /* 🔢 RW-304b: the same count as the top row's Unseated, and the reason when they differ (`starterDraftHint`). */
                 const { draftable, hint: draftHint } = starterDraftHint({ guests, coupleRoles: roleSet.coupleRoles });

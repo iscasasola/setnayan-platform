@@ -1,10 +1,14 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayLogoUrl } from '@/lib/uploads';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from '@/lib/findable-shop';
+import { shopIsVerified } from '@/lib/own-clients';
 import { readRewardNames } from '@/lib/badge-rewards.server';
 import {
   badgeRewardMomentView,
   shopGiftMomentView,
+  OWN_CLIENT_NOT_VERIFIED_INFO,
   type GiftMomentSource,
   type GiftMomentView,
   type ShopGiftLine,
@@ -21,6 +25,7 @@ import {
 
 type EventRow = {
   ref_id: string;
+  vendor_profile_id?: string | null;
   giver_name: string | null;
   giver_logo: string | null;
   lines: unknown;
@@ -54,14 +59,40 @@ export async function readEventGiftMoments(supabase: SupabaseClient, eventId: st
     return null;
   }
   const rows = (data ?? []) as EventRow[];
+  // 🪪 Who among the givers is not yet verified, and which gifts are own-client gifts — read with the service role,
+  // scoped to the shop and gift ids the couple's OWN read just returned (the database already decided they may see
+  // these gifts). A shop the couple cannot read is exactly the unverified one, so a session read would hide the line.
+  const shopIds = [...new Set(rows.map((r) => r.vendor_profile_id).filter((v): v is string => typeof v === 'string'))];
+  let unverifiedShops = new Set<string>();
+  let ownGiftIds = new Set<string>();
+  if (shopIds.length > 0) {
+    const admin = createAdminClient();
+    const [shops, own] = await Promise.all([
+      admin.from('vendor_profiles').select('vendor_profile_id, verification_state').in('vendor_profile_id', shopIds),
+      admin.from('own_client_gifts').select('own_gift_id').eq('event_id', eventId).in('own_gift_id', rows.map((r) => r.ref_id)),
+    ]);
+    if (shops.error) console.error('[gift-moment] giver verification read failed', shops.error.message);
+    if (own.error) console.error('[gift-moment] own-client gift read failed', own.error.message);
+    unverifiedShops = new Set(
+      ((shops.data ?? []) as Array<{ vendor_profile_id: string; verification_state: unknown }>)
+        .filter((v) => !shopIsVerified(v.verification_state))
+        .map((v) => v.vendor_profile_id),
+    );
+    ownGiftIds = new Set(((own.data ?? []) as Array<{ own_gift_id: string }>).map((o) => o.own_gift_id));
+  }
   return Promise.all(
     rows.map(async (r) => {
       // A logo that cannot be shown falls back to the two initials — never a broken image on the seal.
       const logoSrc = r.giver_logo ? await displayLogoUrl({ logo_url: r.giver_logo }).catch(() => null) : null;
-      return shopGiftMomentView(
+      const view = shopGiftMomentView(
         { ref: r.ref_id, giverName: r.giver_name, logoSrc, lines: linesOf(r.lines), landedAt: r.landed_at, claimedAt: r.claimed_at },
         eventId,
       );
+      const unverified =
+        r.vendor_profile_id && unverifiedShops.has(r.vendor_profile_id)
+          ? { line: NOT_YET_VERIFIED_LINE, info: ownGiftIds.has(r.ref_id) ? OWN_CLIENT_NOT_VERIFIED_INFO : NOT_YET_VERIFIED_INFO }
+          : null;
+      return { ...view, unverified };
     }),
   );
 }

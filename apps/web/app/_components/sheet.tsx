@@ -10,6 +10,8 @@ import { OverlayBackdrop } from './overlay-backdrop';
 import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 import { closeWindow, growPlan, playGrowParts, riseOriginNow, sheetGrowFrames, watchRiseOrigins, type GrowParts, type GrowPlan } from '@/lib/rise-screen';
 import { RISE_CLOSE_MS, RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
+import { EASE_SETTLE, MOVE_MS, QUICK_MS } from '@/lib/motion-table';
+import { springEasing } from '@/lib/rows-move';
 
 // Note presses from the moment a sheet can open, so the first door tapped already has an origin (idempotent).
 if (typeof window !== 'undefined') watchRiseOrigins();
@@ -68,6 +70,90 @@ function playSheetGrow(parts: NonNullable<ReturnType<typeof sheetParts>>, origin
     if (parts.backdrop) runs.push(parts.backdrop.animate(fade, { duration: out ? RISE_CLOSE_MS : RISE_MS, delay: shape.delay, easing: 'linear', direction: out ? 'reverse' : 'normal', fill: out ? 'forwards' : 'backwards' }));
   }
   return Promise.all(runs.map((a) => a.finished.catch(() => undefined))).then(() => undefined);
+}
+
+/**
+ * 🎞 STACK (owner 18 Nov 2026, MOTION_STANDARD_2026-11-18.md § 4 #2 — "sheets use Stack"): a sheet with no fresh press
+ * behind it (a deep link, an automatic open) used to simply appear. It now SLIDES IN from the edge it stands on — up
+ * from the foot on a phone (Move 320 on Spring), in from the right as a drawer (Move on Settle: a spring's overshoot
+ * would open a gap at the screen's edge), a centred form page rises 24 px and fades — and leaves the same way at 80 %
+ * of the open, on Settle, the dark fading in Quick. Transform and opacity only. Tapped again mid-move it turns around
+ * FROM WHERE IT IS (the transform in flight is the next move's first frame). Reduced motion: a 120 ms cross-fade.
+ * 🔒 lib/the-motion-core-moves-by-transform.test.ts
+ */
+const STACK_ID = 'sn-sheet-stack';
+function playSheetStack(parts: NonNullable<ReturnType<typeof sheetParts>>, out: boolean): Promise<void> {
+  const { panel, backdrop } = parts;
+  const runs: Animation[] = [];
+  const fade = [{ opacity: 0 }, { opacity: 1 }];
+  // Where a move in flight has the panel right now — read BEFORE anything is cancelled.
+  const live = getComputedStyle(panel);
+  const at = live.transform && live.transform !== 'none' ? new DOMMatrixReadOnly(live.transform) : null;
+  const dimNow = backdrop ? parseFloat(getComputedStyle(backdrop).opacity) : 1;
+  for (const a of [...panel.getAnimations({ subtree: true }), ...(backdrop?.getAnimations() ?? [])]) a.cancel();
+  if (reducedNow()) {
+    runs.push(panel.animate(fade, { duration: RISE_REDUCED_MS, easing: 'linear', direction: out ? 'reverse' : 'normal', fill: out ? 'forwards' : 'none' }));
+    if (out && backdrop) runs.push(backdrop.animate(fade, { duration: RISE_REDUCED_MS, easing: 'linear', direction: 'reverse', fill: 'forwards' }));
+  } else {
+    const r = panel.getBoundingClientRect();
+    // A drawer stands on the right edge, top to bottom; anything else that reaches the foot of the screen is a foot sheet.
+    const side = r.right >= window.innerWidth - 1 && r.width < window.innerWidth - 1 && r.top <= 1;
+    const foot = !side && r.bottom >= window.innerHeight - 1;
+    const away = foot ? `translate(0px, ${Math.round(r.height)}px)` : side ? `translate(${Math.round(r.width)}px, 0px)` : 'translate(0px, 24px)';
+    const here = at && (Math.abs(at.m41) > 0.5 || Math.abs(at.m42) > 0.5) ? `translate(${at.m41}px, ${at.m42}px)` : null;
+    const faint = foot || side ? 1 : 0;
+    const put = { transform: 'translate(0px, 0px)', opacity: 1 };
+    if (out) {
+      runs.push(panel.animate([{ transform: here ?? put.transform, opacity: 1 }, { transform: away, opacity: faint }], { duration: RISE_CLOSE_MS, easing: EASE_SETTLE, fill: 'forwards', id: STACK_ID }));
+    } else {
+      // The spring's overshoot lifts a foot sheet a few px past its place: its own ground hangs under it meanwhile.
+      if (foot) panel.setAttribute('data-sheet-under', '');
+      const rise = panel.animate([{ transform: here ?? away, opacity: here ? 1 : faint }, put], { duration: MOVE_MS, easing: foot ? springEasing() : EASE_SETTLE, fill: 'backwards', id: STACK_ID });
+      const settle = () => panel.removeAttribute('data-sheet-under');
+      rise.finished.then(settle, settle);
+      runs.push(rise);
+    }
+    if (backdrop) {
+      const from = Number.isFinite(dimNow) && dimNow < 1 ? dimNow : out ? 1 : 0;
+      runs.push(backdrop.animate([{ opacity: from }, { opacity: out ? 0 : 1 }], { duration: QUICK_MS, easing: EASE_SETTLE, fill: out ? 'forwards' : 'backwards', id: STACK_ID }));
+    }
+  }
+  return Promise.all(runs.map((a) => a.finished.catch(() => undefined))).then(() => undefined);
+}
+
+/**
+ * 🎞 THE HALF ↔ MAX SNAP, BY TRANSFORM (18 Nov, § 1 "rule breakers": "the `sheet.tsx` max-height snap — layout, costs
+ * every frame"). The panel takes its new height AT ONCE; what moves is a transform from where its top edge was to
+ * where it now is — up on Spring (Move), down on Settle (Move), the old height held under it until it has slid.
+ * `fromTop` is the top edge as it was seen before the change (a snap in flight included, so it turns around from there).
+ */
+const SNAP_ID = 'sn-sheet-snap';
+function playSheetSnap(panel: HTMLElement, fromTop: number): void {
+  if (typeof panel.animate !== 'function') return;
+  for (const a of panel.getAnimations()) if (a.id === SNAP_ID) a.cancel();
+  panel.style.maxHeight = '';
+  if (reducedNow()) return;
+  const now = panel.getBoundingClientRect();
+  const dy = fromTop - now.top;
+  if (Math.abs(dy) < 1) return;
+  if (dy > 0) {
+    // Grew: it stands at its new height already — slide it up into place.
+    panel.setAttribute('data-sheet-under', '');
+    const up = panel.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: MOVE_MS, easing: springEasing(), id: SNAP_ID });
+    const settle = () => panel.removeAttribute('data-sheet-under');
+    up.finished.then(settle, settle);
+    return;
+  }
+  // Shrank: keep the old height for the slide down, then let go of it.
+  panel.style.maxHeight = `${Math.round(now.bottom - fromTop)}px`;
+  const down = panel.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${-dy}px)` }], { duration: MOVE_MS, easing: EASE_SETTLE, fill: 'forwards', id: SNAP_ID });
+  down.finished.then(
+    () => {
+      panel.style.maxHeight = '';
+      down.cancel();
+    },
+    () => undefined,
+  );
 }
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
@@ -221,9 +307,8 @@ export type SheetProps = {
    */
   wide?: boolean;
   /**
-   * The sheet RISES into place and its backdrop fades in (the Event Hub's
-   * motion, owner 2026-09-21 — tokens in lib/motion.ts, off under reduced
-   * motion). Default false: every existing caller renders byte-identically.
+   * The backdrop fades in on opacity. (Until 18 Nov 2026 this also put the small `.sn-rise` on the panel; every
+   * sheet now moves the one way — the grow, or Stack — so the panel takes no class of its own.) Default false.
    */
   rise?: boolean;
   /**
@@ -303,6 +388,20 @@ export function Sheet({
   useEffect(() => {
     if (open) setSnap('half');
   }, [open]);
+  /* 🎞 A snap made BY HAND moves by transform (`playSheetSnap`): the top edge as it was seen just before the change. */
+  const snapFrom = useRef<number | null>(null);
+  const snapTo = (next: 'half' | 'max') => {
+    const panel = dialogRef.current?.querySelector<HTMLElement>('[data-sheet-panel]');
+    snapFrom.current = panel ? panel.getBoundingClientRect().top : null;
+    setSnap(next);
+  };
+  useIsoLayoutEffect(() => {
+    const from = snapFrom.current;
+    snapFrom.current = null;
+    const panel = dialogRef.current?.querySelector<HTMLElement>('[data-sheet-panel]');
+    if (from === null || !panel) return;
+    playSheetSnap(panel, from);
+  }, [snap]);
 
   /* 🎞 Present = drawn: stays true after `open` goes false until the mirrored close has played. */
   const [present, setPresent] = useState(open);
@@ -314,7 +413,12 @@ export function Sheet({
     const parts = sheetParts(root);
     const origin = riseOriginNow();
     originRef.current = origin && !root.contains(origin) ? origin : null;
-    if (!parts || !originRef.current || typeof parts.panel.animate !== 'function') return;
+    if (!parts || typeof parts.panel.animate !== 'function') return;
+    if (!originRef.current) {
+      // No fresh press behind it: Stack — it slides in from its own edge (and turns a close in flight around).
+      void playSheetStack(parts, false);
+      return;
+    }
     // Opened again while its close was still playing: that close's held last frame must not outlive this open.
     for (const a of [...parts.panel.getAnimations({ subtree: true }), ...(parts.backdrop?.getAnimations() ?? [])]) a.cancel();
     void playSheetGrow(parts, originRef.current, false);
@@ -324,7 +428,7 @@ export function Sheet({
     const root = dialogRef.current;
     const parts = root ? sheetParts(root) : null;
     const origin = originRef.current;
-    if (!parts || !origin || !origin.isConnected || typeof parts.panel.animate !== 'function') {
+    if (!parts || typeof parts.panel.animate !== 'function') {
       setPresent(false);
       return;
     }
@@ -332,7 +436,8 @@ export function Sheet({
     const done = () => {
       if (live) setPresent(false);
     };
-    playSheetGrow(parts, origin, true).then(done, done);
+    // Back into the thing it grew from; with none (or it has left the page), Stack — out by its own edge.
+    (origin && origin.isConnected ? playSheetGrow(parts, origin, true) : playSheetStack(parts, true)).then(done, done);
     return () => {
       live = false;
     };
@@ -367,7 +472,7 @@ export function Sheet({
       <div
         data-sheet-panel=""
         data-sheet-snap={full ? undefined : snap}
-        className={`${rise ? 'sn-rise ' : ''}${page ? at.page : `${at.panel} ${wide ? at.wide : at.narrow}`}${full ? ` ${at.full}` : ` ${snap === 'max' ? at.max : at.half} transition-[max-height] duration-300 ease-out motion-reduce:transition-none`}`}
+        className={`${page ? at.page : `${at.panel} ${wide ? at.wide : at.narrow}`}${full ? ` ${at.full}` : ` ${snap === 'max' ? at.max : at.half}`}`}
       >
         {full ? null : (
           <button
@@ -380,7 +485,7 @@ export function Sheet({
                 dragged.current = false;
                 return;
               }
-              setSnap((s) => (s === 'half' ? 'max' : 'half'));
+              snapTo(snap === 'half' ? 'max' : 'half');
             }}
             onPointerDown={(e) => {
               dragFrom.current = e.clientY;
@@ -392,9 +497,10 @@ export function Sheet({
               if (from === null) return;
               const dy = e.clientY - from;
               dragged.current = Math.abs(dy) > 8;
-              if (dy < -40) setSnap('max');
-              else if (dy > 60) {
-                if (snap === 'max') setSnap('half');
+              if (dy < -40) {
+                if (snap !== 'max') snapTo('max');
+              } else if (dy > 60) {
+                if (snap === 'max') snapTo('half');
                 else close();
               }
             }}

@@ -12,8 +12,8 @@
  * `readBadgeRewardFacts`), the steps and tier names `lib/badge-tiers.ts`, the words the J4 page model
  * (`badge-page-model.ts`), the reward lines `rewardLineFor` (`lib/badge-rewards.ts`). No number is typed here.
  *
- * 🔑 HONEST: an unread count is "Couldn't load" — never "Not yet" and never 0. Invites has no counter yet, so it says
- * "Not counted yet" (`BADGE_REWARDS.invites.measured === false`).
+ * 🔑 HONEST: an unread count is "Couldn't load" — never "Not yet" and never 0. A badge with no counter says
+ * "Not counted yet" (`BADGE_REWARDS[badge].measured === false`); Invites is counted since #7891.
  *
  * PURE — no I/O, no clock. 🔒 lib/shop-badge-shelf.test.ts
  */

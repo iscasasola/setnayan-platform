@@ -14,7 +14,7 @@ per part" (all six picks approved 18 Nov):
   beside the sheet title.
 
 No schema change, no new server action (reuses `uploadMoodboardSlot` · `removeMoodboardSlot` ·
-`reorderMoodboardSlot`); the 3-per-part cap is unchanged. Lab: `/dev/inspiration-board-lab` (dev only).
+`reorderMoodboardSlot`); the 3-per-part cap is unchanged.
 Held by `inspiration-board-one-plus.test.ts`.
 
 SPEC IMPACT: None — builds an already-approved drawing; no decision changed. (The ⓘ drops the drawing's clause

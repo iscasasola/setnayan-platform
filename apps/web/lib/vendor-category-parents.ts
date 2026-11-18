@@ -4,6 +4,7 @@ import {
   VENDOR_CATEGORY_CANONICAL,
   tilesForVendorCategory,
 } from '@/lib/vendor-category-taxonomy';
+import { formatCount } from '@/lib/format-number';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { leafFamilies, type LeafIndex } from '@/lib/service-card-kind';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -122,7 +123,7 @@ export type CategoryStanding =
   | { standing: 'covered' }
   /** New family, and the plan still has room for it. */
   | { standing: 'open' }
-  /** The plan has no room for another family, or this kind is full. */
+  /** The plan has no room for another family, or the shop is at its service-card total. */
   | { standing: 'locked'; why: string };
 
 /**
@@ -144,7 +145,8 @@ export function standingForCategory(
     /** How many cards this shop already has in each kind. */
     cardsByCategory: Readonly<Record<string, number>>;
     parentCategories: number;
-    servicesPerLeaf: number;
+    /** The plan's service cards IN TOTAL (owner 2026-11-18, rulings 23 · 39) — every kind counts toward it. */
+    serviceCardsTotal: number;
     /**
      * The live coverage leaves, so a card filed under the shop's OWN word is
      * capped by the same family as the legacy pill it replaces. Omitted → legacy
@@ -153,11 +155,11 @@ export function standingForCategory(
     leaves?: LeafIndex;
   },
 ): CategoryStanding {
-  const inKind = ctx.cardsByCategory[category] ?? 0;
-  if (ctx.servicesPerLeaf !== Infinity && inKind >= ctx.servicesPerLeaf) {
+  const total = Object.values(ctx.cardsByCategory).reduce((a, n) => a + (Number.isFinite(n) ? n : 0), 0);
+  if (ctx.serviceCardsTotal !== Infinity && total >= ctx.serviceCardsTotal) {
     return {
       standing: 'locked',
-      why: `You already have ${inKind} here — your plan allows ${ctx.servicesPerLeaf}.`,
+      why: `You already have ${formatCount(total)} service ${total === 1 ? 'card' : 'cards'} — your plan allows ${formatCount(ctx.serviceCardsTotal)}.`,
     };
   }
   const parents = ctx.leaves

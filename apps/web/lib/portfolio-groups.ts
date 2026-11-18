@@ -39,7 +39,21 @@ export type PortfolioAlbum = {
   unlisted?: { href: string } | null;
   /** The ISO time of its newest photo, where the album knows one (an event's) — Row 1's "Newest" sort. */
   newest?: string | null;
+  /**
+   * 📍 WHERE AND WHAT (owner 2026-11-19: *"when i type a place, example tagaytay, i see all event albums from tagaytay,
+   * services inspiration and videos taken there as well"*) — extra words Search matches besides the title and the line:
+   * an event's venue and address, the service cards booked at it; a service card's events' venues; an inspiration
+   * part's tagged events. Only what is ALREADY linked — nothing is tagged by hand. Never drawn.
+   */
+  words?: string;
+  /** An event album's venue ("Taal Vista Hotel") and the shop's service cards booked at it — drawn on the event. */
+  place?: string | null;
+  services?: string[];
 };
+
+/** What the page knows about one event the shop worked: its venue, its address, and the shop's cards booked at it. */
+export type EventFacts = { venue: string | null; address: string | null; services: string[] };
+export type EventFactsMap = ReadonlyMap<string, EventFacts>;
 
 export type PortfolioStory = { eventId: string; slug: string; hostNames: string; line: string };
 
@@ -74,7 +88,10 @@ export function eventAlbums(
     thisYear,
     albumHref,
     unlisted = null,
+    facts = null,
   }: {
+    /** 📍 Event id → its venue, address and booked cards. Absent/unread → albums as shipped, found by name only. */
+    facts?: EventFactsMap | null;
     thisYear: number;
     albumHref: ((eventId: string) => string) | null;
     /** 💸 Event id → where to settle its OVERDUE top-up (`overdueTopUps`). Absent → nothing is greyed. */
@@ -100,7 +117,14 @@ export function eventAlbums(
       return {
         key: eventId,
         title: (bk?.name ?? '').trim() || 'Your booked event',
-        line: [bk ? albumDay(bk.date, thisYear) : null, 'Papic album', photos(a.total)].filter(Boolean).join(' · '),
+        line: [bk ? albumDay(bk.date, thisYear) : null, facts?.get(eventId)?.venue ?? null, 'Papic album', photos(a.total)].filter(Boolean).join(' · '),
+        ...(facts?.has(eventId)
+          ? {
+              place: facts.get(eventId)!.venue,
+              services: facts.get(eventId)!.services,
+              words: [facts.get(eventId)!.venue, facts.get(eventId)!.address, ...facts.get(eventId)!.services].filter(Boolean).join(' · '),
+            }
+          : {}),
         urls: a.urls,
         total: a.total,
         href: albumHref ? albumHref(eventId) : null,
@@ -111,13 +135,18 @@ export function eventAlbums(
 }
 
 /** YOUR SERVICES — one album per card that has a photo, in the cards' order. */
-export function serviceAlbums(cards: ReadonlyArray<{ id: string; title: string | null; urls: string[]; total: number }>): PortfolioAlbum[] {
+export function serviceAlbums(
+  cards: ReadonlyArray<{ id: string; title: string | null; urls: string[]; total: number }>,
+  /** 📍 Service id → the venues and addresses of the events it was booked at (Search by place). */
+  places: ReadonlyMap<string, string> | null = null,
+): PortfolioAlbum[] {
   return cards
     .filter((c) => c.total > 0)
     .map((c) => ({
       key: c.id,
       title: (c.title ?? '').trim() || 'Your service card',
       line: photos(c.total),
+      ...(places?.get(c.id) ? { words: places.get(c.id)! } : {}),
       urls: c.urls.slice(0, ALBUM_OPEN_MAX),
       total: c.total,
       href: null,
@@ -125,15 +154,29 @@ export function serviceAlbums(cards: ReadonlyArray<{ id: string; title: string |
 }
 
 /** INSPIRATION YOU CURATED — the approved looks, one album per part, the part with the newest look first. */
-export function inspirationAlbums(looks: ReadonlyArray<{ id: string; url: string; part: string }>): PortfolioAlbum[] {
-  const by = new Map<string, { urls: string[]; total: number }>();
+export function inspirationAlbums(
+  looks: ReadonlyArray<{ id: string; url: string; part: string }>,
+  /** 📍 Look id → its tagged event's line ("Wedding · Taal Vista Hotel · Sep 2026"), where it has one. */
+  eventLines: ReadonlyMap<string, string> | null = null,
+): PortfolioAlbum[] {
+  const by = new Map<string, { urls: string[]; total: number; words: Set<string> }>();
   for (const l of looks) {
-    const cur = by.get(l.part) ?? { urls: [], total: 0 };
+    const cur = by.get(l.part) ?? { urls: [], total: 0, words: new Set<string>() };
+    const line = eventLines?.get(l.id);
+    if (line) cur.words.add(line);
     cur.total += 1;
     if (cur.urls.length < ALBUM_OPEN_MAX) cur.urls.push(l.url);
     by.set(l.part, cur);
   }
-  return [...by.entries()].map(([part, a]) => ({ key: part, title: part, line: photos(a.total), urls: a.urls, total: a.total, href: null }));
+  return [...by.entries()].map(([part, a]) => ({
+    key: part,
+    title: part,
+    line: photos(a.total),
+    urls: a.urls,
+    total: a.total,
+    href: null,
+    ...(a.words.size > 0 ? { words: [...a.words].join(' · ') } : {}),
+  }));
 }
 
 /** A group's heading count — "· 4" when read, nothing when not. */

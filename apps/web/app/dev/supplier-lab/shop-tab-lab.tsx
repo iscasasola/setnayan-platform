@@ -251,8 +251,6 @@ function portfolioLab(fail: boolean, none: boolean) {
           saved={saved}
           showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
           photos={none ? 0 : 38}
-          videoLinks={none ? 0 : 12}
-          hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
           moodboard={fail || none ? null : { looks: looks.length, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
@@ -265,9 +263,8 @@ function portfolioLab(fail: boolean, none: boolean) {
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
-          // ⭐ Your best work — sample views (fixtures, never a measured figure); `&unread=1` = the count refused.
-          best={fail ? null : none ? [] : [PHOTOS[4]!, PHOTOS[1]!, PHOTOS[7]!, PHOTOS[2]!].map((url, i) => ({ key: `lab-${i}`, url, views: [212, 96, 41, 12][i]! }))}
-          sectionOrder={null}
+          // 🖼 Row 1's numbers — sample figures (fixtures, never measured); `&unread=1` = every count refused.
+          albumStats={fail ? { serviceOpens: null, pageViews: null, opened: null } : { serviceOpens: Object.fromEntries((groups.services ?? []).map((a, i) => [a.key, [212, 41, 12][i] ?? 0])), pageViews: none ? 0 : 96, opened: {} }}
         />
         </LabPortfolioChats>
       </div>

@@ -5,8 +5,6 @@ import { GalleryMedia } from '../shop/_components/gallery-media';
 import { loadCollectionsData } from './collections-data';
 import { PortfolioView } from './_components/portfolio-view';
 import { isMusicToolCategory, readVendorSongs } from '@/lib/songs';
-import { latestPhotoKey } from '@/lib/supplier-hero';
-import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShareTargets } from '@/lib/service-share-targets.server';
 import { offerServiceInterest } from '../messages/[threadId]/actions';
@@ -66,10 +64,6 @@ export default async function YourCollectionsPage({
   // list reaches the panel as null, said as such; the post re-checks the chat on the server.
   const chatsRead = readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id).catch(() => ({ status: 'unreadable' as const }));
   const [d, sp, songs, chatsAnswer] = await Promise.all([loadCollectionsData(supabase, profile, user.id), searchParams, songsRead, chatsRead]);
-  // 🖼 The hero = the LATEST upload (the last key the uploader appended), else the category placeholder (Lane E 11–12).
-  const latest = latestPhotoKey(d.portfolioRefs);
-  const latestUrl = latest ? (d.portfolioDisplayMap[latest] ?? null) : null;
-  const hero = latestUrl ? { url: latestUrl, kind: 'photo' as const } : { url: await heroPlaceholderUrl(services), kind: 'placeholder' as const };
   const igFlash: { kind: 'ok' | 'error'; message: string } | null = sp.ig_connected
     ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
     : sp.ig_error
@@ -93,24 +87,22 @@ export default async function YourCollectionsPage({
         saved={d.saved}
         showAlbums={showAlbums}
         photos={d.portfolioRefs.length}
-        videoLinks={d.galleryVideoLinks.length}
         free={d.portfolioMax}
         allowanceUnread={d.portfolioAllowanceUnread}
         walletBalance={d.walletBalance}
-        igFlash={null}
+        // Instagram's OAuth answer: its presence opens "All albums", where the Instagram editor now lives.
+        igFlash={igFlash ? <span hidden data-ig-flash={igFlash.kind} /> : null}
         groups={d.groups}
         allPhotos={[...showAlbums.page.urls].reverse()}
         libraryOpen={d.libraryOpen}
         videoLinkUrls={d.galleryVideoLinks}
         videoTitles={d.videoTitles}
-        hero={hero}
         moodboard={d.input.moodboard && d.input.moodboard.allowed ? { looks: d.input.moodboard.looks, declined: d.input.moodboard.declined } : null}
         songs={songs}
         instagramPhotos={showAlbums.instagram?.urls ?? []}
         // 📂 The ONE uploader's facts, from the reads this page already made — an empty On my page's Upload opens the
         // device's picker in place (owner 11 Nov "c. yes"), priced exactly as the uploader below would.
-        best={d.best}
-        sectionOrder={d.sectionOrder}
+        albumStats={d.albumStats}
         chats={{ targets: chatsAnswer.status === 'ok' ? chatsAnswer.targets : null, share: offerServiceInterest }}
         uploadFacts={{
           vendorProfileId: d.vendorId,

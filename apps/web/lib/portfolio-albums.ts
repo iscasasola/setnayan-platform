@@ -70,6 +70,8 @@ export type RowAlbum = {
   newestAt: string | null;
   /** The group album behind it; `null` for the page gallery. */
   album: PortfolioAlbum | null;
+  /** 📍 Extra words Search matches (`PortfolioAlbum.words`): the venue, the address, the cards booked there. */
+  words: string;
 };
 
 export const albumId = (kind: AlbumKind, key: string) => `${kind}:${key}`;
@@ -88,6 +90,7 @@ const fromGroup = (kind: Exclude<AlbumKind, 'page'>, list: PortfolioAlbum[] | nu
           openedAt: stats.opened?.[albumId(kind, a.key)] ?? null,
           newestAt: a.newest ?? null,
           album: a,
+          words: a.words ?? '',
         }))
     : [];
 
@@ -99,7 +102,7 @@ export function portfolioAlbums(
 ): RowAlbum[] {
   const out: RowAlbum[] = [];
   if (page.urls.length > 0)
-    out.push({ kind: 'page', key: 'page', title: page.title, line: page.line, cover: page.urls[0] ?? null, views: stats.pageViews, openedAt: stats.opened?.[albumId('page', 'page')] ?? null, newestAt: null, album: null });
+    out.push({ kind: 'page', key: 'page', title: page.title, line: page.line, cover: page.urls[0] ?? null, views: stats.pageViews, openedAt: stats.opened?.[albumId('page', 'page')] ?? null, newestAt: null, album: null, words: '' });
   out.push(...fromGroup('event', groups.events, () => null, stats));
   out.push(...fromGroup('service', groups.services, (a) => (stats.serviceOpens ? (stats.serviceOpens[a.key] ?? 0) : null), stats));
   out.push(...fromGroup('inspiration', groups.inspiration, () => null, stats));
@@ -157,7 +160,7 @@ export function albumViewsLabel(views: number | null): string | null {
 }
 
 /** Does this album answer the search words? Its name or its line. Empty words keep everything. */
-export function albumMatches(a: Pick<RowAlbum, 'title' | 'line'>, words: string): boolean {
+export function albumMatches(a: { title: string; line: string; words?: string }, words: string): boolean {
   const needle = words.trim().toLowerCase();
-  return !needle || a.title.toLowerCase().includes(needle) || a.line.toLowerCase().includes(needle);
+  return !needle || a.title.toLowerCase().includes(needle) || a.line.toLowerCase().includes(needle) || (a.words ?? '').toLowerCase().includes(needle);
 }

@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { ImageOff, LayoutGrid } from 'lucide-react';
+import { ImageOff, LayoutGrid, Undo2 } from 'lucide-react';
 
 import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { CARD_STATUS_LABEL, type CardStatus } from '@/lib/service-card-moderation';
 import { moderateServiceCard } from '../card-actions';
 import { CardReasonForm } from './card-reason-form';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * "Service cards" on the admin supplier page — every card the shop has, live or
@@ -188,12 +189,7 @@ export function ServiceCardsSection({
                     <input type="hidden" name="op" value="put_back" />
                     <input type="hidden" name="vendor_profile_id" value={shopId} />
                     <input type="hidden" name="vendor_service_id" value={card.id} />
-                    <button
-                      type="submit"
-                      className="inline-flex min-h-[44px] items-center rounded-lg bg-ink/5 px-4 text-sm font-medium text-ink hover:bg-ink/10"
-                    >
-                      Put back
-                    </button>
+                    <ActionButton tone="neutral" type="submit" icon={<Undo2 aria-hidden strokeWidth={1.9} />} label="Put back" />
                   </form>
                 ) : (
                   <details className="w-full sm:w-96">

@@ -225,6 +225,9 @@ const BAND: Readonly<Record<ShelfState, number>> = { earned: 0, locked: 1, not_c
 /**
  * The row: what is EARNED first, far left (Verified, then the badges in the prototype's order); then the badges IN
  * PROGRESS, the closest first — that one says "N to go" (Lane E, 9 Nov); then not counted and unread.
+ * Owner 18 Nov, verbatim: *"the sequence is completed nearest to achieve the next badge and then the highest ranking of
+ * them all"* — a tie goes by rank, lowest first (Verified, then the prototype's order). When the seals join this row
+ * (Part B, drawn, not built) they come last, highest last, ending with No. 1. 🔒 lib/shop-badge-shelf.test.ts § 9.
  */
 export function shopBadgeShelf(i: ShelfInput): ShelfTile[] {
   const tiles = [shelfVerified(i), ...SHOP_BADGE_KEYS.map((k) => shelfBadge(k, i))];

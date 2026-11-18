@@ -18,6 +18,8 @@ Drawn at the canvas size, a locked badge was about half the Verified check, sat 
 - **Clients' Choice words fixed** (`award-copy.ts`): it counts the most SECOND bookings of the seal year among shops with
   ≥ `CLIENTS_CHOICE_MIN_EVENTS` events — the engine's rule (`lib/shop-seals.ts`, owner 15 Nov) — not the stale "Top 5%
   by review-weighted score". The award-kit verbatim check skips that seal's body/how, held against the engine instead.
+- **The row order is held** (owner 18 Nov: *"completed nearest to achieve the next badge and then the highest ranking
+  of them all"*): earned first, then the nearest to its next step by %, a tie by rank lowest first. 🔒 § 9.
 - The art is unchanged (v84, never redrawn); taps stay 96 × 131+ px; no new motion.
 - 🔒 `lib/shop-badge-shelf.test.ts` § 8 · `award-kit.test.ts` § 20 (no grey) · `lib/shop-seals.test.ts` (Clients' Choice words = engine).
 

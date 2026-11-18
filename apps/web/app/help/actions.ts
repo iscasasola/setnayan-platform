@@ -7,6 +7,7 @@ import { notifyAdminsOfHelpMessage } from '@/lib/help-message-notify.server';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VENDOR_TIERS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { logHelpAsk, type HelpAskCoverage } from '@/lib/help-asks.server';
+import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { HELP_TOPICS } from '@/lib/help';
 import { askHelp, askTopicsFor, topicsForCoverage, type HelpCoverage } from '@/lib/help-ask-core';
@@ -76,10 +77,14 @@ async function recordAnswered(formData: FormData): Promise<void> {
   if ((vote !== 'yes' && vote !== 'no') || typeof coverage !== 'string') return;
   if (!(ASK_COVERAGES as ReadonlyArray<string>).includes(coverage)) return;
   // 'team' is the admins' own help (/admin/help/guides): a signed-out stranger may not write into the team's log.
+  // The SAME predicate as the admin gate (lib/admin/admin-predicate.ts) — the SQL `is_admin()` reads only
+  // account_type = 'admin' and would silently drop every internal and team-member vote.
   if (coverage === 'team') {
     const sb = await createClient();
-    const { data: isAdmin, error } = await sb.rpc('is_admin');
-    if (error || isAdmin !== true) return;
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    const { data: me, error } = await sb.from('users').select('is_internal, is_team_member, account_type').eq('user_id', user.id).maybeSingle();
+    if (error || !isAdminProfile(me)) return;
   }
   await logHelpAsk({
     words: trimmed(formData.get('words'), 120) || trimmed(formData.get('slug'), 120),

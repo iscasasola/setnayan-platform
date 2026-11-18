@@ -93,7 +93,7 @@ export function AnswerRows({
                 <span className={`${tag ? 'mt-1 ' : ''}block text-base font-semibold text-ink`}>{h.title}</span>
                 {tag ? <span className="mt-0.5 block text-sm text-ink/65 group-open:hidden">{h.lead}</span> : null}
               </span>
-              <ChevronDown aria-hidden className="mt-1 h-5 w-5 flex-none text-ink/45 transition-transform group-open:rotate-180" strokeWidth={1.75} />
+              <ChevronDown aria-hidden className="mt-1 h-5 w-5 flex-none text-ink/45 transition-transform duration-200 ease-[cubic-bezier(.2,.8,.2,1)] group-open:rotate-180" strokeWidth={1.75} />
             </summary>
             <p className="mt-2 whitespace-pre-line text-sm text-ink/75">{h.body}</p>
             {h.notInApp ? null : <Door door={ctx.doorFor(h.topicKey)} />}

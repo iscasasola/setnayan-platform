@@ -81,7 +81,7 @@ export async function logHelpAsk(row: {
 const WINDOW_DAYS = 90;
 const READ_CAP = 3000;
 
-type AskRow = { words: string; coverage: HelpAskCoverage; outcome: HelpAskOutcome; created_at: string };
+type AskRow = { words: string; coverage: HelpAskCoverage; outcome: HelpAskOutcome; created_at: string; article_slug?: string | null };
 
 export type NoAnswerYetRow = {
   words: string;
@@ -118,6 +118,9 @@ export function groupPeopleAsk(rows: ReadonlyArray<AskRow>, coverage: HelpAskCov
   const count = new Map<string, number>();
   for (const r of rows) {
     if (r.coverage !== coverage || !ANSWERED_OUTCOMES.includes(r.outcome)) continue;
+    // A Yes pressed on a topic row carries no question — its words fall back to the answer's slug (app/help/actions.ts
+    // recordAnswered). A slug is not something a person asked; it must never become a chip.
+    if (r.article_slug && r.words === r.article_slug) continue;
     count.set(r.words, (count.get(r.words) ?? 0) + 1);
   }
   return [...count.entries()]
@@ -132,7 +135,7 @@ async function readRows(filter: { coverage?: HelpAskCoverage; outcomes: Readonly
     const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString();
     let q = createAdminClient()
       .from('help_asks')
-      .select('words, coverage, outcome, created_at')
+      .select('words, coverage, outcome, created_at, article_slug')
       .gte('created_at', since)
       .in('outcome', [...filter.outcomes])
       .order('created_at', { ascending: false })

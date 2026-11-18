@@ -194,6 +194,19 @@ test('6 · the "No answer yet" list and the "People ask" chips count honestly', 
   assert.ok(!list.some((r) => r.words === 'how to rsvp'), 'an answered question is on the No answer yet list');
   assert.deepEqual(groupPeopleAsk(rows, 'guest'), ['how to rsvp']);
   assert.deepEqual(groupPeopleAsk(rows, 'user'), [], 'a question nobody answered became a chip');
+  // Opus review 18 Nov: a Yes on a topic row has no question, so its words are the answer's slug — never a chip.
+  const slugYes = [1, 2, 3].map((d) => ({
+    words: 'how-do-i-rsvp', coverage: 'guest' as const, outcome: 'yes' as const, created_at: at(d), article_slug: 'how-do-i-rsvp',
+  }));
+  assert.deepEqual(groupPeopleAsk(slugYes, 'guest'), [], 'an answer slug became a "People ask" chip');
+});
+
+test('6b · a Yes / No on the team’s help is gated by the SAME admin predicate as Setnayan HQ', () => {
+  const act = code('app/help/actions.ts');
+  const fn = act.slice(act.indexOf('async function recordAnswered'), act.indexOf('\n}\n', act.indexOf('async function recordAnswered')));
+  // public.is_admin() reads account_type = 'admin' only — internal and team-member admins would be dropped silently.
+  assert.doesNotMatch(fn, /rpc\('is_admin'\)/, 'the team vote uses the narrower SQL is_admin()');
+  assert.match(fn, /isAdminProfile\(/, 'the team vote is not gated by isAdminProfile');
 });
 
 test('7 · no programmer captions on the Help page', () => {

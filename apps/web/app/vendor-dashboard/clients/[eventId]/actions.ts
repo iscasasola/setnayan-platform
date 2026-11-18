@@ -1500,6 +1500,25 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 📊 RENTED BY THE PIECE (Availability plan step 4, owner ruling 2 — the couple's picker is step 6): the supplier
+  // types how many pieces at the yes. Written FIRST, all or nothing, by the one definer (`set_booked_quantity`): it
+  // refuses when the card's own "How many do you have" or a schedule would go past its number that day. A card that
+  // is not by the piece answers `not_by_the_piece` and the yes goes on exactly as before.
+  {
+    const raw = String(formData.get('booked_quantity') ?? '').trim();
+    const qty = raw === '' ? null : Number(raw);
+    const backTo = lockAnswerReturnTo(formData.get('return_to'));
+    const { data: setRaw, error: setErr } = await supabase.rpc('set_booked_quantity', {
+      p_event_vendor_id: eventVendorId,
+      p_quantity: qty !== null && Number.isInteger(qty) && qty >= 1 ? qty : 0,
+    });
+    const set = (setRaw ?? {}) as { status?: string };
+    if (setErr) console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
+    // A by-the-piece card with no number said is refused here — never booked as one piece by default.
+    if (set.status === 'bad_quantity') redirect(`${backTo}?lock_agree=pieces_needed`);
+    if (set.status === 'full') redirect(`${backTo}?lock_agree=pieces_full`);
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });

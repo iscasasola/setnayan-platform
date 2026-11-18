@@ -27,8 +27,13 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /Proposal Builder/i, why: 'no proposal builder exists in the app (grep finds it only in old llms.txt copy)' },
   // No public API in V1 (CLAUDE.md, settled).
   { pattern: /\bread API\b|\bpublic API\b/i, why: 'there is no public API in V1 (a settled decision in CLAUDE.md)' },
-  // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Plus, Event Pro and Event Ultra (AI_INCLUDED_PLAN_SKUS).
+  // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Pro and Event Ultra (AI_INCLUDED_PLAN_SKUS).
   { pattern: /Setnayan AI (?:costs|is sold|for ₱)|buy Setnayan AI\b/i, why: 'Setnayan AI is not sold on its own (owner 2026-11-04)' },
+  // 🎟 …and since the 18 Nov 2026 re-cut, Event Plus no longer carries it for new buyers (Plus works with no suppliers).
+  {
+    pattern: /Setnayan AI (?:comes|is included) (?:with|inside|in) Event Plus\b|Event Plus (?:adds|includes|carries) Setnayan AI/i,
+    why: 'Setnayan AI comes with Event Pro and Event Ultra, not Event Plus (owner 2026-11-18)',
+  },
   // An unqualified "No" to the commission question is the error every AI repeats (google-ai-says-2026-11-10.md §5).
   {
     pattern: /take a commission\?\*\*\s*No\b/i,

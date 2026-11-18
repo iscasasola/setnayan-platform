@@ -30,6 +30,7 @@
  * `couple-media-allowance.server.ts`.
  */
 import { coupleMediaCapBytes, formatMakerMediaMB as mb } from './maker-media-limits';
+import type { EventMediaPlan } from './event-plans';
 
 /**
  * Which `events/<eventId>/…` sub-paths count toward the couple's allowance — the
@@ -87,7 +88,8 @@ export const COUPLE_MEDIA_IN_FLIGHT_GRACE_MS = 15 * 60 * 1000;
  * (`/dashboard/<id>/studio/website-pro`); a refusal sentence cannot carry a link.
  */
 export function coupleMediaProMention(): string {
-  return `◆ Event Pro gives you ${mb(coupleMediaCapBytes(true))} of uploads.`;
+  // 🎟 Event Pro's own number — 1 GB since the 18 Nov re-cut (Event Plus is 500 MB).
+  return `◆ Event Pro gives you ${mb(coupleMediaCapBytes('pro'))} of uploads.`;
 }
 
 /**
@@ -104,7 +106,7 @@ export function coupleMediaRefusalLink(proHref: string | null | undefined): { wh
  * reason; the uploader stays open, so picking again IS the "Try again"). It
  * names THIS plan's number; a Free couple gets the one-line Pro mention after it.
  */
-export function coupleMediaFullMessage(usedBytes: number, incomingBytes: number, isPro: boolean): string {
+export function coupleMediaFullMessage(usedBytes: number, incomingBytes: number, isPro: boolean | EventMediaPlan): string {
   const capBytes = coupleMediaCapBytes(isPro);
   const remaining = Math.max(0, capBytes - Math.max(0, usedBytes));
   // Under 0.1 MB left reads as "0 MB left" — say it is full instead.
@@ -112,7 +114,8 @@ export function coupleMediaFullMessage(usedBytes: number, incomingBytes: number,
     remaining < 0.1 * 1024 * 1024
       ? `This event has used its ${mb(capBytes)} of uploads. Remove a photo or video to add more.`
       : `This file is ${mb(incomingBytes)}, and this event has ${mb(remaining)} of its ${mb(capBytes)} of uploads left. Remove a photo or video to make room, or pick a smaller file.`;
-  return isPro ? reason : `${reason} ${coupleMediaProMention()}`;
+  // Only a FREE event reads the Pro mention — any paid plan (or the Background part) is not upsold in a refusal.
+  return isPro && isPro !== 'free' ? reason : `${reason} ${coupleMediaProMention()}`;
 }
 
 /** One object as R2's listing reports it. */

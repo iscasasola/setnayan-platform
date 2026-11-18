@@ -14,6 +14,7 @@ import { stageBgSourcesOffered } from '@/lib/stage-bg-sources';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
@@ -151,7 +152,7 @@ export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>
         videoChoice={props.videoChoice}
         sceneUploads={props.sceneUploads}
         mediaUsedBytes={props.mediaUsedBytes}
-        mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
+        mediaCapBytes={coupleMediaCapBytes(props.mediaPlan ?? props.ownsPro)}
         proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
         loopPosters={props.loopPosters}
       />
@@ -173,6 +174,7 @@ function SceneBackgroundRows({
   videoChoice,
   sceneUploads,
   mediaUsedBytes,
+  mediaPlan,
   ownsPro,
   storeShell = false,
   loopPosters,
@@ -225,6 +227,8 @@ function SceneBackgroundRows({
   sceneUploads: readonly SceneUpload[];
   /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
+  /** 🎟 The event's upload plan (owner 2026-11-18) — the meter's number; absent reads the older Pro/Free answer. */
+  mediaPlan?: EventMediaPlan;
   ownsPro: boolean;
   /**
    * 💎 The app-store shell. On the web media behind a scene is TRIED without Pro
@@ -618,7 +622,7 @@ function SceneBackgroundRows({
             {typeof mediaUsedBytes === 'number' ? (
               <MakerMediaMeter
                 usedBytes={mediaUsedBytes}
-                capBytes={coupleMediaCapBytes(ownsPro)}
+                capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)}
                 proHref={ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`}
                 className="pt-2"
               />

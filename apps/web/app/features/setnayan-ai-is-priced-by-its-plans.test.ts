@@ -15,8 +15,9 @@ import { customerSkuBuildStatus } from '@/lib/v2-catalog';
  *
  * The page read "Price From ₱265" — `SETNAYAN_AI_D`, a tier of the AI ladder the 2026-11-04 final price sheet took off
  * sale (migration 20271308555594_the_final_price_sheet refuses to finish while any SETNAYAN_AI* row is active). Setnayan
- * AI is not sold on its own: it comes inside Event Plus, Event Pro and Event Ultra (`AI_INCLUDED_PLAN_SKUS`,
- * lib/sku-activation.ts). So the page names those three and quotes "From" the cheapest of their ACTIVE rows.
+ * AI is not sold on its own: it comes inside Event Pro and Event Ultra (`AI_INCLUDED_PLAN_SKUS`, lib/sku-activation.ts;
+ * Event Plus carried it until the 18 Nov 2026 re-cut and keeps it only for orders placed before then). So the page names
+ * those two and quotes "From" the cheaper of their ACTIVE rows — and never sells the AI through Event Plus.
  *
  * SABOTAGE (each turns this red): put the SETNAYAN_AI codes back · set `inactiveRowsArePrices` on any page · drop
  * EVENT_ULTRA from the codes or the copy · add a fourth plan to AI_INCLUDED_PLAN_SKUS without pricing the page by it.
@@ -73,17 +74,19 @@ test('an inactive, cheaper AI tier can never become the "From" price', () => {
   const p = resolveFeaturePrice(ai().price, rows);
   assert.equal(p.kind, 'paid');
   if (p.kind !== 'paid') return;
-  assert.equal(p.lowPhp, 2990, 'the cheapest ACTIVE plan is the "From"');
-  assert.equal(featurePriceLabel(p, 'en'), 'From ₱2,990');
+  assert.equal(p.lowPhp, 5690, 'the cheapest ACTIVE plan that carries the AI is the "From" — never Event Plus');
+  assert.equal(featurePriceLabel(p, 'en'), 'From ₱5,690');
 });
 
-test('the words name all three plans, in both languages, and never sell an unlock of its own', () => {
+test('the words name both plans, in both languages, never Event Plus, and never sell an unlock of its own', () => {
   const f = ai();
   for (const l of ['en', 'tl'] as const) {
     const text = [f.answer[l], ...f.steps[l], ...f.faq[l].map((x) => `${x.q} ${x.a}`)].join(' ');
-    for (const plan of ['Event Plus', 'Event Pro', 'Event Ultra']) {
+    for (const plan of ['Event Pro', 'Event Ultra']) {
       assert.ok(text.includes(plan), `${l}: the page does not name ${plan}`);
     }
+    // 🎟 18 Nov re-cut: Event Plus no longer carries Setnayan AI for new buyers.
+    assert.ok(!text.includes('Event Plus'), `${l}: the page still sells Setnayan AI through Event Plus`);
     assert.doesNotMatch(text, /depends on the type of event|nakadepende ang presyo sa uri ng event/i);
     assert.doesNotMatch(text, /One unlock covers|Isang unlock para sa buong event/i);
   }

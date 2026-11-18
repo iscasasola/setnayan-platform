@@ -253,7 +253,7 @@ const softwareAppJsonLd = {
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (free credits on your first event; credit packs for more)',
     'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
-    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Plus and Event Pro)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Pro and Event Ultra)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
     'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Pro animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',

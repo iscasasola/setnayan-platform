@@ -919,7 +919,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (reservation.kind === 'full') {
       return NextResponse.json(
         {
-          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.isPro),
+          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.plan),
           code: COUPLE_MEDIA_FULL_CODE,
         },
         { status: 413 },

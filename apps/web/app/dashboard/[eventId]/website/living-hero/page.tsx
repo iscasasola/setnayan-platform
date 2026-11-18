@@ -11,6 +11,7 @@ import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { eventCoupleMediaPlan } from '@/lib/couple-media-allowance.server';
 
 /**
  * Living Hero editor (iteration 0046). The couple picks a ≤5-second moment from
@@ -67,6 +68,10 @@ export default async function LivingHeroPage({
     siteMediaServeRef(event.landing_page_hero_image_url),
   );
 
+  // 🎟 The plan's upload allowance (owner 2026-11-18) — the reader the upload enforces with. A failed read keeps the
+  // Background part's 500 MB this Pro-only page always showed. No buy path here: the page is Pro-only.
+  const mediaPlan = await eventCoupleMediaPlan(await eventEntitlementClient(eventId), eventId).catch(() => true as const);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
@@ -79,12 +84,12 @@ export default async function LivingHeroPage({
 
       <PageMasthead title="Living hero" />
 
-      {/* The event's allowance (DECISION_LOG 2026-09-25; Pro = 500 MB, and this page is Pro-only) — shown where a
+      {/* The event's allowance (DECISION_LOG 2026-09-25; this page is Pro-only — the plan's number, 500 MB to 2 GB since 18 Nov) — shown where a
           couple is about to add to it. `couple_media_bytes` defaults to 0 for
           every event created before this column existed, which is exactly
           true: nothing was counted before this meter did. */}
       <div className="mb-6">
-        <MakerMediaMeter usedBytes={(event.couple_media_bytes as number | null) ?? 0} capBytes={coupleMediaCapBytes(true)} />
+        <MakerMediaMeter usedBytes={(event.couple_media_bytes as number | null) ?? 0} capBytes={coupleMediaCapBytes(mediaPlan)} proHref={null} />
       </div>
 
       <LivingHeroStudio

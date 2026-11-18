@@ -45,7 +45,10 @@ import {
 import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
-import { startingInclusions } from '@/lib/included-templates';
+import { inclusionsUntouched, startingInclusions, type IncludedTemplate } from '@/lib/included-templates';
+import { loadIncludedTemplatesForService } from '@/lib/included-templates-read';
+import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
+import { createClient as createBrowserSupabase } from '@/lib/supabase/client';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
@@ -406,6 +409,18 @@ export function CanvasMaker({
    * editor's starting rows and are then the supplier's to change; nothing is written until the card's save.
    */
   const [startLines] = useState(() => (initial === null && !isEdit ? startingInclusions(library?.includedTemplates) : []));
+  /**
+   * 🌱 …AND ON THE BARE ADD DOOR TOO (owner, 18 Nov: "pre-fill the bare Add door too"). There the service is picked ON
+   * the card and no library is handed in, so the maker reads the picked service's templates itself (the supplier's
+   * own browser client; no server action). The list is (re)filled only while it is UNTOUCHED — empty, or exactly the
+   * last pre-fill — so switching the service swaps the basics, and anything typed or swiped away is never written
+   * over. A late answer for an earlier pick is dropped.
+   */
+  const bareDoor = initial === null && !isEdit && library === undefined;
+  const [doorTemplates, setDoorTemplates] = useState<IncludedTemplate[] | null | undefined>(undefined);
+  const [inclSeed, setInclSeed] = useState<{ key: number; lines: { label: string }[] }>({ key: 0, lines: startLines });
+  const lastSeedLabels = useRef<string[]>(startLines.map((l) => l.label));
+  const doorRead = useRef(0);
   // The simpler maker asks a first card nothing extra (the old intro sheet retired with the guided pass).
   void firstCardEver;
 
@@ -488,6 +503,20 @@ export function CanvasMaker({
   useEffect(() => {
     categoryRef.current = category;
   }, [category]);
+  useEffect(() => {
+    if (!bareDoor || !category) return;
+    const read = ++doorRead.current;
+    void loadIncludedTemplatesForService(createBrowserSupabase(), canonicalServiceForVendorCategory(category)).then((templates) => {
+      if (read !== doorRead.current) return;
+      setDoorTemplates(templates);
+      const form = formRef.current;
+      const typed = form ? readCanvasFormSnapshot(new FormData(form)).inclusionLabels : [];
+      if (!inclusionsUntouched(typed, lastSeedLabels.current)) return;
+      const lines = startingInclusions(templates);
+      lastSeedLabels.current = lines.map((l) => l.label);
+      setInclSeed((cur) => ({ key: cur.key + 1, lines }));
+    });
+  }, [bareDoor, category]);
 
   /** THE ONE PLACE A KIND IS PICKED (C3 2026-08-28) — every row in the kind sheet routes through here. */
   const pickCategory = useCallback(
@@ -1370,7 +1399,7 @@ export function CanvasMaker({
               tip="Every line is part of the price · swipe a line left to remove it."
             >
               <div data-maker-row="included">
-                <InclusionsEditor initial={initial?.inclusions ?? startLines} bare templates={library ? library.includedTemplates : undefined} />
+                <InclusionsEditor key={inclSeed.key} initial={initial?.inclusions ?? inclSeed.lines} bare templates={library ? library.includedTemplates : bareDoor ? doorTemplates : undefined} />
                 {incMissing && !inclusionsAreSet(snap.inclusionLabels) ? (
                   <p role="alert" className="mt-1.5 text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }} data-maker-inc-error="">
                     Add what’s included — at least one line.

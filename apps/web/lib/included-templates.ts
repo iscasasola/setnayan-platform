@@ -68,6 +68,30 @@ export function templateLines(rows: readonly IncludedTemplateRow[]): string[] {
 }
 
 /**
+ * Stored template rows (as read from `service_included_templates`) → templates, in the read's order. A template whose
+ * rows do not hold together is left out, never shown half. ONE mapper for both reads: the server's library
+ * (`lib/card-maker-library.server.ts`) and the bare Add door's own read (`lib/included-templates-read.ts`).
+ */
+export function toIncludedTemplates(
+  data: readonly { template_id: string; name: string; rows: unknown; is_proposal: boolean | null }[],
+): IncludedTemplate[] {
+  return data
+    .map((t) => ({ id: t.template_id, name: t.name, rows: readTemplateRows(t.rows), isProposal: t.is_proposal === true }))
+    .filter((t) => t.rows.length > 0);
+}
+
+/**
+ * Should a fresh pre-fill replace what the What's included editor holds now? Only when the supplier has not touched
+ * it: nothing typed, or exactly the lines the last pre-fill put there (same words, same order). Once a line is typed,
+ * changed or swiped away, the list is theirs and nothing writes it again.
+ */
+export function inclusionsUntouched(typed: readonly string[], lastSeed: readonly string[]): boolean {
+  const now = typed.map((l) => l.trim()).filter(Boolean);
+  if (now.length === 0) return true;
+  return now.length === lastSeed.length && now.every((l, i) => l === lastSeed[i]!.trim());
+}
+
+/**
  * 🌱 WHAT A NEW CARD OPENS WITH (owner, 18 Nov: "make sure all services has basic inclusions. and they are auto
  * uploaded at the beginning"). The lines of the service's FIRST approved template (the read is ordered by
  * `sort_order`, then name), as the What's included editor's starting rows — the supplier edits, swipes away or adds

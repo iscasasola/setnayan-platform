@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planItemsToDrafts, type PayPlanOption } from '@/lib/vendor-pay-plans';
-import { readTemplateRows } from '@/lib/included-templates';
+import { toIncludedTemplates } from '@/lib/included-templates';
 import type { CardMakerLibrary } from '@/lib/card-maker-library';
 
 /**
@@ -73,9 +73,7 @@ export async function loadCardMakerLibrary(
 
   const includedTemplates = tplRes.error
     ? null
-    : ((tplRes.data ?? []) as { template_id: string; name: string; rows: unknown; is_proposal: boolean }[])
-        .map((t) => ({ id: t.template_id, name: t.name, rows: readTemplateRows(t.rows), isProposal: t.is_proposal === true }))
-        .filter((t) => t.rows.length > 0);
+    : toIncludedTemplates((tplRes.data ?? []) as { template_id: string; name: string; rows: unknown; is_proposal: boolean }[]);
 
   return { payPlans, shopCards: cards, includedTemplates };
 }

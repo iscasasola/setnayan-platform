@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPlanName, planItemsFromRows, planItemsToDrafts, planScopeQuestion, readPlanIntent, samePlanRows } from './vendor-pay-plans';
-import { linesToAdd, parseTemplateText, readTemplateRows, startingInclusions, templateLines, templateToText } from './included-templates';
+import { inclusionsUntouched, linesToAdd, parseTemplateText, readTemplateRows, startingInclusions, templateLines, templateToText, toIncludedTemplates } from './included-templates';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanVideoUrl, readCardAbout, videoSiteName } from './card-about';
@@ -194,6 +194,44 @@ test('only a NEW card is pre-filled — never one being edited or started from a
   const src = readFileSync(resolve(__dirname, '../app/vendor-dashboard/services/_components/canvas-maker.tsx'), 'utf8');
   const seed = src.match(/const \[startLines\] = useState\(\(\) => \(initial === null && !isEdit \? startingInclusions\(library\?\.includedTemplates\) : \[\]\)\);/g) ?? [];
   assert.equal(seed.length, 1, 'the seed is guarded by initial === null && !isEdit');
-  const use = src.match(/<InclusionsEditor initial=\{initial\?\.inclusions \?\? startLines\}/g) ?? [];
+  const use = src.match(/<InclusionsEditor key=\{inclSeed\.key\} initial=\{initial\?\.inclusions \?\? inclSeed\.lines\}/g) ?? [];
   assert.equal(use.length, 1, 'a card started from another keeps its own lines; only a fresh one takes the basics');
+});
+
+// ── 🌱 THE BARE ADD DOOR (owner, 18 Nov: "pre-fill the bare Add door too") ───────────────────────────────────────
+// Sabotage (18 Nov): make `inclusionsUntouched` always true → "a typed or swiped list is never written over" red;
+// drop `inclusionsUntouched(` from the maker's door effect → "the door only refills an untouched list" red (1 → 0);
+// return [] instead of null on a refused read → "a refused read is said" red.
+
+test('a list is untouched only while it is empty or exactly the last pre-fill', () => {
+  const seed = ['Type: Buffet or Plated', 'Tables and chairs'];
+  assert.equal(inclusionsUntouched([], seed), true);
+  assert.equal(inclusionsUntouched(['  ', ''], seed), true, 'blank rows are nothing typed');
+  assert.equal(inclusionsUntouched(['Type: Buffet or Plated', 'Tables and chairs'], seed), true);
+});
+
+test('a typed or swiped list is never written over', () => {
+  const seed = ['Type: Buffet or Plated', 'Tables and chairs'];
+  assert.equal(inclusionsUntouched(['Type: Buffet or Plated'], seed), false, 'one line swiped away');
+  assert.equal(inclusionsUntouched(['Type: Buffet or Plated', 'Tables and chairs', 'Lechon'], seed), false, 'one added');
+  assert.equal(inclusionsUntouched(['Tables and chairs', 'Type: Buffet or Plated'], seed), false, 'reordered');
+  assert.equal(inclusionsUntouched(['Sound system'], []), false, 'typed before any pre-fill');
+});
+
+test('stored rows map to templates in the read’s order; a broken one is left out', () => {
+  const out = toIncludedTemplates([
+    { template_id: 'a', name: 'Catering basics', rows: [{ name: 'Staff', kind: 'plain', basis: 'none' }], is_proposal: false },
+    { template_id: 'b', name: 'Broken', rows: [{ kind: 'plain' }], is_proposal: false },
+    { template_id: 'c', name: 'Draft', rows: [{ name: 'Tent', kind: 'plain', basis: 'none' }], is_proposal: true },
+  ]);
+  assert.deepEqual(out.map((t) => [t.id, t.isProposal]), [['a', false], ['c', true]]);
+});
+
+test('the door only refills an untouched list, and a refused read is said', () => {
+  const src = readFileSync(resolve(__dirname, '../app/vendor-dashboard/services/_components/canvas-maker.tsx'), 'utf8');
+  assert.equal((src.match(/const bareDoor = initial === null && !isEdit && library === undefined;/g) ?? []).length, 1, 'only a NEW card with no library');
+  assert.equal((src.match(/if \(!inclusionsUntouched\(typed, lastSeedLabels\.current\)\) return;/g) ?? []).length, 1, 'never over typed lines');
+  assert.equal((src.match(/if \(read !== doorRead\.current\) return;/g) ?? []).length, 1, 'a late answer for an earlier pick is dropped');
+  const read = readFileSync(resolve(__dirname, './included-templates-read.ts'), 'utf8');
+  assert.equal((read.match(/if \(error\) \{[^}]*return null;/gs) ?? []).length, 1, 'a refused read is null, never []');
 });

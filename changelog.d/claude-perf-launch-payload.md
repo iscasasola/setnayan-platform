@@ -10,6 +10,11 @@ signed-in Hub Maker (`/dashboard/[eventId]/launch`) shipped 1,062 KB of HTML + R
 - **Our moving backgrounds are built once on the editor page** (`themeLoops`, `themeLoopPosters` in
   `website/editor/page.tsx`) and handed to the Background panel, the Look sample and the Scene ◆ tiles, instead of
   three hand-built copies (54 signed addresses for 18 files).
+- **The desktop top bar's name leaves with the page's first batch** (`deskTitleRead` in `launch/page.tsx`). It needs
+  only the host gate and the event type's profile but was awaited alone after every other read. Same read, same gate
+  (`makerHasWork`), same null on a failure. Read harness: the page 6 → 5 trips deep, the Maker with its editor
+  10 → 9, the tools' lane 13 → 12, still 95 reads. `the-maker-reads-start-together.test.ts` now holds 5 / 9 and
+  test 6 (red on main).
 
 Nothing a couple sees or does changes. Guard: `lib/the-studio-is-handed-only-its-parts.test.ts`.
 

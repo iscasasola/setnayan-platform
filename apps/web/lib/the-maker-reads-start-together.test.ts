@@ -66,15 +66,17 @@ test('0 · the fixture drew the new Maker and its editor — or the depth below 
   }
 });
 
-/** MEASURED: the page 26 → 15 → 7, the page and its editor 40 → 20 → 12 → 9 (the tools behind the Maker; the editor's queue). */
-const PAGE_MAX_DEPTH = 8;
-const MAKER_MAX_DEPTH = 10;
+/** MEASURED: the page 26 → 15 → 7 → 6 → 5, the page and its editor 40 → 20 → 12 → 10 → 9 (the tools behind the Maker;
+    the editor's queue; 2026-11-18 the desktop title leaves with the first batch — test 6). Held at the measured value,
+    so a single new trip in single file fails here. */
+const PAGE_MAX_DEPTH = 5;
+const MAKER_MAX_DEPTH = 9;
 
-test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26, then 15)`, () => {
+test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26, then 15, then 6)`, () => {
   assert.ok(VIEW.pageDepth <= PAGE_MAX_DEPTH, `the Maker page waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
-test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40, then 20, then 12)`, () => {
+test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40, then 20, then 12, then 10)`, () => {
   assert.ok(VIEW.depth <= MAKER_MAX_DEPTH, `the Maker's editor waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
@@ -89,6 +91,16 @@ test('3 · the event-only reads leave together, right after the host gate', () =
 test('5 · the canvas never waits for the tools — they run behind it, and still arrive', () => {
   assert.ok(VIEW.lateCalls > 0, `no read ran in the tools' lane (\`makerLateWork\`) — Studio's and Details' panels are awaited by the page again:\n${shape(VIEW)}`);
   assert.ok(VIEW.pageDepth < VIEW.lateDepth, `the page returned only after the tools' last read — the canvas waits for them again:\n${shape(VIEW)}`);
+});
+
+/* ⚡ 2026-11-18 (owner: "every page under 0.7 s"): the desktop top bar's name (`readMakerDeskTitle`) needs only the host
+   gate and the event type's profile, yet was awaited alone after every other read — trip 5 of a 6-deep page. It now
+   leaves with the page's first batch (`deskTitleRead`), the trip after the profile. */
+test('6 · the desktop title leaves with the first batch, not alone after it', () => {
+  const gate = stepOf(/ event_members\(member_type\)/);
+  const title = stepOf(/^\d+ events\(display_name\)$/);
+  assert.ok(Number.isFinite(title), `the fixture never read the desktop title:\n${shape(VIEW)}`);
+  assert.ok(title <= gate + 2, `the desktop title waits ${title - gate} trips after the host gate (≤ 2):\n${shape(VIEW)}`);
 });
 
 test('4 · slug_change_log has the index its by-event read needs', () => {

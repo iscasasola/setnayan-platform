@@ -360,6 +360,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   void startAhead(resolveProfileByEvent(eventId));
   const renamedRead = startAhead(eventHasRenamed(eventId).catch(() => false));
   const seenRead = startAhead(Promise.resolve(supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle()));
+  /* ⚡ 🖥 THE DESKTOP TOP BAR'S NAME, STARTED THE MOMENT ITS GATE IS KNOWN (speed pass 2026-11-18, owner "every page
+     under 0.7 s"). It needs the event's id and `hasWork` — the host's member type (read above) and whether the event
+     type has a website (the profile, started above) — yet it was awaited alone, after everything else: one whole
+     trip of the page's depth (`the-maker-reads-start-together.test.ts`, test 6). Same gate (`makerHasWork`), same
+     read, same null on a failure; awaited where it always was. A viewer with no work never sends it. */
+  const deskTitleRead = startAhead(
+    resolveProfileByEvent(eventId).then((profile) =>
+      makerHasWork((membership as { member_type?: string | null } | null)?.member_type, surfaceEnabled(profile, 'website'))
+        ? readMakerDeskTitle(supabase, eventId)
+        : null,
+    ),
+  );
 
   /*
     🔒 MAY THIS VIEWER SEE THE REPLIES AT ALL?
@@ -1166,7 +1178,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      *"why is it so hard for you to let the new event hub maker to show and delete that old event hub maker"*). No
      flag, no role and no read chooses it — so no failed read can choose another (`lib/there-is-one-maker.test.ts`). */
   /* 🖥 The desktop's top bar names the event — its own small read (`lib/maker-desk-title.server.ts`). */
-  const deskTitle = hasWork ? await readMakerDeskTitle(supabase, eventId) : null;
+  const deskTitle = hasWork ? await deskTitleRead : null;
   /* ⚡ Started inside the block below (every `hasWork` path reads it in the toolbar's See-as roles). */
   let roleNamesRead: ReturnType<typeof loadRoleNames> | null = null;
   /* ⚡ THE TOOLS ARRIVE BEHIND THE MAKER, NEVER IN FRONT OF IT (measured on production 2026-10-23, new Maker

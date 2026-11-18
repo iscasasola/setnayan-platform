@@ -103,7 +103,7 @@ const NO_GRANT_NEEDED = new Set([
   // names it, so a grant would only widen what a guest can read about the couple's settings.
   'papic_phone_uploads_held',
 
-  // ── 🔗 THE EVENT'S CREATOR — whose username its address uses (the address move, 20271349094219) ──
+  // ── 🔗 THE EVENT'S CREATOR — whose username its address uses (the address move, 20271350564435) ──
   // Read ONLY through the service role, by `resolveEventOwnerSlug` (lib/public-event-url.ts) — the address is
   // resolved for anonymous visitors, so a user session never needs it, and a grant would only tell a guest which
   // account made the event.

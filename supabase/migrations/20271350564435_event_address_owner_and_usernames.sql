@@ -277,7 +277,7 @@ AS $function$
       -- prod (a builder session reads no production data) — owner check:
       -- select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';
       'for-coordinators',
-      -- ⬇ ADDED 2026-11-16 by 20271349094219 (the address move, owner 2026-11-15, specs DECISION_LOG
+      -- ⬇ ADDED 2026-11-16 by 20271350564435 (the address move, owner 2026-11-15, specs DECISION_LOG
       -- d7910b5d). The words that sit UNDER a person or a shop — `/{user}/c/{id}` (a chapter),
       -- `/{shop}/invite`, `/{shop}/dates` · `booth` · `review` · `guest-review`, and the cached copies
       -- (`cached`) — so `/{x}/{y}` never needs a guess. Mirrored by DB_MIRRORED_RESERVED_SLUGS in

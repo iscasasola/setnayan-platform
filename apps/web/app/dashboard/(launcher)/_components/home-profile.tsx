@@ -134,7 +134,7 @@ export function HomeProfile({
                     <span data-home-username-made="">
                       {' '}
                       · We made this from your name.{' '}
-                      <Link href="/dashboard/profile#url-slug">Change it</Link>
+                      <Link href="/dashboard/profile#url-slug" className="inline-flex min-h-11 items-center underline">Change it</Link>
                     </span>
                   ) : null}
                 </>

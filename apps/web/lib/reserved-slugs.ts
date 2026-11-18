@@ -156,7 +156,7 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // that sit UNDER a person or a shop — `/{user}/c/{id}` (a chapter),
   // `/{shop}/invite`, `/{shop}/dates` · `booth` · `review` · `guest-review`, and
   // the cached copies — so `/{x}/{y}` never needs a guess. Mirrored by the
-  // database (migration 20271349094219). `c` cannot be an address anyway (the
+  // database (migration 20271350564435). `c` cannot be an address anyway (the
   // format needs three characters); it is listed for the record.
   'c',
   'invite',

@@ -1,6 +1,6 @@
 /**
  * an-event-address-names-its-creator.db.test.ts — THE ADDRESS MOVE, PART 2 (owner 2026-11-15, specs DECISION_LOG
- * d7910b5d; migration 20271349094219_event_address_owner_and_usernames).
+ * d7910b5d; migration 20271350564435_event_address_owner_and_usernames).
  *
  * An event's address is `setnayan.com/{the creator's username}/{event}`. Held here, against the replayed schema:
  *   1. the FIRST couple member an event gets is its creator (`events.created_by_user_id`), and a second one never

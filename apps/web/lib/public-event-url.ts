@@ -91,10 +91,14 @@ export async function resolveEventOwnerSlug(
   // 🔗 THE CREATOR'S USERNAME (owner 2026-11-15: "an event's address uses the CREATOR's username"). The column is set
   // by the database when the event gets its first couple member, and backfilled once for older events from the same
   // lowest-user_id tie-break below — so an address never moves because of it. Older rows without it fall through.
-  const { data: ev } = await admin.from('events').select('created_by_user_id').eq('event_id', eventId).maybeSingle();
+  // A failed read answers null (the bare address), never a guess: falling through to the couple-member tie-break
+  // after an error could name a DIFFERENT owner than the creator, and every QR / redirect built from it would carry it.
+  const { data: ev, error: evErr } = await admin.from('events').select('created_by_user_id').eq('event_id', eventId).maybeSingle();
+  if (evErr) return null;
   const creatorId = (ev as { created_by_user_id?: string | null } | null)?.created_by_user_id ?? null;
   if (creatorId) {
-    const { data: creator } = await admin.from('users').select('slug').eq('user_id', creatorId).maybeSingle();
+    const { data: creator, error: creatorErr } = await admin.from('users').select('slug').eq('user_id', creatorId).maybeSingle();
+    if (creatorErr) return null;
     const creatorSlug = (creator as { slug?: string | null } | null)?.slug?.trim();
     if (creatorSlug) return creatorSlug;
   }

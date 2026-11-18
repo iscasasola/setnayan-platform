@@ -2482,11 +2482,13 @@
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
         "admin/_components/kpi-stat-card.tsx",
+        "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-kit.tsx",
         "admin/_components/record-search.ts",
+        "admin/_components/tab-landing.tsx",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
         "admin/error.tsx",
@@ -2580,6 +2582,9 @@
         "/admin/verify",
         "/admin/website-media",
         "/admin/work",
+        "/admin?ask=badges",
+        "/admin?ask=papers",
+        "/admin?ask=payments",
         "/admin?card=[seg]",
         "/dashboard",
         "/dashboard/profile"
@@ -2610,6 +2615,7 @@
         "FocusCardSheet",
         "FocusHome",
         "Fold",
+        "Fragment",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -2622,7 +2628,9 @@
         "MoreSearch",
         "Notice",
         "OverlayBackdrop",
+        "P",
         "PageMasthead",
+        "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
         "RequestCardView",
@@ -2852,6 +2860,7 @@
         "ResolveDriftButton",
         "Row",
         "Rows",
+        "SearchParamsRecord",
         "Sec",
         "SeoRerunButton",
         "SeoSurface",
@@ -2864,6 +2873,7 @@
         "StackedBars",
         "StatusPill",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TypedRow",
         "VendorPicker",
@@ -3000,6 +3010,7 @@
         "FormRows",
         "LoaderAppearanceCard",
         "PageMasthead",
+        "SearchParamsRecord",
         "SentrySmokeTestButton",
         "SettingRow",
         "TemplateFail",
@@ -3623,13 +3634,22 @@
     },
     "/admin/directory": {
       "files": [
+        "admin/directory/_components/people-show-sort.tsx",
+        "admin/directory/_components/people-show.ts",
         "admin/directory/loading.tsx",
         "admin/directory/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "AdminAskPill",
+        "ChosenRow",
+        "FilterFace",
+        "PeopleShowSort",
+        "SearchParamsRecord",
+        "ShowSortSheet",
+        "ShowSortTopic",
+        "TabLanding"
       ]
     },
     "/admin/discount-codes": {
@@ -4012,7 +4032,8 @@
         "HelpMessageRow",
         "HelpMessenger",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "SearchParamsRecord"
       ]
     },
     "/admin/hub-music": {
@@ -4224,7 +4245,9 @@
         "Link",
         "RevenueSummary",
         "Row",
+        "SearchParamsRecord",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TransactionsLedger"
       ]
@@ -4285,6 +4308,32 @@
       "blocks": [
         "NpcTaskResult",
         "NpcTaskStatus"
+      ]
+    },
+    "/admin/offers": {
+      "files": [
+        "admin/offers/_surfaces/badges-view.tsx",
+        "admin/offers/_surfaces/not-yet-built.ts",
+        "admin/offers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "BadgesView",
+        "DiscountCodesSurface",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
+        "ReferralsSurface",
+        "SearchParamsRecord",
+        "ShopBadges",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/offline": {
@@ -4451,6 +4500,7 @@
         "FormDate",
         "FormPick",
         "FormRows",
+        "Fragment",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
@@ -4469,6 +4519,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "SearchParamsRecord",
         "ServiceRemedyForms",
         "SubmitButton",
         "TemplateEmpty",
@@ -5133,6 +5184,7 @@
         "RevealStudio",
         "RevealStudioSurface",
         "ScheduledPostCard",
+        "SearchParamsRecord",
         "ShowcaseAdminRow",
         "SiteWidgetPage",
         "SocialQueueSurface",
@@ -5194,6 +5246,7 @@
         "DemoModeSurface",
         "PageMasthead",
         "SampleEventSwitch",
+        "SearchParamsRecord",
         "SettingRow",
         "SettingValue",
         "TemplateFail",
@@ -5254,6 +5307,7 @@
         "Resolution",
         "ScreenRow",
         "ScreensSurface",
+        "SearchParamsRecord",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
@@ -5375,6 +5429,7 @@
         "InfoTip",
         "PageMasthead",
         "SearchParams",
+        "SearchParamsRecord",
         "SubmitButton"
       ]
     },
@@ -5747,8 +5802,10 @@
         "Preview",
         "QueuesTriageFeed",
         "ReasonPick",
+        "SearchParamsRecord",
         "SupplierInbox",
         "Suspense",
+        "TabLanding",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"

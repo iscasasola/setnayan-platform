@@ -347,7 +347,10 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     COUPLE_WEBSITE_PRO: Object.freeze([EVENT_ULTRA_SKU]),
     PATIKTOK_COMPILER: Object.freeze([EVENT_ULTRA_SKU]),
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
-    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
+    // 🎟 …and EVENT_PLUS (owner 2026-11-18, PLAN_RULINGS ruling 34: "premium Save the Date" is Event Plus's) — gate 1, the
+    // Cinematic Reveal openings, ONLY. The Reveal part's effects (2) and own film (3) stay the part's. Read side, so it
+    // also opens the openings for an Event Plus bought earlier — a grant only ever widens; nobody loses one.
+    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU, 'EVENT_PLUS']),
     // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A
     // then"): Event Pro ALSO unlocks the logo animation. The standalone
     // ANIMATED_MONOGRAM row stays on sale for couples who only want the

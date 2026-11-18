@@ -18,9 +18,15 @@ import {
   hubOwnershipFrom,
   hubPartOfPaidCode,
   hubPart,
+  ownsHubGate,
   type HubOwnership,
   type HubPartId,
+  type HubPlanGate,
 } from '@/lib/hub-parts';
+
+/** The Cinematic Reveal openings' unlock (gate 1) — spelled here, not imported, so this module takes no cycle through
+ *  `lib/std-openings.ts` (which asks THIS module for the gate). Held equal by `event-plans-recut-part2.test.ts`. */
+const STD_PREMIUM_OPENINGS_SKU = 'STD_PREMIUM_OPENINGS';
 
 /**
  * apps/web/lib/couple-website-pro.ts
@@ -122,10 +128,8 @@ export function eventHubOwnership(
   return askedOnce(supabase, 'hub-ownership', [eventId, mode], async () => {
     // 1. Full Pro through the whole chain — an internal or founder host, a basket,
     //    a bundle, a comp: any of them is everything, and nothing else is read.
-    const fullHeld =
-      mode === 'active'
-        ? await eventSkuActive(supabase, eventId, FULL_PRO_SKU)
-        : await eventOwnsSku(supabase, eventId, FULL_PRO_SKU);
+    const holds = (sku: string) => (mode === 'active' ? eventSkuActive(supabase, eventId, sku) : eventOwnsSku(supabase, eventId, sku));
+    const fullHeld = await holds(FULL_PRO_SKU);
     if (fullHeld) return hubOwnershipFrom({ fullHeld, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null });
     // 2. Each part on its own. A part is sold only by its own order (or gifted by
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
@@ -141,6 +145,19 @@ export function eventHubOwnership(
     ]);
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
     const plusPaid = plusRows.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
+    // 🎟 THE PLAN GATES (owner 2026-11-18, PLAN_RULINGS rulings 34 · 36): Event Plus — held through ANY of the chain's
+    //    paths (its order, a basket line, a comp, a supplier's gift) — passes gate 13 (a ready-made Pro theme) and
+    //    gate 1 (a Cinematic Reveal opening) outside their parts; the opening's own unlock (`STD_PREMIUM_OPENINGS`, which
+    //    an Event Plus ORDER also confers through `SKU_OWNERSHIP_ALIASES`) passes gate 1. Asked with the same reader
+    //    and mode as Full Pro above, so the buy surface and the gate cannot disagree. Pro and Ultra already returned in
+    //    step 1 — they hold everything.
+    const [plusHeld, openingsHeld] = await Promise.all([
+      plusPaid ? Promise.resolve(true) : holds(EVENT_PLUS_SKU),
+      holds(STD_PREMIUM_OPENINGS_SKU),
+    ]);
+    const gates: HubPlanGate[] = [];
+    if (plusHeld || openingsHeld) gates.push('1');
+    if (plusHeld) gates.push('13');
     const heldSku = (sku: string) =>
       batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku)) || rows.some((r) => r.service_key === sku && counts(r.status));
     // 3. The cap: the parts PAID for, each at its catalogue (web) price.
@@ -156,6 +173,7 @@ export function eventHubOwnership(
       prices: prices?.parts ?? new Map(),
       fullPrice: prices?.full ?? null,
       plusPaid,
+      gates,
     });
     // 4. ⚖ The old cap, kept (owner 2026-10-28): asked ONLY for an event that has paid parts and has not reached
     //    today's price — the few part-holders of 22–26 Oct — so no other event pays for the extra read.
@@ -169,6 +187,7 @@ export function eventHubOwnership(
       prices: prices?.parts ?? new Map(),
       fullPrice: prices?.full ?? null,
       plusPaid,
+      gates,
       legacy: {
         capPhp: legacy.capPhp,
         paidParts: legacy.lines
@@ -258,6 +277,20 @@ export async function eventOwnsHubPart(
 ): Promise<boolean> {
   const own = await eventHubOwnership(supabase, eventId, 'owned');
   return own.full || own.parts.has(part);
+}
+
+/**
+ * 🎟 THE PLAN-GATE GATE (owner 2026-11-18) — is gate 1 (a Cinematic Reveal opening) or gate 13 (a ready-made Pro theme)
+ * ACTIVE for the event: everything, the gate's part, or Event Plus (`ownsHubGate`). Every consumer of either gate asks
+ * this (or `ownsHubGate` of the ownership it already read), never the part alone.
+ */
+export async function eventHubGateActive(supabase: SupabaseClient, eventId: string, gate: HubPlanGate): Promise<boolean> {
+  return ownsHubGate(await eventHubOwnership(supabase, eventId, 'active'), gate);
+}
+
+/** Buy-surface twin of `eventHubGateActive` — a pending order counts. */
+export async function eventOwnsHubGate(supabase: SupabaseClient, eventId: string, gate: HubPlanGate): Promise<boolean> {
+  return ownsHubGate(await eventHubOwnership(supabase, eventId, 'owned'), gate);
 }
 
 /** The part's catalogue code — re-exported so a caller never spells one. */

@@ -15,7 +15,7 @@ import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
-import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
+import { hubOwnershipOfView, hubSummaryFor, ownsHubGate, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftAnswer,
@@ -405,7 +405,7 @@ export function HubDraftToolbar({
      nobody who owns what (`hubSummaryFor`). */
   const owned = hubOwnershipOfView(ownership ?? { full: ownsPro, parts: [], paidPhp: 0, fullPricePhp: null });
   const summary = fromSave ? (ownsPro ? hubSummaryFor(fromSave.free, fromSave.owned, owned) : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? fromSave.proEffects.filter((e) => !ownsHubPart(owned, e.part)) : fromSave.proEffects;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? fromSave.proEffects.filter((e) => !(e.gate ? ownsHubGate(owned, e.gate) : ownsHubPart(owned, e.part))) : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();

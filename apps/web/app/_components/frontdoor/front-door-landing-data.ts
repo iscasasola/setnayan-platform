@@ -393,8 +393,16 @@ export const FREE_PEEK: readonly string[] = [
 // 🎟 18 Nov re-cut (owner 2026-11-18, rulings 34 + 36): Event Plus works for events with no suppliers, so it no longer
 // carries Setnayan AI (Event Pro does; Plus orders placed before the re-cut keep theirs). What a Plus order unlocks today:
 // the one small mark (`setnayanMarkFor`), 500 MB of uploads (`eventCoupleMediaPlan`) and the included credits.
+// 🎟 Re-cut part 2 (rulings 34 · 36): …and the ready-made Pro themes (gate 13) and the Save the Date's cinematic openings
+// (gate 1) — `HUB_PLAN_GATES` (lib/hub-parts.ts), read by `eventHubOwnership`.
 export function plusPeek(f: PlanFacts): readonly string[] {
-  return ['One small “Made with Setnayan” mark instead of the watermark', '500 MB of uploads', ...creditsLine(f.plusCredits)];
+  return [
+    'Ready-made Pro themes',
+    'A cinematic opening for your Save the Date',
+    'One small “Made with Setnayan” mark instead of the watermark',
+    '500 MB of uploads',
+    ...creditsLine(f.plusCredits),
+  ];
 }
 export const PLUS_MORE: readonly string[] = ['What you pay counts toward Event Pro — upgrade for the difference'];
 

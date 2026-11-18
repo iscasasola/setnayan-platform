@@ -115,8 +115,9 @@ export function hubPartOfPaidCode(code: string | null | undefined): HubPartId | 
  */
 export type CoverOwnership = { style: boolean; background: boolean };
 export const COVER_NOT_OWNED: CoverOwnership = Object.freeze({ style: false, background: false });
-export function coverOwnershipFrom(own: { full: boolean; parts: ReadonlySet<HubPartId> }): CoverOwnership {
-  return { style: own.full || own.parts.has('style'), background: own.full || own.parts.has('background') };
+export function coverOwnershipFrom(own: { full: boolean; parts: ReadonlySet<HubPartId>; gates?: ReadonlySet<HubPlanGate> }): CoverOwnership {
+  // 🎟 `style` here is the saved Pro THEME (gate 13) — which Event Plus also passes (owner 2026-11-18, ruling 34).
+  return { style: ownsHubGate(own, '13'), background: own.full || own.parts.has('background') };
 }
 
 /* ── THE 37 GATES, EACH WITH EXACTLY ONE HOME ─────────────────────────────── */
@@ -136,8 +137,11 @@ export type HubGateHome = HubPartId | 'full' | 'free';
  * judgement call. `hub-parts.test.ts` holds: all 37 rows are here, no id twice,
  * every home is a part, `full` or `free`, and only row 37 is `full`.
  */
-export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubGateHome }> = [
-  { id: '1', gate: 'A Cinematic Reveal opening', home: 'reveal' },
+export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubGateHome; plan?: 'plus' }> = [
+  /* 🎟 `plan: 'plus'` (owner 2026-11-18, PLAN_RULINGS rulings 34 · 36): Event Plus — and so Event Pro, which includes it —
+     passes this gate ON ITS OWN, outside its part. ONLY gates 1 and 13; every other gate of the same part stays the
+     part's. The gate keeps its one home (the part still sells it); `HUB_PLAN_GATES` is read from this flag. */
+  { id: '1', gate: 'A Cinematic Reveal opening', home: 'reveal', plan: 'plus' },
   { id: '2', gate: 'Reveal effects', home: 'reveal' },
   { id: '3', gate: 'Your own film on the Save-the-Date', home: 'reveal' },
   { id: '4', gate: 'Your own song on the Save-the-Date', home: 'music' },
@@ -150,7 +154,7 @@ export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubG
   { id: '10', gate: 'Photos or clips inside a scene', home: 'photos' },
   { id: '11', gate: 'Scene layout, photo crop and zoom', home: 'photos' },
   { id: '12', gate: 'Uploads 10 MB to 500 MB', home: 'background' },
-  { id: '13', gate: 'A Pro theme', home: 'style' },
+  { id: '13', gate: 'A Pro theme', home: 'style', plan: 'plus' },
   { id: '14', gate: 'Candlelight', home: 'style' },
   { id: '15', gate: 'Logo travels to the bar', home: 'logo_qr' },
   { id: '16', gate: 'Decorations', home: 'style' },
@@ -181,6 +185,42 @@ export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubG
   { id: '36b', gate: 'The all-guests QR sheet', home: 'free' },
   { id: '37', gate: 'The "Powered by Setnayan" footer comes off', home: 'full' },
 ];
+
+/* ── 🎟 THE GATES A PLAN PASSES ON ITS OWN (owner 2026-11-18) ─────────────── */
+
+/**
+ * The gates Event Plus passes outside their part (`plan: 'plus'` above): gate 1, a Cinematic Reveal opening (the premium
+ * Save the Date), and gate 13, a ready-made Pro theme. Gates 2 and 3 stay the Reveal part's; gates 14 · 16 · 17a · 18 · 27a
+ * stay the Style part's — a Plus event passes THESE TWO and nothing else of either part.
+ */
+export type HubPlanGate = '1' | '13';
+export const HUB_PLAN_GATES: readonly HubPlanGate[] = Object.freeze(
+  HUB_PRO_GATES.filter((g) => g.plan === 'plus').map((g) => g.id as HubPlanGate),
+);
+
+/** The part a plan gate belongs to (its one home in `HUB_PRO_GATES`). */
+export function hubPlanGateHome(gate: HubPlanGate): HubPartId {
+  return HUB_PRO_GATES.find((g) => g.id === gate)!.home as HubPartId;
+}
+
+/**
+ * THE ONE QUESTION every consumer of gate 1 or gate 13 asks: everything, the gate's part, or a plan that carries the
+ * gate (`HubOwnership.gates`, filled by `eventHubOwnership` from the event's Event Plus / Cinematic Reveal unlock).
+ */
+export function ownsHubGate(o: HubOwnershipLike | { full: boolean; parts: ReadonlySet<HubPartId>; gates?: ReadonlySet<HubPlanGate> }, gate: HubPlanGate): boolean {
+  const own = typeof o === 'boolean' ? asHubOwnership(o) : o;
+  return own.full || own.parts.has(hubPlanGateHome(gate)) || Boolean(own.gates?.has(gate));
+}
+
+/**
+ * The `events` columns whose Pro question is ONE plan gate (the Maker's ✓ Apply asks `ownsHubGate`, not the part):
+ * the theme (13) and the Save the Date's opening (1). Their part (`HUB_EVENT_COLUMN_PART`) is still what they are
+ * priced and sold under.
+ */
+export const HUB_EVENT_COLUMN_GATE: Readonly<Record<string, HubPlanGate>> = Object.freeze({
+  invite_theme: '13',
+  std_reveal_template: '1',
+});
 
 /* ── THE DRAFT'S UNITS → THEIR PART (the Maker's ✓ Apply) ─────────────────── */
 
@@ -254,6 +294,8 @@ export type HubOwnership = {
   parts: ReadonlySet<HubPartId>;
   paidPhp: number;
   fullPricePhp: number | null;
+  /** 🎟 The plan gates the event passes outside their part (Event Plus — `HUB_PLAN_GATES`). Absent = none. */
+  gates?: ReadonlySet<HubPlanGate>;
 };
 
 export const NO_HUB_PARTS: HubOwnership = Object.freeze({ full: false, parts: new Set<HubPartId>(), paidPhp: 0, fullPricePhp: null });
@@ -325,6 +367,8 @@ export function hubOwnershipFrom(input: {
    * counts toward today's Full Pro price, so the upgrade charges only the difference. Unread price → counts 0.
    */
   plusPaid?: boolean;
+  /** 🎟 The plan gates held outside their part (Event Plus, owner 2026-11-18) — carried as measured. */
+  gates?: Iterable<HubPlanGate>;
 }): HubOwnership {
   const sumOf = (ids: Iterable<HubPartId>) => {
     let sum = 0;
@@ -351,7 +395,8 @@ export function hubOwnershipFrom(input: {
   }
   const parts = new Set<HubPartId>();
   for (const id of HUB_PART_IDS) if (input.partHeld(id)) parts.add(id);
-  return { full: false, parts, paidPhp: paid, fullPricePhp: fullPrice };
+  const gates = new Set<HubPlanGate>([...(input.gates ?? [])].filter((g) => HUB_PLAN_GATES.includes(g)));
+  return { full: false, parts, paidPhp: paid, fullPricePhp: fullPrice, ...(gates.size > 0 ? { gates } : {}) };
 }
 
 /**
@@ -412,14 +457,20 @@ export function hubApplyOffer(
 /* ── ON THE CLIENT ────────────────────────────────────────────────────────── */
 
 /** `HubOwnership`, as a client prop (a Set does not cross the wire). */
-export type HubOwnershipView = { full: boolean; parts: HubPartId[]; paidPhp: number; fullPricePhp: number | null };
+export type HubOwnershipView = { full: boolean; parts: HubPartId[]; paidPhp: number; fullPricePhp: number | null; gates?: HubPlanGate[] };
 
 export function hubOwnershipView(o: HubOwnership): HubOwnershipView {
-  return { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp };
+  return { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp, ...(o.gates && o.gates.size > 0 ? { gates: [...o.gates] } : {}) };
 }
 
 export function hubOwnershipOfView(v: HubOwnershipView): HubOwnership {
-  return { full: v.full, parts: new Set(v.parts), paidPhp: v.paidPhp, fullPricePhp: v.fullPricePhp };
+  return {
+    full: v.full,
+    parts: new Set(v.parts),
+    paidPhp: v.paidPhp,
+    fullPricePhp: v.fullPricePhp,
+    ...(v.gates && v.gates.length > 0 ? { gates: new Set(v.gates.filter((g) => HUB_PLAN_GATES.includes(g))) } : {}),
+  };
 }
 
 /**
@@ -434,7 +485,9 @@ export function hubSummaryFor(free: HubDraftSummary, owned: HubDraftSummary, own
   let released = 0;
   const changes = free.changes?.map((line) => {
     const needs = line.parts ?? [];
-    if (!line.held || needs.length === 0 || !ownsHubParts(o, needs)) return line;
+    // 🎟 A line that is ONE plan gate (the theme, the opening) goes live on that gate (`ownsHubGate`), as Apply decides.
+    const passes = line.gate ? ownsHubGate(o, line.gate) : needs.length > 0 && ownsHubParts(o, needs);
+    if (!line.held || !passes) return line;
     released += 1;
     return { ...line, held: false };
   });

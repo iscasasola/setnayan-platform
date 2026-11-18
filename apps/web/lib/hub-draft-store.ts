@@ -604,7 +604,7 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     ]);
     ownedViewed = owned;
     /* "As a free couple" — the switch handed back no parts for an event that holds some. */
-    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0);
+    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0 || (real.gates?.size ?? 0) > 0);
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),

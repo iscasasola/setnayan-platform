@@ -108,7 +108,8 @@ test('the EVENT_ULTRA row is on sale, one-time, with its credits and a 12-month 
   assert.equal(Number(row.retail_price_php), 9990);
   assert.equal(row.billing_period, 'one_time');
   assert.equal(row.is_active, true);
-  assert.equal(row.included_papic_credits, 3500);
+  // 🎟 6,000 since the 18 Nov re-cut (PLAN_RULINGS ruling 38: "6,000") — 20271350979842.
+  assert.equal(row.included_papic_credits, 6000);
   // 12 months in all: the standard hold plus the extra is at least 365 days, and it is not the plain 92.
   assert.ok(GRACE + row.fullres_extra_keep_days >= 365, '12 months is at least 365 days');
   assert.ok(GRACE + row.fullres_extra_keep_days <= 366, 'and no more than a leap year');
@@ -127,18 +128,36 @@ test('…and lets go once the 12 months have passed', async () => {
   assert.ok((await expiredNow()).has(id), 'the Ultra hold never releases — the sweep would be inert');
 });
 
-test('a refunded Ultra, a pending Ultra and a paid Event Pro get NO extra hold', async () => {
+test('a refunded Ultra, a pending Ultra and no plan get NO extra hold', async () => {
   const refunded = await seedEvent('Ultra refunded', 100);
   await order(refunded, 'EVENT_ULTRA', 'refunded');
   const pending = await seedEvent('Ultra under review', 100);
   await order(pending, 'EVENT_ULTRA', 'submitted');
-  const pro = await seedEvent('Pro only', 100);
-  await order(pro, 'COUPLE_WEBSITE_PRO', 'paid');
   const plain = await seedEvent('No plan', 100);
   const expired = await expiredNow();
-  for (const [name, id] of [['refunded Ultra', refunded], ['pending Ultra', pending], ['paid Pro', pro], ['no plan', plain]] as const) {
-    assert.ok(expired.has(id), `${name} was held past three months — only an approved Ultra order holds longer`);
+  for (const [name, id] of [['refunded Ultra', refunded], ['pending Ultra', pending], ['no plan', plain]] as const) {
+    assert.ok(expired.has(id), `${name} was held past three months — only an approved plan order holds longer`);
   }
+});
+
+/* 🎟 EVENT PRO KEEPS ORIGINALS 6 MONTHS (owner 2026-11-18, PLAN_RULINGS ruling 36) — 20271350979842 gives the Pro row
+   92 extra days (92 + 92 ≈ 6 months). Sabotage: drop that UPDATE → the first assertion fails (Pro released at 100 days). */
+test('🎟 a PAID Event Pro keeps its originals 6 months, then lets go', async () => {
+  const r = await db.query<{ d: number | null }>(
+    `SELECT fullres_extra_keep_days AS d FROM public.platform_retail_catalog_v2 WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
+  );
+  const extra = Number(r.rows[0]?.d ?? 0);
+  assert.ok(GRACE + extra >= 181 && GRACE + extra <= 186, `6 months is about 184 days, got ${GRACE + extra}`);
+  const held = await seedEvent('Pro, 100 days on', 100);
+  await order(held, 'COUPLE_WEBSITE_PRO', 'paid');
+  const gone = await seedEvent('Pro, past 6 months', GRACE + extra + 3);
+  await order(gone, 'COUPLE_WEBSITE_PRO', 'fulfilled');
+  const pendingPro = await seedEvent('Pro under review', 100);
+  await order(pendingPro, 'COUPLE_WEBSITE_PRO', 'submitted');
+  const expired = await expiredNow();
+  assert.ok(!expired.has(held), 'a paid Event Pro was released at three months — its 6-month hold is not read');
+  assert.ok(expired.has(gone), 'the Pro hold never releases');
+  assert.ok(expired.has(pendingPro), 'a Pro still under review held originals — only an approved order holds longer');
 });
 
 test('the warning job’s pulled-back call still sees the Ultra event before the sweep does', async () => {

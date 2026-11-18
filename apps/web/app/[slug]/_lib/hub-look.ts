@@ -4,7 +4,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive, eventHubOwnership } from '@/lib/couple-website-pro';
 import { asViewed, asViewedOwnership } from '@/lib/view-as-free.server';
-import type { HubOwnership, HubPartId } from '@/lib/hub-parts';
+import { ownsHubGate, type HubOwnership, type HubPartId, type HubPlanGate } from '@/lib/hub-parts';
 import {
   INVITE_THEMES,
   normalizeThemeId,
@@ -117,6 +117,11 @@ export async function hubPartActiveFor(eventId: string, part: HubPartId): Promis
   return own.full || own.parts.has(part);
 }
 
+/** 🎟 One plan gate (1 · 13), for the guest page — the part, everything, or Event Plus (`ownsHubGate`). */
+export async function hubGateActiveFor(eventId: string, gate: HubPlanGate): Promise<boolean> {
+  return ownsHubGate(await hubOwnershipFor(eventId), gate);
+}
+
 /**
  * WHICH theme is live — everything `resolveHubLook` answers except the photo.
  *
@@ -135,8 +140,8 @@ export async function resolveHubTheme(event: HubLookEvent): Promise<Omit<HubLook
   const wanted = normalizeThemeId(saved);
   const wantsPro = wanted !== null && INVITE_THEMES[wanted].tier === 'pro';
 
-  // 💎 A Pro theme is the Style part's (gate 13).
-  const owned = wantsPro ? await hubPartActiveFor(event.event_id, 'style').catch(() => false) : false;
+  // 💎 A Pro theme is gate 13 — the Style part's, and 🎟 Event Plus's (owner 2026-11-18): one answer, `ownsHubGate`.
+  const owned = wantsPro ? await hubGateActiveFor(event.event_id, '13').catch(() => false) : false;
   // 🎨 A host's theme tile shows the theme as it WOULD look — ownership is the
   // purchase question, not the look's.
   const ownsPro = owned || event.theme_try_on === true;

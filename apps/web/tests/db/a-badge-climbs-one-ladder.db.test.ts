@@ -19,7 +19,7 @@
  * Sabotage (2026-11-15, measured): `rating_overall = 5` → `>= 4` plus dropping the owner-as-couple arm turns 4 red
  * (2 !== 1). The `p_units * p_credits_each` arm is covered by 1 (1,000 credits, not 150).
  * Sabotage of 20271348181787 (measured, each alone turns 3 red): an Ultra line delivered as COUPLE_WEBSITE_PRO; the
- * gifted-Ultra arm dropped from event_has_comp_for_sku (false !== true); the top-up read from Pro's row (2000 !== 3500).
+ * gifted-Ultra arm dropped from event_has_comp_for_sku (false !== true); the top-up read from Pro's row (3000 !== 6000 since the 18 Nov re-cut).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -380,7 +380,8 @@ test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a g
   await deliverGift(pro.eventVendorId);
   const after = await released();
   assert.ok(!after.has(ultra.eventId), 'a GIFTED Ultra event was released at three months — the gift does not hold originals');
-  assert.ok(after.has(pro.eventId), 'a gifted Pro held originals past three months — only Ultra holds longer');
+  // 🎟 Since the 18 Nov re-cut a gifted Pro is full Pro too: 6 months (ruling 36, 20271350979842) — held at 100 days.
+  assert.ok(!after.has(pro.eventId), 'a GIFTED Pro event was released at three months — Pro keeps originals 6 months');
   assert.equal(await holdsUltra(ultra.eventId), true, 'a gifted Ultra does not open canvas prints');
   assert.equal(await holdsUltra(pro.eventId), false, 'a gifted Pro opened canvas prints');
 

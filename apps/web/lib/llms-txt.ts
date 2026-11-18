@@ -627,7 +627,7 @@ ${featurePagesSection()}
 ## Planning tiers (couple-side)
 
 - **Free** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
-- **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Papic credits for the guests' cameras, 500 MB of uploads, and one small "Made with Setnayan" mark instead of the watermark. Works for an event with no suppliers. ${PLUS_MORE.join(' ')}.
+- **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Papic credits for the guests' cameras, the ready-made Pro themes, a cinematic opening for the Save the Date, 500 MB of uploads, and one small "Made with Setnayan" mark instead of the watermark. Works for an event with no suppliers. ${PLUS_MORE.join(' ')}.
 - **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits, plus Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and 1 GB of uploads. ${PRO_PEEK.join('. ')}. No Setnayan watermark on the Event Hub page.
 - **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads and full-size originals kept 12 months after the event instead of 3.
 - Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra. Beyond these three plans everything is à la carte.

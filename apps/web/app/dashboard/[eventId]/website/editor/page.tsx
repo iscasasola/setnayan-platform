@@ -19,7 +19,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventCoupleWebsiteProActive, eventHubPartActive } from '@/lib/couple-website-pro';
+import { eventCoupleWebsiteProActive, eventHubGateActive, eventHubPartActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -291,6 +291,9 @@ export default async function WebsiteEditorPage({
       /* 📷 The one camera's Pro dress (owner 2026-10-24, `lib/camera-dress.ts`): the Logo & QR part or Full Pro — the
          SAME ownership answer the line above asked (`eventHubOwnership`, asked once per render), as the viewer is shown it. */
       (async () => asViewed(eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'logo_qr')))(),
+      /* 🎟 Gate 1, a Cinematic Reveal opening (owner 2026-11-18): Event Plus passes it outside the Reveal part — the
+         SAME ownership answer again (`eventHubGateActive`), as the viewer is shown it. The Reveal panel's ◆ reads it. */
+      (async () => asViewed(eventHubGateActive(await eventEntitlementClient(eventId), eventId, '1')))(),
       /*
         ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
         `platform_retail_catalog_v2` is admin-managed and is the only figure a
@@ -338,7 +341,7 @@ export default async function WebsiteEditorPage({
   }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [ownsPro, cameraPro, proSku] = await (proReads ?? readPro());
+  const [ownsPro, cameraPro, ownsOpenings, proSku] = await (proReads ?? readPro());
   // A plain string crosses to the client panels — never a function or icon.
   const proPriceLabel = proPriceLabelFrom(proSku?.price_php, formatPhp);
 
@@ -1688,8 +1691,9 @@ export default async function WebsiteEditorPage({
            openings in the navigator (the same picker, the same saves). */
         /* 🍎 The three made-once panels try Pro exactly where the editor's own rows do — `proShell`, the store shell
            FOR PRO TRYING (false where Apple sells Pro at Apply); `storeShell` keeps every price, pitch and tour. */
-        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="settings" />,
-        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="options" />,
+        /* 🎟 The Reveal panel's `ownsPro` is the OPENINGS' (gate 1) — every ◆ it draws is an opening's. */
+        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsOpenings} storeShell={storeShell} proShell={proShell} part="settings" />,
+        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsOpenings} storeShell={storeShell} proShell={proShell} part="options" />,
         logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} proShell={proShell} />,
         /* 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF WHAT IS
            BEING EDITED"): the header text and the two buttons, on the real background, drawn in the browser — Look

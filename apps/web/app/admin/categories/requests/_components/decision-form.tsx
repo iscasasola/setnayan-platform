@@ -27,6 +27,7 @@ import {
   type DecisionChoice,
 } from '@/lib/service-requests';
 import { decideServiceRequest } from '../../actions';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 export type DecisionCategory = { key: string; label: string; group: string };
 export type DecisionService = { key: string; label: string; tileId: string; categoryLabel: string; group: string };
@@ -183,7 +184,7 @@ export function DecisionForm({
               </button>
             </div>
           ) : (
-            <ul className="mt-2 divide-y divide-ink/10 overflow-hidden rounded-xl bg-white shadow-sm">
+            <ul className={`${ADMIN_FRAME} mt-2 divide-y divide-ink/10 overflow-hidden`}>
               {hits.length === 0 ? <li className="px-4 py-3 text-sm text-ink/60">No service matches “{q}”.</li> : null}
               {hits.map((s) => (
                 <li key={s.key}>

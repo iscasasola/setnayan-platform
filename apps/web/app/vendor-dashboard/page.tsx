@@ -271,7 +271,7 @@ export default async function VendorOverviewPage({
           </p>
         </header>
         <div className="sn-tile p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Team access</p>
+          <p className="home-k2 !my-0">Team access</p>
           <h2 className="mt-2 text-xl font-semibold text-ink">You&rsquo;re on a supplier team.</h2>
           <p className="mt-2 text-sm text-ink/65">
             You don&rsquo;t own a supplier profile yet. Reach the team owner to be
@@ -620,7 +620,10 @@ export default async function VendorOverviewPage({
   const view = assembleSupplierToday({
     needsAnswer,
     closed: nothingToAnswer,
-    deskIncomplete,
+    // 🔎 An unreadable bill list is not "you owe nothing" (supplier dashboard audit, 2026-11-17). Drawn as `[]` it
+    // let Today say "Nothing waiting on you" with a booking fee unpaid; an incomplete desk says "Some answers
+    // couldn't load — may be missing … a payment" and drops the count.
+    deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
     schedules,
     firstSteps,
@@ -750,9 +753,8 @@ export default async function VendorOverviewPage({
           !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
         }
       />
-      {/* 🔦 First visit: the Today spotlight (`vendor_today_v3`, THE ONE BUILD A13) is mounted by the supplier frame
-          from `lib/supplier-page-tours.ts` — the old Next-card mini-tour (`vendor_today_v1`) no longer describes this
-          page and is not mounted. */}
+      {/* 🔦 No page tour of its own: the supplier's journey (`supplier_spotlight_v1`, in the supplier frame) is the one
+          tour (W1-B14 — the per-page tours were retired 16 Nov 2026). */}
     </div>
   );
 }

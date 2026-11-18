@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCentavosPhp } from '@/lib/sku-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * The 43-row legacy v1 `service_catalog` — WHATS_NEXT_Managing_Prices_2026-08-26.md
@@ -39,7 +40,7 @@ export async function LegacyCatalogDisclosure() {
   const rows = data as ServiceCatalogRow[] | null;
 
   return (
-    <details className="overflow-hidden rounded-2xl border border-ink/10">
+    <details className={`${ADMIN_FRAME} overflow-hidden`}>
       <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
         <span>Older catalogue — the previous system&apos;s prices</span>
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">read-only</span>

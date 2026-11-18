@@ -21,7 +21,7 @@
  *   · own web address  → `ownWebAddress` over `tierCaps(tier).customWebsiteName` (Solo+);
  *   · pinned review    → `tierCaps(tier).premiumPage` (Pro+);
  *   · About + accent colour → `micrositeCan(tier).canPersonalize` (Solo+) and `micrositeAccentVars` (the page's own);
- *   · service cards    → `tierCaps(tier).servicesPerLeaf`;
+ *   · service cards    → `tierCaps(tier).serviceCardsTotal`;
  *   · branches         → `tierCaps(tier).branchesIncluded` (`samplePlanBranchCities`).
  *
  * It is a DRAWING: the buttons are the page's buttons, drawn (no door to a shop that does not exist), and the hero name
@@ -219,7 +219,7 @@ export function SampleShopPage({
                 <p className="text-sm text-ink/65">Starting prices set by the shop. Final quotes happen in chat.</p>
                 <div className="grid gap-3">
                   {cards.map((c) => (
-                    <div key={c.title} data-service-card="" className="overflow-hidden rounded-2xl bg-ink/[0.03] shadow-sm">
+                    <div key={c.title} data-service-card="" className="overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame">
                       <div className="relative h-28 w-full bg-ink/5">
                         <Image src={c.photo} alt="" fill sizes="430px" className="object-cover" />
                       </div>
@@ -233,7 +233,7 @@ export function SampleShopPage({
                 </div>
                 <p className="text-sm text-ink/60">
                   {d.verified
-                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} per category on this plan.`
+                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} live on this plan — make as many as you like.`
                     : `${d.cardsPerCategory} live · more open once verified.`}
                 </p>
               </section>

@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import { Sheet } from './sheet';
 import { QuoteWhatChanged } from './quote-what-changed';
 import { formatCentavos } from '@/lib/vendor-proposals';
+import { quoteLinePriceWords } from '@/lib/quote-line-price-words';
 import { formatCount } from '@/lib/format-number';
 import {
   changesSincePrevious,
@@ -64,9 +65,9 @@ export function QuoteVersionsRow({
             <ul className="mt-1 text-sm">
               {picked.lines.map((li, i) => (
                 <li key={i} className="flex min-h-[52px] items-center gap-3 border-b border-ink/10">
-                  <span className="min-w-0 flex-1 text-ink">{li.label}</span>
-                  <span className="tabular-nums text-ink/80">
-                    {typeof li.amount_centavos === 'number' ? formatCentavos(li.amount_centavos) : 'Complimentary'}
+                  <span className="min-w-0 flex-1 truncate text-ink">{li.label}</span>
+                  <span className="shrink-0 tabular-nums text-ink/80">
+                    {quoteLinePriceWords(li)}
                   </span>
                 </li>
               ))}

@@ -7,6 +7,11 @@
   --sc-peek: 18px;
   --sc-gap: 8px;
   min-width: 0;
+  /* W4 B2 (18 Nov 2026): at 390 px the Guests page measured scrollWidth 406 — the slides' ~16 px reached the page. The
+     track scrolls its own overflow; nothing of the carousel may widen the PAGE. `clip` (not `hidden`) makes no scroll
+     container, so nothing sticky inside is affected. 🔒 lib/the-snap-carousel-never-widens-the-page.test.ts */
+  max-width: 100%;
+  overflow-x: clip;
 }
 .track {
   display: flex;
@@ -65,5 +70,24 @@
   }
   .dots > i {
     transition: none;
+  }
+}
+
+/* 🖥 ONE ROW FROM 1280 (`rowFrom="xl"`, owner "Yes, all 8", 16 Nov 2026 — Guests' three summary cards in one row on a
+   computer): the real cards side by side, equal widths; the loop's copies and the dots are not drawn; nothing scrolls,
+   so the tick and the hold have nothing to move. Below 1280 the carousel above is unchanged. */
+@media (min-width: 1280px) {
+  .carousel[data-snap-row-from='xl'] .track {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 16px;
+    overflow: visible;
+    padding-inline: 0;
+    scroll-snap-type: none;
+  }
+  .carousel[data-snap-row-from='xl'] [data-snap-copy],
+  .carousel[data-snap-row-from='xl'] .dots {
+    display: none;
   }
 }

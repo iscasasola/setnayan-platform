@@ -12,7 +12,7 @@ export function ServicesEmptyCard() {
     // Design template rules 2 · 6: no card around an empty part — the section label, ONE plain line, the next step.
     <div className="space-y-2.5" data-shop-services-empty="">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Services</p>
+        <p className="home-k2 !my-0">Services</p>
         <span className="text-xs text-ink/70">one card a host can book</span>
       </div>
       <p className="flex items-start gap-2 text-sm leading-snug text-ink">

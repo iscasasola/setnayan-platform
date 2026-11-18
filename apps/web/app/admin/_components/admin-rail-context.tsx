@@ -46,13 +46,14 @@
  * badge must stop being a `.fd-ct`.
  */
 
+import { Fragment } from 'react';
 import Link from 'next/link';
 
 import type { NavBadgeTone } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
+import { ADMIN_BAR_TABS, activeAdminBarKey, adminShellPlaceFor, pagesIn, type AdminBarKey } from '@/lib/admin/admin-pages';
 
 import { ADMIN_TAB_ICON, workBadge } from './admin-bottom-nav';
 import { useAdminAddress } from './admin-address';
@@ -94,7 +95,9 @@ export function AdminRailContext({
     resolves on hydration.
   */
   const { pathname, params } = useAdminAddress(at);
-  const activeKey = activeAdminTabKey(pathname, params);
+  const activeKey = activeAdminBarKey(pathname, params);
+  const here = adminShellPlaceFor(pathname, params);
+  const herePage = here?.kind === 'tab' ? here.page.key : null;
   const badge = workBadge(queueCounts, overdue, dueSoon, unreadable, workTotal);
 
   return (
@@ -103,7 +106,7 @@ export function AdminRailContext({
       <div className="fd-rlabel">
         Setnayan HQ <small>the console</small>
       </div>
-      {ADMIN_TABS.map((tab) => {
+      {ADMIN_BAR_TABS.map((tab) => {
         // The same registry slot the phone bar reads, so a rename reads the same at every width.
         const slot = navSlots?.[`admin.bottom-nav.${tab.key}`];
         if (slot?.isHidden) return null;
@@ -112,8 +115,8 @@ export function AdminRailContext({
         const active = activeKey === tab.key;
         const b = tab.key === 'work' ? badge : null;
         return (
+          <Fragment key={tab.key}>
           <Link
-            key={tab.key}
             href={tab.href}
             title={label}
             /*
@@ -139,6 +142,26 @@ export function AdminRailContext({
               </span>
             ) : null}
           </Link>
+          {/* ➕ ADMIN REORG v7 (owner call 5): only the OPEN tab shows its pages under it — one row per merged page;
+              its views are in that page's dropdown. Hidden in the 72px icon strip, where there is no room for words. */}
+          {active
+            ? pagesIn(tab.key as AdminBarKey)
+                .filter((p) => p.href)
+                .map((p) => (
+                  <Link
+                    key={p.key}
+                    href={p.href!}
+                    className="fd-row hidden text-[13px] xl:flex"
+                    style={{ paddingInlineStart: 52 }}
+                    data-on={herePage === p.key ? 'true' : 'false'}
+                    aria-current={herePage === p.key ? 'page' : undefined}
+                    data-admin-rail-page={p.key}
+                  >
+                    <span className="fd-label-text">{p.label}</span>
+                  </Link>
+                ))
+            : null}
+          </Fragment>
         );
       })}
     </>

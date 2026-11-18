@@ -6,10 +6,16 @@
  * names the move they make on tap (see `app/service-icons.css`). Rendered by
  * `ServiceIcon` in `app/_components/service-icon.tsx`. Do not hand-edit:
  * redraw in the prototype and regenerate.
+ *
+ * 2026-11-17: five drawings were added BY HAND in this file, in the same
+ * style, because the prototype is not kept in this repo: the folder
+ * `gifts_giveaways` and the tiles `officiants`, `counseling_seminars`,
+ * `livestream`, `everything_else`. A regenerate from the prototype must carry
+ * these five over (or redraw them there first), or they fall back to lucide.
  */
 import type { WeddingFolder, WeddingTile } from '@/lib/taxonomy';
 
-/** Groups without a drawing yet (T1's new Gifts group) stay on their lucide icon, like the tiles below. */
+/** Every group has a drawing (Gifts was drawn 2026-11-17). A new group stays on its lucide icon until it gets one. */
 export const SERVICE_FOLDER_ART: Partial<Record<WeddingFolder, string>> = {
   venue: "<g class=\"bd-all\"><path d=\"M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16\"/><path d=\"M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2\"/><path class=\"bd-door\" d=\"M14 21v-3a2 2 0 0 0-4 0v3\"/><path class=\"bd-w\" d=\"M10 8h4\"/><path class=\"bd-w q1\" d=\"M10 12h4\"/><path class=\"bd-g ghost q3\" d=\"M3.7 14h.6\"/><path class=\"bd-g ghost q5\" d=\"M3.7 17.4h.6\"/><path class=\"bd-g ghost q4\" d=\"M19.7 11h.6\"/><path class=\"bd-g ghost q3\" d=\"M19.7 14.4h.6\"/><path class=\"bd-g ghost q5\" d=\"M19.7 17.8h.6\"/></g>",
   planning: "<g class=\"cl-all\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/><path class=\"cl-ln\" d=\"M12 11h4\"/><path class=\"cl-ln q1\" d=\"M12 16h4\"/><path class=\"cl-dot\" d=\"M8 11h.01\"/><path class=\"cl-dot\" d=\"M8 16h.01\"/><path class=\"cl-tk ghost\" d=\"m6.9 11 .9.9 1.6-1.8\"/><path class=\"cl-tk ghost q1\" d=\"m6.9 16 .9.9 1.6-1.8\"/></g><rect class=\"cl-clip\" width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\" ry=\"1\"/>",
@@ -27,14 +33,19 @@ export const SERVICE_FOLDER_ART: Partial<Record<WeddingFolder, string>> = {
   insurance: "<g class=\"in-all\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"/><path class=\"in-ck ghost\" d=\"m9 12 2 2 4-4\"/></g><path class=\"in-star ghost fillc\" d=\"M21.4 .2q.33 1.67 2 2-1.67.33-2 2-.33-1.67-2-2 1.67-.33 2-2z\"/>",
   specialty: "<path class=\"rv-str\" d=\"M12 17.4c0 1.4-1.3 1.6-1.3 2.9 0 .8.6 1.2 1.3 1.7\"/><g class=\"rv-bl\"><path d=\"M12 2.5c3.6 0 6 2.7 6 6.2 0 3.6-2.9 6.8-6 6.8s-6-3.2-6-6.8c0-3.5 2.4-6.2 6-6.2z\"/><path d=\"M9.4 7.4c.4-1 1.1-1.7 2.1-2\" stroke-width=\"1.4\"/><path d=\"M10.9 17.4 12 15.5l1.1 1.9z\"/></g><circle class=\"rv-c ghost fillc\" style=\"--x:-1.6px;--y:-1.6px\" cx=\"4.4\" cy=\"3.4\" r=\".9\"/><path class=\"rv-c ghost\" style=\"--x:1.6px;--y:-1.6px\" d=\"m19 3.8 1.2-1.2\"/><path class=\"rv-c ghost\" style=\"--x:-2px;--y:0px\" d=\"M2.4 9.6h1.6\"/><circle class=\"rv-c ghost fillc\" style=\"--x:2px;--y:0px\" cx=\"21\" cy=\"9.6\" r=\".9\"/><path class=\"rv-c ghost\" style=\"--x:-1.5px;--y:1.5px\" d=\"m5.2 15 -1.1 1.1\"/><path class=\"rv-c ghost\" style=\"--x:1.5px;--y:1.5px\" d=\"m18.8 15 1.1 1.1\"/>",
   farewell: "<path d=\"M6.5 21h11\"/><rect x=\"9\" y=\"11\" width=\"6\" height=\"10\" rx=\"1\"/><path d=\"M12 11V9.6\"/><circle class=\"fn-halo ghost\" cx=\"12\" cy=\"6.2\" r=\"4.6\" stroke-width=\"1.2\"/><path class=\"fn-glow ghost fillc\" d=\"M12 2.4c1.5 1.8 2.3 3 2.3 4.3a2.3 2.3 0 0 1-4.6 0c0-1.3.8-2.5 2.3-4.3z\"/><path class=\"fn-fl\" d=\"M12 2.4c1.5 1.8 2.3 3 2.3 4.3a2.3 2.3 0 0 1-4.6 0c0-1.3.8-2.5 2.3-4.3z\"/>",
+  gifts_giveaways: "<g class=\"gf-box\"><path d=\"M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8\"/><path d=\"M12 11v10\"/></g><g class=\"gf-lid\"><rect x=\"3\" y=\"7\" width=\"18\" height=\"4\" rx=\"1\"/><path d=\"M12 7v4\"/><path class=\"gf-bow\" d=\"M7.5 7a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5\"/></g><path class=\"gf-star ghost fillc\" d=\"M21.6 .4q.28 1.42 1.7 1.7-1.42.28-1.7 1.7-.28-1.42-1.7-1.7 1.42-.28 1.7-1.7z\"/>",
 };
 
-/** Tiles without a drawing yet stay on their lucide icon (see taxonomy-icons.ts). */
+/** Every tile has a drawing (the last four were drawn 2026-11-17). A new tile stays on its lucide icon until it gets one (see taxonomy-icons.ts). */
 export const SERVICE_TILE_ART: Partial<Record<WeddingTile, string>> = {
   // Reception
   reception: "<path d=\"M3 10.5 12 4l9 6.5\"/><path d=\"M4.5 9.5V20h15V9.5\"/><path d=\"M2.5 20h19\"/><path d=\"M10 20v-3.5a2 2 0 0 1 4 0V20\"/><path d=\"M5.5 13.2q3.25 1.6 6.5 0q3.25 1.6 6.5 0\"/><g class=\"x-blink\"><circle cx=\"7.3\" cy=\"13.9\" r=\"0.55\"/></g><g class=\"x-blink q1\"><circle cx=\"12\" cy=\"13.2\" r=\"0.55\"/></g><g class=\"x-blink q2\"><circle cx=\"16.7\" cy=\"13.9\" r=\"0.55\"/></g><g class=\"x-wig o-bl\"><path d=\"M12 4V1.6l2.2.9-2.2.9\"/></g>",
   // Ceremony
   ceremony_venue: "<path d=\"m18 9 3.52 2.147a1 1 0 0 1 .48.854V19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6.999a1 1 0 0 1 .48-.854L6 9\"/><path d=\"M6 21V7a1 1 0 0 1 .376-.782l5-3.999a1 1 0 0 1 1.249.001l5 4A1 1 0 0 1 18 7v14\"/><path class=\"x-sx o-l\" d=\"M14 21v-3a2 2 0 0 0-4 0v3\"/><g class=\"x-pop\"><path d=\"M10 9h4\"/><path d=\"M12 7v5\"/></g><path class=\"x-flash ghost t\" d=\"M4.6 4.4 3.4 3.2M19.4 4.4l1.2-1.2M3.4 7.2H1.8M20.6 7.2h1.6\"/>",
+  // Officiants
+  officiants: "<circle class=\"x-lift\" cx=\"12\" cy=\"3.9\" r=\"2.1\"/><path d=\"M8.6 9.9a3.4 3.4 0 0 1 6.8 0\"/><g class=\"x-pop o-b\"><path d=\"M12 14.6c-1.7-1.1-4.2-1.5-7.5-1.3v7.4c3.3-.2 5.8.2 7.5 1.3\"/><path d=\"M12 14.6c1.7-1.1 4.2-1.5 7.5-1.3v7.4c-3.3-.2-5.8.2-7.5 1.3\"/><path d=\"M12 14.6V22\"/></g><path class=\"x-glint ghost fillc q1\" d=\"M19.6 2.4q.33 1.67 2 2-1.67.33-2 2-.33-1.67-2-2 1.67-.33 2-2z\"/>",
+  // Counseling & Seminars
+  counseling_seminars: "<path class=\"x-pop o-bl\" d=\"M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z\"/><path class=\"x-pop o-br q1\" d=\"M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1\"/><path class=\"x-in ghost fillc q2\" d=\"M9 9.1c-1.5-1-2.2-1.9-2.2-2.8a1.2 1.2 0 0 1 2.2-.6 1.2 1.2 0 0 1 2.2.6c0 .9-.7 1.8-2.2 2.8z\"/>",
   // Accommodation
   accommodation: "<g class=\"x-sq o-b\"><path d=\"M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8\"/><path d=\"M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4\"/><path d=\"M12 4v6\"/><path d=\"M2 18h20\"/></g><path class=\"x-rise ghost t\" d=\"M18.6 0h2l-2 2.2h2\"/><path class=\"x-rise ghost t q1\" d=\"M14.6.9H16l-1.4 1.6H16\"/>",
   // Coordinator / Planner
@@ -97,6 +108,8 @@ export const SERVICE_TILE_ART: Partial<Record<WeddingTile, string>> = {
   photo_video: "<rect class=\"x-sq o-b\" x=\"2\" y=\"6\" width=\"14\" height=\"12\" rx=\"2\"/><path class=\"x-pop o-l\" d=\"m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5\"/><circle class=\"x-flash ghost fillc\" cx=\"5.6\" cy=\"9.6\" r=\"1.1\"/>",
   // Editorial
   editorial: "<g class=\"x-wig\"><rect x=\"5\" y=\"2\" width=\"14\" height=\"20\" rx=\"2\"/><path class=\"x-wr o-l\" d=\"M8.5 6h7\"/><circle cx=\"12\" cy=\"11.6\" r=\"2.2\"/><path d=\"M8.2 18a3.8 3.8 0 0 1 7.6 0\"/></g><path class=\"x-glint ghost fillc q1\" d=\"M21.6 1.4q.33 1.67 2 2-1.67.33-2 2-.33-1.67-2-2 1.67-.33 2-2z\"/>",
+  // Livestream
+  livestream: "<g class=\"x-sq o-b\"><rect x=\"2.5\" y=\"10\" width=\"13\" height=\"10.5\" rx=\"2\"/><path d=\"m15.5 16.5 5.24 3.1a.5.5 0 0 0 .76-.43v-7.84a.5.5 0 0 0-.76-.43L15.5 14\"/></g><circle class=\"x-blink fillc\" cx=\"12\" cy=\"4.5\" r=\"1.2\"/><path class=\"x-pop\" d=\"M9.45 7.05a3.6 3.6 0 0 1 0-5.1M14.55 1.95a3.6 3.6 0 0 1 0 5.1\"/><path class=\"x-flash ghost t q1\" d=\"M7.1 7.95a6 6 0 0 1 0-6.9M16.9 1.05a6 6 0 0 1 0 6.9\"/>",
   // Bride's Attire
   brides_attire: "<g class=\"x-sw o-t\"><path d=\"M9.5 2.5V6M14.5 2.5V6\"/><path d=\"M9.5 6c.8 1 4.2 1 5 0\"/><path d=\"M9.5 6l.6 4.5L3 20.6c3 1.4 15 1.4 18 0l-7.1-10.1.6-4.5\"/><path d=\"M10.1 10.5h3.8\"/></g><path class=\"x-glint ghost fillc \" d=\"M4.5 4q.33 1.67 2 2-1.67.33-2 2-.33-1.67-2-2 1.67-.33 2-2z\"/><path class=\"x-glint ghost fillc q1\" d=\"M20 6q.33 1.67 2 2-1.67.33-2 2-.33-1.67-2-2 1.67-.33 2-2z\"/>",
   // Groom's Attire
@@ -171,6 +184,8 @@ export const SERVICE_TILE_ART: Partial<Record<WeddingTile, string>> = {
   referee_official: "<g class=\"x-shake\"><circle cx=\"8.5\" cy=\"14.5\" r=\"5.5\"/><path d=\"M8.5 9H21v4.5h-7.1\"/><path d=\"M8.5 14.5h.01\"/></g><path class=\"x-flash ghost t\" d=\"M12 6V3.6M15.6 6.2l1.2-2M8.4 6.2 7.2 4.2\"/>",
   // Medic / First-aid
   event_medic: "<g class=\"x-beat\"><path d=\"M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5\"/><path d=\"M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27\"/></g>",
+  // Everything else
+  everything_else: "<rect class=\"x-pop\" x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect class=\"x-pop q3\" x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect class=\"x-pop q4\" x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><g class=\"x-spin\"><path d=\"M17.5 14v7\"/><path d=\"M14 17.5h7\"/></g><path class=\"x-flash ghost t q5\" d=\"M12 10.6v2.8M10.6 12h2.8\"/>",
   // Event Insurance
   event_insurance: "<g class=\"x-rock o-b\"><path d=\"M12 13v7a2 2 0 0 0 4 0\"/><path d=\"M12 2v2\"/><path d=\"M20.992 13a1 1 0 0 0 .97-1.274 10.284 10.284 0 0 0-19.923 0A1 1 0 0 0 3 13z\"/></g><path class=\"x-flash ghost t\" d=\"M3.4 1.8l-.6 1.6M7.6.2 7 1.8\"/><path class=\"x-flash ghost t q1\" d=\"M20.6 1.8 20 3.4M16.6.2 16 1.8\"/>",
   // Personal Accident

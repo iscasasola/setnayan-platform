@@ -573,7 +573,13 @@ async function EventsBoard({
   // anywhere. The redirect itself is untouched for the person it was written for
   // — a console user with nothing at all still lands on create-event.
   if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
-    redirect('/dashboard/create-event');
+    // 🔁 W1-B25 (walk 2, 16 Nov 2026) — NEVER `/dashboard/create-event` FROM HERE. Reached by a CLIENT navigation (the
+    // supplier who had just opened a shop and signed in), that address is INTERCEPTED by `@modal/(.)create-event`,
+    // which keeps THIS page as the background — and this page redirects again: a loop the browser stopped after 100
+    // `history.replaceState` calls ("SecurityError … more than 100 times per 10 seconds", fault log, build afcef1e).
+    // A console user with nothing goes to their OWN console instead — a supplier's shop, an admin's HQ — neither of
+    // which this tree intercepts. Creating an event stays one tap away on the board's own add flow.
+    redirect(roles.hasVendorAccess ? '/vendor-dashboard' : '/admin');
   }
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
@@ -1330,8 +1336,8 @@ async function EventsBoard({
           what this shelf is FOR and never that you have none." The title now
           obeys the same rule its own page wrote: it NAMES the page and makes no
           claim about how many events you have, so it is true in both states.
-          The invitation to create one is this board's own: the Planning
-          header's (+), the dashed New-event card and the empty shelf's
+          The invitation to create one is this board's own: the pinned row's
+          "＋ Event", the dashed New-event card and the empty shelf's
           "Create an event" (the top bar's "+ Create event" left it at every
           width on 2026-10-22 — Create lives here). */}
       {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
@@ -1382,7 +1388,7 @@ async function EventsBoard({
           button arrived 2026-08-15 and overtook that premise. It also read as
           a second search bar one row under the real one — the owner himself
           misread it — so keeping it cost more than it invited. Creation stays
-          reachable here via the Planning header's (+), the dashed New-event
+          reachable here via the pinned row's "＋ Event", the dashed New-event
           card and ⌘K (the top bar's button left on 2026-10-22). */}
 
 
@@ -1489,7 +1495,9 @@ async function EventsBoard({
         <ClashNotice clashes={clashes} />
         {/* THE COLLECTION TEMPLATE (owner-approved 2026-09-24): soonest first,
             undated last, ten per page. The dashed tile closes the grid only
-            while the page has room — a full page's way in is the header (+).
+            while the page has room — a full page's way in is the pinned row's
+            "＋ Event" (owner 17 Nov 2026: the Planning head's (+) went with the
+            big "＋ Create an event"; the row is drawn at rest and stays pinned).
             ⚠ THE EMPTY STATE MAKES NO ZERO-CLAIM: `fetchUserEvents` degrades
             to [] on a refused read, and a person with finished celebrations
             has an empty Planning shelf too — so it never says "no events". */}
@@ -2526,8 +2534,11 @@ async function planningPosters(
 
 /**
  * The Planning header's right side: how many are on the shelf (never a zero —
- * see `CollectionEmptyState`), the put-away switch when there is anything put
- * away, and the (+).
+ * see `CollectionEmptyState`) and the put-away switch when there is anything
+ * put away. Its (+) went 17 Nov 2026 (owner "Yes, all 3" on the user dashboard
+ * drawing): an event is created from the pinned row's "＋ Event" — always on
+ * screen, at rest and pinned — the "New event" tile, and the empty state's
+ * button, so a person on page 1 of 30 events still has a door to a new one.
  */
 function PlanningHeaderActions({
   count,
@@ -2546,27 +2557,7 @@ function PlanningHeaderActions({
         </span>
       ) : null}
       {putAwayCount > 0 ? <PutAwaySwitch on={putAwayOn} count={putAwayCount} /> : null}
-      <NewEventButton />
     </span>
-  );
-}
-
-/**
- * The Planning header's (+) — the template's always-present way to add one
- * (owner-approved 2026-09-24). The dashed tile leaves a FULL page, so without
- * this a person on page 1 of 30 events would have no door to a new one.
- */
-function NewEventButton() {
-  return (
-    <Link
-      href="/dashboard/create-event"
-      aria-label="New event"
-      /* `actionButtonClass('brand', { iconOnly: true })` written out — this is a SERVER file and the helper lives in a
-         client module (the build-locked.tsx precedent). */
-      className="ab ab-brand icon-only shrink-0 !h-11 !w-11 !min-w-11"
-    >
-      <Plus aria-hidden strokeWidth={2.25} />
-    </Link>
   );
 }
 

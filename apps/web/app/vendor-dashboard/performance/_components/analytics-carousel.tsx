@@ -198,7 +198,7 @@ export function AnalyticsCarousel(props: Props) {
   return (
     <section aria-labelledby="shop-analytics-h" data-shop-analytics="" data-tour="shop-analytics" id="analytics" className="scroll-mt-24" data-growth="" data-analytics-carousel={props.locked ? 'locked' : 'full'}>
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-analytics-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <h2 id="shop-analytics-h" className="home-k2 !my-0">
           Analytics
         </h2>
         <span className="text-xs text-ink/70">

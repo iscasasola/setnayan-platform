@@ -214,3 +214,16 @@ test('the live writer keys on the checkboxes, because its card always renders th
       'columns spent months holding a seed fixture.',
   );
 });
+
+// ── CEREMONIES ARE THE EXCEPTION: nothing ticked is BLANK, not open (owner ruling 16 Nov 2026 (16)) ───────────
+
+test('ruling 16 · no ceremony ticked saves the EMPTY array (matches nobody), never NULL ("serves every ceremony")', () => {
+  const action = stripComments(read('app/vendor-dashboard/shop/venue-match-actions.ts'));
+  assert.match(
+    action,
+    /const ceremonyTypes =\s*parseCompatibility\(formData\.getAll\('compatible_ceremony_types'\), ALLOWED_CEREMONY_TYPES\) \?\? \[\];/,
+    'unticking every ceremony would store NULL again — the shop would be shown to every ceremony it never picked',
+  );
+  // Venues keep the opposite rule: nothing ticked = NULL = any venue.
+  assert.match(action, /const venueSettings = parseCompatibility\(\s*formData\.getAll\('compatible_venue_settings'\),\s*ALLOWED_VENUE_SETTINGS,\s*\);/);
+});

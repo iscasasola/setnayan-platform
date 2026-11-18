@@ -83,3 +83,13 @@ export const OPEN_SHOP_FIELD_STEP: Readonly<Record<Exclude<OpenShopField, 'submi
   terms: 5,
   way: 5,
 };
+
+/**
+ * W1-B3 (walk 16 Nov 2026) — the step a refusal is DRAWN on: the step that owns its box, so the sentence is never about
+ * a screen the supplier cannot see; the server's `?step=` only for a sentence no box owns (`submit`), and step 1 when
+ * neither says.
+ */
+export function refusalStep(field: OpenShopField | null, fromServer: number | undefined): 1 | 2 | 3 | 4 | 5 {
+  if (field && field !== 'submit') return OPEN_SHOP_FIELD_STEP[field];
+  return fromServer && fromServer >= 1 && fromServer <= 5 ? (fromServer as 1 | 2 | 3 | 4 | 5) : 1;
+}

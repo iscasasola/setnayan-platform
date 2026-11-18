@@ -1,13 +1,14 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { Check, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle, ArrowRightLeft, Save } from 'lucide-react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import type { AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
 import {
   effectiveDiscountPct,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
+import { ActionButton } from '@/components/action-button';
 
 export type EventKindView = {
   eventType: string;
@@ -329,12 +330,7 @@ function BandCard({
                 </option>
               ))}
           </select>
-          <button
-            type="submit"
-            className="rounded-md border border-ink/15 px-3 py-1.5 text-[12.5px] font-semibold text-ink/70 transition hover:border-terracotta-700 hover:text-terracotta-700"
-          >
-            Move
-          </button>
+          <ActionButton tone="neutral" type="submit" icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label="Move" />
         </form>
       </div>
     </section>
@@ -403,12 +399,7 @@ function BandPriceField({
             aria-label={`Regular price for band ${band}`}
           />
         </div>
-        <button
-          type="submit"
-          className="rounded-md border border-ink/15 px-2.5 py-1.5 text-[12px] font-semibold transition hover:bg-ink/[0.05]"
-        >
-          Save
-        </button>
+        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
       </div>
       {state.message && (
         <span

@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, MonitorPlay } from 'lucide-react';
 import { DISPLAY_CODE_LENGTH } from '@/lib/live-wall-logic';
+import { actionButtonClass } from '@/components/action-button';
 
 export function WallClaim({ eventId }: { eventId: string }) {
   const router = useRouter();
@@ -71,12 +72,12 @@ export function WallClaim({ eventId }: { eventId: string }) {
             maxLength={DISPLAY_CODE_LENGTH}
             placeholder="ABC234"
             autoComplete="off"
-            className="w-full rounded-lg border border-cream/20 bg-cream/5 px-4 py-4 text-center font-mono text-4xl tracking-[0.5em] text-cream placeholder:text-cream/20 focus:border-cream/50 focus:outline-none"
+            className="w-full rounded-lg border border-cream/20 bg-cream/5 px-4 py-4 text-center text-4xl font-semibold tabular-nums tracking-[0.5em] text-cream placeholder:text-cream/20 focus:border-cream/50 focus:outline-none"
           />
           <button
             type="submit"
             disabled={busy || code.length < DISPLAY_CODE_LENGTH}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mulberry px-6 py-3.5 text-base font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
+            className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-12' })}
           >
             {busy ? <Loader2 aria-hidden className="h-5 w-5 animate-spin" strokeWidth={2} /> : null}
             Start Memory lane

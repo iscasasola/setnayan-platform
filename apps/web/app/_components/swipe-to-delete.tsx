@@ -141,8 +141,11 @@ export function SwipeToDelete({
     }
   };
 
+  // 🧱 `isolate`: the row is its OWN stacking context, so the front's `z-10` (and anything its children lift) ranks
+  // only inside the row — never over a page's pinned bar (owner 17 Nov on Shop › Services, "scrolling overlaps": the
+  // cards scrolled OVER the sticky bar at z-[5]/z-[6]). The row's sheets are portalled to <body>, so none is trapped.
   return (
-    <Tag className={`group/swipe relative flex items-stretch ${className}`} data-swipe-row="">
+    <Tag className={`group/swipe relative isolate flex items-stretch ${className}`} data-swipe-row="">
       <div className={`relative min-w-0 flex-1 overflow-hidden ${radiusClass}`}>
         {/* The Delete behind the row — revealed by a left swipe. Phones only: a mouse cannot swipe. Not drawn at
             all while the row is closed and still: a rounded row's anti-aliased corners would otherwise show a red

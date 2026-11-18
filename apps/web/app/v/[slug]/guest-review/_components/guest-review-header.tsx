@@ -2,7 +2,7 @@
 export function GuestReviewHeader({ shopName, eventTitle }: { shopName: string; eventTitle: string }) {
   return (
     <header>
-      <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">From guests · saw the result</p>
+      <p className="mb-1 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">From guests · saw the result</p>
       <h1 className="mb-1.5 mt-1 text-[28px] font-semibold leading-[1.15] tracking-tight">
         {shopName} at {eventTitle}
       </h1>

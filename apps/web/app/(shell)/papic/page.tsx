@@ -93,7 +93,7 @@ const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('papic');
 /*
  * ⚠ ITS OWN SHARE CARD, AND THE REASON IS THE CHANNEL. This page used the house
- * card `brand/og-card.webp` — a typographic "Set na 'yan." panel with NO
+ * card `brand/og-card.webp` (retired 2026-11-18) — a typographic "Set na 'yan." panel with NO
  * PHOTOGRAPH ON IT — so every share of a page selling PHOTOGRAPHY rendered our
  * weakest possible image in the place it matters most. Messenger and Facebook
  * are the dominant channel here; the card is what most people see of this page

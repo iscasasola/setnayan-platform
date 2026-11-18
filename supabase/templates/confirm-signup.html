@@ -5,6 +5,8 @@
   by hand. Subject line there:  Confirm your email — welcome to Setnayan
   Nothing in this repo reads this file or pushes it to Supabase (there is no supabase/config.toml
   [auth.email.template] entry), so editing it here changes NO email until it is pasted again.
+  ⚠ RE-PASTE NEEDED (W1-B24, 16 Nov 2026): the button and the copy-this-link line now build an /auth/confirm
+  token_hash link ($link below) instead of Supabase's ConfirmationURL, so the link works when opened on another device.
 
   Since 2026-11-07 (DECISION_LOG "ONE EMAIL AT SIGN-UP") this is the ONE email a new account gets:
   the app's own Resend "Welcome to Setnayan" was removed from apps/web/app/signup/actions.ts and
@@ -54,6 +56,11 @@
 -->
 {{ $kind := printf "%v" .Data.account_type }}
 {{ $door := printf "%v" .Data.signup_door }}
+{{/* W1-B24 (walk 2, 16 Nov 2026): NOT Supabase's .ConfirmationURL. That is GoTrue's verify, which spends the token and then
+     hands a PKCE code to /auth/callback — finishable only in the browser that signed up, so a phone open failed and
+     left the link "expired". This link carries its whole proof (token_hash) to /auth/confirm, which works on any
+     device; `next` is the sign-up's own redirect, unwrapped there (lib/auth-confirm-link.ts confirmNextFrom). */}}
+{{ $link := printf "%s/auth/confirm?token_hash=%s&type=email&next=%s" .SiteURL .TokenHash (urlquery .RedirectTo) }}
 <style>
   /* Gmail strips <style> in some clients; everything load-bearing is also inline. */
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
@@ -141,7 +148,7 @@
       <tr><td align="left">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0">
         <tr><td class="sn-cta" align="center" bgcolor="#C24E25" style="background-color:#C24E25; border-radius:999px; mso-padding-alt:0;">
-          <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:15px 30px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:18px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:999px;">Confirm my email</a>
+          <a href="{{ $link }}" target="_blank" style="display:inline-block; padding:15px 30px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:16px; line-height:18px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:999px;">Confirm my email</a>
         </td></tr>
         </table>
       </td></tr>
@@ -214,7 +221,7 @@
 
     <!-- Footer -->
     <tr><td class="sn-pad" style="padding:20px 12px 8px 12px;">
-      <p class="sn-mute sn-link" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;">Button not working? Copy this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#3B4E67; word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+      <p class="sn-mute sn-link" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;">Button not working? Copy this link into your browser:<br><a href="{{ $link }}" style="color:#3B4E67; word-break:break-all;">{{ $link }}</a></p>
       <p class="sn-mute" style="margin:0 0 10px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;">You are receiving this because this address was used to open an account on Setnayan. If that was not you, ignore this email and nothing happens.</p>
       <p class="sn-mute sn-link" style="margin:0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:12px; line-height:18px; color:#8A857B;"><a href="{{ .SiteURL }}" style="color:#3B4E67; text-decoration:none;">setnayan.com</a> &nbsp;·&nbsp; Set na ’yan.</p>
     </td></tr>

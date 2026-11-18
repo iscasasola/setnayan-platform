@@ -18,7 +18,7 @@
  * in the shell). Code only — no data, no request to our server.
  */
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PickedShell } from '@/app/_components/picked/picked-shell';
 import { SUPPLIER_PICKED_LISTS } from '@/app/_components/picked/picked-motion';
@@ -49,6 +49,9 @@ const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
   report: TOPIC_ICON.report,
 };
 
+
+/** ‹ The named way back (drawing `supplier_clients_clean_2026-11-16`: "‹ Calendar"). */
+const CLOSE_TO_CALENDAR = { label: 'Calendar', icon: ChevronLeft } as const;
 
 /** 🔦 The supplier tour's two stops inside a client (owner 12 Nov 2026): where the chat is, and where the quotation is. */
 const MENU_TOURS: ReadonlyArray<{ id: PickedClientPage; tour: string }> = [
@@ -104,6 +107,9 @@ export function PickedClientShell({
       warm={warmEveryPage}
       scrollTo={scrollToScript ? { page: 'schedule', id: SCRIPT_FOLD_ID } : null}
       gear={{ menu: 'client', line: settingsLine, node: settings }}
+      // ‹ Over the Clients month on a computer the event spans columns 2 + 3, and its way back is "‹ Calendar" (owner,
+      // 17 Nov). Drawn always, SHOWN only there (`supplier-frame.css`); everywhere else it stays today's ✕.
+      closeAs={CLOSE_TO_CALENDAR}
     />
   );
 }

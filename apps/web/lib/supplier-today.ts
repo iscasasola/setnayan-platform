@@ -35,6 +35,7 @@
  * `lint-port-no-lost-controls` can see it (the host learned this on its guided
  * flow's door).
  */
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import { feeDueStage, feePesos, type DueFeeBill, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
@@ -800,7 +801,7 @@ export function todayNextSecond(
     return { label: 'See the day', to: 'given', href: `/vendor-dashboard/customers?seg=dates&day=${answer.eventDate}` };
   }
   if (answer.kind === 'lock_request' && answer.threadId) {
-    return { label: 'Chat', to: 'given', href: `/vendor-dashboard/messages/${answer.threadId}` };
+    return { label: 'Chat', to: 'given', href: supplierChatHref(answer.eventId, answer.threadId) };
   }
   return null;
 }
@@ -817,16 +818,20 @@ export function creditDoorWords(creditPhp: number, tierExpiresAt: string | null)
 
 /* ─── THE SHOP ROW AND "HOW IS BUSINESS" ─────────────────────────────────────────────────────────────────────── */
 
-/** The Shop row's state pill: Checking (documents with Setnayan / not approved) · Live · Not yet (approved, hidden). */
-export type ShopPill = 'Checking' | 'Live' | 'Not yet';
+/**
+ * The Shop row's state pill: Not sent (unverified, nothing with Setnayan) · Checking (documents with Setnayan) · Live ·
+ * Not yet (approved, hidden). 🛑 W1-B36 (live walk, 18 Nov 2026): the row said "Checking" before anything was sent.
+ */
+export type ShopPill = 'Not sent' | 'Checking' | 'Live' | 'Not yet';
 
-export function shopPillOf(input: { verified: boolean; findable: boolean }): ShopPill {
-  if (!input.verified) return 'Checking';
+export function shopPillOf(input: { verified: boolean; findable: boolean; docsWithSetnayan: boolean }): ShopPill {
+  if (!input.verified) return input.docsWithSetnayan ? 'Checking' : 'Not sent';
   return input.findable ? 'Live' : 'Not yet';
 }
 
 /** "couples can find you" · "send your documents to get Verified" · "Setnayan is checking your documents" · "not shown yet". */
 export function shopStateWords(input: { pill: ShopPill; docsWithSetnayan: boolean }): string {
+  if (input.pill === 'Not sent') return 'send your documents to get Verified';
   if (input.pill === 'Checking') return input.docsWithSetnayan ? 'Setnayan is checking your documents' : 'send your documents to get Verified';
   return input.pill === 'Live' ? 'couples can find you' : 'not shown yet';
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { AlertTriangle, Lock } from 'lucide-react';
+import { AlertTriangle, Lock, Save } from 'lucide-react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import {
   PAPIC_ANCHOR_SHOTS,
@@ -12,6 +12,8 @@ import {
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
 import { formatCount } from '@/lib/format-number';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ActionButton } from '@/components/action-button';
 
 export type PapicRungRow = {
   serviceCode: string;
@@ -105,7 +107,7 @@ export function PapicLadderEditor({
       </p>
 
       <form action={ladderFormAction}>
-        <div className="overflow-hidden rounded-2xl border border-ink/10">
+        <div className={`${ADMIN_FRAME} overflow-hidden`}>
           <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-ink/10 bg-ink/[0.03] px-4 py-2.5 font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
             <span>Shots</span>
             <span className="text-right">Regular price</span>
@@ -226,12 +228,7 @@ export function PapicLadderEditor({
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-          >
-            Save shot prices
-          </button>
+          <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save shot prices" />
           <span className="text-[12.5px] text-ink/60">
             {changedCount === 0
               ? 'No price would change.'

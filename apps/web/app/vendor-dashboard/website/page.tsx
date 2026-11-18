@@ -5,6 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { micrositeCan } from '@/lib/vendor-microsite';
 import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TemplateFail } from '@/app/_components/template-rows';
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
 import { PageParts } from './_components/page-parts';
@@ -101,13 +102,14 @@ export default async function YourPage({
         domainBody={
           <>
             {!d.domainsMeasured ? (
-              <p role="alert" className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-3 text-sm text-ink/70">
-                <strong className="text-ink">We couldn&rsquo;t load your web addresses.</strong> Any domain you already
-                connected still points at your page — it is missing from this list, not from your account. Reload before
-                adding it again.
-              </p>
+              <div className="mb-3">
+                <TemplateFail data="web-addresses">
+                  We couldn&rsquo;t load your web addresses — not the same as none. Any domain you already connected still
+                  points at your page; reload before adding it again.
+                </TemplateFail>
+              </div>
             ) : null}
-            {d.slug ? <DomainManager initial={d.domains} proAsks={ownAddressAsks} /> : <p className="text-sm text-ink/60">Name your shop first — your address is made from it.</p>}
+            {d.slug ? <DomainManager initial={d.domains} proAsks={ownAddressAsks} /> : <p className="text-sm text-[color:var(--m-slate-2)]">Name your shop first — your address is made from it.</p>}
           </>
         }
         reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} guestReviews={d.guestReviews} />}

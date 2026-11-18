@@ -24,6 +24,7 @@ import {
   type StudioActionResult,
 } from '../actions';
 import type { RefinementCard, RefinementOption } from './model';
+import { ActionButton } from '@/components/action-button';
 
 type CategoryRef = { id: string; label: string };
 
@@ -580,9 +581,7 @@ function OptionCard({
       {canDelete ? (
         <FormInPlace kind="option-remove" what="Option" said={`Deleted — ${option.label}`} className="mt-1.5 text-right">
           <CategoryBack tileId={tile.id} leaf={leaf.leafKey} option={option.optionKey} />
-          <button type="submit" className="sn-press inline-flex min-h-9 items-center gap-1 rounded-full px-2 text-[12px] text-danger-700">
-            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete option
-          </button>
+          <ActionButton tone="danger" quiet icon={Trash2} type="submit" label="Delete option" />
         </FormInPlace>
       ) : null}
     </div>
@@ -641,13 +640,7 @@ function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard
           onChange={(v) => setHasPhoto(typeof v === 'string' && v.length > 0)}
         />
       </div>
-      <button
-        type="submit"
-        disabled={!hasPhoto}
-        className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <Plus className="h-4 w-4" aria-hidden /> Add option
-      </button>
+      <ActionButton tone="neutral" icon={Plus} type="submit" disabled={!hasPhoto} label="Add option" />
       {!hasPhoto ? (
         <span className="ml-2 text-xs text-ink/70">Every new option needs a photo.</span>
       ) : null}

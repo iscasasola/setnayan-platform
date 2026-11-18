@@ -204,9 +204,9 @@ export function PasswordField({
   // page loads, which re-renders the door with `leaked` false — clearing here
   // would wipe the refusal the moment it was shown.
   useEffect(() => {
-    if (!isNew || !leaked) return;
+    if (!tracks || !leaked) return;
     setLeakedValue(inputRef.current?.value ?? '');
-  }, [isNew, leaked]);
+  }, [tracks, leaked]);
 
   const toggle = () => {
     const el = inputRef.current;
@@ -271,7 +271,14 @@ export function PasswordField({
       {tracks && quiet ? (
         <>
           <span className="relative block">{box}</span>
-          {typed ? <QuietRule id={quietId} password={typed} personal={[...formPersonal, ...(personal ?? [])]} /> : null}
+          {typed ? (
+            <QuietRule
+              id={quietId}
+              password={typed}
+              personal={[...formPersonal, ...(personal ?? [])]}
+              leaked={leakedValue !== null && leakedValue === typed}
+            />
+          ) : null}
         </>
       ) : isNew ? (
         <>
@@ -352,16 +359,24 @@ function NewPasswordMeter({
         <Rule state={rules.length}>8 or more characters</Rule>
         <Rule state={rules.personal}>Not your name or email</Rule>
         <Rule state={rules.leaked}>
-          {rules.leaked === 'fail' ? (
-            'Found in a known data leak — choose another'
-          ) : (
-            <>
-              Not a known leaked password <span className="opacity-70">· checked when you continue</span>
-            </>
-          )}
+          <LeakRuleWords failed={rules.leaked === 'fail'} />
         </Rule>
       </span>
     </span>
+  );
+}
+
+/**
+ * THE LEAK RULE'S WORDS — one sentence for every new-password box (`/reset-password`'s meter and the supplier sign-up's
+ * quiet rule alike, W1-B3 16 Nov 2026), so the two doors never say it two ways.
+ */
+function LeakRuleWords({ failed }: { failed: boolean }) {
+  return failed ? (
+    <>Found in a known data leak — choose another</>
+  ) : (
+    <>
+      Not a known leaked password <span className="opacity-70">· checked when you continue</span>
+    </>
   );
 }
 
@@ -394,10 +409,12 @@ function QuietRule({
   id,
   password,
   personal,
+  leaked,
 }: {
   id: string;
   password: string;
   personal: ReadonlyArray<string | null | undefined>;
+  leaked: boolean;
 }) {
   const { rules } = assessNewPassword(password, { personal });
   const long = rules.length === 'ok';
@@ -417,6 +434,19 @@ function QuietRule({
         <span style={long ? { color: RULE_INK.ok } : undefined}>
           <span className="sr-only">{long ? 'Done: ' : ''}</span>
           At least 8 characters
+        </span>
+      </span>
+      {/* W1-B3 (16 Nov 2026): the leak rule is said here too, in `/reset-password`'s words — a supplier whose password
+          the server refused as breached sees the rule turn red on the account step, under the box that holds it. */}
+      <span data-rule={leaked ? 'fail' : 'pending'} className="flex items-center gap-1.5">
+        {leaked ? (
+          <X aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} style={{ color: RULE_INK.fail }} />
+        ) : (
+          <Circle aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-50" strokeWidth={2} />
+        )}
+        <span style={leaked ? { color: RULE_INK.fail } : undefined}>
+          <span className="sr-only">{leaked ? 'Not met: ' : ''}</span>
+          <LeakRuleWords failed={leaked} />
         </span>
       </span>
       {rules.personal === 'fail' ? (

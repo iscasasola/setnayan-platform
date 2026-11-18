@@ -17,6 +17,7 @@ import {
   cancelScheduledLaunch,
 } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * LaunchStdButton — the couple's "go live" control for their wedding website.
@@ -232,15 +233,14 @@ export function LaunchStdButton({
             />
           ) : (
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Rocket}
+                label={pending ? 'Launching…' : 'Launch now'}
                 onClick={doLaunch}
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-70"
-              >
-                <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-                {pending ? 'Launching…' : 'Launch now'}
-              </button>
+              />
               <button
                 type="button"
                 onClick={openPicker}
@@ -284,15 +284,14 @@ export function LaunchStdButton({
           ) : confirming ? (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-sm text-ink/70">Make your Event Hub public now?</span>
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Rocket}
+                label={pending ? 'Launching…' : 'Yes, launch'}
                 onClick={doLaunch}
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-70"
-              >
-                <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-                {pending ? 'Launching…' : 'Yes, launch'}
-              </button>
+              />
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
@@ -377,15 +376,14 @@ export function SchedulePicker({
         />
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={CalendarClock}
+          label={pending ? 'Saving…' : submitLabel}
           onClick={onSubmit}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-70"
-        >
-          <CalendarClock aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-          {pending ? 'Saving…' : submitLabel}
-        </button>
+        />
         <button
           type="button"
           onClick={onCancel}

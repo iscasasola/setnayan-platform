@@ -322,7 +322,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
         {offers ? summaryLine(live, cards, today) : 'Couldn’t load your offers'}
       </p>
       <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-4">
-        <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Offers</h2>
+        <h2 className="home-k2 !my-0">Offers</h2>
         <small className="text-xs text-ink/70" data-offers-count="">
           {offers ? `${live.length ? `${formatCount(running)} of ${formatCount(live.length)} running · ` : ''}the best one wins` : ''}
         </small>
@@ -343,7 +343,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
             return (
               <SwipeToDelete key={o.id} as="li" label={`Remove ${o.name}`} word="Remove" radiusClass="rounded-2xl" surfaceClass="bg-raised" onDelete={() => remove(o)}>
                 <div
-                  className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-raised px-3.5 py-3" // no-card-ok: an offer row is pressed to open its editor and holds its switch (prototype `.orow`)
+                  className="flex items-start gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3.5 py-3" // no-card-ok: an offer row is pressed to open its editor and holds its switch (prototype `.orow`)
                   data-offer-row={o.id}
                   data-off={off ? '' : undefined}
                 >

@@ -225,6 +225,71 @@ export function acceptedQuoteTerms(
   };
 }
 
+/**
+ * CHAT-24 (walk 16 Nov 2026) · the words after "Due" on a schedule row. A dated row whose day is already behind
+ * `today` (Manila 'YYYY-MM-DD') read "Final balance · due 7 days before the event (Nov 2)" on Nov 16, before the first
+ * payment was even made — a date in the past, said as if it were still ahead. The date is still named (it is the
+ * supplier's own term); the row now says that the day has passed. `today` null = unknown → as written.
+ * It does NOT say "so it is due now": which payment is due next is the pay plan's call (round 1 names the first
+ * unpaid payment, in pay order, and flags dates that are out of order) — a passed Final balance is still paid LAST.
+ * Controller audit 16 Nov: the two must not contradict each other.
+ */
+export function scheduleDueText(
+  row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>,
+  today: string | null,
+  booked = true,
+): string {
+  // R12 (walk 18 Nov 2026) · an UNBOOKED quote's row is a term, not a debt: "that day has already passed" told the
+  // couple a payment was late on a quote nothing is owed on yet. Unbooked, the row reads as the quote wrote it.
+  if (!booked) return row.dueText;
+  if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has already passed`;
+  return row.dueText;
+}
+
+/**
+ * R12 (walk 18 Nov 2026) · the one visible sentence for an accepted quote that is NOT booked — the Budget's ₱0 owed,
+ * said where the couple reads the schedule. ≤ 12 words (owner: ≤12-word lines). "book", never "lock".
+ */
+export const NOTHING_OWED_YET_LINE = 'Nothing is owed yet. Payments start once the booking is confirmed.';
+
+/**
+ * R12 · the couple's "Amount to pay" card on a row that is not booked (`moneyStep` → `not_booked`) and has no payment
+ * logged: nothing is due, so the card shows the honest not-booked state — no amount, no Pay, no Record payment.
+ * A payment already logged keeps its own record ("You logged"), exactly as before. Booked rows never reach here.
+ */
+export function nothingOwedYet(step: MoneyStep | null | undefined, recorded: boolean): boolean {
+  return step?.kind === 'not_booked' && !recorded;
+}
+
+/**
+ * R10 (walk 18 Nov 2026) · how the workspace frames an ACCEPTED quote's schedule.
+ *
+ * Accepting a quote is not a booking: `respond_vendor_proposal` writes the price and moves the row to
+ * `shortlisted`; the booking is made when the supplier agrees to lock (`contracted`, CONFIRMED_VENDOR_STATUSES).
+ * The Budget counts only booked suppliers (BA2, owner 2026-09-02: "no quotes here. we only add the finalized
+ * budgets"), and `moneyStep` already answers `not_booked` — nothing to pay — for such a row. The Schedule section
+ * was the one place on the sheet that drew the quote's dues as if owed ("Final balance ₱6,750 · that day has already
+ * passed") while the Budget said Agreed ₱0 · Owed ₱0 · Booked 0. Unbooked, it now says so in its label and tip.
+ */
+export function quoteScheduleFrame(
+  booked: boolean,
+  supplierName: string,
+): { label: string; tip: string; line: string | null } {
+  if (booked) {
+    return {
+      label: 'Schedule',
+      tip: `From the quote you accepted. Pay ${supplierName} directly; they confirm each payment as received.`,
+      line: null,
+    };
+  }
+  return {
+    label: 'Schedule · not booked yet',
+    // R12 · said ON the page, not only inside the closed ⓘ. No name in it, so it stays ≤ 12 words for any supplier.
+    line: NOTHING_OWED_YET_LINE,
+    tip: `The terms of the quote you accepted. Nothing is owed yet: ${supplierName} hasn’t booked you, so your Budget doesn’t count it. These payments start once ${supplierName} confirms the booking.`,
+  };
+}
+
 /** "First payment requested: ₱3,350 — due on lock", or null when none was requested. */
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;
@@ -630,9 +695,15 @@ export type MoneyStep =
     }
   | { kind: 'paid_in_full'; paidCentavos: number };
 
+/**
+ * The first payment's name, as the plan writes it. No "· books the date": every caller is `moneyStep`, which only
+ * answers for a BOOKED event (`input.booked`) — the date is already held (DECISION_LOG 2026-11-04: book on accept), so
+ * that tag told a booked couple their payment would book a date they already had (CHAT-10, W1 walk 16 Nov 2026:
+ * "DUE NOW · books the date" after booking). The public proposal, read BEFORE accepting, keeps its own tag.
+ */
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · books the date`;
+  return row?.label || 'First payment';
 }
 
 function laterStep(

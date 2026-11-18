@@ -18,7 +18,7 @@ export function PickedClientSettings({ autoAgree }: { autoAgree: boolean | null 
   const nav = usePickedNav();
   return (
     <div className="px-4 pb-4">
-      <h3 className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">This client</h3>
+      <h3 className="home-k2 !mb-0 !mt-4">This client</h3>
       <div className="flex items-start gap-3 py-3" data-client-setting="auto-agree">
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-semibold text-ink">
@@ -33,7 +33,7 @@ export function PickedClientSettings({ autoAgree }: { autoAgree: boolean | null 
           {autoAgree === null ? "Couldn't load" : autoAgree ? 'On' : 'Off'}
         </span>
       </div>
-      <h3 className="mt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">Notes</h3>
+      <h3 className="home-k2 !mb-0 !mt-2">Notes</h3>
       <div className="flex items-center gap-3 py-3" data-client-setting="notes">
         <p className="min-w-0 flex-1 text-[15px] text-ink">Notes only your team sees</p>
         {nav ? (

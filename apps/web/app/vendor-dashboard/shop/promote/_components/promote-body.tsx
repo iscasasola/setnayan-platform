@@ -19,6 +19,10 @@ import { siteOrigin } from '@/lib/site-origin';
 import { PROMOTE_HREF, PROMOTE_QR_MODES, ownPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { QrCodes } from '../../../invite/_components/qr-codes';
+import { OwnLinkAddGiftNotice, OwnLinkGift } from '../../../invite/_components/own-client-gift';
+import { ownGiftDataOf, type OwnGiftLine } from '@/lib/own-clients';
+import { fetchOwnLinkGift, fetchShopVerified } from '@/lib/own-clients.server';
+
 import { PromoteBridge } from './promote-bridge';
 import { ShopGiftsSection } from './shop-gifts-section';
 import { loadShopGiftsSection } from './shop-gifts-data';
@@ -30,7 +34,13 @@ import { readPrintMember } from '@/lib/supplier-prints.server';
 import { NfcTapTest } from '@/app/_components/nfc-tap-test';
 import type { ReactNode } from 'react';
 
-export type PromotePart = 'all' | 'promote' | 'qr';
+/** 🎁 Own clients v4: the own link's saved gift, as the block reads it. */
+function ownLinkCurrent(g: OwnGiftLine | null | 'unread'): { code: string; title: string } | null | 'unread' {
+  return g === 'unread' || g === null ? g : { code: g.service_code, title: g.title };
+}
+
+/** `prints` = the Shop quick row's Prints tile (owner 17 Nov: "change Promote on Shop to Prints") — the prints alone. */
+export type PromotePart = 'all' | 'promote' | 'qr' | 'prints';
 
 export async function PromoteBody({
   search,
@@ -42,8 +52,10 @@ export async function PromoteBody({
   /** The gift stock, when the caller already read it (the Promote page's pinned row shows its balance) — read once. */
   gifts?: Promise<Awaited<ReturnType<typeof loadShopGiftsSection>>>;
 }) {
-  const withQr = part !== 'promote';
+  const withQr = part !== 'promote' && part !== 'prints';
   const withPromote = part !== 'qr';
+  // The prints alone: no gifts, no stories — neither is read.
+  const withRest = withPromote && part !== 'prints';
   const mode: PromoteQrMode = promoteQrModeOf(search.mode);
   const supabase = await createClient();
   const {
@@ -61,11 +73,11 @@ export async function PromoteBody({
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
   // 🎁 Read alongside the codes (part 2): the gifts section and the row's figure share this one result.
   // Each part reads only what it draws: the QR sheet never pays for the gifts or the stories.
-  const giftsPromise = withPromote ? (giftsRead ?? loadShopGiftsSection(supabase, profile.vendor_profile_id)) : Promise.resolve(null);
+  const giftsPromise = withRest ? (giftsRead ?? loadShopGiftsSection(supabase, profile.vendor_profile_id)) : Promise.resolve(null);
   // Awaited below; this only keeps a throw from being "unhandled" while the codes are drawn — it still surfaces there.
   giftsPromise.catch(() => undefined);
   // 📣 Row 4 — read beside the gifts; the loader says a refused read in words (never throws).
-  const sharePromise = withPromote ? loadShareYourWork(supabase, profile.vendor_profile_id) : Promise.resolve(null);
+  const sharePromise = withRest ? loadShareYourWork(supabase, profile.vendor_profile_id) : Promise.resolve(null);
   // 🪪 The signed-in member's own calling card (owner 2026-11-06, "Yes") — their account name and Team label; no name =
   // no card. Read beside the gifts and the share read (a refused read = no personal card, never a broken sheet).
   const memberPromise = canShare && withPromote ? readPrintMember(createAdminClient(), profile.vendor_profile_id, user.id).catch(() => null) : Promise.resolve(null);
@@ -109,12 +121,27 @@ export async function PromoteBody({
       return `${PROMOTE_HREF}?${q.toString()}`;
     };
     const etLabel = eventTypes.find((t) => t.key === selectedEt)?.label ?? null;
+    // 🎁 The own link's gift, read once: its block on My page, and the owner's notice ("8. Yes", 16 Nov) on every own
+    // code's sheet when a VERIFIED shop has none — told first, before any ask through it is charged the fee.
+    const [ownVerified, ownLinkRead] = await Promise.all([
+      // 🪪 The ONE verified test the server uses; null = couldn't check (never "not verified", never a promise).
+      fetchShopVerified(supabase, profile.vendor_profile_id),
+      fetchOwnLinkGift(supabase, profile.vendor_profile_id),
+    ]);
     body = (
       <QrCodes
         {...common}
         canShare
         checkADate={{ ...dates, shopName }}
         myPage={{ url: pageUrl, svg: pageSvg, shopName }}
+        ownLinkGift={
+          <OwnLinkGift
+            verified={ownVerified}
+            data={ownGiftDataOf((await giftsPromise) ?? (await loadShopGiftsSection(supabase, profile.vendor_profile_id)))}
+            current={ownLinkCurrent(ownLinkRead)}
+          />
+        }
+        ownLinkNotice={ownVerified === true && ownLinkRead === null ? <OwnLinkAddGiftNotice /> : null}
         reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
         shortlist={{
           url: shortUrl,
@@ -145,7 +172,7 @@ export async function PromoteBody({
           {/* 📡 Scan or tap (v110): the NFC tap carries the same link as the shop code — this phone's Tap test. */}
           {part === 'qr' && pageLink ? (
             <div className="border-t border-ink/10 pt-2" data-shop-qr-nfc="">
-              <p className="pb-1 text-[12.5px] text-ink/60">Scan or tap · the NFC tap carries the same link as your shop code</p>
+              <p className="pb-1 text-[12.5px] text-[color:var(--m-slate-2)]">Scan or tap · the NFC tap carries the same link as your shop code</p>
               <NfcTapTest url={pageLink} />
             </div>
           ) : null}

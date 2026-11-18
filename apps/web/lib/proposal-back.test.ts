@@ -24,7 +24,13 @@ test('the couple goes back to THEIR thread, and the control says so', () => {
 
 test('the supplier goes back to the same conversation on their own route', () => {
   const door = proposalBackDoor({ isVendorSide: true, eventId: EVENT, threadId: THREAD });
-  assert.equal(door.href, `/vendor-dashboard/messages/${THREAD}`);
+  // 🚪 The conversation is the client's Chat (owner 17 Nov — every way in lands there) …
+  assert.equal(door.href, `/vendor-dashboard/clients/${EVENT}?tab=chat`);
+  // … and with the event deleted there is no client to open, so the thread's own page.
+  assert.equal(
+    proposalBackDoor({ isVendorSide: true, eventId: null, threadId: THREAD }).href,
+    `/vendor-dashboard/messages/${THREAD}`,
+  );
   assert.equal(door.label, BACK_TO_CONVERSATION);
   // Never the couple's route — a supplier has no /dashboard/<event>.
   assert.ok(!door.href.startsWith('/dashboard/'));

@@ -136,7 +136,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
  */
 export const HELP_PRERENDER_SLUGS: ReadonlyArray<string> = TOPICS_EXISTING.flatMap((t) => t.articles.map((a) => a.slug));
 
-export const HELP_LASTMOD = '2026-11-13';
+export const HELP_LASTMOD = '2026-11-18';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;

@@ -15,6 +15,7 @@
  * inside the RPC; a failed notify must never roll it back.
  */
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -143,7 +144,7 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
     }
   }
 
-  if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  if (threadId) revalidatePath(supplierThreadPageHref(threadId));
   revalidatePath('/vendor-dashboard/messages');
   const card = payConfirmReturnTo(formData.get('return_to'));
   if (card) revalidatePath(card);
@@ -236,7 +237,7 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
     }
   }
 
-  if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  if (threadId) revalidatePath(supplierThreadPageHref(threadId));
   revalidatePath('/vendor-dashboard/messages');
   const card = payConfirmReturnTo(formData.get('return_to'));
   if (card) revalidatePath(card);
@@ -326,7 +327,7 @@ export async function clearVendorPaymentPlan(formData: FormData): Promise<void> 
     }
   }
 
-  if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  if (threadId) revalidatePath(supplierThreadPageHref(threadId));
   revalidatePath('/vendor-dashboard/messages');
 }
 

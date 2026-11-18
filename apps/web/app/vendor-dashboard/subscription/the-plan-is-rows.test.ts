@@ -28,7 +28,8 @@ const PICKER = stripComments(readFileSync(join(HERE, '_components/plan-sheet.tsx
 const ROWS = stripComments(readFileSync(join(HERE, '_components/plan-rows.tsx'), 'utf8'));
 
 test('the plans are rows that open in place, and the cycle is one switch', () => {
-  assert.match(PICKER, /<Fold\b[\s\S]*?defaultOpen=\{isCurrent\}/);
+  // The shop's own plan opens first; W1-B21 also opens the plan picked on /for-suppliers (`offer`, lib/supplier-plan-offer.ts).
+  assert.match(PICKER, /<Fold\b[\s\S]*?defaultOpen=\{isCurrent \|\| p\.key === offer\}/);
   assert.match(PICKER, /What changes/);
   assert.match(PICKER, /What you pay/);
   assert.match(PICKER, /role="switch"[\s\S]*?aria-label="Pay for the year"[\s\S]*?<SwitchTrack on=\{cycle === 'annual'\} \/>/);

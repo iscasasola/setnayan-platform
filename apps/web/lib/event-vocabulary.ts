@@ -82,6 +82,15 @@ export function eventTypeBadge(type: string): string {
 }
 
 /**
+ * The type's own word in a sentence — "Wrapped up this birthday?" (CHAT-30, walk 16 Nov 2026: a birthday read
+ * "Wrapped up this wedding?"). The badge, lower-cased, so the sentence and the chip never disagree. An unknown type
+ * (null — not read) is "event", never "wedding": a guessed wedding is the defect this exists to end.
+ */
+export function eventTypeWord(type: string | null | undefined): string {
+  return type ? eventTypeBadge(type).toLowerCase() : 'event';
+}
+
+/**
  * What an event of this type may be TYPED as — both languages, both spellings.
  *
  * ⚠ THIS MUST NOT BECOME A SECOND VOCABULARY. Every key of

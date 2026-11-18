@@ -78,6 +78,8 @@ export type QuoteForCard = {
    * reported, not overridden here: the card says what the server will say before the supplier builds anything.
    */
   requote: 'ok' | 'deal_locked' | 'lock_requested';
+  /** The thread's event — where a locked quote's change order lives (`supplierChangeOrderHref`, CHAT-19). */
+  eventId: string;
 };
 
 const QUOTE_COLS =
@@ -189,6 +191,7 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     }),
     pax,
     requote: gate.data === 'deal_locked' ? 'deal_locked' : gate.data === 'lock_requested' ? 'lock_requested' : 'ok',
+    eventId: t.event_id,
     },
   };
 }

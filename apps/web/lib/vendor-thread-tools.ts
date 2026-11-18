@@ -34,6 +34,9 @@ export type VendorThreadPanel = {
   label: string;
   /** The grey half-sentence beside the label, in the disclosure's own header. */
   hint: string;
+  /** A form to fill rises FULL SCREEN above the composer instead of opening in the tray under it (CHAT-18; DECISION_LOG
+   *  2026-11-10 "RISE FULL SCREEN" — a pop-up picker stays half, a page with fields to fill rises). */
+  rise?: boolean;
 };
 
 export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
@@ -64,6 +67,7 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     id: 'booking-ask',
     label: 'Answer their booking ask',
     hint: 'Agree · or turn it down',
+    rise: true,
   },
   {
     id: 'offer-service',

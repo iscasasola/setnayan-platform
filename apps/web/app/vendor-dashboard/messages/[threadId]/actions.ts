@@ -13,6 +13,7 @@
  * action is the FormData + revalidate wrapper.
  */
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { offerServiceCore, type OfferServiceResult } from '@/lib/offer-service-core';
@@ -36,7 +37,7 @@ export async function offerServiceInterest(formData: FormData): Promise<OfferSer
       photo: photo instanceof File ? photo : null,
       note: typeof note === 'string' ? note : '',
     });
-    if (result.status === 'ok') revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+    if (result.status === 'ok') revalidatePath(supplierThreadPageHref(threadId));
     return result;
   }
   const serviceId = formData.get('vendor_service_id');
@@ -57,7 +58,7 @@ export async function offerServiceInterest(formData: FormData): Promise<OfferSer
   });
 
   if (result.status === 'ok') {
-    revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+    revalidatePath(supplierThreadPageHref(threadId));
   }
   return result;
 }

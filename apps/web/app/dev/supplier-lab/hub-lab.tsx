@@ -185,7 +185,6 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
               label={d.label}
               line={d.key === 'run' && sched ? sched : d.line}
               href={d.href}
-              access="View only — ask the hosts for more."
             />
           ))}
         </HubPageRows>

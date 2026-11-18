@@ -2,8 +2,9 @@
 /**
  * 🔒 THE LOCKED LOOK (owner 15 Nov: *"i do not see the locked badge for all and the popup for setnayan verified"*;
  * ported from `badge-milestones_v86.html` `.lkt`). Every badge at its Bronze step, Setnayan Verified and the five seals
- * show here until earned: the art in grey under a lock, the group (Badge · Verified · Seal), the name, and what it
- * takes. Shown to the SHOP on its own badge page only — a locked one is never shown to couples (the caller's rule;
+ * show here until earned: the REAL art in its own colours with a small lock at its lower right (owner 18 Nov: *"we
+ * still want to see how they look like"* — it replaced v86's grey), the group (Badge · Verified · Seal), the name, and
+ * what it takes. Shown to the SHOP on its own badge page only — a locked one is never shown to couples (the caller's rule;
  * this tile only draws).
  *
  * Client-only like the rest of the kit (no state, no effect — it only draws).
@@ -40,7 +41,7 @@ export function LockedTile({ art, group, name, how }: LockedTileProps) {
     <div className={s.lkt} role="img" aria-label={`${name}, locked. ${how}`} data-award-locked={group}>
       <span className={s.lktArt}>{art}</span>
       <span className={s.lktLock} aria-hidden="true">
-        <Lock size={18} strokeWidth={2} />
+        <Lock size={14} strokeWidth={2.25} />
       </span>
       <span className={s.lktGroup}>{group}</span>
       <b>{name}</b>

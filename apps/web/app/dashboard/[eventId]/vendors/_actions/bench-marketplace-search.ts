@@ -29,7 +29,7 @@ import { demoScopeFor } from '@/lib/demo-scope';
 import { eventSearchScopeOf, eventScopeUnreadable, shopInEventScope } from '@/lib/demo-vendor-exclusion';
 import { readDemoVendorIds } from '@/lib/demo-vendors';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed, isShopNameWithheld } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
 export type BenchMarketResult = {
@@ -163,7 +163,8 @@ export async function searchMarketplaceForBench(eventId: string, rawQuery: strin
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
-      nameAnonymized: !revealed,
+      // Ruling 2026-11-16 (15): withheld only when no real name is on file — an unverified shop is named.
+      nameAnonymized: isShopNameWithheld({ business_name: r.business_name }),
       city: r.location_city ?? null,
       // Logo is as identifying as the name — hide it until the name is revealed.
       logoUrl: revealed ? (r.logo_url ?? null) : null,

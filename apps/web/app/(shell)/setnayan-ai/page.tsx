@@ -58,7 +58,7 @@ const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
  * mechanism, it is a future drift.
  */
 const PAGE_DESCRIPTION = studioDescription('setnayan-ai');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.

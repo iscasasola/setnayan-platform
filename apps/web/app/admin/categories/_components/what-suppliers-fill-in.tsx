@@ -20,6 +20,7 @@ import { Archive, Lock, Plus, Undo2, X } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { SupplierField } from './model';
 import { FormInPlace, INPUT_IN_PLACE } from './drawer-kit';
+import { ActionButton } from '@/components/action-button';
 
 type ServiceRef = {
   canonical: string;
@@ -113,13 +114,7 @@ function LeafFieldCard({ service, field }: { service: ServiceRef; field: Supplie
           <ServiceBack service={service} />
           <input type="hidden" name="field_key" value={field.key} />
           <input type="hidden" name="retired" value={field.retired ? 'false' : 'true'} />
-          <button
-            type="submit"
-            className="sn-press inline-flex min-h-10 items-center gap-1 rounded-full border border-dashed border-ink/20 px-3 text-[13px] font-medium text-ink/70"
-          >
-            {field.retired ? <Undo2 className="h-3.5 w-3.5" aria-hidden /> : <Archive className="h-3.5 w-3.5" aria-hidden />}
-            {field.retired ? 'Restore' : 'Retire'}
-          </button>
+          <ActionButton tone="neutral" quiet icon={field.retired ? Undo2 : Archive} type="submit" label={field.retired ? 'Restore' : 'Retire'} />
         </FormInPlace>
       </div>
 
@@ -225,9 +220,7 @@ function AddFieldForm({ service }: { service: ServiceRef }) {
         ) : (
           <input type="hidden" name="field_options" value="" />
         )}
-        <button type="submit" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink">
-          <Plus className="h-4 w-4" aria-hidden /> Add
-        </button>
+        <ActionButton tone="neutral" icon={Plus} type="submit" label="Add" />
       </div>
     </FormInPlace>
   );

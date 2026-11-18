@@ -32,6 +32,7 @@ export function AddYourLogo({
   displayUrl,
   frame: savedFrame,
   saveAction = updateVendorProfileField,
+  doneHref = '/vendor-dashboard',
 }: {
   vendorProfileId: string;
   shopName: string;
@@ -41,6 +42,8 @@ export function AddYourLogo({
   frame: LogoFrame;
   /** The save. Always `updateVendorProfileField` in the app; the dev lab hands in a stand-in that writes nothing. */
   saveAction?: SaveAction;
+  /** W1-B21 — where Continue / Skip go: the plan offer a supplier arrived for (`?plan=`), else Today. */
+  doneHref?: string;
 }) {
   const [ref, setRef] = useState<string>(logoUrl ?? '');
   const [preview, setPreview] = useState<string | null>(displayUrl);
@@ -180,9 +183,9 @@ export function AddYourLogo({
             data-open-shop-bar=""
           >
             {hasSaved ? (
-              <ActionButton tone="brand" main icon={ArrowRight} label="Continue" href="/vendor-dashboard" data-testid="open-shop-logo-continue" />
+              <ActionButton tone="brand" main icon={ArrowRight} label="Continue" href={doneHref} data-testid="open-shop-logo-continue" />
             ) : (
-              <ActionButton tone="neutral" icon={Clock} label="Skip for now" href="/vendor-dashboard" data-testid="open-shop-logo-skip" />
+              <ActionButton tone="neutral" icon={Clock} label="Skip for now" href={doneHref} data-testid="open-shop-logo-skip" />
             )}
           </div>
       </div>

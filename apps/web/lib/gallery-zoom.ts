@@ -5,29 +5,42 @@
  * `event_bar_memories_tab_2026-10-23.html` frames 3–4).
  *
  *   phone   (< 1024)  1 · 3 · 5 · 7   — pinch: spread = fewer, larger tiles; squeeze = more
- *   desktop (≥ 1024)  6 · 9 · 12 · 16 — the − / + buttons, and a trackpad pinch (⌃ + wheel)
+ *   desktop (≥ 1024)  6 · 8 · 12 · 16 — the − / + buttons, and a trackpad pinch (⌃ + wheel); 6 to start, and 8 to
+ *                     start from 1600 (`wide` — the same steps and the same remembered key)
+ *
+ * 🖥 6 A ROW AT 1280, 8 AT 1600 (owner "Yes, all 8", 16 Nov 2026, event dashboard drawing v13 Q4: Memories takes the
+ * full width from 1024 — "6 photos/row at 1280, 8 at 1600"). The 23 Oct desk steps were 6 · 9 · 12 · 16 with 9 to
+ * start; 8 replaces 9 so the 1600 start is a step, and a remembered 9 falls back to the start for its width.
  *
  * Remembered on the device (localStorage, per viewer) under the prototype's own two keys — a per-viewer
  * convenience, never shared state. Pure: `gallery-zoom.test.ts`.
  */
 
 export const PHONE_COLUMNS = [1, 3, 5, 7] as const;
-export const DESK_COLUMNS = [6, 9, 12, 16] as const;
+export const DESK_COLUMNS = [6, 8, 12, 16] as const;
 export const PHONE_DEFAULT = 3;
-export const DESK_DEFAULT = 9;
+export const DESK_DEFAULT = 6;
+export const WIDE_DEFAULT = 8;
 /** The width the desktop steps start at — the house `lg`, where the rail paints. */
 export const DESK_FROM_PX = 1024;
+/** The width the wide desk starts at — 8 a row to start (owner 16 Nov 2026). */
+export const WIDE_FROM_PX = 1600;
 export const ZOOM_KEY_PHONE = 'sn-gallery-zoom';
 export const ZOOM_KEY_DESK = 'sn-gallery-zoom-desk';
 
-export type ZoomScale = 'phone' | 'desk';
+export type ZoomScale = 'phone' | 'desk' | 'wide';
 
 export function stepsFor(scale: ZoomScale): readonly number[] {
-  return scale === 'desk' ? DESK_COLUMNS : PHONE_COLUMNS;
+  return scale === 'phone' ? PHONE_COLUMNS : DESK_COLUMNS;
 }
 
 export function defaultFor(scale: ZoomScale): number {
-  return scale === 'desk' ? DESK_DEFAULT : PHONE_DEFAULT;
+  return scale === 'wide' ? WIDE_DEFAULT : scale === 'desk' ? DESK_DEFAULT : PHONE_DEFAULT;
+}
+
+/** The scale for a viewport width — the phone below 1024, the desk from 1024, the wide desk from 1600. */
+export function scaleFor(width: number): ZoomScale {
+  return width >= WIDE_FROM_PX ? 'wide' : width >= DESK_FROM_PX ? 'desk' : 'phone';
 }
 
 /** A remembered value, or the default when it is missing or not one of the steps (an old or hand-typed value). */

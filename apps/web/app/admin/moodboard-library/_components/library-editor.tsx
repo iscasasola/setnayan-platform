@@ -14,7 +14,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 
 import { ActionButton } from '@/components/action-button';
 import { FieldPick } from '@/app/admin/_components/field-pick';
-import { Archive, Check, Copy, Save, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { Archive, Check, Copy, Save, Sparkles, Trash2, Upload, X, XCircle } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
@@ -42,6 +42,7 @@ import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { RandomMoodboardPrompt } from '@/lib/higgsfield-prompts';
 import { useSaveLoader } from '@/components/sd-loader';
 import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery-pure';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 export type LibraryAsset = {
   asset_id: string;
@@ -620,14 +621,7 @@ export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
                   className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
                 />
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleReject}
-                    disabled={isPending}
-                    className="rounded-md bg-danger-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    Reject with this reason
-                  </button>
+                  <ActionButton tone="danger" main icon={<XCircle aria-hidden strokeWidth={1.9} />} onClick={handleReject} disabled={isPending} label="Reject with this reason" />
                   <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setRejectOpen(false)} />
                 </div>
               </div>
@@ -640,7 +634,7 @@ export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
               previewPalette={previewPalette}
             />
 
-            <details className="rounded-lg border border-ink/15 bg-cream p-3">
+            <details className={`${ADMIN_FRAME} p-3`}>
               <summary className="cursor-pointer text-sm font-medium text-ink">
                 Preview palette (used in the &ldquo;Preview with palette&rdquo; toggle)
               </summary>

@@ -469,7 +469,7 @@ export type ShopGiftLedgerRow = {
   entryId: string;
   vendorProfileId: string;
   shopName: string | null;
-  kind: 'bought' | 'given' | 'reversal' | 'badge_reward';
+  kind: 'bought' | 'given' | 'reversal' | 'badge_reward' | 'own_client';
   giftKind: ShopGiftKind;
   delta: number;
   /** On a given Event Plus / Pro: what the event received (a second Plus becomes Event Pro). */

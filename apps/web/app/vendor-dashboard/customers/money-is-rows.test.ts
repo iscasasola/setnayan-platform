@@ -141,10 +141,10 @@ test('5b · the compact fee rows say the fee lane’s sentence, and the bill kee
 
 // SABOTAGE: point a customer at `/vendor-dashboard/clients/<id>?tab=payments` only (no thread door) → RED.
 test('6 · Log a payment opens the shipped door: the conversation’s payment band, else the card', () => {
-  assert.match(SEGMENT, /`\/vendor-dashboard\/messages\/\$\{threadOf\.get\(c\.eventId\)\}#pending-payments`/);
+  assert.match(SEGMENT, /`\$\{supplierChatHref\(c\.eventId, threadOf\.get\(c\.eventId\) \?\? ''\)\}#pending-payments`/); // 🚪 the client's Chat, its payment band
   assert.match(SEGMENT, /: `\/vendor-dashboard\/clients\/\$\{c\.eventId\}`/);
   // …and the card's own door is the same place (the one this sheet mirrors).
-  assert.match(code(join(VD, 'clients', '[eventId]', 'page.tsx')), /href=\{`\/vendor-dashboard\/messages\/\$\{threadId\}#pending-payments`\}/);
+  assert.match(code(join(VD, 'clients', '[eventId]', 'page.tsx')), /href=\{`\$\{supplierChatHref\(eventId, threadId\)\}#pending-payments`\}/);
   assert.doesNotMatch(LOG, /<form\b|action=\{/, 'Log a payment grew a second form');
 });
 

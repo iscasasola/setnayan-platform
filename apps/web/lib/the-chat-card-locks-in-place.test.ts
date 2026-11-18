@@ -168,7 +168,8 @@ test('supplier · both forms post only the row id and the way home — the same 
   // The reason is ONE field still — now composed by `DeclineReasonFields` (Why ▾ + an optional line, step 4).
   assert.equal(count(answer, /<DeclineReasonFields \/>/g), 1, 'the decline lost its reason');
   assert.equal(count(DECLINE_FIELDS, /name="reason"/g), 1, 'the reason fields no longer post the one `reason` the action reads');
-  assert.equal(count(card, /returnTo=\{`\/vendor-dashboard\/messages\/\$\{threadId\}`\}/g), 1);
+  // 17 Nov: the way home is the thread page through its helper, which forwards to the client's Chat with the answer.
+  assert.equal(count(card, /returnTo=\{supplierThreadPageHref\(threadId\)\}/g), 1);
 });
 
 test('supplier · the answer lands back in the thread, and the thread says what happened', () => {

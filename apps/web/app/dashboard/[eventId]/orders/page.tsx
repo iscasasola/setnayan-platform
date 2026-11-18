@@ -12,6 +12,7 @@ import {
 } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { BackButton } from '@/app/_components/back-button';
 import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Orders' };
@@ -57,6 +58,10 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
 
   return (
     <section className="sn-col space-y-6">
+      {/* ‹ Today — Your services, opened (owner 16 Nov 2026: *"we don't want to lose the back button if needed"* ·
+          event dashboard drawing v13, the back rule): Today's Your services opens this page, and it had no way back.
+          The label and the address come from the map (`lib/page-home.ts`). */}
+      <BackButton route="/dashboard/[eventId]/orders" params={{ eventId }} className="!mb-0" />
       <PageMasthead
         title="Orders"
         actions={

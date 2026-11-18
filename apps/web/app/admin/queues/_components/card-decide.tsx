@@ -91,7 +91,7 @@ export function CardDecide({
                 label={b.label}
                 main={b.main}
                 type="submit"
-                name={name}
+                formName={name}
                 value={value}
               />
             );
@@ -136,7 +136,7 @@ export function CardDecide({
                     filled
                     type="submit"
                     form={formId}
-                    name={name}
+                    formName={name}
                     value={value}
                     disabled={picked === null}
                   />

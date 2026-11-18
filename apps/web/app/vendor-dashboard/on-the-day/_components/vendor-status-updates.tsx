@@ -33,7 +33,8 @@
  */
 
 import { useCallback, useEffect, useId, useState, useTransition } from 'react';
-import { Check, Loader2, Megaphone } from 'lucide-react';
+import { Check, Loader2, Megaphone, Send, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
@@ -235,19 +236,16 @@ export function VendorStatusUpdates({
             </p>
           ) : null}
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={close} className="min-h-11 rounded-xl border border-ink/15 px-4 text-[14px] font-medium text-ink">
-              Cancel
-            </button>
-            <button
-              type="button"
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={close} />
+            <ActionButton
+              tone="brand"
+              main
+              icon={pending ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} /> : Send}
+              label="Post"
               onClick={post}
               disabled={pending || (!picked && note.trim().length === 0)}
               data-post-an-update-post=""
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-mulberry px-5 text-[14px] font-semibold text-cream transition hover:bg-mulberry-600 disabled:opacity-40"
-            >
-              {pending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
-              Post
-            </button>
+            />
           </div>
         </div>
       </Sheet>

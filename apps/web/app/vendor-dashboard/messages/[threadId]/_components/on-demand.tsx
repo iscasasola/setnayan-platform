@@ -25,7 +25,7 @@ import dynamic from 'next/dynamic';
 /** The house's quiet loading line (the picked client's bodies use the same words and look). */
 function Quiet({ what }: { what: string }) {
   return (
-    <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-page-loading="">
+    <p className="px-4 py-6 text-sm text-[color:var(--m-slate-2)]" role="status" data-picked-page-loading="">
       Loading {what}&hellip;
     </p>
   );

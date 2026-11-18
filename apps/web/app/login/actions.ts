@@ -7,7 +7,8 @@ import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
 import { rateLimit } from '@/lib/rate-limit';
-import { sendPasswordRecoveryLink } from '@/lib/password-recovery-link';
+import { sendPasswordRecoveryLink, sendSignInLink } from '@/lib/password-recovery-link';
+import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
 import { verifyTurnstileToken } from '@/lib/turnstile-verify';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { CREDENTIALS_REFUSAL, explainFailedSignIn, type KnownProvider } from '@/lib/sign-in-door';
@@ -247,6 +248,30 @@ async function sendSetPasswordLink(attempt: number, formData: FormData): Promise
 }
 
 /**
+ * W1-B24 — "Send a new link" on the sign-in card, after an email link that can no longer finish (expired, already
+ * spent, or a PKCE link opened on another device). The same guards as the set-password send above (captcha, the
+ * per-email and per-IP buckets) and the same neutral answer whatever the outcome, so it is never an account oracle.
+ * The link is a magic link minted by the admin API and verified by /auth/confirm — it works on any device, and opening
+ * it confirms the address of an account that never got confirmed.
+ */
+async function sendNewSignInLink(attempt: number, formData: FormData): Promise<SignInInPlaceState> {
+  const refuse = (error: string): SignInInPlaceState => ({ error, provider: null, ok: false, resetSent: false, attempt });
+  const email = String(formData.get('email') ?? '').trim();
+  if (!email) return refuse(DEAD_LINK_WORDS.needEmail);
+  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
+  const verdict = await verifyTurnstileToken(captchaTokenFromForm(formData), ip);
+  if (!verdict.ok) return refuse(RESET_REFUSALS.captcha);
+  if (!rateLimit(`relink:email:${email.toLowerCase()}`, 3, 15 * 60_000).ok) return refuse(RESET_REFUSALS.rateLimited);
+  if (ip && !rateLimit(`relink:ip:${ip}`, 10, 15 * 60_000).ok) return refuse(RESET_REFUSALS.rateLimited);
+  const { sent } = await sendSignInLink(email, safeNext(String(formData.get('next') ?? '/')));
+  if (!sent) {
+    // eslint-disable-next-line no-console
+    console.error('[login] no new sign-in link sent for the submitted address');
+  }
+  return { error: null, provider: null, ok: false, resetSent: true, attempt };
+}
+
+/**
  * signInInPlace — the same sign-in, with the redirect removed.
  *
  * 🔑 WHY A SECOND ENTRY POINT AT ALL. `signInWithPassword` answers a wrong
@@ -271,6 +296,8 @@ export async function signInInPlace(
   // 🔑 AN INTENT, NOT A NEW ACTION (the server-action budget counts exports).
   // The card's "Email me a link to set a password" posts here with intent=reset.
   if (formData.get('intent') === 'reset') return sendSetPasswordLink(attempt, formData);
+  // W1-B24: "Send a new link" after a dead email link posts here with intent=relink.
+  if (formData.get('intent') === 'relink') return sendNewSignInLink(attempt, formData);
   const result = await exchangeCredentials(formData);
   if (!result.ok) {
     return {

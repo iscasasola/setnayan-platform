@@ -51,7 +51,11 @@ const read = (rel: string) => readFileSync(join(here, rel), 'utf8');
 const cardView =
   stripComments(read('../app/_components/service-card-view.tsx')) +
   stripComments(read('../app/_components/service-face.tsx'));
-const explore = stripComments(read('../app/(shell)/explore/_lib/marketplace-view.tsx')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
+const exploreView = stripComments(read('../app/(shell)/explore/_lib/marketplace-view.tsx')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
+// 2026-11-16 (Discover in six parts): the grid's card faces — logo, addresses, record — moved into ONE builder shared
+// with Discover's Service cards shelf. The claims below are about the grid AND that builder.
+const faces = stripComments(read('./marketplace-service-card-faces.ts'));
+const explore = exploreView + faces;
 const query = stripComments(read('./marketplace-service-cards.ts'));
 const sitemap = stripComments(read('../app/sitemap-vendors.xml/route.ts'));
 
@@ -62,20 +66,25 @@ function marketplaceCardBlock(): string {
   // window opened there slides onto the vendor grid below. Exactly one, so a
   // second grid cannot hide behind the first.
   const anchor = '{serviceCards.map(';
-  const hits = explore.split(anchor).length - 1;
+  const hits = exploreView.split(anchor).length - 1;
   assert.equal(hits, 1, `expected one {serviceCards.map( grid on /explore, found ${hits}`);
-  const start = explore.indexOf(anchor);
-  const end = explore.indexOf('</ul>', start);
+  const start = exploreView.indexOf(anchor);
+  const end = exploreView.indexOf('</ul>', start);
   assert.notEqual(end, -1, 'could not find the end of the marketplace grid');
-  return explore.slice(start, end);
+  const grid = exploreView.slice(start, end);
+  // The grid spreads the shared face onto the card — so the face's returned object IS the rest of the block.
+  assert.match(grid, /<ServiceCardView \{\.\.\.serviceCardFace\(c\)\}/, 'the grid stopped drawing the shared card face');
+  const faceAt = faces.indexOf('return (c) => {');
+  assert.notEqual(faceAt, -1, 'could not find the shared card face');
+  return grid + faces.slice(faceAt);
 }
 
 // ── 1 · TWO DESTINATIONS, NOT ONE ─────────────────────────────────────────
 
 test('the card body opens THAT service, the logo opens the shop', () => {
   const block = marketplaceCardBlock();
-  assert.match(block, /detailsHref=\{serviceCardAddress\(/, 'the card body lost its details doorway');
-  assert.match(block, /shop=\{\{/, 'the card stopped carrying its shop');
+  assert.match(block, /detailsHref: serviceCardAddress\(/, 'the card body lost its details doorway');
+  assert.match(block, /shop: \{/, 'the card stopped carrying its shop');
   assert.match(block, /href: shopAddress\(/, 'the shop row lost the shop address');
 });
 

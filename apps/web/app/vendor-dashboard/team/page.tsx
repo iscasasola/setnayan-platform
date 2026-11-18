@@ -1,3 +1,5 @@
+import { BackButton } from '@/app/_components/back-button';
+import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { TeamScreen, type TeamSearch } from './_components/team-screen';
 
 /**
@@ -8,5 +10,12 @@ import { TeamScreen, type TeamSearch } from './_components/team-screen';
 export const metadata = { title: 'Helpers · Supplier' };
 
 export default async function VendorTeamPage({ searchParams }: { searchParams: Promise<TeamSearch> }) {
-  return <TeamScreen search={await searchParams} />;
+  return (
+    <>
+      <BackWhenNotRisen>
+        <BackButton route="/vendor-dashboard/team" inPlace className="mx-4 mt-3 mb-0" />
+      </BackWhenNotRisen>
+      <TeamScreen search={await searchParams} />
+    </>
+  );
 }

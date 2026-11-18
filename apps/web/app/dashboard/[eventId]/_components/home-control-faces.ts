@@ -148,6 +148,8 @@ export type HomeTileModel = {
   today: boolean;
   /** 📅 The Schedule's doors, under its dots — a wrapping row, never on a rotating face (plan §5). */
   doors?: HomeDoor[];
+  /** 🕕 "Lumière Studio set their times" · their times · See › — the latest supplier who set their own times (16 Nov). */
+  timesLine?: { title: string; sub: string; href: string } | null;
 };
 
 /* ─── The inputs — each from the shipped reader named ─────────────────────── */
@@ -899,7 +901,9 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
   if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: schedulePageHref(e, { announce: '1' }), main: true, pro: !s.pro });
   if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: door });
   if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} ${s.oweTimes === 1 ? 'supplier' : 'suppliers'} without a time`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
-  return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors };
+  // 🕕 SCHEDULE MODEL rule 3 (owner 16 Nov): the latest supplier who set their own times, a line in this card.
+  const timesLine = s.timesSet ? { title: `${s.timesSet.shop} set their times`, sub: s.timesSet.words, href: `/dashboard/${e}/vendors` } : null;
+  return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors, timesLine };
 }
 
 /**

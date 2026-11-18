@@ -57,7 +57,7 @@ export const maxDuration = 30;
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
-const DEFAULT_OG = `${SITE_URL}/brand/og-card.webp`;
+const DEFAULT_OG = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 const CARD_HEADERS = {
   'Content-Type': 'image/jpeg',

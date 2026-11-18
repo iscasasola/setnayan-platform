@@ -354,7 +354,7 @@ async function answeredClaimAsksAs(uid: string | 'anon'): Promise<AnsweredClaimA
   return r;
 }
 
-test('6 · the corrections ride on the ask; only the inviting couple sees the real name and the new phone', async () => {
+test('6 · the corrections ride on the ask; only the inviting couple sees them and the new phone', async () => {
   // The caterer (approved in 3) corrected their shop at the claim door; the shop is still anonymous (no reveal).
   await asServer();
   await db.query(
@@ -399,7 +399,9 @@ test('6 · the corrections ride on the ask; only the inviting couple sees the re
     services: ['catering'],
     screen_name: shop.screen_name,
   });
-  assert.equal(screenName, 'Manila Caterer #4101', 'the shop is anonymous to the market');
+  // Owner ruling 2026-11-16 (15): an unverified shop shows its REAL name everywhere — no "Manila Caterer #4101" stand-in.
+  // What stays the inviting couple's alone is the ASK: the corrections (the old name) and the new phone.
+  assert.equal(screenName, 'Kusina ni Lola Catering', 'the market sees the shop by its real name (ruling 15)');
   const nameFor = async (viewer: string | 'anon') => {
     const reveal = revealFor(claimReveals(await answeredClaimAsksAs(viewer)), F.rowId, F.catererShop);
     return { reveal, name: invitedCoupleName(reveal, shop.business_name, screenName) };
@@ -438,7 +440,7 @@ test('6 · the corrections ride on the ask; only the inviting couple sees the re
   ] as const) {
     const seen = await nameFor(viewer);
     assert.equal(seen.reveal, null, `${who} read the couple’s answered ask`);
-    assert.equal(seen.name, 'Manila Caterer #4101', `${who} saw the real name`);
+    assert.equal(seen.name, 'Kusina ni Lola Catering', `${who} did not see the shop's real name (ruling 15)`);
     const raw = JSON.stringify(await answeredClaimAsksAs(viewer));
     assert.ok(!raw.replace(/\D/g, '').includes('9181112222'), `${who} was handed the supplier's new number: ${raw}`);
   }

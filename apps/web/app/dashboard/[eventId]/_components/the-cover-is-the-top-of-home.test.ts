@@ -47,7 +47,10 @@ test('1 · the first screen opens on the cover; Now rides it; the asks sit under
   const body = s.slice(s.indexOf('export function HomeFirstScreen('));
   const open = body.indexOf('<section data-home-first-screen');
   assert.ok(open > -1, 'the first screen lost its section');
-  const firstTag = body.slice(open + 1).match(/<([A-Za-z][\w.]*)/);
+  // 🖥 The 1280 board's first column wrapper may open the section (owner-approved 16 Nov 2026, drawing v13): it is
+  // `display: contents` below 1280 — no box in the flow — and from 1280 it is the column the cover tops. Nothing else.
+  const afterOpen = body.slice(open + 1).replace(/^[^>]*>\s*(\{\s*\}\s*)?<div className="contents xl:flex[^"]*" data-home-board-col="left">/, '>');
+  const firstTag = afterOpen.match(/<([A-Za-z][\w.]*)/);
   assert.equal(firstTag?.[1], 'HomeCoverBand', `something renders above Home's cover: <${firstTag?.[1]}>`);
   const cover = body.indexOf('<HomeCoverBand');
   const asks = body.indexOf('{asks}');

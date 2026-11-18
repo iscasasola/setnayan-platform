@@ -37,7 +37,7 @@ export function ChatPage({ ctx }: PickedPageProps) {
         </p>
       }
     >
-      <SupplierThreadBody threadId={threadId} view="chat" />
+      <SupplierThreadBody threadId={threadId} view="chat" search={ctx.threadSearch} />
     </Suspense>
   );
 }

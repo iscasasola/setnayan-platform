@@ -8,6 +8,7 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { agree } from '@/lib/client-words';
 import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
@@ -35,7 +36,7 @@ import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
-import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -2214,8 +2215,8 @@ export async function finalizeVendor(
         await emitNotification({
           userId: vendorUserId,
           type: 'lock_request_received',
-          title: `${who} wants to book you`,
-          body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+          title: `${who} ${agree(who, 'wants', 'want')} to book you`,
+          body: `${who} ${agree(who, 'has', 'have')} asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
           eventId,
         });
@@ -2650,7 +2651,7 @@ export async function finalizeVendor(
                 // lib/supplier-notices-open-the-picked-client.test.ts): a released
                 // inquiry may no longer open the picked client, and this page is
                 // where `closingCopy` says who closed it.
-                relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+                relatedUrl: supplierThreadPageHref(t.thread_id),
                 eventId,
               });
             }

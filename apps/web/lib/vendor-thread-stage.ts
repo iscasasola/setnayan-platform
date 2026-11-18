@@ -165,6 +165,18 @@ export function rowReadsCompleted(row: {
 }
 
 /**
+ * 📗 IS THIS BOOKING BOOKED? — the booking row's own status (`event_vendors.status` contracted or deposit_paid). A
+ * booking made in the app (quote → ask to confirm → agree) reaches `contracted` with NO schedule-pool hold, so reading
+ * "booked" only from a live pool hold left a booked couple reading as an inquiry: the couple's list said "Sent today"
+ * (walk 13 Nov 2026, F-W1-70) and the supplier's ＋ menu said Payment · Form · Ask for access "open once they book you"
+ * on a contracted booking (CHAT-05, walk 16 Nov 2026). ONE predicate, so the thread page, the supplier's list and the
+ * couple's list cannot answer it differently. delivered / complete are not here: `rowReadsCompleted` ranks them above.
+ */
+export function rowReadsBooked(row: { status?: string | null } | null): boolean {
+  return row?.status === 'contracted' || row?.status === 'deposit_paid';
+}
+
+/**
  * Resolve the pipeline stage from a small set of cheap, RLS-scoped reads: the
  * completion row, a live-booking existence probe, and a proposal existence
  * probe — plus the thread's own status, which is passed in. Every read
@@ -204,6 +216,10 @@ export async function deriveThreadStage({
       )
     ) {
       return resolveThreadStage({ completed: true, booked: false, quoted: false, cancelled });
+    }
+    // The same row answers booked (CHAT-05) — no second read.
+    if (rowReadsBooked(data as { status: string | null } | null)) {
+      return resolveThreadStage({ completed: false, booked: true, quoted: false, cancelled });
     }
   } catch (caught) {
     logQueryError(

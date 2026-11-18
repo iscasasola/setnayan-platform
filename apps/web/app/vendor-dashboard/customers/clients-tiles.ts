@@ -29,6 +29,17 @@ export type ClientMeeting = {
   status: 'proposed' | 'confirmed';
 };
 
+/**
+ * 🗓 ONE RULE FOR "A MEETING STILL TO COME" (W1-B29, supplier walk 16 Nov 2026): proposed or confirmed, and dated from
+ * the start of today in Manila or not dated yet. The Clients list's Schedules tile, the list it opens and the picked
+ * client's Schedules cell all ask `event_appointments` with exactly this — never a count kept by its own rule.
+ */
+export const OPEN_MEETING_STATUSES = ['proposed', 'confirmed'] as const;
+/** The PostgREST `.or(...)` window for `scheduled_at`: from the start of Manila today, or no date yet. */
+export function openMeetingsWindow(todayIso: string): string {
+  return `scheduled_at.gte.${new Date(`${todayIso}T00:00:00+08:00`).toISOString()},scheduled_at.is.null`;
+}
+
 /** A count read: the rows in hand, and whether the read reached the server's count. */
 export type CountRead = { n: number; complete: boolean; failed: boolean };
 

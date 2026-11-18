@@ -483,20 +483,20 @@ export default async function AdminIntegrityWatchPage({
                         className="min-h-11 min-w-0 flex-1 rounded-[var(--m-r-md)] border border-ink/15 bg-white/70 px-3 text-[14px] text-ink placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
                       {r.kind === 'review_fraud' ? (
-                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm fraud" />
+                        <ActionButton tone="danger" type="submit" formName="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm fraud" />
                       ) : r.kind === 'ghost_listing' ? (
-                        <ActionButton tone="danger" type="submit" name="action" value="hide_listing" icon={<EyeOff aria-hidden />} label="Hide listing" />
+                        <ActionButton tone="danger" type="submit" formName="action" value="hide_listing" icon={<EyeOff aria-hidden />} label="Hide listing" />
                       ) : r.kind === 'price_underdeclaration' ? (
                         // price_underdeclaration: confirm the under-declaration
                         // (VERDICT only — records the flag; never adjusts the
                         // price, penalizes the vendor, or touches the lock).
-                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm under-declaration" />
+                        <ActionButton tone="danger" type="submit" formName="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm under-declaration" />
                       ) : (
                         // inquiry_concentration: confirm the ATTACK (verdict only —
                         // never touches the victim vendor). No "hide listing".
-                        <ActionButton tone="danger" type="submit" name="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm attack" />
+                        <ActionButton tone="danger" type="submit" formName="action" value="confirm_fraud" icon={<ShieldAlert aria-hidden />} label="Confirm attack" />
                       )}
-                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
+                      <ActionButton tone="neutral" type="submit" formName="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <Link
                       // The supplier's own admin page (2026-10-01). /edit bounced

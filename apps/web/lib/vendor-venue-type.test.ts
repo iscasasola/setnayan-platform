@@ -19,6 +19,7 @@ import {
   ALLOWED_VENDOR_VENUE_TYPES,
   VENDOR_VENUE_TYPES,
   VENDOR_VENUE_TYPE_LABEL,
+  asksVenueType,
   isVendorVenueType,
 } from './vendor-venue-type';
 import { stripComments } from './strip-comments';
@@ -87,4 +88,25 @@ test('the general inline-profile editor does not also write venue_type', () => {
       'second write path can disagree with what the vendor sees on screen. ' +
       'The single writer is shop/venue-type-actions.ts.',
   );
+});
+
+// ── W1-B26: ASKED OF A VENUE ONLY ───────────────────────────────────────────
+
+test('W1-B26: "What kind of venue are you" is asked of a venue, never a cake shop', () => {
+  assert.equal(asksVenueType(['cake', 'wedding_cake'], null), false, 'a cake shop was asked what kind of venue it is');
+  assert.equal(asksVenueType([], null), false);
+  assert.equal(asksVenueType(null, null), false);
+  assert.equal(asksVenueType(['venue', 'garden_venue'], null), true);
+  assert.equal(asksVenueType(['cake'], 'garden'), true, 'a stray value must stay clearable');
+  const page = read('app/vendor-dashboard/profile/_components/details-screen.tsx');
+  assert.match(
+    page,
+    /\{asksVenueType\(d\.profileFields\.services, d\.venueType\) \? <VenueTypeCard /,
+    'Your details mounts the venue-type card for every shop again',
+  );
+});
+
+test('W1-B26: the venue-type question and the venue room-size row agree on what a venue is', () => {
+  const profile = read('lib/vendor-profile.ts');
+  assert.match(profile, /\(profile\?\.services \?\? \[\]\)\.includes\('venue'\)/, 'the room-size rule moved — re-align asksVenueType');
 });

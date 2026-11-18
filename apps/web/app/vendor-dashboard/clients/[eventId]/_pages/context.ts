@@ -32,6 +32,12 @@ export type PickedPageContext = {
   /** `event_vendors.vendor_id` of this shop's row on the event, when there is one. */
   eventVendorId: string | null;
   eventDate: string | null;
+  /**
+   * The thread page's notice params on this request (`supplierThreadNoticeSearch`) — an action taken inside this
+   * client's Chat returns here with them, and every thread embed hands them to the ONE draw so the notice is said in
+   * the chat box (owner 17 Nov). Empty on a plain open.
+   */
+  threadSearch?: Record<string, string>;
 };
 
 export type PickedPageProps = {

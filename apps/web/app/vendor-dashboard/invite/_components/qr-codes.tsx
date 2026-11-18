@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateEmpty, TemplateFail } from '@/app/_components/template-rows';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
 import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
@@ -109,7 +110,16 @@ export function QrCodes({
   reviews = null,
   crew = null,
   hrefs = {},
+  addClient = null,
+  ownLinkGift = null,
+  ownLinkNotice = null,
 }: {
+  /** 🎁 "Add a gift to your link so your clients book free." — on every own code's sheet, when the link has no gift. */
+  ownLinkNotice?: ReactNode;
+  /** 🎁 Own clients v4: the "Add a client" row + promise line, above Booked and Crew (Customers › QR codes only). */
+  addClient?: ReactNode;
+  /** 🎁 Own clients v4: "Gift with your link" — set once on the code, drawn in My page's sheet (Shop › Promote only). */
+  ownLinkGift?: ReactNode;
   /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
   place?: 'customers' | 'promote';
   /** The code whose sheet opens on arrival — a link that names one (`?mode=` with something to show). */
@@ -144,6 +154,8 @@ export function QrCodes({
     thumb,
     body,
     href: hrefs[key],
+    // The Booked code is a deal form to fill (client · date · service · schedule · proof) — it rises full screen.
+    rise: key === 'locked',
     putOn: place === 'promote' && (key === 'dates' || key === 'shortlist' || key === 'page' || key === 'reviews') ? key : undefined,
   });
 
@@ -155,6 +167,7 @@ export function QrCodes({
             checkADate?.svg ?? null,
             checkADate ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={checkADate.svg} url={checkADate.url} title={checkADate.shopName} line={WORDS.dates.sheetLine} filename="setnayan-check-a-date-qr.svg" data="check-a-date" />
               </div>
             ) : null,
@@ -186,7 +199,9 @@ export function QrCodes({
             myPage?.svg ?? null,
             myPage ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={myPage.svg} url={myPage.url} title={myPage.shopName} line={WORDS.page.sheetLine} filename="setnayan-my-page-qr.svg" data="my-page" />
+                {ownLinkGift}
               </div>
             ) : null,
           ),
@@ -195,6 +210,7 @@ export function QrCodes({
             reviews?.svg ?? null,
             reviews ? (
               <div className="mt-3.5">
+                {ownLinkNotice}
                 <QrCard svg={reviews.svg} url={reviews.url} title={reviews.shopName} line={WORDS.reviews.sheetLine} filename="setnayan-reviews-qr.svg" data="reviews" />
               </div>
             ) : null,
@@ -222,21 +238,28 @@ export function QrCodes({
           Each code is one row: what a scan does, and the code itself. Tap a row to open it big, share it, copy its link, download it or write it to an NFC tag — and to put it on your prints. Your codes are built from your shop’s web address.
         </InfoTip>
       ) : (
-        // The page's own title stays an <h1> (an inline ⓘ inside it — a <span> wrapper is valid in a heading).
-        <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink">
-          <InfoTip label="QR codes" align="start">
+        // Template rule 1: the pinned row names the page, so the <h1> is for screen readers; the explaining sits behind
+        // the ⓘ beside the one line under it (rule 7).
+        <>
+          <h1 className="sr-only">QR codes</h1>
+          <InfoTip label="Tap a code to see it big and share it" align="start" className="mt-1" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
             Booked and Crew belong to one event. Tap a row to open it big, share it, copy its link, download it or write it to an NFC tag. Your codes are built from your shop’s web address.
           </InfoTip>
-        </h1>
+        </>
       )}
-      <p className="mb-1 mt-0.5 text-[13px] text-[var(--sn-ink-500)]">Tap a code to see it big and share it</p>
+      {place === 'promote' ? (
+        <p className="mb-1 mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">Tap a code to see it big and share it</p>
+      ) : null}
 
       {!canShare ? (
         <div className="mt-3" data-qr-no-address="">
           <DatesRow title="Name your shop first" line="Your codes are built from your shop’s web address" href={setupHref} />
         </div>
       ) : (
-        <QrCodeList rows={rows} openKey={open} />
+        <>
+          {addClient}
+          <QrCodeList rows={rows} openKey={open} />
+        </>
       )}
     </div>
   );
@@ -273,7 +296,7 @@ function BookedBody({ booked }: { booked: Booked }) {
       ) : (
         <div className="mt-3">{booked.generator}</div>
       )}
-      <div className="mt-2 border-t border-ink/10" id="issued">
+      <div className="mt-2 border-t border-[color:var(--m-line)]" id="issued">
         <Fold
           title="Booked QRs"
           line={
@@ -288,12 +311,12 @@ function BookedBody({ booked }: { booked: Booked }) {
         >
           <div className="pb-3">
             {ledger === null ? (
-              <p role="alert" className="py-2 text-[13.5px] text-ink/70">
-                We couldn&rsquo;t load your issued codes. This is not a statement that you have none — any code you issued still works. Reload
-                before issuing a replacement.
-              </p>
+              <TemplateFail data="qr-issued">
+                We couldn&rsquo;t load your issued codes — not the same as none. Any code you issued still works; reload before
+                issuing a replacement.
+              </TemplateFail>
             ) : ledger.length === 0 ? (
-              <p className="py-2 text-[13.5px] text-ink/60">The one-use codes you issue to lock in a customer show here.</p>
+              <TemplateEmpty data="qr-issued">The one-use codes you issue to lock in a customer show here.</TemplateEmpty>
             ) : (
               // #34 Waiting · Used · Deleted — tap to change / open the client, swipe a waiting one to delete (Undo).
               <BookedQrsList rows={ledger} />
@@ -308,7 +331,7 @@ function BookedBody({ booked }: { booked: Booked }) {
 function CrewCode({ crew }: { crew: CrewQr }) {
   if (crew.eventPick === null) {
     return (
-      <p role="alert" className="mt-3 text-[14px] text-ink/70" data-qr-crew="events-unread">
+      <p role="alert" className="flex min-h-11 items-center py-2 text-[14px] text-[rgb(var(--color-warn))]" data-qr-crew="events-unread">
         We couldn&rsquo;t load your events just now. Any crew code you made still works — reload to try again.
       </p>
     );
@@ -359,7 +382,7 @@ function CrewCode({ crew }: { crew: CrewQr }) {
           ) : null}
         </div>
       ) : code?.state === 'unread' ? (
-        <p role="alert" className="mt-3 text-[14px] text-ink/70" data-qr-crew="code-unread">
+        <p role="alert" className="flex min-h-11 items-center py-2 text-[14px] text-[rgb(var(--color-warn))]" data-qr-crew="code-unread">
           We couldn&rsquo;t load this event&rsquo;s crew code. If you made one, it still works — reload to try again.
         </p>
       ) : code?.state === 'not-admin' ? (

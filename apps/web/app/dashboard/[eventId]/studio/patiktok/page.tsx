@@ -322,7 +322,7 @@ export default async function PatiktokGallery({
       {tiktokDisconnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70"
+          className="inline-flex items-center gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm text-ink/70"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           TikTok disconnected. Re-connect anytime to resume auto-posting.

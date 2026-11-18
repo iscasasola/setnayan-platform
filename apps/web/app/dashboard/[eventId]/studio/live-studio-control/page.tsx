@@ -354,7 +354,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       {sp.youtube_disconnected ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+          className="inline-flex items-center gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm text-ink/75"
         >
           <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           YouTube disconnected. Reconnect any time to re-enable the broadcast.
@@ -369,7 +369,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       {youtubeError === 'pool_only' ? (
         <p
           role="status"
-          className="inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+          className="inline-flex items-start gap-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm text-ink/75"
         >
           <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>{poolOnlyConnectNotice(ownsHostedChannel)}</span>

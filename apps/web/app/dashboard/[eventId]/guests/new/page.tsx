@@ -350,7 +350,7 @@ function PlusOneToggle() {
      unticked box; any number is the old tick, and still creates the one TBA
      row described above. */
   return (
-    <fieldset className="space-y-2 rounded-lg border border-ink/15 bg-cream p-4">
+    <fieldset className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4">
       <legend className="block text-sm font-medium text-ink">Extra seats</legend>
       <span className="flex flex-wrap gap-2">
         {PLUS_ONE_CHOICES.map((n) => (

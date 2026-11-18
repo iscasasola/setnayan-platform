@@ -61,6 +61,7 @@ export function PaymentAsksPanel({
   measured,
   notice,
   canAsk,
+  quoteAskLine = null,
 }: {
   eventId: string;
   /** What to call the customer in the sentence. Already identity-safe upstream. */
@@ -81,6 +82,13 @@ export function PaymentAsksPanel({
    * indistinguishable from one that passed.
    */
   canAsk: boolean;
+  /**
+   * CHAT-32 (walk 16 Nov 2026) · the accepted quote's own first-payment ask, as Details says it
+   * (`supplierFirstPaymentStatus(...).line` — "You asked for ₱1,750. Not recorded by the couple yet."). With no
+   * separate ask on file this panel said "has not been asked for anything" while Details said "You asked for ₱1,750":
+   * the same quote row, two answers. Given, the empty state reads THAT line. null = the quote asked for no first payment.
+   */
+  quoteAskLine?: string | null;
 }) {
   // 📐 Design template (2026-11-14): a section label, hairline rows, one honest line when there is nothing, the money
   // bold in the words' own font, buttons from the shared kit (AskSubmit = SubmitButton wearing ActionButton's look),
@@ -151,6 +159,10 @@ export function PaymentAsksPanel({
             </li>
           ))}
         </ul>
+      ) : quoteAskLine ? (
+        <p className="flex min-h-14 items-center gap-2 border-b border-ink/10 text-[15px] text-ink/70" data-payment-asks-quote="">
+          {quoteAskLine}
+        </p>
       ) : (
         <p className="flex min-h-14 items-center gap-2 border-b border-ink/10 text-[15px] text-ink/70">
           Nothing outstanding. {customerName} has not been asked for anything.

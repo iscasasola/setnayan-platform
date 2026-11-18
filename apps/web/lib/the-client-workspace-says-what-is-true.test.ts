@@ -64,7 +64,12 @@ test('7 · an unpriced transport line says it is quoted after the site check —
     assert.doesNotMatch(src, /amount_centavos[^\n]*\?[^\n]*'Complimentary'/, `${f} still says Complimentary for any line with no amount`);
   }
   const maker = read('app/_components/proposal-maker.tsx');
-  assert.match(maker, /detail: QUOTED_AFTER_SITE_CHECK/, 'the maker writes the transport line with the shared words');
+  assert.match(maker, /detail: SITE_CHECK_TRANSPORT_DETAIL/, 'the maker writes the transport line with the shared words');
+  assert.match(
+    read('lib/quote-revision-seed.ts'),
+    /export const SITE_CHECK_TRANSPORT_DETAIL = QUOTED_AFTER_SITE_CHECK;/,
+    'the re-quote seed keeps its own copy of the words — one string, two sources',
+  );
   // The maker's one "Complimentary" is the builder's own freebie switch (`l.free`), never a missing amount.
   assert.deepEqual(maker.match(/['"`]Complimentary['"`]/g)?.length, 1);
   assert.match(maker, /if \(l\.free\) return 'Complimentary';/);

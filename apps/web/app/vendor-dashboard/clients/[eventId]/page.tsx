@@ -263,6 +263,7 @@ import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 import { StayForm } from '@/app/_components/stay-form';
+import { eventTypeWord } from '@/lib/event-vocabulary';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -2266,6 +2267,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       measured={asksMeasured}
       notice={askNotice}
       canAsk={isBooked}
+      // CHAT-32: the SAME accepted-quote row Details reads (`firstPaymentStatus`), so the two pages cannot disagree.
+      quoteAskLine={firstPaymentStatus?.line ?? null}
     />
   ) : null;
 
@@ -2736,7 +2739,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       scrollToScript={wantsScriptFold(rawTab) && showScript}
       settingsLine={{
-        line: 'Who looks after this client, and what reaches you.',
+        // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
+        // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.
+        // The line names what the sheet holds. A handler picker is an owner call, not built here.
+        line: 'The host’s setting for you, and your team’s notes.',
         tip: 'Settings for this client only. Your shop-wide settings stay in Clients ⚙.',
       }}
       settings={
@@ -2758,7 +2764,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 // Details-tab node share one source of truth (reuses vendorMarkServiceComplete —
 // no handshake logic reimplemented).
 // ===========================================================================
-function VendorCompletionCard({
+async function VendorCompletionCard({
   eventId,
   isCompleteConfirmed,
   isDisputed,
@@ -2781,6 +2787,20 @@ function VendorCompletionCard({
    */
   notice?: string | null;
 }) {
+  // CHAT-30 (walk 16 Nov 2026): a birthday client was asked about "this wedding". The event's own type word, read
+  // only here (the brief RPC carries no type), through the ONE badge map (`eventTypeBadge`: "birthday", "debut",
+  // "get-together"). The page already proved this shop may see the event (`get_vendor_event_brief`), and only the
+  // type leaves the read. A refused read says "event" — never a guessed "wedding".
+  const typeRead = await createAdminClient()
+    .from('events')
+    .select('event_type')
+    .eq('event_id', eventId)
+    .maybeSingle()
+    .then(
+      (r) => (r.error ? null : ((r.data as { event_type: string | null } | null)?.event_type ?? null)),
+      () => null,
+    );
+  const eventWord = eventTypeWord(typeRead);
   return (
     <Card>
       {notice === '1' ? (
@@ -2824,7 +2844,7 @@ function VendorCompletionCard({
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-ink/70">
-            <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
+            <span className="font-medium text-ink">Wrapped up this {eventWord}?</span> Mark your
             service complete — the couple confirms they got everything, then their review opens.
           </div>
           <form action={vendorMarkServiceComplete}>

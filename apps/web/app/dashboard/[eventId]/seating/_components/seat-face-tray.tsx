@@ -7,6 +7,7 @@ import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
 import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
 import { SEAT_HOLD_MS } from '@/lib/seat-list-drop';
+import { useThumbRoom } from '@/lib/thumb-room';
 
 /**
  * ✋ THE SEAT PLAN IS DRAG-FIRST ON A PHONE (owner 2026-11-16, DECISION_LOG "seat plan guest drag on phone", batch 2
@@ -79,6 +80,7 @@ export function SeatFaceTray({
   faces,
   groups,
   canEdit,
+  hasTables = true,
   onTapFace,
   onMore,
   onDrop,
@@ -90,6 +92,8 @@ export function SeatFaceTray({
   groups: readonly TrayGroup[];
   /** Edit is held — without it the tray reads, and nothing on it lifts. */
   canEdit: boolean;
+  /** The floor has at least one table. With none there is no chair to drag to, so the line says so (#7906 walker). */
+  hasTables?: boolean;
   /** A tap on a face (no hold): the shipped "Move Tess to…". */
   onTapFace: (guestId: string) => void;
   /** "+6": the rest of the people still to seat. */
@@ -100,6 +104,12 @@ export function SeatFaceTray({
 }) {
   const total = faces.length;
   const trayRef = useRef<HTMLDivElement>(null);
+  /* ⬇ THE TRAY LEAVES ROOM FOR ITSELF (#7906 walker, 390x844: the tray covered Zoom in / Zoom out — elementFromPoint hit a
+     face). It is drawn over the thumb row in the row's own fixed host, but only the row published `--sn-thumb-room`, so
+     the zoom stack (which stands on that token) sat under the tray. The ONE mechanism (`lib/thumb-room.ts`) takes the
+     largest room, so the tray's own reading — from its top to the host's foot — lifts the zoom stack above it.
+     🔒 the-seat-tray-never-covers-the-zoom.test.ts */
+  useThumbRoom(trayRef);
   /* ↔ How many faces fit on the row — MEASURED (a face's own width and the row's gap), never a typed count; the last
      slot goes to "+N" when some are left over. Before the first measure (and on the server) every face is drawn. */
   const rowRef = useRef<HTMLDivElement>(null);
@@ -307,7 +317,11 @@ export function SeatFaceTray({
         <p className="flex items-baseline gap-2">
           <b className="shrink-0 text-[13.5px] font-semibold text-ink">To seat · {formatCount(total)}</b>
           <small className="min-w-0 text-xs text-ink/70" data-seat-tray-hint="">
-            {canEdit ? 'Press and hold a face, then drag it to a chair. Or tap · move.' : 'Tap Edit first to seat them.'}
+            {!canEdit
+              ? 'Tap Edit first to seat them.'
+              : hasTables
+                ? 'Press and hold a face, then drag it to a chair. Or tap · move.'
+                : 'No tables yet — Build my seating draft, or Add your first table.'}
           </small>
         </p>
         <div ref={rowRef} className="mt-2 flex flex-wrap items-center gap-2" style={NO_CALLOUT}>

@@ -475,3 +475,22 @@ export function decideAutoVerify(input: AutoVerifyInput): AutoVerifyDecision {
     reason: failed ? failed.detail : `All ${checks.length} checks passed.`,
   };
 }
+
+/**
+ * 🔒 AUTOMATIC APPROVAL IS HELD (controller pick, 18 Nov 2026, owner said "don't wait for me
+ * to decide"). The seal fix (#7955) makes the check RUN again for the first time, but W1-B34 is
+ * still open: papers stamped "TEST — NOT VALID" can read as Recognised. Until B34 is closed, a
+ * shop whose every check passes still goes to a person — the check runs, its result and every
+ * check are logged and shown to the admin, and nothing is approved without someone.
+ * To release: set this to false in the PR that closes B34, with the owner's word.
+ */
+export const AUTO_APPROVAL_HELD = true;
+
+export const AUTO_APPROVAL_HELD_REASON =
+  'Every check passed. Automatic approval is on hold for now, so a person approves.';
+
+/** A `verify` becomes `to_admin` while automatic approval is held; anything else is unchanged. */
+export function holdAutoApproval(decided: AutoVerifyDecision, held: boolean = AUTO_APPROVAL_HELD): AutoVerifyDecision {
+  if (!held || decided.decision !== 'verify') return decided;
+  return { ...decided, decision: 'to_admin', reason: AUTO_APPROVAL_HELD_REASON };
+}

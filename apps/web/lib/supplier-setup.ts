@@ -273,9 +273,11 @@ export function assembleSetup(input: SetupInput): SetupView {
       n: 5,
       title: 'Send your documents',
       line: 'Setnayan checks them, then you get the Verified check',
-      // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing"). All
-      // papers in counts too — the rows below say so; the badge says the Send is left.
-      done: docsApproved || checking || (status !== 'rejected' && papersAllIn),
+      // Sent counts as done for the supplier: the next move is Setnayan's (the rail's own "waiting is not doing").
+      // 🛑 W1-B36 / B33 (live walk, 18 Nov 2026): papers that are IN but not SENT are not done. A tick beside a
+      // "Send them" chip looked finished while it still asked for the Send, and the tick made the folds open step 6 on
+      // the third upload, hiding the result. The step ticks once the papers are sent; the badge names the Send.
+      done: docsApproved || checking,
       badge: docsBadge,
     },
     {

@@ -7650,7 +7650,6 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 @keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
 @keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
 @keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
-@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
 .sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
 .sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
 .sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
@@ -7699,10 +7698,10 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
 
 /* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+/* No blur since the motion standard (§ 3.2 / § 8: a filter is paint on every frame) — the tile rises and fades. */
 @keyframes sn-bloom {
-  0%   { opacity:0; transform:translateY(22px) scale(.96); filter:blur(12px); }
-  62%  { filter:blur(0); }
-  100% { opacity:1; transform:none; filter:blur(0); }
+  0%   { opacity:0; transform:translateY(22px) scale(.96); }
+  100% { opacity:1; transform:none; }
 }
 .sn-bloom { animation: sn-bloom 1s 1.05s both var(--sn-ease-out); }
 
@@ -7715,7 +7714,7 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 
 /* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
  * React key remount per switch). */
-@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); filter:blur(4px); } }
+@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); } }
 .sn-lens-swap > * { animation: sn-lens-in .42s backwards var(--sn-ease-out); }
 .sn-lens-swap > :nth-child(2) { animation-delay:.06s; }
 .sn-lens-swap > :nth-child(3) { animation-delay:.12s; }

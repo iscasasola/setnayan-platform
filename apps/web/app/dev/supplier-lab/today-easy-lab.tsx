@@ -44,6 +44,8 @@ import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-he
 import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
+import { buildTodayV2 } from '@/app/vendor-dashboard/_components/today-v2-assemble';
+import { readTodayAside } from '@/lib/today-aside';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
@@ -416,7 +418,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** 📋 `&v2=1` — Today v2, "one task" (owner 18 Nov 2026): the SAME `buildTodayV2` the Today page runs, on lab reads. */ v2?: boolean; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   if (moment === 'answers') {
     // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
     const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
@@ -560,6 +562,47 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
   const nextEvents = setup ? null : assembleNextEvents(day, labFacts, TODAY);
 
 
+  // 📋 `&v2=1` — Today v2 through the page's own builder; the reads are the lab's (two replies done, a Trending card,
+  // Bronze 2 to go, grow lines set at 20 / 2). Fees are `bookingFeeForecast` on the default schedule, as above.
+  const built = drawV2 && !setup
+    ? buildTodayV2({
+        view,
+        needsAnswer,
+        closed,
+        deskIncomplete: moment === 'unread',
+        reads: moment === 'unread' ? null : {
+          done: { replies: 2, payments: 0, delivered: 0, bookings: 0, dates: 0 },
+          noCover: null,
+          trendingCard: { title: sup.categoryWord },
+          completedBookings: 3,
+          radar: null,
+          cutoffs: { fewInquiries: 20, fewBookings: 2 },
+          inspirationPhotos: 4,
+          cardsOnline: 1,
+        },
+        aside: readTodayAside(null, TODAY),
+        feeForecasts: Object.fromEntries(
+          needsAnswer.flatMap((c) =>
+            c.kind === 'lock_request'
+              ? [[c.eventVendorId, bookingFeeForecast({ kind: 'billable', ordinal: sup.ask.freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }, sup.ask.price)]]
+              : [],
+          ),
+        ) as Record<string, FeeDisclosure | null>,
+        payoutReadiness: sup.payout,
+        setupDrawn: false,
+        verified: moment !== 'findlock',
+        findable: moment !== 'findlock',
+        findableHref: null,
+        views: sup.views,
+        inquiries28: sup.asked,
+        bookedThisMonth: 6,
+        todayIso: TODAY,
+        library,
+        // The plans rebuild's Verified total (#7975: 1 · 3 · 10 · 20 · 80 · 200) — a lab number, read on the page.
+        cardsAllowed: 3,
+      })
+    : null;
+
   // The yes, said back: `vendorAgreeToLock` redirected with `lock_agree=ok&fee=held` — the shipped sentence + door.
   const agreed = moment === 'agreed' ? lockAgreeNotice('ok', { feeHeld: true }) : null;
   const outcome: TodayOutcome | null = agreed ? { text: agreed.text, tone: 'ok', door: agreed.door ?? null } : null;
@@ -567,7 +610,8 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
       <SupplierTodayScreen
-        view={view}
+        view={built?.view ?? view}
+        v2={built?.v2 ?? null}
         outcome={outcome}
         shopName={sup.name}
         todayIso={TODAY}
@@ -587,7 +631,7 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
               } }
         }
         eventsYouRun={eventsYouRun}
-        library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
+        library={!built && library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={
           firstSteps ? (
             <SupplierSetupScreen

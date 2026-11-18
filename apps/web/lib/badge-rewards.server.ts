@@ -194,6 +194,14 @@ export async function readShopTierCounts(
   return { completedBookings, fiveStarReviews, giftPoints, trustedBy };
 }
 
+/**
+ * 🏅 Completed bookings ALONE — the one count Today v2's "Next badge" card needs (owner 18 Nov), so Today pays for ONE
+ * RPC, not the shelf's four. Null on a refused read, never 0.
+ */
+export async function readCompletedBookingsCount(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  return readBadgeCount(admin, 'shop_completed_bookings_count', vendorProfileId);
+}
+
 /** A badge counter RPC's answer (`shop_completed_bookings_count`, `shop_trusted_by_count`); null on a refused read. */
 async function readBadgeCount(
   admin: SupabaseClient,

@@ -44,11 +44,20 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
     if (!ok) return;
 
     setBusy(true);
-    const result = await save.run(() => regenerateInviteQr(eventId), {
-      steps: ['Regenerating your QR'],
-      hint: 'Saving',
-    });
-    setBusy(false);
+    // `save.run` re-throws when the action rejects (a dropped connection). Without the
+    // catch/finally the icon spun forever, the button stayed disabled and nothing was said.
+    let result: Awaited<ReturnType<typeof regenerateInviteQr>>;
+    try {
+      result = await save.run(() => regenerateInviteQr(eventId), {
+        steps: ['Regenerating your QR'],
+        hint: 'Saving',
+      });
+    } catch {
+      toast.error('We couldn’t confirm a new QR — check your connection, then reload to see which QR is current.');
+      return;
+    } finally {
+      setBusy(false);
+    }
 
     if (!result.ok) {
       toast.error(plainRefusal(result.error, 'Couldn’t make a new QR. Try again.'));

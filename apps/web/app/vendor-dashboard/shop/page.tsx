@@ -703,6 +703,12 @@ async function ShopHome({
           </Suspense>
         </div>
 
+        {/* 🖥 SHOP ON A COMPUTER — layout A (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED", picks 3–5):
+            from 1280 the analytics, badges and Makers are one side column beside the service cards; the analytics
+            carousel lays out as a grid and the cards go 2 across (3 from 1600). Below 1280 both wrappers draw nothing
+            (`display: contents`) — the phone is unchanged. The grid lives in `_components/supplier-frame.css`. */}
+        <div data-shop-desk="">
+        <div data-shop-desk-side="">
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
             "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
             months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
@@ -724,6 +730,7 @@ async function ShopHome({
           booked={data.booked}
           offers={data.offerTile}
         />
+        </div>
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped
             in categories under. They are all services"*): the head (compresses into one sticky row; its ＋ = New bundle ·
@@ -744,6 +751,7 @@ async function ShopHome({
           </p>
           <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
         </section>
+        </div>
       </div>
       {/* 👍 Tools in the lower third — Search services · Show & sort · ＋ Add a service (v95). */}
       <ShopServicesThumb bundlesOn={packageAuthoringEnabled()} />

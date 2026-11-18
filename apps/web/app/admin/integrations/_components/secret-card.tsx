@@ -3,6 +3,7 @@ import type { SecretIntegrationDef } from '@/lib/integrations/registry';
 import { saveIntegrationSecret, clearIntegrationSecret } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PasswordField } from '@/app/_components/password-field';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 // Integration Activation Console — PR2. Generic card for a registry "simple
 // secret" integration (one encrypted API key, DB-first / env-fallback). Renders
@@ -27,7 +28,7 @@ export function SecretCard({
       : 'Not configured';
 
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className={`${ADMIN_FRAME} space-y-4 p-5`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
           <KeyRound aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />

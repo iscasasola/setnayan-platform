@@ -15,6 +15,7 @@ import {
   rulingLine,
   type DepositRefusalHistoryRow,
 } from '@/lib/deposit-refusal-history';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /** How far back "answered by sending it again" reaches. */
 const RESENT_WINDOW_DAYS = 30;
@@ -287,7 +288,7 @@ export async function DepositDisputesSection() {
         ) : (
           <ul className="mt-2 flex flex-col gap-2">
             {resent.map((h) => (
-              <li key={h.refusal_id} className="rounded-lg border border-ink/10 bg-white px-3 py-2 text-xs text-ink/75">
+              <li key={h.refusal_id} className={`${ADMIN_FRAME} px-3 py-2 text-xs text-ink/75`}>
                 <span className="font-medium text-ink">{h.vendor_name?.trim() || 'Unnamed supplier'}</span>
                 {' · '}refused {relativeTime(h.refused_at)}
                 {h.reason ? ` — “${h.reason}”` : ''}

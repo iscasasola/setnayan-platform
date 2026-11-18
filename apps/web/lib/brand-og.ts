@@ -1,6 +1,6 @@
 /**
  * The share picture every Setnayan page shows when it has none of its own — the 1200×630
- * `/brand/og-card.webp` brand card the root layout declares.
+ * `/brand/og-card-2026-11.png` brand card the root layout declares.
  *
  * 🔑 WHY A PAGE MUST NAME IT AGAIN. Next.js merges metadata SHALLOWLY: a page that declares its
  * own `openGraph` (or `twitter`) REPLACES the layout's whole object, `images` included. So
@@ -10,17 +10,17 @@
  *
  * Held by `lib/every-share-card-has-a-picture.test.ts`.
  */
-export const BRAND_OG_IMAGE_URL = '/brand/og-card.webp';
+export const BRAND_OG_IMAGE_URL = '/brand/og-card-2026-11.png';
 
 export const BRAND_OG_IMAGES = [
   {
     url: BRAND_OG_IMAGE_URL,
     width: 1200,
     height: 630,
-    // ⚠ The alt describes the PIXELS, and og-card.webp still reads "Filipino wedding planning ·
-    // verified vendors". It changes when the card is redrawn — not before, or it would lie.
-    alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
-    type: 'image/webp',
+    // ⚠ The alt describes the PIXELS: card B of the owner's 2026-11-15 link share card
+    // (gold mark, SETNAYAN, the page-title line). Redraw the card → rewrite this line.
+    alt: 'Setnayan · Plan any event free. Every photo in one album.',
+    type: 'image/png',
   },
 ];
 

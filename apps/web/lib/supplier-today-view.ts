@@ -295,8 +295,8 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
   ]);
 
   // ⑤ THE SHOP ROW.
-  const pill = shopPillOf({ verified: input.verified, findable: input.findable });
   const docsWithSetnayan = input.firstSteps?.steps.find((st) => st.key === 'documents')?.state === 'waiting';
+  const pill = shopPillOf({ verified: input.verified, findable: input.findable, docsWithSetnayan });
   // 🧾 A NEW SHOP NAMES ITS SERVICE (owner 2026-11-06, the redesign's Today): "Photography · no card yet", never a
   // bare "No service yet" beside a shop that picked one at the door — the service is the category word, the meter is
   // what is left on it.

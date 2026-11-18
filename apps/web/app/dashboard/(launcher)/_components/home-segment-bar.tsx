@@ -53,11 +53,13 @@ export type HomeSegCounts = {
   counts: Partial<Record<HomeSeg, number>>;
   /** A number that waits on you, keyed by section → its word ("asking"): drawn as the picker's dot. */
   hot: Partial<Record<HomeSeg, string>>;
+  /** A section whose number Home ASKED for and could not read → "couldn’t count" in the picker, never a blank (#7909 follow-up). */
+  unread?: Partial<Record<HomeSeg, true>>;
 };
 const HomeSegCountsContext = createContext<HomeSegCounts>({ counts: {}, hot: {} });
 
-export function HomeSegCountsProvider({ counts, hot, children }: HomeSegCounts & { children: ReactNode }) {
-  const value = useMemo(() => ({ counts, hot }), [counts, hot]);
+export function HomeSegCountsProvider({ counts, hot, unread, children }: HomeSegCounts & { children: ReactNode }) {
+  const value = useMemo(() => ({ counts, hot, unread }), [counts, hot, unread]);
   return <HomeSegCountsContext.Provider value={value}>{children}</HomeSegCountsContext.Provider>;
 }
 

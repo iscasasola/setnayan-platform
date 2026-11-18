@@ -336,6 +336,30 @@ BEGIN
 END;
 $$;
 
+-- The smallest Papic pack on sale — the one that "always fits" under the gift limit (owner rule) — derived from the
+-- live catalogue, never typed. Moved here unchanged from the unapplied 20271346218077: #7678's re-allocated bundles
+-- migration (20271351048946) no longer needs it, so this booking door, its only caller, now carries it.
+CREATE OR REPLACE FUNCTION public.shop_gift_smallest_papic_pack()
+ RETURNS TABLE (service_code TEXT, points INTEGER)
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+  SELECT c.service_code, t.points::INTEGER
+    FROM public.platform_retail_catalog_v2 c
+    JOIN public.papic_pass_tiers t ON t.service_code = c.service_code
+   WHERE left(c.service_code, 11) = 'PAPIC_GUEST'
+     AND c.is_active IS TRUE
+     AND c.retired_at IS NULL
+     AND c.retail_price_php > 0
+     AND t.points > 0
+   ORDER BY t.points ASC, c.service_code ASC
+   LIMIT 1;
+$function$;
+REVOKE ALL ON FUNCTION public.shop_gift_smallest_papic_pack() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_gift_smallest_papic_pack() TO service_role;
+
 -- ── 5 · the pick — judged here, whatever the screen drew ────────────────────
 -- p_codes: one entry per pack / plan (two Papic 1000 ⇒ the code twice). p_event_has: what the couple's
 -- event already holds (none|plus|pro|ultra), from the app's entitlement chain. Picks are made ONCE per

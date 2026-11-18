@@ -286,6 +286,37 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
+  -- 🔒 OPUS REVIEW 2026-11-18 (2): once the owner has typed the word, the row
+  -- is what the runner will execute with the service role 24 hours later, and
+  -- nobody looks at it again. The admin RLS UPDATE policy lets any admin's
+  -- browser session rewrite any column, so without this a staff admin could,
+  -- during the wait, change WHAT runs (target, payload, action) or reopen a
+  -- request the owner cancelled / a second admin rejected (status back to
+  -- 'pending') and the runner would execute it. From the typed word on:
+  -- browser sessions may not touch the row at all, what was confirmed is
+  -- frozen for every role, and a closed request stays closed.
+  -- initiated_by may still go to NULL: that is ON DELETE SET NULL
+  -- (20271210831005) when the owner's account is erased.
+  IF TG_OP = 'UPDATE' AND OLD.self_confirmed_at IS NOT NULL THEN
+    IF current_user IN ('authenticated', 'anon') THEN
+      RAISE EXCEPTION 'owner self-approval: once the 24-hour wait has started, only the server may change this request'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF NEW.action_type IS DISTINCT FROM OLD.action_type
+       OR NEW.target_user_id IS DISTINCT FROM OLD.target_user_id
+       OR NEW.target_id IS DISTINCT FROM OLD.target_id
+       OR NEW.payload IS DISTINCT FROM OLD.payload
+       OR NEW.rationale IS DISTINCT FROM OLD.rationale
+       OR (NEW.initiated_by IS DISTINCT FROM OLD.initiated_by AND NEW.initiated_by IS NOT NULL) THEN
+      RAISE EXCEPTION 'owner self-approval: what the owner confirmed cannot be changed during the wait'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF OLD.status IN ('rejected', 'withdrawn', 'expired') AND NEW.status IS DISTINCT FROM OLD.status THEN
+      RAISE EXCEPTION 'owner self-approval: a closed request stays closed'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
   IF NEW.self_confirmed_at IS NOT NULL
      AND (TG_OP = 'INSERT' OR OLD.self_confirmed_at IS NULL) THEN
     -- 🔒 OPUS REVIEW 2026-11-18: never from a browser session. The admin RLS

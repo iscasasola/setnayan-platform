@@ -329,3 +329,99 @@ test('a staff admin in a browser session cannot start the owner\'s 24-hour wait'
   assert.equal(r.rows[0]!.s, null);
   await db.query(`UPDATE public.users SET account_type = 'customer' WHERE user_id = $1`, [staffId]);
 });
+
+// ── OPUS REVIEW 2026-11-18 (2) ──────────────────────────────────────────────
+// Once the owner has typed the word, the runner executes the row with the
+// service role 24 hours later and nobody looks at it again. Before the fix, a
+// staff admin's browser session (admin RLS UPDATE policy) could, during the
+// wait, rewrite WHAT runs — or reopen a request the owner had cancelled —
+// and the runner would execute it.
+test('during the owner\'s wait a staff browser session cannot change what runs, and a cancelled request stays closed', async () => {
+  await db.query(`UPDATE public.users SET account_type = 'admin' WHERE user_id = $1`, [staffId]);
+  const asStaff = async <T>(fn: () => Promise<T>): Promise<T> => {
+    await setAuthUid(db, staffId);
+    await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+    await db.exec(`SET ROLE authenticated`);
+    try {
+      return await fn();
+    } finally {
+      await db.exec(`RESET ROLE`);
+      await setAuthUid(db, null);
+      await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+    }
+  };
+  try {
+    // ANCHOR — the staff session can update an UNconfirmed request (else the refusals prove nothing).
+    const plain = await newRequest(ownerId);
+    await asStaff(() =>
+      db.query(`UPDATE public.admin_approval_requests SET rationale = 'edited' WHERE approval_id = $1`, [plain]),
+    );
+    const a = await db.query<{ rationale: string }>(
+      `SELECT rationale FROM public.admin_approval_requests WHERE approval_id = $1`,
+      [plain],
+    );
+    assert.equal(a.rows[0]!.rationale, 'edited', 'the staff session must be able to update a row at all');
+
+    // 1 · Retarget the owner's confirmed request at the staff admin himself.
+    const waiting = await newRequest(ownerId);
+    await typeTheWord(waiting);
+    await assert.rejects(
+      () =>
+        asStaff(() =>
+          db.query(
+            `UPDATE public.admin_approval_requests
+                SET target_user_id = $2, payload = '{"scopes":{"escalated":["payments","team"]}}'
+              WHERE approval_id = $1`,
+            [waiting, staffId],
+          ),
+        ),
+      /only the server may change this request/,
+    );
+    const t = await db.query<{ target_user_id: string }>(
+      `SELECT target_user_id FROM public.admin_approval_requests WHERE approval_id = $1`,
+      [waiting],
+    );
+    assert.equal(t.rows[0]!.target_user_id, otherId, 'the confirmed request was retargeted during the wait');
+
+    // 2 · Even the service role does not change what was confirmed.
+    await assert.rejects(
+      () =>
+        db.query(`UPDATE public.admin_approval_requests SET target_user_id = $2 WHERE approval_id = $1`, [
+          waiting,
+          staffId,
+        ]),
+      /cannot be changed during the wait/,
+    );
+
+    // 3 · The owner cancels; a staff session (or anyone) cannot reopen it for the runner.
+    await db.query(
+      `UPDATE public.admin_approval_requests SET status='withdrawn', decided_by=$2, decided_at=NOW() WHERE approval_id=$1`,
+      [waiting, ownerId],
+    );
+    await assert.rejects(
+      () =>
+        asStaff(() =>
+          db.query(
+            `UPDATE public.admin_approval_requests SET status='pending', decided_by=NULL, decided_at=NULL WHERE approval_id=$1`,
+            [waiting],
+          ),
+        ),
+      /only the server may change this request/,
+    );
+    await assert.rejects(
+      () =>
+        db.query(
+          `UPDATE public.admin_approval_requests SET status='pending', decided_by=NULL, decided_at=NULL WHERE approval_id=$1`,
+          [waiting],
+        ),
+      /a closed request stays closed/,
+    );
+    const s = await db.query<{ status: string }>(
+      `SELECT status FROM public.admin_approval_requests WHERE approval_id = $1`,
+      [waiting],
+    );
+    assert.equal(s.rows[0]!.status, 'withdrawn');
+  } finally {
+    await db.query(`UPDATE public.users SET account_type = 'customer' WHERE user_id = $1`, [staffId]);
+  }
+});

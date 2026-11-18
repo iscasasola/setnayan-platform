@@ -250,12 +250,14 @@ test('(7) the motion is in the stylesheet at the family’s speed, holds no tran
     assert.ok(at > 0, `anti-vacuity: \`${sel}\` is not in the stylesheet`);
     return CSS.slice(at, CSS.indexOf('}', at));
   };
-  for (const k of ['sn-row-field-in', 'sn-row-field-out', 'sn-row-name-back', 'sn-row-pill-back', 'sn-row-shake', 'sn-explain-in']) {
+  // 🎞 18 Nov 2026 (the motion standard, Phase 2): the row's shake is the ONE shake (`sn-m-shake`), and the row's moves
+  // read the standard's tokens — open Move on Spring, fold back Quick on Settle, name and pill back Move on Spring.
+  for (const k of ['sn-row-field-in', 'sn-row-field-out', 'sn-row-name-back', 'sn-row-pill-back', 'sn-m-shake', 'sn-explain-in']) {
     assert.match(CSS, new RegExp(`@keyframes ${k} \\{`), `the stylesheet has no ${k}`);
   }
-  // Open, fold back, and the name's return: each at a share of the ONE speed token.
+  // Open, fold back, and the name's return: each on the standard's own speed and curve tokens.
   for (const sel of ['.sn-row-field', '.sn-row-field[data-leaving]', '[data-form-row-back] > .sn-row-name', '[data-form-row-back] > .sn-row-pill']) {
-    assert.match(rule(sel), /animation: sn-row-[a-z-]+ calc\(var\(--sn-pill-dur\) \* 0\.\d+\)/, `${sel} does not move at the family’s speed`);
+    assert.match(rule(sel), /animation: sn-row-[a-z-]+ var\(--sn-m-(?:move|quick)\) var\(--sn-m-(?:spring|settle)\);/, `${sel} does not move at the standard’s speed`);
     assert.doesNotMatch(rule(sel), /\b(forwards|both)\b/, `${sel} would be left holding a transform`);
   }
   // The fold-back ends GONE without a fill mode: the leaving field's own style is invisible.
@@ -264,15 +266,18 @@ test('(7) the motion is in the stylesheet at the family’s speed, holds no tran
   assert.match(CSS, /@keyframes sn-row-field-out \{[^}]*\}\s*to \{ opacity: 0; transform: scaleX\(0\.7\); \}/, 'the field does not fold back');
   assert.match(rule('.sn-row-field'), /transform-origin: right center;/, 'it does not fold toward the right');
   // The shake: once (no `infinite`), and the screen moves to it.
-  assert.doesNotMatch(rule('.sn-row-shake'), /infinite/);
+  assert.match(rule('.sn-m-shake'), /animation: sn-m-shake var\(--sn-m-move\) var\(--sn-m-settle\) 1;/);
+  assert.doesNotMatch(rule('.sn-m-shake'), /infinite/);
+  assert.match(read(ROW), /el\.classList\.add\('sn-m-shake'\);/, 'the row does not wear the one shake');
   const src = read(ROW);
   assert.match(src, /el\.scrollIntoView\(\{ block: 'center', behavior: still \? 'auto' : 'smooth' \}\);\s*if \(still\) return;/, 'under reduce motion the screen does not move to it, or it still shakes');
   // Reduce motion: none of it.
   const off = CSS.slice(CSS.indexOf('.sn-row-field,\n  .sn-row-field[data-leaving],'));
   assert.ok(off.length > 20, 'anti-vacuity: the reduce-motion block was not found');
   const block = off.slice(0, off.indexOf('}'));
-  for (const s of ['.sn-row-shake', '[data-form-row-back] > .sn-row-name', '.sn-explain-pop']) assert.ok(block.includes(s), `${s} still moves under reduce motion`);
+  for (const s of ['[data-form-row-back] > .sn-row-name', '.sn-explain-pop']) assert.ok(block.includes(s), `${s} still moves under reduce motion`);
   assert.match(block, /animation: none !important;/);
+  assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{[^@]*?\.sn-m-shake,[^{]*\{\s*animation: none !important;\s*\}/, 'the shake still plays under reduce motion');
 });
 
 test('(8) the ⓘ is its own 44-px button: a centred popup with "Got it" on a phone (dark, blurred, locked), a note on a computer', async () => {
@@ -329,13 +334,19 @@ test('(9) the fold opens downward, its arrow turns, one is open at a time — an
   const src = read(FOLD);
   assert.match(src, /const scope = useOneOpen\(open, setOpen\);/, 'opening one fold does not close another');
   assert.match(src, /<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/, 'a dropdown opened inside the fold would close it');
-  // 🎞 13 Nov 2026 (motion approved, timing table "Row expands"): 320 ms open · 260 ms shut on the emphasized curve,
-  // the chevron with it, the inside in three steps — the table's tokens, read by the fold's own parts.
+  // 🎞 13 Nov 2026 (motion approved, timing table "Row expands") — the chevron turns in 320 ms open · 260 ms shut on
+  // the emphasized curve and the inside arrives in three steps. 18 Nov 2026 (the motion standard, § 0 "Rows via
+  // transform, NOT grid-template-rows"): the HEIGHT is no longer animated — the body takes its place at once, the panel
+  // settles in (Move on Settle) and the rows below slide by transform (`slideBelow`).
   assert.match(src, /data-fold-chevron=""/, 'the chevron is not the one the timing table turns');
   assert.match(src, /data-fold-inner=""/, 'the inside is not the one the timing table steps in');
   const css = read('app/globals.css');
-  assert.match(css, /\[data-fold-open\] > \[data-fold-body\] \{\s*transition-duration: var\(--sn-m-row-open\);\s*\}/, 'the row does not open in 320 ms');
-  assert.match(css, /\[data-fold-body\] \{\s*transition-duration: var\(--sn-m-row-shut\);\s*transition-timing-function: var\(--sn-m-ease-emph\);\s*\}/, 'the row does not shut in 260 ms on the emphasized curve');
+  assert.match(css, /\[data-fold-open\] \[data-fold-chevron\] \{\s*transition-duration: var\(--sn-m-row-open\);\s*\}/, 'the chevron does not turn in 320 ms');
+  assert.match(css, /\[data-fold-chevron\] \{\s*transition-duration: var\(--sn-m-row-shut\);\s*transition-timing-function: var\(--sn-m-ease-emph\);\s*\}/, 'the chevron does not turn back in 260 ms on the emphasized curve');
+  assert.doesNotMatch(css, /\[data-fold-body\] \{[^}]*transition/, 'the fold’s height is animated on grid rows again');
+  assert.doesNotMatch(src, /transition-\[grid-template-rows\]/, 'the fold’s height is animated on grid rows again');
+  assert.match(css, /\[data-fold-open\] > \[data-fold-body\] > \[data-fold-inner\] \{\s*animation: sn-m-open-panel var\(--sn-m-move\) var\(--sn-m-settle\) backwards;\s*\}/, 'the panel does not settle in');
+  assert.match(src, /slideBelow\(body, \(\) => \{/, 'the rows under the fold do not slide by transform');
   assert.match(css, /--sn-m-row-open:\s*320ms;/);
   assert.match(css, /--sn-m-row-shut:\s*260ms;/);
 });

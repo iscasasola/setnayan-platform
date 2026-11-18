@@ -36,7 +36,8 @@
  * FOLD and come back when the keyboard closes — a tap or a drag away, Escape,
  * or the keyboard's own key (the keyboard's Enter does the row's verb). The row itself does not
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
- * it is up (`bottom-nav.tsx`). `rides={false}` opts out — only with a written
+ * it is up (`bottom-nav.tsx`). 🎞 Taking the row is the standard's "search grows into the row" (18 Nov 2026): the
+ * field grows across it on the spring and folds back faster (`useSearchGrows`). `rides={false}` opts out — only with a written
  * reason at the call (`every-bottom-input-rides-the-keyboard.test.ts` counts them).
  *
  * ⬇ IT LEAVES ROOM FOR ITSELF (owner 2026-10-25): floating, it publishes its covered height as `--sn-thumb-room` and
@@ -49,6 +50,7 @@ import { ClearButton, clearTyped } from '@/components/clear-field';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
+import { useSearchGrows } from '@/app/_components/search-grows';
 import { useRotatingHint } from '@/lib/use-rotating-hint';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
@@ -208,6 +210,11 @@ export function ThumbRow({
      (`lib/thumb-room.ts`) — so the last element always scrolls above the row, with no per-page number. */
   useThumbRoom(rowRef);
   const riding = ride.riding;
+  /* 🎞 SEARCH GROWS INTO THE ROW (the motion standard, owner 18 Nov 2026 — the ONE shared part,
+     `app/_components/search-grows.ts`): the moment the field takes the row it GROWS across it (Move on Spring), and it
+     folds back in Quick on Settle, the buttons fading back in — the fold was a cut. Every list's search sits in this
+     row, so every list inherits it. A mode row (`children`) has no field and plays nothing. */
+  useSearchGrows(rowRef, riding, { field: "[data-thumb-seat='field']", shape: 'data-riding' });
   const onFieldFocus = ride.rowProps.onFocus;
   const onFieldBlur = ride.rowProps.onBlur;
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */

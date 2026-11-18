@@ -79,8 +79,12 @@ export type CountToOptions = {
   durationMs?: number;
   /** Wait before counting (CountUp's per-tile stagger). */
   delayMs?: number;
-  /** Always count from 0, on load AND on change (the shipped CountUp's behaviour). */
+  /** Always count from 0, on load AND on change. */
   alwaysFromZero?: boolean;
+  /** Count from 0 on LOAD only; a later change starts from the number on screen (CountUp, 18 Nov 2026 — Tick). */
+  fromZeroOnLoad?: boolean;
+  /** The duration of a later CHANGE (with no stagger); omit to use `durationMs` / the 420–900 ms rule. */
+  changeDurationMs?: number;
   /** Skip the animation entirely for values ≤ 0 (CountUp's behaviour). */
   skipNonPositive?: boolean;
 };
@@ -91,13 +95,16 @@ export type CountToOptions = {
  * (or 0) to `value`.
  */
 export function useCountTo(value: number, opts: CountToOptions = {}): number {
-  const { id, durationMs, delayMs = 0, alwaysFromZero = false, skipNonPositive = false } = opts;
+  const { id, durationMs, delayMs = 0, alwaysFromZero = false, fromZeroOnLoad = false, changeDurationMs, skipNonPositive = false } = opts;
   const [display, setDisplay] = useState(value);
   const instanceLast = useRef<number | null>(null);
 
   useEffect(() => {
     const remembered = id !== undefined ? startFor(id, value) : instanceLast.current ?? 0;
-    const from = alwaysFromZero ? 0 : remembered;
+    // A CHANGE = this instance has already shown a value (the first run is the load).
+    const before = instanceLast.current;
+    const isChange = before !== null;
+    const from = alwaysFromZero || (fromZeroOnLoad && !isChange) ? 0 : remembered;
     instanceLast.current = value;
 
     // 🪤 A HIDDEN PAGE NEVER RUNS A FRAME (a background tab, a document-hidden
@@ -108,7 +115,7 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
       setDisplay(value);
       return;
     }
-    const d = durationMs ?? countDurationMs(from, value);
+    const d = (isChange ? changeDurationMs : undefined) ?? durationMs ?? countDurationMs(from, value);
     let raf = 0;
     let start = 0;
     let shown = from;
@@ -125,7 +132,7 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
         else done = true;
       };
       raf = requestAnimationFrame(tick);
-    }, delayMs);
+    }, isChange && changeDurationMs !== undefined ? 0 : delayMs);
     return () => {
       window.clearTimeout(timer);
       cancelAnimationFrame(raf);
@@ -136,6 +143,9 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
       if (!done && start) {
         if (id !== undefined) lastShown.set(id, shown);
         instanceLast.current = shown;
+      } else if (!done && fromZeroOnLoad) {
+        // Cut short before a frame ran: this run never happened (StrictMode's first mount) — the next is still the load.
+        instanceLast.current = before;
       }
     };
     // `id`/options are identity, not inputs — only a new value animates.

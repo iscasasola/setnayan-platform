@@ -153,9 +153,10 @@ test('5 · the Sheet grows out of its button on the ONE grow player (ported from
   assert.match(sheet, /duration: out \? RISE_CLOSE_MS : RISE_MS/, 'the sheet’s close is not the open at 80 %');
   assert.match(sheet, /if \(open\) shown\.current = \{ children, head, foot \};/, 'a closing sheet empties mid-close');
   assert.match(sheet, /if \(!open && !present\) return null;/, 'the sheet leaves before its close has played');
-  // No fresh press: it just appears (and just leaves).
-  assert.match(sheet, /if \(!parts \|\| !originRef\.current \|\| typeof parts\.panel\.animate !== 'function'\) return;/, 'a sheet with no press behind it grows from nowhere');
-  assert.match(sheet, /if \(!parts \|\| !origin \|\| !origin\.isConnected/, 'a sheet whose button left the page closes into nothing');
+  // No fresh press: it never GROWS from nowhere — since Phase 2 (18 Nov, "sheets use Stack") it slides in from its own
+  // edge and leaves the same way (`playSheetStack`); the grow is only ever played from a real origin.
+  assert.match(sheet, /if \(!originRef\.current\) \{[^}]*void playSheetStack\(parts, false\);\s*return;\s*\}/, 'a sheet with no press behind it grows from nowhere');
+  assert.match(sheet, /\(origin && origin\.isConnected \? playSheetGrow\(parts, origin, true\) : playSheetStack\(parts, true\)\)/, 'a sheet whose button left the page closes into nothing');
   // The shape: transform + one clip, from the button's box to the panel's, ending unclipped.
   const f = sheetGrowFrames({ left: 20, top: 600, width: 120, height: 44 }, { left: 0, top: 300, width: 390, height: 544 }, 22);
   assert.equal(f[0]!.transform, 'translate(20px, 300px)');

@@ -3537,15 +3537,6 @@ html[data-sn-fab] [data-bottom-dock] > nav[aria-label='Primary navigation'] {
  * prefers-reduced-motion is handled for free by the universal freeze block
  * above (animation-iteration-count:1 !important) AND by GlobalSliderHint,
  * which never adds the class under reduced motion. */
-@keyframes sn-slider-shake {
-  0%, 26%, 100% { transform: translateX(0); }
-  4%  { transform: translateX(-5px); }
-  8%  { transform: translateX(5px); }
-  12% { transform: translateX(-4px); }
-  16% { transform: translateX(4px); }
-  20% { transform: translateX(-2px); }
-  23% { transform: translateX(2px); }
-}
 input[type='range'].sn-range {
   -webkit-appearance: none;
   appearance: none;
@@ -3594,8 +3585,10 @@ input[type='range'].sn-range::-moz-range-thumb {
 }
 /* The shake itself — layered onto any custom thumb carrying `.sn-shake`; sets
  * only `animation`, so a slider's own thumb size/colour rules still win. */
-input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
-input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
+/* 🎞 18 Nov 2026 (MOTION_STANDARD § 4 #10): the ONE shake (`sn-m-shake`, Move, once) — the 2.9 s loop is retired
+ * (Sheen is the only loop). */
+input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1; }
+input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1; }
 
 /*
  * ─────────────────────────────────────────────────────────────────────
@@ -5862,24 +5855,17 @@ html.dark [data-art='candlelight'] {
     transition: none !important;
   }
 }
-/* 🎞 ROWS THAT OPEN (owner 13 Nov 2026, "motion approved" — grow-full-screen-fable.html "Rows that open" + timing table
-   "Row expands"): the height eases open on grid rows in 320 ms and shuts in 260 ms, both on the emphasized curve; the
-   chevron turns with it; the inside arrives in three small steps, 40 ms apart, each rising a little. One open at a time
-   is the shipped `useOneOpen` (lib/one-open.ts) every Fold already joins. Reduced motion: opens at once, a 120 ms fade.
-   🔒 lib/the-motion-table-is-one.test.ts */
-[data-fold-body] {
-  transition-duration: var(--sn-m-row-shut);
-  transition-timing-function: var(--sn-m-ease-emph);
-}
-[data-fold-open] > [data-fold-body] {
-  transition-duration: var(--sn-m-row-open);
-}
-[data-fold-inner] {
-  transition-duration: var(--sn-m-row-shut);
-  transition-timing-function: var(--sn-m-ease-emph);
+/* 🎞 ROWS THAT OPEN — OPEN (owner 18 Nov 2026, MOTION_STANDARD § 4 #9 + § 0: "Rows via transform (NOT grid-template-rows
+   — 13 Nov's Fold uses grid rows; re-do in Phase 2)"). The fold's height is no longer animated: the body takes its place
+   at once, the panel fades in and settles 8 px down (Move on Settle), and everything below slides as ONE piece by
+   transform (`lib/rows-move.ts`, played from `app/_components/fold.tsx`). The chevron turns with it; the inside still
+   arrives in three small steps, 40 ms apart (13 Nov). Reduced motion: opens at once.
+   🔒 lib/the-motion-core-moves-by-transform.test.ts · lib/the-motion-table-is-one.test.ts */
+@keyframes sn-m-open-panel {
+  from { opacity: 0; transform: translateY(-8px); }
 }
 [data-fold-open] > [data-fold-body] > [data-fold-inner] {
-  transition-duration: var(--sn-m-row-open);
+  animation: sn-m-open-panel var(--sn-m-move) var(--sn-m-settle) backwards;
 }
 [data-fold-chevron] {
   transition-duration: var(--sn-m-row-shut);
@@ -5892,13 +5878,12 @@ html.dark [data-art='candlelight'] {
   from { opacity: 0; transform: translateY(6px); }
 }
 [data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(-n + 3) {
-  animation: sn-row-step 180ms var(--sn-m-ease-emph) backwards;
+  animation: sn-row-step var(--sn-m-quick) var(--sn-m-ease-emph) backwards;
 }
 [data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(2) { animation-delay: 40ms; }
 [data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(3) { animation-delay: 80ms; }
 @media (prefers-reduced-motion: reduce) {
-  [data-fold-body] { transition: none !important; }
-  [data-fold-inner] { transition-duration: 120ms !important; }
+  [data-fold-open] > [data-fold-body] > [data-fold-inner],
   [data-fold-open] > [data-fold-body] > [data-fold-inner] > * { animation: none !important; }
 }
 
@@ -5948,31 +5933,19 @@ html.dark [data-art='candlelight'] {
 @keyframes sn-row-pill-back {
   from { opacity: 0; transform: translateX(14px); }
 }
-@keyframes sn-row-shake {
-  0%, 100% { translate: 0; }
-  15% { translate: -7px; }
-  30% { translate: 6px; }
-  45% { translate: -5px; }
-  60% { translate: 4px; }
-  75% { translate: -2px; }
-  90% { translate: 1px; }
-}
 .sn-row-field {
   transform-origin: right center;
-  animation: sn-row-field-in calc(var(--sn-pill-dur) * 0.87) var(--sn-pill-spring);
+  animation: sn-row-field-in var(--sn-m-move) var(--sn-m-spring);
 }
 .sn-row-field[data-leaving] {
   opacity: 0;
-  animation: sn-row-field-out calc(var(--sn-pill-dur) * 0.39) var(--sn-ease);
+  animation: sn-row-field-out var(--sn-m-quick) var(--sn-m-settle);
 }
 [data-form-row-back] > .sn-row-name {
-  animation: sn-row-name-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+  animation: sn-row-name-back var(--sn-m-move) var(--sn-m-spring);
 }
 [data-form-row-back] > .sn-row-pill {
-  animation: sn-row-pill-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
-}
-.sn-row-shake {
-  animation: sn-row-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation: sn-row-pill-back var(--sn-m-move) var(--sn-m-spring);
 }
 /* ── THE ⓘ EXPLANATION'S POPUP (`app/_components/explain.tsx`, gallery § 7): it lands in the centre with the
    family's small bounce. `scale`, not `transform` — the popup is centred with a transform of its own. */
@@ -5980,24 +5953,153 @@ html.dark [data-art='candlelight'] {
   from { opacity: 0; scale: 0.94; }
 }
 .sn-explain-pop {
-  animation: sn-explain-in calc(var(--sn-pill-dur) * 0.4) var(--sn-pill-spring);
+  animation: sn-explain-in var(--sn-m-quick) var(--sn-m-spring);
 }
 @keyframes sn-explain-note-in {
   from { opacity: 0; translate: 0 6px; }
 }
 .sn-explain-note {
-  animation: sn-explain-note-in calc(var(--sn-pill-dur) * 0.4) var(--sn-ease);
+  animation: sn-explain-note-in var(--sn-m-quick) var(--sn-m-settle);
 }
 @media (prefers-reduced-motion: reduce) {
   .sn-row-field,
   .sn-row-field[data-leaving],
   [data-form-row-back] > .sn-row-name,
   [data-form-row-back] > .sn-row-pill,
-  .sn-row-shake,
   .sn-explain-pop,
   .sn-explain-note {
     animation: none !important;
   }
+}
+
+/* ═══ 🎞 THE MOTION STANDARD · PHASE 2 — APP CORE (owner 18 Nov 2026: "build it now. align it to all our designs and
+   upcoming designs"; specs `MOTION_STANDARD_2026-11-18.md` §§ 3–4, drawing `motion_standard_2026-11-18_fable.html`).
+   Each motion lives in the SHARED part, so every screen — today's and the next — inherits it. The rules, held by
+   lib/the-motion-core-moves-by-transform.test.ts:
+     · transform / translate / scale / opacity only — never width, height, top, left, max-height, grid rows,
+       background-position or filter;
+     · entrances are `@starting-style` (no remount, no class toggle); a keyframe fills `backwards`, never `both`;
+     · no `var()` inside a keyframe's timing function — the curve is on the element;
+     · movement springs (`--sn-m-spring`), effects settle (`--sn-m-settle`); a transition turns around from where it is;
+     · reduced motion: at once (the base layer's freeze), and each motion says so below. ═══ */
+
+/* SCRIM (#3) — Quick in, on Settle; out is `--sn-scrim-fade` (the same 200 ms, `OverlayBackdrop`). */
+.sn-fade.sn-popup-dark {
+  animation-duration: var(--sn-m-quick);
+  animation-timing-function: var(--sn-m-settle);
+}
+
+/* STACK (#2) — the sheet's panel when it stands at the foot of a phone: 40 px of its own ground hangs under it, so the
+   spring's small overshoot (a sheet rising, or growing to its max) never shows the page through a gap at the foot.
+   The motion itself is played by `app/_components/sheet.tsx` (transform only — the max-height snap is gone). */
+[data-sheet-panel][data-sheet-under]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 40px;
+  background: inherit;
+  pointer-events: none;
+}
+
+/* TOAST (#5) — ONE pill, from the BOTTOM (owner 18 Nov: "Bottom"), above the thumb row or the bottom nav
+   (`--sn-thumb-clear`). In: Move on Spring, rising. Out (`data-leaving`): Quick on Settle, sinking back.
+   `translate`, not `transform` — nothing is left holding a transform when it rests. Reduced: at once. */
+.sn-m-toast-place {
+  bottom: var(--sn-thumb-clear);
+}
+@media (min-width: 1024px) {
+  .sn-m-toast-place { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+}
+.sn-m-toast {
+  transition: translate var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-toast { translate: 0 calc(100% + 24px); opacity: 0; }
+}
+.sn-m-toast[data-leaving] {
+  translate: 0 calc(100% + 24px);
+  opacity: 0;
+  transition: translate var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+
+/* SHAKE (#10) — the ONE shake: three short swings, once, in Move; the curve is on the element (Settle). It replaces
+   `sn-row-shake` (450 ms, ±7 px) and `sn-slider-shake` (a 2.9 s loop). `translate`, so a centred or transformed box
+   keeps its own transform. Reduced: no shake — the red line and the words still show. */
+@keyframes sn-m-shake {
+  0%, 100% { translate: 0; }
+  25% { translate: -6px; }
+  50% { translate: 5px; }
+  75% { translate: -3px; }
+}
+.sn-m-shake {
+  animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1;
+}
+
+/* POP (#19) — a menu grows out of the thing that was tapped: Quick, the size on Spring, the fade on Settle.
+   `scale` (never `transform`: the list is placed with `position: fixed` and may hold fixed children), from the edge
+   that faces its button (`data-pick-side`). Reduced: at once, no scale. */
+.sn-m-pop {
+  transform-origin: top center;
+  transition: scale var(--sn-m-quick) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+.sn-m-pop[data-pick-side='above'] { transform-origin: bottom center; }
+@starting-style {
+  .sn-m-pop { scale: 0.92; opacity: 0; }
+}
+
+/* ENTER · A ROW ARRIVES (#13) — played by `lib/rows-move.ts` (`rowArrives`): Move on Settle, 8 px up; only the first
+   6 of a batch cascade (60 ms apart), the rest are simply there; the wash below fades over Rise. */
+.sn-m-row-wash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(var(--sn-accent) / 0.14);
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* LEAVE · A ROW GOES (#6) — the copy of a removed row that slides out (Quick on Settle) while the rows under it close
+   the gap by transform (Move on Settle); `lib/rows-move.ts` (`rowLeaves`). It takes no tap and sits over nothing. */
+.sn-m-row-ghost {
+  position: fixed;
+  margin: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+/* BUSY (#35) — the button's label gives way to the spinner in Tap, on Settle; the button keeps its size
+   (`submit-button.tsx` holds its width). DONE (#14) — "✓" pops in Quick on Spring. Reduced: at once. */
+.sn-m-busy {
+  transition: opacity var(--sn-m-tap) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-busy { opacity: 0; }
+}
+.sn-m-done {
+  transition: scale var(--sn-m-quick) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-done { scale: 0.6; opacity: 0; }
+}
+
+/* STATUS CHANGE (#22) — a status chip changes colour softly: Quick on Settle (the colour never overshoots).
+   Reduced: at once. */
+.sn-m-status {
+  transition: color var(--sn-m-quick) var(--sn-m-settle), background-color var(--sn-m-quick) var(--sn-m-settle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-m-toast,
+  .sn-m-toast[data-leaving],
+  .sn-m-pop,
+  .sn-m-busy,
+  .sn-m-done,
+  .sn-m-status { transition: none !important; }
+  .sn-m-shake,
+  input[type='range'].sn-shake::-webkit-slider-thumb,
+  input[type='range'].sn-shake::-moz-range-thumb { animation: none !important; }
 }
 
 /* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
@@ -7643,8 +7745,9 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 @keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
 
 /* ---------- expand / collapse (no height measuring) ---------- */
-.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); } /* 🎞 18 Nov: the rows are the STATE, never animated — the panel arrives by transform (below) */
 .sn-acc.open { grid-template-rows:1fr; }
+.sn-acc.open > * { animation: sn-m-open-panel var(--sn-m-move) var(--sn-m-settle) backwards; }
 .sn-acc > * { overflow:hidden; min-height:0; min-width:0; }
 /* HORIZONTAL CONTAINMENT (the twin of min-height:0, which only frees the vertical axis).
  * Without an explicit column track the implicit column is `auto`, so it sizes to the
@@ -7821,7 +7924,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
 @keyframes sn-addman-sheet-sm {
   from { opacity: 0; transform: translateY(10px) scale(.985); }
 }
-.sn-addman-veil  { animation: sn-addman-veil 180ms ease backwards; }
+.sn-addman-veil  { animation: sn-addman-veil var(--sn-m-quick) var(--sn-m-settle) backwards; } /* 🎞 Scrim = Quick on Settle (18 Nov; was 180 ms ease) */
 .sn-addman-sheet { animation: sn-addman-sheet 280ms cubic-bezier(.2,.7,.2,1) backwards; }
 @media (min-width: 640px) {
   .sn-addman-sheet { animation-name: sn-addman-sheet-sm; }

@@ -1338,10 +1338,10 @@ export function shakeIntoView(el: HTMLElement): void {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
   if (still) return;
-  el.classList.remove('sn-row-shake');
+  el.classList.remove('sn-m-shake');
   void el.offsetWidth;
-  el.classList.add('sn-row-shake');
-  el.addEventListener('animationend', () => el.classList.remove('sn-row-shake'), { once: true });
+  el.classList.add('sn-m-shake');
+  el.addEventListener('animationend', () => el.classList.remove('sn-m-shake'), { once: true });
 }
 
 /**
@@ -1358,8 +1358,8 @@ export function nudgeFormRows(within: ParentNode = document): number {
 
 function shakeOnly(el: HTMLElement): void {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  el.classList.remove('sn-row-shake');
+  el.classList.remove('sn-m-shake');
   void el.offsetWidth;
-  el.classList.add('sn-row-shake');
-  el.addEventListener('animationend', () => el.classList.remove('sn-row-shake'), { once: true });
+  el.classList.add('sn-m-shake');
+  el.addEventListener('animationend', () => el.classList.remove('sn-m-shake'), { once: true });
 }

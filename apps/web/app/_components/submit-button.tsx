@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { LOADER_STEPS, useOptionalLoader } from '@/components/sd-loader';
 
 type Props = Omit<
@@ -46,7 +46,20 @@ type Props = Omit<
    * here.
    */
   pending?: boolean;
+  /**
+   * ✓ DONE (the motion standard, owner 18 Nov 2026 — § 4 #14 · #35: "✓ pops Quick 200 ms, stays 1 s"). The form's
+   * owner says the save LANDED (`done` turns true — its action state came back ok) and the button shows "✓ Saved" for
+   * `DONE_HOLD_MS`, then its own words again. It is never inferred from "no longer pending": a form status cannot
+   * tell a save that landed from one that was refused, and a refused save must never read as saved. Omitted — every
+   * form today — the button is exactly as it was.
+   */
+  done?: boolean;
+  /** The words beside the ✓ (default "Saved"). */
+  doneLabel?: string;
 };
+
+/** How long "✓ Saved" stays on the button before its own words return. */
+export const DONE_HOLD_MS = 1000;
 
 /**
  * Drop-in replacement for `<button type="submit">` inside a `<form action={…}>`.
@@ -60,6 +73,13 @@ type Props = Omit<
  *     the save, so the whole screen is locked — not just the button — while the
  *     write is in flight. This is the form-side of the app's Rule 2; the client-
  *     handler side is `useSaveLoader()`. Opt out per-form with `overlay={false}`.
+ *
+ * 🎞 BUSY (the motion standard, owner 18 Nov 2026 — § 4 #35; "the saving veil stays … quick inline saves keep
+ * `overlay={false}`"): the label gives way to the spinner in Tap on Settle (`.sn-m-busy`, an `@starting-style`
+ * entrance — no remount trick), and the button KEEPS ITS SIZE: the width it had when it was pressed is held as a
+ * floor while it is busy, so a shorter "Saving…" never makes it jump narrower. The veil is unchanged and still sits
+ * over it. Reduced motion: the swap is at once (the spinner keeps turning — it carries meaning).
+ * 🔒 lib/the-motion-core-moves-by-transform.test.ts
  */
 export function SubmitButton({
   children,
@@ -70,11 +90,31 @@ export function SubmitButton({
   overlaySteps,
   overlayHint,
   pending: ownedPending,
+  done = false,
+  doneLabel = 'Saved',
+  onClick,
+  style,
   ...rest
 }: Props) {
   const { pending: formPending } = useFormStatus();
   const pending = ownedPending ?? formPending;
   const isDisabled = pending || disabled;
+
+  // The width at the press — the button's floor while it is busy (and while ✓ shows), so it never jumps narrower.
+  const pressedWidth = useRef<number | null>(null);
+  // ✓ for DONE_HOLD_MS each time the owner says the save landed.
+  const [showDone, setShowDone] = useState(false);
+  useEffect(() => {
+    if (!done) {
+      setShowDone(false);
+      return;
+    }
+    setShowDone(true);
+    const t = setTimeout(() => setShowDone(false), DONE_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [done]);
+  const settled = showDone && !pending;
+  const floor = (pending || settled) && pressedWidth.current ? pressedWidth.current : undefined;
 
   // Bridge form-pending → the app-wide no-touch veil. Non-throwing accessor so
   // a SubmitButton rendered outside the provider (tests) simply no-ops. Steps/
@@ -115,16 +155,26 @@ export function SubmitButton({
       aria-busy={pending}
       data-pending={pending ? 'true' : undefined}
       className={`${className ?? ''} ${pending ? 'cursor-wait' : ''} ${disabled && !pending ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
+      style={floor ? { ...style, minWidth: floor } : style}
+      onClick={(e) => {
+        pressedWidth.current = e.currentTarget.offsetWidth;
+        onClick?.(e);
+      }}
       {...rest}
     >
       {pending ? (
-        <span className="inline-flex items-center gap-2">
+        <span className="sn-m-busy inline-flex items-center gap-2" data-busy="">
           <Loader2
             aria-hidden
             className="h-4 w-4 animate-spin"
             strokeWidth={2.25}
           />
           {pendingLabel || <span className="sr-only">Working…</span>}
+        </span>
+      ) : settled ? (
+        <span className="sn-m-done inline-flex items-center gap-2" data-done="">
+          <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+          {doneLabel}
         </span>
       ) : (
         children

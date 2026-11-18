@@ -48,8 +48,12 @@ test('a `full` sheet is the screen — no half, no handle', async () => {
 
 test('the drag: up grows to the max, down from the max returns to half, down past the half closes', () => {
   const src = stripComments(readFileSync(join(WEB, 'app/_components/sheet.tsx'), 'utf8'));
-  assert.match(src, /if \(dy < -40\) setSnap\('max'\);/);
-  assert.match(src, /if \(snap === 'max'\) setSnap\('half'\);\s*else close\(\);/, 'a drag down past the half no longer closes');
+  // 🎞 18 Nov 2026 (the motion standard): a snap made by hand goes through `snapTo`, which notes where the top edge was
+  // so the move is played by TRANSFORM (`playSheetSnap`) — the max-height itself is never animated.
+  assert.match(src, /if \(dy < -40\) \{\s*if \(snap !== 'max'\) snapTo\('max'\);/);
+  assert.match(src, /const snapTo = \(next: 'half' \| 'max'\) => \{[\s\S]{0,260}?setSnap\(next\);/);
+  assert.doesNotMatch(src, /transition-\[max-height\]/, 'the snap animates max-height again');
+  assert.match(src, /if \(snap === 'max'\) snapTo\('half'\);\s*else close\(\);/, 'a drag down past the half no longer closes');
   assert.match(src, /if \(open\) setSnap\('half'\);/, 'a reopened sheet keeps its old size instead of opening at half');
   // Phone-only: the drawer above the boundary keeps its own height.
   assert.match(src, /half: 'max-lg:max-h-\[52dvh\]'/);

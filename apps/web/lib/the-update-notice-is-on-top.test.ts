@@ -23,7 +23,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { LAYER_OVER_THE_PAGE, UNDER_THE_HEAD_GAP, aLayerCoversThePage, whereTheNoticeLifts, type DrawnLayer } from '@/lib/build-version';
-import { PEEK_TOAST_PLACE } from '@/app/_components/toast/peek-toast';
+import { PEEK_TOAST_LAYER } from '@/app/_components/toast/peek-toast';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -77,9 +77,11 @@ test('1d · flow OR top layer, never both: the lifted branch returns before the 
 // ── 2 · ON TOP ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 test('2a · the top notification layer is above the rise, the Sheet, the side panel and the chat takeover', () => {
-  const z = Number(/(?:^|\s)z-\[(\d+)\](?:\s|$)/.exec(PEEK_TOAST_PLACE)?.[1]);
-  assert.ok(Number.isFinite(z), 'PEEK_TOAST_PLACE lost its z');
-  assert.ok(/(?:^|\s)fixed(?:\s|$)/.test(PEEK_TOAST_PLACE), 'PEEK_TOAST_PLACE is no longer fixed to the screen');
+  const z = Number(/(?:^|\s)z-\[(\d+)\](?:\s|$)/.exec(PEEK_TOAST_LAYER)?.[1]);
+  assert.ok(Number.isFinite(z), 'PEEK_TOAST_LAYER lost its z');
+  assert.ok(/(?:^|\s)fixed(?:\s|$)/.test(PEEK_TOAST_LAYER), 'PEEK_TOAST_LAYER is no longer fixed to the screen');
+  // 18 Nov 2026 (motion standard): the TOAST rises from the bottom of this layer; the update notice stays at its top.
+  assert.doesNotMatch(PEEK_TOAST_LAYER, /(?:^|\s)(?:top-|bottom-|sn-m-toast-place)/, 'the shared layer names an edge — the notice would be drawn at the toast’s place');
 
   const takeover = /\n\s*\[data-chat-takeover\]\s*\{[^}]*?z-index:\s*(\d+)/.exec(CSS);
   assert.ok(takeover, 'the full-screen chat takeover rule was not found in globals.css');
@@ -97,8 +99,8 @@ test('2a · the top notification layer is above the rise, the Sheet, the side pa
 });
 
 test('2b · lifted, it is portalled to <body> on that layer — not a layer of its own', () => {
-  assert.match(LIFT, /import \{ PEEK_TOAST_PLACE \} from '\.\/toast\/peek-toast';/);
-  assert.match(LIFT, /createPortal\(\s*<div data-app-chrome="" data-stale-tab-lift="" className=\{PEEK_TOAST_PLACE\} style=\{top === null \? undefined : \{ top \}\}>/);
+  assert.match(LIFT, /import \{ PEEK_TOAST_LAYER \} from '\.\/toast\/peek-toast';/);
+  assert.match(LIFT, /createPortal\(\s*<div data-app-chrome="" data-stale-tab-lift="" className=\{`top-\[calc\(12px\+env\(safe-area-inset-top\)\)\] \$\{PEEK_TOAST_LAYER\}`\} style=\{top === null \? undefined : \{ top \}\}>/);
   // <body>, or — only over the guest send-run, which stands above the toast layer — inside that screen (ruling 10).
   assert.match(LIFT, /host \?\? document\.body,?\s*\)/, 'the lift is not drawn on <body> — a transformed page would trap it');
   assert.doesNotMatch(LIFT, /\bz-\[|\bz-\d|zIndex|z-index/, 'the lift sets a z of its own — use the top layer');

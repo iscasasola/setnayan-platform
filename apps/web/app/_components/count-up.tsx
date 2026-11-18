@@ -2,6 +2,7 @@
 
 import { useCountTo } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
+import { QUICK_MS } from '@/lib/motion-table';
 
 /**
  * CountUp — the shared animated-numeral island for the app's REAL aggregates
@@ -13,8 +14,9 @@ import { formatCount } from '@/lib/format-number';
  * SSR renders the FINAL value (no hydration mismatch; works with JS off), then
  * on mount — unless the visitor prefers reduced motion — the number snaps to 0
  * and counts up to the target via rAF over 1150ms with easeOutCubic, after the
- * caller's per-element delay. Purely presentational: the value itself is always
- * server-computed real data.
+ * caller's per-element delay. A later change TICKS from the old value to the new
+ * one in Quick (18 Nov 2026) — it never restarts from 0. Purely presentational:
+ * the value itself is always server-computed real data.
  *
  * 🔢 EVERY FRAME IS GROUPED (owner 2026-09-27, "numbers with comma"): the value
  * is printed through `formatCount`, so the server render reads "100,050" and the
@@ -37,14 +39,16 @@ export function CountUp({
   /** How each frame is printed. Defaults to the grouped count; pass `formatPhp` for money. */
   format?: (n: number) => string;
 }) {
-  // One engine (components/count.tsx, the button rule's `Count`): same
-  // behaviour as before — final value on the server, then 0 → value over
-  // 1150 ms easeOutCubic after the stagger, every time the value changes;
-  // values ≤ 0 and reduced motion print at once.
+  // One engine (components/count.tsx, the button rule's `Count`): final value on the server, then 0 → value over
+  // 1150 ms easeOutCubic after the stagger ON LOAD (the load count moves to Rise in Phase 4).
+  // 🎞 TICK (the motion standard § 4 #8, owner 18 Nov 2026 — "Today a change restarts the count from 0"): a LATER
+  // change ticks from the number on screen to the new one in Quick, with no stagger — never back through 0.
+  // Values ≤ 0 and reduced motion print at once.
   const display = useCountTo(value, {
     durationMs: 1150,
     delayMs,
-    alwaysFromZero: true,
+    fromZeroOnLoad: true,
+    changeDurationMs: QUICK_MS,
     skipNonPositive: true,
   });
 

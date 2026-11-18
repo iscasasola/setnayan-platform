@@ -70,7 +70,7 @@ export function ModuleConfigurator({
       <div className="flex items-center justify-between gap-2 pt-4">
         <p className="home-k2">Tools for this event</p>
         <span className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[12px] text-ink/55" aria-live="polite">
+          <span className="inline-flex items-center gap-1 text-[12px] text-[color:var(--m-slate-2)]" aria-live="polite">
             {pending ? (
               <>
                 <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} /> Saving…
@@ -88,7 +88,7 @@ export function ModuleConfigurator({
         </span>
       </div>
       {error ? (
-        <p role="alert" className="py-2 text-[13px] font-semibold text-danger-700">
+        <p role="alert" className="py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}

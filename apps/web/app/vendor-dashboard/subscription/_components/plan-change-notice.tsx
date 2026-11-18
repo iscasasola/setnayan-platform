@@ -32,19 +32,20 @@ export function PlanChangeNotice({ situation }: { situation: PlanSituation }) {
     <div className="mt-4 space-y-3">
       {lines.change ? (
         <div
-          className="sn-card flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap"
+          className="flex flex-wrap items-start gap-3 border-b border-[color:var(--m-line)] py-3 sm:flex-nowrap"
           style={{ borderColor: 'var(--m-line)' }}
         >
           <span
             className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
           >
-            <CalendarClock className="h-4 w-4 text-ink/70" strokeWidth={1.75} aria-hidden />
+            <CalendarClock className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} aria-hidden />
           </span>
           <p className="min-w-0 flex-1 text-sm text-ink">{lines.change}</p>
           <StayForm door="svSubscription.cancelScheduledPlanChange" action={cancelScheduledPlanChange} className="shrink-0">
-            <SubmitButton className="text-sm font-medium text-ink underline underline-offset-4">
-              Keep my current plan instead
+            {/* Rule 3 · the grey button piece, never an underlined word. */}
+            <SubmitButton className="ab ab-neutral !min-h-11" pendingLabel="Keeping…">
+              <span className="lbl">Keep my current plan instead</span>
             </SubmitButton>
           </StayForm>
         </div>
@@ -52,14 +53,14 @@ export function PlanChangeNotice({ situation }: { situation: PlanSituation }) {
 
       {lines.credit ? (
         <div
-          className="sn-card flex items-start gap-3 p-4"
+          className="flex items-start gap-3 border-b border-[color:var(--m-line)] py-3"
           style={{ borderColor: 'var(--m-line)' }}
         >
           <span
             className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
             style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
           >
-            <Wallet className="h-4 w-4 text-ink/70" strokeWidth={1.75} aria-hidden />
+            <Wallet className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.75} aria-hidden />
           </span>
           <p className="min-w-0 flex-1 text-sm text-ink">{lines.credit}</p>
         </div>

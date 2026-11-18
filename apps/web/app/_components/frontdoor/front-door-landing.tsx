@@ -7,7 +7,6 @@
  *
  *   #events        every kind of event — read from `event_type_vocab`, never listed here
  *   #sample        Maria and Jose, seen as two guests — only while the sample opens (see below)
- *   #shelves       the SHIPPED Discover shelves (`FrontDoorFeed`), handed in exactly as they render
  *   #solves        twenty problems, and what happens instead
  *   #coordinators  a band that sends coordinators to /for-coordinators
  *   #suppliers     a band that sends suppliers to /for-suppliers
@@ -15,6 +14,10 @@
  *   the close, and the page's own footer (Privacy and Terms live here now — Google's homepage rule).
  *
  * Signed in, none of this renders: a member's `/` is Discover, unchanged (`front-door.tsx`).
+ *
+ * 🔒 NO DISCOVER SHELVES HERE ANY MORE (owner 16 Nov, 41057aae · 448fd3c1 — "Discover in six parts", approved):
+ * Discover lives inside the account. Signed out, `/` shows only Setnayan's own promotions; the shelves (#shelves until
+ * 16 Nov) left this page. Exact links — a shop's website or QR, an event page, a story — still open signed out.
  *
  * ─── MARIA AND JOSE, WITH NO BUTTON INTO THE SAMPLE ─────────────────────────────────────────────────────────
  * The owner ruled the marketing pages carry no demo or sample buttons — "just do not add buttons" (CLOUD_BOARD,
@@ -243,7 +246,6 @@ export function FrontDoorLanding({
   planFacts,
   floorKitFree = false,
   sample,
-  shelves,
 }: {
   /** The creatable event types, in the roster's order (`getCreatableEventTypes`). */
   eventTypes: readonly Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>[];
@@ -258,8 +260,6 @@ export function FrontDoorLanding({
   floorKitFree?: boolean;
   /** The sample's two guests, from its fixtures — null only if the fixtures cannot be read. */
   sample: FrontPageSample | null;
-  /** The shipped Discover shelves, rendered by the caller. */
-  shelves: ReactNode;
 }) {
   // The app's one photo rule (`eventTypePhotoSrc`, #7271): an admin upload first, else the repo's 4 Nov render.
   const tiles: EventTypeTile[] = eventTypes.map((t) => ({ key: t.key, label: t.label, photo: eventTypePhotoSrc(t) }));
@@ -351,12 +351,6 @@ export function FrontDoorLanding({
           </p>
         </section>
       ) : null}
-
-      {/* ════ THE SHELVES — the shipped Discover feed, exactly as it renders ════ */}
-      <section className="fl-sec fl-reveal fl-shelves" id="shelves" aria-label="On Setnayan">
-        <p className="fl-kicker">On Setnayan</p>
-        {shelves}
-      </section>
 
       {/* ════ WHAT IT SOLVES ════ */}
       <section className="fl-sec fl-reveal" id="solves" aria-labelledby="h-solves">

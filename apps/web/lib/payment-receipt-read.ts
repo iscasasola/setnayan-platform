@@ -310,3 +310,61 @@ export function shouldAskBuyerToFix(
 ): boolean {
   return read?.status === 'ok' && read.referenceMatches === false;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * WHAT A READ MAY WRITE ONTO THE PAYMENT ROW ITSELF (review of #7926, 2026-11-18)
+ *
+ * The reader's findings live in `payment_receipt_reads`, advisory. Two of them
+ * are also copied onto `payments` so the payer types nothing (owner 2026-11-17)
+ * — and THAT row is read by money code, so each copy is gated here.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const alnumUpper = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+/**
+ * The read reference to store on `payments.reference_number`, or NULL.
+ *
+ * 🚨 NEVER ONE THAT CARRIES THE ORDER'S OWN CODE. `isDecisivePaymentMatch`
+ * (lib/orders.ts) — the predicate that turns a row GREEN for one-click and batch
+ * approval — is "reference_number contains the order's reference code" plus an
+ * amount that, on /pay, is always the order's own. A scanned-QR transfer cannot
+ * carry our code, so a READ reference containing it means the picture shows OUR
+ * text: a screenshot of the pay page or of the shared QR card instead of a bank
+ * receipt, or a forged one. Storing it would let an AI read of a payer-supplied
+ * picture make an unpaid order a clean match. Dropped; the admin still sees
+ * every reference in the receipt-read card.
+ */
+export function readReferenceToLog(
+  readReference: string | null | undefined,
+  orderReferenceCode: string | null | undefined,
+): string | null {
+  const ref = readReference ? alnumUpper(readReference) : '';
+  if (ref.length === 0) return null;
+  const code = orderReferenceCode ? alnumUpper(orderReferenceCode) : '';
+  if (code.length > 0 && ref.includes(code)) return null;
+  return ref.slice(0, 64);
+}
+
+/** How far back a receipt's printed date is still believed (days). */
+export const RECEIPT_DATE_MAX_AGE_DAYS = 60;
+
+/**
+ * The receipt's printed date to store on `payments.paid_at`, or NULL (caller
+ * keeps today). A date in the FUTURE, or older than
+ * `RECEIPT_DATE_MAX_AGE_DAYS`, is a misread (an expiry, a birthday, a 2-digit
+ * year) — `paid_at` is printed on the payer's receipt page and history, so a
+ * wrong one is worse than today's. One day of slack covers Manila vs UTC.
+ */
+export function receiptPaidOnToLog(
+  seenPaidOn: string | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (!seenPaidOn || !/^\d{4}-\d{2}-\d{2}$/.test(seenPaidOn)) return null;
+  const t = Date.parse(`${seenPaidOn}T00:00:00Z`);
+  if (!Number.isFinite(t)) return null;
+  const day = 86_400_000;
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (t > today + day) return null;
+  if (t < today - RECEIPT_DATE_MAX_AGE_DAYS * day) return null;
+  return seenPaidOn;
+}

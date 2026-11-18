@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readPaymentReceipt } from './payment-receipt-read';
+import { readPaymentReceipt, readReferenceToLog, receiptPaidOnToLog } from './payment-receipt-read';
 import { extractReceiptPaidAt } from './payment-proof-scan';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
@@ -79,8 +79,8 @@ test('the pay form has no typed reference field any more', () => {
 test('the action REQUIRES the picture and logs what was read on the payment', () => {
   const action = read('app/pay/[reference]/actions.ts');
   assert.match(action, /if \(!screenshotUrl\) \{/, 'a send with no receipt is accepted again');
-  assert.match(action, /reference_number: bankReference \?\? receiptRead\?\.readReference \?\? null/);
-  assert.match(action, /paid_at: receiptRead\?\.seenPaidOn \?\?/);
+  assert.match(action, /bankReference \?\? readReferenceToLog\(receiptRead\?\.readReference, payable\.reference\)/);
+  assert.match(action, /receiptPaidOnToLog\(receiptRead\?\.seenPaidOn\) \?\?/);
   // …and the read is still filed for the admin, with the date and time.
   assert.match(action, /recordPaymentReceiptRead\(moneyWriter, newPaymentId, receiptRead\)/);
   const server = read('lib/payment-receipt-read.server.ts');
@@ -94,4 +94,42 @@ test('reading the receipt never sets a payment status', () => {
   const insert = action.slice(action.indexOf(".from('payments')\n    .insert("));
   const row = insert.slice(0, insert.indexOf('.select('));
   assert.doesNotMatch(row, /status:/, 'the proof insert now writes a status');
+});
+
+// ── review of #7926 (2026-11-18): what a read may copy onto the payment row ──
+
+test('a read reference carrying the ORDER\'S OWN CODE is never logged (it would be a one-click clean match)', () => {
+  // A screenshot of our pay page / shared QR card, not a bank receipt.
+  const ownPage = readPaymentReceipt({
+    transcript: 'Pay Setnayan\nReference No. SN41B2C3D5\nAmount PHP 2,499.00',
+    typed: null,
+    expectedPhp: 2499,
+  });
+  assert.equal(ownPage.readReference, 'SN41B2C3D5');
+  assert.equal(readReferenceToLog(ownPage.readReference, 'SN41B2C3D5'), null);
+  assert.equal(readReferenceToLog('xxSN41B2C3D5yy', 'sn41b2c3d5'), null);
+  // A real bank reference passes through.
+  assert.equal(readReferenceToLog('6991560', 'SN41B2C3D5'), '6991560');
+  assert.equal(readReferenceToLog(null, 'SN41B2C3D5'), null);
+});
+
+test('the pay action and the checkout drawer both gate the read through readReferenceToLog + receiptPaidOnToLog', () => {
+  for (const rel of ['app/pay/[reference]/actions.ts', 'app/dashboard/[eventId]/checkout/actions.ts']) {
+    const src = read(rel);
+    assert.match(src, /readReferenceToLog\(/, `${rel} must gate the read reference`);
+    assert.match(src, /receiptPaidOnToLog\(/, `${rel} must gate the read date`);
+    assert.doesNotMatch(src, /\?\?\s*receiptRead\?\.readReference/, `${rel} stores a raw read reference`);
+    assert.doesNotMatch(src, /fill\.paid_at\s*=\s*read\.seenPaidOn/, `${rel} stores a raw read date`);
+  }
+});
+
+test('a receipt date in the future or older than the window is not stored as paid_at', () => {
+  const now = new Date('2026-11-18T03:00:00Z');
+  assert.equal(receiptPaidOnToLog('2026-11-17', now), '2026-11-17');
+  assert.equal(receiptPaidOnToLog('2026-11-19', now), '2026-11-19'); // Manila is ahead of UTC
+  assert.equal(receiptPaidOnToLog('2026-11-21', now), null);
+  assert.equal(receiptPaidOnToLog('2099-01-01', now), null);
+  assert.equal(receiptPaidOnToLog('2026-01-01', now), null);
+  assert.equal(receiptPaidOnToLog(null, now), null);
+  assert.equal(receiptPaidOnToLog('17 Nov 2026', now), null);
 });

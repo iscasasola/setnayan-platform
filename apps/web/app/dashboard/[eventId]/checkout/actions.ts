@@ -51,6 +51,7 @@ import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
@@ -1019,8 +1020,12 @@ export async function submitOrderAction(
     if (!read) return;
     await recordPaymentReceiptRead(moneyWriter, paymentId, read);
     const fill: Record<string, string> = {};
-    if (!referenceNumberClean && read.readReference) fill.reference_number = read.readReference;
-    if (read.seenPaidOn) fill.paid_at = read.seenPaidOn;
+    // 🚨 Gated like /pay: never a read carrying this order's own code (it would
+    // make the row a one-click clean match), never an implausible date.
+    const readRef = readReferenceToLog(read.readReference, referenceCode);
+    if (!referenceNumberClean && readRef) fill.reference_number = readRef;
+    const readPaidOn = receiptPaidOnToLog(read.seenPaidOn);
+    if (readPaidOn) fill.paid_at = readPaidOn;
     if (Object.keys(fill).length === 0) return;
     const { error: fillErr } = await moneyWriter
       .from('payments')

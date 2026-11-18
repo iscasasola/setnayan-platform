@@ -14,6 +14,7 @@ import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 
 /**
@@ -265,10 +266,16 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
           // ⚠ ADVISORY: these are lookup keys beside the admin's own bank
           // record. Nothing here sets a status — `isDecisivePaymentMatch` and
           // the admin's approval stay the only way money is let through.
-          reference_number: bankReference ?? receiptRead?.readReference ?? null,
+          // 🚨 `readReferenceToLog` drops a read that carries THIS order's own
+          // code — it would make the row a one-click "clean match" from a
+          // picture of our own page (see its docblock).
+          reference_number:
+            bankReference ?? readReferenceToLog(receiptRead?.readReference, payable.reference),
           screenshot_url: screenshotUrl,
-          // The date printed on the receipt when one was read, else today.
-          paid_at: receiptRead?.seenPaidOn ?? new Date().toISOString().slice(0, 10),
+          // The date printed on the receipt when one was read AND plausible
+          // (not in the future, not stale — `receiptPaidOnToLog`), else today.
+          paid_at:
+            receiptPaidOnToLog(receiptRead?.seenPaidOn) ?? new Date().toISOString().slice(0, 10),
           client_idempotency_key: idempotencyKey,
         },
       ),

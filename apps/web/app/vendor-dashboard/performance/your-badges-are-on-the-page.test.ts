@@ -84,7 +84,8 @@ test('4 · Today’s earned line stays', () => {
 test('5 · 📣🗺 the ONE tracker is the Shop tab’s badge row; Shop › Page keeps the pills only', () => {
   const view = src('app/vendor-dashboard/shop/_components/shop-badge-row.tsx');
   // The tracker's row: each badge in its progress ring, rising to Now · the bar · the next goal · its reward.
-  for (const a of ['<ProgressRing', '<RiseScreen', 'nextGoalLine(', 'nowLine(']) {
+  // '<ShopDoorScreen' — the ONE RiseScreen on a phone, the 440 right panel from 701 (owner 2026-11-16).
+  for (const a of ['<ProgressRing', '<ShopDoorScreen', 'nextGoalLine(', 'nowLine(']) {
     assert.ok(view.includes(a), `the badge row lost the tracker’s ${a}`);
   }
   // The rows are the shipped composer's, on the facts the page already read — a refused read draws no rows.

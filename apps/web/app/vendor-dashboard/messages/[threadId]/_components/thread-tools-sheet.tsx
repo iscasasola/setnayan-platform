@@ -2,6 +2,7 @@
 
 import { CHAT_ATTACH_INPUT_ID, CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -17,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { layerHolder } from '@/lib/use-back-closes';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
@@ -152,8 +154,47 @@ function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
   );
 }
 
-export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+/** "See every version" with one version in the chat — the same words the row's toast used to say after the fact. */
+export const ONE_VERSION_REASON = 'One version so far · a change or an accepted counter makes the next';
+
+/**
+ * ⏭ CHAT-20 (walk 16 Nov 2026) — "See every version" and "Report a problem" opened NOTHING. The sheet holds a history
+ * entry of its own (`useBackCloses`: Back closes the layer), and a sheet closed by its owner steps back through that
+ * entry one tick later. Anything the row opened in that same tick was undone by the step: the versions sheet claimed
+ * the entry and was then closed by the `popstate`; the Report link's `router.push` (pending until its page arrived) was
+ * overtaken by the traversal. So a row that LEAVES the sheet for another layer or page waits until the sheet's own
+ * entry is gone — the `popstate` of its step back — and only then opens what it names. No entry of ours on top (a lab,
+ * an older sheet) = go at once.
+ */
+export function afterSheetStepsBack(fn: () => void, holdsEntry: boolean = Boolean(layerHolder(window.history.state))): void {
+  if (!holdsEntry) {
+    window.setTimeout(fn, 0);
+    return;
+  }
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener('popstate', go);
+    window.clearTimeout(safety);
+    // After the router's own popstate handling, so the traversal has settled before we navigate or open.
+    window.setTimeout(fn, 0);
+  };
+  window.addEventListener('popstate', go);
+  // Never stranded: a step back that never comes (a browser that coalesces it) still opens the row.
+  const safety = window.setTimeout(go, 1200);
+}
+
+export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  // 🧾 CHAT-20: "See every version" presses the live quote card's own versions row, which exists only once a second
+  // version does. Looked for when the sheet opens: absent, the row is drawn shut with its reason (never a dead press).
+  const [versionsDoor, setVersionsDoor] = useState(true);
+  useEffect(() => {
+    if (open) setVersionsDoor(Boolean(document.querySelector('[data-quote-every-version]')));
+  }, [open]);
+  const rows = givenRows.map((r) => (r.act === 'versions' && !r.shut && !versionsDoor ? { ...r, shut: { reason: ONE_VERSION_REASON } } : r));
   const plus = usePlus(threadId ?? '');
   // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
   // answer — the (+) is shut; a tap says which and jumps to it.
@@ -239,7 +280,19 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     items.push(
       <li key={row.key} data-thread-tool-row={row.key}>
         {row.href ? (
-          <Link href={row.href} className={`sn-press ${rowClass}`} onClick={() => setOpen(false)}>
+          <Link
+            href={row.href}
+            className={`sn-press ${rowClass}`}
+            onClick={(e) => {
+              // A new tab / window keeps the browser's own way; this tab waits for the sheet's step back (CHAT-20).
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              const href = row.href!;
+              const holds = Boolean(layerHolder(window.history.state));
+              setOpen(false);
+              afterSheetStepsBack(() => router.push(href), holds);
+            }}
+          >
             {lead}
             {words}
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
@@ -252,17 +305,27 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
               if (row.act === 'versions') {
                 // The shipped versions sheet on the live quote's card (`quote-versions-sheet.tsx`) — the one place
                 // every version is listed. Only drawn once a second version exists; until then, say so.
+                // CHAT-20: pressed only after the sheet's own history entry is gone, or the step back closed it again.
+                const holds = Boolean(layerHolder(window.history.state));
                 setOpen(false);
-                const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
-                if (door) window.setTimeout(() => door.click(), 0);
-                else if (threadId) patchPlus(threadId, { toast: { text: 'One version so far — a change or an accepted counter makes the next', at: Date.now() } });
+                afterSheetStepsBack(() => {
+                  const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
+                  if (door) door.click();
+                  else if (threadId) patchPlus(threadId, { toast: { text: ONE_VERSION_REASON, at: Date.now() } });
+                }, holds);
                 return;
               }
               if (row.card && threadId) {
+                const holds = Boolean(layerHolder(window.history.state));
                 setOpen(false);
                 patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
                 // ⤴ A poll or decision rises full screen (CHAT-09) — the chat under it stays where it was.
-                if (!RISING_DRAFTS.has(row.card)) window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                if (!RISING_DRAFTS.has(row.card)) {
+                  window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                  // 📍 CHAT-25: the sheet's step back is a history traversal, and the browser restores the PAGE's scroll
+                  // on it — which put the couple's new card back below the screen. Jump again once it has settled.
+                  afterSheetStepsBack(() => jumpTo(PLUS_DRAFT_ANCHOR), holds);
+                }
                 return;
               }
               if (row.attach) {
@@ -271,10 +334,11 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
                 setOpen(false);
                 return;
               }
+              const holds = Boolean(layerHolder(window.history.state));
               setOpen(false);
-              // After the sheet has gone, so the opened panel is what they are looking at.
+              // After the sheet has gone — and its history step with it (CHAT-20) — so the opened panel stays open.
               const reveal = row.reveal;
-              if (reveal) window.setTimeout(() => revealThreadTool(reveal), 0);
+              if (reveal) afterSheetStepsBack(() => revealThreadTool(reveal), holds);
             }}
           >
             {lead}
@@ -420,7 +484,7 @@ export function ThreadToolsSheet({
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote }), 'vendor', eventId, state.hasAgreement);
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement }), 'vendor', eventId, state.hasAgreement);
   return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
 }
 
@@ -433,17 +497,20 @@ export function CoupleThreadToolsSheet({
   eventId,
   threadId,
   canLogPayment = true,
+  booked = false,
 }: {
   dealReveal?: readonly string[] | null;
   eventId: string;
   threadId?: string;
   canLogPayment?: boolean;
+  /** 🔒 CHAT-19: booked at the accepted quote — "Counter with a price" is drawn shut with its reason (`hostPlusRows`). */
+  booked?: boolean;
 }) {
   // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
   // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
   const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen }), 'couple', eventId, true).map((r) =>
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, true).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;

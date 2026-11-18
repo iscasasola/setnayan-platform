@@ -6,7 +6,7 @@ import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { SupplierTodayFirstScreen, type TodayOutcome } from './supplier-today-first-screen';
 import { TodayCover } from './today-cover';
-import { TodayStats } from './today-stats';
+import { TodayStats, TodayShopMinis } from './today-stats';
 
 type Act = (formData: FormData) => void | Promise<void>;
 
@@ -134,6 +134,7 @@ export function SupplierTodayScreen({
           ) : null
         }
         thumb={thumb}
+        minis={<TodayShopMinis stats={view.stats} />}
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
         // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
         // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".

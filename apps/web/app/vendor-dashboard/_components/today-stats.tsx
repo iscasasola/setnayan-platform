@@ -99,3 +99,36 @@ export function TodayStatsPinned({ stats }: { stats: Stats }) {
     </nav>
   );
 }
+
+/** The side pane's three small cards, in the drawing's words (`.minis`: Opened · Asked · Booked). */
+const MINI_WORDS = { views: 'Opened', inquiries: 'Asked', booked: 'Booked' } as const;
+
+/**
+ * 🖥 THE SHOP BLOCK'S THREE SMALL CARDS (owner 17 Nov, approved pick 2; P1 drawing `supplier_desktop_main_2026-11-16`,
+ * `.minis`) — Opened · Asked · Booked, each opening How is business. Built from the SAME stats Today already read (no new
+ * request), so a figure that could not be read says "couldn’t load", never 0. The drawing's week-on-week change and
+ * the little bars need the analytics series, which Today does not read — they wait for the owner's word on one more
+ * read (STATUS, owner row).
+ */
+export function TodayShopMinis({ stats }: { stats: Stats }) {
+  const cards = todayStatsOf(stats).filter((s): s is Stat & { id: keyof typeof MINI_WORDS } => s.id in MINI_WORDS);
+  return (
+    <ul data-today-minis="" className="grid grid-cols-3 gap-2 px-1 pb-2">
+      {cards.map((s) => (
+        <li key={s.id} className="min-w-0">
+          <Link
+            href="/vendor-dashboard/shop#analytics"
+            data-today-mini={s.id}
+            className="flex min-h-[72px] flex-col justify-center rounded-2xl bg-[var(--surface-soft)] px-3 py-2"
+          >
+            <span className="text-[12px] leading-tight text-ink/60">{MINI_WORDS[s.id]}</span>
+            <span className="text-[20px] font-semibold leading-tight text-ink">{s.figure ?? '—'}</span>
+            <span className={`truncate text-[11.5px] leading-tight ${s.line === UNREAD ? 'text-[rgb(var(--color-danger))]' : 'text-ink/55'}`}>
+              {s.line}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}

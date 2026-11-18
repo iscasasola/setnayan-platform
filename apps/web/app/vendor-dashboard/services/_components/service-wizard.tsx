@@ -307,9 +307,9 @@ export function ServiceWizard({
           category={categoryValue}
           defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
         />
-        <details className="border-t border-[color:var(--m-line)] pt-2">
+        <details className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-3">
           <summary className="flex min-h-11 cursor-pointer items-center text-[15px] font-semibold text-ink">Pricing rules (advanced) — optional</summary>
-          <div className="mt-2 space-y-3">
+          <div className="mt-3 space-y-3">
             <p className="text-[13px] text-[color:var(--m-slate-2)]">
               Starting points the platform uses — the real numbers are set in each couple&rsquo;s inquiry. Skip these and you can still publish.
             </p>
@@ -419,7 +419,7 @@ export function ServiceWizard({
       {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
-        <dl className="border-y border-[color:var(--m-line)] text-[15px] [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
+        <dl className="space-y-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4 text-[15px]">
           <Recap k="Category" v={categoryLabel} />
           <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}

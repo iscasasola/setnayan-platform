@@ -277,7 +277,6 @@
   "app/v/[slug]/booth/booth-showcase-client.tsx": 9,
   "app/v/[slug]/booth/booth-showcase-loader.tsx": 1,
   "app/v/[slug]/booth/page.tsx": 3,
-  "app/vendor-dashboard/_components/branch-manager.tsx": 1,
   "app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx": 7,
   "app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx": 4,
   "app/vendor-dashboard/on-the-day/page.tsx": 2,

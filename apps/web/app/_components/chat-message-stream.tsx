@@ -91,9 +91,9 @@ import {
 import { ChatPins } from './chat/chat-pins';
 import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
 import { PlusDraft } from './chat/plus-draft';
-import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
+import { MONEY_STEP_ANCHOR, pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
 import { HOSTS_ONLY } from '@/lib/money-mask';
-import { RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
+import { PLUS_CARD_TITLE, RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
@@ -1224,7 +1224,8 @@ export function ChatMessageStream({
     ? {
         key: 'draft',
         card: plusState.draft.kind,
-        title: plusState.draft.kind === 'meeting' ? 'Meeting' : plusState.draft.kind[0]!.toUpperCase() + plusState.draft.kind.slice(1),
+        // 🏷 CHAT-26 (walk 16 Nov 2026): the card's own title, never its kind capitalised ("Logpay").
+        title: PLUS_CARD_TITLE[plusState.draft.kind],
         by: 'you',
         status: 'draft',
         anchorId: PLUS_DRAFT_ANCHOR,
@@ -2149,7 +2150,8 @@ export function ChatMessageStream({
                       card.status === 'accepted' &&
                       bookedStep &&
                       bookedStep.kind !== 'not_booked' ? (
-                        <div className="mt-3 space-y-2 border-t border-terracotta/20 pt-2">
+                        // 💳 The money pins jump here ("Due now · Answer ›", CHAT-27).
+                        <div id={MONEY_STEP_ANCHOR} className="mt-3 scroll-mt-3 space-y-2 border-t border-terracotta/20 pt-2">
                           <p className="text-sm font-medium text-ink">
                             {moneyStepLine(bookedStep, viewerRole, counterpartyLabel)}
                           </p>

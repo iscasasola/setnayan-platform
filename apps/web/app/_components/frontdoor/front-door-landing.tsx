@@ -32,7 +32,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 
 import { marketingPhoto } from '@/lib/front-page-photos';
-import { eventTypePhotoSrc, type EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, eventTypeRepoPhotoSrc, eventTypeSmallPhotoSrc, type EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { readSampleEvent, readSampleGuest, SAMPLE_EVENT_ID } from '@/lib/sample-event/snapshot';
 import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event/hub';
 import { marchOrdinal } from '@/lib/march-place';
@@ -183,7 +183,17 @@ function EventTypeStrip({ types, reverse }: { types: readonly EventTypeTile[]; r
   const tile = (t: EventTypeTile, dup: boolean) => (
     <figure className={dup ? 'fl-et fl-et-dup' : 'fl-et'} key={`${dup ? 'b' : 'a'}-${t.key}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={t.photo} alt="" loading="lazy" decoding="async" width={880} height={1100} />
+      {/* ⚡ The tile is 150 CSS px wide: a repo photo gets its 330-px copy (~24 KB, not ~170 KB). An admin upload keeps its own URL. */}
+      <img
+        src={t.photo}
+        srcSet={t.photo === eventTypeRepoPhotoSrc(t.key) ? `${eventTypeSmallPhotoSrc(t.key)} 330w, ${t.photo} 880w` : undefined}
+        sizes="150px"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        width={880}
+        height={1100}
+      />
       <figcaption>{t.label}</figcaption>
     </figure>
   );

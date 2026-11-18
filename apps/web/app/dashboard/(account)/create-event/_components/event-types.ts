@@ -106,6 +106,11 @@ export function eventTypeRepoPhotoSrc(key: string): string {
   return `/event-types/${key}.webp?v=${EVENT_TYPE_PHOTO_VERSION}`;
 }
 
+/** The 330-px copy of a repo photo (`public/event-types/sm/`) — for tiles drawn ~150 px wide. Same picture, same 4:5. */
+export function eventTypeSmallPhotoSrc(key: string): string {
+  return `/event-types/sm/${key}.webp?v=${EVENT_TYPE_PHOTO_VERSION}`;
+}
+
 /** Hero-photo resolution shared by both pickers: admin upload → repo asset. */
 export function eventTypePhotoSrc(t: Pick<EventTypeRow, 'key' | 'heroPhotoUrl'>): string {
   return t.heroPhotoUrl ?? eventTypeRepoPhotoSrc(t.key);

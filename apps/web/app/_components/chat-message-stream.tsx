@@ -125,6 +125,8 @@ import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, typ
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
+import { WHISPER_TYPING_WINDOW_EVENT, isWhisperLine, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
+import { readWhisper, sendWhisperTyping, subscribeWhisper } from '@/app/_components/chat/whisper-mode';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
@@ -218,6 +220,12 @@ type Props = {
    * fails to load → the initials, as before.
    */
   shopLogoUrl?: string | null;
+  /**
+   * 🤫 The host's side only (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the OTHER hosts in this chat now
+   * (`chat_thread_members`, the viewer and any shop login left out — the list a whisper is written to). A private line
+   * whose people are exactly them wears "Whisper · co-hosts only"; absent or empty → no line is ever drawn as a whisper.
+   */
+  whisperCoHostIds?: readonly string[] | null;
   /**
    * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
    * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
@@ -484,6 +492,7 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  whisperCoHostIds,
   shopLogoUrl = null,
   shopLabel = null,
   memberAdd = null,
@@ -713,6 +722,13 @@ export function ChatMessageStream({
     if (h) return hostFirstName(h);
     return senderNames[userId] ?? counterpartyLabel;
   };
+  // 🤫 A whispering co-host's name: a host's first name, else the name the receipts read — never the SHOP's label
+  // (`personName`'s last word), which would say the supplier is whispering.
+  const whisperName = (userId: string): string => {
+    const h = hostById.get(userId);
+    if (h) return hostFirstName(h);
+    return senderNames[userId] ?? 'A co-host';
+  };
   /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
   const [pendings, setPendings] = useState<PendingSend[]>([]);
   /* Remember the last messages, so the next open of this thread paints them before the server answers
@@ -722,6 +738,9 @@ export function ChatMessageStream({
     rememberThread(threadId, messages, { viewerRole, uid: currentUserId, label: counterpartyLabel });
   }, [threadId, messages, viewerRole, currentUserId, counterpartyLabel]);
   const [counterpartyTyping, setCounterpartyTyping] = useState(false);
+  // 🤫 Co-hosts typing a WHISPER here — heard on the event team's private channel (never the chat's), so only the
+  // host's side ever holds one. user id → when it lapses (a lost "stopped" still clears).
+  const [whisperers, setWhisperers] = useState<readonly string[]>([]);
 
   // Proposal cards: a message with proposal_id renders as a card. We fetch the
   // proposal's display data (RLS-scoped: couple reads sent proposals on their
@@ -1616,9 +1635,29 @@ export function ChatMessageStream({
   // typing" broadcast so we don't burn presence updates on every letter,
   // and arms an idle timer to flip back to typing=false after 3s of no
   // input.
+  // 🤫 WHILE WHISPERING THE CHAT'S CHANNEL HEARS NOTHING (owner 2026-11-19: "the supplier receives NO presence
+  // event"). `chat-presence-<thread>` is the one the supplier sits on, so a whisperer's typing is never tracked there;
+  // it goes to the co-hosts on the event team's private channel instead (`sendWhisperTyping`).
+  const whisperTypingRef = useRef(false);
+  const tellWhisperTyping = useCallback(
+    (typing: boolean) => {
+      if (whisperTypingRef.current === typing) return;
+      whisperTypingRef.current = typing;
+      sendWhisperTyping({ threadId, userId: currentUserId, typing });
+    },
+    [threadId, currentUserId],
+  );
   const handleLocalTyping = useCallback(() => {
     if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
     if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+
+    if (readWhisper(threadId)) {
+      if (typingActiveRef.current) broadcastTyping(false);
+      typingDebounceRef.current = setTimeout(() => tellWhisperTyping(true), TYPING_DEBOUNCE_MS);
+      typingIdleRef.current = setTimeout(() => tellWhisperTyping(false), TYPING_IDLE_MS);
+      return;
+    }
+    tellWhisperTyping(false);
 
     typingDebounceRef.current = setTimeout(() => {
       if (!typingActiveRef.current) broadcastTyping(true);
@@ -1627,7 +1666,7 @@ export function ChatMessageStream({
     typingIdleRef.current = setTimeout(() => {
       if (typingActiveRef.current) broadcastTyping(false);
     }, TYPING_IDLE_MS);
-  }, [broadcastTyping]);
+  }, [broadcastTyping, tellWhisperTyping, threadId]);
 
   // Called by the send form on submit — explicitly clear the typing flag
   // so the other side doesn't see a stale "still typing…" right after a
@@ -1636,7 +1675,54 @@ export function ChatMessageStream({
     if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
     if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
     if (typingActiveRef.current) broadcastTyping(false);
-  }, [broadcastTyping]);
+    tellWhisperTyping(false);
+  }, [broadcastTyping, tellWhisperTyping]);
+
+  // 🤫 The moment the box changes side, whatever was being said about typing on the OTHER side stops: going to Whisper
+  // takes "is typing…" off the chat's channel at once (words typed before the drag must not keep hinting to the
+  // supplier), and going back to Message ends "is whispering…".
+  useEffect(
+    () =>
+      subscribeWhisper(() => {
+        if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+        if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+        if (readWhisper(threadId)) {
+          if (typingActiveRef.current) broadcastTyping(false);
+        } else {
+          tellWhisperTyping(false);
+        }
+      }),
+    [threadId, broadcastTyping, tellWhisperTyping],
+  );
+
+  // 🤫 "Maria is whispering…" — only on the host's side, only for this thread, and it lapses by itself.
+  useEffect(() => {
+    if (viewerRole !== 'couple') return;
+    const lapse = new Map<string, ReturnType<typeof setTimeout>>();
+    const drop = (userId: string) => {
+      const t = lapse.get(userId);
+      if (t) clearTimeout(t);
+      lapse.delete(userId);
+      setWhisperers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : prev));
+    };
+    const onWhisper = (e: Event) => {
+      const detail = (e as CustomEvent<WhisperTyping>).detail;
+      if (!detail || detail.threadId !== threadId || detail.userId === currentUserId) return;
+      if (!detail.typing) {
+        drop(detail.userId);
+        return;
+      }
+      const was = lapse.get(detail.userId);
+      if (was) clearTimeout(was);
+      lapse.set(detail.userId, setTimeout(() => drop(detail.userId), TYPING_IDLE_MS + TYPING_DEBOUNCE_MS));
+      setWhisperers((prev) => (prev.includes(detail.userId) ? prev : [...prev, detail.userId]));
+    };
+    window.addEventListener(WHISPER_TYPING_WINDOW_EVENT, onWhisper);
+    return () => {
+      window.removeEventListener(WHISPER_TYPING_WINDOW_EVENT, onWhisper);
+      for (const t of lapse.values()) clearTimeout(t);
+    };
+  }, [viewerRole, threadId, currentUserId]);
 
   // Listen for the global "chat-stream:input" / "chat-stream:sent" events
   // dispatched by the surrounding form. This keeps the form a server-action
@@ -2396,6 +2482,8 @@ export function ChatMessageStream({
           // 👥 Several since 12 Nov ("Private · only you, Ana and Miguel"): every OTHER person, the viewer left out.
           const privateWithIds = privateOtherIds(m, currentUserId);
           const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
+          // 🤫 …and a private line to exactly the co-hosts in this chat is a WHISPER: its strip says so, with no lock.
+          const whisper = privateWith !== null && viewerRole === 'couple' && isWhisperLine(m, whisperCoHostIds, currentUserId);
           // 👈 A file its sender removed (2026-11-13): for everyone, both sides draw who and when; for me, only this viewer
           // stops seeing it. The words, if any, stay. A file that left with no line to say who (a refused read) still says
           // a file was removed — never an empty bubble.
@@ -2500,7 +2588,7 @@ export function ChatMessageStream({
                 }}
                 data-chat-heartable=""
                 // Your own file bubble's 75% lives on its swipe (`OwnFileRow`), so the ↺ ring sits right beside it.
-                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
+                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${whisper ? 'overflow-hidden ' : ''}${
                   privateWith !== null
                     ? PRIVATE_BUBBLE_FILL
                     : mine
@@ -2509,7 +2597,7 @@ export function ChatMessageStream({
                 }`}
                 {...(privateWith !== null ? { 'data-chat-private': '' } : {})}
               >
-                <PrivateMark privateWith={privateWith} />
+                <PrivateMark privateWith={privateWith} whisper={whisper} />
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
@@ -2571,7 +2659,7 @@ export function ChatMessageStream({
                   {removedLine}
                 </p>
               ) : null}
-              {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
+              {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} whisper={whisper} /> : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}
@@ -2691,8 +2779,8 @@ export function ChatMessageStream({
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
-          <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.privateTo ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
-            <PrivateMark privateWith={p.privateTo ?? null} />
+          <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.whisper ? 'overflow-hidden ' : ''}${p.privateTo || p.whisper ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+            <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>
@@ -2738,6 +2826,19 @@ export function ChatMessageStream({
               <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)]" />
               <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)] [animation-delay:120ms]" />
               <span className="h-1 w-1 animate-pulse rounded-full bg-[color:var(--m-slate-3)] [animation-delay:240ms]" />
+            </span>
+          </div>
+        </li>
+      ) : null}
+      {/* 🤫 A co-host typing a whisper — sky blue, the host's side only (the supplier is sent no event at all). */}
+      {whisperers.length > 0 ? (
+        <li className="flex justify-start" data-testid="whispering-indicator">
+          <div className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--color-private-tint))] px-3 py-1 text-[13px] font-medium text-[rgb(var(--color-private-text))]">
+            <span>{whisperingLine(whisperers.length === 1 ? whisperName(whisperers[0]!) : 'Co-hosts are')}</span>
+            <span aria-hidden className="ml-1 inline-flex gap-0.5">
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[rgb(var(--color-private))]" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[rgb(var(--color-private))] [animation-delay:var(--sn-m-tap)]" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-[rgb(var(--color-private))] [animation-delay:var(--sn-m-quick)]" />
             </span>
           </div>
         </li>

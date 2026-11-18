@@ -11141,6 +11141,35 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   .sn-composer-box { transition: none; }
 }
 
+/* 🤫 ONE BOX · MESSAGE ⇄ WHISPER (owner 2026-11-19, "MESSAGE ⇄ WHISPER APPROVED"; drawing
+ * `prototypes/chat_send_to_private_2026-11-19.html`; app/_components/chat-send-form.tsx). The ＋ and Send live INSIDE
+ * the one message box. On a host's composer the BOX is dragged right (never Send) to whisper to the co-hosts: it rides
+ * under the thumb and snaps back (`--sn-m-swipe-snap`), its outline and its Send turn sky blue (`--color-private`), and
+ * the ＋ folds away at Quick. Every speed is a motion token; the Send icon's own morph is `whisper-send-icon.tsx`.
+ * `pan-y` leaves the page's up/down scroll to the page and gives the sideways drag to the box.
+ * Reduced motion: the same end states, nothing travels. Held by lib/a-whisper-never-reaches-the-supplier.test.ts. */
+.sn-chat-onebox {
+  transition: box-shadow var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-swipe-snap) var(--sn-m-settle);
+}
+.sn-chat-onebox[data-chat-whisper] { touch-action: pan-y; }
+.sn-chat-onebox[data-chat-dragging] { transition: box-shadow var(--sn-m-move) var(--sn-m-settle); }
+.sn-chat-onebox[data-chat-whisper='on'] { box-shadow: inset 0 0 0 1.5px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on']:focus-within { box-shadow: inset 0 0 0 2px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools,
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools > * {
+  transition-duration: var(--sn-m-quick);
+  transition-timing-function: var(--sn-m-settle);
+}
+.sn-whisper-send,
+.sn-chat-onebox-field { transition: color var(--sn-m-move) var(--sn-m-settle); }
+/* Back to Message: the blue leaves with the line that completes the plane, a Move after the dots have gone. */
+.sn-chat-onebox[data-chat-whisper='off'] .sn-whisper-send { transition-delay: var(--sn-m-move); }
+@media (prefers-reduced-motion: reduce) {
+  .sn-chat-onebox,
+  .sn-whisper-send,
+  .sn-chat-onebox-field { transition: none; }
+}
+
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
  * the component; this only owns the slide. Reduced motion → jump. */
 .meter-fill { transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1), height 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }

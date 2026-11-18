@@ -371,7 +371,7 @@ export default async function CardMakerLabPage({
               {
                 id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
                 name: 'Catering basics',
-                isProposal: true,
+                isProposal: false, // the seed was approved by the owner 18 Nov
                 rows: [
                   { name: 'Type', kind: 'choice', options: ['Buffet', 'Plated'], basis: 'per_pax' },
                   { name: 'Food tasting', kind: 'plain', basis: 'tasting' },

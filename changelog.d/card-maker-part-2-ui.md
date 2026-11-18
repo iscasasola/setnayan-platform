@@ -13,7 +13,13 @@ SPEC IMPACT: None — implements DECISION_LOG 2026-11-17 (bf69604a · 4906a9a8 �
 
 ## 2026-11-18 · feat(card-maker): a new service card opens with its service's basics
 
-Owner, 18 Nov: "make sure all services has basic inclusions. and they are auto uploaded at the beginning". A NEW card on `/vendor-dashboard/services/new/[category]` (also the "Make N cards" path) starts with the lines of its service's first approved template (`startingInclusions` in `lib/included-templates.ts`); the supplier edits, swipes away or adds lines, and nothing is written until Save. An edited card, or one started from another card or a couple's card, keeps its own lines. A draft template is never pre-filled. Not covered: the bare `/vendor-dashboard/services/new` door, where the service is picked on the card and no template is read. Tests in `lib/card-maker-part-2.test.ts` (2 sabotages, both red).
+Owner, 18 Nov: "make sure all services has basic inclusions. and they are auto uploaded at the beginning". A NEW card on `/vendor-dashboard/services/new/[category]` (also the "Make N cards" path) starts with the lines of its service's first approved template (`startingInclusions` in `lib/included-templates.ts`); the supplier edits, swipes away or adds lines, and nothing is written until Save. An edited card, or one started from another card or a couple's card, keeps its own lines. A draft template is never pre-filled. Tests in `lib/card-maker-part-2.test.ts` (2 sabotages, both red).
 
 SPEC IMPACT: None — implements the owner's 18 Nov ruling (relayed by the controller, posted on PRs #7939 and #7950); it reverses the 17 Nov "a new card starts empty" reading.
+
+## 2026-11-18 · feat(card-maker): the bare Add door pre-fills What's included too
+
+Owner, 18 Nov: "pre-fill the bare Add door too". On `/vendor-dashboard/services/new` (and Today's setup sheet) the service is picked on the card, so the maker reads the picked service's templates itself (`lib/included-templates-read.ts`, the supplier's own browser client — the table is readable by every signed-in account; no server action). The list is (re)filled only while untouched — empty, or exactly the last pre-fill (`inclusionsUntouched`) — so switching the service swaps the basics, and typed or swiped-away lines are never written over. A late answer for an earlier pick is dropped; a refused read pre-fills nothing and Load says so. Load › From Setnayan now works on this door too (same read). One mapper for both reads (`toIncludedTemplates`). The card-maker lab's Catering fixture is marked approved, like the seed. Tests in `lib/card-maker-part-2.test.ts` (3 more sabotages, all red); checked in the dev lab at 390 px with a mocked read.
+
+SPEC IMPACT: None — implements the owner's 18 Nov answer on PR #7950.
 

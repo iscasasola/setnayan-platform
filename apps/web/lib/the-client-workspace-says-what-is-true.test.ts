@@ -231,14 +231,14 @@ test('3b · the Payment page says Overdue the same way Details and Chat do (rend
   const step = (seq: number, label: string, amount: number, due: string, state: string) =>
     ({ seq, label, amount_php: amount, due_date: due, amount_kind: 'fixed', percent_bps: null, state });
   const CTX = { eventId: 'e1', vendorProfileId: 'v1', viewerUserId: 'u1', threadId: 't1', eventName: 'Debut 18', stage: 'booked', isBooked: true, feeUnlocked: true, eventVendorId: 'ev1', eventDate: '2027-05-12' };
-  const draw = (todayIso: string | null) =>
+  const draw = (todayIso: string | null, firstDue = '2026-11-13') =>
     text(
       renderToStaticMarkup(
         h(PaymentPage, {
           ctx: CTX as never,
           reservationAcknowledgedAt: null,
           money: {
-            steps: [step(1, 'First payment', 5350, '2026-11-13', 'due'), step(2, 'Final balance', 21400, '2027-04-28', 'due')],
+            steps: [step(1, 'First payment', 5350, firstDue, 'due'), step(2, 'Final balance', 21400, '2027-04-28', 'due')],
             clearedAt: null,
             pending: [],
             ledgerMoney: { rows: [], receivedPhp: 0, expectedPhp: 0 },
@@ -249,7 +249,11 @@ test('3b · the Payment page says Overdue the same way Details and Chat do (rend
       ),
     );
   assert.match(draw('2026-11-17'), /Overdue ₱5,350 · First payment · Was due Nov 13/, 'the Payment page still says Next on a passed day');
-  assert.match(draw(null), /Next ₱5,350 · First payment · Nov 13/, 'anti-vacuity: an unknown today says Next');
+  // Anti-vacuity: a day still ahead says Next. (#7918's plan-row words read the clock themselves, so a passed day says
+  // Overdue even when the page is handed no today — the anti-vacuity uses a day that has not come.)
+  const ahead = draw('2026-11-17', '2099-11-13');
+  assert.match(ahead, /Next ₱5,350 · First payment/, 'anti-vacuity: a day still ahead says Next');
+  assert.doesNotMatch(ahead, /Overdue ₱5,350/, 'anti-vacuity: a day still ahead is not Overdue');
   const page = read(`${CLIENT}/page.tsx`);
   assert.match(page, /unreadableNote: <LedgerUnreadableNote \/>,\s*todayIso: manilaTodayIso\(\),/, 'the page does not hand the Payment page today');
 });

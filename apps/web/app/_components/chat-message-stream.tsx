@@ -1769,7 +1769,7 @@ export function ChatMessageStream({
       {inPicked && filesOpen ? (
         <section ref={filesPanelRef} className="pb-2" aria-label="Files in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
-            <h2 className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+            <h2 className="text-[15px] font-semibold text-ink">
               Files · {files.length} · newest first
             </h2>
             <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
@@ -1953,7 +1953,7 @@ export function ChatMessageStream({
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="whitespace-nowrap text-[12px] font-bold uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]">
+                    <p className="whitespace-nowrap text-[12px] font-medium text-terracotta">
                       📄 Quote{quoteVersion ? ` · version ${quoteVersion.version}` : ''}
                     </p>
                     {quoteState?.badge ? (

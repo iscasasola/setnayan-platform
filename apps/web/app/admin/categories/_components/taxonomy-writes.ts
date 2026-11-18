@@ -771,7 +771,9 @@ export async function setCategoryAvailabilityCore(admin: AdminDb, actorId: strin
   if (!parsed.ok) return parsed;
   if (parsed.value === null) return { ok: false, error: 'Pick one of the seven for the whole category.' };
   const next = parsed.value;
-  const { data: tile } = await admin.from('service_categories').select('id, tier, label_en').eq('id', categoryId).maybeSingle();
+  const { data: tile, error: tileErr } = await admin.from('service_categories').select('id, tier, label_en').eq('id', categoryId).maybeSingle();
+  // A refused read is not "not found" — say it failed, so the admin retries instead of doubting the category.
+  if (tileErr) return { ok: false, error: `Couldn't read this category just now (${tileErr.message}) — try again.` };
   const t = tile as { id: string; tier: number; label_en: string | null } | null;
   if (!t || t.tier !== 2) return { ok: false, error: 'Category not found.' };
   const { data, error: readErr } = await admin
@@ -782,20 +784,26 @@ export async function setCategoryAvailabilityCore(admin: AdminDb, actorId: strin
   const rows = ((data ?? []) as Array<{ canonical_service: string; availability_style: string | null; merged_into: string | null }>).filter((r) => !r.merged_into);
   if (rows.length === 0) return { ok: false, error: 'This category has no services yet.' };
   const changed: Array<{ canonical_service: string; was: string | null }> = [];
+  const auditChanged = () =>
+    audit(admin, {
+      action: 'taxonomy.set_category_availability',
+      target_table: 'canonical_service_taxonomy',
+      target_id: categoryId,
+      before_json: { services: changed },
+      after_json: { availability_style: next, services: changed.map((c) => c.canonical_service) },
+      actor_user_id: actorId,
+    });
   for (const r of rows) {
     if ((r.availability_style ?? null) === next) continue;
     const { error } = await admin.from('canonical_service_taxonomy').update({ availability_style: next, updated_at: now() }).eq('canonical_service', r.canonical_service);
-    if (error) return { ok: false, error: `${error.message} — ${changed.length} of ${rows.length} were saved before it stopped.` };
+    if (error) {
+      // The services already written stay written: audit them before reporting the stop, never leave a change unlogged.
+      if (changed.length > 0) await auditChanged();
+      return { ok: false, error: `${error.message} — ${changed.length} of ${rows.length} were saved before it stopped. Reload to see them.` };
+    }
     changed.push({ canonical_service: r.canonical_service, was: r.availability_style });
   }
   if (changed.length === 0) return { ok: true, message: 'No change.' };
-  await audit(admin, {
-    action: 'taxonomy.set_category_availability',
-    target_table: 'canonical_service_taxonomy',
-    target_id: categoryId,
-    before_json: { services: changed },
-    after_json: { availability_style: next, services: changed.map((c) => c.canonical_service) },
-    actor_user_id: actorId,
-  });
+  await auditChanged();
   return { ok: true, message: `Saved — ${availabilityName(next)} for all ${rows.length} services in ${t.label_en ?? categoryId}.` };
 }

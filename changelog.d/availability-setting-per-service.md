@@ -10,3 +10,8 @@ Owner go, 18 Nov: *"okay step 2"*. Admin-only — nothing a supplier or a couple
 - **Tests.** `lib/availability-styles.test.ts` (the CHECK in every migration vs the code list — sabotage-checked), `lib/taxonomy-read-is-honest.test.ts`, `tests/db/a-service-books-by-one-availability-style.db.test.ts` (real cores on the replayed schema: no seed, CHECK, bad value, non-admin, combined, whole category, new service). `flows.test.ts` pins the add-service call's new shape. Ugat: `availability_style` on the Taxonomy node; screens map regenerated.
 
 SPEC IMPACT: `DECISION_LOG.md` — new 2026-11-18 row "EVERY SERVICE BOOKS BY ONE OF SEVEN AVAILABILITY STYLES" (the seven labels and this field), pushed to the specs repo (`a2b56057`).
+
+### Opus review fixes (2026-11-18, wave 4)
+- "Set for all N services": a failed category read now says "Couldn't read this category just now". Before, it said "Category not found."
+- When a bulk set stops part-way, the services it already changed are audited before the error is reported, and the message says how many were saved.
+- What the database enforces: **at most one** Availability per service, because it is one column on the one-row-per-service `canonical_service_taxonomy` (PK `canonical_service`), and only the seven values (CHECK). Empty (NULL = "Not set") is allowed on purpose, because nothing is seeded (the per-category list is an unreviewed proposal).

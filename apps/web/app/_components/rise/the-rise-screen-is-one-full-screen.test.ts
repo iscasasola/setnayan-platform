@@ -11,7 +11,7 @@
  *   3 · WHAT IT IS — a full-screen modal on the pop layer token, drawn on <body>; the bars step away (`useChromeAway`);
  *       the house modal contract (`useModalA11y`: focus, Esc, the page held and put back on the same pixel); the phone's
  *       Back closes it (`useBackCloses`); the close plays the SAME frames in reverse; a tab re-tap still reaches the top.
- *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton rise` (rendered:
+ *   4 · ONE PART — no other file draws a `data-rise-screen`; every ⚙ rises through `MenuSettingsButton` (rendered:
  *       the risen frame, never the sheet), every other ⚙ keeps its sheet byte-for-byte.
  *   5 · THE SHOP TAB MAP — ⚙ · Logo · Share · Promote · QR · Cover · View shop · each Analytics card · each Badge open the
  *       ONE `RiseScreen` BELOW 701 (a phone); none of those files draws a popup `<Sheet` itself; View shop stays in the

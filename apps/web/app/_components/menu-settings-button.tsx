@@ -35,9 +35,9 @@
  * The head carries the ONE save seat (`state`, drawn in the head's action slot — `SettingsSaveState`) and the foot the
  * ONE waiting bar (`thumb` — `SettingsDraftBar`), both passed straight through to `RiseScreen`.
  *   · `inLayer` — the ONE exception, and it is named debt: the supplier's picked client is ALREADY a risen layer, and the
- *     prototype has its ⚙ swap the body in place there (RiseScreen is one level, never a second screen on top). Until
- *     that swap lands, the picked client keeps the sheet. `every-menu-has-one-settings-button.test.ts` holds it to that
- *     one caller.
+ *     prototype has its ⚙ swap the body in place there (RiseScreen is one level, never a second screen on top). Since main
+ *     bf8998a1 (17 Nov) the picked client's ⚙ rises like the rest, so `inLayer` has NO caller today; it is kept for that
+ *     in-place swap. `lib/settings-v2-one-shell.test.ts` (1) holds it at zero callers.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';

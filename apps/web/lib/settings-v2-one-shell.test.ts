@@ -107,3 +107,17 @@ test('(5) the save seat: quiet at rest, Saving…, Saved ✓, Not saved', async 
   assert.match(say('failed'), />Not saved</);
   assert.match(read('lib/help/settings-shell.ts'), /slug: 'how-settings-open-and-save'/);
 });
+
+test('(6) the help answer promises the doors only where they ship — the supplier’s short screens, never a couple’s', async () => {
+  const { SETTINGS_SHELL_TOPICS } = await import('./help/settings-shell');
+  for (const topic of SETTINGS_SHELL_TOPICS) {
+    if (!topic.roles.includes('couple')) continue;
+    for (const a of topic.articles) {
+      for (const sentence of a.body.split(/(?<=\.)\s+/)) {
+        if (/links to your other settings/i.test(sentence)) {
+          assert.match(sentence, /\bsupplier\b/i, `"${sentence}" tells a couple their short settings screens end with doors — only the supplier's do`);
+        }
+      }
+    }
+  }
+});

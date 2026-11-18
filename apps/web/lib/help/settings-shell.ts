@@ -17,7 +17,7 @@ export const SETTINGS_SHELL_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-settings-open-and-save',
         title: 'How do settings open and save?',
-        body: 'Tap ⚙ on any page and that page’s settings open as one full screen. The top shows what you are in, and ⓘ says what the screen is for. A switch saves the moment you tap it. To go back, tap ✕ or use your phone’s Back. A short settings screen ends with links to your other settings.',
+        body: 'Tap ⚙ on any page and that page’s settings open as one full screen. The top shows what you are in, and ⓘ says what the screen is for. A switch saves the moment you tap it. To go back, tap ✕ or use your phone’s Back. A short supplier settings screen ends with links to your other settings.',
       },
     ],
   },

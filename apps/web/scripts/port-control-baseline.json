@@ -130,6 +130,48 @@
         "RevealList"
       ]
     },
+    "/(shell)/articles/(list)": {
+      "files": [
+        "(shell)/articles/(list)/loading.tsx",
+        "(shell)/articles/(list)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ArticlesFeedView"
+      ]
+    },
+    "/(shell)/articles/[slug]": {
+      "files": [
+        "(shell)/articles/[slug]/article-view.tsx",
+        "(shell)/articles/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Article",
+        "ArticleParagraph",
+        "ArticleView",
+        "BackButton",
+        "BylineName",
+        "LinkCardView",
+        "Metadata",
+        "ReplyBox",
+        "ReportPageButton",
+        "TagChips"
+      ]
+    },
+    "/(shell)/articles/write": {
+      "files": [
+        "(shell)/articles/write/loading.tsx",
+        "(shell)/articles/write/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "WriteSheet"
+      ]
+    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",

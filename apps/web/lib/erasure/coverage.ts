@@ -1061,6 +1061,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     why: 'CASCADE + NOT NULL. A creator chapter is the subject’s own body of work on the platform.',
   },
   {
+    table: 'creator_chapter_replies',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL. A reply under an article (Build 2, 2026-11-17) is the subject’s own words; it goes with the account. The article it answered stays, its other replies stay.',
+  },
+  {
     table: 'lead_token_holds',
     column: 'holder_user_id',
     why: 'CASCADE + NOT NULL. A hold the subject personally placed; it expires on its own and holds no counterparty record.',

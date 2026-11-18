@@ -73,9 +73,14 @@ async function seedChapter(
 }
 
 /** How many of these chapters can `role` SELECT right now? */
+// Scoped to THIS TEST'S author's rows. Since 2026-11-17 (migrations 20271350349649 + 20271350850404) the
+// replay also holds the Setnayan Journal (91 published articles, readable by anyone by ruling), and a
+// read of "every chapter" would count them. Scoping to the author keeps every assertion exactly as strict about
+// the three chapters this file seeds — a leak of the event-only one still fails.
 async function visibleTitles(): Promise<string[]> {
   const r = await db.query<{ title: string }>(
-    `SELECT title FROM public.creator_chapters ORDER BY title`,
+    `SELECT title FROM public.creator_chapters WHERE user_id = $1 ORDER BY title`,
+    [author],
   );
   return r.rows.map((x) => x.title);
 }
@@ -163,7 +168,8 @@ test('the PUBLIC read path — status = published — returns only the public on
   // The exact predicate lib/creator-public.ts and nine other places use.
   await asTheServer();
   const r = await db.query<{ title: string }>(
-    `SELECT title FROM public.creator_chapters WHERE status = 'published' ORDER BY title`,
+    `SELECT title FROM public.creator_chapters WHERE status = 'published' AND user_id = $1 ORDER BY title`,
+    [author],
   );
   assert.deepEqual(
     r.rows.map((x) => x.title),

@@ -71,8 +71,9 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/sign-in', '/login'],
   // 🗞✂ THE BLOG AND REAL STORIES ARE RETIRED (owner 2026-11-16) — whole subtrees; the supplier stub with them.
   ['/vendor-dashboard/real-stories', '/vendor-dashboard'],
-  ['/blog', '/features'],
-  ['/blog/how-to-plan-a-wedding-in-tagaytay', '/features'],
+  // 📰 2026-11-17: the Journal moved into Articles — each post forwards to its own article, not /features.
+  ['/blog', '/articles'],
+  ['/blog/wedding-budget-breakdown-philippines', '/articles/wedding-budget-breakdown-philippines'],
   ['/realstories', '/'],
   ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/'],
 ];
@@ -158,8 +159,16 @@ test('the Studio’s old deep links keep their query, so they land on the same t
 });
 
 test('🗞✂ the retired blog and Real Stories forward at every depth, but their sample MEDIA is never forwarded', () => {
-  assert.equal(legacyRedirectTarget('/blog/'), '/features');
-  assert.equal(legacyRedirectTarget('/blog/a/b', '?utm_source=x'), '/features');
+  assert.equal(legacyRedirectTarget('/blog/'), '/articles');
+  assert.equal(legacyRedirectTarget('/blog/a/b', '?utm_source=x'), '/articles', 'an unknown address goes to the list, never a 404');
+  assert.equal(legacyRedirectTarget('/blog/how-to-plan-a-wedding-in-tagaytay'), '/articles', 'never a Journal post');
+  // A renamed post (2026-11-17 audit) lands on its NEW address.
+  assert.equal(
+    legacyRedirectTarget('/blog/free-wedding-website-how-it-helps'),
+    '/articles/free-event-hub-how-it-helps',
+  );
+  // The printable planner a moved post links to is a FILE under public/blog/ — never forwarded.
+  assert.equal(legacyRedirectTarget('/blog/setnayan-wedding-checklist.pdf'), null);
   assert.equal(legacyRedirectTarget('/realstories/'), '/');
   assert.equal(legacyRedirectTarget('/realstories/a-wedding-in-cavite/'), '/');
   // public/realstories/ still holds the photos and clips other screens show — a file is never a page.

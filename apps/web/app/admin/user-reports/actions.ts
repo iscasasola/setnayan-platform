@@ -12,7 +12,6 @@ import { deletePageCopyAfterTakedown } from '@/lib/supplier-page-notice.server';
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
-import { CHAPTER_HIDE_NOTE } from '@/lib/articles-index';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
 //   · hidden     — hide the reported photo (papic_photos OR papic_guest_captures
@@ -98,21 +97,38 @@ export async function resolveReport(formData: FormData) {
   }
 
   if (action === 'hide' && report.target_type === 'chapter') {
-    await admin
+    /*
+      📰 2026-11-17 (Build 2, Q6 "Report takes one down"): a chapter is now also an ARTICLE at
+      /articles/{slug}, readable by anyone. Unfeaturing alone would leave a reported article standing on
+      the public feed, so the hide also takes it DOWN (`removed_at`) — it leaves the public read, the
+      feed and the article sitemap. Its author still sees it in their own chapters.
+    */
+    const { error: hideError } = await admin
       .from('creator_chapters')
       .update({
         showcase_featured_at: null,
         showcase_feature_rank: null,
+        removed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('public_id', report.target_id as string);
+    if (hideError) throw new Error(hideError.message);
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('stories');
-    // 🔎 A HIDDEN ARTICLE LEAVES GOOGLE AND AI ANSWERS TOO (owner 17 Nov): its page turns noindex and it leaves
-    // sitemap-articles.xml, Discover and llms.txt — all of them read this report's note (lib/articles-index.ts
-    // `hiddenChapterIds`). Refresh the two crawler files now rather than at their hourly revalidate.
+    // 🔎 A HIDDEN ARTICLE LEAVES GOOGLE AND AI ANSWERS TOO (owner 17 Nov): hide sets `removed_at`, so the article
+    // leaves its page, sitemap-articles.xml, Discover and llms.txt — every read filters `removed_at is null`
+    // (lib/articles.server.ts). Refresh the two crawler files now rather than at their hourly revalidate.
     revalidatePath('/sitemap-articles.xml');
     revalidatePath('/llms.txt');
+  }
+
+  // 📰 A reply under an article (Build 2): hide = take that reply down. It leaves the public read at once.
+  if (action === 'hide' && report.target_type === 'chapter_reply') {
+    const { error: hideError } = await admin
+      .from('creator_chapter_replies')
+      .update({ removed_at: new Date().toISOString() })
+      .eq('reply_id', report.target_id as string);
+    if (hideError) throw new Error(hideError.message);
   }
 
   if (action === 'block') {
@@ -181,14 +197,14 @@ export async function resolveReport(formData: FormData) {
     );
   }
 
-  // A chapter "hide" unfeatures it AND takes it off Discover, the sitemap and
-  // search engines (the content stays on the creator's own page) — say so
-  // honestly in the resolution note, which is also what marks it hidden
-  // (CHAPTER_HIDE_NOTE, lib/articles-index.ts). A photo
+  // A chapter "hide" takes it down (`removed_at`): off the articles, Discover,
+  // the sitemap and search engines — say so honestly in the resolution note. A photo
   // "hide" that found no photograph says THAT, never "Content hidden".
   const actionNote =
     action === 'hide' && report.target_type === 'chapter'
-      ? CHAPTER_HIDE_NOTE
+      ? 'Taken down by a Setnayan moderator: off the articles and the Storytellers shelf (the author still sees it).'
+      : action === 'hide' && report.target_type === 'chapter_reply'
+        ? 'Reply taken down by a Setnayan moderator.'
       : action === 'hide' && report.target_type === 'photo' && !hiddenIn
         ? 'Nothing hidden — the reported photo was not found in this event.'
         : ACTION_NOTE[action];

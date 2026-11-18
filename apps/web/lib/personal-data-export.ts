@@ -911,6 +911,7 @@ export async function buildPersonalDataExport(
     eventTypeSignupsRes,
     weddingTypeSignupsRes,
     creatorChaptersRes,
+    articleRepliesRes,
     voucherEligibilityRes,
     cohostRolesRes,
     prepItemsRes,
@@ -1007,8 +1008,15 @@ export async function buildPersonalDataExport(
       .from('creator_chapters')
       .select(
         'public_id, event_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, status, ' +
-          'happened_on, published_at, host_included_at, showcase_featured_at, view_count, created_at, updated_at',
+          'happened_on, published_at, host_included_at, showcase_featured_at, view_count, slug, tags, removed_at, ' +
+          'created_at, updated_at',
       )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // 📰 Replies they wrote under articles (Build 2, 2026-11-17) — their own words, author-scoped.
+    supabase
+      .from('creator_chapter_replies')
+      .select('reply_id, chapter_id, body, removed_at, created_at, updated_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
     // Vouchers an admin made them eligible for (a targeting list they are on).
@@ -1241,6 +1249,7 @@ export async function buildPersonalDataExport(
   const eventTypeSignups = listOutcome('notify_me_signups (event types)', eventTypeSignupsRes, adminUnavailable);
   const weddingTypeSignups = listOutcome('notify_me_signups (wedding types)', weddingTypeSignupsRes);
   const creatorChapters = listOutcome('creator_chapters', creatorChaptersRes);
+  const articleReplies = listOutcome('article_replies', articleRepliesRes);
   const voucherEligibility = listOutcome('vouchers_you_were_offered', voucherEligibilityRes);
   const cohostRoles = listOutcome('cohost_roles', cohostRolesRes);
   const prepItems = listOutcome('prep_items_added', prepItemsRes);
@@ -1389,6 +1398,7 @@ export async function buildPersonalDataExport(
     eventTypeSignups,
     weddingTypeSignups,
     creatorChapters,
+    articleReplies,
     voucherEligibility,
     cohostRoles,
     prepItems,
@@ -1564,6 +1574,8 @@ export async function buildPersonalDataExport(
     // "Tell me when you support my event" sign-ups.
     notify_me_signups: { event_types: eventTypeSignups.rows, wedding_types: weddingTypeSignups.rows },
     creator_chapters: creatorChapters.rows,
+    // Replies they wrote under articles.
+    article_replies: articleReplies.rows,
     vouchers_you_were_offered: voucherEligibility.rows,
     // Co-host and coordinator roles you were given on other people's events.
     cohost_roles: cohostRoles.rows,

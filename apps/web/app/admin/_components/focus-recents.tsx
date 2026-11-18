@@ -48,7 +48,7 @@ export function FocusRecents() {
               <span
                 aria-hidden
                 className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-md"
-                style={{ background: 'var(--sn-sunk, #F4F2EC)', color: 'var(--sn-ink-500)' }}
+                style={{ background: 'var(--m-paper-2)', color: 'var(--sn-ink-500)' }}
               >
                 <History className="h-4 w-4" />
               </span>

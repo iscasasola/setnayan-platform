@@ -5,7 +5,15 @@
  * member_type = 'couple', keyed by the host's AUTH uid (the `sender_user_id` a chat message carries, so a bubble can
  * find its sender's first name). The supplier brief carries the same list as `hosts`; the thread page reads it through
  * the admin client (service_role only). PURE — no I/O here.
+ *
+ * 🪪 CHAT-22 (walk 16 Nov 2026): a STAND-IN is no name. An account whose `display_name` was saved as "Someone —" drew
+ * the couple as "Someone" in the 🔒 private picker and "S—" in the members strip — the RPC prefers `display_name`, and
+ * its first name is that column's first word when `first_name` is blank. `realNameOrNull` (RW-64, the one rule) keeps
+ * the stand-in out of both fields here, at the one parser every chat face reads, so the strip, the 🔒 list and the
+ * bubbles fall back to the account's real first name (or the neutral "Host"), never to the placeholder.
  */
+import { realNameOrNull } from './no-name';
+
 export type ChatHost = {
   /** The host's auth uid — equal to `chat_messages.sender_user_id` for their messages. */
   userId: string;
@@ -24,7 +32,10 @@ export function chatHostsFrom(raw: unknown): ChatHost[] | null {
     const o = r as Record<string, unknown>;
     if (typeof o.user_id !== 'string' || o.user_id.length === 0) continue;
     const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-    out.push({ userId: o.user_id, firstName: str(o.first_name), name: str(o.name), role: str(o.role), label: str(o.label) });
+    const person = (v: unknown) => realNameOrNull(typeof v === 'string' ? v : null);
+    const name = person(o.name);
+    const firstName = person(o.first_name) ?? name?.split(' ')[0] ?? null;
+    out.push({ userId: o.user_id, firstName, name: name ?? firstName, role: str(o.role), label: str(o.label) });
   }
   return out;
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
+import { Check, Play, Square } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { FREE_FEE_REASON_MAX } from '@/lib/launch-offer';
 import { saveLaunchOffer, type LaunchOfferActionState } from './actions';
 
@@ -8,12 +10,9 @@ import { saveLaunchOffer, type LaunchOfferActionState } from './actions';
  * The launch offer's numbers and its free-fee window — two small forms on the
  * one page (owner 2026-10-08: "ONE admin page"). Each field is a Form row: its
  * name above, a pill box, the plain-words answer under the main button
- * (INTERACTION_RULES § 9). The main button is terracotta.
+ * (INTERACTION_RULES § 9). The main button is terracotta — the house `ActionButton`; its `formName` posts `intent`
+ * (controller, 16 Nov 2026: a form-name apart from the accessible name).
  */
-const MAIN =
-  'inline-flex min-h-[44px] items-center justify-center rounded-full bg-mulberry px-5 text-sm font-semibold text-cream transition hover:bg-mulberry-600';
-const SECOND =
-  'inline-flex min-h-[44px] items-center justify-center rounded-full border border-ink/20 bg-white px-5 text-sm font-semibold text-ink transition hover:border-ink/40';
 const FIELD = 'input-field mt-1 w-full rounded-full text-right tabular-nums';
 
 function Result({ state }: { state: LaunchOfferActionState }) {
@@ -90,18 +89,12 @@ export function LaunchOfferNumbersForm({
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {!enabled && !closed ? (
-          <button type="submit" name="intent" value="start" className={MAIN}>
-            Start the launch offer
-          </button>
+          <ActionButton tone="brand" main icon={Play} type="submit" formName="intent" value="start" label="Start the launch offer" />
         ) : (
-          <button type="submit" name="intent" value="save" className={MAIN}>
-            Save
-          </button>
+          <ActionButton tone="brand" main icon={Check} type="submit" formName="intent" value="save" label="Save" />
         )}
         {enabled && !closed ? (
-          <button type="submit" name="intent" value="close" className={SECOND}>
-            End it now
-          </button>
+          <ActionButton tone="neutral" icon={Square} type="submit" formName="intent" value="close" label="End it now" />
         ) : null}
       </div>
       <div className="mt-2">
@@ -165,9 +158,7 @@ export function FreeFeeWindowForm({ from, until, reason }: { from: string; until
         </label>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button type="submit" className={MAIN}>
-          Save the free-fee window
-        </button>
+        <ActionButton tone="brand" main icon={Check} type="submit" label="Save the free-fee window" />
         <Result state={state} />
       </div>
     </form>

@@ -65,7 +65,7 @@ const PAGE_TITLE = 'Memories — A New Way to Remember · Setnayan';
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
   'Memories brings together everything you create on Setnayan — Papic, Live Watch, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.

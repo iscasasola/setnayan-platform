@@ -115,6 +115,14 @@ export function bareNestingRewrite(
   if (!WORD.test(a) || !WORD.test(b)) return null;
   if (reserved(a.toLowerCase())) return null;
   if (isNotANestedEvent(b) || reserved(b.toLowerCase())) return null;
+  // A deeper address is a nested event only when its third word is one of the event's own pages. Anything else is
+  // not an event page at all — above all a static file under `public/` (`/cipher/glyphs/a.json`,
+  // `/monogram-studio/fonts/x.ttf`), which a rewrite to `/glyphs/a.json` would 404. And `cached` is the internal
+  // Event Hub copy, which the outside never reaches (middleware `isHubViewPath`): nesting must not be a way round it.
+  if (segments.length > 2) {
+    const third = segments[2]!.toLowerCase();
+    if (!EVENT_SUB_ROUTES.has(third) || third === 'cached') return null;
+  }
   return { eventPath: `/${segments.slice(1).join('/')}`, owner: a };
 }
 

@@ -151,7 +151,9 @@ test('6 · the wiring', () => {
   assert.match(mw, /isUserNestingCutoverEnabled\(\) && \(await bareWordIsPerson\(bareShop\.slug\)\)/, 'a stranger’s /{username} no longer reaches the person page');
 
   const page = read('app/[slug]/page.tsx');
-  assert.match(page, /const wrongOwner = viaNesting && askedOwner !== \(ownerSlug \?\? ''\)\.toLowerCase\(\);/, 'a wrong or renamed owner is not sent to the real address');
+  // The wrong/renamed-owner rule now lives in `eventPageForward` (lib/public-event-url.ts), pinned by
+  // the-nested-address-never-loops-or-eats-a-file.test.ts §1.
+  assert.match(page, /eventPageForward\(event\.slug, ownerSlug, viaNesting, askedOwner\)/, 'a wrong or renamed owner is not sent to the real address');
   assert.match(page, /if \(reqHeaders\.get\('x-sn-u-nesting'\) === '1'\) notFound\(\);/, 'a nested word that is no event is drawn as something else');
   assert.match(page, /return AccountProfilePage\(\{ params: Promise\.resolve\(\{ userSlug: slug\.toLowerCase\(\) \}\) \}\);/, '/{username} lost the person page');
 

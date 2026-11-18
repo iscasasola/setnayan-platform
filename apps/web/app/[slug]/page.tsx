@@ -43,6 +43,7 @@ import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolv
 import {
   isUserNestingCutoverEnabled,
   publicEventPath,
+  eventPageForward,
   publicEventUrl,
   resolveEventOwnerSlug,
 } from '@/lib/public-event-url';
@@ -614,8 +615,9 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     const askedOwner = viaNesting ? (reqHeaders.get('x-sn-u-owner') ?? '').toLowerCase() : null;
     if (firstPartyHost && (!viaNesting || askedOwner)) {
       const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
-      const wrongOwner = viaNesting && askedOwner !== (ownerSlug ?? '').toLowerCase();
-      if (event.slug && ((!viaNesting && ownerSlug) || wrongOwner)) {
+      // `eventPageForward` (lib/public-event-url.ts): never forwards a page-word event's bare address to itself.
+      const forwardTo = eventPageForward(event.slug, ownerSlug, viaNesting, askedOwner);
+      if (forwardTo) {
         // Carry the incoming query through the canonicalization redirect — the
         // bare `/{slug}` URL is where server actions + the redeem route land
         // their one-shot params (?save=, ?invite_error=, ?phase=, ?film=) and
@@ -628,7 +630,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           if (typeof v === 'string') qs.set(k, v);
         }
         const q = qs.toString();
-        redirect(`${publicEventPath(event.slug, ownerSlug)}${q ? `?${q}` : ''}`);
+        redirect(`${forwardTo}${q ? `?${q}` : ''}`);
       }
     }
   }

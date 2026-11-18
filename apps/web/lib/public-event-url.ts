@@ -133,6 +133,25 @@ export async function resolveEventOwnerSlug(
 // `/u/` nesting cutover stays flag-dark exactly as before.
 
 /**
+ * 🔗 THE ADDRESS MOVE — where the event page itself forwards (`app/[slug]/page.tsx`), or null to render here.
+ *   · asked at the bare `/{event}` and the event has a nested address → that address;
+ *   · asked as `/{username}/{event}` under the wrong (or an old) username → the real address.
+ * An event whose own word is a page word (`recap`, `welcome`, `seat` …) keeps the bare address, so its bare request
+ * must NOT forward: `publicEventPath` hands back `/{event}` itself and the page would redirect to itself forever.
+ */
+export function eventPageForward(
+  slug: string | null | undefined,
+  ownerSlug: string | null,
+  viaNesting: boolean,
+  askedOwner: string | null,
+): string | null {
+  if (!slug) return null;
+  const target = publicEventPath(slug, ownerSlug);
+  if (viaNesting) return askedOwner !== (ownerSlug ?? '').toLowerCase() ? target : null;
+  return ownerSlug && target !== `/${slug}` ? target : null;
+}
+
+/**
  * 🔗 THE ADDRESS MOVE — where an OLD sub-page link goes (`app/[slug]/layout.tsx`). `/{event}/{page}[?query]` →
  * `/{username}/{event}/{page}[?query]` while the cutover is on and the event's creator has a username; null when
  * there is nothing to forward (the bare page itself, the internal cached copy, no username, the switch off).

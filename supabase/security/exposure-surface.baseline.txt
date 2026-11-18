@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7908
+# facts: 7909
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5690
 #   policy    1160
 #   view      10
-#   func      402
+#   func      403
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7828,6 +7828,7 @@ func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_v
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.shop_gift_pack_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.shop_gift_reward_pack_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_reward_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp

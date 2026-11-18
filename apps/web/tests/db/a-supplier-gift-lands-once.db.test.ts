@@ -682,3 +682,41 @@ test('9 · 🚨 a gift GIVEN before packs were counted (a given row with no pack
   );
   assert.equal(pool, 0, 'credits reached the pool twice');
 });
+
+test('10 · 🏅 badge-reward Papic is kept PER PACK — a Gold reward is one Papic 1000, used only by a Papic 1000 line', async () => {
+  const uG = await newUser('shop-g-gifts@test.test', 'vendor');
+  const shopG = await shopOf(uG, 'Gift Shop G');
+  const k1Credits = await one<number>(`SELECT points AS v FROM public.papic_pass_tiers WHERE service_code = $1`, [P1K]);
+  const g = await one<{ status: string }>(
+    `SELECT public.shop_badge_reward_grant($1, 'gold-probe', 'events', 'papic', 1, $2, NULL) AS v`,
+    [shopG, k1Credits],
+  );
+  assert.equal(g.status, 'granted');
+  const perPack = async (except: string | null = null) =>
+    (
+      await db.query<{ pack_code: string; earned: number; used: number }>(
+        `SELECT pack_code, earned, used FROM public.shop_gift_reward_pack_status($1, $2) ORDER BY pack_code`,
+        [shopG, except],
+      )
+    ).rows.map((r) => [r.pack_code, Number(r.earned), Number(r.used)]);
+  assert.deepEqual(await perPack(), [[P1K, 1, 0]], 'a Gold reward did not land as one Papic 1000');
+
+  // A live quote line of that pack, paid from the reward, uses it; leaving its event out frees it again.
+  const b = await bookingWithQuote(shopG, 'sent', 1, P1K, k1Credits);
+  await db.query(`UPDATE public.vendor_proposal_shop_gifts SET from_badge_reward = TRUE WHERE proposal_id = $1`, [b.proposalId]);
+  assert.deepEqual(await perPack(), [[P1K, 1, 1]]);
+  assert.deepEqual(await perPack(b.eventId), [[P1K, 1, 0]]);
+
+  // No anonymous caller may run it (authenticated + service_role only).
+  await assert.rejects(
+    (async () => {
+      await db.exec('SET ROLE anon');
+      try {
+        await db.query(`SELECT * FROM public.shop_gift_reward_pack_status($1, NULL)`, [shopG]);
+      } finally {
+        await db.exec('RESET ROLE');
+      }
+    })(),
+    /permission denied/,
+  );
+});

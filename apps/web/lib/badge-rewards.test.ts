@@ -480,6 +480,20 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
   it('reward stock never counts for more than is free to offer, and an unread one counts as none', () => {
     assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 }, event_ultra: { earned: 0, used: 0 } }, F(150, 3)), { ...F(150, 0, 0), packs: {} });
     assert.equal(rewardFreeByKind(null, F(150)), null);
+    // 🔢 Per pack: what is left of a pack's reward, never more than that pack's free stock; a used-up pack is absent.
+    assert.deepEqual(
+      rewardFreeByKind(
+        {
+          papic: { earned: 1300, used: 0 },
+          event_plus: { earned: 0, used: 0 },
+          event_pro: { earned: 0, used: 0 },
+          event_ultra: { earned: 0, used: 0 },
+          packs: { PAPIC_GUEST_1K: { earned: 1, used: 0 }, PAPIC_GUEST_150: { earned: 2, used: 2 } },
+        },
+        { ...F(1300), packs: { PAPIC_GUEST_1K: 3, PAPIC_GUEST_150: 4 } },
+      )?.packs,
+      { PAPIC_GUEST_1K: 1 },
+    );
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', null);
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');
   });

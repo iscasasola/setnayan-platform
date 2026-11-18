@@ -264,22 +264,38 @@ export function giftLimitCentavos(totalCentavos: number, schedule: BookingFeeSch
 }
 
 /**
+ * 🏅 A shop's badge-reward stock as read (`fetchShopGiftRewardStock`): per kind (credits for Papic, units for an unlock)
+ * and, for Papic, PER PACK in packs (`shop_gift_reward_pack_status` — Gold pays a Papic 1000, Ruby a Papic 3000).
+ */
+export type ShopGiftRewardStock = Record<ShopGiftKind, { earned: number; used: number }> & {
+  packs?: Readonly<Record<string, { earned: number; used: number }>>;
+};
+
+/**
  * What is left of each kind's BADGE-REWARD stock: earned − used (`shop_gift_reward_stock_status`), never more than
- * what is free to offer at all. Null when either could not be read — then no line is treated as a reward.
+ * what is free to offer at all. Papic is ALSO kept per pack (`packs`, in packs): a reward line draws only on its own
+ * pack, never more than that pack's free stock. Null when either could not be read — then no line is a reward.
  */
 export function rewardFreeByKind(
-  reward: Readonly<Partial<Record<ShopGiftKind, { earned: number; used: number }>>> | null,
+  reward: Readonly<Partial<Record<ShopGiftKind, { earned: number; used: number }>>> & {
+    packs?: Readonly<Record<string, { earned: number; used: number }>>;
+  } | null,
   free: FreeByKind | null,
 ): FreeByKind | null {
   if (!reward || !free) return null;
   // A kind the reader did not answer for counts as no reward (never as stock to hand out).
   const left = (k: ShopGiftKind) => Math.max(0, Math.min(free[k] ?? 0, (reward[k]?.earned ?? 0) - (reward[k]?.used ?? 0)));
+  const packs: Record<string, number> = {};
+  for (const [code, r] of Object.entries(reward.packs ?? {})) {
+    const n = Math.max(0, Math.min(free.packs?.[code] ?? 0, r.earned - r.used));
+    if (n > 0) packs[code] = n;
+  }
   return {
     papic: left('papic'),
     event_plus: left('event_plus'),
     event_pro: left('event_pro'),
     event_ultra: left('event_ultra'),
-    packs: {},
+    packs,
   };
 }
 
@@ -358,24 +374,29 @@ export type QuoteGiftsVerdict = {
  * Which lines the shop's BADGE-REWARD stock pays (owner 2026-11-05: badge rewards sit outside the 40% limit). Whole
  * lines only — a reward never pays part of a pack — and the most valuable lines first, so the exemption covers as much
  * as the reward stock can. `rewardFree` is what is left of each kind's reward stock (never more than the free stock).
+ * 🔢 Papic rewards are PACKS (2026-11-14; Gold = Papic 1000, Ruby = Papic 3000): a Papic line draws ONE pack from the
+ * reward stock of ITS OWN pack (`rewardFree.packs`) — a Papic 1000 reward pays a Papic 1000 line, never six Papic 150s.
  */
-export function allocateRewardLines(
-  lines: readonly ShopGiftPack[],
-  rewardFree: FreeByKind | null,
-  /** 🔢 Badge-reward Papic is ALWAYS packs of the smallest pack (2026-11-14) — only a line of that pack can draw on it. */
-  rewardPackCode: string | null = null,
-): boolean[] {
+export function allocateRewardLines(lines: readonly ShopGiftPack[], rewardFree: FreeByKind | null): boolean[] {
   const left: Record<ShopGiftKind, number> = {
     papic: Math.max(0, rewardFree?.papic ?? 0),
     event_plus: Math.max(0, rewardFree?.event_plus ?? 0),
     event_pro: Math.max(0, rewardFree?.event_pro ?? 0),
     event_ultra: Math.max(0, rewardFree?.event_ultra ?? 0),
   };
+  const packsLeft: Record<string, number> = { ...(rewardFree?.packs ?? {}) };
   const out = lines.map(() => false);
   const order = lines.map((_, i) => i).sort((a, b) => lines[b]!.srpCentavos - lines[a]!.srpCentavos || a - b);
   for (const i of order) {
     const p = lines[i]!;
-    if (p.kind === 'papic' && p.code !== rewardPackCode) continue;
+    if (p.kind === 'papic') {
+      if ((packsLeft[p.code] ?? 0) >= 1 && left.papic >= p.credits) {
+        packsLeft[p.code] = (packsLeft[p.code] ?? 0) - 1;
+        left.papic -= p.credits;
+        out[i] = true;
+      }
+      continue;
+    }
     if (left[p.kind] >= p.credits) {
       left[p.kind] -= p.credits;
       out[i] = true;
@@ -441,7 +462,7 @@ export function judgeQuoteGifts(
   const unlocks = { event_plus: need('event_plus'), event_pro: need('event_pro'), event_ultra: need('event_ultra') };
   const valueCentavos = lines.reduce((s, p) => s + p.srpCentavos, 0);
   const smallest = alwaysAllowedPack(packs);
-  const rewardLines = allocateRewardLines(lines, rewardFree, smallest?.code ?? null);
+  const rewardLines = allocateRewardLines(lines, rewardFree);
   const fromReward = lineOfCode.map((i) => i >= 0 && rewardLines[i] === true);
   const bought = lines.filter((_, i) => !rewardLines[i]);
   const rewardCentavos = valueCentavos - bought.reduce((s, p) => s + p.srpCentavos, 0);

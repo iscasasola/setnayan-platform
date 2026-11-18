@@ -45,7 +45,9 @@
 --      backfilled once below, as are bought / reversal rows and the 'given' rows
 --      whose quote held one pack. A 'given' row left without a pack makes the
 --      door answer 'already' for that event (no gift twice).
---   4. shop_gift_pack_stock_status — the stock per pack: balance and held, in packs.
+--   4. shop_gift_pack_stock_status — the stock per pack: balance and held, in packs;
+--      shop_gift_reward_pack_status — the badge-reward Papic stock per pack (a
+--      reward line draws only on its own pack: Gold = Papic 1000, Ruby = 3000).
 --   5. shop_gift_deliver_for_booking — re-created from its latest body
 --      (20271309169686, still the latest on main); it now gives per pack and
 --      writes pack_code/packs on its 'given' rows, and refuses when THAT pack is short.
@@ -361,6 +363,76 @@ COMMENT ON FUNCTION public.shop_gift_pack_stock_status(UUID, UUID) IS
   'or promised — balance (SUM of packs) and held (packs live quotes promise that the '
   'event has not received). Free to offer = balance − held. p_except_event_id as in '
   'shop_gift_stock_status.';
+
+-- 🏅 The badge-reward Papic stock PER PACK (Gold pays a Papic 1000, Ruby a Papic 3000 — 20271348181787's ladder):
+-- earned = packs of that pack the badge rewards landed (the trigger above names them); used = from_badge_reward quote
+-- lines of that pack that are live or delivered — the SAME liveness test as shop_gift_reward_stock_status, counted in
+-- lines (one line = one pack). A reward line may only draw on its own pack: a Papic 1000 reward is never six Papic
+-- 150s, and a Papic 1000 line may draw on a Papic 1000 reward. SECURITY INVOKER, like its siblings.
+CREATE OR REPLACE FUNCTION public.shop_gift_reward_pack_status(
+  p_vendor_profile_id UUID,
+  p_except_event_id   UUID DEFAULT NULL
+)
+ RETURNS TABLE (pack_code TEXT, earned INTEGER, used INTEGER)
+ LANGUAGE sql
+ STABLE
+ SECURITY INVOKER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+  WITH lines AS (
+    SELECT g.service_code AS pack_code, g.proposal_id, p.event_id, p.status, p.valid_until,
+           EXISTS (
+             SELECT 1 FROM public.shop_gift_stock_entries e
+              WHERE e.vendor_profile_id = p_vendor_profile_id
+                AND e.proposal_id = g.proposal_id
+                AND e.gift_kind = 'papic'
+                AND e.kind = 'given'
+           ) AS delivered
+      FROM public.vendor_proposal_shop_gifts g
+      JOIN public.vendor_proposals p ON p.proposal_id = g.proposal_id
+     WHERE g.vendor_profile_id = p_vendor_profile_id
+       AND g.gift_kind = 'papic'
+       AND g.from_badge_reward
+  ),
+  earned AS (
+    SELECT e.pack_code, SUM(e.packs)::INTEGER AS packs
+      FROM public.shop_gift_stock_entries e
+     WHERE e.vendor_profile_id = p_vendor_profile_id
+       AND e.gift_kind = 'papic'
+       AND e.kind = 'badge_reward'
+       AND e.pack_code IS NOT NULL
+     GROUP BY e.pack_code
+  ),
+  used AS (
+    SELECT l.pack_code, COUNT(*)::INTEGER AS packs
+      FROM lines l
+     WHERE l.delivered
+        OR (
+          l.event_id IS NOT NULL
+          AND (p_except_event_id IS NULL OR l.event_id <> p_except_event_id)
+          AND (
+            l.status = 'accepted'
+            OR (l.status IN ('sent', 'viewed')
+                AND (l.valid_until IS NULL
+                     OR l.valid_until >= (NOW() AT TIME ZONE 'Asia/Manila')::date))
+          )
+        )
+     GROUP BY l.pack_code
+  )
+  SELECT COALESCE(er.pack_code, u.pack_code),
+         COALESCE(er.packs, 0),
+         COALESCE(u.packs, 0)
+    FROM earned er
+    FULL OUTER JOIN used u ON u.pack_code = er.pack_code;
+$function$;
+
+REVOKE ALL ON FUNCTION public.shop_gift_reward_pack_status(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.shop_gift_reward_pack_status(UUID, UUID) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.shop_gift_reward_pack_status(UUID, UUID) IS
+  'A shop''s badge-reward Papic stock PER PACK, in packs: earned (badge_reward rows naming the pack) and used '
+  '(from_badge_reward quote lines of that pack, live or delivered). Free reward of a pack = min(earned − used, '
+  'free packs of it). A reward line draws only on its own pack (Gold = Papic 1000, Ruby = Papic 3000).';
 
 -- ── 5 · the one door, per pack ──────────────────────────────────────────────
 -- Re-created from 20271309169686. 🔢 CHANGED: wanted and given are counted PER

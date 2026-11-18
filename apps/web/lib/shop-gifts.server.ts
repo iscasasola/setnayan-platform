@@ -16,6 +16,7 @@ import {
   judgeQuoteGifts,
   giftCapFor,
   rewardFreeByKind,
+  type ShopGiftRewardStock,
   shopGiftBundlesFrom,
   shopGiftPacksFrom,
   type EventHolds,
@@ -168,16 +169,28 @@ export async function fetchShopGiftRewardStock(
   client: SupabaseClient,
   vendorProfileId: string,
   exceptEventId: string | null = null,
-): Promise<Record<ShopGiftKind, { earned: number; used: number }> | null> {
-  const { data, error } = await client.rpc('shop_gift_reward_stock_status', {
-    p_vendor_profile_id: vendorProfileId,
-    p_except_event_id: exceptEventId,
-  });
-  if (error) {
-    console.error('[supabase-error] shop-gifts: shop_gift_reward_stock_status', error);
+): Promise<ShopGiftRewardStock | null> {
+  // 🏅 Papic rewards are PACKS (Gold = Papic 1000, Ruby = Papic 3000): read per pack beside the per-kind totals.
+  // Either read failing is null — then no line is a reward (the limit applies to everything; never over-give).
+  const [kinds, perPack] = await Promise.all([
+    client.rpc('shop_gift_reward_stock_status', {
+      p_vendor_profile_id: vendorProfileId,
+      p_except_event_id: exceptEventId,
+    }),
+    client.rpc('shop_gift_reward_pack_status', {
+      p_vendor_profile_id: vendorProfileId,
+      p_except_event_id: exceptEventId,
+    }),
+  ]);
+  if (kinds.error) {
+    console.error('[supabase-error] shop-gifts: shop_gift_reward_stock_status', kinds.error);
     return null;
   }
-  const rows = (Array.isArray(data) ? data : [data]) as Array<
+  if (perPack.error) {
+    console.error('[supabase-error] shop-gifts: shop_gift_reward_pack_status', perPack.error);
+    return null;
+  }
+  const rows = (Array.isArray(kinds.data) ? kinds.data : [kinds.data]) as Array<
     { gift_kind?: string; earned?: number | string | null; used?: number | string | null } | null
   >;
   const out = {} as Record<ShopGiftKind, { earned: number; used: number }>;
@@ -188,7 +201,17 @@ export async function fetchShopGiftRewardStock(
     if (!Number.isFinite(earned) || !Number.isFinite(used)) return null;
     out[k] = { earned: Math.trunc(earned), used: Math.trunc(used) };
   }
-  return out;
+  const packs: Record<string, { earned: number; used: number }> = {};
+  for (const r of (Array.isArray(perPack.data) ? perPack.data : perPack.data ? [perPack.data] : []) as Array<
+    { pack_code?: string | null; earned?: number | string | null; used?: number | string | null } | null
+  >) {
+    if (!r?.pack_code) continue;
+    const earned = Number(r.earned ?? 0);
+    const used = Number(r.used ?? 0);
+    if (!Number.isFinite(earned) || !Number.isFinite(used)) return null;
+    packs[r.pack_code] = { earned: Math.trunc(earned), used: Math.trunc(used) };
+  }
+  return { ...out, packs };
 }
 
 /**

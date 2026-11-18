@@ -105,10 +105,10 @@ const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[num
 function rewardChip(
   left: FreeByKind | null | undefined,
   k: ShopGiftKind,
-  /** Papic only: the credits of one pack — the reward stock is kept in credits, shown in packs. */
-  perPack = 1,
+  /** Papic only: the pack's code — the reward stock of THAT pack, in packs (Gold = Papic 1000, Ruby = Papic 3000). */
+  packCode: string | null = null,
 ): { tone: 'ok'; word: string } | null {
-  const n = Math.floor((left?.[k] ?? 0) / Math.max(1, perPack));
+  const n = k === 'papic' ? Math.floor(left?.packs?.[packCode ?? ''] ?? 0) : Math.floor(left?.[k] ?? 0);
   return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
 }
 
@@ -193,7 +193,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               title={r.title}
               line={stock ? stockSubline(s ?? { balance: 0, held: 0 }) : stockSubline(null)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
-              badge={stock && r.smallest ? rewardChip(rewards?.left, 'papic', r.credits) : null}
+              badge={stock ? rewardChip(rewards?.left, 'papic', r.code) : null}
             />
           );
         })}

@@ -181,10 +181,23 @@ describe('🔢 Papic counted in packs (2026-11-14)', () => {
       ['2 × Papic 1000', 'Event Ultra'],
     );
   });
-  it('🏅 a badge reward (Papic 150 packs) pays only lines of the smallest pack', () => {
-    const lines = [PACKS[1]!, PACKS[0]!];
-    const reward = { papic: 1000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} };
-    assert.deepEqual(allocateRewardLines(lines, reward, 'PAPIC_GUEST_150'), [false, true]);
+  it('🏅 a badge reward pays only lines of ITS OWN pack (Gold = Papic 1000, Ruby = Papic 3000)', () => {
+    const [p150, p1k, p3k] = [PACKS[0]!, PACKS[1]!, PACKS[2]!];
+    assert.equal(p150.code, 'PAPIC_GUEST_150');
+    assert.equal(p1k.code, 'PAPIC_GUEST_1K');
+    // A Gold reward (one Papic 1000) pays the Papic 1000 line, not the Papic 150 beside it.
+    const gold = { papic: 1000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_1K: 1 } };
+    assert.deepEqual(allocateRewardLines([p1k, p150], gold), [true, false]);
+    // …and is never six Papic 150s.
+    assert.deepEqual(allocateRewardLines([p150, p150, p150, p150, p150, p150], gold), [false, false, false, false, false, false]);
+    // A Ruby reward (one Papic 3000) pays one Papic 3000 line, once.
+    const ruby = { papic: 3000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 1 } };
+    assert.deepEqual(allocateRewardLines([p3k, p3k, p1k], ruby), [true, false, false]);
+    // Two Papic 150 rewards pay two Papic 150 lines; credits with no pack named pay nothing.
+    const two150 = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_150: 2 } };
+    assert.deepEqual(allocateRewardLines([p150, p150, p150], two150), [true, true, false]);
+    const creditsOnly = { papic: 3000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} };
+    assert.deepEqual(allocateRewardLines([p150, p1k], creditsOnly), [false, false]);
   });
 });
 

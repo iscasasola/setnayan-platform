@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { NAME_CORRECTION_FIELD, adoptDeclinedContactArm, readNameCorrection, withNameCorrection } from '@/lib/rsvp-you-step';
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, splitUnconfirmedSeats, type ExtraSeatRow } from '@/lib/extra-seats';
@@ -1844,7 +1845,7 @@ async function revalidateSupplierPageOf(photoId: string): Promise<void> {
       .eq('photo_id', photoId)
       .maybeSingle();
     const slug = (data as { vendor_profiles?: { business_slug?: string | null } | null } | null)?.vendor_profiles?.business_slug;
-    if (slug) revalidatePath(`/v/${slug}`);
+    if (slug) revalidatePath(`${shopPath(slug)}`);
   } catch (err) {
     console.error('[takedown] could not refresh the supplier page', err);
   }

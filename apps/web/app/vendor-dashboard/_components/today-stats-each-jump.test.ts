@@ -30,7 +30,7 @@ test('1 · five links to five places', () => {
   assert.deepEqual(Object.fromEntries(links), {
     views: '/vendor-dashboard/shop',
     inquiries: '/vendor-dashboard/customers?door=asking',
-    booked: '/vendor-dashboard/customers?door=booked',
+    booked: '/vendor-dashboard/customers?door=booked&within=month',
     portfolio: '/vendor-dashboard/collections',
     money: TODAY_STAT_HREFS.money,
   });

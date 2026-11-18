@@ -92,7 +92,7 @@ export default async function NewDiscountCodePage() {
     <div className="space-y-6">
       {/* Breadcrumb back to list */}
       <Link
-        href="/admin/discount-codes"
+        href="/admin/studio?tab=discount-codes"
         className="inline-flex items-center gap-1 text-sm underline-offset-2 hover:underline"
         style={{ color: 'var(--m-slate)' }}
       >

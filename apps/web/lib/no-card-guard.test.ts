@@ -1,6 +1,11 @@
 /**
- * no-card-guard.test.ts — `lint:no-card` finds cards, spares controls, and
- * ratchets only downward.
+ * no-card-guard.test.ts — `lint:no-card` finds HAND-TYPED FRAMES, spares
+ * controls and the shared frame, and ratchets only downward.
+ *
+ * ✨ Rule rewritten 16 Nov 2026 (clean warm look — DECISION_LOG "THE CLEAN WARM
+ * LOOK IS APPROVED"): a frame is now the lifted white card, drawn by the shared
+ * piece (`.sn-frame` / `.sn-tile` / `.sn-row`, or `bg-frame shadow-sn-frame`).
+ * What counts is a container radius with its OWN border or hand-typed shadow.
  *
  * The matcher and the ratchet are EXECUTED here on fixtures; the repo-wide run
  * is the CI step itself (`Lint no new cards`, wired into the blocking-guards
@@ -31,6 +36,21 @@ test('a bordered, rounded container is a card; its variants are too', () => {
   assert.equal(holdsCard('<section className="p-6 sm:rounded-2xl md:border">'), true);
   assert.equal(holdsCard("cn('rounded-card', '!border', active && 'bg-white')"), true);
   assert.equal(holdsCard('<li className="rounded-tile border bg-white">'), true);
+});
+
+test('a rounded container with a hand-typed shadow is a hand-typed frame (16 Nov)', () => {
+  assert.equal(holdsCard('<div className="rounded-xl bg-white shadow-sm p-4">'), true);
+  assert.equal(holdsCard('<div className="rounded-2xl bg-white shadow">'), true);
+  assert.equal(holdsCard('<div className="rounded-lg shadow-[0_8px_24px_-10px_rgba(30,26,18,.18)]">'), true);
+  assert.equal(holdsCard('<section className="md:rounded-3xl md:shadow-lg">'), true);
+});
+
+test('the shared frame and token lifts are not hand-typed', () => {
+  assert.equal(holdsCard('<div className="sn-frame">'), false);
+  assert.equal(holdsCard('<div className="rounded-xl bg-frame shadow-sn-frame">'), false, 'the frame token');
+  assert.equal(holdsCard('<div className="rounded-xl shadow-m-md">'), false, 'a token lift');
+  assert.equal(holdsCard('<div className="rounded-xl shadow-none">'), false);
+  assert.equal(holdsCard('<span className="rounded-full shadow-sm px-3">'), false, 'a chip radius');
 });
 
 test('a lone border, a lone radius, a side rule or a control radius is not', () => {

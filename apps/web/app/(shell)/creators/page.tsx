@@ -62,11 +62,11 @@ export const metadata: Metadata = {
     siteName: 'Setnayan',
     images: [
       {
-        url: '/brand/og-card.webp',
+        url: '/brand/og-card-2026-11.png',
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Storytellers publish real events as bookable Chapters — free",
-        type: 'image/webp',
+        alt: 'Setnayan · Plan any event free. Every photo in one album.',
+        type: 'image/png',
       },
     ],
   },
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description:
       'Everywhere else, they watch. Here, they book. Chapters are free for storytellers, forever — and your edit stays earning on your own channel.',
-    images: ['/brand/og-card.webp'],
+    images: ['/brand/og-card-2026-11.png'],
   },
 };
 

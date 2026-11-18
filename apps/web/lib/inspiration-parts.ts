@@ -24,7 +24,7 @@
  * read before and no caller changes. The fallback carries `services: null`: its categories are the consts, and
  * the server expands them (`canonicalServicesForSlot`) the way the backfill did.
  */
-import type { WeddingTile } from './taxonomy';
+import { forwardTile, servicesKeptThroughTheMerges, type WeddingTile } from './taxonomy';
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 
 /** One part, as the table holds it. `slotKey` is permanent — the photos carry it. */
@@ -161,13 +161,23 @@ export const INSPIRATION_PART_FALLBACK: Readonly<
   palette: { label: 'Palette', order: 290, hidden: true },
 };
 
+/**
+ * 🔀 THE T1 CATEGORY MERGES (owner 16 Nov 2026, "make the taxonomy go live now"; migration 20271350082350; MERGED_TILES).
+ * `MOODBOARD_SLOT_TRADES` keeps each part's categories AS SEEDED; the fallback forwards a merged one to where it went
+ * (above). A part that touches a merge — the category that went, or the one that took it in — keeps EXACTLY the shops
+ * it had: its services are its seeded categories' services as they were filed before the merge (`mergedFrom`), so
+ * "Entourage & Sponsors" (Women's + Men's Attire) does not hand the Bridesmaids board to every tailor or the Groomsmen
+ * board to every dressmaker. The database keeps these parts' `inspiration_part_services` links unchanged (a service
+ * changing category moves no link), which this reproduces. Every other part: `null`, its categories' expansion.
+ */
 let fallbackMemo: InspirationPartsSnapshot | null = null;
 
 /** The consts as a snapshot — what the table was seeded with, byte for byte. */
 export function fallbackInspirationParts(): InspirationPartsSnapshot {
   if (fallbackMemo) return fallbackMemo;
   const parts: InspirationPart[] = MOODBOARD_SLOT_KEYS.map((slotKey) => {
-    const [home, ...also] = MOODBOARD_SLOT_TRADES[slotKey];
+    const trades = MOODBOARD_SLOT_TRADES[slotKey];
+    const [home, ...also] = [...new Set(trades.map((t) => forwardTile(t)))];
     const f = INSPIRATION_PART_FALLBACK[slotKey];
     return {
       slotKey,
@@ -175,7 +185,7 @@ export function fallbackInspirationParts(): InspirationPartsSnapshot {
       kind: home ? 'part' : 'system',
       homeCategoryId: home ?? null,
       alsoCategoryIds: also,
-      services: null,
+      services: servicesKeptThroughTheMerges(trades),
       hidden: f.hidden === true,
       sortOrder: f.order,
     };

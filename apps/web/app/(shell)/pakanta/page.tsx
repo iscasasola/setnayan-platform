@@ -53,7 +53,7 @@ const PAGE_TITLE = 'Music Maker — Your Wedding’s Own Song · Setnayan';
  *  WITH the brand, which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('pakanta');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

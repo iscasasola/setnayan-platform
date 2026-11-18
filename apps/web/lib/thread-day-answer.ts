@@ -40,8 +40,15 @@ export type ThreadDayTone = 'ok' | 'warn' | 'danger' | 'neutral';
 export function threadDayAnswerOf(input: {
   day: Pick<CustomerCalendarDay, 'state' | 'consumed' | 'capacity'> | null;
   hasSchedule: boolean;
+  /**
+   * 📅 CHAT-29 (walk 16 Nov 2026): THIS couple's own booking holds the day (a live `vendor_schedule_pool_bookings` row
+   * for this event on this date). Their booking is what closed the day — so the line reads "Booked", never a red
+   * "Not available" at the very couple who booked it. Checked first: it is the answer to the day question.
+   */
+  heldByThisEvent?: boolean;
 }): ThreadDayAnswer | null {
   const { day, hasSchedule } = input;
+  if (input.heldByThisEvent) return { kind: 'booked' };
   if (!day) return null;
   // Closed is a fact even without a schedule (a Not-available block the shop typed) — the calendar-truth order.
   if (day.state === 'blocked' || day.state === 'locked') return { kind: 'not_available' };

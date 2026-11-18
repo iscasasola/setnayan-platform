@@ -37,35 +37,30 @@ export type ExploreScope = {
 };
 
 /**
- * Resolve the scope from the URL and the signed-in couple's celebration.
+ * Resolve the scope from the URL alone.
+ *
+ * 🔴 2026-11-16 (owner, "Fix them too" — walk EB-062/069/073): the couple's own event type NO LONGER scopes Discover.
+ * It used to be auto-applied whenever `?event_type=` was absent, so a Get-together couple who picked "Florists" got
+ * "Florists · Get-together", "Clear all filters" could not remove it (clearing the parameter IS the absent state),
+ * and searching "flower" found no florists. A filter now applies only when the address names it: picking a
+ * category adds only that category, and Clear all clears every filter.
  *
  * @param urlEventType   raw `?event_type=` (already shape-checked upstream)
- * @param coupleEventType the signed-in couple's event type, or null
  * @param knownTypes     the ACTIVE vocab keys — an unknown type is not a filter
  */
 export function resolveExploreScope(
   urlEventType: string | null | undefined,
-  coupleEventType: string | null | undefined,
   knownTypes: ReadonlySet<string>,
 ): ExploreScope {
   const raw = (urlEventType ?? '').trim().toLowerCase();
 
-  // 1 · An explicit "everything". Beats the auto-apply, which is the whole
-  //     point — this is the only way out of a scope you did not choose.
+  // 1 · An explicit "everything" (the old escape link's sentinel — still honoured, now the same as no filter).
   if (raw === BROWSE_ALL_EVENT_TYPES) return { eventType: null, browseAll: true };
 
   // 2 · An explicit, known type.
   if (raw && knownTypes.has(raw)) return { eventType: raw, browseAll: false };
 
-  // 3 · Nothing chosen. Scope a couple to their own celebration — except a
-  //     wedding, where every vendor is already tagged wedding so the filter is
-  //     visually a no-op and the chip would just look stuck on.
-  const couple = (coupleEventType ?? '').trim().toLowerCase();
-  if (couple && couple !== 'wedding' && knownTypes.has(couple)) {
-    return { eventType: couple, browseAll: false };
-  }
-
-  // 4 · Anonymous visitor, or a couple whose type is not in the vocab.
+  // 3 · Nothing chosen, or a type that is not in the vocab: the whole marketplace.
   return { eventType: null, browseAll: false };
 }
 

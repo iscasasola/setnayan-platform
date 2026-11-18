@@ -90,6 +90,9 @@ export const LOCKS = {
     opens: 'verified',
     // Build 6 Lane I: the one Analytics (the Shop tab's carousel, owner 11 Nov 2026) reads only the counts for an
     // unverified shop and returns before any graph read.
+    // 🏅 J5 (owner 15 Nov, badge-unlock_v6): past this lock, each BADGE'S Bronze opens its own graphs — that is not a
+    // lock row (an unearned graph is never drawn, not even greyed; one plain line stands under the carousel), so it is
+    // decided by `graphUnlocks` (lib/graph-unlocks.ts), on the same server file.
     server: 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx',
   },
   teamSeats: {

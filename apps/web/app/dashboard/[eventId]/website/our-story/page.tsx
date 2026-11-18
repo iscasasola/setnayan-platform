@@ -139,7 +139,7 @@ export default async function OurStoryEditorPage({
   // Couple-only, like the website hub (moderators are read-only on events —
   // the form would silently no-op for them).
   if (membership?.member_type !== 'couple') {
-    redirect(`/dashboard/${eventId}/website`);
+    redirect(`/dashboard/${eventId}/launch`);
   }
 
   /* 📦 LOVE STORY MOVED INTO THE MAKER'S DETAILS, WHOLE (Details part 2b —

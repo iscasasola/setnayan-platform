@@ -22,6 +22,7 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readCouplesWhoOpened } from '@/lib/vendor-funnel';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { findLockState, type FindLockState } from '@/lib/findable-shop';
@@ -221,11 +222,8 @@ export async function readTodaySchedules(
 /** Couples who opened the shop's page in the last 28 days. Null when the count did not come back. */
 export async function readTodayViews(supabase: SupabaseClient, vendorProfileId: string, sinceIso: string): Promise<number | null> {
   try {
-    const { count, error } = await supabase
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfileId)
-      .gte('viewed_at', sinceIso);
+    // 👁 Distinct visitors, never rows (W1-B15 · `readCouplesWhoOpened`, the funnel's own reader).
+    const { count, error } = await readCouplesWhoOpened(supabase, vendorProfileId, sinceIso);
     if (error || count == null) {
       if (error) logQueryError('supplier-today: views', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
       return null;

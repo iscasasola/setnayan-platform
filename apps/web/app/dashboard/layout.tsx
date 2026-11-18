@@ -207,8 +207,7 @@ export default async function DashboardLayout({
 
   return (
     <div
-      className="app-surface min-h-dvh"
-      style={{ background: 'var(--m-paper)' }}
+      className="app-surface min-h-dvh bg-page"
     >
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}

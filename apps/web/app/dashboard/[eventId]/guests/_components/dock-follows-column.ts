@@ -34,7 +34,10 @@ export function followColumn(
   const target = opts.target ?? column;
   const leftVar = opts.left ?? '--gs-left';
   const rightVar = opts.right ?? '--gs-right';
+  // A move that ends after the page has left writes nothing (the cleanup has taken the variables off).
+  let stopped = false;
   const sync = () => {
+    if (stopped) return;
     const r = column.getBoundingClientRect();
     // `right` of a fixed box is measured from the viewport's right edge WITHOUT the scrollbar (clientWidth), not from
     // `innerWidth` — on a desktop with a classic scrollbar the two differ by the bar's width.
@@ -43,7 +46,39 @@ export function followColumn(
     target.style.setProperty(rightVar, `${Math.max(0, vw - r.right)}px`);
     if (opts.width) target.style.setProperty(opts.width, `${Math.max(0, r.width)}px`);
   };
+  // 🎞 A COLUMN THAT IS STILL MOVING. `getBoundingClientRect` reads the box AS DRAWN, so a sync taken while the page
+  // slides in (a segment's `translateX(28px) → 0` over 320 ms) writes edges 28 px to the right — and nothing that the
+  // observers below watch changes when the slide ends: no size changes, no resize. W1 on live 979ed2c (RW-337): People's
+  // "Find or invite" bar at 124→768 under a column at 96→744, touching the right edge at 768 (1280 hid it only because
+  // the pane happened to resize). So whatever moves the column — a CSS animation, a CSS transition, `element.animate` —
+  // is waited out and the edges are read again when it ends (`document.getAnimations()` finds the ones running on the
+  // column or any ancestor; `animationend` / `transitionend` catch the ones that start later).
+  const waited = new WeakSet<Animation>();
+  const moves = (el: EventTarget | null) => el instanceof Node && el.contains(column);
+  const resyncAfterMoves = (_e?: Event) => {
+    if (typeof document.getAnimations !== 'function') return;
+    for (const a of document.getAnimations()) {
+      const target = a.effect instanceof KeyframeEffect ? a.effect.target : null;
+      if (waited.has(a) || a.playState === 'finished' || !moves(target)) continue;
+      waited.add(a);
+      a.finished.then(sync, sync);
+    }
+  };
+  const onMoveEnd = (e: Event) => {
+    if (moves(e.target)) sync();
+  };
   sync();
+  resyncAfterMoves();
+  const moveEvents: Array<[string, (e: Event) => void]> = [
+    ['animationstart', resyncAfterMoves],
+    ['transitionrun', resyncAfterMoves],
+    ['animationend', onMoveEnd],
+    ['animationcancel', onMoveEnd],
+    ['transitionend', onMoveEnd],
+    ['transitioncancel', onMoveEnd],
+  ];
+  const listens = typeof document.addEventListener === 'function';
+  if (listens) for (const [type, fn] of moveEvents) document.addEventListener(type, fn, true);
   // The column itself (its own size), its stage (a card column opening beside it, the rail changing width — the column
   // MOVES even when its own width is capped and unchanged) and the page (a scrollbar appearing).
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
@@ -52,8 +87,10 @@ export function followColumn(
   ro?.observe(document.documentElement);
   window.addEventListener('resize', sync);
   return () => {
+    stopped = true;
     ro?.disconnect();
     window.removeEventListener('resize', sync);
+    if (listens) for (const [type, fn] of moveEvents) document.removeEventListener(type, fn, true);
     if (target !== column) {
       target.style.removeProperty(leftVar);
       target.style.removeProperty(rightVar);

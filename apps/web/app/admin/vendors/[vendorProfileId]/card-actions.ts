@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { redirect } from 'next/navigation';
@@ -149,7 +150,7 @@ async function refreshPublic(shopId: string): Promise<void> {
     .eq('vendor_profile_id', shopId)
     .maybeSingle();
   const slug = (data as { business_slug?: string | null } | null)?.business_slug;
-  if (slug) revalidatePath(`/v/${slug}`);
+  if (slug) revalidatePath(`${shopPath(slug)}`);
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 }
 

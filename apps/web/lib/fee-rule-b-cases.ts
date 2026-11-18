@@ -80,6 +80,9 @@ export const FEE_RULE_B_CASES: ReadonlyArray<FeeRuleBCase> = [
   c('saved from Find and booked without a chat → sourced (audit B5)', { kind: 'saved', rowSource: 'host_marketplace_search', tie: 'none' }, 'sourced'),
   c('auto-cascaded by Setnayan → sourced', { kind: 'saved', rowSource: 'auto_cascade_from_finalize', tie: 'none' }, 'sourced'),
   c('the supplier invited the couple → free, even after a view', { kind: 'saved', rowSource: 'vendor_invite', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'import'),
+  // 🔖 owner 2026-11-16 (d7f4b97f): the free Shortlist QR is not an import — a booking from it pays the fee.
+  c('the shop came in through its free Shortlist QR → sourced, with nothing else recorded', { kind: 'saved', rowSource: 'vendor_shortlist_qr', tie: 'none' }, 'sourced'),
+  c('an earlier Shortlist QR row is a save on Setnayan → sourced', { tie: 'matched', saves: [{ source: 'vendor_shortlist_qr', when: 'before' }] }, 'sourced'),
   c('a legacy host_manual marketplace row with an Explore view before it → sourced', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'explore', when: 'before' }] }, 'sourced'),
   c('a legacy host_manual marketplace row whose only view was the supplier’s own link → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none', views: [{ source: 'profile_direct', when: 'before' }] }, 'import'),
   c('a legacy host_manual marketplace row, nothing recorded → free', { kind: 'saved', rowSource: 'host_manual', tie: 'none' }, 'import'),

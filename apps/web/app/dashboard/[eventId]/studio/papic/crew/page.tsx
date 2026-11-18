@@ -187,7 +187,7 @@ export default async function PapicCrewPage({ params }: Props) {
               </p>
               {posterLink.state === 'private' ? (
                 <Link
-                  href={`/dashboard/${eventId}/website`}
+                  href={`/dashboard/${eventId}/launch`}
                   className="ab ab-brand ab-main mt-1"
                 >
                   Open your Event Hub settings

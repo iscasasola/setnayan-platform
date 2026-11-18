@@ -41,8 +41,10 @@ test('the body renders SERVICE cards from the shared query', () => {
       'to drawing one card per vendor and guessing which service stands for the shop',
   );
   assert.match(explore, /<ServiceCardView\b/, 'the shared service card is no longer rendered');
+  // 2026-11-16: the grid draws each card from the ONE shared face builder (also Discover's Service cards shelf).
+  assert.match(explore, /readMarketplaceCardFaces\(/, 'the grid stopped reading its cards through the shared faces');
   assert.match(
-    explore,
+    stripComments(readFileSync(join(HERE, 'marketplace-service-card-faces.ts'), 'utf8')),
     /toServiceCard\(/,
     'the card is being built by hand instead of the one shared builder',
   );

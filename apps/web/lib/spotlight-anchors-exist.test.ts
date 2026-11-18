@@ -53,8 +53,9 @@ const steps = TOUR_KEYS.flatMap((k) => (TOURS[k].spotlight?.steps ?? []).map((s)
 
 test('there are spotlight tours to check (the scan is not looking at nothing)', () => {
   assert.ok(steps.length >= 15, `only ${steps.length} spotlight steps — did the scripts move out of lib/tours.ts?`);
-  // + the four supplier page tours (owner 2026-10-22, journey_fixes Supplier 3).
-  for (const k of ['host_spotlight_v1', 'host_day_spotlight_v1', 'supplier_spotlight_v1', 'vendor_shop_v1', 'vendor_dates_v1', 'vendor_money_v1', 'vendor_hub_v1'] as const) {
+  // (The four supplier page tours that stood here — Shop · Dates · Money · Hub — were retired with the other three
+  // supplier page tours on 16 Nov 2026, W1-B14: the supplier's journey is the one tour.)
+  for (const k of ['host_spotlight_v1', 'host_day_spotlight_v1', 'supplier_spotlight_v1', 'vendor_setup_tour_v1'] as const) {
     assert.ok(TOURS[k].spotlight, `${k} has no spotlight script`);
   }
 });
@@ -139,19 +140,7 @@ test('the spotlight never draws the old centred card', () => {
  * a step that points at nothing; a home left behind after a stop is cut fails too.
  */
 const ANCHOR_HOME: Record<string, string | string[]> = {
-  // THE ONE BUILD (8 Nov, C4): the v113 Shop tab's two parts.
-  'shop-analytics': 'app/vendor-dashboard/performance/_components/analytics-carousel.tsx',
-  'shop-badges': 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx',
-  'hub-next-days': 'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx',
-  'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',
-  'hub-day-launch': 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx',
-  'hub-setup': 'app/vendor-dashboard/on-the-day/page.tsx',
-  'hub-post-update': 'app/vendor-dashboard/on-the-day/_components/vendor-status-updates.tsx',
-  'dates-calendar': 'app/vendor-dashboard/customers/_components/customers-calendar.tsx',
-  'money-summary': 'app/vendor-dashboard/customers/_components/money-view.tsx',
-  'money-next': 'app/vendor-dashboard/customers/_components/money-view.tsx',
-  'money-log': 'app/vendor-dashboard/customers/_components/money-log.tsx',
-  'money-fees': 'app/vendor-dashboard/customers/_components/money-view.tsx',
+  // (16 Nov 2026, W1-B14) the seven supplier page tours were retired; their stops left this map with them.
   'create-event': 'app/dashboard/(launcher)/page.tsx',
   'home-tiles': 'app/dashboard/[eventId]/_components/home-control-row.tsx',
   'guests-add': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
@@ -207,7 +196,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'people-find': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',
   'events-planning': 'app/dashboard/(launcher)/page.tsx',
   // 🏠 Home's sections (owner 11 Nov 2026, "HOME IS THE PROFILE") — the `customer_account_bar_v2` stop.
-  'home-segments': 'app/dashboard/(launcher)/_components/home-segment-bar.tsx',
+  'home-segments': 'app/dashboard/(launcher)/_components/home-pin.tsx',
   'events-worth': 'app/dashboard/(launcher)/page.tsx',
   'account-avatar': 'app/_components/account-switcher/account-switcher.tsx',
   'guests-views': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
@@ -222,26 +211,10 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'library-show': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'library-search': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'supplier-messages': 'app/vendor-dashboard/layout.tsx',
-  // THE ONE BUILD A13 — Today's own tour (`vendor_today_v3`).
-  'today-cover': 'app/vendor-dashboard/_components/today-cover.tsx',
-  'today-next-events': 'app/vendor-dashboard/_components/today-next-events.tsx',
-  'today-stats': 'app/vendor-dashboard/_components/today-stats.tsx',
-  'today-needs': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
-  'today-show': 'app/vendor-dashboard/_components/today-thumb-row.tsx',
   'today-coming-up': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-shop': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   // A new shop's "Get your shop live" — the first stop of the tour after step 6 (7 Nov 2026).
   'today-setup': 'app/vendor-dashboard/_components/supplier-setup-folds.tsx',
-  'customers-segments': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
-  'customers-filter': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
-  'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',
-  'customers-search': 'app/vendor-dashboard/customers/page.tsx',
-  'customers-add': 'app/vendor-dashboard/customers/page.tsx',
-  // Approved Portfolio (owner 9 Nov): the filter left; the ⚙ on the Portfolio band is the "Who sees what" stop.
-  'collections-gear': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
-  'collections-list': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
-  // THE ONE BUILD (C4): the Portfolio tab's thumb row draws it (`portfolio-view.tsx`).
-  'collections-add': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
   'camera-credits': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-challenge': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-mode': 'app/papic/guest/_components/papic-guest-capture.tsx',

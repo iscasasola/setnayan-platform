@@ -61,9 +61,14 @@ test('1 · no comparison — no "elsewhere", no saving, no other company', () =>
 test('2 · no giveaway pitch — no visible "free", no "₱0"; included things say "Included"', () => {
   for (const [f, src] of Object.entries(SRC)) {
     // Identifiers like PAPIC_FREE_CREDIT_CONDITION have no word boundary before FREE, so they never match.
-    assert.doesNotMatch(src, /\bfree\b/i, `${f} says "free" — the owner's rule is "Included"`);
+    // ⚖ ONE named exception, not a loosening: the supplier plans block (owner-approved drawing 2026-11-14, DECISION_LOG
+    // "SIMPLER SUPPLIER PLANS" item 7) names the supplier plan whose NAME is Free — read from `TIER_LABEL.free`, exactly
+    // that token and nothing else. Its price still reads "No fee", never ₱0, and no other "free" may appear.
+    const withoutPlanName = f === 'page.tsx' ? src.replace(/\bTIER_LABEL\.free\b/g, '') : src;
+    assert.doesNotMatch(withoutPlanName, /\bfree\b/i, `${f} says "free" — the owner's rule is "Included"`);
     assert.doesNotMatch(src, /₱0\b|₱\{?\s*0\s*\}?(?![\d,])|peso\(0\)/, `${f} shows ₱0`);
   }
+  assert.equal((SRC['page.tsx']!.match(/\bTIER_LABEL\.free\b/g) ?? []).length <= 1, true, 'the supplier plan name is the only "free" allowed, once');
   assert.match(SRC['_pricing-pickers.tsx'], /figure="Included"/, 'the included rows no longer say "Included"');
   assert.match(SRC['plan/_plan-quiz.tsx'], /q\.php != null \? peso\(q\.php\) : 'Included'/, 'an included answer no longer says "Included"');
   assert.match(SRC['plan/_plan-quiz.tsx'], /r\.total > 0 \? peso\(r\.total\) : 'Included'/, 'a nothing-paid total would read ₱0');

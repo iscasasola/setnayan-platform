@@ -85,7 +85,7 @@ test('WIRED: the couple order page, the supplier fee page and the admin card pri
     assert.doesNotMatch(s, /\{p\.channel\}\s*\n?\s*\{p\.reference/, `${rel} prints the raw channel id`);
     assert.doesNotMatch(s, /·\s*\{p\.channel\}/, `${rel} prints the raw channel id`);
   }
-  const admin = src('app/admin/payments/page.tsx');
+  const admin = (src('app/admin/payments/page.tsx') + '\n' + src('app/admin/payments/_components/desk.tsx'));
   assert.match(admin, /channelLabel\(channelSettings, p\.channel\)/, 'the admin payments card must name the account');
   assert.doesNotMatch(admin, /value=\{p\.channel\}/, 'the admin payments card prints the raw channel id');
 });
@@ -135,8 +135,6 @@ test('no customer or supplier surface hard-codes "BDO or GCash" any more', () =>
     'app/dashboard/[eventId]/studio/patiktok/page.tsx',
     'app/(shell)/refunds/page.tsx',
     'app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx',
-    'app/vendor-dashboard/subscription/_components/booth-addon-card.tsx',
-    'app/vendor-dashboard/subscription/_components/ai-addon-card.tsx',
     'app/vendor-dashboard/subscription/page.tsx',
     'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
     'app/vendor-dashboard/branches/actions.ts',
@@ -166,8 +164,7 @@ test('the help article names no fixed account either (the § 9.1 clause quote is
 test('the surfaces that hold the open rails SAY their names', () => {
   for (const rel of [
     'app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx',
-    'app/vendor-dashboard/subscription/_components/booth-addon-card.tsx',
-    'app/vendor-dashboard/subscription/_components/ai-addon-card.tsx',
+    // (the booth and AI add-on cards were deleted 2026-11-14 — folded into the plans)
   ]) {
     assert.match(src(rel), /ourAccountPhrase\(openRails\.map/, `${rel} does not read the list`);
   }

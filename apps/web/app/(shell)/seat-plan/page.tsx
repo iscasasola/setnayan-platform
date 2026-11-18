@@ -53,7 +53,7 @@ const PAGE_TITLE = 'Seat Plan — Drag, Drop, Done · Setnayan';
  *  correct WITH the brand. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('seat-plan');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

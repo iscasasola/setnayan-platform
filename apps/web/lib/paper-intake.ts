@@ -146,8 +146,8 @@ const PAPER_WORD: Record<ReadableSlotKey, string> = {
 
 export const INTAKE_MESSAGE = {
   unclear: 'This copy isn’t clear enough — please upload a cleaner one.',
-  keptTyped: 'We still can’t read this copy, so we kept it. Type the details from the paper and a person at Setnayan will check them.',
-  triesUsed: 'You’ve used your three tries for this paper — type the details from it instead.',
+  keptTyped: 'We still can’t read this copy, so we kept it for a person at Setnayan to check.',
+  triesUsed: 'This copy wasn’t clearer, so we kept the one you sent before for a person at Setnayan to check.',
   unknown: 'We couldn’t tell which paper this is. Upload your DTI or SEC certificate, BIR 2303, or Mayor’s Permit.',
   other: 'This isn’t one of the three papers we need.',
   differentName: 'This paper is for a different shop name than your other papers — upload the one for your shop. Not counted as a try.',
@@ -222,9 +222,29 @@ function hasCleanFile(slot: IntakeSlot | null): boolean {
 // The seal
 // ---------------------------------------------------------------------------
 
+/**
+ * JSON with every object's keys SORTED, at every depth. `doc_uploads` is a Postgres `jsonb` column, and jsonb
+ * stores keys shortest-first, not in the order they were written — so a plain `JSON.stringify` of a slot read back
+ * from the database differs from the one that was sealed, and the seal "breaks" on every paper with a read
+ * (W1-B37, live 18 Nov 2026: the typed form refused with "Type the details only after three tries." on a paper
+ * at try 3, and auto-verify saw every paper as unconfirmed). Sorting makes the payload the same before and after
+ * a save. Payloads with no nested objects are unchanged byte for byte.
+ */
+function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map((x) => (x === undefined ? 'null' : canonicalJson(x))).join(',')}]`;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v) ?? 'null';
+}
+
 /** Exactly what the final decision relies on, in a fixed order. */
 function sealPayload(slotKey: string, s: IntakeSlot): string {
-  return JSON.stringify([
+  return canonicalJson([
     'setnayan-paper-seal:v1',
     slotKey,
     s.r2_key ?? null,
@@ -349,11 +369,16 @@ export function mergeIntake(
         say({ outcome: 'unknown', slot, message: `Your ${PAPER_WORD[slot]} is already in — this copy was not clearer, so we kept the one you sent before.` });
         continue;
       }
-      if (cur.attempts >= MAX_TRIES) {
+      // 🧑‍💼 PAST THE TRIES, A PERSON — NEVER A LOCKED DOOR (owner ruling 17, walk W1-B13, 16 Nov 2026: "after the
+      // 3rd refused paper, the paper goes to admin review instead of locking the supplier out"). A copy already kept
+      // for a person stays with them; when NONE is kept (its seal did not hold, so only the try count carried over),
+      // this copy is kept for a person instead of the old "you've used your three tries" refusal, which filed
+      // nothing and could never be passed. MANUAL = the existing admin queue's "typed after three tries" paper.
+      if (cur.attempts >= MAX_TRIES && cur.r2_key && cur.manual) {
         say({ outcome: 'tries_used', slot, message: INTAKE_MESSAGE.triesUsed, attempts: cur.attempts });
         continue;
       }
-      const attempts = cur.attempts + 1;
+      const attempts = Math.min(cur.attempts + 1, MAX_TRIES);
       if (attempts < MAX_TRIES) {
         // REFUSED AND NOT KEPT — only the try is written.
         base[slot] = { ...stripFile(cur), attempts };

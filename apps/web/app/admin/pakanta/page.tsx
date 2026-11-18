@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { Sparkles, Heart, CheckCircle2 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -242,11 +243,13 @@ export default async function AdminPakantaPage() {
           composed from what the couple told us, so you copy it into Suno and
           never re-interview anybody. */}
       <PageMasthead title="Music Maker queue" />
-      <p className="mb-6 max-w-2xl text-sm text-ink/70">
-        Each couple’s custom-song brief, auto-composed from the love story they told in
+      <div className="mb-6 max-w-2xl">
+        <InfoTip label="What this page shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Each couple’s custom-song brief, auto-composed from the love story they told in
         onboarding plus any Music Maker preferences. Copy the brief into Suno to write the
         song — no re-interview needed.
-      </p>
+        </InfoTip>
+      </div>
 
       {queryError ? (
         <div
@@ -260,13 +263,15 @@ export default async function AdminPakantaPage() {
       {/* Rows that DID load still show under the notice; only the "none yet"
           claim is withheld, because a partial read cannot prove an absence. */}
       {rows.length === 0 && queryError ? null : rows.length === 0 ? (
-        <div className="sn-tile p-8 text-center">
+        <div className="py-8 text-center border-t border-ink/10">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No Music Maker orders yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">
-            When a couple buys Music Maker (on its own or inside a bundle), their brief — built from
+          <div className="mx-auto mt-1 max-w-md">
+            <InfoTip label="How briefs arrive" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              When a couple buys Music Maker (on its own or inside a bundle), their brief — built from
             the onboarding love story — appears here for the music team to write and deliver.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       ) : (
         <ul className="space-y-5">
@@ -276,7 +281,7 @@ export default async function AdminPakantaPage() {
             return (
               <li
                 key={eventId}
-                className="rounded-xl border border-ink/10 bg-white p-5 shadow-sm"
+                className="py-5 border-t border-ink/10"
               >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -310,7 +315,7 @@ export default async function AdminPakantaPage() {
                   <>
                     {brief.storyParagraphs.length > 0 ? (
                       <div className="mb-3">
-                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/45">
+                        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                           Their story
                         </p>
                         <ul className="space-y-1 text-sm text-ink/75">
@@ -332,7 +337,7 @@ export default async function AdminPakantaPage() {
                     ) : null}
 
                     <div className="mb-3 text-sm text-ink/70">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-ink/45">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                         Music
                       </span>
                       <div className="mt-1 space-y-0.5">
@@ -376,7 +381,7 @@ export default async function AdminPakantaPage() {
 
                 {/* Delivered-song preview (when a finished song is on file). */}
                 {row.delivered && row.previewUrl ? (
-                  <div className="mt-4 rounded-xl border border-success-200 bg-success-50 p-4">
+                  <div className="mt-4 border-success-200 bg-success-50 py-4 border-t border-ink/10">
                     <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-success-800">
                       <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
                       Delivered{row.deliveredFilename ? ` — ${row.deliveredFilename}` : ''}

@@ -167,12 +167,16 @@ test('the re-mark job is idempotent and writes the bytes before the record', asy
     setMarkKind: async (id, k) => void log.push(`set ${id} ${k}`),
   };
   assert.equal(await remarkOne(row, spec, deps), 'remarked');
-  assert.deepEqual(log, [`get ${row.original_ref}`, 'mark', `put ${row.public_ref}`, 'set 1 verified']);
+  assert.deepEqual(log, [`get ${row.original_ref}`, 'mark', `put ${row.public_ref}`, 'set 1 row-verified']);
   log.length = 0;
-  assert.equal(await remarkOne({ ...row, mark_kind: 'verified' }, spec, deps), 'unchanged');
+  assert.equal(await remarkOne({ ...row, mark_kind: 'row-verified' }, spec, deps), 'unchanged');
   assert.deepEqual(log, []);
-  const pending = pendingRemarks([row, { ...row, id: 2, mark_kind: 'verified' }], new Map([['v1', 'verified']]));
+  const pending = pendingRemarks([row, { ...row, id: 2, mark_kind: 'row-verified' }], new Map([['v1', 'row-verified']]));
   assert.deepEqual(pending.map((r) => r.id), [1]);
+  // 🔏 2026-11-15: a photo still carrying the Seal and plate is pending even when its shop's state agrees — that is
+  // how the owner's "existing photos are re-marked" happens, through this same job.
+  const oldLook = pendingRemarks([{ ...row, id: 3, mark_kind: 'verified' }, { ...row, id: 4, mark_kind: 'setnayan' }], new Map([['v1', 'row-verified']]));
+  assert.deepEqual(oldLook.map((r) => r.id), [3, 4]);
 });
 
 test('SABOTAGE-PROVEN: the mark job — --dry-run writes nothing, --apply needs the project named, anything else is refused', () => {

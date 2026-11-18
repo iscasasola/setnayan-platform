@@ -26,7 +26,7 @@ import { stripComments } from './strip-comments';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EDITOR = 'app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx';
-const STORIES = 'app/realstories/_components/gallery.tsx';
+// The /realstories gallery (STORIES) left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 /** Each self-closing `<Name … />` tag, whole — a `[^>]*` match would stop at the `>` of an `(k) => …` prop. */
 function tags(src: string, name: string): string[] {
@@ -40,7 +40,7 @@ function tags(src: string, name: string): string[] {
 const PICK_IMPORT = /import \{ PickMenu[^}]*\} from '@\/app\/dashboard\/\[eventId\]\/website\/editor\/_components\/pick-menu'/;
 
 test('1 · neither page draws a native select', () => {
-  for (const file of [EDITOR, STORIES]) {
+  for (const file of [EDITOR]) {
     const src = read(file);
     assert.doesNotMatch(src, /<(select|option|optgroup)\b/, `${file}: a native <select> is back — use PickMenu`);
     assert.match(src, PICK_IMPORT, `${file}: does not import the shipped PickMenu`);
@@ -69,10 +69,4 @@ test('3 · the library: the file pick is the upload box, the input inside it is 
   assert.ok(box >= 0 && src.slice(box, src.indexOf('type="file"')).includes('data-library-file-box'), 'the file input is not inside the drop box');
 });
 
-test('4 · /realstories: the milestone filter is one PickMenu, not a pill row', () => {
-  const src = read(STORIES);
-  const n = tags(src, 'PickMenu').filter((t) => t.includes('dataAttr="data-stories-milestone-pick"')).length;
-  assert.equal(n, 1, `${n} milestone PickMenu(s) — want exactly 1`);
-  assert.doesNotMatch(src, /eventTypes\.map\(\(type\) => \(\s*<button/, 'the milestone pills are back');
-  assert.doesNotMatch(src, /aria-label="Filter by milestone type"/, 'the old pill group (role="group") is back');
-});
+// Test 4 (the /realstories milestone PickMenu) left 2026-11-16 — retired with the blog + Real Stories, PR #7847.

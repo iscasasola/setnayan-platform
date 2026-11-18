@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 // Ugat Studio surface — the body of the former menus page,
 // re-homed 2026-07-10. actions/_components stay in /admin/menus; the legacy
 // route is now a redirect into /admin/ugat?tab=.
@@ -25,11 +26,13 @@ export async function MenusSurface() {
           name — not deleting the row — is how you get the built-in default
           back, and that a rename here reaches every doorway at once. */}
       <PageMasthead title="Menus & icons" />
-      <p className="mb-6 mt-1 max-w-2xl text-sm text-ink/70">
-        The source for the name and icon of every menu across Setnayan — customer, supplier, admin,
+      <div className="mb-6 mt-1 max-w-2xl">
+        <InfoTip label="What this tab does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          The source for the name and icon of every menu across Setnayan — customer, supplier, admin,
         and the public site. Rename a menu, pick a Lucide icon, or upload a custom image. Blank a
         name or hit reset to return to the built-in default.
-      </p>
+        </InfoTip>
+      </div>
 
       {overridesOk ? (
         <MenuRegistryEditor slots={slots} iconNames={[...NAV_ICON_NAMES]} />

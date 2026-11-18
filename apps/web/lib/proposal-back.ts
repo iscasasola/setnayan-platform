@@ -1,3 +1,5 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
+
 /**
  * proposal-back.ts — the way OUT of a quote, as one rule.
  *
@@ -50,6 +52,9 @@ export type ProposalBackDoor = {
  */
 export const BACK_TO_CONVERSATION = 'Back to the conversation';
 
+/** The quotes fold on My Customers — exactly where the retired `/vendor-dashboard/proposals` address forwards. */
+export const VENDOR_QUOTES_HREF = '/vendor-dashboard/customers?tab=proposals#customer-tools';
+
 export function proposalBackDoor(input: {
   /** Is the reader the supplier's org (rather than the couple/delegate)? */
   isVendorSide: boolean;
@@ -65,7 +70,7 @@ export function proposalBackDoor(input: {
     // couple's. The couple's carries the event in its path, so it needs one —
     // without it there is no route to build and the fallback below is right.
     if (isVendorSide) {
-      return { href: `/vendor-dashboard/messages/${threadId}`, label: BACK_TO_CONVERSATION };
+      return { href: supplierChatHref(eventId, threadId), label: BACK_TO_CONVERSATION };
     }
     if (eventId) {
       return {
@@ -79,7 +84,7 @@ export function proposalBackDoor(input: {
      couple has deleted the celebration (slice 5 of "vendors get to keep it");
      interpolating it blind produces `/dashboard/null/vendors`. */
   if (isVendorSide || !eventId) {
-    return { href: '/vendor-dashboard/proposals', label: 'Back to your quotes' };
+    return { href: VENDOR_QUOTES_HREF, label: 'Back to your quotes' };
   }
   return { href: `/dashboard/${eventId}/vendors`, label: 'Back to your suppliers' };
 }

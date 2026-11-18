@@ -5,7 +5,6 @@ app/[slug]/_components/selfie-capture.tsx
 app/[slug]/_components/story/relive.tsx
 app/[slug]/find-seat/_components/door-pass.tsx
 app/_components/anon-gate/save-to-continue.tsx
-app/_components/app-store/choose-plan-sheet.tsx
 app/_components/guided-tour-card.tsx
 app/_components/report-page-button.tsx
 app/_components/requirements-modal.tsx

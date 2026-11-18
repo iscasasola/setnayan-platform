@@ -23,10 +23,8 @@ import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
-import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { displayServiceLabel } from '@/lib/vendors';
 import { formatPhpRounded } from '@/lib/php';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
@@ -43,17 +41,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
-import {
-  fetchTrustedReviewStatsForMany,
-  formatStarRating,
-  type TrustedReviewStatsRow,
-} from '@/lib/reviews';
-import { cardRecordEnabled } from '@/lib/card-record-flag';
-import {
-  cardRecordRatingFromTrusted,
-  fetchServiceCardRecords,
-  type CompiledCardRecord,
-} from '@/lib/service-card-record';
+import { formatStarRating } from '@/lib/reviews';
 // ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
 import { EventTypeNotifyForm } from '../_components/marketplace-lazy';
 import { TaxonomySearch } from '../_components/taxonomy-search';
@@ -89,17 +77,8 @@ import { regionPin } from '@/lib/your-place';
 import { readCardRefusals, readSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-what-fits';
 import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
-import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
-import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
-import {
-  fetchCoveragesByIdPublic,
-  fetchInclusionsByService,
-  type VendorServiceCoverage,
-  type VendorServiceInclusion,
-} from '@/lib/vendor-service-public';
-import type { VendorServiceDiscount } from '@/lib/vendor-services';
-import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
+import { readMarketplaceCardFaces } from '@/lib/marketplace-service-card-faces';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 // ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
 import { StickyMarketplaceHeader } from '../_components/marketplace-lazy';
@@ -133,7 +112,6 @@ import {
 import { TAXONOMY_OPTIONS, taxonomyLabel } from '@/lib/marketplace-category-options';
 import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
-  displayLogoUrl,
   displayUrlForCatalogueArt,
   publicUrlForStoredAsset,
 } from '@/lib/uploads';
@@ -378,12 +356,12 @@ function applyMarketplaceTextSearch(
 // `?category=setnayan_papic` grid is currently empty on prod (no publicly-
 // visible first-party listing yet — flagged for owner provisioning).
 const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
-  { label: 'Photographers', href: '/explore?category=photography' },
-  { label: 'Videographers', href: '/explore?category=videography' },
-  { label: 'Caterers', href: '/explore?category=catering' },
-  { label: 'Coordinators', href: '/explore?category=wedding_coordination' },
-  { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
-  { label: 'Cake', href: '/explore?category=wedding_cake' },
+  { label: 'Photographers', href: '/?category=photography' },
+  { label: 'Videographers', href: '/?category=videography' },
+  { label: 'Caterers', href: '/?category=catering' },
+  { label: 'Coordinators', href: '/?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/?category=bridal_hmua' },
+  { label: 'Cake', href: '/?category=wedding_cake' },
 ];
 
 // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
@@ -1359,29 +1337,11 @@ export async function MarketplaceView({
     }
   }
 
-  // Iteration 0041 — couple-side event_type auto-apply. When no
-  // ?event_type= URL param is set AND the couple has a primary event with
-  // a non-wedding event_type, default the filter to that event_type. The
-  // couple lands on a marketplace scoped to their event. Wedding event_types
-  // intentionally skip the auto-apply (every existing vendor is tagged
-  // wedding, so auto-applying would be a no-op visually). Users who want
-  // to browse all vendors can clear the filter via the empty-state CTA
-  // (PR #184's "Browse all vendors" link drops the event_type from the URL).
-  //
-  // 🔴 REWRITTEN 2026-09-18. This block used to fire on `!filters.eventType`,
-  // and the empty state's escape — "Or browse all vendors instead" — worked by
-  // DROPPING event_type from the URL, which is exactly the condition that
-  // re-applied it. Following the only way out reproduced the identical empty
-  // page, forever. The comment above claimed dropping the parameter was the
-  // solution; it was the mechanism.
-  //
-  // "No filter" and "I asked for everything" are now different states:
-  // `?event_type=all` beats the auto-apply. See lib/explore-event-type-scope.ts.
-  const scope = resolveExploreScope(
-    rawEventTypeParam,
-    coupleEventType,
-    eventTypeKeys,
-  );
+  // Iteration 0041 auto-applied the couple's own non-wedding event type when `?event_type=` was absent; the
+  // 2026-09-18 rewrite added `?event_type=all` as the escape. Both are history now:
+  // 🔴 2026-11-16: the couple's own event type no longer scopes the list (explore-event-type-scope.ts) — a
+  // filter applies only when the address names it, so "Clear all filters" clears every one.
+  const scope = resolveExploreScope(rawEventTypeParam, eventTypeKeys);
   filters = { ...filters, eventType: scope.eventType };
 
   // Religion-default-on (2026-05-20) → default-OFF (Task #42, 2026-05-22):
@@ -1660,162 +1620,12 @@ export async function MarketplaceView({
     if (!fit.checked) dateUnchecked = true;
   }
   /*
-    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
-    Owner, 2026-09-09: the card body opens that service's details, the LOGO
-    opens the shop.
-
-    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
-    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
-    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
-    resolver for this column — never a second one, and never `publicUrlFor`,
-    whose argument is an object KEY and which would fold the `r2://` scheme into
-    the object path.
-
-    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
-    shop with four cards would otherwise be signed four times for one picture.
-    Signing is a round trip each.
-
-    A failure costs a picture, never the grid — the card falls back to the
-    initials tile, which is a real design state, not an error state.
+    ═ THE REST OF THE CARD — logo · record · price choice · cover · inclusions · discount · Serves · showcase ═
+    One batch read, shared with Discover's Service cards shelf (`lib/marketplace-service-card-faces.ts`), whose
+    docblock carries the four defects (SUP-41 ×2, C2, S43 · 5) each of these pieces once was on this grid. A second
+    grid copying them by hand would inherit whichever it forgot.
   */
-  /*
-    ═ SUP-41 · THE CARD'S RECORD COMES WITH IT, AND SO DOES THE SHOP'S PRICE CHOICE ═
-    The shop's own page (`app/v/[slug]`) grows each card its record — booked
-    count, event-type mix, anonymized ledger, medals — and this grid drew the
-    SAME `ServiceCardView` with the record hard-wired to null, so a card with a
-    real history looked brand new on the marketplace and veteran one click
-    later. Same batched RPC, same flag, same shop-rating rule
-    (`cardRecordRatingFromTrusted`) as the shop page, so the two cannot disagree.
-
-    It also passed `hidePrices: false` for every card. A shop that ticked "hide
-    my prices publicly" had them hidden on its own page and on the vendor grid
-    (`hidingPrices` below) — and printed on this grid. Same batch reader,
-    same fail-open default.
-
-    Each read fails soft to "nothing extra", never to an empty grid: a missing
-    record renders the card as it rendered yesterday.
-  */
-  const serviceCardShopIds = serviceCards
-    ? [...new Set(serviceCards.map((c) => c.vendorProfileId))]
-    : [];
-  const [serviceCardRecords, serviceCardShopStats, serviceCardHidingPrices] = serviceCards
-    ? await Promise.all([
-        cardRecordEnabled()
-          ? fetchServiceCardRecords(
-              admin,
-              serviceCards.map((c) => c.row.vendor_service_id),
-            ).catch(() => new Map<string, CompiledCardRecord>())
-          : Promise.resolve(new Map<string, CompiledCardRecord>()),
-        cardRecordEnabled()
-          ? fetchTrustedReviewStatsForMany(admin, serviceCardShopIds).catch(
-              () => new Map<string, TrustedReviewStatsRow>(),
-            )
-          : Promise.resolve(new Map<string, TrustedReviewStatsRow>()),
-        fetchVendorsHidingPricesPublicly(admin, serviceCardShopIds),
-      ])
-    : [
-        new Map<string, CompiledCardRecord>(),
-        new Map<string, TrustedReviewStatsRow>(),
-        new Set<string>(),
-      ];
-  const serviceCardLogoUrls = new Map<string, string | null>();
-  if (serviceCards) {
-    const byShop = new Map<string, string | null>();
-    for (const c of serviceCards) {
-      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
-    }
-    const shops = [...byShop.entries()];
-    const resolved = await Promise.all(
-      shops.map(([, ref]) =>
-        displayLogoUrl({ logo_url: ref }).catch(() => null),
-      ),
-    );
-    shops.forEach(([vendorProfileId], i) => {
-      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
-    });
-  }
-  /*
-    ═ C2 (2026-09-11): A CARD WITH A COVER SHOWS IT ON THE MAIN GRID ═
-    This grid never resolved showcase photos at all (the `toServiceCard` call
-    below always passed `showcase: undefined`), so a card drew with nothing to
-    look at unless its category's icon glyph counted. The cover
-    (`primary_photo_r2_key`, required to publish per `lib/vendor-services.ts`)
-    was already read into `c.row` by `fetchMarketplaceServiceCards` — it just
-    had no display URL and no wire to the card.
-    `publicUrlForStoredAsset` — NOT `displayUrlForStoredAsset` — per its own
-    docblock: this exact grid is a named example of the public, unsigned
-    surface it exists for, and it's synchronous (no signing round trip), so
-    resolving one per card costs nothing.
-  */
-  const serviceCardCoverUrls = new Map<string, string | null>();
-  if (serviceCards) {
-    for (const c of serviceCards) {
-      serviceCardCoverUrls.set(
-        c.row.vendor_service_id,
-        publicUrlForStoredAsset(c.row.primary_photo_r2_key),
-      );
-    }
-  }
-  /*
-    ═ S43 · 5: THE REST OF THE CARD FACE — inclusions, discount, Serves, showcase ═
-    The shop page (`app/v/[slug]`) hands `toServiceCard` four things this grid
-    passed as `undefined`: the free inclusions, the discounts (so the best badge
-    can be picked), the Serves line and the showcase photos/clip. So the SAME
-    `ServiceCardView` drew a thinner card here than one click later on the shop
-    — no "Includes …", no "20% off", no photo strip.
-
-    Same readers as the shop page (`lib/vendor-service-public`, the shared
-    `buildServesLine`), batched over the 24 cards, each fail-soft to "nothing
-    extra" by its own contract — a failed read renders the card as it rendered
-    yesterday, never an empty grid.
-
-    ⚖ SHOWCASE URLS ARE PUBLIC, NOT PRESIGNED. The shop page presigns them
-    (`displayUrlForStoredAsset`); this grid resolves them the way it already
-    resolves the cover — `publicUrlForStoredAsset`, whose docblock names this
-    grid as the surface it exists for. A ref it cannot serve publicly resolves
-    to null and is dropped, so a card loses that photo, never the grid.
-    `coupleEventDate` stays null: the grid is anonymous, so the early-booking
-    ladder advertises "up to", exactly as the shop page does for a guest.
-  */
-  const serviceCardIds = serviceCards ? serviceCards.map((c) => c.row.vendor_service_id) : [];
-  const serviceCardCoverageIds = serviceCards
-    ? [
-        ...new Set(
-          serviceCards
-            .map((c) => c.row.coverage_id)
-            .filter((id): id is number => id !== null),
-        ),
-      ]
-    : [];
-  const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
-    ? await Promise.all([
-        fetchInclusionsByService(admin, serviceCardIds),
-        // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
-        fetchDiscountsWithOffers(admin, serviceCardIds),
-        fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
-      ])
-    : [
-        new Map<string, VendorServiceInclusion[]>(),
-        new Map<string, VendorServiceDiscount[]>(),
-        new Map<number, VendorServiceCoverage>(),
-      ];
-  const serviceCardServes = new Map<string, string>();
-  const serviceCardShowcase = new Map<string, ServiceShowcaseMedia>();
-  if (serviceCards) {
-    for (const c of serviceCards) {
-      const id = c.row.vendor_service_id;
-      if (c.row.coverage_id !== null) {
-        const line = buildServesLine(serviceCardCoverages.get(c.row.coverage_id), eventTypeLabel);
-        if (line) serviceCardServes.set(id, line);
-      }
-      const photos = (c.row.showcase_photo_r2_keys ?? [])
-        .slice(0, 5)
-        .map((k) => publicUrlForStoredAsset(k))
-        .filter((u): u is string => Boolean(u));
-      const videoUrl = publicUrlForStoredAsset(c.row.showcase_video_r2_key) ?? null;
-      if (photos.length > 0 || videoUrl) serviceCardShowcase.set(id, { photos, videoUrl });
-    }
-  }
+  const serviceCardFace = await readMarketplaceCardFaces(admin, serviceCards ?? [], eventTypeLabel, new Date());
   const marketplaceIsEmpty = liveShopCount === 0;
 
   /*
@@ -3477,34 +3287,7 @@ export async function MarketplaceView({
                 The public id the address needs is read from the DATABASE ROW,
                 which always carries it — see `lib/service-card-address.ts`.
               */}
-              <ServiceCardView
-                card={toServiceCard(
-                  c.row,
-                  serviceCardInclusions.get(c.row.vendor_service_id),
-                  serviceCardDiscounts.get(c.row.vendor_service_id),
-                  serviceCardServes.get(c.row.vendor_service_id),
-                  serviceCardShowcase.get(c.row.vendor_service_id),
-                  serviceCardHidingPrices.has(c.vendorProfileId),
-                  null,
-                  new Date(),
-                  serviceCardRecords.get(c.row.vendor_service_id) ?? null,
-                  cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
-                  false,
-                  serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
-                )}
-                detailsEnabled
-                detailsHref={serviceCardAddress(c)}
-                path={displayServiceLabel(c.row.category)}
-                coverUrl={serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null}
-                shop={{
-                  name: c.businessName,
-                  href: shopAddress(c.businessSlug),
-                  logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
-                  city: c.locationCity,
-                  isDemo: c.isDemo,
-                  verified: c.verified,
-                }}
-              />
+              <ServiceCardView {...serviceCardFace(c)} detailsEnabled />
             </li>
           ))}
         </ul>
@@ -3602,14 +3385,13 @@ export async function MarketplaceView({
     if (filters.city) summary.push(filters.city);
     if (shownEventType) summary.push(shownEventType);
     if (filters.faithFilter) summary.push(FAITH_KEY_TO_LABEL[filters.faithFilter]);
-    if (filters.verifiedOnly) summary.push('Verified only');
+    // "Verified only" is not a filter on Discover: every list reads `is_findable`, which is verified and listed.
     if (filters.matchEvent) summary.push('Matches your event');
     if (filters.offSeason) summary.push('Off-season savings');
     const filterCount = [
       filters.city.length > 0,
       shownEventType !== null,
       filters.faithFilter !== null,
-      filters.verifiedOnly,
       filters.matchEvent,
       filters.offSeason,
     ].filter(Boolean).length;
@@ -3646,6 +3428,7 @@ export async function MarketplaceView({
       sortInside: false,
       offSeason: filters.offSeason,
       carry: drawerCarry,
+      verifiedToggle: false,
     } satisfies Omit<FilterDrawerProps, 'open' | 'onClose'>;
     return (
       <div data-discover-supplier-view="" className="w-full pb-16">
@@ -4295,7 +4078,7 @@ function FocusedModeSearchForm({
   };
 }) {
   return (
-    <form method="get" action="/explore" className="space-y-2">
+    <form method="get" action="/" className="space-y-2">
       <label className="block">
         <span className="sr-only">Search suppliers</span>
         {/* Reuses the same TaxonomySearch client component as FilterBar.
@@ -4932,7 +4715,7 @@ async function CatalogView({
     .slice(0, 6)
     .map(([key]) => ({
       label: taxonomyLabel(key),
-      href: `/explore?category=${encodeURIComponent(key)}`,
+      href: `/?category=${encodeURIComponent(key)}`,
     }));
   const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
 
@@ -4959,7 +4742,7 @@ async function CatalogView({
     .filter((t) => t.enabled)
     .map((t) => ({
       label: t.label,
-      href: `/explore?event_type=${encodeURIComponent(t.key)}`,
+      href: `/?event_type=${encodeURIComponent(t.key)}`,
     }));
 
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
@@ -5488,7 +5271,7 @@ async function CatalogView({
         ) : (
           <div className="mt-12 text-center">
             <Link
-              href="/explore?browse=1"
+              href="/?browse=1"
               className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
             >
               Browse all categories →
@@ -5576,7 +5359,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         only — the other folders are hidden so you can focus.
       </p>
       <Link
-        href="/explore"
+        href="/"
         className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
       >
         Browse all folders
@@ -5605,7 +5388,7 @@ function ReligionBanner({
         (photo, catering, attire) stay visible.
       </p>
       <Link
-        href="/explore?match=0"
+        href="/?match=0"
         className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
       >
         Show all faiths

@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -740,7 +740,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -856,6 +856,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       verification_state: string | null;
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
+      is_demo: boolean | null;
     };
 
     if (statsRes.error) {
@@ -1040,6 +1041,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           next_renewal_due_at: a?.next_renewal_due_at ?? null,
         }),
         is_setnayan_service: s.is_setnayan_service === true,
+        // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
+        // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
+        not_yet_verified: threadShowsNotYetVerified(a),
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -2322,6 +2326,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         reviewStatus: reviewStatusByVendorId.get(row.vendor_id) ?? null,
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
+        notYetVerified: ext?.not_yet_verified === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
@@ -3092,6 +3097,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                   bookSlot={
                     <BookThisBuild
                       eventId={eventId}
+                      inBuild={buildLines.filter((l) => l.pick || l.booked).length}
                       picks={buildLines.flatMap((l) =>
                         l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]

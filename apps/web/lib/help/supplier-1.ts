@@ -107,7 +107,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-setup.ts `title: 'Name your shop'` … `title: 'Download your QR'`, `setupHeadline`
         slug: 'supplier-setup-steps',
         title: 'Suppliers: what are the setup steps?',
-        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them before you go live) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
+        body: 'Six: Name your shop · Your details (address, contact and the year you started) · Add your logo · What you offer (your cards for each service) · Send your documents (Setnayan checks them, then you get the Verified check) · Download your QR. The top of the list counts how many are done; when all six are, it reads All done — Setnayan checks you next.',
       },
       {
         // lib/supplier-setup.ts "a fold is never ticked by a press, only by the saved fact"
@@ -122,10 +122,10 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         body: 'On each service card, not in the setup steps — a photographer and a caterer can take a different number of events on the same day, so each card carries its own number. Open the card in Shop › Bundles and services and set How many events a day can this service take?',
       },
       {
-        // lib/findable-shop.ts "AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST INQUIRY"; for-suppliers plan-table-data.ts 'found until your first inquiry'
+        // lib/findable-shop.ts — DECISION_LOG 2026-11-15 "Verified only"; for-suppliers plan-table-data.ts FREE_FINDABLE
         slug: 'supplier-when-couples-find-you',
         title: 'Suppliers: when can couples find my shop?',
-        body: 'A new shop can be found in search until its first inquiry. After that it stays out of search until Setnayan verifies you, and deleting the inquiry does not change that. A verified shop always shows, with its verified mark.',
+        body: 'Before Setnayan verifies you, couples reach your shop by its own link and QR code — they can message and book you there. Once you are verified, your shop also shows in Discover and Suppliers › Find, with its verified mark.',
       },
     ],
   },
@@ -138,7 +138,8 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/vendor-verification.ts `DOC_SLOTS`, `REQUIRED_DOC_SLOT_KEYS`
         slug: 'supplier-which-documents',
         title: 'Suppliers: which documents are required, and which are optional?',
-        body: 'Four are required: your DTI or SEC registration, your BIR Form 2303, your Mayor’s Permit for the current year, and proof of your bank account. Three help but are optional: portfolio samples, a few past client references, and your social media links. Send them as a PDF, JPG or PNG.',
+        // Three since the owner's 2026-11-14 ruling (bank proof removed) — the answer said four until 2026-11-18.
+        body: 'Three are required: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit for the current year. Three help but are optional: portfolio samples, a few past client references, and your social media links. Send them as a PDF, JPG or PNG.',
       },
       {
         // app/vendor-dashboard/verify/page.tsx redirect(`/vendor-dashboard/profile…#docs`); lib/supplier-setup.ts 'Send your documents'
@@ -165,10 +166,12 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         body: 'Unverified — nothing sent yet. Pending review — your documents are with the team. Verified — you are checked and can be booked. If something needs fixing, your documents show Needs attention with the reason, so you can send a better copy.',
       },
       {
-        // lib/vendor-verification.ts `isBookableVerificationState`, `VENDOR_NOT_VERIFIED_COUPLE_MESSAGE`; lib/findable-shop.ts; lib/vendor-corrections.ts `identityLockOf`
+        // lib/findable-shop.ts (search lists verified shops only — owner 2026-11-15 "Verified only"); lib/vendor-visibility.ts
+        // `shopBookingRefusal` (an unverified shop is booked on its own page since 15 Nov); lib/vendor-corrections.ts `identityLockOf`.
+        // Until 2026-11-18 this said a booking was refused before verification and the shop "always" showed in search — both false.
         slug: 'supplier-what-verified-changes',
         title: 'Suppliers: what changes once I am verified?',
-        body: 'Couples can book you — until then they can ask, but a booking is refused. Your shop always shows in search, with its verified mark, and the not-yet-verified notice leaves your page. Your shop name, address and web address are then changed only by request, so couples can trust what they booked.',
+        body: 'Your shop starts showing in search, Discover and Suppliers › Find, with its verified mark, and the not-yet-verified notice leaves your page. Before that, couples reach you only through your own link or QR — they can still message and book you there. Your shop name, address and web address are then changed only by request, so couples can trust what they booked.',
       },
     ],
   },

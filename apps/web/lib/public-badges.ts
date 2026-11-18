@@ -1,0 +1,207 @@
+/**
+ * 🏅 PUBLIC BADGES — THE ONE ADAPTER the public surfaces read badges through (badge build J6, 15 Nov 2026).
+ *
+ * The surfaces: the explore shop card (`explore/_components/vendor-card.tsx` + `vendor-badge-row.tsx`) and the full
+ * service card (`v/[slug]/_components/service-details-sheet.tsx`). They draw badges ONLY from what this file hands them.
+ *
+ * ── THE ONLY BADGES (owner, DECISION_LOG 2026-11-15, specs 4b8cc3a3: "the badges we created will be the only badges
+ *    we have"; drawn in specs `prototypes/supplier_badges_2026-11-15/badge-milestones_v86.html`) ──────────────────────
+ *   · five tiered SHOP badges — Completed bookings · Five-star reviews · Gifts given · Trusted by · Invites;
+ *   · the SEALS — Setnayan Verified · Verified Partner · Most In-Demand · Top 10 Supplier · No. 1 Supplier of the Year;
+ *   · six SERVICE-CARD medals, layout D, in the row's order (ruling 7fbff0cd item 5): Hot Booking · Quick Responder ·
+ *     Trending Now · Rave Reviews · Generous Giver · Setnayan Verified — Verified LAST (it is the shop's, on each card).
+ *   Retired as badges: the explore pills `new` · `couple_trusted` · `most_booking` · `top_pick` (Setnayan Verified stays).
+ *
+ * ── WHY ONE FILE ──────────────────────────────────────────────────────────────────────────────────────────────────────
+ * Three jobs are building the facts in parallel — J0 (the ladders and tier steps), J2 (the seals engine), J3 (the
+ * card-badge holds). Their helpers are not on main yet. When one lands, ITS reader is wired HERE and nowhere else, and
+ * the surfaces change with no edit of their own. Until then a family with no source is EMPTY — never a fake badge, never
+ * a guessed tier — and the gap is named in `PUBLIC_BADGE_GAPS`.
+ *
+ * Pure: no I/O, no React. Held by `lib/public-badges.test.ts`.
+ */
+import { SEAL_LABEL, type SealKey as EngineSealKey } from '@/lib/shop-seals';
+import { shopBadgeTier, tierName, type ShopBadgeKey as BadgeTierKey } from '@/lib/badge-tiers';
+
+/** The retired explore pills — the old `VendorBadge` keys (`lib/vendor-badges.ts`) that no longer draw. */
+export const RETIRED_EXPLORE_PILLS = ['new', 'couple_trusted', 'most_booking', 'top_pick'] as const;
+
+/** The five tiered shop badges, in the prototype's order (`FAMT` in badge-milestones_v86). */
+export const SHOP_BADGE_FAMILIES = [
+  { key: 'bookings', name: 'Completed bookings' },
+  { key: 'five_star', name: 'Five-star reviews' },
+  { key: 'gifts', name: 'Gifts given' },
+  { key: 'trusted_by', name: 'Trusted by' },
+  { key: 'invites', name: 'Invites' },
+] as const;
+export type ShopBadgeFamily = (typeof SHOP_BADGE_FAMILIES)[number]['key'];
+
+/**
+ * The seals named in the ruling (4b8cc3a3), plus Clients' Choice (11d044c0 (2)) — the names are the seals engine's own
+ * (`SEAL_LABEL`, lib/shop-seals.ts), never re-typed here, and listed in its `SEAL_ORDER` ("No. 1 → other seals").
+ */
+export const SEALS = [
+  { key: 'no1', name: SEAL_LABEL.no1 },
+  { key: 'top10', name: SEAL_LABEL.top10 },
+  { key: 'clients_choice', name: SEAL_LABEL.clients_choice },
+  { key: 'in_demand', name: SEAL_LABEL.most_in_demand },
+  { key: 'partner', name: SEAL_LABEL.verified_partner },
+  { key: 'verified', name: SEAL_LABEL.verified },
+] as const;
+export type SealKey = (typeof SEALS)[number]['key'];
+
+/** The six card medals, in the row's order — Setnayan Verified LAST (ruling 7fbff0cd item 5). */
+export const CARD_MEDALS = [
+  { key: 'hot_booking', name: 'Hot Booking' },
+  { key: 'quick_responder', name: 'Quick Responder' },
+  { key: 'trending_now', name: 'Trending Now' },
+  { key: 'rave_reviews', name: 'Rave Reviews' },
+  { key: 'generous_giver', name: 'Generous Giver' },
+  { key: 'verified', name: 'Setnayan Verified' },
+] as const;
+export type CardMedalKey = (typeof CARD_MEDALS)[number]['key'];
+
+/** A tier a shop badge has reached: its name ("Gold") and the count behind it. */
+export type ShopTierBadge = { family: ShopBadgeFamily; name: string; tier: string; count: number };
+export type PublicSeal = { key: SealKey; name: string };
+export type CardMedal = { key: CardMedalKey; name: string };
+
+/** Everything a public surface may draw for one shop (and, on a service card, that card). */
+export type PublicBadgeView = {
+  /** The shop holds Setnayan Verified (`hasVerifiedBadge` — the one predicate). */
+  verified: boolean;
+  shopBadges: ShopTierBadge[];
+  seals: PublicSeal[];
+  /** Layout D's row, in its order; empty = no row. */
+  cardMedals: CardMedal[];
+};
+
+/**
+ * What each family is read from — and, until its job lands, the gap. Shown in the PR and kept here so nobody mistakes
+ * an empty row for "this shop has none": it means "not counted yet".
+ */
+export const PUBLIC_BADGE_GAPS: Readonly<Record<string, string>> = {
+  shopBadges: 'J0 — wired (#7753): `tiersFromCounts` on the shop page; Invites has no counter yet (no import door)',
+  seals: 'J2 — wired (#7825): `sealsFromEngine` reads `readShopSeals`; the shop page passes it (app/v/[slug])',
+  cardMedals: 'J3 — read by lib/card-badges.server.ts (facts + open holds, keyed on CARD_MEDALS) and drawn by CardBadgeRow on the card face and the full card (a slot); the adapter view itself carries none yet',
+  sheetVerified: 'the shop page passes no verification to the service card yet (app/v/[slug] — F2 / J3 own its callers)',
+};
+
+/**
+ * The facts the adapter turns into a view. `verified` is the only one with a source on main; the others are filled by
+ * J0 / J2 / J3 readers when they land — absent means "not counted", and draws nothing.
+ */
+export type PublicBadgeSource = {
+  verified: boolean;
+  /** J0 — reached tiers, by family. */
+  tiers?: readonly ShopTierBadge[] | null;
+  /** J2 — seals the shop holds now (Setnayan Verified is added from `verified`, never from here). */
+  seals?: readonly SealKey[] | null;
+  /** J3 — card medals this card holds now (Setnayan Verified is added from `verified`, never from here). */
+  cardMedals?: readonly CardMedalKey[] | null;
+};
+
+/** The seals engine's keys (`shop_seals.seal`, lib/shop-seals.ts) → this adapter's. */
+const ENGINE_SEAL: Readonly<Record<EngineSealKey, SealKey>> = {
+  verified: 'verified',
+  verified_partner: 'partner',
+  most_in_demand: 'in_demand',
+  top10: 'top10',
+  no1: 'no1',
+  clients_choice: 'clients_choice',
+};
+
+/**
+ * 🏆 J2 WIRED (#7825): the seals a shop wears, as the engine reads them (`readShopSeals` → `displayedSeals`), in this
+ * adapter's keys. null in = the read failed = null out (the caller draws no seal, never "no seals").
+ */
+export function sealsFromEngine(keys: readonly EngineSealKey[] | null | undefined): SealKey[] | null {
+  if (!keys) return null;
+  return keys.map((k) => ENGINE_SEAL[k]).filter((k): k is SealKey => k !== undefined);
+}
+
+/** When and for which year a seal the shop holds was given (`shop_seals.award_year` / `awarded_at`, the newest row). */
+export type SealGiven = { year: number; awardedAt: string };
+
+/**
+ * The stored rows of the seals a shop holds (`readShopSeals().rows`), in this adapter's keys — so a row can name the
+ * seal's year ("Top 10 supplier of 2026") and its full screen the date it was given, from the stored row, never a guess.
+ */
+export function sealsGivenFromEngine(
+  rows: ReadonlyArray<{ seal: EngineSealKey; award_year: number; awarded_at: string }> | null | undefined,
+): Partial<Record<SealKey, SealGiven>> {
+  const out: Partial<Record<SealKey, SealGiven>> = {};
+  for (const r of rows ?? []) {
+    const k = ENGINE_SEAL[r.seal];
+    if (!k || !Number.isInteger(r.award_year)) continue;
+    const had = out[k];
+    if (!had || r.award_year > had.year) out[k] = { year: r.award_year, awardedAt: r.awarded_at };
+  }
+  return out;
+}
+
+/** The ladder (`lib/badge-tiers.ts`) each adapter family climbs. */
+export const FAMILY_LADDER: Readonly<Record<ShopBadgeFamily, BadgeTierKey>> = {
+  bookings: 'completed_bookings',
+  five_star: 'five_star_reviews',
+  gifts: 'gifts_given',
+  trusted_by: 'trusted_by',
+  invites: 'invites',
+};
+
+/** The counters behind the tiered badges; null = that read failed (never 0). */
+export type ShopTierCounts = Partial<Record<ShopBadgeFamily, number | null>>;
+
+/**
+ * 🪜 J0 WIRED (#7753): the tiers a shop has reached, from its counters (`readShopTierCounts`, lib/badge-rewards.server.ts)
+ * on each badge's OWN steps (`shopBadgeTier`). A null count draws nothing (and is reported by `unreadFamilies`).
+ */
+export function tiersFromCounts(counts: ShopTierCounts): ShopTierBadge[] {
+  const out: ShopTierBadge[] = [];
+  for (const f of SHOP_BADGE_FAMILIES) {
+    const count = counts[f.key];
+    if (count === null || count === undefined) continue;
+    const tier = shopBadgeTier(FAMILY_LADDER[f.key], count);
+    if (tier) out.push({ family: f.key, name: f.name, tier: tierName(tier), count });
+  }
+  return out;
+}
+
+/** The families whose counter was asked for and could not be read — the row says so instead of drawing nothing. */
+export function unreadFamilies(counts: ShopTierCounts): ShopBadgeFamily[] {
+  return SHOP_BADGE_FAMILIES.filter((f) => f.key in counts && counts[f.key] === null).map((f) => f.key);
+}
+
+const FAMILY_ORDER = SHOP_BADGE_FAMILIES.map((f) => f.key);
+
+/** Build the view. Order is the prototype's; a key it does not know is dropped (never drawn under a guessed name). */
+export function publicBadgeView(src: PublicBadgeSource): PublicBadgeView {
+  const sealKeys = new Set<SealKey>((src.seals ?? []).filter((k) => k !== 'verified'));
+  // Verified Partner PERMANENTLY REPLACES Setnayan Verified (3077c9b3 rule 8 — the engine's `displayedSeals`).
+  if (src.verified && !sealKeys.has('partner')) sealKeys.add('verified');
+  const medalKeys = new Set<CardMedalKey>((src.cardMedals ?? []).filter((k) => k !== 'verified'));
+  if (src.verified) medalKeys.add('verified');
+  return {
+    verified: src.verified,
+    shopBadges: [...(src.tiers ?? [])]
+      .filter((t) => FAMILY_ORDER.includes(t.family) && t.count > 0 && t.tier.trim() !== '')
+      .sort((a, b) => FAMILY_ORDER.indexOf(a.family) - FAMILY_ORDER.indexOf(b.family)),
+    seals: SEALS.filter((s) => sealKeys.has(s.key)).map((s) => ({ key: s.key, name: s.name })),
+    cardMedals: CARD_MEDALS.filter((m) => medalKeys.has(m.key)).map((m) => ({ key: m.key, name: m.name })),
+  };
+}
+
+/** The explore pills that still draw: Setnayan Verified alone (the rest retired, 4b8cc3a3). */
+export function keptExplorePills<T extends string>(badges: readonly T[]): Array<T & 'verified'> {
+  return badges.filter((b): b is T & 'verified' => b === 'verified');
+}
+
+/**
+ * The name an explore card shows (ruling 7fbff0cd item 9: unverified shops show their REAL name; only the check and the
+ * Verified seal are missing). The stored business name when there is one; the old placeholder only for a shop with no
+ * name at all.
+ */
+export function publicShopName(businessName: string | null | undefined, placeholder: string): string {
+  const real = (businessName ?? '').trim();
+  return real.length > 0 ? real : placeholder;
+}

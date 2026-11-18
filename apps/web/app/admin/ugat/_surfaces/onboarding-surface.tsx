@@ -68,18 +68,18 @@ export async function OnboardingSurface({ searchParams }: Props) {
       />
 
       {sp.saved ? (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-success-300/60 bg-success-50/60 px-4 py-3 text-sm text-success-800">
+        <div className="mb-6 flex items-center gap-2 border-success-300/60 bg-success-50/60 py-3 text-sm text-success-800 border-t border-ink/10">
           <CheckCircle2 className="h-4 w-4" strokeWidth={2} aria-hidden /> Saved.
         </div>
       ) : null}
       {sp.error ? (
-        <div className="mb-6 flex items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <div className="mb-6 flex items-center gap-2 bg-terracotta/10 py-3 text-sm text-terracotta-700 border-t border-ink/10">
           <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden /> {sp.error}
         </div>
       ) : null}
 
       {/* ── WEDDING ONBOARDING ─────────────────────────────────────────── */}
-      <section className="sn-tile p-5 sm:p-6">
+      <section className="py-5 sm:py-6 border-t border-ink/10">
         <header className="mb-4 flex items-center gap-2">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-mulberry/10 text-mulberry">
             <Heart className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -87,20 +87,20 @@ export async function OnboardingSurface({ searchParams }: Props) {
           <div>
             <h2 className="text-lg font-semibold text-ink">Wedding</h2>
             <p className="text-xs text-ink/55">
-              <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">/onboarding/wedding</code>
+              <code className="rounded bg-ink/5 px-1 py-0.5 tabular-nums">/onboarding/wedding</code>
             </p>
           </div>
         </header>
 
         {/* Background music */}
-        <div className="rounded-xl border border-ink/10 bg-white p-5">
+        <div className="py-5 border-t border-ink/10">
           <div className="mb-1 flex items-center gap-2">
             <Music className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
             <h3 className="sn-eye">
               Background music
             </h3>
           </div>
-          <p className="mb-3 text-sm text-ink/60">
+          <p className="mb-3 text-[13px] text-ink/70">
             A soft, low-volume soundtrack while couples go through the wedding
             onboarding. It never blasts on — it starts quietly on the first tap
             and each couple can mute it. Upload an{' '}
@@ -176,9 +176,9 @@ export async function OnboardingSurface({ searchParams }: Props) {
       </section>
 
       {/* ── FUTURE TYPES ───────────────────────────────────────────────── */}
-      <section className="mt-6 rounded-2xl border border-dashed border-ink/15 bg-white/50 p-5 text-sm text-ink/55">
+      <section className="mt-6 border-dashed py-5 text-sm text-ink/55 border-t border-ink/10">
         <p className="font-semibold text-ink/70">More onboarding flows</p>
-        <p className="mt-1">
+        <p className="mt-1 text-[13px] text-ink/70">
           As Setnayan opens new event types (birthday, celebration, corporate,
           and more), each gets its own settings section here — same shape as
           Wedding above. When a second flow needs its own music or knobs, the
@@ -203,7 +203,7 @@ function RelatedLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-2 rounded-lg border border-ink/10 bg-white p-3 hover:border-terracotta/30 hover:bg-terracotta/5"
+      className="group flex min-h-[56px] items-start gap-2 border-t border-ink/10 py-3 hover:bg-ink/5"
     >
       <span className="mt-0.5 text-terracotta">{icon}</span>
       <span className="min-w-0 flex-1">

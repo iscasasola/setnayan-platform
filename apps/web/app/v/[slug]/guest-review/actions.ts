@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
@@ -69,7 +70,7 @@ export async function sendGuestReview(_prev: GuestReviewSendState, form: FormDat
   const gift = await guestReviewGiftFor(vendorProfileId);
 
   // The shop's page and its own Reviews list read the new row on their next render.
-  revalidatePath(`/v/${slug}`);
+  revalidatePath(`${shopPath(slug)}`);
   revalidatePath('/vendor-dashboard/website');
   return { status: 'sent', firstName, giftLine: gift?.line ?? null };
 }

@@ -146,7 +146,7 @@ function Shop({ fail }: { fail: boolean }) {
   return (
     <main className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
       <RecordBack href="#" label="All suppliers" />
-      <RecordHead small="Shop · S89V-7K2M9Q1T4B · /v/lumina-studio" name="Lumina Studio" badges={<><Badge tone="quiet">In review</Badge><Badge tone="ok">Shows in search</Badge></>} />
+      <RecordHead small="Shop · S89V-7K2M9Q1T4B · /lumina-studio" name="Lumina Studio" badges={<><Badge tone="quiet">In review</Badge><Badge tone="ok">Shows in search</Badge></>} />
       <RecordFacts items={[['Run by', <a key="r" href="#" className="font-semibold text-mulberry">Ana Lim ›</a>], ['City', 'Makati'], ['Shows in search', 'Yes'], ['Joined', 'Sep 2, 2026']]} />
       <RecordFolds>
         <RecordFold title="Verification" summary="In review · pending · sent Nov 11, 2026">

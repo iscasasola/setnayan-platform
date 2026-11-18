@@ -197,7 +197,7 @@ export async function BrainSurface() {
       */}
       <section
         role="status"
-        className="mb-8 flex items-start gap-3 rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5"
+        className="mb-8 flex items-start gap-3 border-warn-300/60 bg-warn-50/80 py-5 border-t border-ink/10"
       >
         <AlertCircle
           aria-hidden
@@ -205,7 +205,7 @@ export async function BrainSurface() {
           strokeWidth={1.75}
         />
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
+          <p className="text-warn-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Pilot posture
           </p>
           <p className="text-sm text-warn-900">
@@ -260,7 +260,7 @@ export async function BrainSurface() {
           <details
             key={topic.filename}
             open={isOpen}
-            className="mb-4 overflow-hidden sn-tile"
+            className="mb-4 overflow-hidden border-t border-ink/10"
           >
             <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-terracotta/[0.04]">
               <div className="min-w-0 flex-1 space-y-1">
@@ -270,13 +270,13 @@ export async function BrainSurface() {
                 <p className="text-xs text-ink/55">{topic.tagline}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-ink/55">
+                <span className="text-xs text-ink/55 tabular-nums">
                   {rowsForTopic.length === 1
                     ? '1 chunk'
                     : `${rowsForTopic.length} chunks`}
                 </span>
                 {paidCount > 0 ? (
-                  <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:var(--sn-info)]">
+                  <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[color:var(--sn-info)] text-[12px] font-bold">
                     {formatCount(paidCount)} paid-tier
                   </span>
                 ) : null}
@@ -307,12 +307,12 @@ export async function BrainSurface() {
         admins should see it and decide.
       */}
       {unknown.length > 0 ? (
-        <section className="mt-8 overflow-hidden rounded-2xl border border-danger-200 bg-danger-50">
+        <section className="mt-8 overflow-hidden border-danger-200 bg-danger-50 border-t border-ink/10">
           <header className="flex flex-wrap items-baseline justify-between gap-3 px-5 py-4">
             <h2 className="text-base font-semibold tracking-tight text-danger-800">
               Unmapped topic files
             </h2>
-            <span className="font-mono text-xs text-danger-700">
+            <span className="text-xs text-danger-700 tabular-nums">
               {unknown.length} chunk{unknown.length === 1 ? '' : 's'}
             </span>
           </header>
@@ -336,7 +336,7 @@ function ComingSoonTab({ label }: { label: string }) {
     >
       <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       {label}
-      <span className="rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+      <span className="rounded-full bg-ink/5 px-1.5 py-0.5 text-ink/40 text-[12px] font-bold">
         Coming soon
       </span>
     </span>
@@ -359,22 +359,22 @@ function ChunkRowView({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-ink">{row.chunk_title}</p>
             {row.paid_tier_only ? (
-              <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:var(--sn-info)]">
+              <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[color:var(--sn-info)] text-[12px] font-bold">
                 Paid tier
               </span>
             ) : null}
             {row.is_stale ? (
-              <span className="inline-flex items-center rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
+              <span className="inline-flex items-center rounded-full bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
                 Needs re-embed
               </span>
             ) : null}
             {!row.is_active ? (
-              <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
+              <span className="inline-flex items-center rounded-full bg-ink/10 px-2 py-0.5 text-ink/55 text-[12px] font-bold">
                 Inactive
               </span>
             ) : null}
             {row.cowork_pending_review ? (
-              <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-sky-800">
+              <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-sky-800 text-[12px] font-bold">
                 Cowork pending review
               </span>
             ) : null}
@@ -385,41 +385,41 @@ function ChunkRowView({
               {visibleTags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] text-ink/65"
+                  className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 text-[12px] text-ink/65 tabular-nums"
                 >
                   {tag}
                 </span>
               ))}
               {overflow > 0 ? (
-                <span className="font-mono text-[10px] text-ink/45">
+                <span className="text-[12px] text-ink/45 tabular-nums">
                   +{overflow} more
                 </span>
               ) : null}
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink/55">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink/55">
             {row.source_citation ? (
               <span className="truncate">
-                <span className="font-mono uppercase tracking-[0.1em] text-ink/45">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   Source ·
                 </span>{' '}
                 {row.source_citation}
               </span>
             ) : (
               <span className="text-danger-700">
-                <span className="font-mono uppercase tracking-[0.1em]">
+                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   No source citation
                 </span>
               </span>
             )}
             <span>
-              <span className="font-mono uppercase tracking-[0.1em] text-ink/45">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                 Hits 30d ·
               </span>{' '}
               {formatCount(row.hit_count_30d)}
             </span>
             {unmappedFilename ? (
-              <span className="font-mono text-danger-700">
+              <span className="text-danger-700 tabular-nums">
                 topic_file: {unmappedFilename}
               </span>
             ) : null}

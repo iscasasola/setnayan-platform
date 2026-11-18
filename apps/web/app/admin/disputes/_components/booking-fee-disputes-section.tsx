@@ -93,19 +93,19 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
         admin.from('events').select('display_name, event_date').eq('event_id', c.event_id).maybeSingle(),
         admin
           .from('event_vendor_found')
-          .select('first_found_at, view_count')
+          .select('first_found_at, view_count, first_source')
           .eq('event_id', c.event_id)
           .eq('vendor_profile_id', r.vendor_profile_id)
           .maybeSingle(),
         admin.from('chat_threads').select('inquiry_source').eq('event_id', c.event_id).eq('vendor_profile_id', r.vendor_profile_id),
         admin.from('event_vendors').select('source').eq('event_id', c.event_id).eq('marketplace_vendor_id', r.vendor_profile_id),
       ]);
-      const f = found.data as { first_found_at: string | null; view_count: number | null } | null;
+      const f = found.data as { first_found_at: string | null; view_count: number | null; first_source: string | null } | null;
       const e = ev.data as { display_name: string | null; event_date: string | null } | null;
       receipts.set(r.dispute_id, {
         eventName: e?.display_name ?? null,
         eventDate: e?.event_date ?? null,
-        found: found.error ? 'The found-record could not be read.' : foundReceiptLine(f?.first_found_at ?? null, f?.view_count ?? null),
+        found: found.error ? 'The found-record could not be read.' : foundReceiptLine(f?.first_found_at ?? null, f?.view_count ?? null, f?.first_source ?? null),
         chat: ((threads.data ?? []) as { inquiry_source: string | null }[]).some(
           (t) => t.inquiry_source != null && SOURCED_INQUIRY_SOURCES.has(t.inquiry_source),
         ),

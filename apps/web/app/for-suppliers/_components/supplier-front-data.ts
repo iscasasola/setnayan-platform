@@ -20,6 +20,8 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
+import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
+import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
   TIER_CAPS,
@@ -85,9 +87,9 @@ export function verifiedSpec(): string {
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 5 team seats · 3 branches ·
- * waiting list, 1 a date". A part a plan does not have (Solo's branches, Solo's waiting list) is left out, as the
- * prototype leaves it out.
+ * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 3 bookings a day per service, at
+ * each branch · 5 team seats · 3 branches · waiting list, 1 a date". A part a plan does not have (Plus's branches,
+ * Plus's waiting list) is left out, as the prototype leaves it out. Every number is TIER_CAPS.
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
@@ -95,6 +97,7 @@ export function growSpec(t: GrowTier): string {
     reach(c.serviceRadiusKm, 'Nationwide'),
     countNoun(c.parentCategories, 'category', 'categories'),
     `${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} each`,
+    `${countNoun(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
     countNoun(c.agentAccounts, 'team seat', 'team seats'),
   ];
   if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
@@ -102,9 +105,9 @@ export function growSpec(t: GrowTier): string {
   return parts.join(' · ');
 }
 
-/** "Everything in Verified, plus" — the plan below, by the Grow order. */
+/** "Everything in Free, plus" — the plan below, by the Grow order (Verified joins Free, 2026-11-14). */
 export function growPlus(t: GrowTier): string {
-  const below: Record<GrowTier, VendorTier> = { solo: 'verified', pro: 'solo', enterprise: 'pro' };
+  const below: Record<GrowTier, VendorTier> = { solo: 'free', pro: 'solo', enterprise: 'pro' };
   return `Everything in ${planName(below[t])}, plus`;
 }
 
@@ -139,16 +142,37 @@ export const GROW_LINES: ReadonlyArray<{ text: string; tail?: string; lead?: tru
 export type GrowLine = { text: string; tail?: string; lead: boolean };
 
 /**
+ * 💳 WHAT FOLDED INTO EACH PLAN (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 3) — the lines that
+ * used to be add-ons, each placed under the FIRST plan the gate itself opens it on:
+ *   · specialized tools → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (the unlock's own mirror of the database gate);
+ *   · the chatbot and its smarter level → `PLAN_CHATBOT_LEVEL` (the table the inbox's gate reads);
+ *   · Ultra's higher limits → the plan has none of the old "+1" add-ons to buy (`canBuyUltraAddOn`).
+ */
+export function foldedLines(t: GrowTier): GrowLine[] {
+  const firstTools = GROW_TIERS.find((g) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(g)) ?? null;
+  const firstBasic = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
+  const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
+  const out: GrowLine[] = [];
+  if (firstTools === t) out.push({ text: 'All specialized tools, included', lead: true });
+  if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
+  if (firstAdvanced === t) {
+    out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
+  }
+  if (t === GROW_TIERS[GROW_TIERS.length - 1]) out.push({ text: 'Higher limits built in, nothing to add on', lead: true });
+  return out;
+}
+
+/**
  * The lines shown under one paid plan. A line whose Plans-page row is gone is dropped (never shown under a guess);
  * the 3D seat-plan line additionally sits under the FIRST plan `boothTierCanBrand` opens, so the gate and the page
  * cannot disagree.
  */
 export function growLines(t: GrowTier): GrowLine[] {
   const firstBooth = GROW_TIERS.find((g) => boothTierCanBrand(g)) ?? null;
-  return GROW_LINES.filter((l) => {
+  return [...foldedLines(t), ...GROW_LINES.filter((l) => {
     const at = l.row.source.includes('3D') ? firstBooth : tierOfPlansRow(l.row);
     return at === t;
-  }).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }));
+  }).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }))];
 }
 
 /** The papers Verified asks for, as the step says them. `REQUIRED_DOC_COUNT` holds the count (see the test). */
@@ -310,13 +334,19 @@ export function helperLine(): string | null {
 /** The plans that may buy an extra branch AND an extra seat (today only Ultra) — `canBuyExtra*` in vendor-tier-caps. */
 export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyExtraBranches(t) && canBuyExtraSeats(t));
 
-/** "Bigger than Ultra? Add more." — the top plan's name. */
-export const ADDONS_HEAD = `Bigger than ${planName(GROW_TIERS[GROW_TIERS.length - 1]!)}? Add more.`;
-
-/** "Per 4 weeks. Only Ultra can add these." */
-export function addonsFine(): string {
-  return `Per 4 weeks. Only ${ADDON_TIERS.map(planName).join(' and ')} can add these.`;
+/**
+ * The one line under the plan cards that replaced the add-ons box (drawing § 1): "Deep Search is ₱499 a search on any
+ * plan. On Ultra, you can also add a seat or a branch." The price is the catalogue row the search CHARGES; unread → the
+ * sentence names no figure. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
+ */
+export function buyMoreLine(deepSearchPrice: string | null): string {
+  const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
+  if (ADDON_TIERS.length === 0) return deep;
+  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, you can also add a seat or a branch.`;
 }
+
+/** The Free card's words (drawing § 1, desktop): what Free gives, and that Verified joins it. */
+export const FREE_CARD_LINE = 'Your page, portfolio, QR codes and the free set of tools. Verified once your papers are approved.';
 
 /** The plan name a person reads ("Ultra" for `enterprise`), for the page's tabs. */
 export function growName(t: GrowTier): string {

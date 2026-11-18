@@ -12,6 +12,7 @@ import {
 } from '@/lib/verification-docs';
 import { deleteVerificationDoc, viewVerificationDoc } from './actions';
 import { DOC_SLOTS } from '@/lib/vendor-verification';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * ADMIN · Vendor verification documents.
@@ -209,7 +210,7 @@ function Group({
           Nothing here.
         </p>
       ) : (
-        <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10">
+        <ul className={`${ADMIN_FRAME} divide-y divide-ink/10`}>
           {docs.map((d) => (
             <li key={d.key} className="flex flex-wrap items-center gap-3 px-3 py-3">
               <div className="min-w-0 flex-1">

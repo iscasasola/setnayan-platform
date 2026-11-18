@@ -167,7 +167,14 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
  * `lib/fee-rule-b-cases.ts` through both and requires the same answer.
  * Fails SAFE to import.
  */
-export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize']);
+/**
+ * 🔖 THE SHORTLIST QR IS NOT AN IMPORT (owner 2026-11-16, DECISION_LOG d7f4b97f). Shop › Promote's free
+ * "Shortlist" QR (`/vendor-invite/<slug>` → `importVendorToEventShortlist`) puts the shop on the couple's shortlist,
+ * and a booking from it pays the normal booking fee — it is a save on Setnayan, not the supplier bringing an own
+ * client. Until 16 Nov it wrote `vendor_invite` and was a free back door around the import gift (183dcf14).
+ */
+export const SHORTLIST_QR_SOURCE = 'vendor_shortlist_qr';
+export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize', SHORTLIST_QR_SOURCE]);
 export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
 
 export type BookingAttributionFacts = {

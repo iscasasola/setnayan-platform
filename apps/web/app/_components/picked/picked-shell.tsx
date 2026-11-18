@@ -37,7 +37,7 @@ import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
-import { nextPanelTabId, PickedHeadContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -45,6 +45,7 @@ import {
   PICKED_PAGE_SLIDE_EASE,
   PICKED_PAGE_SLIDE_MS,
   forgetPickedOrigin,
+  pickedCloseStep,
   pickedMotion,
   prefersReducedMotion,
   readPickedOrigin,
@@ -97,7 +98,22 @@ export type PickedShellProps<P extends string> = {
   tours?: ReadonlyArray<{ id: P; tour: string }>;
   /** The side's own reading of a raw `?tab=` / legacy `#hash` (its alias table); absent = the page ids only. */
   pageOf?: (raw: string) => P | null;
+  /**
+   * ‹ A NAMED WAY BACK beside ✕ (owner rule "never lose the back button", DECISION_LOG 17 Nov). The SAME close, drawn
+   * as icon + word ("‹ Calendar"). CSS decides which one shows (`data-picked-close-as` is hidden unless a page's own
+   * rule shows it, as Clients does on a computer, `supplier-frame.css`). Absent = only today's ✕, unchanged: the couple
+   * side never passes it.
+   */
+  closeAs?: { label: string; icon: LucideIcon } | null;
 };
+
+/** The menu's edge fade per side that has more pages past it — the pinned row's door-strip mask, both ways. */
+const MENU_FADE = {
+  none: '',
+  right: '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]',
+  left: '[-webkit-mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)]',
+  both: '[-webkit-mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)]',
+} as const;
 
 export function PickedShell<P extends string>({
   pickedId,
@@ -116,12 +132,33 @@ export function PickedShell<P extends string>({
   badges = {},
   tours = [],
   pageOf,
+  closeAs = null,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // ➡ THE MENU SAYS WHEN IT SCROLLS (owner screenshot 17 Nov: "Hub · R…" clipped, no cue): a side with more pages past it
+  // fades out, as the pinned row's door strip does (`pinned-row/pin-doors.tsx`). Measured on scroll and resize.
+  const [menuMore, setMenuMore] = useState<{ left: boolean; right: boolean }>({ left: false, right: false });
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const measure = () => {
+      const left = el.scrollLeft > 2;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      setMenuMore((was) => (was.left === left && was.right === right ? was : { left, right }));
+    };
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      ro?.disconnect();
+    };
+  }, [host]);
   // 🥞 The page rows' floor (host) and the column they span from 701 (the pinned row's column — it never slides).
   const [thumbHost, setThumbHost] = useState<HTMLDivElement | null>(null);
   const [thumbColumn, setThumbColumn] = useState<HTMLDivElement | null>(null);
@@ -129,6 +166,7 @@ export function PickedShell<P extends string>({
   const [page, setPage] = useState<P>(initialPage);
   const [gearOpen, setGearOpen] = useState(false);
   const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
+  const [headLineSlot, setHeadLineSlot] = useState<HTMLSpanElement | null>(null);
   // The pages opened in this visit — their badge has been seen (the page itself marks the read on the server side).
   const [seen, setSeen] = useState<ReadonlySet<P>>(() => new Set([initialPage]));
   useEffect(() => {
@@ -297,7 +335,7 @@ export function PickedShell<P extends string>({
     const origin = originRef.current;
     const leave = () => {
       forgetPickedOrigin();
-      if (origin && window.history.length > 1) router.back();
+      if (pickedCloseStep(origin, window.history.length) === 'back') router.back();
       else router.push(closeHref);
     };
     if (!el) return leave();
@@ -340,17 +378,24 @@ export function PickedShell<P extends string>({
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
         <div ref={setThumbColumn} className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
-          <h1 id={headingId} className="min-w-0 flex-1 truncate text-[20px] font-bold text-ink" data-pin-word="">
-            {title}
-          </h1>
+          <div className="min-w-0 flex-1">
+            <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
+              {title}
+            </h1>
+            {/* 📅 The page's own line under the title (the supplier's Chat: their date · Free — CHAT-09); empty = gone. */}
+            <span ref={setHeadLineSlot} className="block truncate text-[12.5px] leading-tight text-ink/70 empty:hidden" data-picked-head-line="" />
+          </div>
           {/* 📞 🎥 📎 — the page on show draws its own head actions here (`PickedHeadContext`; v8.3 head row). */}
           <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
           {gear ? (
-            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" rise open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
+          ) : null}
+          {closeAs ? (
+            <ActionButton tone="neutral" icon={closeAs.icon} label={closeAs.label} onClick={close} data-testid="picked-close-as" data-picked-close-as="" />
           ) : null}
           <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} data-testid="picked-close" />
         </div>
@@ -359,8 +404,9 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className="mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
+          data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
           {menu.map((m) => {
             const Icon: LucideIcon = icons[m.id];
@@ -419,7 +465,9 @@ export function PickedShell<P extends string>({
           {...(fills ? { 'data-picked-fill': '' } : {})}
         >
           <PickedHeadContext.Provider value={headSlot}>
-            <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+            <PickedHeadLineContext.Provider value={headLineSlot}>
+              <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+            </PickedHeadLineContext.Provider>
           </PickedHeadContext.Provider>
         </div>
       </div>

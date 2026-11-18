@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # Draft PRs: the heavy jobs skip (their `if:`) and the gate is RED; marking the PR ready runs everything.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # ═══ ONE PUSH SHOWS EVERY FAILURE ═══════════════════════════════════════════
@@ -659,6 +661,7 @@ jobs:
 
   typecheck:
     name: typecheck
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -678,6 +681,7 @@ jobs:
 
   eslint:
     name: eslint
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -697,6 +701,7 @@ jobs:
 
   unit-tests:
     name: unit tests (${{ matrix.shard }}/3)
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     # ── SHARDS ──────────────────────────────────────────────────────────────
     # `tsx --test --test-shard=<i>/<n>` deals the SORTED test files out
@@ -753,6 +758,7 @@ jobs:
 
   db-replay:
     name: DB replay (${{ matrix.shard }}/6)
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     # Six shards, because this is the long one: every one of the ~380 DB tests
     # replays ALL the migrations into its own PGlite, and as a single step it
@@ -886,10 +892,14 @@ jobs:
       - name: Every job this check stands for must have passed
         env:
           NEEDS: ${{ toJSON(needs) }}
+          # 📝 A draft PR is RED here, always: its heavy jobs were skipped, and a red required check is what keeps
+          # auto-merge (armed on every new PR) from merging it. The gate itself never takes the draft `if:`.
+          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
         run: node scripts/ci-gate.mjs
 
   build:
     name: production build
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     # Catches errors that typecheck misses — most notably Next's
     # compile-time `server-only` guard, which only fires in `next build`.
@@ -940,6 +950,7 @@ jobs:
 
   bundle-size-check:
     name: bundle size check
+    if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
     # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
     # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a

@@ -62,7 +62,7 @@ test('the credit figure has ONE home — the SQL, reading the live catalogue —
   assert.match(fn, /ORDER BY \(t\.points::NUMERIC \/ c\.retail_price_php\) DESC/, 'the best-value pack: most credits per peso');
   assert.doesNotMatch(fn.replace(/--[^\n]*/g, ''), /\b(999|3000|3,000)\b/, 'no pack price or size is typed into the rule');
 
-  const page = read('app/admin/payments/page.tsx');
+  const page = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
   const block = page.slice(page.indexOf('function ServiceRemedyForms'), page.indexOf('function RefundForm'));
   assert.ok(block.length > 200, 'ServiceRemedyForms is gone');
   assert.doesNotMatch(block, /name="papic_credits"/, 'the admin types no number');
@@ -90,7 +90,7 @@ test('both intents ride the existing refundOrder export (the server-action budge
   const actions = read('app/admin/payments/actions.ts');
   assert.match(actions, /intent === 'convert_to_papic_credits' \|\| intent === 'move_to_next_event'/);
   assert.doesNotMatch(actions, /export async function (convert|move)\w*/);
-  const page = read('app/admin/payments/page.tsx');
+  const page = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
   assert.match(page, /name="intent" value="convert_to_papic_credits"/);
   assert.match(page, /name="intent" value="move_to_next_event"/);
 });

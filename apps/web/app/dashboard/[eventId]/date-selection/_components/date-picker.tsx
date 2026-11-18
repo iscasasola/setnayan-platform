@@ -18,7 +18,7 @@
 
 import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useState, useTransition } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2 } from 'lucide-react';
 import { lockEventDate } from '../actions';
 import {
   computeAuspiciousReasons,
@@ -140,14 +140,14 @@ export function DatePicker({
     <div className="space-y-6">
       <a
         href={backHref}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         {backLabel}
       </a>
 
       <div className="space-y-2">
-        <h1 className="font-display text-3xl italic leading-tight text-ink sm:text-4xl">
+        <h1 className="text-[22px] leading-tight text-ink sm:text-[22px] font-semibold">
           What date are you thinking of?
         </h1>
         <p className="text-base text-ink/70">
@@ -155,10 +155,10 @@ export function DatePicker({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
+      <div className="py-2">
         <label
           htmlFor="phase0-date"
-          className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/60"
+          className="flex items-center gap-2 text-xs uppercase tracking-[0.06em] text-ink/70"
         >
           <CalendarDays aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Wedding date
@@ -175,26 +175,26 @@ export function DatePicker({
           className="mt-2 w-full max-w-sm rounded-lg border border-ink/20 bg-white px-4 py-3 text-lg text-ink shadow-sm focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
           aria-describedby="phase0-date-hint"
         />
-        <p id="phase0-date-hint" className="mt-2 text-xs text-ink/55">
+        <p id="phase0-date-hint" className="mt-2 text-xs text-ink/70">
           Today or later. You can refine after seeing what makes this date special.
         </p>
       </div>
 
       {selected && /^\d{4}-\d{2}-\d{2}$/.test(selected) && !isInPast ? (
         <article
-          className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-6 shadow-sm ring-1 ring-terracotta/10 sm:p-8"
+          className="py-2"
           aria-labelledby="picker-auspicious-headline"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          <p className="text-xs uppercase tracking-[0.06em] text-terracotta">
             Why this date works
           </p>
           <h2
             id="picker-auspicious-headline"
-            className="mt-1 font-display text-2xl italic leading-tight text-ink sm:text-3xl"
+            className="mt-1 text-[20px] leading-tight text-ink sm:text-[22px] font-semibold"
           >
             {prettyDate}
           </h2>
-          <p className="text-sm text-ink/55">{dow} · a beautiful day to be wed</p>
+          <p className="text-sm text-ink/70">{dow} · a beautiful day to be wed</p>
 
           {previewReasons.length > 0 ? (
             <ul className="mt-5 space-y-2.5">
@@ -233,7 +233,7 @@ export function DatePicker({
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <a
           href={backHref}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-ink/15 px-4 py-2.5 text-sm text-ink/75 hover:bg-ink/[0.03]"
+          className="ab ab-neutral inline-flex min-h-11 items-center justify-center gap-1.5"
         >
           Pick another path
         </a>
@@ -241,11 +241,11 @@ export function DatePicker({
           type="button"
           onClick={handleLock}
           disabled={!selected || isInPast || pending}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-2.5 text-base font-medium text-cream shadow-sm hover:bg-mulberry-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? (
             <>
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+              
               Locking the date...
             </>
           ) : (

@@ -152,15 +152,16 @@ test('5a · the unlock mirror: plan · paid · trial, and nothing else', () => {
   assert.equal(specializedToolsUnlockFrom(null, 'e1', NOW).unlocked, false);
 });
 
-test('5b · who may buy: Verified and Supplier Plus, verified — never Pro or Ultra, who already have it', () => {
+test('5b · who may buy: a verified Verified shop — never Plus, Pro or Ultra, who already have it (Plus since 2026-11-14)', () => {
   const buy = (tier: string | null, verification: string | null, tierExpiresAt: string | null = null) =>
     specializedToolsPurchaseEligibility({ tier, verification, tierExpiresAt, nowMs: NOW });
   assert.deepEqual(buy('verified', 'verified'), { ok: true });
-  assert.deepEqual(buy('solo', 'verified'), { ok: true });
+  assert.deepEqual(buy('solo', 'verified'), { ok: false, reason: 'included_in_plan' });
   assert.deepEqual(buy('pro', 'verified'), { ok: false, reason: 'included_in_plan' });
   assert.deepEqual(buy('enterprise', 'verified'), { ok: false, reason: 'included_in_plan' });
   assert.deepEqual(buy('pro', 'verified', EARLIER), { ok: true }, 'a lapsed Pro plan no longer includes it');
-  assert.deepEqual(buy('solo', 'unverified'), { ok: false, reason: 'not_verified' });
+  assert.deepEqual(buy('solo', 'unverified'), { ok: false, reason: 'included_in_plan' }, 'Plus includes it, verified or not');
+  assert.deepEqual(buy('verified', 'unverified'), { ok: false, reason: 'not_verified' });
   assert.deepEqual(buy('free', 'verified'), { ok: false, reason: 'tier_too_low' });
   assert.deepEqual(buy(null, null), { ok: false, reason: 'not_verified' });
 });

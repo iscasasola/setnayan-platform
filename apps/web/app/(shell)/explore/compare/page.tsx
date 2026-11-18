@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -768,7 +769,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     />
                     {row.business_slug ? (
                       <Link
-                        href={`/v/${row.business_slug}?src=explore`}
+                        href={`${shopPath(row.business_slug)}?src=explore`}
                         className="mt-2 inline-flex text-xs font-medium text-terracotta underline-offset-4 hover:underline"
                       >
                         View full profile →
@@ -846,7 +847,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                   >
                     {row.business_slug ? (
                       <Link
-                        href={`/v/${row.business_slug}?src=explore#get-in-touch`}
+                        href={`${shopPath(row.business_slug)}?src=explore#get-in-touch`}
                         className="inline-flex h-11 items-center justify-center rounded-md bg-terracotta-700 px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
                       >
                         Ask about your date

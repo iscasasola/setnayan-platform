@@ -26,7 +26,8 @@ const READING = 'tab:max-w-3xl';
 const WIDE = 'tab:max-w-5xl';
 
 const PAGES: ReadonlyArray<readonly [string, string]> = [
-  ['memories/page.tsx', WIDE],
+  // Memories moved to the reading column: owner 2026-11-16, DECISION_LOG 75a46e3c item 12 (RW-343).
+  ['memories/page.tsx', READING],
   ['galleries/page.tsx', WIDE],
   ['alaala/page.tsx', READING],
   ['refer/page.tsx', READING],

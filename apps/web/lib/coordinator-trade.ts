@@ -14,7 +14,8 @@
  * canonical leaf the taxonomy files under the coordinator tile.
  *
  * 🔒 MIRRORED IN SQL by `public.services_make_a_coordinator(text[])` (migration
- * 20271280303462), which every coordinator gate in the database now calls.
+ * 20271280303462; T1 20271349668764 drops the folded
+ * `gender_separated_reception_coordinator`), which every coordinator gate in the database now calls.
  * `coordinator-trade-is-one-list.test.ts` fails if this list drifts from the
  * taxonomy OR from the SQL copy.
  */
@@ -28,7 +29,6 @@ export const COORDINATOR_TRADE_SERVICES: readonly string[] = [
   'pamamanhikan_coordinator',
   'despedida_planner',
   'sponsor_coordinator',
-  'gender_separated_reception_coordinator',
   'religious_venue_coordinator',
   'inc_wedding_coordinator',
   'mahr_coordination',

@@ -114,7 +114,7 @@ test('a named post names the shop, the badge in the gifts list\'s words, and lin
   });
   assert.match(copy.body, /Liwanag Studio/);
   assert.match(copy.body, /50 events/);
-  assert.equal(copy.linkUrl, 'https://www.setnayan.com/v/liwanag-studio');
+  assert.equal(copy.linkUrl, 'https://www.setnayan.com/liwanag-studio');
   assert.match(copy.body, /#Setnayan/);
   assert.match(copy.title, /^Liwanag Studio · 50 events/);
 });

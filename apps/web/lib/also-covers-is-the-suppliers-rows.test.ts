@@ -77,7 +77,8 @@ test('1 · every row the Suppliers page can draw is offered — same name, folde
   const wedding = coverCatalogFromFolders(
     buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: 'e' }),
   ).flatMap((f) => f.options.map((o) => o.label));
-  for (const name of ['Food Truck', 'Food Cart', 'Dessert', 'Massage Chair']) {
+  // T1 (16 Nov 2026) renamed Food Cart → Food Carts and Massage → Pampering.
+  for (const name of ['Food Truck', 'Food Carts', 'Dessert', 'Pampering']) {
     assert.ok(wedding.includes(name), `"${name}" is a Suppliers-page row and is not offered`);
   }
 });

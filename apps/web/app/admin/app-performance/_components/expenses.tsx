@@ -1,4 +1,4 @@
-import { ReceiptText } from 'lucide-react';
+import { ReceiptText, Receipt } from 'lucide-react';
 
 import {
   EXPENSE_CATEGORIES,
@@ -14,6 +14,7 @@ import { CardPick, CardToggle } from '@/app/dashboard/[eventId]/guests/_componen
 import { addExpense, attachReceipt, viewReceipt } from '../actions';
 import { DeltaPct, StackedBars } from './charts';
 import { Note, Row, Rows, Sec } from './insights-parts';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * Expenses & Receipts — Zone 2 of the App Performance cockpit (PR 3;
@@ -382,12 +383,7 @@ export async function ExpensesZone() {
                 r.receipt_r2_key ? (
                   <form action={viewReceipt} className="inline">
                     <input type="hidden" name="expense_id" value={r.expense_id} />
-                    <button
-                      type="submit"
-                      className="min-h-11 rounded-full bg-[var(--sn-success-soft)] px-3 text-[13px] font-semibold text-[var(--sn-success-deep)]"
-                    >
-                      View receipt
-                    </button>
+                    <ActionButton tone="ok" icon={<Receipt aria-hidden strokeWidth={1.9} />} type="submit" label="View receipt" />
                   </form>
                 ) : (
                   <form action={attachReceipt} className="inline-flex flex-wrap items-center gap-1.5">

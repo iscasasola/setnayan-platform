@@ -1,4 +1,6 @@
 'use client';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * /admin/hub-music — the list of Event Hub music, and the only place it is
@@ -113,21 +115,17 @@ function MoodSelect({
   id?: string;
 }) {
   return (
-    <select
-      id={id}
-      aria-label={label}
+    <PickMenu
+      label={label}
       value={value ?? ''}
-      disabled={disabled}
-      onChange={(e) => onChange(isHubMusicMood(e.target.value) ? e.target.value : null)}
-      className={`${FIELD} min-w-[11rem] disabled:opacity-50`}
-    >
-      <option value="">{HUB_MUSIC_NO_MOOD_LABEL}</option>
-      {HUB_MUSIC_MOODS.map((m) => (
-        <option key={m.key} value={m.key}>
-          {m.label}
-        </option>
-      ))}
-    </select>
+      options={[{ key: '', label: HUB_MUSIC_NO_MOOD_LABEL }, ...HUB_MUSIC_MOODS.map((m) => ({ key: m.key, label: m.label }))]}
+      onPick={(k) => {
+        if (disabled) return;
+        onChange(isHubMusicMood(k) ? k : null);
+      }}
+      dataAttr="data-hub-mood"
+      className={`min-h-11 min-w-[11rem]${disabled ? ' pointer-events-none opacity-50' : ''}`}
+    />
   );
 }
 
@@ -341,7 +339,7 @@ export function HubMusicManager({
           published. Upload only music Setnayan has the right to offer.
         </InfoTip>
         {tracks ? (
-          <p className="font-mono text-xs text-ink/70" data-hub-music-count="">
+          <p className="text-xs text-ink/70 tabular-nums" data-hub-music-count="">
             {formatCount(tracks.length)} {tracks.length === 1 ? 'track' : 'tracks'} · {formatCount(published)} published
           </p>
         ) : null}
@@ -511,7 +509,7 @@ export function HubMusicManager({
                     <ul className="space-y-4">
                       {picked.map((p) => (
                         <li key={p.id} className="space-y-2 border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
-                          <p className="break-all font-mono text-[11px] text-ink/70">{p.file.name}</p>
+                          <p className="break-all text-[12px] text-ink/70 tabular-nums">{p.file.name}</p>
                           {p.state === 'added' ? (
                             <p className="text-sm text-ink">Added as “{p.title}”.</p>
                           ) : p.state === 'refused' ? (
@@ -648,7 +646,7 @@ function EditTrack({
       <h2 id={headingId} className="pr-10 text-base font-semibold text-ink">
         {track.title}
       </h2>
-      <p className="font-mono text-xs text-ink/70">
+      <p className="text-xs text-ink/70 tabular-nums">
         {formatHubMusicLength(track.durationSeconds)} · {formatCount(track.fileBytes / 1024 / 1024, 1)} MB · {track.publicId}
       </p>
       {error ? (
@@ -731,15 +729,7 @@ function EditTrack({
         />
       </label>
       <div className="border-t border-ink/10 pt-4">
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={busy}
-          className="inline-flex h-11 items-center gap-2 rounded-md border border-danger/40 px-4 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
-        >
-          <Trash2 className="h-4 w-4" aria-hidden />
-          Remove
-        </button>
+        <ActionButton tone="danger" icon={Trash2} label="Remove" type="button" onClick={onRemove} disabled={busy} />
       </div>
     </div>
   );

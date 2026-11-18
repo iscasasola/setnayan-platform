@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -137,12 +138,14 @@ export async function RevealStudioSurface() {
           else on the screen says that a slider reaches strangers&apos; wedding
           pages. */}
       <PageMasthead title="Reveal Studio" />
-      <p className="mb-6 mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
-        The opening reveal on every Save-the-Date couple site — the bridal veil, envelopes and
+      <div className="mb-6 mt-2 max-w-2xl">
+        <InfoTip label="What this tab does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          The opening reveal on every Save-the-Date couple site — the bridal veil, envelopes and
         doors guests lift to uncover the invitation. Turn it on or off, choose which templates
         couples may use, toggle features, and tune the veil look with the live sliders. Changes
         save as the house default and go live on couple sites.
-      </p>
+        </InfoTip>
+      </div>
       <RevealStudio initial={config} />
       {stdVideos === null ? (
         <div className="mt-6">

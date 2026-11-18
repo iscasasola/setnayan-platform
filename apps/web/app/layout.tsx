@@ -17,6 +17,7 @@ import './_components/pinned-row/pin-glide.css';
 import './_components/pinned-row/pin-fold.css';
 import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
+import './service-icons.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
@@ -34,6 +35,7 @@ import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
 import { PressFeel } from './_components/press-feel';
+import { ServiceIconPlay } from './_components/service-icon-play';
 import { RevealDetailsOnOpen } from './_components/reveal-on-open';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
@@ -375,7 +377,7 @@ const baseMetadata: Metadata = {
   // ingest the same surface for grounded site descriptions. The 2026-05-28 13th
   // row GEO sprint shipped the homepage Organization JSON-LD in PR #570 — this
   // edit fixes the layout-level og:image (was /icon-512.svg 512×512 SVG · now
-  // /brand/og-card.webp 1200×630 brand card) and the twitter:card type
+  // /brand/og-card-2026-11.png 1200×630 brand card) and the twitter:card type
   // (was 'summary' · now 'summary_large_image' which is the correct value for
   // the 1.91:1 OG ratio · 'summary' renders as a tiny 144×144 thumbnail).
   openGraph: {
@@ -387,14 +389,14 @@ const baseMetadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        url: '/brand/og-card.webp',
+        url: '/brand/og-card-2026-11.png',
         width: 1200,
         height: 630,
-        // ⚠ The alt describes the PIXELS, and og-card.webp still reads
-        // "Filipino wedding planning · verified vendors". It changes when the
-        // card is redrawn — not before, or the alt would lie about the image.
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
-        type: 'image/webp',
+        // ⚠ The alt describes the PIXELS: card B of the owner's 2026-11-15
+        // link share card (gold mark, SETNAYAN, the page-title line). Redraw
+        // the card → rewrite this line, or the alt lies about the image.
+        alt: 'Setnayan · Plan any event free. Every photo in one album.',
+        type: 'image/png',
       },
     ],
   },
@@ -402,7 +404,7 @@ const baseMetadata: Metadata = {
     card: 'summary_large_image',
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ['/brand/og-card.webp'],
+    images: ['/brand/og-card-2026-11.png'],
   },
   // Robots-meta default to index,follow (we're shipping public marketing).
   // The auth-gated dashboard routes opt out of this default at their own layer.
@@ -506,7 +508,7 @@ const organizationJsonLd = {
     width: 512,
     height: 512,
   },
-  image: 'https://www.setnayan.com/brand/og-card.webp',
+  image: 'https://www.setnayan.com/brand/og-card-2026-11.png',
   // 🔑 WIDENED 2026-09-26 to the homepage's wording (app/page.tsx HOME_DESCRIPTION
   // + softwareAppJsonLd). This said "the Philippines-first WEDDING platform …
   // built to grow into a life-events collection" while every event type in
@@ -746,6 +748,7 @@ export default async function RootLayout({
         {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
             Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
         <PressFeel />
+        <ServiceIconPlay />
         {/* 🔭 A <details> a user opens glides its summary to the pin line when it runs past the bottom (owner
             2026-11-04, app-wide) — one capture listener. See _components/reveal-on-open.ts. */}
         <RevealDetailsOnOpen />

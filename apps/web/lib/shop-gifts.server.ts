@@ -14,7 +14,9 @@ import {
   giftCount,
   giftItemsOf,
   judgeQuoteGifts,
+  giftCapFor,
   rewardFreeByKind,
+  type ShopGiftRewardStock,
   shopGiftBundlesFrom,
   shopGiftPacksFrom,
   type EventHolds,
@@ -167,16 +169,28 @@ export async function fetchShopGiftRewardStock(
   client: SupabaseClient,
   vendorProfileId: string,
   exceptEventId: string | null = null,
-): Promise<Record<ShopGiftKind, { earned: number; used: number }> | null> {
-  const { data, error } = await client.rpc('shop_gift_reward_stock_status', {
-    p_vendor_profile_id: vendorProfileId,
-    p_except_event_id: exceptEventId,
-  });
-  if (error) {
-    console.error('[supabase-error] shop-gifts: shop_gift_reward_stock_status', error);
+): Promise<ShopGiftRewardStock | null> {
+  // 🏅 Papic rewards are PACKS (Gold = Papic 1000, Ruby = Papic 3000): read per pack beside the per-kind totals.
+  // Either read failing is null — then no line is a reward (the limit applies to everything; never over-give).
+  const [kinds, perPack] = await Promise.all([
+    client.rpc('shop_gift_reward_stock_status', {
+      p_vendor_profile_id: vendorProfileId,
+      p_except_event_id: exceptEventId,
+    }),
+    client.rpc('shop_gift_reward_pack_status', {
+      p_vendor_profile_id: vendorProfileId,
+      p_except_event_id: exceptEventId,
+    }),
+  ]);
+  if (kinds.error) {
+    console.error('[supabase-error] shop-gifts: shop_gift_reward_stock_status', kinds.error);
     return null;
   }
-  const rows = (Array.isArray(data) ? data : [data]) as Array<
+  if (perPack.error) {
+    console.error('[supabase-error] shop-gifts: shop_gift_reward_pack_status', perPack.error);
+    return null;
+  }
+  const rows = (Array.isArray(kinds.data) ? kinds.data : [kinds.data]) as Array<
     { gift_kind?: string; earned?: number | string | null; used?: number | string | null } | null
   >;
   const out = {} as Record<ShopGiftKind, { earned: number; used: number }>;
@@ -187,7 +201,17 @@ export async function fetchShopGiftRewardStock(
     if (!Number.isFinite(earned) || !Number.isFinite(used)) return null;
     out[k] = { earned: Math.trunc(earned), used: Math.trunc(used) };
   }
-  return out;
+  const packs: Record<string, { earned: number; used: number }> = {};
+  for (const r of (Array.isArray(perPack.data) ? perPack.data : perPack.data ? [perPack.data] : []) as Array<
+    { pack_code?: string | null; earned?: number | string | null; used?: number | string | null } | null
+  >) {
+    if (!r?.pack_code) continue;
+    const earned = Number(r.earned ?? 0);
+    const used = Number(r.used ?? 0);
+    if (!Number.isFinite(earned) || !Number.isFinite(used)) return null;
+    packs[r.pack_code] = { earned: Math.trunc(earned), used: Math.trunc(used) };
+  }
+  return { ...out, packs };
 }
 
 /**
@@ -201,12 +225,12 @@ export async function fetchEventGiftHolds(
   eventId: string,
   mode: 'owned' | 'active',
 ): Promise<EventHolds> {
-  const holds = (code: string) => (mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code));
-  // 💎 Ultra first: an Ultra event also reads as Pro through the ownership aliases.
-  const [hub, plus, ultra] = await Promise.all([
+  const holds = (code: string) =>
+    mode === 'active' ? eventSkuActive(admin, eventId, code) : eventOwnsSku(admin, eventId, code);
+  const [ultra, hub, plus] = await Promise.all([
+    holds(SHOP_GIFT_UNLOCK_CODE.event_ultra),
     eventHubOwnership(admin, eventId, mode),
     holds(SHOP_GIFT_UNLOCK_CODE.event_plus),
-    holds(SHOP_GIFT_UNLOCK_CODE.event_ultra),
   ]);
   return ultra ? 'ultra' : hub.full ? 'pro' : plus ? 'plus' : 'none';
 }
@@ -341,11 +365,32 @@ export async function writeQuoteShopGifts(
     eventId: string | null;
     totalCentavos: number;
     codes: readonly string[];
+    /** The service cards the quote was built from, as the composer sent them — re-counted here, never trusted. */
+    serviceCardIds?: readonly string[] | null;
   },
 ): Promise<WriteQuoteGiftsResult> {
   const codes = args.codes.filter((c) => typeof c === 'string' && c.length > 0).slice(0, 20);
   if (codes.length === 0) return { ok: true, credits: 0 };
   if (!args.eventId) return { ok: false, message: 'A gift needs the couple’s event.' };
+
+  // 🎁 One gift per service card (a74f265b): count only this shop's own ACTIVE cards — a crafted list of ids cannot
+  // raise the cap. Nothing to count ⇒ one gift, the floor.
+  const cardIds = [...new Set((args.serviceCardIds ?? []).filter((c) => typeof c === 'string' && c.length > 0))].slice(0, 50);
+  let cardCount = 0;
+  if (cardIds.length > 0 && codes.length > 1) {
+    const { data: cards, error: cardErr } = await admin
+      .from('vendor_services')
+      .select('vendor_service_id')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .eq('is_active', true)
+      .in('vendor_service_id', cardIds);
+    if (cardErr) {
+      console.error('[supabase-error] shop-gifts: count quote cards', cardErr);
+      return { ok: false, message: 'Couldn’t check your service cards. Please try again.' };
+    }
+    cardCount = (cards ?? []).length;
+  }
+  const maxGifts = giftCapFor(cardCount);
 
   const basis = await fetchShopGiftQuoteBasis(admin, args.vendorProfileId, args.eventId);
   if (!basis) return { ok: false, message: 'Gifts are not on sale right now — send the quote without them.' };
@@ -360,8 +405,10 @@ export async function writeQuoteShopGifts(
     basis.free,
     basis.eventHas,
     basis.rewardFree ?? null,
+    maxGifts,
   );
   if (v.state === 'unknown_pack') return { ok: false, message: 'One of those gifts is not on sale any more.' };
+  if (v.state === 'too_many') return { ok: false, message: 'One gift per service card on this quote — take one off.' };
   if (v.state === 'already_has') {
     return basis.eventHas === 'ultra'
       ? { ok: false, message: 'Their event already has Event Ultra — take Event Plus, Event Pro and Event Ultra off.' }
@@ -482,7 +529,7 @@ export async function deliverShopGiftsForBooking(
 }
 
 /**
- * 💎 Give the booking's Event Plus / Event Pro gifts to the couple's event (slice 2), beside the Papic door. What the
+ * 💎 Give the booking's Event Plus / Event Pro / Event Ultra gifts to the couple's event (slice 2), beside the Papic door. What the
  * event already holds is answered here by the full entitlement chain, approved only, and handed to the SQL door —
  * which upgrades a second Event Plus to Event Pro (owner 2026-11-05) and gives nothing to an event that already has
  * Event Pro (the unit stays in the shop's stock). Never throws; idempotent.

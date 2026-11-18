@@ -4,8 +4,9 @@
  * replayed). The TS core is thin I/O; the money-critical invariants it leans on
  * are SQL guards, asserted here against real SQL:
  *
- *   • the `event_vendors_require_verified_before_lock` trigger BLOCKS a chat lock
- *     (UPDATE considering→contracted) on an UNVERIFIED marketplace vendor;
+ *   • since 2026-11-15 ("We allow booking") a chat lock on a not-yet-verified shop GOES THROUGH and opens the
+ *     same booking-fee charge; the `event_vendors_require_verified_before_lock` trigger still BLOCKS it
+ *     (UPDATE considering→contracted) on a REJECTED marketplace vendor;
  *   • PRICE PARITY — writing the NEGOTIATED total then opening the lock charge
  *     bills 5% of that EXACT number (not a stale pre-negotiation total);
  *   • CROSS-ENTRY IDEMPOTENCY — a chat re-lock after the vendor-page finalize
@@ -39,8 +40,8 @@ async function newVendor(email: string): Promise<string> {
   return v.rows[0]!.vendor_profile_id;
 }
 
-/** An UNVERIFIED vendor identity (pending_review — not bookable). */
-async function newUnverifiedVendor(email: string): Promise<string> {
+/** A not-verified vendor identity — `pending_review` (bookable since 2026-11-15) or `rejected` (never bookable). */
+async function newUnverifiedVendor(email: string, state: 'pending_review' | 'rejected' = 'pending_review'): Promise<string> {
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email, raw_user_meta_data)
      VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
@@ -48,9 +49,9 @@ async function newUnverifiedVendor(email: string): Promise<string> {
   );
   const v = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state)
-     VALUES ($1, 'Unverified Vendor', 'Manila', ARRAY['photography']::text[], 'pending_review')
+     VALUES ($1, 'Unverified Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state)
      RETURNING vendor_profile_id`,
-    [u.rows[0]!.id],
+    [u.rows[0]!.id, state],
   );
   return v.rows[0]!.vendor_profile_id;
 }
@@ -150,16 +151,25 @@ after(async () => {
   await db?.close();
 });
 
-test('unverified marketplace vendor → chat lock is BLOCKED by the verified DB trigger', async () => {
-  const vpid = await newUnverifiedVendor('unverified@chatlock.test');
-  const eventId = await newEvent('unverified-chatlock');
+test('2026-11-15: a chat lock on a shop in review goes through and opens the same booking-fee charge', async () => {
+  const vpid = await newUnverifiedVendor('in-review@chatlock.test');
+  const eventId = await newEvent('in-review-chatlock');
+  const evId = await newConsideringPick(eventId, vpid, 50_000);
+  assert.equal(await chatLockWrite(evId, eventId, 120_000), 1, 'the lock did not flip an in-review shop');
+  const charge = await openLockCharge(evId);
+  assert.ok(charge.charge_id, 'no booking-fee charge opened for an in-review shop — the fee path was skipped');
+});
+
+test('rejected marketplace vendor → chat lock is BLOCKED by the verified DB trigger', async () => {
+  const vpid = await newUnverifiedVendor('rejected@chatlock.test', 'rejected');
+  const eventId = await newEvent('rejected-chatlock');
   const evId = await newConsideringPick(eventId, vpid, 50_000);
 
   // The considering→contracted flip must RAISE (check_violation) — no lock.
   await assert.rejects(
     () => chatLockWrite(evId, eventId, 120_000),
     /vendor_not_verified/,
-    'the trigger blocks a chat lock on an unverified vendor',
+    'the trigger blocks a chat lock on a rejected vendor',
   );
 
   // Row untouched; nothing to charge.

@@ -196,11 +196,16 @@ test('no hardcoded fallback disagrees with its live catalog row', async () => {
   // A second floor, for the case where every SKU stopped resolving (a rename in
   // the catalog, a replay that seeded nothing) — that would empty `drift` and
   // read as a pass.
+  // 3 since 2026-11-14: the AI chatbot's row went off sale when it folded into Pro and Ultra ("SIMPLER SUPPLIER
+  // PLANS"), so its fallback has no live row left to disagree with — exactly the retirement case above. The scan floor
+  // (5 pairs, the test above) is unchanged.
   // 💰 2026-11-13: 4 → 2 because three of the compared fallbacks were DELETED (seat, branch, per-event booth — see
   // the first test), not because rows stopped resolving. The case this floor exists for — a rename or an empty
   // seed — is now ALSO caught per pair, by name, in the test below (every paired code must have a catalogue row).
+  // 2 → 1 at the merge of SIMPLER SUPPLIER PLANS (#7698) into that change: main measured 2, and the AI row the plan
+  // folded away was one of them — measured 1 after the merge. The floor still fails the all-unresolved case it exists for.
   assert.ok(
-    compared >= 2,
+    compared >= 1,
     `only ${compared} fallbacks had a live catalog row to compare against — the comparison is near-vacuous`,
   );
 

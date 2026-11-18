@@ -56,7 +56,10 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
   const admin = createAdminClient();
   const { data, error: seatsError } = await admin
     .from('founder_seats')
-    .select('seat_no, user_id, label, granted_at, users ( email )')
+    // 🪪 AW-7 (admin walk 14 Nov 2026): founder_seats has TWO keys to users (user_id and granted_by), so a bare
+    // `users ( email )` embed is ambiguous and PostgREST refused the WHOLE read — the page said "Couldn't read the
+    // founder seats" over a real seat. Name the key: the email shown is the seat-holder's.
+    .select('seat_no, user_id, label, granted_at, users!founder_seats_user_id_fkey ( email )')
     .order('seat_no');
   if (seatsError) logQueryError('AdminFounderSeatsPage (founder_seats)', seatsError);
   const seatsUnread = Boolean(seatsError);
@@ -94,7 +97,10 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
         <h2 className="mb-3 text-sm font-semibold text-ink">
           Grant a seat{' '}
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            {seatsUnread ? '—' : formatCount(openSeats)} of {formatCount(FOUNDER_SEAT_CAP)} open
+            {/* A refused read never prints a blank or a guessed count (AW-7). */}
+            {seatsUnread
+              ? `Couldn’t count the open seats — ${formatCount(FOUNDER_SEAT_CAP)} in all`
+              : `${formatCount(openSeats)} of ${formatCount(FOUNDER_SEAT_CAP)} open`}
           </span>
         </h2>
         <form action={grantFounderSeat} className="flex flex-wrap items-end gap-3">

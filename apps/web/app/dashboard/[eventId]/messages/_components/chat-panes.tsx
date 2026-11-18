@@ -21,7 +21,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SupplierColumns } from '@/app/vendor-dashboard/_components/supplier-columns';
-import { fitChatPane } from './chat-pane-fit';
+import { watchChatPane } from './chat-pane-fit';
 
 /** The system's tablet line — `tab:` in tailwind.config, `.sn-cols` in supplier-frame.css. */
 export const CHAT_PANES_FROM = '(min-width: 701px)';
@@ -60,30 +60,16 @@ export function ChatPanes({
   /*
     📏 THE PANE ENDS AT THE WINDOW'S FOOT — sized from its own top on screen (`fitChatPane`), never from a model of what
     stands above it (W1, live f896598, RW-330: the pane at y≈173, sized as if at 93; the composer under the fold).
-    Re-read on load, resize, scroll (sticky: it rises to the pin line) and any change in the page's height (a strip that
-    arrives late, its "Got it").
+    Re-read on load, resize, scroll (sticky: it rises to the pin line), any node added above it (a strip that arrives
+    late, its "Got it") and any ancestor changing size — `watchChatPane`.
   */
   const ref = useRef<HTMLDivElement>(null);
   const splits = open || Boolean(latestHref);
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
-    let frame = 0;
-    const measure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => fitChatPane(root));
-    };
-    fitChatPane(root);
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, { passive: true });
-    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    watch?.observe(document.body);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure);
-      watch?.disconnect();
-    };
+    // 👀 Re-fitted on everything that can move the pane — a strip inserted above it included (after #7804). `chat-pane-fit.ts`.
+    return watchChatPane(root);
   }, [splits]);
 
   if (!splits) return <>{list}</>;

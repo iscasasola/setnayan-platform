@@ -116,7 +116,11 @@ test('3 · the STRIP — the shop first, then You, two inside, on both sides', (
     const youAt = html.indexOf('>You<');
     assert.ok(shopAt >= 0, `${side}: the strip omits the shop`);
     assert.ok(youAt > shopAt, `${side}: the shop is not first, then You`);
-    assert.match(html, /Shared chat · 2 inside · 1 in the chat now/, `${side}: two parties, one person in the chat now`);
+    // CHAT-09 (DECISION_LOG 2026-11-16): "1 in the chat now" left the line — the green ring (and each face's own words
+    // for a screen reader) says who is here now. Two parties are still counted.
+    assert.match(html, /Shared chat<\/b> · 2 inside/, `${side}: two parties`);
+    assert.doesNotMatch(html, /in the chat now/, `${side}: the line counts who is in the chat now again`);
+    assert.equal((html.match(/ring-success-600/g) ?? []).length, 2, `${side}: one person in the chat now = a ring on both of their faces`);
     assert.doesNotMatch(html, /Indalecio/, `${side}: the strip named the person instead of "You"`);
     assert.doesNotMatch(html, /Message SetnaProd privately/, `${side}: your own shop became a private-message target`);
   }

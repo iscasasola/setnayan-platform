@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
+import { ActionButton } from '@/components/action-button';
 /**
  * DiscountCodesSurface — the voucher list body, inside the tabbed /admin/studio
  * studio (Studio Studio slice 3 · Marketing lane).
@@ -278,14 +281,7 @@ export async function DiscountCodesSurface({
       cell: (row) => (
         <div className="flex flex-wrap items-center gap-2">
           {row.is_active && (
-            <Link
-              href={`/admin/discount-codes/${row.discount_code_id}/edit`}
-              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
-              style={{ color: 'var(--m-orange-2)', borderColor: 'var(--m-orange-3)' }}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </Link>
+            <ActionButton tone="info" href={`/admin/discount-codes/${row.discount_code_id}/edit`} icon={<Pencil aria-hidden />} label="Edit" />
           )}
           {row.is_active ? (
             <ConfirmForm
@@ -409,7 +405,7 @@ export async function DiscountCodesSurface({
       {labelsUnread ? (
         <p
           role="alert"
-          className="mb-3 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="mb-3 border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
         >
           <strong className="text-ink">Some names could not be read.</strong>{' '}
           A code below shows a dash instead of who created it. The rows themselves are accurate — the names are
@@ -436,11 +432,13 @@ export async function DiscountCodesSurface({
         }}
       />
 
-      <p className="text-xs text-ink/70">
-        Codes apply at checkout when couples paste them into the &ldquo;Have a code?&rdquo; field.
+      <div>
+        <InfoTip label="How codes work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Codes apply at checkout when couples paste them into the &ldquo;Have a code?&rdquo; field.
         Receipts show the net paid amount — no separate discount line. Disabling a code lets
         existing redemptions keep their special price.
-      </p>
+        </InfoTip>
+      </div>
     </div>
   );
 }
@@ -449,7 +447,7 @@ export async function DiscountCodesSurface({
 
 function Mono({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-sm tracking-wider" style={{ color: 'var(--m-ink)' }}>
+    <span className="text-sm tracking-wider tabular-nums" style={{ color: 'var(--m-ink)' }}>
       {children}
     </span>
   );
@@ -507,21 +505,9 @@ function StatusPill({
   tone: 'emerald' | 'amber' | 'slate';
   children: React.ReactNode;
 }) {
-  const styles =
-    tone === 'emerald'
-      ? { background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7' }
-      : tone === 'amber'
-        ? { background: '#FFFBEB', color: '#B45309', border: '1px solid #FCD34D' }
-        : {
-            background: 'var(--m-paper-2)',
-            color: 'var(--m-slate)',
-            border: '1px solid var(--m-line)',
-          };
+  // 📐 The shared status chip (design template rule 5): soft fill, no outline, tokens only.
   return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-      style={styles}
-    >
+    <span className={BADGE_CLASS} style={badgeStyle(tone === 'emerald' ? 'ok' : tone === 'amber' ? 'wait' : 'quiet')}>
       {children}
     </span>
   );
@@ -534,10 +520,8 @@ function Banner({
   tone: 'emerald' | 'amber';
   children: React.ReactNode;
 }) {
-  const styles =
-    tone === 'emerald'
-      ? { background: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7' }
-      : { background: '#FFFBEB', color: '#B45309', border: '1px solid #FCD34D' };
+  // The banner reads the same tokens as the chip, so it follows dark mode.
+  const styles = badgeStyle(tone === 'emerald' ? 'ok' : 'wait');
   return (
     <div className="rounded-md px-4 py-3 text-sm" style={styles}>
       {children}

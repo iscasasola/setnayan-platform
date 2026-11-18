@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
-import { statusOf, type PayableStatus } from './payable-status';
+import { planAwarePayableStatus, type PayableStatus, type PlanRead } from './payable-status';
 import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
@@ -125,6 +125,31 @@ const num = (v: number | string | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * The plan row behind a `vendor_subscription__<id>` order. A refused read is reported as refused — never as "no row"
+ * — because the page must then fail closed (`planAwarePayableStatus` → `unchecked`, no QR).
+ */
+async function readPlanStatus(supabase: SupabaseClient, serviceKey: string | null): Promise<PlanRead | null> {
+  const purchaseId = purchaseIdFromVendorSubscriptionServiceKey(serviceKey);
+  if (!purchaseId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('vendor_subscriptions')
+      .select('status')
+      .eq('purchase_id', purchaseId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] payable-by-reference: plan status', error);
+      return { read: 'refused' };
+    }
+    const st = (data as { status?: unknown } | null)?.status;
+    return { read: 'ok', status: typeof st === 'string' ? st : null };
+  } catch (err) {
+    console.error('[supabase-error] payable-by-reference: plan status threw', err);
+    return { read: 'refused' };
+  }
+}
+
 export async function fetchPayableByReference(
   supabase: SupabaseClient,
   reference: string,
@@ -158,6 +183,10 @@ export async function fetchPayableByReference(
   const isVendorPlan =
     purchaseIdFromVendorSubscriptionServiceKey(order.service_key) !== null;
   const isBookingFee = isBookingFeeOrder(order.service_key);
+  // A plan confirmed or refused at /admin/subscriptions leaves this order open — the plan row decides
+  // (`planAwarePayableStatus`). Read on the SAME session client: a shop reads its own plan rows; anything else
+  // reads null and the order's own status stands.
+  const planStatus = isVendorPlan ? await readPlanStatus(supabase, order.service_key) : null;
 
   // ── WHAT THEY ACTUALLY OWE ────────────────────────────────────────────────
   // 🔑 THE SAME FUNCTION THE SHORTFALL GUARD USES. `orderGrossOwed` is the
@@ -208,7 +237,7 @@ export async function fetchPayableByReference(
     amountPhp: amount,
     rows: lines.rows,
     rowsUnreadable: lines.unreadable,
-    status: statusOf(order.status),
+    status: planAwarePayableStatus(order.status, planStatus),
     isVendorPlan,
     eventId: order.event_id ?? null,
     ownerUserId: order.user_id ?? null,

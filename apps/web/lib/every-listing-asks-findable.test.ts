@@ -152,8 +152,9 @@ test('3 · the gate the lists share is the one column, and the live-shop gate is
   assert.match(read('lib/live-shops.ts'), /\.\.\.FINDABLE_SHOP_GATE/, 'LIVE_SHOP_GATE re-types the rule instead of spreading it');
   // The twin, on the four corners that matter.
   assert.equal(isShopFindable({ public_visibility: 'verified', verification_state: 'verified' }), true);
-  assert.equal(isShopFindable({ public_visibility: 'hidden', verification_state: 'unverified' }), true);
-  assert.equal(isShopFindable({ public_visibility: 'hidden', verification_state: 'unverified', find_locked_at: '2026-11-07T00:00:00Z' }), false);
+  // 15 Nov, "Verified only" (supersedes 7 Nov "findable until its first inquiry"): an unverified shop is never found.
+  assert.equal(isShopFindable({ public_visibility: 'hidden', verification_state: 'unverified' }), false);
+  assert.equal(isShopFindable({ public_visibility: 'hidden', verification_state: 'pending_review', find_locked_at: null }), false);
   assert.equal(isShopFindable({ public_visibility: 'hidden', verification_state: 'rejected' }), false);
 });
 

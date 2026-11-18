@@ -3,8 +3,8 @@
  *
  * Proves the enforce_booking_requires_verified_vendor trigger
  * (20270927437859) actually blocks a couple from booking / locking a MARKETPLACE
- * vendor whose vendor_profiles.verification_state ≠ 'verified', across the
- * INSERT and UPDATE write paths — while:
+ * vendor that is rejected, demoted, archived or fraud-frozen, across the INSERT and UPDATE write paths. Since
+ * 2026-11-15 ("We allow booking") an unverified or in-review shop that is not archived CAN be booked — while:
  *   • letting VERIFIED marketplace vendors lock,
  *   • never gating OFF-PLATFORM vendors (marketplace_vendor_id IS NULL),
  *   • never gating non-booking statuses (considering / shortlisted),
@@ -100,20 +100,18 @@ test('a VERIFIED marketplace vendor CAN be locked (INSERT contracted)', async ()
   assert.equal(err, null, 'verified vendor should lock without error');
 });
 
-test('an UNVERIFIED marketplace vendor CANNOT be locked (INSERT contracted throws)', async () => {
-  const event = await newEvent();
-  const vendor = await newVendor('unverified@bookgate.test', 'unverified');
-  const err = await tryInsertVendor(event, {
-    marketplaceVendorId: vendor,
-    status: 'contracted',
-  });
-  assert.ok(err, 'an unverified vendor lock must throw');
-  assert.match(String(err), /vendor_not_verified/);
+test('2026-11-15: an UNVERIFIED or IN-REVIEW shop CAN be booked on its own page ("We allow booking")', async () => {
+  for (const state of ['unverified', 'pending_review'] as const) {
+    const event = await newEvent();
+    const vendor = await newVendor(`${state}-books@bookgate.test`, state);
+    const err = await tryInsertVendor(event, { marketplaceVendorId: vendor, status: 'contracted' });
+    assert.equal(err, null, `a ${state} shop could not be booked: ${err}`);
+  }
 });
 
-test('pending_review / demoted / rejected marketplace vendors also cannot be locked', async () => {
+test('demoted / rejected marketplace vendors still cannot be locked', async () => {
   const event = await newEvent();
-  for (const state of ['pending_review', 'demoted', 'rejected'] as const) {
+  for (const state of ['demoted', 'rejected'] as const) {
     const vendor = await newVendor(`${state}@bookgate.test`, state);
     const err = await tryInsertVendor(event, {
       marketplaceVendorId: vendor,
@@ -147,11 +145,11 @@ test('OFF-PLATFORM vendors (no marketplace_vendor_id) are never gated', async ()
   assert.equal(err, null, 'off-platform lock must pass regardless of verification');
 });
 
-test('UPDATE considering→contracted is blocked for an unverified vendor, allowed for a verified one', async () => {
+test('UPDATE considering→contracted is blocked for a rejected vendor, allowed for an unverified and a verified one', async () => {
   const event = await newEvent();
 
-  // Unverified: seed a considering row (allowed), then try to flip to contracted.
-  const unverified = await newVendor('upd-unverified@bookgate.test', 'unverified');
+  // Rejected: seed a considering row (allowed), then try to flip to contracted.
+  const unverified = await newVendor('upd-unverified@bookgate.test', 'rejected');
   const uRow = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
      VALUES ($1, 'photographer', 'Upd Unverified', 'considering', $2) RETURNING vendor_id`,
@@ -166,7 +164,7 @@ test('UPDATE considering→contracted is blocked for an unverified vendor, allow
   } catch (err) {
     blocked = err instanceof Error ? err.message : String(err);
   }
-  assert.ok(blocked, 'considering→contracted must throw for an unverified vendor');
+  assert.ok(blocked, 'considering→contracted must throw for a rejected vendor');
   assert.match(String(blocked), /vendor_not_verified/);
 
   // Verified: same transition succeeds.
@@ -185,6 +183,15 @@ test('UPDATE considering→contracted is blocked for an unverified vendor, allow
     [vRow.rows[0]!.vendor_id],
   );
   assert.equal(check.rows[0]!.status, 'contracted', 'verified vendor should flip to contracted');
+
+  // Unverified (2026-11-15): the same transition succeeds too.
+  const open = await newVendor('upd-open@bookgate.test', 'unverified');
+  const oRow = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+     VALUES ($1, 'florist', 'Upd Open', 'considering', $2) RETURNING vendor_id`,
+    [event, open],
+  );
+  await db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [oRow.rows[0]!.vendor_id]);
 });
 
 test('GRANDFATHERING: an existing lock survives the vendor being demoted afterwards', async () => {

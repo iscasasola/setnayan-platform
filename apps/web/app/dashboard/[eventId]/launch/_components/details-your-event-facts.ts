@@ -24,6 +24,8 @@ import { HUB_DRAFT_FACT_COLUMNS, HUB_DRAFT_VENUE_COLUMNS } from '@/lib/hub-draft
 /** The event columns the "Your event" items read — each the column its existing screen reads. */
 const YOUR_EVENT_COLUMNS =
   'event_type, display_name, bride_name, groom_name, region, mood_feel_key, event_date, event_date_precision, ' +
+  // 📅 The couple's still-open date (EB-111) — so the Date row says the picked day, never "Not set".
+  'date_mode, date_candidates, date_window_start, date_window_end, event_days, ' +
   'ceremony_type, secondary_ceremony_type, std_invitation_launch_date, ' +
   'std_film_ceremony_name, std_film_venue_name, std_film_venue_city, ceremony_venue_address, ' +
   'ceremony_venue_latitude, ceremony_venue_longitude, ' +
@@ -38,6 +40,11 @@ type Row = {
   mood_feel_key: string | null;
   event_date: string | null;
   event_date_precision: string | null;
+  date_mode: string | null;
+  date_candidates: string[] | null;
+  date_window_start: string | null;
+  date_window_end: string | null;
+  event_days: number | null;
   ceremony_type: string | null;
   secondary_ceremony_type: string | null;
   std_invitation_launch_date: string | null;

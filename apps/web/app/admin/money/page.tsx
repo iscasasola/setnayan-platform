@@ -19,13 +19,13 @@
 
 import { Suspense } from 'react';
 
-import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
-import { MobileLandingGrid } from '../_components/mobile-landing-grid';
-import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { TablePageSkeleton } from '@/components/skeletons';
 import { TransactionsLedger } from './_components/transactions-ledger';
 import { RevenueSummary } from './_components/revenue-summary';
+import ReceiptsPage from '../receipts/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
+import { TabLanding } from '@/app/admin/_components/tab-landing';
 
 export const metadata = { title: 'Money · Admin' };
 
@@ -46,15 +46,20 @@ export const metadata = { title: 'Money · Admin' };
  * that /admin and /admin/work carry. Removing it leaks the full transaction
  * ledger to any authenticated non-admin.
  */
-export default async function AdminMoneyHub() {
+/*
+ * 💰 MONEY › EVERYTHING (admin drawing 2026-11-13, `money-all` + `money-revenue`).
+ * The card grid that sat under the ledger is gone: under the five tabs every one of its cards has a home — the money
+ * queues are views in `Money · View ▾`, Receiving accounts · Launch offer · Discount codes · Referrals · Free windows
+ * are rows in the Money ⚙, and Pricing · Price bands · Supplier recommendations live under Catalogue
+ * (`lib/admin/admin-tabs.ts`; `admin-routes-all-have-a-tab.test.ts` fails if any of them loses its home).
+ */
+async function AdminMoneyHub() {
   await requireAdmin();
 
-  const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'settings-group');
-
   return (
-    <>
-      {/* Streamed: the settings grid below is static and paints immediately,
-          so a slow ledger read never holds up the rest of the page. */}
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-1 sm:px-6" data-money-everything="">
+      {/* Streamed: each section has its own skeleton, so a slow ledger read
+          never holds up the revenue figure above it. */}
       {/* M16 — the page called Money now says what has been earned. It was a
           nav landing of cards; the owner could not state revenue without SQL. */}
       <Suspense fallback={<TablePageSkeleton />}>
@@ -63,7 +68,24 @@ export default async function AdminMoneyHub() {
       <Suspense fallback={<TablePageSkeleton />}>
         <TransactionsLedger />
       </Suspense>
-      <MobileLandingGrid desktopVisible title="Money" items={items} />
-    </>
+    </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Money: /admin/money is the Money dashboard; Records · Show ▾ is ?view=everything|receipts.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'receipts': ReceiptsPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  if (key === undefined && Object.keys(sp).length === 0) return <TabLanding tab="money" />;
+  return mountView(AdminMoneyHub, sp);
 }

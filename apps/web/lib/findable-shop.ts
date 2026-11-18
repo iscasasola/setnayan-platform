@@ -2,19 +2,19 @@
  * findable-shop.ts — WHO A COUPLE CAN FIND. One rule, asked by every list.
  *
  * ── THE RULING ──────────────────────────────────────────────────────────────
- * DECISION_LOG 2026-11-07 "🔎 AN UNVERIFIED SHOP IS FINDABLE UNTIL ITS FIRST
- * INQUIRY — THEN LOCKED OUT OF FIND UNTIL VERIFIED", reversing 2026-07-27's
- * "only show shops that are ready". Owner: *"they will be found for their first
- * inquiry and they will not get another inquiry unless … even if they are not
- * verified"* · *"first inquire will lock them already to prevent that loop hole"*.
+ * DECISION_LOG 2026-11-15 "🌐 AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A
+ * VERIFIED ONE … THE ONLY REACH DIFFERENCE IS DISCOVER AND SUPPLIERS › FIND", and
+ * the owner's answer the same day, "Verified only" — which SUPERSEDES 2026-11-07
+ * "findable until its first inquiry". Owner: *"Verified adds them to discover and
+ * suppliers>find"*.
  *
- *   · Verified shops always show (with the badge).
+ *   · Verified shops show in search, Discover, Suppliers › Find, category pages
+ *     and suggestions (with the badge).
  *   · A shop Setnayan has not decided yet (`unverified` · `pending_review`) shows
- *     in search, Suppliers › Find, category pages and suggestions UNTIL its first
- *     inquiry — a couple's first message, never a view or a save.
- *   · The first inquiry, or the first customer the shop imports through its own
- *     invite/QR, LOCKS it out of those lists until it is verified. Permanent:
- *     deleting the inquiry does not unlock it. Only an admin lift does.
+ *     in NONE of them. People reach it by its own link or QR, where it can be
+ *     messaged and booked (with the booking fee) — {@link ownLinkOpensUnverified}.
+ *   · `find_locked_at` still records a shop's first inquiry or import; it no
+ *     longer decides anything.
  *   · Rejected, demoted, archived and fraud-frozen shops never show.
  *
  * ── WHERE THE RULE LIVES ────────────────────────────────────────────────────
@@ -24,7 +24,7 @@
  * {@link findableShopGate}; nothing re-types `public_visibility` +
  * `verification_state` for a list any more. {@link isShopFindable} is the
  * TypeScript twin for rows already in hand, pinned to the column by
- * `tests/db/an-unverified-shop-is-findable-until-its-first-inquiry.db.test.ts`.
+ * `tests/db/an-unverified-shop-is-booked-on-its-page-and-found-only-once-verified.db.test.ts`.
  * `lib/every-listing-asks-findable.test.ts` fails if a couple-facing list skips it.
  *
  * ⚠ DEMO SHOPS ARE NOT DECIDED HERE. They keep their own existing rule
@@ -42,7 +42,7 @@
  * the policy.
  */
 
-import { parseVisibility } from './vendor-visibility';
+import { isShopLive, parseVisibility } from './vendor-visibility';
 
 /** The one column. */
 export const FINDABLE_COLUMN = 'is_findable' as const;
@@ -101,13 +101,21 @@ export function isShopFindable(row: FindableInput | null | undefined): boolean {
   // A lapsed shop leaves every list, verified or not. Only an explicit `false`
   // refuses here — the database gate (`FINDABLE_SHOP_GATE`) is the strict half.
   if (row.papers_current === false) return false;
-  const visibility = parseVisibility(row.public_visibility);
+  // 15 Nov, "Verified only": nothing but a verified, listed shop is found.
+  return isShopLive(row);
+}
+
+/**
+ * A shop Setnayan has not decided yet (`unverified` · `pending_review`) that is open: not archived, not
+ * fraud-frozen. Its own page, link and QR open, and it can be messaged and booked there (15 Nov) — it is just not
+ * found in any list. The first-inquiry lock plays no part.
+ */
+export function undecidedShopOpens(row: FindableInput | null | undefined): boolean {
+  if (!row) return false;
   const state = typeof row.verification_state === 'string' ? row.verification_state : null;
-  if (visibility === 'verified' && state === 'verified') return true;
   if (!state || !UNDECIDED.has(state)) return false;
   // parseVisibility resolves junk to 'hidden', so only a real 'archived' shuts it.
-  if (visibility === 'archived') return false;
-  if (present(row.find_locked_at)) return false;
+  if (parseVisibility(row.public_visibility) === 'archived') return false;
   if (present(row.fraud_suspended_at) || present(row.fraud_banned_at)) return false;
   if (row.fraud_tombstoned === true) return false;
   return true;
@@ -126,19 +134,15 @@ export function isShopFindable(row: FindableInput | null | undefined): boolean {
 export function ownLinkOpensUnverified(row: FindableInput | null | undefined): boolean {
   if (!row) return false;
   if (!('fraud_suspended_at' in row) || !('fraud_banned_at' in row) || !('fraud_tombstoned' in row)) return false;
-  const state = typeof row.verification_state === 'string' ? row.verification_state : null;
-  if (!state || !UNDECIDED.has(state)) return false;
-  return isShopFindable({ ...row, find_locked_at: null });
+  return undecidedShopOpens(row);
 }
 
 /**
- * 💬 RULING (1)+(4): a couple may MESSAGE a shop Setnayan has not decided yet — from its page, whether a list
- * or its own link/QR brought them there — but may NOT book it. The first message IS the first inquiry, and the
- * chat_messages trigger stamps `find_locked_at`. Booking stays `isBookable` (verified only), and the
- * `event_vendors_require_verified_before_lock` trigger refuses a lock on an unverified shop whatever the UI does.
+ * 💬 RULING (1)+(4) of 2026-11-07, widened 15 Nov: a couple may MESSAGE a shop Setnayan has not decided yet from
+ * its page (reached by its own link or QR), and — since 15 Nov — book it there too (`shopBookingRefusal`,
+ * lib/vendor-visibility.ts, and its database twin `enforce_booking_requires_verified_vendor`).
  *
- * `bookable` is passed in, not recomputed, so this can never widen booking. A demo shop keeps its own rule:
- * only `bookable` opens it.
+ * `bookable` is passed in, not recomputed. A demo shop keeps its own rule: only `bookable` opens it.
  */
 export function shopTakesMessages(
   row: (FindableInput & { is_demo?: unknown }) | null | undefined,
@@ -151,7 +155,7 @@ export function shopTakesMessages(
 
 /** The ⓘ under {@link NOT_YET_VERIFIED_LINE}, on the shop page and the chat thread alike. */
 export const NOT_YET_VERIFIED_INFO =
-  'Setnayan has not checked this shop’s documents yet, so it has no Verified badge. You can message them, but booking opens once Setnayan verifies them. Verified shops show the badge beside their name.';
+  'Setnayan has not checked this shop’s documents yet, so it has no Verified badge. You can message and book them here; Setnayan’s booking fee applies as usual. Verified shops show the badge beside their name.';
 
 // ── The lock, as the shop and the admin desk see it ──────────────────────────
 
@@ -160,11 +164,9 @@ export type FindLockReason = 'inquiry' | 'import';
 export type FindLockState =
   /** Verified: always found, with the badge. */
   | { state: 'verified' }
-  /** Not decided yet and not locked: found until the first inquiry. */
-  | { state: 'findable_until_first_inquiry' }
-  /** Not decided yet and locked by its first inquiry or import. */
-  | { state: 'locked'; reason: FindLockReason; since: string }
-  /** Rejected, demoted, archived, frozen — not found, and not because of the lock. */
+  /** Not decided yet and open: not found in any list until verified; its own link and QR open (15 Nov). */
+  | { state: 'until_verified' }
+  /** Rejected, demoted, archived, frozen — not found, and its page does not open either. */
   | { state: 'not_findable' };
 
 export type FindLockInput = FindableInput & { find_lock_reason?: unknown };
@@ -173,46 +175,13 @@ export function findLockState(row: FindLockInput | null | undefined): FindLockSt
   if (!row) return { state: 'not_findable' };
   const visibility = parseVisibility(row.public_visibility);
   if (visibility === 'verified' && row.verification_state === 'verified') return { state: 'verified' };
-  if (isShopFindable(row)) return { state: 'findable_until_first_inquiry' };
-  // Locked only when the lock is the ONLY thing standing between the shop and Find.
-  if (present(row.find_locked_at) && isShopFindable({ ...row, find_locked_at: null })) {
-    return {
-      state: 'locked',
-      reason: row.find_lock_reason === 'import' ? 'import' : 'inquiry',
-      since: String(row.find_locked_at),
-    };
-  }
+  if (undecidedShopOpens(row)) return { state: 'until_verified' };
   return { state: 'not_findable' };
 }
 
 /** Where a shop goes to get verified — the shipped documents step (the same door the first-steps rail opens). */
 export const VERIFY_HREF = '/vendor-dashboard/profile#docs';
 
-/**
- * The supplier's notice when locked. Ruling (5), verbatim title for an inquiry:
- * "You've had your first inquiry — get verified to be found again" + Verify.
- * Detail lives in the ⓘ (`info`), never in the visible line.
- */
-export function findLockNotice(state: FindLockState): {
-  title: string;
-  body: string;
-  info: string;
-  cta: { label: string; href: string };
-} | null {
-  if (state.state !== 'locked') return null;
-  return {
-    title:
-      state.reason === 'import'
-        ? 'You’ve had your first booking — get verified to be found again'
-        : 'You’ve had your first inquiry — get verified to be found again',
-    body: 'Couples can’t find you in search or Suppliers › Find until you’re verified. Your page link and QR codes still work.',
-    info:
-      state.reason === 'import'
-        ? 'Bringing in your own customer counts as your first booking. Until Setnayan verifies your shop, it stays out of search, Suppliers › Find and suggestions. Your own page link and QR codes keep working, and couples who open them are told your shop is not yet verified.'
-        : 'An unverified shop is shown to couples until its first inquiry. After that it stays out of search, Suppliers › Find and suggestions until Setnayan verifies it. Your own page link and QR codes keep working, and couples who open them are told your shop is not yet verified.',
-    cta: { label: 'Verify', href: VERIFY_HREF },
-  };
-}
 
 /** What a couple is told on an unverified shop's chat and page (ruling (4)). In-app only, never email. */
 export const NOT_YET_VERIFIED_LINE = 'This shop is not yet verified by Setnayan';
@@ -235,12 +204,8 @@ export function findLockAdminLine(state: FindLockState): string {
   switch (state.state) {
     case 'verified':
       return 'Found by couples · verified';
-    case 'findable_until_first_inquiry':
-      return 'Found by couples until its first inquiry';
-    case 'locked':
-      return state.reason === 'import'
-        ? 'Out of Find since its first imported customer'
-        : 'Out of Find since its first inquiry';
+    case 'until_verified':
+      return 'Not in Discover or Find until verified · its link and QR open';
     case 'not_findable':
       return 'Not found by couples';
   }

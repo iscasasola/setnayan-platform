@@ -58,7 +58,7 @@ function tierPriceCopy(
     pro: p.proMonthly,
     enterprise: p.enterpriseMonthly,
   } as const;
-  const name = { solo: 'Supplier Plus', pro: 'Supplier Pro', enterprise: 'Supplier Ultra' } as const;
+  const name = { solo: 'Plus', pro: 'Pro', enterprise: 'Ultra' } as const;
   return tiers
     .filter((t) => price[t] !== null)
     .map((t) => `${name[t]} ${price[t]}${perEach}`)
@@ -157,21 +157,21 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       },
       offer(
         'solo-vendor-subscription',
-        'Supplier Plus (28-day prepaid block)',
+        'Plus (28-day prepaid block)',
         // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
         'pro-vendor-subscription',
-        'Supplier Pro (28-day prepaid block)',
+        'Pro (28-day prepaid block)',
         // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
         `${growSpec('pro')}. 28-day prepaid blocks.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
-        'Supplier Ultra (28-day prepaid block)',
+        'Ultra (28-day prepaid block)',
         // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
         `${growSpec('enterprise')}. 28-day prepaid blocks.`,
         p.num.enterpriseMonthly,
@@ -226,10 +226,13 @@ export default async function ForSuppliersPage() {
           prices={{
             soloMonthly: p.soloMonthly,
             soloAnnual: p.soloAnnual,
+            soloAnnualSave: p.soloAnnualSave,
             proMonthly: p.proMonthly,
             proAnnual: p.proAnnual,
+            proAnnualSave: p.proAnnualSave,
             enterpriseMonthly: p.enterpriseMonthly,
             enterpriseAnnual: p.enterpriseAnnual,
+            enterpriseAnnualSave: p.enterpriseAnnualSave,
             branch: p.branch,
             seat: p.seat,
             bySku: p.bySku,

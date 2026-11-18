@@ -20,6 +20,7 @@ import { safeNext } from '@/lib/auth';
 import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
 import { parseProviderParam, type KnownProvider } from '@/lib/sign-in-door';
 import { loginErrorFromParam } from '@/lib/human-auth-error';
+import { LINK_EXPIRED_VALUE } from '@/lib/auth-confirm-link';
 import { eventSlugFromNext } from '@/lib/sign-in-for-a-guest';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -37,6 +38,8 @@ export type LoginSearchParams = {
   as?: string;
   /** Set by the sign-in action after a failed password attempt on a Google/Apple-only account. */
   provider?: string;
+  /** W1-B24 — `link=expired`: an email link that can no longer finish (expired, spent, or opened on another device). */
+  link?: string;
 };
 
 export type LoginView = {
@@ -54,6 +57,8 @@ export type LoginView = {
   nativeOAuth: boolean;
   /** `next` opens an event — the card speaks to a guest, not a planner. */
   forGuest: boolean;
+  /** W1-B24 — the card leads with "That link has expired…" and a "Send a new link" button. */
+  linkExpired: boolean;
 };
 
 /**
@@ -109,6 +114,7 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const forGuest = await nextOpensAnEvent(next);
 
   return {
+    linkExpired: params.link === LINK_EXPIRED_VALUE,
     errorMessage,
     provider,
     justSignedUpEmail,

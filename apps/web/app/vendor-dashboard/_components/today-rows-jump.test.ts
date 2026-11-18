@@ -57,8 +57,8 @@ test('1 · every desk kind has a page — never a door onto Today itself', async
     assert.ok(href.startsWith('/vendor-dashboard/') && !href.startsWith('/vendor-dashboard#'), `${card.kind}: ${href}`);
     assert.deepEqual(L.todayNeedOf(card, NOW).target, t, `${card.kind}: the row and its target disagree`);
   }
-  assert.equal(nextHref(L.todayRowTarget(CARDS[3]!, NOW)), '/vendor-dashboard/clients/e4?tab=details', 'a date change does not land on Details');
-  assert.equal(nextHref(L.todayRowTarget(CARDS[4]!, NOW)), '/vendor-dashboard/clients/e5?tab=details', 'a delete request does not land on Details');
+  assert.equal(nextHref(L.todayRowTarget(CARDS[3]!, NOW)), '/vendor-dashboard/clients/e4?tab=details&from=today', 'a date change does not land on Details');
+  assert.equal(nextHref(L.todayRowTarget(CARDS[4]!, NOW)), '/vendor-dashboard/clients/e5?tab=details&from=today', 'a delete request does not land on Details');
   // The screen draws each row with exactly that href.
   const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.match(first, /<TodayRow\s+key=\{n\.key\}\s+href=\{nextHref\(n\.target\)\}/, 'a Needs-you row is not one link to its target');

@@ -112,6 +112,10 @@ function sources(): string[] {
   return out;
 }
 
+/** The photo-mark QR's material tag — one literal in one file (see the leak test). */
+const PHOTO_MARK_VIA_FILE = 'lib/watermark-text.ts';
+const PHOTO_MARK_VIA_LITERAL = '?via=${MARK_QR_VIA}';
+
 /** Who may touch the marker, and with what. Everything else touching it is a leak. */
 const ALLOWED: Readonly<Record<string, RegExp>> = {
   'lib/discover-way-back.ts': /./,
@@ -131,7 +135,11 @@ test('the marker reaches no canonical URL, OG tag, sitemap, share or copy-link �
       continue;
     }
     const allow = ALLOWED[rel];
-    if (/via=discover|[?&]via=/.test(s) && rel !== 'lib/discover-way-back.ts') leaks.push(`${rel}: a literal via= marker`);
+    // 🏷 The photo-mark QR's MATERIAL tag (owner 16 Nov, DECISION_LOG b8d39503) is a different marker on the same param:
+    // `?via=${MARK_QR_VIA}` ('photo') lives only inside the QR burned into a shop's photo, never a canonical/OG/sitemap/
+    // share URL. That ONE literal, in that ONE file, is not the Discover marker; anything else there still counts.
+    const t = rel === PHOTO_MARK_VIA_FILE ? s.split(PHOTO_MARK_VIA_LITERAL).join('') : s;
+    if (/via=discover|[?&]via=/.test(t) && rel !== 'lib/discover-way-back.ts') leaks.push(`${rel}: a literal via= marker`);
     const imp = /import\s*\{([^}]*)\}\s*from\s*['"](?:@\/lib|\.{1,2}(?:\/[\w.-]+)*)\/discover-way-back['"]/.exec(s);
     if (!imp) continue;
     if (!allow) {

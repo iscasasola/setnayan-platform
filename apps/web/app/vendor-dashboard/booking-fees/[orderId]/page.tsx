@@ -35,7 +35,7 @@ import {
 import { ShopNotice } from '../../_components/kit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
-import { asDisputeStatus, disputeStateLine } from '@/lib/booking-fee-dispute';
+import { asDisputeStatus, disputeStateLine, foundYouLine } from '@/lib/booking-fee-dispute';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DisputeNoteField } from '@/app/_components/dispute-note-field';
 import { bookingFeeDispute } from '@/app/_actions/booking-fee-dispute-actions';
@@ -139,8 +139,15 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
     ? undefined
     : ((disputeRead.data as { status: string; decision_note: string | null } | null) ?? null);
   const disputeStatus = dispute ? asDisputeStatus(dispute.status) : null;
+  /*
+    🕵️ FOUND YOU (owner 16 Nov 2026, DECISION_LOG e5d166cd (2)): every bill now says where and when the couple found
+    the shop — "Found you on Setnayan · from Search, 3 Nov" — from the same found-record, same scope (THIS bill's own
+    event and shop). Read for every bill with a charge, not only an accepted dispute. A failed or empty read draws no
+    line, never a guess.
+  */
   let disputeViewCount: number | null = null;
-  if (disputeStatus === 'auto_accepted' && chargeId) {
+  let foundLine: string | null = null;
+  if (chargeId) {
     const admin = createAdminClient();
     const { data: charge } = await admin
       .from('booking_fee_charges')
@@ -149,13 +156,16 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
       .maybeSingle();
     const c = charge as { event_id: string | null; vendor_profile_id: string } | null;
     if (c?.event_id) {
-      const { data: found } = await admin
+      const { data: found, error: foundErr } = await admin
         .from('event_vendor_found')
-        .select('view_count')
+        .select('view_count, first_found_at, first_source')
         .eq('event_id', c.event_id)
         .eq('vendor_profile_id', c.vendor_profile_id)
         .maybeSingle();
-      disputeViewCount = (found as { view_count?: number } | null)?.view_count ?? null;
+      if (foundErr) logQueryError('booking-fees/[orderId]: found-you record', foundErr);
+      const f = found as { view_count?: number; first_found_at?: string | null; first_source?: string | null } | null;
+      if (disputeStatus === 'auto_accepted') disputeViewCount = f?.view_count ?? null;
+      foundLine = foundYouLine(f?.first_found_at, f?.first_source);
     }
   }
   // Disputable: an open bill, no dispute yet, and the dispute read answered.
@@ -243,6 +253,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           Order <span className="normal-case">{order.public_id}</span>
         </p>
         <p className="whitespace-pre-wrap text-sm text-ink">{feeOrderDescriptionNow(order.description, order.status)}</p>
+        {foundLine ? (
+          <p data-found-you="" className="text-[13px] font-semibold text-terracotta-700">
+            ★ {foundLine}
+          </p>
+        ) : null}
         {topUp ? (
           // 💸 The top-up's stage, said on its own bill (prototype: Held → Due today → Overdue).
           <p

@@ -16,6 +16,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { upsertOnboardingSpec, resetOnboardingSpec } from '../event-type-actions';
 import type { OnboardingSpec } from '@/lib/onboarding/onboarding-spec';
 import type { TypeQuestion } from '@/lib/onboarding/type-questions';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 type Option = { value: string; label: string };
 
@@ -43,7 +44,7 @@ const FIELD =
 const KEYFIELD =
   'w-full rounded border border-ink/15 bg-ink/[0.03] px-2 py-1 font-mono text-xs text-ink/70 outline-none focus:border-mulberry';
 const LABEL = 'block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/50';
-const SECTION = 'rounded-xl bg-white p-5';
+const SECTION = `${ADMIN_FRAME} p-5`;
 const H2 = 'text-sm font-semibold text-ink';
 
 function slug(v: string): string {

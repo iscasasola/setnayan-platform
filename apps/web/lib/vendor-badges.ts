@@ -250,7 +250,12 @@ function isCoupleTrusted(v: VendorBadgeInput): boolean {
   return avg >= COUPLE_TRUSTED_MIN_AVG_RATING;
 }
 
-function topPickScore(avgRating: number, reviewCount: number): number {
+/**
+ * 🏅 THE REVIEW SCORE — trusted average rating × ln(trusted reviews + 1). Exported for the yearly seals
+ * (lib/shop-seals.ts): Top 10 and No. 1 rank by "the score that already ranks the monthly Top Pick" (DECISION_LOG
+ * 2026-11-15 "TOP 10 AND NO. 1 — HOW THEY ARE PICKED"), so both read this one function, never a copy.
+ */
+export function topPickScore(avgRating: number, reviewCount: number): number {
   // Wilson-ish: scale by log(reviews + 1) so a 5★ vendor with 1 review
   // doesn't beat a 4.8★ vendor with 30 reviews. Adding 1 keeps log
   // defined at 0 and makes the score 0 at exactly 0 reviews.

@@ -6,6 +6,7 @@
  * (nothing booked — the controller's walk case), Catering mid-conversation and
  * a photo quote waiting on the couple. Nothing here is read from a database.
  */
+import { shopPath } from '@/lib/shop-address';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { BenchServiceCard } from '@/lib/bench-service-card';
@@ -145,7 +146,7 @@ export function labSheet(vendorProfileId: string): SupplierSheetData {
           ]
         : [],
     following: vendorProfileId === 'p-lola',
-    sharePath: `/v/${vendorProfileId.replace(/^p-/, '')}`,
+    sharePath: `${shopPath(vendorProfileId.replace(/^p-/, ''))}`,
   };
 }
 

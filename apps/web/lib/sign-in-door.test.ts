@@ -138,7 +138,8 @@ test('🔴 the set-password button is rendered ONLY inside the provider-refusal 
 });
 
 test('🔴 the button calls the EXISTING send (signInInPlace, intent=reset) — and the dead end is gone', () => {
-  assert.equal((CARD.match(/useActionState\(\s*signInInPlace/g) || []).length, 2, 'the reset must reuse signInInPlace, not a new action');
+  // W1-B24 (16 Nov 2026): a third use, "Send a new link" (intent=relink) — still the same action, no new one.
+  assert.equal((CARD.match(/useActionState\(\s*signInInPlace/g) || []).length, 3, 'the reset and the re-link must reuse signInInPlace, not a new action');
   assert.doesNotMatch(CARD, /Safari or Chrome/);
   assert.doesNotMatch(stripComments(readFileSync('lib/sign-in-door.ts', 'utf8')), /Safari or Chrome/, 'the dead-end sentence is still in the door');
   // the email is never carried in the URL

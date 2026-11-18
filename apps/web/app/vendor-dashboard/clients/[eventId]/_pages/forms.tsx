@@ -29,6 +29,7 @@ import { QuestionsSendPanel } from '@/app/vendor-dashboard/messages/[threadId]/_
 import { CoupleAnswers } from '../_components/couple-answers';
 // ⚡ On-demand code (`./lazy`): the shipped `FormsPageBody`, loaded with this page rather than the route's first load.
 import { FormsPageBody } from './lazy';
+import { readClientNoun } from '@/lib/client-words.server';
 import type { PickedPageProps } from './context';
 
 export async function FormsPage({ ctx }: PickedPageProps) {
@@ -54,7 +55,7 @@ export async function FormsPage({ ctx }: PickedPageProps) {
   const bookedCategories = lib ? lib.cards.filter((c) => bookedIds.includes(c.id)).map((c) => c.category) : [];
   const ownCategories = bookedCategories.length ? bookedCategories : (lib?.cards.map((c) => c.category) ?? []);
 
-  const [event, suggestions, starters] = await Promise.all([
+  const [event, suggestions, starters, clientNoun] = await Promise.all([
     lib
       ? readEventForms(supabase, {
           eventId: ctx.eventId,
@@ -66,12 +67,16 @@ export async function FormsPage({ ctx }: PickedPageProps) {
       : Promise.resolve({ status: 'unread' as const }),
     readFormSuggestions(supabase, ownCategories),
     startersForShopServices(profile?.services ?? null),
+    // 🔤 This event kind's word for the client ("celebrant" on a debut) — never "couple" on every event.
+    readClientNoun(ctx.eventId),
   ]);
 
   return (
-    <div className="space-y-8" data-picked-page="forms">
-      <section className="space-y-4" aria-label="Questions for the couple">
-        <QuestionsSection supabase={supabase} vendorProfileId={ctx.vendorProfileId} starters={starters} />
+    // 👍 pb-24: the floating thumb row (folder · ＋) sits over the page's last lines without it (owner, 17 Nov) — the
+    // same room the Payment page leaves.
+    <div className="space-y-8 pb-24" data-picked-page="forms">
+      <section className="space-y-4" aria-label={`Questions for the ${clientNoun}`}>
+        <QuestionsSection supabase={supabase} vendorProfileId={ctx.vendorProfileId} starters={starters} clientNoun={clientNoun} />
         {ctx.threadId ? (
           <QuestionsSendPanel
             supabase={supabase}
@@ -79,11 +84,12 @@ export async function FormsPage({ ctx }: PickedPageProps) {
             eventId={ctx.eventId}
             vendorProfileId={ctx.vendorProfileId}
             coupleName={ctx.eventName}
+            quietWhenEmpty
           />
         ) : null}
         {/* The couple's own words open with the event, as on the shipped card (fee-gated). */}
         {ctx.feeUnlocked ? (
-          <CoupleAnswers supabase={supabase} eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} coupleName={ctx.eventName} />
+          <CoupleAnswers supabase={supabase} eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} coupleName={ctx.eventName} quietWhenEmpty />
         ) : null}
       </section>
       <FormsPageBody

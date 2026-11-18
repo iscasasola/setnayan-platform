@@ -1,7 +1,7 @@
 /**
  * no-enterprise-plan-name.test.ts — no person reads the plan name "Enterprise".
  *
- * ⚖ OWNER 2026-10-23 (DECISION_LOG, corpus aedbf233): the supplier plans are **Supplier Plus · Pro · Ultra**. The top plan's
+ * ⚖ OWNER 2026-10-23 (DECISION_LOG, corpus aedbf233): the supplier plans are **Plus · Pro · Ultra**. The top plan's
  * internal key stays `enterprise` (the `tier_state` enum value, `isTierAtLeast(…, 'enterprise')`, every SKU id such as
  * `enterprise_vendor_monthly`) — only the WORDS a person sees moved.
  *
@@ -51,12 +51,12 @@ function offences(): string[] {
 }
 
 test('the top plan is called Ultra wherever a person reads it', () => {
-  assert.equal(TIER_LABEL.enterprise, 'Supplier Ultra');
+  assert.equal(TIER_LABEL.enterprise, 'Ultra');
   const hits = offences();
   assert.deepEqual(
     hits,
     [],
-    `"Enterprise" is still shown as a plan name (owner 2026-10-23: Supplier Plus · Pro · Ultra):\n  ${hits.join('\n  ')}`,
+    `"Enterprise" is still shown as a plan name (owner 2026-10-23: Plus · Pro · Ultra):\n  ${hits.join('\n  ')}`,
   );
 });
 

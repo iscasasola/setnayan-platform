@@ -9,6 +9,7 @@
  * only this: read each job's result, and be red unless every one is `success`.
  *
  *   env NEEDS = ${{ toJSON(needs) }}
+ *   env PR_DRAFT = ${{ github.event.pull_request.draft == true }}   — a draft is always RED (see gateVerdict)
  *
  * FAIL-CLOSED — see gateVerdict in scripts/lib/ci-shape.mjs. `skipped` and
  * `cancelled` are failures here on purpose: GitHub treats a skipped check as
@@ -18,7 +19,8 @@
 import fs from 'node:fs';
 import { gateVerdict } from './lib/ci-shape.mjs';
 
-const { ok, rows, problems } = gateVerdict(process.env.NEEDS);
+const { ok, rows, problems } = gateVerdict(process.env.NEEDS, process.env.PR_DRAFT);
+if (process.env.PR_DRAFT === 'true') console.log('::error title=Draft PR::Draft PR: checks not run. Mark ready to test.');
 
 for (const r of rows) console.log(`  ${r.result === 'success' ? 'PASS' : 'FAIL'}  ${r.job} (${r.result})`);
 for (const r of rows) {

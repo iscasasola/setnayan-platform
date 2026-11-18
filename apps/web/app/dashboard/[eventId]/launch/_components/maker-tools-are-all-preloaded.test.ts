@@ -89,6 +89,7 @@ const NOT_A_TOOL: Record<string, string> = {
   jsqr: 'reads a QR inside a picked image (upload pipeline)',
   'app/_components/plan3d/plan3d-scene.tsx': 'the 3D plan view (three.js) — same reason',
   'app/_components/notices/inline-notice.tsx': 'the ROOT layout\'s lazy door to a notice ("Setnayan was updated", demo mode) — not a Maker tool; the Maker\'s own Pro lines import it statically, so it is already in the Maker\'s load',
+  'app/_components/stale-tab-notice-lift.tsx': 'the ROOT layout\'s "Setnayan was updated" notice, lifted onto the top notification layer only while a sheet covers a stale tab that holds typing (walk RW-7853-a, 2026-11-16) — not a Maker tool or panel; nothing waits on it (the notice it carries was already a lazy fetch), and preloading it would add it to every Maker load for a case that is rare by design',
   'app/papic/actions.ts': 'Papic camera/offline handlers (the service-worker drain), not the Maker',
   'lib/clip-poster.ts': 'Papic camera/offline handlers, not the Maker',
   'app/_components/home/HomeOverlays.tsx': 'the marketing site’s overlays — not the signed-in app',

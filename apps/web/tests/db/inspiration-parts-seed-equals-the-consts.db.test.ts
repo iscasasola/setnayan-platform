@@ -34,6 +34,7 @@ import { MOODBOARD_SLOT_TRADES } from '../../lib/moodboard-gallery';
 import { libraryPartLabel } from '../../lib/moodboard-gallery-upload';
 import { LEGACY_PALETTE_BOARDS, libraryPhotoParts } from '../../lib/inspiration-slots';
 import { fallbackInspirationParts } from '../../lib/inspiration-parts';
+import { forwardTile } from '../../lib/taxonomy';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -141,7 +142,8 @@ test('⭐ the seed equals the consts: the same keys, home = the first trade, als
   assert.deepEqual(rows.map((r) => r.slot_key).sort(), [...MOODBOARD_SLOT_KEYS].sort(), 'the table and MOODBOARD_SLOT_KEYS hold different keys');
   for (const key of MOODBOARD_SLOT_KEYS) {
     const row = rows.find((r) => r.slot_key === key)!;
-    const [first, ...rest] = MOODBOARD_SLOT_TRADES[key];
+    // The consts AS SEEDED, read through the T1 part 2 category merges (MERGED_TILES) exactly as the fallback reads them.
+    const [first, ...rest] = [...new Set(MOODBOARD_SLOT_TRADES[key].map((t) => forwardTile(t)))];
     assert.equal(row.home_category_id, first ?? null, `${key}: home is not the first trade`);
     assert.deepEqual(await alsoOf(key), [...rest], `${key}: "also from" is not the remaining trades in their order`);
     assert.equal(row.kind, first ? 'part' : 'system', `${key}: kind`);
@@ -258,19 +260,37 @@ test('a signed-in account reads every part; anon reaches nothing; nobody signed 
   }
 });
 
+/**
+ * Asked of the replay WITHOUT the T1 category merges (20271350082350). Those later move a part's home and rewrite its
+ * stored categories (Men's Attire → Entourage & Sponsors); re-running a seed from before them then re-inserts the old
+ * category rows by design, which says nothing about whether the seed overwrites an admin's edit — this test's question.
+ * Whether the merge moved the parts correctly is `part-eligibility-is-unchanged-by-the-move.db.test.ts`'s.
+ */
+const LATER_RETREES: ReadonlySet<string> = new Set(['20271350082350']);
+
 test('applied a second time, it changes no row and still holds', async () => {
-  const snap = async () =>
-    (
-      await db.query<{ j: string }>(
-        `SELECT (SELECT jsonb_agg(to_jsonb(p) - 'updated_at' - 'created_at' ORDER BY p.slot_key) FROM public.inspiration_parts p)::text
-             || (SELECT jsonb_agg(to_jsonb(l) - 'created_at' ORDER BY l.slot_key, l.category_id) FROM public.inspiration_part_categories l)::text AS j`,
-      )
-    ).rows[0]!.j;
-  await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake (admin)' WHERE slot_key = 'cake'`);
-  const before = await snap();
-  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_inspiration_parts_on_the_taxonomy.sql'));
-  assert.ok(file, 'the migration file is not there');
-  await db.exec(readFileSync(join(MIGRATIONS_DIR, file!), 'utf8'));
-  assert.equal(await snap(), before, 're-applying the seed overwrote an admin’s edit or changed a row');
-  await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake' WHERE slot_key = 'cake'`);
+  const outer = db;
+  const replayNoRetrees = await createReplayedDb({
+    only: new Set(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]!).filter((v) => !LATER_RETREES.has(v))),
+  });
+  db = replayNoRetrees.db;
+  try {
+    const snap = async () =>
+      (
+        await db.query<{ j: string }>(
+          `SELECT (SELECT jsonb_agg(to_jsonb(p) - 'updated_at' - 'created_at' ORDER BY p.slot_key) FROM public.inspiration_parts p)::text
+               || (SELECT jsonb_agg(to_jsonb(l) - 'created_at' ORDER BY l.slot_key, l.category_id) FROM public.inspiration_part_categories l)::text AS j`,
+        )
+      ).rows[0]!.j;
+    await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake (admin)' WHERE slot_key = 'cake'`);
+    const before = await snap();
+    const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_inspiration_parts_on_the_taxonomy.sql'));
+    assert.ok(file, 'the migration file is not there');
+    await db.exec(readFileSync(join(MIGRATIONS_DIR, file!), 'utf8'));
+    assert.equal(await snap(), before, 're-applying the seed overwrote an admin’s edit or changed a row');
+    await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake' WHERE slot_key = 'cake'`);
+  } finally {
+    await replayNoRetrees.db.close();
+    db = outer;
+  }
 });

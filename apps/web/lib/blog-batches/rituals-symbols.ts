@@ -71,7 +71,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Want the full cast — sponsors, bearers, ninong, and ninang — and what each one does? Read the entourage guide.',
-        href: '/blog/filipino-wedding-entourage-guide-ninong-ninang-sponsors',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -279,7 +279,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Whatever your ceremony — Catholic, civil, Christian, or mixed — see how a Filipino wedding flows, beat by beat.',
-        href: '/blog/filipino-wedding-traditions-explained',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -484,7 +484,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious about the rites and reception customs too? Read our overview of Filipino wedding traditions.',
-        href: '/blog/filipino-wedding-traditions-explained',
+        href: '/features',
         label: 'Start planning free',
       },
     ],

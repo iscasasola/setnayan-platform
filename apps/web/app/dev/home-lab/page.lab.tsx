@@ -85,7 +85,8 @@
  *   ?sched=before|week|day|none|unread|off  📅 the Schedule widget (owner 2026-11-01, approved
  *                                    `home_frames_where_you_act_2026-11-01/`): 40 days out (default) · one week out
  *                                    (Release, Countdown at 7) · the day · no chapters yet · its read failed · absent;
- *                                    `&plan=pro` — the event owns Pro (Release wears no ◆ PRO)
+ *                                    `&plan=pro` — the event owns Pro (Release wears no ◆ PRO) · `&times=1` 🕕 a supplier
+ *                                    set their own times: "Lumière Studio set their times" in the card (16 Nov)
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -378,7 +379,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; moved?: string; page?: string; empty?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -602,7 +603,7 @@ export default async function HomeLab({
       { block_id: 'b3', label: 'Dinner & toasts', start_at: at(30), end_at: at(150), location: 'Main hall' },
     ];
     const day = (
-      <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
+      <div className="mx-auto min-h-screen w-full bg-page px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
         <DayOfModeGrid
           eventId={E}
           blocks={blocks}
@@ -676,7 +677,10 @@ export default async function HomeLab({
         ? ('unread' as const)
         : q.sched === 'none'
           ? { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false }
-          : fixtureSchedule(schedPhase, q.plan === 'pro');
+          : q.times === '1'
+            ? // 🕕 `&times=1`: a supplier set their own times (owner 16 Nov) — the line in this card.
+              { ...fixtureSchedule(schedPhase, q.plan === 'pro'), timesSet: { shop: 'Lumière Studio', words: 'Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM' } }
+            : fixtureSchedule(schedPhase, q.plan === 'pro');
   const weekOut = schedPhase === 'week' && labSchedule !== null && labSchedule !== 'unread';
   /* 👻 `?empty=1` — THE EMPTY LOOK (Build 5 Lane H): a new event, every read answered and empty — each widget's honest
      face with its greyed Example under it (`fixtureControlEmpty`, the same fixture the guard renders). */
@@ -714,7 +718,7 @@ export default async function HomeLab({
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
     <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateCookie="lab_home_date">
-    <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <div className="mx-auto min-h-screen w-full bg-page px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
         /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */

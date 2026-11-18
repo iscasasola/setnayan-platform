@@ -76,10 +76,9 @@ async function audit(opts: {
   if (error) console.error('[journal-spotlights audit]', error.message);
 }
 
-/** Revalidate the console + the affected article (if any). */
-function revalidateSurfaces(blogSlug?: string | null) {
+/** Revalidate the console. (The article page, /blog/[slug], is retired 2026-11-16 — callers still pass its slug.) */
+function revalidateSurfaces(_blogSlug?: string | null) {
   revalidatePath(BASE);
-  if (blogSlug) revalidatePath(`/blog/${blogSlug}`);
 }
 
 // ---------------------------------------------------------------------------

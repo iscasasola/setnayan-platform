@@ -11,7 +11,15 @@ import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_
  *
  * No conversation with this client → nothing can have been decided in one: the empty line, no draw at all.
  */
-export function DetailsDecisions({ threadId }: { threadId: string | null; eventId: string }) {
+export function DetailsDecisions({
+  threadId,
+  threadSearch,
+}: {
+  threadId: string | null;
+  eventId: string;
+  /** The request's thread notice params — the same the Chat embed hands on, so all embeds share ONE draw. */
+  threadSearch?: Record<string, string>;
+}) {
   if (!threadId) {
     return (
       <section data-details-decisions="" aria-label="Decisions">
@@ -33,7 +41,7 @@ export function DetailsDecisions({ threadId }: { threadId: string | null; eventI
         </section>
       }
     >
-      <SupplierThreadBody threadId={threadId} view="decisions" />
+      <SupplierThreadBody threadId={threadId} view="decisions" search={threadSearch} />
     </Suspense>
   );
 }

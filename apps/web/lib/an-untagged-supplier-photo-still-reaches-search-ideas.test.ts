@@ -36,6 +36,11 @@ import { stripComments } from './strip-comments';
 import { shapeGalleryPage, normalizeGalleryQuery, MOODBOARD_SLOT_TRADES, type RawGalleryRow } from './moodboard-gallery';
 import { libraryPhotoParts } from './inspiration-slots';
 import { canonicalServicesForTile } from './vendor-counts';
+import { servicesKeptThroughTheMerges, type WeddingTile } from './taxonomy';
+
+/** A shop of this trade: its services as a part sees them — for a category T1 part 2 merged (MERGED_TILES), the
+ *  services filed under it BEFORE the merge (`servicesKeptThroughTheMerges`), which is what the parts keep. */
+const tradeServices = (t: WeddingTile): string[] => [...(servicesKeptThroughTheMerges([t]) ?? canonicalServicesForTile(t))];
 import { fallbackInspirationParts } from './inspiration-parts';
 
 const WEB = join(__dirname, '..');
@@ -51,7 +56,7 @@ test('1 · an approved supplier photo with zero colour ranges reaches Search ide
   const parts = libraryPhotoParts(fallbackInspirationParts());
   assert.ok(parts.length >= 20);
   for (const p of parts) {
-    const services = canonicalServicesForTile(MOODBOARD_SLOT_TRADES[p.key][0]!);
+    const services = tradeServices(MOODBOARD_SLOT_TRADES[p.key][0]!);
     const row: RawGalleryRow = {
       asset_id: `untagged-${p.key}`,
       label: 'Untagged',

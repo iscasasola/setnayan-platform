@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
   ACCOMMODATION_CATEGORY,
+  isAccommodationCategory,
   fitDateScope,
   fitDaysToAsk,
   fitOptions,
@@ -114,6 +115,25 @@ test('🔑 accommodation needs EVERY night of the span ±1 — one full night hi
   assert.deepEqual(fitDaysToAsk(scope, true), ['2027-02-12', '2027-02-13', '2027-02-14', '2027-02-15']);
   const nye = fitDateScope({ eventDate: '2026-12-31', precision: 'day' })!;
   assert.deepEqual(fitOptions(nye, ACCOMMODATION_CATEGORY), [['2026-12-30', '2026-12-31', '2027-01-01']]);
+});
+
+test('🔑 T1 folded `accommodation` into Hotel stay — a Hotel stay card is judged on every night ±1 too', () => {
+  // Migration 20271349668764 folds the `accommodation` service into `hotel_stay` (merge_canonical_service moves every
+  // card). Keyed on the literal 'accommodation' alone, a hotel booked one night of a three-night stay would read as
+  // free on Find. Both keys carry the rule: the new one, and the old one for any row written before the fold.
+  const scope = fitDateScope({ eventDate: '2027-02-13', precision: 'day', endDate: '2027-02-14' })!;
+  for (const key of ['hotel_stay', ACCOMMODATION_CATEGORY]) {
+    assert.ok(isAccommodationCategory(key), `${key} is not judged as accommodation`);
+    assert.equal(needsEveryDay(key), true, `${key} does not need every night`);
+    assert.deepEqual(fitOptions(scope, key), [['2027-02-12', '2027-02-13', '2027-02-14', '2027-02-15']]);
+    assert.equal(full(scope, ['2027-02-14'], key), true, `a ${key} booked one night of the stay still reads free`);
+  }
+  assert.equal(isAccommodationCategory('catering'), false);
+  // The two readers ask about the ±1 nights for a Hotel stay card, not only for the old key.
+  const server = read('lib/bench-bookable-days.server.ts');
+  assert.match(server, /\.some\(isAccommodationCategory\)/, 'the server read still looks for the literal accommodation key');
+  const search = read('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  assert.match(search, /canonicals\.every\(isAccommodationCategory\)/, 'the bench search still looks for the literal accommodation key');
 });
 
 test('accommodation before booking: kept when SOME candidate has every night ±1 free', () => {

@@ -76,7 +76,8 @@ test('the head is ‹ · avatar · name · event line · the chat menu — ONE h
   ] as const) {
     assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
   }
-  assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, 'the shared head has no avatar beside the name');
+  // The avatar round wears the template's warm surface token since 2026-11-14 (was ink at 10 %).
+  assert.match(head, /rounded-full bg-\[color:var\(--m-paper-2\)\]/, 'the shared head has no avatar beside the name');
   assert.match(head, /\[&>\*(?:\+\*)?\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const p of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
     const s = read(p);
@@ -137,7 +138,7 @@ test('from 701 the list and the open thread stand side by side — the system’
   assert.match(panes, /const splits = open \|\| Boolean\(latestHref\);/);
   assert.match(panes, /if \(!splits\) return <>\{list\}<\/>;/, 'a list with nothing to open splits around an empty pane');
   // The pane ends at the window's foot, sized from its own top on screen (measured: tests/e2e/the-chat-box-is-in-the-window.spec.ts).
-  assert.match(panes, /fitChatPane\(root\)/, 'the pane runs past the window and hides the composer');
+  assert.match(panes, /return watchChatPane\(root\);/, 'the pane runs past the window and hides the composer');
   // Each tree: the list page hands the newest active chat and the arrival; each thread route draws the list page beside it.
   for (const [page, layout] of [
     ['app/dashboard/[eventId]/messages/page.tsx', 'app/dashboard/[eventId]/messages/[threadId]/layout.tsx'],
@@ -146,7 +147,9 @@ test('from 701 the list and the open thread stand side by side — the system’
     const p = read(page);
     assert.match(p, /<ChatPanes list=\{list\} open=\{false\} latestHref=\{latestHref\}>\s*<ThreadArrival \/>\s*<\/ChatPanes>/, `${page}: the right column has no default`);
     assert.match(p, /\.find\(\(r\) => !r\.archived\)\?\.paneHref/, `${page}: the default is not the newest active chat`);
-    assert.match(p, /paneHref: `\/[^`]*messages\/\$\{r\.threadId\}`/, `${page}: a row does not open its thread beside the list`);
+    // The supplier's pane goes through `supplierThreadPaneHref` (`?pane=1`), so the thread page draws beside the list
+    // instead of forwarding to the client's Chat (lib/a-conversation-opens-the-client-chat.test.ts).
+    assert.match(p, /paneHref: (?:`\/[^`]*messages\/\$\{r\.threadId\}`|supplierThreadPaneHref\(r\.threadId\))/, `${page}: a row does not open its thread beside the list`);
     assert.match(p, /if \(besideThread\) return list;/, `${page}: beside a thread the list draws a second pair of columns`);
     const l = read(layout);
     assert.match(l, /<ChatPanes\s+open\s+list=\{\s*<Suspense fallback=\{null\}>\s*<\w+Page [^>]*searchParams=\{Promise\.resolve\(\{ __in: 'thread' \}\)\} \/>/, `${layout}: the list beside the thread is not the Chats page itself`);

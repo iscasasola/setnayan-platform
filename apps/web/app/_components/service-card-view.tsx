@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
@@ -62,6 +63,7 @@ export function ServiceCardView({
   path = null,
   pathLead = null,
   coverUrl = null,
+  footer = null,
 }: {
   card: ServiceCard;
   detailsEnabled: boolean;
@@ -77,6 +79,11 @@ export function ServiceCardView({
   pathLead?: { label: string; onPress: () => void; ariaLabel: string } | null;
   /** The card's own cover (`primary_photo_r2_key`, resolved). Falls back to its first photo — Find's rule. */
   coverUrl?: string | null;
+  /** Inside the card's own frame, under the face (`ServiceFace` `footer`): the card's badge row (badge build J3,
+   *  `card-badges/card-badge-row.tsx`), then the shop page's "Add to quote" row (v16 `.sc .ft`), and on Shop › Services
+   *  the shop's own meta line and action row too — so the card is the ONE frame holding everything (owner 17 Nov,
+   *  "i see so many spaces"). */
+  footer?: ReactNode;
 }) {
   // A LINK when the caller gave an address, a BUTTON when it gave a callback — one door, never two.
   const door: ServiceFaceDoor | undefined = !detailsEnabled
@@ -88,6 +95,7 @@ export function ServiceCardView({
         : undefined;
   return (
     <ServiceFace
+      footer={footer}
       id={c.anchorId}
       name={c.label}
       coverUrl={coverUrl ?? c.photos[0] ?? null}

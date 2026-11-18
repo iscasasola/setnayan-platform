@@ -48,6 +48,27 @@ import { readPaymentLights, type PaymentLightsRead } from '@/lib/admin/green-pay
 import { withReceiptVerdicts } from '@/lib/admin/payment-verdicts.server';
 import type { GreenBatch } from '../queues/_components/green-batch';
 
+import { TabLanding } from '../_components/tab-landing';
+import { mountView, type SearchParamsRecord } from '../_components/merged-view';
+import { mergedViewKey } from '@/lib/admin/admin-pages';
+import ApprovalsPage from '../approvals/page';
+import CompletionsPage from '../completions/page';
+import PaxChangesPage from '../pax-changes/page';
+import CorrectionsPage from '../corrections/page';
+import ForceMajeurePage from '../force-majeure/page';
+import MusicMakerPage from '../pakanta/page';
+import UserReportsPage from '../user-reports/page';
+import DisputesPage from '../disputes/page';
+import FraudPage from '../fraud/page';
+import ChatFlagsPage from '../chat-flags/page';
+import RepostWatchPage from '../repost-watch/page';
+import IntegrityWatchPage from '../integrity-watch/page';
+import AiAbusePage from '../concierge-abuse/page';
+import ReviewAppealsPage from '../reviews/page';
+import EditorialPage from '../editorial-review/page';
+import AccountDeletionsPage from '../account-deletions/page';
+import EventRemovalsPage from '../event-deletions/page';
+
 export const metadata = { title: 'Work · Admin' };
 
 // Worklist priority: overdue first, then due-soon, then open work (busiest),
@@ -73,7 +94,7 @@ function coerceLane(v: string | string[] | undefined): AdminQueueLane | undefine
     : undefined;
 }
 
-export default async function AdminWorkLanding({
+async function WorkAllList({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -253,4 +274,51 @@ async function readLightsWithVerdicts(): Promise<PaymentLightsRead> {
   } catch {
     return { ok: false };
   }
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026, call 10): Work › Queue is ONE page with a Kind ▾ — all 17 queues, disputes and
+ * fraud included, each item keeping its own card. Each kind MOUNTS its old page's body unchanged (`merged-view.ts`);
+ * its old address forwards here with `?view=` preselected (`lib/admin/admin-pages.ts`).
+ *
+ *   /admin/work            → the Work dashboard (the tab's landing, `TabLanding`)
+ *   /admin/work?view=all   → every queue, one list (this file's own list, unchanged)
+ *   /admin/work?view=<kind>→ that queue's own page
+ *
+ * 🔑 Any other query (`?open=`, `?settle=`/`?why=` from an action's refusal, `?lane=`) is the list's own, so it opens
+ * the list — an action's answer never lands on the dashboard where nothing would read it.
+ */
+const QUEUE_KINDS = {
+  approvals: ApprovalsPage,
+  completions: CompletionsPage,
+  'pax-changes': PaxChangesPage,
+  corrections: CorrectionsPage,
+  'force-majeure': ForceMajeurePage,
+  'music-maker': MusicMakerPage,
+  'user-reports': UserReportsPage,
+  disputes: DisputesPage,
+  fraud: FraudPage,
+  'chat-flags': ChatFlagsPage,
+  repost: RepostWatchPage,
+  integrity: IntegrityWatchPage,
+  'ai-abuse': AiAbusePage,
+  reviews: ReviewAppealsPage,
+  editorial: EditorialPage,
+  'account-deletions': AccountDeletionsPage,
+  'event-removals': EventRemovalsPage,
+} as const;
+
+export default async function AdminWorkLanding({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParamsRecord>;
+}) {
+  await requireAdmin();
+  const sp: SearchParamsRecord = (await searchParams) ?? {};
+  const view = mergedViewKey(sp);
+  const kind = view && view in QUEUE_KINDS ? QUEUE_KINDS[view as keyof typeof QUEUE_KINDS] : null;
+  if (kind) return mountView(kind, sp);
+  if (view === 'all') return WorkAllList({ searchParams: Promise.resolve(sp) });
+  if (view === undefined && Object.keys(sp).length === 0) return <TabLanding tab="work" />;
+  return WorkAllList({ searchParams: Promise.resolve(sp) });
 }

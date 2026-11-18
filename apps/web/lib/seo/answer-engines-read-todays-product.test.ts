@@ -108,10 +108,10 @@ test('llms.txt lists every live feature page (bar the ones unlisted until proven
 });
 
 // SABOTAGE: hand-type a cell in the llms.txt supplier table, or drop a planTable group → RED.
-test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, under Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra', () => {
+test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, under Free · Plus · Pro · Ultra (Verified joins Free, 2026-11-14)', () => {
   const body = renderOn();
-  assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
-  assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
+  assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Plus · Pro · Ultra');
+  assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Plus · Pro · Ultra');
   const groups = planTable({ paywallOn: false, prices: { monthly: {}, annual: {}, bySku: {} } });
   for (const g of groups) {
     for (const r of g.rows) {
@@ -158,7 +158,7 @@ test('the monthly log round-trips: rationale → id, newest per question, due af
 /** Public routes deliberately in no sitemap — each with its reason. */
 const NOT_IN_A_SITEMAP: Record<string, string> = {
   '/explore/compare': "the visitor's own shortlist side by side — nothing on it a search engine could index",
-  '/weddings': '308s to /realstories (next.config.ts) — a sitemap never lists a redirect',
+  // '/weddings' left 2026-11-16 — it forwards to / and is no longer a known public route (PR #7847).
 };
 
 // SABOTAGE: delete '/for-coordinators' from app/sitemap-static.xml/route.ts → RED.
@@ -168,8 +168,7 @@ test('every public route the audit knows is listed in a sitemap', () => {
   // Child sitemaps that list their own hub (each route file names it).
   const hubs: Record<string, string> = {
     '/help': 'app/sitemap-help.xml/route.ts',
-    '/blog': 'app/sitemap-blog.xml/route.ts',
-    '/realstories': 'app/sitemap-weddings.xml/route.ts',
+    // '/blog' and '/realstories' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
     '/suppliers': 'app/sitemap-suppliers.xml/route.ts',
     '/v/': 'app/sitemap-vendors.xml/route.ts',
   };

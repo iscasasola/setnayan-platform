@@ -23,7 +23,7 @@
  * event's gift is answered 'already'); dropping `- COALESCE(gv.credits, 0)` from `held` turns test 2 red.
  *   7 · 🔢 PAPIC COUNTED IN PACKS (migration `gift_bundles_and_papic_packs`, owner 2026-11-14) — stock is held and given
  *       PER PACK (`shop_gift_pack_stock_status`); the door refuses when THAT pack is short even if the credit total would
- *       cover it; a badge reward's Papic lands as Papic 150 packs; a bundle purchase lands its whole count.
+ *       cover it; a badge reward's Papic lands as the pack its credits name; a bundle purchase lands its whole count.
  * Sabotage (2026-11-14): dropping `AND e.pack_code = d.pack_code` from the door's balance sum turns test 7 red (a
  * Papic 1000 is given out of Papic 150 stock).
  * Sabotage (2026-11-05): `WHEN v_has = 'plus' THEN 'COUPLE_WEBSITE_PRO'` → `'EVENT_PLUS'` turns test 5 red (two Plus
@@ -581,6 +581,22 @@ test('7 · 🔢 Papic counted in packs: held and given per pack; a short pack re
   assert.deepEqual(rewardRow.rows.map((x) => [x.pack_code, Number(x.packs)]), [['PAPIC_GUEST_150', 2]]);
   assert.deepEqual(await packStatus(shopE, 'PAPIC_GUEST_150'), { balance: 20, held: 0 });
 
+  // 🏅 …and a BIGGER pack the ladder pays (Papic 1000, 1000 credits a unit) lands as THAT pack — never as Papic 150.
+  const k1Credits = await one<number>(`SELECT points AS v FROM public.papic_pass_tiers WHERE service_code = $1`, [P1K]);
+  const big = await one<{ status: string }>(
+    `SELECT public.shop_badge_reward_grant($1, 'packs-probe-1k', 'events', 'papic', 1, $2, NULL) AS v`,
+    [shopE, k1Credits],
+  );
+  assert.equal(big.status, 'granted');
+  const bigRow = await db.query<{ pack_code: string | null; packs: number | null }>(
+    `SELECT e.pack_code, e.packs FROM public.shop_gift_stock_entries e
+       JOIN public.shop_badge_rewards r ON r.reward_id = e.badge_reward_id
+      WHERE e.vendor_profile_id = $1 AND r.reward_key = 'packs-probe-1k'`,
+    [shopE],
+  );
+  assert.deepEqual(bigRow.rows.map((x) => [x.pack_code, Number(x.packs)]), [[P1K, 1]]);
+  assert.deepEqual(await packStatus(shopE, 'PAPIC_GUEST_150'), { balance: 20, held: 0 }, 'a Papic 1000 reward counted as Papic 150');
+
   // A pack row must say which pack and how many, signed like its credits.
   await assert.rejects(
     db.query(
@@ -591,19 +607,32 @@ test('7 · 🔢 Papic counted in packs: held and given per pack; a short pack re
   );
 });
 
-test('8 · 📦 the three bundles are catalogue rows that say which pack and how many; a purchase may record a bundle', async () => {
-  const rows = await db.query<{ service_code: string; bundle_of_service_code: string; bundle_quantity: number; retail_price_php: string; is_active: boolean }>(
-    `SELECT service_code, bundle_of_service_code, bundle_quantity, retail_price_php, is_active
-       FROM public.platform_retail_catalog_v2 WHERE bundle_of_service_code IS NOT NULL ORDER BY retail_price_php`,
+test('8 · 📦 every gift has a 10 + 1 bundle — a catalogue row saying which gift and how many, priced at 10 × that gift\'s list price (read, never typed); a purchase may record a bundle', async () => {
+  const rows = await db.query<{ service_code: string; bundle_of_service_code: string; bundle_quantity: number; price: string; unit: string; is_active: boolean }>(
+    `SELECT b.service_code, b.bundle_of_service_code, b.bundle_quantity, b.retail_price_php AS price,
+            u.retail_price_php AS unit, b.is_active
+       FROM public.platform_retail_catalog_v2 b
+       JOIN public.platform_retail_catalog_v2 u ON u.service_code = b.bundle_of_service_code
+      WHERE b.bundle_of_service_code IS NOT NULL ORDER BY b.service_code`,
   );
+  // Owner 2026-11-17: "10 + 1 bundles for ALL gifts" — the three Papic packs and the three plans.
   assert.deepEqual(
-    rows.rows.map((r) => [r.service_code, r.bundle_of_service_code, Number(r.bundle_quantity), Number(r.retail_price_php), r.is_active]),
+    rows.rows.map((r) => [r.service_code, r.bundle_of_service_code]),
     [
-      ['GIFT_BUNDLE_PAPIC_150', P150, 11, 990, true],
-      ['GIFT_BUNDLE_PAPIC_1K', P1K, 11, 4990, true],
-      ['GIFT_BUNDLE_PAPIC_3000', P3K, 11, 9990, true],
+      ['GIFT_BUNDLE_EVENT_PLUS', 'EVENT_PLUS'],
+      ['GIFT_BUNDLE_EVENT_PRO', 'COUPLE_WEBSITE_PRO'],
+      ['GIFT_BUNDLE_EVENT_ULTRA', 'EVENT_ULTRA'],
+      ['GIFT_BUNDLE_PAPIC_150', P150],
+      ['GIFT_BUNDLE_PAPIC_1K', P1K],
+      ['GIFT_BUNDLE_PAPIC_3000', P3K],
     ],
   );
+  for (const r of rows.rows) {
+    assert.equal(Number(r.bundle_quantity), 11, `${r.service_code} is not 10 + 1`);
+    assert.equal(r.is_active, true, `${r.service_code} is not on sale`);
+    // 💰 "10 + 1 price = 10 × catalogue unit price" — computed from the gift's own row.
+    assert.equal(Number(r.price), 10 * Number(r.unit), `${r.service_code} is not 10 × its gift's list price`);
+  }
   // Readable like the rest of the catalogue's public columns.
   for (const role of ['anon', 'authenticated']) {
     const ok = await one<boolean>(
@@ -625,5 +654,69 @@ test('8 · 📦 the three bundles are catalogue rows that say which pack and how
     `INSERT INTO public.shop_gift_purchases (order_id, vendor_profile_id, service_code, gift_kind, quantity, credits_each, unit_price_php, price_basis, packs_each, bundle_code)
      VALUES ($1, $2, 'PAPIC_GUEST_1K', 'papic', 1, 11000, 4990, 'bundle', 11, 'GIFT_BUNDLE_PAPIC_1K')`,
     [order, shopF],
+  );
+});
+
+test('9 · 🚨 a gift GIVEN before packs were counted (a given row with no pack) is never given a second time', async () => {
+  const uF = await newUser('shop-f-gifts@test.test', 'vendor');
+  const shopF = await shopOf(uF, 'Gift Shop F');
+  await stockIn(shopF, 3, await giftOrder(uF, shopF));
+  const b = await bookingWithQuote(shopF, 'accepted', 1);
+  await pay(b.eventVendorId);
+  // What the credit-counted door wrote before this migration: credits only, no pack_code / packs.
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id, note)
+     VALUES ($1, 'papic', -1000, 'given', $2, $3, 'legacy given row')`,
+    [shopF, b.eventId, b.proposalId],
+  );
+  const again = await deliver(b.eventVendorId);
+  assert.equal(again.status, 'already', 'the per-pack door gave a pre-pack gift a second time');
+  const rows = await one<number>(
+    `SELECT COUNT(*)::int AS v FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND event_id = $2 AND kind = 'given'`,
+    [shopF, b.eventId],
+  );
+  assert.equal(rows, 1, 'a second given row was written');
+  const pool = await one<number>(
+    `SELECT COUNT(*)::int AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'shop_gift'`,
+    [b.eventId],
+  );
+  assert.equal(pool, 0, 'credits reached the pool twice');
+});
+
+test('10 · 🏅 badge-reward Papic is kept PER PACK — a Gold reward is one Papic 1000, used only by a Papic 1000 line', async () => {
+  const uG = await newUser('shop-g-gifts@test.test', 'vendor');
+  const shopG = await shopOf(uG, 'Gift Shop G');
+  const k1Credits = await one<number>(`SELECT points AS v FROM public.papic_pass_tiers WHERE service_code = $1`, [P1K]);
+  const g = await one<{ status: string }>(
+    `SELECT public.shop_badge_reward_grant($1, 'gold-probe', 'events', 'papic', 1, $2, NULL) AS v`,
+    [shopG, k1Credits],
+  );
+  assert.equal(g.status, 'granted');
+  const perPack = async (except: string | null = null) =>
+    (
+      await db.query<{ pack_code: string; earned: number; used: number }>(
+        `SELECT pack_code, earned, used FROM public.shop_gift_reward_pack_status($1, $2) ORDER BY pack_code`,
+        [shopG, except],
+      )
+    ).rows.map((r) => [r.pack_code, Number(r.earned), Number(r.used)]);
+  assert.deepEqual(await perPack(), [[P1K, 1, 0]], 'a Gold reward did not land as one Papic 1000');
+
+  // A live quote line of that pack, paid from the reward, uses it; leaving its event out frees it again.
+  const b = await bookingWithQuote(shopG, 'sent', 1, P1K, k1Credits);
+  await db.query(`UPDATE public.vendor_proposal_shop_gifts SET from_badge_reward = TRUE WHERE proposal_id = $1`, [b.proposalId]);
+  assert.deepEqual(await perPack(), [[P1K, 1, 1]]);
+  assert.deepEqual(await perPack(b.eventId), [[P1K, 1, 0]]);
+
+  // No anonymous caller may run it (authenticated + service_role only).
+  await assert.rejects(
+    (async () => {
+      await db.exec('SET ROLE anon');
+      try {
+        await db.query(`SELECT * FROM public.shop_gift_reward_pack_status($1, NULL)`, [shopG]);
+      } finally {
+        await db.exec('RESET ROLE');
+      }
+    })(),
+    /permission denied/,
   );
 });

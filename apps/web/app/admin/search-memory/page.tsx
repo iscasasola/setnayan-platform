@@ -1,3 +1,4 @@
+import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { loadSearchMemory } from '@/lib/admin-search-memory';
@@ -32,12 +33,14 @@ export default async function AdminSearchMemoryPage() {
     <div className="px-5 py-8 sm:px-8 max-w-5xl">
       <PageMasthead title="Search memory" />
       <div className="mb-6">
-        <p className="text-[14px] leading-relaxed text-ink/70 mt-2 max-w-2xl">
-          Every phrasing the search box has answered with the assistant, instead of the
+        <div className="mt-2 max-w-2xl">
+          <InfoTip label="What this page shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Every phrasing the search box has answered with the assistant, instead of the
           free word matching. A repeat of any phrase below costs nothing — it is a table
           lookup, not a model call. If one points somewhere wrong, correct it below and it
           is fixed for every admin, every time, from now on.
-        </p>
+          </InfoTip>
+        </div>
       </div>
 
       <SearchMemoryTable rows={rows} readError={error} destinations={destinations} />

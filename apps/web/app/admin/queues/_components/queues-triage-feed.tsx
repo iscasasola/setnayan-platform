@@ -531,7 +531,10 @@ export function QueuesTriageFeed({
               label="Open"
               name={`Open ${next.label}`}
               main
-              href={canExpand(next.key) ? toggleFor(next.key) : next.href}
+              // 👁 LIVE FIX 16 Nov 2026: the card opens the QUEUE. It used to take the row's unfold (`?open=`), which
+              // draws a drawer far down the list, out of sight — the owner pressed Open and nothing seemed to happen.
+              // The row keeps its unfold. 🔒 `the-next-card-opens-its-queue.test.ts`.
+              href={next.href}
             />
           </div>
         </section>

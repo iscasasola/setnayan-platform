@@ -128,8 +128,93 @@ export function openClientHref(eventId: string, f: ClientDoorFacts): string {
   return customerCardHref(eventId, clientLandingPage(f));
 }
 
-export function vendorThreadHref(threadId: string): string {
+/**
+ * 🚪 EVERY WAY INTO A CLIENT CONVERSATION LANDS ON THE CLIENT'S CHAT (owner 11 Nov, *"a redesign moves every way in"*;
+ * owner 17 Nov on the #7901 preview: a pop-up's Reply opened the OLD full-screen thread page instead of the client).
+ *
+ * The full-screen thread page (`/vendor-dashboard/messages/<thread>`) is drawn for four reasons only, and a link to it
+ * goes through `supplierChatHref`, `supplierThreadPaneHref` or `supplierThreadPageHref`, never a typed path
+ * (🔒 lib/a-conversation-opens-the-client-chat.test.ts):
+ *   1. a thread that names no event — there is no client to open (`supplierChatHref` with no event);
+ *   2. the computer inbox's pane beside the list (owner 13 Nov D3) — `supplierThreadPaneHref`, marked `?pane=1`;
+ *   3. a tool the page itself opens (`?view=` Decisions · `?compose=deal`) — `supplierThreadForward` keeps those;
+ *   4. an older or closed chat on an event (archived, turned down, booked someone else, withdrawn): the client's Chat
+ *      draws the event's NEWEST thread (`readClientChatThreadId`), so these keep the full page.
+ * Everything else — stored notices already in bells, old push taps, and every return from an action inside the
+ * conversation (its notice params carried along, `SUPPLIER_THREAD_NOTICE_KEYS`) — is FORWARDED by the page itself to
+ * the client's Chat (`supplierThreadForward`, read in `messages/[threadId]/page.tsx`). Returns are built with
+ * `supplierThreadPageHref` so the page, not the caller, decides.
+ *
+ * This EXACT chat, full screen — for a closed, archived or older chat the picked client's Chat does not draw.
+ */
+/** This EXACT chat, full screen — for a closed, archived or older chat the picked client's Chat does not draw. */
+export function supplierThreadPageHref(threadId: string): string {
   return `/vendor-dashboard/messages/${threadId}`;
+}
+
+export function supplierThreadPaneHref(threadId: string): string {
+  return `/vendor-dashboard/messages/${threadId}?pane=1`;
+}
+
+/**
+ * The thread page's NOTICE params — what an action inside the conversation hands back so the page can say what
+ * happened (`?notice=` quote outcomes · `?lock_agree=` / `?lock_decline=` with `fee` · `taken` · `free` · `competing` ·
+ * the toast bridge's `?error=` / `?msg=`). They are CARRIED onto the client's Chat (owner 17 Nov: an action inside the
+ * client's Chat returns to the client's Chat, its notice said there), and the client page hands them back to the one
+ * thread draw (`SupplierThreadBody` `search`), which draws the same notice lines in the same chat box.
+ */
+export const SUPPLIER_THREAD_NOTICE_KEYS = [
+  'notice',
+  'lock_agree',
+  'lock_decline',
+  'fee',
+  'taken',
+  'free',
+  'competing',
+  'error',
+  'msg',
+] as const;
+
+/** The notice params in a search, as plain strings (an array keeps its first). Never anything else. Pure. */
+export function supplierThreadNoticeSearch(
+  search: Readonly<Record<string, string | string[] | undefined>> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of SUPPLIER_THREAD_NOTICE_KEYS) {
+    const v = search?.[k];
+    const one = Array.isArray(v) ? v[0] : v;
+    if (typeof one === 'string') out[k] = one;
+  }
+  return out;
+}
+
+/**
+ * Where a request for the full-screen thread page goes instead: the client's Chat — carrying any notice params, so
+ * the line that says what happened is drawn THERE — or the client's Quotation for "Update this quote"
+ * (`?compose=quote`, the Quotation page opens the builder on the live quote). Null when the page must draw itself: no
+ * event, the computer pane (`pane`), the Decisions view (`view`), the counter-offer panel (`compose=deal`), any param
+ * this rule does not know, or a thread that is NOT the one the client's Chat draws (`clientDrawsThisThread` false —
+ * an older or closed chat on the same event; forwarding it would open a different conversation). Pure.
+ */
+export function supplierThreadForward(
+  eventId: string | null | undefined,
+  search: Readonly<Record<string, string | string[] | undefined>> | undefined,
+  clientDrawsThisThread: boolean,
+): string | null {
+  if (!eventId || !clientDrawsThisThread) return null;
+  const keys = Object.keys(search ?? {}).filter((k) => search?.[k] !== undefined);
+  const notice = new Set<string>(SUPPLIER_THREAD_NOTICE_KEYS);
+  let page: 'chat' | 'quote' = 'chat';
+  for (const k of keys) {
+    if (notice.has(k)) continue;
+    if (k === 'compose' && search?.compose === 'quote') {
+      page = 'quote';
+      continue;
+    }
+    return null;
+  }
+  const carried = new URLSearchParams(supplierThreadNoticeSearch(search)).toString();
+  return carried ? `${customerCardHref(eventId, page)}&${carried}` : customerCardHref(eventId, page);
 }
 
 /**
@@ -141,7 +226,7 @@ export function vendorThreadHref(threadId: string): string {
  */
 export function supplierChatHref(eventId: string | null | undefined, threadId: string): string {
   // Written out (not via `customerCardHref`) so the email-link guard can read both pages from this body.
-  return eventId ? `/vendor-dashboard/clients/${eventId}?tab=chat` : `/vendor-dashboard/messages/${threadId}`;
+  return eventId ? `/vendor-dashboard/clients/${eventId}?tab=chat` : supplierThreadPageHref(threadId);
 }
 
 /** What the rule needs to know about one booked date. */
@@ -175,8 +260,14 @@ export type UpcomingDoor = {
 
 /** The whole decision. Pure — every caller and the guard go through it. */
 export function upcomingScheduleDoor(input: UpcomingDoorInput): UpcomingDoor {
-  const threadHref = input.threadId ? vendorThreadHref(input.threadId) : null;
   const opensCard = input.eventVendorId !== null || input.briefOpensOnThread;
+  // The client's Chat when the card opens; with no card to open (a declined / withdrawn chat the brief refuses), the
+  // client page cannot open either, so the conversation stays on its own full-screen page.
+  const threadHref = input.threadId
+    ? opensCard
+      ? supplierChatHref(input.eventId, input.threadId)
+      : supplierThreadPageHref(input.threadId)
+    : null;
   return {
     href: opensCard
       ? customerCardHref(input.eventId, UPCOMING_CARD_SECTION)

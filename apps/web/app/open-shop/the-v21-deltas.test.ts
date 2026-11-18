@@ -109,13 +109,15 @@ test('v19 ④ · two columns — what stays Free (the main) and the plan that ho
 /* ── ⑤ v19 · password: one rule line once typed; the leak check speaks only on failure; name/email only warns ──── */
 
 test('v19 ⑤ · the quiet field draws ONE rule line, only when the box is not empty, and never blocks on name/email', () => {
-  assert.match(PW, /\{tracks && quiet \? \([\s\S]{0,200}\{typed \? <QuietRule\b/);
+  assert.match(PW, /\{tracks && quiet \? \([\s\S]{0,200}\{typed \? \(?\s*<QuietRule\b/);
   const rule = PW.slice(PW.indexOf('function QuietRule'));
   assert.match(rule, /At least 8 characters/);
   assert.match(rule, /rules\.length === 'ok'/);
-  // The name/email line is a warning (warn ink), drawn only on failure; the leak line is never drawn here.
+  // The name/email line is a warning (warn ink), drawn only on failure.
   assert.match(rule, /rules\.personal === 'fail' \?[\s\S]{0,200}--color-warn/);
-  assert.doesNotMatch(rule, /leak/i);
+  // W1-B3 (walk 16 Nov 2026, supersedes v19's "the leak line is never drawn here"): the leak rule IS said here, in
+  // /reset-password's words (`LeakRuleWords`), red only when the server refused this password.
+  assert.match(rule, /<LeakRuleWords failed=\{leaked\} \/>/);
   assert.match(WIZARD, /<PasswordField\s+id="open-shop-password"\s+mode="new"\s+quiet\b/);
 });
 

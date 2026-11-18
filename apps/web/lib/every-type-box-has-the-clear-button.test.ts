@@ -35,8 +35,7 @@ const OLDER_OWN_CLEAR = new Set([
   'app/admin/payments/_components/inbox-matcher.tsx',
   'app/dashboard/(account)/people/_components/find-or-invite.tsx',
   'app/dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx',
-  'app/realstories/_components/gallery.tsx',
-  'app/realstories/_components/stories-search.tsx',
+  // The two /realstories boxes (gallery, stories-search) left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
   'app/_components/service-picker.tsx',
 ]);
 

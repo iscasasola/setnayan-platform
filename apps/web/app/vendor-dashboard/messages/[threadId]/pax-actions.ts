@@ -12,6 +12,7 @@
  * through the admin client AFTER verifying the vendor owns the booking.
  */
 
+import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -109,7 +110,7 @@ async function resolve(formData: FormData): Promise<Resolved | null> {
 }
 
 function revalidate(threadId: string) {
-  if (threadId) revalidatePath(`/vendor-dashboard/messages/${threadId}`);
+  if (threadId) revalidatePath(supplierThreadPageHref(threadId));
   revalidatePath('/vendor-dashboard/messages');
 }
 

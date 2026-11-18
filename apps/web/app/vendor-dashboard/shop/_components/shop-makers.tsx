@@ -138,7 +138,7 @@ export function ShopMakers({
   return (
     <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
       <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-makers-h" className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <h2 id="shop-makers-h" className="home-k2 !my-0">
           Makers
         </h2>
       </div>
@@ -153,7 +153,7 @@ export function ShopMakers({
             onClick={() => (t.k === 'offers' && offers && !offers.verified ? setLockOpen(true) : go(t.k))}
             aria-expanded={open === t.k}
             aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
-            className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 rounded-2xl border border-ink/10 bg-raised px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
+            className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
             data-maker={t.k}
           >
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
@@ -204,7 +204,7 @@ export function ShopMakers({
                         type="button"
                         onClick={() => setTool(t.key)}
                         aria-pressed={on}
-                        className={`sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 rounded-2xl border px-3 py-3 text-left ${on ? 'border-[color:var(--m-orange)] bg-raised' : 'border-ink/10 bg-raised'}`} // no-card-ok: a carousel tile is a <button>
+                        className={`sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left ${on ? 'ring-1 ring-[color:var(--m-orange)]' : ''}`} // no-card-ok: a carousel tile is a <button>
                         data-tool-tile={t.key}
                         data-tool-suggested={suggested ? '' : undefined}
                       >

@@ -69,7 +69,7 @@ export function SetupPaperPlace({
   return (
     <div className="space-y-3" data-setup-paper-place="">
       <div className="flex items-center gap-1 text-[13.5px] leading-snug text-ink/70">
-        <p>Setnayan checks them before you go live.</p>
+        <p>Setnayan checks them, then you get the Verified check.</p>
         <InfoTip label="" ariaLabel="About the documents" align="start">
           <b>The three required papers</b> — DTI or SEC · BIR 2303 · Mayor’s Permit. PDF / JPG / PNG up to 15 MB each.
           Each one is read and saved the moment it’s in; you send them to Setnayan from <b>Get verified</b>, below.

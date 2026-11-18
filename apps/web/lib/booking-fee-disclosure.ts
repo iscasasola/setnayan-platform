@@ -266,8 +266,10 @@ export function bookingFeeForecast(
         tone: 'good',
         headline: 'No Setnayan booking fee on this booking.',
         detail:
-          'This client did not come from Setnayan, so they are yours free — ' +
-          'imported and returning clients never carry a fee.',
+          // 🧾 Owner 2026-11-16 ("yes change the wording"): a client who first came THROUGH Setnayan still pays on
+          // every repeat, so the old line (every returning client is free) was untrue. Say who is free, by how they found you.
+          'This client did not come from Setnayan, so they are yours free. ' +
+          'Clients who found you outside Setnayan never carry a fee.',
       };
 
     /*

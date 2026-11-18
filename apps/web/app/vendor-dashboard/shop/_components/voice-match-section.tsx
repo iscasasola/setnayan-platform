@@ -40,15 +40,17 @@ export async function VoiceMatchSection({ vendorProfileId }: { vendorProfileId: 
     if (isVendorAiLadderEnabled()) {
       const { data } = await supabase
         .from('vendor_profiles')
-        .select('ai_addon_level,ai_addon_expires_at')
+        .select('ai_addon_level,ai_addon_expires_at,tier_state,tier_expires_at')
         .eq('vendor_profile_id', vendorProfileId)
         .maybeSingle();
       const row = (data ?? null) as
-        | { ai_addon_level?: string | null; ai_addon_expires_at?: string | null }
+        | { ai_addon_level?: string | null; ai_addon_expires_at?: string | null; tier_state?: string | null; tier_expires_at?: string | null }
         | null;
+      // Ultra includes the smarter level (2026-11-14 "SIMPLER SUPPLIER PLANS").
       advancedActive = vendorAiAdvancedActive({
         level: row?.ai_addon_level ?? null,
         windowActive: isVendorAiAddonActive(row?.ai_addon_expires_at ?? null),
+        plan: row,
       });
     }
 

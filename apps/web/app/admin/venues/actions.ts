@@ -152,6 +152,6 @@ export async function deleteVenue(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/admin/venues');
-  redirect('/admin/venues');
+  redirect('/admin/accounts?tab=venues');
 }
 

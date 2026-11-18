@@ -186,8 +186,8 @@ export function inspirationSlotForPart(partId: string): MoodboardSlotKey | null 
  * tile, so its canonical list is assembled by an explicit `map.set` in
  * `lib/vendor-counts.ts` rather than by the ordinary tile derivation — a
  * fragile shape. Measured on 2026-09-04 it resolves to 10 canonicals, so it is
- * NOT empty; but every row below also carries `mens_attire` and/or
- * `womens_attire`, so if a later session did empty it, these parts would
+ * NOT empty; but every row below also carries `womens_attire` (Entourage & Sponsors,
+ * which T1 merged Men's Attire into), so if a later session did empty it, these parts would
  * narrow rather than go dark.
  *
  * Owner-decided 2026-09-04.
@@ -218,31 +218,24 @@ export const MOODBOARD_PART_TRADES: Readonly<Record<string, readonly WeddingTile
     'catering',
     'stations',
     'cake',
-    'dessert',
-    'mobile_bar',
-    'mocktail',
-    'coffee_espresso',
     'food_cart',
-    'food_truck',
+    'mobile_bar',
+    'coffee_espresso',
   ],
   'room:program': [
     'live_band',
     'dj',
     'host_mc',
     'orchestra',
-    'wedding_singer',
     'choir',
-    'av_production',
-    'dance_floor',
+    'speaker_talent',
+    'chairs_tents',
   ],
   'room:booths': [
     'photo_booth',
     'arcade_games',
     'caricature_calligraphy_painting',
-    'henna_tattoo',
     'massage_chair',
-    'mini_nail_bar',
-    'perfume_bar',
     'tarot_astrology_palmistry',
     'engraving_embroidery',
   ],
@@ -253,18 +246,18 @@ export const MOODBOARD_PART_TRADES: Readonly<Record<string, readonly WeddingTile
   //
   // The Nikah cast. `filipiniana_barongs` leads because it is the tile
   // carrying muslim_modest_bridal / maranao / tausug / yakan attire.
-  'people:muslim_principals': ['filipiniana_barongs', 'womens_attire', 'mens_attire'],
+  'people:muslim_principals': ['filipiniana_barongs', 'womens_attire'],
   // Cord, veil and candle sponsors dress like the principal sponsors, whose
   // inspiration slot already resolves to exactly these three.
-  'people:secondary_sponsors': ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  // `womens_attire` holds flower_girl_dress and `mens_attire` holds
+  'people:secondary_sponsors': ['womens_attire', 'filipiniana_barongs'],
+  // `womens_attire` (Entourage & Sponsors since T1) holds flower_girl_dress and
   // ring_bearer_suit — the two halves of this one part, and the reason it is
   // narrower than the sponsors above.
-  'people:bearers_flower_girl': ['womens_attire', 'mens_attire'],
+  'people:bearers_flower_girl': ['womens_attire'],
   // Vestments. The `officiants` TILE is the officiant's own service (marrying
   // people), not a tailor, so it is deliberately NOT here — the trade that
   // agrees to the COLOUR of a vestment is the trade that makes it.
-  'people:officiants': ['mens_attire', 'womens_attire', 'filipiniana_barongs'],
+  'people:officiants': ['womens_attire', 'filipiniana_barongs'],
 };
 
 /** The trades that can sign off a part with no inspiration slot — empty for

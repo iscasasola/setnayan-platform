@@ -83,6 +83,17 @@ export const SOUVENIR_SERVICES: readonly string[] = [
   'sponsor_token',
   'godchild_token',
   'angpao_betrothal_supplier',
+  // T1 (16 Nov 2026): the Gifts, Giveaways & Souvenirs items under the same tile.
+  'personalised_items',
+  'food_gifts_hampers',
+  'gift_apparel_shirts',
+  'gift_shoes',
+  'gift_home_appliances',
+  'gift_gadgets',
+  'gift_plants',
+  'custom_tissue_napkins',
+  'raffle_prizes',
+  'loot_bags',
 ];
 
 // ── The scan's answer ──────────────────────────────────────────────────────────

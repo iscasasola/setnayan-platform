@@ -510,7 +510,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious what each sponsor and bearer actually does on the day? Our full entourage guide breaks it all down.',
-        href: '/blog/filipino-wedding-entourage-guide-ninong-ninang-sponsors',
+        href: '/features',
         label: 'Read the entourage guide',
       },
     ],

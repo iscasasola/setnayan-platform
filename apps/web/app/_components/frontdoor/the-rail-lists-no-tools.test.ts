@@ -248,7 +248,8 @@ async function smallPrint(variant: 'front-door' | 'app' | 'doorway', who: Who, p
 }
 
 test('the small print is two labelled columns — Company and Legal, one link each, signed in and out (owner 2026-11-11)', async () => {
-  const COMPANY = ['About /about', 'Pricing /pricing', 'Help /help', 'Articles /blog', 'Download /download'];
+  // 'Articles /blog' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
+  const COMPANY = ['About /about', 'Pricing /pricing', 'Help /help', 'Download /download'];
   const LEGAL = ['Terms /terms', 'Privacy /privacy', 'Acceptable use /acceptable-use', 'Cookies /cookies', 'Refunds /refunds'];
   for (const [what, variant, who, path] of STATES) {
     const sp = await smallPrint(variant, who, path);
@@ -262,7 +263,7 @@ test('the small print is two labelled columns — Company and Legal, one link ea
       assert.match(cols[i]![2]!, new RegExp(`class="fd-sp-h"[^>]*>${name}<`), `${what}: the ${name} heading is gone`);
     }
     // Moved or retired, not copied: none of these is in the small print any more.
-    for (const gone of ['/open-shop', '/creators', '/for-coordinators', '/for-suppliers']) {
+    for (const gone of ['/open-shop', '/creators', '/for-coordinators', '/for-suppliers', '/blog']) {
       assert.ok(!sp.includes(`href="${gone}"`), `${what}: ${gone} is back in the small print`);
     }
   }

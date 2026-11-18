@@ -7,7 +7,8 @@
  *
  * Fails if:
  *   1 · a verified shop at public_visibility = 'hidden' can be ASKED (lock_request_state → 'pending') or BOOKED;
- *   2 · an unverified shop can be asked (the ask was the app's alone);
+ *   2 · an unverified shop at its resting `hidden` CANNOT be asked or booked (2026-11-15 "We allow booking" —
+ *       its page takes bookings), or a REJECTED one can;
  *   3 · a listed verified shop can no longer be asked or booked;
  *   4 · an EXISTING booking or an EXISTING ask with a shop that went hidden after it stops being editable, stops
  *       advancing, or its conversation stops taking messages — the rule refuses NEW requests only;
@@ -32,7 +33,7 @@ async function newUser(kind: 'customer'): Promise<string> {
 }
 
 /** A shop: verified or not, and at the visibility given. */
-async function newShop(state: 'verified' | 'unverified', visibility: 'verified' | 'hidden', renewalDue: string | null = null): Promise<string> {
+async function newShop(state: 'verified' | 'unverified' | 'rejected', visibility: 'verified' | 'hidden', renewalDue: string | null = null): Promise<string> {
   const owner = await newUser('customer');
   const v = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles
@@ -106,9 +107,14 @@ test('1 · a HIDDEN verified shop cannot be asked (update or insert) or booked �
   assert.match(String(await book(await newEvent(), shop)), /reason=not_listed/, 'a booking is refused');
 });
 
-test('2 · an UNVERIFIED shop cannot be asked either (the ask was the app’s alone)', async () => {
-  const shop = await newShop('unverified', 'hidden');
-  assert.match(String(await ask(await considering(await newEvent(), shop))), /reason=not_verified/);
+test('2 · 2026-11-15: an UNVERIFIED shop (resting hidden) CAN be asked and booked; a REJECTED one cannot', async () => {
+  // `hidden` is where every new shop rests, so for an undecided shop it is not an admin hide — only `archived`
+  // closes it. A verified shop at `hidden` (test 1) is still refused.
+  const open = await newShop('unverified', 'hidden');
+  assert.equal(await ask(await considering(await newEvent(), open)), null, 'an unverified shop could not be asked');
+  assert.equal(await book(await newEvent(), open), null, 'an unverified shop could not be booked');
+  const rejected = await newShop('rejected', 'hidden');
+  assert.match(String(await ask(await considering(await newEvent(), rejected))), /reason=not_verified/);
 });
 
 test('3 · a listed verified shop can still be asked, and booked', async () => {

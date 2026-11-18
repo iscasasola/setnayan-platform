@@ -43,8 +43,9 @@ test('doors only: each page tile is a route that ships; per-event tiles open the
   assert.equal(onTheDayHref('e1'), '/vendor-dashboard/on-the-day/live/e1');
   const src = stripComments(readFileSync(join(WEB, 'lib/specialized-tools.ts'), 'utf8'));
   assert.doesNotMatch(src, /₱|price_php|Make your own|manpower/i, 'a price, a "Make your own" tile or a Manpower door crept in');
-  for (const anchor of ['papic-challenge', 'booth-addon']) {
-    const card = readFileSync(join(WEB, `app/vendor-dashboard/subscription/_components/${anchor === 'booth-addon' ? 'booth-addon-card' : 'papic-challenge-card'}.tsx`), 'utf8');
-    assert.match(card, new RegExp(`id="${anchor}"`), `#${anchor} lands nowhere`);
+  // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): the Papic challenge and 3D booth cards left the Plan page (the tools come
+  // with Plus and up), so their doors open the Plan page itself — never an #anchor that lands nowhere.
+  for (const t of SPECIALIZED_TOOLS) {
+    if (t.door.kind === 'page') assert.doesNotMatch(t.door.href, /#(papic-challenge|booth-addon)$/, `${t.title} points at a card that left`);
   }
 });

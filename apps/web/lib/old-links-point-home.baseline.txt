@@ -1,0 +1,25 @@
+# Links that still name a retired address — each sits in a file another open PR is editing,
+# so it moves after that PR lands. Guard: lib/old-links-point-home.test.ts. `file  old-path`.
+# This list ONLY SHRINKS: fix a link, delete its line. Never add one.
+app/admin/layout.tsx  /admin/settings
+app/admin/settings/actions.ts  /admin/settings
+# ↓ its BACK link must agree with lib/page-home.ts, which still names /admin/settings as this page's home — that map
+#   is being edited by #7717; move both together after it lands.
+app/admin/settings/payment-methods/page.tsx  /admin/settings
+app/admin/ugat/_surfaces/onboarding-surface.tsx  /admin/songs
+app/admin/users/actions.ts  /admin/users
+app/admin/vendors/[vendorProfileId]/plan/page.tsx  /admin/vendors
+app/dashboard/[eventId]/story/_components/editorial-editor.tsx  /dashboard/x1/website/special-message
+app/vendor-dashboard/activities/page.tsx  /vendor-dashboard/verify
+app/vendor-dashboard/bookings/surface.tsx  /vendor-dashboard/bookings
+app/vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx  /vendor-dashboard/clients
+app/vendor-dashboard/clients/[eventId]/page.tsx  /vendor-dashboard/clients
+app/vendor-dashboard/contracts/[contractId]/page.tsx  /vendor-dashboard/contracts
+app/vendor-dashboard/contracts/new/page.tsx  /vendor-dashboard/contracts
+app/vendor-dashboard/lines/page.tsx  /vendor-dashboard/clients
+app/vendor-dashboard/lines/page.tsx  /vendor-dashboard/verify
+app/vendor-dashboard/manpower/surface.tsx  /vendor-dashboard/verify
+lib/ugat/graph.ts  /admin/events
+lib/ugat/graph.ts  /admin/moodboard-library
+lib/ugat/graph.ts  /admin/users
+lib/ugat/graph.ts  /admin/vendors

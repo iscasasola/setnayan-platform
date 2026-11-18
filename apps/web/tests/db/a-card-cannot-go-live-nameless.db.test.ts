@@ -160,7 +160,7 @@ test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2
   // app's own tiles use), and the name now reads it (migration 20271222415682).
   const id = await liveCard(SHOP_OPEN, 'host_mc', null);
   const title = await titleOf(id);
-  assert.equal(title, 'Host / MC by Saysay Live Band');
+  assert.equal(title, 'Host by Saysay Live Band'); // T1 names the tile "Host" (was "Host / MC")
   assert.ok(!(title ?? '').includes('host_mc'), 'a raw database key reached a card title');
 });
 

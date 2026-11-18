@@ -1,0 +1,752 @@
+'use client';
+/**
+ * 🏆 SEAL PLAQUE — a faithful port of `sealIntro` / `openSealPlaque` / `awFit` / `openSeal` from the owner-approved
+ * prototype `Setnayan/prototypes/supplier_badges_2026-11-15/badge-milestones_v35.html`, its plaque replaced by
+ * the final GRAND PLAQUE of `badge-milestones_v39.html` → v44 (red velvet niche v41, sparkle + shine v42, iPhone-safe
+ * gradient-only lights + black-and-gold confetti on landing v43, niche stays visible while the seal flies in v44,
+ * gold vs diamond plaques v45, the No. 1 reveal + No. 1-only endless confetti v46, and v49 — the owner-approved Fable
+ * prototype — where No. 1's curtains, valance and confetti carry on unbroken into the plaque):
+ *
+ *   1 · the entrance (owner 15 Nov: *"for the seal. it shows the video you created then the medal goes to the
+ *       placque"*) — the story scene of `story-rig.ts` plays full screen; a tap skips it;
+ *   2 · the medal flies off the stage (WAAPI) and lands in its slot on the plaque;
+ *   3 · THE GRAND PLAQUE (v39, final — owner: *"black and gold and diamond studded"*, ONE plaque for every seal):
+ *       piano-black lacquer in a gilded frame studded with diamonds all round, diamond-star corners, the seal mounted
+ *       still in a black velvet arch with only light moving over it, a champagne-gold plate engraved in Cinzel with
+ *       "Awarded on {date}" and Setnayan's mark ("AN EXCLUSIVE SETNAYAN SEAL"), diamond screws.
+ *
+ * v86 (the build contract, owner 15 Nov — newest wins):
+ *   · No. 1 IS THE TOP 10 MEDAL READING #1 RANK (`no1-seal-svg.ts`), lettering in Cinzel OUTLINES, 34 diamonds, in
+ *     the red-velvet, diamond-studded plaque — the trophy is not built. With no `seal`, `variant="no1"` fetches it
+ *     (`import()`, on this tap) for the `year` it is given.
+ *   · the four other seals stand on the seal STAGE: warm black, broad gold rays and fine gold lines turning slowly in
+ *     opposite directions, gold motes drifting — transform-only, and NO gold glow behind the plaque ("we can remove
+ *     the gold glow"). No confetti on these four.
+ *   · No. 1 keeps its curtain stage; its confetti ENDS when the seal lands ("Let us end the confetti once the seal
+ *     lands to the plaque" — supersedes v46 "never stops").
+ *   · the landing is ONE smooth curve (`arcFrames`) to where the plaque COMES TO REST (measured at rest), and the mounted
+ *     seal takes over with a 4% breath (`slBind`) — never a jump to 108%.
+ *   · no fixed sparkles on the plaque's seal or velvet: a glint lands on a random visible diamond (No. 1) or stud
+ *     (others) at random moments. The plaque's copy of the seal gets its own def ids.
+ *   · NAMED GAPS, OFF by default: the shop-logo watermark behind the No. 1 plaque (`showLogoWatermark`) and No. 1's gift
+ *     (`no1Gift`, unruled — it has none yet).
+ *   · seals NEVER show "You achieved this after N days" (tiered badges only).
+ *
+ * Owner rulings held here: the share button sits UNDER the plaque, plain glass, never colourful · no necklace ribbon ·
+ * the plaque keeps its shadow with no dark block · the plaque scales to fit the screen with a transform
+ * (not `zoom` — zoom failed on iPhone) while the share button stays full size under it (owner 15 Nov, "Stay full
+ * size") · prefers-reduced-motion goes straight to the plaque · nothing opens by itself.
+ *
+ * Client-only, on the device: no fetch, no write. Mount it on a tap; `onClose` unmounts it.
+ */
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { AwardClose } from './award-close';
+import { subscribeKeyboard } from '@/lib/keyboard-ride';
+import { SetnayanMark } from '../setnayan-mark-icon';
+import s from './award.module.css';
+import { arcFrames, exitStageAlpha, flightTarget, plaqueLayout } from './fit';
+import type { ConfettiHandle, ConfettiSeed } from './confetti';
+import { glintSpots, logoWatermarkRings, prefixSvgIds } from './plaque-art';
+import { SEAL_TONE, prefersReducedMotion, serializeArt } from './shared';
+
+export type SealPlaqueProps = {
+  /**
+   * The seal picture: a React SVG element or an SVG markup string from a trusted generator (a string's def ids are
+   * prefixed for this copy). May be left out for `variant="no1"`: the No. 1 art is then fetched on this tap.
+   */
+  seal?: ReactNode | string;
+  /** The year No. 1's ribbon reads, when the plaque fetches the No. 1 art itself (no `seal`). */
+  year?: string | number;
+  /** Small line over the title ("Setnayan · 2026"). */
+  eyebrow?: string;
+  /** The seal's name ("Setnayan Verified"). */
+  title: string;
+  shopName: string;
+  /** The line under the title; default "Awarded to {shopName}". */
+  shopLine?: string;
+  /** Already-formatted date; shown as "Awarded on {date}". */
+  awardedOn?: string;
+  /** What it means, in the shop's honour. */
+  body?: string;
+  /** "How it is earned" bullet lines. */
+  how?: readonly string[];
+  /** The record row: [number, label] pairs. */
+  record?: ReadonlyArray<readonly [string, string]>;
+  /**
+   * Which plaque (owner 15 Nov, DECISION_LOG "SEAL PLAQUE — NO. 1 IS SEPARATE": *"We separate no1"*).
+   * `'gold'` (default, every seal): gold bead studs, gold rosette corners, gold screws, warm glints, on the gold-ray stage.
+   * `'no1'`: diamond studs, diamond corner stars, diamond screws, and the #1 RANK medal fills the red-velvet niche
+   * (372×354). No. 1 is an OPTION only until the owner rules what earns it.
+   * `'no1'` alone opens on the 15 s velvet-curtain reveal and rains the black-and-gold confetti, which ENDS when the
+   * seal lands (v86). `'gold'` gets neither: 4.6 s entrance, no confetti.
+   */
+  variant?: 'gold' | 'no1';
+  /**
+   * ⚖ NAMED GAP, OFF by default — v86 `shopLogoWatermark` (owner 15 Nov: *"Background will have their logo with the
+   * effect of the background still there"*): the shop's logo, large and faint in gold behind the No. 1 plaque, inside
+   * two gold rings. Drawn only for `variant="no1"` when this is true AND `shopLogoUrl` is given (a logo on a
+   * transparent ground: it is used as a mask, so its shape is what turns gold).
+   */
+  showLogoWatermark?: boolean;
+  /** The shop's own logo (an image URL), for the watermark. */
+  shopLogoUrl?: string;
+  /**
+   * ⚖ NAMED GAP, UNRULED — No. 1's gift. No. 1 has no gift yet (the owner has not ruled one); this slot exists so the
+   * one he rules can be handed in without reshaping the plaque. Undefined by default and rendered NOWHERE unless given
+   * (and only on `variant="no1"`). Do not fill it with an invented gift.
+   */
+  no1Gift?: ReactNode;
+  /** Play the entrance first (default true). Reduced motion always skips it. */
+  intro?: boolean;
+  /** Shows "Share to story" under the plaque; called with the seal's SVG markup (feed it to `<StoryVideo>`). */
+  onShare?: (sealSvg: string) => void;
+  onClose: () => void;
+};
+
+/** v86 the seal stage's gold motes (`.aw-mo`): [left %, top %, delay s]. */
+const MOTES: ReadonlyArray<readonly [number, number, number]> = [
+  [9, 15, 0],
+  [46, 68, -0.9],
+  [83, 29, -1.8],
+  [24, 82, -2.7],
+  [61, 43, -3.6],
+  [2, 4, -4.5],
+  [39, 57, -5.4],
+  [76, 18, -6.3],
+  [17, 71, -7.2],
+  [54, 32, -8.1],
+  [91, 85, -9],
+  [32, 46, -9.9],
+  [69, 7, -10.8],
+  [10, 60, -11.7],
+  [47, 21, -12.6],
+  [84, 74, -13.5],
+];
+/** The plate's glints: [left %, top %, delay s]. */
+const GLINTS: ReadonlyArray<readonly [number, number, number]> = [
+  [7, 4, 0.2],
+  [93, 4, 1.3],
+  [50, 1, 2.2],
+  [96, 58, 0.8],
+  [4, 72, 1.8],
+  [70, 98, 2.7],
+];
+
+/** v42 (owner: *"we want the diamonds to sparkle and the gold to shine"*): the 12 four-point flares on the frame's studs. */
+const STUD_GLINTS: ReadonlyArray<readonly [CSSProperties, number]> = [
+  [{ top: -6, left: '14%' }, 0],
+  [{ top: -6, left: '41%' }, 1.1],
+  [{ top: -6, left: '72%' }, 2.3],
+  [{ bottom: -6, left: '24%' }, 0.6],
+  [{ bottom: -6, left: '57%' }, 1.8],
+  [{ bottom: -6, left: '88%' }, 2.9],
+  [{ left: -6, top: '22%' }, 1.4],
+  [{ left: -6, top: '55%' }, 2.6],
+  [{ left: -6, top: '83%' }, 0.3],
+  [{ right: -6, top: '16%' }, 2.0],
+  [{ right: -6, top: '46%' }, 0.9],
+  [{ right: -6, top: '76%' }, 3.2],
+];
+
+export function SealPlaque({
+  seal,
+  eyebrow,
+  title,
+  shopName,
+  shopLine,
+  awardedOn,
+  body,
+  how,
+  record,
+  variant = 'gold',
+  intro = true,
+  year,
+  showLogoWatermark = false,
+  shopLogoUrl,
+  no1Gift,
+  onShare,
+  onClose,
+}: SealPlaqueProps) {
+  const plaque = useRef<HTMLDialogElement>(null);
+  const sin = useRef<HTMLDialogElement>(null);
+  const canvasHost = useRef<HTMLDivElement>(null);
+  const tip = useRef<HTMLElement>(null);
+  const cf = useRef<HTMLCanvasElement>(null);
+  const fit = useRef<HTMLDivElement>(null);
+  const share = useRef<HTMLButtonElement>(null);
+  const mount = useRef<HTMLSpanElement>(null);
+  const art = useRef<HTMLDivElement>(null);
+  const skip = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const closed = useRef(false);
+  const titleId = useId();
+  // this copy's own def-id prefix (v86: a plaque copy never shares ids with another copy on the page)
+  const idp = `pq${titleId.replace(/[^a-zA-Z0-9]/g, '')}_`;
+  // No. 1 with no art handed in: fetched on this tap (never in the page's first load)
+  const lazyNo1 = variant === 'no1' && seal == null;
+
+  const close = useCallback(() => {
+    if (closed.current) return;
+    closed.current = true;
+    onCloseRef.current();
+  }, []);
+
+  // awFit: the PLAQUE scales down until it fits; the share button stays full size under it (owner 15 Nov, "Stay full
+  // size") — its full height + gap is reserved first, and it lives outside the scaled box
+  const refit = useCallback(() => {
+    const d = plaque.current;
+    const w = fit.current;
+    if (!d || !w || !d.open) return;
+    const b = share.current;
+    const L = plaqueLayout(d.clientWidth, d.clientHeight, w.offsetWidth, w.offsetHeight, b ? b.offsetHeight : null);
+    w.style.top = `${L.top}px`;
+    w.style.transformOrigin = '50% 0';
+    w.style.transform = `translate(-50%,0) scale(${L.k})`;
+    if (b && L.shareTop != null) {
+      b.style.top = `${L.shareTop}px`;
+      b.style.visibility = 'visible';
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    let dead = false;
+    let raf = 0;
+    let confettiT = 0;
+    const d = plaque.current;
+    const si = sin.current;
+    if (!d || !si) return;
+    const urls: string[] = [];
+    let cfH: ConfettiHandle | null = null;
+    let cfEnd = false;
+    let glT = 0;
+    // black and gold confetti is No. 1's ONLY (own small lazy chunk); v49: handed the reveal's live pieces (`seed`), the
+    // plaque's canvas adopts them mid-air instead of restarting. v86: it ENDS when the seal lands (`endConfetti`).
+    const confetti = (seed?: ConfettiSeed) => {
+      const c = cf.current;
+      if (!c || dead || variant !== 'no1') return;
+      import(/* webpackChunkName: "award-story" */ './confetti')
+        .then(({ awConfetti }) => {
+          if (dead || !d.open) return;
+          cfH = awConfetti(c, () => !dead && d.open, seed, () => [d.querySelector(`.${s.awCard}`), d.querySelector(`.${s.awPlate}`)]);
+          if (cfEnd) cfH.end();
+        })
+        .catch(() => {});
+    };
+    // v86 awConfettiEnd (owner 15 Nov: "Let us end the confetti once the seal lands to the plaque")
+    const endConfetti = () => {
+      cfEnd = true;
+      cfH?.end();
+    };
+    let ov: HTMLCanvasElement | null = null;
+    let setLayer: HTMLCanvasElement | null = null;
+    let card: HTMLElement | null = null;
+
+    // mounted: the seal is held still on the board; only light (and the flowing ribbon / swaying wreath) moves
+    const prepArt = (): string => {
+      const sv = art.current?.querySelector('svg');
+      sv?.querySelectorAll('animate,animateTransform,animateMotion,set').forEach((x) => {
+        if (!x.hasAttribute('data-flow')) x.remove();
+      });
+      // v86: no fixed sparkles on the mounted seal (the drawn diamond flares go; glints land at random instead)
+      sv?.querySelectorAll('.dfl').forEach((x) => x.remove());
+      const out = serializeArt(art.current);
+      if (out && mount.current) {
+        const u = URL.createObjectURL(new Blob([out], { type: 'image/svg+xml' }));
+        urls.push(u);
+        mount.current.style.setProperty('--m', `url(${u})`);
+      }
+      return out;
+    };
+    // v86: a glint lands on a random visible diamond (No. 1) or stud (others), never on the velvet, at random moments
+    const startGlints = () => {
+      if (prefersReducedMotion()) return;
+      const glint = () => {
+        const mnt = mount.current;
+        if (dead || !d.open || !mnt) return;
+        const pts = glintSpots(mnt);
+        if (pts.length) {
+          const n = Math.random() < 0.3 ? 2 : 1;
+          for (let q = 0; q < n; q++) {
+            const [x, y] = pts[(Math.random() * pts.length) | 0]!;
+            const g = document.createElement('i');
+            g.className = `${s.awSp} ${s.awGlOne}`;
+            g.style.cssText = `left:${x}px;top:${y}px;--s:${(12 + Math.random() * 12) | 0}px`;
+            mnt.appendChild(g);
+            window.setTimeout(() => g.remove(), 1300);
+          }
+        }
+        glT = window.setTimeout(glint, 180 + Math.random() * 700);
+      };
+      glT = window.setTimeout(glint, 900);
+    };
+
+    const openPlaque = () => {
+      if (!d.open) {
+        try {
+          d.showModal();
+        } catch {
+          d.setAttribute('open', '');
+        }
+      }
+      refit();
+    };
+    const onCancelPlaque = (e: Event) => {
+      e.preventDefault();
+      close();
+    };
+    const onCancelIntro = (e: Event) => {
+      e.preventDefault();
+      skip.current = true;
+    };
+    d.addEventListener('cancel', onCancelPlaque);
+    si.addEventListener('cancel', onCancelIntro);
+    window.addEventListener('resize', refit);
+    // the phone's visible area (URL bar, keyboard, pinch) — read through the app's ONE keyboard reading, never by hand
+    const stopViewport = subscribeKeyboard(() => refit());
+
+    const wantsIntro = intro && !prefersReducedMotion();
+    if (wantsIntro) {
+      try {
+        si.showModal();
+      } catch {
+        si.setAttribute('open', '');
+      }
+    }
+    (async () => {
+      // No. 1 with no art handed in: fetch it now (this tap), into this copy, with this copy's own ids
+      if (lazyNo1) {
+        try {
+          const { no1Seal } = await import(/* webpackChunkName: "award-no1" */ './no1-seal-svg');
+          if (dead) return;
+          if (art.current) art.current.innerHTML = no1Seal(year ?? '', 'arch', idp);
+        } catch {
+          // the art could not be fetched: the plaque still opens, with its words
+        }
+      }
+      if (dead) return;
+      const svg = prepArt();
+      if (!wantsIntro || !svg) {
+        if (si.open) si.close();
+        openPlaque();
+        startGlints();
+        // Reduce Motion (or no entrance): No. 1's confetti is one burst that ends at once — the seal is already home
+        confettiT = window.setTimeout(() => {
+          confetti();
+          endConfetti();
+        }, 250);
+        return;
+      }
+      {
+        try {
+          // v52: the tap answers at once — the house is already dark (the dialog opened above, empty); let it paint
+          // before the rig is built, then the canvas and the hint go in once it is ready
+          await new Promise<void>((r2) => {
+            raf = requestAnimationFrame(() => {
+              raf = requestAnimationFrame(() => r2());
+            });
+          });
+          if (dead) return;
+          const { storyRig, asImageSvg, INTRO_END, REVEAL_S, STORY_MY, STORY_W, STORY_H } = await import(/* webpackChunkName: "award-story" */ './story-rig');
+          if (dead) return;
+          const rig = await storyRig({
+            // v50: drawn at the size this screen actually shows (DPR capped at 1.5), not a full 1080×1920
+            scale: (Math.min(window.innerWidth, (window.innerHeight * 9) / 16) * Math.min(1.5, window.devicePixelRatio || 1)) / 1080,
+            // v46: No. 1 opens on the velvet-curtain reveal (15 s); every other seal on the 4.6 s entrance
+            reveal: variant === 'no1',
+            svg,
+            word: 'SEAL',
+            tone: SEAL_TONE,
+            shopName,
+            line1: title,
+            line2: awardedOn ? `Awarded on ${awardedOn}` : undefined,
+          });
+          if (dead) return;
+          const END = rig.dur === REVEAL_S ? REVEAL_S : INTRO_END;
+          rig.app?.();
+          canvasHost.current?.replaceChildren(rig.canvas);
+          if (tip.current) tip.current.style.visibility = '';
+          // v51: a clamped clock — a slow phone frame advances the show by at most 50 ms, so nothing is skipped past
+          let tA = 0;
+          let lastN = performance.now();
+          await new Promise<void>((res) => {
+            const tk = () => {
+              if (dead) return res();
+              const nw = performance.now();
+              tA += Math.min(0.05, (nw - lastN) / 1000);
+              lastN = nw;
+              let t = tA;
+              if (skip.current && t < END) {
+                tA = END;
+                t = END;
+              }
+              // v51: build the exit's stage still ahead of the switch, not on the switch
+              if (rig.prep && t > END - 1.2) rig.prep();
+              rig.frame(Math.min(t, END));
+              if (t > END - 0.7 && tip.current) tip.current.style.opacity = '0';
+              if (t >= END) res();
+              else raf = requestAnimationFrame(tk);
+            };
+            raf = requestAnimationFrame(tk);
+          });
+          if (dead) return;
+          // the medal leaves the stage and lands in its slot on the plaque
+          // (v49, every seal: the canvas is letter-boxed on a tall phone — measure the picture inside the box, not the box)
+          const r = rig.canvas.getBoundingClientRect();
+          const k = Math.min(r.width / STORY_W, r.height / STORY_H);
+          const ox = r.left + (r.width - STORY_W * k) / 2;
+          const oy = r.top + (r.height - STORY_H * k) / 2;
+          const cx = ox + (STORY_W / 2) * k;
+          const cy = oy + STORY_MY * k;
+          const w = rig.dw * k;
+          const h = rig.dh * k;
+          if (rig.exit && rig.exitStart && rig.pose && rig.medal && rig.confetti && rig.gone && rig.top && rig.vb && rig.words) {
+            // v49 — No. 1: ONE continuous move, no cut. The same curtains and valance carry on, on a full-screen layer
+            // over the plaque: the bunched curtains are hauled off the rail ends, the valance is hoisted out with its
+            // tassels swinging, the stage dims away, the plaque rises in underneath and the medal (the very pixels
+            // that were on the stage) flies into its slot. The confetti is not restarted: the plaque's canvas takes
+            // the pieces that are already in the air.
+            const exit = rig.exit;
+            const words = rig.words;
+            const gone = rig.gone;
+            const vtop = rig.top;
+            const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+            const layer = document.createElement('canvas');
+            ov = layer;
+            layer.className = s.sinOv!;
+            const OW = (layer.width = Math.round(window.innerWidth * dpr));
+            const OH = (layer.height = Math.round(window.innerHeight * dpr));
+            const g = layer.getContext('2d');
+            const po = rig.pose(END);
+            const fw = 900 * k;
+            const fh = 858 * k;
+            const fly = document.createElement('canvas');
+            fly.className = s.sinFly!;
+            fly.width = 900;
+            fly.height = 858;
+            fly.getContext('2d')?.drawImage(rig.medal, 0, 0);
+            const T0 = `translate(0px,${po.fy * k}px) scale(1) rotate(${po.rot}rad)`;
+            fly.style.cssText = `left:${cx - fw / 2}px;top:${cy - fh / 2}px;width:${fw}px;height:${fh}px;transform:${T0}`;
+            rig.exitStart({ top: oy / k });
+            // v53 — ONE scene (owner, on the phone: "two different scenes"). The stage no longer dissolves into the app
+            // page: its bare set stays on a layer UNDER the plaque for as long as the plaque is open; only the words on
+            // it fade. The curtains and valance stay on the layer ABOVE, hauled away in front of the plaque as it rises.
+            const st = document.createElement('canvas');
+            setLayer = st;
+            st.className = s.sinSet!;
+            st.width = OW;
+            st.height = OH;
+            const sg = st.getContext('2d');
+            let sa = -1;
+            const drawSet = (a: number) => {
+              if (!sg || a === sa) return;
+              sa = a;
+              sg.setTransform(1, 0, 0, 1, 0, 0);
+              sg.fillStyle = '#000';
+              sg.fillRect(0, 0, OW, OH);
+              sg.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
+              words(sg, a);
+            };
+            const draw = (te: number) => {
+              if (!g) return;
+              const a = exitStageAlpha(te);
+              drawSet(a);
+              g.setTransform(1, 0, 0, 1, 0, 0);
+              g.clearRect(0, 0, OW, OH);
+              g.setTransform(k * dpr, 0, 0, k * dpr, ox * dpr, oy * dpr);
+              g.save();
+              g.beginPath();
+              exit(g, te, a, true);
+              g.rect(0, vtop(), STORY_W, 12000);
+              g.clip();
+              exit(g, te, a);
+              g.restore();
+            };
+            draw(0);
+            d.classList.add(s.arriving!, s.staged!);
+            d.insertBefore(layer, d.firstChild);
+            d.insertBefore(st, d.firstChild);
+            d.addEventListener(
+              'close',
+              () => {
+                st.remove();
+                d.classList.remove(s.staged!);
+              },
+              { once: true },
+            );
+            openPlaque();
+            d.appendChild(fly);
+            confetti({ P: rig.confetti(), k, ox, oy });
+            if (si.open) si.close();
+            // where the mounted seal will rest once the plaque has finished rising (measured AT REST, never mid-rise)
+            card = d.querySelector<HTMLElement>(`.${s.awCard}`);
+            const tgt: Element = art.current?.querySelector('svg') ?? mount.current ?? d;
+            if (card) card.style.animation = 'none';
+            const tb = tgt.getBoundingClientRect();
+            const mv = tgt.tagName.toLowerCase() === 'svg' ? (tgt.getAttribute('viewBox') || '').split(/[ ,]+/).map(Number) : [];
+            const land = flightTarget(tb, mv, rig.vb, rig.dw, k, w);
+            const dx = land.x - cx;
+            const dy = land.y - cy;
+            const sc = land.scale;
+            // v51: a phone needs a moment to build the plaque — hold the stage still on the layer until it has painted,
+            // THEN start the move, so the first heavy frame never eats the transition (owner: "it went straight to the
+            // logo placing the plaque")
+            // (the plaque waits unseen while it holds: the stage is behind it now, not over it, so nothing else hides it)
+            if (card) card.style.opacity = '0';
+            for (let i = 0; i < 3; i++) {
+              await new Promise<void>((r2) => {
+                raf = requestAnimationFrame(() => r2());
+              });
+              if (dead) return;
+              draw(0);
+            }
+            if (card) {
+              card.style.opacity = '';
+              card.style.animation = '';
+              card.classList.add(s.awRise!);
+            }
+            // v86: ONE smooth curve, sampled densely, ending exactly on the mounted seal at its mounted size
+            const an = fly.animate(arcFrames(0, po.fy * k, 1, po.rot, dx, dy, sc), {
+              duration: 1100,
+              easing: 'cubic-bezier(.4,0,.2,1)',
+              fill: 'forwards',
+            });
+            // v51: the exit's clock is clamped too
+            let te = 0;
+            let lt = performance.now();
+            const exitDur = rig.exitDur ?? 4;
+            const tick = () => {
+              const nw = performance.now();
+              te += Math.min(0.05, (nw - lt) / 1000);
+              lt = nw;
+              if (dead || !d.open || te >= exitDur || gone()) {
+                drawSet(0);
+                layer.remove();
+                return;
+              }
+              draw(te);
+              raf = requestAnimationFrame(tick);
+            };
+            raf = requestAnimationFrame(tick);
+            await an.finished.catch(() => {});
+            if (dead) return;
+            d.classList.remove(s.arriving!);
+            d.classList.add(s.landed!);
+            window.setTimeout(() => d.classList.remove(s.landed!), 700);
+            fly.remove();
+            // v86: the seal has landed — the confetti ends (the last pieces finish their fall, nothing new comes)
+            endConfetti();
+            startGlints();
+            return;
+          }
+          rig.hide = true;
+          rig.frame(END);
+          d.classList.add(s.arriving!);
+          openPlaque();
+          // v44: the flyer is the exact seal mounted on the plaque (same crop), and it lands on that seal, not on the
+          // whole niche — so nothing jumps on landing, No. 1 included
+          const tgt: Element = art.current?.querySelector('svg') ?? mount.current ?? d;
+          // measured at rest: the plaque's rise is set aside for the reading, then given back
+          const cd = d.querySelector<HTMLElement>(`.${s.awCard}`);
+          if (cd) cd.style.animation = 'none';
+          const tb = tgt.getBoundingClientRect();
+          if (cd) {
+            void cd.offsetWidth;
+            cd.style.animation = '';
+          }
+          const fly = document.createElement('img');
+          fly.className = s.sinFly!;
+          fly.alt = '';
+          const fu = URL.createObjectURL(new Blob([asImageSvg(svg)], { type: 'image/svg+xml' }));
+          urls.push(fu);
+          fly.src = fu;
+          fly.style.cssText = `left:${cx - w / 2}px;top:${cy - h / 2}px;width:${w}px;height:${h}px`;
+          d.appendChild(fly);
+          si.classList.add(s.sinOut!);
+          const dx = tb.left + tb.width / 2 - cx;
+          const dy = tb.top + tb.height / 2 - cy;
+          const sc = tb.width / (w || 1);
+          // v86: one smooth curve to the seal at rest
+          const an = fly.animate(arcFrames(0, 0, 1, 0, dx, dy, sc), { duration: 1000, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
+          await an.finished.catch(() => {});
+          if (dead) return;
+          d.classList.remove(s.arriving!);
+          d.classList.add(s.landed!);
+          window.setTimeout(() => d.classList.remove(s.landed!), 700);
+          fly.remove();
+          if (si.open) si.close();
+          startGlints();
+          // owner 15 Nov: no confetti on Top 10, Clients' Choice or any seal but No. 1
+        } catch {
+          // the entrance could not be drawn here: show the plaque itself
+          if (dead) return;
+          d.classList.remove(s.arriving!);
+          openPlaque();
+          if (si.open) si.close();
+          startGlints();
+        }
+      }
+    })();
+
+    return () => {
+      dead = true;
+      cancelAnimationFrame(raf);
+      window.clearTimeout(confettiT);
+      window.clearTimeout(glT);
+      cfH?.stop();
+      d.removeEventListener('cancel', onCancelPlaque);
+      si.removeEventListener('cancel', onCancelIntro);
+      window.removeEventListener('resize', refit);
+      stopViewport();
+      if (si.open) si.close();
+      if (d.open) d.close();
+      d.classList.remove(s.arriving!, s.landed!);
+      si.classList.remove(s.sinOut!);
+      ov?.remove();
+      setLayer?.remove();
+      d.classList.remove(s.staged!);
+      card?.classList.remove(s.awRise!);
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // played once per mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // a string seal's def ids are this copy's own (v86)
+  const html = useMemo(() => (typeof seal === 'string' ? { __html: prefixSvgIds(seal, idp) } : null), [seal, idp]);
+
+  return (
+    <>
+      <dialog ref={sin} className={s.sin} aria-label="Seal awarded" data-award-seal-intro="" onClick={() => (skip.current = true)}>
+        <div ref={canvasHost} style={{ display: 'contents' }} />
+        <small ref={tip} style={{ visibility: 'hidden' }}>
+          Tap to continue
+        </small>
+      </dialog>
+      <dialog
+        ref={plaque}
+        className={s.awDlg}
+        aria-labelledby={titleId}
+        data-award-plaque=""
+        data-k={variant}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) close();
+        }}
+      >
+        {variant !== 'no1' ? (
+          // v86 the seal stage (the four other seals): warm black, broad gold rays and fine gold lines turning slowly in
+          // opposite directions, gold motes drifting — and NO gold glow behind the plaque (owner: "we can remove the gold glow")
+          <>
+            <i className={s.awSky} aria-hidden="true" data-award-stage="rays" />
+            <i className={`${s.awSky} ${s.awSky2}`} aria-hidden="true" data-award-stage="lines" />
+            <span className={s.awMos} aria-hidden="true" data-award-stage="motes">
+              {MOTES.map(([x, y, l], i) => (
+                <i key={i} className={s.awMo} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${l}s` }} />
+              ))}
+            </span>
+          </>
+        ) : null}
+        {variant === 'no1' && showLogoWatermark && shopLogoUrl ? (
+          // ⚖ NAMED GAP (off by default): v86 shopLogoWatermark — the shop's logo, large and faint in gold, behind the plaque
+          <span className={s.awWm} aria-hidden="true" data-award-watermark="">
+            <span className={s.awWmRings} dangerouslySetInnerHTML={{ __html: logoWatermarkRings() }} />
+            <i className={s.awWmLogo} style={{ '--wm': `url("${shopLogoUrl.replace(/"/g, '%22')}")` } as CSSProperties} />
+          </span>
+        ) : null}
+        <canvas ref={cf} className={s.awCf} aria-hidden="true" />
+        <div ref={fit} className={s.awFit}>
+          <div className={s.awCard}>
+            <AwardClose onClose={close} />
+            <i className={`${s.awOr} ${s.orTl}`} />
+            <i className={`${s.awOr} ${s.orTr}`} />
+            <i className={`${s.awOr} ${s.orBl}`} />
+            <i className={`${s.awOr} ${s.orBr}`} />
+            <i className={s.awGl} />
+            <i className={s.awSt} />
+            <i className={s.awGf} />
+            <i className={`${s.awGf} ${s.awGf2}`} />
+            {STUD_GLINTS.map(([pos, delay], i) => (
+              <i
+                key={i}
+                className={`${s.awDg} ${'bottom' in pos ? s.dgB : ''} ${'right' in pos ? s.dgR : ''}`}
+                style={{ ...pos, animationDelay: `${delay}s` }}
+              />
+            ))}
+            <div className={s.awSeal}>
+              <span ref={mount} className={s.awMnt}>
+                {html ? (
+                  <div ref={art} className={s.awArt} dangerouslySetInnerHTML={html} />
+                ) : lazyNo1 ? (
+                  // filled on this tap by the effect (the No. 1 art is fetched by import(), never in the page's first load)
+                  <div ref={art} className={s.awArt} data-award-no1-art="" />
+                ) : (
+                  <div ref={art} className={s.awArt}>
+                    {seal}
+                  </div>
+                )}
+                <i className={`${s.awHl} ${s.awHlSp}`} />
+                <i className={`${s.awHl} ${s.awHlSw}`} />
+                {/* v86: no fixed sparkles here — glints land on a random diamond / stud (startGlints) */}
+              </span>
+            </div>
+            <div className={s.awPlate}>
+              <i className={s.awSh} />
+              <i className={`${s.awSh} ${s.awShB}`} />
+              {GLINTS.map(([x, y, l], i) => (
+                <i key={i} className={s.awTw} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${l}s` }} />
+              ))}
+              <i className={s.awSc} style={{ left: 10, top: 10 }} />
+              <i className={`${s.awSc} ${s.sc2}`} style={{ right: 10, top: 10 }} />
+              <i className={`${s.awSc} ${s.sc3}`} style={{ left: 10, bottom: 10 }} />
+              <i className={`${s.awSc} ${s.sc4}`} style={{ right: 10, bottom: 10 }} />
+              {eyebrow ? <p className={s.awEye}>{eyebrow}</p> : null}
+              <h3 className={s.awTitle} id={titleId}>
+                {title}
+              </h3>
+              <i className={s.awDiv} aria-hidden="true" />
+              <p className={s.awShop}>{shopLine ?? `Awarded to ${shopName}`}</p>
+              {awardedOn ? <p className={s.awOn}>Awarded on {awardedOn}</p> : null}
+              {body ? <p className={s.awBody}>{body}</p> : null}
+              {how && how.length ? (
+                <div className={s.awHow}>
+                  <b>How it is earned</b>
+                  <ul>
+                    {how.map((h, i) => (
+                      <li key={i}>{h}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {record && record.length ? (
+                <div className={s.awRec}>
+                  {record.map(([n, l], i) => (
+                    <span key={i}>
+                      <strong>{n}</strong>
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className={s.awHm} aria-label="An exclusive Setnayan seal" role="img">
+                <SetnayanMark className={s.mark} aria-hidden="true" role="presentation" aria-label={undefined} />
+                <span>AN EXCLUSIVE SETNAYAN SEAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {onShare ? (
+          // outside the scaled plaque: it never shrinks (owner, "Stay full size"); placed under it by refit
+          <button ref={share} type="button" className={s.awShare} onClick={() => onShare(serializeArt(art.current))}>
+            ↗ Share to story
+          </button>
+        ) : null}
+        {variant === 'no1' && no1Gift != null ? (
+          // ⚖ NAMED GAP, UNRULED: No. 1's gift — rendered only when one is handed in; nothing is invented here
+          <div className={s.awGift} data-award-no1-gift="">
+            {no1Gift}
+          </div>
+        ) : null}
+      </dialog>
+    </>
+  );
+}

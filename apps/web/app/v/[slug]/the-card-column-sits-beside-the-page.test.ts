@@ -26,8 +26,9 @@ test('the two columns are drawn for every verified plan — the look is the gate
   const tag = PAGE.slice(at, PAGE.indexOf('>', at));
   assert.match(tag, /className=\{cinematicHero \? SHOP_COLUMNS_CLASS : SHOP_CALM_COLUMN_CLASS\}/);
   assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
-  assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[300px_minmax\(0,1fr\)\]/);
-  assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[360px_minmax\(0,1fr\)\]/);
+  // v16 S4 (owner-approved 15 Nov 2026): the card is the side card on the RIGHT — 300 px on a tablet, 360 on a computer.
+  assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[minmax\(0,1fr\)_300px\]/);
+  assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[minmax\(0,1fr\)_360px\]/);
   assert.doesNotMatch(tag, /premiumLayout/, 'the columns went back behind the Pro plan');
 });
 

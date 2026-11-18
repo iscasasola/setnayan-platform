@@ -228,7 +228,7 @@ test('🔑 that one request is five reads, one per table, together — and it is
 test('🔑 a shop whose name is still withheld is not named by its photos or its address', () => {
   assert.match(READER, /isVendorNameRevealed\(\{/);
   assert.match(READER, /photos:\s*profile && revealed\s*\?/);
-  assert.match(READER, /sharePath: profile && revealed && profile\.business_slug \? `\/v\/\$\{profile\.business_slug\}` : null,/);
+  assert.match(READER, /sharePath: profile && revealed && profile\.business_slug \? `\$\{shopPath\(profile\.business_slug\)\}` : null,/);
   // …and the sheet offers Share only when there is a page to share.
   assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share\} label="Share"/);
 });

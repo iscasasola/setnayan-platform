@@ -75,7 +75,8 @@ test('(b) the plain `/` neither loads nor runs the pipeline; a supplier paramete
   assert.match(src, /<MarketplaceView raw=\{params\} surface="discover" \/>/);
   // The shelves' reads are skipped while it is open (the view replaces them).
   assert.match(src, /supplierView \? null : loadFrontDoorData\(\)/);
-  assert.match(src, /searchQuery \|\| supplierView \? null : loadDiscover\(\)/);
+  // 🔄 2026-11-16: Discover's own two "See all" views (`ownView`) skip them too.
+  assert.match(src, /searchQuery \|\| supplierView \|\| ownView \? null : loadDiscover\(\)/);
 });
 
 test('(e) no "Narrow these results" box on `/` — the top bar’s search is the one search', () => {

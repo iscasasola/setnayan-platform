@@ -6,7 +6,7 @@ import { VerifySection } from '../shop/_components/verify-section';
 import { CouldNotLoad } from '../shop/_components/could-not-load';
 import type { DetailsData } from '../profile/details-data';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
-import { assembleSetup, setupChecklistKeys, type SetupFoldKey } from '@/lib/supplier-setup';
+import { setupChecklistKeys, shopSetupView, type SetupFoldKey } from '@/lib/supplier-setup';
 import { displayServiceLabel } from '@/lib/vendors';
 import { SupplierSetupFolds } from './supplier-setup-folds';
 import { SetupOfferFold } from './setup-offer-fold';
@@ -38,7 +38,7 @@ export type SetupDetails = Pick<
  *                            papers demo approved"; it replaced the three Add rows on 15 Nov); under it, `VerifySection` exactly as
  *                            Your details mounts it, folded — the details beside the papers, the contacts, Send for
  *                            review
- *   6 Download your QR     — the shop's own page, `/v/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
+ *   6 Download your QR     — the shop's own page, `/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
  *                            tour once; the days-off row stays under it
  *
  * ⛔ NO STEP 7. "How many a day" sat under the six (Build 6 Lane E) and LEFT Today on the owner's ruling (13 Nov 2026,
@@ -63,7 +63,7 @@ export function SupplierSetupScreen({
   rail: FirstStepsRail;
   /** The shipped maker, drawn (`NewServiceMaker`) — the sheet's body. */
   maker: ReactNode;
-  /** The shop's own QR — its Setnayan page, `/v/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
+  /** The shop's own QR — its Setnayan page, `/<slug>` (`myPageUrl`). Null when it could not be made (no address yet). */
   qr: { svg: string | null; url: string } | null;
   /** The tour after step 6 (`SETUP_TOUR_KEY`): its words, and whether it is on record (null: the read was refused). */
   tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
@@ -74,17 +74,8 @@ export function SupplierSetupScreen({
   /** The lab's papers fixture. Today leaves it out: the place loads the shop's own (`loadInlineDocs`). */
   paperPayload?: InlineDocsPayload;
 }) {
-  const view = assembleSetup({
-    checklist: d.checklist,
-    rail,
-    offer: rail.offer,
-    docs: { status: d.verify.status, docsIn: d.docsIn, docsTotal: d.docsTotal },
-    shopName: d.businessName,
-    slug: d.slug ?? null,
-    // "Photography · no card yet" — the shop's first service, by the name couples read.
-    serviceLabel: rail.offer?.services[0] ? displayServiceLabel(rail.offer.services[0].service) : null,
-    qrSaved: tour ? tour.seen : null,
-  });
+  // 🔢 ONE CHECKLIST, ONE COUNT (W1-B10): Your details draws the same six from the same call.
+  const view = shopSetupView({ d, rail, qrSaved: tour ? tour.seen : null, serviceLabel: displayServiceLabel });
   const rows = (k: 'name' | 'details' | 'logo') => {
     const keys = setupChecklistKeys(k);
     return d.checklist.filter((i) => keys.includes(i.key));

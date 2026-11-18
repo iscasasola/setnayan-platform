@@ -1,4 +1,6 @@
 'use client';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 
 import { useMemo, useState, useTransition } from 'react';
 import { Check, Pencil, RotateCcw, Eye, EyeOff, Upload, X, ImageIcon } from 'lucide-react';
@@ -107,10 +109,10 @@ export function MenuRegistryEditor({
       <div className="space-y-6">
         {byArea.map(([area, rows]) => (
           <section key={area} className="space-y-2">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+            <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
               {area} <span className="text-ink/30">· {rows.length}</span>
             </h2>
-            <div className="divide-y divide-ink/5 overflow-hidden rounded-xl border border-ink/10 bg-cream">
+            <div className="divide-y divide-ink/5 overflow-hidden border-t border-ink/10">
               {rows.map((slot) => (
                 <SlotRow key={slot.key} slot={slot} iconNames={iconNames} />
               ))}
@@ -118,7 +120,7 @@ export function MenuRegistryEditor({
           </section>
         ))}
         {byArea.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/50">
+          <p className="border-dashed py-6 text-center text-sm text-ink/50 border-t border-ink/10">
             No slots match “{query}”.
           </p>
         ) : null}
@@ -173,7 +175,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white text-ink hover:border-terracotta/40 hover:text-mulberry"
         >
           {slot.icon.kind === 'none' ? (
-            <span className="text-[9px] uppercase tracking-wide text-ink/35">none</span>
+            <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">none</span>
           ) : (
             <DynamicIcon icon={slot.icon} className="h-5 w-5" strokeWidth={1.75} />
           )}
@@ -196,13 +198,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
                 placeholder={slot.default.label}
                 className="w-full max-w-xs rounded-md border border-ink/20 bg-white px-2 py-1 text-sm"
               />
-              <button
-                type="button"
-                onClick={saveLabel}
-                className="inline-flex items-center gap-1 rounded-md bg-mulberry px-2 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
-              >
-                <Check className="h-3.5 w-3.5" /> Save
-              </button>
+              <ActionButton tone="brand" main icon={Check} label="Save" type="button" onClick={saveLabel} />
               <button
                 type="button"
                 onClick={() => {
@@ -231,12 +227,12 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               <Pencil className="h-3 w-3 text-ink/0 transition group-hover:text-ink/40" />
             </button>
           )}
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-ink/45">
-            <span className="font-mono">{slot.route ?? '—'}</span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-ink/45">
+            <span className="tabular-nums">{slot.route ?? '—'}</span>
             <span className="text-ink/25">·</span>
-            <span className="font-mono text-ink/35">{slot.key}</span>
+            <span className="text-ink/35 tabular-nums">{slot.key}</span>
             {slot.isOverridden ? (
-              <span className="rounded-full bg-terracotta/10 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-terracotta-700">
+              <span className="rounded-full bg-terracotta/10 px-1.5 py-px text-terracotta-700 text-[12px] font-bold">
                 custom
               </span>
             ) : null}
@@ -244,23 +240,9 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            title={slot.isHidden ? 'Show in menu' : 'Hide from menu'}
-            onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))}
-            className="rounded-md p-1.5 text-ink/45 hover:bg-ink/5 hover:text-ink"
-          >
-            {slot.isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={slot.isHidden ? EyeOff : Eye} label={slot.isHidden ? 'Show in menu' : 'Hide from menu'} type="button" title={slot.isHidden ? 'Show in menu' : 'Hide from menu'} onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))} />
           {slot.isOverridden ? (
-            <button
-              type="button"
-              title="Reset to default"
-              onClick={() => startTransition(async () => void (await resetSlot(slot.key)))}
-              className="rounded-md p-1.5 text-ink/45 hover:bg-ink/5 hover:text-ink"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
+            <ActionButton tone="neutral" quiet iconOnly icon={RotateCcw} label="Reset to default" type="button" title="Reset to default" onClick={() => startTransition(async () => void (await resetSlot(slot.key)))} />
           ) : null}
         </div>
       </div>
@@ -275,13 +257,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               placeholder="Filter icons…"
               className="w-full rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm"
             />
-            <button
-              type="button"
-              onClick={() => startTransition(async () => void (await setSlotNoIcon(slot.key)))}
-              className="shrink-0 rounded-md border border-ink/15 px-2 py-1 text-xs text-ink/60 hover:bg-ink/5"
-            >
-              No icon
-            </button>
+            <ActionButton tone="neutral" icon={Check} label="No icon" type="button" onClick={() => startTransition(async () => void (await setSlotNoIcon(slot.key)))} />
             <button
               type="button"
               onClick={() => {
@@ -338,10 +314,12 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               <Upload className="h-3.5 w-3.5" /> Upload
             </SubmitButton>
           </form>
-          <p className="mt-1.5 text-[10px] text-ink/40">
-            SVG recommended (recolors with the menu). PNG/JPEG/WebP also work, max 512&nbsp;KB. Uploaded
+          <div className="mt-1.5">
+            <InfoTip label="About icon files" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              SVG recommended (recolors with the menu). PNG/JPEG/WebP also work, max 512&nbsp;KB. Uploaded
             images don’t tint with active/inactive state.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       ) : null}
     </div>

@@ -282,7 +282,7 @@ export async function ShareLinkPanel({
           </p>
           {inviteLink.state === 'private' ? (
             <Link
-              href={`/dashboard/${eventId}/website`}
+              href={`/dashboard/${eventId}/launch`}
               className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
             >
               Open your Event Hub settings

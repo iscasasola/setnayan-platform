@@ -138,7 +138,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See how much photo and video teams actually charge across the Philippines before you decide.',
-        href: '/blog/how-much-do-wedding-suppliers-cost-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],
@@ -515,7 +515,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare photographer packages by what they actually deliver, not just the headline price.',
-        href: '/blog/how-much-do-wedding-suppliers-cost-philippines',
+        href: '/features',
         label: 'Start planning free',
       },
     ],

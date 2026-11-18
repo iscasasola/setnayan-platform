@@ -390,7 +390,7 @@ function ThumbRow({
           }}
           dataAttr="data-budget-filter"
           // 42px inside the glass's 1px edge = the row's 44px (the prototype's `.sel`).
-          className="!min-h-[42px] !border-transparent !bg-transparent"
+          className="!min-h-11 !border-transparent !bg-transparent"
         />
       </span>
       {searching ? (
@@ -400,7 +400,7 @@ function ThumbRow({
           data-fit-field=""
           className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center gap-2 rounded-full pl-3.5 pr-1 text-ink"
         >
-          <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
+          <Search className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} aria-hidden />
           <input
             ref={inputRef}
             id={fieldId}
@@ -422,7 +422,7 @@ function ThumbRow({
             type="button"
             onClick={close}
             aria-label="Close search"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/60"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/70"
           >
             <X className="h-4 w-4" strokeWidth={1.9} aria-hidden />
           </button>
@@ -443,7 +443,7 @@ function ThumbRow({
               icon={Search}
               label="Search"
               onClick={() => setSearching(true)}
-              className="!h-[42px] !min-h-[42px] !w-[42px] !min-w-[42px] !border-transparent"
+              className="!h-[42px] !min-h-11 !w-[42px] !min-w-[42px] !border-transparent"
             />
           </span>
         </>

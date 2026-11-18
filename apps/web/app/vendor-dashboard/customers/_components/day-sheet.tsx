@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { BellRing, CalendarX2, ChevronLeft, Clock, MapPin, MessageSquare, QrCode, RotateCcw, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -51,7 +52,7 @@ export type DaySheetData = {
   groups: DayGroup[];
   /** Couples in an open conversation about an unbooked event on this day. */
   /** `agreed`: the shop said yes, the first payment is not in yet — Booked, never asking (F-W1-68). */
-  holders: { threadId: string; title: string; line: string; agreed?: boolean }[];
+  holders: { threadId: string; eventId?: string | null; title: string; line: string; agreed?: boolean }[];
   /** The holders read reached the end — else the count says "at least". */
   holdersMeasured: boolean;
   /** The ceiling on couples holding one date (`whitelistPerDate`, the same on every plan since 2026-10-23, read live); null = no limit. */
@@ -188,7 +189,7 @@ export function DaySheet({
             title={h.agreed ? h.title : `${h.title} asking`}
             line={h.line}
             badge={h.agreed ? { tone: 'ok', word: 'Booked' } : { tone: 'wait', word: 'Asking' }}
-            end={<ActionButton tone="info" icon={<MessageSquare aria-hidden strokeWidth={1.9} />} label="Chat" href={`/vendor-dashboard/messages/${h.threadId}`} />}
+            end={<ActionButton tone="info" icon={<MessageSquare aria-hidden strokeWidth={1.9} />} label="Chat" href={supplierChatHref(h.eventId, h.threadId)} />}
           />
         ))}
 

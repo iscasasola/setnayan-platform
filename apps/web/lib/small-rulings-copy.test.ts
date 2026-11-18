@@ -24,20 +24,13 @@ import { buildOurServices, type OurServicesInput } from '@/lib/our-services';
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readCode = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('the public site nav says "Articles", never "Journal"', () => {
-  const slot = NAV_SLOT_DEFAULTS.find((s) => s.key === 'public.site-nav.journal');
-  assert.ok(slot, 'the /blog nav slot is missing — this guard is pointed at nothing');
-  assert.equal(slot.route, '/blog');
-  assert.equal(slot.label, 'Articles');
-  // No PUBLIC slot anywhere wears the retired word (the admin spotlights tool is internal).
+test('the public site nav never says "Journal"', () => {
+  // 🗞✂ 2026-11-16 — the /blog slot ("Articles") left with the blog (owner, DECISION_LOG "THE BLOG AND REAL STORIES
+  // ARE RETIRED"); `lib/no-page-links-a-retired-page.test.ts` holds that no slot points there. The retired word
+  // still must not come back on any PUBLIC slot (the admin spotlights tool is internal).
+  assert.ok(NAV_SLOT_DEFAULTS.some((s) => s.scope === 'public'), 'no public slot at all — this guard is pointed at nothing');
   const wearing = NAV_SLOT_DEFAULTS.filter((s) => s.scope === 'public' && /journal/i.test(s.label));
   assert.deepEqual(wearing.map((s) => s.key), [], 'a public nav label still says Journal');
-});
-
-test('an article posted to social is titled "Articles · …", not "Journal · …"', () => {
-  const src = readCode('lib/social/flush.ts');
-  assert.match(src, /title: `Articles · \$\{article\.title\}`/, 'the social title prefix is not "Articles ·"');
-  assert.doesNotMatch(src, /`Journal ·/, 'the retired "Journal ·" prefix is back');
 });
 
 test('the More Services card for the live service reads "Live Watch"', () => {

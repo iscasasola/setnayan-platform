@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -253,7 +254,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
             showcase: showcaseKeys.map((key, i) => ({ key, url: showcaseUrls[i] ?? null })),
             publicHref:
               status === 'live' && shopIsLive && slug
-                ? `/v/${slug}${c.public_id ? `?service=${encodeURIComponent(c.public_id)}` : ''}#${cardAnchorId(c.public_id, c.vendor_service_id)}`
+                ? `${shopPath(slug)}${c.public_id ? `?service=${encodeURIComponent(c.public_id)}` : ''}#${cardAnchorId(c.public_id, c.vendor_service_id)}`
                 : null,
           };
         }),
@@ -300,7 +301,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
       {/* The record's name IS the content here, so the masthead carries it. */}
       <PageMasthead titleNode={name} />
       <RecordHead
-        small={`Shop${ownerId ? '' : ' · unclaimed'} · ${shop.public_id as string}${slug ? ` · /v/${slug}` : ''}`}
+        small={`Shop${ownerId ? '' : ' · unclaimed'} · ${shop.public_id as string}${slug ? ` · ${shopPath(slug)}` : ''}`}
         name={name}
         badges={
           <>

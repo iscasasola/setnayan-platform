@@ -18,7 +18,9 @@ import type { OpenRail } from '@/lib/payment-channels';
 import {
   SHOP_GIFT_MAX_QUANTITY,
   bundleFreePacks,
+  SHOP_GIFT_UNLOCK_KINDS,
   giftCount,
+  shopGiftBuyable,
   stockSubline,
   type FreeByKind,
   type ShopGiftBundle,
@@ -62,9 +64,10 @@ export type ShopGiftsSectionData = {
   packs: ShopGiftPack[] | null;
   /**
    * 📦 BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14), from the catalogue. Every shop may buy them. [] ⇒ none on
-   * sale or unread — the singles stay on sale either way. ONE price per single gift: its list price.
+   * sale; null ⇒ the bundles could not be read (the Buy sheet says so — never "no bundles"). The singles stay on sale
+   * either way. ONE price per single gift: its list price.
    */
-  bundles: ShopGiftBundle[];
+  bundles: ShopGiftBundle[] | null;
   /** null ⇒ the purchases could not be read. */
   bought: ShopGiftBoughtLine[] | null;
   openRails: OpenRail[];
@@ -92,13 +95,20 @@ const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-
  * The "🏅 300" chip on a stock row when some of it is badge reward — the mark that tells it apart from bought stock,
  * kept short so the row's own line still fits a phone (the ⓘ says what 🏅 means; the Badge rewards fold lists each).
  */
+/** A plan's name when its catalogue row could not be read — the catalogue's own titles. */
+const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[number], string>> = {
+  event_plus: 'Event Plus',
+  event_pro: 'Event Pro',
+  event_ultra: 'Event Ultra',
+};
+
 function rewardChip(
   left: FreeByKind | null | undefined,
   k: ShopGiftKind,
-  /** Papic only: the credits of one pack — the reward stock is kept in credits, shown in packs. */
-  perPack = 1,
+  /** Papic only: the pack's code — the reward stock of THAT pack, in packs (Gold = Papic 1000, Ruby = Papic 3000). */
+  packCode: string | null = null,
 ): { tone: 'ok'; word: string } | null {
-  const n = Math.floor((left?.[k] ?? 0) / Math.max(1, perPack));
+  const n = k === 'papic' ? Math.floor(left?.packs?.[packCode ?? ''] ?? 0) : Math.floor(left?.[k] ?? 0);
   return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
 }
 
@@ -153,7 +163,9 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const headingId = useId();
   const { stock, bought } = data;
   const packs = data.packs ?? [];
-  const canOffer = data.canBuy && stock !== null && packs.length > 0;
+  // 💎 Every gift is on the buy sheet — Event Ultra too, at its list price (owner 2026-11-17).
+  const buyPacks = packs.filter((p) => shopGiftBuyable(p.code));
+  const canOffer = data.canBuy && stock !== null && buyPacks.length > 0;
   const rewards = data.rewards;
   const granted = rewards?.granted ?? null;
   const fee = granted ? freeFeeSummary(granted) : null;
@@ -181,11 +193,11 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               title={r.title}
               line={stock ? stockSubline(s ?? { balance: 0, held: 0 }) : stockSubline(null)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
-              badge={stock && r.smallest ? rewardChip(rewards?.left, 'papic', r.credits) : null}
+              badge={stock ? rewardChip(rewards?.left, 'papic', r.code) : null}
             />
           );
         })}
-        {(['event_plus', 'event_pro', 'event_ultra'] as const).map((k) => {
+        {SHOP_GIFT_UNLOCK_KINDS.map((k) => {
           const pack = packs.find((p) => p.kind === k);
           const s = stock?.[k] ?? null;
           // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
@@ -195,7 +207,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               key={k}
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
-              title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : k === 'event_ultra' ? 'Event Ultra' : 'Event Pro')}
+              title={pack?.title ?? UNLOCK_FALLBACK_TITLE[k]}
               line={stockSubline(s)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
               badge={stock ? rewardChip(rewards?.left, k) : null}
@@ -225,7 +237,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               data-testid="shop-gifts-buy"
             />
           </div>
-        ) : data.canBuy && data.packs !== null && packs.length === 0 ? (
+        ) : data.canBuy && data.packs !== null && buyPacks.length === 0 ? (
           <p className="mt-2 text-[13.5px] text-ink/60" role="status">
             Gifts are not on sale right now.
           </p>
@@ -327,7 +339,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         <BuyGiftsSheet
           open={buying}
           onClose={() => setBuying(false)}
-          packs={packs}
+          packs={buyPacks}
           bundles={data.bundles}
           openRails={data.openRails}
         />
@@ -345,17 +357,20 @@ export function BuyGiftsSheet({
   open,
   onClose,
   packs,
-  bundles = [],
+  bundles: bundlesRead = [],
   openRails,
   initialCode,
 }: {
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
-  bundles?: ShopGiftBundle[];
+  /** null ⇒ the bundles could not be read: a line says so, the singles stay on sale. */
+  bundles?: ShopGiftBundle[] | null;
   openRails: OpenRail[];
   initialCode?: string | null;
 }) {
+  const bundles = bundlesRead ?? [];
+  const bundlesUnread = bundlesRead === null;
   const headingId = useId();
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
@@ -391,6 +406,11 @@ export function BuyGiftsSheet({
           <PaymentsPausedNote className="mt-4" />
         ) : (
           <form action={formAction} className="mt-4 space-y-4">
+            {bundlesUnread ? (
+              <p data-gift-bundles-unread="" role="status" className="text-sm text-ink/70">
+                Couldn’t load the Buy 10, get 1 free bundles just now — reload to see them.
+              </p>
+            ) : null}
             <input type="hidden" name="for" value="gift" />
             <input type="hidden" name="pack" value={picked.code} />
             <input type="hidden" name="quantity" value={qty} />

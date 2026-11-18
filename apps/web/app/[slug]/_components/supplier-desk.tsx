@@ -1,3 +1,4 @@
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { ArrowUpRight, MapPin, MessageSquare, Users } from 'lucide-react';
 
@@ -414,7 +415,7 @@ export function SupplierDesk({
               three places. */}
           {desk.stage === 'call_sheet' && desk.threadId ? (
             <Link
-              href={`/vendor-dashboard/messages/${desk.threadId}`}
+              href={supplierChatHref(desk.vendorEventId, desk.threadId)}
               className="sn-press group relative flex items-center gap-3 border border-ink/10 bg-paper p-4 transition-colors hover:border-gild/40"
             >
               <MessageSquare aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />

@@ -119,16 +119,20 @@ test('a page moved into a route group still counts the sections it left behind',
     creators.files.some((f) => f.startsWith('creators/_components/')),
     `/creators' sections (app/creators/_components/) are not read. Files: ${creators.files.join(', ')}`,
   );
-  for (const d of ['/realstories', '/signup']) {
+  // '/realstories' → '/' on 2026-11-16: the Stories hub is retired (PR #7847) and the section's "See stories on
+  // Discover" button now points at Discover — still a link only the left-behind section draws.
+  for (const d of ['/', '/signup']) {
     assert.ok(creators.destinations.includes(d), `/creators lost ${d} — it lives in a left-behind section`);
   }
 
-  // The left-behind folder's CHILD ROUTES are their own routes, never this one's.
-  const blog = routes.get('/(shell)/blog');
-  assert.ok(blog, '/(shell)/blog is missing from the baseline — the anchor moved');
-  assert.ok(blog.files.includes('blog/_components/story-card.tsx'), 'the /blog story cards are not read');
+  // The left-behind folder's CHILD ROUTES are their own routes, never this one's. (This was anchored on /blog until
+  // the blog was retired, 2026-11-16, PR #7847; /help is the same shape: app/(shell)/help/page.tsx, a left-behind
+  // app/help/actions.ts, and a child route app/help/[slug]/.)
+  const help = routes.get('/(shell)/help');
+  assert.ok(help, '/(shell)/help is missing from the baseline — the anchor moved');
+  assert.ok(help.files.includes('help/actions.ts'), 'the /help left-behind actions are not read');
   assert.ok(
-    !blog.files.some((f) => f.startsWith('blog/[slug]/')),
-    '/blog absorbed /blog/[slug] — a child route was walked as a section',
+    !help.files.some((f) => f.startsWith('help/[slug]/')),
+    '/help absorbed /help/[slug] — a child route was walked as a section',
   );
 });

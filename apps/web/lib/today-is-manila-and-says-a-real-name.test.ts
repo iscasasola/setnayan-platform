@@ -109,6 +109,6 @@ test('3 · a card with no title never shows a database word', () => {
   const host = perkUnlockBody('host_mc', 'FREE');
   assert.ok(!/live_band|host_mc/.test(live + host), `a database word reached a person: ${live} / ${host}`);
   assert.match(live, /Live band/i);
-  assert.match(host, /Host \/ MC/);
+  assert.match(host, / Host — /); // T1 names the tile "Host" (was "Host / MC")
   assert.ok(!/\*\*|Exclusive/.test(live), `markdown or the retired name is back: ${live}`);
 });

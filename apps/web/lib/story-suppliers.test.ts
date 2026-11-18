@@ -67,9 +67,9 @@ describe('a story with 100 suppliers', () => {
   it('the sheet groups by plan with counts, Free folded', () => {
     const groups = groupStorySuppliers(hundred);
     assert.deepEqual(groups.map((g) => [g.label, g.items.length, g.folded]), [
-      ['Supplier Ultra', 20, false],
-      ['Supplier Pro', 20, false],
-      ['Supplier Plus', 20, false],
+      ['Ultra', 20, false],
+      ['Pro', 20, false],
+      ['Plus', 20, false],
       ['Verified', 20, false],
       ['Free', 20, true],
     ]);
@@ -122,9 +122,9 @@ describe('the views carry the links, decided on the server', () => {
     assert.equal(views[0]!.name, 'Liwanag Studio');
     assert.equal(views[0]!.tap, 'card');
     assert.equal(views[0]!.service, 'Photo & film');
-    assert.match(views[0]!.shopHref!, /^\/v\/liwanag\?src=/);
+    assert.match(views[0]!.shopHref!, /^\/liwanag\?src=/);
     assert.match(views[0]!.bookHref!, /inquire=1/);
-    assert.equal(views[0]!.planName, 'Supplier Pro');
+    assert.equal(views[0]!.planName, 'Pro');
     assert.equal(views[1]!.shopHref, null);
     assert.equal(views[1]!.bookHref, null);
     assert.equal(views[1]!.card, null);

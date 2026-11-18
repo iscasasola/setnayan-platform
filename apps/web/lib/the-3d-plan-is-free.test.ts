@@ -84,9 +84,11 @@ test('the vendor-unlocks-couple discount path is gone end to end', () => {
 
 test('the vendor still has the thing they DO pay for', () => {
   // Retiring the couple price must not take the vendor product with it.
+  // Since 2026-11-14 ("SIMPLER SUPPLIER PLANS") the booth is not bought on its own: it is one of the specialized tools,
+  // included from Plus — the database's unlock (`vendor_specialized_tools_unlocked`) is what opens it.
   assert.ok(
-    existsSync(join(ROOT, 'app/vendor-dashboard/subscription/_components/booth-addon-card.tsx')),
-    'the 3D Booth add-on card stays on the subscription page',
+    read('lib/specialized-tools.ts').includes("key: 'plan_3d'"),
+    'the 3D booth stays a specialized tool the supplier gets with their plan',
   );
   assert.ok(existsSync(join(ROOT, 'lib/vendor-3d-booth-pricing.ts')), 'booth pricing stays');
 });

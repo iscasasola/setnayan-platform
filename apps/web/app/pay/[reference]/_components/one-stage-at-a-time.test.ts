@@ -263,7 +263,9 @@ test('the manual fallback and the typed-amount line survived the split', async (
     'the manual account fallback left stage 2',
   );
   assert.match(pay, /09171234567/, 'the account number left stage 2');
-  assert.match(pay, /₱10/, 'the transfer-fee warning left stage 2');
+  // The bank transfer-fee line was removed on purpose (owner, 16 Nov 2026 — no ruling stands behind the figure;
+  // `lib/no-unruled-transfer-fee.test.ts`). It must stay off the paying stage.
+  assert.doesNotMatch(pay, /transfer fee/i, 'an unruled transfer-fee line is back on stage 2');
   // The honest line about what the code carries — one resolver, still here.
   assert.match(pay, /carries ₱837\.50|carries no amount/, 'the QR truth line left stage 2');
   // And nobody is forced through three taps for a number: stage 1 offers them.

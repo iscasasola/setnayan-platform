@@ -46,6 +46,7 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   inquiry_accepted: R('your inquiry was answered'),
   booking_confirmed: R('a booking you are part of was confirmed'),
   review_received: R('a review was left on a booking you are part of'),
+  badge_earned: R('your shop earned a Setnayan badge and its reward is in your gifts'),
   dispute_filed: R('a dispute was opened on a booking you are part of'),
   dispute_resolved: R('a dispute on a booking you are part of was resolved'),
   chat_message: R('you have a new message on Setnayan'),

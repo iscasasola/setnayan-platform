@@ -5,6 +5,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { ADMIN_SERVICE_REQUESTS_HREF, sameNameKey, type RequestStatus } from '@/lib/service-requests';
 import type { RequestTree } from '@/lib/service-requests.server';
 import { AdminStatusPill } from './admin-request-bits';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 export type AdminRequestRow = {
   request_id: string;
@@ -81,7 +82,7 @@ export function ServiceRequestsListView({
           <p className="mt-1">When a supplier can&rsquo;t find their service and names it, it lands here.</p>
         </div>
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl bg-white shadow-sm">
+        <ul className={`${ADMIN_FRAME} divide-y divide-ink/10 overflow-hidden`}>
           <li className="bg-ink/[0.03] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">
             Pending · {pending.length}
           </li>

@@ -317,7 +317,9 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       },
     ],
     price: { kind: 'free' },
-    moreHref: '/realstories',
-    evidence: ['app/(shell)/realstories/page.tsx'],
+    // 🗞✂ 2026-11-16 — the /realstories hub is retired (forwards to Discover; owner, DECISION_LOG "THE BLOG AND REAL
+    // STORIES ARE RETIRED"), so this page has no hub to send people to. What still ships: the consented editorial on
+    // the couple's own page, and the loader that puts shared stories on Discover's shelf.
+    evidence: ['lib/showcase-db.ts', 'app/[slug]/_components/editorial/editorial-content.tsx'],
   },
 ];

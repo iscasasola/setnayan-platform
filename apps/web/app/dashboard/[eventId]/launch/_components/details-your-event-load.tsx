@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { dateDisplayOf, yourEventDateLabel } from '@/lib/details-your-event';
+import { yourEventDateDisplay, yourEventDateLabel } from '@/lib/details-your-event';
 import { VENUE_ROLE_LABEL, type VenueSlotKey } from '@/lib/event-venues';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -183,7 +183,8 @@ export async function loadYourEvent({
         : null,
     date: {
       confirmedVendorCount,
-      dateDisplay: dateDisplayOf(row.event_date, precision),
+      // 📅 The locked day, else the day(s) the couple picked (EB-111) — the header already reads them as the date.
+      dateDisplay: yourEventDateDisplay(row, precision),
       dateValue: row.event_date && precision === 'day' ? row.event_date : null,
       label: yourEventDateLabel(words),
       matrix,
@@ -227,4 +228,3 @@ const RECEPTION_COLUMNS = {
   lat: 'venue_latitude',
   lng: 'venue_longitude',
 } as const;
-

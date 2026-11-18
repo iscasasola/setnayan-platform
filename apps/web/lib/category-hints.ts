@@ -126,7 +126,8 @@ export const FOLDER_HINTS: Readonly<Record<WeddingFolder, string>> = {
     "Photographers, videographers, drone crews, same-day edit. How you'll relive it in twenty years.",
   look: "Gowns, suits, barong, hair, make-up. What you wear, and the hands that get you ready.",
   booths: "Photo booths, food carts, coffee and cocktail bars. Where guests drift, between courses and conversations.",
-  prints: "Invitations, signage, menus, giveaways. What guests hold, read, and keep in a drawer.",
+  prints: "Invitations, signage, missalettes, menus. What guests hold, read, and keep in a drawer.",
+  gifts_giveaways: "Souvenirs, giveaways, hampers, raffle prizes. Any item, for anyone you want to thank.",
   transport: "Bridal cars, shuttles, vans, coaches. Everyone arrives on time and gets home safely.",
   experience:
     "Performers, games, activity corners, special effects. The parts guests join in, not just watch.",

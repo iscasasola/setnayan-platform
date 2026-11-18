@@ -188,7 +188,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
   return (
     <div className="space-y-6">
       <Link
-        href="/admin/discount-codes"
+        href="/admin/studio?tab=discount-codes"
         className="inline-flex items-center gap-1 text-sm underline-offset-2 hover:underline"
         style={{ color: 'var(--m-slate)' }}
       >

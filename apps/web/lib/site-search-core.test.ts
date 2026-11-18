@@ -36,7 +36,6 @@ import {
   MARKETPLACE_NOUN,
 } from './site-search-core';
 import { PUBLIC_SEARCH_NOUNS, publicSearchPlaceholder } from './public-search-nouns';
-import { publishedBlogArticles } from './blog';
 import { ALL_HELP_ARTICLES } from './help';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
@@ -179,20 +178,22 @@ test('an exact phrase in the title beats scattered tokens', () => {
 // ── The owner's own failing case, end to end ───────────────────────────────
 
 test("the owner's query finds the guide the live site could not", () => {
-  const doves = publishedBlogArticles().find(
-    (a) => a.slug === 'release-of-doves-filipino-wedding',
-  );
+  // 🗞✂ 2026-11-16: the Journal (and its doves article) left with the blog (DECISION_LOG "THE BLOG AND REAL STORIES
+  // ARE RETIRED"). The point stands on the corpus that remains: a KNOWN-PUBLISHED guide is findable by a word in it.
+  const refunds = ALL_HELP_ARTICLES.find((a) => a.article.slug === 'refunds');
   assert.ok(
-    doves,
-    'The doves guide is no longer published — point this at another published ' +
+    refunds,
+    'The refunds help page is no longer published — point this at another published ' +
       'slug rather than deleting the test; the assertion is the point.',
   );
 
-  const hrefs = searchInCodeReads('doves').map((h) => h.href);
-  assert.ok(
-    hrefs.includes('/blog/release-of-doves-filipino-wedding'),
-    `searched "doves" and got ${hrefs.length ? hrefs.join(', ') : 'nothing'}`,
-  );
+  const hrefs = searchInCodeReads('refund').map((h) => h.href);
+  assert.ok(hrefs.includes('/help/refunds'), `searched "refund" and got ${hrefs.length ? hrefs.join(', ') : 'nothing'}`);
+  // …and no hit sends a reader to a retired Journal address.
+  for (const q of ['doves', 'refund', 'wedding']) {
+    const blog = searchInCodeReads(q).filter((h) => h.href.startsWith('/blog'));
+    assert.equal(blog.length, 0, `"${q}" still finds retired Journal pages: ${blog.map((h) => h.href).join(', ')}`);
+  }
 });
 
 test('guides are reachable and every row says what it is', () => {

@@ -205,7 +205,7 @@ const RELOAD_ALLOWED: Readonly<Record<string, string>> = {
   'app/_components/account-switcher/account-switcher.tsx': 'another account signed in in another tab — the page belongs to someone else now',
   'app/_components/last-seen/last-seen-mark.tsx': '"Try again" on a read that failed',
   'app/_components/offline-ready/use-offline-copy.ts': 'the offline copy finished — the new build is loaded',
-  'app/_components/stale-tab-notice.tsx': '"Reload" on a tab whose build is gone',
+  'app/_components/stale-tab-notice.tsx': '"Reload" on a tab whose build is gone — and, with nothing typed, the one self-update per served version (owner 22e93e56; never after a save, never with typing)',
   'app/dashboard/[eventId]/_components/day-of-mode/schedule-unread.tsx': '"Try again" on an unread schedule',
   'app/dashboard/[eventId]/_components/home-parts.tsx': '"Try again" with no router (router.refresh() otherwise)',
   'app/dashboard/[eventId]/_components/home-tile.tsx': '"Try again" with no router (router.refresh() otherwise)',

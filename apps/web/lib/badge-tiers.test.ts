@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TIERS, stepGlyph, tierForStep } from './badge-tiers';
+import { TIERS, stepGlyph, tierForStep, tierKeyAt, tierName } from './badge-tiers';
 import { MILESTONE_THRESHOLDS } from './service-card-record';
 import { contrastRatio } from './hub-legibility';
 import { shopBadges } from './shop-badges';
@@ -19,8 +19,8 @@ test('one tier per shipped step, in order — no step without a material, no mat
   assert.equal(TIERS.filter((t) => t.laurel).length, 1);
   assert.deepEqual(
     TIERS.map((t) => t.name),
-    ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Ruby', 'Black Diamond'],
-    'the names the owner approved on 2026-10-28, in ladder order',
+    ['Bronze', 'Silver', 'Gold', 'Ruby', 'Emerald', 'Diamond', 'Black Diamond'],
+    'the names the owner ruled on 2026-11-15 (DECISION_LOG), in ladder order — Platinum gone, Emerald in, Ruby below Diamond',
   );
 });
 
@@ -54,4 +54,13 @@ test('the circle shows the number', () => {
   assert.equal(stepGlyph(500), '500');
   assert.equal(stepGlyph(1000), '1K');
   assert.equal(stepGlyph(10000), '10K');
+});
+
+test('any ladder reads its tier by position; the keys never move, past seven it stays Black Diamond', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(tierKeyAt), ['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6', 'tier7']);
+  assert.equal(tierKeyAt(9), 'tier7');
+  assert.equal(tierKeyAt(-1), 'tier1');
+  assert.equal(tierName('tier4'), 'Ruby');
+  assert.equal(tierName('tier5'), 'Emerald');
+  assert.equal(tierName('tier6'), 'Diamond');
 });

@@ -58,6 +58,11 @@ export type CoupleLockTarget = {
   groupLabel: string;
   /** Where the same Lock mounts on the Vendors page — the secondary door. */
   benchHref: string;
+  /**
+   * True when the shop was READ as not yet verified (`readThreadShopNotYetVerified`): the Book confirm then carries
+   * the shipped "Not yet verified by Setnayan" line (owner 16 Nov). Never blocks; absent = nothing drawn.
+   */
+  notYetVerified?: boolean;
 };
 
 export function coupleLockTarget(

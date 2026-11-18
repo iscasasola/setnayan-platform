@@ -75,32 +75,14 @@ test('the copy promises no message we do not send', () => {
   }
 });
 
-// ── 🔎 DECISION_LOG 2026-11-07 — the find lock ───────────────────────────────
+// ── 🔎 15 Nov ("Verified only") — no find lock speaks any more ─────────────────
 
-test('THE FIND LOCK: a locked shop is told, with the ruling’s own title and a Verify button', () => {
-  const state = shopFindability({
-    publicVisibility: 'hidden',
-    railShowing: false,
-    findLock: { state: 'locked', reason: 'inquiry', since: '2026-11-07T00:00:00Z' },
-  });
-  assert.equal(state.reason, 'locked_until_verified');
-  assert.equal(state.findable, false);
-  const notice = findabilityNotice(state);
-  assert.ok(notice, 'a shop locked out of Find must be told');
-  assert.equal(notice.title, 'You’ve had your first inquiry — get verified to be found again');
-  assert.equal(notice.cta?.label, 'Verify');
-  assert.equal(notice.cta?.href, '/vendor-dashboard/profile#docs');
-  assert.match(notice.body, /page link and QR codes still work/i);
-});
-
-test('THE FIND LOCK outranks the rail — the rail is still showing, the lock is still said', () => {
-  const state = shopFindability({
-    publicVisibility: 'hidden',
-    railShowing: true,
-    findLock: { state: 'locked', reason: 'import', since: '2026-11-07T00:00:00Z' },
-  });
-  assert.equal(state.reason, 'locked_until_verified');
-  assert.match(findabilityNotice(state)!.title, /first booking/);
+test('a not-yet-verified shop is told nothing about a lock — the rail says how to get verified', () => {
+  for (const railShowing of [true, false]) {
+    const state = shopFindability({ publicVisibility: 'hidden', railShowing, findLock: { state: 'until_verified' } });
+    assert.notEqual((state as { reason: string }).reason, 'locked_until_verified');
+    assert.doesNotMatch(JSON.stringify(findabilityNotice(state)), /first inquiry|found again/i);
+  }
 });
 
 test('an UNLOCKED or verified lock state changes nothing that was already true', () => {
@@ -108,7 +90,7 @@ test('an UNLOCKED or verified lock state changes nothing that was already true',
     null,
     undefined,
     { state: 'verified' as const },
-    { state: 'findable_until_first_inquiry' as const },
+    { state: 'until_verified' as const },
     { state: 'not_findable' as const },
   ]) {
     assert.deepEqual(shopFindability({ publicVisibility: 'verified', railShowing: false, findLock }), {

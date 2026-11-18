@@ -164,9 +164,7 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/suppliers',
   '/monogram',
   '/alaala',
-  '/weddings',
-  '/realstories',
-  '/blog',
+  // '/weddings', '/realstories', '/blog' left 2026-11-16 — retired, they forward (a 308 is not a healthy page).
   '/help',
   '/download',
   '/login',

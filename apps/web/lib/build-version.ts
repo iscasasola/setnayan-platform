@@ -77,3 +77,171 @@ export function servingVersionFrom(payload: unknown): string | null {
   const v = (payload as { version?: unknown }).version;
   return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
+
+/* ── THE SITE UPDATES BY ITSELF WHEN NOTHING IS TYPED (owner ruling 22e93e56, 16 Nov 2026) ─────────────────────
+ *
+ * The notice above asked everyone to press Reload. Now a page holding NO unsaved typing takes the new version
+ * silently — on its next in-app navigation (the link press becomes a full load) or when the tab is shown again —
+ * and the notice stays ONLY for a page where something is typed: that page never reloads by itself.
+ *
+ * 🔑 Two rules carry the whole thing, both decided here so a test can EXECUTE them:
+ *   · When in doubt it is typing. React keeps a controlled field's `defaultValue` in step with its `value`, so
+ *     "value differs from default" alone would call a typed-in controlled field clean — a field that received an
+ *     `input` event and is still on the page counts too. A wrong "typing" costs a notice; a wrong "clean" costs words.
+ *   · Never in a loop: at most ONE self-update per served version, claimed in sessionStorage BEFORE reloading. A
+ *     storage that throws cannot promise "once", so it never self-updates — the notice speaks instead.
+ */
+
+/** sessionStorage key of the one self-update a served version may cause. */
+export const SELF_UPDATE_KEY_PREFIX = 'setnayan:self-updated:';
+
+type FieldLike = {
+  tagName?: string;
+  type?: string;
+  value?: string;
+  defaultValue?: string;
+  checked?: boolean;
+  defaultChecked?: boolean;
+  isContentEditable?: boolean;
+  disabled?: boolean;
+  readOnly?: boolean;
+  isConnected?: boolean;
+  options?: ArrayLike<{ selected: boolean; defaultSelected: boolean }>;
+};
+
+/** Input types that carry no typing of their own. */
+const NOT_TYPING_INPUT = new Set(['hidden', 'submit', 'button', 'reset', 'image']);
+
+function isEditable(el: FieldLike): boolean {
+  if (el.isContentEditable) return true;
+  const tag = (el.tagName ?? '').toUpperCase();
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return !el.disabled && !el.readOnly;
+  if (tag === 'INPUT') return !NOT_TYPING_INPUT.has((el.type ?? 'text').toLowerCase()) && !el.disabled && !el.readOnly;
+  return false;
+}
+
+/** A field whose current state differs from the one the page drew it with. */
+export function fieldIsDirty(el: FieldLike): boolean {
+  if (!isEditable(el) || el.isContentEditable) return false;
+  const tag = (el.tagName ?? '').toUpperCase();
+  if (tag === 'SELECT') return Array.from(el.options ?? []).some((o) => o.selected !== o.defaultSelected);
+  const type = (el.type ?? 'text').toLowerCase();
+  if (type === 'checkbox' || type === 'radio') return Boolean(el.checked) !== Boolean(el.defaultChecked);
+  return (el.value ?? '') !== (el.defaultValue ?? '');
+}
+
+/**
+ * Does the page hold unsaved typing? A focused field (input · textarea · select · contenteditable), a dirty one,
+ * or one the person typed into (`touched`) that is still on the page.
+ */
+export function hasUnsavedTyping(
+  doc: { activeElement: unknown; querySelectorAll: (sel: string) => ArrayLike<unknown> },
+  touched: (el: unknown) => boolean = () => false,
+): boolean {
+  const active = doc.activeElement as FieldLike | null;
+  if (active && isEditable(active)) return true;
+  const fields = Array.from(doc.querySelectorAll('input, textarea, select, [contenteditable]')) as FieldLike[];
+  return fields.some((el) => isEditable(el) && (fieldIsDirty(el) || (touched(el) && el.isConnected !== false)));
+}
+
+/**
+ * Claim the ONE self-update this served version may make. True = go ahead (the claim is already written); false =
+ * already used, or storage cannot be trusted to remember — do not reload.
+ */
+export function claimSelfUpdate(storage: Pick<Storage, 'getItem' | 'setItem'> | null, serving: string): boolean {
+  if (!storage) return false;
+  try {
+    const key = SELF_UPDATE_KEY_PREFIX + serving;
+    if (storage.getItem(key)) return false;
+    storage.setItem(key, '1');
+    return storage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What a stale tab does now: nothing (current), take the update silently, or show the notice.
+ * `selfUpdateUsed` is true when this served version already made its one self-update.
+ */
+export function staleTabAction(input: {
+  loaded: unknown;
+  serving: unknown;
+  typing: boolean;
+  selfUpdateUsed: boolean;
+}): 'none' | 'update' | 'notice' {
+  if (!shouldOfferReload(input.loaded, input.serving)) return 'none';
+  if (input.typing || input.selfUpdateUsed) return 'notice';
+  return 'update';
+}
+
+/* ── THE NOTICE IS NEVER UNDER A SHEET (walk RW-7853-a, 16 Nov 2026) ─────────────────────────────────────────────
+ *
+ * The notice above speaks ONLY to a page holding typing — and the place people type most is the full-screen chat
+ * thread, which on a phone fixes itself over the page at z 45 (globals.css "AN OPEN CHAT THREAD IS FULL SCREEN ON A
+ * PHONE"). The notice stood in the page's flow at the top, so it was drawn UNDER the thread: the one person it was for
+ * never saw it. Same under every Sheet (z 50), RiseScreen (pop, 40) and blocker.
+ *
+ * So: on a plain page it stays where the one notice system put it — in the flow, at the very top, never fixed over the
+ * page. While a layer covers the page, it moves onto the app's top notification layer (the peek toast's place,
+ * `PEEK_TOAST_PLACE`, z 100 — "over everything, it is a notification") until that layer goes. No new layer.
+ */
+
+/** What covers the page: an open modal (Sheet · RiseScreen · blockers · dialogs) or the phone's full-screen thread. */
+export const MODAL_LAYER = '[aria-modal="true"]';
+/** The guest send-run screen (owner ruling 10, 17 Nov): fixed over everything at z 110, and not aria-modal. */
+export const SEND_RUN_LAYER = '[data-send-run]';
+export const LAYER_OVER_THE_PAGE = `${MODAL_LAYER}, [data-chat-takeover], ${SEND_RUN_LAYER}`;
+/** The chat thread's own head band (‹ back · the name): the lifted notice sits BELOW it, never over it (ruling 9). */
+export const THREAD_HEAD = '[data-chat-thread-head]';
+/** The attributes whose change can open or close such a layer without a node being added or removed. */
+export const LAYER_ATTRIBUTES: readonly string[] = ['aria-modal', 'data-chat-takeover', 'hidden'];
+
+/** One element `LAYER_OVER_THE_PAGE` matched, as the browser draws it. */
+export type DrawnLayer = {
+  /** True for `[aria-modal]`; false for the chat takeover, which is a layer only where it fixes itself (a phone). */
+  modal: boolean;
+  position: string;
+  display: string;
+  visibility: string;
+  width: number;
+  height: number;
+  /** The guest send-run screen (`SEND_RUN_LAYER`). */
+  sendRun?: boolean;
+  /** A chat thread's head band, where the thread has one: its bottom edge on screen, in px. */
+  headBottom?: number | null;
+};
+
+/** Is the page covered right now? A modal that is drawn covers it; the chat thread covers it only while fixed. */
+export function aLayerCoversThePage(layers: readonly DrawnLayer[]): boolean {
+  return layers.some(
+    (l) =>
+      l.display !== 'none' &&
+      l.visibility !== 'hidden' &&
+      l.width > 0 &&
+      l.height > 0 &&
+      (l.modal || l.position === 'fixed'),
+  );
+}
+
+/** Where the lifted notice goes: which element it is drawn on, and how far from the top of the screen. */
+export type LiftPlace = { host: 'body' | 'send-run'; top: number | null };
+
+/** The gap between a thread's head and the lifted notice under it, in px. */
+export const UNDER_THE_HEAD_GAP = 8;
+
+/**
+ * 🧭 OWNER RULINGS 8–10 (17 Nov 2026) — where the lifted notice stands while a layer covers the page:
+ *   8 · over a Sheet / RiseScreen / blocker: fixed on top, on the peek toast's place (as built).
+ *   9 · over the phone's full-screen chat thread: BELOW the thread's head, never over its ‹ back or the name.
+ *  10 · over the guest send-run screen (z 110, above the toast layer): drawn INSIDE that screen, so it is on top of it.
+ * Null when nothing covers the page (the notice stays in the flow). Pure — `the-update-notice-is-on-top.test.ts`.
+ */
+export function whereTheNoticeLifts(layers: readonly DrawnLayer[]): LiftPlace | null {
+  const covering = layers.filter((l) => aLayerCoversThePage([l]));
+  if (covering.length === 0) return null;
+  if (covering.some((l) => l.sendRun)) return { host: 'send-run', top: null };
+  if (covering.some((l) => l.modal)) return { host: 'body', top: null };
+  const heads = covering.map((l) => l.headBottom).filter((b): b is number => typeof b === 'number' && b > 0);
+  return { host: 'body', top: heads.length > 0 ? Math.max(...heads) + UNDER_THE_HEAD_GAP : null };
+}

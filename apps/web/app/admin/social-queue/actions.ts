@@ -72,7 +72,7 @@ export async function markConsentPosted(formData: FormData) {
   await requireAdmin();
   const consentId = readFormString(formData, 'consent_id');
   if (!consentId) {
-    return redirect('/admin/social-queue?error=Missing+consent');
+    return redirect('/admin/studio?tab=social-queue&error=Missing+consent');
   }
 
   const admin = createAdminClient();
@@ -88,11 +88,11 @@ export async function markConsentPosted(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/admin/social-queue?error=${encodeURIComponent(error.message)}`,
+      `/admin/studio?tab=social-queue&error=${encodeURIComponent(error.message)}`,
     );
   }
   revalidatePath('/admin/social-queue');
-  redirect('/admin/social-queue?posted=1');
+  redirect('/admin/studio?tab=social-queue&posted=1');
 }
 
 /** Revoked-after-posting take-down completed (24-hour SLA). */
@@ -100,7 +100,7 @@ export async function markConsentTakenDown(formData: FormData) {
   await requireAdmin();
   const consentId = readFormString(formData, 'consent_id');
   if (!consentId) {
-    return redirect('/admin/social-queue?error=Missing+consent');
+    return redirect('/admin/studio?tab=social-queue&error=Missing+consent');
   }
 
   const admin = createAdminClient();
@@ -115,11 +115,11 @@ export async function markConsentTakenDown(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/admin/social-queue?error=${encodeURIComponent(error.message)}`,
+      `/admin/studio?tab=social-queue&error=${encodeURIComponent(error.message)}`,
     );
   }
   revalidatePath('/admin/social-queue');
-  redirect('/admin/social-queue?taken_down=1');
+  redirect('/admin/studio?tab=social-queue&taken_down=1');
 }
 
 /** Vendor verification feature was posted — vendor leaves the queue forever. */
@@ -127,7 +127,7 @@ export async function markVendorFeatured(formData: FormData) {
   await requireAdmin();
   const vendorProfileId = readFormString(formData, 'vendor_profile_id');
   if (!vendorProfileId) {
-    return redirect('/admin/social-queue?error=Missing+vendor');
+    return redirect('/admin/studio?tab=social-queue&error=Missing+vendor');
   }
 
   const admin = createAdminClient();
@@ -143,12 +143,12 @@ export async function markVendorFeatured(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/admin/social-queue?error=${encodeURIComponent(error.message)}`,
+      `/admin/studio?tab=social-queue&error=${encodeURIComponent(error.message)}`,
     );
   }
   revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/social-queue');
-  redirect('/admin/social-queue?vendor_posted=1');
+  redirect('/admin/studio?tab=social-queue&vendor_posted=1');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -163,12 +163,12 @@ function readHttpUrl(formData: FormData, key: string): string | null {
 }
 
 function failRedirect(message: string): never {
-  redirect(`/admin/social-queue?error=${encodeURIComponent(message)}`);
+  redirect(`/admin/studio?tab=social-queue&error=${encodeURIComponent(message)}`);
 }
 
 function okRedirect(flag: string): never {
   revalidatePath('/admin/social-queue');
-  redirect(`/admin/social-queue?${flag}=1`);
+  redirect(`/admin/studio?tab=social-queue&${flag}=1`);
 }
 
 /**

@@ -23,6 +23,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { requestPasswordReset } from './actions';
+import { RememberResetEmail, ResetSent } from './_components/reset-sent';
 
 export const metadata: Metadata = {
   title: 'Reset your password',
@@ -64,46 +65,45 @@ export default async function ForgotPasswordPage({
   return (
     <DoorShell
       eyebrow="Account recovery"
-      title="Forgot your password?"
-      sub="Tell us your email and we’ll send a link to set a new one."
+      title={sent ? 'Check your email' : 'Forgot your password?'}
+      sub={sent ? undefined : 'Tell us your email and we’ll send a link to set a new one.'}
     >
       {errorMessage ? <DoorNotice kind="alert">{errorMessage}</DoorNotice> : null}
 
+      {/* ✉ W1-B6: once sent, the empty form gives way to where it went, where to look and the 60 s wait. */}
       {sent ? (
-        <DoorNotice>
-          If an account exists for that email, a reset link is on its way. Check your inbox
-          (and spam folder) — the link works once and expires after a short while.
-        </DoorNotice>
-      ) : null}
-
-      <form action={requestPasswordReset} className="space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-ink">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="you@email.com"
-            required
-            className="input-field"
-          />
-        </div>
-        {/*
-          The bot check. Renders NOTHING until a Turnstile site key is set, so
-          this page is unchanged today. It is not optional once captcha is on:
-          Supabase gates password recovery with the same global switch as
-          sign-in, and this is the page someone reaches BECAUSE they are already
-          locked out.
-        */}
-        <TurnstileField action="password_reset" />
-        <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
-          Email me a reset link
-        </SubmitButton>
-      </form>
+        <ResetSent requestPasswordReset={requestPasswordReset} />
+      ) : (
+        <form action={requestPasswordReset} className="space-y-4">
+          <RememberResetEmail />
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="block text-sm font-medium text-ink">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="you@email.com"
+              required
+              className="input-field"
+            />
+          </div>
+          {/*
+            The bot check. Renders NOTHING until a Turnstile site key is set, so
+            this page is unchanged today. It is not optional once captcha is on:
+            Supabase gates password recovery with the same global switch as
+            sign-in, and this is the page someone reaches BECAUSE they are already
+            locked out.
+          */}
+          <TurnstileField action="password_reset" />
+          <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
+            Email me a reset link
+          </SubmitButton>
+        </form>
+      )}
 
       <p className="text-center text-sm text-ink/70">
         Remembered it?{' '}

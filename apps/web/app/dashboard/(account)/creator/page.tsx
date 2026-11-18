@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { ShopLink } from '@/app/_components/shop-link';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -326,7 +327,7 @@ function OfferInbox({
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-semibold text-ink">
                   {o.vendorSlug ? (
-                    <ShopLink href={`/v/${o.vendorSlug}`} className="hover:underline">
+                    <ShopLink href={`${shopPath(o.vendorSlug)}`} className="hover:underline">
                       {o.vendorName}
                     </ShopLink>
                   ) : (

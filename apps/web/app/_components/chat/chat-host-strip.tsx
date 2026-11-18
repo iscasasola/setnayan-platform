@@ -129,23 +129,29 @@ export function ChatHostStrip({
   );
   // The ＋ comes last, and only while at least one event host is not in this chat.
   const canAdd = Boolean(addable && addable.candidates.length > 0);
-  // In the chat now counts PEOPLE — the one login behind both the shop's face and "You" is one person.
-  const inNow = new Set(people.filter((p) => presentIds.has(p.id)).map((p) => p.id)).size;
+  // 🟢 Who is in the chat now is the RING on a face (and each face's own words for a screen reader) — the line no longer
+  // counts it (CHAT-09).
+  const names = people.map((p) => p.name).join(' · ');
+  /*
+    ONE 48 px ROW (DECISION_LOG 2026-11-16 CHAT-09, amending the 9 Nov v8.3 strip): the faces · "Shared chat · N inside"
+    · ONE ⓘ (a 46 px press) holding the names that used to sit under the faces and the chat's privacy words. The names
+    and "· 1 in the chat now" leave the row; the green ring still shows who is here now.
+  */
   return (
-    <div className="border-b border-ink/10 px-4 py-2" data-chat-host-strip="">
+    <div className="border-b border-ink/10 pl-2.5 pr-1" data-chat-host-strip="">
+      <div className="flex h-12 items-center gap-1">
       {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
-          the avatar: ring-2 + ring-offset-2 = 4 px. So the list pads 4 px all round (`p-1`, pulled back with `-mx-1` so
-          the first avatar still lines up with the line below) and snaps inside that padding (`scroll-px-1`). */}
-      <div className="flex items-start gap-2">
+          the avatar: ring-2 + ring-offset-2 = 4 px. So the list pads 4 px all round (`p-1`; `-my-1` gives the vertical
+          padding back to the 48 px row) and snaps inside that padding (`scroll-px-1`). */}
       <ul
-        className="-mx-1 flex min-w-0 flex-1 snap-x snap-mandatory scroll-px-1 gap-1.5 overflow-x-auto p-1 [scrollbar-width:none]"
+        className="-my-1 flex min-w-0 max-w-[60%] shrink snap-x snap-mandatory scroll-px-1 overflow-x-auto p-1 [scrollbar-width:none]"
         aria-label={`${word} · ${people.length} inside`}
       >
         {people.map((p) => {
           const here = presentIds.has(p.id);
           const face = (
             <span
-              className={`grid h-9 w-9 place-items-center rounded-full bg-ink/[0.08] text-[11px] font-semibold text-ink/75 ${
+              className={`grid h-[30px] w-[30px] place-items-center rounded-full bg-ink/[0.08] text-[10px] font-semibold text-ink/75 ${
                 here ? 'ring-2 ring-success-600 ring-offset-2 ring-offset-cream' : ''
               }`}
               aria-hidden
@@ -159,11 +165,11 @@ export function ChatHostStrip({
           // 🔒 Door 1 — someone else's face, where a composer listens (never your own login behind the shop's face).
           const privateDoor = !isYou && !p.self && Boolean(threadId);
           return (
-            <li key={p.key} className="flex shrink-0 snap-start flex-col items-center gap-0.5" {...(p.shop ? { 'data-chat-host-shop': '' } : {})}>
+            <li key={p.key} className="flex shrink-0 snap-start" {...(p.shop ? { 'data-chat-host-shop': '' } : {})}>
               {tappable ? (
                 <button
                   type="button"
-                  className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
+                  className="sn-press grid h-11 w-[38px] place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
                   aria-label="Leave this chat"
                   aria-haspopup="dialog"
                   onClick={() => {
@@ -177,7 +183,7 @@ export function ChatHostStrip({
               ) : privateDoor ? (
                 <button
                   type="button"
-                  className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-private))]"
+                  className="sn-press grid h-11 w-[38px] place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-private))]"
                   aria-label={`Message ${p.name} privately`}
                   onClick={() => {
                     setAdding(false);
@@ -188,20 +194,20 @@ export function ChatHostStrip({
                   {face}
                 </button>
               ) : (
-                <span className="grid h-11 w-11 place-items-center">{face}</span>
+                <span className="grid h-11 w-[38px] place-items-center">{face}</span>
               )}
-              <span className="max-w-[4.5rem] truncate text-[10.5px] text-ink/60">
+              <span className="sr-only">
                 {p.name}
-                <span className="sr-only">{here ? ' · in this chat now' : ''}</span>
+                {here ? ' · in this chat now' : ''}
               </span>
             </li>
           );
         })}
         {addable && canAdd ? (
-          <li className="flex shrink-0 snap-start flex-col items-center gap-0.5">
+          <li className="flex shrink-0 snap-start">
             <button
               type="button"
-              className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
+              className="sn-press grid h-11 w-[38px] place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
               aria-label="Add a host to this chat"
               aria-controls="chat-host-add"
               aria-expanded={adding}
@@ -210,29 +216,36 @@ export function ChatHostStrip({
               }}
               data-chat-host-add-open=""
             >
-              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full border border-dashed border-ink/30 text-ink/60">
+              <span aria-hidden className="grid h-[30px] w-[30px] place-items-center rounded-full border border-dashed border-ink/30 text-ink/60">
                 <Plus className="h-4 w-4" strokeWidth={2} />
               </span>
             </button>
-            <span className="text-[10.5px] text-ink/60">Add</span>
           </li>
         ) : null}
       </ul>
+      {/* The line and its ⓘ fill the rest of the row; the ⓘ stands at the row's end (`justify-between`). */}
+      <InfoTip
+        label={`${word} · ${people.length} inside`}
+        labelNode={
+          <>
+            <b className="font-semibold text-ink">{word}</b> · {people.length} inside
+          </>
+        }
+        className="min-w-0 flex-1 justify-between pl-1.5 pr-3.5 text-[13.5px] text-ink/70"
+        labelClassName="min-w-0 truncate"
+        align="end"
+      >
+        <span className="block" data-chat-host-names="">
+          {names}
+        </span>
+        {note ? <span className="mt-1.5 block">{note}</span> : null}
+      </InfoTip>
       {calls ? (
-        <div className="flex shrink-0 items-center pt-1.5" data-chat-head-calls="">
+        <div className="flex shrink-0 items-center" data-chat-head-calls="">
           {calls}
         </div>
       ) : null}
       </div>
-      <p className="text-[11px] text-ink/55">
-        {note ? (
-          <InfoTip label={`${word} · ${people.length} inside${inNow > 0 ? ` · ${inNow} in the chat now` : ''}`} align="start">
-            {note}
-          </InfoTip>
-        ) : (
-          <>{word} · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}</>
-        )}
-      </p>
       {leave ? (
         <LeaveChatDialog
           open={leaving}

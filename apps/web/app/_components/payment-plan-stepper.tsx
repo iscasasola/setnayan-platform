@@ -1,5 +1,5 @@
 import { CheckCircle2, Circle, Clock, PartyPopper } from 'lucide-react';
-import type { StepperInstallment } from '@/lib/vendor-service-payment-schedules';
+import { orderPlanSteps, planDatesOutOfOrder, type StepperInstallment } from '@/lib/vendor-service-payment-schedules';
 import { formatPhp } from '@/lib/orders';
 
 /**
@@ -83,12 +83,21 @@ export function PaymentPlanStepper({
   steps,
   clearedAt,
   className,
+  lined = false,
 }: {
   steps: StepperInstallment[];
   clearedAt: string | null;
   className?: string;
+  /**
+   * 💳 The supplier chat's folded plan (CHAT-09, 16 Nov): rows split by LINES, not spaced boxes, each a 44 px row — the
+   * same rows, words and states.
+   */
+  lined?: boolean;
 }) {
   const cleared = clearedAt != null;
+  // 📅 Pay order, and a plain line when the plan's dates disagree with it (CHAT-10) — said, never re-sorted away.
+  const ordered = orderPlanSteps(steps);
+  const outOfOrder = planDatesOutOfOrder(steps);
 
   return (
     <div className={['space-y-2.5', className ?? ''].join(' ')}>
@@ -99,13 +108,20 @@ export function PaymentPlanStepper({
         </div>
       ) : null}
 
+      {outOfOrder ? (
+        <p role="note" data-plan-dates-out-of-order="" className="text-xs font-medium text-warn-800">
+          These dates are out of order: {outOfOrder.later} is due {formatDueDate(outOfOrder.laterDue)}, before{' '}
+          {outOfOrder.earlier} ({formatDueDate(outOfOrder.earlierDue)}). The plan is shown in the order it is paid.
+        </p>
+      ) : null}
+
       {steps.length === 0 ? (
         <p className="text-[11px] text-ink/55">
           No payment schedule — pay the supplier directly.
         </p>
       ) : (
-        <ol className="space-y-2" role="list">
-          {steps.map((s) => {
+        <ol className={lined ? 'divide-y divide-ink/10' : 'space-y-2'} role="list">
+          {ordered.map((s) => {
             const meta = STATE_META[s.state];
             const Icon = meta.Icon;
             const amount =
@@ -117,7 +133,7 @@ export function PaymentPlanStepper({
             return (
               <li
                 key={s.seq}
-                className="flex items-center gap-2.5"
+                className={lined ? 'flex min-h-11 items-center gap-2.5 py-1' : 'flex items-center gap-2.5'}
                 aria-label={`${s.label}: ${meta.label}`}
               >
                 <span
@@ -131,8 +147,8 @@ export function PaymentPlanStepper({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium text-ink">{s.label}</p>
                   <p className={['text-[11px]', meta.labelClass].join(' ')}>
-                    {meta.label}
-                    {due ? ` · due ${due}` : ''}
+                    {/* "Due Nov 15, 2026" — the state IS the word, so it is said once (CHAT-10: it read "Due · due"). */}
+                    {s.state === 'due' ? (due ? `Due ${due}` : meta.label) : `${meta.label}${due ? ` · due ${due}` : ''}`}
                   </p>
                 </div>
                 <p className="shrink-0 text-xs font-semibold tabular-nums text-ink">

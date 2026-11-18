@@ -56,7 +56,7 @@ export default async function EditVenuePage({ params }: Props) {
     logQueryError('admin/venues/[id]', venueError);
     return (
       <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
-        <RecordBack href="/admin/venues" label="Venues" />
+        <RecordBack href="/admin/accounts?tab=venues" label="Venues" />
         <PageMasthead title="Venue" />
         <ReadFailed what="this venue" />
       </div>
@@ -70,7 +70,7 @@ export default async function EditVenuePage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
-      <RecordBack href="/admin/venues" label="Venues" />
+      <RecordBack href="/admin/accounts?tab=venues" label="Venues" />
       <PageMasthead titleNode={<span>{row.name}</span>} />
       <RecordHead small={`Venue · ${typeLabel}`} name={row.name} />
 
@@ -89,7 +89,7 @@ export default async function EditVenuePage({ params }: Props) {
             source_note: row.source_note,
           }}
           submitLabel="Save changes"
-          cancelHref="/admin/venues"
+          cancelHref="/admin/accounts?tab=venues"
         />
       </div>
 

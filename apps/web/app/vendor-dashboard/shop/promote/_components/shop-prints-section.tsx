@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Printer, Share } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, IdCard, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
@@ -28,6 +28,9 @@ import {
   groundCss,
   matrix3d,
   printDesign,
+  printsCountLine,
+  PRINTS_LINE,
+  PRINT_PIECE_COUNT,
   printAllFilename,
   printAllHref,
   printFilename,
@@ -90,7 +93,7 @@ const HOW =
 const FACTS_TIP =
   'These come from your shop — change them there and every print follows. Nothing on a print is typed or moved here. The seal, rating and badges print only if you have them; the switches below take the rating and badges off every print. On the calling card the rating and badges sit on the back.';
 const FITS_TIP =
-  'Every piece has one fixed layout that all 15 designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.';
+  `Every piece has one fixed layout that all ${formatCount(PRINT_DESIGNS.length)} designs share: fixed size, safe zones, and fixed spots for the name, line, seal, rating, badges and QR. The QR always prints dark on a white plate so it scans, and no ornament may enter its zone. You pick a design and a QR — that is all. No moving, resizing or uploading, which is exactly what lets the photos below place your prints by themselves.`;
 
 /** YOUR FACTS' first two rows: the shop's name and the line every print carries — read on the server, never typed. */
 export type PrintFacts = { name: string; line: string };
@@ -133,16 +136,38 @@ export function ShopPrintsSection({
       <InfoTip label="Prints" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         {HOW}
       </InfoTip>
-      <div className="mt-2">
+      {/* 🪪 The drawing's block (owner 16 Nov, `supplier_shop_clean_2026-11-16`): the line under "Prints", its counts (read
+          from the two tables, never typed), then ONE row per piece — each opens the shipped sheet straight on that
+          piece's big view, the same `big` the QR list's "Put it on…" uses. */}
+      <p className="mt-1 text-[13.5px] text-ink/70" data-shop-prints-line="">
+        <IdCard aria-hidden className="mr-1.5 inline h-[18px] w-[18px] align-[-4px] text-ink/55" strokeWidth={1.75} />
+        {PRINTS_LINE}
+        <small className="ml-1.5 text-[12.5px] text-ink/55">{printsCountLine()}</small>
+      </p>
+      <div className="mt-1 divide-y divide-ink/10">
         {canShare ? (
-          <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left" data-dates-row="shop-prints">
-            <Printer aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium leading-tight text-ink">Calling card + tarps</span>
-              <span className="mt-0.5 block truncate text-[13px] text-ink/60">15 designs · 7 pieces</span>
-            </span>
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-          </button>
+          PRINT_PIECES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                setBig({ kind: 'piece', piece: p });
+                setOpen(true);
+              }}
+              aria-haspopup="dialog"
+              className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2.5 text-left"
+              data-dates-row="shop-prints"
+              data-shop-prints-piece={p.id}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium leading-tight text-ink">
+                  {p.name} <i className="ml-1 text-[12.5px] font-normal not-italic text-ink/55">{p.size}</i>
+                </span>
+                <span className="mt-0.5 block truncate text-[13px] text-[color:var(--m-slate-2)]">{p.line}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+            </button>
+          ))
         ) : (
           <DatesRow data="shop-prints-no-address" title="Name your shop first" line="Your codes are built from your shop’s web address" href={setupHref} />
         )}
@@ -217,7 +242,7 @@ function PrintsSheet({
   const pickDesign = (k: string) => {
     if (k === designId) return;
     setDesignId(k);
-    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all 7 pieces and the photos updated`);
+    toast.info(`Design · ${printDesign(k)?.name ?? ''} · all ${formatCount(PRINT_PIECE_COUNT)} pieces and the photos updated`);
   };
   const pickQr = (k: string) => {
     const m = k as PrintQrMode;
@@ -251,10 +276,10 @@ function PrintsSheet({
           {bigTitle}
         </h2>
         {bigSub ? (
-          <p className="truncate text-[12.5px] text-ink/60">{bigSub}</p>
+          <p className="truncate text-[12.5px] text-[color:var(--m-slate-2)]">{bigSub}</p>
         ) : (
-          <span className="text-[12.5px] text-ink/60" data-prints-top="">
-            <InfoTip label={`${d.name} · 7 pieces`} labelClassName="text-[12.5px] text-ink/60" ariaLabel="How prints work" align="start">
+          <span className="text-[12.5px] text-[color:var(--m-slate-2)]" data-prints-top="">
+            <InfoTip label={`${d.name} · ${formatCount(PRINT_PIECE_COUNT)} pieces`} labelClassName="text-[12.5px] text-[color:var(--m-slate-2)]" ariaLabel="How prints work" align="start">
               {HOW}
             </InfoTip>
           </span>
@@ -311,7 +336,7 @@ function PrintsSheet({
                 {facts?.line ? (
                   <span className="min-w-0 text-right font-medium text-ink [overflow-wrap:anywhere]">{facts.line}</span>
                 ) : (
-                  <span className="text-ink/60">None yet</span>
+                  <span className="text-[color:var(--m-slate-2)]">None yet</span>
                 )}
               </FactRow>
               <FactRow k="Verified seal" small="If you have it">
@@ -339,8 +364,8 @@ function PrintsSheet({
                 />
               </FactRow>
               <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-4 py-2" data-prints-blocks="">
-                <span className="text-ink/60">
-                  <InfoTip label="On your prints" labelClassName="text-[14px] text-ink/60" ariaLabel="About On your prints" align="start">
+                <span className="text-[color:var(--m-slate-2)]">
+                  <InfoTip label="On your prints" labelClassName="text-[14px] text-[color:var(--m-slate-2)]" ariaLabel="About On your prints" align="start">
                     {ON_YOUR_PRINTS}
                   </InfoTip>
                 </span>
@@ -359,10 +384,10 @@ function PrintsSheet({
             </div>
 
             <SecHead label="How it fits" tip={FITS_TIP} />
-            <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">One fixed layout per piece. A design changes only the look — your shop changes the facts.</p>
+            <p className="px-4 pb-1.5 pt-1 text-[13px] text-[color:var(--m-slate-2)]">One fixed layout per piece. A design changes only the look — your shop changes the facts.</p>
 
             <SecHead
-              label={`All 7 pieces · ${d.name}`}
+              label={`All ${formatCount(PRINT_PIECE_COUNT)} pieces · ${d.name}`}
               tip={`${d.name} — suits ${d.suits}. Tap any piece to see it big. Save gives a print-ready file with 3 mm bleed at this exact size.`}
               badge={`${PRINT_QR[qr].t} QR`}
             />
@@ -395,14 +420,14 @@ function PrintsSheet({
               label="See it in use"
               tip="Real event photos. Your chosen design and QR are placed onto the printed surfaces by the app — change the design or the QR and these update with it. The people and furniture in front stay in front."
             />
-            <p className="px-4 pb-1.5 pt-1 text-[13px] text-ink/60">Your design and QR, placed on the prints in each photo. Swipe.</p>
+            <p className="px-4 pb-1.5 pt-1 text-[13px] text-[color:var(--m-slate-2)]">Your design and QR, placed on the prints in each photo. Swipe.</p>
             <div className="mt-1 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-prints-scenes="">
               {PRINT_SCENES.map((s) => (
                 <figure key={s.slug} className="m-0 flex-none snap-start" data-prints-scene={s.slug}>
                   <button type="button" onClick={() => setBig({ kind: 'scene', scene: s })} aria-label={`${s.cap} big`} className="sn-press block">
                     <Scene scene={s} d={d} qr={qr} height={220} />
                   </button>
-                  <figcaption className="pt-1.5 text-[12.5px] text-ink/60">
+                  <figcaption className="pt-1.5 text-[12.5px] text-[color:var(--m-slate-2)]">
                     <b className="font-medium text-ink">{s.cap}</b> · {s.sub}
                   </figcaption>
                 </figure>
@@ -422,10 +447,10 @@ function DockFace({ small, value }: { small: string; value: string }) {
   return (
     <>
       <span className="flex min-w-0 flex-col leading-[1.15]">
-        <small className="truncate text-[11px] font-normal text-ink/60">{small}</small>
+        <small className="truncate text-xs font-normal text-[color:var(--m-slate-2)]">{small}</small>
         <span className="truncate text-[14px] font-medium text-ink">{value}</span>
       </span>
-      <ChevronDown aria-hidden className="h-3.5 w-3.5 flex-none text-ink/60" strokeWidth={2} />
+      <ChevronDown aria-hidden className="h-3.5 w-3.5 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} />
     </>
   );
 }
@@ -433,9 +458,9 @@ function DockFace({ small, value }: { small: string; value: string }) {
 /** A section head: small capitals, an optional pill, the ⓘ at the row's end (the prototype's `.sec-l`). */
 function SecHead({ label, tip, badge }: { label: string; tip: string; badge?: string }) {
   return (
-    <div className="flex items-center gap-2 px-4 pb-1 pt-4 text-[11px] uppercase tracking-[0.08em] text-ink/60" data-prints-sec={label.split(' ·')[0]!.toLowerCase()}>
+    <div className="flex items-center gap-2 px-4 pb-1 pt-4 text-xs uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]" data-prints-sec={label.split(' ·')[0]!.toLowerCase()}>
       <span className="min-w-0 truncate">{label}</span>
-      {badge ? <span className="flex-none whitespace-nowrap rounded-full bg-ink/[0.06] px-[9px] py-1 text-[12px] font-medium text-ink/60">{badge}</span> : null}
+      {badge ? <span className="flex-none whitespace-nowrap rounded-full bg-ink/[0.06] px-[9px] py-1 text-[12px] font-medium text-[color:var(--m-slate-2)]">{badge}</span> : null}
       <span className="ml-auto flex-none normal-case tracking-normal">
         <InfoTip label="" ariaLabel={`About ${label}`} align="end">
           {tip}
@@ -449,7 +474,7 @@ function SecHead({ label, tip, badge }: { label: string; tip: string; badge?: st
 function FactRow({ k, small, first = false, children }: { k: string; small?: string; first?: boolean; children: ReactNode }) {
   return (
     <div className={`flex min-h-12 items-center justify-between gap-3 px-4 py-2.5 text-[14px] ${first ? '' : 'border-t border-ink/10'}`} data-prints-fact={k}>
-      <span className="min-w-0 text-ink/60">
+      <span className="min-w-0 text-[color:var(--m-slate-2)]">
         {k}
         {small ? <small className="block text-[11.5px]">{small}</small> : null}
       </span>
@@ -488,9 +513,9 @@ function PieceHead({ name, size, purpose, action }: { name: string; size: string
     <div className="mb-2 flex items-center gap-2.5">
       <div className="min-w-0 flex-1">
         <div className="text-[15px] font-medium leading-tight text-ink">
-          {name} <span className="font-normal text-ink/60">· {size}</span>
+          {name} <span className="font-normal text-[color:var(--m-slate-2)]">· {size}</span>
         </div>
-        <InfoTip label={purpose.purpose} labelClassName="text-[12.5px] leading-snug text-ink/60" ariaLabel={`About ${name}`} align="start">
+        <InfoTip label={purpose.purpose} labelClassName="text-[12.5px] leading-snug text-[color:var(--m-slate-2)]" ariaLabel={`About ${name}`} align="start">
           <b className="font-medium">{purpose.what}</b>
           <span className="mt-1 block">Carries:</span>
           <ul className="mt-0.5 list-disc pl-4">
@@ -575,9 +600,9 @@ function BigPiece({ piece, d, qr, member = null }: { piece: PrintPiece; d: Print
       <div className="grid gap-3">
         {piece.sides === 2 ? (
           <>
-            <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-ink/60">Front</p>
+            <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Front</p>
             <Art piece={piece} side="f" d={d} qr={qr} member={member} />
-            <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-ink/60">Back</p>
+            <p className="-mb-1.5 text-[12px] uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Back</p>
             <Art piece={piece} side="b" d={d} qr={qr} />
           </>
         ) : (
@@ -589,7 +614,7 @@ function BigPiece({ piece, d, qr, member = null }: { piece: PrintPiece; d: Print
       <div className="mt-3">
         <SaveButton piece={piece} d={d} qr={qr} member={member} />
       </div>
-      <p className="mt-2 text-[13px] text-ink/60">
+      <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
         Print-ready, 3 mm bleed, exact size. Your QR: {PRINT_QR[qr].t} — “{PRINT_QR[qr].cap}”.
       </p>
     </div>
@@ -603,7 +628,7 @@ function BigScene({ scene, d, qr }: { scene: PrintScene; d: PrintDesign; qr: Pri
       <div>
         <Scene scene={scene} d={d} qr={qr} />
       </div>
-      <p className="mt-2 text-[13px] text-ink/60">{names} placed by the app. The design and QR you picked; nothing drawn by hand.</p>
+      <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">{names} placed by the app. The design and QR you picked; nothing drawn by hand.</p>
     </div>
   );
 }
@@ -735,7 +760,7 @@ function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
       <div className="flex items-center gap-2.5">
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-medium leading-tight text-ink">Your badges</div>
-          <div className="text-[12.5px] leading-snug text-ink/60" role={read.k === 'unread' ? 'alert' : undefined}>
+          <div className="text-[12.5px] leading-snug text-[color:var(--m-slate-2)]" role={read.k === 'unread' ? 'alert' : undefined}>
             {line}
           </div>
         </div>

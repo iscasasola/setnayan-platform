@@ -14,8 +14,15 @@
  * own confirm/clear actions also revalidate the page, which re-seeds `initial`.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
+import { BadgeCheck, ChevronDown, CircleCheck, ShieldCheck, Undo2, Wallet } from 'lucide-react';
+import { Explain } from '@/app/_components/explain';
+import { PickedNavContext } from '@/app/_components/picked/picked-nav';
+import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { TEMPLATE_MONEY, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
+import { PLAN_FOLD_SEEN_KEY, planFoldLine, planFoldOpensFor } from '@/lib/chat-plan-fold';
 import { createClient } from '@/lib/supabase/client';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -50,12 +57,10 @@ function fmtAckDate(iso: string): string {
 
 const peso = (n: number) => `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
 
-// The ActionButton look (components/action-button.tsx), written out as classes
-// because a SubmitButton takes a class, not a tone. "Confirm received" is the
-// card's MAIN button → terracotta (owner 2026-10-12, look call 1 — it was a
-// green fill); "Not received" is the quiet outline beside it. 44 px floor.
-const CONFIRM_CLASS = 'ab ab-brand ab-main min-h-[44px]';
-const QUIET_CLASS = 'ab ab-neutral min-h-[44px]';
+// "Confirm received" is the card's MAIN button → terracotta (owner 2026-10-12, look call 1 — it was a green fill);
+// "Not received" is the grey outline beside it. Both are the template's button piece (`SupplierSubmit` /
+// `ActionButton`), 44 px floor.
+const FLOOR = '!min-h-11';
 
 /**
  * The supplier's answer to one logged payment — "Confirm received" or "Not
@@ -94,13 +99,13 @@ export function PendingPaymentAnswer({
   return (
     <>
       {refused ? (
-        <p className="mt-2 rounded-lg bg-ink/[0.04] px-3 py-2 text-xs text-ink/75">
+        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
           {d?.settlement?.outcome === 'not_received'
             ? `Setnayan found it didn’t reach you${d.settlement.note ? ` — “${d.settlement.note}”` : ''}.`
             : `You said this never reached you${d?.reason ? ` — “${d.reason}”` : ''}. Setnayan is checking it with both of you.`}
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ink/55">
+        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
           Setnayan never holds this money — confirm only what you actually
           received.
         </p>
@@ -108,30 +113,40 @@ export function PendingPaymentAnswer({
       <div className="mt-3 flex flex-wrap gap-2">
         <form action={confirmVendorPayment}>
           {hidden}
-          <SubmitButton pendingLabel="Confirming…" className={CONFIRM_CLASS}>
-            {refused ? 'It arrived — confirm received' : 'Confirm received'}
-          </SubmitButton>
+          <SupplierSubmit
+            tone="brand"
+            main
+            icon={<BadgeCheck aria-hidden strokeWidth={1.9} />}
+            label={refused ? 'It arrived — confirm received' : 'Confirm received'}
+            pendingLabel="Confirming…"
+            className={FLOOR}
+          />
         </form>
         {refused ? null : (
-          <button
+          <ActionButton
             type="button"
+            tone="neutral"
+            icon={<Undo2 aria-hidden strokeWidth={1.9} />}
+            label="Not received"
             onClick={() => setNotReceivedOpen((v) => !v)}
             aria-expanded={notReceivedOpen}
-            className={QUIET_CLASS}
-          >
-            Not received
-          </button>
+            className={FLOOR}
+          />
         )}
       </div>
       {!refused && notReceivedOpen ? (
         <NotReceivedForm
           action={refuseVendorPayment}
           hidden={hidden}
-          fieldClassName="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink"
+          fieldClassName="w-full rounded-xl border border-[color:var(--m-line)] px-3 py-2 text-sm text-ink"
           submit={
-            <SubmitButton pendingLabel="Sending…" className={`${QUIET_CLASS} self-start`}>
-              Tell them it hasn’t arrived
-            </SubmitButton>
+            <SupplierSubmit
+              tone="neutral"
+              icon={<Undo2 aria-hidden strokeWidth={1.9} />}
+              label="Tell them it hasn’t arrived"
+              pendingLabel="Sending…"
+              className={`${FLOOR} self-start`}
+            />
           }
         />
       ) : null}
@@ -144,11 +159,22 @@ export function VendorPaymentLive({
   eventId,
   initialPending,
   initialPlans,
+  fold = null,
+  todayIso = null,
 }: {
   threadId: string;
   eventId: string;
   initialPending: PendingVendorPayment[];
   initialPlans: PlanProgressItem[];
+  /**
+   * 💳 THE CHAT FOLDS IT (DECISION_LOG 2026-11-16 CHAT-09): one 44 px row — "Plan · ₱0 of ₱8,750 · next ₱1,750 Nov 15"
+   * — that opens in place; "Mark payment cleared" one tap deeper, its helper line in an ⓘ, and "Payment ›" to the
+   * picked client's Payment page (`paymentHref`, `customerCardHref(…, 'payments')`). Absent (the customer card's
+   * Payment tab): the whole card, open, as before.
+   */
+  fold?: { paymentHref: string } | null;
+  /** Manila's today (YYYY-MM-DD), from the server — the folded row says a past due date is overdue. Null = unknown. */
+  todayIso?: string | null;
 }) {
   const [pending, setPending] = useState<PendingVendorPayment[]>(initialPending);
   const [plans, setPlans] = useState<PlanProgressItem[]>(initialPlans);
@@ -213,79 +239,203 @@ export function VendorPaymentLive({
     });
   }, [threadId, eventId, refetch]);
 
+  // 💳 THE FOLD (chat only — CHAT-09): a newly logged payment opens the row ONCE on this device, like the due-now pins;
+  // a deep link to `#pending-payments` (the customer card's "Log payment") opens it too.
+  const [foldOpen, setFoldOpen] = useState(false);
+  const foldId = useId();
+  const pendingKey = pending.map((p) => p.paymentId).join('|');
+  const folded = fold != null;
+  useEffect(() => {
+    if (!folded) return;
+    const ids = pendingKey ? pendingKey.split('|') : [];
+    let seen: string | null = null;
+    try {
+      seen = window.localStorage.getItem(PLAN_FOLD_SEEN_KEY(threadId));
+    } catch {
+      seen = null;
+    }
+    if (planFoldOpensFor(ids, seen)) setFoldOpen(true);
+    try {
+      window.localStorage.setItem(PLAN_FOLD_SEEN_KEY(threadId), pendingKey);
+    } catch {
+      /* private mode — the row simply stays as the person left it */
+    }
+  }, [folded, threadId, pendingKey]);
+  useEffect(() => {
+    if (folded && window.location.hash === '#pending-payments') setFoldOpen(true);
+  }, [folded]);
+  const nav = useContext(PickedNavContext);
+
+  /* Pending payment confirms — the couple logged an off-platform payment
+     (with optional proof). Nothing is "received" until the vendor taps
+     Confirm; the DB guard (confirm_vendor_payment) re-checks ownership. */
+  const pendingCards = pending.map((p) => (
+    // The one next step on this screen — the only thing here that may wear a frame (rule 2): the warm surface.
+    <div
+      key={p.paymentId}
+      className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4"
+    >
+      <p className="text-[15px] font-semibold text-ink">
+        The couple logged a <span className={TEMPLATE_MONEY}>{peso(p.amountPhp)}</span> payment
+      </p>
+      <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
+        {p.installmentLabel ? `For ${p.installmentLabel} · ` : ''}
+        Paid {p.paidAt}
+        {p.method ? ` · ${p.method}` : ''}
+        {p.reference ? ` · ref ${p.reference}` : ''}.
+        {p.notes ? ` “${p.notes}”` : ''}
+      </p>
+      {p.proofUrl ? (
+        <p className="mt-1.5 text-sm">
+          <a
+            href={p.proofUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-mulberry underline hover:text-mulberry-600"
+          >
+            View attached receipt
+          </a>
+        </p>
+      ) : null}
+      <PendingPaymentAnswer payment={p} threadId={threadId} />
+    </div>
+  ));
+
+  /* Payment plan progress + clear — one per booking with a frozen plan: a
+     received-of-total roll-up, the installment stepper, and the "Mark payment
+     cleared" gate (enabled only when every installment is confirmed, or the
+     booking has no schedule). Each piece is built ONCE; the open card (the
+     Payment tab) and the chat's folded row lay the same pieces out. */
+  const planViews = plans.map((p) => {
+    const cleared = p.clearedAt != null;
+    const steps = p.steps ?? [];
+    const canClear = canClearPlan(steps);
+    const rollup = computePlanRollup(steps);
+    const ack = p.reservationAcknowledgedAt ? (
+      <p className={`mt-1.5 inline-flex items-center gap-1.5 ${TEMPLATE_SUBLINE}`}>
+        <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Protected by your reservation policy — acknowledged{' '}
+        {fmtAckDate(p.reservationAcknowledgedAt)}
+      </p>
+    ) : null;
+    const stepper = <PaymentPlanStepper steps={steps} clearedAt={p.clearedAt} lined={folded} />;
+    const clearForm = !cleared ? (
+      <form action={clearVendorPaymentPlan}>
+        <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
+        <input type="hidden" name="thread_id" value={threadId} />
+        {fold ? (
+          <SubmitButton
+            pendingLabel="Clearing…"
+            disabled={!canClear}
+            className="inline-flex min-h-11 items-center rounded-full bg-success-700 px-4 text-sm font-semibold text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Mark payment cleared
+          </SubmitButton>
+        ) : (
+          // Green confirms money (rule 3) — outlined, the screen's one filled button stays Send / Confirm.
+          <SubmitButton
+            pendingLabel="Clearing…"
+            disabled={!canClear}
+            className={actionButtonClass('ok', { extra: FLOOR })}
+            aria-label="Mark payment cleared"
+            title="Mark payment cleared"
+          >
+            <CircleCheck aria-hidden strokeWidth={1.9} />
+            <span className="lbl">Mark payment cleared</span>
+          </SubmitButton>
+        )}
+      </form>
+    ) : null;
+    return { p, cleared, steps, canClear, rollup, ack, stepper, clearForm };
+  });
+
+  if (fold) {
+    if (pending.length === 0 && planViews.length === 0) return null;
+    const lead = planViews[0];
+    const line = lead
+      ? planFoldLine(lead.rollup, lead.cleared, lead.steps.length > 0, todayIso)
+      : `${peso(pending.reduce((sum, p) => sum + p.amountPhp, 0))} to confirm`;
+    return (
+      <div className="bg-cream px-3 py-0.5 sm:px-4" data-chat-plan-fold={foldOpen ? 'open' : 'closed'}>
+        <button
+          type="button"
+          aria-expanded={foldOpen}
+          aria-controls={foldId}
+          onClick={() => setFoldOpen((was) => !was)}
+          className="sn-press flex h-11 w-full items-center gap-2 rounded-full border border-ink/12 pl-3.5 pr-3 text-left text-[14px] text-ink/70 hover:bg-ink/[0.04]"
+          data-chat-plan-row=""
+        >
+          <Wallet aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.9} />
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold text-ink">Plan</b> · {line}
+          </span>
+          <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 transition-transform ${foldOpen ? 'rotate-180' : ''}`} strokeWidth={1.9} />
+        </button>
+        {foldOpen ? (
+          <div id={foldId} className="space-y-2 pb-1.5 pt-1" data-chat-plan-open="">
+            {pendingCards}
+            {planViews.map(({ p, cleared, canClear, ack, stepper, clearForm }) => (
+              <div key={p.eventVendorId}>
+                {planViews.length > 1 ? <p className="pt-1 text-[13px] font-semibold text-ink">{p.vendorLabel}</p> : null}
+                {ack}
+                {stepper}
+                <div className="flex items-center gap-1 pt-1.5">
+                  {clearForm}
+                  {!cleared ? (
+                    <Explain title="Mark payment cleared" data="chat-plan-clear">
+                      {canClear
+                        ? 'All payments confirmed — mark the plan cleared to let the couple know nothing more is owed.'
+                        : 'Confirm every payment first.'}
+                    </Explain>
+                  ) : null}
+                  <Link
+                    href={fold.paymentHref}
+                    onClick={(e) => {
+                      // Inside the picked client the Payment page opens in place; full screen, the link goes there.
+                      if (nav) {
+                        e.preventDefault();
+                        nav.select('payments');
+                      }
+                    }}
+                    className="ml-auto inline-flex min-h-11 items-center px-1 text-sm font-semibold text-sn-accent"
+                    data-chat-plan-payment=""
+                  >
+                    Payment ›
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Pending payment confirms — the couple logged an off-platform payment
-          (with optional proof). Nothing is "received" until the vendor taps
-          Confirm; the DB guard (confirm_vendor_payment) re-checks ownership. */}
-      {pending.map((p) => (
-        <div
-          key={p.paymentId}
-          className="rounded-xl border border-success-700/30 bg-success-50/60 p-4"
-        >
-          <p className="text-sm font-semibold text-ink">
-            The couple logged a {peso(p.amountPhp)} payment
-          </p>
-          <p className="mt-1 text-sm text-ink/70">
-            {p.installmentLabel ? `For ${p.installmentLabel} · ` : ''}
-            Paid {p.paidAt}
-            {p.method ? ` · ${p.method}` : ''}
-            {p.reference ? ` · ref ${p.reference}` : ''}.
-            {p.notes ? ` “${p.notes}”` : ''}
-          </p>
-          {p.proofUrl ? (
-            <p className="mt-1.5 text-sm">
-              <a
-                href={p.proofUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-mulberry underline hover:text-mulberry-600"
-              >
-                View attached receipt
-              </a>
-            </p>
-          ) : null}
-          <PendingPaymentAnswer payment={p} threadId={threadId} />
-        </div>
-      ))}
-
-      {/* Payment plan progress + clear — one card per booking with a frozen
-          plan: a received-of-total roll-up, the installment stepper, and the
-          "Mark payment cleared" gate (enabled only when every installment is
-          confirmed, or the booking has no schedule). */}
-      {plans.map((p) => {
-        const cleared = p.clearedAt != null;
-        const steps = p.steps ?? [];
-        const canClear = canClearPlan(steps);
-        const rollup = computePlanRollup(steps);
-        return (
+      {pendingCards}
+      {planViews.map(({ p, cleared, canClear, rollup, ack, stepper, clearForm }) => (
           <div
             key={p.eventVendorId}
-            className="sn-row p-4"
+            className="border-t border-[color:var(--m-line)] py-3 first:border-t-0"
           >
-            <p className="text-sm font-semibold text-ink">
+            <p className="text-[15px] font-semibold text-ink">
               Payment plan — {p.vendorLabel}
             </p>
-            {p.reservationAcknowledgedAt ? (
-              <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-[11px] font-medium text-terracotta-700">
-                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Protected by your reservation policy — acknowledged{' '}
-                {fmtAckDate(p.reservationAcknowledgedAt)}
-              </p>
-            ) : null}
+            {ack}
             {rollup.total > 0 ? (
-              <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-paper/60 p-3">
+              <div className="mt-3 space-y-2 border-y border-[color:var(--m-line)] py-3">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-sm text-ink/70">
-                    <span className="font-semibold text-ink">{peso(rollup.received)}</span>
-                    <span className="text-ink/45"> of </span>
-                    <span className="font-semibold text-ink">{peso(rollup.total)}</span>
-                    <span className="text-ink/45"> received</span>
+                  <p className="text-sm text-[color:var(--m-slate-2)]">
+                    <span className={TEMPLATE_MONEY}>{peso(rollup.received)}</span>
+                    <span> of </span>
+                    <span className={TEMPLATE_MONEY}>{peso(rollup.total)}</span>
+                    <span> received</span>
                   </p>
-                  <p className="font-display text-xl text-ink">{rollup.percentReceived}%</p>
+                  <p className="text-xl font-bold tabular-nums text-ink">{rollup.percentReceived}%</p>
                 </div>
                 <div
-                  className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10"
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--m-line)]"
                   role="progressbar"
                   aria-valuenow={rollup.percentReceived}
                   aria-valuemin={0}
@@ -293,16 +443,16 @@ export function VendorPaymentLive({
                   aria-label="Percent of plan received"
                 >
                   <div
-                    className="h-full rounded-full bg-success-600"
-                    style={{ width: `${rollup.percentReceived}%` }}
+                    className="h-full rounded-full"
+                    style={{ width: `${rollup.percentReceived}%`, background: 'rgb(var(--color-ok))' }}
                   />
                 </div>
-                <p className="text-xs text-ink/55">
+                <p className={TEMPLATE_SUBLINE}>
                   {cleared ? (
                     'Plan cleared — nothing outstanding.'
                   ) : rollup.pending > 0 ? (
                     <>
-                      <span className="font-medium text-warn-700">
+                      <span className="font-medium" style={{ color: 'rgb(var(--color-warn))' }}>
                         {peso(rollup.pending)} awaiting your confirmation
                       </span>
                       {rollup.next ? (
@@ -324,31 +474,17 @@ export function VendorPaymentLive({
                 </p>
               </div>
             ) : null}
-            <div className="mt-3">
-              <PaymentPlanStepper steps={steps} clearedAt={p.clearedAt} />
-            </div>
-            {!cleared ? (
+            <div className="mt-3">{stepper}</div>
+            {clearForm ? (
               <>
-                <div className="mt-3">
-                  <form action={clearVendorPaymentPlan}>
-                    <input type="hidden" name="event_vendor_id" value={p.eventVendorId} />
-                    <input type="hidden" name="thread_id" value={threadId} />
-                    <SubmitButton
-                      pendingLabel="Clearing…"
-                      disabled={!canClear}
-                      className="inline-flex h-9 items-center rounded-lg bg-success-700 px-4 text-sm font-medium text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Mark payment cleared
-                    </SubmitButton>
-                  </form>
-                </div>
+                <div className="mt-3">{clearForm}</div>
                 {!canClear ? (
-                  <p className="mt-2 text-xs text-ink/55">
+                  <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
                     Confirm every payment above before you can mark the plan
                     cleared.
                   </p>
                 ) : (
-                  <p className="mt-2 text-xs text-ink/55">
+                  <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
                     All payments confirmed — mark the plan cleared to let the
                     couple know nothing more is owed.
                   </p>
@@ -356,8 +492,7 @@ export function VendorPaymentLive({
               </>
             ) : null}
           </div>
-        );
-      })}
+      ))}
     </>
   );
 }

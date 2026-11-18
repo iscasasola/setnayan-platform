@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readCouplesWhoOpened } from '@/lib/vendor-funnel';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive } from '@/lib/vendor-visibility';
@@ -110,8 +111,8 @@ export function pagePlanLines(): PagePlanLine[] {
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
     // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to
     // solo as well"); read from `customWebsiteName`, never typed onto a line.
-    { plan: 'Supplier Plus', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
-    { plan: 'Supplier Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Plus', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
   ];
 }
 
@@ -233,11 +234,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   const badgesRead = readShopBadgeFacts(createAdminClient(), vendorId);
   // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
   const views30Read = (async (): Promise<number | null> => {
-    const { count, error } = await supabase
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorId)
-      .gte('viewed_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
+    // 👁 Distinct visitors, never rows (W1-B15) — the reader Analytics' funnel counts with.
+    const { count, error } = await readCouplesWhoOpened(supabase, vendorId, new Date(Date.now() - 30 * 86_400_000).toISOString());
     if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
     return error || count === null ? null : count;
   })().catch((err) => {

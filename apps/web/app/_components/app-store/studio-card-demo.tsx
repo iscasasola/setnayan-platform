@@ -1205,7 +1205,14 @@ export function StudioCardDemo({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={richF.image} alt={caption} loading="lazy" className="h-full w-full object-cover" />
             ) : (
-              richF.scene
+              // 🖼 THE SCENE IS A PICTURE OF THE APP, NOT THE APP (full-page audit, 16 Nov 2026). Its "Save palette" /
+              // "Render reel" look-alikes are drawn, not wired — so `inert` takes every one of them out of the tab
+              // order and out of what a screen reader announces (the figcaption above already says the step), and
+              // `contents` draws no box of its own, so the picture is pixel-for-pixel what it was.
+              // studio-card-demo-is-a-picture.test.ts holds it.
+              <div inert aria-hidden className="contents">
+                {richF.scene}
+              </div>
             )
           ) : dataF?.image ? (
             // eslint-disable-next-line @next/next/no-img-element

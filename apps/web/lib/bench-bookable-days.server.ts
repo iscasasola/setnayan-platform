@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { namedCalendarsEnabled } from '@/lib/schedule-pools';
 import {
-  ACCOMMODATION_CATEGORY,
+  isAccommodationCategory,
   UNBOOKABLE_MAX_CARDS,
   UNBOOKABLE_MAX_DAYS,
   fitDateScope,
@@ -79,7 +79,7 @@ export async function readSuppliersWithNoBookingLeft(args: {
     if (cards.length === 0) return new Set();
 
     // Accommodation is judged on every night of the span ±1, so those nights are asked about too.
-    const withAccommodation = [...categoryOf.values()].includes(ACCOMMODATION_CATEGORY);
+    const withAccommodation = [...categoryOf.values()].some(isAccommodationCategory);
     const days = fitDaysToAsk(scope, withAccommodation);
     const optionsByCategory = new Map<string | null, CardOptions>();
     const optionsOf = (card: string): CardOptions => {

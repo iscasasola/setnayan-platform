@@ -80,6 +80,8 @@ export type TeamRowFacts = {
   quoteWaitingOnCouple: boolean;
   /** Marketplace verification, for the Lock button's own "Verifying" gate. */
   isVerified?: boolean;
+  /** 🛡 Owner 2026-11-16 (36d74d48): a marketplace shop whose state was READ and is not verified — the row says so. */
+  notYetVerified?: boolean;
 };
 
 export type TeamRowAction =
@@ -116,6 +118,7 @@ export type TeamRow = {
   /** The couple has something to DO on this row (counted as "need you"). */
   needsYou: boolean;
   isVerified?: boolean;
+  notYetVerified: boolean;
 };
 
 const GROUP_ORDER: Record<TeamRowGroup, number> = { booked: 0, asked: 1, deciding: 2, waiting: 3 };
@@ -151,6 +154,7 @@ export function teamRowOf(
     logoUrl: f.logoUrl,
     initials: initialsOf(f.name),
     isVerified: f.isVerified,
+    notYetVerified: f.notYetVerified === true,
   };
   const state = lockRequestStateOf(
     { status: f.status, lock_request_state: f.lockRequestState },

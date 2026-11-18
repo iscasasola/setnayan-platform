@@ -129,7 +129,7 @@ export async function DemoModeSurface({ toggled }: { toggled?: string }) {
       <TemplateRow
         title="Manage demo suppliers"
         line="Public, never bookable — a real event can never book, pay or message a demo shop"
-        href="/admin/demo-vendors"
+        href="/admin/accounts?tab=demo-vendors"
         data="demo-manage"
       />
     </>

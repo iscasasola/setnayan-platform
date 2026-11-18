@@ -137,8 +137,8 @@ test('"and N more" counts OTHER events with the same service; a shop favorite co
 });
 
 test('the door opens the shop at that service', () => {
-  assert.equal(favoriteHref('setnaprod', 'S89S-ABC'), '/v/setnaprod?service=S89S-ABC');
-  assert.equal(favoriteHref('setnaprod', null), '/v/setnaprod');
+  assert.equal(favoriteHref('setnaprod', 'S89S-ABC'), '/setnaprod?service=S89S-ABC');
+  assert.equal(favoriteHref('setnaprod', null), '/setnaprod');
   assert.equal(favoriteHref(null, 'S89S-ABC'), null);
 });
 

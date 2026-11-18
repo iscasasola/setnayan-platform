@@ -40,11 +40,12 @@ const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
  * Keys are token names without the leading `--`.
  */
 const ALLOW: Record<string, string> = {
-  // The header band (Admin › Colours, owner 12 Nov 2026): a coloured surface whose words are always white — the admin
-  // gate refuses any band white words do not read on. Lightening it for dark would drop the white words under 4.5:1.
-  'sn-band-from': 'a coloured band with white words — the same in both themes',
-  'sn-band-to': 'a coloured band with white words — the same in both themes',
-  'sn-on-band': "the band's words are always white — the same in both themes",
+  // The header band (Admin › Colours, owner 12 Nov 2026; pale peach → white with INK words since the clean warm look,
+  // 16 Nov). The band and its words are ONE pair the admin gate measures together (`lib/app-colours.ts` bandWords):
+  // giving only one of them a dark value would split the pair the gate passed. Dark is inert (light-locked) anyway.
+  'sn-band-from': 'the band and its words are one measured pair — the same in both themes',
+  'sn-band-to': 'the band and its words are one measured pair — the same in both themes',
+  'sn-on-band': 'the band and its words are one measured pair — the same in both themes',
   // The gallery's obsidian SURFACE (archetype 02): dark in both themes by design — photographs carry
   // the colour and the chrome recedes. It is a surface, not a mode (globals.css explains why).
   'sn-ob-page': 'obsidian surface — dark in both themes',

@@ -14,7 +14,8 @@ const strip = (s: string) => stripComments(s);
 
 test('opening a shop ends on Today', () => {
   const actions = strip(read('app/open-shop/actions.ts'));
-  const redirects = [...actions.matchAll(/redirect\('([^']+)'\)/g)].map((m) => m[1]);
+  // W1-B21 (16 Nov 2026): the last redirect is Today unless the supplier came for a plan — then that plan's offer.
+  const redirects = [...actions.matchAll(/redirect\((?:planOfferPath\(plan\) \?\? )?'([^']+)'\)/g)].map((m) => m[1]);
   assert.equal(redirects[redirects.length - 1], '/vendor-dashboard', 'the last redirect of the open-shop action must be Today');
   assert.ok(!redirects.includes('/vendor-dashboard/shop'), 'no open-shop success path lands on My Shop');
 });
@@ -22,7 +23,8 @@ test('opening a shop ends on Today', () => {
 test('a person who already has a shop is sent to Today too (or to the console page `?next=` names)', () => {
   const page = strip(read('app/open-shop/page.tsx'));
   assert.match(page, /const landing = shopConsolePath\(next\);/);
-  assert.match(page, /if \(row\?\.business_name\?\.trim\(\)\) redirect\(landing\);/);
+  // W1-B21: a supplier who came for a plan is offered it; anyone else goes to `landing`.
+  assert.match(page, /if \(row\?\.business_name\?\.trim\(\)\) redirect\(planOfferPath\(plan\) \?\? landing\);/);
   // The default — no `next`, or one that is not a console page — is still Today.
   const lib = strip(read('lib/shop-console-path.ts'));
   assert.match(lib, /SHOP_CONSOLE_HOME = '\/vendor-dashboard'/);

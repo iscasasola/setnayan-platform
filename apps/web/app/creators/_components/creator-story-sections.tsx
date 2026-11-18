@@ -431,8 +431,9 @@ export function CreatorStoryCTA() {
           <Link href="/signup" className="m-btn m-btn-primary m-btn-lg">
             Publish your story — free
           </Link>
-          <Link href="/realstories" className="m-btn m-btn-ghost m-btn-lg">
-            See Stories
+          {/* 🗞✂ 2026-11-16 — the Stories hub is retired; shared stories live on Discover. */}
+          <Link href="/" className="m-btn m-btn-ghost m-btn-lg">
+            See stories on Discover
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>

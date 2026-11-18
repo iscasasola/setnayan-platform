@@ -15,7 +15,7 @@ import { startBadgeUpgrade, type StartBadgeUpgradeState } from '../badge-upgrade
 export type BadgeUpgradesSectionData = { rows: BadgeUpgradeRow[] | null; nowMs: number };
 
 const IDLE: StartBadgeUpgradeState = { status: 'idle' };
-const icUp = <Rocket aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const icUp = <Rocket aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
 function day(iso: string): string {
   const d = new Date(iso);
@@ -47,16 +47,16 @@ export function BadgeUpgradesSection({ data }: { data: BadgeUpgradesSectionData 
     <section id="upgrades" className="mt-8 scroll-mt-24" data-badge-upgrades="" aria-labelledby={headingId}>
       <InfoTip label="Your upgrades" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Some badges give your own shop four weeks of an add-on: Verified → Papic Challenges · your first booking → 3D Booth
-        (Papic Challenges below Supplier Plus, where the booth can&rsquo;t show your logo) · 5 reviews → AI Chatbot · Top Pick or
+        (Papic Challenges below Plus, where the booth can&rsquo;t show your logo) · 5 reviews → AI Chatbot · Top Pick or
         Most Booked of the month → the one you choose. Each waits here until you tap Start — it never expires unused.
       </InfoTip>
       <div className="mt-2">
         {rows === null ? (
-          <p className="py-2 text-[13.5px] text-ink/70" role="status">
+          <p className="py-2 text-[13.5px] text-[color:var(--m-slate-2)]" role="status">
             Your upgrades couldn&rsquo;t load. Reload to try again — nothing you earned has changed.
           </p>
         ) : rows.length === 0 ? (
-          <p className="py-2 text-[13.5px] text-ink/60">Earn Verified, your first booking or 5 reviews to unlock four weeks of an add-on.</p>
+          <p className="py-2 text-[13.5px] text-[color:var(--m-slate-2)]">Earn Verified, your first booking or 5 reviews to unlock four weeks of an add-on.</p>
         ) : (
           rows.map((r) => {
             if (r.startedAt && r.startedChoice) {
@@ -115,7 +115,7 @@ function StartUpgradeSheet({ row, onClose }: { row: BadgeUpgradeRow; onClose: ()
         <h2 id={headingId} className="pr-12 text-[18px] font-semibold text-ink">
           {upgradeWords(row.startable)}
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">
+        <p className="mt-1 text-[13.5px] text-[color:var(--m-slate-2)]">
           From {upgradeSourceWords(row.key)}. The four weeks start when you tap Start; if you already have it, they add on.
         </p>
         <form action={formAction} className="mt-4 space-y-4">

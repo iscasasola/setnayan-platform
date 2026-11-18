@@ -92,7 +92,7 @@ test('🔒 at the root the sheet is ABOVE the bar — read from the Sheet and th
   // The dock stands on the nav layer token since THE ONE BUILD (§10 #23): `z-sn-nav` = `--sn-z-nav` in globals.css.
   const navZ = Number(/--sn-z-nav:\s*(\d+);/.exec(readFileSync(join(WEB, 'app/globals.css'), 'utf8'))?.[1]);
   assert.ok(Number.isFinite(navZ), 'the nav layer token is no longer readable here');
-  const dockZ = [...NAV.matchAll(/'fixed inset-x-0 bottom-0 z-(\d+|sn-nav) flex flex-col backdrop-blur (?:tab|lg):hidden'/g)].map((m) =>
+  const dockZ = [...NAV.matchAll(/'pointer-events-none fixed inset-x-0 bottom-0 z-(\d+|sn-nav) flex flex-col (?:tab|lg):hidden'/g)].map((m) =>
     m[1] === 'sn-nav' ? navZ : Number(m[1]),
   );
   assert.equal(dockZ.length, 2, 'the dock’s two classes (tab · lg) are no longer readable here');

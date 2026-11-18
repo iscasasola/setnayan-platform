@@ -222,3 +222,9 @@ test('the section stands in the retired slot, booked-only, and explains every st
   assert.ok(section.includes('fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId)'), 'order state read with ADMIN — a teammate\'s order has another user_id');
   assert.ok(section.includes('<BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />'), 'the buy form is reached only in the buyable state');
 });
+
+test('CHAT-30 · an unpriced per-event booth is said plainly — never a "temporarily unavailable" notice', () => {
+  const section = read(SECTION);
+  assert.ok(!/temporarily unavailable/i.test(section), 'the broken notice is back on a client’s Details');
+  assert.ok(section.includes('eventPricePhp == null'), 'the unpriced state is still drawn');
+});

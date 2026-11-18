@@ -20,21 +20,21 @@ const NOW_LAST_WEEK = Date.parse('2027-01-25T00:00:00Z');
 
 test('only an admin comp on a paid plan with an end ahead is a gift', () => {
   const row = { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: END };
-  assert.deepEqual(planGiftOf(row, NOW_EARLY), { plan: 'Supplier Pro', untilDay: '2027-01-31', daysLeft: 92 });
+  assert.deepEqual(planGiftOf(row, NOW_EARLY), { plan: 'Pro', untilDay: '2027-01-31', daysLeft: 92 });
   assert.equal(planGiftOf({ ...row, tier_source: 'self_serve' }, NOW_EARLY), null, 'a plan they paid for is not a gift');
   assert.equal(planGiftOf({ ...row, tier_state: 'free' }, NOW_EARLY), null);
   assert.equal(planGiftOf({ ...row, tier_expires_at: null }, NOW_EARLY), null, 'an open-ended comp has no end to say');
   assert.equal(planGiftOf(row, Date.parse('2027-02-02T00:00:00Z')), null, 'an ended gift is not running');
-  assert.equal(planGiftOf({ ...row, tier_state: 'enterprise' }, NOW_EARLY)?.plan, 'Supplier Ultra');
+  assert.equal(planGiftOf({ ...row, tier_state: 'enterprise' }, NOW_EARLY)?.plan, 'Ultra');
 });
 
 test('Today: the Shop line names the gift, and counts down in its last week with a door', () => {
   const g = planGiftOf({ tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: END }, NOW_EARLY)!;
-  assert.equal(giftShopLine(g), 'Supplier Pro · free until 31 Jan 2027 · from Setnayan');
+  assert.equal(giftShopLine(g), 'Pro · free until 31 Jan 2027 · from Setnayan');
   assert.equal(giftDoorWords(g), null, 'the door shows months early');
   const soon = planGiftOf({ tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: END }, NOW_LAST_WEEK)!;
-  assert.equal(giftShopLine(soon), 'Supplier Pro · 7 days left on the gift');
-  assert.deepEqual(giftDoorWords(soon), { title: 'Your free Supplier Pro ends 31 Jan', body: 'Keep Supplier Pro, or do nothing — Free from 1 Feb' });
+  assert.equal(giftShopLine(soon), 'Pro · 7 days left on the gift');
+  assert.deepEqual(giftDoorWords(soon), { title: 'Your free Pro ends 31 Jan', body: 'Keep Pro, or do nothing — Free from 1 Feb' });
 });
 
 test('Your plan: the gift in place of a price, and the end once it is over', () => {

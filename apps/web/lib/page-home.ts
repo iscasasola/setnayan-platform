@@ -113,6 +113,28 @@ const LABELS: Record<string, string> = {
   '/login': 'Sign in',
 };
 
+/**
+ * ‹ A PAGE'S OWN NAME, from a real address (`/dashboard/abc/guests`, `?seg=memories`) — the map's `LABELS`, matched
+ * with each `[param]` as one segment. For a back that names the page it sits over (the profile menu's full-screen
+ * sheet, owner-approved 16 Nov 2026: "‹ Budget"). Null where the map has no name for that page — the caller decides.
+ */
+export function pageOwnLabel(pathname: string, search = ''): string | null {
+  const q = new URLSearchParams(search);
+  const path = segs(pathname);
+  let best: { label: string; score: number } | null = null;
+  for (const [key, label] of Object.entries(LABELS)) {
+    const [kPath, kQuery] = key.split('?') as [string, string | undefined];
+    const k = segs(kPath);
+    if (k.length !== path.length) continue;
+    if (!k.every((s, i) => /^\[[^\]]+\]$/.test(s) || s === path[i])) continue;
+    const want = kQuery ? [...new URLSearchParams(kQuery)] : [];
+    if (!want.every(([n, v]) => q.get(n) === v)) continue;
+    const score = want.length * 100 + k.filter((s) => !s.startsWith('[')).length;
+    if (!best || score > best.score) best = { label, score };
+  }
+  return best?.label ?? null;
+}
+
 const E = '/dashboard/[eventId]';
 const ADMIN_ACCOUNTS = (tab: string) => `/admin/accounts?tab=${tab}`;
 /** `customerLandingHref` (app/vendor-dashboard/customers/anchors.ts) — the folds the old supplier rooms became. */
@@ -199,6 +221,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): that door is now ALSO the top-left ‹ for everyone,
   // returning in place; cold, it is "home" — Discover signed out, Home signed in (`shopTopBack`).
   '/v/[slug]': { none: 'computed', by: 'lib/shop-back.ts' },
+  // 📖 An Ultra shop's own page for one event (2026-11-14, SIMPLER SUPPLIER PLANS item 8) goes back to that shop.
+  '/v/[slug]/story/[eventSlug]': { home: '/v/[slug]', label: 'the shop' },
   // 🎟 The host's own event page draws NO back — an invited guest sees nothing from Setnayan — EXCEPT for a visitor
   // Discover's event card sent (`?via=discover`, read in the browser only): one ‹ Discover (2026-11-12, "DISCOVER WITH
   // SUPPLIERS — PROTOTYPE APPROVED", answer 3). Per visit, so computed. (Its sub-pages keep `/[slug]/**` below.)

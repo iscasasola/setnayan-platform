@@ -83,6 +83,20 @@ test('🖼 canvas: Ultra yes · Pro before the cutover yes · Pro after no · re
   assert.equal(canvasPrintsUnlockedFrom([o('EVENT_ULTRA', 'submitted', after)]), false, 'a pending order unlocks');
   assert.equal(canvasPrintsUnlockedFrom([o('COUPLE_WEBSITE_PRO', 'paid', null)]), true);
   assert.equal(canvasPrintsUnlockedFrom([]), false);
+  // 💎 Owner 2026-11-15: a GIFTED Ultra is FULL Ultra — held with no order, it opens canvas; a gifted Pro (no Ultra
+  // held, no Pro order) does not.
+  assert.equal(canvasPrintsUnlockedFrom([], CANVAS_LEFT_PRO_AT, true), true, 'a gifted Ultra does not open canvas');
+  assert.equal(canvasPrintsUnlockedFrom([], CANVAS_LEFT_PRO_AT, false), false);
+});
+
+test('🖼 the canvas gate asks whether Ultra is HELD (gift, comp, order) and hands it to the one rule', () => {
+  const src = stripComments(readFileSync(path.join(HERE, 'event-ultra-gates.ts'), 'utf8'));
+  assert.match(src, /return eventSkuActive\(supabase, eventId, EVENT_ULTRA_SKU\)/, 'eventUltraActive stopped reading the full chain');
+  assert.match(
+    src,
+    /canvasPrintsUnlockedFrom\(\[\], CANVAS_LEFT_PRO_AT, await eventUltraActive\(supabase, eventId\)\)/,
+    'the canvas gate no longer passes a held (gifted) Ultra to canvasPrintsUnlockedFrom',
+  );
 });
 
 test('the full-size hold only ever grows', () => {

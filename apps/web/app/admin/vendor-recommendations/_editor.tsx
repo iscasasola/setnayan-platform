@@ -1,4 +1,5 @@
 'use client';
+import { FieldPick } from '@/app/admin/_components/field-pick';
 
 /**
  * /admin/vendor-recommendations client islands.
@@ -57,7 +58,7 @@ export type FeedbackRow = {
 export function RecommendationRow({ row }: { row: MapRow }) {
   return (
     <div
-      className={`rounded-2xl border border-ink/10 p-4 ${row.is_active ? 'bg-paper' : 'bg-ink/3'}`}
+      className={`border-t border-ink/10 py-4 ${row.is_active ? '' : 'opacity-70'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
@@ -168,34 +169,16 @@ export function AddRecommendation({
       confirmLabel="Add to map"
       destructive={false}
       message="This adds a leaf → SKU pairing to the recommendation map. Keep the map sparse: a SKU should appear for a leaf only when it amplifies that supplier's own deliverable."
-      className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-5"
+      className="border-t border-ink/10 py-4 sm:py-5"
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
           <span className={labelCls}>Supplier leaf</span>
-          <select name="tile_id" required defaultValue="" className="input-field h-10 w-full">
-            <option value="" disabled>
-              Pick a leaf…
-            </option>
-            {leaves.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+          <FieldPick name="tile_id" label="Supplier leaf" placeholder="Pick a leaf…" required className="min-h-11 w-full" options={leaves.map((l) => ({ key: l.id, label: l.label }))} />
         </label>
         <label className="block">
           <span className={labelCls}>Recommended SKU</span>
-          <select name="service_code" required defaultValue="" className="input-field h-10 w-full">
-            <option value="" disabled>
-              Pick a SKU…
-            </option>
-            {skus.map((s) => (
-              <option key={s.service_code} value={s.service_code}>
-                {s.title} ({s.service_code})
-              </option>
-            ))}
-          </select>
+          <FieldPick name="service_code" label="Recommended SKU" placeholder="Pick a SKU…" required className="min-h-11 w-full" options={skus.map((s) => ({ key: s.service_code, label: `${s.title} (${s.service_code})` }))} />
         </label>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[6rem_minmax(0,1fr)]">

@@ -107,7 +107,6 @@ export async function resolveReport(formData: FormData) {
       .eq('public_id', report.target_id as string);
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('stories');
-    revalidatePath('/realstories');
   }
 
   if (action === 'block') {

@@ -240,7 +240,7 @@ function EmptyState({ eventId }: { eventId: string }) {
     <div className="sn-row border-dashed p-10 text-center">
       <ScrollText
         aria-hidden
-        className="mx-auto h-8 w-8 text-ink/40"
+        className="mx-auto h-8 w-8 text-ink/70"
         strokeWidth={1.5}
       />
       <p className="mt-3 text-sm text-ink/65">
@@ -250,14 +250,14 @@ function EmptyState({ eventId }: { eventId: string }) {
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <Link
           href={`/dashboard/${eventId}/paperwork`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+          className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
         >
           <ScrollText className="h-3.5 w-3.5" strokeWidth={1.75} />
           Start your paperwork
         </Link>
         <Link
           href={`/dashboard/${eventId}/contracts`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+          className="ab ab-brand inline-flex min-h-11 items-center justify-center gap-1.5"
         >
           <FileSignature className="h-3.5 w-3.5" strokeWidth={1.75} />
           See contract uploads
@@ -322,7 +322,7 @@ function PaperworkSection({
                       />
                     </div>
                     {timestampLabel ? (
-                      <p className="text-xs text-ink/55">{timestampLabel}</p>
+                      <p className="text-xs text-ink/70">{timestampLabel}</p>
                     ) : null}
                   </div>
                   <ArrowRight
@@ -426,7 +426,7 @@ function ContractsSection({
                         }
                       />
                     </div>
-                    <p className="text-xs text-ink/55">
+                    <p className="text-xs text-ink/70">
                       From {vendor?.business_name ?? 'Supplier'} ·{' '}
                       {formatRelativeDate(c.created_at)}
                     </p>
@@ -498,7 +498,7 @@ function CreationsSection({
                         toneClass={ORDER_STATUS_TONE[order.status]}
                       />
                     </div>
-                    <p className="text-xs text-ink/55">
+                    <p className="text-xs text-ink/70">
                       {formatPhp(
                         order.confirmed_total_php ?? order.requested_total_php,
                       )}{' '}
@@ -564,7 +564,7 @@ function OrdersSection({
                       toneClass={ORDER_STATUS_TONE[order.status]}
                     />
                   </div>
-                  <p className="text-xs text-ink/55">
+                  <p className="text-xs text-ink/70">
                     {formatPhp(
                       order.confirmed_total_php ?? order.requested_total_php,
                     )}{' '}
@@ -645,7 +645,7 @@ function ReceiptsSection({
                         {String(r.or_serial).padStart(6, '0')}
                       </span>
                     </div>
-                    <p className="text-xs text-ink/55">
+                    <p className="text-xs text-ink/70">
                       {order?.description ?? 'Setnayan order'} ·{' '}
                       {formatPhp(grossNum)} ·{' '}
                       {formatRelativeDate(r.issued_at)}
@@ -693,7 +693,7 @@ function SectionHeader({
         <Icon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
         <span>{label}</span>
         {count > 0 ? (
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+          <span className="text-xs uppercase tracking-[0.06em] text-ink/70">
             {formatCount(count)}
           </span>
         ) : null}
@@ -741,7 +741,7 @@ function StatusPill({
 }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${toneClass}`}
+      className={`rounded-full px-2 py-0.5 text-xs uppercase tracking-[0.06em] ${toneClass}`}
     >
       {label}
     </span>

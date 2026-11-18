@@ -157,20 +157,22 @@ async function voiceGate(): Promise<VoiceGate> {
   }
   const { data: levelRow } = await supabase
     .from('vendor_profiles')
-    .select('ai_addon_level,ai_addon_expires_at')
+    .select('ai_addon_level,ai_addon_expires_at,tier_state,tier_expires_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const levelFields = (levelRow ?? null) as
-    | { ai_addon_level?: string | null; ai_addon_expires_at?: string | null }
+    | { ai_addon_level?: string | null; ai_addon_expires_at?: string | null; tier_state?: string | null; tier_expires_at?: string | null }
     | null;
+  // Ultra includes the smarter level (2026-11-14 "SIMPLER SUPPLIER PLANS"); a bought Advanced window counts until it ends.
   const advanced = vendorAiAdvancedActive({
     level: levelFields?.ai_addon_level ?? null,
     windowActive: isVendorAiAddonActive(levelFields?.ai_addon_expires_at ?? null),
+    plan: levelFields,
   });
   if (!advanced) {
     return {
       ok: false,
-      error: 'Voice-match comes with Vendor AI — Advanced. Upgrade to switch it on.',
+      error: 'Voice-match comes with the smarter AI chatbot on Ultra.',
     };
   }
 

@@ -59,7 +59,7 @@ test('RW-37 · a bill’s own placeholder payment row (no reference, no screensh
   const t = computeOrderTotals(order, [{ status: 'pending', amount_php: 1337.5, reference_number: null, screenshot_url: null }] as never, 0);
   assert.equal(t.pending, 0, 'the placeholder is not "pending review"');
   assert.match(code('app/vendor-dashboard/booking-fees/[orderId]/page.tsx'), /const loggedPayments = payments\.filter\(paymentWasLogged\);/);
-  assert.match(code('app/admin/payments/page.tsx'), /paymentWasLogged\(p\) \? p\.paid_at : 'Nothing logged yet'/);
+  assert.match((code('app/admin/payments/page.tsx') + '\n' + code('app/admin/payments/_components/desk.tsx')), /paymentWasLogged\(p\) \? p\.paid_at : 'Nothing logged yet'/);
 });
 
 test('RW-38 · the supplier is told the booking stands for the couple; a gate is named only when it is on', async () => {
@@ -90,7 +90,7 @@ test('RW-46/47 · the admin queue never shows the placeholder beside a logged pa
     { payment_id: 'ok3', order_id: 'o3', status: 'matched', reference_number: 'GC9', screenshot_url: null },
   ];
   assert.deepEqual(hidePlaceholdersBesideLogged(rows).map((r) => r.payment_id), ['real', 'alone', 'ok3']);
-  assert.match(code('app/admin/payments/page.tsx'), /payments = hidePlaceholdersBesideLogged\(/);
+  assert.match((code('app/admin/payments/page.tsx') + '\n' + code('app/admin/payments/_components/desk.tsx')), /payments = hidePlaceholdersBesideLogged\(/);
   const pay = code('app/pay/[reference]/actions.ts');
   assert.match(pay, /\.delete\(\)\s*\.eq\('order_id', payable\.orderId\)\s*\.eq\('status', 'pending'\)\s*\.is\('reference_number', null\)\s*\.is\('screenshot_url', null\)/);
   assert.match(pay, /if \(newId\) sweep = sweep\.neq\('payment_id', newId\);/);

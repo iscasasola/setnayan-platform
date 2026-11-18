@@ -1,5 +1,6 @@
 import { Paperclip, Plus } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 import { FileUpload } from '@/app/_components/file-upload';
 import { StayForm } from '@/app/_components/stay-form';
 import {
@@ -121,25 +122,20 @@ export function NewFlagForm({
             About {supplier.name}
           </p>
         ) : (
-          <label htmlFor="event_vendor_id" className="block space-y-1">
+          <label className="block space-y-1">
             <span className="sn-eye">
               Affects which supplier? (optional)
             </span>
-            <select
-              id="event_vendor_id"
+            <PostedPick
               name="event_vendor_id"
-              defaultValue=""
-              className="input-field"
-            >
-              <option value="">Whole event (no specific supplier)</option>
-              {vendors.map((v) => (
-                <option key={v.vendor_id} value={v.vendor_id}>
-                  {v.vendor_name} · {v.status.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
+              label="Affects which supplier?"
+              options={[
+                { key: '', label: 'Whole event (no specific supplier)' },
+                ...vendors.map((v) => ({ key: v.vendor_id, label: `${v.vendor_name} · ${v.status.replace(/_/g, ' ')}` })),
+              ]}
+            />
             {vendors.length === 0 ? (
-              <span className="block text-xs text-ink/55">
+              <span className="block text-xs text-ink/70">
                 No contracted suppliers yet. You can still file a whole-event flag.
               </span>
             ) : null}
@@ -205,7 +201,7 @@ export function FlagCard({
     <li className="sn-row space-y-3 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
             {flag.public_id} · {FLAG_TYPE_LABEL[flag.flag_type]} ·{' '}
             {flag.created_at.slice(0, 10)}
           </p>
@@ -214,7 +210,7 @@ export function FlagCard({
           </p>
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[flag.status]}`}
+          className={`rounded-full px-2 py-0.5 text-xs uppercase tracking-[0.06em] ${FLAG_STATUS_TONE[flag.status]}`}
         >
           {FLAG_STATUS_LABEL[flag.status]}
         </span>
@@ -225,7 +221,7 @@ export function FlagCard({
       </p>
 
       {evidenceCount > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-ink/60">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-ink/70">
           <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           <span>
             {formatCount(evidenceCount)} attachment{evidenceCount === 1 ? '' : 's'}:
@@ -246,7 +242,7 @@ export function FlagCard({
 
       {flag.resolution_notes ? (
         <p className="rounded-md bg-success-50/60 p-3 text-xs text-success-900">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
+          <span className="text-xs uppercase tracking-[0.06em]">
             Resolution notes
           </span>
           <br />
@@ -254,7 +250,7 @@ export function FlagCard({
         </p>
       ) : null}
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="text-xs uppercase tracking-[0.06em] text-ink/70">
         {flag.resolved_at
           ? `Resolved ${flag.resolved_at.slice(0, 10)}`
           : countdown

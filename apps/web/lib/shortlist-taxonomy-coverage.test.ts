@@ -36,6 +36,7 @@ import {
   WEDDING_TILE_ORDER,
   WEDDING_FOLDER_ORDER,
   WEDDING_TILES_BY_PARENT,
+  forwardTile,
   type WeddingFolder,
   type WeddingTile,
 } from './taxonomy';
@@ -117,7 +118,8 @@ test('the 14 non-wedding gap leaves land on their OWN tile, under a non-wedding 
   for (const leaf of GAP_LEAVES) {
     assert.equal(
       tileForCategory(leaf as unknown as VendorCategory),
-      leaf,
+      // …or the tile its own was merged into by T1 part 2 (AV / Production → Speakers & AV), still non-wedding-only.
+      forwardTile(leaf),
       `${leaf}: must anchor 1:1 to its same-named tile, never be re-filed onto a wedding tile`,
     );
     assert.equal(TILE_PARENT[leaf], GAP_LEAF_PARENT[leaf], `${leaf}: wrong tier-1 family`);
@@ -152,7 +154,7 @@ test('gap-leaf FORWARD bridge is intact (the #3466 fix is not undone)', () => {
   // only for categories no plan group claims.
   for (const leaf of GAP_LEAVES) {
     const tile = tileForCategory(leaf as unknown as VendorCategory);
-    assert.equal(tile, leaf, `${leaf}: forward bridge broken`);
+    assert.equal(tile, forwardTile(leaf), `${leaf}: forward bridge broken`);
     // …and the inverse deliberately does NOT echo the leaf back, precisely
     // because these 14 are unbucketable. Assert the INVARIANT (the write-back
     // is bucketable), not the current literal value: the day the owner takes

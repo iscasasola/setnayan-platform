@@ -36,6 +36,8 @@
 [data-growth] .ag-lanes .ag-vdot { fill: var(--m-orange-2); }
 [data-growth] .ag-lanes .ag-abar { fill: rgb(var(--sn-accent)); }
 [data-growth] .ag-lanes .ag-bbar { fill: var(--m-orange-2); }
+/* J5 · the Invites graph's third series — suppliers you invited who completed an event. */
+[data-growth] .ag-lanes .ag-cbar { fill: rgb(var(--color-ok)); }
 [data-growth] .ag-lanes .ag-ghostline { stroke: var(--ag-ink-22); stroke-width: 1.2; stroke-dasharray: 3 4; }
 [data-growth] .ag-say { font-size: 16px; line-height: 1.4; margin: 10px 0 0; color: var(--ag-ink-75); text-wrap: pretty; }
 [data-growth] .ag-say b { color: rgb(var(--color-ink)); font-weight: 700; }
@@ -263,6 +265,8 @@
 [data-growth] .ag-leg { display: flex; gap: 14px; font-size: 12px; color: var(--m-slate-2); margin-top: 4px; }
 [data-growth] .ag-leg-mul { color: rgb(var(--color-mulberry)); }
 [data-growth] .ag-leg-ok { color: var(--m-orange-2); }
+/* the legend of the completed bar (.ag-cbar) — the same token, so the key matches its bar */
+[data-growth] .ag-leg-done { color: rgb(var(--color-ok)); }
 [data-growth] .ag-cap { font-size: 12px; color: var(--m-slate-2); margin: 6px 0 0; }
 [data-growth] .ag-rv { display: grid; gap: 10px; }
 [data-growth] .ag-rv-k { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-bottom: 4px; }

@@ -225,6 +225,20 @@ export function acceptedQuoteTerms(
   };
 }
 
+/**
+ * CHAT-24 (walk 16 Nov 2026) · the words after "Due" on a schedule row. A dated row whose day is already behind
+ * `today` (Manila 'YYYY-MM-DD') read "Final balance · due 7 days before the event (Nov 2)" on Nov 16, before the first
+ * payment was even made — a date in the past, said as if it were still ahead. The date is still named (it is the
+ * supplier's own term); the row now says that the day has passed. `today` null = unknown → as written.
+ * It does NOT say "so it is due now": which payment is due next is the pay plan's call (round 1 names the first
+ * unpaid payment, in pay order, and flags dates that are out of order) — a passed Final balance is still paid LAST.
+ * Controller audit 16 Nov: the two must not contradict each other.
+ */
+export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>, today: string | null): string {
+  if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has already passed`;
+  return row.dueText;
+}
+
 /** "First payment requested: ₱3,350 — due on lock", or null when none was requested. */
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;
@@ -630,9 +644,15 @@ export type MoneyStep =
     }
   | { kind: 'paid_in_full'; paidCentavos: number };
 
+/**
+ * The first payment's name, as the plan writes it. No "· books the date": every caller is `moneyStep`, which only
+ * answers for a BOOKED event (`input.booked`) — the date is already held (DECISION_LOG 2026-11-04: book on accept), so
+ * that tag told a booked couple their payment would book a date they already had (CHAT-10, W1 walk 16 Nov 2026:
+ * "DUE NOW · books the date" after booking). The public proposal, read BEFORE accepting, keeps its own tag.
+ */
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · books the date`;
+  return row?.label || 'First payment';
 }
 
 function laterStep(

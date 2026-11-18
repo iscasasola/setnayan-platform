@@ -53,6 +53,7 @@ const ORGANIC_SOURCES: ReadonlyArray<string> = [
   'auto_cascade_from_finalize',
   'invite_claim',
   'vendor_invite',
+  'vendor_shortlist_qr',
   'considering_via_compare',
 ];
 

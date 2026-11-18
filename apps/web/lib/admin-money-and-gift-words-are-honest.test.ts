@@ -55,7 +55,7 @@ function chainStub(result: { data: unknown; error: unknown }) {
 // ── 1 · /admin/payments ─────────────────────────────────────────────────────
 
 test('/admin/payments: every queue read binds its error and a refusal never renders as an empty queue', () => {
-  const s = src('app/admin/payments/page.tsx');
+  const s = (src('app/admin/payments/page.tsx') + '\n' + src('app/admin/payments/_components/desk.tsx'));
   // The three reads the desk states an absence from.
   assert.match(s, /const \{ data, error: quoteError \} = await admin\s*\.from\('orders'\)/, 'orders-needing-a-quote read is unbound');
   assert.match(s, /const \{ data: hits, error: searchError \} = await admin\s*\.from\('orders'\)/, 'the order search read is unbound');
@@ -65,7 +65,8 @@ test('/admin/payments: every queue read binds its error and a refusal never rend
   assert.match(s, /if \(readFailed !== 'search'\) \{\s*const \{ data, error: queueError \}/);
   // THE RENDER: both empty states sit behind the notice. Counted, so a third
   // list that forgets it — or one of these losing it — is visible.
-  const gates = [...s.matchAll(/if \(readFailed\) return <ReadFailedNotice which=\{readFailed\} \/>;/g)];
+  // (2026-11-14, admin Money drawing: the notice also takes its Try-again address — `[^>]*` lets props follow.)
+  const gates = [...s.matchAll(/if \(readFailed\) return <ReadFailedNotice which=\{readFailed\}[^>]*\/>;/g)];
   assert.equal(gates.length, 2, 'both lists must render ReadFailedNotice before their empty state');
   const nothing = s.indexOf("'Nothing to reconcile.'");
   const gate = s.lastIndexOf('if (readFailed) return <ReadFailedNotice', nothing);

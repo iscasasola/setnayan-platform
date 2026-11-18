@@ -113,7 +113,7 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   tour_activity: { kind: 'tile', tile: 'tour_activity' },
   tour_guide: { kind: 'tile', tile: 'tour_guide' },
   travel_insurance: { kind: 'tile', tile: 'travel_insurance' },
-  av_production: { kind: 'tile', tile: 'av_production' },
+  av_production: { kind: 'tile', tile: 'speaker_talent' }, // T1: AV / Production merged into Speakers & AV
   speaker_talent: { kind: 'tile', tile: 'speaker_talent' },
   performers: { kind: 'tile', tile: 'performers' },
   kids_entertainer: { kind: 'tile', tile: 'kids_entertainer' },
@@ -132,10 +132,7 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
     kind: 'tiles',
     tiles: [
       'massage_chair',
-      'perfume_bar',
       'arcade_games',
-      'henna_tattoo',
-      'mini_nail_bar',
       'tarot_astrology_palmistry',
       'caricature_calligraphy_painting',
     ],
@@ -143,7 +140,7 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   // `transfers_rentals` added 2026-08-01: on a TRAVEL event the couple-side
   // "transportation" category means an airport transfer or a van/scooter
   // rental, and neither of the two wedding tiles could ever surface one.
-  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle', 'transfers_rentals'] },
+  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle'] },
   // ── C · couple-only (exempt — no marketplace tile) ──────────────────────────
   officiant: { kind: 'exempt', reason: 'auto_resolves_from_venue' },
   church_fees: { kind: 'exempt', reason: 'budget_line_not_vendor' },

@@ -1,4 +1,5 @@
 'use client';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, RotateCcw } from 'lucide-react';
@@ -230,15 +231,17 @@ export function ColoursEditor({
 
   return (
     <div data-admin-colours="">
-      <p className="mb-5 max-w-[64ch] text-sm text-ink/60">
-        The page stays white. The life is in what sits on it: a coloured band at the top, white frames that float over it,
+      <div className="mb-5 max-w-[64ch]">
+        <InfoTip label="How colour is used" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          The page stays white. The life is in what sits on it: a coloured band at the top, white frames that float over it,
         and buttons that never look like frames. Pick a mood or tune each job; the preview repaints as you go. Words must
         stay readable or it will not save.
-      </p>
+        </InfoTip>
+      </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_410px]">
         <div className="min-w-0">
-          <h2 className="mb-2 mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-ink/50">Try a mood</h2>
+          <h2 className="mb-2 mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Try a mood</h2>
           <div role="group" aria-label="Moods" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             {MOODS.map((m) => {
               const on = appColoursEqual(m.colours, draft);
@@ -260,7 +263,7 @@ export function ColoursEditor({
                   </span>
                   <span className="flex items-center gap-1.5 text-sm font-semibold">
                     {m.name}
-                    {on ? <span className="ml-auto text-[11px] font-semibold text-sn-accent">applied</span> : null}
+                    {on ? <span className="ml-auto text-[12px] font-semibold text-sn-accent">applied</span> : null}
                   </span>
                   <span aria-hidden className="flex gap-1">
                     {(['money', 'decision', 'toggle', 'private'] as const).map((k) => (
@@ -273,7 +276,7 @@ export function ColoursEditor({
             })}
           </div>
 
-          <h2 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-[0.1em] text-ink/50">The jobs</h2>
+          <h2 className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">The jobs</h2>
           <div>
             {JOB_ORDER.map((job) => {
               const checks = verdict.checks.filter((c) => c.job === job);
@@ -310,7 +313,7 @@ export function ColoursEditor({
                   {job === 'frame' ? (
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="flex min-w-[220px] flex-1 items-center gap-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Corners</span>
+                        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Corners</span>
                         <Slider
                           label="Corner radius"
                           value={draft.frameRadius}
@@ -321,7 +324,7 @@ export function ColoursEditor({
                           onChange={(v) => change({ ...draft, frameRadius: v })}
                           data="colours-corners"
                         />
-                        <span className="w-10 text-right font-mono text-[12px] text-ink/60">{draft.frameRadius}px</span>
+                        <span className="w-10 text-right text-[12px] text-ink/60 tabular-nums">{draft.frameRadius}px</span>
                       </div>
                       <PickMenu
                         label="Lift"
@@ -357,7 +360,7 @@ export function ColoursEditor({
             })}
           </div>
 
-          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-[0.1em] text-ink/50">
+          <h2 className="mb-1 mt-6 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Liveliness, beyond colour <span className="normal-case tracking-normal text-ink/45">· applies in the next update</span>
           </h2>
           <FormRows>

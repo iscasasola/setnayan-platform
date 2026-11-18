@@ -1,3 +1,6 @@
+import { InfoTip } from '@/app/_components/info-tip';
+import { FieldPick } from '@/app/admin/_components/field-pick';
+import { ActionButton } from '@/components/action-button';
 /**
  * JournalSpotlightsSurface — the Editorial & Journal Spotlights body, re-homed
  * byte-identical from app/admin/journal-spotlights/page.tsx into the tabbed
@@ -30,7 +33,7 @@
  * public by RLS) are visible in the queue.
  */
 
-import { BookOpen, Info, Megaphone, ShieldCheck } from 'lucide-react';
+import { BookOpen, Check, FilePlus, Info, Megaphone, ShieldCheck, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ALL_BLOG_ARTICLES, findBlogArticle } from '@/lib/blog';
@@ -123,19 +126,19 @@ export async function JournalSpotlightsSurface({
       />
 
       {ok ? (
-        <div className="mb-5 rounded-xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <div className="mb-5 border-success-300/70 bg-success-50 py-3 text-sm text-success-800 border-t border-ink/10">
           {ok}
         </div>
       ) : null}
       {error ? (
-        <div className="mb-5 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3 text-sm text-mulberry">
+        <div className="mb-5 bg-terracotta/[0.06] py-3 text-sm text-mulberry border-t border-ink/10">
           {error}
         </div>
       ) : null}
 
       {/* Sponsored-slot state banner — price is admin-managed in service_catalog;
           selling is gated until owner sign-off (seed ships is_active=FALSE). */}
-      <div className="mb-6 flex items-start gap-3 rounded-xl border border-warn-300/70 bg-warn-50 px-4 py-3">
+      <div className="mb-6 flex items-start gap-3 border-warn-300/70 bg-warn-50 py-3 border-t border-ink/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} aria-hidden />
         <p className="text-sm text-ink/80">
           {price && price.isActive ? (
@@ -159,33 +162,21 @@ export async function JournalSpotlightsSurface({
       </div>
 
       {/* Attach form */}
-      <section className="mb-8 sn-tile p-5">
+      <section className="mb-8 py-5 border-t border-ink/10">
         <h2 className="text-base font-semibold text-ink">Credit a supplier in an article</h2>
-        <p className="mt-1 text-sm text-ink/60">
-          Pick a Journal article and paste the supplier&rsquo;s profile ID. The
+        <div className="mt-1">
+          <InfoTip label="How to credit a supplier" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            Pick a Journal article and paste the supplier&rsquo;s profile ID. The
           credit starts as a draft (hidden) until approved.
-        </p>
+          </InfoTip>
+        </div>
         <form
           action={attachSpotlight}
           className="mt-4 grid gap-3 sm:grid-cols-2"
         >
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block font-medium text-ink/80">Journal article</span>
-            <select
-              name="blog_slug"
-              required
-              defaultValue=""
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-            >
-              <option value="" disabled>
-                Choose an article…
-              </option>
-              {ALL_BLOG_ARTICLES.map((a) => (
-                <option key={a.slug} value={a.slug}>
-                  {a.title}
-                </option>
-              ))}
-            </select>
+            <FieldPick name="blog_slug" label="Journal article" placeholder="Choose an article…" required className="min-h-11 w-full" options={ALL_BLOG_ARTICLES.map((a) => ({ key: a.slug, label: a.title }))} />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-ink/80">Supplier profile ID</span>
@@ -193,20 +184,22 @@ export async function JournalSpotlightsSurface({
               name="vendor_profile_id"
               required
               placeholder="00000000-0000-0000-0000-000000000000"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 font-mono text-xs text-ink outline-none focus:border-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-terracotta tabular-nums"
             />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-ink/80">Placement</span>
-            <select
+            <FieldPick
               name="placement"
+              label="Placement"
               defaultValue="featured_partner"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-            >
-              <option value="featured_partner">Featured partner (free)</option>
-              <option value="recommended">In partnership with (free)</option>
-              <option value="sponsored">Sponsored (paid · two-admin)</option>
-            </select>
+              className="min-h-11 w-full"
+              options={[
+                { key: 'featured_partner', label: 'Featured partner (free)' },
+                { key: 'recommended', label: 'In partnership with (free)' },
+                { key: 'sponsored', label: 'Sponsored (paid · two-admin)' },
+              ]}
+            />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-ink/80">Sort order</span>
@@ -218,12 +211,7 @@ export async function JournalSpotlightsSurface({
             />
           </label>
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
-            >
-              Draft credit
-            </button>
+            <ActionButton tone="brand" main icon={<FilePlus aria-hidden />} label="Draft credit" type="submit" />
           </div>
         </form>
       </section>
@@ -277,7 +265,7 @@ export async function JournalSpotlightsSurface({
 
 function EmptyRow({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-white/40 px-6 py-8 text-center">
+    <div className="border-dashed py-8 text-center border-t border-ink/10">
       <p className="text-sm text-ink/60">{text}</p>
     </div>
   );
@@ -300,7 +288,7 @@ function SpotlightRow({
   const initiatedByMe = pending?.initiated_by === meId;
 
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between border-t border-ink/10">
       <div className="flex min-w-0 items-center gap-3">
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -353,25 +341,14 @@ function SpotlightRow({
         {!isPublished && !row.is_sponsored ? (
           <form action={approveFreeSpotlight}>
             <input type="hidden" name="spotlight_id" value={row.spotlight_id} />
-            <button
-              type="submit"
-              className="rounded-lg bg-success-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-success-700"
-            >
-              Approve & publish
-            </button>
+            <ActionButton tone="ok" icon={<Check aria-hidden />} label="Approve & publish" type="submit" />
           </form>
         ) : null}
 
         {!isPublished && row.is_sponsored && !pending ? (
           <form action={initiateSponsored}>
             <input type="hidden" name="spotlight_id" value={row.spotlight_id} />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1 rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-600"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Start 2-admin approval
-            </button>
+            <ActionButton tone="brand" main icon={<ShieldCheck aria-hidden />} label="Start 2-admin approval" type="submit" />
           </form>
         ) : null}
 
@@ -379,30 +356,13 @@ function SpotlightRow({
           <form action={confirmSponsored}>
             <input type="hidden" name="approval_id" value={pending.approval_id} />
             <input type="hidden" name="spotlight_id" value={row.spotlight_id} />
-            <button
-              type="submit"
-              disabled={initiatedByMe}
-              title={
-                initiatedByMe
-                  ? 'You started this approval — a different admin must confirm.'
-                  : 'Confirm and publish'
-              }
-              className="inline-flex items-center gap-1 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-success-700 disabled:cursor-not-allowed disabled:bg-ink/20 disabled:text-ink/40"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Confirm & publish
-            </button>
+            <ActionButton tone="ok" icon={<ShieldCheck aria-hidden />} label="Confirm & publish" type="submit" disabled={initiatedByMe} title={ initiatedByMe ? 'You started this approval — a different admin must confirm.' : 'Confirm and publish' } />
           </form>
         ) : null}
 
         <form action={removeSpotlight}>
           <input type="hidden" name="spotlight_id" value={row.spotlight_id} />
-          <button
-            type="submit"
-            className="rounded-lg border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/[0.04]"
-          >
-            Remove
-          </button>
+          <ActionButton tone="neutral" icon={<Trash2 aria-hidden />} label="Remove" type="submit" />
         </form>
       </div>
     </li>

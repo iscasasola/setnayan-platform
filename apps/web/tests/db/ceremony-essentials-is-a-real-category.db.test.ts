@@ -37,14 +37,15 @@ after(async () => {
 });
 
 const SERVICES_IN_ORDER = [
-  ['ceremony_essentials_set', 'Complete ceremony set'],
-  ['arrhae_arras', 'Arrhae (arras)'],
-  ['unity_cord', 'Unity cord'],
-  ['unity_veil', 'Unity veil'],
-  ['ceremony_candles', 'Ceremony candles'],
-  ['wedding_bible', 'Wedding Bible'],
-  ['ring_coin_bearer_pillow', 'Ring & coin bearer pillows'],
-  ['wedding_rosary', 'Wedding rosary'],
+  // T1 (owner-approved Philippine taxonomy, live 16 Nov 2026) renamed these to the spec's words.
+  ['ceremony_essentials_set', 'Complete set'],
+  ['arrhae_arras', 'Arrhae'],
+  ['unity_cord', 'Cord'],
+  ['unity_veil', 'Veil'],
+  ['ceremony_candles', 'Candles'],
+  ['wedding_bible', 'Bible'],
+  ['ring_coin_bearer_pillow', 'Ring & coin pillows'],
+  ['wedding_rosary', 'Rosary'],
 ] as const;
 
 test('the category is an active, visible tier-2 row in Look, beside Jewelleries & accessories', async () => {
@@ -59,7 +60,7 @@ test('the category is an active, visible tier-2 row in Look, beside Jewelleries 
   );
   assert.equal(r.rows.length, 1, 'ceremony_essentials is missing');
   const row = r.rows[0]!;
-  assert.equal(row.label_en, 'Ceremony essentials');
+  assert.equal(row.label_en, 'Ceremony Essentials'); // T1 names, 16 Nov 2026
   assert.equal(row.slug, 'ceremony-essentials');
   assert.equal(row.tier, 2);
   assert.equal(row.status, 'active');
@@ -163,7 +164,7 @@ test('the photoman sits under Photo booth with its siblings\' flags, inherits th
   const x = r.rows[0]!;
   assert.equal(x.tile_id, 'photo_booth');
   assert.equal(x.folder_id, 'booths');
-  assert.equal(x.name, 'Photoman (instant prints)');
+  assert.equal(x.name, 'Photoman (roving, instant prints)');
   assert.equal(x.t, null, 'photoman overrides the category scope — it must inherit, as its siblings do');
   assert.equal(x.phase, x.sib_phase);
   assert.equal(x.faith, null);

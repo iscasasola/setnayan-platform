@@ -112,6 +112,7 @@ import { CrewPhoneLab, HubLab } from './hub-lab';
 import { EventHubLab } from './event-hub-lab';
 import { ScanLab } from './scan-lab';
 import { PhotoMarkLab } from './photo-mark-lab';
+import { shopMarkFromRow } from '@/lib/supplier-mark-spec.server';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { TOURS } from '@/lib/tours';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
@@ -380,7 +381,13 @@ export default async function SupplierLabPage({
   }
   if (q.s === 'photo-mark') {
     /* 🔏 The Seal and plate + the Frame step on the REAL uploader (#7246 · #7247) — `photo-mark-lab.tsx`; &verified=1. */
-    return <PhotoMarkLab verified={q.verified === '1'} />;
+    // 🔏 The lab's two sample shops, their marks built on the server the way the app builds them (QR grid included).
+    const sampleRow = { business_name: 'Liwanag Lights & Sound', business_slug: 'liwanag-lights', logo_url: 'r2://setnayan-media/vendors/lab/logo.png', next_renewal_due_at: null };
+    const specs = {
+      verified: shopMarkFromRow({ ...sampleRow, verification_state: 'verified' }).spec,
+      unverified: shopMarkFromRow({ ...sampleRow, verification_state: 'unverified' }).spec,
+    };
+    return <PhotoMarkLab verified={q.verified === '1'} specs={specs} />;
   }
   if (q.s === 'scan-guest' || q.s === 'scan-couple') {
     /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */

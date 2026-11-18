@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 import { LocaleSwitch } from '@/lib/marketing-i18n';
-import { findBlogArticle } from '@/lib/blog';
 import {
   FEATURES_HUB_PATHS,
   featureHref,
@@ -29,7 +28,7 @@ import { featureIcon } from './_icons';
  * Phone first (390 px): the name, one line, the answer, the price and the one
  * button sit in the top third. Then, in order: who it is for · how it works
  * (3 steps) · what makes it different · works with the rest of Setnayan ·
- * questions · guides. One H1; every section an H2; questions are H3.
+ * questions. (The guides list linked the blog — retired 2026-11-16.) One H1; every section an H2; questions are H3.
  *
  * No cards (`lint-no-card.mjs`): sections are grouped by whitespace and a
  * single hairline, never a bordered box.
@@ -69,7 +68,6 @@ const WORDS = {
     worksWith: 'Works with the rest of Setnayan',
     price: 'Price',
     faq: 'Questions',
-    guides: 'Guides',
     tryIt: 'Try it',
     more: (n: string) => `More about ${n}`,
     startHost: 'Start planning · free',
@@ -85,7 +83,6 @@ const WORDS = {
     worksWith: 'Kasama ng iba pang bahagi ng Setnayan',
     price: 'Presyo',
     faq: 'Mga tanong',
-    guides: 'Mga gabay',
     tryIt: 'Subukan',
     more: (n: string) => `Higit pa tungkol sa ${n}`,
     startHost: 'Magsimula · libre',
@@ -107,7 +104,6 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
   const start = isSupplier
     ? { href: '/open-shop', label: w.startSupplier }
     : { href: '/signup', label: w.startHost };
-  const guides = (f.guides ?? []).map((s) => findBlogArticle(s)).filter((a) => a !== undefined);
   const hubHref = locale === 'tl' ? FEATURES_HUB_PATHS.tl : FEATURES_HUB_PATHS.en;
 
   return (
@@ -271,27 +267,6 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
           </div>
         </section>
 
-        {guides.length > 0 ? (
-          <section className={SECTION} aria-labelledby="guides">
-            <h2 id="guides" className={H2}>{w.guides}</h2>
-            <ul className="mt-5 space-y-3">
-              {guides.map((g) => (
-                <li key={g.slug}>
-                  {/* `py-3 -my-3`, not PRESS_44: a guide title can wrap to two
-                      lines, and a fixed min-height with a negative margin would
-                      let the second line overlap the next row. Padding grows
-                      with the text; the margin hands back exactly the padding. */}
-                  <Link
-                    href={`/blog/${g.slug}`}
-                    className="-my-3 inline-block py-3 font-semibold text-[var(--m-ink)] underline underline-offset-4"
-                  >
-                    {g.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
 
         <section className={SECTION}>
           <div className="flex flex-wrap items-center gap-3">

@@ -68,7 +68,6 @@ const CSS = readFileSync(join(HERE, 'frontdoor', 'front-door.css'), 'utf8').repl
 );
 const DATA = code(readFileSync(join(HERE, 'frontdoor', 'data.ts'), 'utf8'));
 const TILE = code(readFileSync(join(HERE, 'storyteller-tile.tsx'), 'utf8'));
-const JOURNAL = code(readFileSync(join(APP, 'blog', '[slug]', 'page.tsx'), 'utf8'));
 const STORYTELLERS = code(readFileSync(join(WEB, 'lib', 'storytellers.ts'), 'utf8'));
 const CREATOR_PUBLIC = code(readFileSync(join(WEB, 'lib', 'creator-public.ts'), 'utf8'));
 const PROFILE = code(readFileSync(join(APP, 'u', '[userSlug]', 'page.tsx'), 'utf8'));
@@ -131,13 +130,8 @@ test('the storyteller tile byline is a link to the storyteller', () => {
   );
 });
 
-test('the Journal’s chapter block byline is a link to the storyteller', () => {
-  assert.match(
-    JOURNAL,
-    /<Link\s+href=\{`\/u\/\$\{resolved\.ownerSlug\}`\}/,
-    'a chapter embedded in a Journal article names its author without linking them',
-  );
-});
+// The Journal's chapter-block byline test left with the Journal (2026-11-16, DECISION_LOG "THE BLOG AND REAL STORIES
+// ARE RETIRED") — app/blog/[slug] is gone and /blog/* forwards. old-shell-pages-wear-the-shell holds that nothing serves it.
 
 test('the front door carries the handle from the loader instead of parsing it out of a URL', () => {
   assert.match(DATA, /ownerSlug:\s*string/, 'FrontDoorStory dropped ownerSlug');

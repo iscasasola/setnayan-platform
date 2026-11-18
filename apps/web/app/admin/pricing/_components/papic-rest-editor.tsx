@@ -2,6 +2,9 @@
 
 import { useActionState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ActionButton } from '@/components/action-button';
+import { Save } from 'lucide-react';
 
 export type PapicProductRow = {
   serviceCode: string;
@@ -76,7 +79,7 @@ export function PapicRestEditor({
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-ink/10">
+      <div className={`${ADMIN_FRAME} overflow-hidden`}>
         {products.map((p) => (
           <ProductRow key={p.serviceCode} row={p} action={savePriceAction} />
         ))}
@@ -140,12 +143,7 @@ function ProductRow({
             className="input-field h-9 w-32 pl-5 text-right font-mono text-[14px] tabular-nums"
           />
         </div>
-        <button
-          type="submit"
-          className="rounded-md border border-ink/15 px-3 py-1.5 text-[12.5px] font-semibold transition hover:bg-ink/[0.05]"
-        >
-          Save
-        </button>
+        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
       </div>
       <span className="sr-only">Currently {peso(row.regularPhp)}</span>
     </form>

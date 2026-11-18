@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/action-button';
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -8,6 +9,8 @@ import { MenusSurface } from './_surfaces/menus-surface';
 import { OnboardingSurface } from './_surfaces/onboarding-surface';
 import { BrainSurface } from './_surfaces/brain-surface';
 import { ScreensSurface } from './_surfaces/screens-surface';
+import SearchSettingsPage from '../search-memory/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 
 /**
  * Ugat Studio — the tabbed /admin/ugat shell that consolidates the Ugat
@@ -97,7 +100,7 @@ function activeSurface(
   }
 }
 
-export default async function UgatStudioPage({ searchParams }: Props) {
+async function UgatStudioPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   if (first(search.tab) === 'wedding-traditions') redirect('/admin/categories?list=religions');
@@ -132,13 +135,7 @@ export default async function UgatStudioPage({ searchParams }: Props) {
             a ?tab= surface: the console is a full-viewport dark-canvas app with
             its own topbar + fixed side-card overlays, so it links out of the
             studio the same way detail sub-routes do. */}
-        <Link
-          href="/admin/ugat/map"
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Entity map
-        </Link>
+        <ActionButton tone="neutral" quiet href="/admin/ugat/map" icon={<Network aria-hidden />} label="Entity map" />
       </nav>
 
       <Suspense key={tab} fallback={tabSkeleton(tab)}>
@@ -146,4 +143,21 @@ export default async function UgatStudioPage({ searchParams }: Props) {
       </Suspense>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Catalogue › How the app finds things · What ▾ (call 14).
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?tab=` preselected (`lib/admin/admin-pages.ts`). Every other `?tab=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'search': SearchSettingsPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.tab;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(UgatStudioPage, sp);
 }

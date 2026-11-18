@@ -5,7 +5,7 @@
  * a guest-count change, a quote that rose (or fell back) with the guest list. The stream asks `streamLineKind` (pure, no import cost) whether a line is one; only then is
  * this chunk fetched. Anything else stays the plain Setnayan line it always was.
  */
-import { bookRequestFromLine, changeAskFromLine, guestCountFromLine } from '@/lib/chat-cards';
+import { bookRequestFromLine, changeAskFromLine, guestCountFromLine, type BookRequestState } from '@/lib/chat-cards';
 import { negotiationFromLine, pollFromLine, quoteFallFromLine, quoteRiseFromLine, scheduleChangeFromLine } from '@/lib/chat-card-lines';
 import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
@@ -26,6 +26,7 @@ export function StreamLineCard({
   messageId,
   meId,
   nameOf,
+  answeredAs = null,
 }: {
   body: string;
   createdAt: string;
@@ -40,6 +41,8 @@ export function StreamLineCard({
   messageId?: string;
   meId?: string;
   nameOf?: (userId: string) => string;
+  /** A booking ask a later line answered → that answer's state (`answeredBookAsks`). */
+  answeredAs?: BookRequestState | null;
 }) {
   if (pollFromLine(body) && messageId && meId && nameOf) {
     return <PollCard threadId={threadId} messageId={messageId} meId={meId} nameOf={nameOf} />;
@@ -48,7 +51,7 @@ export function StreamLineCard({
   const nego = negotiationFromLine(body);
   if (nego) return <NegotiationCard threadId={threadId} kind={nego} askedAt={createdAt} viewer={viewer} />;
   const book = bookRequestFromLine(body);
-  if (book) return <BookRequestCard state={book.state} reason={book.reason} supplierName={supplierName} at={at} />;
+  if (book) return <BookRequestCard state={book.state} reason={book.reason} supplierName={supplierName} at={at} answeredAs={answeredAs} />;
   const ask = changeAskFromLine(body);
   if (ask) {
     // Only the ASK line carries its card; the answer line ("Change asked · … · declined") stays a plain line.

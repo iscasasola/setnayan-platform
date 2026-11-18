@@ -70,7 +70,7 @@ test('a badge just earned composes ONE supplier_badge row with a deterministic s
   assert.equal(row.source_ref, `${VID}:reviews:10`);
   assert.match(String(row.body), /Liwanag Studio/);
   assert.match(String(row.body), /10 reviews/);
-  assert.match(String(row.link_url), /\/v\/liwanag-studio$/);
+  assert.match(String(row.link_url), /setnayan\.com\/liwanag-studio$/, "the badge post links to the shop's bare address, no /v/");
   // No parallel posting path: it writes the queue row and nothing else — no slot, no status, no platform call.
   assert.equal(row.scheduled_for, undefined, 'the governor assigns the slot, not the composer');
   assert.equal(row.status, undefined, 'the row starts as the table default (scheduled) for the flush');

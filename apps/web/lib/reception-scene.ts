@@ -485,9 +485,9 @@ export const RECEPTION_PARTS: Part[] = [
         options: [
           ONone('none', 'None', ''),
           OT('cake_table', 'Cake table', 'a dressed cake table with the tiered wedding cake', 'cake'),
-          OT('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries', 'dessert'),
+          OT('dessert', 'Dessert table', 'a dessert table of Filipino sweets and pastries', 'food_cart'),
           OT('mobile_bar', 'Mobile bar', 'a styled mobile cocktail bar', 'mobile_bar'),
-          OT('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar', 'mocktail'),
+          OT('mocktail', 'Mocktail bar', 'a non-alcoholic mocktail and fresh-juice bar', 'mobile_bar'),
           OT('coffee', 'Coffee cart', 'an espresso and coffee cart', 'coffee_espresso'),
           // `food_cart`, not `food_truck`: both parents exist and both are in
           // `MOODBOARD_PART_TRADES['room:feast']`, but a truck parks outside and a
@@ -519,7 +519,7 @@ export const RECEPTION_PARTS: Part[] = [
           OT('live_band', 'Live band', 'a live band on a low riser with their instruments', 'live_band'),
           OT('dj', 'DJ booth', 'a DJ booth with decks and speakers', 'dj'),
           OT('string_quartet', 'String quartet', 'a string quartet seated to one side', 'orchestra'),
-          OT('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone', 'wedding_singer'),
+          OT('singer', 'Wedding singer', 'a solo wedding singer at a standing microphone', 'live_band'),
           OT('choir', 'Choir', 'a small choir standing in rows', 'choir'),
         ],
       },
@@ -539,12 +539,12 @@ export const RECEPTION_PARTS: Part[] = [
         label: 'Dance floor',
         options: [
           ONone('none', 'None', ''),
-          OT('parquet', 'Parquet', 'a parquet dance floor in front of the stage', 'dance_floor'),
-          OT('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre', 'dance_floor'),
+          OT('parquet', 'Parquet', 'a parquet dance floor in front of the stage', 'chairs_tents'),
+          OT('monogram', 'Monogram decal', 'a dance floor with the couple’s monogram decal at its centre', 'chairs_tents'),
           // `dance_floor`, not `led_wall`: a wall is not a floor, and the shop a
           // couple books for this is a dance-floor supplier who happens to
           // build it out of LEDs.
-          OT('led', 'LED floor', 'a glowing LED dance floor', 'dance_floor'),
+          OT('led', 'LED floor', 'a glowing LED dance floor', 'chairs_tents'),
         ],
       },
     ],
@@ -567,10 +567,10 @@ export const RECEPTION_PARTS: Part[] = [
           OT('photo_booth', 'Photo booth', 'a photo booth with a props table', 'photo_booth'),
           OT('arcade', 'Arcade games', 'a retro arcade games corner', 'arcade_games'),
           OT('caricature', 'Caricature artist', 'a caricature artist sketching guests at a small easel', 'caricature_calligraphy_painting'),
-          OT('henna', 'Henna tattoo', 'a henna tattoo booth with low seating', 'henna_tattoo'),
+          OT('henna', 'Henna tattoo', 'a henna tattoo booth with low seating', 'massage_chair'),
           OT('massage', 'Massage chairs', 'a pair of massage chairs in a quiet corner', 'massage_chair'),
-          OT('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools', 'mini_nail_bar'),
-          OT('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles', 'perfume_bar'),
+          OT('nail_bar', 'Mini nail bar', 'a mini nail bar with two stools', 'massage_chair'),
+          OT('perfume', 'Perfume bar', 'a perfume-blending bar with rows of small bottles', 'massage_chair'),
           OT('tarot', 'Tarot reader', 'a tarot reader at a draped round table', 'tarot_astrology_palmistry'),
           OT('engraving', 'Live engraving', 'a live engraving station personalising guest favours', 'engraving_embroidery'),
         ],

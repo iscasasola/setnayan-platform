@@ -1,5 +1,6 @@
 'use server';
 
+import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
@@ -99,7 +100,9 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
         redirect(`/login?ready=${encodeURIComponent(created.email)}&next=${encodeURIComponent(accountSlide)}&as=vendor`);
       } else if (created.ok === 'check-email') {
         // Verification on: the account waits for its link, which signs them in and lands back on this slide.
-        redirect(`${accountSlide}&check_inbox=${encodeURIComponent(created.user.email)}`);
+        // W1-B4: the address rides this browser's cookie, never the URL.
+        await parkSentTo(created.user.email);
+        redirect(`${accountSlide}&check_inbox=${CHECK_INBOX_FLAG}`);
       } else user = created.user;
     }
   }

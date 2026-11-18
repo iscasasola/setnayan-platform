@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 import { createReview, isHostReviewer, parseReviewerDisplay, type ReviewAxis } from '@/lib/reviews';
 import {
   parseSelfReviewBlock,
@@ -328,6 +329,10 @@ export async function submitCoupleReview(formData: FormData) {
     );
   }
 
+  // 🏅 A review just landed — the shop's Reviews / first review / first 5★ badges may have moved; pay and tell after
+  // the response (owner 2026-11-15, "firing when earned"). The trusted-review rule decides what counts.
+  sweepShopBadgesAfter(vendorProfileId);
+
   // Update vendor quality scores (Vendor_Quality_Rating_System_2026-06-17.md §5).
   // triggerVendorActivityRecompute is a fire-and-forget wrapper; it lives in
   // lib/vendor-activity.ts which ships as a separate PR. The dynamic import +
@@ -555,6 +560,8 @@ export async function coupleConfirmReceived(formData: FormData) {
     } catch {
       // vendor-activity unavailable — scores refresh on the next trigger.
     }
+    // 🏅 The couple confirmed the service — a completed booking may climb the shop's Events badge (owner 2026-11-15).
+    sweepShopBadgesAfter(marketplaceVendorId);
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);

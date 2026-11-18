@@ -115,7 +115,7 @@ export default async function AdminPaxChangesPage() {
       {labelsUnread ? (
         <p
           role="alert"
-          className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
+          className="border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
         >
           <strong className="text-ink">Names could not be read.</strong> Rows below
           show a dash instead of the supplier and the wedding. The amounts and the

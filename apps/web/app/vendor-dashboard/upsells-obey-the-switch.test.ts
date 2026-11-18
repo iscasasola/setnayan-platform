@@ -56,13 +56,8 @@ const APP = dirname(HERE); // app
 const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
-  'subscription/_components/ai-addon-card.tsx': 'Vendor AI — a separately sold add-on, on the Plans page',
-  'subscription/_components/booth-addon-card.tsx': '3D Booth — a separately sold add-on, on the Plans page',
-  'subscription/_components/papic-challenge-card.tsx': 'the Plans page cards',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
-  'shop/_components/voice-match-card.tsx': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
-  'shop/autoreply-actions.ts': 'Voice-match is Vendor AI — Advanced, a separately sold add-on',
   // The gate component: it only ever renders where a caller asked the switch
   // (property 2 below checks every mount).
   '_components/tier-gate.tsx': 'the gate component itself; its mounts are checked',
@@ -88,7 +83,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // starts itself — never a plan paywall. Its one plan rule (the 3D Booth starts on Solo; below that it starts as
   // Papic Challenges) is enforced by the database door `shop_badge_upgrade_start`, which the switch cannot lift.
   // THE ONE BUILD (C4): Shop's one badge row draws the same reward lines (`row.reward.upgrade`) in its sheet.
-  'shop/_components/shop-badge-row.tsx': 'Badge upgrades — "upgrade" names an earned reward, not a plan paywall',
   'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
   'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
 };

@@ -21,7 +21,7 @@ import { formatMedianPhp, MIN_MEDIAN_SAMPLE } from '@/lib/verified-median';
  * (the page gates it).
  */
 /** The design template's section label (rule 2) — small, bold, capitals, slate grey; no box around it. */
-const SECTION_LABEL = 'flex min-h-9 items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]';
+const SECTION_LABEL = 'flex min-h-9 items-center gap-2 home-k2 !my-0';
 
 /**
  * Design template (rules 2 · 5 · 7 · 13): no card around the section — a label with its ⓘ (the explanation, kept word

@@ -24,6 +24,7 @@
  * day when EVERY schedule it belongs to is; the day is not bookable when every service is. A shop whose services all
  * share one schedule answers once (`perService` is null).
  */
+import { shopPath } from '@/lib/shop-address';
 import { buildCustomerCalendarMonth, type CalendarBlockInput, type CalendarBookingInput } from './vendor-customers';
 import type { SchedulePool, VendorCalendarDayState } from './vendor-schedule';
 import { blockClosesDay } from './not-available';
@@ -37,6 +38,13 @@ export const CHECK_DATE_WORDS: Readonly<Record<CheckDateState, string>> = {
   available: 'Available',
   not_bookable: 'Not bookable',
 };
+
+/**
+ * ✦ A popular day, in v16's words (shop website v16 S5, `site.src.html` `.leg` and `cadDaySheet`): the legend reads
+ * "Popular day" and a tapped popular day's sheet carries "✦ Popular day". Which days are popular is the SHIPPED hot-date
+ * rule (`dayShines`, lib/hot-date.ts) — In demand and Hottest. It stays an Available day: popular never stops an ask.
+ */
+export const CHECK_DATE_POPULAR = 'Popular day';
 
 /** One of the viewer's own events, offered at Check a date's "For which event?" step. */
 export type CheckDateEvent = {
@@ -57,7 +65,7 @@ export const CHECK_DATE_MONTHS_AHEAD = 37;
 
 /** The page a shop's "Check a date" QR opens. `origin` has no trailing slash (`siteOrigin()`). */
 export function checkADatePath(slug: string): string {
-  return `/v/${encodeURIComponent(slug)}/dates`;
+  return `${shopPath(encodeURIComponent(slug))}/dates`;
 }
 export function checkADateUrl(origin: string, slug: string): string {
   return `${origin.replace(/\/+$/, '')}${checkADatePath(slug)}`;
@@ -233,5 +241,5 @@ export function datesSheetHref(slug: string, search: { d?: string; s?: string; s
   if (typeof search.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.d)) extra.d = search.d;
   if (typeof search.s === 'string' && search.s) extra.s = search.s;
   if (search.step === 'event') extra.step = 'event';
-  return withShopArrival(`/v/${encodeURIComponent(slug)}`, arrivalParams(search), extra);
+  return withShopArrival(shopPath(encodeURIComponent(slug)), arrivalParams(search), extra);
 }

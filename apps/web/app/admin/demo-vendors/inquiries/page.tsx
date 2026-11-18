@@ -177,7 +177,7 @@ export default async function DemoInquiriesPage() {
             header: 'Status',
             cell: (t) => (
               <span
-                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}
+                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium ${STATUS_STYLE[t.inquiry_status]}`}
               >
                 {t.inquiry_status}
               </span>

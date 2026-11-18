@@ -291,7 +291,7 @@ function withFeeFlag<T>(value: string | undefined, fn: () => T): T {
 
 /** The supplier-facing stretch: the tier table through "Answering couples". */
 function supplierSection(body: string): string {
-  const start = body.indexOf('## Supplier plans — Free · Verified · Supplier Plus · Supplier Pro · Supplier Ultra');
+  const start = body.indexOf('## Supplier plans — Free · Plus · Pro · Ultra');
   const end = body.indexOf('## Capabilities behind sign-in');
   assert.ok(start >= 0 && end > start, 'the supplier section moved — re-point this guard');
   return body.slice(start, end);
@@ -356,4 +356,12 @@ test('the launch offer is named from the passed cap only, and absent when the of
 test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
   assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+});
+
+// W1-B20 (2026-11-16): the bare /v/ directory is a 404 — shops live at setnayan.com/{shop}. SABOTAGE: put
+// `${url('/v/')}` back on the "Supplier pages" line → RED.
+test('llms.txt never links the bare /v/ directory', () => {
+  const body = renderLlmsTxt(INPUT);
+  assert.equal(/https:\/\/www\.setnayan\.com\/v\/?[\s)\]]/.test(body), false, 'llms.txt links /v/, which is a 404');
+  assert.equal((LINKED_ROUTES as readonly string[]).includes('/v/'), false);
 });

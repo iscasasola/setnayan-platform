@@ -191,7 +191,12 @@ export function privateScrims(src: string): string[] {
 /**
  * Stylesheet "scrims" that are deliberately NOT the pop-up scrim — each with its reason. Only ever shrinks.
  */
-const NOT_A_POPUP_SCRIM = new Map<string, string>([]);
+const NOT_A_POPUP_SCRIM = new Map<string, string>([
+  // The supplier award reveal is a THEATRE, not a pop-up: an opaque black stage the curtains open on (owner, 15 Nov
+  // 2026: the No. 1 curtains → plaque must be ONE scene, never the page showing through). Opaque, so nothing to blur.
+  ['app/_components/award/award.module.css .sin::backdrop { background: #000 } — the dark is var(--sn-scrim)', 'the reveal’s black stage (seal intro)'],
+  ['app/_components/award/award.module.css .awDlg.staged::backdrop { background: #000 } — the dark is var(--sn-scrim)', 'the No. 1 plaque stays on that same black stage'],
+]);
 
 test('4 · no stylesheet scrim paints a dark or a blur of its own — only the tokens', () => {
   const bad: string[] = [];

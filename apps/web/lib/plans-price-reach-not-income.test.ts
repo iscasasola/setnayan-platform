@@ -80,7 +80,7 @@ test('1 · every plan can put up a card in each category it covers; the rungs ar
   assert.equal(TIER_CAPS.verified.servicesPerLeaf, 1);
   assert.equal(TIER_CAPS.solo.servicesPerLeaf, 3);
   assert.equal(TIER_CAPS.pro.servicesPerLeaf, 10);
-  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 25); // Ultra trimmed 2026-11-04 (was unlimited)
+  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 30); // Ultra raised 2026-11-14 "SIMPLER SUPPLIER PLANS" (25 since 2026-11-04)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────
@@ -123,7 +123,7 @@ test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06
   // on a SHOP's bookings a day, `slotsPerDay`) stands, and every plan can still take a booking on every card.
   assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
   assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3);
-  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 5);
+  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 10); // Ultra raised 2026-11-14 "SIMPLER SUPPLIER PLANS" (was 5)
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
   }
@@ -135,7 +135,7 @@ test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06
   assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Verified is "like Supplier Plus"');
   // The allowance is complete: no plan may fall back to an "unruled" ceiling any more.
   for (const t of VENDOR_TIERS) {
-    assert.ok(TIER_CAPS[t].bookingsPerDatePerService <= 5, `${t}: no plan takes more than Ultra's 5 before add-ons`);
+    assert.ok(TIER_CAPS[t].bookingsPerDatePerService <= 10, `${t}: no plan takes more than Ultra's 10 (2026-11-14; nothing to add on)`);
   }
 });
 

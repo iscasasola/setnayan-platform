@@ -30,7 +30,6 @@ export function DecisionStepCard({ threadId, onClose, onSent }: { threadId: stri
       body: (
         <div className="grid gap-2">
           <TypedRow name="Topic" value={topic} empty="Name it" placeholder="e.g. Drone shot at sunset" maxLength={120} openAsk={1} onType={setTopic} onKeep={(v) => setTopic(v)} />
-          <p className="text-[13px] text-ink/55">It stays pinned for both of you until one of you closes it.</p>
           <Problem text={problem} />
         </div>
       ),
@@ -54,7 +53,20 @@ export function DecisionStepCard({ threadId, onClose, onSent }: { threadId: stri
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="topic" value={topic.trim()} />
-      <ChatStepCard topic="decision" kicker="You · not sent yet" title="Decision" steps={steps} step={0} onStep={() => {}} sendLabel="Open" sending={sending} onClose={onClose} submitForm={formId} />
+      {/* ⤴ The form RISES FULL SCREEN (CHAT-09, 16 Nov); its helper line moved into the ⓘ. */}
+      <ChatStepCard
+        topic="decision"
+        kicker="You · not sent yet"
+        title="Decision"
+        steps={steps}
+        step={0}
+        onStep={() => {}}
+        sendLabel="Open"
+        sending={sending}
+        onClose={onClose}
+        submitForm={formId}
+        rise={{ info: 'It stays pinned for both of you until one of you closes it.' }}
+      />
     </form>
   );
 }

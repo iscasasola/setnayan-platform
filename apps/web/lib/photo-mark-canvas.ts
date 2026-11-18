@@ -22,12 +22,20 @@ import {
   MARK_PLATE,
   MARK_RIM,
   MARK_RIM_POS,
+  QR_INK,
+  QR_QUIET,
+  QR_TILE,
+  ROW_LOGO_GOLD,
+  ROW_SHADOW,
   SY_BOX_UNITS,
   SY_PATH,
+  isRowLayout,
   sealLobes,
   type MarkFont,
   type MarkLayout,
+  type MarkLine,
   type MarkMeasure,
+  type RowLayout,
 } from './photo-mark-geometry';
 
 const FAMILY = { jost: 'SetnayanMarkJost', cormorant: 'SetnayanMarkCormorant' } as const;
@@ -159,8 +167,117 @@ function drawCoin(ctx: CanvasRenderingContext2D, cx: number, cy: number, d: numb
   ctx.restore();
 }
 
+function drawLine(ctx: CanvasRenderingContext2D, line: MarkLine): void {
+  ctx.font = markFontCss(line.font, line.px);
+  ctx.fillStyle = line.color;
+  if (line.tracking) {
+    let x = line.x;
+    for (const ch of line.text) {
+      ctx.fillText(ch, x, line.y);
+      x += ctx.measureText(ch).width + line.tracking;
+    }
+  } else {
+    ctx.fillText(line.text, line.x, line.y);
+  }
+}
+
+/**
+ * 🔏 THE SUPPLIER ROW (owner-approved 2026-11-15) — `paintCorners()` of the approved prototype, with the geometry
+ * swapped for the layout's numbers: the soft fade, the flat gold logo, SETNAYAN over the address, the shop's logo in a
+ * plain circle, and the QR on its light tile. The QR's shadow sits on the TILE only — a shadow between modules makes
+ * a code harder to read.
+ */
+function paintRow(ctx: CanvasRenderingContext2D, l: RowLayout, logo: CanvasImageSource | null): void {
+  const S = l.safe.size;
+  const f = l.fade;
+  const g = ctx.createLinearGradient(0, f.top, 0, f.top + f.height);
+  if (l.fadeKind === 'row') {
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.45, 'rgba(0,0,0,.32)');
+    g.addColorStop(1, 'rgba(0,0,0,.62)');
+  } else {
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.6)');
+  }
+  ctx.save();
+  ctx.fillStyle = g;
+  ctx.fillRect(f.left, f.top, f.width, f.height);
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor = ROW_SHADOW;
+  ctx.shadowBlur = l.shadow.blur;
+  ctx.shadowOffsetY = l.shadow.offsetY;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  if (l.logo) {
+    const box = l.logo.size;
+    const k = box / SY_BOX_UNITS;
+    ctx.save();
+    ctx.translate(l.logo.cx - box / 2, l.logo.cy - box / 2);
+    ctx.scale(k, k);
+    ctx.translate(0, SY_BOX_UNITS);
+    ctx.scale(1.3333333, -1.3333333);
+    ctx.fillStyle = ROW_LOGO_GOLD;
+    syPath ??= new Path2D(SY_PATH);
+    ctx.fill(syPath);
+    ctx.restore();
+  }
+  if (l.word) drawLine(ctx, l.word);
+  drawLine(ctx, l.address);
+  ctx.restore();
+
+  if (l.coin) {
+    const { cx, cy, d } = l.coin;
+    const r = d / 2;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.4)';
+    ctx.shadowBlur = Math.max(2, 0.008 * S);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = QR_TILE;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    if (logo) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - Math.max(1, 0.04 * d), 0, Math.PI * 2);
+      ctx.clip();
+      const s2 = d * 0.96;
+      ctx.drawImage(logo, cx - s2 / 2, cy - s2 / 2, s2, s2);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  if (l.qr) {
+    const { x0, y0, unit, side, modules } = l.qr;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = Math.max(2, 0.008 * S);
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') ctx.roundRect(x0, y0, side, side, Math.max(2, unit * 1.5));
+    else ctx.rect(x0, y0, side, side);
+    ctx.fillStyle = QR_TILE;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = QR_INK;
+    modules.forEach((row, r) =>
+      row.forEach((dark, c) => {
+        if (dark) ctx.fillRect(x0 + (c + QR_QUIET) * unit, y0 + (r + QR_QUIET) * unit, unit, unit);
+      }),
+    );
+    ctx.restore();
+  }
+}
+
 /** Paint a laid-out mark. `logo` is the shop's coin (verified with a logo only). */
 export function paintMark(ctx: CanvasRenderingContext2D, l: MarkLayout, logo: CanvasImageSource | null = null): void {
+  if (isRowLayout(l)) {
+    paintRow(ctx, l, logo);
+    return;
+  }
   const { plate } = l;
   ctx.save();
   ctx.beginPath();

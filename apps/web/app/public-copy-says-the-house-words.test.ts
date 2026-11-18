@@ -71,7 +71,7 @@ const ROOTS = [
   // 'app/waitlist' left 2026-11-12: its only file, page.tsx, moved into app/(shell)/ (scanned above).
   'app/monogram',
   'app/realstories',
-  'app/blog',
+  // 'app/blog' left 2026-11-16 — retired with the blog + Real Stories, PR #7847 (no file left in it).
   'app/our-story',
   'app/features',
   // 'app/tl' left 2026-11-12: its only file, about/page.tsx, moved into app/(shell)/ (scanned above).
@@ -187,7 +187,7 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
     'app/creators/_components/creator-story-sections.tsx',
     'app/(shell)/pricing/page.tsx',
     'app/(shell)/monogram/page.tsx',
-    'app/(shell)/realstories/page.tsx',
+    // 'app/(shell)/realstories/page.tsx' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
     'lib/blog.ts',
     'app/page.tsx',
     'app/open-shop/_components/address-preview.tsx',

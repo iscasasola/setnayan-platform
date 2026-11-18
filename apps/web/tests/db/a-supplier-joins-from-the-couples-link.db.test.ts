@@ -437,17 +437,19 @@ test('8 · a BOOKED non-coordinator supplier never edits or deletes an item that
   assert.equal(still.rows[0]!.label, 'First dance');
 });
 
-test('8b · booking the claimed coordinator waits for their verification — seeing the event does not', async () => {
-  // Test 5 already proved they see and talk to the couple unverified. Moving
-  // the couple's row to a BOOKED status is where verification is asked
-  // (vendor_not_verified) — and the auto coordinator invite rides on that
-  // booking. So for a brand-new coordinator the host's Event access grant
-  // (test 7) is the path to schedule edit, not the booking.
+test('8b · 2026-11-15: the claimed coordinator can be booked before verification ("We allow booking")', async () => {
+  // Test 5 proved they see and talk to the couple unverified. Since 15 Nov an unverified shop that is not
+  // archived can be booked too (enforce_booking_requires_verified_vendor). Proved inside a rolled-back
+  // transaction, so 8c still walks the verified path from the same starting row.
   await asServer();
-  await assert.rejects(
-    db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [F.rowId]),
-    /vendor_not_verified/,
-  );
+  await db.query('BEGIN');
+  try {
+    await db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [F.rowId]);
+    const r = await db.query<{ status: string }>(`SELECT status::text FROM public.event_vendors WHERE vendor_id = $1`, [F.rowId]);
+    assert.equal(r.rows[0]!.status, 'contracted', 'the unverified coordinator could not be booked');
+  } finally {
+    await db.query('ROLLBACK');
+  }
   await asOwner();
 });
 

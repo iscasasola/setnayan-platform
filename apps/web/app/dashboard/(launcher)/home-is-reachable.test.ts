@@ -182,13 +182,18 @@ test('the switcher\'s Home carries the bypass', () => {
   );
 });
 
-test('the create-event redirect for empty console accounts is untouched', () => {
-  // Guard against over-correction: the OTHER landing branch was never the bug,
-  // and quietly removing it would strand a vendor with no events on a blank board.
+test('the empty-console redirect still fires, and goes to the console, never to create-event', () => {
+  // Guard against over-correction: the 0-event console branch was never the bug, and removing it would strand a
+  // supplier with no events on a blank board. W1-B25 (walk 2, 16 Nov 2026) moved its TARGET: `/dashboard/create-event`
+  // is intercepted by `@modal/(.)create-event`, which keeps this page as the background and loops the redirect. See a-console-user-never-loops-….
   assert.match(
     launcher(),
-    /active\.length\s*===\s*0\s*&&\s*hasConsole[\s\S]{0,80}redirect\(['"]\/dashboard\/create-event['"]\)/,
-    'The 0-event console redirect was removed. That branch was correct — only the ' +
-      'single-event one was over-firing.',
+    /active\.length\s*===\s*0\s*&&\s*hasConsole[\s\S]{0,1200}redirect\(\s*roles\.hasVendorAccess\s*\?\s*['"]\/vendor-dashboard['"]\s*:\s*['"]\/admin['"]\s*\)/,
+    'The 0-event console redirect must still exist and send a supplier to /vendor-dashboard, an admin to /admin.',
+  );
+  assert.doesNotMatch(
+    launcher(),
+    /hasConsole[\s\S]{0,1200}redirect\(['"]\/dashboard\/create-event['"]\)/,
+    'The 0-event console redirect went back to /dashboard/create-event — the intercepted route loops (W1-B25).',
   );
 });

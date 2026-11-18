@@ -155,8 +155,10 @@ test('the locked screen carries the mount marker exactly once', () => {
   );
   // And it must offer BOTH ways out the ruling promises.
   assert.ok(src.includes('vendorBookingFeePayPath'), 'no route to pay the bill');
+  // 🚪 The way back is the client's Chat (`supplierChatHref`, owner 17 Nov — every way in lands there); its tab is
+  // never gated (`gated()` wraps files · schedule · script · activity only — test below).
   assert.ok(
-    src.includes(`${ALWAYS_OPEN_SURFACES.conversation}/`),
+    src.includes(`${ALWAYS_OPEN_SURFACES.conversation}/`) || /supplierChatHref\(eventId, threadId\)/.test(src),
     'no route back to the conversation',
   );
 });
@@ -203,9 +205,10 @@ test('🔒 THE ALWAYS-OPEN THREE ARE NEVER GATED', () => {
   }
   // The chat door in the workspace strip keeps its href unconditionally.
   assert.ok(
-    card.includes(`${ALWAYS_OPEN_SURFACES.conversation}/${'${threadId}'}`),
+    card.includes(`${ALWAYS_OPEN_SURFACES.conversation}/${'${threadId}'}`) || card.includes('supplierChatHref(eventId, threadId)'),
     'the customer card no longer links to the thread unconditionally',
   );
+  assert.ok(!/tab === 'chat' \? gated\(/.test(card), 'the Chat tab is gated — the conversation must stay open at every stage');
 });
 
 // ── THE COUPLE IS NEVER BLOCKED ────────────────────────────────────────────

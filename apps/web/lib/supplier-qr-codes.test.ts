@@ -99,7 +99,7 @@ test('the My page code scans back to https://<site>/v/<slug> exactly', async () 
     ['https://setnayan.com/', 'setnaprod'],
   ] as const) {
     const url = myPageUrl(origin, slug);
-    assert.equal(url, `${origin.replace(/\/+$/, '')}/v/${slug}`);
+    assert.equal(url, `${origin.replace(/\/+$/, '')}/${slug}`);
     const svg = await renderUrlQrSvg(url, 220);
     const { data, info } = await sharp(Buffer.from(svg)).resize(400, 400).flatten({ background: '#ffffff' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const hit = jsQR(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height);

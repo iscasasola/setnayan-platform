@@ -75,7 +75,7 @@ const prof = (id: string, over: Partial<TeamProfile> = {}): TeamProfile => ({
   ...over,
 });
 
-test('only Setnayan shops, one per shop, under the anonymity-safe name', () => {
+test('only Setnayan shops, one per shop, under the shop\'s real name (ruling 2026-11-16 (15))', () => {
   const picks = teamPicksForMessages(
     [
       { vendor_id: 'ev1', marketplace_vendor_id: 'shopA' },
@@ -92,7 +92,8 @@ test('only Setnayan shops, one per shop, under the anonymity-safe name', () => {
     'an off-platform row is offered, or one shop is listed twice',
   );
   const byId = new Map(picks.map((p) => [p.vendorId, p.name]));
-  assert.equal(byId.get('ev1'), 'Screen shopA', 'a hidden shop’s real name leaked into the picker');
+  // Ruling 2026-11-16 (15): an unverified, unreplied shop is named by its real business name — no screen name.
+  assert.equal(byId.get('ev1'), 'Real Name shopA', 'an unverified shop is shown under a placeholder, not its real name');
   assert.equal(byId.get('ev4'), 'Real Name shopB', 'a revealed shop is not shown by name');
   assert.equal(byId.get('ev5'), 'One of your suppliers', 'an unread profile shows a name or "Vendor"');
 });

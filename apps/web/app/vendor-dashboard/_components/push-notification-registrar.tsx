@@ -31,6 +31,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 import { Notice } from '@/app/_components/notices/notices';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import type { CloseRecord } from '@/lib/notices';
@@ -187,6 +188,9 @@ export function PushNotificationRegistrar() {
       ask
       noticeKey="alerts-ask:supplier"
       title="Get an alert for every new inquiry"
+      // The bell the bar already draws (unread-bell-badge.tsx) — the to-do's dashed ring read as a loading spinner
+      // here (owner 17 Nov, live tray screenshot).
+      mark={<Bell aria-hidden className="h-4 w-4 shrink-0 text-ink/60" strokeWidth={1.75} data-notice-mark="bell" />}
       detail={
         <>
           Your phone tells you the moment a couple sends you an inquiry. You can turn it off in your browser settings.

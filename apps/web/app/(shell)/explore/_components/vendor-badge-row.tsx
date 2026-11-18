@@ -1,129 +1,40 @@
 /**
- * Vendor badge row — renders the trust badges from the
- * 2026-05-22 owner directive. Server component (no interactive state).
+ * Vendor badge row — the explore shop card's trust pill.
  *
- * Color scheme per the brief:
- *   - `new`            — terracotta tint + Sparkles icon
- *   - `verified`       — emerald tint + CheckCircle icon
- *   - `couple_trusted` — indigo tint + HeartHandshake icon
- *   - `most_booking`   — gold tint + TrendingUp icon
- *   - `top_pick`       — burgundy tint + Award icon
+ * 🏅 ONE PILL NOW (owner, DECISION_LOG 2026-11-15, specs 4b8cc3a3: "the badges we created will be the only badges we
+ * have"). The 2026-05-22 pills `new` · `couple_trusted` · `most_booking` · `top_pick` RETIRE as badges; Setnayan Verified
+ * stays. The new badges (the five tiered shop badges, the seals, the card medals) reach this card only through the one
+ * adapter, `lib/public-badges.ts` — which today has a source for Setnayan Verified alone, so nothing else is drawn (never
+ * a fake badge; the gaps are named there).
  *
- * Tooltip strategy uses the native `title` attribute — keyboard +
- * screen-reader accessible without a JS popover library. The tooltip
- * explains what the badge MEANS so couples scanning the grid
- * understand why they're seeing it. Brand-voice copy stays calm +
- * polite per [[feedback_setnayan_no_dev_text_post_launch]].
- *
- * Order: badges always render in the same order so the visual
- * scan-pattern is consistent across cards. Vendors with stacked
- * badges still read left-to-right in the locked order. Computation
- * in `lib/vendor-badges.ts` returns badges in the right order so
- * this component just renders the array.
+ * Server component (no interactive state). The tooltip is the native `title` — keyboard + screen-reader reachable.
  */
 
-import type { LucideIcon } from 'lucide-react';
-import {
-  Sparkles,
-  CheckCircle,
-  HeartHandshake,
-  TrendingUp,
-  Award,
-  Snowflake,
-} from 'lucide-react';
-import {
-  MOST_BOOKING_PERCENTILE,
-  TOP_PICK_PERCENTILE,
-  topPercentLabel,
-  type VendorBadge,
-} from '@/lib/vendor-badges';
+import { CheckCircle, Snowflake } from 'lucide-react';
+import type { VendorBadge } from '@/lib/vendor-badges';
+import { keptExplorePills, SEALS } from '@/lib/public-badges';
 
-type BadgeMeta = {
-  label: string;
-  tooltip: string;
-  icon: LucideIcon;
-  classes: string;
-};
-
-const BADGE_META: Record<VendorBadge, BadgeMeta> = {
-  new: {
-    label: 'New',
-    tooltip:
-      'Newly verified supplier — joined Setnayan in the last 3 months.',
-    icon: Sparkles,
-    classes:
-      'border-terracotta/30 bg-terracotta/10 text-terracotta-700',
-  },
-  verified: {
-    label: 'Verified',
-    tooltip:
-      'Setnayan checked this supplier — DTI, BIR, and contact details on file.',
-    icon: CheckCircle,
-    classes:
-      'border-success-300/50 bg-success-50 text-success-900',
-  },
-  couple_trusted: {
-    label: 'Couple Trusted',
-    tooltip:
-      'Earned 10+ reviews from couples, averaging 4.7★ or higher.',
-    icon: HeartHandshake,
-    // Indigo tint (Tailwind default palette — available via theme.extend) so
-    // it reads as its own trust cue, distinct from the terracotta New,
-    // emerald Verified, gold Most Booked, and rose Top Pick rows.
-    classes:
-      'border-indigo-300/60 bg-indigo-50 text-indigo-900',
-  },
-  most_booking: {
-    label: 'Most Booked',
-    tooltip:
-      `Among the top ${topPercentLabel(MOST_BOOKING_PERCENTILE)}% of verified suppliers by completed weddings this year.`,
-    icon: TrendingUp,
-    // Soft amber/gold so it stays distinct from the Sponsored ad
-    // accent (which uses a saturated amber-400 fill in the card
-    // border). The badge sits inside the card; the ad accent sits
-    // on the card border, so the two never visually clash.
-    classes:
-      'border-warn-300/60 bg-warn-50 text-warn-900',
-  },
-  top_pick: {
-    label: 'Top Pick',
-    tooltip:
-      `Setnayan's pick of the month — top ${topPercentLabel(TOP_PICK_PERCENTILE)}% by review score and volume.`,
-    icon: Award,
-    // No `burgundy` token in apps/web/tailwind.config.ts; use rose-tinted
-    // tokens for the deep prestige read. Matches the editorial palette
-    // and stays distinct from the gold "Most Booked" and emerald
-    // "Verified" rows.
-    classes:
-      'border-danger-300/60 bg-danger-50 text-danger-900',
-  },
-};
+const VERIFIED_NAME = SEALS.find((s) => s.key === 'verified')!.name;
 
 export function VendorBadgeRow({
   badges,
 }: {
   badges: ReadonlyArray<VendorBadge>;
 }) {
-  if (badges.length === 0) return null;
+  const kept = keptExplorePills(badges);
+  if (kept.length === 0) return null;
   return (
-    <ul
-      aria-label="Supplier trust badges"
-      className="flex flex-wrap gap-1.5"
-    >
-      {badges.map((key) => {
-        const meta = BADGE_META[key];
-        const Icon = meta.icon;
-        return (
-          <li
-            key={key}
-            title={meta.tooltip}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] ${meta.classes}`}
-          >
-            <Icon className="h-3 w-3" strokeWidth={2} aria-hidden />
-            {meta.label}
-          </li>
-        );
-      })}
+    <ul aria-label="Supplier trust badges" className="flex flex-wrap gap-1.5" data-explore-pills="">
+      {kept.map((key) => (
+        <li
+          key={key}
+          title="Setnayan checked the owner, the business papers and the work. A real business stands behind this name."
+          className="inline-flex items-center gap-1 rounded-full border border-success-300/50 bg-success-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-900"
+        >
+          <CheckCircle className="h-3 w-3" strokeWidth={2} aria-hidden />
+          {VERIFIED_NAME}
+        </li>
+      ))}
     </ul>
   );
 }

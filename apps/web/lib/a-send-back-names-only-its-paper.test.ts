@@ -13,6 +13,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { paperState } from '@/lib/paper-intake-shared';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -145,7 +146,13 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
   assert.match(docs, /doc_uploads: seed,/);
   // The reason is drawn on the named paper, and the one line above the rows is only for an old send-back.
   // (#7624: the paired cards became the one upload place; the line moved with them.)
-  assert.match(code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), /!s\?\.r2_key && sentBackOf\(payload\.docMap\[row\.slot\]/);
+  // 🔁 RETARGETED 16 Nov 2026 (walk W1-B12, one paper one state): the reason is now the named paper's OWN state line —
+  // `paperState(…, { sentBackReason })`, said only while no new copy is filed (`lib/one-paper-one-state.test.ts`).
+  assert.match(code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), /sentBackReason: sentBackOf\(payload\.docMap\[r\.slot\] as DocUpload\)\?\.reason \?\? null/);
+  {
+    assert.equal(paperState({ attempts: 0 }, null, { sentBackReason: 'Blurry' }).text, 'Needs a new copy · Blurry');
+    assert.equal(paperState({ r2_key: 'r2://new', attempts: 0, evidence: { model: {} } }, null, { sentBackReason: 'Blurry' }).text, 'Recognised', 'the reason outlived the new copy');
+  }
   // Today's step 5 is the same place (15 Nov 2026); its one line is only for an old send-back that named no paper.
   const today = code('app/vendor-dashboard/_components/setup-paper-place.tsx');
   assert.match(today, /payload\?\.status === 'rejected' && reason && !namedSendBack/, 'the reason is said above every paper again');

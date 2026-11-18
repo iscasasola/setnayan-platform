@@ -196,7 +196,8 @@ export function LabSuppliersShell({
               <BookThisBuild
                 eventId={shell.eventId}
                 basePath="/dev/suppliers-lab"
-                picks={view.lines.flatMap((l) =>
+                inBuild={view.lines.filter((l) => l.pick || l.booked).length}
+                      picks={view.lines.flatMap((l) =>
                   l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                     ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
                     : [],

@@ -38,7 +38,7 @@ import {
 const PLAN = '/vendor-dashboard/subscription';
 
 function back(message: string): never {
-  redirect(`${PLAN}?error=${encodeURIComponent(message)}#add-ons`);
+  redirect(`${PLAN}?error=${encodeURIComponent(message)}`);
 }
 
 /** 'SN' + 8 uppercase hex — the seat / branch / couple checkout reference format. */
@@ -84,7 +84,8 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
 
   if (!canBuyUltraAddOn(kind, tier)) {
-    back(`Only ${TIER_LABEL.enterprise} can add these. Move up to ${TIER_LABEL.enterprise} to add one.`);
+    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): none of the four is sold any more — Ultra's higher limits are built in.
+    back(`${TIER_LABEL.enterprise}'s higher limits are built in now — there is nothing to add on.`);
   }
 
   // A wait list can hold at most the column's own ten places a date — a place past it could be paid for and never

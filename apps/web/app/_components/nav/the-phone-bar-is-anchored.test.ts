@@ -110,17 +110,28 @@ function tagWith(html: string, marker: string): string {
   return html.slice(open, html.indexOf('>', i) + 1);
 }
 
-test('⚓ the bar renders inside ONE docked container and is not its own pill', () => {
+test('⚓ the bar renders inside ONE docked container, and the bar is the floating white pill', () => {
   const html = docked();
   const docks = html.match(/data-bottom-dock="true"/g) ?? [];
   assert.equal(docks.length, 1, `${docks.length} docks — a bar that wrapped itself again inside a dock, or none`);
   assert.ok(html.indexOf('aria-label="Primary navigation"') > html.indexOf('data-bottom-dock'), 'the bar is outside the dock');
 
   // The bar does not position itself: the DOCK is the one fixed box. A
-  // `fixed` row is a second floating pill, which is the defect.
+  // `fixed` row is a second floating box, which is the defect.
   const tag = tagWith(html, 'aria-label="Primary navigation"');
   assert.doesNotMatch(tag, /\bfixed\b/, `the bar positions itself: ${tag}`);
-  assert.doesNotMatch(tag, /\brounded-full\b/, `the bar is still drawn as its own pill: ${tag}`);
+  // ✨ REWRITTEN 16 Nov 2026 (clean warm look, owner: "floating pill bottom nav, active = filled terracotta" —
+  // DECISION_LOG "THE CLEAN WARM LOOK IS APPROVED"). This line used to forbid the pill (2026-09-25 "anchored"). The
+  // DOCK stays anchored (the tests below); the BAR inside it is now the white pill, 14 px in from the edges, wearing
+  // the frame's fill and its own lift from tokens.
+  assert.match(tag, /\brounded-full\b/, `the bar is not the floating pill: ${tag}`);
+  assert.match(tag, /\bmx-3\.5\b/, `the pill does not float in from the sides: ${tag}`);
+  assert.match(tag, /\bmb-3\.5\b/, `the pill does not float above the edge: ${tag}`);
+  assert.match(tag, /background:var\(--sn-dock-bg\)/, `the pill does not read its token fill: ${tag}`);
+  assert.match(tag, /box-shadow:var\(--sn-dock-lift\)/, `the pill does not read its token lift: ${tag}`);
+  // The clear dock lets taps through around the pill; the pill takes them back.
+  assert.match(tagWith(html, 'data-bottom-dock'), /\bpointer-events-none\b/, 'the clear dock swallows taps beside the pill');
+  assert.match(tag, /\bpointer-events-auto\b/, `the pill cannot be pressed: ${tag}`);
 });
 
 test('⚓ a bar mounted WITHOUT a dock docks itself (vendor and admin bars are anchored too)', () => {

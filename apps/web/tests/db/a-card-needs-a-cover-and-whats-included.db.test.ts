@@ -277,7 +277,7 @@ test('a blank host card is named "Host / MC by …", not "Host Mc by …"', asyn
      VALUES ($1, 'host_mc', NULL, false) RETURNING vendor_service_id`,
     [VP],
   );
-  assert.equal((await row(r.rows[0]!.vendor_service_id)).title, 'Host / MC by Saysay Live Band');
+  assert.equal((await row(r.rows[0]!.vendor_service_id)).title, 'Host by Saysay Live Band'); // T1: the tile is "Host"
   // A kind neither the schema table nor the tree knows still falls to the
   // humanised key — never a raw database key. Since SUP-21 (migration
   // 20271234232465) only a row written before that fence can hold such a kind,

@@ -9,6 +9,7 @@ import {
   type LoaderVariant,
 } from '@/lib/loader-config';
 import { saveLoaderAppearance } from '../actions';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * Loading-animation appearance card (owner 2026-07-05).
@@ -62,7 +63,7 @@ export function LoaderAppearanceCard({
         </p>
       </header>
 
-      <section className="grid gap-6 rounded-xl border border-ink/10 bg-cream p-5 md:grid-cols-[minmax(0,1fr)_260px]">
+      <section className={`${ADMIN_FRAME} grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_260px]`}>
         {/* Controls */}
         <form action={saveLoaderAppearance} className="space-y-6">
           {/* Variant selector */}

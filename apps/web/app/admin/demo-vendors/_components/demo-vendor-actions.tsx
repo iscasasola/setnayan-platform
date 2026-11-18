@@ -1,4 +1,6 @@
 'use client';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * Client-side actions for the /admin/demo-vendors page.
@@ -204,21 +206,14 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
     }
     return (
       <span className="inline-flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setConfirming('batch')}
-          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1 text-xs text-ink/75 hover:bg-red-50 hover:text-red-700"
-        >
-          <Trash2 className="h-3 w-3" />
-          Cleanup batch
-        </button>
+        <ActionButton tone="neutral" icon={Trash2} label="Cleanup batch" type="button" onClick={() => setConfirming('batch')} />
         {result.kind === 'done' && (
-          <span className="text-[11px] text-success-700">
+          <span className="text-[12px] text-success-700">
             Deleted {result.deleted}
           </span>
         )}
         {result.kind === 'error' && (
-          <span className="text-[11px] text-red-700">{result.message}</span>
+          <span className="text-[12px] text-red-700">{result.message}</span>
         )}
       </span>
     );
@@ -243,7 +238,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               }}
             />
           </div>
-          <p className="text-[11px] text-ink/55">
+          <p className="text-[12px] text-ink/55">
             Keep this tab open — it seeds category-by-category so no single request times out.
           </p>
         </div>
@@ -251,21 +246,8 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
       <div className="flex flex-wrap items-center gap-3">
         {confirming === 'create' ? (
           <>
-            <button
-              type="button"
-              onClick={runCreate}
-              className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
-            >
-              <Check className="h-4 w-4" />
-              Confirm: delete existing + create (~{perCategory}/category)
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(null)}
-              className="rounded-md bg-ink/5 px-4 py-2 text-sm text-ink/65 hover:bg-ink/10"
-            >
-              Cancel
-            </button>
+            <ActionButton tone="danger" main icon={Check} label={`Confirm: delete existing + create (~${perCategory}/category)`} type="button" onClick={runCreate} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setConfirming(null)} />
           </>
         ) : confirming === 'all' ? (
           <>
@@ -336,32 +318,9 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
                 className="w-16 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm"
               />
             </label>
-            <button
-              type="button"
-              onClick={() => setConfirming('create')}
-              className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
-            >
-              <Sparkles className="h-4 w-4" />
-              Create demo suppliers
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming('all')}
-              disabled={totalCount === 0}
-              className="inline-flex items-center gap-2 rounded-md bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 className="h-4 w-4" />
-              Cleanup ALL Demo Suppliers
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming('regen')}
-              disabled={totalCount === 0}
-              className="inline-flex items-center gap-2 rounded-md bg-warn-50 px-4 py-2 text-sm font-medium text-warn-800 hover:bg-warn-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Regenerate (cleanup + show seed command)
-            </button>
+            <ActionButton tone="brand" main icon={Sparkles} label="Create demo suppliers" type="button" onClick={() => setConfirming('create')} />
+            <ActionButton tone="neutral" icon={Trash2} label="Cleanup ALL Demo Suppliers" type="button" onClick={() => setConfirming('all')} disabled={totalCount === 0} />
+            <ActionButton tone="neutral" icon={RotateCcw} label="Regenerate (cleanup + show seed command)" type="button" onClick={() => setConfirming('regen')} disabled={totalCount === 0} />
           </>
         )}
       </div>
@@ -370,11 +329,13 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
       {/* Create result */}
       {create.kind === 'done' && (
         <div className="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-900">
-          <p className="font-medium">
-            Created {create.vendors.toLocaleString()} demo suppliers covering every
+          <div>
+            <InfoTip label="About the demo suppliers" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+              Created {create.vendors.toLocaleString()} demo suppliers covering every
             taxonomy node (some carry linked &ldquo;comes with&rdquo; services).
             Preview at <code className="rounded bg-success-100 px-1">/explore?demo=1</code>.
-          </p>
+            </InfoTip>
+          </div>
         </div>
       )}
       {create.kind === 'error' && (
@@ -393,7 +354,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
           {result.nextStep && (
             <div className="mt-2 space-y-1">
               <p className="text-success-800">{result.nextStep.message}</p>
-              <code className="block rounded bg-success-100 px-2 py-1 font-mono text-[12px] text-success-900">
+              <code className="block rounded bg-success-100 px-2 py-1 text-[12px] text-success-900 tabular-nums">
                 {result.nextStep.command}
               </code>
             </div>

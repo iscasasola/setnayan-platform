@@ -50,7 +50,7 @@ test('the door: clean copy first, then the mark, then ONLY the marked bytes go p
   const key = `vendors/${SHOP}/portfolio/from-album/a.jpg`;
   const out = await publishMarkedSupplierPhoto({ vendorProfileId: SHOP, publicKey: key, bytes: new Uint8Array([1]) }, deps);
   const orig = cleanCopyKeyFor(key);
-  assert.deepEqual(log, [`getOriginal ${orig}`, 'normalise', `putOriginal ${orig} 5`, 'specFor', 'mark 5', `putPublic ${key} 9`, `pair r2://setnayan-media/${key} setnayan`]);
+  assert.deepEqual(log, [`getOriginal ${orig}`, 'normalise', `putOriginal ${orig} 5`, 'specFor', 'mark 5', `putPublic ${key} 9`, `pair r2://setnayan-media/${key} row`]);
   assert.equal(out.publicRef, `r2://setnayan-media/${key}`);
   assert.equal(out.originalRef, `r2://setnayan-vendor-verification/vendor-originals/${SHOP}/server/portfolio/from-album/a.jpg`);
 });
@@ -83,10 +83,11 @@ test('the door refuses a key outside the shop\'s own folder, before anything is 
   }
 });
 
-test('a verified shop\'s photo is paired as verified (the re-mark job reads mark_kind)', async () => {
+test('a verified shop\'s photo is paired as row-verified (the re-mark job reads mark_kind)', async () => {
   const { deps, log } = fakeDeps({ specFor: async () => ({ spec: { ...SPEC, verified: true }, logoPng: null }) });
   await publishMarkedSupplierPhoto({ vendorProfileId: SHOP, publicKey: `vendors/${SHOP}/ig/x.jpg`, bytes: new Uint8Array([1]) }, deps);
-  assert.ok(log.at(-1)?.endsWith(' verified'));
+  // 🔏 2026-11-15: new uploads record the new mark — 'row-verified' (the logo circle) for a verified shop.
+  assert.ok(log.at(-1)?.endsWith(' row-verified'));
 });
 
 test('the door itself never catches — a caught failure is an unmarked photo', () => {

@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 /**
  * A TAP FROM THE STORY IS ATTRIBUTABLE TO THE STORY — `03` §2.3 · `08` step 4.2.
  *
@@ -47,7 +48,7 @@ export const STORY_TAP_SRC = 'editorial' as const;
  */
 export function storyTapHref(vendorSlug: string | null, eventSlug: string | null): string | null {
   if (!vendorSlug) return null;
-  const base = `/v/${vendorSlug}?src=${STORY_TAP_SRC}`;
+  const base = `${shopPath(vendorSlug)}?src=${STORY_TAP_SRC}`;
   return eventSlug ? `${base}&utm=${encodeURIComponent(`story:${eventSlug}`)}` : base;
 }
 

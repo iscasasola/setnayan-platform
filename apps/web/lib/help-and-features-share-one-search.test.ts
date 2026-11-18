@@ -115,7 +115,10 @@ test('2 · its results are help answers, feature pages and guides — from the r
   for (const q of ['seating', 'budget']) {
     const hits = composeHowSearch({ query: q, storeShell: false, reads: searchInCodeReads(q), limit: 100 });
     const kinds = new Set(hits.map((h) => h.kind));
-    for (const k of ['help', 'features', 'guide'] as const) assert.ok(kinds.has(k), `"${q}" found no ${k} row`);
+    // Guides are now published stories only (the Journal left search with the blog, 2026-11-16) — they come from the
+    // database, so the in-code corpora give help + features, and test 3 draws a story row from a read it is handed.
+    for (const k of ['help', 'features'] as const) assert.ok(kinds.has(k), `"${q}" found no ${k} row`);
+    assert.equal(hits.filter((h) => h.href.startsWith('/blog')).length, 0, `"${q}": a row still links a retired Journal page`);
     // A help answer is listed once — as the in-place answer, never also as a guide row.
     assert.equal(hits.filter((h) => h.kind === 'guide' && h.href.startsWith('/help/')).length, 0, `"${q}": a help answer listed twice`);
     for (const h of hits.filter((x) => x.kind === 'help')) assert.ok(h.answer && h.answer.length > 0, `${h.href}: no answer to open in place`);
@@ -177,7 +180,9 @@ test('3 · honest states — no match asks us, a failed story read says so, resu
   assert.match(io, /!showcases\.value\.ok/, 'a refused showcase read is not seen by the search');
   assert.match(io, /!chapters\.value\.ok/, 'a refused chapter read is not seen by the search');
   assert.match(code('lib/how-search.ts'), /storiesFailed/, 'the flag does not travel to the page');
-  const hits = composeHowSearch({ query: 'seating', storeShell: false, reads: searchInCodeReads('seating') });
+  // A published story is a guide row; the stories read is a database read, so one is handed in here.
+  const story = { noun: 'stories' as const, tag: 'Story', href: '/maria-and-jose', title: 'Maria & Jose · seating by family', blurb: 'How they sat 200 guests.', score: 50 };
+  const hits = composeHowSearch({ query: 'seating', storeShell: false, reads: [...searchInCodeReads('seating'), story] });
   const some = renderToStaticMarkup(
     React.createElement(HowSearchResults, { q: 'seating', hits, storiesFailed: false, clearHref: '/features', askHref: '/help#contact' }),
   );
@@ -194,7 +199,7 @@ test('4 · a search address is noindex; every sitemap speaks the sitemaps.org na
     assert.match(src, /q\?\.trim\(\) \? \{ \.\.\.\w+, robots: \{ index: false, follow: true \} \}/, `${name}: a ?q= page is indexable`);
   }
   const dirs = readdirSync(join(WEB, 'app')).filter((d) => /^sitemap.*\.xml$/.test(d));
-  assert.ok(dirs.length >= 8, `premise: ${dirs.length} sitemap routes`);
+  assert.ok(dirs.length >= 7, `premise: ${dirs.length} sitemap routes`); // 7 since sitemap-blog.xml retired (2026-11-16)
   for (const d of dirs) {
     const src = readFileSync(join(WEB, 'app', d, 'route.ts'), 'utf8');
     assert.match(src, /xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/, `${d}: not the sitemaps.org namespace`);

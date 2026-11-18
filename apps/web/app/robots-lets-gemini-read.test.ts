@@ -49,7 +49,7 @@ test('Google-Extended may read the public pages, and nothing signed-in', () => {
   const disallow = list(g.disallow);
   assert.ok(!disallow.includes('/'), 'Google-Extended is blocked from the whole site again — the 2026-11-02 ruling lets Gemini read public pages');
   // 🔄 2026-11-12: '/explore' left — it forwards (308) to Discover `/`, which is here (Find suppliers moved inside Discover).
-  for (const p of ['/', '/for-suppliers', '/creators', '/help', '/realstories', '/tl/']) {
+  for (const p of ['/', '/for-suppliers', '/creators', '/help', '/tl/']) {
     assert.ok(allow.includes(p), `Google-Extended is not allowed ${p}`);
   }
   for (const p of PRIVATE) {

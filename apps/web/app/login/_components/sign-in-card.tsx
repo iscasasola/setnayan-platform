@@ -32,6 +32,8 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
+import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
+import { inboxFor } from '@/lib/reset-sent';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
@@ -109,6 +111,8 @@ export type SignInCardProps = {
    * "Welcome back", no "couples and vendors" (guest text audit 2026-09-30).
    */
   forGuest?: boolean;
+  /** W1-B24 — arrived from an email link that can no longer finish: plain words + "Send a new link". */
+  linkExpired?: boolean;
 };
 
 export function SignInCard({
@@ -125,6 +129,7 @@ export function SignInCard({
   onNavigate,
   onSignedIn,
   forGuest = false,
+  linkExpired = false,
 }: SignInCardProps) {
   const inPlace = Boolean(onSignedIn);
   const [state, submitInPlace] = useActionState(
@@ -135,6 +140,9 @@ export function SignInCard({
   // The "email me a link to set a password" send: the SAME action, intent=reset,
   // its own state so it never disturbs the sign-in's banner.
   const [reset, sendReset] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
+  // W1-B24 — "Send a new link" for a dead email link: the SAME action again, intent=relink, its own state.
+  const [relink, sendRelink] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
+  const [relinkTo, setRelinkTo] = useState('');
   // The address typed above — tracked live, and carried across the route's
   // full-page redirect on a failed attempt, so the button needs no second input.
   const [typed, setTyped] = useState(prefilledEmail);
@@ -207,6 +215,62 @@ export function SignInCard({
           </p>
         </>
       )}
+
+      {/* 🔗 W1-B24 (walk 2, 16 Nov 2026): a confirmation link opened on the phone after signing up on the laptop
+          failed and spent itself; the second open showed SDK text and no way forward. Now: plain words, and a button
+          that mails a new link that works on ANY device (`intent=relink`, /auth/confirm). */}
+      {linkExpired && !shownError ? (
+        <form
+          action={sendRelink}
+          className="hr-si-form"
+          data-dead-link=""
+          onSubmit={(e) => setRelinkTo(String(new FormData(e.currentTarget).get('email') ?? '').trim())}
+        >
+          <input type="hidden" name="intent" value="relink" />
+          <input type="hidden" name="next" value={next} />
+          <TurnstileField action="password_reset" />
+          {relink.resetSent ? (
+            // W1-B5: the sent page's own words — where it went, and the inbox to open (`lib/reset-sent.ts`).
+            <p role="status" className="hr-si-banner">
+              <span className="hr-si-banner-em">Sent to {relinkTo || 'your email'}</span> · {DEAD_LINK_WORDS.sent}
+              {inboxFor(relinkTo) ? (
+                <>
+                  {' '}
+                  <a href={inboxFor(relinkTo)!} target="_blank" rel="noopener noreferrer">
+                    Open your email
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : (
+            <>
+              <p role="alert" className="hr-si-banner hr-si-banner--error">
+                {relink.error ?? DEAD_LINK_WORDS.line}
+              </p>
+              <div className="hr-si-field">
+                <label htmlFor="hr-si-relink-email" className="hr-si-label">
+                  Email
+                </label>
+                <input
+                  // field-ok: the sign-in card's own email box (hr-si-input, like the one below), not a form row — W1-B24
+                  id="hr-si-relink-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="you@email.com"
+                  defaultValue={prefilledEmail}
+                  required
+                  className="hr-si-input"
+                />
+              </div>
+              <SubmitButton className="hr-si-submit" pendingLabel={DEAD_LINK_WORDS.pending} overlay={false}>
+                {DEAD_LINK_WORDS.button}
+              </SubmitButton>
+            </>
+          )}
+        </form>
+      ) : null}
 
       {shownError ? (
         <p role="alert" className="hr-si-banner hr-si-banner--error">

@@ -17,7 +17,9 @@
  * row.
  */
 
+import { shopInvitePath } from '@/lib/shop-address';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveVendorCategory } from '@/lib/vendor-packages';
@@ -39,7 +41,8 @@ export function buildVendorInviteUrl(
   opts?: { eventType?: string | null; category?: string | null },
 ): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
-  const base = `${appUrl.replace(/\/$/, '')}/vendor-invite/${slug}`;
+  // 🔗 The address move (owner 2026-11-15): the shop invite is `/{shop}/invite`; `/vendor-invite/{shop}` 308s there.
+  const base = `${appUrl.replace(/\/$/, '')}${shopInvitePath(slug)}`;
   const params = new URLSearchParams();
   if (opts?.eventType) params.set('et', opts.eventType);
   if (opts?.category) params.set('cat', opts.category);
@@ -167,12 +170,13 @@ export type ImportResult =
  * Insert (idempotently) an `event_vendors` shortlist row linking a vendor
  * to an event. Same shape as saveVendorToPicks (status='considering', a
  * reception anchor recompute when the pick is a venue), EXCEPT the provenance:
- * source='vendor_invite' records that this relationship formed via the vendor's
- * QR invite (the vendor brought the couple), distinct from 'host_manual' (the
- * couple saved the vendor from the marketplace themselves). This is what
- * receipt-backed reviews read to render "Verified booking" (import) vs
- * "Verified wedding" (on-platform). Caller must have already verified the user
- * hosts `eventId`.
+ * source=SHORTLIST_QR_SOURCE ('vendor_shortlist_qr') records that the shop
+ * reached the couple's shortlist through its free Shortlist QR. 🔖 Owner
+ * 2026-11-16 (DECISION_LOG d7f4b97f): that is NOT an import — a booking from it
+ * pays the normal booking fee, so it is a Setnayan save
+ * (`SETNAYAN_SAVE_SOURCES`), never one of `SUPPLIER_BROUGHT_SOURCES`. It wrote
+ * 'vendor_invite' (an own client) until then. Caller must have already
+ * verified the user hosts `eventId`.
  */
 export async function importVendorToEventShortlist(
   admin: SupabaseClient,
@@ -220,7 +224,7 @@ export async function importVendorToEventShortlist(
       category,
       vendor_name: vendor.business_name,
       status: 'considering',
-      source: 'vendor_invite',
+      source: SHORTLIST_QR_SOURCE,
     })
     .select('vendor_id')
     .single();

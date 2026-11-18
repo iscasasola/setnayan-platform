@@ -304,10 +304,13 @@ test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_AD
 test('e · each version states each fact exactly once', () => {
   const html = draw();
   const compact = html.slice(html.indexOf('data-home-control="compact"'), html.indexOf('data-home-control="detail"'));
-  const detail = html.slice(html.indexOf('data-home-control="detail"'), html.indexOf('data-home-services'));
+  const detail = html.slice(html.indexOf('data-home-control="detail"'), html.indexOf('data-home-control="board"'));
+  // 🖥 The 1280 board is the third version (owner-approved 16 Nov 2026): its two card columns, held to the same rule.
+  const boardMid = html.slice(html.indexOf('data-home-board="middle"'), html.indexOf('data-home-board-col="right"'));
+  const board = boardMid + html.slice(html.indexOf('data-home-board="right"'), html.indexOf('data-home-services'));
   // 🎴 "days to go" is the event card's (Home redraw 2026-11-02) — stated once on the whole screen, in neither version.
   assert.equal(count(html, '>days to go<'), 1, 'the card does not state "days to go" exactly once');
-  assert.equal(count(compact + detail, 'days to go'), 0, 'a widget states "days to go" again');
+  assert.equal(count(compact + detail + board, 'days to go'), 0, 'a widget states "days to go" again');
   for (const [what, needle] of [
     ['"coming"', '> coming<'],
     ['"no reply"', 'no reply<'],
@@ -316,6 +319,8 @@ test('e · each version states each fact exactly once', () => {
   }
   assert.equal(count(detail, '>Paid<'), 1, 'cards: Paid is not stated exactly once');
   assert.equal(count(detail, '>Still owing<'), 1, 'cards: Still owing is not stated exactly once');
+  assert.equal(count(board, '>Paid<'), 1, 'board: Paid is not stated exactly once');
+  assert.equal(count(board, '>Still owing<'), 1, 'board: Still owing is not stated exactly once');
 });
 
 test('e · the Home draws exactly one h1 — the cover name — and it is the first screen\'s', () => {
@@ -338,12 +343,14 @@ test('e · compact on the phone, detail from md — one column, no second sectio
   // One centred column on a phone; the whole body from md up (owner 2026-10-24: the split moves down from lg to md).
   assert.match(html, /<div data-home-column[^>]*class="[^"]*\bmax-w-xl\b[^"]*\bmd:max-w-none\b/, 'the column must fill the body from md');
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
-  // 🎴 The event card (Home redraw 2026-11-02): square at the top, its bottom corners rounded — nothing else.
-  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
+  // 🎴 The event card (Home redraw 2026-11-02): square at the top, its bottom corners rounded — nothing else. From 1280
+  // it is the first column's card, round all round (owner-approved 16 Nov 2026, the three-column board) — that one only.
+  assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*\bxl:static xl:mx-0 xl:mt-0 xl:rounded-3xl\b/, 'from 1280 the cover is the first column\'s card');
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, '').replace(/xl:rounded-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
   // The two versions, each switched by width alone — no Compact/Detail toggle.
   // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
   assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
-  assert.match(html, /class="hc-two hidden md:grid" data-home-control="detail"/, 'the cards must show from md');
+  assert.match(html, /class="hc-two hidden md:grid xl:hidden" data-home-control="detail"/, 'the cards must show from md (and give way to the board from 1280)');
   assert.doesNotMatch(html, /Compact|Detail view|aria-pressed="(true|false)"[^>]*>Detail/, 'a Compact/Detail toggle');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
   assert.equal(count(html, '>See all<'), 0);

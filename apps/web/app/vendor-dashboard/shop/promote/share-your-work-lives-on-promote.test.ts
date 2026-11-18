@@ -33,7 +33,7 @@ const OLD = ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps'];
 test('1 · Promote draws Share your work once, with its own read, beside the gifts', () => {
   assert.match(PROMOTE, /import \{ ShareYourWork \} from '\.\/share-your-work'/);
   assert.equal([...PROMOTE.matchAll(/<ShareYourWork\b/g)].length, 1);
-  assert.match(PROMOTE, /const sharePromise = withPromote \? loadShareYourWork\(supabase, profile\.vendor_profile_id\) : Promise\.resolve\(null\);/);
+  assert.match(PROMOTE, /const sharePromise = withRest \? loadShareYourWork\(supabase, profile\.vendor_profile_id\) : Promise\.resolve\(null\);/);
   assert.match(PROMOTE, /await Promise\.all\(\[giftsPromise, sharePromise, memberPromise\]\)/, 'the share read adds a round trip after the gifts');
   // Row order (the ruling): QR codes · prints · gifts · share your work — share comes after gifts.
   assert.ok(PROMOTE.indexOf('<ShareYourWork') > PROMOTE.indexOf('<ShopGiftsSection'), 'Share your work is not after Your gifts');
@@ -51,7 +51,10 @@ test('2 · the section reuses the shipped share + story-card buttons on the same
 });
 
 test('3 · the old routes only forward to #share', () => {
-  for (const r of ['vendor-dashboard/real-stories/page.tsx', 'vendor-dashboard/recaps/page.tsx']) {
+  // 🗞✂ 2026-11-16 — `/vendor-dashboard/real-stories` left this list: retired with Real Stories (owner, DECISION_LOG
+  // "THE BLOG AND REAL STORIES ARE RETIRED"), it is no page at all now — `lib/legacy-redirects.ts` forwards it
+  // (held by `lib/no-page-links-a-retired-page.test.ts`).
+  for (const r of ['vendor-dashboard/recaps/page.tsx']) {
     const src = read(r);
     assert.match(src, /redirect\('\/vendor-dashboard\/shop\/promote#share'\)/, `${r} does not forward`);
     assert.doesNotMatch(src, /fetchVendorPoolBookings|ShareButtons|createClient/, `${r} still draws or reads`);

@@ -39,7 +39,7 @@
  */
 
 import { parseVisibility } from './vendor-visibility';
-import { findLockNotice, type FindLockState } from './findable-shop';
+import type { FindLockState } from './findable-shop';
 
 export type ShopFindability =
   /** Live: `public_visibility = 'verified'` and the rail is done. */
@@ -49,12 +49,7 @@ export type ShopFindability =
   /** Approved, but not switched on in the marketplace. Only Setnayan can. */
   | { findable: false; reason: 'not_listed' }
   /** Closed. */
-  | { findable: false; reason: 'archived' }
-  /**
-   * 🔎 Not verified yet, and its first inquiry (or first imported customer)
-   * locked it out of search and Find until it is (DECISION_LOG 2026-11-07).
-   */
-  | { findable: false; reason: 'locked_until_verified'; lock: Extract<FindLockState, { state: 'locked' }> };
+  | { findable: false; reason: 'archived' };
 
 export type ShopFindabilityInput = {
   /** Raw `vendor_profiles.public_visibility`. Anything unreadable fails closed. */
@@ -83,12 +78,8 @@ export type ShopFindabilityInput = {
  * exists to stop.
  */
 export function shopFindability(input: ShopFindabilityInput): ShopFindability {
-  // 🔎 THE LOCK SPEAKS EVEN BESIDE THE RAIL. The rail says how to get verified;
-  // it does not say the shop has just stopped being found — and ruling (5) of
-  // DECISION_LOG 2026-11-07 is that the supplier is told exactly that, with Verify.
-  if (input.findLock?.state === 'locked') {
-    return { findable: false, reason: 'locked_until_verified', lock: input.findLock };
-  }
+  // 🔎 No lock speaks any more (15 Nov, "Verified only"): a shop not yet verified is out of Find from day one, and
+  // the rail beside it already says how to get verified.
   if (input.railShowing) return { findable: false, reason: 'still_getting_verified' };
   const visibility = parseVisibility(input.publicVisibility);
   if (visibility === 'verified') return { findable: true, reason: 'live' };
@@ -124,10 +115,6 @@ export function findabilityNotice(state: ShopFindability): FindabilityNotice | n
           'Your shop is approved, but it is not showing in the marketplace — nobody browsing Setnayan can open it, so no new enquiry can reach you. Only Setnayan can switch it on.',
         cta: { label: 'Ask us to list your shop', href: '/help#contact' },
       };
-    case 'locked_until_verified': {
-      const words = findLockNotice(state.lock)!;
-      return { title: words.title, body: words.body, cta: words.cta };
-    }
     case 'archived':
       return {
         title: 'Your shop is closed.',

@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayLogoUrl } from '@/lib/uploads';
 import { isPubliclyVisible, type VendorPublicVisibility } from '@/lib/vendor-visibility';
@@ -153,7 +154,7 @@ export async function fetchEventRecommendations(
       businessName: vp.business_name as string,
       endorsement: r.endorsement,
       logoUrl: logos[i] ?? null,
-      href: vp.business_slug ? `/v/${vp.business_slug}` : null,
+      href: vp.business_slug ? `${shopPath(vp.business_slug)}` : null,
     };
   });
 }

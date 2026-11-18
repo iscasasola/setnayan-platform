@@ -35,9 +35,11 @@ const SAMPLE_EVENT_CHIP =
 
 test('the marker is the sample event chip, unchanged, and the sample event draws it through the same component', () => {
   assert.equal(SAMPLE_MARKER_CLASS, SAMPLE_EVENT_CHIP);
-  const story = read('app/realstories/[slug]/page.tsx');
-  assert.match(story, /\{wedding\.isSample \? <DemoOnlyMarker kind="event" align="end" \/> : null\}/);
-  assert.ok(!story.includes(SAMPLE_EVENT_CHIP), 'realstories/[slug] draws its own copy of the chip again');
+  // The Real Stories page's pins left 2026-11-16 — retired with the blog + Real Stories, PR #7847. The sample
+  // event's live surface is its Event Hub, which draws the chip through the same component.
+  const hub = read('app/[slug]/page.tsx');
+  assert.match(hub, /<DemoOnlyMarker kind="event" align="center" \/>/);
+  assert.ok(!hub.includes(SAMPLE_EVENT_CHIP), 'the Event Hub draws its own copy of the chip again');
   assert.equal(
     renderToStaticMarkup(createElement(SampleMarker)),
     `<span class="${SAMPLE_EVENT_CHIP}">(DEMO ONLY)</span>`,

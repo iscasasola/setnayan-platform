@@ -92,7 +92,7 @@ export type DoorSkin = {
    * chunk and must not import the invite vocabulary to know a door's colour.
    */
   themeId: string;
-  /** The theme's CSS scope, on the page frame. Replaces the bare door's `bg-cream`. */
+  /** The theme's CSS scope, on the page frame. Replaces the bare door's `bg-page`. */
   className: string;
   /** Custom properties the theme reads — the couple's colour, their photo. */
   style?: React.CSSProperties;
@@ -282,7 +282,7 @@ export function DoorShell({
           both of which are DoorShell's `p-6` written down in a skin.
         */
         'relative isolate flex min-h-dvh w-full flex-col items-center justify-start px-4 py-4 sm:justify-center sm:px-6 sm:py-10',
-        skin ? skin.className : 'bg-cream',
+        skin ? skin.className : 'bg-page', // the page behind the door (16 Nov: #F7F5F4) — the card on it stays white
       ].join(' ')}
       style={
         titleFit || actionVars
@@ -323,6 +323,9 @@ export function DoorShell({
 
         <div
           className={[
+            // ⚠ NOT moved onto the frame tokens (16 Nov 2026 clean look): this card is ALSO the guest Event Hub's RSVP
+            // door, where `bg-surface` is the couple's own paper (the skin sets `--surface`) — the house white would
+            // paint over it. Moving the public doors needs a split by scope; a later batch.
             'relative rounded-2xl border border-ink/10 bg-surface p-6 shadow-sm sm:p-8',
             // Only what you can ACT on carries the action colour — the card
             // itself stays paper, exactly as the sign-in panel's own note says

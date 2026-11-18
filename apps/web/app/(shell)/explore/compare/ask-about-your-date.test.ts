@@ -67,8 +67,8 @@ test('the CTA exists and lands on the shipped composer anchor', () => {
   );
   assert.match(
     block,
-    /href=\{`\/v\/\$\{row\.business_slug\}\?src=explore#get-in-touch`\}/,
-    'the CTA no longer points at /v/<slug>?src=explore#get-in-touch. The hash is ' +
+    /href=\{`\$\{shopPath\(row\.business_slug\)\}\?src=explore#get-in-touch`\}/,
+    'the CTA no longer points at /<slug>?src=explore#get-in-touch. The hash is ' +
       'the inquiry section that ships on the shop page; ?src=explore is the ' +
       'enum-valid attribution stamp Booking-Fee "sourced" credit rides on, and it ' +
       'must stay BEFORE the hash or the browser swallows it into the fragment.',

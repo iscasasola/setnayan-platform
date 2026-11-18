@@ -37,7 +37,7 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { goToBuildTab } from '@/lib/budget-build';
 import { askLine } from '@/lib/booking-ask-words';
-import { bookFields, bookOutcomeOf, bookedToast, type BookOutcome, type BookPick } from '@/lib/book-this-build';
+import { bookFields, bookOutcomeOf, bookedToast, nothingToBookNote, type BookOutcome, type BookPick } from '@/lib/book-this-build';
 import { formatPhp } from '@/lib/php';
 import { ScheduleSheet, SheetFoot } from '@/app/dashboard/[eventId]/schedule/_components/schedule-sheet';
 import { finalizeVendor, type FinalizeVendorResult } from '../actions';
@@ -48,15 +48,24 @@ export const BookStandInCtx = createContext<null | ((fields: Array<[string, stri
 /** Each pick's price, from the Build body's own lines (`build-body.tsx` provides it) — what the ask lists beside a name. */
 export const BookPricesCtx = createContext<ReadonlyMap<string, number | null>>(new Map());
 
-/** The prototype's words when every pick is booked or already asked. */
-export const NOTHING_TO_BOOK = 'Nothing to book — every pick is booked or already asked';
-
 /** The bar's MAIN verb now (frame 12) — the one terracotta answer; Save beside it is the quiet one. */
 const BAR_FLEX = 'max-tab:!flex-1 lg:!flex-1';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 
-export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; picks: BookPick[]; basePath?: string }) {
+export function BookThisBuild({
+  eventId,
+  picks,
+  inBuild,
+  basePath,
+}: {
+  eventId: string;
+  /** The picks still to ask: not booked, not already asked. */
+  picks: BookPick[];
+  /** How many of the build's lines hold a pick or a booking — so an EMPTY build is told so, not given a ✓. */
+  inBuild: number;
+  basePath?: string;
+}) {
   const router = useRouter();
   const standIn = useContext(BookStandInCtx);
   const base = basePath ?? `/dashboard/${eventId}/vendors`;
@@ -66,6 +75,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
   // The ask before anything is sent (frame 14).
   const [asking, setAsking] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<'ok' | 'note'>('ok');
   // What the couple has already said yes to, per supplier — kept across rounds
   // so a later gate never asks the same question again.
   const agreed = useRef(new Map<string, Set<string>>());
@@ -101,6 +111,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
       if (!open) {
         agreed.current.clear();
         setRows(null);
+        setToastTone('ok');
         setToast(bookedToast(done));
         goToBuildTab('budget');
         return;
@@ -115,10 +126,12 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
     loop(picks, []);
   };
 
-  /** The button: the ask first — or, with nothing left to book, the prototype's one line. */
+  /** The button: the ask first — or, with nothing to send, ONE true line (a ✓ only when every pick is booked or asked). */
   const press = () => {
-    if (picks.length === 0) {
-      setToast(NOTHING_TO_BOOK);
+    const note = nothingToBookNote(inBuild, picks.length);
+    if (note) {
+      setToastTone(note.tone);
+      setToast(note.text);
       return;
     }
     setAsking(true);
@@ -141,7 +154,10 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
     const done = (rows ?? []).flatMap((r) => (r.outcome?.kind === 'done' ? [r.outcome.how] : []));
     setRows(null);
     const said = bookedToast(done);
-    if (said) setToast(said);
+    if (said) {
+      setToastTone('ok');
+      setToast(said);
+    }
   };
 
   const openCard = (tile: string) => {
@@ -205,7 +221,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
       </ScheduleSheet>
       {toast && typeof document !== 'undefined'
         ? createPortal(
-            <PeekToast key={toast} tone="ok" data="book-build" onGone={() => setToast(null)}>
+            <PeekToast key={toast} tone={toastTone} data="book-build" onGone={() => setToast(null)}>
               {toast}
             </PeekToast>,
             document.body,

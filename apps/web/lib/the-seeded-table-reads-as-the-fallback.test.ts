@@ -20,9 +20,11 @@ import { join } from 'node:path';
 import {
   fallbackInspirationParts,
   snapshotFromPartRows,
+  type InspirationPart,
   type InspirationPartCategoryRow,
   type InspirationPartRow,
 } from './inspiration-parts';
+import { forwardTile } from './taxonomy';
 
 const DIR = join(__dirname, '../../../supabase/migrations');
 const sql = readFileSync(join(DIR, readdirSync(DIR).find((f) => f.endsWith('_inspiration_parts_on_the_taxonomy.sql'))!), 'utf8');
@@ -46,9 +48,24 @@ function seededRows(): { rows: InspirationPartRow[]; links: InspirationPartCateg
     const l = relabel.find((x) => x.key === r.slot_key);
     if (l) r.label_en = l.label;
     if (hide.includes(r.slot_key)) r.hidden = true;
+    // T1 part 2 (20271350082350) folds whole categories: a home moves to where its category went…
+    if (r.home_category_id) r.home_category_id = forwardTile(r.home_category_id);
   }
-  return { rows, links };
+  // …and an also-category that merged into the home, or into an earlier also, is the same category now.
+  const merged: InspirationPartCategoryRow[] = [];
+  for (const l of [...links].sort((a, b) => a.slot_key.localeCompare(b.slot_key) || a.sort_order - b.sort_order)) {
+    const id = forwardTile(l.category_id);
+    const home = rows.find((r) => r.slot_key === l.slot_key)?.home_category_id;
+    if (id === home || merged.some((m) => m.slot_key === l.slot_key && m.category_id === id)) continue;
+    merged.push({ ...l, category_id: id });
+  }
+  return { rows, links: merged };
 }
+
+/** Step ②'s rows carry no service links (those are ③a's table), so a part's `services` is compared there — not here.
+ *  Since T1 part 2 the fallback names the services of the parts that keep their shops through the category merges
+ *  (FALLBACK_PART_SERVICES); everything else about a part is this test's question. */
+const withoutServices = (parts: readonly InspirationPart[]) => parts.map((p) => ({ ...p, services: null }));
 
 test('⭐ the seeded rows, read by the reader, are the fallback snapshot part for part', () => {
   const { rows, links } = seededRows();
@@ -57,7 +74,7 @@ test('⭐ the seeded rows, read by the reader, are the fallback snapshot part fo
   assert.deepEqual([relabel.map((x) => x.key), hide], [['groom'], ['entourage']], 'the ③a relabel/hide parse is broken, not the guard');
   const fromDb = snapshotFromPartRows(rows, links, null);
   assert.equal(fromDb.source, 'db');
-  assert.deepEqual(fromDb.parts, fallbackInspirationParts().parts);
+  assert.deepEqual(fromDb.parts, withoutServices(fallbackInspirationParts().parts));
 });
 
 test('a retired part is offered nowhere, and the also-categories come back in their stored order', () => {
@@ -65,5 +82,5 @@ test('a retired part is offered nowhere, and the also-categories come back in th
   const retired = snapshotFromPartRows(rows.map((r) => (r.slot_key === 'cocktail' ? { ...r, status: 'retired' } : r)), links, null);
   assert.ok(!retired.parts.some((p) => p.slotKey === 'cocktail'));
   const shuffled = snapshotFromPartRows(rows, [...links].reverse(), null);
-  assert.deepEqual(shuffled.parts, fallbackInspirationParts().parts, 'the reader trusted row order instead of sort_order');
+  assert.deepEqual(shuffled.parts, withoutServices(fallbackInspirationParts().parts), 'the reader trusted row order instead of sort_order');
 });

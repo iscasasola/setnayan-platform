@@ -1,3 +1,4 @@
+import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 /**
  * supplier-sheet-read.ts — what the supplier sheet reads when it is OPEN (never
@@ -117,6 +118,6 @@ export async function readSupplierSheet(
         )
       : null,
     following,
-    sharePath: profile && revealed && profile.business_slug ? `/v/${profile.business_slug}` : null,
+    sharePath: profile && revealed && profile.business_slug ? `${shopPath(profile.business_slug)}` : null,
   };
 }

@@ -27,15 +27,15 @@ const CHECKBOX_NAME = 'batch_payment_ids';
 
 export function BatchApproveCheckbox({ paymentId }: { paymentId: string }) {
   return (
-    <label className="inline-flex items-center gap-1.5 text-xs font-medium text-success-800">
+    <label className="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center" title="Select for batch">
       <input
         type="checkbox"
         name={CHECKBOX_NAME}
         value={paymentId}
         form={BATCH_FORM_ID}
-        className="h-4 w-4 cursor-pointer accent-success-700"
+        className="h-5 w-5 cursor-pointer accent-success-700"
       />
-      Select for batch
+      <span className="sr-only">Select for batch</span>
     </label>
   );
 }
@@ -71,26 +71,25 @@ export function BatchApproveBar({
   if (totalCleanMatches === 0) return null;
 
   return (
-    <div className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-success-300/70 bg-success-50/95 px-4 py-3 backdrop-blur">
-      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-success-900">
-        <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-[color:var(--m-line)] py-2"
+      data-batch-approve=""
+    >
+      <span className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-semibold text-[color:rgb(var(--color-ok))]">
+        <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         {formatCount(totalCleanMatches)} clean match{totalCleanMatches > 1 ? 'es' : ''} ready
       </span>
-      <label className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/70">
+      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-[14px] text-ink">
         <input
           type="checkbox"
           onChange={(e) => toggleAll(e.target.checked)}
           checked={count > 0 && count === totalCleanMatches}
-          className="h-4 w-4 cursor-pointer accent-success-700"
+          className="h-5 w-5 cursor-pointer accent-success-700"
         />
         Select all clean matches
       </label>
       <form id={BATCH_FORM_ID} action={action} className="ml-auto">
-        <SubmitButton
-          disabled={count === 0}
-          pendingLabel="Approving…"
-          className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-success-700 px-4 py-1.5 text-sm font-medium text-cream hover:bg-success-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <SubmitButton disabled={count === 0} pendingLabel="Approving…" className="ab ab-ok ab-main">
           Approve {count > 0 ? `${formatCount(count)} ` : ''}selected clean match{count === 1 ? '' : 'es'}
         </SubmitButton>
       </form>

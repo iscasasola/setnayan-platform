@@ -14,8 +14,11 @@
  *   4 · ONE PART — no other file draws a `data-rise-screen`; a ⚙ rises through `MenuSettingsButton rise` (rendered:
  *       the risen frame, never the sheet), every other ⚙ keeps its sheet byte-for-byte.
  *   5 · THE SHOP TAB MAP — ⚙ · Logo · Share · Promote · QR · Cover · View shop · each Analytics card · each Badge open the
- *       ONE `RiseScreen`; none of those files draws a popup `<Sheet` any more; View shop stays in the app (the only new
- *       tab left is the risen page's own "Open in browser ↗").
+ *       ONE `RiseScreen` BELOW 701 (a phone); none of those files draws a popup `<Sheet` itself; View shop stays in the
+ *       app (the only new tab left is the risen page's own "Open in browser ↗"). ⚖ NARROWED 2026-11-16 (owner, DECISION_LOG
+ *       "FROM 701px THE SHOP DOORS OPEN AS THE 440px RIGHT PANEL"): from 701 the doors other than ⚙ open through
+ *       `ShopDoorScreen` as the right panel — 🔒 `vendor-dashboard/shop/each-shop-door-is-the-panel-from-701.test.ts`.
+ *       This file still holds the phone: below 701 the door IS `RiseScreen`, with the props it was given.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-10): `<RiseScreen` → `<Sheet open` in shop-badge-row.tsx (red: 5);
  * `rise` dropped from `ShopSettings`' ⚙ (red: 5); `direction: 'reverse'` removed from the close (red: 3);
@@ -77,7 +80,11 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.match(SCREEN, /useChromeAway\(true\);/, 'the bars stay while the screen is up');
   assert.match(SCREEN, /useModalA11y\(\{ open: Boolean\(host\), onClose: close, containerRef: rootRef \}\)/, 'not the house modal contract (or the page is not held)');
   assert.doesNotMatch(SCREEN, /lockScroll: false/, 'the page under it is not held — ✕ would not return to the same scroll');
-  assert.match(SCREEN, /const close = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
+  assert.match(SCREEN, /const backClose = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
+  // ⤵ An inner Done / Not now steps out through the SAME close (the reverse, the Back entry), and a purchase in flight holds
+  // every way out (13 Nov rollout).
+  assert.match(SCREEN, /<RiseCloseContext\.Provider value=\{close\}>/, 'an inner close skips the reverse');
+  assert.match(SCREEN, /if \(closingRef\.current \|\| busyRef\.current\) return;/, 'a busy screen still closes');
   assert.match(SCREEN, /riseOriginNow\(\)/, 'the screen does not rise out of what was tapped');
   assert.equal([...SCREEN.matchAll(/riseScreenMotion\(rectOf\(originRef\.current\), viewport\(\), prefersReducedMotion\(\)\)/g)].length, 2, 'the open and the close are not the same motion');
   assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
@@ -129,16 +136,24 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
     // Analytics), and each tile rises through the same ONE screen.
     analytics: code('app/vendor-dashboard/performance/_components/graph-tile.tsx'),
   };
+  // Below 701 every door IS the ONE risen screen: it opens through `ShopDoorScreen`, whose phone branch is `RiseScreen`
+  // with the very props it was handed, and whose server render (the phone's first paint) is that branch.
+  const door = code('app/vendor-dashboard/_components/shop-door-screen.tsx');
+  // (A door that OPENED as the 701+ panel stays the panel until it closes itself — it never becomes a full-screen door
+  // mid-open; held by each-shop-door-is-the-panel-from-701.test.ts § 4.)
+  assert.match(door, /if \(!panel(?: && !wasPanel)?\) return <RiseScreen \{\.\.\.props\} \/>;/, 'below 701 a Shop door no longer rises');
+  assert.match(door, /const panelOnServer = \(\) => false;/, 'the server (a phone’s first paint) no longer draws the risen screen');
   for (const [name, src] of Object.entries(files)) {
-    assert.match(src, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/, `${name} does not open the ONE risen screen`);
+    assert.match(src, /import \{ ShopDoorScreen \} from '@\/app\/vendor-dashboard\/_components\/shop-door-screen';/, `${name} does not open the ONE risen screen`);
     assert.doesNotMatch(src, /<Sheet\b/, `${name} still opens a popup sheet where a Rise belongs`);
+    assert.doesNotMatch(src, /<RiseScreen\b/, `${name} rises past the door (it would stay full screen from 701)`);
   }
-  // The cover's doors: Logo · Promote · QR · Cover (ParamSheet) · Share · View shop — each a RiseScreen.
+  // The cover's doors: Logo · Promote · QR · Cover (ParamSheet) · Share · View shop — each through the door.
   const fn = (src: string, name: string) => src.slice(src.indexOf(`function ${name}(`), src.indexOf('\n}\n', src.indexOf(`function ${name}(`)));
-  for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<RiseScreen\b/, `${f} does not rise`);
+  for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<ShopDoorScreen\b/, `${f} does not rise`);
   for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(files.cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
-  assert.match(fn(files.badges, 'BadgeSheet'), /<RiseScreen\b/, 'a badge does not rise');
-  assert.match(fn(files.analytics, 'GraphCard'), /<RiseScreen\b/, 'an analytics card does not rise');
+  assert.match(fn(files.badges, 'BadgeSheet'), /<ShopDoorScreen\b/, 'a badge does not rise');
+  assert.match(fn(files.analytics, 'GraphCard'), /<ShopDoorScreen\b/, 'an analytics card does not rise');
   // ⚙ — the pinned row's and the cover's (`?gear=1`) — through the ONE door, risen.
   assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" rise\b/, 'the Shop ⚙ opens a popup sheet');
   // View shop: both doors are buttons that rise the page in the app; the only new tab is "Open in browser ↗" inside it.
@@ -146,4 +161,90 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop-pin=""/, 'the pinned row’s View shop does not rise');
   assert.equal([...files.cover.matchAll(/target="_blank"/g)].length, 1, 'View shop opens a new tab again');
   assert.match(fn(files.cover, 'ViewShopScreen'), /target="_blank"[\s\S]{0,200}data-view-shop-browser=""/, 'the risen page lost its "Open in browser ↗"');
+});
+
+// ⤴ 13 Nov rollout, batch 2 (build-sessions/RISE-AUDIT-2026-11-13.md § B): the lock and upsell explainers that were still a
+// popup sheet or a drawer of their own rise through the ONE screen. 🛡 SABOTAGE (seen RED, then restored): `<RiseScreen` →
+// `<Sheet open` in iap-papic-sheet.tsx.
+test('6 · every lock / upsell explainer rises — no popup sheet, no drawer of its own', () => {
+  const explainers = [
+    'app/_components/iap/iap-unlock-sheet.tsx',
+    'app/_components/iap/iap-papic-sheet.tsx',
+    'app/_components/iap/iap-live-watch-sheet.tsx',
+    'app/_components/app-store/choose-plan-sheet.tsx',
+    'app/_components/lock/locked-feature.tsx',
+    'app/_components/lock/limit-sheet.tsx',
+  ];
+  for (const rel of explainers) {
+    const src = code(rel);
+    assert.match(src, /import \{ RiseScreen\b[^}]*\} from '@\/app\/_components\/rise\/rise-screen';/, `${rel} does not open the ONE risen screen`);
+    assert.match(src, /<RiseScreen\b/, `${rel} does not rise`);
+    assert.doesNotMatch(src, /<Sheet\b|role="dialog"/, `${rel} still opens a popup where a Rise belongs`);
+  }
+  // A purchase in flight holds every way out; the inner Done / Not now fall back the same way ✕ does.
+  for (const rel of explainers.slice(0, 3)) {
+    assert.match(code(rel), /busy=\{buying\}/, `${rel}: ✕ closes mid-purchase`);
+    assert.match(code(rel), /<WithRiseClose fallback=\{closed\}>/, `${rel}: an inner close skips the fall`);
+  }
+});
+
+// ⤴ 13 Nov rollout, batch 3 (build-sessions/RISE-AUDIT-2026-11-13.md § H): the avatar sheet's rows RISE their page over the
+// page you are on — an intercepted route whose LAYOUT is the ONE screen (it stands the moment the tap lands, the page streams
+// into it), the SAME page re-exported (never a second body), headed by the row's own words; the slot clears on any other
+// navigation; the sheet stays mounted under it (the row keeps its rect) but steps aside. Proved end to end in app/dev/rise-route-lab (✕ and the phone's Back both land on the first URL).
+// 🛡 SABOTAGE (seen RED, then restored): `onClick={supplierSheet ? undefined : close}` → `onClick={close}` in
+// account-switcher.tsx.
+test('7 · every avatar row rises its page — one screen, the same page, the sheet under it', () => {
+  const SLOT = 'app/vendor-dashboard/@rise';
+  const rows: Record<string, string> = { profile: 'details', website: 'page', team: 'helpers', subscription: 'plan', settings: 'settings' };
+  for (const [dir, key] of Object.entries(rows)) {
+    const layout = code(`${SLOT}/(.)${dir}/layout.tsx`);
+    assert.match(layout, /<RiseRoute title=\{label\} line=\{sub\} data=/, `${dir}: the row's page does not rise`);
+    assert.match(layout, new RegExp(`avatarRowWords\\('${key}'\\)`), `${dir}: the risen page is not headed by the row's own words`);
+    assert.equal(code(`${SLOT}/(.)${dir}/page.tsx`).trim(), `export { default } from '../../${dir}/page';`, `${dir}: a second page body`);
+  }
+  // Every supplier row's href has its intercept (a row added later must rise too).
+  const rowsSrc = code('app/vendor-dashboard/_components/supplier-avatar-rows.ts');
+  for (const m of rowsSrc.matchAll(/href: '\/vendor-dashboard\/([a-z-]+)'/g)) {
+    assert.ok(Object.prototype.hasOwnProperty.call(rows, m[1]!), `the avatar row to /vendor-dashboard/${m[1]} does not rise`);
+  }
+  // The slot is drawn by the supplier layout and clears on every other navigation.
+  assert.match(code('app/vendor-dashboard/layout.tsx'), /\{children\}<\/BasicSetupHold>\s*\{rise\}/, 'the supplier layout does not draw the rise slot');
+  for (const f of ['default.tsx', 'page.tsx', '[...rest]/page.tsx']) assert.match(code(`${SLOT}/${f}`), /return null;/, `${f}: the slot keeps a risen page up after a tab tap`);
+  // RiseRoute: ✕ / Back pop ours then the route's; a tab re-tap steps over both.
+  const route = code('app/_components/rise/rise-route.tsx');
+  assert.match(route, /if \(st\?\.\[LAYER_MARK\]\) window\.history\.go\(-2\);\s*else router\.back\(\);/, 'the risen page does not leave through both Back entries');
+  // The sheet stays under the risen page (the row keeps its rect) but steps aside.
+  const sheet = code('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(sheet, /onClick=\{supplierSheet \? undefined : close\} data-switcher-shop-row=\{r\.key\}/, 'the sheet closes under the risen page — ✕ has no row to fall back into');
+  assert.equal([...sheet.matchAll(/<div data-account-sheet-layer="">/g)].length, 2, 'a sheet layer that never steps aside');
+  assert.match(
+    readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8'),
+    /html\[data-chrome-away\] \[data-account-sheet-layer\] \{\s*visibility: hidden;/,
+    'the sheet draws over the risen page',
+  );
+});
+
+// ⤴ 16 Nov (W1 walk): the half-height sheets that are FORMS rise through the ONE screen — Discover's Filters (place,
+// selects, checkboxes, Apply) and the Booked QR deal (client · date · service · schedule · proof). DECISION_LOG
+// 2026-11-10 "RISE FULL SCREEN"; pickers and menus (the chat ＋, a code viewer) stay the half sheet, 2026-11-12.
+// Discover keeps the shipped form (`FilterDrawerForm`, the same fields `/explore`'s drawer draws).
+// 🛡 SABOTAGE (seen RED, then restored): `<FilterDrawer {...drawer} open` back in discover-filter-sheet.tsx;
+// `rise: key === 'locked'` removed from qr-codes.tsx; the QR list's `<RiseScreen` branch removed.
+test('8 · Discover Filters and the Booked QR rise full screen — the ＋ and the code viewers stay half', () => {
+  const filters = code('app/_components/frontdoor/discover-filter-sheet.tsx');
+  assert.match(filters, /<RiseScreen title="Filters" fill onClose=\{onClose\} data="discover-filters">/, 'Discover Filters does not rise');
+  assert.match(filters, /<FilterDrawerForm \{\.\.\.drawer\}/, 'Discover Filters is not the shipped filter form');
+  assert.doesNotMatch(filters, /<FilterDrawer\b(?!Form)|createPortal/, 'Discover Filters still opens the half-height drawer');
+  const drawer = code('app/(shell)/explore/_components/filter-drawer.tsx');
+  assert.match(drawer, /export function FilterDrawerForm\(/);
+  assert.equal([...drawer.matchAll(/name="city"/g)].length, 1, 'the filter fields were copied — one form, two frames');
+  const qr = code('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  assert.match(qr, /rise: key === 'locked',/, 'the Booked deal form no longer rises');
+  const list = code('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
+  assert.match(list, /\{row\?\.rise \? \(\s*<RiseScreen title=\{row\.name\}/, 'a rising QR row is drawn in the half sheet');
+  assert.match(list, /open=\{row !== null && !row\.rise\}/, 'the Booked form opens twice — risen and in the sheet');
+  // The chat ＋ is a menu: it stays the half sheet (2026-11-12 "A POP-UP SHEET OPENS AT HALF THE SCREEN").
+  const plus = code('app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx');
+  assert.doesNotMatch(plus, /<RiseScreen\b/, 'the chat ＋ menu rises — it stays half with drag-up');
 });

@@ -573,7 +573,9 @@ export function controlsForRoute(routeDir, appRoot) {
   const blocks = new Set();
   const files = routeSourceFiles(routeDir, { isAppRoot: routeDir === appRoot });
   for (const f of files) {
-    const { destinations: d, actions: a, blocks: b } = extractControls(readFileSync(f, 'utf8'));
+    // 🔗 The address move (2026-11-15): `${shopPath(x)}` is the shop door it replaced (`/v/${x}`) — same screen.
+    const text = readFileSync(f, 'utf8').replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}');
+    const { destinations: d, actions: a, blocks: b } = extractControls(text);
     d.forEach((x) => destinations.add(x));
     a.forEach((x) => actions.add(x));
     b.forEach((x) => blocks.add(x));

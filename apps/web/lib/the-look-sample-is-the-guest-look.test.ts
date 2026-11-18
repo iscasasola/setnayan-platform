@@ -237,9 +237,16 @@ test('(3) the sample’s buttons are the guest page’s classes, in the guest pa
   // What the base rules name…
   assert.match(base('button-primary'), /\bbg-mulberry\b/);
   assert.match(base('button-primary'), /\btext-cream\b/);
-  assert.match(base('button-secondary'), /\bborder-link\/30\b/);
-  assert.match(base('button-secondary'), /\bbg-cream\b/);
-  assert.match(base('button-secondary'), /\btext-link\b/);
+  // ✨ 16 Nov 2026 (clean warm look — "secondary button = soft grey fill, no outline"): the base secondary reads the
+  // secondary TOKENS, and the guest islands (`.sn-editorial`, `[data-look-sample]`, …) set those tokens back to the
+  // guest page's own paint — cream fill, slate words, slate at 30 % for the line — so a guest page is unchanged.
+  assert.match(base('button-secondary'), /\bborder\b/);
+  const secTok = css.match(/\n  \.button-secondary \{\n\s*background-color: var\(--sn-btn-secondary-bg\);\n\s*border-color: var\(--sn-btn-secondary-border\);\n\s*color: rgb\(var\(--sn-btn-secondary-fg\)\);/);
+  assert.ok(secTok, 'the base secondary no longer reads the secondary tokens');
+  const island = css.match(/:where\(\.sn-editorial, \[data-look-sample\], \[data-hub-theme\], \[data-art\]\) \{([^}]+)\}/)?.[1] ?? '';
+  assert.match(island, /--sn-btn-secondary-bg: rgb\(var\(--color-cream\)\);/);
+  assert.match(island, /--sn-btn-secondary-border: rgb\(var\(--color-link\) \/ 0\.3\);/);
+  assert.match(island, /--sn-btn-secondary-fg: var\(--color-link\);/);
   // …is what the sample hands back, token for token.
   const primary = rule('[data-look-sample] .button-primary');
   assert.match(primary, /background: rgb\(var\(--color-mulberry\)\);/);

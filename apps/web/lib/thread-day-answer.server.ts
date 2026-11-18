@@ -26,9 +26,9 @@ import { NOT_AVAILABLE_COLUMNS, blockClosesDay, notAvailableFieldsOf, notAvailab
  */
 export async function readThreadDayAnswer(
   supabase: SupabaseClient,
-  args: { vendorProfileId: string; date: string; todayIso: string },
+  args: { vendorProfileId: string; date: string; todayIso: string; /** This conversation's event — its own hold reads "Booked" (CHAT-29). */ eventId?: string },
 ): Promise<ThreadDayAnswer | null> {
-  const { vendorProfileId, date, todayIso } = args;
+  const { vendorProfileId, date, todayIso, eventId } = args;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   try {
     const [poolsRes, bookingsRes, blocksRes, statesRes] = await Promise.all([
@@ -39,7 +39,7 @@ export async function readThreadDayAnswer(
         .eq('is_active', true),
       supabase
         .from('vendor_schedule_pool_bookings')
-        .select('pool_id')
+        .select('pool_id, event_id')
         .eq('vendor_profile_id', vendorProfileId)
         .eq('booked_date', date)
         .is('released_at', null),
@@ -81,7 +81,10 @@ export async function readThreadDayAnswer(
         serviceIds: [],
       }),
     );
-    const bookings = ((bookingsRes.data ?? []) as { pool_id: string }[]).map((b) => ({
+    const bookingRows = (bookingsRes.data ?? []) as { pool_id: string; event_id?: string | null }[];
+    // 📅 CHAT-29: this couple's own live hold on the day → "Booked" (their booking is what closed it).
+    const heldByThisEvent = !!eventId && bookingRows.some((b) => b.event_id === eventId);
+    const bookings = bookingRows.map((b) => ({
       poolId: b.pool_id,
       bookedDate: date,
       eventName: '',
@@ -116,9 +119,10 @@ export async function readThreadDayAnswer(
       return threadDayAnswerOf({
         day: { state: closed ? 'blocked' : null, consumed: 0, capacity: 0 },
         hasSchedule: false,
+        heldByThisEvent,
       });
     }
-    return threadDayAnswerOf({ day, hasSchedule: true });
+    return threadDayAnswerOf({ day, hasSchedule: true, heldByThisEvent });
   } catch {
     return null;
   }

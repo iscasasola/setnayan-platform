@@ -61,11 +61,15 @@ test('the Most Booked / Top Pick tooltips move with the percentile floor', async
     inputs: [0.9, 0.8],
     expect: ['10', '20'],
   });
+  // 🏅 The Most Booked / Top Pick PILLS retired as badges (owner 2026-11-15, specs 4b8cc3a3 — "the badges we created
+  // will be the only badges we have"), so the explore row draws neither, and no tooltip names their floor any more.
+  // `topPercentLabel` still moves with the floor above; the floors stay in lib/vendor-badges.ts for its score.
+  void MOST_BOOKING_PERCENTILE;
+  void TOP_PICK_PERCENTILE;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { VendorBadgeRow } = await import('@/app/(shell)/explore/_components/vendor-badge-row');
   const html = renderToStaticMarkup(React.createElement(VendorBadgeRow, { badges: ['most_booking', 'top_pick'] }));
-  assert.ok(html.includes(`top ${topPercentLabel(MOST_BOOKING_PERCENTILE)}%`), 'Most Booked says the floor it is awarded at');
-  assert.ok(html.includes(`top ${topPercentLabel(TOP_PICK_PERCENTILE)}%`), 'Top Pick says the floor it is awarded at');
+  assert.equal(html, '', 'a retired pill (Most Booked / Top Pick) still draws on the explore card');
 });
 
 /* ── Payout stages: one split, paid by it and worded by it ── */
@@ -221,7 +225,6 @@ test('SABOTAGE — type the literal back and the shown-values scan finds it', ()
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', '{DATE_CHANGE_DUE_DAYS} days to answer', '3 days to answer'],
     ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', 'under ${POOL_METER_LOW_PCT}% of what you bought', 'under 10% of what you bought'],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', '{MAX_PER_TYPE} photos</strong>', '3 photos</strong>'],
-    ['app/(shell)/explore/_components/vendor-badge-row.tsx', 'top ${topPercentLabel(TOP_PICK_PERCENTILE)}% by', 'top 5% by'],
   ];
   for (const [file, from, to] of cases) {
     const real = code(file);

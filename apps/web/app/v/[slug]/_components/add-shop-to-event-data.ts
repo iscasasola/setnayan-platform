@@ -48,6 +48,7 @@
  * chosen celebration and the existing inquiry action receives it as the
  * `eventId` it already validates.
  */
+import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 import { cache } from 'react';
 
@@ -75,7 +76,7 @@ const SHOP_IS_UNIVERSAL = {} as const;
 
 /** Where a row goes: this same shop, now scoped to that celebration. */
 export function shopEventHref(slug: string, eventId: string): string {
-  return `/v/${encodeURIComponent(slug)}?event=${encodeURIComponent(eventId)}`;
+  return `${shopPath(encodeURIComponent(slug))}?event=${encodeURIComponent(eventId)}`;
 }
 
 /**

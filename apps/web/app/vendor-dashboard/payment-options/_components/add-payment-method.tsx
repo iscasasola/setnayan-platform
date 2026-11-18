@@ -202,11 +202,11 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[color:var(--m-slate-2)]">
               <PaidMark
                 state="try"
-                label="Part of Supplier Pro — fill it in here; saving asks for Supplier Pro"
+                label="Part of Pro — fill it in here; saving asks for Pro"
                 size="xs"
               />
               <span>
-                Payment links are part of Supplier Pro and Supplier Ultra. Fill it in here — saving asks for the
+                Payment links are part of Pro and Ultra. Fill it in here — saving asks for the
                 plan. Bank, e-wallet, and QR are free on every plan.
               </span>
               <Link

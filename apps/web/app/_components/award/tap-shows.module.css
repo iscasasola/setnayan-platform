@@ -1,0 +1,95 @@
+/* 🏅 TAP SHOWS — the pieces each tiered badge family throws when it lands (v86 `.bz-cd` · `.bz-tk2` · `.bz-pg` ·
+   `.bz-sw`). Loaded only with `tap-shows.ts`, which is reached only through `import()`.
+   Radii ride the --m-r-* scale (lint-radius). Nothing here fades a thrown piece: they fly until off the screen. */
+
+/* an invitation card (Invites) — v86 `.bz-cd` */
+.card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--cw);
+  height: calc(var(--cw) * 0.68);
+  margin: calc(var(--cw) * -0.34) 0 0 calc(var(--cw) * -0.5);
+  border-radius: var(--m-r-xs);
+  background: linear-gradient(160deg, #fffdf8, #f4eddf 70%, #e6dcc7);
+  box-shadow:
+    inset 0 0 0 1.5px #c9a04a,
+    inset 0 0 0 3px #fffaf0,
+    inset 0 0 0 3.6px rgba(201, 160, 74, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  will-change: transform;
+  backface-visibility: visible;
+  z-index: 2;
+}
+.card svg {
+  width: 44%;
+  height: auto;
+  fill: #23314f;
+}
+.card.bk {
+  background: linear-gradient(160deg, #efe6d2, #e2d6bd);
+}
+.card.bk svg {
+  opacity: 0.15;
+}
+
+/* a gift ticket cut in the badge's own metal (Gifts given) — v86 `.bz-cd.bz-tk.bz-tk2` */
+.card.tk {
+  background: none;
+  box-shadow: none;
+  height: calc(var(--cw) * 0.5);
+  margin: calc(var(--cw) * -0.25) 0 0 calc(var(--cw) * -0.5);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+.card.tk svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+}
+.card.tk.bk svg {
+  opacity: 1;
+  filter: brightness(0.75);
+}
+
+/* a torn calendar page (Completed bookings) — v86 `.bz-pg` */
+.page {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+  transform-origin: 50% 0;
+  backface-visibility: visible;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+/* one soundwave ripple per shield pulse (Trusted by) — v86 `.bz-sw.big` */
+.wave {
+  position: fixed;
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  z-index: 1;
+  border: 4px solid color-mix(in srgb, var(--tc) 70%, #fff);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--tc) 60%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--tc) 50%, transparent);
+  animation: tapWave 1.2s cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
+}
+@keyframes tapWave {
+  0% {
+    transform: scale(0.7);
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}

@@ -1,6 +1,8 @@
-import { CalendarHeart, Star, Trophy } from 'lucide-react';
+import { CalendarHeart, Star } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
+import { Badge } from '@/app/_components/badge';
+import { TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
 
 /**
  * vendor-track-record-panel.tsx — "One profile, every life event."
@@ -100,17 +102,18 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
   const label = pluralizeLabel(row.event_type_label, row.completed_count);
   const hasRating = row.avg_rating !== null && row.review_count > 0;
   return (
-    <li className="sn-row flex items-center gap-3 px-4 py-3">
-      <span
-        aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-      >
-        <CalendarHeart className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-ink">{label}</p>
-        <p className="mt-0.5 text-xs text-ink/55">
+    <TemplateRow
+      lead={
+        <span
+          aria-hidden
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-ink"
+        >
+          <CalendarHeart className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </span>
+      }
+      title={label}
+      line={
+        <>
           {formatCount(row.completed_count)} completed
           {hasRating ? (
             <>
@@ -118,21 +121,19 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
               {formatCount(row.review_count)} review{row.review_count === 1 ? '' : 's'}
             </>
           ) : null}
-        </p>
-      </div>
-      {hasRating ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-amber-800">
-          <Star className="h-3.5 w-3.5 fill-current" strokeWidth={0} aria-hidden />
-          <span className="font-mono text-xs font-semibold tabular-nums">
+        </>
+      }
+      right={
+        hasRating ? (
+          <span className="inline-flex items-center gap-1 text-[15px] font-bold tabular-nums text-ink">
+            <Star className="h-3.5 w-3.5 fill-current text-terracotta" strokeWidth={0} aria-hidden />
             {(row.avg_rating ?? 0).toFixed(1)}
           </span>
-        </span>
-      ) : (
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/35">
-          No reviews yet
-        </span>
-      )}
-    </li>
+        ) : (
+          <Badge tone="quiet">No reviews yet</Badge>
+        )
+      }
+    />
   );
 }
 
@@ -164,38 +165,20 @@ export async function VendorTrackRecordPanel({
   const total = totalCompleted(rows);
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Trophy
-            className="h-4 w-4 text-ink/45"
-            strokeWidth={1.75}
-            aria-hidden
-          />
-          <h2
-            className="font-mono text-[11px] uppercase tracking-[0.18em]"
-            style={{ color: 'var(--m-slate)' }}
-          >
-            Your track record across life events
-          </h2>
-        </div>
-        <span className="text-xs text-ink/45 tabular-nums">
-          {formatCount(total)} completed · {formatCount(rows.length)} event type
-          {rows.length === 1 ? '' : 's'}
+    <TemplateSection
+      label="Your track record across life events"
+      tip="Counts include only real, delivered bookings from couples — never your own or your team’s events. Ratings average the reviews left on those events."
+      right={
+        <span className="tabular-nums">
+          {formatCount(total)} completed · {formatCount(rows.length)} event type{rows.length === 1 ? '' : 's'}
         </span>
-      </div>
-
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      }
+    >
+      <TemplateRows label="Your track record across life events">
         {rows.map((row) => (
           <TrackRecordRow key={row.event_type} row={row} />
         ))}
-      </ul>
-
-      <p className="text-[10px] text-ink/40">
-        Counts include only real, delivered bookings from couples — never your
-        own or your team&rsquo;s events. Ratings average the reviews left on
-        those events.
-      </p>
-    </section>
+      </TemplateRows>
+    </TemplateSection>
   );
 }

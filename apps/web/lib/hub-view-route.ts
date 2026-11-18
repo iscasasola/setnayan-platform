@@ -111,6 +111,34 @@ async function hubStamp(slug: string, fetcher: typeof fetch): Promise<Stamp | un
   }
 }
 
+/**
+ * 🔗 THE ADDRESS MOVE (owner 2026-11-15) — is this bare `/{word}` CLEARLY not an event? A shop now lives at `/{shop}`,
+ * so the middleware may answer a stranger's bare shop address from the shop's cached copy — but ONLY when the hub's
+ * own request shape matched and the event stamp read came back clean and empty (`null`). An event's word (cale-ice,
+ * maria-and-jose) has a stamp and never gets here; a failed or uncertain read is `false` → the live render, which
+ * decides event / forward / shop exactly as it always has. The stamp is the one `hubViewRewritePath` just asked for
+ * (remembered for `STAMP_MEMO_MS`), so this costs no extra read on that path. Never throws.
+ */
+export async function bareWordIsNoEvent(request: NextRequest, fetcher: typeof fetch = fetch): Promise<boolean> {
+  try {
+    if (isUserNestingCutoverEnabled()) return false;
+    const shape = hubRequestShape({
+      method: request.method,
+      pathname: request.nextUrl.pathname,
+      searchParams: request.nextUrl.searchParams,
+      cookieNames: request.cookies.getAll().map((c) => c.name),
+      clientTypeCookie: request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value ?? null,
+      userAgent: request.headers.get('user-agent'),
+      isServerAction: request.headers.has('next-action'),
+      reserved: (s) => RESERVED_SLUGS.has(s),
+    });
+    if (!shape) return false;
+    return (await hubStamp(shape.slug, fetcher)) === null;
+  } catch {
+    return false;
+  }
+}
+
 /** The pathname to rewrite this request to (`/{slug}/cached/{key}`), or null for the live render. Never throws. */
 export async function hubViewRewritePath(request: NextRequest, fetcher: typeof fetch = fetch): Promise<string | null> {
   try {

@@ -85,7 +85,7 @@ export async function updateSiteColors(
 
   if (bg === false || button === false) {
     redirect(
-      `/dashboard/${eventId}/website/colors?error=${encodeURIComponent(
+      `/dashboard/${eventId}/website/editor?open=colors&error=${encodeURIComponent(
         'Please use a 6-digit hex colour like #A9834B, or leave it blank to use your palette.',
       )}`,
     );
@@ -183,7 +183,7 @@ export async function updateSiteColors(
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/website/colors?error=${encodeURIComponent(
+      `/dashboard/${eventId}/website/editor?open=colors&error=${encodeURIComponent(
         'Could not save. Please try again.',
       )}`,
     );

@@ -40,7 +40,7 @@
  * 🔒 app/vendor-dashboard/shop/bundle-cards-wear-the-card-row.test.ts
  */
 import { useEffect, useId, useState } from 'react';
-import { Pencil, Share } from 'lucide-react';
+import { Pencil, Share, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StayForm, type StaySave } from '@/app/_components/stay-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -67,9 +67,12 @@ export type ServiceCardMenuRowProps = {
   /** Share to a client event: this shop's client events and the server's post (the shipped `offerServiceInterest`).
    *  Absent (a bundle) = Share is drawn waiting. */
   share?: ServiceCardShareProps;
+  /** The card's Delete, at the row's end — a COMPUTER's hover Delete (shown on hover or keyboard focus, never on a touch
+   *  screen, where the card swipes). Set only when the row sits inside the card (`ServiceCardItemFooter`). */
+  onDelete?: () => void;
 };
 
-export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, onToggle, toggling = false, share }: ServiceCardMenuRowProps) {
+export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, onToggle, toggling = false, share, onDelete }: ServiceCardMenuRowProps) {
   const uid = useId().replace(/:/g, '');
   const formId = `card-online-${uid}`;
   const shareTitleId = `card-share-${uid}`;
@@ -132,6 +135,12 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             <SwitchTrack on={shown} words={{ on: 'Online', off: 'Offline' }} />
           </button>
         )}
+        {onDelete ? (
+          // 🖱 A computer's Delete, at the row's end (hover or keyboard focus); a touch screen never sees it — it swipes.
+          <span className="hidden opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100 [&>.ab]:h-11 [&>.ab]:min-h-11 [&>.ab]:w-11 [@media(hover:hover)_and_(pointer:fine)]:inline-flex" data-card-delete-hover="">
+            <ActionButton tone="danger" icon={Trash2} iconOnly label="Delete" name="Delete" title={`Delete ${cardName}`} onClick={onDelete} data-card-delete={vendorServiceId} />
+          </span>
+        ) : null}
       </div>
       {held ? null : action ? (
         <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} onSaved={() => setLanded(true)} onRefused={() => { setPendingTo(null); setLanded(false); }} className="hidden">

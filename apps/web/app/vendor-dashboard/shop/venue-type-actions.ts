@@ -1,5 +1,6 @@
 'use server';
 
+import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
@@ -70,7 +71,7 @@ export async function updateVenueType(
 
   revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
-  if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
+  if (profile.business_slug) revalidatePath(`${shopPath(profile.business_slug)}`);
 
   return { ok: true, venueType };
 }

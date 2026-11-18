@@ -45,10 +45,11 @@ export const ERROR_LOG_RETENTION_DAYS = 90;
 export const DB_BACKUP_RETENTION_DAYS = 7;
 
 /**
- * A complimentary grant worth more than this many PESOS is flagged for owner +
- * spouse co-review (`issueCompGrant` writes `requires_two_admin_review`; the
- * admin form's hint quotes the same threshold). It still inserts — the two-admin
- * gate is not enforced in code for V1.
+ * A complimentary grant worth more than this many PESOS is marked
+ * `requires_two_admin_review` by `issueCompGrant`, but it still inserts at once —
+ * no second admin checks a customer comp yet. The banner and the Users form hint
+ * both say so and quote this number (owner 16 Nov 2026: keep the rule, promise
+ * no check that never happens).
  */
 export const COMP_GRANT_CO_REVIEW_PESOS = 10_000;
 

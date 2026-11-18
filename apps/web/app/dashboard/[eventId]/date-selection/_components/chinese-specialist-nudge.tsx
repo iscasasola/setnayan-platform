@@ -28,7 +28,7 @@ export function ChineseSpecialistNudge() {
       title="Consult a date specialist"
       detail="A note for your Chinese tradition: many Tsinoy families settle the date with a Four Pillars (BaZi) reading, which weighs each partner's birth date and time of birth. It is a blessing a Chinese-almanac or feng-shui specialist gives, not something we calculate for you — gather both birth details if you would like that reading on your date."
       actions={
-        <Link href="/explore?category=date_fengshui_consultant" className={NOTICE_ACTION}>
+        <Link href="/?category=date_fengshui_consultant" className={NOTICE_ACTION}>
           <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
           Find a date / feng-shui specialist
         </Link>

@@ -46,7 +46,7 @@ function jpegResponse(buffer: Buffer): Response {
 
 function brandFallback(): Response {
   return Response.redirect(
-    `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '')}/brand/og-card.webp`,
+    `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '')}/brand/og-card-2026-11.png`,
     302,
   );
 }

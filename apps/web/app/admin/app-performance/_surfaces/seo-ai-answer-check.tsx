@@ -14,6 +14,8 @@ import { TypedRow } from '@/app/_components/form-row';
 import { Badge, Facts } from '../_components/insights-parts';
 import { AI_SAID_MAX_CHARS } from '@/lib/seo/ai-answers';
 import { seoConsole, type AiAnswerLogResult } from './seo-actions';
+import { ActionButton } from '@/components/action-button';
+import { Check } from 'lucide-react';
 
 export function AiAnswerCheckRow(props: {
   id: string;
@@ -107,9 +109,10 @@ export function ResolveDriftButton({ rowId }: { rowId: number }) {
   const [result, setResult] = useState<AiAnswerLogResult | null>(null);
   return (
     <span className="inline-flex flex-col items-end gap-1">
-      <button
-        type="button"
-        className="min-h-11 rounded-full bg-[var(--sn-success-soft)] px-3.5 text-[14px] font-semibold text-[var(--sn-success-deep)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      <ActionButton
+        tone="ok"
+        icon={Check}
+        label="Mark fixed"
         disabled={pending || result?.ok === true}
         onClick={() =>
           start(async () => {
@@ -123,9 +126,7 @@ export function ResolveDriftButton({ rowId }: { rowId: number }) {
             }
           })
         }
-      >
-        Mark fixed
-      </button>
+      />
       {result ? (
         <span role="status" className={`max-w-[12rem] text-right text-[12px] ${result.ok ? 'text-ink/60' : 'text-[var(--sn-danger)]'}`}>
           {result.message}

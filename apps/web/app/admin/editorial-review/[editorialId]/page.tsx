@@ -61,7 +61,7 @@ export default async function EditorialReviewDetailPage({
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-[--m-ink-tertiary] mb-1">
+          <p className="text-[--m-ink-tertiary] mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             Editorial review
           </p>
           <p className="text-xl font-semibold">
@@ -172,7 +172,7 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
         }`}>
           {flag.severity === 'red' ? '● Vulgar' : '● Grammar'}
         </span>
-        <span className="text-xs text-[--m-ink-tertiary] font-mono">{flag.label}</span>
+        <span className="text-xs text-[--m-ink-tertiary] tabular-nums">{flag.label}</span>
         {resolved && (
           <span className="ml-auto text-xs text-[--m-ink-tertiary] capitalize">
             {flag.status}
@@ -183,7 +183,7 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
 
       {/* Original text */}
       <div className="rounded bg-white border border-[--m-ink-border] px-3 py-2">
-        <p className="text-xs text-[--m-ink-tertiary] mb-1 uppercase tracking-wider">Original</p>
+        <p className="text-[--m-ink-tertiary] mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Original</p>
         <p className="text-sm leading-relaxed">{flag.original}</p>
       </div>
 
@@ -197,7 +197,7 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
       {/* Admin edit result */}
       {flag.admin_edit && (
         <div className="rounded bg-green-50 border border-green-200 px-3 py-2">
-          <p className="text-xs text-green-700 mb-1 uppercase tracking-wider">Admin rewrite</p>
+          <p className="text-green-700 mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Admin rewrite</p>
           <p className="text-sm leading-relaxed text-green-900">{flag.admin_edit}</p>
         </div>
       )}

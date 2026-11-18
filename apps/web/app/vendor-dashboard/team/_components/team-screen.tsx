@@ -17,7 +17,10 @@ import {
   fetchAssignableServices,
   fetchOpenAdminMotions,
   fetchVendorTeam,
+  fetchWholeBranchKeys,
 } from '@/lib/vendor-team';
+import { fetchVendorBranches } from '@/lib/vendor-branches';
+import { shopLocations, type BranchScope } from '@/lib/branch-copy';
 import {
   buyExtraSeat,
   cancelAdminMotion,
@@ -65,10 +68,11 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   const rows = await fetchVendorTeam(supabase, vendorProfileId);
   const admin = createAdminClient();
   const enriched = await enrichTeamWithUsers(admin, rows);
-  const [services, assignments, motionData] = await Promise.all([
+  const [services, assignments, motionData, branchScope] = await Promise.all([
     fetchAssignableServices(supabase, vendorProfileId),
     fetchAgentServiceAssignments(supabase, vendorProfileId),
     fetchOpenAdminMotions(supabase, vendorProfileId),
+    readBranchScope(supabase, admin, vendorProfileId),
   ]);
 
 
@@ -98,6 +102,7 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   return (
     <HelpersView
       userId={user.id}
+      branchScope={branchScope}
       founderUserId={ctx.founderUserId}
       enriched={enriched}
       motionData={motionData}
@@ -123,4 +128,31 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
       }}
     />
   );
+}
+
+/**
+ * 🏢 WHOLE BRANCH (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 9): the shop's locations (Main + every usable branch,
+ * `shopLocations`) and who holds which in full. A refused read answers `undefined` — the screen then draws today's flat
+ * list (named by card title), never a "Whole branch" box it cannot fill truthfully.
+ */
+async function readBranchScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<BranchScope | undefined> {
+  try {
+    const [branches, wholeKeys, shop] = await Promise.all([
+      fetchVendorBranches(supabase, vendorProfileId, admin),
+      fetchWholeBranchKeys(supabase, vendorProfileId),
+      supabase.from('vendor_profiles').select('location_city').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    ]);
+    const city = (shop.data as { location_city: string | null } | null)?.location_city ?? null;
+    const locations = shopLocations(
+      branches.map((b) => ({ id: b.branch_id, label: b.branch_label, status: b.status })),
+      city,
+    );
+    return { locations, wholeKeys };
+  } catch {
+    return undefined;
+  }
 }

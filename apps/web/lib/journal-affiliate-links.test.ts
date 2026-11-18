@@ -1,7 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   ALL_BLOG_ARTICLES,
   isValidShopHref,
@@ -36,24 +34,10 @@ import {
  *     make (relative path, http, our own domain),
  *   • the DETECTOR is proven to fire on a synthetic block, so it has not
  *     silently stopped matching the union,
- *   • the RENDERER's rel and the PAGE's disclosure are read out of source with
- *     comments stripped first — because a rule that lives only in a comment is
- *     exactly what a comment-matching guard would happily accept.
+ *   • (the RENDERER's rel and the PAGE's disclosure were read out of source here
+ *     until the blog pages were retired, 2026-11-16, PR #7847.)
  * The day the first shop block is authored, this is already armed.
  */
-
-const WEB = join(import.meta.dirname, '..');
-const SHOP_LINK_SRC = join(WEB, 'app/blog/[slug]/_components/shop-link.tsx');
-const ARTICLE_PAGE_SRC = join(WEB, 'app/blog/[slug]/page.tsx');
-
-/** Source with comments removed. Without this, every assertion below could be
- *  satisfied by prose ABOUT the rule instead of the rule — the exact way a
- *  removal comment blinded an earlier guard in this repo. */
-function codeOnly(path: string): string {
-  return readFileSync(path, 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
 
 type ShopBlock = Extract<BlogBlock, { type: 'shop' }>;
 
@@ -71,74 +55,9 @@ function shopBlocksIn(
   return out;
 }
 
-// ─── 1. The rel. The one that costs us the whole site. ───────────────────────
-
-test('the outbound shop link is marked sponsored + nofollow + noopener + noreferrer', () => {
-  const src = codeOnly(SHOP_LINK_SRC);
-  // Narrowed through assert.ok, not `!`. A regex CAPTURE GROUP is
-  // `string | undefined` under noUncheckedIndexedAccess, and `relMatch!` only
-  // asserts the MATCH is non-null — never that group 1 exists. That is the
-  // documented CI-is-stricter-than-tsx trap, and it is what failed this PR's
-  // typecheck at 85:15 while the test passed locally 8/8.
-  const relValue = src.match(/rel\s*=\s*["']([^"']+)["']/)?.[1];
-  assert.ok(
-    relValue,
-    'ShopLink renders no rel= attribute at all. A commercial link without ' +
-      'rel="sponsored" is read by Google as a paid link scheme and the penalty ' +
-      'lands on the whole domain — every Journal article, not just this one.',
-  );
-  const rel = relValue.split(/\s+/);
-  for (const token of ['sponsored', 'nofollow', 'noopener', 'noreferrer']) {
-    assert.ok(
-      rel.includes(token),
-      `ShopLink's rel is "${relValue}" — missing "${token}". All four are ` +
-        'load-bearing; see the component docblock before thinning this list.',
-    );
-  }
-});
-
-test('the shop link opens the merchant in a new tab', () => {
-  const src = codeOnly(SHOP_LINK_SRC);
-  assert.match(
-    src,
-    /target\s*=\s*["']_blank["']/,
-    'A reader who taps a shop link and loses their place in the article is a ' +
-      'reader who does not come back to finish it.',
-  );
-});
-
-test('the shop link is plain HTML — nothing intercepts or counts the click', () => {
-  const src = codeOnly(SHOP_LINK_SRC);
-  assert.doesNotMatch(
-    src,
-    /preventDefault\s*\(/,
-    'The navigation must not be intercepted. An affiliate link that only ' +
-      'works after hydration earns nothing from the reader who taps it early.',
-  );
-  // Essential cookies only (owner 2026-10-22): the click counter went with
-  // PostHog. A handler here would be a tracker coming back by another door.
-  assert.doesNotMatch(src, /\bonClick\b/, 'the shop link counts clicks again — Setnayan runs no optional analytics');
-});
-
-// ─── 2. The disclosure. Derived, never hand-added. ───────────────────────────
-
-test('the article page derives the disclosure from the blocks', () => {
-  const src = codeOnly(ARTICLE_PAGE_SRC);
-  assert.match(
-    src,
-    /articleHasShopLinks\s*\(\s*article\.blocks\s*\)/,
-    'The disclosure must be driven by the article\'s own blocks. Hand-adding ' +
-      'it means an editor can ship a shopping link without one — and can ' +
-      'leave a stale one after removing the last link.',
-  );
-  assert.match(
-    src,
-    /\{\s*AFFILIATE_DISCLOSURE\s*\}/,
-    'articleHasShopLinks is called but AFFILIATE_DISCLOSURE is never rendered ' +
-      '— calling a check and dropping its answer reads as MORE thorough than ' +
-      'not checking at all.',
-  );
-});
+// ─── 1–2. The shop link's rel/new tab/plain HTML and the article page's disclosure ───
+// Left 2026-11-16 — retired with the blog + Real Stories, PR #7847: `app/blog/[slug]/_components/shop-link.tsx` and
+// `app/blog/[slug]/page.tsx` are deleted, so no page renders a shop block. The data-side checks below still hold.
 
 test('the disclosure actually says money changes hands', () => {
   const text = AFFILIATE_DISCLOSURE.toLowerCase();

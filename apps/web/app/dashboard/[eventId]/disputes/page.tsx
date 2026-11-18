@@ -112,7 +112,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
           Existing flags ({flags.length})
         </h2>
         {flags.length === 0 ? (
-          <div className="sn-row border-dashed p-8 text-center text-sm text-ink/55">
+          <div className="sn-row border-dashed p-8 text-center text-sm text-ink/70">
             No disputes on record. Open one above when something goes
             sideways.
           </div>

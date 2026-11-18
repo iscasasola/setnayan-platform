@@ -19,6 +19,8 @@ import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
+import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
+import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
 export type PlanLine = { key: string; title: string; line: string };
@@ -109,7 +111,25 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
       title: 'Your own web address',
       line: c.customWebsiteName ? 'Yes' : webPlan ? `Comes with ${TIER_LABEL[webPlan]}` : 'Not on any plan',
     },
+    // 💳 Folded into the plans (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 3) — read from the gates.
+    {
+      key: 'tools',
+      title: 'Specialized tools',
+      line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
+        ? 'All included'
+        : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
+    },
+    { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
+}
+
+/** The chatbot a plan includes, in words — `PLAN_CHATBOT_LEVEL`, the table the inbox's gate reads. */
+function chatbotLine(tier: VendorTier): string {
+  const level = PLAN_CHATBOT_LEVEL[tier] ?? 'none';
+  if (level === 'advanced') return 'Included — the smarter level: your voice, the couple’s language';
+  if (level === 'basic') return 'Included — answers price, dates and what’s included';
+  const first = VENDOR_TIERS.find((t) => PLAN_CHATBOT_LEVEL[t] === 'basic');
+  return first ? `Comes with ${TIER_LABEL[first]}` : 'Not on this plan';
 }
 
 /**

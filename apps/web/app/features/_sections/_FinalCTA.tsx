@@ -11,7 +11,7 @@ import { StoryIcon } from '../_story-icons';
 
 const COPY: Record<
   MarketingLocale,
-  { eyebrow: string; heading: string; body: string; ctaPrimary: string; ctaSecondary: string }
+  { eyebrow: string; heading: string; body: string; ctaPrimary: string; ctaSecondary: string; storytellers: string }
 > = {
   en: {
     eyebrow: 'Set na ’yan. · it’s all set.',
@@ -19,6 +19,7 @@ const COPY: Record<
     body: 'Hosts plan for free and pay only for the show. Suppliers open a shop for free and pay only when we bring the client.',
     ctaPrimary: 'Start planning · free',
     ctaSecondary: 'Open a shop · free',
+    storytellers: 'For storytellers',
   },
   tl: {
     eyebrow: 'Set na ’yan. · set na lahat.',
@@ -26,6 +27,7 @@ const COPY: Record<
     body: 'Libre ang pagpaplano para sa hosts; ang show lang ang may bayad. Libre ring magbukas ng shop ang suppliers; may bayad lang kapag kami ang nagdala ng kliyente.',
     ctaPrimary: 'Magsimula · libre',
     ctaSecondary: 'Magbukas ng shop · libre',
+    storytellers: 'Para sa storytellers',
   },
 };
 
@@ -48,6 +50,13 @@ export function FinalCTA({ locale }: { locale: MarketingLocale }) {
             <span>{c.ctaSecondary}</span>
           </Link>
         </div>
+        {/* /creators' door (DECISION_LOG 2026-11-11 sidebar row, point 3: "linked from Real Stories and Features";
+            Real Stories retired 2026-11-16, so Features carries it alone — doorway-shell.test.ts holds it). */}
+        <p className={s.closeLine}>
+          <Link href="/creators" className="inline-flex min-h-[44px] items-center underline underline-offset-4">
+            {c.storytellers}
+          </Link>
+        </p>
       </div>
     </section>
   );

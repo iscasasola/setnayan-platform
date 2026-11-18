@@ -45,7 +45,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
         <Link
           href="/admin/demo-vendors/inquiries"
-          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-mulberry"
+          className="inline-flex items-center gap-1 hover:text-mulberry text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Demo inquiries
@@ -85,17 +85,17 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="space-y-1 sn-tile p-4">
+      <header className="space-y-1 py-4 border-t border-ink/10">
         <Link
           href="/admin/demo-vendors/inquiries"
-          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-mulberry"
+          className="inline-flex items-center gap-1 hover:text-mulberry text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Demo inquiries
         </Link>
         <p className="text-base font-semibold text-ink">{coupleLabel}</p>
         {event?.event_date ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
             {event.event_date}
           </p>
         ) : null}
@@ -105,7 +105,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       </header>
 
       {/* Message stream (server-rendered; admin acts via service-role) */}
-      <div className="flex flex-col gap-3 sn-tile p-4">
+      <div className="flex flex-col gap-3 py-4 border-t border-ink/10">
         {messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-ink/55">No messages yet.</p>
         ) : (
@@ -125,7 +125,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
                 >
                   <span className="whitespace-pre-wrap break-words">{m.body}</span>
                 </div>
-                <span className="mt-1 font-mono text-[10px] uppercase tracking-wide text-ink/40">
+                <span className="mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
                   {isVendor ? vendorName : coupleLabel} · {formatChatTimestamp(m.created_at)}
                 </span>
               </div>
@@ -138,7 +138,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       {thread.inquiry_status === 'accepted' ? (
         <form
           action={adminReplyAsVendor}
-          className="flex items-end gap-2 sn-tile p-3"
+          className="flex items-end gap-2 py-3 border-t border-ink/10"
         >
           <input type="hidden" name="thread_id" value={threadId} />
           <textarea
@@ -157,7 +157,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
           </SubmitButton>
         </form>
       ) : thread.inquiry_status === 'pending' ? (
-        <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+        <div className="space-y-3 bg-terracotta/5 py-4 border-t border-ink/10">
           <p className="text-sm text-ink">
             <span className="font-semibold">New inquiry.</span> Accept to reply as{' '}
             {vendorName} (this reveals the supplier name to the couple), or decline.
@@ -191,7 +191,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+        <div className="bg-ink/[0.03] py-4 border-t border-ink/10">
           <p className="text-sm text-ink/70">
             This inquiry was declined
             {thread.decline_reason ? ` — “${thread.decline_reason}”` : ''}.

@@ -2,28 +2,19 @@
  * Stories sitemap at /sitemap-weddings.xml.
  *
  * SEO/GEO Bucket 3 (CLAUDE.md 2026-05-29) + iteration 0046 (2026-06-13).
- * DB-driven + consent-gated: emits the `/realstories` hub plus each REAL,
- * CONSENT-GATED published editorial's canonical URL — the couple's own `/[slug]`
- * page — from `loadPublishedShowcases()`.
+ * DB-driven + consent-gated: emits each REAL, CONSENT-GATED published editorial's canonical URL — the couple's own
+ * `/[slug]` page — from `loadPublishedShowcases()`. Samples (`isSample`) are never listed: a sample is a future-dated
+ * demo representing no real couple.
  *
- * SAMPLE-exclusion (2026-07-01): `loadPublishedShowcases()` now also returns the
- * curated Maria & Jose SAMPLE (is_sample) so /realstories is never empty. A
- * sample is a FUTURE-DATED (2026-12-12) demo page representing NO real couple —
- * it must NOT be advertised to search engines as a real editorial. So we FILTER
- * samples out of the real-editorial loop (`!s.isSample`) and surface a sample
- * only via the curated `/realstories/[slug]` fallback path, and only when no
- * real consented editorial exists yet. Every `<lastmod>` is CLAMPED to today so
- * a future event date can never be emitted as a last-modified time (Google
- * ignores future lastmods; we keep the feed honest). The `/realstories` hub
- * lives here (not in sitemap-static) so it isn't duplicated across sitemaps —
- * same hub-in-its-own-child pattern as /help + /blog.
+ * 🗞✂ 2026-11-16 — THE STORIES HUB AND ITS SAMPLE PAGES ARE RETIRED (owner, DECISION_LOG "THE BLOG AND REAL STORIES
+ * ARE RETIRED"; the old hub address forwards to Discover). This file used to list the hub and, when no real
+ * editorial existed, every sample under it — both are gone. A sitemap that outlives its page rots silently, so
+ * nothing here points at the retired address any more. Every `<lastmod>` is clamped to today (no future lastmods).
  *
- * Best-effort: the loader degrades to [] on any DB issue, so this route always
- * returns valid XML.
+ * Best-effort: the loader degrades to [] on any DB issue, so this route always returns valid XML.
  */
 
-import { ALL_REAL_WEDDINGS, REAL_WEDDINGS_LASTMOD } from '@/lib/real-weddings';
-import { sampleStoriesAreShowing } from '@/lib/sample-stories';
+import { REAL_WEDDINGS_LASTMOD } from '@/lib/real-weddings';
 import { loadPublishedShowcases } from '@/lib/showcase-db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -47,14 +38,7 @@ export async function GET(): Promise<Response> {
   // real /[slug]).
   const realShowcases = showcases.filter((s) => !s.isSample);
 
-  const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
-    {
-      loc: `${baseUrl}/realstories`,
-      lastmod: clampLastmod(REAL_WEDDINGS_LASTMOD, today),
-      changefreq: 'weekly',
-      priority: '0.8',
-    },
-  ];
+  const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
 
   if (realShowcases.length > 0) {
     // Real consent-gated editorials → the couple's CANONICAL event URL. Nested
@@ -68,35 +52,6 @@ export async function GET(): Promise<Response> {
       rows.push({
         loc: publicEventUrl(baseUrl, s.slug, ownerSlug),
         lastmod: clampLastmod(s.eventDate ?? REAL_WEDDINGS_LASTMOD, today),
-        changefreq: 'monthly',
-        priority: '0.6',
-      });
-    }
-  }
-
-  /*
-    THE SAMPLES, ON THE SAME RULE THE PAGE USES — and no longer in an `else`.
-
-    🚨 THIS BRANCH IS HALF OF HOW NINE PAGES BECAME ORPHANS. It listed every
-    sample whenever no real editorial existed, while /realstories decided
-    separately (and, because prod holds one seeded sample ROW, decided to show
-    none of them). Measured live 2026-08-15: nine sample stories in this
-    sitemap, linked from nowhere on the site — submitted to Google, unreachable
-    by clicking.
-
-    🔑 A SITEMAP THAT OUTLIVES ITS PAGE ROTS SILENTLY. When the samples retire,
-    a page that stops rendering them is obvious in a second; a sitemap still
-    offering twenty fictional URLs is visible to nobody but a crawler. Both
-    sides now ask `sampleStoriesAreShowing`, so they cannot disagree.
-
-    Still `/realstories/[slug]` and NEVER the sample's own future-dated
-    `/[slug]` — that part was always right.
-  */
-  if (sampleStoriesAreShowing(realShowcases.length)) {
-    for (const w of ALL_REAL_WEDDINGS.filter((w) => w.isSample)) {
-      rows.push({
-        loc: `${baseUrl}/realstories/${w.slug}`,
-        lastmod: clampLastmod(w.updatedAt ?? w.publishedAt, today),
         changefreq: 'monthly',
         priority: '0.6',
       });

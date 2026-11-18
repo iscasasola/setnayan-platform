@@ -267,9 +267,9 @@ export async function DatesLab({
     if (place === 'promote' || state === 'qr-page' || state === 'qr-dates') {
       const code = async (url: string) => ({ url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' });
       const [checkADate, myPage, reviews] = await Promise.all([
-        code('https://www.setnayan.com/v/lumina/dates'),
-        code('https://www.setnayan.com/v/lumina'),
-        code('https://www.setnayan.com/v/lumina#reviews'),
+        code('https://www.setnayan.com/lumina/dates'),
+        code('https://www.setnayan.com/lumina'),
+        code('https://www.setnayan.com/lumina#reviews'),
       ]);
       return (
         <PromoteBridge>

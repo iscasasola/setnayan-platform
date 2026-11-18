@@ -1,5 +1,6 @@
 'use client';
 
+import { shopPath } from '@/lib/shop-address';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -22,7 +23,7 @@ export function WhoMadeTheDay({ eventId, suppliers }: { eventId: string; supplie
           label: s.trade ? `${s.name} · ${s.trade}` : s.name,
           trail: s.rated ? { text: 'Rated', tone: 'ok' as const } : { text: 'Not yet rated', tone: 'muted' as const },
         }))}
-        onPick={(slug) => router.push(`/v/${slug}/guest-review?event=${encodeURIComponent(eventId)}`)}
+        onPick={(slug) => router.push(`${shopPath(slug)}/guest-review?event=${encodeURIComponent(eventId)}`)}
         dataAttr="data-who-made-the-day-pick"
         className="w-full border-t border-ink/10 py-3 text-left"
         trigger={

@@ -930,7 +930,6 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     // "Buy gifts" button and sheet draw only when `canOffer`, which needs `canBuy` — false in the store shell, read
     // with the section's own data. In the app the stock and the Bought list still show; nothing sells.
     ['app/vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx', { why: '"Buy gifts" (button + sheet) renders only when canBuy, which the loader sets false in the store shell', gate: { file: 'app/vendor-dashboard/shop/promote/_components/shop-gifts-data.ts', re: /isStoreShellRequest\(\),[^]*canBuy: !storeShell,/ } }],
-    ['app/vendor-dashboard/shop/_components/voice-match-card.tsx', { why: 'drawn only by voice-match-section, which returns null in the store shell', gate: { file: 'app/vendor-dashboard/shop/_components/voice-match-section.tsx', re: /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/ } }],
   ]);
 
   // No page is skipped for being "bounced out of the app" any more — and if middleware starts bouncing the app

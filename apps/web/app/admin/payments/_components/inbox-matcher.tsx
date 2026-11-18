@@ -44,6 +44,8 @@ export type MatcherPayment = {
   /** Human label for the row — couple email, else order public id. */
   label: string;
   orderPublicId: string | null;
+  /** Where a match opens — the payment itself (`/admin/payments?open=<id>`). */
+  href: string;
 };
 
 type Match = {
@@ -184,7 +186,7 @@ export function InboxMatcher({ payments }: { payments: MatcherPayment[] }) {
               {matches.map((m) => (
                 <li key={m.payment.payment_id}>
                   <a
-                    href={`#payment-${m.payment.payment_id}`}
+                    href={m.payment.href}
                     className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2 text-sm hover:bg-cream ${
                       m.tier !== 'amount'
                         ? 'border-success-300/70 bg-success-50'
@@ -223,7 +225,7 @@ export function InboxMatcher({ payments }: { payments: MatcherPayment[] }) {
               ))}
             </ul>
             <p className="text-[11px] text-ink/50">
-              Tap a match to jump to its row, confirm the transfer in your inbox, then approve there.
+              Tap a match to open it, confirm the transfer in your inbox, then approve there.
             </p>
           </div>
         ) : (

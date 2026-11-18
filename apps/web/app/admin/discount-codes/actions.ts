@@ -415,7 +415,7 @@ export async function createDiscountCode(formData: FormData) {
   }
 
   revalidatePath('/admin/discount-codes');
-  redirect('/admin/discount-codes?created=' + encodeURIComponent(inserted.code));
+  redirect('/admin/studio?tab=discount-codes&created=' + encodeURIComponent(inserted.code));
 }
 
 /**
@@ -539,7 +539,7 @@ export async function updateDiscountCode(formData: FormData) {
 
   revalidatePath('/admin/discount-codes');
   revalidatePath(`/admin/discount-codes/${id}`);
-  redirect(`/admin/discount-codes?updated=${encodeURIComponent(prior.code)}`);
+  redirect(`/admin/studio?tab=discount-codes&updated=${encodeURIComponent(prior.code)}`);
 }
 
 /**
@@ -565,7 +565,7 @@ export async function disableDiscountCode(formData: FormData) {
   if (!prior) throw new Error('Code not found.');
   if (!prior.is_active) {
     // Idempotent — already disabled is a no-op success.
-    redirect('/admin/discount-codes?disabled=' + encodeURIComponent(prior.code));
+    redirect('/admin/studio?tab=discount-codes&disabled=' + encodeURIComponent(prior.code));
   }
 
   const { error: updateErr } = await admin
@@ -588,7 +588,7 @@ export async function disableDiscountCode(formData: FormData) {
   }
 
   revalidatePath('/admin/discount-codes');
-  redirect('/admin/discount-codes?disabled=' + encodeURIComponent(prior.code));
+  redirect('/admin/studio?tab=discount-codes&disabled=' + encodeURIComponent(prior.code));
 }
 
 /**
@@ -613,7 +613,7 @@ export async function enableDiscountCode(formData: FormData) {
   if (!prior) throw new Error('Code not found.');
   if (prior.is_active) {
     // Idempotent — already enabled is a no-op success.
-    redirect('/admin/discount-codes?enabled=' + encodeURIComponent(prior.code));
+    redirect('/admin/studio?tab=discount-codes&enabled=' + encodeURIComponent(prior.code));
   }
   // Guard: don't re-enable a code that already expired — admin should
   // create a new code with a fresh expires_at instead.
@@ -638,7 +638,7 @@ export async function enableDiscountCode(formData: FormData) {
   }
 
   revalidatePath('/admin/discount-codes');
-  redirect('/admin/discount-codes?enabled=' + encodeURIComponent(prior.code));
+  redirect('/admin/studio?tab=discount-codes&enabled=' + encodeURIComponent(prior.code));
 }
 
 /**

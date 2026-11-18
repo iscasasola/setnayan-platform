@@ -174,7 +174,7 @@ after(async () => {
   await db?.close();
 });
 
-test('the SQL twin says exactly what TIER_CAPS says — Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5', async () => {
+test('the SQL twin says exactly what TIER_CAPS says — Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 10', async () => {
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     const r = await db.query<{ n: number | null }>(`SELECT public.vendor_tier_limit($1,'bookings_per_date_per_service') AS n`, [tier]);
     assert.equal(r.rows[0]!.n, TIER_CAPS[tier].bookingsPerDatePerService, `${tier}`);
@@ -183,7 +183,8 @@ test('the SQL twin says exactly what TIER_CAPS says — Free 1 · Verified 1 · 
   assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, 1, 'owner click: Verified "1 each, like Solo"');
   assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1, 'owner: "Solo has 1 per date/service"');
   assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3, 'owner: "pro has 3 per date/service"');
-  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 5, 'owner: "ultra has 5 per date/service"');
+  // Owner 2026-11-14 ("SIMPLER SUPPLIER PLANS"): Ultra takes 10 a day per service at each branch (was 5).
+  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 10, 'owner 2026-11-14: Ultra 10 a day per service');
 });
 
 test('a SOLO card booked once on a date refuses the second booking — and the day check says so first', async () => {
@@ -218,7 +219,7 @@ test('the first booking on an empty Solo date goes through', async () => {
   assert.equal((await agree(shop.uid, first)).status, 'ok');
 });
 
-test('Pro takes 3, Ultra 5, and Ultra’s bought "+1 booking per date" raises it', async () => {
+test('Pro takes 3, Ultra 10, and an Ultra shop’s already-bought "+1 booking per date" still raises it', async () => {
   const pro = await mkShop('Pro Studio', 'pro');
   assert.equal(await limitOf(await mkCard(pro.vpid, null)), 3);
   assert.equal(await limitOf(await mkCard(pro.vpid, 2)), 2, 'a card’s own lower number stopped counting');
@@ -226,9 +227,10 @@ test('Pro takes 3, Ultra 5, and Ultra’s bought "+1 booking per date" raises it
 
   const ultra = await mkShop('Ultra Studio', 'enterprise');
   const card = await mkCard(ultra.vpid, null);
-  assert.equal(await limitOf(card), 5);
+  assert.equal(await limitOf(card), 10);
+  // No longer sold (2026-11-14), but a shop that bought it keeps it until it runs out (item 11).
   await asService(() => db.query(`UPDATE public.vendor_profiles SET extra_bookings_per_date = 2 WHERE vendor_profile_id = $1`, [ultra.vpid]));
-  assert.equal(await limitOf(card), 7, 'a bought +1 booking per date did not raise the cap');
+  assert.equal(await limitOf(card), 12, 'an already-bought +1 booking per date stopped counting');
 
   // Only Ultra (and Custom) buy it — a count on any other plan's row never counts.
   const proWithCount = await mkShop('Pro With Count', 'pro');
@@ -309,32 +311,52 @@ test('the waitlist ceiling counts the bought "+1 wait list" (Ultra), held under 
   }
 });
 
-test('the catalogue holds every Ultra add-on at the owner’s price, each on sale', async () => {
-  const r = await db.query<{ sku_code: string; php: string; offering_type: string; is_active: boolean }>(
-    `SELECT sku_code, price_php::text AS php, offering_type, is_active FROM public.vendor_billing_catalog
+test('the seat and the branch stay on sale at the owner’s price; the four "+1" add-ons are retired by flag, never deleted', async () => {
+  const r = await db.query<{ sku_code: string; php: string; offering_type: string; is_active: boolean; retired_at: string | null }>(
+    `SELECT sku_code, price_php::text AS php, offering_type, is_active, retired_at::text FROM public.vendor_billing_catalog
       WHERE sku_code IN ('vendor_extra_seat','vendor_additional_branch','vendor_extra_category',
                          'vendor_extra_service_card','vendor_extra_waitlist','vendor_extra_booking_per_date')`,
   );
   const by = new Map(r.rows.map((x) => [x.sku_code, x]));
-  // Owner, verbatim: "seat, branch + 990 / the rest is +199".
-  const want: Array<[string, number, string]> = [
-    ['vendor_extra_seat', 990, 'seat'],
-    ['vendor_additional_branch', 990, 'branch'],
-    ['vendor_extra_category', 199, 'category'],
-    ['vendor_extra_service_card', 199, 'service_card'],
-    ['vendor_extra_waitlist', 199, 'waitlist'],
-    ['vendor_extra_booking_per_date', 199, 'booking_per_date'],
+  // Owner, verbatim (2026-11-06): "seat, branch + 990 / the rest is +199". 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only
+  // the seat and the branch are left to buy; the rest folded into Ultra's limits — kept, priced, off sale.
+  const want: Array<[string, number, string, boolean]> = [
+    ['vendor_extra_seat', 990, 'seat', true],
+    ['vendor_additional_branch', 990, 'branch', true],
+    ['vendor_extra_category', 199, 'category', false],
+    ['vendor_extra_service_card', 199, 'service_card', false],
+    ['vendor_extra_waitlist', 199, 'waitlist', false],
+    ['vendor_extra_booking_per_date', 199, 'booking_per_date', false],
   ];
-  for (const [sku, php, type] of want) {
+  for (const [sku, php, type, onSale] of want) {
     const row = by.get(sku);
-    assert.ok(row, `${sku} is missing`);
+    assert.ok(row, `${sku} is missing — a retired row is never deleted`);
     assert.equal(Number(row.php), php, `${sku} price`);
     assert.equal(row.offering_type, type, `${sku} offering_type`);
-    assert.equal(row.is_active, true, `${sku} is not on sale`);
+    assert.equal(row.is_active, onSale, `${sku} ${onSale ? 'is not on sale' : 'is still on sale'}`);
+    if (!onSale) assert.ok(row.retired_at, `${sku} is off sale with no retired_at`);
   }
   const old = await db.query<{ is_active: boolean; replaced_by_sku_code: string | null }>(
     `SELECT is_active, replaced_by_sku_code FROM public.vendor_billing_catalog WHERE sku_code = 'vendor_service_cards_2'`,
   );
   assert.equal(old.rows[0]?.is_active, false, 'the superseded +2 cards row went on sale');
   assert.equal(old.rows[0]?.replaced_by_sku_code, 'vendor_extra_service_card');
+});
+
+test('2026-11-14 · the day is counted PER SERVICE: two cards of one service at one branch share it; another service does not', async () => {
+  // Owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 5: "Bookings are counted per service per branch, not
+  // per card." service_card_bookings_on is the one count every reader uses.
+  const shop = await mkShop('Per Service', 'solo');
+  const a = await mkCard(shop.vpid, null); // photo_booth, no branch
+  const b = await mkCard(shop.vpid, null); // the same service, the same (main) branch
+  const other = await mkCard(shop.vpid, null);
+  await asService(() => db.query(`UPDATE public.vendor_services SET category = 'photography' WHERE vendor_service_id = $1`, [other]));
+  await booked(shop.vpid, a);
+  assert.equal(await bookingsOn(b), 1, 'a booking on card A did not count for card B of the same service');
+  assert.equal(await bookingsOn(other), 0, 'a booking of another service counted');
+  const onB = await ask(couple, shop.vpid, b);
+  assert.equal(await verdict(shop.uid, onB), 'daily_limit_reached', 'the day check called the service’s full date open');
+  assert.equal((await agree(shop.uid, onB)).status, 'daily_limit_reached', 'a second card of the same service took the date past the plan');
+  // Another service's day is its own: its count stays 0, so its limit is never what refuses it.
+  assert.ok((await bookingsOn(other)) < ((await limitOf(other)) ?? 0), 'another service reads as full');
 });

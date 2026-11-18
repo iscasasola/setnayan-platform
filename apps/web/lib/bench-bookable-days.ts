@@ -58,6 +58,17 @@ export type EventFitDates = {
 export const ACCOMMODATION_CATEGORY = 'accommodation';
 
 /**
+ * Every key that carries that rule. T1 (migration 20271349668764) folds the `accommodation` service into
+ * `hotel_stay`, so a hotel's card now holds `hotel_stay`; the old key stays for a row written before the fold.
+ */
+const ACCOMMODATION_KEYS: ReadonlySet<string> = new Set([ACCOMMODATION_CATEGORY, 'hotel_stay']);
+
+/** Is this card's category judged on every night ±1 (a stay), not on any one day? */
+export function isAccommodationCategory(category: string | null | undefined): boolean {
+  return category != null && ACCOMMODATION_KEYS.has(category);
+}
+
+/**
  * The event's days the hide judged on, and what shape they came in:
  *   day    one day-precise date                   any card free that day keeps the supplier
  *   span   event_date → event_end_date            free on ANY day of the span keeps (quoted per day)
@@ -150,7 +161,7 @@ export function shiftDay(day: string, n: number): string {
  */
 export function fitOptions(scope: UnbookableScope, category: string | null | undefined): string[][] {
   if (scope.days.length === 0) return [];
-  const accommodation = category === ACCOMMODATION_CATEGORY;
+  const accommodation = isAccommodationCategory(category);
   if (scope.kind === 'day' || scope.kind === 'span') {
     if (!accommodation) return [[...scope.days]];
     const first = scope.days[0]!;
@@ -162,7 +173,7 @@ export function fitOptions(scope: UnbookableScope, category: string | null | und
 
 /** Does a category need EVERY day of a block free (accommodation's nights), or only SOME (a per-day quote)? */
 export function needsEveryDay(category: string | null | undefined): boolean {
-  return category === ACCOMMODATION_CATEGORY;
+  return isAccommodationCategory(category);
 }
 
 /** Every day the refusal read must cover: the judged days, plus the ±1 nights when an accommodation card is in play. */

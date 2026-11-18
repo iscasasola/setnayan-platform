@@ -7,9 +7,9 @@
  *
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
  *   1. Today draws EXACTLY ONE sticky row, and it is the Needs-you-today heading (`.hc-k2` inside `[data-today-needs]`)
- *      with its count and the ⚙ SLOT at its right end; it joins the pin line (`data-pinned-row`). Since 11 Nov (owner
- *      *"Today settings yes"*) the ONE ⚙ is on the header until it scrolls away, so the server render's slot is empty —
- *      the ride itself is held by `today-gear-rides-the-header.test.ts`.
+ *      with its count right after the title; it joins the pin line (`data-pinned-row`). Since 17 Nov (the clean look,
+ *      `dashboards_clean_look_2026-11-16`) the row holds NO ⚙ — the one ⚙ stays in the header
+ *      (`today-gear-rides-the-header.test.ts`) — and no band or bottom line (`section-labels-are-sentence-case.test.ts`).
  *   2. The greeting, the cover and the stats scroll away — no `CollapsingTop` locks them (the greeting's pinned row is
  *      not drawn at all). The cover's ONE control is Today's ⚙, in the hero's top-right slot.
  *   3. A new shop (the six steps take the top, no ⚙ handed in): the Needs heading does NOT pin — the setup heading is
@@ -56,7 +56,7 @@ async function render(setup: boolean): Promise<string> {
 /** Every element whose class list says `sticky` — the open tag, whole. */
 const stickies = (html: string) => [...html.matchAll(/<[a-z]+\b[^>]*\bclass="(?:[^"]*\s)?sticky(?:\s[^"]*)?"[^>]*>/g)].map((m) => m[0]);
 
-test('1 · exactly one sticky row on Today, and it is the Needs-you-today heading with its ⚙ slot', async () => {
+test('1 · exactly one sticky row on Today, and it is the Needs-you-today heading, with no ⚙', async () => {
   const html = await render(false);
   assert.match(html, /data-today-needs=""/, 'anti-vacuity: Needs you today did not render');
   const pins = stickies(html);
@@ -71,8 +71,8 @@ test('1 · exactly one sticky row on Today, and it is the Needs-you-today headin
   assert.ok(needsAt >= 0 && pinAt > needsAt && pinAt < html.indexOf('data-today-needs-rows'), 'the pinned row is not the Needs-you-today heading');
   const row = html.slice(pinAt, html.indexOf('data-today-needs-rows'));
   assert.match(row, /Needs you today/);
-  assert.match(row, /data-today-needs-gear=""/, 'the pinned row lost its ⚙ slot at its right end');
-  assert.doesNotMatch(row, /aria-label="Today settings"/, 'Today’s ⚙ sits beside the hours while the header is on screen');
+  assert.doesNotMatch(row, /data-today-needs-gear=/, 'the pinned row has a ⚙ slot again (the clean look removes it)');
+  assert.doesNotMatch(row, /aria-label="Today settings"/, 'a ⚙ sits on the pinned Needs-you row');
   assert.equal([...html.matchAll(/aria-label="Today settings"/g)].length, 1, 'not exactly one ⚙ on Today');
 });
 

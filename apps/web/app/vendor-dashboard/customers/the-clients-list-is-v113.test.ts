@@ -78,7 +78,8 @@ test('3 · the tiles are Booked · Schedules · Asked · To collect, each a list
   const doors = PAGE.slice(PAGE.indexOf('const doors: CustomersDoor[] = ['), PAGE.indexOf('const overdue = overdueRead'));
   const keys = [...doors.matchAll(/key: '([a-z]+)'/g)].map((m) => m[1]);
   assert.deepEqual(keys, ['booked', 'schedules', 'asking', 'collect'], 'the tiles are not v113’s four, in order');
-  assert.deepEqual([...doors.matchAll(/word: '([a-z ]+)'/g)].map((m) => m[1]), ['booked', 'schedules', 'asked', 'to collect']);
+  // Booked may read "booked this month" when Today's stat narrowed it (EB-219, `?within=month`) — that one ternary, nothing else.
+  assert.deepEqual([...doors.matchAll(/word: (?:monthIds \? 'booked this month' : )?'([a-z ]+)'/g)].map((m) => m[1]), ['booked', 'meetings', 'asked', 'to collect'], 'B29 (owner "Yes, all 8", 16 Nov 2026): the meetings tile reads "Meetings" — "schedule" is a pool elsewhere');
   for (const k of ['schedules', 'collect', 'overdue', 'unread']) {
     assert.match(PAGE, new RegExp(`\\n\\s+${k}: \\(?\\s*<`), `the ${k} list is not drawn`);
   }

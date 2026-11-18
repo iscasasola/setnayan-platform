@@ -73,7 +73,7 @@ export function ScriptComposer({
       <input type="hidden" name="blockId" value={blockId} />
       <input type="hidden" name="coupleName" value={coupleName} />
 
-      <p className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/70">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink/70">
         {isPrivate ? (
           <>
             <span className="rounded bg-ink px-1.5 py-0.5 font-bold text-cream">Not for the mic</span>

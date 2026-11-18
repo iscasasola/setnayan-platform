@@ -2,10 +2,14 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateEmpty } from '@/app/_components/template-rows';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { formatCount } from '@/lib/format-number';
 import type { ShareYourWorkData } from './share-your-work-data';
+import { StoryNoteForm } from './story-note-form';
+import { storyPageHref } from '@/lib/ultra-story-pages';
+import type { ReactNode } from 'react';
 
 /**
  * 📣 SHARE YOUR WORK — Shop › Promote, row 4 (owner 2026-11-06, verbatim: *"Use fable to decide. Find the best location
@@ -40,7 +44,9 @@ function ShareRow({
   ogImage,
   filenameBase,
   data,
+  extra,
 }: {
+  extra?: ReactNode;
   row: Row;
   kicker: string;
   viewHref: string;
@@ -52,11 +58,11 @@ function ShareRow({
 }) {
   const meta = [row.city, row.dateLabel].filter(Boolean).join(' · ');
   return (
-    <li className="flex flex-col gap-2 border-b border-ink/10 py-3 last:border-b-0" data-share-row={data}>
+    <li className="flex flex-col gap-2 border-b border-[color:var(--m-line)] py-3 last:border-b-0" data-share-row={data}>
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">{kicker}</p>
+        <p className="home-k2 !mt-0 !mb-0">{kicker}</p>
         <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">{row.hostNames}</p>
-        {meta ? <p className="mt-0.5 text-[13px] text-ink/60">{meta}</p> : null}
+        {meta ? <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{meta}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <ShareButtons url={pageUrl} title={`${row.hostNames} — a day we helped create, on Setnayan`} image={ogImage} />
@@ -67,12 +73,13 @@ function ShareRow({
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         </Link>
       </div>
+      {extra}
     </li>
   );
 }
 
 export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
-  const { stories, recaps, recapsGated } = data;
+  const { stories, recaps, recapsGated, ultra } = data;
   return (
     <section id="share" className="mt-8 scroll-mt-24" data-share-your-work="" aria-labelledby="share-your-work-title">
       <InfoTip label="Share your work" labelAs="h2" labelClassName="sn-sec" labelId="share-your-work-title" align="start">
@@ -80,19 +87,21 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
         shop credited. Share it to your Facebook Page or Pinterest, copy the link, or save the story card for Instagram and
         TikTok — real proof of your work, with a preview that leads straight back to their page.
       </InfoTip>
-      <p className="mt-0.5 text-[14px] text-ink/70">Events you worked, made public by the couple — ready to post.</p>
 
-      <div className="mt-2 border-t border-ink/10">
+      <div className="mt-2 border-t border-[color:var(--m-line)]">
         <Fold title="Stories" line={countLine(stories, stories?.length === 1 ? 'story' : 'stories')} data="share-stories">
           <div className="pb-3">
             {stories === null ? (
-              <p role="alert" className="py-2 text-[13.5px] text-ink/70" data-share-unread="stories">
-                We couldn&rsquo;t load your featured events just now. This is not a statement that you have none — reload to try again.
+              <p role="alert" className="flex min-h-11 items-center py-2 text-[14px] text-[rgb(var(--color-warn))]" data-share-unread="stories">
+                We couldn&rsquo;t load your featured events — not the same as none. Reload to try again.
               </p>
             ) : stories.length === 0 ? (
-              <div className="py-2" data-share-empty="stories">
-                <p className="text-[14px] font-medium text-ink">Your featured events will appear here.</p>
-                <p className="mt-0.5 text-[13px] text-ink/60">When a couple you worked with publishes their event to Stories, it shows here — ready to share.</p>
+              <div data-share-empty="stories">
+                <TemplateEmpty>
+                  <InfoTip label="Your featured events will appear here." align="start">
+                    When a couple you worked with publishes their event to Stories, it shows here — ready to share.
+                  </InfoTip>
+                </TemplateEmpty>
               </div>
             ) : (
               <ul>
@@ -109,6 +118,11 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
                       ogImage={ogImage}
                       filenameBase={`${s.slug}-story`}
                       data="story"
+                      extra={
+                        ultra ? (
+                          <StoryNoteForm eventId={s.eventId} initial={ultra.notes[s.eventId] ?? ''} pageHref={storyPageHref(ultra.shopSlug, s.slug)} />
+                        ) : undefined
+                      }
                     />
                   );
                 })}
@@ -117,25 +131,28 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
           </div>
         </Fold>
 
-        <div className="border-t border-ink/10">
+        <div className="border-t border-[color:var(--m-line)]">
           <Fold
             title="Recaps"
-            line={recapsGated ? 'Starts with Supplier Plus' : countLine(recaps, recaps?.length === 1 ? 'recap' : 'recaps')}
+            line={recapsGated ? 'Starts with Plus' : countLine(recaps, recaps?.length === 1 ? 'recap' : 'recaps')}
             data="share-recaps"
           >
             <div className="pb-3">
               {recapsGated ? (
-                <p className="py-2 text-[13.5px] text-ink/60" data-share-gated="recaps">
-                  One-tap sharing of every recap you helped create is a Supplier Plus feature.
+                <p className="py-2 text-[13.5px] text-[color:var(--m-slate-2)]" data-share-gated="recaps">
+                  One-tap sharing of every recap you helped create is a Plus feature.
                 </p>
               ) : recaps === null ? (
-                <p role="alert" className="py-2 text-[13.5px] text-ink/70" data-share-unread="recaps">
-                  We couldn&rsquo;t load your couples&rsquo; recaps just now. This is not a statement that you have none — reload to try again.
+                <p role="alert" className="flex min-h-11 items-center py-2 text-[14px] text-[rgb(var(--color-warn))]" data-share-unread="recaps">
+                  We couldn&rsquo;t load your couples&rsquo; recaps — not the same as none. Reload to try again.
                 </p>
               ) : recaps.length === 0 ? (
-                <div className="py-2" data-share-empty="recaps">
-                  <p className="text-[14px] font-medium text-ink">Your couples&rsquo; recaps will appear here.</p>
-                  <p className="mt-0.5 text-[13px] text-ink/60">Once someone you helped publishes their recap, you&rsquo;ll find it here — ready to share.</p>
+                <div data-share-empty="recaps">
+                  <TemplateEmpty>
+                    <InfoTip label="Your couples&rsquo; recaps will appear here." align="start">
+                      Once someone you helped publishes their recap, you&rsquo;ll find it here — ready to share.
+                    </InfoTip>
+                  </TemplateEmpty>
                 </div>
               ) : (
                 <ul>

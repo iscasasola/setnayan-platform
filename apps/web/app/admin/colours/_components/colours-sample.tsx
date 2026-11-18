@@ -188,10 +188,10 @@ export function Sample({ job, d }: { job: JobKey; d: AppColours }) {
       return wrap(
         <>
           <div className="flex-1 rounded-md px-3.5 py-3 text-white" style={{ background: band }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em]">Budget left</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Budget left</div>
             <div className="text-[26px] font-extrabold tracking-[-0.02em]">₱148,500</div>
           </div>
-          <span className="font-mono text-[12px] text-ink/60">lightest point {lightestPoint(d.bandFrom, d.bandTo)}</span>
+          <span className="text-[12px] text-ink/60 tabular-nums">lightest point {lightestPoint(d.bandFrom, d.bandTo)}</span>
         </>,
       );
     case 'frame':
@@ -231,7 +231,7 @@ export function Sample({ job, d }: { job: JobKey; d: AppColours }) {
           </span>
           <span className={`${pv.btn} ${pv.decision}`}>Next: choose a date</span>
           <span className={`${pv.btn} ${pv.decisionOut}`}>Add</span>
-          <span className="font-mono text-[12px] text-ink/60">outlined word {derive.decisionWord(d.decision)}</span>
+          <span className="text-[12px] text-ink/60 tabular-nums">outlined word {derive.decisionWord(d.decision)}</span>
         </>,
       );
     case 'private':
@@ -241,7 +241,7 @@ export function Sample({ job, d }: { job: JobKey; d: AppColours }) {
             <div className={pv.strip}>🔒 Private · only you and Jose</div>
             <div className={pv.privText}>After payday?</div>
           </div>
-          <span className="font-mono text-[12px] text-ink/60">
+          <span className="text-[12px] text-ink/60 tabular-nums">
             words {derive.privateText(d.private)} · wash {derive.privateTint(d.private)}
           </span>
         </>,

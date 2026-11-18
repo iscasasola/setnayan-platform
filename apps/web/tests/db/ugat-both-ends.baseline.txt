@@ -58,6 +58,13 @@ notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with n
 #     chat host strip (Add a host / Leave this chat / the left-note line); delete each row when its .rpc() lands;
 #   vendor_set_proposal_lock — paid down by the lane-B quotation / payment-plan lock toggle; delete its row there.
 # If the lane-B UI is dropped, drop these functions too. 42 -> 46.
+# Badge build J0 2026-11-15 (claude/badge-ladder-and-firing, migration 20271348804021): 2 notice-no-emitter rows
+# ADDED, each with a NAMED payer — the controller's J0 brief lands the two notice TYPES; their emitters ship with the
+# players that show them:
+#   seal_awarded      — paid down by the seal flow (J4's award player: a seal earned → this notice) → delete its row there;
+#   card_badge_earned — paid down by J3 (the service-card badge row) → delete its row there.
+# Today's grant sweep keeps emitting `badge_earned`, which is on the email allowlist; moving a grant to either new type
+# before its player ships would drop that email. If J3/J4 is dropped, drop its type's TS member too. 46 -> 48. J3 (#7819) paid card_badge_earned down: 48 -> 47. J2 (#7825) adds the same seal_awarded key, so it keeps this one row.
 # ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (10) ══
 component-no-mount	app/_components/thread-call-room.tsx	1	no runtime importer in any source file
 rpc-no-caller	chat_thread_add_host	1	no 'chat_thread_add_host' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
@@ -99,3 +106,4 @@ table-no-writer	stewardship_transfers	1	no .from('stewardship_transfers').insert
 result-dropped-silently	lib/panood-moments.ts · from:panood_moments.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/panood-screens.ts · from:panood_screens.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/venue-recommendations.ts · from:venue_directory.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
+notice-no-emitter	seal_awarded	1	in the NotificationType union and on the PUSH allowlist, never passed as a type in any app file

@@ -63,12 +63,28 @@ export const MARK_FONT_URLS = { jost: '/logo-fonts/jost.ttf', cormorant: '/logo-
  * WHAT the mark says. Built on the SERVER from the shop's own row
  * (`lib/supplier-mark-spec.server.ts`) — never from client props.
  *   setnayan  — Setnayan only (admin library, an unverified shop).
- *   supplier  — Setnayan Verified + the shop name + setnayan.com/v/<slug>,
+ *   supplier  — Setnayan Verified + the shop name + setnayan.com/<slug>,
  *               when `verified`; otherwise identical to `setnayan`.
  */
 export type MarkSpec =
   | { kind: 'setnayan' }
-  | { kind: 'supplier'; verified: boolean; shopName: string | null; slug: string | null; hasLogo: boolean };
+  | {
+      kind: 'supplier';
+      verified: boolean;
+      shopName: string | null;
+      slug: string | null;
+      hasLogo: boolean;
+      /**
+       * 📱 THE PHOTO-MARK QR (owner 2026-11-15, "all shops"): the module grid of a level-M QR encoding
+       * https://www.setnayan.com/{slug}, built ONCE on the server (`lib/photo-mark-qr.ts`, from the shop's own row)
+       * and drawn by both painters — so neither carries a QR encoder, and the browser bundle carries none at all.
+       * null when the shop has no address yet.
+       */
+      qr?: MarkQr | null;
+    };
+
+/** A QR as drawn: the URL it encodes and its dark/light module grid (rows of columns, no quiet zone). */
+export type MarkQr = { url: string; modules: boolean[][] };
 
 export type MarkFont = 'caps' | 'name' | 'addr';
 /** Width in px of `text` set in `font` at `px`, untracked. */
@@ -97,7 +113,8 @@ export type MarkLine = {
 
 export type MarkTier = 'full' | 'compact' | 'text';
 
-export type MarkLayout = {
+/** THE SEAL AND PLATE (owner 2026-11-04) — Setnayan's own photos (`kind: 'setnayan'`). */
+export type PlateLayout = {
   tier: MarkTier;
   /** the centred square every object-cover crop keeps */
   safe: { left: number; top: number; size: number };
@@ -108,6 +125,52 @@ export type MarkLayout = {
   coin: { cx: number; cy: number; d: number } | null;
   lines: MarkLine[];
 };
+
+/**
+ * 🔏 THE SUPPLIER PHOTO MARK (owner-approved 2026-11-15, DECISION_LOG "APPROVED — THE NEW SUPPLIER PHOTO MARK,
+ * APP-WIDE" + "THE PHOTO-MARK QR GOES ON EVERY SHOP'S PHOTOS"; reference `prototypes/supplier_photo_mark_qr_2026-11-15`,
+ * `corners()` with LAY 'b' and SY on, `paintCorners()`). No plate and no pill: a soft dark fade rises from the bottom
+ * edge, and ONE row along the bottom of the centre square — left, the flat gold Setnayan logo + SETNAYAN with
+ * setnayan.com/{slug} under it; right, the shop's logo in a plain circle (verified shops only), then the QR.
+ *   'row'       the full row (S ≥ 180)
+ *   'row-text'  under 180 px: the address only, on the fade
+ */
+export type RowLayout = {
+  tier: 'row' | 'row-text';
+  safe: { left: number; top: number; size: number };
+  /** the soft dark fade, from its top edge down to the bottom of the photo (or of the frame) */
+  fade: Box;
+  /** 'row' = 0 → .32 at 45% → .62 · 'text' = 0 → .6 (the prototype's tiny photo) */
+  fadeKind: 'row' | 'text';
+  /** the flat gold S/Y logo, `size` = its box edge */
+  logo: { cx: number; cy: number; size: number } | null;
+  word: MarkLine | null;
+  address: MarkLine;
+  /** the shop's own logo in a plain circle — verified shops with a logo only */
+  coin: { cx: number; cy: number; d: number } | null;
+  /** the QR as drawn: a light tile `side` square at (x0, y0), modules of `unit` px inside a 4-module quiet zone */
+  qr: { x0: number; y0: number; unit: number; side: number; modules: boolean[][]; url: string } | null;
+  /** the soft shadow every part carries (`shade()` of the prototype) */
+  shadow: { blur: number; offsetY: number };
+};
+
+export type MarkLayout = PlateLayout | RowLayout;
+
+export const isRowLayout = (l: MarkLayout): l is RowLayout => l.tier === 'row' || l.tier === 'row-text';
+
+/** The row's colours, verbatim from the approved page (`DARK`, the QR tile). */
+export const ROW_INK = '#FFFDF7';
+export const ROW_ADDR_INK = 'rgba(255,253,247,.92)';
+export const ROW_LOGO_GOLD = '#E2B75F';
+export const ROW_SHADOW = 'rgba(0,0,0,.75)';
+export const QR_TILE = '#FFFDF7';
+export const QR_INK = '#141210';
+/** A QR is drawn only where each module gets at least this many pixels (below it, a phone cannot read it). */
+export const QR_MIN_UNIT = 3;
+/** The QR's quiet zone, in modules, on each side. */
+export const QR_QUIET = 4;
+/** Under this short side the mark is the address only. */
+export const ROW_MIN = 180;
 
 /** Where the mark sits inside its safe square: bottom-right, or bottom-centre for a circle. */
 export type MarkAnchor = 'br' | 'bc';
@@ -165,7 +228,7 @@ function plateLayout(
   measure: MarkMeasure,
   anchor: MarkAnchor,
   tier: 'full' | 'compact',
-): MarkLayout {
+): PlateLayout {
   const safe = safeSquare(W, H);
   const S = safe.size;
   const m = Math.max(12, Math.round(0.04 * S));
@@ -292,7 +355,7 @@ function plateLayout(
  * The tiny tier: "under 120 px, keep the shipped text-only plate with the
  * address". The address shrinks until it fits; it is never cut.
  */
-function textLayout(W: number, H: number, spec: MarkSpec, measure: MarkMeasure, anchor: MarkAnchor): MarkLayout {
+function textLayout(W: number, H: number, spec: MarkSpec, measure: MarkMeasure, anchor: MarkAnchor): PlateLayout {
   const safe = safeSquare(W, H);
   const S = safe.size;
   const m = Math.max(2, Math.round(0.04 * S));
@@ -333,6 +396,7 @@ export function layoutInside(l: MarkLayout, box: Box): boolean {
     b.top >= box.top - e &&
     b.left + b.width <= box.left + box.width + e &&
     b.top + b.height <= box.top + box.height + e;
+  if (isRowLayout(l)) return rowParts(l).every(inBox);
   if (!inBox(l.plate)) return false;
   for (const line of l.lines) {
     if (!inBox({ left: line.x, top: line.y, width: Math.min(line.width, l.plate.width), height: line.px })) return false;
@@ -355,6 +419,8 @@ export function layoutMark(
 ): MarkLayout {
   const safe = safeSquare(W, H);
   const box: Box = { left: safe.left, top: safe.top, width: safe.size, height: safe.size };
+  // 🔏 Supplier photos carry the new row (owner 2026-11-15); Setnayan's own keep the Seal and plate.
+  if (spec.kind === 'supplier') return rowLayout(W, H, spec, measure, anchor);
   if (safe.size >= FULL_MIN) {
     const full = plateLayout(W, H, spec, measure, anchor, 'full');
     if (layoutInside(full, box)) return full;
@@ -369,6 +435,18 @@ export function layoutMark(
 /** Shift a layout by (dx, dy) — for a mark laid out in a frame's square, then placed on the whole image. */
 export function offsetLayout(l: MarkLayout, dx: number, dy: number): MarkLayout {
   const mv = (b: Box): Box => ({ ...b, left: b.left + dx, top: b.top + dy });
+  if (isRowLayout(l)) {
+    return {
+      ...l,
+      safe: { ...l.safe, left: l.safe.left + dx, top: l.safe.top + dy },
+      fade: mv(l.fade),
+      logo: l.logo && { ...l.logo, cx: l.logo.cx + dx, cy: l.logo.cy + dy },
+      word: l.word && { ...l.word, x: l.word.x + dx, y: l.word.y + dy },
+      address: { ...l.address, x: l.address.x + dx, y: l.address.y + dy },
+      coin: l.coin && { ...l.coin, cx: l.coin.cx + dx, cy: l.coin.cy + dy },
+      qr: l.qr && { ...l.qr, x0: l.qr.x0 + dx, y0: l.qr.y0 + dy },
+    };
+  }
   return {
     ...l,
     safe: { ...l.safe, left: l.safe.left + dx, top: l.safe.top + dy },
@@ -376,6 +454,160 @@ export function offsetLayout(l: MarkLayout, dx: number, dy: number): MarkLayout 
     seal: l.seal && { ...l.seal, cx: l.seal.cx + dx, cy: l.seal.cy + dy },
     coin: l.coin && { ...l.coin, cx: l.coin.cx + dx, cy: l.coin.cy + dy },
     lines: l.lines.map((x) => ({ ...x, x: x.x + dx, y: x.y + dy })),
+  };
+}
+
+/* ── the supplier row (owner-approved 2026-11-15) ───────────────────────── */
+
+/** The address the row draws — setnayan.com/{slug} for EVERY shop, verified or not, matching its QR (owner 2026-11-15). */
+export function rowAddress(spec: MarkSpec): string {
+  return spec.kind === 'supplier' && spec.slug ? markVerifiedAddress(spec.slug) : MARK_ADDRESS;
+}
+
+/** Every drawn part of a row, as boxes — what `layoutInside` checks (the fade is a backdrop, not a part). */
+export function rowParts(l: RowLayout): Box[] {
+  const parts: Box[] = [{ left: l.address.x, top: l.address.y, width: l.address.width, height: l.address.px }];
+  if (l.word) parts.push({ left: l.word.x, top: l.word.y, width: l.word.width, height: l.word.px });
+  if (l.logo) parts.push({ left: l.logo.cx - l.logo.size / 2, top: l.logo.cy - l.logo.size / 2, width: l.logo.size, height: l.logo.size });
+  if (l.coin) parts.push({ left: l.coin.cx - l.coin.d / 2, top: l.coin.cy - l.coin.d / 2, width: l.coin.d, height: l.coin.d });
+  if (l.qr) parts.push({ left: l.qr.x0, top: l.qr.y0, width: l.qr.side, height: l.qr.side });
+  return parts;
+}
+
+/**
+ * The QR's placement for a mark square of short side S: ~22% of the short side, drawn ONLY when every module gets
+ * ≥ QR_MIN_UNIT px inside a 4-module quiet zone. Pure, exported for the guard.
+ */
+export function rowQrUnit(S: number, moduleCount: number): { size: number; unit: number } | null {
+  if (S < ROW_MIN) return null;
+  const size = Math.round(0.22 * S);
+  const unit = Math.floor(size / (moduleCount + 2 * QR_QUIET));
+  return unit >= QR_MIN_UNIT ? { size, unit } : null;
+}
+
+function rowLayout(W: number, H: number, spec: Extract<MarkSpec, { kind: 'supplier' }>, measure: MarkMeasure, anchor: MarkAnchor): RowLayout {
+  const safe = safeSquare(W, H);
+  const S = safe.size;
+  const shadow = { blur: Math.max(3, 0.008 * S), offsetY: Math.max(1, 0.0015 * S) };
+  const addrText = rowAddress(spec);
+
+  // Under 180 px — or inside a circle, whose corners the row would fall off — the address only, on the fade.
+  if (S < ROW_MIN || anchor === 'bc') return rowTextLayout(W, H, spec, measure, anchor, safe, shadow);
+  return rowFullLayout(W, H, spec, measure, anchor, safe, shadow, addrText);
+}
+
+/** The address-only row: the address on the fade (the prototype's tiny photo). */
+function rowTextLayout(
+  W: number,
+  H: number,
+  spec: Extract<MarkSpec, { kind: 'supplier' }>,
+  measure: MarkMeasure,
+  anchor: MarkAnchor,
+  safe: { left: number; top: number; size: number },
+  shadow: RowLayout['shadow'],
+): RowLayout {
+  {
+    const t = textLayout(W, H, { ...spec, verified: true, slug: spec.slug }, measure, anchor);
+    const line = t.lines[0]!;
+    const fadeTop = Math.max(0, t.plate.top - t.plate.height);
+    return {
+      tier: 'row-text',
+      safe,
+      fade: { left: 0, top: fadeTop, width: W, height: H - fadeTop },
+      fadeKind: 'text',
+      logo: null,
+      word: null,
+      address: { ...line, color: ROW_INK },
+      coin: null,
+      qr: null,
+      shadow,
+    };
+  }
+}
+
+function rowFullLayout(
+  W: number,
+  H: number,
+  spec: Extract<MarkSpec, { kind: 'supplier' }>,
+  measure: MarkMeasure,
+  anchor: MarkAnchor,
+  safe: { left: number; top: number; size: number },
+  shadow: RowLayout['shadow'],
+  addrText: string,
+): RowLayout {
+  const S = safe.size;
+  const X0 = safe.left;
+  const mg = Math.max(8, Math.round(0.035 * S));
+  const bottom = safe.top + S - mg;
+  const L = Math.max(22, Math.round(0.095 * S));
+  const padY = Math.round(0.16 * L);
+  const padX = Math.round(0.28 * L);
+  const gap = Math.round(0.22 * L);
+  const pH = L + 2 * padY;
+
+  // The QR: the right end of the row, only where each module gets ≥ 3 px.
+  let qrBox: { x: number; y: number; s: number; unit: number } | null = null;
+  const qr = spec.qr && spec.slug ? spec.qr : null;
+  if (qr) {
+    const fit = rowQrUnit(S, qr.modules.length);
+    if (fit) qrBox = { x: X0 + S - mg - fit.size, y: bottom - fit.size, s: fit.size, unit: fit.unit };
+  }
+  const midY = qrBox ? bottom - qrBox.s / 2 : bottom - pH / 2;
+
+  // Setnayan, left: the flat gold logo, then SETNAYAN over the address.
+  const fCap = Math.max(10, Math.round(0.42 * L));
+  const em = 0.14 * fCap;
+  const ww = trackedWidth(measure, MARK_CAPS, fCap, em);
+  const left = X0 + mg;
+  const logo = { cx: left + padX * 0.6 + L / 2, cy: midY, size: 0.92 * L };
+  const textX = logo.cx + L / 2 + gap * 0.7;
+
+  // The shop's own logo, just left of the QR — verified shops with a logo only.
+  const coinD = pH;
+  const rightEnd = qrBox ? qrBox.x - gap : X0 + S - mg;
+  const coin = spec.verified && spec.hasLogo ? { cx: rightEnd - coinD / 2, cy: midY, d: coinD } : null;
+  const rEdge = coin ? rightEnd - coinD - gap : rightEnd;
+
+  // The address shrinks to fit the room left of the coin / QR — it is never cut.
+  const room = rEdge - left - gap - (padX * 0.6 + L + gap * 0.7 + padX);
+  let fA = Math.max(11, Math.round(0.44 * L));
+  while (measure(addrText, 'addr', fA) > room && fA > 6) fA -= 1;
+  const aw = measure(addrText, 'addr', fA);
+  // A very long address on a small photo still does not fit beside the logo at 6 px: it is never cut — the mark
+  // steps down to the address-only row, which has the whole width (and a last resort of its own).
+  if (aw > room) return rowTextLayout(W, H, spec, measure, anchor, safe, shadow);
+  const lineGap = Math.round(0.3 * fCap);
+  const th = fCap + lineGap + fA;
+  const wordY = midY - th / 2;
+
+  const rowTop = Math.min(midY - pH / 2, coin ? coin.cy - coin.d / 2 : Number.POSITIVE_INFINITY);
+  const fadeTop = Math.max(0, rowTop - pH * 1.1);
+
+  let qrDrawn: RowLayout['qr'] = null;
+  if (qrBox && qr) {
+    const n = qr.modules.length;
+    const side = qrBox.unit * (n + 2 * QR_QUIET);
+    qrDrawn = {
+      x0: Math.round(qrBox.x + (qrBox.s - side) / 2),
+      y0: Math.round(qrBox.y + (qrBox.s - side) / 2),
+      unit: qrBox.unit,
+      side,
+      modules: qr.modules,
+      url: qr.url,
+    };
+  }
+
+  return {
+    tier: 'row',
+    safe,
+    fade: { left: 0, top: fadeTop, width: W, height: H - fadeTop },
+    fadeKind: 'row',
+    logo,
+    word: { text: MARK_CAPS, font: 'caps', px: fCap, x: textX, y: wordY, tracking: em, color: ROW_INK, width: ww },
+    address: { text: addrText, font: 'addr', px: fA, x: textX, y: wordY + fCap + lineGap, tracking: 0, color: ROW_ADDR_INK, width: aw },
+    coin,
+    qr: qrDrawn,
+    shadow,
   };
 }
 
@@ -399,8 +631,13 @@ export function markSquareForFrame(frame: Box): Box {
  */
 export function layoutMarkInFrame(frame: Box, shape: FrameShape, spec: MarkSpec, measure: MarkMeasure): MarkLayout {
   const sq = markSquareForFrame(frame);
-  const l = layoutMark(sq.width, sq.height, spec, measure, shape === 'circle' ? 'bc' : 'br');
-  return offsetLayout(l, sq.left, sq.top);
+  const l = offsetLayout(layoutMark(sq.width, sq.height, spec, measure, shape === 'circle' ? 'bc' : 'br'), sq.left, sq.top);
+  // 🔏 The row's fade spans the whole frame, as it spans the whole photo — never only the mark's square.
+  if (isRowLayout(l)) {
+    const bottom = frame.top + frame.height;
+    return { ...l, fade: { left: frame.left, top: l.fade.top, width: frame.width, height: bottom - l.fade.top } };
+  }
+  return l;
 }
 
 /* ── which displays may show a framed photo ─────────────────────────────── */

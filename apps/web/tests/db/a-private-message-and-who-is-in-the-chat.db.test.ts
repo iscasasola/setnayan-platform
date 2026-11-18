@@ -506,6 +506,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   // (booking? seconds since sent); the booking check returns one boolean and is callable by neither browser role.
   // Pinned by you-may-remove-your-own-file-from-a-chat.db.test.ts.
   'remove_my_chat_file',
+  // 🏅 20271348906302 (badge build J3, Quick Responder): reads only a thread's message TIMES — MIN(created_at) of the
+  // shop's own non-bot lines (sender_role · is_bot · created_at) — never body, recipient or attachment; returns
+  // timestamps per card; EXECUTE for service_role only (neither browser role). Pinned by service-card-badges.db.test.ts.
+  'service_card_badge_facts',
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row

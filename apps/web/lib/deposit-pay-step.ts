@@ -132,7 +132,13 @@ export type CouplePayMethodsState =
    * "no handshake, no record"; audit F2). Their account numbers are not shown
    * on a mere ask. Never a word about why (R12).
    */
-  | 'not_yet';
+  | 'not_yet'
+  /**
+   * CHAT-24 (walk 16 Nov 2026): not confirmed yet AND the supplier has no way to be paid that a couple can see. Said
+   * as "not confirmed yet" alone, the couple waited on a confirmation that would still have shown them nothing — the
+   * real gap was the missing payment method. Both are true, so both are said; still never a word about why (R12).
+   */
+  | 'not_yet_no_methods';
 
 /** Null when there IS something to show — the pay sheet speaks for itself. */
 export function noPayMethodsSentence(
@@ -142,6 +148,9 @@ export function noPayMethodsSentence(
 ): string | null {
   if (state === 'unreadable') {
     return `We couldn’t load ${vendorName}’s payment details just now. Refresh the page to try again.`;
+  }
+  if (state === 'not_yet_no_methods') {
+    return `${vendorName} hasn’t added a way to pay them on Setnayan yet, and hasn’t finished confirming your booking. Their payment details appear here once they have done both — we’ve asked them to add one.`;
   }
   if (state === 'not_yet') {
     return `${vendorName} hasn’t finished confirming your booking yet. Their payment details appear here once they have.`;

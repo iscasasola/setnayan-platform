@@ -46,6 +46,9 @@ test('2 · four choices, none preselected; a choice past the event is not offere
   assert.match(picker, /<PickMenu/, 'one dropdown');
   assert.match(picker, /<DateRow/, 'Pick a date is the shipped calendar');
   assert.doesNotMatch(picker, /type="date"/);
+  // CHAT-31: a DateRow's `name` is its visible word — never a field key like "valid_until_pick".
+  assert.doesNotMatch(picker, /name=\{`\$\{name\}_pick`\}/, 'the raw field key is drawn on the row again');
+  assert.match(picker, /<DateRow\s[^>]*name="Date"/, 'the calendar row reads a word');
 });
 
 test('3 · every send path asks the rule before it writes; no surface keeps a raw date input or "No end date"', () => {

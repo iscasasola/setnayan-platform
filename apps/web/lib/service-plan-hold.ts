@@ -24,6 +24,7 @@
  * decides what fits.
  */
 
+import { formatCount } from '@/lib/format-number';
 import { TIER_CAPS, TIER_LABEL, tierRank, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /** The plans the picker offers, bottom to top (the ruling's ladder; Custom is not marketed). */
@@ -160,7 +161,7 @@ export function planHoldsWords(plan: VendorTier): string {
   const c = TIER_CAPS[plan];
   const f = Number.isFinite(c.parentCategories) ? `${c.parentCategories} ${c.parentCategories === 1 ? 'category' : 'categories'}` : 'Every category';
   const s = Number.isFinite(c.serviceCardsTotal)
-    ? `${c.serviceCardsTotal} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`
+    ? `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`
     : 'any number of services';
   return `${f} · ${s}`;
 }

@@ -23,5 +23,8 @@ extra-cards pack are separate changes.
   plan rows' `max_categories` / `max_sub_seats`, `vendor_tier_limit()` fallback, `service_card_daily_limit()`.
   No price is written.
 
+- The two new card-total lines ("N services" in `planHoldsWords`, "You already have N service cards — your plan
+  allows N" in the card maker's standing) print through `formatCount`, as `numbers-carry-commas` requires.
+
 SPEC IMPACT: `DECISION_LOG.md` 2026-11-18 rows say "NOT BUILT" for these items — a follow-up row records what this PR
 built and what is still open (Ultra tier, Max label, extra-cards pack, Home snapshot hidden for unverified Free).

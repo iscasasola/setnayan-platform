@@ -4,6 +4,7 @@ import {
   VENDOR_CATEGORY_CANONICAL,
   tilesForVendorCategory,
 } from '@/lib/vendor-category-taxonomy';
+import { formatCount } from '@/lib/format-number';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { leafFamilies, type LeafIndex } from '@/lib/service-card-kind';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -158,7 +159,7 @@ export function standingForCategory(
   if (ctx.serviceCardsTotal !== Infinity && total >= ctx.serviceCardsTotal) {
     return {
       standing: 'locked',
-      why: `You already have ${total} service ${total === 1 ? 'card' : 'cards'} — your plan allows ${ctx.serviceCardsTotal}.`,
+      why: `You already have ${formatCount(total)} service ${total === 1 ? 'card' : 'cards'} — your plan allows ${formatCount(ctx.serviceCardsTotal)}.`,
     };
   }
   const parents = ctx.leaves

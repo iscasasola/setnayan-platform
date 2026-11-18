@@ -267,7 +267,7 @@ export type SupplierTodayFirstScreenProps = {
   minis?: ReactNode;
 };
 
-const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
+const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
 
 /**
  * 📱 THE SUPPLIER'S TODAY — THE ONE BUILD (owner 8 Nov 2026, *"Approved suuplier dashboard"*; contract prototype
@@ -482,7 +482,7 @@ export function SupplierTodayFirstScreen({
       </div>
       {/* ✅ SETNAYAN VERIFIED — only once Setnayan has checked the papers (the Shop pill says Live or Not yet); while
           they are being checked the Shop row already says so, and nothing here claims more. */}
-      {shop.pill === 'Checking' ? null : (
+      {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
           <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>

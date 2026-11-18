@@ -28,7 +28,8 @@
  * nav root (--bn-dur / --bn-grow / --bn-glow / --bn-stretch). Retune the
  * whole app's nav feel by editing those four values here — nowhere else.
  * Owner-locked baseline 2026-06-13: 500ms · grow 1.15 · glow 1.2 ·
- * stretch 1.1 · white light.
+ * stretch 1.1 · white light. ⏱ The duration moved to 0.7 s on 18 Nov 2026
+ * (owner: *"move bottom nav to 0.7s"*) — `--bn-dur` reads `--sn-m-rise`.
  *
  * SCOPE: mobile-only (`lg:hidden`). ⚓ AN ANCHORED BAR (2026-09-25) — it
  * sits FLUSH on the bottom edge inside <BottomDock>, edge to edge, and the
@@ -261,7 +262,7 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
   const colW = 100 / n;
 
   return (
-    <NavShell>
+    <NavShell current={activeIndex >= 0 ? items[activeIndex]!.icon : undefined}>
       <div className="relative overflow-hidden">
         {/* Active pill — travels on release. Outer track carries the
             horizontal position (transitioned); inner span carries the
@@ -642,7 +643,7 @@ function BottomNavAccordion({ menus }: { menus: BottomNavMenu[] }) {
   if (topMenus.length < 1) return null;
 
   return (
-    <NavShell>
+    <NavShell current={(activeMenuIndex >= 0 ? topMenus[activeMenuIndex] : undefined)?.icon}>
       {/* Fixed-height stage so the absolutely-positioned cells have a box to
           lay out in. 64px ≈ the flat bar's `py-1` + `min-h-[56px]` cells, so
           the accordion bar is the same height as the flat one. */}
@@ -836,7 +837,7 @@ export function BottomDock({
 /** The bar itself + the four central tuning knobs. Shared by both the flat
  *  and accordion render paths so the bar geometry + the --bn-* knobs stay a
  *  single source of truth (lint guard markers live here). */
-function NavShell({ children }: { children: ReactNode }) {
+function NavShell({ children, current }: { children: ReactNode; /** The lit tab's icon — the tucked pill wears it. */ current?: BottomNavItem['icon'] }) {
   // Publish the bar's REAL rendered height to a CSS var (--sn-bottomnav-h) so
   // anything that sits against the bar row — the <NavFab> centres itself in
   // it, the Your Team chip docks above it — reads the measured height rather
@@ -846,11 +847,15 @@ function NavShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const el = shellRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const publish = () =>
-      document.documentElement.style.setProperty(
-        '--sn-bottomnav-h',
-        `${Math.round(el.getBoundingClientRect().height)}px`,
-      );
+    const publish = () => {
+      // The untransformed box (`offset*`): a tucked bar is scaled, and its own scale must not feed back into itself.
+      const h = el.offsetHeight;
+      const w = el.offsetWidth;
+      const root = document.documentElement.style;
+      root.setProperty('--sn-bottomnav-h', `${h}px`);
+      // 🫳 TUCK: how far the bar shrinks to become the pill — the pill is as wide as the bar is tall.
+      if (w > 0) root.setProperty('--sn-tuck-k', (h / w).toFixed(4));
+    };
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
@@ -874,7 +879,10 @@ function NavShell({ children }: { children: ReactNode }) {
           boxShadow: 'var(--sn-dock-lift)',
           // 🔒 The four central tuning knobs (owner-locked baseline 2026-06-13).
           // Retune the whole app's nav feel by editing ONLY these four.
-          '--bn-dur': '500ms',
+          // ⏱ 18 Nov 2026 (owner: *"move bottom nav to 0.7s"*, MOTION_STANDARD § 5 Highlight): the knob reads the
+          // standard's Rise (700 ms) and the pill travels on the standard's Spring — like every other chosen tab.
+          // 🔒 app/_components/nav/the-nav-highlight-is-0-7s.test.ts · scripts/lint-bottom-nav.mjs
+          '--bn-dur': 'var(--sn-m-rise)',
           '--bn-grow': '1.15',
           '--bn-glow': '1.5',
           '--bn-stretch': '1.1',
@@ -885,9 +893,59 @@ function NavShell({ children }: { children: ReactNode }) {
     </nav>
   );
 
+  const both = (
+    <>
+      {bar}
+      <TuckPill Icon={current} />
+    </>
+  );
+
   // A bar mounted without a dock (the vendor and admin doorways) docks
   // itself, so every bottom bar in the app is anchored the same way.
-  return docked ? bar : <BottomDock>{bar}</BottomDock>;
+  return docked ? both : <BottomDock>{both}</BottomDock>;
+}
+
+/**
+ * 🫳 THE TUCKED PILL (motion standard 18 Nov 2026, § 5 #37 — owner: bottom nav *"shrinks to a pill (was: hides)"*).
+ * While the page scrolls down (`html[data-tuck]`, written by `use-hide-on-scroll.ts`) the bar shrinks away to the left
+ * and THIS takes its place: a small floating pill wearing the lit tab's icon, at the bar's own left edge, on the bar's
+ * own surface tokens. ONE tap opens the bar again (`sn:tuck-open` — `TUCK_OPEN_EVENT`), and the tab you then tap is the
+ * tab you land on; scrolling up, or reaching the page's end, opens it too. The floating thumb row sits on the same row,
+ * to its right. All of the drawing is globals.css (transform and opacity only; reduced motion: at once); at rest the
+ * pill is not drawn and takes no tap or focus. Phone only — from 701 the bar does not tuck.
+ * 🔒 app/_components/nav/tuck-keeps-the-rows.test.ts
+ */
+function TuckPill({ Icon }: { Icon?: BottomNavItem['icon'] }) {
+  return (
+    <button
+      type="button"
+      data-tuck-pill=""
+      aria-label="Show the menu bar"
+      onClick={() => window.dispatchEvent(new Event('sn:tuck-open'))}
+      className="absolute flex items-center justify-center rounded-full"
+      style={{
+        left: 'calc(var(--sn-safe-l) + 14px)',
+        bottom: 'calc(env(safe-area-inset-bottom) + 14px)',
+        width: 'var(--sn-bottomnav-h, 64px)',
+        height: 'var(--sn-bottomnav-h, 64px)',
+        background: 'var(--sn-dock-bg)',
+        boxShadow: 'var(--sn-dock-lift)',
+        color: 'var(--sn-dock-pill)',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      {Icon ? (
+        <Icon aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />
+      ) : (
+        // No tab is lit on this page: three plain bars (no icon import — this file is in every first load).
+        <span aria-hidden className="flex flex-col gap-1">
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+        </span>
+      )}
+    </button>
+  );
 }
 
 /** The traveling dark stadium pill (--m-ink @ 15%) — travels on release with
@@ -904,7 +962,7 @@ function TravelPill({ index, colW }: { index: number; colW: number }) {
         // ✨ The active item is a FILLED pill around its icon and word (16 Nov) — so the capsule spans the cell's
         // height (4 px in from the bar's own edge), not a 44 px band through its middle.
         transform: `translateX(${index * 100}%)`,
-        transition: 'transform var(--bn-dur) cubic-bezier(0.34, 1.4, 0.5, 1)',
+        transition: 'transform var(--bn-dur) var(--sn-m-spring)',
       }}
     >
       <span

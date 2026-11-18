@@ -25,9 +25,13 @@ DASHBOARD = THE OWNER'S BLUE LOOK, LIGHT AND DARK"). Stacked on dark mode PR 1 (
 - `html.dark .sn-ambient` reads `--sn-ambient-dark` (unset = the plain page), so a look can light its dark ground
   with a token instead of a component rule.
 
-**Also fixed here and on PR 1:** in Light, `--m-ink` and `--m-mulberry` became pointers in PR 1 and would have
-followed the supplier scope's navy ink and blue (172 reads). The Light scope now pins them to the warm ink and
-terracotta they painted, so Light moves no pixel on supplier pages either.
+**A deliberate Light change on supplier pages (owner 19 Nov 2026, "all recommended").** `--m-ink` and
+`--m-mulberry` became pointers in PR 1, which pinned them on supplier pages to the warm ink and terracotta they
+painted on main. This PR removes those three pins, so on supplier pages every `var(--m-ink)` is the blue look's
+navy ink `#101B30` and every `var(--m-mulberry)` its blue `#2272E6` — 172 reads across `app/vendor-dashboard` and
+the shared pieces. Before/after at 390 px on three screens that read them (card maker, offer maker, shop plan)
+in `build-sessions/shots-dark-mode-pr2-supplier/light-warm-to-blue-*.jpg`. The visible change is mostly text
+moving from warm near-black to navy near-black.
 
 **Not verified:** only the supplier screens with a lab were rendered in dark; the rest need a signed-in walk.
 The contrast lint judges dark with the app's warm dark tokens, not the navy scope — the navy's own pairs are

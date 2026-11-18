@@ -124,14 +124,11 @@ html:not(.dark):has([data-supplier-look]) {
   --m-orange-4: #dce6f2;
   --m-orange-deep: #1553b0;
   --m-ivory: #e8f0fa;
-  /* 🔒 HELD AS THEY PAINTED (18 Nov 2026, the one colour set). `--m-ink`, `--m-mulberry` and `--m-mulberry-2` became
-     pointers at `--color-ink` / `--color-mulberry` that day, and this scope re-points those two on <html> — so without
-     these three lines every `var(--m-ink)` on a supplier page would turn navy and every `var(--m-mulberry)` blue. They
-     were the warm ink and the terracotta before that change, and Light must not move a pixel in it. Whether they
-     SHOULD join the blue look is the owner's call, not a side effect. */
-  --m-ink: #2c2a29;
-  --m-mulberry: #c24e25;
-  --m-mulberry-2: #b04722;
+  /* 🔵 `--m-ink` AND `--m-mulberry` ARE THE BLUE LOOK'S TOO (owner 19 Nov 2026, "all recommended" — after "supplier
+     dashboard is the blue light color"). Both are pointers at `--color-ink` / `--color-mulberry` (the one colour set),
+     which this scope re-points above — so every `var(--m-ink)` on a supplier page is the navy ink #101B30 and every
+     `var(--m-mulberry)` the blue #2272E6, with no line needed here. Dark mode PR 1 had pinned them to the warm ink and
+     the terracotta they painted on main (172 reads) so that PR moved no Light pixel; this is the deliberate change. */
   --m-slate: #2e3a4f;
   --m-slate-2: #566275;
   --m-slate-3: #6b7789;

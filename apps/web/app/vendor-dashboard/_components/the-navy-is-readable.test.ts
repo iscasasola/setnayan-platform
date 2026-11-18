@@ -10,7 +10,7 @@
  *      the app's dark tokens the way the cascade layers it — never from a second hand-typed copy of a colour.
  *   3. THE ACCENT AS A WORD. The main button's blue (#2272E6) cannot also be a word on the navy (3.46:1), so the text
  *      utilities read `--color-mulberry-word` / `--sn-accent-word` — set here, unset everywhere else.
- *   4. The area is on the ready-list, and the Light scope still pins the three `--m-*` tokens that became pointers.
+ *   4. The area is on the ready-list, and in Light `--m-ink` / `--m-mulberry` follow the blue look (owner 19 Nov 2026).
  *
  * (The file-wide "tokens only" rule is held by `the-blue-look-is-tokens-only.test.ts`, which reads every rule.)
  *
@@ -139,10 +139,15 @@ test('3 · the accent as a WORD is its own token here — and nowhere else', () 
   assert.equal(LIGHT['--sn-accent-word'], undefined);
 });
 
-test('4 · the supplier area is on the ready-list, and Light keeps the three tokens that became pointers', () => {
+test('4 · the supplier area is on the ready-list, and in Light the supplier ink and button are the blue look’s', () => {
   assert.ok(DARK_READY.includes('/vendor-dashboard'), '/vendor-dashboard is not on DARK_READY (lib/appearance.ts)');
+  // Owner 19 Nov 2026 ("all recommended"): the 172 `var(--m-ink)` / `var(--m-mulberry)` reads on supplier pages join the
+  // blue set. They are pointers, so the Light scope must NOT pin them — and they resolve to the look's own values.
   const LIGHT = block('html:not(.dark):has([data-supplier-look])');
-  assert.equal(LIGHT['--m-ink'], '#2c2a29', 'Light: --m-ink would follow the navy ink through its pointer');
-  assert.equal(LIGHT['--m-mulberry'], '#c24e25', 'Light: --m-mulberry would follow the blue through its pointer');
-  assert.equal(LIGHT['--m-mulberry-2'], '#b04722');
+  for (const t of ['--m-ink', '--m-mulberry', '--m-mulberry-2']) assert.equal(LIGHT[t], undefined, `${t} is pinned in the Light scope — it would stay warm on a blue page`);
+  const table: TokenMap = { ...rawTokens('light'), ...LIGHT };
+  const paints = (t: string) => toHex(substitute(table[t] ?? '', table) ?? '');
+  assert.equal(paints('--m-ink'), '#101b30', 'Light: --m-ink is not the blue look’s navy ink');
+  assert.equal(paints('--m-mulberry'), '#2272e6', 'Light: --m-mulberry is not the blue look’s button blue');
+  assert.equal(paints('--m-mulberry-2'), '#1b66d2');
 });

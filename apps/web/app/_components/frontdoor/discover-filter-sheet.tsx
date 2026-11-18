@@ -23,7 +23,7 @@ export function DiscoverFilterSheet({
   // tapped and falls back into it. RiseScreen already draws on <body> (its portal), so the `.sn-vt-page` trap above cannot
   // capture it. The form is the drawer's own (`FilterDrawerForm`) — one set of fields, two frames.
   return (
-    <RiseScreen title="Filters" fill onClose={onClose} data="discover-filters">
+    <RiseScreen title="Filters" fill onClose={onClose} data="discover-filters" kind="stack">
       <RisenFilterForm drawer={drawer} onClose={onClose} />
     </RiseScreen>
   );

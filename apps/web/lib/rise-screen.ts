@@ -24,7 +24,7 @@
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts
  */
 import { RISE_CLOSE_MS, RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
-import { EASE_EMPHASIZED, MOTION_TABLE } from '@/lib/motion-table';
+import { EASE_EMPHASIZED, EASE_SETTLE, MOTION_TABLE, MOVE_MS, RISE_MS_STANDARD, springEase } from '@/lib/motion-table';
 
 /** How long a press stays "the thing you just tapped". A state change, an address write and a stream all land within it. */
 export const RISE_ORIGIN_FRESH_MS = 1500;
@@ -62,20 +62,81 @@ export function riseClip(rect: RiseRect, vp: RiseViewport, radius = 14): string 
 export const RISE_FULL_CLIP = 'inset(0px 0px 0px 0px round 0px)';
 
 /**
- * The rise as frames + timing. The close plays these same frames backwards. Reduced motion → the short fade. No origin
- * → null: it simply appears, and simply leaves.
+ * 🗺 THE FULL-SCREEN MAP (owner 18 Nov 2026 *"i like BCDE"* → *"yes mapping ok"* · *"keep the peek, unfold for smaller
+ * rows"*; specs MOTION_STANDARD_2026-11-18.md § 5 "Full-screen map (decided)"). ONE motion per KIND OF SCREEN — and they
+ * are the named options of the ONE opener, never a second opener:
+ *
+ *   what opens                        motion          where it lives
+ *   fill in / edit                    Stack           `<RiseScreen kind="stack">`
+ *   a whole tool                      Zoom through    `<RiseScreen kind="zoom">`
+ *   anything with a photo             Picture leads   `<RiseScreen kind="picture">` (+ a card → its page: `[data-picture-leads]`)
+ *   a person's card (guest, client)   Side peek       `InspectorSheet` (app/_components/inspector/inspector-column.tsx)
+ *   a small row's detail              Unfold          the row itself, in place (Phase 2 — not a full-screen layer)
+ *
+ * `grow` is the 13 Nov grow out of the pressed thing — what a screen nobody has classified yet still does.
+ * 🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts
+ */
+export const FULL_SCREEN_MAP = {
+  edit: 'stack',
+  tool: 'zoom',
+  photo: 'picture',
+  person: 'peek',
+  row: 'unfold',
+} as const;
+export type FullScreenWhat = keyof typeof FULL_SCREEN_MAP;
+export type FullScreenMotion = (typeof FULL_SCREEN_MAP)[FullScreenWhat];
+/** The kinds the ONE full-screen opener (`RiseScreen`) plays itself. */
+export type RiseKind = 'grow' | 'stack' | 'zoom' | 'picture';
+export const RISE_KINDS: readonly RiseKind[] = ['grow', 'stack', 'zoom', 'picture'];
+
+export type RiseMotion = { frames: Keyframe[]; timing: KeyframeAnimationOptions; closeTiming: KeyframeAnimationOptions };
+
+/**
+ * The rise as frames + timing, by kind. The close plays these same frames backwards (so a close on Settle is Settle
+ * reversed), every window at 80 %. Reduced motion → the short fade, whatever the kind. No press behind it → null: it
+ * simply appears, and simply leaves. Transform and opacity only — `grow` alone keeps its one clip, on one layer.
+ *
+ *   grow     the clip opens from the pressed thing's rect            Move · Settle
+ *   stack    the screen slides up from the foot                       Move · Spring (close: Settle)
+ *   zoom     the screen grows from 0.92, fading in                    Move · Settle
+ *   picture  the card rises 40 px, 80 ms after the photo has left     Move · Settle (the photo itself: `picturePlan`)
  */
 export function riseScreenMotion(
   from: RiseRect | null,
   vp: RiseViewport,
   reduced: boolean,
   radius = 14,
-): { frames: Keyframe[]; timing: KeyframeAnimationOptions; closeTiming: KeyframeAnimationOptions } | null {
+  kind: RiseKind = 'grow',
+): RiseMotion | null {
   if (reduced) {
     const fade = { duration: RISE_REDUCED_MS, easing: 'linear' };
     return { frames: [{ opacity: 0 }, { opacity: 1 }], timing: fade, closeTiming: fade };
   }
   if (!from) return null;
+  const t = MOTION_TABLE;
+  const close = Math.round(MOVE_MS * t.growCloseFactor);
+  if (kind === 'stack') {
+    return {
+      frames: [{ transform: 'translateY(100%)' }, { transform: 'none' }],
+      timing: { duration: MOVE_MS, easing: springEase() },
+      closeTiming: { duration: close, easing: EASE_SETTLE },
+    };
+  }
+  if (kind === 'zoom') {
+    return {
+      frames: [{ transform: `scale(${t.zoomFromScale})`, opacity: 0 }, { transform: 'none', opacity: 1 }],
+      timing: { duration: MOVE_MS, easing: EASE_SETTLE },
+      closeTiming: { duration: close, easing: EASE_SETTLE },
+    };
+  }
+  if (kind === 'picture') {
+    return {
+      frames: [{ transform: `translateY(${t.pictureCardRisePx}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }],
+      // `backwards`: hidden for its 80 ms wait, then nothing held (a kept transform would trap every fixed child).
+      timing: { duration: MOVE_MS, delay: t.pictureCardDelayMs, easing: EASE_SETTLE, fill: 'backwards' },
+      closeTiming: { duration: close, easing: EASE_SETTLE },
+    };
+  }
   return {
     // The shape is the CLIP on one layer — nothing else here changes size (grow prototype "Rules for the build").
     frames: [{ clipPath: riseClip(from, vp, radius) }, { clipPath: RISE_FULL_CLIP }],
@@ -226,6 +287,76 @@ export function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): A
   return anims;
 }
 // ── end of the grow player ──
+
+/**
+ * 🖼 PICTURE LEADS — the photo's own flight (motion standard § 5 #33: "photo Rise 700 · card Move 320, 80 ms later").
+ * The photo you tapped becomes the screen's picture: it travels from its place in the pressed thing (`from`) to its
+ * place on the screen (`to`) — one transform, origin top-left — while the card rises under it. The close flies it home
+ * at 80 %. Pure, so the guard can read it.
+ */
+export function picturePlan(from: RiseRect, to: RiseRect): { frames: Keyframe[]; open: KeyframeAnimationOptions; close: KeyframeAnimationOptions } {
+  const r = (n: number) => Math.round(n * 1000) / 1000;
+  const sx = to.width > 0 ? from.width / to.width : 1;
+  const sy = to.height > 0 ? from.height / to.height : 1;
+  return {
+    frames: [{ transform: `translate(${r(from.left - to.left)}px, ${r(from.top - to.top)}px) scale(${r(sx)}, ${r(sy)})` }, { transform: 'none' }],
+    open: { duration: RISE_MS_STANDARD, easing: EASE_SETTLE },
+    close: { duration: Math.round(RISE_MS_STANDARD * MOTION_TABLE.growCloseFactor), easing: EASE_SETTLE },
+  };
+}
+
+/** The photo inside the pressed thing, and the picture on the screen it becomes (`data-rise-photo` on either wins). */
+export const PICTURE_FROM = '[data-rise-photo], img, picture, [role="img"]';
+export const PICTURE_TO = '[data-rise-photo]';
+
+const boxOf = (el: Element): RiseRect | null => {
+  const b = el.getBoundingClientRect();
+  return b.width > 0 && b.height > 0 ? { top: b.top, left: b.left, width: b.width, height: b.height } : null;
+};
+
+/**
+ * The client half of Picture leads, on the ONE opener: a copy of the screen's picture flies over everything from the
+ * tapped photo's place to its own (or home again, `out`), and the real picture is shown once the copy lands. The copy
+ * is on <body>, so the card's own fade never dims it. The screen's body may arrive a few frames after its shell — the
+ * flight waits for the picture up to `PICTURE_WAIT_FRAMES`, then gives up (the card still rises). No photo on either
+ * side, or reduced motion: nothing flies. Resolves when the flight is over.
+ */
+export const PICTURE_WAIT_FRAMES = 12;
+export function playPicture(screen: HTMLElement, origin: HTMLElement | null, out: boolean, reduced: boolean): Promise<void> {
+  if (reduced || !origin || !origin.isConnected || typeof screen.animate !== 'function') return Promise.resolve();
+  const src = origin.matches(PICTURE_FROM) ? origin : origin.querySelector(PICTURE_FROM);
+  const from = src ? boxOf(src) : null;
+  if (!from) return Promise.resolve();
+  return new Promise<void>((done) => {
+    let tries = 0;
+    const go = () => {
+      const pic = screen.isConnected ? screen.querySelector<HTMLElement>(PICTURE_TO) : null;
+      const to = pic ? boxOf(pic) : null;
+      if (!pic || !to) {
+        if (!out && screen.isConnected && tries++ < PICTURE_WAIT_FRAMES) requestAnimationFrame(go);
+        else done();
+        return;
+      }
+      const plan = picturePlan(from, to);
+      const copy = pic.cloneNode(true) as HTMLElement;
+      copy.removeAttribute('data-rise-photo');
+      copy.setAttribute('aria-hidden', 'true');
+      copy.style.cssText += `;position:fixed;margin:0;top:${to.top}px;left:${to.left}px;width:${to.width}px;height:${to.height}px;transform-origin:0 0;pointer-events:none;z-index:var(--sn-z-modal)`;
+      document.body.appendChild(copy);
+      const timing = out ? plan.close : plan.open;
+      // The real picture stays out of sight while its copy is in the air (opacity only; nothing is held after).
+      const hide = pic.animate([{ opacity: 0 }, { opacity: 0 }], { duration: Number(timing.duration), fill: out ? 'forwards' : 'none' });
+      const fly = copy.animate(plan.frames, { ...timing, direction: out ? 'reverse' : 'normal', fill: 'forwards' });
+      const end = () => {
+        copy.remove();
+        if (!out) hide.cancel();
+        done();
+      };
+      fly.finished.then(end, end);
+    };
+    go();
+  });
+}
 
 /**
  * 🎞 A SHEET'S SHAPE (ported from #7686's `growFrames`, 18 Nov): the panel opens OUT OF the pressed thing — at frame 0

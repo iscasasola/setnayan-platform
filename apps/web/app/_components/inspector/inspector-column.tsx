@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
+import { MOTION_TABLE, MOVE_MS } from '@/lib/motion-table';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X, ArrowUpRight } from 'lucide-react';
 import { StatusLine } from '@/app/_components/status-line';
@@ -276,7 +277,7 @@ export function InspectorLayout({
     [push, shallow, read, inPlace],
   );
 
-  const close = useCallback(() => {
+  const closeNow = useCallback(() => {
     setOptimisticOpen(false);
     if (inPlace) {
       // Closing asks the server for nothing either — the list behind is already the list.
@@ -286,6 +287,8 @@ export function InspectorLayout({
     }
     push(null);
   }, [push, shallow, inPlace]);
+  // 👤 Side peek: the sheet slides back out first (every way of closing — ✕, Esc, the strip, a save), then it closes.
+  const close = useCallback(() => playPeekOut(closeNow), [closeNow]);
 
   const consumePanelFocus = useCallback(() => {
     if (wantPanelFocus.current) {
@@ -353,6 +356,35 @@ export function InspectorLayout({
     </InspectorSelectContext.Provider>
   );
 }
+
+/**
+ * 👤 SIDE PEEK, THE WAY OUT (motion standard 18 Nov 2026, § 5 #31: "close = the open mirrored at 80 %"). The sheet on
+ * screen slides back out to the right and its dim fades, THEN `done` runs (the caller unmounts it). The drawing is
+ * globals.css (`.sn-inspector-sheet[data-closing]`); this only marks the two elements and waits for the slide to end —
+ * with a timer behind it, so a missed event can never strand the card. No sheet on screen (the ≥ 1280 rail, a second
+ * call while it is already leaving): `done` at once. Under reduced motion the slide is frozen and ends at once.
+ */
+function playPeekOut(done: () => void): void {
+  const sheet = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('.sn-inspector-sheet:not([data-closing])');
+  if (!sheet || getComputedStyle(sheet).display === 'none') return done();
+  const dim = sheet.previousElementSibling?.matches('.sn-inspector-peek') ? sheet.previousElementSibling : null;
+  let over = false;
+  const end = () => {
+    if (over) return;
+    over = true;
+    window.clearTimeout(timer);
+    // Out of sight from the very frame the slide ends (nothing is held by the animation), until the caller unmounts it.
+    sheet.setAttribute('data-closed', '');
+    dim?.setAttribute('data-closed', '');
+    done();
+  };
+  const timer = window.setTimeout(end, Math.round(MOVE_MS * MOTION_TABLE.growCloseFactor) + PEEK_OUT_SLACK_MS);
+  sheet.addEventListener('animationend', (e) => (e.target === sheet ? end() : undefined));
+  sheet.setAttribute('data-closing', '');
+  dim?.setAttribute('data-closing', '');
+}
+/** How long past the slide's own length the timer waits before closing anyway. */
+const PEEK_OUT_SLACK_MS = 80;
 
 /**
  * The below-xl frame: the panel slides in from the right and stops short of the
@@ -433,7 +465,7 @@ function InspectorSheet({
 export function InspectorSheetAlone({ onClose: onClosed, layer, children }: { onClose: () => void; layer?: string; children: ReactNode }) {
   /* ← The phone's Back closes it (owner 2026-10-29, a guest card opened from a seat: no list behind it, so no address of
      its own to step back from). ✕, Escape and the scrim step back through the same one history entry. */
-  const onClose = useBackCloses(true, onClosed);
+  const onClose = useBackCloses(true, () => playPeekOut(onClosed));
   const focused = useRef(false);
   const ctx = useMemo<InspectorContextValue>(
     () => ({

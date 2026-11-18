@@ -51,6 +51,15 @@ export const EASE_SPRING_LINEAR =
 /** Spring where `linear()` is not understood (`@supports not (transition-timing-function: linear(0, 1))`). */
 export const EASE_SPRING_FALLBACK = 'cubic-bezier(.34,1.56,.64,1)';
 
+/**
+ * The Spring for a Web Animations call. CSS falls back on its own (`@supports not` in globals.css); `el.animate()`
+ * THROWS on an easing it does not understand, so a script must ask first. Server / old engine → the cubic form.
+ */
+export function springEase(): string {
+  const ok = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('transition-timing-function', EASE_SPRING_LINEAR);
+  return ok ? EASE_SPRING_LINEAR : EASE_SPRING_FALLBACK;
+}
+
 // ── ALIASES (13 Nov names, kept so callers do not break) ────────────────────────────────────────────────────────────
 /** Anything that travels or opens — since 18 Nov this IS Settle. */
 export const EASE_EMPHASIZED = EASE_SETTLE;
@@ -125,6 +134,14 @@ export const MOTION_TABLE = {
   growChromeStartMs: 384,
   growChromeMs: 160,
   growBarMs: 200,
+  /** Zoom through (a whole tool): the new screen grows from this, fading in. Reduced: 120 ms cross-fade. */
+  zoomFromScale: 0.92,
+  /** Picture leads (anything with a photo): the photo flies in Rise; the card rises this far, this long after it. */
+  pictureCardDelayMs: 80,
+  pictureCardRisePx: 40,
+  /** Tuck: the bars shrink away in Move on the Spring and come back in Quick on Settle (the rows ride with them). */
+  tuckAwayMs: MOVE_MS,
+  tuckBackMs: QUICK_MS,
   /** Late data fades in when it lands. */
   lateFadeMs: 160,
   /** Every reduced-motion fallback that is a fade. */

@@ -17,11 +17,12 @@
 import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import type { RiseKind } from '@/lib/rise-screen';
 
 /** `useBackCloses`' mark on the history entry it pushes (lib/use-back-closes.ts). */
 const LAYER_MARK = 'snLayer';
 
-export function RiseRoute({ title, line, data, children }: { title: string; line?: string; data: string; children: ReactNode }) {
+export function RiseRoute({ title, line, data, kind, children }: { title: string; line?: string; data: string; /** The full-screen map's kind for this page (`RiseScreen`'s `kind`). */ kind?: RiseKind; children: ReactNode }) {
   const router = useRouter();
   const leave = () => {
     const st = window.history.state as Record<string, unknown> | null;
@@ -30,7 +31,7 @@ export function RiseRoute({ title, line, data, children }: { title: string; line
     else router.back();
   };
   return (
-    <RiseScreen title={title} line={line} onClose={leave} data={data}>
+    <RiseScreen title={title} line={line} onClose={leave} data={data} kind={kind}>
       {children}
     </RiseScreen>
   );

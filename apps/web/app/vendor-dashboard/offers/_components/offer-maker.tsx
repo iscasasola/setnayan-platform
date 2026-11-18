@@ -168,7 +168,7 @@ export function OfferMaker({ onClose, start = null }: { onClose: () => void; sta
       {data ? (
         <OffersScreen data={data} onClose={onClose} start={start} />
       ) : (
-        <RiseScreen title="Offers" line={read ? 'Couldn’t load' : 'Opening your offers…'} onClose={onClose} data="offer-maker">
+        <RiseScreen title="Offers" line={read ? 'Couldn’t load' : 'Opening your offers…'} onClose={onClose} data="offer-maker" kind="stack">
           <p role={read ? 'alert' : 'status'} className="px-4 py-6 text-sm text-ink/70" data-offers-read={read ? 'refused' : 'loading'}>
             {read && !read.ok ? read.message : 'Opening your offers…'}
           </p>
@@ -311,6 +311,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
       thumb={thumb}
       onClose={onClose}
       data="offer-maker"
+      kind="stack"
     >
       {error ? (
         <p role="alert" className="mx-4 mt-3 rounded-xl px-3 py-2 text-[13px]" style={{ background: 'rgb(var(--color-warn) / .12)', color: 'rgb(var(--color-warn))' }}>

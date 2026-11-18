@@ -35,12 +35,13 @@ export function SettingsView({
   tools: readonly ShopToolShelf[];
 }) {
   const toolCount = tools.reduce((n, g) => n + g.tools.length, 0);
-  const ic = (Icon: typeof Bell) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+  const ic = (Icon: typeof Bell) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-settings-screen="">
-      <h1 className="sn-h1">Settings</h1>
-      <div className="mt-3" data-settings-rows="">
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 sm:px-6" data-settings-screen="">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Settings</h1>
+      <div className="mt-1" data-settings-rows="">
         <DatesRow data="settings-account" lead={ic(UserRound)} title="Account" line="Profile · password · delete account" href="/dashboard/profile" />
 
         {/* 🏪 The push switch and the email line MOVED to the Shop ⚙ › Notifications, and Plan and Helpers to its Plan and
@@ -81,7 +82,7 @@ export function SettingsView({
               href="/vendor-dashboard/shop"
             />
 
-            <div className="border-t border-ink/10" data-settings-fold="more-tools" id="more-tools">
+            <div className="border-t border-[color:var(--m-line)]" data-settings-fold="more-tools" id="more-tools">
               <Fold title="More tools" line={`${formatCount(toolCount)} · what couples see · with others · protection`} lead={<span className="mr-1 flex">{ic(Wrench)}</span>} data="settings-more-tools">
                 <div className="pb-3">
                   {tools.map((g) => (
@@ -101,8 +102,8 @@ export function SettingsView({
         <DatesRow data="settings-help" lead={ic(CircleHelp)} title="Help" line="How fees work · how booking works · report a problem" href={SETTINGS_HELP_HREF} />
         <DatesRow data="settings-switch" lead={ic(Repeat)} title="Your events" line="Switch to Home — the events you plan yourself · another shop from the account menu" href="/dashboard?hub=1" />
       </div>
-      <div className="mt-4 border-t border-ink/10 pt-1">
-        <nav aria-label="Policies" className="-mx-1.5 flex flex-wrap gap-x-1 text-[13px] text-ink/55" data-settings-policies="">
+      <div className="mt-4 border-t border-[color:var(--m-line)] pt-1">
+        <nav aria-label="Policies" className="-mx-1.5 flex flex-wrap gap-x-1 text-[13px] text-[color:var(--m-slate-2)]" data-settings-policies="">
           {POLICY_LINKS.map((p) => (
             <Link key={p.href} href={p.href} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-1.5 hover:text-ink hover:underline">
               {p.label}

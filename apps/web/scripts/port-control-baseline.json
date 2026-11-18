@@ -762,6 +762,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "Figure",
         "GuestSpotlight",
         "HubProWays",
@@ -792,6 +793,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "InfoTip",
         "Link",
         "PickMenu",
@@ -2470,6 +2472,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2485,11 +2488,13 @@
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
         "admin/_components/kpi-stat-card.tsx",
+        "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-kit.tsx",
         "admin/_components/record-search.ts",
+        "admin/_components/tab-landing.tsx",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
         "admin/error.tsx",
@@ -2583,6 +2588,9 @@
         "/admin/verify",
         "/admin/website-media",
         "/admin/work",
+        "/admin?ask=badges",
+        "/admin?ask=papers",
+        "/admin?ask=payments",
         "/admin?card=[seg]",
         "/dashboard",
         "/dashboard/profile"
@@ -2613,6 +2621,7 @@
         "FocusCardSheet",
         "FocusHome",
         "Fold",
+        "Fragment",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -2625,7 +2634,9 @@
         "MoreSearch",
         "Notice",
         "OverlayBackdrop",
+        "P",
         "PageMasthead",
+        "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
         "RequestCardView",
@@ -2664,6 +2675,8 @@
     },
     "/admin/accounts": {
       "files": [
+        "admin/accounts/_components/people-filter-chips.tsx",
+        "admin/accounts/_components/person-more.tsx",
         "admin/accounts/_surfaces/demo-vendors-surface.tsx",
         "admin/accounts/_surfaces/events-surface.tsx",
         "admin/accounts/_surfaces/users-surface.tsx",
@@ -2678,6 +2691,7 @@
         "/?browse=1&demo=1&category=catering",
         "/?browse=1&demo=1&category=photography",
         "/?browse=1&demo=1&category=wedding_coordination",
+        "/admin/accounts?[seg]",
         "/admin/accounts?tab=venues",
         "/admin/accounts?tab=venues&type=[seg]",
         "/admin/approvals",
@@ -2706,7 +2720,9 @@
         "unblacklistEmail"
       ],
       "blocks": [
+        "ActionButton",
         "Avatar",
+        "Badge",
         "BlacklistTable",
         "CompGrantsPanel",
         "ConfirmForm",
@@ -2715,14 +2731,22 @@
         "DemoVendorsSurface",
         "EventsSurface",
         "GrantCard",
-        "Icon",
         "Image",
         "InviteVendorForm",
         "KpiStatCard",
         "Link",
         "MiniTour",
         "PageMasthead",
+        "PeopleFilterChips",
+        "PersonActions",
+        "PersonMore",
+        "Sheet",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "UsersSurface",
         "UsersTable",
         "VendorCardTitle",
@@ -2775,7 +2799,6 @@
       ],
       "destinations": [
         "/admin/[seg]",
-        "/admin/app-performance?tab=[seg]",
         "/admin/app-performance?tab=growth",
         "/admin/app-performance?tab=slow-loads",
         "/admin/money"
@@ -2787,6 +2810,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -2824,7 +2848,6 @@
         "GrowthFold",
         "GrowthSurface",
         "HealthNow",
-        "Icon",
         "IndexChart",
         "InfoTip",
         "InsightsParamPick",
@@ -2854,6 +2877,7 @@
         "ResolveDriftButton",
         "Row",
         "Rows",
+        "SearchParamsRecord",
         "Sec",
         "SeoRerunButton",
         "SeoSurface",
@@ -2866,6 +2890,7 @@
         "StackedBars",
         "StatusPill",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TypedRow",
         "VendorPicker",
@@ -2932,22 +2957,36 @@
       "files": [
         "admin/booking-fees/actions.ts",
         "admin/booking-fees/bookings-open-form.tsx",
+        "admin/booking-fees/fee-row-more.tsx",
         "admin/booking-fees/page.tsx",
         "admin/booking-fees/review-min-form.tsx"
       ],
       "destinations": [
-        "/admin/payments?filter=all&q=[seg]"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "BookingsOpenForm",
         "BookingsOpenState",
-        "Link",
-        "PageMasthead",
+        "Counter",
+        "EqualRow",
+        "FeeRowMore",
+        "HTMLFormElement",
+        "InfoTip",
+        "PickMenu",
         "ReviewMinForm",
-        "ReviewMinState"
+        "ReviewMinState",
+        "SaveState",
+        "Sheet",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/brain": {
@@ -3002,6 +3041,7 @@
         "FormRows",
         "LoaderAppearanceCard",
         "PageMasthead",
+        "SearchParamsRecord",
         "SentrySmokeTestButton",
         "SettingRow",
         "TemplateFail",
@@ -3385,6 +3425,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3521,6 +3562,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3562,6 +3604,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3622,13 +3665,22 @@
     },
     "/admin/directory": {
       "files": [
+        "admin/directory/_components/people-show-sort.tsx",
+        "admin/directory/_components/people-show.ts",
         "admin/directory/loading.tsx",
         "admin/directory/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "AdminAskPill",
+        "ChosenRow",
+        "FilterFace",
+        "PeopleShowSort",
+        "SearchParamsRecord",
+        "ShowSortSheet",
+        "ShowSortTopic",
+        "TabLanding"
       ]
     },
     "/admin/discount-codes": {
@@ -3960,6 +4012,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4010,7 +4063,8 @@
         "HelpMessageRow",
         "HelpMessenger",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "SearchParamsRecord"
       ]
     },
     "/admin/hub-music": {
@@ -4144,6 +4198,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4202,6 +4257,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/ledger-phone-row.tsx",
         "admin/money/_components/ledger-reference-column.tsx",
         "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
@@ -4215,14 +4271,26 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "ConsoleTable",
+        "EqualRow",
         "Explain",
-        "KpiStatCard",
+        "LedgerPhoneRow",
         "Link",
         "RevenueSummary",
         "Row",
+        "SearchParamsRecord",
+        "Sheet",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TransactionsLedger"
       ]
     },
@@ -4282,6 +4350,32 @@
       "blocks": [
         "NpcTaskResult",
         "NpcTaskStatus"
+      ]
+    },
+    "/admin/offers": {
+      "files": [
+        "admin/offers/_surfaces/badges-view.tsx",
+        "admin/offers/_surfaces/not-yet-built.ts",
+        "admin/offers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "BadgesView",
+        "DiscountCodesSurface",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
+        "ReferralsSurface",
+        "SearchParamsRecord",
+        "ShopBadges",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/offline": {
@@ -4448,6 +4542,7 @@
         "FormDate",
         "FormPick",
         "FormRows",
+        "Fragment",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
@@ -4466,6 +4561,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "SearchParamsRecord",
         "ServiceRemedyForms",
         "SubmitButton",
         "TemplateEmpty",
@@ -4586,6 +4682,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4771,6 +4868,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4920,6 +5018,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5020,6 +5119,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5126,6 +5226,7 @@
         "RevealStudio",
         "RevealStudioSurface",
         "ScheduledPostCard",
+        "SearchParamsRecord",
         "ShowcaseAdminRow",
         "SiteWidgetPage",
         "SocialQueueSurface",
@@ -5187,6 +5288,7 @@
         "DemoModeSurface",
         "PageMasthead",
         "SampleEventSwitch",
+        "SearchParamsRecord",
         "SettingRow",
         "SettingValue",
         "TemplateFail",
@@ -5247,6 +5349,7 @@
         "Resolution",
         "ScreenRow",
         "ScreensSurface",
+        "SearchParamsRecord",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
@@ -5368,6 +5471,7 @@
         "InfoTip",
         "PageMasthead",
         "SearchParams",
+        "SearchParamsRecord",
         "SubmitButton"
       ]
     },
@@ -5617,6 +5721,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",
@@ -5739,8 +5844,10 @@
         "Preview",
         "QueuesTriageFeed",
         "ReasonPick",
+        "SearchParamsRecord",
         "SupplierInbox",
         "Suspense",
+        "TabLanding",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"
@@ -6525,16 +6632,17 @@
         "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLElement",
-        "HTMLSpanElement",
         "HomeFindRow",
         "HomeGear",
         "HomePinPortal",
         "HomePinnedRow",
         "HomeProfile",
         "HomeSegBody",
+        "HomeSegCounts",
+        "HomeSegCountsContext.Provider",
+        "HomeSegCountsProvider",
         "HomeSegMemory",
         "HomeShopSegment",
-        "HomeTabs",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6544,7 +6652,6 @@
         "Link",
         "MemoriesSegment",
         "MomentRow",
-        "NewEventButton",
         "NewEventCard",
         "NewThingTile",
         "Notice",
@@ -9230,6 +9337,7 @@
         "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "Icon",
         "LeftChatRow",
         "Link",
@@ -9241,6 +9349,7 @@
         "StartThreadPicker",
         "SubmitButton",
         "SupplierColumns",
+        "SwipeToDelete",
         "ThreadArchiveToggle",
         "ThreadArrival",
         "ThreadListAvatar",
@@ -9835,6 +9944,7 @@
         "dashboard/[eventId]/seating/_components/close-outside.ts",
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-face-tray.tsx",
         "dashboard/[eventId]/seating/_components/seat-list.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-facts.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-in-guests.tsx",
@@ -9937,6 +10047,7 @@
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
+        "SeatFaceTray",
         "SeatList",
         "SeatPeoplePanel",
         "SeatPickMenu",
@@ -9965,6 +10076,7 @@
         "SwitchRow",
         "T",
         "TableType",
+        "TrayItem",
         "TypedRow",
         "UndoToastHost",
         "VipMark",
@@ -11023,6 +11135,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ColorRow",
         "DeviceFrame",
         "DeviceToggle",
@@ -11270,7 +11383,6 @@
         "BuildLocked",
         "BuildPickResult",
         "BuildWrites",
-        "CallTimeLine",
         "CancelBookingAsHostResult",
         "CancelBookingButton",
         "CardActions",
@@ -11504,6 +11616,7 @@
         "TeamSavePlan",
         "ThumbRow",
         "TickBox",
+        "TimesLines",
         "TimesMarkLine",
         "Toast",
         "ToastState",
@@ -11717,6 +11830,11 @@
         "Suspense",
         "SwipeToDelete",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TrustedCircleBadge",
         "TypedRow",
         "UndoToastHost",
@@ -12456,10 +12574,12 @@
     },
     "/forgot-password": {
       "files": [
+        "forgot-password/_components/reset-sent.tsx",
         "forgot-password/actions.ts",
         "forgot-password/page.tsx"
       ],
       "destinations": [
+        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -12468,7 +12588,10 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "HTMLSpanElement",
         "Link",
+        "RememberResetEmail",
+        "ResetSent",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -12543,8 +12666,10 @@
         "FindMeNameStep",
         "FormFlash",
         "FormPageSkeleton",
+        "FormPick",
         "FormalName",
         "FormalNameInputs",
+        "InfoTip",
         "InvalidTokenScreen",
         "JoinFlow",
         "JoinShell",
@@ -12633,6 +12758,7 @@
         "CrewStatus",
         "CrewWaitingRefresh",
         "HubRunOfShow",
+        "InfoTip",
         "SeatScanner"
       ]
     },
@@ -12682,6 +12808,7 @@
         "/forgot-password"
       ],
       "actions": [
+        "sendRelink",
         "sendReset",
         "signInWithPassword",
         "submitInPlace"
@@ -12902,7 +13029,6 @@
         "open-shop/page.tsx"
       ],
       "destinations": [
-        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
@@ -12981,9 +13107,7 @@
         "open-shop/logo/_components/add-your-logo.tsx",
         "open-shop/logo/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -13422,11 +13546,13 @@
         "submitPaymentProof"
       ],
       "blocks": [
+        "ActionButton",
         "Channel",
         "ChannelToggle",
         "CopyButton",
         "FileUpload",
         "HTMLDivElement",
+        "InfoTip",
         "Link",
         "OverlayBackdrop",
         "PayPanel",
@@ -13495,7 +13621,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -13505,6 +13630,7 @@
         "DoorActions",
         "DoorNotice",
         "DoorShell",
+        "ExpiredResend",
         "Link",
         "PasswordField",
         "SubmitButton"
@@ -13632,6 +13758,7 @@
         "DesktopOAuthButtons",
         "FirstRunBrand",
         "GoogleAddressDoor",
+        "InfoTip",
         "Link",
         "NativeOAuthButtons",
         "OAuthButtonRow",
@@ -13866,6 +13993,7 @@
     "/v/[slug]": {
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
+        "v/[slug]/_components/award-row-button.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/check-a-date-over-shop-view.tsx",
         "v/[slug]/_components/check-a-date-over-shop.tsx",
@@ -13886,23 +14014,28 @@
         "v/[slug]/_components/shop-branches-line.tsx",
         "v/[slug]/_components/shop-can-do-panel.tsx",
         "v/[slug]/_components/shop-columns.ts",
+        "v/[slug]/_components/shop-hero-gallery.tsx",
         "v/[slug]/_components/shop-hero.tsx",
         "v/[slug]/_components/shop-inspiration-section.tsx",
+        "v/[slug]/_components/shop-quote-store.ts",
+        "v/[slug]/_components/shop-quote.tsx",
         "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/shop-section-bar.tsx",
+        "v/[slug]/_components/shop-side-card.tsx",
         "v/[slug]/_components/shop-since-line.tsx",
+        "v/[slug]/_components/shop-top-bar.tsx",
         "v/[slug]/_components/shop-view-beacon.tsx",
         "v/[slug]/_components/similar-shops-row.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/trusted-by-carousel.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
+        "v/[slug]/_components/verified-award-button.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
         "v/[slug]/page.tsx",
         "v/[slug]/waitlist-actions.ts"
       ],
       "destinations": [
-        "/",
         "/[seg]",
         "/dashboard",
         "/dashboard/[seg]/messages/[seg]",
@@ -13914,6 +14047,7 @@
       "blocks": [
         "ActionButton",
         "AddShopToEventState",
+        "AwardRowButton",
         "AxisStat",
         "BackButton",
         "BiggerMapButton",
@@ -13923,6 +14057,7 @@
         "CardLink",
         "CardMedalRow",
         "CardPortfolioSection",
+        "CardQuoteActions",
         "CardRecordSection",
         "CardReviewsBlock",
         "CheckADateCalendar",
@@ -13949,6 +14084,7 @@
         "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLSpanElement",
         "HTMLUListElement",
         "HeroBadge",
         "Image",
@@ -13956,6 +14092,10 @@
         "InfoTip",
         "InlineNotice",
         "InquireSheet",
+        "LazyBadgeFullscreen",
+        "LazyPhotoViewer",
+        "LazySealPlaque",
+        "LazyVerifiedFullscreen",
         "Link",
         "LockPackageModal",
         "Logo",
@@ -13971,6 +14111,7 @@
         "PortfolioPhotoTiles",
         "PublicVendorRow",
         "PutOnMyPageButton",
+        "QuoteTray",
         "ReachMap",
         "ReportPageButton",
         "ReviewForLine",
@@ -13982,6 +14123,7 @@
         "SampleMarker",
         "SaveVendorButton",
         "SealCaption",
+        "SeatMonths",
         "SectionKey",
         "ServiceCardView",
         "ServiceDetailsSheet",
@@ -13999,13 +14141,16 @@
         "ShopCanDoPanel",
         "ShopCard",
         "ShopHero",
+        "ShopHeroGallery",
         "ShopInspirationSection",
         "ShopPagePackage",
         "ShopReachLine",
         "ShopReachMap",
         "ShopSectionBar",
         "ShopSectionTab",
+        "ShopSideCard",
         "ShopSinceLine",
+        "ShopTopBar",
         "ShopViewBeacon",
         "SignInHereLink",
         "SimilarCandidate",
@@ -14021,6 +14166,7 @@
         "TeamPreviewBanner",
         "Tile",
         "TilePhoto",
+        "TopBarLogo",
         "TrackRecord",
         "TrustedByCarousel",
         "TrustedBySection",
@@ -14033,6 +14179,7 @@
         "VendorReplyBlock",
         "VendorServiceRow",
         "VenueMatchedEvents",
+        "VerifiedAwardButton",
         "VerifiedBookingMark",
         "VerifiedBookingPill",
         "VerifiedPriceCard",
@@ -14113,6 +14260,7 @@
         "GuestReviewThanks",
         "GuestShownAs",
         "Header",
+        "InfoTip",
         "Link",
         "NotOnDoorList",
         "PickMenu",
@@ -14137,6 +14285,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/back-when-not-risen.tsx",
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
@@ -14171,14 +14320,13 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
         "vendor-dashboard/_components/setup-qr-step.tsx",
+        "vendor-dashboard/_components/shop-door-screen.tsx",
         "vendor-dashboard/_components/stay-on-today-line.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
         "vendor-dashboard/_components/supplier-columns.tsx",
         "vendor-dashboard/_components/supplier-hero.tsx",
         "vendor-dashboard/_components/supplier-open-row.tsx",
         "vendor-dashboard/_components/supplier-page-menu.tsx",
-        "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
-        "vendor-dashboard/_components/supplier-page-spotlight.tsx",
         "vendor-dashboard/_components/supplier-setup-folds.tsx",
         "vendor-dashboard/_components/supplier-setup-screen.tsx",
         "vendor-dashboard/_components/supplier-submit.tsx",
@@ -14294,6 +14442,7 @@
         "DeleteRequestBody",
         "DisputeBody",
         "DoorRow",
+        "EarnedMark",
         "EventCard",
         "EventLinesBody",
         "EventLockedByFee",
@@ -14313,9 +14462,11 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HolderSlot",
         "I",
         "Icon",
         "Image",
+        "InSheet.Provider",
         "InfoTip",
         "InlineDocsPayload",
         "InlineNotice",
@@ -14381,7 +14532,7 @@
         "SetupQrStep",
         "SetupTourContext.Provider",
         "Sheet",
-        "ShopBadgePill",
+        "ShopDoorPanel",
         "Show",
         "SidePanel",
         "Sk",
@@ -14398,8 +14549,6 @@
         "SupplierHero",
         "SupplierOpenRow",
         "SupplierPageMenu",
-        "SupplierPageSpotlight",
-        "SupplierPageSpotlightMount",
         "SupplierSetupFolds",
         "SupplierSetupScreen",
         "SupplierSubmit",
@@ -14409,6 +14558,10 @@
         "SupplierTodayScreen",
         "Suspense",
         "SyncResult",
+        "T",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TermsReacceptSheet",
         "ThumbFit",
         "ThumbLayer",
@@ -14420,6 +14573,7 @@
         "TodayNoteRow",
         "TodayRow",
         "TodaySettings",
+        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TrackRecordRow",
@@ -14519,6 +14673,7 @@
     "/vendor-dashboard/activities": {
       "files": [
         "vendor-dashboard/activities/actions.ts",
+        "vendor-dashboard/activities/loading.tsx",
         "vendor-dashboard/activities/page.tsx",
         "vendor-dashboard/activities/question-actions.ts",
         "vendor-dashboard/activities/questions-section.tsx"
@@ -14534,14 +14689,19 @@
         "updateQuestion"
       ],
       "blocks": [
+        "ActionButton",
         "ActivityRow",
         "Icon",
         "InfoTip",
+        "ListPageSkeleton",
         "MoveButton",
         "QuestionsSection",
         "QuestionsSectionBody",
         "StarterQuestion",
-        "StayForm"
+        "StayForm",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -14956,6 +15116,7 @@
         "Switch",
         "SwitchTrack",
         "TagPicker",
+        "TemplateSection",
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
@@ -14978,14 +15139,13 @@
       "files": [
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
+        "BackButton",
         "EventLockedPage",
-        "Link",
-        "ShopCard"
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/cocktail": {
@@ -14999,13 +15159,16 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CocktailEditor",
         "Drag",
         "EventLockedPage",
         "HTMLDivElement",
         "Link",
+        "PickMenu",
         "Result",
-        "Room"
+        "Room",
+        "Sheet"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/editorial-media": {
@@ -15019,12 +15182,14 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "EditorialMediaStudio",
         "EventLockedPage",
         "HTMLInputElement",
         "Link",
-        "ShopPill",
-        "StatusBadge"
+        "StatusBadge",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/mood-board": {
@@ -15043,6 +15208,10 @@
         "SuggestResult",
         "SuggestionPoolResult",
         "SupplierSuggestBoard",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "VendorPartSignoff"
       ]
     },
@@ -15182,7 +15351,9 @@
       "actions": [],
       "blocks": [
         "DatesRow",
-        "ShopSegments"
+        "ShopSegments",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/contracts": {
@@ -15237,7 +15408,9 @@
         "uploadVendorContract"
       ],
       "blocks": [
+        "CardPick",
         "FormPageSkeleton",
+        "InfoTip",
         "Link",
         "SubmitButton"
       ]
@@ -15475,6 +15648,7 @@
         "formAction"
       ],
       "blocks": [
+        "Badge",
         "DeepSearchRunner",
         "DossierView",
         "ListPageSkeleton",
@@ -15538,12 +15712,14 @@
     },
     "/vendor-dashboard/help": {
       "files": [
+        "vendor-dashboard/help/loading.tsx",
         "vendor-dashboard/help/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "DatesRow"
+        "DatesRow",
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/invite": {
@@ -15554,6 +15730,7 @@
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
+        "vendor-dashboard/invite/loading.tsx",
         "vendor-dashboard/invite/page.tsx"
       ],
       "destinations": [
@@ -15575,18 +15752,23 @@
         "Icon",
         "InfoTip",
         "Link",
+        "ListPageSkeleton",
         "LockedQrForm",
         "LockedQrGenerator",
         "LockedQrInitial",
+        "PickMenu",
         "PutOnRow",
         "QrCard",
         "QrCodeList",
         "QrCodes",
         "QrThumb",
+        "RiseScreen",
         "Row",
         "Sheet",
         "SubmitButton",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
         "TypedRow",
         "UndoToastHost"
       ]
@@ -15594,6 +15776,7 @@
     "/vendor-dashboard/lines": {
       "files": [
         "vendor-dashboard/lines/actions.ts",
+        "vendor-dashboard/lines/loading.tsx",
         "vendor-dashboard/lines/page.tsx"
       ],
       "destinations": [
@@ -15605,8 +15788,14 @@
         "updateLine"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Link",
-        "StayForm"
+        "ListPageSkeleton",
+        "StayForm",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -15629,6 +15818,7 @@
       "actions": [],
       "blocks": [
         "AcceptManpowerResult",
+        "ActionButton",
         "CancelGigResult",
         "CompleteGigResult",
         "GigCard",
@@ -15728,6 +15918,7 @@
         "ActionButton",
         "AnswerAskButton",
         "BackButton",
+        "Badge",
         "BlockerChangeRow",
         "BookedCallButtons",
         "BookingFeeNotice",
@@ -15762,6 +15953,7 @@
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
+        "PickMenu",
         "PickedHeadLine",
         "PipelinePressureLine",
         "PlusDoor",
@@ -15785,7 +15977,11 @@
         "StayForm",
         "SubmitButton",
         "SupplierChatsPage",
+        "SupplierSubmit",
         "Suspense",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection",
         "ThreadAnswerLine",
         "ThreadAskRow",
         "ThreadAttribution",
@@ -15852,6 +16048,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
@@ -16097,6 +16294,11 @@
         "Surface",
         "SwipeToDelete",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TierMeter",
         "UndoToastHost",
         "VendorSpecializationSet",
@@ -16131,6 +16333,7 @@
         "vendor-dashboard/packages/_components/bundle-preview-sample.tsx",
         "vendor-dashboard/packages/_components/package-editor.tsx",
         "vendor-dashboard/packages/actions.ts",
+        "vendor-dashboard/packages/loading.tsx",
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
@@ -16140,6 +16343,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "Badge",
         "BundlePlanDrafts",
         "BundlePreviewSample",
         "DraftItem",
@@ -16150,7 +16354,7 @@
         "FairNote",
         "Fold",
         "InfoTip",
-        "Link",
+        "ListPageSkeleton",
         "LockExplainer",
         "Note",
         "OptionList",
@@ -16161,6 +16365,11 @@
         "SavePackageResult",
         "ServiceCardFace",
         "SwipeToDelete",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "UndoToastHost"
       ]
     },
@@ -16337,9 +16546,9 @@
         "RecBox",
         "ReplyGauge",
         "ReplyVsPic",
-        "RiseScreen",
         "RowView",
         "Rows",
+        "ShopDoorScreen",
         "SlowPic",
         "SnapCarousel",
         "SourceBars",
@@ -16373,6 +16582,8 @@
         "updateBusinessStartDate"
       ],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchPanel",
         "CouldNotLoad",
@@ -16770,7 +16981,6 @@
         "vendor-dashboard/services/requests/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services/requests",
         "/vendor-dashboard/shop"
       ],
       "actions": [
@@ -16778,6 +16988,8 @@
         "putCardUnderRequest"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "CardPick",
         "DecisionNotice",
         "FormRows",
@@ -16788,12 +17000,13 @@
         "RequestNameForm",
         "RequestRowLink",
         "RequestStatusPill",
-        "ShopCard",
-        "ShopEmpty",
-        "ShopNotice",
-        "ShopPill",
         "StayForm",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow",
         "YourRequestsView"
       ]
@@ -16840,6 +17053,7 @@
     },
     "/vendor-dashboard/settings": {
       "files": [
+        "vendor-dashboard/settings/loading.tsx",
         "vendor-dashboard/settings/page.tsx",
         "vendor-dashboard/settings/settings-rows.ts",
         "vendor-dashboard/settings/settings-view.tsx"
@@ -16858,10 +17072,13 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "DatesRow",
         "Fold",
         "Icon",
         "Link",
+        "ListPageSkeleton",
         "SettingsView"
       ]
     },
@@ -16952,10 +17169,13 @@
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
+        "BadgeArt",
+        "BadgeArtLarge",
+        "BadgeFullscreen",
+        "BadgeOpen",
         "BadgeRewardSweep",
         "BadgeRing",
         "BadgeSheet",
-        "BadgeTile",
         "BodyPanel",
         "BranchManager",
         "BundlePreviewSample",
@@ -17019,6 +17239,7 @@
         "LockExplainer",
         "LockedFeature",
         "LockedIdentityFieldKey",
+        "LockedTile",
         "LogoFrame",
         "LogoPhotoMenu",
         "LogoRowControl",
@@ -17053,7 +17274,6 @@
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",
-        "RiseScreen",
         "Row",
         "RowIcon",
         "RowLead",
@@ -17077,6 +17297,7 @@
         "ShopBundles",
         "ShopCover",
         "ShopData",
+        "ShopDoorScreen",
         "ShopFormsBody",
         "ShopFormsMaker",
         "ShopHome",
@@ -17121,6 +17342,7 @@
         "VendorSlotInput",
         "VenueMatchSaveResult",
         "VenueTypeSaveResult",
+        "VerifiedFullscreen",
         "VerifySection",
         "VideoLinksEditor",
         "ViewShopScreen",
@@ -17206,6 +17428,7 @@
         "StoryNoteForm",
         "SupplierSubmit",
         "SwitchTrack",
+        "TemplateEmpty",
         "TypedRow"
       ]
     },
@@ -17302,6 +17525,8 @@
       "blocks": [
         "ActionButton",
         "AgentServiceAssignment",
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchScope",
         "ChosenRow",
@@ -17329,12 +17554,19 @@
     },
     "/vendor-dashboard/theft-watch": {
       "files": [
+        "vendor-dashboard/theft-watch/loading.tsx",
         "vendor-dashboard/theft-watch/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "Badge",
         "Image",
+        "ListPageSkeleton",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "VendorTierGate"
       ]
     },
@@ -17402,6 +17634,7 @@
         "GuestReplies",
         "GuestReviewsRead",
         "HostReplies",
+        "InfoTip",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -17425,6 +17658,8 @@
         "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
+        "TemplateEmpty",
+        "TemplateFail",
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",
@@ -17449,10 +17684,14 @@
         "claimVendorInviteToEvent"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Image",
+        "InfoTip",
         "Link",
         "LoadingActivity",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateSection"
       ]
     },
     "/vendor/claim/[token]": {
@@ -17510,10 +17749,14 @@
         "addVendorFromFit"
       ],
       "blocks": [
+        "ActionButton",
+        "Badge",
         "Icon",
         "Image",
         "Link",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/vendor/lock/[token]": {
@@ -17532,11 +17775,15 @@
         "claimLockedQr"
       ],
       "blocks": [
+        "ActionButton",
         "ClaimForm",
         "Image",
         "Link",
         "LoadingActivity",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/wall/[eventId]": {

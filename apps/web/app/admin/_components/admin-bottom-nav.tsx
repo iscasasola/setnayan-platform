@@ -14,7 +14,8 @@
  *     pinned row's `Page · View ▾` on every screen; `app/admin/admin-routes-all-have-a-tab.test.ts` proves no page
  *     is left without one. /admin/more still answers (it lights Work); it is just no longer a tab.
  *
- * WHICH TAB LIGHTS comes from `lib/admin/admin-tabs.ts` — query-aware and most-specific-wins
+ * ➕ ADMIN REORG v7 (17 Nov 2026): the tabs and which one lights now come from `lib/admin/admin-pages.ts` (the 18
+ * merged pages); before that, WHICH TAB LIGHTS came from `lib/admin/admin-tabs.ts` — query-aware and most-specific-wins
  * (`/admin/studio?tab=referrals` is Money, `/admin/studio` is Catalogue). The shared bar's own matcher is prefix-only,
  * so this bar resolves the one winner and hands the primitive an exact match for it alone. Avatar pages light no tab.
  *
@@ -33,7 +34,8 @@ import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
-import { ADMIN_TABS, activeAdminTabKey, type AdminTab } from '@/lib/admin/admin-tabs';
+import type { AdminTab } from '@/lib/admin/admin-tabs';
+import { ADMIN_BAR_TABS, activeAdminBarKey } from '@/lib/admin/admin-pages';
 import { formatCount } from '@/lib/format-number';
 import { usePathname } from 'next/navigation';
 import { useAdminAddress } from './admin-address';
@@ -47,7 +49,7 @@ export const ADMIN_TAB_ICON: Record<AdminTab['icon'], LucideIcon> = {
 };
 
 /** The five tabs, in the approved order. Lit by `activeAdminTabKey`, never by a prefix list of their own. */
-export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = ADMIN_TABS.map((t) => ({
+export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = ADMIN_BAR_TABS.map((t) => ({
   key: t.key,
   label: t.label,
   href: t.href,
@@ -109,7 +111,7 @@ export function AdminBottomNav({
   unreadable?: number;
 }) {
   const { pathname, params } = useAdminAddress(at);
-  const active = activeAdminTabKey(pathname, params);
+  const active = activeAdminBarKey(pathname, params);
   // The shared bar lights a tab by the URL it is actually on, so the winner is handed THAT address.
   const here = usePathname() ?? pathname;
   const badge = workBadge(queueCounts, overdue, dueSoon, unreadable, workTotal);

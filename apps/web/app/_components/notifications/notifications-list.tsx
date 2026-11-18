@@ -36,7 +36,7 @@ import {
   eventWasRemoved,
   opensWords,
   placeLineText,
-  placeMarkLetter,
+  placeMarkWords,
   placeLineWords,
   placeMissingWords,
   resolveNotificationPlace,
@@ -210,7 +210,8 @@ function titleClass(unread: boolean): string {
 
 /** The place line's box — shared by the row and the ⓘ's copy, so the ⓘ lands right after the words. */
 const PLACE_LINE = 'inline-flex max-w-full items-center gap-1.5 align-top';
-const PLACE_WORDS = 'min-w-0 truncate text-[11.5px] leading-[1.2] tracking-[0.01em]';
+// Two lines at most, never cut on one (owner 17 Nov: "Indalecio & Claire · You org…" lost the stance at 390).
+const PLACE_WORDS = 'min-w-0 line-clamp-2 break-words text-[11.5px] leading-[1.2] tracking-[0.01em]';
 
 function NotificationItem({
   item: n,
@@ -545,6 +546,12 @@ function PlaceWords({ words, unread }: { words: ReturnType<typeof placeLineWords
   );
 }
 
+/** An event's face: the shared initials rule over its words, "?" when it has none. */
+function eventInitials(event: { monogram_text: string | null; display_name: string | null }): string {
+  const words = placeMarkWords(event);
+  return words ? deriveVendorInitials(words) : '?';
+}
+
 /**
  * The place's own mark, at 38px — drawn as the side menu draws each: the event's monogram tile, the shop's
  * `VendorAvatar` (logo, else the dark initials tile), your picture (else your initial), the Setnayan mark for HQ.
@@ -557,10 +564,12 @@ function PlaceFace({ place }: { place: NotificationPlace }) {
         <span
           role="img"
           aria-label={place.name}
-          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] font-display text-[20px] italic leading-none text-ink"
+          // The event's INITIALS, upright, by the shop face's rule and size (owner 17 Nov, live tray): the one italic
+          // letter it drew read as a "/" placeholder. `the-tray-face-is-never-a-slash.test.ts` holds it.
+          className="inline-flex h-full w-full items-center justify-center overflow-hidden rounded-md border border-[var(--m-line)] bg-[var(--m-paper-2)] text-[12px] font-semibold not-italic tracking-[0.02em] leading-none text-ink"
           data-notice-mark-letter=""
         >
-          {placeMarkLetter(place.event)}
+          {eventInitials(place.event)}
         </span>
       );
     case 'shop':

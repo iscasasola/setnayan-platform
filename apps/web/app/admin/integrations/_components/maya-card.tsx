@@ -2,6 +2,7 @@ import { KeyRound, ShieldAlert } from 'lucide-react';
 import { saveMayaConfig, clearMayaSecrets } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PasswordField } from '@/app/_components/password-field';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 // Integration Activation Console — PR4c. Bespoke card for Maya/PayMaya: TWO
 // secrets (public + secret key form the Basic-auth pair) + one config (checkout
@@ -28,7 +29,7 @@ export function MayaCard({
 }) {
   const keysReady = (publicInDb || publicInEnv) && (secretInDb || secretInEnv);
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className={`${ADMIN_FRAME} space-y-4 p-5`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
           <KeyRound aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />

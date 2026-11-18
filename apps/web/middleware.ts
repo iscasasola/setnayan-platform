@@ -19,6 +19,8 @@ import { legacyShopInviteRedirect, legacyShopRedirect, shopSubPageRewrite } from
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
+import { adminMergedForward } from '@/lib/admin/admin-pages';
+import { SUPPLIER_PAGE_NOT_FOUND_REWRITE, isUnknownSupplierPage } from '@/lib/supplier-console-routes';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
 import { bareWordIsNoEvent, hubViewRewritePath } from '@/lib/hub-view-route';
 import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
@@ -454,9 +456,26 @@ async function middlewareCore(request: NextRequest) {
   // lib/legacy-redirects.ts. 308, like the /services and /add-ons forwards above.
   // The full-page More Services (/suite, /studio) joined the map 2026-10-02
   // (owner, tracker d1) — they forward to the More menu on Home.
+  // ➕ ADMIN REORG v7 (owner 17 Nov 2026): every old admin page address opens its merged page with the view
+  // preselected, the visitor's query kept (an action's `?saved=1` still lands). 307, not 308: the reorganisation is
+  // new, and a permanent redirect would be cached in browsers if a view ever moves again. `lib/admin/admin-pages.ts`.
+  if (pathname.startsWith('/admin/')) {
+    const merged = adminMergedForward(pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname, search);
+    if (merged) return NextResponse.redirect(new URL(merged, request.url), 307);
+  }
+
   const retiredTarget = legacyRedirectTarget(pathname, search);
   if (retiredTarget) {
     return NextResponse.redirect(new URL(retiredTarget, request.url), 308);
+  }
+
+  // 🚪 W1-B28: an unknown supplier-console page is a real, fast 404 — never the console's layout and loader answering 200
+  // first (the rise slot's catch-all makes every /vendor-dashboard/* "match"). lib/supplier-console-routes.ts.
+  if (isUnknownSupplierPage(pathname)) {
+    const missing = request.nextUrl.clone();
+    missing.pathname = SUPPLIER_PAGE_NOT_FOUND_REWRITE;
+    missing.search = '';
+    return NextResponse.rewrite(missing);
   }
 
   // Convenience: `setnayan.com/<event-uuid>/...` redirects to

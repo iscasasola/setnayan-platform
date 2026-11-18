@@ -4,7 +4,8 @@
  * the shared `CollapsingTop`. This file only places them and moves them.
  */
 
-/* 📌 v3 .segwrap — the top: header + tabs at rest; once it locks, the ONE pinned row above the tabs. */
+/* 📌 v3 .segwrap — the top: the header with the ONE pinned row under it at rest; once it locks, that row alone
+   (owner 17 Nov 2026: the tab row and the big "＋ Create an event" are gone — the pinned row is the one switch). */
 .top {
   margin: 0 auto;
   width: 100%;
@@ -37,6 +38,12 @@
   box-shadow: none !important;
 }
 
+/* The header's foot: the R px the top's row is drawn over at rest (`CollapsingTop rowAtRest`). */
+.rowRoom {
+  height: var(--sn-pin-h, 44px);
+  margin-top: 8px;
+}
+
 /* The pinned row's block when there is no top to sit in (a lab, a page outside Home): plain, in flow. */
 .pin {
   margin: 4px 0 8px;
@@ -66,118 +73,6 @@
   background: transparent;
   font-size: 14px;
   outline: none;
-}
-
-/* ▁ v3 .segs — UNDERLINED TABS with counts; the underline slides to the picked tab. */
-.tabs {
-  position: relative;
-  display: flex;
-  border-bottom: 1px solid var(--sn-hair);
-}
-.tab {
-  flex: 1;
-  min-width: 0;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-  color: rgb(var(--ink-soft));
-  text-decoration: none;
-  position: relative;
-  transition: color 0.2s, transform 0.06s, filter 0.06s;
-}
-.tabs[data-four] .tab {
-  font-size: 13px;
-  gap: 4px;
-}
-.tab[aria-current='page'] {
-  color: rgb(var(--color-ink));
-}
-.tab:active {
-  filter: brightness(0.93);
-  transform: scale(0.985);
-}
-.n {
-  font-family: var(--font-mono-marketing), ui-monospace, monospace;
-  font-size: 11px;
-  color: rgb(var(--ink-soft));
-}
-.tabs[data-four] .n {
-  font-size: 10px;
-}
-/* A number that waits on you (People "N asking") — the brand colour, the pinned row's `hot` door. */
-.n[data-hot] {
-  font-weight: 700;
-  color: rgb(var(--color-mulberry-700));
-}
-/* Before the line is measured, the picked tab draws its own underline (no flash on the first paint). */
-.tab[aria-current='page']::after {
-  content: '';
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: -1px;
-  height: 2px;
-  border-radius: var(--m-r-xs);
-  background: rgb(var(--color-terracotta));
-}
-.tabs[data-measured] .tab::after {
-  display: none;
-}
-.line {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  width: 0;
-  border-radius: var(--m-r-xs);
-  background: rgb(var(--color-terracotta));
-  opacity: 0;
-  transition: transform 0.32s var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1)), width 0.32s var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1));
-}
-.tabs[data-measured] .line {
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .line {
-    transition: none;
-  }
-  .tab:active {
-    transform: none;
-  }
-}
-@media (max-width: 339px) {
-  /* Under 340 px four tabs cannot fit their numbers — only the one that waits on you stays. */
-  .n:not([data-hot]) {
-    display: none;
-  }
-}
-
-/* v3 .btn.primary — the header's one full-width action. */
-.cta {
-  flex: 1;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 10px;
-  border-radius: var(--m-r-md);
-  background: rgb(var(--sn-accent));
-  color: rgb(var(--sn-on-accent));
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: transform 0.06s, filter 0.06s;
-}
-.cta:active {
-  filter: brightness(0.93);
-  transform: scale(0.985);
 }
 
 /* ↔ THE SEGMENT SWITCH SLIDES THE BODY (owner 11 Nov 2026, "make sure fully animated for everything"): the new

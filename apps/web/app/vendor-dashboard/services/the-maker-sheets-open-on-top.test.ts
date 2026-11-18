@@ -53,8 +53,11 @@ function canvasSheetLayer(): number {
 }
 
 test('the Today host draws the maker inside the shared Sheet (so the Sheet’s layer is the one to clear)', () => {
-  assert.match(HOST, /import \{ Sheet \} from '@\/app\/_components\/sheet';/);
-  assert.match(HOST, /<Sheet\b[^>]*>[\s\S]*?\{maker\}[\s\S]*?<\/Sheet>/, 'SetupOfferFold no longer hosts `{maker}` in <Sheet>');
+  assert.match(HOST, /import \{ InSheet, Sheet \} from '@\/app\/_components\/sheet';/);
+  /* Re-aimed 2026-11-16 (walk step 3): the maker lives in a holder the open Sheet shows (so shutting it keeps what was
+     typed — the-today-maker-keeps-what-was-typed.test.ts); the holder is a sheet's body to it. */
+  assert.match(HOST, /<Sheet\b[^>]*>[\s\S]*?<HolderSlot holder=\{holder\} \/>[\s\S]*?<\/Sheet>/, 'SetupOfferFold no longer shows the maker in <Sheet>');
+  assert.match(HOST, /<InSheet\.Provider value>[\s\S]*?\{maker\}[\s\S]*?<\/InSheet\.Provider>,\s*holder/, 'the maker is not drawn into the holder as a sheet’s body');
 });
 
 test('1 · CanvasSheet’s layer is above every geometry of the Sheet that hosts the maker on Today', () => {

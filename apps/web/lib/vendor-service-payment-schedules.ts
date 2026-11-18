@@ -465,6 +465,43 @@ export type PlanRollup = {
  * vendor sees what's owed next at a glance. Amounts that haven't resolved yet
  * (percent installments before the total exists) count as 0 toward the totals.
  */
+/**
+ * 📅 ARE THIS PLAN'S DATES IN PAY ORDER? (CHAT-10, W1 walk 16 Nov 2026)
+ *
+ * Measured live: a plan whose Final balance (seq 1) was due Nov 2 and whose First payment (seq 0) was due Nov 15 — the
+ * balance due before the deposit, and before the booking itself. Sorting that plan by date put the balance first and
+ * named it "Next", which is how the screen came to read "Next: Final balance" with the first payment still unpaid.
+ * The plan's ORDER (seq) is what the couple pays in (DECISION_LOG 2026-11-04: book on accept, a middle payment, the
+ * balance last; 2026-11-09: the last row is the auto Final balance). So the dates are what is wrong, and the screen
+ * must SAY so rather than re-order the plan to fit them. Returns the first pair out of order, or null when every
+ * dated row falls on or after the dated rows before it.
+ */
+export function planDatesOutOfOrder(
+  steps: Pick<StepperInstallment, 'seq' | 'label' | 'due_date'>[],
+): { earlier: string; later: string; laterDue: string; earlierDue: string } | null {
+  const dated = steps.filter((s) => s.due_date).sort((a, b) => a.seq - b.seq);
+  for (let i = 0; i < dated.length; i += 1) {
+    for (let j = i + 1; j < dated.length; j += 1) {
+      if (dated[j]!.due_date! < dated[i]!.due_date!) {
+        return { earlier: dated[i]!.label, earlierDue: dated[i]!.due_date!, later: dated[j]!.label, laterDue: dated[j]!.due_date! };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * The plan in the order it is paid: by due date — which, for a plan whose dates are in pay order, IS the seq order —
+ * and by seq when the dates disagree with it (`planDatesOutOfOrder`), so a wrong date never re-orders the plan.
+ */
+export function orderPlanSteps<T extends Pick<StepperInstallment, 'seq' | 'label' | 'due_date'>>(steps: T[]): T[] {
+  if (planDatesOutOfOrder(steps)) return [...steps].sort((a, b) => a.seq - b.seq);
+  return [...steps].sort((a, b) => {
+    if (a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date);
+    return a.seq - b.seq;
+  });
+}
+
 export function computePlanRollup(steps: StepperInstallment[]): PlanRollup {
   let total = 0;
   let received = 0;
@@ -478,14 +515,9 @@ export function computePlanRollup(steps: StepperInstallment[]): PlanRollup {
   const percentReceived =
     total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
 
-  const open = steps
-    .filter((s) => s.state !== 'paid')
-    .sort((a, b) => {
-      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-      if (a.due_date) return -1;
-      if (b.due_date) return 1;
-      return a.seq - b.seq;
-    });
+  // The next payment is the first unpaid one IN PAY ORDER (`orderPlanSteps`) — never a later row whose date was
+  // entered earlier than the row before it (CHAT-10).
+  const open = orderPlanSteps(steps).filter((s) => s.state !== 'paid');
   const n = open[0];
   const next = n
     ? { label: n.label, amountPhp: Number(n.amount_php) || 0, dueDate: n.due_date ?? null }

@@ -1,4 +1,5 @@
 import { CheckCircle2, MinusCircle } from 'lucide-react';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 // Integration Activation Console — PR4d. READ-ONLY status for the integrations
 // that genuinely CANNOT be DB-flipped without a redeploy:
@@ -19,7 +20,7 @@ export type BuildTimeItem = {
 
 export function BuildTimeStatus({ items }: { items: BuildTimeItem[] }) {
   return (
-    <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <div className={`${ADMIN_FRAME} space-y-3 p-5`}>
       <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
         These are <strong>build-time or bootstrap</strong> values — set them in Vercel and
         redeploy. They can&rsquo;t be flipped live (a host is inlined into the client bundle /

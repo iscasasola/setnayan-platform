@@ -43,7 +43,7 @@ export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonl
 
   return (
     <>
-      <ul className="space-y-1">
+      <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
         {shown.map((song) => (
           <SwipeToDelete
             key={song.song_id}
@@ -54,10 +54,10 @@ export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonl
             radiusClass=""
             surfaceClass="bg-[var(--m-paper)]"
           >
-            <div className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5" data-set-list-song="">
+            <div className="flex min-h-14 items-center justify-between gap-2 px-2 py-2" data-set-list-song="">
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-ink/90">{song.title}</span>
-                {song.artist ? <span className="block truncate text-xs text-ink/55">{song.artist}</span> : null}
+                <span className="block truncate text-[15px] font-semibold text-ink">{song.title}</span>
+                {song.artist ? <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{song.artist}</span> : null}
               </span>
               {links[song.song_id]}
             </div>

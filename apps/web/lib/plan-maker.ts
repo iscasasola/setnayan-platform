@@ -376,7 +376,8 @@ export function nextPlanTableLabel(tables: readonly PlanTable[]): string {
 /**
  * LINE UP — every table back in rows. This IS the couple editor's Auto-arrange (`computeAutoLayout`): rows step away
  * from the FRONT of the room, which for a supplier is the wall opposite the main door (no main door → rows start at
- * the back wall). Tables keep their kind and chairs; only x/y move, and rotation goes back to 0. Order = name order.
+ * the back wall). Tables keep their kind and chairs; only x/y move, and rotation goes back to 0. Each row then reads
+ * left to right in name order.
  */
 export function lineUpPlan(plan: Plan): Plan {
   if (plan.tables.length === 0) return plan;
@@ -444,10 +445,38 @@ export function lineUpPlan(plan: Plan): Plan {
       return { w, h: (g.box.h / g.box.w) * w };
     },
   });
+  // The couple's rows fill centre-out (the stage's middle seat first). A supplier reads a row like a page, so each
+  // row keeps the couple's line and its tables, and is re-set LEFT TO RIGHT in name order, centred, same gap.
+  // (Rows are the same line along the front wall's axis: y for a top/bottom front, x for a side one.)
+  const across = front === 'top' || front === 'bottom';
+  const rowsByLine = new Map<number, string[]>();
+  for (const t of ordered) {
+    const p = at[t.id];
+    if (!p) continue;
+    const line = Math.round((across ? p.y : p.x) * 10) / 10;
+    rowsByLine.set(line, [...(rowsByLine.get(line) ?? []), t.id]);
+  }
+  const breadthPct = (t: PlanTable) => {
+    const g = planTableGeometry(t);
+    const w = planFootprintM(t);
+    return across ? (w / widthM) * 100 : (((g.box.h / g.box.w) * w) / depthM) * 100;
+  };
+  const GAP = 3;
+  const placed: Record<string, { x: number; y: number }> = {};
+  for (const [line, ids] of rowsByLine) {
+    const widths = ids.map((id) => breadthPct(byId.get(id)!));
+    const total = widths.reduce((s, w) => s + w, 0) + GAP * (ids.length - 1);
+    let cursor = 50 - total / 2;
+    ids.forEach((id, k) => {
+      const mid = Math.max(0, Math.min(100, cursor + widths[k]! / 2));
+      placed[id] = across ? { x: mid, y: line } : { x: line, y: mid };
+      cursor += widths[k]! + GAP;
+    });
+  }
   return {
     ...plan,
     tables: plan.tables.map((t) => {
-      const p = at[t.id];
+      const p = placed[t.id];
       return p ? { ...t, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, rotationDeg: 0 } : t;
     }),
   };

@@ -184,6 +184,13 @@ test('Line up: every table in rows, inside the walls, none on another’s spot, 
   const t1 = out.tables.find((t) => t.label === 'T1')!;
   const minY = Math.min(...out.tables.map((t) => t.y!));
   assert.equal(t1.y, minY);
+  // each row reads left to right in name order
+  const rows = new Map<number, PlanTable[]>();
+  for (const t of out.tables) rows.set(t.y!, [...(rows.get(t.y!) ?? []), t]);
+  for (const row of rows.values()) {
+    const byX = [...row].sort((a, b) => a.x! - b.x!).map((t) => t.label);
+    assert.deepEqual(byX, planTablesInOrder(row).map((t) => t.label));
+  }
   // chairs and kinds are untouched
   assert.deepEqual(out.tables.map((t) => [t.kind, t.chairs]), tables.map((t) => [t.kind, t.chairs]));
 });

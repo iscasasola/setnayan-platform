@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1911
-# tables: 510
-# columns: 6148
-# notnull: 3713
+# ledger: 1915
+# tables: 515
+# columns: 6201
+# notnull: 3744
 [ledger]
 20260512000000
 20260513000000
@@ -1920,9 +1920,13 @@
 20271349476485
 20271349501852
 20271349668764
+20271349849472
 20271349936814
 20271350082350
+20271350091032
 20271350210033
+20271350444634
+20271350937606
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1963,6 +1967,20 @@ admin_data_access_log.admin_user_id
 admin_data_access_log.context
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_received_transactions.amount_php
+admin_received_transactions.channel
+admin_received_transactions.created_at
+admin_received_transactions.created_by
+admin_received_transactions.left_reason
+admin_received_transactions.match_kind
+admin_received_transactions.matched_at
+admin_received_transactions.matched_by
+admin_received_transactions.matched_payment_id
+admin_received_transactions.read_status
+admin_received_transactions.received_at
+admin_received_transactions.received_id
+admin_received_transactions.reference
+admin_received_transactions.reference_norm
 admin_search_phrases.created_at
 admin_search_phrases.href
 admin_search_phrases.id
@@ -5000,6 +5018,18 @@ orders.vendor_net_centavos
 orders.vendor_profile_id
 orders.voucher_code_applied
 orders.voucher_discount_centavos
+own_client_gifts.account_new_by_import
+own_client_gifts.created_at
+own_client_gifts.credits
+own_client_gifts.event_id
+own_client_gifts.event_new_by_import
+own_client_gifts.first_import_on_event
+own_client_gifts.gift_lines
+own_client_gifts.invite_id
+own_client_gifts.own_gift_id
+own_client_gifts.pool_grant_id
+own_client_gifts.vendor_profile_id
+own_client_gifts.via
 owner_alerts.acknowledged_at
 owner_alerts.acknowledged_by
 owner_alerts.alert_id
@@ -6164,6 +6194,7 @@ shop_gift_stock_entries.gift_kind
 shop_gift_stock_entries.kind
 shop_gift_stock_entries.note
 shop_gift_stock_entries.order_id
+shop_gift_stock_entries.own_client_gift_id
 shop_gift_stock_entries.pool_grant_id
 shop_gift_stock_entries.proposal_id
 shop_gift_stock_entries.unlocks_sku
@@ -6733,6 +6764,18 @@ vendor_change_orders.status
 vendor_change_orders.title
 vendor_change_orders.updated_at
 vendor_change_orders.vendor_profile_id
+vendor_client_invites.claimed_at
+vendor_client_invites.claimed_event_id
+vendor_client_invites.client_contact
+vendor_client_invites.client_name
+vendor_client_invites.client_note
+vendor_client_invites.created_at
+vendor_client_invites.created_by
+vendor_client_invites.gift_lines
+vendor_client_invites.invite_id
+vendor_client_invites.status
+vendor_client_invites.token
+vendor_client_invites.vendor_profile_id
 vendor_client_notes.author_user_id
 vendor_client_notes.body
 vendor_client_notes.created_at
@@ -7113,6 +7156,13 @@ vendor_offers.until_date
 vendor_offers.updated_at
 vendor_offers.vendor_profile_id
 vendor_offers.who
+vendor_own_link_gifts.credits
+vendor_own_link_gifts.gift_kind
+vendor_own_link_gifts.service_code
+vendor_own_link_gifts.set_by
+vendor_own_link_gifts.title
+vendor_own_link_gifts.updated_at
+vendor_own_link_gifts.vendor_profile_id
 vendor_package_item_options.created_at
 vendor_package_item_options.display_order
 vendor_package_item_options.is_available
@@ -7224,11 +7274,13 @@ vendor_papic_portfolio_photos.video_r2_key
 vendor_partnerships.accepted_at
 vendor_partnerships.additional_fee_centavos
 vendor_partnerships.admin_verified
+vendor_partnerships.brought_new_shop
 vendor_partnerships.covered_plan_groups
 vendor_partnerships.created_at
 vendor_partnerships.discount_pct
 vendor_partnerships.id
 vendor_partnerships.is_active
+vendor_partnerships.origin
 vendor_partnerships.recommended_vendor_id
 vendor_partnerships.recommending_vendor_id
 vendor_partnerships.relationship_type
@@ -7412,6 +7464,8 @@ vendor_profiles.outer_radius_km
 vendor_profiles.papers_current
 vendor_profiles.papers_lapsed_at
 vendor_profiles.papic_challenge_expires_at
+vendor_profiles.paused_at
+vendor_profiles.paused_by
 vendor_profiles.pending_tier
 vendor_profiles.pending_tier_billing_cycle
 vendor_profiles.pending_tier_period_days
@@ -7915,6 +7969,9 @@ vendor_token_purchases.reviewed_by
 vendor_token_purchases.status
 vendor_token_purchases.token_count
 vendor_token_purchases.vendor_id
+vendor_trusted_by_hidden.created_at
+vendor_trusted_by_hidden.hidden_vendor_profile_id
+vendor_trusted_by_hidden.vendor_profile_id
 vendor_verification_applications.admin_user_id
 vendor_verification_applications.application_id
 vendor_verification_applications.application_type
@@ -8093,6 +8150,10 @@ admin_audit_log.metadata
 admin_data_access_log.access_log_id
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_received_transactions.channel
+admin_received_transactions.created_at
+admin_received_transactions.read_status
+admin_received_transactions.received_id
 admin_search_phrases.created_at
 admin_search_phrases.href
 admin_search_phrases.id
@@ -9914,6 +9975,14 @@ orders.updated_at
 orders.vendor_absorbed_fee
 orders.vendor_net_centavos
 orders.voucher_discount_centavos
+own_client_gifts.created_at
+own_client_gifts.credits
+own_client_gifts.event_id
+own_client_gifts.first_import_on_event
+own_client_gifts.gift_lines
+own_client_gifts.own_gift_id
+own_client_gifts.vendor_profile_id
+own_client_gifts.via
 owner_alerts.alert_id
 owner_alerts.alert_type
 owner_alerts.fired_at
@@ -10970,6 +11039,14 @@ vendor_change_orders.event_vendor_id
 vendor_change_orders.raised_by
 vendor_change_orders.status
 vendor_change_orders.updated_at
+vendor_client_invites.client_contact
+vendor_client_invites.client_name
+vendor_client_invites.created_at
+vendor_client_invites.gift_lines
+vendor_client_invites.invite_id
+vendor_client_invites.status
+vendor_client_invites.token
+vendor_client_invites.vendor_profile_id
 vendor_client_notes.author_user_id
 vendor_client_notes.body
 vendor_client_notes.created_at
@@ -11220,6 +11297,12 @@ vendor_offers.sort_order
 vendor_offers.updated_at
 vendor_offers.vendor_profile_id
 vendor_offers.who
+vendor_own_link_gifts.credits
+vendor_own_link_gifts.gift_kind
+vendor_own_link_gifts.service_code
+vendor_own_link_gifts.title
+vendor_own_link_gifts.updated_at
+vendor_own_link_gifts.vendor_profile_id
 vendor_package_item_options.created_at
 vendor_package_item_options.display_order
 vendor_package_item_options.is_available
@@ -11289,10 +11372,12 @@ vendor_papic_portfolio_photos.photo_id
 vendor_papic_portfolio_photos.r2_object_key
 vendor_papic_portfolio_photos.vendor_profile_id
 vendor_partnerships.admin_verified
+vendor_partnerships.brought_new_shop
 vendor_partnerships.covered_plan_groups
 vendor_partnerships.created_at
 vendor_partnerships.id
 vendor_partnerships.is_active
+vendor_partnerships.origin
 vendor_partnerships.recommended_vendor_id
 vendor_partnerships.recommending_vendor_id
 vendor_partnerships.relationship_type
@@ -11699,6 +11784,9 @@ vendor_token_purchases.reference_code
 vendor_token_purchases.status
 vendor_token_purchases.token_count
 vendor_token_purchases.vendor_id
+vendor_trusted_by_hidden.created_at
+vendor_trusted_by_hidden.hidden_vendor_profile_id
+vendor_trusted_by_hidden.vendor_profile_id
 vendor_verification_applications.application_id
 vendor_verification_applications.application_type
 vendor_verification_applications.created_at

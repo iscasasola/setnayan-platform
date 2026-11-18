@@ -132,18 +132,18 @@ export function NikahEssentialsCard({
       <header className="flex items-baseline gap-2">
         <ScrollText
           aria-hidden
-          className="h-3.5 w-3.5 text-emerald-700 dark:text-success-700"
+          className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300"
           strokeWidth={1.75}
         />
         <h2
           id="nikah-essentials-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.25em] text-emerald-700 dark:text-success-700"
+          className="font-mono text-[11px] uppercase tracking-[0.25em] text-emerald-700 dark:text-emerald-300"
         >
           Your Nikah
         </h2>
       </header>
 
-      <article className="flex flex-col gap-5 rounded-2xl border-2 border-emerald-200/70 dark:border-success-200/70 bg-emerald-50/30 dark:bg-success-50/30 p-6 sm:p-8">
+      <article className="flex flex-col gap-5 rounded-2xl border-2 border-emerald-200/70 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/30 p-6 sm:p-8">
         <div className="space-y-1.5">
           <h3 className="font-display text-2xl italic leading-tight text-ink sm:text-3xl">
             The five essentials of your Nikah
@@ -163,7 +163,7 @@ export function NikahEssentialsCard({
                   <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                     <item.icon
                       aria-hidden
-                      className="h-3.5 w-3.5 text-emerald-700 dark:text-success-700"
+                      className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300"
                       strokeWidth={1.75}
                     />
                     {item.label}
@@ -188,7 +188,7 @@ export function NikahEssentialsCard({
             plain server-action form — no client JS. */}
         <form
           action={updateNikahDetails.bind(null, eventId)}
-          className="space-y-4 rounded-xl border border-emerald-200/60 dark:border-success-200/60 bg-cream/60 p-4"
+          className="space-y-4 rounded-xl border border-emerald-200/60 dark:border-emerald-800/60 bg-cream/60 p-4"
         >
           <div className="space-y-1.5">
             <label
@@ -204,7 +204,7 @@ export function NikahEssentialsCard({
               maxLength={600}
               defaultValue={mahrDescription ?? ''}
               placeholder="e.g. 5g gold, or a meaningful symbolic gift"
-              className="w-full resize-y rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-emerald-400 dark:focus:border-success-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:focus:ring-success-200"
+              className="w-full resize-y rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-emerald-400 dark:focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800"
             />
             <p className="text-[11px] leading-relaxed text-ink/55">
               The mahr is the bride&rsquo;s alone. Setnayan never charges or
@@ -223,7 +223,7 @@ export function NikahEssentialsCard({
               id="gender_separation"
               name="gender_separation"
               defaultValue={genderSeparation ?? 'none'}
-              className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-emerald-400 dark:focus:border-success-400 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:focus:ring-success-200"
+              className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-emerald-400 dark:focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-800"
             >
               <option value="none">Mixed seating (most common)</option>
               <option value="sections">
@@ -242,7 +242,7 @@ export function NikahEssentialsCard({
 
         <Link
           href={`/dashboard/${eventId}/studio/mood-board`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-success-800 hover:text-emerald-900 dark:hover:text-success-900"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100"
         >
           <Shirt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Set a guest modesty note in your Mood Board
@@ -273,7 +273,7 @@ function StatusIcon({ done }: { done: EssentialItem['done'] }) {
     return (
       <CheckCircle2
         aria-hidden
-        className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-success-600"
+        className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
         strokeWidth={1.75}
       />
     );

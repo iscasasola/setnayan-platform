@@ -48,7 +48,7 @@ export const APPEARANCE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;
 /** Keyed by what a screen PAINTS (light | dark) — Automatic is a choice, not a paint. */
 export const THEME_COLOR: Record<'light' | 'dark', string> = {
   light: '#FBFBFA',
-  dark: '#17160F', // the approved dark page (control_templates_round2_2026-10-12)
+  dark: '#121110', // the dark page — `--color-page` in globals.css (owner 18 Nov 2026, pick 2; was #17160F)
 };
 
 /**

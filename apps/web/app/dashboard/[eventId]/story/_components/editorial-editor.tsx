@@ -1741,11 +1741,11 @@ export function EditorialEditor({
         <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span>
             {phase === 'done' ? (
-              <span className="font-medium text-green-700 dark:text-success-700">
+              <span className="font-medium text-green-700 dark:text-green-300">
                 {STORY_AUDIENCE_SAVED[form.audience]}
               </span>
             ) : phase === 'error' ? (
-              <span className="font-medium text-red-700 dark:text-danger-700">{error ?? 'Could not save.'}</span>
+              <span className="font-medium text-red-700 dark:text-red-300">{error ?? 'Could not save.'}</span>
             ) : (
               /* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full — "only me"
                  in particular has to say that it hides the story from their own
@@ -1864,7 +1864,7 @@ export function EditorialEditor({
               down: the host goes looking for a radio button that isn't there.
             */}
             {landingVisibility !== 'public' ? (
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-warn-700">
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
                 <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
                 <span>
                   Your page is set to{' '}

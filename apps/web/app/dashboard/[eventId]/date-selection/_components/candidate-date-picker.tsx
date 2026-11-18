@@ -104,11 +104,11 @@ function phpFormat(centavos: number): string {
 }
 
 const PREP_COLOURS: Record<CandidateInsight['prep']['status'], string> = {
-  very_generous: 'bg-emerald-50 dark:bg-success-50 text-emerald-700 dark:text-success-700 border-emerald-200 dark:border-success-200',
-  generous: 'bg-green-50 dark:bg-success-50 text-green-700 dark:text-success-700 border-green-200 dark:border-success-200',
-  comfortable: 'bg-sky-50 dark:bg-info-50 text-sky-700 dark:text-info-700 border-sky-200 dark:border-info-200',
-  tight: 'bg-amber-50 dark:bg-warn-50 text-amber-700 dark:text-warn-700 border-amber-200 dark:border-warn-200',
-  very_tight: 'bg-red-50 dark:bg-danger-50 text-red-700 dark:text-danger-700 border-red-200 dark:border-danger-200',
+  very_generous: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+  generous: 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+  comfortable: 'bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+  tight: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  very_tight: 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
 };
 
 type WinnerKey = 'vendors' | 'prep' | 'meaningful' | 'services';

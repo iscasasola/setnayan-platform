@@ -3825,7 +3825,7 @@ function MoreExtras({
           </p>
           <Link
             href={proUnlockHref}
-            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 dark:bg-warn-400 px-4 text-[13px] font-semibold text-ink hover:bg-amber-300 dark:hover:bg-warn-300"
+            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 dark:bg-amber-600 px-4 text-[13px] font-semibold text-ink hover:bg-amber-300 dark:hover:bg-amber-700"
           >
             {unlockLabel(proPriceLabel)}
           </Link>

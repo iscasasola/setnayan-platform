@@ -499,7 +499,7 @@ export function BoothCapture({
 
           {/* Recording badge + elapsed */}
           {phase === 'recording' ? (
-            <div className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 dark:bg-danger-600/90 px-2.5 py-1 text-[12px] font-medium text-white">
+            <div className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 dark:bg-red-400/90 px-2.5 py-1 text-[12px] font-medium text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-raised" />
               REC {elapsed.toFixed(1)}s / {targetSec}s
             </div>
@@ -518,7 +518,7 @@ export function BoothCapture({
       {phase === 'error' && errorMsg ? (
         <p
           role="alert"
-          className="inline-flex items-start gap-2 rounded-xl border border-red-300/70 dark:border-danger-300/70 bg-red-50 dark:bg-danger-50 px-3 py-2 text-sm text-red-900 dark:text-danger-900"
+          className="inline-flex items-start gap-2 rounded-xl border border-red-300/70 dark:border-red-700/70 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm text-red-900 dark:text-red-100"
         >
           <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           {errorMsg}

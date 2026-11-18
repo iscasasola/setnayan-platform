@@ -73,8 +73,8 @@ export function ProLockPanel({
   priceLabel: string | null;
 }) {
   return (
-    <div className="border-t border-dashed border-amber-300/60 dark:border-warn-300/60 bg-amber-50/60 dark:bg-warn-50/60 p-3">
-      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-warn-900">
+    <div className="border-t border-dashed border-amber-300/60 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-950/60 p-3">
+      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-amber-100">
         {/* ◆ never a padlock (owner 2026-09-28: "remove padlock … the diamond icon"). */}
         <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} size="xs" tone="current" />
         {featureName} is part of Event Pro
@@ -85,7 +85,7 @@ export function ProLockPanel({
       </p>
       <Link
         href={unlockHref}
-        className="mt-2 inline-flex items-center rounded-full bg-amber-400 dark:bg-warn-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300 dark:hover:bg-warn-300"
+        className="mt-2 inline-flex items-center rounded-full bg-amber-400 dark:bg-amber-600 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300 dark:hover:bg-amber-700"
       >
         {unlockLabel(priceLabel)}
       </Link>

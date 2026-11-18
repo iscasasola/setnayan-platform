@@ -640,6 +640,11 @@ function cssRulePairings(rawCss, resolveColor, mode = 'light') {
         if (!labelRaw) continue;
         via = ' (label inherited from ' + base + ')';
       }
+      // LIGHT: an `html.dark …` rule that reads a TOKEN cannot be judged with light values — it only ever paints in dark,
+      // where the dark pass folds it into the selector it overrides and judges it with the dark tokens. A dark rule
+      // written in literal hexes is still judged here, as before. (Since the one colour set, 18 Nov 2026, the dark
+      // rules read `rgb(var(--color-…))`; resolved with LIGHT values they scored dark ink on a light card, 1.11:1.)
+      if (mode !== 'dark' && /html\.dark/.test(sel) && (/var\(/.test(selBg) || /var\(/.test(labelRaw))) continue;
       const fill = resolveColor(selBg);
       const label = resolveColor(labelRaw);
       if (!fill || !label) continue;

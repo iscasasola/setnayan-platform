@@ -78,12 +78,16 @@ export async function readPostEventForMaker(input: {
        the story loader reads (`data.eventDate`), so it chains off the event row and still runs alongside the story. Each
        of these was already non-throwing (`.catch`, a resolved builder, `giftCount` logs and returns 0), so starting one
        early can never leave an unhandled rejection when an earlier read fails and this returns `{ ok: false }`. */
-    const eventRead = admin
-      .from('events')
-      .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek, event_date')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    const backCoverRead = Promise.resolve(eventRead)
+    // 🔑 `Promise.resolve` SENDS IT ONCE. A Supabase builder runs a NEW request every time its `then` is called, and this
+    // row is awaited twice (the back cover below and the `Promise.all`) — left a bare builder, it was read twice.
+    const eventRead = Promise.resolve(
+      admin
+        .from('events')
+        .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek, event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
+    const backCoverRead = eventRead
       .then((res) =>
         loadBackCover({
           eventId,

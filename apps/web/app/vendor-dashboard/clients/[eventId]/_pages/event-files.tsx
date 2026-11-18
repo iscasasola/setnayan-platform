@@ -27,7 +27,12 @@ export async function EventFilesSection({ ctx, mode }: { ctx: PickedPageContext;
   // 📥 ⚡ The chat's shared files start NOW, beside the files read — they need the filed ids only to filter, which they
   // wait for after their own query (wave 5). A failed files read still ends in the alert below; the chat promise is
   // made non-throwing so leaving it unawaited there can never surface as an unhandled rejection.
-  const filedIds = filesRead.then((r) => (r.status === 'ok' ? r.filedMessageIds : new Set<string>()));
+  // A files read that THROWS is surfaced by `await filesRead` below; the ids derived from it must not also reject
+  // unhandled (nothing awaits them on the Hub, or before the chat query returns on Files) — so a throw is an empty filter.
+  const filedIds = filesRead.then(
+    (r) => (r.status === 'ok' ? r.filedMessageIds : new Set<string>()),
+    () => new Set<string>(),
+  );
   const chatRead = mode === 'files' ? readChatCollected(supabase, { threadId: ctx.threadId, filedMessageIds: filedIds }).catch(() => ({ status: 'unread' as const })) : null;
   const read = await filesRead;
   if (read.status !== 'ok') {

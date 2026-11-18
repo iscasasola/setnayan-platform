@@ -16,7 +16,8 @@ export type VendorServiceRow = {
   // ── Pricing basis (service-card redesign · migration 20270502342558) ────
   /** How the "from ₱X" anchor is computed. starting_price_php stays the synced
    *  anchor for ALL bases (Explore/budget read it). */
-  pricing_basis: 'fixed' | 'per_pax' | 'per_hour';
+  /** 'per_unit' — Card Maker part 7: unit_base_php covers initial_units; starting_price_php stays the synced anchor. */
+  pricing_basis: 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
   /** Per-pax basis: rate per guest + the minimum pax floor (anchor = rate×min). */
   per_pax_price_php: number | null;
   min_pax: number | null;
@@ -24,6 +25,13 @@ export type VendorServiceRow = {
   hour_base_php: number | null;
   min_hours: number | null;
   extra_hour_php: number | null;
+  /* 📦 Card Maker part 7 (migration 20271352223098). Optional: the fallback read and older fixtures carry none. */
+  unit_word?: string | null;
+  unit_base_php?: number | null;
+  initial_units?: number | null;
+  extra_unit_php?: number | null;
+  /** The most one booking takes — guests, hours or units by basis. NULL = no limit. */
+  price_max?: number | null;
   crew_size: number | null;
   /** Legacy: TRUE = couple provides the crew meal. Kept in sync as the inverse of
    *  crew_meal_included so the 0007 budget's Crew-Meal line still triggers. */
@@ -90,7 +98,7 @@ export type VendorServiceRow = {
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
-  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
+  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,unit_word,unit_base_php,initial_units,extra_unit_php,price_max,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
 const FULL_SELECT = `${BASE_COLS},title,description,video_url,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
 
 export async function fetchVendorServices(

@@ -854,6 +854,9 @@ export function CanvasMaker({
       categoryValue,
     ).pricingBasis,
   );
+  /* 📦 CARD MAKER PART 7: "Custom" is a per-unit card that names what it charges per (unit_word). One basis column, so
+     the dropdown's fifth choice is this flag beside it. */
+  const [customUnit, setCustomUnit] = useState(Boolean(initial?.pricing.unit_word));
   // A new card follows its kind's default basis until they pick one themselves.
   const basisTouched = useRef(initial !== null || isEdit);
   useEffect(() => {
@@ -1014,11 +1017,16 @@ export function CanvasMaker({
   const [peekOpen, setPeekOpen] = useState(false);
   const [incMissing, setIncMissing] = useState(false);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
-  const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
-    key: o.key,
-    label: o.key === 'fixed' ? 'One price' : o.key === 'per_pax' ? (category === 'crew_meals' ? 'Per meal' : 'Per guest') : o.label,
-    hint: o.hint,
-  }));
+  const basisOptions = [
+    ...PRICING_BASIS_OPTIONS.map((o) => ({
+      key: o.key as string,
+      label: o.key === 'fixed' ? 'One price' : o.key === 'per_pax' ? (category === 'crew_meals' ? 'Per meal' : 'Per guest') : o.label,
+      hint: o.hint,
+    })),
+    /* 📦 Part 7, the drawing's fifth: "Custom · Name your own". */
+    { key: 'custom', label: 'Custom', hint: 'Name your own (per table, per set)' },
+  ];
+  const basisKey = basis === 'per_unit' && customUnit ? 'custom' : basis;
   const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
   /** What the couple reads for a shop pack on this card — never a count (lib/gift-pick.ts). */
   const packLine = giftPick && giftPick !== GIFT_SETNAYAN ? coupleCardPackLine(giftPick, shopName) : null;
@@ -1322,12 +1330,13 @@ export function CanvasMaker({
                 <div data-maker-row="price" data-price-waits={priceWaits ?? undefined}>
                   <ChosenRow
                     name="How the price works"
-                    about={{ title: 'How the price works', words: <span data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</span> }}
-                    value={basis}
+                    about={{ title: 'How the price works', words: <span data-basis-hint="">{basisOptions.find((o) => o.key === basisKey)?.hint}</span> }}
+                    value={basisKey}
                     options={basisOptions}
                     onPick={(k) => {
                       basisTouched.current = true;
-                      setBasis(k as Basis);
+                      setCustomUnit(k === 'custom');
+                      setBasis(k === 'custom' ? 'per_unit' : (k as Basis));
                     }}
                     dataAttr="data-maker-basis"
                     data="basis"
@@ -1356,7 +1365,7 @@ export function CanvasMaker({
                   ) : null}
                   {/* The basis's two main fields, beside Price — the same names `Price · more` posted before. */}
                   <div data-maker-price-basis="">
-                    <PricingBasisEditor idPrefix="canvas" category={category} basis={basis} part="basis" defaults={initial?.pricing ?? EMPTY_PRICING} />
+                    <PricingBasisEditor key={basisKey} idPrefix="canvas" category={category} basis={basis} custom={customUnit} part="basis" defaults={initial?.pricing ?? EMPTY_PRICING} />
                   </div>
                   {/* Price · more — the price brackets (Fixed only). Mounted while shut, so its boxes post either way. */}
                   {basis === 'fixed' ? (

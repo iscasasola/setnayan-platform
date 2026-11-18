@@ -432,7 +432,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text,description,video_url,pay_plan_id',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,unit_word,unit_base_php,initial_units,extra_unit_php,price_max,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text,description,video_url,pay_plan_id',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -557,7 +557,7 @@ export async function loadCardForEdit(
     lastMinuteEndMonths: str(c.last_minute_end_months),
     lastMinuteSurchargePct: str(c.last_minute_surcharge_pct),
     pricing: {
-      pricing_basis: (c.pricing_basis as 'fixed' | 'per_pax' | 'per_hour' | null) ?? 'fixed',
+      pricing_basis: (c.pricing_basis as 'fixed' | 'per_pax' | 'per_hour' | 'per_unit' | null) ?? 'fixed',
       starting_price_php: n(c.starting_price_php),
       base_pax: n(c.base_pax),
       added_pax_price_php: n(c.added_pax_price_php),
@@ -566,6 +566,12 @@ export async function loadCardForEdit(
       hour_base_php: n(c.hour_base_php),
       min_hours: n(c.min_hours),
       extra_hour_php: n(c.extra_hour_php),
+      // 📦 Card Maker part 7 (migration 20271352223098).
+      unit_word: typeof c.unit_word === 'string' && c.unit_word.trim() !== '' ? c.unit_word : null,
+      unit_base_php: n(c.unit_base_php),
+      initial_units: n(c.initial_units),
+      extra_unit_php: n(c.extra_unit_php),
+      price_max: n(c.price_max),
     },
     included: {
       crew_meal_included: c.crew_meal_included === true,

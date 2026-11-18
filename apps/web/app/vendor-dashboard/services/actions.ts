@@ -389,7 +389,7 @@ function parsePosNumOrNull(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
-type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
+type PricingBasis = 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
 
 /**
  * Parse the pricing-basis fields (service-card redesign · Phase 3a). Only the
@@ -399,6 +399,10 @@ type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
  *   • fixed    → the entered flat price (+ adaptive-pax base/surcharge).
  *   • per_pax  → anchor = per-guest rate × minimum pax.
  *   • per_hour → anchor = the base (which covers the minimum block).
+ *   • per_unit → anchor = the base (which covers the initial units) — Card Maker part 7. Custom = per_unit + a word.
+ *     Each extra left blank fills in as base ÷ initial units (owner 17 Nov: "fills in by itself · you can change it").
+ *   Max (per_pax · per_hour · per_unit): a whole number MORE than the starting number, or blank = no limit. The
+ *   database refuses anything else (`vendor_services_price_max_above_the_start`); this says it in words first.
  */
 function parsePricingFields(formData: FormData): {
   pricing_basis: PricingBasis;
@@ -410,10 +414,15 @@ function parsePricingFields(formData: FormData): {
   hour_base_php: number | null;
   min_hours: number | null;
   extra_hour_php: number | null;
+  unit_word: string | null;
+  unit_base_php: number | null;
+  initial_units: number | null;
+  extra_unit_php: number | null;
+  price_max: number | null;
 } {
   const rawBasis = String(formData.get('pricing_basis') ?? 'fixed');
   const pricing_basis: PricingBasis =
-    rawBasis === 'per_pax' || rawBasis === 'per_hour' ? rawBasis : 'fixed';
+    rawBasis === 'per_pax' || rawBasis === 'per_hour' || rawBasis === 'per_unit' ? rawBasis : 'fixed';
 
   const out = {
     pricing_basis,
@@ -425,6 +434,11 @@ function parsePricingFields(formData: FormData): {
     hour_base_php: null as number | null,
     min_hours: null as number | null,
     extra_hour_php: null as number | null,
+    unit_word: null as string | null,
+    unit_base_php: null as number | null,
+    initial_units: null as number | null,
+    extra_unit_php: null as number | null,
+    price_max: null as number | null,
   };
 
   if (pricing_basis === 'fixed') {
@@ -438,11 +452,38 @@ function parsePricingFields(formData: FormData): {
     out.min_pax = mp && mp > 0 ? mp : null;
     out.starting_price_php =
       out.per_pax_price_php != null ? out.per_pax_price_php * (out.min_pax ?? 1) : null;
-  } else {
+  } else if (pricing_basis === 'per_hour') {
     out.hour_base_php = parseInt0OrNull(formData.get('hour_base_php'));
     out.min_hours = parsePosNumOrNull(formData.get('min_hours'));
     out.extra_hour_php = parseInt0OrNull(formData.get('extra_hour_php'));
     out.starting_price_php = out.hour_base_php;
+  } else {
+    const rawWord = formData.get('unit_word');
+    if (typeof rawWord === 'string' && rawWord.trim() !== '') {
+      const w = rawWord.trim();
+      if (w.length > 24 || /[0-9<>]/.test(w)) throw new Error('What you charge per: up to 24 letters, no numbers.');
+      out.unit_word = w;
+    }
+    const base = parseInt0OrNull(formData.get('unit_base_php'));
+    const initial = parseInt0OrNull(formData.get('initial_units'));
+    if (base == null || base <= 0) throw new Error('Type the base price.');
+    if (initial == null || initial <= 0) throw new Error('Type how many the base price covers.');
+    out.unit_base_php = base;
+    out.initial_units = initial;
+    const extra = parseInt0OrNull(formData.get('extra_unit_php'));
+    out.extra_unit_php = extra ?? Math.round(base / initial);
+    out.starting_price_php = base;
+  }
+  if (pricing_basis !== 'fixed') {
+    const rawMax = formData.get('price_max');
+    if (typeof rawMax === 'string' && rawMax.trim() !== '') {
+      const t = rawMax.trim().replace(/,/g, '');
+      const max = /^\d+$/.test(t) ? Number(t) : Number.NaN;
+      if (!Number.isFinite(max) || max <= 0) throw new Error('Max must be a whole number, or empty for no limit.');
+      const startN = pricing_basis === 'per_pax' ? out.min_pax : pricing_basis === 'per_hour' ? out.min_hours : out.initial_units;
+      if (max <= (startN ?? 0)) throw new Error('Max must be more than the starting number.');
+      out.price_max = max;
+    }
   }
   return out;
 }
@@ -915,6 +956,11 @@ export async function createVendorService(formData: FormData) {
       hour_base_php: pricing.hour_base_php,
       min_hours: pricing.min_hours,
       extra_hour_php: pricing.extra_hour_php,
+      unit_word: pricing.unit_word,
+      unit_base_php: pricing.unit_base_php,
+      initial_units: pricing.initial_units,
+      extra_unit_php: pricing.extra_unit_php,
+      price_max: pricing.price_max,
       coverage_id,
       crew_size,
       crew_meal_required,
@@ -1263,6 +1309,11 @@ export async function updateVendorService(formData: FormData) {
       hour_base_php: pricing.hour_base_php,
       min_hours: pricing.min_hours,
       extra_hour_php: pricing.extra_hour_php,
+      unit_word: pricing.unit_word,
+      unit_base_php: pricing.unit_base_php,
+      initial_units: pricing.initial_units,
+      extra_unit_php: pricing.extra_unit_php,
+      price_max: pricing.price_max,
       coverage_id,
       crew_size,
       crew_meal_required,

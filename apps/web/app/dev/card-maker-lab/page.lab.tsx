@@ -329,6 +329,20 @@ export default async function CardMakerLabPage({
     fx.initial.showcasePhotoR2Keys = refs.slice(1);
     fx.initial.mediaDisplayUrls = Object.fromEntries(refs.map((r, i) => [r, `/realstories/${pics[i]}.jpg`]));
   }
+  // 📦 `&price=unit|custom` — Card Maker part 7 on an edited card: Per unit, or Custom charging per "chair", with a Max.
+  // LAB FIXTURES — sample numbers, nobody's real price.
+  if (fx && (sp.price === 'unit' || sp.price === 'custom')) {
+    fx.initial.pricing = {
+      ...fx.initial.pricing,
+      pricing_basis: 'per_unit',
+      starting_price_php: 3500,
+      unit_word: sp.price === 'custom' ? 'chair' : null,
+      unit_base_php: 3500,
+      initial_units: 10,
+      extra_unit_php: 350,
+      price_max: sp.price === 'custom' ? 200 : null,
+    };
+  }
   // 🪜 `&tiers=1|unread` — the tier grid (Card Maker HYBRID, 17 Nov) on an edited card: the drawing's Gold · Platinum,
   // or a refused read. LAB FIXTURES — sample words, nobody real.
   if (fx && sp.tiers === 'unread') fx.editing.tiers = { status: 'unread' };

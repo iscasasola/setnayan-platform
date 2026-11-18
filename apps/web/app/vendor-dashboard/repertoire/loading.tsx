@@ -2,5 +2,6 @@
 import { GridPageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {
-  return <GridPageSkeleton title />;
+  // 👻 Ghost (motion standard 18 Nov 2026): the title is known, so it shows at once; the rest is grey.
+  return <GridPageSkeleton title="Your repertoire" />;
 }

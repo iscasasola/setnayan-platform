@@ -129,8 +129,11 @@ test('3 · the shape grows from the tapped thing’s own corner', () => {
 
 test('4 · two curves only; the ONE grow player’s parts hold nothing once they end', () => {
   const lib = stripComments(readFileSync(join(WEB, 'lib/rise-screen.ts'), 'utf8'));
-  const helpers = lib.slice(lib.indexOf('export function playGrowParts'), lib.indexOf('// ── end of the grow player ──'));
-  assert.ok(helpers.length > 200, 'premise: the grow helpers');
+  // The player's two functions end where the next export begins (a comment marker is stripped with the comments — the
+  // old end anchor was -1, so the slice ran to the end of the file and read whatever was added after the player).
+  const endOfPlayer = lib.indexOf('export function picturePlan');
+  const helpers = lib.slice(lib.indexOf('export function playGrowParts'), endOfPlayer);
+  assert.ok(endOfPlayer > 0 && helpers.length > 200 && helpers.includes('export function playBehind'), 'premise: the grow helpers');
   assert.match(helpers, /fill: out \? 'forwards' : 'backwards',/, 'an opening part holds its transform after it lands');
   assert.doesNotMatch(helpers, /fill: 'both'/, 'a part holds both ends');
   assert.doesNotMatch(helpers, /cubic-bezier\(/, 'a part keeps a curve of its own');

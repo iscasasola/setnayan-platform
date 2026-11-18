@@ -42,6 +42,7 @@
         "NotFoundLinks",
         "OfflineDaemonMount",
         "PersistQueryClientProvider",
+        "PhotoArrives",
         "PressFeel",
         "Providers",
         "Reconnecting",

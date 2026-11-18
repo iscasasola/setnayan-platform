@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  deskPartsFor,
   ARRIVAL_PRESETS,
   DEFAULT_DESK_ACCESS,
   arrivalsBoard,
@@ -145,4 +146,23 @@ test('(5) the page and the actions ask the one reader', () => {
   assert.match(actions, /readDeskViewer\(/);
   // Both writes the Guests part makes are asked again at the write.
   assert.equal((actions.match(/deskPartRefusal\(eventId, \w+, 'guests'\)/g) ?? []).length, 2);
+});
+
+test('(opus review) a refused read never answers yes — the hosts\' Off holds through a blip', () => {
+  const helpersOff = { coordinator: [], helpers: [], door: null } as const;
+  const me = '11111111-1111-4111-8111-111111111111';
+  // The read that answered: Off is Off.
+  assert.deepEqual(deskPartsFor('helper', { ...helpersOff, coordinator: [], helpers: [] }, me, false), []);
+  // The hosts' choice did NOT answer: the parsed access is the DEFAULTS (helpers → Guests). Nobody but a host gets in.
+  const fellBack = parseDeskAccess(null);
+  assert.deepEqual(fellBack.helpers, ['guests']);
+  assert.deepEqual(deskPartsFor('helper', fellBack, me, true), []);
+  assert.deepEqual(deskPartsFor('coordinator', fellBack, me, true), []);
+  assert.deepEqual(deskPartsFor(null, fellBack, me, true), []);
+  // A host is proven by a read that answered, so they keep every part.
+  assert.deepEqual(deskPartsFor('host', fellBack, me, true), ['guests', 'suppliers', 'team']);
+  // And the one reader the page AND the actions share goes through it — never straight to partsForRole.
+  const server = readFileSync(join(process.cwd(), 'lib/checkin-desk.server.ts'), 'utf8');
+  assert.match(server, /deskPartsFor\(role, access, userId, unread\)/);
+  assert.doesNotMatch(server, /partsForRole\(/);
 });

@@ -20,7 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { seatIsFullCohost } from '@/lib/guest-access';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { deskRoleOf, parseDeskAccess, partsForRole, type DeskAccess, type DeskPart, type DeskRole } from '@/lib/checkin-desk';
+import { deskPartsFor, deskRoleOf, parseDeskAccess, type DeskAccess, type DeskPart, type DeskRole } from '@/lib/checkin-desk';
 
 export type DeskViewer = {
   role: DeskRole | null;
@@ -68,10 +68,11 @@ export async function readDeskViewer(
     seatRole,
     isCoordinatorMember: facts.isCoordinatorMember,
   });
+  const unread = errs.some(([, e]) => Boolean(e));
   return {
     role,
-    parts: partsForRole(role, access, userId),
+    parts: deskPartsFor(role, access, userId, unread),
     access,
-    unread: errs.some(([, e]) => Boolean(e)),
+    unread,
   };
 }

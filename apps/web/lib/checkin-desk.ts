@@ -146,6 +146,18 @@ export function partsForRole(role: DeskRole | null, access: DeskAccess, userId: 
   }
 }
 
+/**
+ * The parts one person may open, given whether every read behind it answered. 🔌 A REFUSED READ NEVER ANSWERS YES:
+ * when the hosts' choice (or the viewer's seat) did not answer, `partsForRole` would fall back to the DEFAULTS, so a
+ * helper or coordinator the hosts turned Off would be let back in on a blip. Only a host — proven by a read that DID
+ * answer — keeps every part; anybody else gets nothing, and the caller says "try again" (the action) or opens the
+ * shipped Guests desk with a notice (the page).
+ */
+export function deskPartsFor(role: DeskRole | null, access: DeskAccess, userId: string, unread: boolean): DeskPart[] {
+  if (unread && role !== 'host') return [];
+  return partsForRole(role, access, userId);
+}
+
 /* ── Suppliers: the arrivals board ─────────────────────────────────────────────────────────────────────────────── */
 
 /** The four shipped presets the board reads — the two `issue` presets are the coordinator's inbox, not arrival. */

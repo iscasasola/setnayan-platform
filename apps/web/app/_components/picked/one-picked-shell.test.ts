@@ -107,16 +107,16 @@ test('3 · a Chats row opens the picked page ON CHAT; the host’s lists open on
   // day ("Clients side is not fixed also") — and on Details when there is no conversation (no Chat page to open).
   assert.equal(visiblePickedPage('chat', true), 'chat');
   assert.equal(visiblePickedPage(null, true), 'chat');
-  const full = pickedSupplierMenuFor({ quote: true, chat: true });
+  const full = pickedSupplierMenuFor({ chat: true });
   assert.equal(visiblePickedSupplierPage('chat', full), 'chat');
   assert.equal(visiblePickedSupplierPage(undefined, full), 'chat');
   assert.equal(pickedSupplierPageOf('call'), 'chat');
   // A page that could only be blank is not offered.
-  assert.equal(visiblePickedSupplierPage('chat', pickedSupplierMenuFor({ quote: false, chat: false })), 'details');
+  assert.equal(visiblePickedSupplierPage('chat', pickedSupplierMenuFor({ chat: false })), 'details');
   assert.deepEqual(
-    PICKED_SUPPLIER_PAGES.map((p) => p.label).slice(0, 6),
-    ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule'],
-    'the owner-ruled tab order (11 Nov, the supplier’s order mirrored)',
+    PICKED_SUPPLIER_PAGES.map((p) => p.label),
+    ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report'],
+    'the owner-ruled tab order (seven tabs 18 Nov, the supplier’s order mirrored less Hub)',
   );
 });
 

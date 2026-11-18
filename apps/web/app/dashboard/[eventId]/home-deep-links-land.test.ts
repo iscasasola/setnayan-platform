@@ -57,7 +57,7 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   assert.match(src('vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts'), /PICKED_SUPPLIER_PAGE_IDS = \[[^\]]*'quote'/, 'Quote is no longer one of the picked pages');
   assert.match(ws, /quote: hasQuotesToShow \? \(\s*<div data-picked-supplier-page="quote">/, 'the workspace lost its Quote tab');
   // …and a ?tab= landing is not bounced anywhere else: `quote` opens Quotation whenever there is a quote to show.
-  assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ quote: true, chat: true })), 'quote');
+  assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ chat: true })), 'quote');
 });
 
 test('3 · a To do task opens itself in Planning Stage’s To do filter', () => {

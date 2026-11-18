@@ -82,10 +82,13 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
+import { workColumnDefault } from '@/lib/client-next-step';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
 import { PickedSupplierWho } from './_components/picked-supplier-who';
 import {
+  pickedSupplierAnchorOf,
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
   type PickedSupplierPage,
@@ -2895,7 +2898,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Chat page without a conversation.
   // ------------------------------------------------------------------------
   const hasQuotesToShow = Boolean(ev.marketplace_vendor_id);
-  const pickedMenu = pickedSupplierMenuFor({ quote: hasQuotesToShow, chat: Boolean(chatThread) });
+  const pickedMenu = pickedSupplierMenuFor({ chat: Boolean(chatThread) });
 
   // 💗 INSPIRATION (the prototype's host tab) — the SHIPPED board's strip for this supplier's category
   // (`FindInspirationStrip`, Suppliers › Find), the looks the host saved there; "See all" opens the whole board. A
@@ -2959,6 +2962,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     </SupplierQuestionsCard>
   ) : null;
 
+  const formsBody = formsPage ?? (
+    <p className="py-6 text-sm text-ink/60">{displayName} is not on Setnayan, so there are no forms from them to answer.</p>
+  );
   const pickedBodies: Record<PickedSupplierPage, ReactNode> = {
     details: (
       <div className="space-y-6" data-picked-supplier-page="details">
@@ -2973,6 +2979,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {notesSection}
         {workingFolderSection}
         {claimSection}
+        {/* 🗂 SEVEN TABS, MIRRORED (owner 18 Nov 2026): Forms and Inspiration are parts of Details now — moved whole. */}
+        <section id="forms" aria-label="Forms" className="scroll-mt-4" data-picked-part="forms">
+          <p className="home-k2 mb-2">Forms</p>
+          {formsBody}
+        </section>
+        <section id="inspiration" aria-label="Inspiration" className="scroll-mt-4" data-picked-part="inspiration">
+          <p className="home-k2 mb-2">Inspiration</p>
+          {inspirationSection}
+        </section>
       </div>
     ),
     chat: chatThread ? (
@@ -2995,36 +3010,30 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         )}
       </div>
     ),
-    quote: hasQuotesToShow ? (
-      <div data-picked-supplier-page="quote">
-        {moneyHidden ? (
-          hostsOnlyPanel
-        ) : (
-          <VendorProposalsCard
-            eventId={eventId}
-            marketplaceVendorId={ev.marketplace_vendor_id}
-            displayName={displayName}
-            whenEmpty={quotationEmpty}
-          />
-        )}
-      </div>
-    ) : null,
-    payments: (
-      <div className="space-y-6" data-picked-supplier-page="payments">
-        {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
-        {moneyHidden ? hostsOnlyPanel : statusSection}
-        {moneyHidden ? null : paymentModeSection}
-      </div>
-    ),
-    forms: (
-      <div className="space-y-6" data-picked-supplier-page="forms">
-        {formsPage ?? (
-          <p className="py-6 text-sm text-ink/60">
-            {displayName} is not on Setnayan, so there are no forms from them to answer.
-          </p>
-        )}
+    // 💰 BOOK & BUDGET (owner 18 Nov 2026): the Payment body, then the quote — one money story per booking. A supplier
+    // the host added themselves sent no quote, so that part is simply not drawn (never a blank one).
+    quote: (
+      <div className="space-y-6" data-picked-supplier-page="quote">
+        <section id="payments" aria-label="Payments" className="space-y-6 scroll-mt-4" data-picked-part="payments">
+          {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
+          {moneyHidden ? hostsOnlyPanel : statusSection}
+          {moneyHidden ? null : paymentModeSection}
+        </section>
+        {hasQuotesToShow && !moneyHidden ? (
+          <section id="quote" aria-label="Quotation" className="scroll-mt-4" data-picked-part="quote">
+            <p className="home-k2 mb-2">Quotation</p>
+            <VendorProposalsCard
+              eventId={eventId}
+              marketplaceVendorId={ev.marketplace_vendor_id}
+              displayName={displayName}
+              whenEmpty={quotationEmpty}
+            />
+          </section>
+        ) : null}
       </div>
     ),
+    payments: null,
+    forms: null,
     files: (
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
@@ -3047,7 +3056,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {documentsSection}
       </div>
     ),
-    inspiration: inspirationSection,
+    inspiration: null,
     // 🚩 Report (owner 11 Nov 2026, "There is also no report") — the host's shipped Report a problem, about this supplier.
     report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,
   };
@@ -3077,6 +3086,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none, and
       // opens on the menu's first page (Chat; Details when there is no conversation).
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
+      landAt={pickedSupplierAnchorOf(rawLanding)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
       bodies={pickedPages}
     />
   );

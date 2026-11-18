@@ -146,7 +146,7 @@ export default async function ChatLabInboxPage({
           eventId={LAB_EVENT}
           eventVendorId={`lab-${picked.id.slice(-2)}`}
           supplierName={picked.name}
-          menu={pickedSupplierMenuFor({ quote: true, chat: true })}
+          menu={pickedSupplierMenuFor({ chat: true })}
           initialPage={page}
           bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.logo === '1' ? { shopLogoUrl: '/marketing/2026-11-06/coordinators/sw-logo-round-dark.svg' } : {}) })}
           // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.

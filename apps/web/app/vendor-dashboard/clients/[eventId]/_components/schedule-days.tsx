@@ -27,7 +27,7 @@ export type AllClientsMonth = { bookings: OtherBooking[]; pools: { poolId: strin
  * 📅 THE DAYS STRIP ON A CLIENT'S SCHEDULE (owner 18 Nov 2026 "plan it and set to build"; drawing NL5NDoD6 v7). Sits on
  * top of the shipped blow-by-blow (`children`), which it never changes:
  *
- *   · a Week | Month switch and a "This client ▾ / All clients" dropdown (PickMenu);
+ *   · a "Week ▾" dropdown and a "This client ▾ / All clients" dropdown (both PickMenu, drawing v12 §6);
  *   · dots on this client's days — the event day(s), Meeting-card days, payment due days (`lib/schedule-days.ts`);
  *   · tap a day → its panel: the event day says the blow-by-blow is below (and shows it); a meeting or payment day lists
  *     its rows — a payment row's door is "See payment ›", switched in place — and the blow-by-blow waits behind
@@ -173,20 +173,18 @@ export function ScheduleDays({
             dataAttr="data-schedule-days-scope"
             className="!min-h-11"
           />
-          <div className="inline-flex rounded-full bg-ink/[0.06] p-0.5" role="group" aria-label="Week or month">
-            {(['week', 'month'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-                className={`sn-press min-h-11 rounded-full px-3 text-[13px] font-semibold ${view === v ? 'bg-frame text-ink shadow-sm' : 'text-ink/70'}`}
-                data-schedule-days-view={v}
-              >
-                {v === 'week' ? 'Week' : 'Month'}
-              </button>
-            ))}
-          </div>
+          {/* "Week ▾" — a dropdown like "This client ▾" (drawing v12 §6: the Week | Month switch becomes one; same choices). */}
+          <PickMenu
+            label="Week or month"
+            value={view}
+            options={[
+              { key: 'week', label: 'Week' },
+              { key: 'month', label: 'Month' },
+            ]}
+            onPick={(k) => setView(k === 'month' ? 'month' : 'week')}
+            dataAttr="data-schedule-days-view"
+            className="!min-h-11"
+          />
         </div>
         <div className="mt-1 flex items-center gap-1">
           <button type="button" onClick={() => step(-1)} aria-label={view === 'month' ? 'Month before' : 'Week before'} className="sn-press grid h-11 w-8 flex-none place-items-center text-ink/70">

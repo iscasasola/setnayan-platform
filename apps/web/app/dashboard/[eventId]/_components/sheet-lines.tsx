@@ -8,7 +8,7 @@ import { GripVertical } from 'lucide-react';
 
 /** The box the lines sit in. */
 export const LINES_BOX_CLASS =
-  'divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15 bg-cream'; // no-card-ok: the lines editor's own box (prototype `.lines`)
+  'divide-y divide-ink/10 overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame'; // no-card-ok: the lines editor's own box (prototype `.lines`)
 
 /** A field inside a line — borderless; the line's box and hairlines are its frame (prototype `.line input`). */
 export const LINE_INPUT_CLASS =

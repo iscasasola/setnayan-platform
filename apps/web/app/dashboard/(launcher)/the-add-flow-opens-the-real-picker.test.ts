@@ -67,13 +67,13 @@ test('the panel is a SidePanel that rises as a sheet on a phone and goes BACK on
 
 test('all three doors on Planning point at the intercepted address', () => {
   const page = read('page.tsx');
-  const doors = page.match(/href="\/dashboard\/create-event"/g) ?? [];
-  // NewEventCard's tile · NewEventButton's (+) · the empty state's button.
-  assert.ok(doors.length >= 3, `expected the three add doors, saw ${doors.length}`);
-  for (const fn of ['NewEventCard', 'NewEventButton']) {
-    const body = page.match(new RegExp(`function ${fn}\\b[\\s\\S]*?\\n\\}`))?.[0] ?? '';
-    assert.match(body, /href="\/dashboard\/create-event"/, `${fn} no longer opens the add flow`);
-  }
+  // 17 Nov 2026 (owner "Yes, all 3"): the three doors are the pinned row's "＋ Event" · NewEventCard's tile · the empty
+  // state's button. The Planning head's (+) (`NewEventButton`) went with the big "＋ Create an event".
+  const pin = page.match(/<HomePinnedRow\s+seg="events"[\s\S]*?\/>\s*\}/)?.[0] ?? '';
+  assert.match(pin, /action=\{\{ label: 'Event',[^}]*href: '\/dashboard\/create-event'/, 'the pinned row\'s "＋ Event" no longer opens the add flow');
+  const body = page.match(/function NewEventCard\b[\s\S]*?\n\}/)?.[0] ?? '';
+  assert.match(body, /href="\/dashboard\/create-event"/, 'NewEventCard no longer opens the add flow');
+  assert.ok(!/function NewEventButton\b|<NewEventButton\b/.test(page), 'the Planning head grew its (+) back (owner 17 Nov: one way in on the row)');
   const empty = page.match(/<CollectionEmptyState[\s\S]{0,700}?\/>/)?.[0] ?? '';
   assert.match(empty, /href="\/dashboard\/create-event"/, 'the empty state no longer opens the add flow');
 });

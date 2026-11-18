@@ -10,7 +10,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Film, Trash2, Loader2 } from 'lucide-react';
+import { ImagePlus, Film, Trash2, Loader2, Send } from 'lucide-react';
 import {
   bakeBoomerang,
   boomerangSupported,
@@ -19,7 +19,9 @@ import {
 } from '@/lib/boomerang-encoder';
 import { submitVendorEditorialMedia, deleteVendorEditorialMedia } from '../actions';
 import { MAX_PER_TYPE, type SubmitMediaItem } from '@/lib/editorial-vendor-media';
-import { ShopPill } from '../../../../_components/kit';
+import { ActionButton } from '@/components/action-button';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { formatCount } from '@/lib/format-number';
 
 export type ExistingMedia = {
@@ -87,14 +89,14 @@ function getVideoDuration(file: File): Promise<number> {
 }
 
 function StatusBadge({ m }: { m: ExistingMedia }) {
-  const [label, tone] = m.hiddenByCouple
-    ? (['Hidden by couple', 'ink'] as const)
+  const [label, tone]: readonly [string, BadgeTone] = m.hiddenByCouple
+    ? ['Hidden by couple', 'quiet']
     : m.moderationState === 'clean'
-      ? (['Live on editorial', 'success'] as const)
+      ? ['Live on editorial', 'ok']
       : m.moderationState === 'unscreened'
-        ? (['Checking…', 'warn'] as const)
-        : (['Removed', 'danger'] as const);
-  return <ShopPill tone={tone}>{label}</ShopPill>;
+        ? ['Checking…', 'wait']
+        : ['Removed', 'no'];
+  return <Badge tone={tone}>{label}</Badge>;
 }
 
 export function EditorialMediaStudio({
@@ -234,15 +236,14 @@ export function EditorialMediaStudio({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Existing submissions */}
+    <div className="space-y-2">
+      {/* Existing submissions — rule 2: a section on the page, not a card. */}
       {existing.length > 0 ? (
-        <section className="sn-tile p-5 sm:p-6">
-          <h2 className="text-lg font-semibold">Already on their editorial</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <TemplateSection label="Already on their editorial" first>
+          <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {existing.map((m) => (
-              <figure key={m.mediaId} className="relative overflow-hidden rounded-lg border border-ink/10 bg-white">
-                <div className="relative aspect-[4/5] bg-ink/10">
+              <figure key={m.mediaId} className="relative overflow-hidden rounded-lg border border-[color:var(--m-line)]">
+                <div className="relative aspect-[4/5] bg-[color:var(--m-paper-2)]">
                   {m.type === 'clip' && m.boomerangUrl ? (
                     // eslint-disable-next-line jsx-a11y/media-has-caption
                     <video src={m.boomerangUrl} poster={m.stillUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
@@ -253,64 +254,65 @@ export function EditorialMediaStudio({
                 </div>
                 <figcaption className="space-y-1 p-2">
                   <StatusBadge m={m} />
-                  {m.caption ? <p className="truncate text-xs text-ink/60">{m.caption}</p> : null}
-                  <button
-                    type="button"
+                  {m.caption ? <p className={`truncate ${TEMPLATE_SUBLINE}`}>{m.caption}</p> : null}
+                  <ActionButton
+                    tone="danger"
+                    icon={Trash2}
+                    label="Remove"
                     onClick={() => onDeleteExisting(m.mediaId)}
                     disabled={!!busy}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Trash2 aria-hidden className="h-3.5 w-3.5" /> Remove
-                  </button>
+                  />
                 </figcaption>
               </figure>
             ))}
           </div>
-        </section>
+        </TemplateSection>
       ) : null}
 
       {/* Add new */}
-      <section className="sn-tile p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Add to the editorial</h2>
-        <p className="mt-0.5 text-sm text-ink/60">
-          {formatCount(photoRoom)} photo{photoRoom === 1 ? '' : 's'} and {formatCount(clipRoom)} clip{clipRoom === 1 ? '' : 's'} left.
-        </p>
-
+      <TemplateSection
+        label="Add to the editorial"
+        first={existing.length === 0}
+        tip="Everything is checked automatically before it appears. The couple can hide anything they’d rather not show."
+        right={`${formatCount(photoRoom)} photo${photoRoom === 1 ? '' : 's'} and ${formatCount(clipRoom)} clip${clipRoom === 1 ? '' : 's'} left`}
+      >
         <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />
         <input ref={clipInput} type="file" accept="video/*" hidden onChange={onPickClip} />
 
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
+        <div className="mt-1 flex flex-wrap gap-3">
+          <ActionButton
+            tone="brand"
+            icon={ImagePlus}
+            label="Add photos"
             disabled={photoRoom <= 0 || !!busy}
             onClick={() => photoInput.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-4 py-2.5 text-sm font-medium text-ink disabled:opacity-40"
-          >
-            <ImagePlus aria-hidden className="h-4 w-4" /> Add photos
-          </button>
-          <button
-            type="button"
+          />
+          <ActionButton
+            tone="brand"
+            icon={Film}
+            label={`Add a clip (≤${MAX_CLIP_SECONDS}s)`}
             disabled={clipRoom <= 0 || !!busy}
             onClick={() => clipInput.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-4 py-2.5 text-sm font-medium text-ink disabled:opacity-40"
-          >
-            <Film aria-hidden className="h-4 w-4" /> Add a clip (≤{MAX_CLIP_SECONDS}s)
-          </button>
+          />
         </div>
 
         {busy ? (
-          <p className="mt-3 inline-flex items-center gap-2 text-sm text-ink/65">
+          <p className={`mt-3 inline-flex items-center gap-2 ${TEMPLATE_SUBLINE}`}>
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> {busy}
           </p>
         ) : null}
-        {error ? <p className="mt-3 text-sm font-medium text-red-700">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="mt-3 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
+            {error}
+          </p>
+        ) : null}
 
         {/* Staged (not yet submitted) */}
         {staged.length > 0 ? (
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {staged.map((s) => (
-              <div key={s.key} className="overflow-hidden rounded-lg border border-ink/10 bg-white">
-                <div className="relative aspect-[4/5] bg-ink/10">
+              <div key={s.key} className="overflow-hidden rounded-lg border border-[color:var(--m-line)]">
+                <div className="relative aspect-[4/5] bg-[color:var(--m-paper-2)]">
                   {s.type === 'clip' ? (
                     // eslint-disable-next-line jsx-a11y/media-has-caption
                     <video src={s.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
@@ -318,21 +320,17 @@ export function EditorialMediaStudio({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={s.previewUrl} alt="Preview of photo staged for the editorial" className="h-full w-full object-cover" />
                   )}
-                  <button
-                    type="button"
-                    onClick={() => removeStaged(s.key)}
-                    aria-label="Remove"
-                    className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink/70 text-cream"
-                  >
-                    <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                  </button>
+                  <span className="absolute right-1.5 top-1.5">
+                    <ActionButton tone="danger" icon={Trash2} label="Remove" iconOnly onClick={() => removeStaged(s.key)} />
+                  </span>
                 </div>
                 <input
                   value={s.caption}
                   onChange={(e) => setCaption(s.key, e.target.value)}
                   maxLength={140}
                   placeholder="Caption (optional)"
-                  className="w-full border-t border-ink/10 bg-white px-2 py-1.5 text-xs outline-none"
+                  aria-label="Caption (optional)"
+                  className="min-h-11 w-full border-t border-[color:var(--m-line)] bg-transparent px-2 py-1.5 text-[14px] text-ink outline-none"
                 />
               </div>
             ))}
@@ -340,23 +338,18 @@ export function EditorialMediaStudio({
         ) : null}
 
         {staged.length > 0 ? (
-          <div className="mt-5 flex items-center justify-end">
-            <button
-              type="button"
+          <div className="mt-4 flex items-center justify-end">
+            <ActionButton
+              tone="brand"
+              main
+              icon={Send}
+              label={saving ? 'Submitting…' : `Submit ${staged.length} to their editorial`}
               disabled={saving || !!busy}
               onClick={onSubmit}
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-mulberry px-6 text-sm font-semibold text-cream transition hover:bg-mulberry/90 disabled:opacity-50"
-            >
-              {saving ? 'Submitting…' : `Submit ${staged.length} to their editorial`}
-            </button>
+            />
           </div>
         ) : null}
-
-        <p className="mt-4 text-xs text-ink/45">
-          Everything is checked automatically before it appears. The couple can hide anything they’d
-          rather not show.
-        </p>
-      </section>
+      </TemplateSection>
     </div>
   );
 }

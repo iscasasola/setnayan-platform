@@ -432,7 +432,7 @@ export function InlineCheckoutDrawer({
       className={
         triggerClassName
           ? `${triggerClassName} pointer-events-none cursor-default opacity-60`
-          : 'inline-flex items-center gap-2 rounded-full bg-stone-100 px-5 py-2 text-sm font-semibold text-stone-400'
+          : 'inline-flex items-center gap-2 rounded-full bg-stone-100 dark:bg-ink/[0.06] px-5 py-2 text-sm font-semibold text-stone-400 dark:text-ink/50'
       }
     >
       <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />

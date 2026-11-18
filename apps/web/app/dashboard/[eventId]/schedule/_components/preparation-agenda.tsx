@@ -413,9 +413,9 @@ function iconStylesFor(source: PreparationSource): string {
     case 'payment':
       return 'bg-warn-100 text-warn-700';
     case 'paperwork':
-      return 'bg-blue-50 text-blue-700';
+      return 'bg-blue-50 dark:bg-info-50 text-blue-700 dark:text-info-700';
     case 'meeting':
-      return 'bg-indigo-50 text-indigo-700';
+      return 'bg-indigo-50 dark:bg-info-50 text-indigo-700 dark:text-info-700';
     case 'manual':
       return 'bg-mulberry/10 text-mulberry';
     case 'milestone':
@@ -429,7 +429,7 @@ function containerStylesFor(source: PreparationSource): string {
     case 'payment':
       return 'border-warn-200/70 bg-warn-50/40';
     case 'paperwork':
-      return 'border-blue-200/70 bg-blue-50/30';
+      return 'border-blue-200/70 dark:border-info-200/70 bg-blue-50/30 dark:bg-info-50/30';
     case 'manual':
       return 'border-mulberry/20 bg-mulberry/[0.04]';
     default:
@@ -442,9 +442,9 @@ function chipStylesFor(source: PreparationSource): string {
     case 'payment':
       return 'bg-warn-100 text-warn-800';
     case 'paperwork':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-blue-100 dark:bg-info-100 text-blue-800 dark:text-info-800';
     case 'meeting':
-      return 'bg-indigo-100 text-indigo-800';
+      return 'bg-indigo-100 dark:bg-info-100 text-indigo-800 dark:text-info-800';
     case 'manual':
       return 'bg-mulberry/10 text-mulberry';
     case 'milestone':

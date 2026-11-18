@@ -115,7 +115,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
 
       <div
         aria-hidden
-        className="mx-auto mt-8 w-fit rounded-2xl bg-white p-4 [&>svg]:h-[420px] [&>svg]:w-[420px]"
+        className="mx-auto mt-8 w-fit rounded-2xl bg-raised p-4 [&>svg]:h-[420px] [&>svg]:w-[420px]"
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />
 

@@ -21,14 +21,29 @@
   --act: rgb(var(--color-mulberry));
   --act-soft: rgba(194, 78, 37, 0.1);
   --ok: #3f6b4a;
-  --link: #3b4e67;
-  --tgold: #8a6b39;
-  --on-act: #ffffff;
+  --link: rgb(var(--color-link)); /* = #3b4e67 */
+  --tgold: var(--m-orange-2); /* = #8a6b39 */
+  --on-act: rgb(var(--sn-on-accent)); /* = #ffffff */
   --shadow: 0 1px 2px rgba(44, 42, 41, 0.05), 0 8px 24px -16px rgba(44, 42, 41, 0.28);
   --lift: 0 10px 26px -10px rgba(44, 42, 41, 0.4);
   --f-d: var(--font-pahina-display), Georgia, serif;
   --f-u: var(--font-sans), system-ui, sans-serif;
   --f-m: var(--font-mono), ui-monospace, monospace;
+}
+
+/* 🌙 DARK (the one colour set, owner 18 Nov 2026). The editor's own neutrals had no dark value, so in dark it would
+   have stayed a light island with the app's light ink on it. Each keeps its job and reads the app's tokens. */
+:global(html.dark) .root,
+:global(html.dark) .layer {
+  --sunk: rgb(var(--color-raised-2));
+  --line: rgb(var(--color-ink) / 0.14);
+  --line2: rgb(var(--color-ink) / 0.24);
+  --mute: rgb(var(--color-ink-3));
+  --faint: var(--m-slate-3);
+  --act-soft: rgb(var(--color-mulberry) / 0.16);
+  --ok: rgb(var(--color-ok));
+  --shadow: var(--m-shadow-sm);
+  --lift: var(--m-shadow-md);
 }
 .layer *,
 .layer *::before,
@@ -957,7 +972,7 @@
   height: 16px;
   border-radius: 50%;
   background: var(--act);
-  color: #fff;
+  color: var(--on-act);
   display: none;
   place-items: center;
   font-size: 12px;

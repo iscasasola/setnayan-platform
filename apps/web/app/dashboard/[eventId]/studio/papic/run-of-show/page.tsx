@@ -210,7 +210,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                 type="submit"
                 className={
                   paused
-                    ? 'inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white'
+                    ? 'inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
                     : 'inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink hover:bg-ink/5'
                 }
               >

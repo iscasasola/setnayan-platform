@@ -1207,7 +1207,7 @@ export function MakerShell({
               role="status"
               data-maker-first-hint=""
               data-tour="maker-hint"
-              className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
+              className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-raised/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
             >
               Tap anything to change it
             </p>
@@ -1446,7 +1446,7 @@ function ToolMenu({
           aria-label={label}
           data-maker-tool-menu={tool}
           style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
-          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
+          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-raised p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
         >
           <OneOpenScope id={oneOpenId}>{children(close)}</OneOpenScope>
         </span>

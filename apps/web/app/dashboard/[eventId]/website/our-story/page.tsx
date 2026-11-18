@@ -323,7 +323,7 @@ export default async function OurStoryEditorPage({
             </div>
           ) : null}
           {search.error ? (
-            <div role="alert" className="rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div role="alert" className="rounded-md border border-red-300/60 dark:border-danger-300/60 bg-red-50 dark:bg-danger-50 px-3 py-2 text-sm text-red-800 dark:text-danger-800">
               {search.error}
             </div>
           ) : null}

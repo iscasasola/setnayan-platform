@@ -1848,7 +1848,7 @@ function ShelfInfo({ children }: { children: string }) {
           🎯 The circle is the house ⓘ, class for class (`<InfoTip>`'s trigger — owner 2026-10-25, *"the (i) is not
           consistent across the app"*); `group-open:` stands in for InfoTip's `aria-expanded:`. A <details>, not
           InfoTip, so it still opens with JavaScript off. `there-is-one-info-dot.test.ts`. */}
-      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[13px] font-normal leading-relaxed text-ink/75 shadow-sn-float">
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-raised p-3 text-[13px] font-normal leading-relaxed text-ink/75 shadow-sn-float">
         {children}
       </p>
     </details>

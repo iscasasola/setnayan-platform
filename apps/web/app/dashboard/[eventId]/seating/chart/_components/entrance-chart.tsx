@@ -108,7 +108,7 @@ export function EntranceChart({
     <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
       {/* The paper — always light, whatever the screen (owner 2026-10-13: printouts are always light). */}
       <div className="relative mx-auto w-full max-w-[460px] md:order-1">
-        <div className="relative aspect-[297/420] w-full overflow-hidden rounded-md bg-white shadow-[0_1px_8px_rgba(0,0,0,0.14)] ring-1 ring-black/5">
+        <div className="relative aspect-[297/420] w-full overflow-hidden rounded-md bg-raised shadow-[0_1px_8px_rgba(0,0,0,0.14)] ring-1 ring-black/5">
           {/* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG of the sheet, redrawn per choice */}
           <img
             key={preview}
@@ -143,7 +143,7 @@ export function EntranceChart({
             No one is seated yet — seat your guests in the Seat plan first.
           </p>
         ) : unseated > 0 ? (
-          <p role="status" data-entrance-chart-unseated className="text-sm text-amber-800">
+          <p role="status" data-entrance-chart-unseated className="text-sm text-amber-800 dark:text-warn-800">
             {unseated} {unseated === 1 ? 'guest has' : 'guests have'} no seat yet — they won’t be on the chart.
           </p>
         ) : null}

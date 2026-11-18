@@ -69,7 +69,7 @@ export function MilestonesField({ initial }: { initial: MilestoneRow[] }) {
             type="button"
             onClick={() => setRows((r) => r.filter((_, j) => j !== i))}
             aria-label={`Remove milestone ${i + 1}`}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink/50 transition hover:border-red-300 hover:text-red-600"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink/50 transition hover:border-red-300 dark:hover:border-danger-300 hover:text-red-600 dark:hover:text-danger-600"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </button>

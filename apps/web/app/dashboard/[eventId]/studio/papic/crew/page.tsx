@@ -145,7 +145,7 @@ export default async function PapicCrewPage({ params }: Props) {
           <div className="flex flex-wrap items-start gap-5">
             <div
               aria-hidden
-              className="shrink-0 rounded-xl bg-white p-2 [&>svg]:h-32 [&>svg]:w-32"
+              className="shrink-0 rounded-xl bg-raised p-2 [&>svg]:h-32 [&>svg]:w-32"
               dangerouslySetInnerHTML={{ __html: poolQrSvg }}
             />
             <div className="min-w-0 flex-1 space-y-2">

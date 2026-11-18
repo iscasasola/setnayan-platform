@@ -2149,7 +2149,7 @@ export function StageTools({
                     setWhyRef.current(seeAsDrawingLine(next));
                   }}
                   dataAttr="data-stage-see-as"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
               {/* 🎭 ROLE ▾ (owner 2026-10-17: "for example i want to view it as a father of the bride") — under See as,
@@ -2170,7 +2170,7 @@ export function StageTools({
                   }}
                   stickyGroups
                   dataAttr="data-stage-see-as-role"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
             </div>,
@@ -2220,7 +2220,7 @@ export function StageTools({
               data-stage-guest-bar=""
               /* A stage that is one page has no bar (its one line, "You're editing", is the toolbar's now). */
               hidden={pages.length <= 1}
-              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
+              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-raised lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-raised lg:hidden'}
               /* It rides the toolbar's slide away and back (the same 240 ms), never across it. */
               style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >

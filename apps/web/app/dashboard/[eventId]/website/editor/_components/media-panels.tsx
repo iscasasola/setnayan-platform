@@ -357,7 +357,7 @@ export function VisibilityPanel({
         ).map(([value, label, hint]) => (
           <label
             key={value}
-            className="mb-1 flex cursor-pointer items-start gap-2 rounded-lg bg-white px-2.5 py-2"
+            className="mb-1 flex cursor-pointer items-start gap-2 rounded-lg bg-raised px-2.5 py-2"
           >
             <input
               type="radio"
@@ -392,7 +392,7 @@ export function VisibilityPanel({
               Where to get tickets <span className="font-normal text-ink/75">(optional)</span>
             </span>
             <input
-              className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
+              className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-raised px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
               type="url"
               name="ticket_url"
               inputMode="url"
@@ -632,7 +632,7 @@ export function RsvpBackdropPanel({
           <select
             name="intensity"
             defaultValue={activeIntensity}
-            className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink"
+            className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink"
           >
             {(['subtle', 'standard', 'lavish'] as const).map((i) => (
               <option key={i} value={i}>

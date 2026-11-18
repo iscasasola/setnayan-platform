@@ -2568,7 +2568,7 @@ export function MakerWork({
               aria-label="Music"
               title="Music"
               className={`sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
-                selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
+                selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-raised/70 text-ink/75 hover:bg-raised'
               }`}
             >
               <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -2759,7 +2759,7 @@ export function MakerWork({
                       className={`sn-press absolute inset-0 block h-full w-full rounded-md bg-transparent outline outline-2 outline-offset-2 transition-[outline-color] duration-sn-control ease-sn ${canDrag ? 'cursor-grab' : 'cursor-pointer'} ${on ? 'outline-terracotta' : 'outline-transparent'}`}
                     >
                       {tile.kind === 'fixed' || (tile.kind === 'post-event' && tile.pinned) ? (
-                        <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm">
+                        <span className="absolute left-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-raised/90 text-ink/70 shadow-sm">
                           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
                         </span>
                       ) : null}
@@ -2767,7 +2767,7 @@ export function MakerWork({
                         /* 📖 What filled it, said on the tile: Auto · Skipped · Hidden · Optional. */
                         <span
                           className={`absolute bottom-1 right-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-sm ${
-                            tile.drawn ? 'bg-white/90 text-ink/70' : 'bg-ink/80 text-cream'
+                            tile.drawn ? 'bg-raised/90 text-ink/70' : 'bg-ink/80 text-cream'
                           }`}
                         >
                           {postEventStatusWord(tile)}
@@ -2860,7 +2860,7 @@ export function MakerWork({
           {/* 🗂 THE FOLD — every section this stage does not draw, with why. */}
           {list.folded.length > 0 ? (
             <li className="shrink-0 self-start lg:mt-3 lg:self-stretch" data-maker-fold="">
-              <details className="group rounded-md bg-white/50 px-2 py-1.5">
+              <details className="group rounded-md bg-raised/50 px-2 py-1.5">
                 <summary className="cursor-pointer list-none text-[11px] font-semibold text-ink/60 hover:text-ink">
                   Not shown on {PUBLIC_STAGE_LABELS[stage]} ({list.folded.length})
                 </summary>
@@ -3056,7 +3056,7 @@ export function MakerWork({
             style={bothFit ? { width: bothFit.desktop.boxWidth, height: bothFit.desktop.boxHeight } : undefined}
             className={
               both
-                ? 'relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]'
+                ? 'relative shrink-0 overflow-hidden rounded-md bg-raised shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]'
                 : 'flex min-h-0 min-w-0 flex-1 justify-center'
             }
           >
@@ -3083,7 +3083,7 @@ export function MakerWork({
             style={bothFit ? scaledFrame(bothFit.desktop) : undefined}
             className={
               both
-                ? 'bg-white'
+                ? 'bg-raised'
                 : `min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
                     device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
                   }`
@@ -3096,7 +3096,7 @@ export function MakerWork({
                reached by the same broadcast. No warm stages of its own. */
             <div
               data-maker-both-phone=""
-              className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]"
+              className="relative shrink-0 overflow-hidden rounded-md bg-raised shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]"
               style={bothFit ? { width: bothFit.phone.boxWidth, height: bothFit.phone.boxHeight } : undefined}
             >
               <BufferedCanvasFrame
@@ -3112,7 +3112,7 @@ export function MakerWork({
                 onShown={setShownBothKey}
                 onSwapped={() => reMarkBoth(false)}
                 style={bothFit ? scaledFrame(bothFit.phone) : undefined}
-                className="bg-white"
+                className="bg-raised"
               />
               {publicLandingUrl ? (
                 <CanvasStaysOnThePage
@@ -3202,7 +3202,7 @@ export function MakerWork({
               data-maker-guest-bars={guestBars ? 'on' : 'off'}
               onClick={toggleGuestBars}
               className={`sn-press inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
-                guestBars ? 'bg-ink text-cream' : 'bg-white/80 text-ink/70 hover:bg-white hover:text-ink'
+                guestBars ? 'bg-ink text-cream' : 'bg-raised/80 text-ink/70 hover:bg-raised hover:text-ink'
               }`}
             >
               <PanelsTopLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -3750,7 +3750,7 @@ function SceneMenu({
 
 function RowBlock({ row }: { row: MakerRowPanel }) {
   return (
-    <section className="rounded-md bg-white/70">
+    <section className="rounded-md bg-raised/70">
       <header className="flex items-start gap-2 px-3 pt-3">
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-semibold text-ink">{row.label}</span>
@@ -3797,7 +3797,7 @@ function MoreExtras({
   return (
     <>
       {liveHref ? (
-        <section className="rounded-md bg-white/70 px-3 py-3">
+        <section className="rounded-md bg-raised/70 px-3 py-3">
           <p className="flex items-center gap-1.5 text-[14px] font-semibold text-ink">
             <QrCode aria-hidden className="h-4 w-4" strokeWidth={2} /> Scan to view
           </p>
@@ -3825,7 +3825,7 @@ function MoreExtras({
           </p>
           <Link
             href={proUnlockHref}
-            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 px-4 text-[13px] font-semibold text-ink hover:bg-amber-300"
+            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 dark:bg-warn-400 px-4 text-[13px] font-semibold text-ink hover:bg-amber-300 dark:hover:bg-warn-300"
           >
             {unlockLabel(proPriceLabel)}
           </Link>
@@ -4191,7 +4191,7 @@ function StdLeadSwitch({
   };
   return (
     <>
-      <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-white/70 p-0.5">
+      <div role="radiogroup" aria-label="What opens your Save the Date" className="inline-flex rounded-full bg-raised/70 p-0.5">
         {(['film', 'photos'] as const).map((option) => (
           <button
             key={option}

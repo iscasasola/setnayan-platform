@@ -54,7 +54,7 @@ export function FindInspirationRow({ board, href }: { board: FindInspiration; hr
             covers.map((src, i) => (
               <span
                 key={src + i}
-                className="absolute top-0 h-11 w-9 overflow-hidden rounded-lg bg-ink/10 shadow-sm ring-2 ring-white"
+                className="absolute top-0 h-11 w-9 overflow-hidden rounded-lg bg-ink/10 shadow-sm ring-2 ring-raised"
                 style={{ left: `${i * 16}px`, zIndex: 3 - i }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -198,7 +198,7 @@ export default function PapicWindowPicker({
         )}
 
         {errorText ? (
-          <p className="text-xs text-amber-700">{errorText}</p>
+          <p className="text-xs text-amber-700 dark:text-warn-700">{errorText}</p>
         ) : (
           <p className="text-xs text-ink/70">
             {previewDays} day{previewDays === 1 ? '' : 's'} of capture

@@ -232,7 +232,7 @@ export async function MakerHeroPanel({
           {coverScene}
         </div>
       ) : canUpload ? (
-        <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
+        <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-raised/70 px-3 py-3">
           {photoMark ? (
             <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Pro')} text="Event Pro" size="xs" />
           ) : null}

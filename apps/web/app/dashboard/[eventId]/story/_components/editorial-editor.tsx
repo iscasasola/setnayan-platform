@@ -233,7 +233,7 @@ function Field({ label, help, children }: FieldProps) {
 }
 
 const inputCls =
-  'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-burgundy/50';
+  'w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-burgundy/50';
 
 // The ◆ on a Pro touch — the one shared paid mark. Never a padlock: nothing here
 // is closed to a couple without Pro (owner 2026-09-29, "◆ marks Pro and never
@@ -1120,7 +1120,7 @@ export function EditorialEditor({
               return (
                 <li
                   key={leadId}
-                  className={`rounded-xl border border-ink/10 bg-white p-3 transition ${r.hidden ? 'opacity-60' : ''}`}
+                  className={`rounded-xl border border-ink/10 bg-raised p-3 transition ${r.hidden ? 'opacity-60' : ''}`}
                 >
                   <div className="flex gap-3">
                     {/* Thumbnail — the lead's still, or a film glyph for a
@@ -1441,7 +1441,7 @@ export function EditorialEditor({
                         <label className="flex items-center gap-2 text-xs text-ink/55">
                           Stars
                           <select
-                            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink outline-none focus:border-burgundy/50"
+                            className="rounded-lg border border-ink/15 bg-raised px-2 py-1 text-sm text-ink outline-none focus:border-burgundy/50"
                             value={w.stars}
                             onChange={(e) => patchWish(i, { stars: e.target.value })}
                             aria-label="Stars"
@@ -1500,7 +1500,7 @@ export function EditorialEditor({
           <button
             type="button"
             onClick={addWish}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/75 transition hover:bg-cream"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm font-medium text-ink/75 transition hover:bg-cream"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
             Add a wish
@@ -1526,7 +1526,7 @@ export function EditorialEditor({
                 type="button"
                 onClick={() => toggle(s.key)}
                 aria-pressed={on}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-left transition hover:border-ink/25"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/10 bg-raised px-4 py-3 text-left transition hover:border-ink/25"
               >
                 <span>
                   <span className="block text-sm font-medium text-ink">{s.label}</span>
@@ -1537,7 +1537,7 @@ export function EditorialEditor({
                   aria-hidden
                 >
                   <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${on ? 'left-[22px]' : 'left-0.5'}`}
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-raised transition-all ${on ? 'left-[22px]' : 'left-0.5'}`}
                   />
                 </span>
               </button>
@@ -1637,8 +1637,8 @@ export function EditorialEditor({
                 aria-pressed={chosen}
                 className={`block min-h-11 rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   chosen
-                    ? 'border-ink bg-white shadow-[inset_3px_0_0_var(--color-ink,#2b2724)]'
-                    : 'border-ink/12 bg-white hover:border-ink/30'
+                    ? 'border-ink bg-raised shadow-[inset_3px_0_0_var(--color-ink,#2b2724)]'
+                    : 'border-ink/12 bg-raised hover:border-ink/30'
                 }`}
               >
                 <span className="block text-[12px] font-semibold uppercase tracking-[0.14em] text-ink/45">
@@ -1741,11 +1741,11 @@ export function EditorialEditor({
         <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span>
             {phase === 'done' ? (
-              <span className="font-medium text-green-700">
+              <span className="font-medium text-green-700 dark:text-success-700">
                 {STORY_AUDIENCE_SAVED[form.audience]}
               </span>
             ) : phase === 'error' ? (
-              <span className="font-medium text-red-700">{error ?? 'Could not save.'}</span>
+              <span className="font-medium text-red-700 dark:text-danger-700">{error ?? 'Could not save.'}</span>
             ) : (
               /* WHAT THE CURRENT CHOICE ACTUALLY DOES, said in full — "only me"
                  in particular has to say that it hides the story from their own
@@ -1822,7 +1822,7 @@ export function EditorialEditor({
               onClick={toggleFeatured}
               disabled={featuring}
               aria-pressed={featured}
-              className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-left transition hover:border-ink/25 disabled:opacity-60"
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink/10 bg-raised px-4 py-3 text-left transition hover:border-ink/25 disabled:opacity-60"
             >
               <span>
                 <span className="block text-sm font-medium text-ink">
@@ -1838,7 +1838,7 @@ export function EditorialEditor({
                 aria-hidden
               >
                 <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${featured ? 'left-[22px]' : 'left-0.5'}`}
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-raised transition-all ${featured ? 'left-[22px]' : 'left-0.5'}`}
                 />
               </span>
             </button>
@@ -1864,7 +1864,7 @@ export function EditorialEditor({
               down: the host goes looking for a radio button that isn't there.
             */}
             {landingVisibility !== 'public' ? (
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-warn-700">
                 <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
                 <span>
                   Your page is set to{' '}

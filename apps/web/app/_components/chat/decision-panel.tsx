@@ -164,7 +164,7 @@ export function DecisionPanel({
             </button>
           ) : null}
           <div className="grid min-w-0 flex-1 pt-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">{kicker}</span>
+            <span className="text-[12px] font-medium text-ink/55">{kicker}</span>
             <h2 className="break-words text-[18px] font-semibold leading-snug">{title}</h2>
           </div>
         </div>

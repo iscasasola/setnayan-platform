@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Camera, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
 import { PRINTS_LINE } from '@/lib/prints-line';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
@@ -91,7 +91,7 @@ export type CoverData = {
    * couples see. null = the facts read was refused (draw nothing, never "no badges"); [] = none earned yet.
    */
   earned?: ShopBadge[] | null;
-  /** "Next badge: 10 events · 10 to go" (`nextBadgeShort`) — said when nothing is earned yet; null = unread. */
+  /** "Next badge: Bronze at 5 bookings · 5 to go" — the Completed bookings tile's own goal (`shelfNextBadgeLine`); said when nothing is earned yet; null = unread. */
   nextBadge?: string | null;
 };
 
@@ -136,7 +136,7 @@ function sheetInAddress(params: { get(k: string): string | null }): CoverSheet |
 function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
   if (!open) return null;
   return (
-    <RiseScreen title={title} onClose={onClose} data={`shop-${data}`}>
+    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`}>
       <div className="px-4 pb-6 pt-3" data-shop-sheet={data}>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60">
@@ -144,7 +144,7 @@ function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClo
           </p>
         )}
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }
 
@@ -263,14 +263,14 @@ export function ShopCover({
               {/* 🏅 THE APP-DRAWN SEAL (owner 17 Nov: the only seal he saw was the one baked into the photo) — the SAME
                   Setnayan Verified seal the public shop hero and the Find card draw, from `verification` data. */}
               {d.verified.isVerified ? (
-                <a href="#docs" className="inline-flex min-h-11 items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
+                <a href="#docs" className="sn-hit inline-flex items-center gap-1.5 font-semibold" data-shop-cover-seal="verified">
                   <span className="inline-flex leading-[0]">
                     <ImageBadge {...badgeImageOf(verifiedBadge())} uid="cover-verified" size={30} label="Setnayan Verified" />
                   </span>
                   Setnayan Verified
                 </a>
               ) : d.verified.inReview ? (
-                <a href="#docs" className="inline-flex min-h-11 items-center">Verification in review</a>
+                <a href="#docs" className="sn-hit inline-flex items-center">Verification in review</a>
               ) : (
                 <a href="#docs" className="sn-hit inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -278,12 +278,12 @@ export function ShopCover({
                 </a>
               )}
               {(d.earned ?? []).map((b) => (
-                <a key={b.key} href="#badges" title={b.label} className="inline-flex min-h-11 items-center leading-[0]" data-shop-cover-badge={b.key}>
+                <a key={b.key} href="#badges" title={b.label} className="sn-hit inline-flex items-center leading-[0]" data-shop-cover-badge={b.key}>
                   <ImageBadge {...badgeImageOf(b)} uid={`cover-${b.key}`} size={30} label={b.label} />
                 </a>
               ))}
               {d.earned && d.earned.length === 0 && d.nextBadge ? (
-                <a href="#badges" className="inline-flex min-h-11 items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
+                <a href="#badges" className="sn-hit inline-flex items-center text-white/80 underline decoration-white/40 underline-offset-[3px]" data-shop-cover-next="">
                   {d.nextBadge}
                 </a>
               ) : null}
@@ -296,7 +296,7 @@ export function ShopCover({
                 </Link>
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
-              <a href="#plan" className="inline-flex min-h-11 items-center gap-0.5 text-white/75" data-shop-plan="">
+              <a href="#plan" className="sn-hit inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
                 {d.planLabel} plan
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
               </a>
@@ -441,7 +441,7 @@ export const SHARE_DOOR_PRESS = actionButtonClass('neutral', { extra: SHARE_DOOR
 function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | null; name: string; onClose: () => void }) {
   const toast = useToast();
   return (
-    <RiseScreen title="Share your shop" onClose={onClose} data="shop-share">
+    <ShopDoorScreen title="Share your shop" onClose={onClose} data="shop-share">
       <div className="divide-y divide-ink/10 px-4 pb-6" data-shop-sheet="share">
         <div className="flex items-center justify-between gap-3 py-3">
           <span className="min-w-0">
@@ -486,7 +486,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
           </button>
         </div>
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }
 
@@ -499,7 +499,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
 function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live: boolean; shareUrl: string | null; onClose: () => void }) {
   const where = shareUrl ? shareUrl.replace(/^https?:\/\/(www\.)?/, '') : path;
   return (
-    <RiseScreen
+    <ShopDoorScreen
       title="Your page"
       line={`${where} · ${live ? 'as couples see it' : 'a preview for your team'}`}
       actions={
@@ -513,6 +513,6 @@ function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live:
       data="shop-view"
     >
       <iframe src={path} title={live ? 'Your shop, as couples see it' : 'Your shop, a preview for your team'} className="min-h-0 w-full flex-1 border-0 bg-cream" data-view-shop-frame="" />
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }

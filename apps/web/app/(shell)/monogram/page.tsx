@@ -39,7 +39,7 @@ const PAGE_DESCRIPTION =
   'Design your own wedding monogram, free — no sign-up. Combine your initials in real typefaces, weave and frame them your way, and download it as a crisp vector (SVG) or a transparent PNG. Then make it your wedding’s mark everywhere with Setnayan.';
 // Use the neutral site-wide brand card (the /our-story manifesto card is
 // off-topic for a tool page); a monogram-specific OG render is a nice follow-up.
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

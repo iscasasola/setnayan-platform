@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
-import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import Link from 'next/link';
 import { Notice, NoticeSlot } from '@/app/_components/notices/notices';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
-import { newlyEarned, type EarnedNews, type ShopBadgeFacts } from '@/lib/shop-badges';
+import type { AwardItem } from '@/lib/award-queue';
+import { AWARD_NEWS_HREF, awardNews, type AwardNews } from '@/lib/badge-earned-news';
+import { BADGE_ART_H, BADGE_ART_W } from '@/lib/shop-badge-shelf';
+import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
 
 /**
@@ -26,6 +29,12 @@ import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
  * the next rung.
  *
  * ⚠ Only "earned" is said — never "within reach": the ladder has no rule for how close is close (owner: "don't guess").
+ *
+ * ✅ ONLY THE APPROVED BADGES (owner 17 Nov, on live: *"i still see old badges?"*). After the facts read (still THE door
+ * that pays a newly earned reward), the line asks the award queue (`?view=awards`) and announces only what it plays:
+ * Setnayan Verified or a tier of the five v84 badges (`awardNews`, lib/badge-earned-news.ts) — drawn with the v84 art,
+ * with "See it" to Shop › Badges. A retired badge (the Events ladder, Rating, Business since, the monthly awards) is
+ * never announced. Save to print stays for Verified (its print file is the v84 blue check).
  */
 const KEY = (vendorId: string) => `setnayan.badges_seen.${vendorId}`;
 
@@ -41,10 +50,13 @@ function readSeen(vendorId: string): string[] {
 
 export function BadgeEarnedLine({
   factsUrl = '/api/vendor/badges?view=facts',
+  awardsUrl = '/api/vendor/badges?view=awards',
   giftsUrl = '/api/unwrap?shop=1',
   labFiles,
 }: {
   factsUrl?: string;
+  /** The award queue — what the line may announce (Verified + the five v84 badges' tiers). */
+  awardsUrl?: string;
   /**
    * 🎁 The badge rewards' gift moment (owner 14 Nov 2026: "this effect also applies to shops when they get a badge. and
    * a reward"). Asked only AFTER the facts read above answers — that read is the door that PAYS a newly earned reward,
@@ -54,16 +66,20 @@ export function BadgeEarnedLine({
   /** /dev only — each badge's print file as a data: URI, so the lab saves the real file with no session. */
   labFiles?: Record<string, string>;
 }) {
-  const [news, setNews] = useState<{ vendorId: string; n: EarnedNews } | null>(null);
+  const [news, setNews] = useState<{ vendorId: string; n: AwardNews } | null>(null);
   const [swept, setSwept] = useState(false);
 
   useEffect(() => {
     let live = true;
-    fetch(factsUrl, { credentials: 'same-origin', headers: { accept: 'application/json' } })
-      .then((r) => (r.ok ? (r.json() as Promise<{ vendorId: string; facts: ShopBadgeFacts }>) : null))
-      .then((j) => {
+    const ask = <T,>(url: string) =>
+      fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } }).then((r) => (r.ok ? (r.json() as Promise<T>) : null));
+    // The facts read first: it pays what was just earned, so the queue read after it already holds it.
+    ask<{ vendorId: string }>(factsUrl)
+      .then(async (j) => {
         if (!live || !j) return;
-        const n = newlyEarned(j.facts, readSeen(j.vendorId));
+        const q = await ask<{ queue: AwardItem[] | null }>(awardsUrl).catch(() => null);
+        if (!live || !q) return;
+        const n = awardNews(q.queue, readSeen(j.vendorId));
         if (n) setNews({ vendorId: j.vendorId, n });
       })
       // A failed read is not news: the line simply does not appear (nothing on Today waits on it).
@@ -72,7 +88,7 @@ export function BadgeEarnedLine({
     return () => {
       live = false;
     };
-  }, [factsUrl]);
+  }, [factsUrl, awardsUrl]);
 
   return (
     <>
@@ -80,19 +96,26 @@ export function BadgeEarnedLine({
         <Notice
           kind="news"
           noticeKey={`badge-earned:${news.vendorId}:${news.n.key}`}
-          mark={<ShopBadgePill badge={news.n.badge} size="xs" className="shrink-0" />}
+          mark={<EarnedMark n={news.n} />}
           title={news.n.sentence}
           detail={news.n.detail}
           actions={
-            <SaveFileLink
-              href={labFiles?.[news.n.key] ?? `/api/vendor/badges?badge=${encodeURIComponent(news.n.key)}`}
-              filename={`setnayan-${news.n.key.replace(/[^a-z0-9]+/gi, '-')}.svg`}
-              className={NOTICE_ACTION}
-              data-badge-earned-save=""
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Save to print
-            </SaveFileLink>
+            <>
+              <Link href={AWARD_NEWS_HREF} className={NOTICE_ACTION} data-badge-earned-see="">
+                See it
+              </Link>
+              {news.n.key === 'verified' ? (
+                <SaveFileLink
+                  href={labFiles?.[news.n.key] ?? `/api/vendor/badges?badge=${encodeURIComponent(news.n.key)}`}
+                  filename={`setnayan-${news.n.key.replace(/[^a-z0-9]+/gi, '-')}.svg`}
+                  className={NOTICE_ACTION}
+                  data-badge-earned-save=""
+                >
+                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Save to print
+                </SaveFileLink>
+              ) : null}
+            </>
           }
           onClose={() => {
             try {
@@ -107,4 +130,14 @@ export function BadgeEarnedLine({
       <NoticeSlot place="top" className="mt-3 mb-1 border-b border-ink/10" />
     </>
   );
+}
+
+/** The v84 picture beside the line: the tier's own art, or Verified's blue check. */
+function EarnedMark({ n }: { n: AwardNews }) {
+  if (n.art.kind === 'tier') {
+    // eslint-disable-next-line @next/next/no-img-element -- a 28-px static picture; next/image adds JS for nothing
+    return <img src={n.art.src} width={BADGE_ART_W} height={BADGE_ART_H} alt="" loading="lazy" decoding="async" className="h-auto w-7 shrink-0" data-badge-earned-art="" />;
+  }
+  // trusted: the approved v84 art from a constant (lib/verified-v84-art.ts), never user text
+  return <span className="inline-grid h-7 w-7 shrink-0" data-badge-earned-art="" dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'earned-vr', size: 28, word: false }) }} />;
 }

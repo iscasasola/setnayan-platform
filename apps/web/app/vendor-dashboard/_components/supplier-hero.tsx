@@ -7,8 +7,9 @@ import { HERO_PLACEHOLDER_FILE } from '@/lib/supplier-hero';
  * `supplier_shop_portfolio_2026-11-09` § 0, approved v3). Owner: *"Today shop and portfolio initial header should have
  * the same height"*.
  *
- *   · ONE height (208 px), the eyebrow at the top left, the ⚙ at the top right, the title and the subtitle on the same
- *     baseline, 16 px gutters — on all three tabs, because all three mount THIS part (guard below).
+ *   · ONE height (208 px, growing — never overlapping — when a sub row needs more), the eyebrow at the top left, the ⚙
+ *     at the top right, the title and the subtitle at the bottom, 16 px gutters — on all three tabs, because all three
+ *     mount THIS part (guard below).
  *   · A photo under a legibility scrim: Today = the most-viewed portfolio photo · Shop = the cover photo · Portfolio =
  *     the latest upload (`lib/supplier-hero.ts` decides which).
  *   · No photo → the PLACEHOLDER picture (the category's from Admin › Categories → its group's → the shipped
@@ -60,9 +61,14 @@ export function SupplierHero({
   const pic = picture ?? { url: HERO_PLACEHOLDER_FILE, kind: 'placeholder' as const };
   const sample = pic.kind === 'placeholder';
   const attrs = Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v]));
+  // 🔒 NOTHING OVERLAPS (W1 F3, 18 Nov — "Shop · setnayan.com/…" drawn over the shop name, "Sample photo · Upload yours"
+  // over "Get verified · 0 of 3 papers"): the rows are IN FLOW — eyebrow + ⚙ · the chip row · the title block pinned to
+  // the bottom (`mt-auto`) — so a long sub row pushes the hero taller instead of drawing over the rows above it. The
+  // hero is 208 px whenever its lines fit (all three tabs, the owner's "same height"), never shorter. The Upload pill
+  // sits in the chip row beside "Sample photo · Upload yours", so the title block keeps the full width.
   return (
     <div
-      className="relative isolate h-[208px] flex-none overflow-hidden rounded-b-3xl text-white"
+      className="relative isolate flex min-h-[208px] flex-none flex-col overflow-hidden rounded-b-3xl px-4 pb-4 pt-3.5 text-white"
       style={{ background: 'var(--m-espresso)' }}
       data-supplier-hero={sample ? 'placeholder' : 'photo'}
       {...attrs}
@@ -74,37 +80,41 @@ export function SupplierHero({
         className="absolute inset-0 -z-10"
         style={{ background: 'linear-gradient(to top, rgba(20,18,14,.86) 0%, rgba(20,18,14,.45) 48%, rgba(20,18,14,.12) 100%)' }}
       />
-      <div className="absolute inset-x-4 top-3.5 flex min-h-10 items-center justify-between gap-3 text-[12.5px]">
+      <div className="flex min-h-10 items-center justify-between gap-3 text-[12.5px]" data-supplier-hero-top="">
         <span className="min-w-0 truncate opacity-95" data-supplier-hero-eyebrow="">
           {eyebrow}
         </span>
         {gear ? <span className="shrink-0" data-supplier-hero-gear="">{gear}</span> : null}
       </div>
       {sample ? (
-        <span className="absolute left-4 top-16 rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
-          Sample photo · Upload yours
-        </span>
+        <div className="mt-2 flex items-center justify-between gap-2" data-supplier-hero-chips="">
+          <span className="min-w-0 truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
+            Sample photo · Upload yours
+          </span>
+          {upload ? (
+            'door' in upload ? (
+              <span className="shrink-0">{upload.door}</span>
+            ) : (
+              <a href={upload.href} className={`shrink-0 ${HERO_UPLOAD_PILL}`} data-supplier-hero-upload="">
+                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Upload
+              </a>
+            )
+          ) : null}
+        </div>
       ) : caption ? (
-        <span className="absolute right-4 top-16 max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
-          {caption}
-        </span>
+        <div className="mt-2 flex justify-end" data-supplier-hero-chips="">
+          <span className="max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
+            {caption}
+          </span>
+        </div>
       ) : null}
-      <div className={`absolute bottom-4 left-4 ${sample && upload ? 'right-[136px]' : 'right-4'}`}>
+      <div className="mt-auto pt-2" data-supplier-hero-foot="">
         <p className="line-clamp-2 font-[family-name:var(--font-display)] text-[28px] font-semibold leading-[1.1]" {...(titleData ? { [`data-${titleData}`]: '' } : {})}>
           {title}
         </p>
         {sub ? <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-white/90">{sub}</div> : null}
       </div>
-      {sample && upload ? (
-        'door' in upload ? (
-          <span className="absolute bottom-4 right-4">{upload.door}</span>
-        ) : (
-          <a href={upload.href} className={`absolute bottom-4 right-4 ${HERO_UPLOAD_PILL}`} data-supplier-hero-upload="">
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Upload
-          </a>
-        )
-      ) : null}
     </div>
   );
 }

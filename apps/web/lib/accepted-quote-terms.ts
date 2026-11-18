@@ -258,7 +258,7 @@ export function quoteScheduleFrame(booked: boolean, supplierName: string): { lab
   }
   return {
     label: 'Schedule · not booked yet',
-    tip: `The terms of the quote you accepted. Nothing is owed yet: ${supplierName} hasn’t booked you, so your Budget doesn’t count it. These payments start once ${supplierName} agrees to lock.`,
+    tip: `The terms of the quote you accepted. Nothing is owed yet: ${supplierName} hasn’t booked you, so your Budget doesn’t count it. These payments start once ${supplierName} confirms the booking.`,
   };
 }
 

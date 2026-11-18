@@ -191,7 +191,7 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
   // 📊 RENTED BY THE PIECE (Availability plan step 4, owner ruling 2): the supplier says how many pieces at the yes.
   pieces_needed: () => ({
     tone: 'refused',
-    text: 'This card rents by the piece, so the yes says how many. Open this client in Clients, type how many they need, then agree. Nothing was booked yet.',
+    text: 'This card rents by the piece and the couple didn’t say how many. Open this client in Clients, type how many they need, then agree. Nothing was booked yet.',
   }),
   // The pieces asked would go past what the card has that day (`set_booked_quantity`, all or nothing).
   pieces_full: () => ({

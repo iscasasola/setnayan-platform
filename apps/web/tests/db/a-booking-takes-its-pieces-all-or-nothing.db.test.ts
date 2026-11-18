@@ -175,10 +175,10 @@ test('1 · booked_quantity is written only by set_booked_quantity — a couple c
   const chairs = await pieceCard(shop.vpid, 500);
   const row = await ask(couple, shop.vpid, chairs);
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 200 WHERE vendor_id = $1`, [row]);
-  await assert.rejects(
-    asUser(couple, () => db.query(`UPDATE public.event_vendors SET booked_quantity = 1 WHERE vendor_id = $1`, [row])),
-    /set only by set_booked_quantity|permission denied/i,
-  );
+  // Refused by the trigger (or not even visible to the write) — either way the 200 must stand.
+  await asUser(couple, () => db.query(`UPDATE public.event_vendors SET booked_quantity = 1 WHERE vendor_id = $1`, [row])).catch((e: Error) => {
+    assert.match(e.message, /set only by set_booked_quantity|permission denied/i);
+  });
   const n = (await db.query<{ q: number }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q;
   assert.equal(n, 200);
 });
@@ -221,9 +221,17 @@ async function mkPool(vpid: string, cap: number): Promise<string> {
     )
   ).rows[0]!.p;
 }
+/** As the SHOP (the function's own caller check: the shop on its own booking, or the couple). */
 async function acquire(row: string, pool: string): Promise<{ status: string; counted?: boolean }> {
-  const ev = (await db.query<{ e: string }>(`SELECT event_id AS e FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.e;
-  return (await db.query<{ out: { status: string; counted?: boolean } }>(`SELECT public.acquire_schedule_pools($1, $2, $3::uuid[]) AS out`, [ev, row, [pool]])).rows[0]!.out;
+  const r = (await db.query<{ e: string; uid: string }>(
+    `SELECT ev.event_id AS e, vp.user_id AS uid FROM public.event_vendors ev
+       JOIN public.vendor_profiles vp ON vp.vendor_profile_id = ev.marketplace_vendor_id
+      WHERE ev.vendor_id = $1`,
+    [row],
+  )).rows[0]!;
+  return asUser(r.uid, async () =>
+    (await db.query<{ out: { status: string; counted?: boolean } }>(`SELECT public.acquire_schedule_pools($1, $2, $3::uuid[]) AS out`, [r.e, row, [pool]])).rows[0]!.out,
+  );
 }
 async function seats(row: string): Promise<number> {
   return (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_schedule_pool_bookings WHERE event_vendor_id = $1 AND released_at IS NULL`, [row])).rows[0]!.n;
@@ -258,4 +266,82 @@ test('4 · acquire_schedule_pools carries quantity, all or nothing — and an Al
 test('5 · a schedule that rents pieces may hold more than 500', async () => {
   const shop = await mkShop('Big Rentals', 'pro');
   await mkPool(shop.vpid, 2000);
+});
+
+async function askQty(uid: string, row: string, n: number | null): Promise<{ status: string; free?: number }> {
+  return asUser(uid, async () => (await db.query<{ r: { status: string; free?: number } }>(`SELECT public.set_asked_quantity($1, $2) AS r`, [row, n])).rows[0]!.r);
+}
+
+test('6 · the COUPLE says how many at the ask — honestly told when not enough are free; a stranger cannot', async () => {
+  const shop = await mkShop('Ask Rentals', 'pro');
+  const chairs = await pieceCard(shop.vpid, 500);
+  const other = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [other]);
+  const row = await ask(couple, shop.vpid, chairs);
+  const tooMany = await askQty(couple, row, 200);
+  assert.equal(tooMany.status, 'full');
+  assert.equal(tooMany.free, 180);
+  assert.equal((await askQty(couple, row, 150)).status, 'ok');
+  const q = (await db.query<{ q: number }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q;
+  assert.equal(q, 150, "the couple's number was not kept");
+  const stranger = await mkUser('stranger-couple', 'customer');
+  assert.equal((await askQty(stranger, row, 10)).status, 'not_authorized');
+  // The yes takes the couple's number — no supplier number needed.
+  assert.notEqual((await agree(shop.uid, row)).status, 'pieces_needed');
+  assert.equal(await outOn(chairs), 470);
+  assert.equal((await askQty(couple, row, 1)).status, 'already_booked', 'a booked number changed after the yes');
+});
+
+test('7 · the yes counts its OWN pieces: 420 of 500 out, a stale 100 is refused, 80 fits, then 1 more is refused', async () => {
+  // (One ask open at a time: the shipped "answer the others first" rule refuses a yes while other couples wait on the
+  // same date — see the PR's owner questions.)
+  const shop = await mkShop('Race Rentals', 'pro');
+  const chairs = await pieceCard(shop.vpid, 500);
+  const other = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [other]);
+  const [ca, cb, cc] = [await mkUser('race-a', 'customer'), await mkUser('race-b', 'customer'), await mkUser('race-c', 'customer')];
+  const a = await ask(ca, shop.vpid, chairs);
+  assert.equal((await askQty(ca, a, 100)).status, 'ok');
+  assert.equal((await agree(shop.uid, a)).status, 'ok');
+  assert.equal(await outOn(chairs), 420);
+  // A number written while it still fitted (the couple asked before the other yes) — the yes must re-count.
+  const b = await ask(cb, shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 100 WHERE vendor_id = $1`, [b]);
+  assert.equal((await agree(shop.uid, b)).status, 'daily_limit_reached', '420 + 100 of 500 was taken — a double booking');
+  assert.equal((await setQty(shop.uid, b, 80)).status, 'ok');
+  assert.equal((await agree(shop.uid, b)).status, 'ok', '420 + 80 of 500 was refused');
+  assert.equal(await outOn(chairs), 500);
+  const c = await ask(cc, shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 1 WHERE vendor_id = $1`, [c]);
+  assert.equal((await agree(shop.uid, c)).status, 'daily_limit_reached', '501 of 500 was taken');
+});
+
+test('8 · the yes and the piece number take ONE lock per shop (the guard is in the database, not the app)', async () => {
+  // PGlite runs one connection, so two transactions cannot truly race here. What can be proven: both writers that
+  // grow a card's count take the same transaction lock, which in Postgres serializes them — the second waits for the
+  // first to commit and then reads its pieces.
+  for (const fn of ['vendor_agree_to_lock', 'set_booked_quantity']) {
+    const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef(oid) AS d FROM pg_proc WHERE proname = $1`, [fn])).rows[0]!.d;
+    assert.match(def, /lock_shop_day_counts\(v_service\)/, `${fn} does not take the shop lock`);
+  }
+  const lock = (await db.query<{ d: string }>(`SELECT pg_get_functiondef(oid) AS d FROM pg_proc WHERE proname = 'lock_shop_day_counts'`)).rows[0]!.d;
+  assert.match(lock, /pg_advisory_xact_lock/);
+});
+
+test('9 · the Clients day bar reads the guard\'s own count (vendor_day_pool_taken = schedule_pool_taken_on)', async () => {
+  const shop = await mkShop('Bar Rentals', 'pro');
+  const chairs = await pieceCard(shop.vpid, 900);
+  const pool = await mkPool(shop.vpid, 500);
+  const first = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [first]);
+  assert.equal((await acquire(first, pool)).status, 'ok');
+  const rows = await asUser(shop.uid, async () =>
+    (await db.query<{ pool_id: string; taken: number }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY])).rows,
+  );
+  assert.equal(rows.find((r) => r.pool_id === pool)?.taken, 320);
+  const stranger = await mkShop('Nosy Rentals', 'pro');
+  const theirs = await asUser(stranger.uid, async () =>
+    (await db.query<{ pool_id: string }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY])).rows,
+  );
+  assert.equal(theirs.some((r) => r.pool_id === pool), false, "another shop read this shop's schedule");
 });

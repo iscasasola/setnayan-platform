@@ -1404,7 +1404,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const todayIso = manilaTodayIso();
   const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
 
-  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe, cardStyles] = await Promise.all([
+  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe, cardStyles, poolTaken] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
     // and an event with a seat is booked — the holders are the open conversations without one.
@@ -1416,8 +1416,14 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
     supabase.from('vendor_services').select('vendor_service_id, title, availability_style').eq('vendor_profile_id', vendorProfileId),
+    // 🔒 Step 4: the day's taken count per schedule FROM THE GUARD's own function (`schedule_pool_taken_on`) — one call.
+    supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
   if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
+  if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
+  const takenByPool = new Map(((poolTaken.data ?? []) as { pool_id: string; taken: number }[]).map((r) => [r.pool_id, r.taken]));
+  /** The guard's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
+  const dbTakenOf = (poolId: string): number | null => (poolTaken.error ? null : takenByPool.get(poolId) ?? 0);
   const cardById = new Map(
     ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
       c.vendor_service_id,
@@ -1506,7 +1512,10 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   // The day, schedule by schedule — every block through the ONE rule (`lib/not-available.ts`, repeats + hours).
   const groups = dayGroupsOf(day, {
     today: todayIso,
-    pools: pools.map((p) => ({ poolId: p.poolId, label: p.label, capacity: p.capacity, ...poolStyle(p) })),
+    pools: pools.map((p) => {
+      const st = poolStyle(p);
+      return { poolId: p.poolId, label: p.label, capacity: p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId) } : {}) };
+    }),
     bookings: bookedToday
       // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.
       .filter((b) => cardOfBooking(b.eventVendorId)?.style !== 'none')

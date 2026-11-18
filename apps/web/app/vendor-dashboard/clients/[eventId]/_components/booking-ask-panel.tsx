@@ -192,7 +192,8 @@ export function LockRequestAnswer({
                 <input
                   type="number"
                   name="booked_quantity"
-                  required
+                  required={askPieces.asked === null}
+                  defaultValue={askPieces.asked ?? undefined}
                   min={1}
                   max={askPieces.have}
                   step={1}

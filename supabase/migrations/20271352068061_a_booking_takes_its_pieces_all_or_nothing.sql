@@ -94,6 +94,55 @@ CREATE TRIGGER trg_booked_quantity_set_on_insert_only_by_the_definer
   BEFORE INSERT ON public.event_vendors
   FOR EACH ROW EXECUTE FUNCTION public.booked_quantity_set_on_insert_only_by_the_definer();
 
+
+-- ── 1b · THE ONE COUNT and THE ONE LOCK ───────────────────────────────────────
+-- schedule_pool_taken_on — a schedule's taken count on a day: the pieces of every live seat (booked_quantity, NULL = 1)
+-- + outside clients on that day. acquire_schedule_pools, set_booked_quantity AND the Clients day bar
+-- (vendor_day_pool_taken) all read THIS function, so the bar and the guard can never disagree.
+CREATE OR REPLACE FUNCTION public.schedule_pool_taken_on(p_pool_id uuid, p_day date, p_exclude uuid DEFAULT NULL)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT (
+    (SELECT COALESCE(sum(COALESCE(ev.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb
+       LEFT JOIN public.event_vendors ev ON ev.vendor_id = pb.event_vendor_id
+      WHERE pb.pool_id = p_pool_id
+        AND pb.booked_date = p_day
+        AND pb.released_at IS NULL
+        AND (p_exclude IS NULL OR pb.event_vendor_id <> p_exclude))
+    +
+    (SELECT count(*) FROM public.vendor_calendar_blocks b
+      WHERE b.pool_id = p_pool_id
+        AND b.block_source = 'external_client'
+        AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, p_day))
+  )::integer;
+$function$;
+REVOKE ALL ON FUNCTION public.schedule_pool_taken_on(uuid, date, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.schedule_pool_taken_on(uuid, date, uuid) TO service_role;
+
+-- lock_shop_day_counts — one transaction-scoped lock per SHOP, taken by every write that grows a card's count
+-- (the yes, the piece quantity). A card's count spans its sharing cards, so a lock on one card row is not enough.
+CREATE OR REPLACE FUNCTION public.lock_shop_day_counts(p_service_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_shop uuid;
+BEGIN
+  SELECT vendor_profile_id INTO v_shop FROM public.vendor_services WHERE vendor_service_id = p_service_id;
+  IF v_shop IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('setnayan.shop-day-counts:' || v_shop::text, 0));
+  END IF;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.lock_shop_day_counts(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.lock_shop_day_counts(uuid) TO service_role;
+
 -- ── 2 · service_card_bookings_on counts pieces for a by-the-piece service ─────
 CREATE OR REPLACE FUNCTION public.service_card_bookings_on(
   p_service_id        uuid,
@@ -256,19 +305,7 @@ BEGIN
     -- (b) Occupancy = live app reservations (other booking rows) +
     --     external-client jobs on this pool overlapping the date (one-off and
     --     all-day by CHECK, asked through the same rule).
-    SELECT
-      (SELECT COALESCE(sum(COALESCE(ev2.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb
-         LEFT JOIN public.event_vendors ev2 ON ev2.vendor_id = pb.event_vendor_id
-        WHERE pb.pool_id = v_pool.pool_id
-          AND pb.booked_date = v_date
-          AND pb.released_at IS NULL
-          AND pb.event_vendor_id <> p_event_vendor_id)
-      +
-      (SELECT count(*) FROM public.vendor_calendar_blocks b
-        WHERE b.pool_id = v_pool.pool_id
-          AND b.block_source = 'external_client'
-          AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, v_date))
-    INTO v_used;
+    v_used := public.schedule_pool_taken_on(v_pool.pool_id, v_date, p_event_vendor_id);
 
     -- All or nothing, by quantity: every booking that takes 1 is refused exactly as before (used + 1 > cap ⇔ used >= cap).
     IF v_used + v_qty > v_pool.daily_booking_capacity THEN
@@ -344,6 +381,7 @@ BEGIN
     FROM public.vendor_services vs
    WHERE vs.vendor_service_id = v_service
      FOR UPDATE;
+  PERFORM public.lock_shop_day_counts(v_service);
   IF v_style IS DISTINCT FROM 'piece' THEN
     RETURN jsonb_build_object('status', 'not_by_the_piece');
   END IF;
@@ -374,19 +412,7 @@ BEGIN
      ORDER BY sp.pool_id
        FOR UPDATE OF sp
   LOOP
-    SELECT
-      (SELECT COALESCE(sum(COALESCE(ev2.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb2
-         LEFT JOIN public.event_vendors ev2 ON ev2.vendor_id = pb2.event_vendor_id
-        WHERE pb2.pool_id = v_pool.pool_id
-          AND pb2.booked_date = v_pool.booked_date
-          AND pb2.released_at IS NULL
-          AND pb2.event_vendor_id <> p_event_vendor_id)
-      +
-      (SELECT count(*) FROM public.vendor_calendar_blocks b
-        WHERE b.pool_id = v_pool.pool_id
-          AND b.block_source = 'external_client'
-          AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, v_pool.booked_date))
-    INTO v_used;
+    v_used := public.schedule_pool_taken_on(v_pool.pool_id, v_pool.booked_date, p_event_vendor_id);
     IF v_used + p_quantity > v_pool.daily_booking_capacity THEN
       RETURN jsonb_build_object('status', 'full', 'pool_id', v_pool.pool_id, 'pool_label', v_pool.pool_label,
         'have', v_pool.daily_booking_capacity, 'out', v_used, 'free', GREATEST(v_pool.daily_booking_capacity - v_used, 0));
@@ -412,5 +438,460 @@ ALTER TABLE public.vendor_schedule_pools
 ALTER TABLE public.vendor_schedule_pools
   ADD CONSTRAINT vendor_schedule_pools_daily_booking_capacity_check
   CHECK (daily_booking_capacity >= 1);
+
+
+-- ── 6 · the COUPLE picks how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN step 3 AV-PIECE "the
+--     couple picks how many"). Their ask carries the number; the supplier may change it when accepting
+--     (set_booked_quantity). An ask takes nothing — only the yes takes pieces — so this checks the stock only to
+--     answer honestly ("only 180 free that day"), it never holds them.
+CREATE OR REPLACE FUNCTION public.set_asked_quantity(p_event_vendor_id uuid, p_quantity int)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_event_id uuid;
+  v_service  uuid;
+  v_status   text;
+  v_style    text;
+  v_cap      int;
+  v_date     date;
+  v_prec     text;
+  v_out      int;
+BEGIN
+  SELECT ev.event_id, ev.service_id, ev.status::text INTO v_event_id, v_service, v_status
+    FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
+  IF v_event_id IS NULL OR (v_event_id NOT IN (SELECT public.current_couple_event_ids()) AND NOT public.is_admin()) THEN
+    RETURN jsonb_build_object('status', 'not_authorized');
+  END IF;
+  IF v_status IN ('contracted', 'deposit_paid', 'delivered', 'complete') THEN
+    RETURN jsonb_build_object('status', 'already_booked');
+  END IF;
+  SELECT vs.availability_style, NULLIF(vs.daily_capacity, 0) INTO v_style, v_cap
+    FROM public.vendor_services vs WHERE vs.vendor_service_id = v_service;
+  IF v_style IS DISTINCT FROM 'piece' THEN
+    RETURN jsonb_build_object('status', 'not_by_the_piece');
+  END IF;
+  IF p_quantity IS NULL OR p_quantity < 1 THEN
+    RETURN jsonb_build_object('status', 'bad_quantity');
+  END IF;
+  SELECT event_date, event_date_precision INTO v_date, v_prec FROM public.events WHERE event_id = v_event_id;
+  IF v_cap IS NOT NULL AND v_date IS NOT NULL AND v_prec = 'day' THEN
+    v_out := public.service_card_bookings_on(v_service, v_date, p_event_vendor_id);
+    IF v_out + p_quantity > v_cap THEN
+      RETURN jsonb_build_object('status', 'full', 'have', v_cap, 'free', GREATEST(v_cap - v_out, 0));
+    END IF;
+  END IF;
+  UPDATE public.event_vendors SET booked_quantity = p_quantity WHERE vendor_id = p_event_vendor_id;
+  RETURN jsonb_build_object('status', 'ok', 'quantity', p_quantity);
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.set_asked_quantity(uuid, int) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_asked_quantity(uuid, int) TO authenticated, service_role;
+
+-- ── 7 · the Clients day bar reads the guard's own count ─────────────────────
+-- vendor_day_pool_taken(day) — every schedule of the CALLER's shop with schedule_pool_taken_on for that day: the
+-- exact number acquire_schedule_pools refuses by. One call per screen (the shop's schedules are few).
+CREATE OR REPLACE FUNCTION public.vendor_day_pool_taken(p_day date)
+RETURNS TABLE (pool_id uuid, taken integer)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT sp.pool_id, public.schedule_pool_taken_on(sp.pool_id, p_day, NULL)
+    FROM public.vendor_schedule_pools sp
+   WHERE sp.vendor_profile_id IN (SELECT public.current_vendor_ids())
+     AND sp.is_active;
+$function$;
+REVOKE ALL ON FUNCTION public.vendor_day_pool_taken(date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.vendor_day_pool_taken(date) TO authenticated, service_role;
+
+-- ── 8 · the yes counts the booking's own pieces, under one lock per shop ────
+-- vendor_agree_to_lock: body identical to 20271316466285 except the PER-CARD DAILY LIMIT block — it now takes
+-- lock_shop_day_counts and refuses when out + this booking's pieces > the card's number (a piece booking with no
+-- number is refused: 'pieces_needed'). For every card that is not by the piece the rule is unchanged.
+CREATE OR REPLACE FUNCTION public.vendor_agree_to_lock(p_event_vendor_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_state       TEXT;
+  v_expires_at  TIMESTAMPTZ;
+  v_agreed_at   TIMESTAMPTZ;
+  v_event_id    UUID;
+  v_group       TEXT;
+  v_status      TEXT;
+  v_mvid        UUID;
+  v_slot        UUID;
+  v_rows        INTEGER;
+  v_msg         TEXT;
+  v_date        DATE;
+  v_prec        TEXT;
+  v_event_ids   UUID[];
+  v_capacity    INT;
+  v_used        INT;
+  v_competing   INT;
+  v_pkg_id      UUID;
+  v_covered     INT;
+  v_service     UUID;
+  v_daily_cap   INT;
+  v_own_qty     INT;
+  v_own_style   TEXT;
+BEGIN
+  -- ── OWNERSHIP ──────────────────────────────────────────────────────────────
+  -- NARROWED from the shipped gate, deliberately. current_vendor_event_vendor_ids()
+  -- has a second arm matching on event_vendors.service_id via
+  -- agent_assigned_service_ids() — and service_id is a column the COUPLE can
+  -- write (authenticated holds UPDATE on it; no constraint ties it to
+  -- marketplace_vendor_id). That was harmless while this RPC wrote an inert
+  -- marker nobody read. It is NOT harmless now that this RPC is the only thing
+  -- that creates a booking.
+  -- 🔑 RULE: when an RPC becomes the sole authority for a booking, its ownership
+  -- predicate may not key on a column the counterparty controls.
+  -- The agent arm is kept — staff seats legitimately answer for their org — but
+  -- re-anchored so the service must belong to the org that was actually ASKED.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.event_vendors ev
+     WHERE ev.vendor_id = p_event_vendor_id
+       AND (
+         ev.marketplace_vendor_id IN (SELECT public.current_vendor_profile_ids())
+         OR EXISTS (
+           SELECT 1
+             FROM public.vendor_services vs
+            WHERE vs.vendor_service_id = ev.service_id
+              AND vs.vendor_profile_id = ev.marketplace_vendor_id
+              AND vs.vendor_service_id IN (SELECT public.agent_assigned_service_ids())
+         )
+       )
+  ) AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'not_your_booking' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT lock_request_state, lock_request_expires_at, lock_agreed_at,
+         event_id, hard_single_group, status::TEXT, marketplace_vendor_id,
+         service_time_slot_id, event_vendor_package_id
+    INTO v_state, v_expires_at, v_agreed_at,
+         v_event_id, v_group, v_status, v_mvid, v_slot, v_pkg_id
+    FROM public.event_vendors
+   WHERE vendor_id = p_event_vendor_id
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'booking_not_found' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF v_state IS NULL THEN
+    RETURN jsonb_build_object('status', 'not_requested', 'event_id', v_event_id);
+  END IF;
+
+  IF v_state = 'agreed' THEN
+    RETURN jsonb_build_object(
+      'status', 'already', 'agreed_at', v_agreed_at, 'event_id', v_event_id);
+  END IF;
+
+  IF v_state IN ('declined', 'cancelled', 'expired') THEN
+    RETURN jsonb_build_object(
+      'status', 'not_pending', 'current', v_state, 'event_id', v_event_id);
+  END IF;
+
+  -- LAZY EXPIRY. Kept even though a sweep now exists: the sweep fires on request
+  -- traffic, so a vendor can still open a lapsed request between two passes.
+  -- Flipping (rather than merely refusing) releases both pending indexes so the
+  -- couple can ask again.
+  IF v_expires_at IS NOT NULL AND v_expires_at <= NOW() THEN
+    UPDATE public.event_vendors
+       SET lock_request_state = 'expired',
+           updated_at         = NOW()
+     WHERE vendor_id = p_event_vendor_id
+       AND lock_request_state = 'pending';
+    RETURN jsonb_build_object(
+      'status', 'expired', 'expired_at', v_expires_at, 'event_id', v_event_id);
+  END IF;
+
+  -- ── A CONFIRMED RIVAL IN THE COUPLE'S OWN CATEGORY ─────────────────────────
+  -- The couple booked someone else for this hard-single category while the ask
+  -- was outstanding. Close the request rather than leaving it to rot in the
+  -- pending index. 'cancelled' is the honest value — every path that can confirm
+  -- a hard-single sibling is couple-initiated, so the couple did withdraw it, by
+  -- booking elsewhere — but the ACTOR IS STAMPED so the record does not lose the
+  -- fact that the vendor was here and answered.
+  IF v_group IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.event_vendors ev
+     WHERE ev.event_id = v_event_id
+       AND ev.hard_single_group = v_group
+       AND ev.vendor_id <> p_event_vendor_id
+       AND ev.archived_at IS NULL
+       AND ev.package_role IS DISTINCT FROM 'covered'
+       AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
+  ) THEN
+    UPDATE public.event_vendors
+       SET lock_request_state        = 'cancelled',
+           lock_request_cancelled_at = NOW(),
+           lock_answered_by_user_id  = auth.uid(),
+           updated_at                = NOW()
+     WHERE vendor_id = p_event_vendor_id
+       AND lock_request_state = 'pending';
+    RETURN jsonb_build_object(
+      'status', 'group_taken', 'event_id', v_event_id);
+  END IF;
+
+  -- ── OWNER DECISION 3 · DECLINE THE OTHERS FIRST ───────────────────────────
+  -- Service_Schedule_and_Quotation_Flow_2026-06-02.md §T1.4. A vendor may not
+  -- take one couple while other couples are still waiting on them for the same
+  -- date: they must answer the others first, so nobody loses silently.
+  -- Capacity is the owner's documented default of 1 (daily_booking_capacity was
+  -- never built — see the header). A vendor with no date on the event has no
+  -- date to compete on, so the rule does not apply.
+  SELECT e.event_date, e.event_date_precision
+    INTO v_date, v_prec
+    FROM public.events e
+   WHERE e.event_id = v_event_id;
+
+  IF v_mvid IS NOT NULL AND v_date IS NOT NULL AND v_prec = 'day' THEN
+    SELECT count(*) INTO v_competing
+      FROM public.event_vendors ev
+      JOIN public.events e2 ON e2.event_id = ev.event_id
+     WHERE ev.marketplace_vendor_id = v_mvid
+       AND ev.lock_request_state = 'pending'
+       AND ev.archived_at IS NULL
+       AND ev.vendor_id <> p_event_vendor_id
+       AND e2.event_date = v_date
+       AND e2.event_date_precision = 'day';
+
+    IF COALESCE(v_competing, 0) > 0 THEN
+      RETURN jsonb_build_object(
+        'status', 'resolve_others_first',
+        'competing', v_competing,
+        'event_date', v_date,
+        'event_id', v_event_id);
+    END IF;
+  END IF;
+
+  -- ── TIME-SLOT CAPACITY ────────────────────────────────────────────────────
+  -- Capacity is consumed HERE, not at the couple's ask, because the ask no
+  -- longer books anything. The predicate mirrors acquire_service_time_slot's
+  -- occupancy count (read from the live function, not retyped from memory).
+  IF v_slot IS NOT NULL AND v_date IS NOT NULL AND v_prec = 'day' THEN
+    SELECT slot_capacity INTO v_capacity
+      FROM public.vendor_service_time_slots
+     WHERE slot_id = v_slot
+       AND is_active
+     FOR UPDATE;
+
+    IF v_capacity IS NOT NULL THEN
+      SELECT array_agg(event_id) INTO v_event_ids
+        FROM public.events
+       WHERE event_date = v_date
+         AND event_date_precision = 'day';
+
+      SELECT count(*) INTO v_used
+        FROM public.event_vendors
+       WHERE service_time_slot_id = v_slot
+         AND status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
+         AND archived_at IS NULL
+         AND event_id = ANY (v_event_ids)
+         AND vendor_id <> p_event_vendor_id;
+
+      IF v_used >= v_capacity THEN
+        RETURN jsonb_build_object(
+          'status', 'slot_full', 'event_id', v_event_id);
+      END IF;
+    END IF;
+  END IF;
+
+  -- ── PER-CARD DAILY LIMIT (LOCK-PATH 2 · 20271223386305) ────────────────────
+  -- The couple's ASK is checked against the card's "Bookings per day"
+  -- (vendors/actions.ts #2), but it is THIS yes that books — and it did not
+  -- check the limit at all. Whatever grew the count between the ask and the
+  -- yes (a Locked-QR claim, a booking made while the handshake was off, a limit
+  -- the supplier lowered) let the yes go past it.
+  -- Same rule as the ask and the bench search, and the SAME count — never a
+  -- second one: a card with NO active time slot (a slotted card is judged by
+  -- its slot, above), a daily_capacity above zero, a day-precise date, and
+  -- service_card_bookings_on (booked statuses, not archived, day-precise
+  -- events). A row that is already booked is not a new booking, so its yes is
+  -- never refused here. The card row is locked first, so two yeses on one card
+  -- cannot both read the last free place (NO KEY: bookings that merely
+  -- reference the card are not blocked).
+  IF v_date IS NOT NULL AND v_prec = 'day'
+     AND v_status NOT IN ('contracted', 'deposit_paid', 'delivered', 'complete') THEN
+    SELECT ev.service_id INTO v_service
+      FROM public.event_vendors ev
+     WHERE ev.vendor_id = p_event_vendor_id;
+
+    IF v_service IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM public.vendor_service_time_slots t
+       WHERE t.vendor_service_id = v_service
+         AND t.is_active
+    ) THEN
+      PERFORM 1
+        FROM public.vendor_services vs
+       WHERE vs.vendor_service_id = v_service
+       FOR NO KEY UPDATE;
+      -- 🔒 STEP 4: the count spans every card that shares this one's stock (same shop, service, branch — or its halls),
+      -- so locking this card's row alone let two yeses on two sharing cards both read the last free place. One lock
+      -- per SHOP serializes every yes of the shop (and set_booked_quantity takes the same one).
+      PERFORM public.lock_shop_day_counts(v_service);
+      -- 🪑 A by-the-piece card counts the booking's OWN pieces too: out + mine > have refuses. Every other card: mine = 1,
+      -- so `out + 1 > cap` is exactly the old `out >= cap`. A piece booking with no number is refused — never "one".
+      SELECT vs.availability_style INTO v_own_style FROM public.vendor_services vs WHERE vs.vendor_service_id = v_service;
+      SELECT ev.booked_quantity INTO v_own_qty FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
+      IF v_own_style = 'piece' AND v_own_qty IS NULL THEN
+        RETURN jsonb_build_object('status', 'pieces_needed', 'event_id', v_event_id);
+      END IF;
+      v_own_qty := CASE WHEN v_own_style = 'piece' THEN v_own_qty ELSE 1 END;
+      -- 2026-11-06: the card's own number INSIDE its plan's bookings per date per card (Solo 1 · Pro 3 · Ultra 5 +
+      -- bought). The only changed line of this function — `service_card_daily_limit` (§5 above).
+      v_daily_cap := public.service_card_daily_limit(v_service);
+
+      IF v_daily_cap IS NOT NULL AND v_daily_cap > 0
+         AND public.service_card_bookings_on(v_service, v_date, p_event_vendor_id) + v_own_qty > v_daily_cap THEN
+        RETURN jsonb_build_object(
+          'status', 'daily_limit_reached', 'daily_limit', v_daily_cap, 'event_id', v_event_id);
+      END IF;
+    END IF;
+  END IF;
+
+  -- ── THE FLIP ──────────────────────────────────────────────────────────────
+  -- One statement. state='agreed' AND status='contracted' land together or not
+  -- at all. The status half is MONOTONE (see the header): a row that is already
+  -- further up the ladder keeps its status, so agreeing can never demote a paid
+  -- booking or release the vendor's held date.
+  BEGIN
+    UPDATE public.event_vendors
+       SET lock_request_state       = 'agreed',
+           lock_agreed_at           = NOW(),
+           lock_answered_by_user_id = auth.uid(),
+           lock_declined_at         = NULL,
+           lock_decline_reason      = NULL,
+           -- ── THE STAMPS THIS FUNCTION HAS ALWAYS BEEN SAID TO WRITE ────────
+           -- Added 2026-08-17. `vendors/actions.ts` has asserted since slice A
+           -- that "the agree RPC stamps both alongside 'contracted', exactly as
+           -- acquire_service_time_slot already does". Half of that was true:
+           -- acquire_service_time_slot DOES stamp both (read out of prod, not
+           -- retyped); this function stamped NEITHER.
+           --
+           -- 🔑 A SENTENCE IS NOT A MECHANISM. The comment was written on the
+           -- couple's side, describing what a different object would do, and
+           -- nothing ever checked. Read the function body, not the prose about
+           -- it.
+           --
+           -- WHY IT MATTERS THE INSTANT THE FLAG GOES ON: this becomes the main
+           -- booking path, and ~10 features key off linked_vendor_profile_id —
+           -- the supplier doorway on /{slug}, editorial first-pick credit, Real
+           -- Stories credit, Papic attribution, stage-note recipients, showcase
+           -- credits, the verified median, fraud detection, the plausibility
+           -- scanner, venue-room-size. Every handshake booking would have been
+           -- a 'contracted' row with a NULL link, i.e. invisible to all of them.
+           --
+           -- SHAPE COPIED FROM acquire_service_time_slot, which is the only
+           -- other RPC that books: rank 1, link taken from the row's OWN
+           -- marketplace_vendor_id.
+           --
+           -- COALESCE is DEFENCE IN DEPTH, NOT A LIVE SAFEGUARD — and I only know
+           -- that because writing the test disproved my own reasoning. I added it
+           -- believing the `OR is_admin()` arm of the ownership gate could reach a
+           -- row whose marketplace_vendor_id is NULL, where a bare assignment
+           -- would blank an existing link. It cannot:
+           --   event_vendors_lock_request_marketplace_chk
+           --     CHECK (lock_request_state IS DISTINCT FROM 'pending'
+           --            OR marketplace_vendor_id IS NOT NULL)
+           -- and this UPDATE only ever matches lock_request_state='pending'. So
+           -- the row it guards against cannot exist today. Kept because it costs
+           -- nothing and the constraint is one migration away from being relaxed;
+           -- the constraint itself is now pinned by a test, so whoever relaxes it
+           -- is told.
+           -- 🔑 VERIFY YOUR OWN CONCLUSIONS TOO. This comment was going to assert
+           -- a live hazard that the schema already forbids.
+           selection_match_rank     = 1,
+           linked_vendor_profile_id =
+             COALESCE(marketplace_vendor_id, linked_vendor_profile_id),
+           status = CASE
+                      WHEN status IN ('contracted', 'deposit_paid',
+                                      'delivered', 'complete')
+                        THEN status
+                      ELSE 'contracted'::public.vendor_status
+                    END,
+           updated_at               = NOW()
+     WHERE vendor_id = p_event_vendor_id
+       AND lock_request_state = 'pending';
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+  EXCEPTION
+    -- ⚠ THE VERIFIED-SHOP TRIGGER RAISES check_violation ON THIS TABLE AND THE
+    -- FLIP MAKES IT NEWLY REACHABLE — it used to fire on the couple's write,
+    -- where finalizeVendor handled it. (A second one, the free-tier booking cap,
+    -- was dropped 2026-10-28 — owner: "Remove the limit." — and its
+    -- "fully booked" answer went with it.) The shipped RPC had NO exception block at
+    -- all, so a vendor pressing Agree would have met a raw Postgres string.
+    -- Discriminate on the message; a blanket handler would tell a fully verified
+    -- vendor to finish their verification, which is how a real defect gets
+    -- triaged as a user error and never investigated.
+    WHEN check_violation THEN
+      GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+      IF v_msg LIKE 'vendor_not_verified%' THEN
+        RETURN jsonb_build_object('status', 'not_verified', 'event_id', v_event_id);
+      END IF;
+      RAISE;  -- anything else is a real defect and must fail loudly.
+    WHEN unique_violation THEN
+      -- Raced a rival into the confirmed hard-single index between the
+      -- pre-check above and this statement. Defence in depth, not the design.
+      RETURN jsonb_build_object('status', 'group_taken', 'event_id', v_event_id);
+  END;
+
+  IF v_rows = 0 THEN
+    SELECT lock_request_state, lock_agreed_at INTO v_state, v_agreed_at
+      FROM public.event_vendors WHERE vendor_id = p_event_vendor_id;
+    RETURN jsonb_build_object(
+      'status', 'already', 'current', v_state,
+      'agreed_at', v_agreed_at, 'event_id', v_event_id);
+  END IF;
+
+  -- ── A PACKAGE IS ONE ANSWER, N ROWS (PR-H slice B) ──────────────────────
+  -- The package lock path cascades one ANCHOR row plus a COVERED row per kept
+  -- line, all pointing at one event_vendor_packages booking. Only the anchor
+  -- carries the request — the pending index's own predicate says so
+  -- (package_role IS DISTINCT FROM 'covered'), and a covered line is not a
+  -- separate question anybody could answer.
+  --
+  -- 🔑 SO AGREEING TO THE ANCHOR MUST BOOK THE WHOLE PACKAGE. Without this the
+  -- supplier's yes would confirm ONE line and leave every other line of the
+  -- package they just agreed to sitting at 'considering' — a half-booked
+  -- package, which is not a state the product has copy for, a price for, or a
+  -- way out of.
+  --
+  -- Same MONOTONE shape as the anchor's own flip: a covered row already further
+  -- up the ladder keeps its status, so this can never demote a paid line. The
+  -- booking row moves 'considering' → 'locked' and takes its locked_at receipt
+  -- at the moment the receipt becomes true, not seven days earlier.
+  IF v_pkg_id IS NOT NULL THEN
+    UPDATE public.event_vendors
+       SET status = CASE
+                      WHEN status IN ('contracted', 'deposit_paid',
+                                      'delivered', 'complete')
+                        THEN status
+                      ELSE 'contracted'::public.vendor_status
+                    END,
+           updated_at = NOW()
+     WHERE event_vendor_package_id = v_pkg_id
+       AND package_role = 'covered'
+       AND archived_at IS NULL;
+    GET DIAGNOSTICS v_covered = ROW_COUNT;
+
+    UPDATE public.event_vendor_packages
+       SET status    = 'locked',
+           locked_at = COALESCE(locked_at, NOW())
+     WHERE booking_id = v_pkg_id
+       AND status = 'considering';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'status', 'ok', 'agreed_at', NOW(), 'event_id', v_event_id,
+    'package_lines_booked', COALESCE(v_covered, 0));
+END;
+$function$;
 
 COMMIT;

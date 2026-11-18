@@ -1894,6 +1894,32 @@ export async function finalizeVendor(
           }
         }
       }
+      // 🪑 RENTED BY THE PIECE — the couple says how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN
+      // AV-PIECE "the couple picks how many"). Written by ONE definer (`set_asked_quantity`, their own row only, before
+      // the yes). An ask holds nothing; only the supplier's yes takes the pieces (`vendor_agree_to_lock`, under one
+      // lock per shop) — so "only N free" here is an honest answer, not a hold. A card not by the piece answers
+      // `not_by_the_piece` and the ask goes on as before. A refused write is refused, never booked as one piece.
+      {
+        const rawQty = String(formData.get('booked_quantity') ?? '').trim();
+        const { data: qRaw, error: qErr } = await supabase.rpc('set_asked_quantity', {
+          p_event_vendor_id: vendorId,
+          p_quantity: rawQty === '' ? null : Number.isInteger(Number(rawQty)) ? Number(rawQty) : 0,
+        });
+        const q = (qRaw ?? {}) as { status?: string; free?: number };
+        if (qErr) {
+          console.error('[finalizeVendor] pieces write failed', qErr.message);
+          return { status: 'error', message: 'We couldn’t save how many you need. Try again.' };
+        }
+        if (q.status === 'bad_quantity') {
+          return { status: 'error', message: 'Say how many you need, then book.' };
+        }
+        if (q.status === 'full') {
+          return {
+            status: 'error',
+            message: q.free && q.free > 0 ? `Only ${q.free.toLocaleString('en-US')} are free on your date. Ask for fewer.` : 'None are free on your date.',
+          };
+        }
+      }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
       // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,
       // owner click 2026-11-06). ONE server-only definer answers it — `service_card_daily_limit`, the SAME limit
@@ -2995,6 +3021,39 @@ export async function finalizeVendor(
 // fetchSlotsForCoupleBooking. Empty array → the lock proceeds with the existing
 // one-tap happy path, unchanged for the vast majority of vendors.
 // ============================================================================
+/**
+ * 🪑 The pieces ask before the lock (owner Q2, 19 Nov): when the booked card is Rented by the piece, the lock asks
+ * "How many do you need". Null = not by the piece, or the read failed (the server still refuses a piece ask with no
+ * number — `set_asked_quantity` in finalizeVendor).
+ */
+export async function lockPiecesAsk(
+  eventId: string,
+  vendorId: string,
+): Promise<{ cardName: string; have: number; asked: number | null } | null> {
+  if (!eventId || !vendorId) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: ev, error } = await supabase
+    .from('event_vendors')
+    .select('service_id, booked_quantity')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const row = ev as { service_id: string | null; booked_quantity: number | null } | null;
+  if (error || !row?.service_id) return null;
+  const { data: card, error: cardErr } = await supabase
+    .from('vendor_services')
+    .select('title, availability_style, daily_capacity')
+    .eq('vendor_service_id', row.service_id)
+    .maybeSingle();
+  const c = card as { title: string | null; availability_style: string | null; daily_capacity: number | null } | null;
+  if (cardErr || !c || c.availability_style !== 'piece' || !c.daily_capacity) return null;
+  return { cardName: c.title?.trim() || 'pieces', have: c.daily_capacity, asked: row.booked_quantity };
+}
+
 export async function listLockTimeSlots(
   eventId: string,
   vendorId: string,

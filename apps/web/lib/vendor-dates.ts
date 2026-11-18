@@ -456,7 +456,19 @@ export function dayGroupsOf(
   input: {
     today: string;
     /** `style` / `barName`: the style the schedule's cards book by and the bar's name (step 4); absent = as today. */
-    pools: readonly { poolId: string; label: string; capacity: number; style?: AvailabilityStyle | null; barName?: string }[];
+    pools: readonly {
+      poolId: string;
+      label: string;
+      capacity: number;
+      style?: AvailabilityStyle | null;
+      barName?: string;
+      /**
+       * 🔒 The DATABASE's own taken count for the day (`vendor_day_pool_taken` → `schedule_pool_taken_on`, the very
+       * count `acquire_schedule_pools` refuses by), so the bar and the guard can never disagree. `null` = that read was
+       * refused (the bar says so). Absent = counted here from the rows (the lab, and groups without a bar).
+       */
+      dbTaken?: number | null;
+    }[];
     /**
      * `quantity`: the pieces a by-the-piece booking takes (`event_vendors.booked_quantity`, NULL = 1). `null` = that read
      * was REFUSED — the bar then says so, never "0 out". Absent = 1.
@@ -476,8 +488,11 @@ export function dayGroupsOf(
     const booked = input.bookings.filter((b) => b.poolId === p.poolId);
     // 🗓 A by-the-piece schedule counts PIECES (step 4): the sum of the bookings' quantities. Every other counts bookings.
     const kind = countBarKind(p.style ?? null);
-    const unreadQty = kind === 'pieces' && booked.some((b) => b.quantity === null);
-    const taken = (kind === 'pieces' ? booked.reduce((n, b) => n + (b.quantity ?? 1), 0) : booked.length) + outside.length;
+    const fromDb = p.dbTaken !== undefined;
+    const unreadQty = fromDb ? p.dbTaken === null : kind === 'pieces' && booked.some((b) => b.quantity === null);
+    const taken = fromDb
+      ? (p.dbTaken ?? 0)
+      : (kind === 'pieces' ? booked.reduce((n, b) => n + (b.quantity ?? 1), 0) : booked.length) + outside.length;
     const allDay = closures.filter((b) => (b.dayPart ?? 'all_day') === 'all_day');
     const held = input.holds.some((h) => h.stateDate === day && h.dayState === 'locked' && mine(h.poolId));
     const closed = allDay.length > 0 || held;

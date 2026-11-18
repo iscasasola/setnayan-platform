@@ -371,8 +371,7 @@ export function DiscountsEditor({ initial }: { initial: DiscountDraft[] }) {
             {rows.map((r) => (
               <div
                 key={r.key}
-                className="space-y-2 rounded-lg border p-3"
-                style={{ borderColor: line, background: 'var(--m-paper)' }}
+                className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-3"
               >
                 <div className="flex items-center gap-2">
                   <select

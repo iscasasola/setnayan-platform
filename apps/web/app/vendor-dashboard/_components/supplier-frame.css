@@ -66,3 +66,229 @@
 [data-pin-lead-hub]:has([data-hub-event-menu], [data-event-hub-bar]) > [data-supplier-page-menu='word'] {
   display: none;
 }
+
+/* ── 🖥 TODAY ON A COMPUTER (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED"; P1 drawing
+   `prototypes/supplier_desktop_main_2026-11-16/`, artifact YDmXjk2mRMYcnQg5pKGNqp). Same rows, words and buttons as the
+   phone — only where they sit. The cover, Next events, the five numbers and the thumb row keep the full width; from 1280
+   the work pane (Needs you today · Also today · Events you run · Coming up) and the Shop pane sit side by side; from 1600
+   the work pane splits again: Needs | Coming up. Below 1280 the two wrappers draw nothing (`display: contents`).
+   🔒 app/vendor-dashboard/_components/today-is-two-panes-on-a-computer.test.ts */
+/* 📐 THE DESK COLUMNS' NUMBERS, SAID ONCE (owner 17 Nov audit: no magic numbers) — the drawing's widths
+   (`supplier_desktop_main_2026-11-16`): Today's side pane 400 (420 from 1600), the Shop's side column 400 (440 from
+   1600), Clients' picked day 420, one 28 gap. Every grid below reads these; so does the Shop's thumb row, which is drawn
+   on <body> and cannot read the grid — it starts where the service cards start (the drawing's `.thumb{left:540px}`,
+   580 at 1600 = the content edge + the side column + the gap). */
+:root {
+  --desk-gap: 28px;
+  --today-side: 400px;
+  --shop-desk-side: 400px;
+  --clients-day: 420px;
+}
+@media (min-width: 1600px) {
+  :root {
+    --today-side: 420px;
+    --shop-desk-side: 440px;
+  }
+}
+[data-today-pane],
+[data-today-pane-needs],
+[data-today-top-only],
+[data-today-side] {
+  display: contents;
+}
+/* The side pane's own parts (`supplier-today-first-screen.tsx`): a computer's only — the phone has them at the top, or
+   not at all (the drawing hides `.strip.ver` and the small cards on the phone). */
+[data-today-side-only],
+[data-today-side-minis],
+[data-today-side-verified] {
+  display: none;
+}
+@media (min-width: 1280px) {
+  [data-today-first-screen] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--today-side));
+    column-gap: var(--desk-gap);
+    align-items: start;
+  }
+  [data-today-first-screen] > * {
+    grid-column: 1 / -1;
+  }
+  [data-today-first-screen] > [data-today-pane='work'] {
+    display: block;
+    grid-column: 1;
+    min-width: 0;
+  }
+  [data-today-first-screen] > [data-today-side] {
+    display: block;
+    grid-column: 2;
+    min-width: 0;
+    position: sticky;
+    top: 0;
+  }
+  [data-today-first-screen] > [data-today-top-only] {
+    display: none;
+  }
+  [data-today-side-only],
+  [data-today-side-minis],
+  [data-today-side-verified] {
+    display: block;
+  }
+}
+@media (min-width: 1600px) {
+  [data-today-first-screen] > [data-today-pane='work'] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--desk-gap);
+    align-items: start;
+  }
+  [data-today-pane='work'] > [data-today-pane-needs] {
+    display: block;
+    min-width: 0;
+  }
+  [data-today-pane='work'] > [data-today-coming-up] {
+    min-width: 0;
+  }
+}
+
+/* ── 🖥 SHOP ON A COMPUTER — layout A (owner 16 Nov, the same approval, picks 3 · 4 · 5). The cover and its doors keep the
+   full width; from 1280 the analytics, badges and Makers are a 400px side column (440 from 1600) beside the service
+   cards; the analytics carousel lays out as a grid (pick 4) and the cards go 2 across, 3 from 1600 (pick 5). Same cards,
+   words and order — the loop's inert copies step aside while it is a grid. Below 1280 nothing here applies.
+   🔒 app/vendor-dashboard/shop/the-shop-is-layout-a-on-a-computer.test.ts */
+[data-shop-desk],
+[data-shop-desk-side] {
+  display: contents;
+}
+@media (min-width: 1280px) {
+  [data-shop-desk] {
+    display: grid;
+    grid-template-columns: var(--shop-desk-side) minmax(0, 1fr);
+    column-gap: var(--desk-gap);
+    align-items: start;
+  }
+  /* 🔍 The Shop's thumb row (`ShopServicesThumb`) sits right of the side column, over the cards it searches. */
+  html:has([data-shop-desk]) [data-supplier-thumb='services']:not([data-thumb-up]) {
+    left: calc(var(--thumb-left, 0px) + var(--shop-desk-side) + var(--desk-gap));
+  }
+  [data-shop-desk] > [data-shop-desk-side] {
+    display: block;
+    min-width: 0;
+  }
+  [data-shop-desk] > [data-shop-services] {
+    min-width: 0;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-track] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    transform: none;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-copy],
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-dots] {
+    display: none;
+  }
+  [data-shop-desk-side] [data-shop-analytics] [data-snap-slide] {
+    width: auto;
+    min-width: 0;
+    flex: none;
+  }
+  [data-shop-desk] [data-shop-card-list] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+    align-items: start;
+  }
+  [data-shop-desk] [data-shop-card-list] > * {
+    margin-top: 0;
+    min-width: 0;
+  }
+  [data-shop-desk] [data-shop-card-list] > [data-shop-card-group] {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 1600px) {
+  [data-shop-desk] [data-shop-card-list] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ── 🖥 CLIENTS ON A COMPUTER — THREE COLUMNS (owner "Yes, all 8", item 1, 16 Nov: "side menu · calendar with the client
+   list under it · picked day"; the controller's pick 17 Nov: column 3 shows only once a day is picked, no extra read).
+   Column 1 is the rail. From 1280, once a day is picked on the month, the picked day's block (its date, Open the day ›,
+   the day bar, its rows — all from the month the page already read) sits in column 3, held under the pinned row, and
+   the client list stays in column 2 under the month instead of stepping aside as it does on a phone. Nothing is
+   fetched for it. With no day picked, or below 1280, Clients is the shipped one column.
+   🔒 app/vendor-dashboard/customers/the-picked-day-is-column-three-on-a-computer.test.ts */
+@media (min-width: 1280px) {
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--clients-day));
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 'top day' 'rest day';
+    column-gap: var(--desk-gap);
+    align-items: start;
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) > [data-dates-month-top] {
+    display: block;
+    grid-area: top;
+    min-width: 0;
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) > [data-dates-month-rest] {
+    display: block;
+    grid-area: rest;
+    min-width: 0;
+  }
+  [data-dates-month='clients'] > [data-dates-picked-col] {
+    grid-area: day;
+    min-width: 0;
+    align-self: start;
+    position: sticky;
+    top: var(--sn-pin-top, var(--fd-bar, 0px));
+  }
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-whole-list][hidden],
+  [data-dates-month='clients']:has(> [data-dates-picked-col]) [data-customers-quick-wrap][hidden] {
+    display: block;
+  }
+}
+
+/* 🗂 CLIENTS ON A COMPUTER — AN EVENT TAKES COLUMNS 2 + 3 (owner 17 Nov, DECISION_LOG; P1 drawing
+   `supplier_clients_clean_2026-11-16`: "the event page no longer covers the rail and the top bar"). The picked client
+   is the ONE shipped `PickedShell` (fixed, full screen, portalled to <body>), opened over the still-mounted Clients list.
+   While that list is on screen, from 1280 the same screen starts right of the rail and under the top bar instead of
+   covering them. The phone and a cold load of the client's own address (no list under it) keep the full-screen rise.
+   <body> sits outside `.fd`, so `--fd-rail` / `--fd-bar` cannot reach it: it reads the shell's own two numbers as
+   published on :root by `front-door.css` (`--fd-app-bar` · `--fd-app-rail-wide`), held equal to `.fd`'s values by
+   `customers/an-event-takes-columns-two-and-three.test.ts`. */
+@media (min-width: 1280px) {
+  html:has([data-dates-month='clients']) [data-picked-client] {
+    top: var(--fd-app-bar);
+    left: var(--fd-app-rail-wide);
+    height: auto;
+    bottom: 0;
+  }
+}
+
+/* ‹ The named way back ("‹ Calendar", owner 17 Nov — "never lose the back button"). The shell draws it beside ✕ only
+   when a side asks (`closeAs`); it is hidden everywhere unless shown here — over the Clients month from 1280, the same
+   place the event spans columns 2 + 3 — where it replaces ✕ (both run the one close). */
+/* (0,2,0) — above the button's own one-class `display` utility, whichever stylesheet loads last. */
+[data-picked-client] [data-picked-close-as] {
+  display: none;
+}
+@media (min-width: 1280px) {
+  html:has([data-dates-month='clients']) [data-picked-client] [data-picked-close-as] {
+    display: inline-flex;
+    order: -1;
+  }
+  html:has([data-dates-month='clients']) [data-picked-client] [data-testid='picked-close'] {
+    display: none;
+  }
+}
+
+/* 🖥 The Clients month's two wrappers (`customers-calendar.tsx`) draw nothing of their own anywhere — the phone, the
+   picked client's Schedule calendar and a computer with no day picked all see the month's parts exactly as before. */
+[data-dates-month-top],
+[data-dates-month-rest] {
+  display: contents;
+}

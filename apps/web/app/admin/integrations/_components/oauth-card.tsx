@@ -3,6 +3,7 @@ import type { OAuthIntegrationDef } from '@/lib/integrations/registry';
 import { saveOAuthConfig, saveOAuthField, clearOAuthSecret } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PasswordField } from '@/app/_components/password-field';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 // Integration Activation Console — PR3b. Generic card for an OAuth client:
 // one encrypted client secret + N non-secret config fields (client id/key +
@@ -39,7 +40,7 @@ export function OAuthCard({
       : 'Not set';
 
   return (
-    <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className={`${ADMIN_FRAME} space-y-4 p-5`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
           <KeyRound aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />

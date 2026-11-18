@@ -336,7 +336,7 @@ const LAB_DAYS: ScheduleDayInputs = {
   chapters: [],
   meetings: [{ appointment_id: 'lab-ap1', label: 'Ocular visit', scheduled_at: '2026-11-05T06:00:00.000Z', status: 'confirmed' }],
   payments: [
-    { label: 'Deposit', due_date: '2026-10-20', state: 'paid' },
+    { label: 'First payment', due_date: '2026-10-20', state: 'paid' },
     { label: 'Second payment', due_date: '2026-11-20', state: 'due' },
   ],
 };

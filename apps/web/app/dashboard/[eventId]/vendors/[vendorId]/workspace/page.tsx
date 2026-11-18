@@ -52,6 +52,7 @@ import {
   paymentScheduleSource,
   paymentDoor,
   scheduleDueText,
+  quoteScheduleFrame,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -1854,6 +1855,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     scheduleSource === 'quote' && acceptedQuote
       ? acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0)
       : null;
+  // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
+  // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
+  const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
+  // R12 · an unbooked quote's rows are terms, not debts — no "that day has already passed" on them.
+  const quoteBooked = stage !== null;
   const statusSection = (
       <section id="payments" aria-label="Payment" className="space-y-1">
         <PaymentAsksCard
@@ -1900,17 +1906,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         */}
         {scheduleSource === 'quote' && acceptedQuote ? (
           <TemplateSection
-            label="Schedule"
+            label={quoteSchedule.label}
             right={scheduleTotalCentavos !== null ? <b className={TEMPLATE_MONEY}>Total {pesoFromCentavos(scheduleTotalCentavos)}</b> : undefined}
-            tip={`From the quote you accepted. Pay ${displayName} directly; they confirm each payment as received.`}
+            tip={quoteSchedule.tip}
             data="schedule"
           >
+            {quoteSchedule.line ? (
+              <p className={`${TEMPLATE_SUBLINE} pb-2`} data-schedule-not-owed="">
+                {quoteSchedule.line}
+              </p>
+            ) : null}
             <TemplateRows label="Payment schedule">
               {acceptedQuote.schedule.map((row, i) => (
                 <TemplateRow
                   key={`${i}-${row.label}`}
                   title={row.label}
-                  line={`Due ${scheduleDueText(row, manilaToday())}`}
+                  line={`Due ${scheduleDueText(row, manilaToday(), quoteBooked)}`}
                   right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
                 />
               ))}
@@ -2026,6 +2037,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             summary={vendorBudgetSummary}
             eventId={eventId}
             variant="embed"
+            vendorName={displayName}
             directPayMethods={directPayMethods}
             installments={paymentPlan}
             acceptedQuoteLines={acceptedQuote?.lines ?? null}

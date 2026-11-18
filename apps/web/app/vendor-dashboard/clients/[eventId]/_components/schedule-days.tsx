@@ -158,10 +158,19 @@ export function ScheduleDays({
   return (
     <div data-schedule-days="">
       <div className="rounded-2xl bg-frame px-1 pb-3 pt-1 shadow-sn-frame">
-        <div className="flex min-h-11 flex-wrap items-center gap-2 px-2">
-          <p className="min-w-0 flex-1 text-[16px] font-bold text-ink" data-schedule-days-heading="">
+        {/* The heading row carries the two 44 px steppers, so the seven day cells get the strip's full width (≥44 px each at 375). */}
+        <div className="flex min-h-11 items-center gap-1">
+          <button type="button" onClick={() => step(-1)} aria-label={view === 'month' ? 'Month before' : 'Week before'} className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70" data-schedule-days-step="before">
+            <ChevronLeft aria-hidden className="h-5 w-5" />
+          </button>
+          <p className="min-w-0 flex-1 text-center text-[16px] font-bold text-ink" data-schedule-days-heading="">
             {heading}
           </p>
+          <button type="button" onClick={() => step(1)} aria-label={view === 'month' ? 'Month after' : 'Week after'} className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70" data-schedule-days-step="after">
+            <ChevronRight aria-hidden className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-11 items-center justify-between gap-2 px-2">
           <PickMenu
             label="Whose days"
             value={scope}
@@ -186,23 +195,15 @@ export function ScheduleDays({
             className="!min-h-11"
           />
         </div>
-        <div className="mt-1 flex items-center gap-1">
-          <button type="button" onClick={() => step(-1)} aria-label={view === 'month' ? 'Month before' : 'Week before'} className="sn-press grid h-11 w-8 flex-none place-items-center text-ink/70">
-            <ChevronLeft aria-hidden className="h-4 w-4" />
-          </button>
-          <div className="grid min-w-0 flex-1 grid-cols-7 gap-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <span key={i} className="text-center text-[11px] font-semibold text-ink/55" aria-hidden>
-                {d}
-              </span>
-            ))}
-            {view === 'week'
-              ? weekOf(weekAt).map((d) => cell(d, !byDay.has(d) && !otherDays.has(d)))
-              : monthGrid(month).map((d, i) => (d ? cell(d, !byDay.has(d) && !otherDays.has(d)) : <span key={`x${i}`} aria-hidden />))}
-          </div>
-          <button type="button" onClick={() => step(1)} aria-label={view === 'month' ? 'Month after' : 'Week after'} className="sn-press grid h-11 w-8 flex-none place-items-center text-ink/70">
-            <ChevronRight aria-hidden className="h-4 w-4" />
-          </button>
+        <div className="mt-1 grid grid-cols-7 gap-x-0.5 gap-y-1">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <span key={i} className="text-center text-[11px] font-semibold text-ink/55" aria-hidden>
+              {d}
+            </span>
+          ))}
+          {view === 'week'
+            ? weekOf(weekAt).map((d) => cell(d, !byDay.has(d) && !otherDays.has(d)))
+            : monthGrid(month).map((d, i) => (d ? cell(d, !byDay.has(d) && !otherDays.has(d)) : <span key={`x${i}`} aria-hidden />))}
         </div>
         {scope === 'all' && (allLoading || allRefused) ? (
           <p role="status" className={`px-3 pt-2 text-[13px] ${allRefused ? 'font-semibold text-danger-700' : 'text-ink/70'}`} data-schedule-days-all={allRefused ? 'unread' : 'loading'}>

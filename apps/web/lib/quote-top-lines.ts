@@ -9,6 +9,8 @@
  * Pure: every input is already read by the client page (`planRowsAll`, `headcountRule`) — no request of its own.
  * A plan read that was refused is `'unread'` and SAID ("couldn't load"), never "Paid 0 of 0".
  */
+import { formatCount } from './format-number';
+
 export type PlanStepLike = { state: 'paid' | 'pending' | 'due'; due_date?: string | null };
 
 export type QuotePlanLine = { paid: number; total: number; nextDue: string | null } | 'unread' | null;
@@ -22,5 +24,6 @@ export function quotePlanLine(planReadComplete: boolean, steps: readonly PlanSte
 
 /** "Paid 1 of 3" — the words of the line's head. */
 export function paidOfWords(p: { paid: number; total: number }): string {
-  return p.paid === p.total ? `Paid in full · ${p.total} of ${p.total}` : `Paid ${p.paid} of ${p.total}`;
+  const total = formatCount(p.total);
+  return p.paid === p.total ? `Paid in full · ${total} of ${total}` : `Paid ${formatCount(p.paid)} of ${total}`;
 }

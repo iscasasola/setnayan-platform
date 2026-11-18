@@ -3764,6 +3764,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-z-toast:  60;
   --sn-z-scrim:  74;
   --sn-z-panel:  75;
+  /* 👍 THE SUPPLIER'S FLOATING ROW (`supplier-thumb-row.module.css` .lower): its own height (44 px controls + 10 px
+     above and below), and how far above the screen's foot its top stands — the lift it rides on (`--sn-ride-h`, the
+     bottom dock, or the safe area + 64 px: the row's own `bottom`) plus that height plus a 1 rem gap. A scroll box
+     that the row floats over keeps this much at its foot (the card maker, walk step 3, 2026-11-16). A CSS module
+     cannot declare :root, so the row's token lives here and the row reads it back. */
+  --sn-thumb-row-h: 64px;
+  --sn-thumb-clear: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))) + var(--sn-thumb-row-h) + 1rem);
 
   /* 🌫 THE SCRIM — the dark behind anything popped up over the page (`.sn-popup-dark`, `<OverlayBackdrop>`, the side
      panel's and the guest card's scrims all read these; nothing else may draw one — `lib/one-scrim.test.ts`). The
@@ -8222,6 +8229,16 @@ header[data-cover-tone='cream'] [data-cover-foot] .button-primary {
 .sn-hub-cards h2 {
   font-size: 1.5rem;
   line-height: 1.2;
+}
+
+/* 🧰 THE CARD MAKER'S FIELDS NEVER SIT UNDER ITS CANCEL · CREATE ROW (walk step 3, 2026-11-16). The row is fixed at the
+   foot of the screen (`supplier-thumb-row.tsx`; how far up it reaches is the row's token `--sn-thumb-clear`), so a field brought into
+   view — focused, typed into, a new line added — must stop above it, on the page and inside Today's New service
+   sheet alike. scroll-padding on the box that scrolls does it for every field at once.
+   🔒 app/vendor-dashboard/services/the-maker-fields-clear-the-bar.test.ts */
+html:has([data-card-maker]),
+[data-sheet-panel] > .overflow-y-auto:has([data-card-maker]) {
+  scroll-padding-bottom: var(--sn-thumb-clear);
 }
 
 /* The invitation's pinned top bar (invitation-shell.tsx, data-sticky-top) is

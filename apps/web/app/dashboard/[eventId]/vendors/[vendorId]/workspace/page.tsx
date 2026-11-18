@@ -51,6 +51,7 @@ import {
   manualCostingEditorShown,
   paymentScheduleSource,
   paymentDoor,
+  scheduleDueText,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -1557,14 +1558,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </dd>
             ) : null}
           </div>
-          <div>
-            <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Paid so far
-            </dt>
-            <dd className="mt-1 text-sm font-semibold text-ink">
-              {moneyHidden ? HOSTS_ONLY : (paidSoFarFormatted ?? '—')}
-            </dd>
-          </div>
+          {/* CHAT-23 (walk 16 Nov 2026): "PAID SO FAR —" read as a figure nobody could find. A real ₱ amount or no
+              line — the same `paidSoFarFormatted` as the Costing row (the one paid rule). Hosts-only still says so. */}
+          {moneyHidden || paidSoFarFormatted ? (
+            <div data-paid-so-far="">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                Paid so far
+              </dt>
+              <dd className="mt-1 text-sm font-semibold text-ink">
+                {moneyHidden ? HOSTS_ONLY : paidSoFarFormatted}
+              </dd>
+            </div>
+          ) : null}
           {/* 🚪 ONLY THE CONTACT THE COUPLE TYPED THEMSELVES (owner 2026-09-10:
               "not to let them communicate outside the app"). A package lock
               COPIES the shop's own email and phone into this row
@@ -1999,7 +2004,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   >
                     <span className="min-w-0">
                       <span className="block font-medium text-ink">{row.label}</span>
-                      <span className="block text-xs text-ink/60">Due {row.dueText}</span>
+                      <span className="block text-xs text-ink/60">Due {scheduleDueText(row, manilaToday())}</span>
                     </span>
                     <span className="shrink-0 font-mono text-sm font-semibold text-ink">
                       {pesoFromCentavos(row.amountCentavos)}
@@ -2438,16 +2443,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             /* The in-app way to reach them, where the Contact card used to
                offer their phone and email — the SAME two controls the
                Conversation panel uses, so there is still one mechanism. */
+            /* CHAT-23 (walk 16 Nov 2026): with a conversation, Chat is this picked supplier's own page beside
+               Details (`PickedSupplierShell`), so a "Message" button here only re-opened where they already were.
+               Without one, the start-a-chat control stays — it is the only way in. */
             reach={
-              chatThread ? (
-                <Link
-                  href={conversationHref}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-link hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Message {displayName}
-                </Link>
-              ) : (
+              chatThread ? null : (
                 <ContactShortlistVendorButton
                   eventId={eventId}
                   vendorId={ev.vendor_id}
@@ -2476,12 +2476,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // which is what it always was for every real row.
   // ONE "Paid so far" row, drawn by both Costing variants — the same
   // `paidSoFarFormatted` the header shows (see the note in the manual editor).
-  const paidSoFarRow = (
+  // A real ₱ amount or no row (CHAT-23) — never "Paid so far —".
+  const paidSoFarRow = paidSoFarFormatted ? (
           <div className="flex items-center justify-between text-sm">
             <span className="text-ink/65">Paid so far</span>
-            <span className="font-medium text-ink">{paidSoFarFormatted ?? '—'}</span>
+            <span className="font-medium text-ink">{paidSoFarFormatted}</span>
           </div>
-  );
+  ) : null;
 
   // The crew this supplier brings — logistics, not price, so it stays editable
   // whichever way the price is settled.

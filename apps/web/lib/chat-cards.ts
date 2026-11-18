@@ -15,7 +15,7 @@
  */
 import { formatCentavos } from './vendor-proposals';
 import { isCoordinatorTrade } from './coordinator-trade';
-export { bookRequestFromLine, changeAskFromLine, formLineTitle, guestCountFromLine, streamLineKind, type BookRequestState } from './chat-card-lines';
+export { answeredBookAsks, bookRequestFromLine, changeAskFromLine, formLineTitle, guestCountFromLine, streamLineKind, type BookRequestState } from './chat-card-lines';
 import type { AskSubject } from './chat-card-lines';
 import { resolveSchedule, type AutoBalanceMeta, type InstallmentDraft, type ResolvedSchedule } from './proposal-payment-schedule';
 

@@ -199,22 +199,27 @@ test('the shop page draws the shipped BackButton at the top left, returning in p
   const page = src('app/v/[slug]/page.tsx');
   assert.match(page, /from '@\/app\/_components\/back-button'/);
   assert.match(page, /const shopTop = shopTopBack\(shopArrival, viewerSignedIn\)/);
-  const btn = page.search(/<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\}[^>]*\binPlace\b[^>]*\/>/);
+  // 15 Nov 2026 ("SHOP WEBSITE TOP BAR, ONCE SCROLLED"): the ‹ lives in the sticky top bar — the full back before the
+  // name scrolls under it, the chevron-only copy after. Both go to the same place and both return in place.
+  const btn = page.search(/back=\{<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\}[^>]*\binPlace\b[^>]*\/>\}/);
   assert.ok(btn > -1, 'the top-left ‹ is gone (or no longer returns in place)');
-  const header = page.indexOf('<header className="border-b border-ink/5">');
-  const wordmark = page.indexOf('<Wordmark size={22} />');
+  assert.match(page, /backCompact=\{<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\} variant="chat" inPlace \/>\}/);
+  const bar = page.indexOf('<ShopTopBar');
   const article = page.indexOf('<article');
-  assert.ok(header > -1 && header < btn, 'the ‹ left the page header');
-  assert.ok(btn < wordmark, 'the ‹ is not at the top LEFT (it sits after the wordmark)');
+  assert.ok(bar > -1 && bar < btn, 'the ‹ left the top bar');
   assert.ok(btn < article, 'the ‹ is not before the page content');
-  assert.equal((page.match(/<BackButton\b/g) ?? []).length, 1, 'one back button on the shop page, not two');
+  assert.equal((page.match(/<BackButton\b/g) ?? []).length, 2, 'the top bar holds the back and its compact copy — no third');
+  const topBar = src('app/v/[slug]/_components/shop-top-bar.tsx');
+  const left = topBar.indexOf('{named ? backCompact : back}');
+  assert.ok(left > -1, 'the top bar no longer draws the back first');
+  assert.ok(left < topBar.indexOf('<Wordmark size={22} />'), 'the ‹ is not at the top LEFT (it sits after the wordmark)');
 });
 
 test('the foot door is drawn only for a cold arrival — never a second "Back"', () => {
   const page = src('app/v/[slug]/page.tsx');
   assert.match(
     page,
-    /\{!shopBack\.back \? \(\s*<Link href=\{shopBack\.href\}[^>]*data-shop-back="cold"[^>]*>\s*\{shopBack\.label\}\s*<\/Link>\s*\) : null\}/,
+    /\{shopColdDoorShows\(shopArrival\) \? \(\s*<Link href=\{shopBack\.href\}[^>]*data-shop-back="cold"[^>]*>\s*\{shopBack\.label\}\s*<\/Link>\s*\) : null\}/,
     'the foot door is drawn with an arrival too — two backs on one page',
   );
 });

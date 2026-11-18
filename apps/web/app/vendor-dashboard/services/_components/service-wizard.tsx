@@ -300,7 +300,7 @@ export function ServiceWizard({
           category={categoryValue}
           defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
         />
-        <details className="rounded-lg border border-ink/10 p-3">
+        <details className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-3">
           <summary className="cursor-pointer text-sm font-medium text-ink/75">Pricing rules (advanced) — optional</summary>
           <div className="mt-3 space-y-3">
             <p className="text-xs text-ink/55">
@@ -410,7 +410,7 @@ export function ServiceWizard({
       {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
-        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-white/70 p-4 text-sm">
+        <dl className="space-y-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4 text-sm">
           <Recap k="Category" v={categoryLabel} />
           <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}

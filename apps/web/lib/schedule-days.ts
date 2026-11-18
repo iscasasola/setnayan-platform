@@ -121,7 +121,6 @@ export function otherClientDays(bookings: readonly OtherBooking[], thisEventId: 
 // ── Calendar arithmetic (civil days, no zone) ────────────────────────────────────────────────────────────────────────
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
-const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
 
 function utc(day: string): Date {
   const [y, m, d] = day.split('-').map(Number);
@@ -158,8 +157,8 @@ export function dayHeading(day: string): string {
   const d = utc(day);
   return `${WEEKDAY[d.getUTCDay()]}, ${MONTH[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
-/** "December 2026". */
+/** "Dec 2026" — short, so the strip's head stays one line at 375 px beside its two switches. */
 export function monthHeading(month: string): string {
   const [y, m] = month.split('-').map(Number);
-  return `${MONTH_LONG[m! - 1]} ${y}`;
+  return `${MONTH[m! - 1]} ${y}`;
 }

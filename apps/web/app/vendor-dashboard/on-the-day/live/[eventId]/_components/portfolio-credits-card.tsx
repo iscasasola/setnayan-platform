@@ -12,6 +12,8 @@ import {
   type BuyVendorPapicPortfolioPackState,
 } from '../papic/portfolio-pack-actions';
 import { formatCount } from '@/lib/format-number';
+import { actionButtonClass } from '@/components/action-button';
+import { TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
 import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
@@ -55,6 +57,7 @@ export function PortfolioCreditsCard({
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
   const [packCode, setPackCode] = useState<string | null>(packs?.[0]?.code ?? null);
   const pack = packs?.find((p) => p.code === packCode) ?? null;
+  const [channel, setChannel] = useState<string | null>(openRails[0]?.id ?? null);
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -62,42 +65,40 @@ export function PortfolioCreditsCard({
     if (state.status === 'error') toast.error(state.message);
   }, [state, toast]);
 
+  const rail = openRails.find((r) => r.id === channel) ?? openRails[0] ?? null;
+
   return (
-    <div
-      className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3"
-      style={{ borderColor: 'var(--m-line)' }}
-    >
-      <div>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
-          Papic credits
-        </p>
-        <p className="mt-0.5 text-sm" style={{ color: 'var(--m-slate-1)' }}>
-          {credits == null
-            ? 'Couldn’t load your balance right now.'
-            : left == null
-              ? `${formatCount(credits)} earned · unlimited to spend`
-              : `${left} left to spend`}
-        </p>
-      </div>
+    <TemplateSection label="Papic credits" data="portfolio-credits">
+      <TemplateRows label="Papic credits">
+        <TemplateRow
+          data="portfolio-credits"
+          title={
+            credits == null ? (
+              <span style={{ color: 'rgb(var(--color-warn))' }}>Couldn’t load your balance right now.</span>
+            ) : left == null ? (
+              `${formatCount(credits)} earned · unlimited to spend`
+            ) : (
+              `${left} left to spend`
+            )
+          }
+        />
+      </TemplateRows>
 
       {offerPack && openRails.length === 0 ? (
         <PaymentsPausedNote />
       ) : offerPack ? (
-        <form action={formAction} className="flex items-center gap-2">
+        <form action={formAction} className="flex flex-wrap items-center gap-2 py-2">
           <input type="hidden" name="event_id" value={eventId} />
-          <select
-            name="channel"
-            className="rounded-lg border px-2 py-1.5 text-xs"
-            style={{ borderColor: 'var(--m-line)' }}
-            aria-label="Pay with"
-          >
-            {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-            {openRails.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-          </select>
+          {/* Only the rails the owner has left open (lib/payment-channels.ts). One dropdown — PickMenu, never a raw <select>. */}
+          <input type="hidden" name="channel" value={rail?.id ?? ''} />
+          <PickMenu
+            label="Pay with"
+            value={rail?.id ?? ''}
+            compact
+            options={openRails.map((r) => ({ key: r.id, label: r.label }))}
+            onPick={(key) => setChannel(key)}
+            dataAttr="data-portfolio-credits-channel"
+          />
           {packs && packs.length > 0 && pack ? (
             <>
               {/* The pack: the couple's three (owner 2026-11-04). One dropdown — PickMenu, never a raw <select>. */}
@@ -116,15 +117,15 @@ export function PortfolioCreditsCard({
             </>
           ) : null}
           <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-xs font-medium text-cream hover:bg-terracotta-800"
+            className={actionButtonClass('brand')}
             pendingLabel="Starting…"
             disabled={!packs || packs.length === 0}
           >
-            <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {!packs || packs.length === 0 ? 'Pack unavailable' : 'Buy'}
+            <ShoppingBag aria-hidden strokeWidth={1.75} />
+            <span className="lbl">{!packs || packs.length === 0 ? 'Pack unavailable' : 'Buy'}</span>
           </SubmitButton>
         </form>
       ) : null}
-    </div>
+    </TemplateSection>
   );
 }

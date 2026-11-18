@@ -15,7 +15,7 @@ const notBooked = {
   todayIso: '2026-11-16',
   eventDate: '2027-02-14',
   ledger: null,
-  onPlan: false,
+  plan: null,
   sentQuotePhp: undefined,
   peso: (n: number) => `₱${n}`,
 } as const;

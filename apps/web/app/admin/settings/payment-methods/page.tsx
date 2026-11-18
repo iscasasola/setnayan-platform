@@ -15,6 +15,8 @@ import { parseTlv } from '@/lib/emv-qr';
 import { formatPhp } from '@/lib/orders';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
@@ -187,6 +189,10 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   const accounts = receivingAccounts(settings);
   const listLocked = settingsReadFailed || accountsReadFailed;
   const cappedRails = PAY_CHANNELS.filter((id) => accounts.some((a) => a.id === id));
+  // ⚖ ONE QR (owner 2026-11-18) — the GCash line and monthly allowance, read
+  // live with this month's GCash total. NULL = could not be read (customers are
+  // then sent to BDO), said on screen rather than shown as ₱0.
+  const gcashGate = await getGcashGate();
   const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400) : '';
 
   return (
@@ -309,6 +315,45 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               now={now}
             />
           ))}
+          {cappedRails.includes('gcash') && (
+            <div data-gcash-allowance="" className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+              <p className="text-sm font-semibold text-ink">
+                <InfoTip label="One QR: GCash for small payments" ariaLabel="How the one QR is picked" align="start">
+                  A payment below the line shows the GCash QR while this month&rsquo;s GCash total
+                  stays within the allowance; everything else shows BDO. Payers never choose.
+                  This allowance is not the wallet&rsquo;s own limit above. If a number cannot be
+                  read, everyone is sent to BDO.
+                </InfoTip>
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="GCash below (₱)" htmlFor="gcash_max_php">
+                  <input
+                    id="gcash_max_php"
+                    name="gcash_max_php"
+                    defaultValue={gcashGate?.maxPhp != null ? String(gcashGate.maxPhp) : ''}
+                    inputMode="decimal"
+                    placeholder="1000"
+                    className="input-field font-mono"
+                  />
+                </Field>
+                <Field label="GCash allowance per month (₱)" htmlFor="gcash_allowance_php">
+                  <input
+                    id="gcash_allowance_php"
+                    name="gcash_allowance_php"
+                    defaultValue={gcashGate?.allowancePhp != null ? String(gcashGate.allowancePhp) : ''}
+                    inputMode="decimal"
+                    placeholder="100000"
+                    className="input-field font-mono"
+                  />
+                </Field>
+              </div>
+              <p className="text-[12px] text-ink/60">
+                {gcashGate?.usedThisMonthPhp != null
+                  ? `Used this month: ${formatPhp(gcashGate.usedThisMonthPhp)}`
+                  : 'Couldn’t read this month’s GCash total — payers are sent to BDO.'}
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
               Last updated {new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}

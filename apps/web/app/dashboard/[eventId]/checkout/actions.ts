@@ -49,7 +49,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { channelLabel, payerAccountsFor, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
@@ -377,13 +379,21 @@ export async function submitOrderAction(
   // does. See lib/payment-channels.ts + migration 20271028100000.
   const channelSettings = await fetchPlatformSettings(supabase);
   const openChannel = resolveChannel(channel, channelSettings);
-  if (!openChannel) {
+  // ⚖ ONE QR (owner 2026-11-18): GCash is not in the BDO-only open list, but the
+  // drawer DOES draw it for an amount under the GCash line with allowance left.
+  // A posted GCash is therefore let past this switch check only when a GCash
+  // account is really open, and is judged below — once the amount is known — by
+  // `pickPayerRail`, the same rule the drawer and /pay draw their one code from.
+  const postedGcash =
+    typeof channel === 'string' &&
+    payerAccountsFor(channelSettings, 'gcash').some((a) => a.id === channel && isGcashRail(a));
+  if (!openChannel && !postedGcash) {
     return {
       ok: false,
       reason: PAYMENTS_PAUSED_MESSAGE,
     };
   }
-  if (openChannel !== channel) {
+  if (openChannel !== channel && !postedGcash) {
     // The posted rail is closed. Refuse rather than silently rebooking onto a
     // different account: the couple is looking at the QR and details for the
     // rail they picked, and quietly moving them would mean paying the wrong
@@ -826,6 +836,14 @@ export async function submitOrderAction(
   const maxPaymentPhp = await getMaxPaymentPhp(supabase);
   if (!paymentWithinCeiling(finalAmountForPayment, maxPaymentPhp)) {
     return { ok: false, reason: paymentOverCeilingMessage(maxPaymentPhp) };
+  }
+
+  // ⚖ A GCASH PAYMENT ONLY WHERE THE RULE CHOSE GCASH (owner 2026-11-18): under
+  // the GCash line AND within this month's GCash allowance. ₱1,000 and up, an
+  // allowance already spent, or anything unreadable ⇒ BDO, and a GCash proof is
+  // refused here — before the order exists — rather than filed.
+  if (postedGcash && pickPayerRail(finalAmountForPayment, await getGcashGate()) !== 'gcash') {
+    return { ok: false, reason: GCASH_PROOF_REFUSED_MESSAGE };
   }
 
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
@@ -1331,4 +1349,14 @@ async function quoteWelcomeForLine(input: {
   } catch {
     return null;
   }
+}
+
+/**
+ * ⚖ WHICH ONE QR THE CHECKOUT DRAWER DRAWS (owner 2026-11-18) — GCash or BDO for
+ * this amount, by `pickPayerRail`. Display only: `submitOrderAction` asks the
+ * same rule again with the amount it computes itself. Anything unreadable ⇒ BDO.
+ */
+export async function payerRailForAmount(amountPhp: number): Promise<'gcash' | 'bdo'> {
+  if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp)) return 'bdo';
+  return pickPayerRail(amountPhp, await getGcashGate());
 }

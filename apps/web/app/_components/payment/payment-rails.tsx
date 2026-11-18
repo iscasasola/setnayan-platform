@@ -42,7 +42,7 @@ import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { isQrPhPayload, mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
-import { openAccounts, type AccountKind, type ChannelSettings } from '@/lib/payment-channels';
+import { openAccounts, payerAccountsFor, type AccountKind, type ChannelSettings } from '@/lib/payment-channels';
 
 /** The one line printed beside a payment QR that is QR Ph. */
 export const QR_PH_LINE = 'Scan with any bank or e-wallet app (QR Ph)';
@@ -551,6 +551,27 @@ export function PaymentDetailsBlock({
  * `mintedUrls` is keyed by account id: the server-drawn amount-carrying code
  * for each rail it managed to draw.
  */
+/**
+ * The ONE rail a payer sees for an amount (owner 2026-11-18: "we only offer 1
+ * QR Code") — `pick` from `pickPayerRail`, turned into an account by
+ * `payerAccountsFor`. Same shape as `openRailsFromSettings`.
+ */
+export function payerRailsFromSettings(
+  settings: PayRailSettings | ChannelSettings,
+  pick: 'gcash' | 'bdo',
+): RailInfo[] {
+  return payerAccountsFor(settings as ChannelSettings, pick).map((a) => ({
+    id: a.id,
+    label: a.label,
+    kind: a.kind,
+    name: a.accountName,
+    number: a.number,
+    staticUrl: a.qrUrl,
+    payload: a.qrPayload,
+    mintedUrl: null,
+  }));
+}
+
 export function openRailsFromSettings(
   settings: PayRailSettings | ChannelSettings,
   mintedUrls?: Readonly<Record<string, string | null | undefined>>,

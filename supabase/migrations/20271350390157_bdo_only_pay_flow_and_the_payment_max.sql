@@ -93,4 +93,33 @@ COMMENT ON COLUMN public.payment_receipt_reads.seen_paid_on IS
 COMMENT ON COLUMN public.payment_receipt_reads.seen_paid_time IS
   'The transfer clock time read off the screenshot, Manila wall time as printed (advisory; NULL when none could be read).';
 
+-- ── 4 · one QR: GCash for small payments, up to a monthly allowance ─────────
+-- Owner 2026-11-18, verbatim: "we only offer 1 QR Code. The rule is use GCash
+-- for the first 100,000 transactions under 1,000 every month. and the rest goes
+-- to BDO." · "just use 100,000 total payments. so, i can still use the 400,000
+-- on other things" (the allowance is PESOS, per Manila calendar month).
+--   gcash_max_php       — GCash only for an amount BELOW this (₱1,000 itself → BDO).
+--   gcash_allowance_php — pesos of GCash payments to Setnayan per month.
+-- ⚠ NOT gcash_monthly_cap_php: that is the WALLET's own receiving limit (₱500,000,
+-- migration 20271028100000); the owner keeps the difference for his own use.
+-- Read by lib/gcash-allowance.server.ts; the rule is lib/gcash-allowance.ts.
+-- Table-level grants (authenticated: S, anon: none) cover the new columns.
+ALTER TABLE public.platform_settings
+  ADD COLUMN IF NOT EXISTS gcash_max_php       NUMERIC(12,2) NOT NULL DEFAULT 1000,
+  ADD COLUMN IF NOT EXISTS gcash_allowance_php NUMERIC(12,2) NOT NULL DEFAULT 100000;
+
+ALTER TABLE public.platform_settings
+  DROP CONSTRAINT IF EXISTS platform_settings_gcash_max_php_positive;
+ALTER TABLE public.platform_settings
+  ADD CONSTRAINT platform_settings_gcash_max_php_positive CHECK (gcash_max_php > 0);
+ALTER TABLE public.platform_settings
+  DROP CONSTRAINT IF EXISTS platform_settings_gcash_allowance_php_nonneg;
+ALTER TABLE public.platform_settings
+  ADD CONSTRAINT platform_settings_gcash_allowance_php_nonneg CHECK (gcash_allowance_php >= 0);
+
+COMMENT ON COLUMN public.platform_settings.gcash_max_php IS
+  'GCash is the one QR only for a payment BELOW this many pesos (owner 2026-11-18, default 1000; exactly this amount goes to BDO). Admin › Settings › Payment methods.';
+COMMENT ON COLUMN public.platform_settings.gcash_allowance_php IS
+  'Pesos of GCash payments to Setnayan per Manila calendar month before small payments go to BDO too (owner 2026-11-18, default 100000). Not the wallet limit (gcash_monthly_cap_php). Admin › Settings › Payment methods.';
+
 COMMIT;

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7902
+# facts: 7904
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     642
-#   col       5685
+#   col       5687
 #   policy    1160
 #   view      10
 #   func      401
@@ -4099,9 +4099,11 @@ col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.gcash_account_name	anon=- authenticated=S
+col	public.platform_settings.gcash_allowance_php	anon=- authenticated=S
 col	public.platform_settings.gcash_available_as_of	anon=- authenticated=S
 col	public.platform_settings.gcash_available_php	anon=- authenticated=S
 col	public.platform_settings.gcash_enabled	anon=- authenticated=S
+col	public.platform_settings.gcash_max_php	anon=- authenticated=S
 col	public.platform_settings.gcash_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.gcash_number	anon=- authenticated=S
 col	public.platform_settings.gcash_qr_payload	anon=- authenticated=S

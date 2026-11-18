@@ -88,6 +88,15 @@ function nullIfBlankNumber(raw: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** A posted peso figure ≥ 0, or null when blank / not a number (then it is not written). */
+function nonNegativeNumberOrNull(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim().replace(/,/g, '');
+  if (t.length === 0) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -524,6 +533,15 @@ export async function savePaymentInstruments(formData: FormData) {
     bdo_monthly_cap_php: nullIfBlankNumber(formData.get('bdo_monthly_cap_php')),
     updated_at: new Date().toISOString(),
   };
+
+  // ⚖ ONE QR (owner 2026-11-18): the GCash line and the monthly GCash allowance.
+  // Both columns are NOT NULL, so a blank or unreadable field is LEFT AS IS —
+  // never written as null or zero. The line must be > 0; the allowance may be 0
+  // (= every payment to BDO).
+  const gcashLine = nonNegativeNumberOrNull(formData.get('gcash_max_php'));
+  if (gcashLine != null && gcashLine > 0) payload.gcash_max_php = gcashLine;
+  const gcashAllowance = nonNegativeNumberOrNull(formData.get('gcash_allowance_php'));
+  if (gcashAllowance != null) payload.gcash_allowance_php = gcashAllowance;
 
   const admin = createAdminClient();
 

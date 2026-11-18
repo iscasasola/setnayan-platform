@@ -18,7 +18,9 @@ import { removeSetupExtras } from './actions';
 import { SentScreen } from './_components/sent-screen';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
-import { openAccounts } from '@/lib/payment-channels';
+import { payerAccountsFor } from '@/lib/payment-channels';
+import { pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
@@ -206,7 +208,14 @@ export default async function PayPage({ params, searchParams }: Props) {
   // The rails are Setnayan's receiving-accounts LIST, narrowed by the ONE rule
   // (switch AND something to pay to — `openAccounts`), in the admin's order.
   // Over the ceiling ⇒ no rail at all, so no code is even drawn.
-  const open = overCeiling ? [] : openAccounts(settings);
+  // ⚖ ONE QR (owner 2026-11-18): under the GCash line with room left in this
+  // month's GCash allowance ⇒ GCash; anything else, or anything unreadable ⇒ BDO.
+  // `submitPaymentProof` asks `pickPayerRail` the same question.
+  const railPick = pickPayerRail(
+    payable.amountPhp,
+    await getGcashGate({ excludeOrderId: payable.orderId }),
+  );
+  const open = overCeiling ? [] : payerAccountsFor(settings, railPick);
   const images = await Promise.all(
     open.map((a) => mintedQrImage(a.qrPayload, payable.amountPhp)),
   );

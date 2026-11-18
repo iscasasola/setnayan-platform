@@ -81,7 +81,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
-  openRailsFromSettings,
+  payerRailsFromSettings,
 } from '@/app/_components/payment/payment-rails';
 import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
 import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
@@ -91,6 +91,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import {
   applyVoucherAction,
+  payerRailForAmount,
   submitOrderAction,
   type ApplyVoucherResult,
   type SubmitOrderResult,
@@ -298,7 +299,13 @@ export function InlineCheckoutDrawer({
   //
   // The rails are Setnayan's receiving-accounts LIST (owner 2026-10-01), the
   // open ones only, in the admin's order — asked of the ONE rule.
-  const railInfos = useMemo(() => openRailsFromSettings(settings), [settings]);
+  //
+  // ⚖ ONE QR (owner 2026-11-18): GCash under the GCash line while this month's
+  // GCash allowance has room, else BDO. Starts on BDO (the safe answer) and
+  // takes the server's pick for this amount once it arrives (effect below the
+  // gross); `submitOrderAction` re-asks the same rule on submit.
+  const [railPick, setRailPick] = useState<'gcash' | 'bdo'>('bdo');
+  const railInfos = useMemo(() => payerRailsFromSettings(settings, railPick), [settings, railPick]);
   const openRails = useMemo(() => railInfos.map((r) => r.id), [railInfos]);
   const [channel, setChannel] = useState<string>(() => openRails[0] ?? 'gcash');
   const shownRail = railInfos.find((r) => r.id === channel) ?? railInfos[0] ?? null;
@@ -401,6 +408,22 @@ export function InlineCheckoutDrawer({
     vatRatePct,
   ).gross;
   const hasVoucher = voucherApplied;
+
+  // Ask which ONE rail this amount pays to (see `railPick`). A failed ask stays
+  // on BDO — never a wider GCash.
+  useEffect(() => {
+    let live = true;
+    payerRailForAmount(finalGrossPhp)
+      .then((pick) => {
+        if (live) setRailPick(pick === 'gcash' ? 'gcash' : 'bdo');
+      })
+      .catch(() => {
+        if (live) setRailPick('bdo');
+      });
+    return () => {
+      live = false;
+    };
+  }, [finalGrossPhp]);
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
   // then reveal the confirmation card. Gives the completion beat room to play.

@@ -14,6 +14,8 @@ import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 
@@ -180,6 +182,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   )
     ? channelRaw
     : 'bank_transfer';
+
+  // ⚖ ONE QR, AND THE SERVER ASKS THE SAME QUESTION (owner 2026-11-18). A GCash
+  // receipt is taken only when `pickPayerRail` — the rule the page drew its one
+  // code from — would have chosen GCash for this amount: under the line, with
+  // room left in this month's allowance. Otherwise (₱1,000 and up, allowance
+  // spent, anything unreadable) the page showed BDO, so a GCash proof is
+  // refused rather than filed against the wrong account.
+  if (isGcashRail({ id: channel, label: channel })) {
+    const pick = pickPayerRail(payable.amountPhp, await getGcashGate({ excludeOrderId: payable.orderId }));
+    if (pick !== 'gcash') back(reference, 'error', GCASH_PROOF_REFUSED_MESSAGE);
+  }
 
   const idempotencyRaw = formData.get('client_idempotency_key');
   const idempotencyKey =

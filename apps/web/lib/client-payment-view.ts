@@ -21,7 +21,7 @@
  *
  * 🔒 lib/client-payment-view.test.ts
  */
-import { priceSummaryOf, priceToday, type PriceSummary } from '@/lib/price-summary';
+import { priceDueText, priceSummaryOf, priceToday, type PriceSummary } from '@/lib/price-summary';
 import type { StepperInstallment } from '@/lib/vendor-service-payment-schedules';
 import type { BookingMoney } from '@/lib/vendor-cashflow';
 
@@ -49,8 +49,13 @@ export type ClientPaymentView = {
   /** A source could not be read: the legend says so, the Next line says it could not check. */
   partial: boolean;
   meter: { agreedPct: number; paidPct: number; overPct: number };
-  /** The first payment not yet received, by its place in the plan. */
-  next: { amountPhp: number; name: string; dueDate: string | null; check: boolean } | null;
+  /**
+   * The first payment not yet received, by its place in the plan. `late` = its due day is before today (Manila) and it
+   * is still due; `dueText` is the SAME words the plan row's badge prints ("Was due Nov 13" · "Due Apr 28"), so the Next
+   * line and the row under it can never disagree about whether it is overdue (owner, 17 Nov: "Next … Nov 13" read as
+   * upcoming while the row said "Was due Nov 13").
+   */
+  next: { amountPhp: number; name: string; dueDate: string | null; check: boolean; late: boolean; dueText: string | null } | null;
 };
 
 export function clientPaymentView(input: ClientPaymentInput): ClientPaymentView {
@@ -85,7 +90,17 @@ function grossPaymentView(input: ClientPaymentInput): ClientPaymentView {
       collectAtLeast: unresolved,
       partial: false,
       meter: { agreedPct: agreed && agreed > 0 ? 100 : 0, paidPct, overPct: 0 },
-      next: first ? { amountPhp: first.amountPhp!, name: first.label, dueDate: first.dueDate, check: first.state === 'pending' } : null,
+      next: first
+        ? {
+            amountPhp: first.amountPhp!,
+            name: first.label,
+            dueDate: first.dueDate,
+            check: first.state === 'pending',
+            late: first.badge.tone === 'late',
+            // A due row's badge IS its due words. A waiting row (Check ›) keeps the bare day, as shipped.
+            dueText: first.state === 'due' && first.dueDate ? first.badge.text : null,
+          }
+        : null,
     };
   }
   if (input.ledgerUnreadable) {
@@ -108,6 +123,12 @@ function grossPaymentView(input: ClientPaymentInput): ClientPaymentView {
     collectAtLeast: false,
     partial: false,
     meter: { agreedPct: m.expectedPhp > 0 ? 100 : 0, paidPct: m.expectedPhp > 0 ? Math.min(100, (m.receivedPhp / m.expectedPhp) * 100) : 0, overPct: 0 },
-    next: firstDue ? { amountPhp: firstDue.amount_php!, name: firstDue.label, dueDate: firstDue.due_date, check: false } : null,
+    next: firstDue ? ledgerNext(firstDue.amount_php!, firstDue.label, firstDue.due_date, today) : null,
   };
+}
+
+/** The ledger's Next line, worded exactly as a plan row's badge would word it (`priceSummaryOf`'s "Was due" rule). */
+function ledgerNext(amountPhp: number, name: string, dueDate: string | null, today: string): NonNullable<ClientPaymentView['next']> {
+  const late = dueDate !== null && dueDate < today;
+  return { amountPhp, name, dueDate, check: false, late, dueText: dueDate ? `${late ? 'Was due' : 'Due'} ${priceDueText(dueDate)}` : null };
 }

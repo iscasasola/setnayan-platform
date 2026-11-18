@@ -119,6 +119,7 @@ import { EmptyState } from '@/app/_components/states/empty-state';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveSurfaceState } from '@/app/_components/states/surface-state';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * Static class strings, never interpolated — Tailwind's scanner reads source
@@ -256,7 +257,7 @@ export function ConsoleTable<Row>({
     <>
       {note ? <p className="mb-3 text-sm text-ink/70">{note}</p> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-ink/10">
+      <div className={`${ADMIN_FRAME} overflow-x-auto`}>
         <table
           aria-label={label}
           className="w-full text-left text-sm"

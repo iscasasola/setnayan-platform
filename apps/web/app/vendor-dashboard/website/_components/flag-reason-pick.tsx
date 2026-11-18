@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { REVIEW_FLAG_REASON_LABEL } from '@/lib/reviews';
 
@@ -28,13 +29,13 @@ export function FlagReasonPick() {
         onPick={setReason}
         buttonText={reason ? undefined : 'Select a reason…'}
         dataAttr="data-flag-reason"
-        className="w-full !min-h-11 text-xs"
+        className="w-full !min-h-11"
       />
       <input type="hidden" name="reason" value={reason} />
-      <p className="text-[10px] text-ink/45">Setnayan HQ will review this within 48 hours. You can only flag a review once.</p>
+      <p className="text-xs text-[color:var(--m-slate-2)]">Setnayan HQ will review this within 48 hours. You can only flag a review once.</p>
       <SubmitButton
         disabled={!reason}
-        className="inline-flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-2 text-xs font-medium text-white hover:bg-danger-700 disabled:opacity-60"
+        className={actionButtonClass('danger')}
         pendingLabel="Flagging…"
       >
         <Flag className="h-3.5 w-3.5" strokeWidth={2} />

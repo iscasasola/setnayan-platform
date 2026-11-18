@@ -44,8 +44,13 @@ const OWNED_SCAN_LIMIT = 500;
 export type Album = {
   event: SwitcherEvent;
   role: 'couple' | 'guest';
-  /** Combined photos + clips visible to the user for this event. */
+  /** Combined photos + clips visible to the user for this event. 0 when the read failed — see `countMeasured`. */
   count: number;
+  /**
+   * False when this event's photos could not be read (#7909 follow-up, walk 18 Nov 2026): `count` is then 0 only so the
+   * album cards keep their shape — a count is SHOWN as "couldn't count", never as 0 and never as a blank.
+   */
+  countMeasured: boolean;
   /** Up to THUMBS_PER_ALBUM presigned thumbnail URLs (newest first). */
   thumbs: { url: string; isClip: boolean }[];
   /**
@@ -89,7 +94,7 @@ type ThumbRef = { key: string; isClip: boolean; capturedAt: string };
 async function loadOwnedAlbum(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
-): Promise<{ count: number; refs: ThumbRef[] }> {
+): Promise<{ count: number; refs: ThumbRef[]; measured: boolean }> {
   const now = Date.now();
 
   const [seatRes, guestRes] = await Promise.all([
@@ -146,7 +151,8 @@ async function loadOwnedAlbum(
     .filter((r) => r.key)
     .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
 
-  return { count: visibleSeat.length + visibleGuest.length, refs: refs.slice(0, THUMBS_PER_ALBUM) };
+  // A refused read is not "no photos": the count is unmeasured, and says so where it is shown.
+  return { count: visibleSeat.length + visibleGuest.length, refs: refs.slice(0, THUMBS_PER_ALBUM), measured: !seatRes.error && !guestRes.error };
 }
 
 /**
@@ -158,9 +164,9 @@ async function loadOwnedAlbum(
 async function loadAttendedAlbum(
   userId: string,
   eventId: string,
-): Promise<{ count: number; refs: ThumbRef[] }> {
+): Promise<{ count: number; refs: ThumbRef[]; measured: boolean }> {
   const admin = createAdminClient();
-  const { data: member } = await admin
+  const { data: member, error: memberError } = await admin
     .from('event_members')
     .select('guest_id')
     .eq('event_id', eventId)
@@ -168,10 +174,12 @@ async function loadAttendedAlbum(
     .maybeSingle();
 
   const guestId = (member?.guest_id as string | null | undefined) ?? null;
-  if (!guestId) return { count: 0, refs: [] };
+  if (memberError) return { count: 0, refs: [], measured: false };
+  if (!guestId) return { count: 0, refs: [], measured: true };
 
   const gallery = await getGuestLiveGallery(eventId, guestId, THUMBS_PER_ALBUM);
-  if (!gallery) return { count: 0, refs: [] };
+  // `null` from the live gallery means the read FAILED, and only that (lib/guest-live-gallery.ts).
+  if (!gallery) return { count: 0, refs: [], measured: false };
 
   // getGuestLiveGallery already presigns its URLs; surface them directly as
   // legacy_url refs so the shared presign step passes them through unchanged.
@@ -180,7 +188,7 @@ async function loadAttendedAlbum(
     isClip: false,
     capturedAt: '',
   }));
-  return { count: gallery.total, refs };
+  return { count: gallery.total, refs, measured: true };
 }
 
 /**
@@ -237,6 +245,7 @@ export const getPhotosAlbums = cache(async function getPhotosAlbums(userId: stri
   const albums: Album[] = await Promise.all(
     events.map(async (event) => {
       let count = 0;
+      let countMeasured = false;
       let refs: ThumbRef[] = [];
       try {
         const loaded =
@@ -244,10 +253,12 @@ export const getPhotosAlbums = cache(async function getPhotosAlbums(userId: stri
             ? await loadOwnedAlbum(supabase, event.event_id)
             : await loadAttendedAlbum(userId, event.event_id);
         count = loaded.count;
+        countMeasured = loaded.measured;
         refs = loaded.refs;
       } catch {
-        // One bad event never breaks the page — degrade to empty album.
+        // One bad event never breaks the page — an empty album whose count says it could not be counted.
         count = 0;
+        countMeasured = false;
         refs = [];
       }
 
@@ -265,6 +276,7 @@ export const getPhotosAlbums = cache(async function getPhotosAlbums(userId: stri
         event,
         role: event.role,
         count,
+        countMeasured,
         thumbs,
         markPlays,
         slug: slugByEvent.get(event.event_id) ?? null,

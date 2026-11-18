@@ -172,11 +172,13 @@ test('5 · the pinned row is the one switch: no tabs, no big create button, the 
   assert.match(home, /className=\{hp\.rowRoom\}/, 'the header leaves no room at its foot for the row at rest');
   // The numbers: Home reads them once and hands them to the row's picker.
   assert.match(home, /\.\.\.\(asking \? \{ people: asking \} : \{\}\)/, 'People no longer carries the asking count');
-  assert.match(home, /<HomeSegCountsProvider counts=\{counts\} hot=\{hot\}>/, 'the numbers no longer reach the row\'s picker');
+  assert.match(home, /<HomeSegCountsProvider counts=\{counts\} hot=\{hot\} unread=\{unread\}>/, 'the numbers no longer reach the row\'s picker');
 
   const pin = src('app/dashboard/(launcher)/_components/home-pin.tsx');
   assert.match(pin, /homeSegOptions\(segs, useHomeSegCounts\(\)\)/, 'the Events row\'s picker lost the sections\' numbers');
-  assert.match(pin, /dot: true, dotNote: `\$\{formatCount\(n\)\} \$\{word\}`/, 'a number that waits on you is no longer the picker\'s dot');
+  // The "Home" group's rule lives in a plain module (`lib/home-seg-options.ts`, 18 Nov) that the row re-exports.
+  assert.match(pin, /export \{ homeSegOptions, type HomeSegOption \} from '@\/lib\/home-seg-options';/);
+  assert.match(src('lib/home-seg-options.ts'), /dot: true, dotNote: `\$\{formatCount\(n\)\} \$\{word\}`/, 'a number that waits on you is no longer the picker\'s dot');
   assert.match(pin, /action \? \{ label: action\.label/, 'the row lost its one action ("＋ Event")');
   const mem = src('app/dashboard/(account)/library/_components/memories-thumb.tsx');
   assert.match(mem, /homeSegOptions\(homeSegs, useHomeSegCounts\(\)\)/, 'Memories\' row lost the sections\' numbers');

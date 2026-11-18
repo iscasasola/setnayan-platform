@@ -14,7 +14,7 @@ import { memoriesHomeHref, type HomeSeg } from '@/lib/home-segments';
 import { Spotlight } from '@/app/_components/spotlight';
 import { InfoTip } from '@/app/_components/info-tip';
 import { fetchScheduleBlocks } from '@/lib/schedule';
-import { formatCount } from '@/lib/format-number';
+import { countTrail } from '@/lib/count-trail';
 import { MemoriesChapters } from './memories-chapters';
 import { MemoriesThumb } from './memories-thumb';
 import {
@@ -156,7 +156,8 @@ export async function MemoriesSegment({
           key: a.event.event_id,
           label: a.event.display_name,
           group: a.role === 'couple' ? 'Hosting' : 'Attended',
-          trail: { text: formatCount(a.count), tone: 'muted' as const },
+          // The real number, or "couldn’t count" when this event's photos could not be read — never a 0 (#7909 follow-up).
+          trail: countTrail(a.countMeasured ? a.count : null),
           href: href(frameLens, a.event.event_id),
         })),
       ]

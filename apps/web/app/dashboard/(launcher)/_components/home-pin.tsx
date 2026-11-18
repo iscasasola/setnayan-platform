@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { formatCount } from '@/lib/format-number';
-import { HOME_SEG_LABEL, homeSegHref, type HomeSeg } from '@/lib/home-segments';
+import type { HomeSeg } from '@/lib/home-segments';
+import { homeSegOptions } from '@/lib/home-seg-options';
 import hp from './home-profile.module.css';
-import { HomePinPortal, useHomeSegCounts, type HomeSegCounts } from './home-segment-bar';
+import { HomePinPortal, useHomeSegCounts } from './home-segment-bar';
 
 /**
  * home-pin.tsx — 📌 HOME'S ONE PINNED ROW (owner 11 Nov 2026, "One profile page approve" — v3 row 7).
@@ -36,24 +36,8 @@ export type HomePinOption = { key: string; label: string; group: string; href: s
 export type HomePinDoor = { key: string; n: number; word: string; href: string; hot?: boolean };
 export type HomePinAction = { label: string; ariaLabel?: string; href: string; mark: string };
 
-export type HomeSegOption = HomePinOption & Pick<PickOption, 'dot' | 'dotNote' | 'trail'>;
-
-/**
- * The picker's "Home" group — the sections, as `seg:<section>` keys. Since the tab row went (owner 17 Nov 2026) the
- * group carries the tabs' numbers: a section's count as the row's trailing mark, and a number that waits on you
- * ("2 asking") as the picker's dot. A number Home did not read is not drawn — never a 0.
- */
-export function homeSegOptions(segs: readonly HomeSeg[], nums: HomeSegCounts = { counts: {}, hot: {} }): HomeSegOption[] {
-  return segs.map((s) => {
-    const n = nums.counts[s];
-    const word = nums.hot[s];
-    const base = { key: `seg:${s}`, label: HOME_SEG_LABEL[s], group: 'Home', href: homeSegHref(s) };
-    if (typeof n !== 'number') return base;
-    return word
-      ? { ...base, dot: true, dotNote: `${formatCount(n)} ${word}` }
-      : { ...base, trail: { text: formatCount(n), tone: 'muted' as const } };
-  });
-}
+/** The picker's "Home" group lives in a plain module (`lib/home-seg-options.ts`) — re-exported, every import unchanged. */
+export { homeSegOptions, type HomeSegOption } from '@/lib/home-seg-options';
 
 /** ⚙ — Profile & settings (the avatar sheet's same door). A link, so it needs no sheet of its own. */
 export function HomeGear() {

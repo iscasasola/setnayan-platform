@@ -9,8 +9,8 @@ import 'server-only';
  * could not load — never an empty shelf that reads as "nothing here".
  *
  * Articles (5) — Build 3 of Find · Build · Book (owner 17 Nov): every public article, newest first, the moment it
- * posts (Q6) — the same one read the sitemap and llms.txt list (`readPublicArticles`), so a hidden post leaves all
- * three together.
+ * posts (Q6) — Build 2's feed read, the same one llms.txt lists (`readPublicArticles`), so a removed post leaves
+ * both together.
  *
  * Service cards and Inspiration are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
  * Discover-only copy of it):
@@ -35,7 +35,7 @@ import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { inspirationPartsInOrder } from '@/lib/inspiration-parts';
 import { readTagEventLines, shownTagFilter } from '@/lib/inspiration-tags.server';
 import { readPublicArticles } from '@/lib/articles-index.server';
-import { articleHref } from '@/lib/articles-index';
+import { articleHref, isJournalArticle } from '@/lib/articles-index';
 
 export type Shelf<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
 
@@ -157,7 +157,7 @@ export type DiscoverArticle = {
   key: string;
   title: string;
   href: string;
-  /** "Setnayan Journal" for a Journal post, else the name the author posts under. */
+  /** "Setnayan Journal" for a Journal post, a shop's name for a shop's, else the name the author posts under. */
   by: string;
   isJournal: boolean;
   /** ISO — drawn as a date. */
@@ -166,19 +166,18 @@ export type DiscoverArticle = {
   line: string | null;
 };
 
-/** The newest public articles (Build 3, 17 Nov). Shown at once (Q6); a hidden one is left out with the sitemap's. */
+/** The newest public articles (Build 3, 17 Nov). Shown at once (Q6); a removed one is never read. */
 export async function loadDiscoverArticles(limit = 4): Promise<Shelf<DiscoverArticle>> {
-  // Over-read: a chapter whose author's profile is private is dropped after the read, never shown.
-  const { ok, items } = await readPublicArticles(limit * 4);
+  const { ok, items } = await readPublicArticles();
   if (!ok) return { status: 'unavailable' };
   return {
     status: 'ok',
     items: items.slice(0, limit).map((a) => ({
-      key: a.publicId,
+      key: a.slug,
       title: a.title,
       href: articleHref(a),
-      by: a.isJournal ? 'Setnayan Journal' : a.authorName,
-      isJournal: a.isJournal,
+      by: a.byline.name,
+      isJournal: isJournalArticle(a),
       postedAt: a.publishedAt,
       line: a.summary,
     })),

@@ -27,6 +27,7 @@ import type {
 } from './discover-six-parts-data';
 import type { FrontDoorStory } from './data';
 import {
+  ARTICLES_SEE_ALL_HREF,
   INSPIRATION_SEE_ALL_HREF,
   SERVICE_CARDS_SEE_ALL_HREF,
   STORIES_SEE_ALL_HREF,
@@ -124,6 +125,7 @@ export function ArticlesShelf({ shelf }: { shelf: Shelf<DiscoverArticle> }) {
     <section data-discover-part="articles">
       <h2 className="fd-sechead">
         <span>Articles</span>
+        {shelf.status === 'ok' && shelf.items.length > 0 ? <SeeAll href={ARTICLES_SEE_ALL_HREF} label="See all" /> : null}
       </h2>
       {shelf.status === 'unavailable' ? (
         <EmptyShelf line="Articles couldn’t load just now — try again in a moment." />

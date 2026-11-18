@@ -17,7 +17,7 @@ export async function readRoomsSeating(supabase: SupabaseClient, vendorProfileId
       .order('created_at', { ascending: true }),
     supabase
       .from('vendor_units')
-      .select('unit_id, group_id, kind, name, table_shape, chairs, chairs_at_ends, sort_order')
+      .select('unit_id, group_id, kind, name, table_shape, chairs, chairs_at_ends, sort_order, x_pos, y_pos, rotation_deg')
       .eq('vendor_profile_id', vendorProfileId),
     supabase
       .from('vendor_unit_doors')
@@ -32,7 +32,7 @@ export async function readRoomsSeating(supabase: SupabaseClient, vendorProfileId
     }
   }
   type G = { group_id: string; kind: string; name: string; width_m: number | string | null; length_m: number | string | null; sort_order: number };
-  type U = { unit_id: string; group_id: string; kind: string; name: string; table_shape: string | null; chairs: number | null; chairs_at_ends: boolean; sort_order: number };
+  type U = { unit_id: string; group_id: string; kind: string; name: string; table_shape: string | null; chairs: number | null; chairs_at_ends: boolean; sort_order: number; x_pos: number | string | null; y_pos: number | string | null; rotation_deg: number | null };
   type D = { door_id: string; group_id: string | null; door_kind: string; wall: string; along: string };
   const num = (v: number | string | null) => (v === null ? null : Number(v));
   const groups: UnitGroup[] = ((g.data ?? []) as G[]).map((r) => ({
@@ -52,6 +52,9 @@ export async function readRoomsSeating(supabase: SupabaseClient, vendorProfileId
     chairs: r.chairs,
     chairsAtEnds: Boolean(r.chairs_at_ends),
     sortOrder: r.sort_order,
+    x: num(r.x_pos),
+    y: num(r.y_pos),
+    rotationDeg: r.rotation_deg ?? 0,
   }));
   const doors: Door[] = ((d.data ?? []) as D[]).map((r) => ({
     id: r.door_id,

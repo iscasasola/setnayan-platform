@@ -33,7 +33,8 @@ export type SpecializedToolKey =
   | 'headcount'
   | 'live_watch'
   | 'papic_challenge'
-  | 'plan_3d';
+  | 'plan_3d'
+  | 'rooms_seating';
 
 export type SpecializedTool = {
   key: SpecializedToolKey;
@@ -65,6 +66,9 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'live_watch', title: 'Live Watch', line: 'The day’s live feed', door: { kind: 'per_event' }, hubKeys: ['live_watch'] },
   { key: 'papic_challenge', title: 'Papic challenge', line: 'Photo games for the guests', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['papic_camera'] },
   { key: 'plan_3d', title: '3D plan', line: 'Your booth inside the couple’s 3D plan', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['floor_plan', 'tables_and_seating', 'floor_command'] },
+  // 🛏 Owner 18 Nov (specs units_rooms_seating_2026-11-18/MAP.md piece A): the shop's rooms, halls and tables, made once —
+  // the door that fills the `floor_plan` + `tables_and_seating` hub keys.
+  { key: 'rooms_seating', title: 'Rooms & seating', line: 'Your rooms, halls and tables, made once', door: { kind: 'page', href: '/vendor-dashboard/rooms-seating' }, hubKeys: ['floor_plan', 'tables_and_seating'] },
 ];
 
 /** The hub tools each of the shop's categories gets, from the one table (labels matched the table's own way). */

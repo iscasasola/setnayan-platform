@@ -271,6 +271,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
   '/vendor-dashboard/on-the-day': { home: '/vendor-dashboard/customers' },
   '/vendor-dashboard/moodboard-library': { home: '/vendor-dashboard/collections' },
+  // 🛏 Rooms & seating opens from Shop › Makers › Specialized tools (owner 2026-11-18), so ‹ goes back to the Shop.
+  '/vendor-dashboard/rooms-seating': { home: '/vendor-dashboard/shop' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).

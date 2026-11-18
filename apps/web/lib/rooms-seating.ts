@@ -40,6 +40,10 @@ export type Unit = {
   chairs: number | null;
   chairsAtEnds: boolean;
   sortOrder: number;
+  /** Floor plan place — the SAME sense as `event_tables.x_pos / y_pos / rotation_deg` (lib/seating.ts). Null = never placed. */
+  x?: number | null;
+  y?: number | null;
+  rotationDeg?: number;
 };
 export type Door = { id: string; groupId: string | null; kind: DoorKind; wall: Wall; along: Along };
 export type RoomsSeating = { groups: UnitGroup[]; units: Unit[]; doors: Door[] };
@@ -244,4 +248,35 @@ export function countsLine(data: RoomsSeating, hasHallSize: boolean): string {
   if (hasHallSize) parts.push('1 hall');
   parts.push(`${tables} ${tables === 1 ? 'table' : 'tables'}${tables ? ` · ${seats} ${seats === 1 ? 'seat' : 'seats'}` : ''}`);
   return parts.join(' · ');
+}
+
+/**
+ * 🔌 THE SHOP'S HAND-OFF TO THE SHARED SEAT-PLAN CORE (owner 18 Nov: Rooms & seating = the shipped seat plan and room
+ * makers, improved and adapted; a separate session pulls the shared core out of `app/dashboard/[eventId]/seating/` and
+ * `app/(shell)/pa3d/`). One dining area (or the hall, `areaId = null`) as the core draws it: a sized room, its tables
+ * with their type and one chair count, and its doors. No guest is ever on it. Writes come back through
+ * `saveTablePlace` (x · y · rotation) and the rest of `app/vendor-dashboard/rooms-seating/actions.ts`.
+ */
+export type ShopPlan = {
+  areaId: string | null;
+  name: string;
+  room: { widthM: number; lengthM: number } | null;
+  tables: Array<{ id: string; label: string; shape: TableShape; chairs: number; chairsAtEnds: boolean; x: number | null; y: number | null; rotationDeg: number }>;
+  doors: Array<{ id: string; kind: DoorKind; wall: Wall; along: Along }>;
+};
+
+export function shopPlanOf(data: RoomsSeating, areaId: string | null, hall: { widthM: number; lengthM: number } | null): ShopPlan | null {
+  const g = areaId === null ? null : data.groups.find((x) => x.id === areaId && x.kind === 'dining_area');
+  if (areaId !== null && !g) return null;
+  return {
+    areaId,
+    name: g ? g.name : 'Hall',
+    room: g ? (g.widthM != null && g.lengthM != null ? { widthM: g.widthM, lengthM: g.lengthM } : null) : hall,
+    tables: g
+      ? unitsOf(data.units, g.id)
+          .filter((u) => u.kind === 'table' && u.shape && u.chairs)
+          .map((u) => ({ id: u.id, label: u.name, shape: u.shape!, chairs: u.chairs!, chairsAtEnds: u.chairsAtEnds, x: u.x ?? null, y: u.y ?? null, rotationDeg: u.rotationDeg ?? 0 }))
+      : [],
+    doors: data.doors.filter((d) => d.groupId === areaId).map((d) => ({ id: d.id, kind: d.kind, wall: d.wall, along: d.along })),
+  };
 }

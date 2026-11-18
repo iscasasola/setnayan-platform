@@ -75,7 +75,7 @@ export const HUB_TOOL_LIBRARY = [
   { key: "pick_up_times_and_routes", label: "Pick-up times & routes", template: "live_timeline", shipped: false },
   { key: "headcount", label: "Headcount", template: "counter", shipped: true },
   { key: "itinerary", label: "Itinerary", template: "live_timeline", shipped: false },
-  { key: "tables_and_seating", label: "Tables & seating", template: "plan", shipped: false },
+  { key: "tables_and_seating", label: "Tables & seating", template: "plan", shipped: true },
   { key: "serving_times", label: "Serving times", template: "live_timeline", shipped: false },
   { key: "crew_roster", label: "Crew roster", template: "per_person", shipped: false },
   { key: "floor_command", label: "Floor Command", template: "live_timeline", shipped: true },
@@ -99,7 +99,7 @@ export const HUB_TOOL_LIBRARY = [
   { key: "shot_list", label: "Shot list", template: "checklist", shipped: false },
   { key: "photo_delivery", label: "Photo delivery", template: "media", shipped: false },
   { key: "reveal_cue", label: "Reveal cue", template: "live_timeline", shipped: false },
-  { key: "floor_plan", label: "Floor plan", template: "plan", shipped: false },
+  { key: "floor_plan", label: "Floor plan", template: "plan", shipped: true },
   { key: "safety_permit_and_cue", label: "Safety permit & cue", template: "checklist", shipped: false },
   { key: "room_list", label: "Room list", template: "per_person", shipped: false },
 ] as const;

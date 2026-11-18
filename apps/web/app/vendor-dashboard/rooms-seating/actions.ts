@@ -88,7 +88,7 @@ function tableFields(shape: unknown, chairs: unknown, ends: unknown): { shape: T
   return { shape, chairs: n, ends: shape === 'long' && ends === true };
 }
 
-export async function addUnits(input: {
+async function addUnits(input: {
   kind: UnitKind;
   names: string;
   groupId: string | null;
@@ -123,7 +123,7 @@ export async function addUnits(input: {
   return fresh(s);
 }
 
-export async function updateUnit(input: { id: string; name: string; groupId: string; shape?: TableShape; chairs?: number; ends?: boolean }): Promise<RoomsSeatingResult> {
+async function updateUnit(input: { id: string; name: string; groupId: string; shape?: TableShape; chairs?: number; ends?: boolean }): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const name = String(input.name ?? '').trim();
@@ -140,7 +140,7 @@ export async function updateUnit(input: { id: string; name: string; groupId: str
   return fresh(s);
 }
 
-export async function deleteUnit(id: string): Promise<RoomsSeatingResult> {
+async function deleteUnit(id: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const { error } = await s.supabase.from('vendor_units').delete().eq('unit_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
@@ -149,7 +149,7 @@ export async function deleteUnit(id: string): Promise<RoomsSeatingResult> {
 }
 
 /** Move: one group's tiles in their new order. */
-export async function saveOrder(groupId: string, ids: string[]): Promise<RoomsSeatingResult> {
+async function saveOrder(groupId: string, ids: string[]): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   for (let i = 0; i < ids.length; i++) {
@@ -165,7 +165,7 @@ export async function saveOrder(groupId: string, ids: string[]): Promise<RoomsSe
 }
 
 /** Line up: every floor (or area) back in name order. */
-export async function lineUpAll(kind: UnitKind): Promise<RoomsSeatingResult> {
+async function lineUpAll(kind: UnitKind): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const now = await readRoomsSeating(s.supabase, s.profile.vendor_profile_id);
@@ -179,7 +179,7 @@ export async function lineUpAll(kind: UnitKind): Promise<RoomsSeatingResult> {
   return fresh(s);
 }
 
-export async function renameGroup(id: string, name: string): Promise<RoomsSeatingResult> {
+async function renameGroup(id: string, name: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const n = String(name ?? '').trim();
@@ -190,7 +190,7 @@ export async function renameGroup(id: string, name: string): Promise<RoomsSeatin
 }
 
 /** Deleting a floor or area deletes what is on it (the page asks first and names the count). */
-export async function deleteGroup(id: string): Promise<RoomsSeatingResult> {
+async function deleteGroup(id: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const { error } = await s.supabase.from('vendor_unit_groups').delete().eq('group_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
@@ -198,7 +198,7 @@ export async function deleteGroup(id: string): Promise<RoomsSeatingResult> {
   return fresh(s);
 }
 
-export async function setAreaSize(id: string, width: string, depth: string): Promise<RoomsSeatingResult> {
+async function setAreaSize(id: string, width: string, depth: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const z = parseRoomSize(width, depth);
@@ -217,7 +217,7 @@ export async function setAreaSize(id: string, width: string, depth: string): Pro
  * The hall's size IS the shop's shipped "Room size" (`vendor_profiles.venue_width_m` / `venue_length_m`) — written here
  * with the same rule, never a second size. Capacity stays on the shop row, untouched.
  */
-export async function setHallSize(width: string, depth: string): Promise<RoomsSeatingResult> {
+async function setHallSize(width: string, depth: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const z = parseRoomSize(width, depth);
@@ -231,7 +231,7 @@ export async function setHallSize(width: string, depth: string): Promise<RoomsSe
   return fresh(s);
 }
 
-export async function addDoor(input: { groupId: string | null; kind: DoorKind; wall: Wall; along: Along }): Promise<RoomsSeatingResult> {
+async function addDoor(input: { groupId: string | null; kind: DoorKind; wall: Wall; along: Along }): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   if (!isDoorKind(input.kind) || !isWall(input.wall) || !isAlong(input.along)) return { ok: false, error: 'Pick the door, its wall and where along it.' };
@@ -246,10 +246,75 @@ export async function addDoor(input: { groupId: string | null; kind: DoorKind; w
   return fresh(s);
 }
 
-export async function deleteDoor(id: string): Promise<RoomsSeatingResult> {
+async function deleteDoor(id: string): Promise<RoomsSeatingResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
   const { error } = await s.supabase.from('vendor_unit_doors').delete().eq('door_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
   if (error) return { ok: false, error: said(error) };
   return fresh(s);
+}
+
+/** The shared seat-plan core's Move: one table's place on its area's plan (event_tables' sense, 0-100 % and degrees). */
+async function saveTablePlace(id: string, x: number, y: number, rotationDeg: number): Promise<RoomsSeatingResult> {
+  const s = await shop();
+  if (!s) return NO_SHOP;
+  const ok = (n: number, lo: number, hi: number) => Number.isFinite(n) && n >= lo && n <= hi;
+  if (!ok(x, 0, 100) || !ok(y, 0, 100) || !ok(rotationDeg, -360, 360)) return { ok: false, error: 'That place is off the plan.' };
+  const { error } = await s.supabase
+    .from('vendor_units')
+    .update({ x_pos: x, y_pos: y, rotation_deg: Math.round(rotationDeg) })
+    .eq('unit_id', id)
+    .eq('kind', 'table')
+    .eq('vendor_profile_id', s.profile.vendor_profile_id);
+  if (error) return { ok: false, error: said(error) };
+  return fresh(s);
+}
+
+/**
+ * THE ONE EXPORT (`scripts/lint-server-action-budget.mjs`: "reuse … instead of exporting a new one") — every Rooms &
+ * seating write goes through this dispatcher, one op at a time, so the page adds one server action, not twelve.
+ */
+export type RoomsSeatingOp =
+  | { op: 'addUnits'; input: Parameters<typeof addUnits>[0] }
+  | { op: 'updateUnit'; input: Parameters<typeof updateUnit>[0] }
+  | { op: 'deleteUnit'; id: string }
+  | { op: 'saveOrder'; groupId: string; ids: string[] }
+  | { op: 'lineUp'; kind: UnitKind }
+  | { op: 'renameGroup'; id: string; name: string }
+  | { op: 'deleteGroup'; id: string }
+  | { op: 'setAreaSize'; id: string; width: string; depth: string }
+  | { op: 'setHallSize'; width: string; depth: string }
+  | { op: 'addDoor'; input: Parameters<typeof addDoor>[0] }
+  | { op: 'deleteDoor'; id: string }
+  | { op: 'placeTable'; id: string; x: number; y: number; rotationDeg: number };
+
+export async function roomsSeatingWrite(o: RoomsSeatingOp): Promise<RoomsSeatingResult> {
+  switch (o.op) {
+    case 'addUnits':
+      return addUnits(o.input);
+    case 'updateUnit':
+      return updateUnit(o.input);
+    case 'deleteUnit':
+      return deleteUnit(o.id);
+    case 'saveOrder':
+      return saveOrder(o.groupId, o.ids);
+    case 'lineUp':
+      return lineUpAll(o.kind);
+    case 'renameGroup':
+      return renameGroup(o.id, o.name);
+    case 'deleteGroup':
+      return deleteGroup(o.id);
+    case 'setAreaSize':
+      return setAreaSize(o.id, o.width, o.depth);
+    case 'setHallSize':
+      return setHallSize(o.width, o.depth);
+    case 'addDoor':
+      return addDoor(o.input);
+    case 'deleteDoor':
+      return deleteDoor(o.id);
+    case 'placeTable':
+      return saveTablePlace(o.id, o.x, o.y, o.rotationDeg);
+    default:
+      return { ok: false, error: 'Unknown change.' };
+  }
 }

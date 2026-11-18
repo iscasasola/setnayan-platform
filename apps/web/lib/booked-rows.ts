@@ -37,6 +37,7 @@ import { keysForGroup, suggestedChapters } from '@/lib/trade-chapters';
 import type { DefaultChapterKey } from '@/lib/schedule';
 import { priceToday } from './price-summary';
 import { timesMarkLine, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
+import { bookedTimesLines, type BookedTimesLine, type OwnClocks } from './supplier-own-times';
 import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
@@ -179,8 +180,15 @@ export type BookedRow = {
   room: RoomLine | null;
   /** The couple asked their suppliers to move the date, and this is theirs. */
   dateAsk: DateAsk | null;
-  /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
+  /** "On site from 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
   callTime: BookedCallTime | null;
+  /**
+   * 🕕 THE TWO TIMES, TWO NAMES (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL"; drawing event_pages_today_doors):
+   * "Crew call 11:00 AM" (the supplier's own `call_clock`) · "On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM"
+   * (the earliest moment YOU tagged them on, then their own arrive/done) — or "No times yet" · "On site from 2:30 PM,
+   * from the moments you tagged them on" (`bookedTimesLines`). Null = nobody asked (no lines, never "No times yet").
+   */
+  times?: BookedTimesLine[] | null;
   /**
    * ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`, audit G6). `null` = not asked or
    * nothing pressed (no line); `unread` = the read was refused (said, never "not confirmed").
@@ -362,6 +370,7 @@ function bookedRowOf(
     now: Date | undefined;
     callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
     marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined;
+    crewCalls?: ReadonlyMap<string, OwnClocks> | null | undefined;
     plansKnown: boolean;
     chapters: readonly WhereChapter[] | null | undefined;
     venues: ReadonlyMap<string, string>;
@@ -392,6 +401,7 @@ function bookedRowOf(
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
     timesMark: timesMarkFor(extra.marks, f.shopId),
+    times: timesFor(callTimeFor(extra.callTimes, team.vendorId), extra.crewCalls, f.shopId),
     plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
     where:
       extra.chapters === undefined
@@ -531,6 +541,11 @@ export function bookedView(args: {
    */
   marks?: ReadonlyMap<string, ScheduleMarkFacts> | null;
   /**
+   * 🕕 Each booked shop's own call / arrive / done ('HH:MM') by SHOP (`readCrewCalls`). `null` = refused; `undefined` =
+   * not asked.
+   */
+  crewCalls?: ReadonlyMap<string, OwnClocks> | null;
+  /**
    * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
    * `undefined` = nobody asked (no Where is drawn).
    */
@@ -572,6 +587,7 @@ export function bookedView(args: {
           now: args.now,
           callTimes: args.callTimes,
           marks: args.marks,
+          crewCalls: args.crewCalls,
           plansKnown: args.plans !== null,
           chapters: args.chapters,
           venues,
@@ -678,6 +694,21 @@ export function timesMarkFor(
   if (marks === null) return { kind: 'unread' };
   const mark = timesMarkOf(marks.get(shopId));
   return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word !== 'Seen' } : null;
+}
+
+/**
+ * 🕕 The Team row's two times (`bookedTimesLines`) — the supplier's own clocks keyed by the booking's SHOP, beside the
+ * earliest moment the couple tagged them on. Null = the Schedule was not asked (no lines at all).
+ */
+export function timesFor(
+  callTime: BookedCallTime | null,
+  crewCalls: ReadonlyMap<string, OwnClocks> | null | undefined,
+  shopId: string | null,
+): BookedTimesLine[] | null {
+  if (callTime === null && crewCalls === undefined) return null;
+  const own: OwnClocks | null | 'unread' = crewCalls === null ? 'unread' : shopId && crewCalls ? (crewCalls.get(shopId) ?? null) : null;
+  const tagged = callTime === null || callTime.kind === 'none' ? null : callTime.kind === 'unread' ? 'unread' : callTime.clock;
+  return bookedTimesLines(own, tagged);
 }
 
 export function callTimeFor(

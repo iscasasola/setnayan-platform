@@ -85,6 +85,13 @@ export function RunOfShowHeader({
   variant?: 'card' | 'strip';
 }) {
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
+  /*
+    🗓 AHEAD OF THE DAY (owner, 17 Nov: "Run of show · LIVE" and "Up next" on an event 176 days away). `startsOnWords`
+    is the page's own day-of check (set only while the event's date is after today in Manila — RW-87). While it is set
+    the header is a plan, not a broadcast: no "Live"/"Syncing" badge (that word is the realtime channel's state, and on
+    a day months off it read as "this is happening now"), and the second box names the FIRST moment, not "Up next".
+  */
+  const ahead = startsOnWords != null;
   const [live, setLive] = useState(false);
   /** What the last press was told. Null while nothing has been refused. */
   const [notice, setNotice] = useState<string | null>(null);
@@ -346,7 +353,9 @@ export function RunOfShowHeader({
             </div>
             <span aria-hidden className="hidden h-9 w-px bg-ink/10 sm:block" />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">Up next</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45" data-run-of-show-next={ahead ? 'first' : 'next'}>
+                {ahead ? 'First moment' : 'Up next'}
+              </p>
               <p className="truncate text-sm font-semibold text-ink/80 sm:text-base">
                 {next ? next.label : 'Nothing after this'}
               </p>
@@ -368,10 +377,11 @@ export function RunOfShowHeader({
                   {pressLabel}
                   <ChevronRight aria-hidden className="h-4 w-4" />
                 </button>
-              ) : (
+              ) : ahead ? null : (
                 <span
                   className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45"
                   title={live ? 'Updating in real time' : 'Reconnecting…'}
+                  data-run-of-show-live=""
                 >
                   {live ? 'Live · watching' : 'Syncing'}
                 </span>
@@ -405,16 +415,19 @@ export function RunOfShowHeader({
             Run of show
           </h2>
         </div>
-        <span
-          className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
-          title={live ? 'Updating in real time' : 'Reconnecting…'}
-        >
+        {ahead ? null : (
           <span
-            aria-hidden
-            className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-success-500 animate-pulse' : 'bg-ink/25'}`}
-          />
-          {live ? 'Live' : 'Syncing'}
-        </span>
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45"
+            title={live ? 'Updating in real time' : 'Reconnecting…'}
+            data-run-of-show-live=""
+          >
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-success-500 animate-pulse' : 'bg-ink/25'}`}
+            />
+            {live ? 'Live' : 'Syncing'}
+          </span>
+        )}
       </header>
 
       {allDone ? (
@@ -452,8 +465,8 @@ export function RunOfShowHeader({
 
           {/* NEXT */}
           <div className="rounded-xl border border-ink/10 bg-white/40 p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-              Up next
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45" data-run-of-show-next={ahead ? 'first' : 'next'}>
+              {ahead ? 'First moment' : 'Up next'}
             </p>
             {next ? (
               <>

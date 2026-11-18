@@ -13,15 +13,22 @@ import {
   type RepostFlagStatus,
   type RepostSurface,
 } from '@/lib/vendor-theft-watch';
-import { shopCardClass } from '../_components/kit';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 
 export const metadata = { title: 'Theft Watch · Supplier' };
 
-const STATUS: Record<RepostFlagStatus, { label: string; className: string }> = {
-  open: { label: 'Under review', className: 'bg-amber-500/12 text-amber-700' },
-  escalated: { label: 'Escalated to our team', className: 'bg-orange-500/12 text-orange-700' },
-  confirmed_theft: { label: 'Confirmed repost', className: 'bg-red-500/12 text-red-700' },
-  dismissed: { label: 'Cleared — no theft', className: 'bg-ink/8 text-ink/50' },
+const STATUS: Record<RepostFlagStatus, { label: string; tone: BadgeTone }> = {
+  open: { label: 'Under review', tone: 'wait' },
+  escalated: { label: 'Escalated to our team', tone: 'wait' },
+  confirmed_theft: { label: 'Confirmed repost', tone: 'no' },
+  dismissed: { label: 'Cleared — no theft', tone: 'quiet' },
 };
 
 const SURFACE_LABEL: Record<RepostSurface, string> = {
@@ -67,71 +74,57 @@ export default async function VendorTheftWatchPage() {
   const reposts = await fetchVendorReposts(profile.vendor_profile_id);
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-      <header className="space-y-2">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-ink/70" strokeWidth={1.75} aria-hidden />
-          <h1 className="text-lg font-semibold text-ink">Theft Watch</h1>
-        </div>
-        <p className="text-sm text-ink/55">
-          We perceptually fingerprint every photo you upload and scan the marketplace for
-          copies. If another listing reposts your work, it&rsquo;s flagged here as yours — our
-          team reviews each one.
-        </p>
-      </header>
+    <section className="mx-auto max-w-3xl space-y-2 px-4 py-4">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Theft Watch</h1>
 
-      {reposts.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-ink/10 bg-ink/[0.02] px-6 py-12 text-center">
-          <ShieldCheck className="h-8 w-8 text-emerald-600/70" strokeWidth={1.5} aria-hidden />
-          <p className="text-sm font-medium text-ink">No reposts flagged — your work is clean.</p>
-          <p className="max-w-sm text-xs text-ink/50">
-            We&rsquo;ll watch continuously. If a copy of one of your photos shows up on another
-            profile, you&rsquo;ll see it here.
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {reposts.map((flag) => {
-            const status = STATUS[flag.status];
-            // `source_r2_ref` carries whichever shape its surface stored — an
-            // `r2://` ref for a service cover, a portfolio entry for the other.
-            // Null means "not addressable"; the tile stays an empty swatch
-            // rather than a broken image, and the row still names the flag.
-            const thumbUrl = publicUrlForStoredAsset(flag.r2Ref);
-            return (
-              <li
-                key={flag.publicId}
-                className={`flex items-center gap-4 ${shopCardClass} p-3`}
-              >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink/5">
-                  {thumbUrl ? (
-                    <Image
-                      src={thumbUrl}
-                      alt="Your photo that was reposted"
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">
-                    {SURFACE_LABEL[flag.surface]} reposted
-                  </p>
-                  <p className="text-xs text-ink/45">Flagged {formatDate(flag.createdAt)}</p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${status.className}`}
-                >
-                  {status.label}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <TemplateSection
+        label="Reposts flagged"
+        first
+        tip="We fingerprint every photo you upload and scan the marketplace for copies. Our team reviews each match."
+      >
+        {reposts.length === 0 ? (
+          <TemplateEmpty data="theft-watch">
+            <ShieldCheck aria-hidden className="mr-1.5 inline-block h-4 w-4 align-[-2px]" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={1.75} />
+            No reposts flagged — your work is clean. We&rsquo;ll keep watching.
+          </TemplateEmpty>
+        ) : (
+          <TemplateRows label="Reposts flagged">
+            {reposts.map((flag) => {
+              const status = STATUS[flag.status];
+              // `source_r2_ref` carries whichever shape its surface stored — an
+              // `r2://` ref for a service cover, a portfolio entry for the other.
+              // Null means "not addressable"; the tile stays an empty swatch
+              // rather than a broken image, and the row still names the flag.
+              const thumbUrl = publicUrlForStoredAsset(flag.r2Ref);
+              return (
+                <TemplateRow
+                  key={flag.publicId}
+                  data={flag.publicId}
+                  lead={
+                    <span className="relative block h-12 w-12 overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]">
+                      {thumbUrl ? (
+                        <Image
+                          src={thumbUrl}
+                          alt="Your photo that was reposted"
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      ) : null}
+                    </span>
+                  }
+                  title={`${SURFACE_LABEL[flag.surface]} reposted`}
+                  line={`Flagged ${formatDate(flag.createdAt)}`}
+                  right={<Badge tone={status.tone}>{status.label}</Badge>}
+                />
+              );
+            })}
+          </TemplateRows>
+        )}
+      </TemplateSection>
 
-      <p className="text-xs text-ink/40">
+      <p className={`pt-2 ${TEMPLATE_SUBLINE}`}>
         Only you and our review team can see these flags. We never name another supplier on an
         unconfirmed match — reposts are adjudicated by our team, not automatically.
       </p>

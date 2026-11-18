@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
+import { planWord } from '@/lib/vendor-plan-change-words';
 
 /**
  * Notification helpers for the vendor SUBSCRIPTION (Pro/Enterprise) checkout
@@ -24,10 +25,13 @@ import { emitAdminNotice, emitNotification } from '@/lib/notification-emit';
 const peso = (n: number) =>
   '₱' + new Intl.NumberFormat('en-PH').format(Math.round(n));
 
-const TIER_LABEL: Record<string, string> = {
-  pro: 'Pro',
-  enterprise: 'Ultra',
-};
+/**
+ * 🏷 THE PLAN'S NAME IS `planWord` — the one the Plan screen prints (plan-purchase audit, 2026-11-16). A local
+ * `{ pro, enterprise }` map lived here and had no `solo`, so every Supplier Plus purchase fell through to the raw
+ * enum: the admin was told "started a solo (monthly) subscription" and the shop "Your solo plan is active".
+ * 🔒 lib/a-plan-is-named-the-same-everywhere.test.ts
+ */
+const tierName = (tier: unknown): string => planWord(typeof tier === 'string' ? tier : null);
 
 /**
  * Fan out to every admin/internal/team user that a vendor started a
@@ -52,7 +56,7 @@ export async function notifyAdminsSubscriptionPending(
       .eq('vendor_profile_id', p.vendor_id)
       .maybeSingle();
     const name = v?.business_name ?? 'A supplier';
-    const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
+    const tier = tierName(p.tier);
 
     const { data: admins } = await admin
       .from('users')
@@ -101,7 +105,7 @@ export async function notifyVendorSubscriptionActivated(
       .maybeSingle();
     if (!v?.user_id) return; // unclaimed vendor — no account to notify yet
 
-    const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
+    const tier = tierName(p.tier);
 
     await emitNotification({
       userId: v.user_id as string,
@@ -149,7 +153,7 @@ export async function notifyVendorSubscriptionRejected(
       .maybeSingle();
     if (!v?.user_id) return; // unclaimed vendor — no account to notify yet
 
-    const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
+    const tier = tierName(p.tier);
 
     await emitNotification({
       userId: v.user_id as string,

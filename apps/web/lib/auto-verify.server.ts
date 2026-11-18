@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   decideAutoVerify,
   digitsOnly,
+  holdAutoApproval,
   maskTin,
   officialQrLink,
   tinParts,
@@ -167,7 +168,7 @@ export async function runAutoVerifyOnSubmit(args: {
           duplicateLookups(args.vendorProfileId, dti?.registrationNumber ?? null, papers[1]!.model?.registrationNumber ?? null),
         ]);
         live = livePage;
-        decided = decideAutoVerify({ papers, livePage, duplicates, todayManila: todayManila() });
+        decided = holdAutoApproval(decideAutoVerify({ papers, livePage, duplicates, todayManila: todayManila() }));
       }
     }
   } catch {

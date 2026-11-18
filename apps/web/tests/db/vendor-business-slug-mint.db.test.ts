@@ -251,7 +251,11 @@ test('every HAND-TYPED reserved word is reserved in the database', async () => {
 // the word to `business_slug_is_reserved` in a migration, or (b) add it here
 // with a written reason for why a shop taking that page is acceptable. There is
 // no third answer, and weakening the assertion is not one of them.
-const KNOWN_DB_MINT_GAP = new Set<string>([]);
+const KNOWN_DB_MINT_GAP = new Set<string>([
+  // 🤝 /i/<slug> (Invite a supplier v3): ONE letter. The mint never hands out an address under 3 characters
+  // (20271117527966: `length(v_base) < 3` falls back to the public id), so no shop can ever be given it.
+  'i',
+]);
 
 test('no NEW route word is left uncovered by the database mint', async () => {
   const words = [...ROUTE_RESERVED_SLUGS];

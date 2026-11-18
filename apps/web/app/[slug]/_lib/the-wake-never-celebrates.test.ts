@@ -456,8 +456,12 @@ test('🖨 the printed card reads "In loving memory of" at a wake — the cover�
     print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',"),
     'print-set.server.ts lost one of the three eyebrow arms',
   );
-  assert.match(print, /const solemn = isWedding \? false : \(await eventWordsFor\(event\.event_type\)\)\.solemn;/,
-    'the printed eyebrow no longer reads the register from the event type');
+  // ⚡ The register is read beside the other reads (speed pass 2026-11-18) — still from the event type, never at a wedding.
+  assert.match(print, /const wordsRead = isWeddingEarly \? null : startAhead\(eventWordsFor\(event\.event_type\)\);/,
+    '🖨 the printed eyebrow no longer reads the register from the event type');
+  assert.match(print, /const isWeddingEarly = \(event\.event_type \?\? 'wedding'\) === 'wedding';/);
+  assert.match(print, /const solemn = isWedding \|\| !wordsRead \? false : \(await wordsRead\)\.solemn;/,
+    '🖨 the printed eyebrow no longer reads the register from the event type');
   // One phrase for one moment: the post-event cover's solemn kicker is the
   // source; the printed card is that phrase + "of".
   const kicker = /if \(f\.solemn\) return '([^']+)';/.exec(

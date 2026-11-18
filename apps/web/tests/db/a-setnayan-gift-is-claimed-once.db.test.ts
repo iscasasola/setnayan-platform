@@ -337,3 +337,41 @@ test('11 · the paused plan’s PAID days do not burn under the gift — its pur
   assert.equal(subAgain, sub, 'a second sweep or hand-back moves the purchase nowhere');
   assert.equal((await planOf(shop)).tier_expires_at, back.tier_expires_at, 'nor the profile');
 });
+
+test('12 · a press before the login sweep ran: the lapsed plan still takes its credit, and a PAID scheduled plan still lands', async () => {
+  // The layout's sweep runs AFTER the page is drawn, so a shop can press "Start it" on the very load where its own term
+  // ran out. The claim settles the plan first — exactly as if the sweep had run.
+  const lapsed = await newShop({ tier: 'pro', expiresIn: -60_000 });
+  await db.query(`UPDATE public.vendor_profiles SET subscription_credit_php = 900 WHERE vendor_profile_id = $1`, [lapsed.shop]);
+  const g1 = await sendPlan(lapsed.shop, 'enterprise');
+  assert.equal((await claim(g1, lapsed.shop, 'start', lapsed.userId)).status, 'claimed');
+  assert.equal(
+    Number(await one<string>(`SELECT subscription_credit_php::text AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [lapsed.shop])),
+    0,
+    'the credit went with the plan that ended, gift or no gift',
+  );
+
+  // A Pro shop whose term ran out with a PAID Ultra term queued behind it is continuing, not lapsing: the queued plan
+  // applies, and the gift's "Start it" (offered from the stale page) is no longer a choice — nothing is overwritten.
+  const queued = await newShop({ tier: 'pro', expiresIn: -60_000 });
+  const purchase = await one<string>(
+    `INSERT INTO public.vendor_subscriptions
+       (vendor_id, sku_code, tier, billing_cycle, amount_php, period_days, status, paid_at)
+     VALUES ($1, 'test_ultra_28', 'enterprise', 'monthly', 4800, 28, 'paid', now() - interval '2 days')
+     RETURNING purchase_id AS v`,
+    [queued.shop],
+  );
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET pending_tier = 'enterprise', pending_tier_billing_cycle = 'monthly', pending_tier_period_days = 28,
+            pending_tier_purchase_id = $2, pending_tier_scheduled_at = now() - interval '2 days'
+      WHERE vendor_profile_id = $1`,
+    [queued.shop, purchase],
+  );
+  const g2 = await sendPlan(queued.shop, 'solo');
+  const res = await claim(g2, queued.shop, 'start', queued.userId);
+  assert.notEqual(res.status, 'claimed', 'the gift overwrote a plan the shop had paid for');
+  const now = await planOf(queued.shop);
+  assert.equal(now.tier_state, 'enterprise', 'the paid scheduled plan applied');
+  assert.ok(msLeft(now.tier_expires_at) > 27 * DAY);
+});

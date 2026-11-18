@@ -190,6 +190,11 @@ BEGIN
     RETURN jsonb_build_object('status', 'already', 'choice', g.claim_choice, 'ends_at', g.plan_ends_at);
   END IF;
 
+  -- ⏱ SETTLE THE SHOP'S PLAN FIRST. The login sweep runs AFTER the page is drawn, so a shop whose own term has just run
+  -- out can press before it has: its lapse would never take the credit with the plan (owner 2026-08-28), and a PAID
+  -- scheduled plan would be overwritten by the gift and then dropped at the hand-back. The sweep is idempotent.
+  PERFORM public.sweep_vendor_tier_expiry(p_vendor_profile_id);
+
   -- One claim at a time per shop: the plan read below is the plan the write lands on.
   SELECT * INTO v FROM public.vendor_profiles WHERE vendor_profile_id = p_vendor_profile_id FOR UPDATE;
   IF NOT FOUND THEN

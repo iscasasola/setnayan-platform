@@ -24,13 +24,23 @@ import type { LivePageResult } from './qr-live-check';
  * the machine has no such answer.
  */
 
+// W1-B34: every paper names its issuing office and prints the lines its type always prints, or it is not
+// Recognised (`lib/paper-recognised.ts`) — so the clean fixture carries them, and no word like "SAMPLE" in a name.
+const ISSUED_BY = {
+  dti: 'Department of Trade and Industry',
+  sec: 'Securities and Exchange Commission',
+  bir: 'Bureau of Internal Revenue',
+  lgu: 'Office of the City Mayor, Pasig City',
+} as Record<string, string>;
 const model = (over: Partial<ModelPaperRead>): ModelPaperRead => ({
+  issuer: ISSUED_BY[over.registry ?? 'dti'] ?? null,
+  markings: [],
   registry: 'dti',
-  accountName: 'SAMPLE BLOOMS EVENT STYLING',
+  accountName: 'LIWANAG BLOOMS EVENT STYLING',
   ownerName: 'JUAN DELA CRUZ',
   registrationNumber: '5512034',
-  rdo: null,
-  address: null,
+  rdo: '043',
+  address: '12 Kalayaan Ave, Pasig City',
   city: 'Pasig',
   barangay: 'San Antonio',
   expirationDate: null,
@@ -56,13 +66,13 @@ const clean = (): AutoVerifyInput => ({
       slotKey: 'bir_2303',
       fileProblem: null,
       qrTexts: [],
-      model: model({ registry: 'bir', registrationNumber: '210-334-871-000', tin: '210-334-871-000', accountName: 'Sample Blooms Event Styling' }),
+      model: model({ registry: 'bir', registrationNumber: '210-334-871-000', tin: '210-334-871-000', accountName: 'Liwanag Blooms Event Styling' }),
     },
     {
       slotKey: 'mayors_permit',
       fileProblem: null,
       qrTexts: [],
-      model: model({ registry: 'lgu', registrationNumber: '2026-0042', city: 'Pasig', expirationDate: '2026-12-31', accountName: 'Sample Blooms Event Styling Enterprises' }),
+      model: model({ registry: 'lgu', registrationNumber: '2026-0042', city: 'Pasig', expirationDate: '2026-12-31', accountName: 'Liwanag Blooms Event Styling Enterprises' }),
     },
   ],
 });
@@ -173,9 +183,9 @@ test('TYPED VALUES NEVER AUTO-VERIFY — a manual slot goes to a person even whe
 test('2 fails alone — a different name; "similar" never passes', () => {
   const i = clean();
   // The DTI paper differs (the BIR ↔ permit pair is check 7's, so it is left matching).
-  paper(i, 'dti_certificate').model = { ...paper(i, 'dti_certificate').model!, accountName: 'SAMPLE BLOOM EVENT STYLING', ownerName: 'JUAN DELA CRUS' };
+  paper(i, 'dti_certificate').model = { ...paper(i, 'dti_certificate').model!, accountName: 'LIWANAG BLOOM EVENT STYLING', ownerName: 'JUAN DELA CRUS' };
   const d = onlyFails(i, 'name_agrees');
-  assert.match(d.reason, /SAMPLE BLOOM EVENT STYLING/);
+  assert.match(d.reason, /LIWANAG BLOOM EVENT STYLING/);
   assert.match(d.reason, /% alike/);
 });
 test('names fold case, punctuation, &/and and legal suffixes — then must match EXACTLY', () => {
@@ -205,7 +215,8 @@ test("3 fails alone — last year's permit, and a permit with no date", () => {
   onlyFails(i, 'nothing_expired');
   const j = clean();
   paper(j, 'mayors_permit').model = { ...paper(j, 'mayors_permit').model!, expirationDate: null };
-  onlyFails(j, 'nothing_expired');
+  // W1-B34: a permit with no valid-until is also missing a line every permit prints, so it is not Recognised either.
+  assert.deepEqual(decideAutoVerify(j).checks.filter((c) => !c.pass).map((c) => c.key), ['papers_read', 'nothing_expired']);
 });
 test('3 fails alone — an expired DTI certificate; a BIR with no expiry passes', () => {
   const i = clean();
@@ -238,7 +249,7 @@ test('4 fails alone — no QR; a SEC paper with a DTI QR', () => {
   paper(i, 'dti_certificate').qrTexts = [];
   onlyFails(i, 'qr_official');
   const j = clean();
-  paper(j, 'dti_certificate').model = { ...paper(j, 'dti_certificate').model!, registry: 'sec' };
+  paper(j, 'dti_certificate').model = { ...paper(j, 'dti_certificate').model!, registry: 'sec', issuer: ISSUED_BY.sec };
   onlyFails(j, 'qr_official');
 });
 const live = (over: Partial<LivePageResult>): LivePageResult => ({
@@ -275,7 +286,8 @@ test('5 fails alone — a duplicate TIN; a duplicate number; a lookup that could
 test('5 fails alone — a TIN that is not 9–12 digits, or differs where it is printed again', () => {
   const i = clean();
   paper(i, 'bir_2303').model = { ...paper(i, 'bir_2303').model!, registrationNumber: '210-334-87', tin: null };
-  onlyFails(i, 'not_on_another_shop');
+  // W1-B34: a 2303 without a real TIN is also missing the line every 2303 prints, so it is not Recognised either.
+  assert.deepEqual(decideAutoVerify(i).checks.filter((c) => !c.pass).map((c) => c.key), ['papers_read', 'not_on_another_shop']);
   const j = clean();
   paper(j, 'mayors_permit').model = { ...paper(j, 'mayors_permit').model!, tin: '999-334-871-000' };
   onlyFails(j, 'not_on_another_shop');

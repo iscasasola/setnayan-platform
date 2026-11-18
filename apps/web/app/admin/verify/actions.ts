@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
-  DEFAULT_PRIVATE_VISIBILITY,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -32,6 +31,8 @@ import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import { emitNotification } from '@/lib/notification-emit';
+import { applyShopStatus } from '@/lib/shop-status.server';
+import { shopStatusRefusalForAdmin } from '@/lib/shop-status';
 import { plainRefusal } from '@/lib/admin/plain-refusal';
 import { safeNext } from '@/lib/safe-next';
 import { pickedReason, workBackHref } from '@/lib/admin/supplier-work';
@@ -282,34 +283,39 @@ export async function approveVendor(formData: FormData) {
   redirect('/admin/verify?approved=1');
 }
 
-export async function rejectVendor(formData: FormData) {
-  const actor = await requireAdmin();
+/**
+ * ⏸ THE ADMIN'S PAUSE — owner 2026-11-16, answer 3 to PR #7890 ("yes"): the admin's "Hide" BECOMES Pause, one
+ * control. This export REPLACED `rejectVendor` (which set `public_visibility = 'hidden'`) — renamed, not added, so
+ * the server-action count is unchanged.
+ *
+ * Why the old Hide had to go: `hidden` is also where every shop Setnayan has not decided yet rests, and since 15 Nov
+ * such a shop is booked through its own page while `hidden` — so hiding an UNVERIFIED shop changed nothing (the gap
+ * PR #7828 flagged). Pause is `paused_at`, which every gate reads for verified and unverified shops alike: no list,
+ * no new ask or booking, no new import, and "This shop is paused" on its QR. Existing bookings and chats continue.
+ *
+ * `status` is `paused` or `open`. Runs `applyShopStatus` (lib/shop-status.server.ts) — the same path as the
+ * supplier's own Shop status — which calls the database door on the admin's OWN session (the door checks
+ * `is_admin()`), writes the audit row and tells the shop.
+ */
+export async function setVendorPause(formData: FormData) {
+  await requireAdmin();
   const vendorProfileId = readFormString(formData, 'vendor_profile_id');
   if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+  const status = readFormString(formData, 'status') === 'open' ? 'open' : 'paused';
 
-  // 🔒 Owner 2026-07-27 — "demote. remove coming soon entirely." A rejection
-  // now always lands on `hidden`. Previously the non-hidden branch demoted to
-  // `coming_soon`, which was a PUBLICLY-READABLE state: rejecting a vendor left
-  // their row (name, contact email, phone) readable by anyone with the anon key
-  // and, before the /explore verification filter, listed in the marketplace.
-  // `reject_to` is kept in the signature so existing form posts stay valid, but
-  // both branches resolve to the same private state.
-  const next: VendorPublicVisibility = DEFAULT_PRIVATE_VISIBILITY;
-
-  const result = await transitionVendorVisibility({
-    actor,
+  const result = await applyShopStatus({
     vendorProfileId,
-    nextVisibility: next,
+    status,
     reason: readFormString(formData, 'reason') || null,
   });
   if (!result.ok) {
-    redirect(`/admin/verify?error=${encodeURIComponent(result.error)}`);
+    redirect(`/admin/verify?surface=visibility&error=${encodeURIComponent(shopStatusRefusalForAdmin(result.reason))}`);
   }
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
-  redirect('/admin/verify?rejected=1');
+  redirect(`/admin/verify?surface=visibility&${status === 'open' ? 'unpaused' : 'paused'}=1`);
 }
 
 export async function archiveVendor(formData: FormData) {

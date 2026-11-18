@@ -255,32 +255,43 @@ If you cannot name the existing component and the existing design, **you have no
    since migration `20270826385580`. If a number governs money and you cannot cite where it came
    from, find its existing home or stop — do not annotate the invention and ship it.
 
-## 🔌 WIRING STANDARD — one source of truth (owner, 2026-11-18)
+## 🔌 WIRING STANDARD — house rules (owner, 2026-11-18)
 
 Full map + current audit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Checks: `/verify-wiring`
 (hardcoded data, raw routes, dead handlers) and `/audit` (build configs, page layers, buttons/themes).
-Hooks in `.claude/settings.json` warn on TODO/localhost/mock writes and block a build beside a dev server.
+`.claude/settings.json` hooks: a warning when an edit writes TODO/FIXME/localhost/dummy/mockData into
+app code, and a block on a production build while a dev server runs **in the same checkout**.
+Nothing in that file asks or stops a builder mid-flow — builds and pushes run freely; only the Read
+tool is denied `.env*`, `secrets/**` and `~/.ssh`. Per the permissions docs those rules also cover
+`cat`/`head`/`tail`/`sed`/`tee` on those files, but not `cp` — so a lab's `cp apps/web/.env.local <wt>/apps/web/` still works.
 
-1. **One source of truth.** Never create `v2`, `-copy`, `-old`, `-new` or backup files/folders.
-   Change the shipped file; git keeps the history. (RULE 0 above: find it, extend it.)
-2. **Folders have one job each.** This repo has no `src/` — the real homes are:
+1. **One source of truth.** Never create `v2`, `-copy`, `-old`, `-new` or backup files/folders, and
+   keep no backup folders in the workspace — change the shipped file; git keeps the history.
+2. **One way to make each primitive.** A button is `ActionButton` (`apps/web/components/action-button.tsx`;
+   `actionButtonClass()` for a link). Inputs and modals reuse the shared ones in `apps/web/components/`
+   and `apps/web/app/_components/` (e.g. `sheet.tsx`). No new standalone button/input/modal primitive.
+3. **No hard-coded colour or skin override in feature files** — no hex, `rgb(`, `[#…]` or numbered
+   palette class (`bg-red-500`). Use the tokens in `apps/web/app/globals.css` (`--color-*`, `--sn-*`)
+   through their Tailwind names. Couple-picked event themes (invite, save-the-date, guest site) are
+   product data and keep their own maps in `lib/`.
+4. **Folders have one job each** (this repo has no `src/`):
    | Job | Lives in |
    |---|---|
    | UI (presentational) | `apps/web/app/**/_components/`, `apps/web/components/` |
-   | Pages / route entry (reads data once, passes props) | `apps/web/app/**/page.tsx`, `layout.tsx` |
+   | Page entry — reads once, passes props | `apps/web/app/**/page.tsx`, `layout.tsx` |
    | Mutations (server actions) | `apps/web/app/**/actions.ts` |
-   | Data reads, services, config, constants | `apps/web/lib/` |
+   | Reads, services, config, constants | `apps/web/lib/` |
    | Types | next to their module (`lib/<area>/types.ts`) or `apps/web/types/` |
    | Prices / plans / taxonomy | the database (`platform_retail_catalog_v2`, vendor billing catalog, taxonomy tables) — never a literal |
-3. **Zero hardcoding inside UI components:** no data arrays, prices, URLs, API keys, or business
-   rules. Routes come from `apps/web/lib/routes.ts` builders (`routes.x.y()`), never `"/dashboard"`.
-   Colours come from tokens in `apps/web/app/globals.css` / the tailwind config — no hex, `rgb(`,
-   or `[#…]` in components. Buttons use the shared `ActionButton` (`apps/web/components/action-button.tsx`).
-4. **Flat pages:** under 3 wrapper layers between a page and its content; one batched read per
-   screen (`Promise.all`), never the same user/session read in both a layout and its page.
-5. **A no-op handler must be deliberate.** `() => {}` is allowed only for a required callback the
-   screen does not use — never on a control the user can press.
-6. Exempt: tests, `apps/web/app/dev/**`, `*.lab.tsx` (dev labs may use sample data).
+5. **No hardcoding inside UI:** no data arrays, prices, URLs, API keys or business rules. Routes come
+   from `apps/web/lib/routes.ts` builders, never `"/dashboard"`.
+6. **Flat pages:** under 3 nesting levels between a page and its content, no pass-through wrappers
+   (a component that only forwards props to one child), one batched read per screen (`Promise.all`).
+7. **Clean build outputs before a production build:** `rm -rf apps/web/.next` first, so a stale
+   cache never masks a real failure and two outputs never pile up.
+8. **A no-op handler must be deliberate.** `() => {}` only for a required callback the screen does not
+   use — never on a control the user can press.
+9. Exempt: tests, `apps/web/app/dev/**`, `*.lab.tsx` (dev labs may use sample data).
 
 ## What this repo is
 
@@ -598,10 +609,9 @@ Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. 
   unregistered, so anyone can take it; whether to buy it is an open owner call, not a fact.
   ⚠ **`brand.config.ts` DOES NOT EXIST.** This line said "Brand strings centralized in
   `brand.config.ts`" until 2026-09-07; `git ls-tree origin/main` finds no such file anywhere in
-  the repo. The brand string is not centralised in one module — it appears across `lib/`
-  (`platform-settings.ts`, `monogram.ts`, `watermark-text.ts`, …). Whether to actually
-  centralise it is an open question; what is fixed here is that the file being cited was
-  imaginary.
+  the repo. Brand lives in `apps/web/lib/brand-*.ts`: `brand-settings.ts` (`getBrandSettings()`,
+  the admin-managed brand row), `brand-constants.ts` (default mark/icon paths), `brand-words.ts`
+  (`brandWords()`, the spelling rule) — re-measure with `git ls-files 'apps/web/lib/brand-*'`.
 - ⚠ **NOBODY IS CHECKING THIS** — and nobody here can: it describes the spec corpus, a different repository · **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
 - ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: a video-editor page was added and the full suite stayed green on the rule. (A top-level one trips the reserved-slug guard and a nested one trips the one-`<main>` guard — both incidental, neither is this rule.) **It cannot be guarded until somebody defines what counts as a "manual video editor"** · **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
 - ✅ **CHECKED BY `apps/web/lib/no-sms-in-v1.test.ts`** (written 2026-09-07 *because* breaking this rule changed nothing; catches an SMS provider dependency and an SMS-sending symbol, and deliberately does NOT fire on copy that mentions SMS) · **No SMS in V1.** Email-only via Resend.

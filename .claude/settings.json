@@ -4,19 +4,7 @@
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
-      "Read(~/.ssh/**)",
-      "Bash(npm run dev*)",
-      "Bash(yarn dev*)",
-      "Bash(yarn run dev*)",
-      "Bash(pnpm dev*)",
-      "Bash(pnpm run dev*)",
-      "Bash(pnpm --filter * dev*)"
-    ],
-    "ask": [
-      "Bash(npm run build*)",
-      "Bash(pnpm build*)",
-      "Bash(pnpm run build*)",
-      "Bash(git push *)"
+      "Read(~/.ssh/**)"
     ]
   },
   "hooks": {

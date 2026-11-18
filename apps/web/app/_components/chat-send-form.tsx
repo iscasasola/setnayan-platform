@@ -36,7 +36,7 @@
 //      is gone there (a face in the strip is still private to one person). The rules are `lib/chat-whisper.ts`.
 
 import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, joinNames, privateBoxPlaceholder } from '@/lib/chat-private';
@@ -392,7 +392,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   };
   const dragProps = whisper
     ? {
-        onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
           if (!canWhisper || (e.pointerType === 'mouse' && e.button !== 0)) return;
           const target = e.target as HTMLElement;
           // Never a drag on Send, the ＋ or any other control inside the box — a slip there can not switch or send.
@@ -401,7 +401,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           if (e.pointerType === 'mouse' && target instanceof HTMLTextAreaElement && target.value.length > 0) return;
           drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, ours: false };
         },
-        onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+        onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
           const d = drag.current;
           if (!d || d.id !== e.pointerId) return;
           const dx = e.clientX - d.x;
@@ -424,7 +424,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           }
           if (!reduceMotion) e.currentTarget.style.translate = `${dragFollowPx(dx)}px 0`;
         },
-        onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+        onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => {
           const d = drag.current;
           if (!d || d.id !== e.pointerId) return;
           endDrag(d.ours && dragSwitches(e.clientX - d.x));

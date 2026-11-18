@@ -208,7 +208,6 @@ components.** Re-measure with the regexes in `.claude/commands/audit.md`.
 ## Proposed cleanup order (awaiting approval — nothing done)
 
 1. **Disk — DONE 2026-11-18 (741 MB + 8 dead entries):** see section 1; the rest is live work.
-   clear `.next` in the rest. (~20–28 GB back.) Machine-only, no code change.
 2. **CI double build:** build once in `ci.yml`, reuse in `e2e.yml`.
 3. **Routes:** decide — wire `lib/routes.ts` for real (codemod + `lint-routes` guard) or retire its
    "single source of truth" claim. Today it is a second source that nothing reads.

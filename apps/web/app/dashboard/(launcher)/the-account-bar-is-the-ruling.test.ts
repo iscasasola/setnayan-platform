@@ -119,7 +119,7 @@ test('🔦 the account-bar tour walks the bar\'s tabs in the bar\'s own order, a
   const tourTabs = anchors.filter((a) => a.startsWith('tab-'));
   assert.deepEqual(tourTabs, barTokens, `the tour walks ${tourTabs.join(' → ')}, the bar is ${barTokens.join(' · ')}`);
   assert.ok(anchors.includes('home-segments'), 'the tour no longer shows where the sections went');
-  assert.match(src('app/dashboard/(launcher)/_components/home-segment-bar.tsx'), /data-tour="home-segments"/, 'the sections row lost its tour anchor');
+  assert.match(src('app/dashboard/(launcher)/_components/home-pin.tsx'), /data-tour="home-segments"/, 'the pinned row (the one switch of Home\'s sections, 17 Nov 2026) lost its tour anchor');
 });
 
 test('the slot loads the bar in its own chunk, server-rendered', () => {

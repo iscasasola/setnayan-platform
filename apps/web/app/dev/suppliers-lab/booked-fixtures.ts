@@ -153,6 +153,9 @@ export type LabBookedOptions = {
   paidByHand?: boolean;
   /** `&calltimes=fail` — the Schedule read is refused: every row says it could not check, never "no call time". */
   callTimesFail?: boolean;
+  /** 🕕 `&crewcall=1` — Santuario kept its own Crew call 12:30 PM · arrives 1:00 PM · done 5:00 PM (SCHEDULE MODEL, 16 Nov), apart from On site from;
+   *  `&crewcall=fail` — that read refused. */
+  crewCall?: '1' | 'fail' | null;
   /** 📍 `&chapters=none|fail` — no chapter yet · the Schedule read refused (`LAB_CHAPTERS`). */
   chapters?: 'none' | 'fail' | null;
   /** 📖 `&ask=1` — Bituin is booked on no chapter yet: "Which chapters will they serve?" opens, prefilled from catering's
@@ -312,6 +315,7 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
     rooms,
     dateChange,
     callTimes: o.callTimesFail ? null : labCallTimes(),
+    crewCalls: o.crewCall === 'fail' ? null : o.crewCall === '1' ? new Map([['p-santuario', { call: '12:30', arrive: '13:00', done: '17:00' }], ['p-lumina', { call: '06:00', arrive: null, done: null }]]) : undefined,
     chapters:
       o.chapters === 'fail'
         ? null

@@ -142,8 +142,11 @@ export async function readShopGifts(
       .from('setnayan_shop_gifts')
       .select(COLS)
       .eq('vendor_profile_id', vendorProfileId)
+      // ⚠ The running branch carries the SAME "days still on the clock" test the `live` filter below applies. An
+      // 'extend' gift never gets `finished_at`, so without it every old extend matched forever and ~20 of them pushed a
+      // NEW waiting gift past `.limit(20)` (Opus review #7674, finding 2).
       .or(
-        `claimed_at.is.null,and(gift_type.eq.plan,finished_at.is.null,plan_starts_at.not.is.null),and(gift_type.eq.plan,finish_reason.eq.ended,finished_at.gte.${new Date(nowMs - ENDED_LINE_MS).toISOString()})`,
+        `claimed_at.is.null,and(gift_type.eq.plan,finished_at.is.null,plan_starts_at.not.is.null,plan_ends_at.gt.${new Date(nowMs).toISOString()}),and(gift_type.eq.plan,finish_reason.eq.ended,finished_at.gte.${new Date(nowMs - ENDED_LINE_MS).toISOString()})`,
       )
       .order('sent_at', { ascending: true })
       .limit(20),

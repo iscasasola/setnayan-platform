@@ -4,6 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   claimedWords,
   planGiftEndedLine,
@@ -134,4 +135,13 @@ test('the moment G2 plays: Setnayan on the seal, the gift’s own words, where i
   const st = setnayanShopGiftMomentView({ ...plan({ choices: ['stock'] }), type: 'stock', stockLine: '3 × Papic 1000' });
   assert.equal(st.redeemHref, '/vendor-dashboard/shop/promote#gifts');
   assert.equal(st.received, '3 × Papic 1000 to give your couples');
+});
+
+test('an old extended gift never crowds a NEW waiting gift off Today (Opus review #7674, finding 2)', () => {
+  // `readShopGifts` reads at most 20 rows. A finished 'extend' gift keeps `finished_at` NULL for ever, so the running
+  // branch of the filter must also require days still on the clock, or old extends match forever.
+  const src = readFileSync(new URL('./setnayan-shop-gift.server.ts', import.meta.url), 'utf8');
+  const running = /and\(gift_type\.eq\.plan,finished_at\.is\.null,plan_starts_at\.not\.is\.null,([^)]*)\)/.exec(src);
+  assert.ok(running, 'the running branch of readShopGifts moved — re-anchor this test');
+  assert.match(running[1] ?? '', /plan_ends_at\.gt\./, 'the running branch must only match gifts whose days are still on the clock');
 });

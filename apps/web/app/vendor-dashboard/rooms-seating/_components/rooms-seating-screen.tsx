@@ -10,8 +10,10 @@
  */
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, DoorOpen, Plus, RotateCw, Trash2 } from 'lucide-react';
+import { Check, DoorOpen, Plus, RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { Fold } from '@/app/_components/fold';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { Counter } from '@/app/_components/counter';
@@ -70,7 +72,16 @@ export function RoomsSeatingScreen({ initial, hallSize: hallInitial, show: showI
     return (
       <div className="mt-4 space-y-3" role="alert" data-rooms-seating-refused="">
         <ShopNotice tone="warn">Couldn&rsquo;t load your rooms and tables just now. Nothing was changed.</ShopNotice>
-        <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => router.refresh()} className="!h-11" />
+        <ActionButton
+          tone="neutral"
+          icon={RotateCw}
+          label="Try again"
+          className="!h-11"
+          onClick={() => {
+            // one-render: keep (retry) — the read was refused; Try again re-asks the server, no action answered with a render.
+            router.refresh();
+          }}
+        />
       </div>
     );
   }
@@ -169,50 +180,57 @@ function TablesSection({ data, run }: { data: RoomsSeating; run: Run }) {
 function GroupBlock({ group, units, groups, run, children }: { group: UnitGroup; units: Unit[]; groups: UnitGroup[]; run: Run; children?: React.ReactNode }) {
   const [open, setOpen] = useState<string | null>(null);
   const noun = group.kind === 'floor' ? 'room' : 'table';
+  const what = `${group.name} and its ${units.length} ${noun}${units.length === 1 ? '' : 's'}`;
   return (
-    <div className="sn-tile space-y-2 p-3" data-unit-group={group.id}>
-      <FormRows width="wide">
-        <TypedRow
-          name={group.kind === 'floor' ? 'Floor' : 'Area'}
-          value={group.name}
-          maxLength={60}
-          onKeep={async (t) => ({ ok: await run(() => w({ op: 'renameGroup', id: group.id, name: t })) })}
-        />
-      </FormRows>
+    <div className="space-y-2 border-t border-ink/10 pt-4" data-unit-group={group.id}>
+      {/* The floor's (area's) own row: its name; swipe left deletes it with what is on it (asked first when not empty). */}
+      <SwipeToDelete
+        label={`Delete ${what}`}
+        onDelete={(close) => {
+          const sure = units.length === 0 || window.confirm(`Delete ${what}?`);
+          if (sure) void run(() => w({ op: 'deleteGroup', id: group.id }), `${group.name} deleted`);
+          else close();
+        }}
+      >
+        <FormRows width="wide">
+          <TypedRow
+            name={group.kind === 'floor' ? 'Floor' : 'Area'}
+            value={group.name}
+            maxLength={60}
+            onKeep={async (t) => ({ ok: await run(() => w({ op: 'renameGroup', id: group.id, name: t })) })}
+          />
+        </FormRows>
+      </SwipeToDelete>
       {children}
       <ul className="divide-y divide-ink/10" data-unit-rows="">
         {units.map((u) => (
-          <li key={u.id} data-unit={u.id}>
-            <button
-              type="button"
-              className="flex min-h-11 w-full items-center gap-3 text-left"
-              aria-expanded={open === u.id}
-              onClick={() => setOpen(open === u.id ? null : u.id)}
-            >
-              {u.kind === 'table' && u.shape ? <TableGlyph shape={u.shape} chairs={u.chairs ?? 0} ends={u.chairsAtEnds} /> : null}
-              <span className="text-[15px] font-medium text-ink">{u.kind === 'room' && /^\d+$/.test(u.name) ? `Room ${u.name}` : u.name}</span>
-              {u.kind === 'table' && u.shape ? <span className="text-[13px] text-ink/70">{tableWords(u.shape, u.chairs ?? 0, u.chairsAtEnds)}</span> : null}
-            </button>
-            {open === u.id ? <UnitEdit unit={u} groups={groups} run={run} onDone={() => setOpen(null)} /> : null}
-          </li>
+          <SwipeToDelete
+            key={u.id}
+            as="li"
+            label={`Delete ${unitName(u)}`}
+            onDelete={() => void run(() => w({ op: 'deleteUnit', id: u.id }), `${unitName(u)} deleted`)}
+          >
+            <div data-unit={u.id}>
+              <Fold
+                title={unitName(u)}
+                line={u.kind === 'table' && u.shape ? tableWords(u.shape, u.chairs ?? 0, u.chairsAtEnds) : undefined}
+                lead={u.kind === 'table' && u.shape ? <TableGlyph shape={u.shape} chairs={u.chairs ?? 0} ends={u.chairsAtEnds} /> : undefined}
+                open={open === u.id}
+                onOpenChange={(o) => setOpen(o ? u.id : null)}
+              >
+                <UnitEdit unit={u} groups={groups} run={run} onDone={() => setOpen(null)} />
+              </Fold>
+            </div>
+          </SwipeToDelete>
         ))}
       </ul>
-      <div className="flex justify-end">
-        <ActionButton
-          tone="danger"
-          quiet
-          icon={Trash2}
-          label={`Delete ${group.kind === 'floor' ? 'floor' : 'area'}`}
-          name={`Delete ${group.name} and its ${units.length} ${noun}${units.length === 1 ? '' : 's'}`}
-          className="!h-11"
-          onClick={() => {
-            const sure = units.length === 0 || window.confirm(`Delete ${group.name} and its ${units.length} ${noun}${units.length === 1 ? '' : 's'}?`);
-            if (sure) void run(() => w({ op: 'deleteGroup', id: group.id }), `${group.name} deleted`);
-          }}
-        />
-      </div>
     </div>
   );
+}
+
+/** "Room 301" for a number; any other name as typed ("Penthouse", "T9"). */
+function unitName(u: Unit): string {
+  return u.kind === 'room' && /^\d+$/.test(u.name) ? `Room ${u.name}` : u.name;
 }
 
 /* ── Edit one room or table ──────────────────────────────────────────────────────────────────────────────────── */
@@ -252,7 +270,6 @@ function UnitEdit({ unit, groups, run, onDone }: { unit: Unit; groups: UnitGroup
             if (ok) onDone();
           }}
         />
-        <ActionButton tone="danger" quiet icon={Trash2} label="Delete" className="!h-11" onClick={() => void run(() => w({ op: 'deleteUnit', id: unit.id }), `${unit.name} deleted`)} />
       </div>
     </div>
   );
@@ -310,7 +327,7 @@ function AddUnits({ kind, groups, run }: { kind: 'room' | 'table'; groups: UnitG
   );
   const whereNow = whereOptions.some((o) => o.key === where) ? where : NEW;
   return (
-    <div className="sn-tile space-y-3 p-3" data-add-units={kind}>
+    <div className="space-y-3 border-t border-ink/10 pt-4" data-add-units={kind}>
       <h2 className="text-[15px] font-semibold text-ink">{kind === 'room' ? 'Add rooms' : 'Add tables'}</h2>
       <FormRows width="wide">
         <TypedRow
@@ -391,11 +408,12 @@ function DoorList({ doors, groupId, run }: { doors: Door[]; groupId: string | nu
       {doors.length === 0 ? <p className="text-[13.5px] text-ink/70">No doors yet.</p> : null}
       <ul className="divide-y divide-ink/10">
         {doors.map((d) => (
-          <li key={d.id} className="flex min-h-11 items-center gap-2" data-door={d.id}>
-            <DoorOpen aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.9} />
-            <span className="flex-1 text-[14px] text-ink">{doorWords(d)}</span>
-            <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove" name={`Remove ${doorWords(d)}`} className="!h-11" onClick={() => void run(() => w({ op: 'deleteDoor', id: d.id }), 'Door removed')} />
-          </li>
+          <SwipeToDelete key={d.id} as="li" word="Remove" label={`Remove ${doorWords(d)}`} onDelete={() => void run(() => w({ op: 'deleteDoor', id: d.id }), 'Door removed')}>
+            <div className="flex min-h-11 items-center gap-2" data-door={d.id}>
+              <DoorOpen aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.9} />
+              <span className="flex-1 text-[14px] text-ink">{doorWords(d)}</span>
+            </div>
+          </SwipeToDelete>
         ))}
       </ul>
       <FormRows width="wide">

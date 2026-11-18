@@ -58,6 +58,7 @@ export const SUPPLIER_CONSOLE_SEGMENTS: ReadonlySet<string> = new Set([
   'recommendations',
   'repertoire',
   'reviews',
+  'rooms-seating',
   'services',
   'settings',
   'shop',

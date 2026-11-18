@@ -248,6 +248,8 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
   // CREATE TABLE and does not read DROP TABLE, so this table is still "seen".
   supplier_vendor_skus: 'The display name of a supplier SKU.',
   vendor_event_sets: 'The name of a vendor-authored set of event offerings.',
+  vendor_unit_groups: 'The name of a shop\'s hotel floor or dining area ("3rd floor", "Garden terrace") — a place, not a person (Rooms & seating, migration 20271350389612).',
+  vendor_units: 'The name or number of a shop\'s room or table ("301", "T9") — a thing, not a person. No guest is ever stored on it (Rooms & seating, migration 20271350389612).',
   venue_directory: 'The name of a venue (a place).',
   wedding_destinations: 'The name of a destination (a place).',
 };

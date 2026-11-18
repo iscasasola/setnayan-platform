@@ -30,6 +30,7 @@ import {
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { cardCountHasNoCap, isCardPickableStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import {
   deriveBranchStatus,
   fetchLatestBranchOrders,
@@ -542,6 +543,28 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
     throw new Error('Daily capacity must be a positive whole number.');
   }
   return n;
+}
+
+/**
+ * 🗓 The Availability block's two fields (plan step 3). Null when the form did not carry the block (every older form —
+ * they leave the stored style alone). '' = Not set. A Coming soon style is refused, never stored: the maker never
+ * offers it, so only a tampered form sends one. `order_lead_days` 0..365; '' or 0 = no rule.
+ */
+function parseCardAvailability(
+  formData: FormData,
+): { style: AvailabilityStyle | null; leadDays: number | null } | { problem: string } | null {
+  if (formData.get('availability_present') !== '1') return null;
+  const rawStyle = String(formData.get('availability_style') ?? '').trim();
+  if (rawStyle !== '' && !isCardPickableStyle(rawStyle)) return { problem: 'That way of booking can’t be picked yet.' };
+  const style = rawStyle === '' ? null : (rawStyle as AvailabilityStyle);
+  const rawLead = String(formData.get('order_lead_days') ?? '').trim();
+  let leadDays: number | null = null;
+  if (rawLead !== '') {
+    const d = Number(rawLead);
+    if (!Number.isInteger(d) || d < 0 || d > 365) return { problem: 'Order at least: a whole number of days, 0 to 365.' };
+    leadDays = d;
+  }
+  return { style, leadDays };
 }
 
 /**
@@ -1816,8 +1839,13 @@ export async function commitVendorService(formData: FormData) {
   // stay". A card ALREADY live is held only to its price (`unmetForALiveCard`);
   // it is flagged for the rest, never refused. `save_vendor_service` and the
   // trigger draw the same line, in the same order, with the same sentences.
+  // 🗓 THE CARD'S AVAILABILITY (plan step 3, owner "ok" 2026-11-19): its own style + Made to order's "Order at least N
+  // days". Read only when the form carried the Availability block; written after the card row exists (below).
+  const availability = parseCardAvailability(formData);
+  if (availability && 'problem' in availability) return back(availability.problem);
   // A card's bookings per date stays inside its plan (owner 2026-11-06) — the maker's save, same rule as the editor's.
-  {
+  // Rented by the piece has NO cap above 500 (owner ruling 3, 2026-11-19), so a piece card skips the ceiling.
+  if (!(availability && cardCountHasNoCap(availability.style))) {
     const overPlan = await bookingsPerDatePlanRefusal(
       supabase,
       profile.vendor_profile_id,
@@ -2168,6 +2196,14 @@ export async function commitVendorService(formData: FormData) {
   const partProblems: string[] = [];
   const cardId = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
   if (cardId) {
+    if (availability) {
+      const { error: availErr } = await supabase
+        .from('vendor_services')
+        .update({ availability_style: availability.style, order_lead_days: availability.leadDays })
+        .eq('vendor_service_id', cardId)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (availErr) partProblems.push('how it books');
+    }
     // 🎁 …and a card moving ONTO a pack writes it AFTER, once the RPC has set `includes_setnayan_gift` to false.
     if (typeof giftPackCode === 'string') {
       const { error: packErr } = await supabase

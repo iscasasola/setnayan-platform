@@ -56,3 +56,91 @@ export function mostCommonAvailability(values: ReadonlyArray<AvailabilityStyle |
   }
   return tie ? null : best;
 }
+
+/* ── THE CARD'S OWN STYLE (Availability plan, step 3 — owner "ok" 2026-11-19) ─────────────────────────────────────
+ * Stored on `vendor_services.availability_style` (migration 20271351451190, same seven values). Empty = Not set: the
+ * card behaves exactly as before. The card maker lists all seven; three can't be picked until step 5. */
+
+/** The short label (AV-ORDER) for a stored value; '' for null. */
+export function availabilityLabel(v: AvailabilityStyle | null): string {
+  if (v === null) return '';
+  return AVAILABILITY_STYLES.find((s) => s.value === v)?.label ?? '';
+}
+
+/** Listed on a card as "Coming soon" — they can't be picked until step 5 (drawing 2026-11-19). */
+export const CARD_STYLES_COMING_SOON: ReadonlySet<AvailabilityStyle> = new Set<AvailabilityStyle>(['hour', 'time', 'night']);
+
+/** A style a supplier may pick on a card today. */
+export function isCardPickableStyle(v: unknown): v is AvailabilityStyle {
+  return isAvailabilityStyle(v) && !CARD_STYLES_COMING_SOON.has(v);
+}
+
+/** The number question a card asks, by its style — the SAME `daily_capacity`, under a new name (drawing § What this removes). */
+export function cardCountQuestion(style: AvailabilityStyle | null, dayQuestion: string): { name: string; about: string; counts: string } {
+  if (style === 'order') return { name: 'Orders for one day', about: 'how many you can finish for one date', counts: 'Orders for one day' };
+  if (style === 'piece') return { name: 'How many do you have', about: 'couples ask for how many they need', counts: 'How many you have' };
+  return { name: dayQuestion, about: '', counts: 'Events on the same day' };
+}
+
+/** Rented by the piece has NO cap above 500 (owner ruling 3, 2026-11-19); every other card keeps the ceiling. */
+export function cardCountHasNoCap(style: AvailabilityStyle | null): boolean {
+  return style === 'piece';
+}
+
+/** Always available: no number is asked and nothing is counted (owner ruling 4). */
+export function cardIsNeverCounted(style: AvailabilityStyle | null): boolean {
+  return style === 'none';
+}
+
+const n = (x: number) => x.toLocaleString('en-US');
+
+/**
+ * The one sentence under the style dropdown: how Setnayan reads the card (drawing 2026-11-19). Null when the card is
+ * Not set or still on a Coming soon style — then nothing new is said.
+ */
+export function availabilityReads(style: AvailabilityStyle | null, perDay: number | null, leadDays: number | null): string | null {
+  if (style === 'none') return 'No number to type. This card is never on your calendar. Couples still give their event date, but it is never counted.';
+  if (style === 'order') {
+    const finish = perDay && perDay > 0 ? `you can finish ${n(perDay)} ${perDay === 1 ? 'order' : 'orders'} due on one day` : 'you take orders for any date';
+    const ahead = leadDays && leadDays > 0 ? `, and couples must order ${n(leadDays)} ${leadDays === 1 ? 'day' : 'days'} before` : '';
+    return `Setnayan reads this as: ${finish}${ahead}.`;
+  }
+  if (style === 'piece') {
+    if (!perDay || perDay <= 0) return 'Setnayan reads this as: you rent by the piece. Say how many you have.';
+    return `Setnayan reads this as: ${n(perDay)} ${perDay === 1 ? 'piece' : 'pieces'} a day. A date closes when all ${n(perDay)} are out.`;
+  }
+  if (style === 'day') {
+    if (!perDay || perDay <= 0) return null;
+    return `Setnayan reads this as: ${n(perDay)} ${perDay === 1 ? 'event' : 'events'} a day.`;
+  }
+  return null;
+}
+
+/** The Booking terms fold's summary line, by style ("Made to order · 5 a day · order 14 days ahead"). Null = keep today's. */
+export function bookingTermsLine(style: AvailabilityStyle | null, perDay: number | null, leadDays: number | null): string | null {
+  if (style === 'order') {
+    return ['Made to order', perDay && perDay > 0 ? `${n(perDay)} a day` : '', leadDays && leadDays > 0 ? `order ${n(leadDays)} ${leadDays === 1 ? 'day' : 'days'} ahead` : '']
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (style === 'piece') return ['Rented by the piece', perDay && perDay > 0 ? `${n(perDay)} on hand` : ''].filter(Boolean).join(' · ');
+  if (style === 'none') return 'Always available';
+  return null;
+}
+
+/**
+ * Made to order's hard rule, checked when a couple asks (step 3): is the date at least `leadDays` days after today?
+ * `today` and `day` are YYYY-MM-DD (Manila). A missing rule (null / 0) never refuses.
+ */
+export function orderIsTooSoon(today: string, day: string, leadDays: number | null): boolean {
+  if (!leadDays || leadDays <= 0) return false;
+  const t = Date.parse(`${today}T00:00:00Z`);
+  const d = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(t) || !Number.isFinite(d)) return false;
+  return Math.round((d - t) / 86_400_000) < leadDays;
+}
+
+/** What the couple reads when the date is too soon for a made-to-order card. */
+export function orderTooSoonMessage(leadDays: number): string {
+  return `This supplier needs orders at least ${n(leadDays)} ${leadDays === 1 ? 'day' : 'days'} before the date. Pick a later date, or ask another supplier.`;
+}

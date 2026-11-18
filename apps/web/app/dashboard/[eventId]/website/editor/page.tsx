@@ -650,6 +650,17 @@ export default async function WebsiteEditorPage({
   const themeNow = overlayHubDraftEvent(event as Record<string, unknown>, hubDraft).invite_theme;
   const mainThemeId = normalizeThemeId(themeNow) ?? 'house';
   const currentThemeId = mainThemeId;
+  /* ⚡ OUR MOVING BACKGROUNDS, BUILT ONCE (speed pass 2026-11-18, owner "all loading under 0.7 s"). The Background
+     panel, the Look sample and the scene inspector's Scene ◆ tiles each built this list on their own, so the page
+     carried every loop's two signed addresses THREE times (54 addresses, 18 files). One list and one poster map,
+     handed to all of them: the page's payload carries each once (a repeated object travels as a reference), and the
+     addresses are the same ones (`resolveThemeGround` signs one address per window). Held by
+     `the-studio-is-handed-only-its-parts.test.ts`. */
+  const themeLoops = hubMovingBackgroundIds().map((id) => {
+    const ground = resolveThemeGround(id, { ownColours: false });
+    return { id, name: themeBackgroundName(id), stillUrl: ground?.poster ?? null, loopUrl: ground?.loop ?? null };
+  });
+  const themeLoopPosters: Record<string, string | null> = Object.fromEntries(themeLoops.map((l) => [l.id, l.stillUrl]));
   // This event's own "Open browsing" choice (the `open-browse` row below) —
   // which of `SectionsPanel`'s two visibility controls actually governs the
   // guest-facing render for it. Computed once, passed everywhere the panel is
@@ -959,13 +970,8 @@ export default async function WebsiteEditorPage({
                          background of ours (each loop's public still), the hero,
                          the SAME pictures a scene's Upload media offers, and the
                          colour alone. */
-                      loops={hubMovingBackgroundIds().map((id) => ({
-                        id,
-                        name: themeBackgroundName(id),
-                        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
-                        /* 🎞 The loop itself — Studio › Look › Background's Video card plays it, muted, while on screen. */
-                        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
-                      }))}
+                      /* 🎞 Each loop's still and the loop itself — Studio › Look › Background's Video card plays it, muted, while on screen. */
+                      loops={themeLoops}
                       /* 🌈 Studio › Look › Background's Colour source and Shade ▾ (the drafted look over live). */
                       page={{
                         bgColor: (drafted.site_bg_color as string | null) ?? null,
@@ -1654,7 +1660,7 @@ export default async function WebsiteEditorPage({
                   videoChoice={videoChoice}
                   sceneUploads={sceneUploads}
                   mediaUsedBytes={mediaUsedBytes}
-                  loopPosters={Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null]))}
+                  loopPosters={themeLoopPosters}
                   ownsPro={ownsPro}
                 />
               }
@@ -1706,11 +1712,7 @@ export default async function WebsiteEditorPage({
               main: mainNow,
               coverRef: draftedHero.photoRef,
               sources: {
-                loops: hubMovingBackgroundIds().map((id) => ({
-                  id,
-                  stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
-                  loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
-                })),
+                loops: themeLoops,
                 photoChoices,
                 videoChoice,
                 sceneUploads,
@@ -1810,7 +1812,7 @@ export default async function WebsiteEditorPage({
            the old panel's form — writing it back would store words the couple never wrote. */
         dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
         /* 🖼 The Cover Scene's Scene ◆ tiles — each ready-made loop's first frame, already on R2. */
-        loopPosters: Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null])),
+        loopPosters: themeLoopPosters,
         colorChoices,
         photoChoices,
         videoChoice,

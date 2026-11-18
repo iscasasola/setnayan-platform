@@ -36,7 +36,7 @@ import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
 import { CardQuoteActions, QuoteTray } from './shop-quote';
 import { setShopQuote } from './shop-quote-store';
-import { toggleQuote, type QuoteCard } from '@/lib/shop-quote';
+import { quoteSummary, toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgesRead } from '@/lib/card-badges';
 
@@ -105,7 +105,7 @@ export function ServicesGallery({
    * 🧾 v16 S3 — "Add to quote" + "Inquire" under each card and the quote tray. The cards' shown starting prices,
    * decided server-side (`quotePriceOf`). null = no quote (a page with no Inquire pop-up to send it through).
    */
-  quote?: { cards: QuoteCard[] } | null;
+  quote?: { cards: QuoteCard[]; inSideCard?: boolean } | null;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -216,8 +216,8 @@ export function ServicesGallery({
     ) : null;
   // The ONE Inquire reads the quote when its button names no card (v16 `inquire()` opens with the quote picked).
   useEffect(() => {
-    setShopQuote(picked);
-  }, [picked]);
+    setShopQuote(picked, quote ? quoteSummary(picked, quote.cards) : null);
+  }, [picked, quote]);
 
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;
@@ -323,7 +323,7 @@ export function ServicesGallery({
         )}
       </ul>
 
-      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} /> : null}
+      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} /> : null}
 
       <PhotosByServiceSheet
         view={photoServices.find((v) => v.key === openService) ?? null}

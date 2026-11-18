@@ -175,6 +175,9 @@ import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
 import { startRead } from '@/lib/start-read';
+import { readThisMonthNotBookable } from '@/lib/check-a-date.server';
+import { sideCardPrice, sideCardVerifiedLine } from '@/lib/shop-side-card';
+import { ShopSideCard } from './_components/shop-side-card';
 import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceRow } from './_components/photos-by-service';
@@ -1162,6 +1165,12 @@ export async function renderVendorBySlug({
       ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
       : Promise.resolve(null),
   );
+  // 🗂 v16 S4: this month's Not-bookable days for the desktop side card — Check a date's own reads over one month
+  // (`readThisMonthNotBookable`). Verified and date-checkable only, as the door; a failure is `unreadable`, never green.
+  const thisMonthP =
+    dateCheckable && vendor.verification_state === 'verified'
+      ? startRead(readThisMonthNotBookable(vendor.vendor_profile_id).catch(() => ({ kind: 'unreadable' }) as const))
+      : null;
   // 🏆 The seals the shop holds (the seals engine, #7825 — `readShopSeals`). null = the read failed: no seal is drawn.
   const sealsP = startRead(
     readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
@@ -1261,7 +1270,7 @@ export async function renderVendorBySlug({
   // Verified from the route's gate, the seals from the seals engine (#7825), and Completed bookings on its own ladder
   // (`shopBadgeTier`, lib/badge-tiers.ts) from the SAME measured count the experience chip states — never from an
   // unread one. The retired monthly Spotlight awards are not badges any more (4b8cc3a3: the seals replace them).
-  const [shopSeals, tierCounts] = await Promise.all([sealsP, tierCountsP]);
+  const [shopSeals, tierCounts, thisMonth] = await Promise.all([sealsP, tierCountsP, thisMonthP]);
   // An unverified shop's row is its "Not yet" slot alone (v16): the tiered badges and the seals are a verified shop's.
   const countsForRow: ShopTierCounts = {
     bookings: tierCounts.completedBookings,
@@ -2900,7 +2909,18 @@ export async function renderVendorBySlug({
                 Enterprise shop with no way to share it at all. */}
             {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
                 APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
-                stays the action row's door. */}
+                stays the action row's door on a phone; on a computer it is the side card's month (v16 S4). */}
+            {/* 🗂 v16 S4 — THE SIDE CARD'S BOOKING HALF (prototype `<aside><div class="bk">`): from ₱ + offer · the
+                Verified line · this month's Check a date · the quote, above the card's own Inquire · Add · Share row.
+                A computer only (`md:block`); verified only — the unverified side card (`nvbk`) is S6. */}
+            {cinematicHero ? (
+              <ShopSideCard
+                price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
+                verifiedLine={sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats)}
+                month={thisMonth}
+                datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
+              />
+            ) : null}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
@@ -2938,7 +2958,7 @@ export async function renderVendorBySlug({
                 {dateCheckable ? (
                   <CheckADateLink
                     href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
-                    className="button-secondary inline-flex items-center gap-2"
+                    className={`button-secondary inline-flex items-center gap-2${cinematicHero ? ' md:hidden' : ''}`}
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
@@ -3225,6 +3245,7 @@ export async function renderVendorBySlug({
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             inquireMode={canMessage ? 'anchor' : 'none'}
             cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
+            quoteInSideCard={cinematicHero}
           />
         ) : null}
 
@@ -3841,6 +3862,8 @@ function TopBarLogo({ logoUrl, name, frame }: { logoUrl: string | null; name: st
 }
 
 type ServicesPricingProps = {
+  /** 🗂 v16 S4: the verified page shows the quote in the desktop side card, so its tray is for phones. */
+  quoteInSideCard?: boolean;
   /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
@@ -4068,6 +4091,8 @@ function ServicesPricingSection(props: ServicesPricingProps) {
               return { id: c.id, label: c.label, fromPhp: row ? quotePriceOf(row, props.hidePrices) : null };
             }),
           ),
+          // 🗂 v16 S4: on the verified page a computer shows the quote in the side card, so the tray is for phones.
+          inSideCard: props.quoteInSideCard === true,
         }
       : null;
   return (

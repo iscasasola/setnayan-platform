@@ -36,7 +36,8 @@ test('1 · a picked table: no dock, no sheet — one slim bar of Rotate · Shape
   assert.ok(bar.length > 100, 'the slim table bar is gone');
   for (const piece of [/label="Rotate"/, /label="Shape"/, /dockSeatsStepper\(st\)/, /label="More for this table"/]) assert.match(bar, piece);
   for (const k of ["key: 'name'", "key: 'swap'", "key: 'link'", "key: 'unlink'", "key: 'delete'"]) assert.ok(bar.includes(k), `⋯ lacks ${k}`);
-  assert.match(ED, /\{seatPop \?\? tableBar\}/, 'the bar does not ride in the thumb row');
+  /* 2026-11-16: with nothing picked the people still to seat (the tray) take the same place. */
+  assert.match(ED, /\{seatPop \?\? tableBar \?\? seatTray\}/, 'the bar does not ride in the thumb row');
 });
 
 test('2 · no guest list in 2D', () => {

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import type { HomeSeg } from '@/lib/home-segments';
+import { HOME_SEG_LABEL, type HomeSeg } from '@/lib/home-segments';
 import { homeSegOptions } from '@/lib/home-seg-options';
 import hp from './home-profile.module.css';
 import { HomePinPortal, useHomeSegCounts } from './home-segment-bar';

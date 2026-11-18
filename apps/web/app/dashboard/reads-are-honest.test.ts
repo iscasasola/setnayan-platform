@@ -207,7 +207,6 @@ function unboundReads(): Offender[] {
 const KNOWN_UNBOUND: Record<string, number> = {
   'app/dashboard/(account)/create-event/wedding-guard.ts::data': 1,
   'app/dashboard/(account)/library/_data/editorials.ts::data': 4,
-  'app/dashboard/(account)/library/_data/photos-albums.ts::member': 1,
   'app/dashboard/(account)/library/_data/photos-albums.ts::slugRows': 1,
   'app/dashboard/(account)/library/_data/saved-vendors.ts::profileData': 1,
   'app/dashboard/(account)/library/_data/saved-vendors.ts::statsData': 1,

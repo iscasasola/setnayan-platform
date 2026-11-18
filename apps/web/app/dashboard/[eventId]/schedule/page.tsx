@@ -146,6 +146,7 @@ import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 import { eventClockNow } from '@/lib/event-clock.server';
 import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
+import { startAhead } from '@/lib/start-ahead';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { wholeMarchLabel } from '@/lib/schedule-chapters';
@@ -348,6 +349,50 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       </TimelineReadProblem>
     );
   }
+  /* ⚡ SPEED PASS (2026-11-18): these reads need nothing from the seeds, the agenda or each other, so they start here,
+     together, and each is awaited on the line that always awaited it (`startAhead` — a refused read still throws or is
+     still said exactly where it was). Every path below awaits each one; none of them writes. */
+  const profileRead = startAhead(resolveProfile(eventRow?.event_type ?? 'wedding'));
+  const rosEnabledRead = startAhead(isDataPrivacyControlActive('coordinator_run_of_show'));
+  const prepEnabledRead = startAhead(isCoordinatorPrepReleaseEnabled());
+  const advRolesRead = startAhead(
+    Promise.all([
+      Promise.resolve(
+        supabase
+          .from('event_members')
+          // `user_id`, not `member_type`: the comment above the advance rule states the rule is ANY event_members row,
+          // and the type was requested and never compared — the shape `host-means-host.test.ts` sweeps for.
+          .select('user_id')
+          .eq('event_id', eventId)
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ),
+      Promise.resolve(
+        supabase
+          .from('event_moderators')
+          .select('permissions_json')
+          .eq('event_id', eventId)
+          .eq('user_id', user.id)
+          .not('accepted_at', 'is', null)
+          .is('removed_at', null)
+          .maybeSingle(),
+      ),
+    ]),
+  );
+  const announceRead = startAhead(Promise.all([resolveBroadcastAuthority(supabase, eventId, user.id), isCoordinatorP3Enabled()]));
+  const hostLookupRead = isTravel ? null : startAhead(findBookedHost(supabase, eventId, 'SchedulePage.hostTool'));
+  const apptRead = chatNegotiationEnabled()
+    ? startAhead(
+        Promise.resolve(
+          supabase
+            .from('event_appointments')
+            .select('appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id')
+            .eq('event_id', eventId)
+            .in('status', ['proposed', 'confirmed'])
+            .order('scheduled_at', { ascending: true, nullsFirst: false }),
+        ),
+      )
+    : null;
   let scheduleBlocks = blocks;
   if (
     scheduleBlocks.length === 0 &&
@@ -374,7 +419,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
-  const profile = await resolveProfile(eventRow?.event_type ?? 'wedding');
+  const profile = await profileRead;
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
   const now = new Date();
@@ -408,7 +453,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // vendor registry that feed the filtered run-of-show chrome. Both fetches
   // are SKIPPED entirely while the flag is dark; fetchBlockRosMeta is
   // additionally best-effort (pre-migration → empty map, page unaffected).
-  const rosEnabled = await isDataPrivacyControlActive('coordinator_run_of_show');
+  const rosEnabled = await rosEnabledRead;
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
   /** 🔌 The suppliers could not be read (audit #16) — the page says so; tasks never read as "A supplier" unnoticed. */
@@ -441,7 +486,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // backfilled as partner1/partner2 moderators, is excluded. visibilityMap is
   // best-effort (pre-migration → empty → everything treated couple_visible), so
   // the page never breaks before the migration lands.
-  const prepEnabled = await isCoordinatorPrepReleaseEnabled();
+  const prepEnabled = await prepEnabledRead;
   let isCoordinator = false;
   let stagedBlocks: ScheduleBlockRow[] = [];
   if (prepEnabled) {
@@ -488,25 +533,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // delegate whose permission grid resolves schedule:'edit' (the coordinator
   // the owner directive admits). Both reads are the caller's own rows (RLS-
   // safe); errors degrade to "no button", never a crash.
-  const [advMemberRes, advDelegateRes] = await Promise.all([
-    supabase
-      .from('event_members')
-      // `user_id`, not `member_type`: the comment above states the rule is ANY
-      // event_members row, and the type was requested and never compared — the
-      // shape `host-means-host.test.ts` sweeps for. Behaviour is unchanged.
-      .select('user_id')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    supabase
-      .from('event_moderators')
-      .select('permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle(),
-  ]);
+  // Both reads started above, beside the page's first reads (`advRolesRead`).
+  const [advMemberRes, advDelegateRes] = await advRolesRead;
   // The access window (owner 2026-09-14): a delegate seven days past the event
   // is not a coordinator any more. An event_members row is the couple/host and
   // never expires, which is why it stays the first arm of this `||`.
@@ -539,15 +567,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // new-time / decline in chat reflects here automatically. Flag-gated (dark
   // until negotiations launch). RLS lets the couple read their event's rows.
   let vendorMeetings: ScheduleMeeting[] = [];
-  if (chatNegotiationEnabled()) {
-    const { data: apptRows, error: apptRowsError } = await supabase
-      .from('event_appointments')
-      .select(
-        'appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id',
-      )
-      .eq('event_id', eventId)
-      .in('status', ['proposed', 'confirmed'])
-      .order('scheduled_at', { ascending: true, nullsFirst: false });
+  if (apptRead) {
+    // Started above, beside the page's first reads (`apptRead`).
+    const { data: apptRows, error: apptRowsError } = await apptRead;
     // ⚠ APPOINTMENTS the couple booked. Refused, the schedule reads as empty and a
     // ⚠ booked meeting vanishes from the day it belongs to.
     if (apptRowsError) {
@@ -598,10 +620,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // gates both the rail's edit controls and Announce, and neither can show a
   // control the database will refuse. Owner 2026-09-25: *"setting up the
   // schedule can be done by hosts of the event and coordinator(upon approval)"*.
-  const [authority, announceEnabled] = await Promise.all([
-    resolveBroadcastAuthority(supabase, eventId, user.id),
-    isCoordinatorP3Enabled(),
-  ]);
+  const [authority, announceEnabled] = await announceRead;
   const dayRole: DayRole = authority.canSend
     ? authority.role === 'couple'
       ? 'host'
@@ -644,8 +663,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // unpublished shop). Taking either keeps a tool that any of the three would
   // fill — hiding it on one lookup's "no" would delete the other two's content.
   let hasHost = false;
-  if (!isTravel) {
-    const lookup = await findBookedHost(supabase, eventId, 'SchedulePage.hostTool');
+  if (hostLookupRead) {
+    const lookup = await hostLookupRead;
     hasHost = lookup.state !== 'none';
     if (!hasHost && canAdvanceRunOfShow) {
       hasHost = (await fetchEmceeRecipients(supabase, eventId, createAdminClient())).length > 0;

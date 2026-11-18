@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { startAhead } from '@/lib/start-ahead';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -280,6 +281,45 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     .is('event_id', null)
     .order('created_at', { ascending: false })
     .limit(50);
+  /*
+    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
+    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
+    the team couldn't load, and nobody is narrowed by a guess.
+    ⚡ Started NOW, beside the roster's reads (speed pass 2026-11-18) — it needs nothing from them; awaited where it was.
+  */
+  const teamReads = startAhead(
+    Promise.all([
+      fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
+      fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
+      fetchVendorServices(supabase, vendorProfileId).catch(() => null),
+    ]),
+  );
+  /*
+    ⚡ THE SHOP'S OWN `event_vendors` ROWS start now too (speed pass 2026-11-18): the read is scoped by this caller's
+    profile id alone, so it needs nothing from the reads beside it. Why it uses the admin client, and why it is paged,
+    is said where it is awaited.
+  */
+  const rosterAdmin = createAdminClient();
+  const rosterBookingsRead = startAhead(readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await rosterAdmin
+        .from('event_vendors')
+        .select(
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
+          { count: 'exact' },
+        )
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .is('archived_at', null)
+        // A covered cascade line carries no request of its own — only the anchor is
+        // asked — and folding one in would put the same event on the roster
+        // twice. Same filter the Answers Desk applies to the identical question.
+        .or('package_role.is.null,package_role.eq.anchor')
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  ));
   const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
@@ -310,19 +350,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
     readUnreadChatCountsByThread(supabase, user.id),
   ]);
-  /*
-    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
-    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
-    the team couldn't load, and nobody is narrowed by a guess.
-  */
-  const [teamRead, assignmentsRead, servicesRead] = await Promise.all([
-    fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
-    fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
-    fetchVendorServices(supabase, vendorProfileId).catch(() => null),
-  ]);
+  // 👥 Started beside the roster's reads (`teamReads`, above).
+  const [teamRead, assignmentsRead, servicesRead] = await teamReads;
 
   const threads = threadsRead.threads;
-  const monthPart = await customersMonth({
+  // ⚡ The month on top no longer holds the list back: started here, awaited just before the page is drawn.
+  const monthPartRead = startAhead(customersMonth({
     supabase,
     vendorProfileId,
     todayIso,
@@ -335,7 +368,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     services: servicesRead ?? [],
     teamRows: teamRead ?? [],
     reads: monthReads,
-  });
+  }));
   if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
   if (unreadRead.error) logQueryError('VendorCustomersPage.unread', { message: unreadRead.error }, { vendorProfileId }, 'graceful_degrade');
   const meetings: ClientMeeting[] = ((meetingsRead.data ?? []) as {
@@ -407,32 +440,14 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     the retired Clients page asked "is it finished?" with the shared
     `rowReadsCompleted`; the roster now asks it too, through the derivation.
   */
-  const rosterAdmin = createAdminClient();
+  // `rosterAdmin` is made above, where the roster's first read starts (speed pass 2026-11-18).
   /*
     ⚠ PAGED TO THE SERVER'S EXACT COUNT. One un-ranged SELECT here was capped by
     PostgREST (Supabase default 1000 rows) with `error: null`, so past a
     thousand bookings the rest silently left the roster.
   */
-  const evRead = await readAllPages(
-    async (from, to) => {
-      const { data, error, count } = await rosterAdmin
-        .from('event_vendors')
-        .select(
-          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
-          { count: 'exact' },
-        )
-        .eq('marketplace_vendor_id', vendorProfileId)
-        .is('archived_at', null)
-        // A covered cascade line carries no request of its own — only the anchor is
-        // asked — and folding one in would put the same event on the roster
-        // twice. Same filter the Answers Desk applies to the identical question.
-        .or('package_role.is.null,package_role.eq.anchor')
-        .order('vendor_id', { ascending: true })
-        .range(from, to);
-      return { rows: data ?? null, error: error ? error.message : null, total: count };
-    },
-    { pageSize: 1000 },
-  );
+  // Started beside the page's first reads (`rosterBookingsRead`, above) — the same paged read, awaited here.
+  const evRead = await rosterBookingsRead;
   const evRows = evRead.rows;
   if (evRead.error || !evRead.complete) {
     logQueryError(
@@ -1004,6 +1019,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const panels: Record<string, ReactNode> = { ...rosterPanels, ...tilePanels };
 
+  const monthPart = await monthPartRead;
   return (
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers" /> : null}

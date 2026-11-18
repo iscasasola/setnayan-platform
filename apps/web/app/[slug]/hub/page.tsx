@@ -315,6 +315,31 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const pulseAhead = startAhead(
     pulseBaseline(event.slug, guest ? { eventId: event.event_id, guestId: guest.guest_id } : null, renderedAt),
   );
+  /* ⚡ Speed pass (2026-11-18): three more that need nothing from the reads beside them, each started only on the
+     path that awaits it — the coordinator flag the schedule read asks, this guest's door check-in (live and after,
+     read beside their seat instead of after it), and the venues when the venue is open to this viewer (the rule is
+     the same object as before, asked once, here). */
+  const prepReleaseAhead = startAhead(isCoordinatorPrepReleaseEnabled());
+  const checkinAhead =
+    guest && (isLive || isPost)
+      ? startAhead(
+          Promise.resolve(
+            admin
+              .from('guest_checkins')
+              .select('checked_in_at')
+              .eq('event_id', event.event_id)
+              .eq('guest_id', guest.guest_id)
+              .maybeSingle(),
+          ),
+        )
+      : null;
+  const venueOpen = venueIsOpen({
+    rsvpStatus: guest?.rsvp_status ?? null,
+    eventDate: event.event_date,
+    // The VENUE's day, not the server's — this runs in UTC on Vercel.
+    timeZone: eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude),
+  });
+  const venueBookingsAhead = venueOpen ? startAhead(loadVenueBookings(admin, event.event_id)) : null;
 
   // ── Shared data: public schedule (every viewer). fetchPublicScheduleBlocks
   // already returns only is_public rows, so we just split out the top-level
@@ -322,7 +347,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const scheduleBlocks = await fetchPublicScheduleBlocks(
     admin,
     event.event_id,
-    await isCoordinatorPrepReleaseEnabled(),
+    await prepReleaseAhead,
   );
   const eventTz = eventTimezoneFromCoords(
     event.venue_latitude,
@@ -481,12 +506,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     }
     if (isLive || isPost) {
       try {
-        const { data: checkinRow, error: checkinErr } = await admin
-          .from('guest_checkins')
-          .select('checked_in_at')
-          .eq('event_id', event.event_id)
-          .eq('guest_id', guest.guest_id)
-          .maybeSingle();
+        // Started beside the seat read (`checkinAhead`, above).
+        const { data: checkinRow, error: checkinErr } = await checkinAhead!;
         if (checkinErr) console.error('[supabase-error] app/[slug]/hub/page.tsx · from:guest_checkins.select', checkinErr);
         if (!checkinErr) arrived = Boolean(checkinRow?.checked_in_at);
       } catch {
@@ -639,17 +660,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // on the event day anyway — so this only closes it for a guest who opens the
   // hub early without having replied. Same rule object as the invitation page,
   // never a second copy of the reasoning.
-  const venueOpen = venueIsOpen({
-    rsvpStatus: guest?.rsvp_status ?? null,
-    eventDate: event.event_date,
-    // The VENUE's day, not the server's — this runs in UTC on Vercel.
-    timeZone: eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude),
-  });
+  // `venueOpen` is decided above, where its venue read starts (speed pass 2026-11-18).
   // 🏛💒 BOTH VENUES (2026-09-27 · lib/event-venues.ts) — the ceremony and the
   // reception, the same answer the invitation page draws. Read ONLY when the
   // venue is open to this viewer: a closed venue needs no address, so none is
   // fetched.
-  const hubVenues = venueOpen ? resolveEventVenues(await loadVenueBookings(admin, event.event_id), event) : [];
+  const hubVenues = venueOpen ? resolveEventVenues(await venueBookingsAhead!, event) : [];
   const hasDirections = venueOpen && (hubVenues.some((v) => venueSearchQuery(v) || (v.latitude != null && v.longitude != null)));
 
   // Only the LIVE window with an active/upcoming block should read "happening

@@ -10,6 +10,18 @@ import { DATES_FROM_SHOP_KEY } from './check-a-date-sheet';
  * `?dates` address, `CheckADateSheet`), and notes that it did, so × is one step back onto the shop. The caller writes
  * the address as a literal `href`, so the route map (`port:baseline`, `ugat:screens`) sees the door on the page.
  */
+/**
+ * Note that Check a date was opened FROM the shop, so its × is one step back onto it (the sheet reads the key). Every
+ * door into the sheet on the shop page calls this — the action row's button and the desktop side card's month (v16 S5).
+ */
+export function noteDatesFromShop(): void {
+  try {
+    window.sessionStorage.setItem(DATES_FROM_SHOP_KEY, window.location.pathname);
+  } catch {
+    /* private mode: × then replaces the address instead of stepping back — still the shop */
+  }
+}
+
 export function CheckADateLink({ href, className }: { href: string | null; className: string }) {
   // `null` — the sample shop page (`SampleShopPage`): the same door, drawn, with no calendar behind it to open.
   if (href === null) {
@@ -24,13 +36,7 @@ export function CheckADateLink({ href, className }: { href: string | null; class
     <Link
       href={href}
       scroll={false}
-      onClick={() => {
-        try {
-          window.sessionStorage.setItem(DATES_FROM_SHOP_KEY, window.location.pathname);
-        } catch {
-          /* private mode: × then replaces the address instead of stepping back — still the shop */
-        }
-      }}
+      onClick={noteDatesFromShop}
       data-shop-check-a-date=""
       className={className}
     >

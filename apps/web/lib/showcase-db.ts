@@ -82,6 +82,9 @@ export type ShowcaseEntry = {
   city: string | null;
   dateLabel: string | null; // display, e.g. "February 2026"
   eventDate: string | null; // ISO — sitemap lastmod
+  // The event's type key (`events.event_type`, granted to `authenticated` — verified in prod 2026-11-16). Discover's
+  // Event stories "See all" filters on it (owner 16 Nov, "Discover in six parts"). Null on a sample.
+  eventType: string | null;
   monogramColor: string | null;
   // Admin curation (PR D · Real Stories featuring). `featured` = an admin pinned
   // this wedding to /realstories. The list is returned featured-first, so the
@@ -215,6 +218,7 @@ async function readPublishedShowcases(limit: number): Promise<ShowcaseEntry[]> {
       venue_name: string | null;
       venue_address: string | null;
       monogram_color: string | null;
+      event_type?: string | null;
       is_sample?: boolean | null;
       landing_page_hero_image_url?: string | null;
       landing_page_hero_video_r2_key?: string | null;
@@ -231,9 +235,9 @@ async function readPublishedShowcases(limit: number): Promise<ShowcaseEntry[]> {
     // `story_cover_kind` / `story_cover_ref` were granted by their own
     // migration (verified in prod 2026-09-09).
     const FEATURED_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, showcase_featured_at, showcase_feature_rank';
+      'event_id, slug, display_name, event_date, event_type, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, showcase_featured_at, showcase_feature_rank';
     const LEGACY_COLS =
-      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref';
+      'event_id, slug, display_name, event_date, event_type, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref';
 
     // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
     // featured-first. Skipped entirely when no real couple has consented yet.
@@ -535,6 +539,7 @@ async function readPublishedShowcases(limit: number): Promise<ShowcaseEntry[]> {
         city: deriveCity(e.venue_name, e.venue_address),
         dateLabel: monthYear(e.event_date),
         eventDate: e.event_date ?? null,
+        eventType: e.event_type ?? null,
         monogramColor: e.monogram_color ?? null,
         featured: e.showcase_featured_at != null,
         featureRank: e.showcase_feature_rank ?? null,

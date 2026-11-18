@@ -31,6 +31,16 @@ test('a pending bubble is settled only by ITS row: same side, same words, same f
   assert.deepEqual(settlePendings(two, [row()], 'couple').map((p) => p.tempId), ['b']);
 });
 
+test('CHAT-04: a two-line message settles its own row though the form posted \\r\\n and the textarea held \\n', () => {
+  // Measured live (W1 walk 2026-11-16): the stored body keeps the form's "\r\n"; the pending copy holds "\n".
+  const twoLines = pending({ body: 'First line\nSecond line' });
+  assert.equal(matchesPending(row({ body: 'First line\r\nSecond line' }), twoLines, 'couple'), true, 'the sent message stayed a ghost');
+  assert.equal(matchesPending(row({ body: 'First line\rSecond line' }), twoLines, 'couple'), true, 'an old-Mac \\r line ending');
+  assert.deepEqual(settlePendings([twoLines], [row({ body: 'First line\r\nSecond line' })], 'couple'), [], 'the ghost stays and turns "Not sent"');
+  // Still exact on the words: a different second line is not a match.
+  assert.equal(matchesPending(row({ body: 'First line\r\nAnother line' }), twoLines, 'couple'), false);
+});
+
 test('the line under your last message: Sending… · Not sent · Delivered · Seen · nothing when they spoke last', () => {
   const mine = { sender_role: 'couple', created_at: new Date(T0).toISOString() };
   assert.deepEqual(lastOwnLine({ lastStored: mine, pendings: [pending()], viewerRole: 'couple', theirLastReadAt: null }), { kind: 'sending' });

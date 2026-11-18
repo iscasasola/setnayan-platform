@@ -11,6 +11,7 @@ import {
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
   holdsBoughtExtras,
+  WAITLIST_SETTING_MAX,
   type TierCaps,
 } from './vendor-tier-caps';
 
@@ -45,8 +46,12 @@ type CountAddOnDef = {
   servicePrefix: string;
   /** The paid count on `vendor_profiles` (recomputed by the activation hook, guarded against self-grant). */
   column: 'extra_parent_categories' | 'extra_services_per_leaf' | 'extra_waitlist_acceptances' | 'extra_bookings_per_date';
-  /** The plan allowance one purchase raises by one. */
-  capKey: 'parentCategories' | 'servicesPerLeaf' | 'waitlistAcceptances' | 'bookingsPerDatePerService';
+  /**
+   * The plan allowance one purchase raises by one. `null` = it raises nothing any more: bookings per date stopped being
+   * a plan limit on 2026-11-18 (ruling 17), so a "+1 booking per date" bought before then has no cap left to raise —
+   * the shop's own number governs, with no plan ceiling over it.
+   */
+  capKey: 'parentCategories' | 'serviceCardsTotal' | 'waitlistAcceptances' | null;
   /** What the shop reads on the purchase row and the order. */
   label: string;
 };
@@ -63,7 +68,9 @@ export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Obj
     sku: 'vendor_extra_service_card',
     servicePrefix: 'vendor_extra_service_card__',
     column: 'extra_services_per_leaf',
-    capKey: 'servicesPerLeaf',
+    // Was +1 per category; since 2026-11-18 cards are counted in total (ruling 23/39), so a past purchase adds one card
+    // to the total. Retired from sale 2026-11-14 — this only honours what was already bought.
+    capKey: 'serviceCardsTotal',
     label: '+1 service card per category',
   },
   waitlist: {
@@ -77,7 +84,7 @@ export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Obj
     sku: 'vendor_extra_booking_per_date',
     servicePrefix: 'vendor_extra_booking_per_date__',
     column: 'extra_bookings_per_date',
-    capKey: 'bookingsPerDatePerService',
+    capKey: null,
     label: '+1 booking per date per service card',
   },
 });
@@ -163,10 +170,12 @@ export function applyAddOnExtras(caps: TierCaps, extras: AddOnExtras | null | un
   const out: TierCaps = { ...caps };
   for (const kind of COUNT_ADDON_KINDS) {
     const key = COUNT_ADDONS[kind].capKey;
+    if (key === null) continue;
     const base = caps[key];
     const extra = addOnCountFromPaid(extras[kind]);
     if (extra === 0 || !Number.isFinite(base) || base <= 0) continue;
-    out[key] = base + extra;
+    // The wait list never goes past its column's own ceiling (the database's trigger holds the same LEAST(…, 10)).
+    out[key] = key === 'waitlistAcceptances' ? Math.min(base + extra, WAITLIST_SETTING_MAX) : base + extra;
   }
   return out;
 }

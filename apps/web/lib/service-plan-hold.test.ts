@@ -53,16 +53,17 @@ const facts = (
   pending: VendorTier | null = null,
 ): StayOnFacts => ({ status: 'ok', shop: { tier, pending, founder: false }, cards, firstBooking });
 
-test('the fit is the create gate: cards per kind ≤ servicesPerLeaf, families ≤ parentCategories — read from TIER_CAPS', () => {
+test('the fit is the create gate: cards in total ≤ serviceCardsTotal, families ≤ parentCategories — read from TIER_CAPS', () => {
   const free = capsOf('free');
   assert.equal(free.parentCategories, TIER_CAPS.free.parentCategories);
-  assert.equal(free.servicesPerLeaf, TIER_CAPS.free.servicesPerLeaf);
+  assert.equal(free.serviceCardsTotal, TIER_CAPS.free.serviceCardsTotal);
   assert.deepEqual(keptFits([BAND_A], free), { ok: true });
-  assert.equal(keptFits([BAND_A, BAND_B], free).ok, TIER_CAPS.free.servicesPerLeaf >= 2);
-  assert.equal(keptFits([BAND_A, LIGHTS], free).ok, TIER_CAPS.free.parentCategories >= 2);
-  // An exempt kind (no family) never counts toward families.
+  assert.equal(keptFits([BAND_A, BAND_B], free).ok, TIER_CAPS.free.serviceCardsTotal >= 2);
+  assert.equal(keptFits([BAND_A, LIGHTS], free).ok, TIER_CAPS.free.parentCategories >= 2 && TIER_CAPS.free.serviceCardsTotal >= 2);
+  // An exempt kind (no family) never counts toward families — but it is still a card toward the total.
   const exempt = card('exempt', 'host', []);
-  assert.equal(keptFits([BAND_A, exempt], capsOf('free')).ok, TIER_CAPS.free.servicesPerLeaf >= 1);
+  assert.equal(keptFits([BAND_A, exempt], capsOf('free')).ok, TIER_CAPS.free.serviceCardsTotal >= 2);
+  assert.equal(keptFits([BAND_A, exempt], { parentCategories: 1, serviceCardsTotal: 2 }).ok, true);
   // A founder shop is never capped.
   assert.deepEqual(keptFits(THREE, capsOf('free', true)), { ok: true });
 });
@@ -94,7 +95,7 @@ test('tapping a service swaps it on a one-service plan; on a bigger plan an over
   // Off is always allowed.
   assert.deepEqual(toggleKeep(['band-a'], 'band-a', THREE, free, 'free'), { keep: [], refused: null });
   // A plan of 2 kinds' worth that is full refuses, never silently drops one the supplier picked.
-  const tight = { parentCategories: 1, servicesPerLeaf: 2 };
+  const tight = { parentCategories: 1, serviceCardsTotal: 2 };
   const t = toggleKeep(['band-a', 'band-b'], 'lights', THREE, tight, 'solo');
   assert.deepEqual(t.keep, ['band-a', 'band-b']);
   assert.match(t.refused ?? '', /Turn one off first\./);
@@ -110,7 +111,7 @@ test('before the first booking a Free shop keeps everything and is told so; afte
 });
 
 test('a lower plan scheduled that holds fewer than are on → the shop picks at the downgrade', () => {
-  const sevenBands = Array.from({ length: TIER_CAPS.solo.servicesPerLeaf + 1 }, (_, i) => card(`b${i}`, 'live_band', ['music']));
+  const sevenBands = Array.from({ length: TIER_CAPS.solo.serviceCardsTotal + 1 }, (_, i) => card(`b${i}`, 'live_band', ['music']));
   assert.ok(overThePlan(sevenBands, capsOf('solo')));
   assert.equal(overThePlan(sevenBands, capsOf('pro')), false);
   assert.deepEqual(stayOnNeed(facts('pro', sevenBands, 'done', 'solo')), { show: true, reason: 'downgrade', startPlan: 'solo' });
@@ -127,6 +128,6 @@ test('the server reads families with parentsOfKind and the action re-checks kept
   assert.match(action, /rpc\('apply_service_plan_pick'/);
   // No plan number is typed into the picker or the action — they come from TIER_CAPS through capsOf.
   for (const f of ['app/vendor-dashboard/services/stay-on-actions.ts', 'app/vendor-dashboard/services/_components/stay-on-picker.tsx']) {
-    assert.doesNotMatch(code(f), /parentCategories:\s*\d|servicesPerLeaf:\s*\d/, f);
+    assert.doesNotMatch(code(f), /parentCategories:\s*\d|serviceCardsTotal:\s*\d/, f);
   }
 });

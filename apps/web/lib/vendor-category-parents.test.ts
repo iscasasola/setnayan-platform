@@ -6,7 +6,7 @@
  * actually cover and not all?"*
  *
  * Measured on his own shop before answering, and the answer is not taste. The
- * save enforces two caps — cards per kind, families per plan — and enforces them
+ * save enforces two caps — cards in total, families per plan — and enforces them
  * **after the card is authored**, as a redirect carrying an error. SetnaProd is
  * on Supplier Plus (ONE family), covers *Pabati* (booths) and *Day-Of Coordinators*
  * (planning), and is offered ~34 kinds. Everything outside those two families
@@ -34,7 +34,7 @@ const SETNAPROD = {
   existingParents: new Set(['booths', 'planning']),
   cardsByCategory: {} as Record<string, number>,
   parentCategories: 1,
-  servicesPerLeaf: 3,
+  serviceCardsTotal: 3,
 };
 
 test('what the shop already covers is offered', () => {
@@ -69,12 +69,12 @@ test('the four exempt kinds are never refused — they count against nothing', (
   }
 });
 
-test('a full kind is refused even inside a covered family', () => {
+test('a shop at its service-card total is refused even inside a covered family (cards counted in total, 2026-11-18)', () => {
   const st = standingForCategory('photobooth' as never, {
     ...SETNAPROD,
-    cardsByCategory: { photobooth: 3 },
+    cardsByCategory: { photobooth: 1, event_planner: 2 },
   });
-  assert.equal(st.standing, 'locked', 'the cards-per-kind cap stopped being asked');
+  assert.equal(st.standing, 'locked', 'the service-card total stopped being asked');
   assert.ok(st.standing === 'locked' && /3/.test(st.why), 'the refusal stopped naming the number');
 });
 
@@ -86,7 +86,7 @@ test('a brand-new shop is offered everything', () => {
     existingParents: new Set<string>(),
     cardsByCategory: {},
     parentCategories: 1,
-    servicesPerLeaf: 3,
+    serviceCardsTotal: 3,
   };
   for (const kind of ['catering', 'photobooth', 'planner_coordinator', 'cake_maker']) {
     assert.equal(standingForCategory(kind as never, fresh).standing, 'open', `${kind} was refused to a new shop`);
@@ -98,7 +98,7 @@ test('unlimited plans lock nothing', () => {
     existingParents: new Set(['booths', 'planning']),
     cardsByCategory: { catering: 99 },
     parentCategories: Infinity,
-    servicesPerLeaf: Infinity,
+    serviceCardsTotal: Infinity,
   };
   assert.equal(standingForCategory('catering' as never, enterprise).standing, 'open');
 });
@@ -111,7 +111,7 @@ test('the rule fails OPEN, never closed', () => {
     existingParents: new Set<string>(),
     cardsByCategory: {},
     parentCategories: 1,
-    servicesPerLeaf: 2,
+    serviceCardsTotal: 2,
   };
   const kinds = ['catering', 'photobooth', 'planner_coordinator', 'cake_maker', 'mobile_bar'];
   const locked = kinds.filter((k) => standingForCategory(k as never, unreadable).standing === 'locked');

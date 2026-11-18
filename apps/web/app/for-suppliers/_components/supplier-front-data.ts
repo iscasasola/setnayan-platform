@@ -78,7 +78,7 @@ export function tierOfPlansRow(row: RegExp): VendorTier | null {
  */
 export function freeSpec(): string {
   const c = TIER_CAPS.free;
-  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
+  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
 }
 
 /** "20 km around you · the Verified seal · get paid in the app" — Verified's line. */
@@ -87,21 +87,20 @@ export function verifiedSpec(): string {
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 3 bookings a day per service, at
- * each branch · 5 team seats · 3 branches · waiting list, 1 a date". A part a plan does not have (Plus's branches,
- * Plus's waiting list) is left out, as the prototype leaves it out. Every number is TIER_CAPS.
+ * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 20 service cards · 5 team seats · 2 branches". A part a
+ * plan does not have (Plus's branches) is left out, as the prototype leaves it out. The waiting list has no plan limit
+ * since 2026-11-18, so it is not a part. Every number is TIER_CAPS.
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
     reach(c.serviceRadiusKm, 'Nationwide'),
     countNoun(c.parentCategories, 'category', 'categories'),
-    `${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} each`,
-    `${countNoun(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
+    // 2026-11-18 (rulings 17 · 23 · 39): cards counted IN TOTAL; bookings a day are not a plan limit (no part).
+    countNoun(c.serviceCardsTotal, 'service card', 'service cards'),
     countNoun(c.agentAccounts, 'team seat', 'team seats'),
   ];
   if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
-  if (c.waitlistAcceptances > 0) parts.push(`waiting list, ${formatCount(c.waitlistAcceptances)} a date`);
   return parts.join(' · ');
 }
 

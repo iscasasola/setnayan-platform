@@ -160,10 +160,10 @@ test('THE INVARIANT · "Travel fee applies" ⟺ the vendor keeps their travel li
 
 test('THE CLAMP · a lapsed subscription moves the badge and the rule TOGETHER', () => {
   // The scenario the salvage brief names. A vendor declares 30 km of free travel
-  // while on Pro (cap 50) and later lapses to Verified (cap 20). A venue 25 km
+  // while on Pro (cap 100) and later lapses to Verified (cap 10). A venue 25 km
   // out:
   //   on Pro      → inside the declared 30 km free ring → "No travel fee", LOCKED
-  //   on Verified → both rings clamp to the 20 km cap   → out of range,  NOT locked
+  //   on Verified → both rings clamp to the 10 km cap   → out of range,  NOT locked
   // If enforcement kept reading the DECLARED 30 it would go on forcing free
   // travel for a vendor whose bench card no longer advertises any.
   const declared = { declaredInnerKm: 30, declaredOuterKm: 50, distanceKm: 25 };
@@ -183,7 +183,7 @@ test('THE CLAMP · a lapsed subscription moves the badge and the rule TOGETHER',
   assert.equal(
     enforcementZeroesTransport(lapsed),
     false,
-    'enforcement is reading the RAW declared 30 km, not the tier-clamped 20 km the ' +
+    'enforcement is reading the RAW declared 30 km, not the tier-clamped 10 km the ' +
       'couple is actually shown',
   );
 });
@@ -191,16 +191,17 @@ test('THE CLAMP · a lapsed subscription moves the badge and the rule TOGETHER',
 test('THE CLAMP · enforcement reads the clamped rings, proven against the raw ones', () => {
   // Same stored row, same venue, only the tier moves. If enforcement read the
   // declared columns the answer would be identical on every tier — it is not.
-  // (Pro's 50 km cap does not bite a 40 km inner ring, so Pro matches Enterprise
-  // here; Supplier Plus's 30 km cap (2026-10-23, was 20) does, and Free's 0 km cap collapses the pair entirely.)
+  // (Pro's 100 km and Supplier Plus's 50 km caps do not bite a 40 km inner ring, so they match
+  // Enterprise here; Verified's 10 km and Free's 5 km caps (owner 2026-11-18, ruling 30) do.)
   const raw = { declaredInnerKm: 40, declaredOuterKm: 100, distanceKm: 35 };
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'enterprise' }).transportLocked, true);
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'pro' }).transportLocked, true);
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).transportLocked, false);
+  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).transportLocked, true);
+  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'verified' }).transportLocked, false);
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'free' }).transportLocked, false);
-  // …and the same row on Supplier Plus is not merely "unlocked", it is out of range —
-  // the vendor's own 100 km outer ring is not something Supplier Plus pays for.
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).verdict, 'outside_range');
+  // …and the same row on Verified is not merely "unlocked", it is out of range —
+  // the vendor's own 100 km outer ring is not something Verified pays for.
+  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'verified' }).verdict, 'outside_range');
 });
 
 test('UNDECLARED means NO ENFORCEMENT — we never invent a free ring', () => {

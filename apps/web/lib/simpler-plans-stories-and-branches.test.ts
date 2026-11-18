@@ -145,11 +145,11 @@ test('(10) a branch copy never uses up a card — in the plan picker and at the 
     holdStartsOn: null,
     branchCopy,
   });
-  const caps = { parentCategories: 1, servicesPerLeaf: 1 };
+  const caps = { parentCategories: 1, serviceCardsTotal: 1 };
   assert.deepEqual(keptFits([card('a'), card('b', true)], caps), { ok: true });
-  assert.equal(keptFits([card('a'), card('b')], caps).ok, false, 'a NEW service of the same kind still uses a card');
+  assert.equal(keptFits([card('a'), card('b')], caps).ok, false, 'a NEW service still uses a card');
   const gate = read('app/vendor-dashboard/services/actions.ts');
   const gates = gate.match(/\.select\('category'\)\s*\.eq\('vendor_profile_id', profile\.vendor_profile_id\)\s*\.is\('branch_copy_of', null\)/g) ?? [];
-  assert.equal(gates.length, 2, 'both per-category create gates skip branch copies');
+  assert.equal(gates.length, 2, 'both service-card create gates skip branch copies');
   assert.match(read('lib/service-plan-hold.server.ts'), /branchCopy: Boolean\(r\.branch_copy_of\)/);
 });

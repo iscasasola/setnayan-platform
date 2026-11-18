@@ -34,9 +34,7 @@ test('the live cards at each plan fit that plan’s allowances, and grow with th
     const live = liveServiceTitles(p.plan, caps);
     const rows = SP_SERVICES.filter((s) => live.includes(s.title));
     assert.ok(new Set(rows.map((s) => s.folder)).size <= caps.parentCategories, `${p.plan}: too many parent categories`);
-    const perLeaf = new Map<string, number>();
-    for (const s of rows) perLeaf.set(s.category, (perLeaf.get(s.category) ?? 0) + 1);
-    for (const [leaf, n] of perLeaf) assert.ok(n <= caps.servicesPerLeaf, `${p.plan}: ${leaf} over its allowance`);
+    assert.ok(rows.length <= caps.serviceCardsTotal, `${p.plan}: more cards than its total allowance`);
     assert.ok(live.length >= before, `${p.plan} shows fewer cards than the plan below it`);
     before = live.length;
   }

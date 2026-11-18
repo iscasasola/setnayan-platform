@@ -47,7 +47,7 @@ test('a plan at or above the shop’s own draws nothing', () => {
 });
 
 test('services: what the lower plan does not hold goes on hold, counted by the create gate’s rule', () => {
-  // Pro → Free: Free holds TIER_CAPS.free.parentCategories families × servicesPerLeaf per kind.
+  // Pro → Free: Free holds TIER_CAPS.free.parentCategories families and serviceCardsTotal cards.
   const cards = [card('a', 'photo', ['A']), card('b', 'video', ['B']), card('c', 'florist', ['C'])];
   const f = downgradeFit({ ...base, cards }, 'pro', 'free', opts);
   const row = f.rows.find((r) => r.key === 'services');
@@ -66,12 +66,9 @@ test('a card already held is not counted again', () => {
   assert.equal(f.rows.find((r) => r.key === 'services'), undefined);
 });
 
-test('bookings a day: a card over the lower plan’s number is named', () => {
-  const perDay = limitOf('solo', 'bookingsPerDate', true);
-  const f = downgradeFit({ ...base, cards: [card('a', 'photo', ['A'], perDay + 2)] }, 'pro', 'solo', opts);
-  const row = f.rows.find((r) => r.key === 'dailyBookings');
-  assert.ok(row);
-  assert.equal(row.fix?.href, FIX_HREF.dailyBookings);
+test('bookings a day are never a downgrade row — not a plan limit since 2026-11-18 (ruling 17)', () => {
+  const f = downgradeFit({ ...base, cards: [card('a', 'photo', ['A'], 300)] }, 'pro', 'solo', opts);
+  assert.equal(f.rows.some((r) => (r.key as string) === 'dailyBookings'), false);
 });
 
 test('team seats and branches are KEPT over a lower plan — the line says so', () => {

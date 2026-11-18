@@ -31,18 +31,18 @@ import {
 import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 
 const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
-const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'servicesPerLeaf', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
+const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'serviceCardsTotal', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
-test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Supplier Plus / Pro / Ultra', () => {
+test('allowances · the owner\'s 2026-11-18 numbers, Free / Verified / Plus / Pro / Max', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
-  assert.deepEqual(row('serviceRadiusKm'), [0, 20, 30, 100, Infinity], 'reach: 0·20 / 30 / 100 / nationwide');
+  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" (+ ruling 39). `enterprise` is the plan now called Max.
+  assert.deepEqual(row('serviceRadiusKm'), [5, 10, 50, 100, Infinity], 'reach: 5 / 10 / 50 / 100 km / nationwide');
   // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS"): all 16 main categories · 30 cards each · 10 bookings a day.
-  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 16], 'main categories: 1 / 2 / 8 / 16 (Ultra: all of them, 2026-11-14)');
-  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, 30], 'service cards per category: 1 / 3 / 10 / 30 (Ultra, 2026-11-14)');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].bookingsPerDatePerService), [1, 1, 1, 3, 10], 'bookings a day per service: 1 / 1 / 3 / 10 (Ultra, 2026-11-14)');
-  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 10], 'team seats: 0 / 1 / 5 / 10 (Ultra trimmed; was 15)');
-  assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 3], 'waitlist per date: 0 / 0 / 1 / 3 (Ultra trimmed; was 5)');
-  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 6], 'branches: 0 / 0 / 3 / 6 (Ultra trimmed; was 10)');
+  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 12], 'main categories: 1 / 1 / 2 / 8 / all 12');
+  assert.deepEqual(row('serviceCardsTotal'), [1, 3, 10, 20, 80], 'service cards in total: 1 / 3 / 10 / 20 / 80');
+  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 11], 'seats beyond the owner: 0 / 0 / 1 / 5 / 11 (1 / 1 / 2 / 6 / 12 with the owner)');
+  assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
+  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 2, 5], 'branches besides the main shop: 0 / 0 / 0 / 2 / 5');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Supplier Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
 });
@@ -85,7 +85,7 @@ test('reach ladder words say "nationwide", never "Infinity"', () => {
 test('ladder · Free: 1 category, local reach, no market intel, no agent seats', () => {
   const c = TIER_CAPS.free;
   assert.equal(c.parentCategories, 1, 'Free lists under exactly 1 category');
-  assert.equal(c.serviceRadiusKm, 0, 'Free reach is local (0 km — no expanded reach)');
+  assert.equal(c.serviceRadiusKm, 5, 'Free reach is 5 km from the shop (owner 2026-11-18)');
   assert.equal(c.marketIntel, false, 'Free has no Market Intel');
   assert.equal(canSeeMarketIntel('free'), false);
   assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
@@ -110,11 +110,11 @@ test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
   );
 });
 
-test('ladder · Ultra: up to 10 seats + nationwide reach + all 16 categories', () => {
+test('ladder · Max (enterprise): 12 seats + nationwide reach + all 12 categories', () => {
   const c = TIER_CAPS.enterprise;
-  assert.equal(c.agentAccounts, 10, 'Ultra = up to 10 team seats (owner 2026-11-04 "WITH TRIMMED ALLOWANCES"; 15 earlier that day)');
+  assert.equal(c.agentAccounts, 11, 'Max = 12 seats with the owner (owner 2026-11-18)');
   assert.equal(c.serviceRadiusKm, Infinity, 'Ultra = nationwide (owner 2026-11-04; was 100 km)');
-  assert.equal(c.parentCategories, 16, 'Ultra = all 16 main categories (owner 2026-11-14; 15 since 2026-11-04)');
+  assert.equal(c.parentCategories, 12, 'Max = all 12 main categories (owner 2026-11-18)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 

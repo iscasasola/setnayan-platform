@@ -113,7 +113,7 @@ export async function fetchVendorFirstStepsState(
           // drawn only for a shop not yet verified, and no plan opens before the papers (`canUse`). A comped or founder
           // shop that could make more simply finishes the step sooner — never a step that cannot finish.
           cardsToCount(
-            tierCaps((profile as { tier_state?: string | null }).tier_state).servicesPerLeaf,
+            tierCaps((profile as { tier_state?: string | null }).tier_state).serviceCardsTotal,
             (profile as { is_founder?: boolean | null }).is_founder === true,
           ),
         )

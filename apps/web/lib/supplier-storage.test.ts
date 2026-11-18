@@ -1,6 +1,6 @@
 /**
  * supplier-storage.test.ts — THE PLAN HOLDS STORAGE (owner 2026-11-13, specs DECISION_LOG ce2d0a8 "plan storage":
- * Plus 5 GB · Pro 10 GB · Ultra 15 GB; Free and Free · Verified keep what they had — no allowance).
+ * Plus 5 GB · Pro 10 GB · Ultra 20 GB (owner 2026-11-18, ruling 24; was 15); Free and Free · Verified keep what they had — no allowance).
  *
  *   1 · the per-plan numbers, read from TIER_CAPS — and `storageAllowanceBytes` asks TIER_CAPS, not a typed number;
  *   2 · the refusal: a file past the allowance is refused with the plan's number and the way up, before any bytes move
@@ -46,11 +46,11 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const GB = 1_000_000_000;
 
 // ── 1 · the numbers ────────────────────────────────────────────────────────
-test('the owner’s numbers: Plus 5 GB · Pro 10 GB · Ultra 15 GB · Free and Verified no allowance', () => {
+test('the owner’s numbers: Plus 5 GB · Pro 10 GB · Ultra 20 GB · Free and Verified no allowance', () => {
   assert.equal(STORAGE_GB, GB, 'a storage GB is the decimal GB the supplier reads');
   assert.equal(TIER_CAPS.solo.storageBytes, 5 * GB);
   assert.equal(TIER_CAPS.pro.storageBytes, 10 * GB);
-  assert.equal(TIER_CAPS.enterprise.storageBytes, 15 * GB);
+  assert.equal(TIER_CAPS.enterprise.storageBytes, 20 * GB);
   assert.equal(TIER_CAPS.free.storageBytes, null, 'Free keeps what it had: no allowance');
   assert.equal(TIER_CAPS.verified.storageBytes, null, 'Verified keeps what it had: no allowance');
 });
@@ -75,7 +75,7 @@ test('“What <plan> gives you” names each plan’s storage from the table', (
   const line = (t: string) => planGivesLines(t, true).find((l) => l.key === 'storage')?.line;
   assert.equal(line('solo'), '5 GB');
   assert.equal(line('pro'), '10 GB');
-  assert.equal(line('enterprise'), '15 GB');
+  assert.equal(line('enterprise'), '20 GB');
   assert.equal(line('free'), 'No limit on this plan today');
   assert.equal(line('verified'), 'No limit on this plan today');
 });
@@ -97,10 +97,10 @@ test('the refusal names the plan, what is left, the way to make room and the nex
   assert.match(m, /Nothing you stored was changed\./);
   const full = storageFullMessage('pro', 10 * GB, 1_000_000);
   assert.match(full, /Your Pro plan’s 10 GB of storage is full\./);
-  assert.match(full, /move to Ultra for 15 GB/);
+  assert.match(full, /move to Ultra for 20 GB/);
   // Ultra has no plan above it, and the packs are not on sale: no "move to", never an invented offer.
-  const ultra = storageFullMessage('enterprise', 15 * GB, 1_000_000);
-  assert.match(ultra, /Your Ultra plan’s 15 GB of storage is full\. Remove files from an event to make room\./);
+  const ultra = storageFullMessage('enterprise', 20 * GB, 1_000_000);
+  assert.match(ultra, /Your Ultra plan’s 20 GB of storage is full\. Remove files from an event to make room\./);
   assert.doesNotMatch(ultra, /move to/);
   assert.equal(nextStoragePlan('solo'), 'pro');
   assert.equal(nextStoragePlan('pro'), 'enterprise');

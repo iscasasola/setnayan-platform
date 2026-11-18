@@ -83,8 +83,8 @@ export function normalizeRadiusKm(value: unknown): number | null {
  * The tier's ceiling on the outer radius, in km.
  *
  * `tierCaps().serviceRadiusKm` is the SAME number the public plans page
- * advertises as reach (`growSpec` in `supplier-front-data.ts`): free 0 · verified
- * 20 · solo 20 · pro 50 · enterprise 100 · custom 100. Under the inner/outer
+ * advertises as reach (`growSpec` in `supplier-front-data.ts`): free 5 · verified
+ * 10 · solo 50 · pro 100 · enterprise nationwide (owner 2026-11-18, ruling 30). Under the inner/outer
  * model that number stops being a CLAIM about the vendor and becomes the CAP on
  * what the vendor may claim — which is what makes the published feature honest
  * (spec §17.2.1).
@@ -101,10 +101,8 @@ export function tierOuterRadiusCapKm(tier: string | null | undefined): number {
  *   declared null   → cap       (undeclared keeps today's tier-derived reach)
  *
  * Called on EVERY read, so the stored column may be stale forever without ever
- * being believed. Free tier's cap is 0, so a free vendor's declaration collapses
- * to 0 — which every caller reads as "no usable ring", matching today's
- * behaviour exactly (free already renders as "No" service reach on the public
- * matrix and already hides the bench's reach badge).
+ * being believed. Free's cap is 5 km since 2026-11-18 (it was 0, which made a
+ * free declaration inert); a cap of 0 still reads as "no usable ring".
  *
  * `Infinity` is passed through untouched for any future unlimited tier —
  * `Math.min(n, Infinity) === n`, so a declaration is honoured verbatim.
@@ -151,7 +149,7 @@ export function effectiveInnerRadiusKm(
  *   • the distance is unknown (manual vendor / no HQ pin / no venue anchor),
  *   • the inner ring is undeclared,
  *   • the outer ring is undeclared,
- *   • the effective outer ring is 0 or non-finite (free tier / unscoped) — a
+ *   • the effective outer ring is 0 or non-finite (a 0 cap / unscoped) — a
  *     zero-width ring can't distinguish "free" from "outside", so it says
  *     nothing rather than something wrong.
  *
@@ -357,7 +355,7 @@ function capLabel(cap: number): string {
  * Rejections, in the order they're checked:
  *   • a value that isn't a whole, non-negative number of km,
  *   • either ring above `MAX_DECLARABLE_RADIUS_KM` (typo guard),
- *   • the tier having no service reach at all (free tier, cap 0),
+ *   • the tier having no service reach at all (a cap of 0 — no plan today),
  *   • either ring above the tier cap — INCLUDING the inner, since inner ≤ outer
  *     ≤ cap means an inner above the cap is impossible by construction,
  *   • inner > outer.

@@ -25,13 +25,13 @@ const FORMS_FILES = [
   'app/vendor-dashboard/clients/[eventId]/_pages/forms.tsx',
 ];
 
-test('the caps table: uploads Pro + Ultra, video links Supplier Plus + Pro + Ultra', () => {
+test('the caps table: uploads Max only, video links Pro + Max (owner 2026-11-18, ruling 33)', () => {
   const uploads = Object.entries(TIER_CAPS).filter(([, c]) => c.formMediaUploads).map(([t]) => t).sort();
   const video = Object.entries(TIER_CAPS).filter(([, c]) => c.formVideoLinks).map(([t]) => t).sort();
-  assert.deepEqual(uploads, ['enterprise', 'pro']);
-  assert.deepEqual(video, ['enterprise', 'pro', 'solo']);
-  assert.equal(firstPlanWith((c) => c.formMediaUploads), 'pro');
-  assert.equal(firstPlanWith((c) => c.formVideoLinks), 'solo');
+  assert.deepEqual(uploads, ['enterprise']);
+  assert.deepEqual(video, ['enterprise', 'pro']);
+  assert.equal(firstPlanWith((c) => c.formMediaUploads), 'enterprise');
+  assert.equal(firstPlanWith((c) => c.formVideoLinks), 'pro');
 });
 
 test('the save refuses through the caps home and names the plan', () => {

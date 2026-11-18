@@ -84,7 +84,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           // plan, so these four live on Free and no paid tier re-sells them. Numbers read from the plan table.
           { n: 'Answer every couple', b: 'No weekly limit on answering, on any plan.' },
           { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
-          { n: `${many(TIER_CAPS.verified.servicesPerLeaf, 'service card', 'service cards')} per category`, b: `Put up ${many(TIER_CAPS.verified.servicesPerLeaf, 'service', 'services')} in ${TIER_CAPS.verified.parentCategories === 1 ? 'the category' : 'each category'} you cover.` },
+          { n: `${many(TIER_CAPS.verified.serviceCardsTotal, 'service card', 'service cards')} in total`, b: `Put up ${many(TIER_CAPS.verified.serviceCardsTotal, 'service', 'services')} once you’re verified.` },
           { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
           { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
@@ -145,7 +145,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         items: [
           { n: `${TIER_CAPS.solo.serviceRadiusKm} km reach`, b: 'Couples farther from you see you in their search.' },
-          { n: `${many(TIER_CAPS.solo.parentCategories, 'category', 'categories')} · ${many(TIER_CAPS.solo.servicesPerLeaf, 'service card', 'service cards')} each`, b: `List under ${many(TIER_CAPS.solo.parentCategories, 'parent category', 'parent categories')}, with up to ${many(TIER_CAPS.solo.servicesPerLeaf, 'service', 'services')} in each.` },
+          { n: `${many(TIER_CAPS.solo.parentCategories, 'category', 'categories')} · ${many(TIER_CAPS.solo.serviceCardsTotal, 'service card', 'service cards')}`, b: `List under ${many(TIER_CAPS.solo.parentCategories, 'parent category', 'parent categories')}, with up to ${many(TIER_CAPS.solo.serviceCardsTotal, 'service', 'services')} in total.` },
           { n: `${many(TIER_CAPS.solo.agentAccounts, 'team seat', 'team seats')}`, b: 'Give a helper their own login, scoped to their services.' },
           { n: 'Your own web address', b: 'Point your own domain at your Setnayan page.' },
           { n: 'Personalize your public page', b: 'Add an About intro, pick an accent colour, feature your top services, and choose which sections show. Your page, your look.' },
@@ -170,9 +170,9 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: `Team sub-accounts (${many(TIER_CAPS.pro.agentAccounts, 'seat', 'seats')})`, b: 'Give each crew member a login scoped to their services, no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
           { n: `${many(TIER_CAPS.pro.parentCategories, 'category', 'categories')} + ${TIER_CAPS.pro.serviceRadiusKm} km reach`, b: `List under ${many(TIER_CAPS.pro.parentCategories, 'parent category', 'parent categories')} and serve a wider radius.` },
-          { n: `${TIER_CAPS.pro.servicesPerLeaf} service cards per category`, b: `Put up to ${TIER_CAPS.pro.servicesPerLeaf} services in each category you cover.` },
+          { n: `${many(TIER_CAPS.pro.serviceCardsTotal, 'service card', 'service cards')} in total`, b: `Put up to ${many(TIER_CAPS.pro.serviceCardsTotal, 'service', 'services')} across the categories you cover.` },
           { n: `${many(TIER_CAPS.pro.branchesIncluded, 'branch', 'branches')} included`, b: 'Run other locations under your one shop, with no branch fee.' },
-          { n: 'Booked-out waitlist', b: `Fully booked? Couples wait instead of bouncing — take up to ${many(TIER_CAPS.pro.waitlistAcceptances, 'couple', 'couples')} off it per date, so a cancellation becomes a recovered booking.` },
+          { n: 'Booked-out waitlist', b: 'Fully booked? Couples wait instead of bouncing — you choose how many to take off it per date, so a cancellation becomes a recovered booking.' },
           { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
           { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
@@ -200,8 +200,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
           { n: 'Nationwide reach', b: 'Couples anywhere in the Philippines find you in their search.' },
           { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
-          { n: `Waitlist: ${many(TIER_CAPS.enterprise.waitlistAcceptances, 'couple', 'couples')} per date`, b: 'Take more couples off a booked-out date.' },
-          { n: `${many(TIER_CAPS.enterprise.servicesPerLeaf, 'service card', 'service cards')} per category`, b: 'More services per category than Pro.' },
+          { n: `${many(TIER_CAPS.enterprise.serviceCardsTotal, 'service card', 'service cards')} in total`, b: 'More services than Pro.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
           // business review" and "a named contact" promised HUMAN ATTENTION

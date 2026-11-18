@@ -52,24 +52,23 @@ async function countShopsOver(admin: AdminClient, plan: VendorTier, def: PlanCon
   const ids = (shops ?? []).map((s) => s.vendor_profile_id as string);
   if (ids.length === 0) return 0;
 
-  if (def.key === 'services_per_leaf') {
+  if (def.key === 'service_cards_total') {
+    // Cards are counted IN TOTAL since 2026-11-18 (rulings 23 · 39), exactly as the create gate counts them
+    // (services/actions.ts: every card but a "Copy to another branch") — a shop is over when it holds more than `to`.
     const { data, error: e } = await admin
       .from('vendor_services')
-      .select('vendor_profile_id, category')
+      .select('vendor_profile_id')
       .in('vendor_profile_id', ids)
-      .eq('is_active', true);
+      .is('branch_copy_of', null);
     if (e) {
       console.error('[plan-contents] over-count unread — the request says "not counted"', e.message);
       return null;
     }
-    const perKind = new Map<string, number>();
-    for (const r of data ?? []) {
-      const k = `${r.vendor_profile_id as string}|${r.category as string}`;
-      perKind.set(k, (perKind.get(k) ?? 0) + 1);
-    }
-    const over = new Set<string>();
-    for (const [k, n] of perKind) if (n > to) over.add(k.split('|')[0]!);
-    return over.size;
+    const per = new Map<string, number>();
+    for (const r of data ?? []) per.set(r.vendor_profile_id as string, (per.get(r.vendor_profile_id as string) ?? 0) + 1);
+    let n = 0;
+    for (const c of per.values()) if (c > to) n += 1;
+    return n;
   }
   if (def.key === 'agent_accounts') {
     const { data, error: e } = await admin.from('vendor_team_members').select('vendor_profile_id').in('vendor_profile_id', ids);

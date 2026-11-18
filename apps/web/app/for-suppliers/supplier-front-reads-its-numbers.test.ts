@@ -65,7 +65,7 @@ test('each plan spec is its caps', () => {
     const spec = growSpec(t);
     assert.ok(spec.includes(Number.isFinite(c.serviceRadiusKm) ? `${formatCount(c.serviceRadiusKm)} km` : 'Nationwide'), `${t}: ${spec}`);
     assert.ok(spec.includes(`${formatCount(c.parentCategories)} categor`), `${t}: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.servicesPerLeaf)} service card`), `${t}: ${spec}`);
+    assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
     assert.ok(spec.includes(`${formatCount(c.agentAccounts)} team seat`), `${t}: ${spec}`);
   }
 });

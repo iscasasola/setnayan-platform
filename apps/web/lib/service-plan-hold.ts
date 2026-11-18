@@ -11,9 +11,10 @@
  *     service swaps it, refused when over the plan; then "Pick ‹plan› with these". Numbers from `TIER_CAPS`.
  *
  * 🔑 ONE FIT RULE, THE CREATE GATE'S. A card's create gate (`commitVendorService`, services/actions.ts) refuses a card
- * when (1) its kind already holds `servicesPerLeaf` cards, or (2) it would add a FAMILY beyond `parentCategories`,
+ * when (1) the shop already holds `serviceCardsTotal` cards IN TOTAL (since 2026-11-18, rulings 23 · 39; was per
+ * kind), or (2) it would add a FAMILY beyond `parentCategories`,
  * families read by `parentsOfKind` (lib/vendor-category-parents.ts). `keptFits` below is that same rule applied to a
- * set: cards per `kind` (= `vendor_services.category`) ≤ servicesPerLeaf, distinct families ≤ parentCategories. The
+ * set: cards in total ≤ serviceCardsTotal, distinct families ≤ parentCategories. The
  * server read (`service-plan-hold.server.ts`) computes each card's families WITH `parentsOfKind`, so the picker and
  * the create gate can never count two different things (the 6 Nov "do not let the meter and the gate disagree").
  * ⚠ Still open from the 6 Nov METER row: the owner's unit is the tier-2 Category; the shipped gate counts tier-1
@@ -52,24 +53,23 @@ export type PlanCard = {
   branchCopy?: boolean;
 };
 
-export type FitCaps = { parentCategories: number; servicesPerLeaf: number };
+export type FitCaps = { parentCategories: number; serviceCardsTotal: number };
 
 export type FitAnswer =
   | { ok: true }
-  | { ok: false; why: 'kind_full'; kind: string; cap: number }
+  | { ok: false; why: 'cards_full'; cap: number }
   | { ok: false; why: 'families_full'; cap: number };
 
 export function capsOf(tier: VendorTier, founder = false): FitCaps {
-  if (founder) return { parentCategories: Infinity, servicesPerLeaf: Infinity };
+  if (founder) return { parentCategories: Infinity, serviceCardsTotal: Infinity };
   const c = TIER_CAPS[tier];
-  return { parentCategories: c.parentCategories, servicesPerLeaf: c.servicesPerLeaf };
+  return { parentCategories: c.parentCategories, serviceCardsTotal: c.serviceCardsTotal };
 }
 
 /** Do these cards, all on together, fit the plan? The create gate's two refusals, on a set. */
 export function keptFits(kept: readonly PlanCard[], caps: FitCaps): FitAnswer {
-  const perKind = new Map<string, number>();
-  for (const c of kept) if (!c.branchCopy) perKind.set(c.kind, (perKind.get(c.kind) ?? 0) + 1);
-  for (const [kind, n] of perKind) if (n > caps.servicesPerLeaf) return { ok: false, why: 'kind_full', kind, cap: caps.servicesPerLeaf };
+  const cards = kept.filter((c) => !c.branchCopy).length;
+  if (cards > caps.serviceCardsTotal) return { ok: false, why: 'cards_full', cap: caps.serviceCardsTotal };
   const families = new Set(kept.flatMap((c) => c.families));
   if (families.size > caps.parentCategories) return { ok: false, why: 'families_full', cap: caps.parentCategories };
   return { ok: true };
@@ -83,7 +83,7 @@ export function planThatHoldsAll(cards: readonly PlanCard[], founder = false): V
 
 /**
  * The plans offered, from the lowest the shop can land on: its scheduled lower plan when one is waiting, else its
- * own plan. Free and Verified hold the same (one service), so a Free shop is offered Free, not both.
+ * own plan. A Free shop is not offered Verified here — Verified is earned by verification, not picked.
  */
 export function ladderFor(current: VendorTier, pending: VendorTier | null): VendorTier[] {
   const base = pending && tierRank(pending) < tierRank(current) ? pending : current;
@@ -144,7 +144,7 @@ export function toggleKeep(keep: readonly string[], id: string, cards: readonly 
 /** Why a tap was refused, in the supplier's words. */
 export function overPlanWords(fit: Exclude<FitAnswer, { ok: true }>, plan: VendorTier): string {
   const name = TIER_LABEL[plan];
-  if (fit.why === 'kind_full') return `${name} holds ${fit.cap} of this kind. Turn one off first.`;
+  if (fit.why === 'cards_full') return `${name} holds ${fit.cap} ${fit.cap === 1 ? 'service' : 'services'}. Turn one off first.`;
   return `${name} holds ${fit.cap} ${fit.cap === 1 ? 'category' : 'categories'}. Turn one off first.`;
 }
 
@@ -155,12 +155,14 @@ export function meterWords(kept: readonly PlanCard[], plan: VendorTier): string 
   return `${families} ${families === 1 ? 'category' : 'categories'} · ${n} ${n === 1 ? 'service' : 'services'} — ${TIER_LABEL[plan]} holds this`;
 }
 
-/** What a plan holds, read from `TIER_CAPS`: "1 category × 1 service". */
+/** What a plan holds, read from `TIER_CAPS`: "1 category · 1 service" (services counted in total since 2026-11-18). */
 export function planHoldsWords(plan: VendorTier): string {
   const c = TIER_CAPS[plan];
   const f = Number.isFinite(c.parentCategories) ? `${c.parentCategories} ${c.parentCategories === 1 ? 'category' : 'categories'}` : 'Every category';
-  const s = Number.isFinite(c.servicesPerLeaf) ? `${c.servicesPerLeaf} ${c.servicesPerLeaf === 1 ? 'service' : 'services'} each` : 'any number each';
-  return `${f} × ${s}`;
+  const s = Number.isFinite(c.serviceCardsTotal)
+    ? `${c.serviceCardsTotal} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`
+    : 'any number of services';
+  return `${f} · ${s}`;
 }
 
 /** Are the cards that are on today more than the plan holds? */

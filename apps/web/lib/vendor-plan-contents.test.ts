@@ -27,13 +27,13 @@ test('a stored number replaces the code value for that plan only; "no limit" onl
   const caps = applyPlanContents('pro', [
     { plan: 'pro', key: 'agent_accounts', value: 4 },
     { plan: 'solo', key: 'agent_accounts', value: 99 }, // another plan's row is ignored
-    { plan: 'pro', key: 'services_per_leaf', value: null }, // no limit — allowed here
+    { plan: 'pro', key: 'service_cards_total', value: null }, // no limit — allowed here
     { plan: 'pro', key: 'branches_included', value: null }, // no limit — NOT allowed: the code value stands
     { plan: 'pro', key: 'nonsense', value: 1 },
     { plan: 'pro', key: 'parent_categories', value: -3 }, // malformed: ignored
   ]);
   assert.equal(caps.agentAccounts, 4);
-  assert.equal(caps.servicesPerLeaf, Infinity);
+  assert.equal(caps.serviceCardsTotal, Infinity);
   assert.equal(caps.branchesIncluded, TIER_CAPS.pro.branchesIncluded);
   assert.equal(caps.parentCategories, TIER_CAPS.pro.parentCategories);
   assert.equal(TIER_CAPS.pro.agentAccounts !== 4, true, 'TIER_CAPS itself was mutated');
@@ -52,6 +52,7 @@ test('every editable key names a real TierCaps number, and the seed in the migra
   const sql = [
     '20271344452857_vendor_plan_contents.sql',
     '20271346711828_simpler_supplier_plans.sql',
+    '20271350427190_supplier_plans_rebuilt_2026_11_18.sql', // owner 2026-11-18 "SUPPLIER PLANS REBUILT"
   ]
     .map((f) => readFileSync(join(__dirname, '../../../supabase/migrations', f), 'utf8'))
     .join('\n');
@@ -66,7 +67,7 @@ test('every editable key names a real TierCaps number, and the seed in the migra
     }
   }
   assert.equal(seeded, EDITABLE_PLAN_KEYS.length * VENDOR_TIERS.length);
-  assert.ok(seeded >= 35, `only ${seeded} seed rows checked`);
+  assert.ok(seeded >= 30, `only ${seeded} seed rows checked`);
 });
 
 test('the typed value: whole numbers; "no limit" refused for the four the database serves', () => {

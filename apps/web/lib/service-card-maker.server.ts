@@ -15,7 +15,7 @@ import {
 } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { planHasBranches } from '@/lib/vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, planHasBranches } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { bookingsPerDateHelp } from '@/lib/card-bookings-per-date';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
@@ -149,14 +149,15 @@ export async function loadMakerContext(
   const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null; services?: string[] | null } | null;
   // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06), the same read as the save's.
   const baseCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tierRow?.tier_state);
+  // No plan cap since 2026-11-18 (ruling 17): the ceiling is the same on every plan.
   const bookingsPerDate = {
-    cap: baseCaps.bookingsPerDatePerService,
-    help: bookingsPerDateHelp(tierRow?.tier_state, baseCaps.bookingsPerDatePerService),
+    cap: DAILY_CAPACITY_MAX,
+    help: bookingsPerDateHelp(),
   };
   // Founder override, identical to the save's (owner 2026-06-09).
   const caps =
     tierRow?.is_founder === true
-      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      ? { ...baseCaps, parentCategories: Infinity, serviceCardsTotal: Infinity }
       : baseCaps;
 
   const leaves = buildLeafIndex(tree);
@@ -185,7 +186,7 @@ export async function loadMakerContext(
       existingParents,
       cardsByCategory,
       parentCategories: caps.parentCategories,
-      servicesPerLeaf: caps.servicesPerLeaf,
+      serviceCardsTotal: caps.serviceCardsTotal,
       leaves,
     });
 

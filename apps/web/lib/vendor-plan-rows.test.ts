@@ -18,10 +18,10 @@ const line = (tier: string, key: string, paywallOn = true) =>
   planGivesLines(tier, paywallOn).find((l) => l.key === key)?.line;
 
 test('what a plan gives is read from TIER_CAPS', () => {
-  assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.servicesPerLeaf} per kind`));
+  assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.serviceCardsTotal} in total`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), '30 per kind · 16 kinds of work'); // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS")
-  assert.equal(line('free', 'reach'), 'Not in couples’ search on this plan');
+  assert.equal(line('enterprise', 'services'), '80 in total · 12 kinds of work'); // Max, owner 2026-11-18
+  assert.equal(line('free', 'reach'), '5 km around you'); // owner 2026-11-18: Free reaches 5 km (was 0)
   assert.equal(line('enterprise', 'reach'), 'Nationwide');
   // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
   assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
@@ -38,7 +38,7 @@ test('with the paywall OFF, a plan with no seats gets the entry plan’s, and sa
   assert.match(line('free', 'helpers', true)!, /^0 team seats \+ 1 free Helper/);
   assert.match(line('free', 'helpers', false)!, /^1 team seat \+ 1 free Helper/);
   assert.equal(line('free', 'insights', false), 'All of it — open to every plan today');
-  assert.equal(line('free', 'waitlist', true), 'Not on this plan');
+  assert.equal(line('free', 'waitlist', true), 'You choose, up to 10 a date'); // no plan limit, 2026-11-18
 });
 
 test('a changed table changes the line (no typed copy survives an edit)', () => {

@@ -34,8 +34,9 @@ import { allowance, planGivesLines, type PlanLine } from './vendor-plan-rows';
 
 /** The limits a shop can press + past — each read from the plan table (Lane B "Door 1" list). */
 export const PLAN_LIMITS = [
-  { key: 'bookingsPerDate', title: 'Bookings a day per service, at each branch', thing: 'bookings a day for a service' },
-  { key: 'cardsPerCategory', title: 'Cards per category', thing: 'cards in a category' },
+  // ⛔ No "bookings a day" row since 2026-11-18 (ruling 17): bookings per date are not a plan limit — the shop sets its
+  // own number on every plan. Cards are counted IN TOTAL (rulings 23 · 39), not per category.
+  { key: 'serviceCards', title: 'Service cards', thing: 'service cards' },
   { key: 'mainCategories', title: 'Main categories', thing: 'main categories' },
   { key: 'teamSeats', title: 'Team seats', thing: 'team seats' },
   { key: 'branches', title: 'Branches', thing: 'branches' },
@@ -47,10 +48,8 @@ export type PlanLimitKey = (typeof PLAN_LIMITS)[number]['key'];
 export function limitOf(tierRaw: string | null | undefined, key: PlanLimitKey, paywallOn: boolean): number {
   const c: TierCaps = TIER_CAPS[asVendorTier(tierRaw)];
   switch (key) {
-    case 'bookingsPerDate':
-      return c.bookingsPerDatePerService;
-    case 'cardsPerCategory':
-      return c.servicesPerLeaf;
+    case 'serviceCards':
+      return c.serviceCardsTotal;
     case 'mainCategories':
       return c.parentCategories;
     case 'teamSeats':
@@ -235,7 +234,7 @@ export function payToday(input: {
 }
 
 /**
- * A plan row's one line while it is shut. Another plan: "Up to 3 a day per service · 100 km · 5 team seats" (the
+ * A plan row's one line while it is shut. Another plan: "20 service cards · 100 km · 5 team seats" (the
  * prototype's row line), read from the table; a lower plan while a paid one runs: "Lower plan · starts after 8 Dec 2026".
  */
 export function planRowLine(
@@ -246,10 +245,11 @@ export function planRowLine(
 ): string {
   const to = asVendorTier(toRaw);
   if (planDirection(currentRaw, to) === 'down' && expiresOn) return `Lower plan · starts after ${expiresOn}`;
-  const a = limitOf(to, 'bookingsPerDate', paywallOn);
+  const a = limitOf(to, 'serviceCards', paywallOn);
   const reach = limitWords('reach', limitOf(to, 'reach', paywallOn));
   const seats = limitOf(to, 'teamSeats', paywallOn);
   const seatWords = Number.isFinite(seats) ? `${formatCount(seats)} team ${seats === 1 ? 'seat' : 'seats'}` : 'team seats with no limit';
   const reachWords = reach === 'Not in search' ? 'not in search' : reach === 'Nationwide' ? 'nationwide' : reach;
-  return `Up to ${limitWords('bookingsPerDate', a)} a day per service · ${reachWords} · ${seatWords}`;
+  const cardWords = Number.isFinite(a) ? `${formatCount(a)} service ${a === 1 ? 'card' : 'cards'}` : 'service cards with no limit';
+  return `${cardWords} · ${reachWords} · ${seatWords}`;
 }

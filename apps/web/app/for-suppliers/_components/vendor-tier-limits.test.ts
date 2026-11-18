@@ -56,7 +56,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const RENDER: Record<string, (n: number) => string> = {
   'Service reach': (n) => (!Number.isFinite(n) ? 'Nationwide' : n === 0 ? '—' : `${n} km`),
   'Parent categories': (n) => (!Number.isFinite(n) ? 'All' : n === 0 ? '—' : `${n}`),
-  'Service listings / category': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
+  'Service cards': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Team seats': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Bookings a day': (n) => (!Number.isFinite(n) ? 'You set it' : n === 0 ? '—' : `${n}`),
   'Portfolio photos': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n} free`),
@@ -66,7 +66,7 @@ const RENDER: Record<string, (n: number) => string> = {
 const FIELD: Record<string, keyof (typeof TIER_CAPS)['pro']> = {
   'Service reach': 'serviceRadiusKm',
   'Parent categories': 'parentCategories',
-  'Service listings / category': 'servicesPerLeaf',
+  'Service cards': 'serviceCardsTotal',
   'Team seats': 'agentAccounts',
   'Bookings a day': 'slotsPerDay',
   'Portfolio photos': 'portfolioPhotos',

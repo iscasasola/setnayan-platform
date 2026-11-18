@@ -7,7 +7,7 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
 
 test('reach follows the plan caps — never a second copy of them', () => {
-  for (const tier of ['verified', 'solo', 'pro'] as const) {
+  for (const tier of ['free', 'verified', 'solo', 'pro'] as const) {
     const r = shopReach({ verified: true, tier, declaredOuterKm: null });
     assert.deepEqual(r, { kind: 'ring', km: TIER_CAPS[tier].serviceRadiusKm }, tier);
   }
@@ -16,16 +16,16 @@ test('reach follows the plan caps — never a second copy of them', () => {
   assert.equal(shopReachLine({ kind: 'nationwide' }, 'Tagaytay'), 'Tagaytay · serves nationwide');
   // …unless the shop drew a narrower ring of its own.
   assert.deepEqual(shopReach({ verified: true, tier: 'enterprise', declaredOuterKm: 150 }), { kind: 'ring', km: 150 });
-  // The owner's numbers, as the caps say them today (owner 2026-11-04: 20 · 30 · 100 · nationwide).
+  // The owner's numbers, as the caps say them today (owner 2026-11-18, ruling 30: 5 · 10 · 50 · 100 · nationwide).
   assert.deepEqual(
-    (['verified', 'solo', 'pro', 'enterprise'] as const).map((t) => TIER_CAPS[t].serviceRadiusKm),
-    [20, 30, 100, Infinity],
+    (['free', 'verified', 'solo', 'pro', 'enterprise'] as const).map((t) => TIER_CAPS[t].serviceRadiusKm),
+    [5, 10, 50, 100, Infinity],
   );
 });
 
 test('a narrower declared ring wins; a wider one is clamped to the plan', () => {
   assert.deepEqual(shopReach({ verified: true, tier: 'pro', declaredOuterKm: 15 }), { kind: 'ring', km: 15 });
-  assert.deepEqual(shopReach({ verified: true, tier: 'verified', declaredOuterKm: 80 }), { kind: 'ring', km: 20 });
+  assert.deepEqual(shopReach({ verified: true, tier: 'verified', declaredOuterKm: 80 }), { kind: 'ring', km: 10 });
 });
 
 test('an unverified shop reaches 0 km and the line says why (owner 2026-10-29)', () => {
@@ -35,7 +35,8 @@ test('an unverified shop reaches 0 km and the line says why (owner 2026-10-29)',
 });
 
 test('verified with no ring says the city only — never "0 km"', () => {
-  const r = shopReach({ verified: true, tier: 'free', declaredOuterKm: null });
+  // Every plan reaches some distance since 2026-11-18 (Free 5 km), so "no ring" is a shop that declared 0.
+  const r = shopReach({ verified: true, tier: 'free', declaredOuterKm: 0 });
   assert.equal(r.kind, 'city_only');
   assert.equal(shopReachLine(r, ' Tagaytay '), 'Tagaytay');
   assert.equal(shopReachLine(r, null), null);

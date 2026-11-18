@@ -117,9 +117,9 @@ test('vendor_tier_limit(…,storage_gb) says exactly what TIER_CAPS says — eve
   }
   const unknown = await db.query<{ gb: number | null }>(`SELECT public.vendor_tier_limit(NULL,'storage_gb') AS gb`);
   assert.equal(unknown.rows[0]!.gb, null, 'an unknown tier reads as Free — no allowance');
-  // The arms that were already there are untouched (copied verbatim).
-  const r = await db.query<{ b: number }>(`SELECT public.vendor_tier_limit('pro','bookings_per_date_per_service') AS b`);
-  assert.equal(r.rows[0]!.b, TIER_CAPS.pro.bookingsPerDatePerService);
+  // The branch arm still answers beside it.
+  const r = await db.query<{ b: number }>(`SELECT public.vendor_tier_limit('pro','branches_included') AS b`);
+  assert.equal(r.rows[0]!.b, TIER_CAPS.pro.branchesIncluded);
 });
 
 test('Solo: files up to exactly 5 GB, and the next new byte is refused with storage_allowance', async () => {
@@ -132,12 +132,12 @@ test('Solo: files up to exactly 5 GB, and the next new byte is refused with stor
   assert.equal(await used(s.shop), 5 * GB, 'the refused file was counted');
 });
 
-test('Pro holds 10 GB and Ultra 15 GB', async () => {
+test('Pro holds 10 GB and Max (enterprise) 20 GB — owner 2026-11-18', async () => {
   const pro = await newShop('pro');
   assert.equal((await file(pro, await store(pro, 10 * GB))).error, null);
   assert.match((await file(pro, await store(pro, 1))).error ?? '', /storage_allowance/);
   const ultra = await newShop('enterprise');
-  assert.equal((await file(ultra, await store(ultra, 15 * GB))).error, null);
+  assert.equal((await file(ultra, await store(ultra, 20 * GB))).error, null);
   assert.match((await file(ultra, await store(ultra, 1))).error ?? '', /storage_allowance/);
 });
 

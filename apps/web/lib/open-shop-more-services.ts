@@ -25,8 +25,8 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  */
 export const FIRST_BOOKING_FREE_LABEL = 'Your first booking is free once you’re verified';
 
-/** The plans the meter walks, smallest first. Verified holds what Free holds (`TIER_CAPS`), so Free stands for both. */
-const METER_PLANS: readonly VendorTier[] = ['free', 'solo', 'pro', 'enterprise'];
+/** The plans the meter walks, smallest first. Verified holds more than Free since 2026-11-18 (3 service cards to 1). */
+const METER_PLANS: readonly VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
 
 /** The words a person reads for a plan (`TIER_LABEL`; Verified's own word, as `categoryLadder` says it). */
 const planWord = (t: VendorTier) => (t === 'verified' ? 'Verified' : TIER_LABEL[t]);
@@ -45,11 +45,11 @@ export function servicesPerCategory(list: readonly MeterService[]): { id: string
   return out;
 }
 
-/** Does `tier` hold this list — categories ≤ `parentCategories` AND every category's services ≤ `servicesPerLeaf`? */
+/** Does `tier` hold this list — categories ≤ `parentCategories` AND services in total ≤ `serviceCardsTotal` (2026-11-18)? */
 export function planHolds(tier: VendorTier, list: readonly MeterService[]): boolean {
   const caps = TIER_CAPS[tier];
   const by = servicesPerCategory(list);
-  return by.length <= caps.parentCategories && by.every((c) => c.count <= caps.servicesPerLeaf);
+  return by.length <= caps.parentCategories && list.length <= caps.serviceCardsTotal;
 }
 
 /** The first plan that holds the list, or null — more than the top plan holds (Custom). */
@@ -118,9 +118,7 @@ export function planLadder(): { name: string; caps: string }[] {
   const rung = (t: VendorTier, first: boolean) => {
     const c = TIER_CAPS[t];
     const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per = first
-      ? `${formatCount(c.servicesPerLeaf)} ${c.servicesPerLeaf === 1 ? 'service' : 'services'}`
-      : `${formatCount(c.servicesPerLeaf)} per category`;
+    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
     const reach = first ? reachWords(TIER_CAPS.verified.serviceRadiusKm) : reachWords(c.serviceRadiusKm);
     return [cats, per, reach, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
@@ -170,10 +168,7 @@ export function planSplit(list: readonly MeterService[]): {
   const capsOf = (t: VendorTier) => {
     const c = TIER_CAPS[t];
     const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per =
-      c.parentCategories === 1
-        ? `${formatCount(c.servicesPerLeaf)} ${c.servicesPerLeaf === 1 ? 'service' : 'services'}`
-        : `${formatCount(c.servicesPerLeaf)} per category`;
+    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
     return `${cats} · ${per}`;
   };
   const paid = (['solo', 'pro', 'enterprise'] as const).find((t) => planHolds(t, list)) ?? null;

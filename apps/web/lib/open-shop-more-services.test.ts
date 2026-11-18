@@ -47,9 +47,9 @@ test('one service: Free and Verified cover this, no split line, no label', () =>
   assert.equal(line.verdict, 'Free and Verified cover this');
   assert.equal(line.split, null);
   assert.equal(carriesFirstBookingLabel(rec(1)), false);
-  // Verified holds what Free holds — the line names both because the caps are the same.
+  // What fits Free fits Verified too (Verified holds more cards since 2026-11-18) — so the line names both.
   assert.equal(TIER_CAPS.free.parentCategories, TIER_CAPS.verified.parentCategories);
-  assert.equal(TIER_CAPS.free.servicesPerLeaf, TIER_CAPS.verified.servicesPerLeaf);
+  assert.ok(TIER_CAPS.verified.serviceCardsTotal >= TIER_CAPS.free.serviceCardsTotal);
 });
 
 test('past what Free holds, the explainer is due — and its line is the v16 one', () => {
@@ -61,24 +61,26 @@ test('past what Free holds, the explainer is due — and its line is the v16 one
   assert.equal(FIRST_BOOKING_FREE_LABEL, 'Your first booking is free once you’re verified');
 });
 
-test('the plan is the FIRST where categories AND services per category both fit — read from TIER_CAPS', () => {
+test('the plan is the FIRST where categories AND services in total both fit — read from TIER_CAPS', () => {
   const solo = TIER_CAPS.solo;
-  // Plus's categories but one category over Plus's per-category count → the next plan.
-  assert.equal(firstPlanThatHolds(rec(solo.servicesPerLeaf)), 'solo');
-  assert.equal(firstPlanThatHolds(rec(solo.servicesPerLeaf + 1)), 'pro');
+  // Plus's total, then one service over it → the next plan.
+  assert.equal(firstPlanThatHolds(rec(solo.serviceCardsTotal)), 'solo');
+  assert.equal(firstPlanThatHolds(rec(solo.serviceCardsTotal + 1)), 'pro');
+  // Verified holds its 3 in one category (2026-11-18).
+  assert.equal(firstPlanThatHolds(rec(TIER_CAPS.verified.serviceCardsTotal)), 'verified');
   // One category more than Plus holds, one service each → the next plan.
   const many = Array.from({ length: solo.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
   assert.equal(firstPlanThatHolds(many), 'pro');
   // Past the top plan: no Custom plan (retired from the app) — the line says what stays after the first booking, in
   // the person's plan word ("Ultra", never "Enterprise"), the number read from TIER_CAPS.
-  const past = rec(TIER_CAPS.enterprise.servicesPerLeaf + 1);
+  const past = rec(TIER_CAPS.enterprise.serviceCardsTotal + 1);
   assert.equal(firstPlanThatHolds(past), null);
   assert.equal(
     coverageLine(past).verdict,
     `more than Ultra holds — all on until your first booking, then Ultra keeps ${TIER_CAPS.enterprise.parentCategories} categories you choose`,
   );
   assert.doesNotMatch(coverageLine(past).verdict, /Custom|Talk to us/);
-  assert.match(coverageLine(rec(TIER_CAPS.pro.servicesPerLeaf + 1)).verdict, /^Ultra covers this/);
+  assert.match(coverageLine(rec(TIER_CAPS.pro.serviceCardsTotal + 1)).verdict, /^Ultra covers this/);
 });
 
 test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
@@ -94,11 +96,11 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
   );
   assert.equal(
     l[1]!.caps,
-    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.servicesPerLeaf} per category · reach ${TIER_CAPS.solo.serviceRadiusKm} km · enhanced search`,
+    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.serviceCardsTotal} services · reach ${TIER_CAPS.solo.serviceRadiusKm} km · enhanced search`,
   );
   assert.equal(
     l[2]!.caps,
-    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.servicesPerLeaf} per category · reach ${TIER_CAPS.pro.serviceRadiusKm} km · AI answers can quote your offers`,
+    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.serviceCardsTotal} services · reach ${TIER_CAPS.pro.serviceRadiusKm} km · AI answers can quote your offers`,
   );
   assert.match(l[3]!.caps, /· nationwide · top search priority$/);
   assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);
@@ -166,10 +168,10 @@ test('v19 planSplit · Free keeps the main; the holder is the FIRST plan that ho
   assert.ok(s.free.caps.startsWith(`${f.parentCategories} ${f.parentCategories === 1 ? 'category' : 'categories'}`));
   const holder = (['solo', 'pro', 'enterprise'] as const).find((t) => {
     const c = TIER_CAPS[t];
-    return c.parentCategories >= 2 && c.servicesPerLeaf >= 3;
+    return c.parentCategories >= 2 && c.serviceCardsTotal >= 4;
   })!;
   assert.equal(s.held.name, TIER_LABEL[holder]);
-  assert.equal(s.held.caps, `${TIER_CAPS[holder].parentCategories} categories · ${TIER_CAPS[holder].servicesPerLeaf} per category`);
+  assert.equal(s.held.caps, `${TIER_CAPS[holder].parentCategories} categories · ${TIER_CAPS[holder].serviceCardsTotal} services`);
   assert.equal(s.held.choose, false);
 });
 

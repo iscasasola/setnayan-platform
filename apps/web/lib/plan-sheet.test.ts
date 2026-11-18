@@ -30,38 +30,39 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 test('every limit is read from TIER_CAPS', () => {
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     const c = TIER_CAPS[t];
-    assert.equal(limitOf(t, 'bookingsPerDate', true), c.bookingsPerDatePerService);
-    assert.equal(limitOf(t, 'cardsPerCategory', true), c.servicesPerLeaf);
+    assert.equal(limitOf(t, 'serviceCards', true), c.serviceCardsTotal);
     assert.equal(limitOf(t, 'mainCategories', true), c.parentCategories);
     assert.equal(limitOf(t, 'teamSeats', true), c.agentAccounts);
     assert.equal(limitOf(t, 'branches', true), c.branchesIncluded);
     assert.equal(limitOf(t, 'reach', true), c.serviceRadiusKm);
   }
-  assert.equal(PLAN_LIMITS.length, 6);
+  assert.equal(PLAN_LIMITS.length, 5);
+  // Bookings a day are not a plan limit since 2026-11-18 (ruling 17) — the sheet never asks to upgrade for them.
+  assert.equal(PLAN_LIMITS.some((l) => /booking/i.test(l.title)), false);
 });
 
 test('Door 1 offers the lowest plan above the shop that takes the number', () => {
-  const soloBookings = TIER_CAPS.solo.bookingsPerDatePerService;
-  const want = soloBookings + 1;
-  const plan = lowestPlanAllowing('solo', 'bookingsPerDate', want, true);
+  const soloCards = TIER_CAPS.solo.serviceCardsTotal;
+  const want = soloCards + 1;
+  const plan = lowestPlanAllowing('solo', 'serviceCards', want, true);
   assert.ok(plan);
-  assert.ok(TIER_CAPS[plan].bookingsPerDatePerService >= want);
+  assert.ok(TIER_CAPS[plan].serviceCardsTotal >= want);
   // Nothing between Plus and that plan takes it.
   const ladder = ['solo', 'pro', 'enterprise'] as const;
   for (const t of ladder.slice(1, ladder.indexOf(plan as 'pro' | 'enterprise'))) {
-    assert.ok(TIER_CAPS[t].bookingsPerDatePerService < want, `${t} already takes ${want}`);
+    assert.ok(TIER_CAPS[t].serviceCardsTotal < want, `${t} already takes ${want}`);
   }
-  const ask = limitAsk('solo', 'bookingsPerDate', want, true);
+  const ask = limitAsk('solo', 'serviceCards', want, true);
   assert.ok(ask);
   assert.equal(ask.plan, plan);
-  assert.equal(ask.savedAt, soloBookings, 'the setting saves at the current limit until paid');
-  assert.match(ask.headline, new RegExp(`take up to ${TIER_CAPS[plan].bookingsPerDatePerService} bookings a day for a service`));
-  assert.equal(ask.keep, `Keep ${soloBookings}`);
+  assert.equal(ask.savedAt, soloCards, 'the setting saves at the current limit until paid');
+  assert.match(ask.headline, new RegExp(`take up to ${TIER_CAPS[plan].serviceCardsTotal} service cards`));
+  assert.equal(ask.keep, `Keep ${soloCards}`);
   assert.ok(ask.alsoUnlocks.length > 0, 'the other differences are listed');
 });
 
 test('Door 1 says nothing within the limit, and says so when no plan takes it', () => {
-  assert.equal(limitAsk('pro', 'bookingsPerDate', TIER_CAPS.pro.bookingsPerDatePerService, true), null);
+  assert.equal(limitAsk('pro', 'serviceCards', TIER_CAPS.pro.serviceCardsTotal, true), null);
   const top = limitAsk('enterprise', 'mainCategories', TIER_CAPS.enterprise.parentCategories + 1, true);
   assert.ok(top);
   assert.equal(top.plan, null);
@@ -69,7 +70,7 @@ test('Door 1 says nothing within the limit, and says so when no plan takes it', 
 });
 
 test('an unverified shop past its reach is sent to get verified', () => {
-  const ask = limitAsk('free', 'reach', 1, true);
+  const ask = limitAsk('free', 'reach', TIER_CAPS.free.serviceRadiusKm + 1, true);
   assert.ok(ask);
   assert.equal(ask.plan, 'verified');
   assert.match(ask.headline, /^Get verified/);

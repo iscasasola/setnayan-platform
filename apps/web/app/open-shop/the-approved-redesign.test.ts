@@ -261,8 +261,8 @@ test('the door never refuses a service for the plan, and writes each one’s eve
   assert.doesNotMatch(ACTIONS, /addCoverageForCardKind|parentCategories/, 'a plan cap reached the door');
   // Coverages first, the profile patch last — the patch keeps index 0 the coarse category.
   assert.ok(ACTIONS.indexOf('await insertCoverage(') < ACTIONS.indexOf(".update(patch)"));
-  assert.match(METER, /by\.length <= caps\.parentCategories && by\.every\(\(c\) => c\.count <= caps\.servicesPerLeaf\)/);
-  assert.doesNotMatch(METER, /parentCategories:\s*\d|servicesPerLeaf:\s*\d/, 'a plan number is typed into the meter');
+  assert.match(METER, /by\.length <= caps\.parentCategories && list\.length <= caps\.serviceCardsTotal/);
+  assert.doesNotMatch(METER, /parentCategories:\s*\d|serviceCardsTotal:\s*\d/, 'a plan number is typed into the meter');
   // "Add more later…" is said only BEFORE the pick — once picked, the meter says it with the real numbers.
   assert.match(WIZARD, /\{service \|\| coordinating \? null : \(\s*<span className="block text-xs"[^>]*data-open-shop-plan-hint=""/);
   // The lab never ships.

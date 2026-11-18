@@ -31,6 +31,7 @@ import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { ColorRangeMap } from '@/lib/color-recolor';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
+import { siteOrigin } from '@/lib/site-origin';
 
 /** 🧪 The lab reaches no database, so it reads the consts — named, never defaulted (③0-b). */
 const LAB_PARTS = fallbackInspirationParts();
@@ -159,8 +160,8 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
         if (!LAB_SHOP_PHOTOS.some((p) => p.ref === shopPhotoRef)) throw new Error('That photo isn’t one of your shop’s photos.');
         /* Fetched from this dev server itself (the photo is a file it serves) — never read off disk, so the server
            function carries no part of public/ (`no-server-file-carries-public.test.ts`). */
-        const host = (await headers()).get('host') ?? 'localhost:3000';
-        const r = await fetch(`http://${host}${shopPhotoRef}`);
+        const host = (await headers()).get('host');
+        const r = await fetch(`${host ? `http://${host}` : siteOrigin()}${shopPhotoRef}`);
         if (!r.ok) throw new Error('That photo could not be opened.');
         bytes = new Uint8Array(await r.arrayBuffer());
       }

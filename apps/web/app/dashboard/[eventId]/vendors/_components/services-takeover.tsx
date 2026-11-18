@@ -469,7 +469,7 @@ export function ServicesTakeover({
                 onClick={() => {
                   if (!on) goToBuildTab(SUPPLIERS_MODE_TAB[m]);
                 }}
-                className={`inline-flex min-h-[44px] shrink-0 items-center gap-[7px] rounded-full py-0 pl-2 pr-3 text-sm font-semibold transition-colors ${
+                className={`inline-flex min-h-[44px] shrink-0 items-center gap-[7px] rounded-full py-0 pl-2 pr-3 text-sm font-semibold ${
                   on ? 'bg-sn-accent text-sn-on-accent' : 'text-ink/80 hover:bg-ink/[0.04]'
                 }`}
               >

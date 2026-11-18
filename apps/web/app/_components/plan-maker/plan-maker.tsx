@@ -434,7 +434,7 @@ export function PlanMaker({
                   <span className="w-full truncate text-sm font-semibold text-ink">{t.label}</span>
                   <span className="w-full text-xs text-ink/70">{planTableWords(t)}</span>
                   {isMarked ? (
-                    <span className="rounded-full bg-terracotta-700 px-2 py-0.5 text-[11px] font-bold text-white">{markedLabel}</span>
+                    <span className="rounded-full bg-terracotta-700 px-2 py-0.5 text-[11px] font-bold text-white dark:text-cream">{markedLabel}</span>
                   ) : null}
                   {list && list.length ? (
                     <span className="w-full text-xs text-ink/70" data-plan-tile-names="">

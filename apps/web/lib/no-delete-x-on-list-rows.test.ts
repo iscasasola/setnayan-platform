@@ -50,6 +50,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx', 'chip — a read mood / colour / motif chip inside the theme field'],
   ['app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx', 'tile — a shortlist card’s × in a horizontal card rail (a swipe would fight the rail’s scroll); the other ✕ close a tip and the compare'],
   ['app/dashboard/[eventId]/seating/_components/seating-editor.tsx', 'editor — the selected table’s dock (Delete table), a chair in edit-chairs mode on the plan, the selected marker’s Remove (its table and rule rows are on the swipe)'],
+  ['app/_components/plan-maker/plan-maker.tsx', 'editor — the selected table’s sheet and the selected door’s sheet (one Remove each, under the plan; the seat plan editor’s own dock, shared with suppliers)'],
   ['app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx', 'editor — the selected table’s phone panel: its own “Delete this table” beside Done'],
   ['app/vendor-dashboard/shop/_components/docs-body.tsx', 'editor field — a client reference’s name / number inputs, written on the documents form’s Save'],
   ['app/dashboard/[eventId]/website/our-story/milestones-field.tsx', 'editor field — a milestone’s year / date / title inputs inside the Our Story form'],

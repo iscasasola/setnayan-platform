@@ -4,7 +4,7 @@ import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
 import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
 import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
-import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
+import { assessSeatMove, seatMoveDoneWords, seatMoveUndo, type MoveAssessment, type MoveGuest, type SeatBefore } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -6858,13 +6858,21 @@ export function SeatingEditor({
      there swapped nobody, and a put-back found its own chair still taken. */
   const seatOps = useRef({ tradeSeats, seatGuestHere, unseat, tables });
   seatOps.current = { tradeSeats, seatGuestHere, unseat, tables };
-  const putBack = (before: readonly { id: string; tableId: string | null; seat: number | null }[]) => {
+  const putBack = (before: readonly SeatBefore[]) => {
     const o = seatOps.current;
     for (const b of before) {
       const t = b.tableId ? o.tables.find((x) => x.table_id === b.tableId) : null;
       if (t) o.seatGuestHere(t, b.id, b.seat ?? undefined);
       else o.unseat(b.id, true);
     }
+  };
+  /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
+     back to their chair (#7906 follow-up, walk 18 Nov — the swap's Undo used to stop at the two). */
+  const undoMove = (moverId: string, otherId: string | null, before: readonly SeatBefore[]) => {
+    setMoveNote(null);
+    const plan = seatMoveUndo(moverId, otherId, before);
+    if (plan.trade) seatOps.current.tradeSeats(plan.trade[0], plan.trade[1]);
+    putBack(plan.putBack);
   };
   const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
     guest_id: g.guest_id,
@@ -6916,11 +6924,7 @@ export function SeatingEditor({
     if (other) tradeSeats(mover.guest_id, other.guest_id);
     else seatGuestHere(target, mover.guest_id, ask.seat ?? undefined);
     for (const x of along) seatGuestHere(target, x.guestId, x.seat);
-    const undo = () => {
-      setMoveNote(null);
-      if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
-      putBack(before);
-    };
+    const undo = () => undoMove(mover.guest_id, other?.guest_id ?? null, before);
     setMoveNote({
       text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
       undo,
@@ -6993,11 +6997,7 @@ export function SeatingEditor({
     const before = [{ id: mover.guest_id, tableId: mover.seated_table_id, seat: mover.seat_number }];
     setMoveNote({
       text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, []),
-      undo: () => {
-        setMoveNote(null);
-        if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
-        putBack(before);
-      },
+      undo: () => undoMove(mover.guest_id, other?.guest_id ?? null, before),
     });
   };
   /* ✋ A FACE (OR A GROUP) LET GO ON THE FLOOR — the tray under the 2D floor on a phone (`seat-face-tray.tsx`, owner

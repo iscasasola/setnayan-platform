@@ -19,6 +19,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchVendorPools } from '@/lib/vendor-schedule';
+import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -287,7 +289,10 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   // A venue's booking from outside may hold SEVERAL halls (owner 2026-10-14 🏛, "Which halls") — one row per hall,
   // each the same shipped RPC (one pool each, by CHECK).
   const hallIds = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))].slice(0, 12);
-  const poolId = hallIds[0] ?? str(formData, 'pool_id');
+  // 🗓 W1-B18: an empty `pool_id` from a shop with ONE schedule is that schedule (`lib/outside-client-pool.ts`) — a new
+  // shop's first outside client was refused with "pick a schedule" and no picker on screen.
+  const postedPool = hallIds[0] ?? str(formData, 'pool_id');
+  const poolId = postedPool || outsideClientPoolOf(null, await fetchVendorPools(supabase, profile.vendor_profile_id).catch(() => [])) || '';
   const clientName = str(formData, 'client_name');
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;

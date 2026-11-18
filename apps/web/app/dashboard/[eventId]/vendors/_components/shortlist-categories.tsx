@@ -70,7 +70,6 @@ import {
   MessageCircle,
   Bookmark,
   Undo2,
-  ListFilter,
   RotateCcw,
   Check,
   ArrowUp,
@@ -2768,7 +2767,7 @@ function MoreToCompare({
         <div className="morefoot">
           <ActionButton
             tone="neutral"
-            icon={suggest ? Search : ListFilter}
+            icon={suggest ? Search : SlidersHorizontal}
             label={suggest ? searchAllLabel(label, page.totalCards) : inlineMoreSeeAllLabel(label)}
             onClick={onSeeAll}
           />

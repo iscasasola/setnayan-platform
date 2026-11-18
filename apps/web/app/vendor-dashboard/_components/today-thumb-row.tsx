@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ListFilter } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from './supplier-thumb-row';
 import { TODAY_SHOW_OPTIONS } from '@/lib/supplier-today';
@@ -52,7 +52,7 @@ export function TodayThumbRow() {
               // The menu's face: one funnel (v113's Show round) — its options carry no icons of their own.
               face: (
                 <span aria-hidden className="grid place-items-center">
-                  <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                  <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
                 </span>
               ),
               mark: 'data-today-show',

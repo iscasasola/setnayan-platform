@@ -2,7 +2,7 @@
 
 import { useContext, useRef, useState, type ReactNode } from 'react';
 import { useHeroPin } from '../../_components/use-hero-pin';
-import { ListFilter, Plus } from 'lucide-react';
+import { SlidersHorizontal, Plus } from 'lucide-react';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
@@ -279,7 +279,7 @@ export function PortfolioView({
                 mark: 'data-portfolio-sort',
                 face: (
                   <span aria-hidden className="inline-flex">
-                    <ListFilter className="h-5 w-5" strokeWidth={1.75} />
+                    <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
                   </span>
                 ),
               },

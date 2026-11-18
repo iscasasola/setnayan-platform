@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ListFilter } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
@@ -108,7 +108,7 @@ export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean }
               mark: 'data-shop-services-show',
               face: (
                 <span aria-hidden className="inline-flex">
-                  <ListFilter className="h-5 w-5" strokeWidth={1.75} />
+                  <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
                 </span>
               ),
             },

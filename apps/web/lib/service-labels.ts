@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { serviceDisplayName } from '@/lib/service-display-name';
 
 /**
  * service-labels.ts — THE COUPLE-FACING NAME OF A SERVICE (tier 3 of Group › Category › Service › Part).
@@ -27,7 +28,7 @@ export const readServiceLabels = cache(async (): Promise<Record<string, string>>
     }
     const out: Record<string, string> = {};
     for (const r of (data ?? []) as { canonical_service: string; display_name_en: string | null }[]) {
-      const label = (r.display_name_en ?? '').trim();
+      const label = serviceDisplayName(r.canonical_service, r.display_name_en); // W1-B22: display-only seed fix
       if (r.canonical_service && label) out[r.canonical_service] = label;
     }
     return out;
@@ -38,7 +39,7 @@ export const readServiceLabels = cache(async (): Promise<Record<string, string>>
 
 /** The label for a key: the admin's, else the key's own words ("hair_touchup_station" → "Hair touchup station"). */
 export function serviceLabelOf(labels: Readonly<Record<string, string>>, key: string): string {
-  const own = labels[key];
+  const own = labels[key] || serviceDisplayName(key, '');
   if (own) return own;
   const words = key.replace(/_/g, ' ').trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;

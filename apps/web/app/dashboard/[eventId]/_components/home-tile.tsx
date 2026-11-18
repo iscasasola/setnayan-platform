@@ -21,7 +21,7 @@
 
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import Link from 'next/link';
-import { useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
 import { homeWidgetFramed, type FaceAction, type FaceIcon, type HomeDoor, type HomeFace, type HomeTileModel } from './home-control-faces';
@@ -161,9 +161,19 @@ function TinyAction({
 
 /* ─── The tile ────────────────────────────────────────────────────────────── */
 
+/**
+ * 🔢 THE COUNT-UP'S ID SUFFIX for a copy of a tile (the 1280 board). A `<Count id>` plays once per id, so a hidden copy
+ * under the same id used the animation up (components/count.tsx). The board wraps its tiles in `-board`.
+ */
+const TileCountKey = createContext('');
+export function HomeTileCountKey({ value, children }: { value: string; children: ReactNode }) {
+  return <TileCountKey.Provider value={value}>{children}</TileCountKey.Provider>;
+}
+
 /** The face's figure — counted to its value (`Count`, owner H2) when it is a number, its words when it is not. */
 export function FaceFigure({ face }: { face: HomeFace }) {
-  return face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}`} /> : <>{face.big}</>;
+  const key = useContext(TileCountKey);
+  return face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}${key}`} /> : <>{face.big}</>;
 }
 
 function FaceBody({ face }: { face: HomeFace }) {

@@ -1412,7 +1412,6 @@
         "/terms",
         "/v/[seg]",
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/on-the-day?event=[seg]"
       ],
@@ -6919,6 +6918,7 @@
         "HeadcountView",
         "HomeBoothCard",
         "HomeCardRow",
+        "HomeControlBoardColumn",
         "HomeControlKey",
         "HomeControlRow",
         "HomeCoverBand",
@@ -6943,6 +6943,7 @@
         "HomeSettingsGear",
         "HomeSettingsLanded",
         "HomeTile",
+        "HomeTileCountKey",
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
@@ -7128,6 +7129,7 @@
         "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
+        "TileCountKey.Provider",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -9401,6 +9403,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "ListPageSkeleton",
         "PageMasthead"
@@ -12449,10 +12452,12 @@
     },
     "/forgot-password": {
       "files": [
+        "forgot-password/_components/reset-sent.tsx",
         "forgot-password/actions.ts",
         "forgot-password/page.tsx"
       ],
       "destinations": [
+        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -12461,7 +12466,10 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "HTMLSpanElement",
         "Link",
+        "RememberResetEmail",
+        "ResetSent",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -12675,6 +12683,7 @@
         "/forgot-password"
       ],
       "actions": [
+        "sendRelink",
         "sendReset",
         "signInWithPassword",
         "submitInPlace"
@@ -12895,7 +12904,6 @@
         "open-shop/page.tsx"
       ],
       "destinations": [
-        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
@@ -12974,9 +12982,7 @@
         "open-shop/logo/_components/add-your-logo.tsx",
         "open-shop/logo/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -13488,7 +13494,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -13498,6 +13503,7 @@
         "DoorActions",
         "DoorNotice",
         "DoorShell",
+        "ExpiredResend",
         "Link",
         "PasswordField",
         "SubmitButton"
@@ -13859,6 +13865,7 @@
     "/v/[slug]": {
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
+        "v/[slug]/_components/award-row-button.tsx",
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/check-a-date-over-shop-view.tsx",
         "v/[slug]/_components/check-a-date-over-shop.tsx",
@@ -13890,6 +13897,7 @@
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/trusted-by-carousel.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
+        "v/[slug]/_components/verified-award-button.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
         "v/[slug]/page.tsx",
@@ -13907,6 +13915,7 @@
       "blocks": [
         "ActionButton",
         "AddShopToEventState",
+        "AwardRowButton",
         "AxisStat",
         "BackButton",
         "BiggerMapButton",
@@ -13942,6 +13951,7 @@
         "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLSpanElement",
         "HTMLUListElement",
         "HeroBadge",
         "Image",
@@ -13949,6 +13959,9 @@
         "InfoTip",
         "InlineNotice",
         "InquireSheet",
+        "LazyBadgeFullscreen",
+        "LazySealPlaque",
+        "LazyVerifiedFullscreen",
         "Link",
         "LockPackageModal",
         "Logo",
@@ -14028,6 +14041,7 @@
         "VendorReplyBlock",
         "VendorServiceRow",
         "VenueMatchedEvents",
+        "VerifiedAwardButton",
         "VerifiedBookingMark",
         "VerifiedBookingPill",
         "VerifiedPriceCard",
@@ -14185,7 +14199,6 @@
         "vendor-dashboard/_components/thumb-layer.ts",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/today-cover.tsx",
-        "vendor-dashboard/_components/today-gear-ride.tsx",
         "vendor-dashboard/_components/today-next-events.tsx",
         "vendor-dashboard/_components/today-settings.tsx",
         "vendor-dashboard/_components/today-stats.tsx",
@@ -14222,7 +14235,6 @@
         "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?seg=dates",
         "/vendor-dashboard/customers?seg=dates&day=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -14413,9 +14425,6 @@
         "Tile",
         "TodayCover",
         "TodayEyebrow",
-        "TodayGearPinned.Provider",
-        "TodayGearRide",
-        "TodayGearSlot",
         "TodayNextEvents",
         "TodayNoteRow",
         "TodayRow",
@@ -14618,9 +14627,7 @@
         "vendor-dashboard/bookings/page.tsx",
         "vendor-dashboard/bookings/surface.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/messages/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -14771,7 +14778,6 @@
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/subscription"
       ],
@@ -15316,7 +15322,6 @@
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
-        "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
@@ -15713,8 +15718,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/customers",
-        "/vendor-dashboard/messages/[seg]"
+        "/vendor-dashboard/customers"
       ],
       "actions": [
         "acceptInquiry",
@@ -15750,6 +15754,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "Explain",
         "HTMLElement",
         "Icon",
         "InfoTip",
@@ -15766,6 +15771,7 @@
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
+        "PickedHeadLine",
         "PipelinePressureLine",
         "PlusDoor",
         "ProposalMaker",
@@ -15790,6 +15796,7 @@
         "SupplierChatsPage",
         "Suspense",
         "ThreadAnswerLine",
+        "ThreadAskRow",
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadDrawn",
@@ -16579,8 +16586,11 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardCheckInput",
         "CardChecksSummary",
+        "CardFoot.Provider",
         "CardPhotoGallery",
         "CardRecordSection",
         "CheckChip",
@@ -16606,6 +16616,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FootCtx",
         "FormCounter",
         "FormRow",
         "FormRows",
@@ -16659,6 +16670,7 @@
         "SelectChip",
         "ServiceCardFace",
         "ServiceCardItem",
+        "ServiceCardItemFooter",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
         "ServiceCardShareSheet",
@@ -16999,6 +17011,7 @@
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
+        "I",
         "Icon",
         "IdentityFieldSaveResult",
         "ImageBadge",
@@ -17045,6 +17058,7 @@
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
+        "QuickIcon",
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",

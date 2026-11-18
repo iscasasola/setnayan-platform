@@ -281,7 +281,12 @@ export function ServicesGallery({
           We couldn’t check these cards’ badges just now.
         </p>
       ) : null}
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
+      {/* 📐 THE COLUMN COUNT READS THE GRID'S OWN WIDTH, NEVER THE WINDOW'S (17 Nov). From md this list sits in the
+          column BESIDE the 300/360 px card, so `sm:grid-cols-2 lg:grid-cols-3` cut a 424 px column into 206 px cards at
+          an 800 px window (the face's words got 90 px) and a 556 px column into 177 px cards at 1024 (61 px). Each card
+          is now at least 300 px — still 1 column, then 2, then 3, as the room allows.
+          🔒 lib/nothing-is-squeezed-by-its-own-content.test.ts */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3" data-services-one-grid="">
         {visible.flatMap((g) =>
           g.cards.map((c) => (
             <li

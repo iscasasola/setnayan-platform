@@ -235,7 +235,8 @@ import {
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { recordShopViewWith } from '@/lib/shop-view-count';
+import { readShopViewContext } from '@/lib/shop-view-context';
 import { ShopViewBeacon } from './_components/shop-view-beacon';
 import { wearShopPageTags } from '@/lib/shop-page-cache';
 import { onTheCachedHub } from '@/lib/hub-request';
@@ -2350,13 +2351,17 @@ export async function renderVendorBySlug({
     // ⚡ The cached copy counts its views in the browser (`ShopViewBeacon`, rendered below) — this render runs once
     // for many opens. Same action, same row; the campaign tags are read off the address there.
     if (!cachedCopy) {
+      // 👁 W1-B15: who is looking is read NOW — Next refuses `headers()`/`cookies()` inside a render's `after()`, so
+      // the old in-callback read wrote every live view with no visitor (`lib/shop-view-context.ts`). The recorder skips
+      // bots and the shop's own people, and keys the visitor so one device is one couple (`lib/shop-view-count.ts`).
+      const viewCtx = await readShopViewContext();
       after(() =>
-        recordVendorProfileView({
+        recordShopViewWith(createAdminClient(), {
           vendorProfileId: viewVendorProfileId,
           source: viewSource,
           utm: utmParam,
           eventId: viewEventId,
-        }),
+        }, viewCtx),
       );
     }
   }

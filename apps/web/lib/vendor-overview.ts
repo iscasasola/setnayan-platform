@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { isNewInquiry } from '@/lib/new-inquiry';
 import { bookedThisMonthCount } from '@/lib/booked-this-month';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -16,7 +17,7 @@ import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import {
   customerCardHref,
   upcomingScheduleDoor,
-  vendorThreadHref,
+  supplierChatHref,
 } from '@/lib/upcoming-schedule-door';
 import { resolveRegion } from '@/lib/region-source';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -509,7 +510,9 @@ export async function fetchVendorOverviewData(
 
   const roomBookings = roomRead.events;
   const bookingsComplete = roomRead.complete;
-  const pendingThreads = threads.filter((t) => t.inquiry_status === 'pending');
+  // CYC-14: a pending thread whose couple already booked this shop, or that the supplier answered, is not "new".
+  const bookedHere = new Set(roomBookings.map((b) => b.eventId));
+  const pendingThreads = threads.filter((t) => isNewInquiry(t, bookedHere));
   /*
     THE ACCEPTED LANE — where a reply is actually owed.
     · `accepted` only: displaced / withdrawn / expired threads are conversations
@@ -909,7 +912,7 @@ export async function fetchVendorOverviewData(
       eventName: meta?.displayName ?? 'A booked event',
       label: d.label,
       createdAt: d.deliveredAt,
-      threadHref: disputeThread ? vendorThreadHref(disputeThread.thread_id) : null,
+      threadHref: disputeThread ? supplierChatHref(d.eventId, disputeThread.thread_id) : null,
     });
   }
 
@@ -930,7 +933,7 @@ export async function fetchVendorOverviewData(
       id: `ong-inq-${t.thread_id}`,
       label: `Reply to ${t.event?.display_name ?? 'a new inquiry'}`,
       dueChip: awaitingChip(t.created_at),
-      href: `/vendor-dashboard/messages/${t.thread_id}`,
+      href: supplierChatHref(t.event_id, t.thread_id),
     });
   }
 

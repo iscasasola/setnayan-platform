@@ -93,10 +93,18 @@ test('all 13 required names are each reported by exactly one place — a job nam
 /* ── required checks reported by name (2026-11-18, the 40-job limit) ────────*/
 
 test('the eight folded required checks are reported by the guards job, each from real steps', () => {
-  const r = parseReportedChecks(CI);
+  const r = parseReportedChecks(CI).filter((x) => x.job === 'guards');
   assert.deepEqual(r.map((x) => x.name).sort(), ['lint bottom-nav template', 'lint entitlement gates', 'lint exposure baseline', 'lint guest legibility', 'lint nav icon source', 'lint nested forms', 'migration timestamp guard', 'secret scan']);
-  assert.ok(r.every((x) => x.job === 'guards' && x.stepIds.length > 0));
+  assert.ok(r.every((x) => x.stepIds.length > 0));
   assert.equal(r.find((x) => x.name === 'migration timestamp guard').stepIds.length, 7, 'the guard and its six rule tests');
+});
+
+test('🚨 "bundle size check" reads the ONE production build — green only if the build and both budgets passed', () => {
+  const r = parseReportedChecks(CI).filter((x) => x.job === 'build');
+  assert.deepEqual(r.map((x) => [x.name, x.stepIds]), [['bundle size check', ['build_web', 'bundle_size', 'maker_budget']]]);
+  const builds = parseJobs(CI).filter((j) => j.steps.some((st) => /^ {8}run:.*pnpm --filter @setnayan\/web build\s*$/m.test(st) || /^ {10}pnpm --filter @setnayan\/web build\s*$/m.test(st)));
+  assert.deepEqual(builds.map((j) => j.id), ['build'], 'ci.yml runs exactly one production build');
+  mentions(problemsOf(broken('bundle size check=${{ steps.build_web.outcome }}', 'bundle size check=${{ steps.build_webb.outcome }}')), /reads steps\.build_webb, which is not a step of job "build"/);
 });
 
 test('🚨 a reported name with a renamed step id, or no outcome, is caught', () => {

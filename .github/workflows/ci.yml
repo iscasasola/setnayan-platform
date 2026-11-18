@@ -30,8 +30,10 @@ on:
 #
 # (2026-11-18: the old `source guards` job and the eight seconds-long REQUIRED
 # jobs — secret scan, migration timestamp guard and six lint jobs — are now
-# steps of `guards`, to fit GitHub Pro's 40-concurrent-job limit. One run went
-# from 24 jobs to 15. See the guards job header.)
+# steps of `guards`, to fit GitHub Pro's 40-concurrent-job limit, and the
+# `bundle size check` job's budgets read the `build` job's build instead of
+# running a second one. One run went from 24 jobs to 14. See the guards and
+# build job headers.)
 #
 # The gate is the job branch protection requires BY NAME. It `needs:` every job
 # above and is red unless every one of them is exactly `success`. So one push
@@ -1188,6 +1190,20 @@ jobs:
     name: production build
     if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
+    # ═══ ONE PRODUCTION BUILD, TWO REQUIRED CHECKS (2026-11-18) ═══
+    # `bundle size check` used to be a job of its own that ran a SECOND full
+    # `next build` of the same commit with the same env, only to measure it.
+    # Its two budget steps now read THIS job's build, and the last step posts
+    # "bundle size check" under its exact required name (Checks API,
+    # scripts/ci-report-checks.mjs — see the guards job header). It is green
+    # only when the build AND both budgets passed. A budget failure does not
+    # turn "production build" red — the two checks keep their old meanings.
+    # On a draft PR this whole job is skipped, so neither name reports until
+    # the PR is marked ready (the draft's gate is red anyway).
+    permissions:
+      contents: read
+      # Only to post "bundle size check" under its own name.
+      checks: write
     # Catches errors that typecheck misses — most notably Next's
     # compile-time `server-only` guard, which only fires in `next build`.
     # Vercel runs the same build, so if this passes locally + here, deploy
@@ -1206,6 +1222,7 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Build web app
+        id: build_web
         # Timed for check-build-budget.mjs below. bash -e stops on a failed
         # build before the time is recorded.
         run: |
@@ -1235,38 +1252,20 @@ jobs:
       - name: Check Vercel route count
         run: node apps/web/scripts/check-vercel-route-count.mjs
 
-  bundle-size-check:
-    name: bundle size check
-    if: ${{ github.event.pull_request.draft != true }}
-    runs-on: ubuntu-latest
-    # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
-    # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a
-    # single chunky import in a shared layout silently regresses LCP for
-    # every couple-facing route. Owner ruling 2026-11-10 "A": it counts the
-    # chunks every app route lists + rootMainFiles, NOT the pages router's
-    # framework/main (no page downloads them) unless an app route lists one,
-    # and prints what it excluded. apps/web/scripts/check-bundle-size.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build web app
-        run: pnpm --filter @setnayan/web build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-
+      # ── bundle size check (REQUIRED, reported by name) ─────────────────────
+      # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
+      # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a
+      # single chunky import in a shared layout silently regresses LCP for
+      # every couple-facing route. Owner ruling 2026-11-10 "A": it counts the
+      # chunks every app route lists + rootMainFiles, NOT the pages router's
+      # framework/main (no page downloads them) unless an app route lists one,
+      # and prints what it excluded. apps/web/scripts/check-bundle-size.mjs.
+      # `!cancelled()` + continue-on-error: a red build budget or route count
+      # above must not hide it, and it must not turn "production build" red.
       - name: Check shared bundle size
+        id: bundle_size
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         run: pnpm --filter @setnayan/web bundle-size-check
 
       # ⚡ The Event Hub Maker's first-load JS has its own ceiling (DECISION_LOG
@@ -1274,4 +1273,19 @@ jobs:
       # never looks at a route's own chunks, which is where a heavy Maker import
       # would land. apps/web/scripts/check-maker-js-budget.mjs.
       - name: Check the Maker's first-load JS budget
+        id: maker_budget
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         run: node apps/web/scripts/check-maker-js-budget.mjs
+
+      # Posts "bundle size check" — green only when the build and both budget
+      # steps were exactly `success`. See the guards job's report step.
+      - name: Report the required checks this job carries
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPORT: |
+            bundle size check=${{ steps.build_web.outcome }},${{ steps.bundle_size.outcome }},${{ steps.maker_budget.outcome }}
+        run: node scripts/ci-report-checks.mjs

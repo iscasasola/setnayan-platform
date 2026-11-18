@@ -337,7 +337,7 @@ test('the reminder windows are READ off BADGE_REMINDER_STAGES, never typed twice
   assert.doesNotMatch(src, /daysLeft <= (7|30|60)\b/, 'a window is typed again instead of read');
   const admin = stripComments(readFileSync(join(__dirname, 'papers-renewal-admin.server.ts'), 'utf8'));
   assert.doesNotMatch(admin, /\b(7|14) \* 86_400_000/, 'the admin list types its windows again');
-  assert.match(admin, /RENEWAL_WEEK_DAYS \* 86_400_000/);
+  assert.match(admin, /\(RENEWAL_WEEK_DAYS \+ 1\) \* 86_400_000/); // +1: the band counts Manila calendar days
   assert.match(admin, /RENEWED_NEWS_DAYS \* 86_400_000/);
 });
 

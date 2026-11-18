@@ -1,3 +1,5 @@
+import { BackButton } from '@/app/_components/back-button';
+import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -6,6 +8,10 @@ import { BranchPanel } from '../shop/_components/branch-panel';
 import { loadDetailsData } from './details-data';
 import { DetailsScreen } from './_components/details-screen';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
+import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
+import { readTourSeen } from '@/lib/tour-seen.server';
+import { SETUP_TOUR_KEY, shopSetupView } from '@/lib/supplier-setup';
+import { displayServiceLabel } from '@/lib/vendors';
 
 export const metadata = { title: 'Your details' };
 
@@ -34,14 +40,33 @@ export default async function YourDetailsPage({
   // /open-shop on a read that might simply have failed (`the-open-shop-redirect-is-a-proven-absence`).
   if (!profile) redirect('/vendor-dashboard');
 
-  const d = await loadDetailsData(supabase, profile);
+  // 🔢 ONE CHECKLIST, ONE COUNT (walk W1-B10): the "N of 6" here is Today's "Get your shop live" six — the same rail,
+  // the same step-6 record, the same assembly (`shopSetupView`). A verified shop has no rail (Today folds nothing),
+  // so neither surface counts; a refused read is said, never guessed.
+  const [d, rail, qrSaved] = await Promise.all([
+    loadDetailsData(supabase, profile),
+    fetchVendorFirstStepsState(supabase, profile).catch(() => undefined),
+    readTourSeen(supabase, user.id, SETUP_TOUR_KEY).catch(() => null),
+  ]);
+  const live =
+    rail === undefined
+      ? ('unread' as const)
+      : rail === null
+        ? null
+        : shopSetupView({ d, rail, qrSaved, serviceLabel: displayServiceLabel });
 
   return (
+    <>
+    <BackWhenNotRisen>
+      <BackButton route="/vendor-dashboard/profile" inPlace className="mx-4 mt-3 mb-0" />
+    </BackWhenNotRisen>
     <DetailsScreen
       d={d}
+      live={live}
       payBody={<PaymentOptionsSurface searchParams={searchParams} embedded preloaded={d.pay} />}
       branchBody={<BranchPanel {...d.branch} />}
       gearBody={shopGearBody(await searchParams)}
     />
+    </>
   );
 }

@@ -136,11 +136,11 @@ export const metadata = {
     url: '/',
     images: [
       {
-        url: '/brand/og-card.webp',
+        url: '/brand/og-card-2026-11.png',
         width: 1200,
         height: 630,
-        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified suppliers · 0% commission",
-        type: 'image/webp',
+        alt: 'Setnayan · Plan any event free. Every photo in one album.',
+        type: 'image/png',
       },
     ],
   },
@@ -148,7 +148,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
-    images: ['/brand/og-card.webp'],
+    images: ['/brand/og-card-2026-11.png'],
   },
 };
 

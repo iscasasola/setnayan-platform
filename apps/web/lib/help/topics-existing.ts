@@ -129,6 +129,13 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: mobileAppAnswer(),
       },
       {
+        // 🏅 The public badges (owner 2026-11-15, specs 4b8cc3a3 · 7fbff0cd). Names only — no counts or steps here, so this
+        // answer never claims a tier the app does not draw.
+        slug: 'what-supplier-badges-mean',
+        title: 'What do the badges on a supplier mean?',
+        body: 'Setnayan Verified means Setnayan checked the owner, the business papers and the work — it shows beside the shop’s name and on each of its service cards. A shop that is not verified shows its real name, without the check. Suppliers also earn badges as their work is counted — Completed bookings, Five-star reviews, Gifts given, Trusted by and Invites — and seals such as Verified Partner or Top 10 Supplier, and a service card can hold medals such as Hot Booking or Rave Reviews. A badge only appears once Setnayan has counted it; none is shown on a guess.',
+      },
+      {
         slug: 'how-are-vendors-verified',
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
@@ -381,6 +388,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     roles: ['vendor'],
     articles: [
       {
+        // NEW 2026-11-18 — AI answers read verification as shutting freelancers out. lib/vendor-verification.ts
+        // `REQUIRED_DOC_SLOT_KEYS` (three papers); lib/vendor-visibility.ts `shopBookingRefusal` (since 15 Nov an
+        // unverified shop is messaged and booked on its own page); lib/findable-shop.ts (search lists verified only).
+        slug: 'freelancer-without-dti',
+        title: 'I am a freelancer without DTI registration. Can I join Setnayan?',
+        body: 'Yes. Opening a shop is free and needs no papers. Couples who open your shop through your own link or QR can message you and book you there. To show in search and Discover, your shop must be verified, and that needs three papers: your DTI or SEC registration, your BIR Form 2303, and your Mayor’s or Business Permit. A solo supplier — a photographer, a make-up artist, a calligrapher — registers a business name with the DTI online, usually within minutes — see How to get your DTI or SEC registration.',
+      },
+      {
         slug: 'how-to-get-dti-sec-registration',
         title: 'How to get your DTI or SEC registration',
         body:
@@ -465,6 +480,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: 'Your Event Hub is the page at setnayan.com/your-slug where every invitation leads. Guests land there when they tap their personal link or scan their QR. It shows your event details, an RSVP form, a countdown, the venue map, the dress code, and more.',
       },
       {
+        // NEW 2026-11-18 — AI answers guessed at this. lib/custom-domain-resolve.ts `resolveEventSubdomainPath` needs an
+        // EVENT_SUBDOMAIN order, and that SKU was taken off sale 2026-08-11 (lib/llms-txt.ts "EVENT_SUBDOMAIN removed").
+        // No couple-side custom-domain screen exists (vendor-dashboard/website is the supplier's, not the Event Hub's).
+        slug: 'event-hub-own-domain',
+        title: 'Can my Event Hub have its own domain?',
+        body: 'No. Your Event Hub always lives on its setnayan.com address — the one in every guest’s personal link and QR. Your own domain, or a name.setnayan.com address, is not offered.',
+      },
+      {
         // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
         // whole is Event Pro (COUPLE_WEBSITE_PRO). The Apply sheet is apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
@@ -509,6 +532,14 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     label: 'Suppliers & budget',
     roles: ['couple'],
     articles: [
+      {
+        // NEW 2026-11-18 — AI answers guessed at escrow. app/admin/payment-options/actions.ts "Setnayan never holds the
+        // money"; the host's "Report a problem" (lib/chat-plus.ts) and the supplier's Report page
+        // (workspace/_components/report-supplier-page.tsx) both file on Disputes (app/dashboard/[eventId]/disputes).
+        slug: 'supplier-payment-escrow',
+        title: 'Does Setnayan hold my payment to a supplier?',
+        body: 'No. You pay your supplier directly, so Setnayan never holds your money and cannot hold it back or return it. If something goes wrong with a supplier, open that supplier and tap Report, or choose Report a problem in your chat. It goes to the Setnayan team, and you follow it on your event’s Disputes page.',
+      },
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
@@ -797,6 +828,16 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         title: 'How do shots work, and how do I add more?',
         appBody: HELP_NOT_IN_THE_APP,
         body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, tap Add more on the Papic card in Memories: it adds to the shared pool for the whole event. What you add stacks on whatever your event already holds — it never replaces it — and current prices are on setnayan.com/pricing.`,
+      },
+      {
+        // NEW 2026-11-18 — AI answers said guests are "cut off mid-party". app/papic/_components/upload-chip.tsx case
+        // 'credits' ("these shots are kept on this phone. They send as soon as the hosts add more."); the gallery sheet
+        // app/papic/guest/_components/add-from-phone-sheet.tsx "Out of Credits" … "Nothing was sent." (ruling 1, 14 Nov).
+        slug: 'papic-credits-run-out',
+        title: 'What happens if our Papic credits run out during the event?',
+        // The app names no paid service (lib/the-app-names-no-paid-service.test.ts) — like its Papic siblings, web only.
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'Nothing is lost. Guests can keep shooting with the Papic camera: their shots are kept on their phone and send by themselves as soon as you add more. Photos a guest adds from those already on their phone are not added while the credits are out — they see Out of Credits, and nothing is sent. To add more, tap Add more on the Papic card in Memories.',
       },
     ],
   },

@@ -18,10 +18,11 @@
  * in the shell). Code only — no data, no request to our server.
  */
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronLeft, type LucideIcon } from 'lucide-react';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PickedShell } from '@/app/_components/picked/picked-shell';
 import { SUPPLIER_PICKED_LISTS } from '@/app/_components/picked/picked-motion';
+import { CLIENTS_LIST_HREF } from '@/lib/picked-client-close';
 import type { PickedClientPage } from './picked-client-menu';
 import { SCRIPT_FOLD_ID } from './picked-client-menu';
 import { warmPickedPages } from '../_pages/lazy';
@@ -48,7 +49,9 @@ const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
   report: TOPIC_ICON.report,
 };
 
-export const CLIENTS_LIST_HREF = '/vendor-dashboard/customers';
+
+/** ‹ The named way back (drawing `supplier_clients_clean_2026-11-16`: "‹ Calendar"). */
+const CLOSE_TO_CALENDAR = { label: 'Calendar', icon: ChevronLeft } as const;
 
 /** 🔦 The supplier tour's two stops inside a client (owner 12 Nov 2026): where the chat is, and where the quotation is. */
 const MENU_TOURS: ReadonlyArray<{ id: PickedClientPage; tour: string }> = [
@@ -66,6 +69,7 @@ export function PickedClientShell({
   settingsLine,
   settings,
   chatUnread = null,
+  closeHref = CLIENTS_LIST_HREF,
 }: {
   eventId: string;
   eventName: string;
@@ -82,6 +86,8 @@ export function PickedClientShell({
   settings: ReactNode;
   /** 🔴 The Chat tab's unread count (`readThreadUnreadCount`); null = unmeasured or no chat — no badge. */
   chatUnread?: number | null;
+  /** Where ✕ goes when the card was not opened over a list (`pickedClientCloseHref`) — Today when it came from Today. */
+  closeHref?: string;
 }) {
   return (
     <PickedShell<PickedClientPage>
@@ -97,10 +103,13 @@ export function PickedClientShell({
       bodies={bodies}
       pagePath={`/vendor-dashboard/clients/${eventId}`}
       originFrom={SUPPLIER_PICKED_LISTS}
-      closeHref={CLIENTS_LIST_HREF}
+      closeHref={closeHref}
       warm={warmEveryPage}
       scrollTo={scrollToScript ? { page: 'schedule', id: SCRIPT_FOLD_ID } : null}
       gear={{ menu: 'client', line: settingsLine, node: settings }}
+      // ‹ Over the Clients month on a computer the event spans columns 2 + 3, and its way back is "‹ Calendar" (owner,
+      // 17 Nov). Drawn always, SHOWN only there (`supplier-frame.css`); everywhere else it stays today's ✕.
+      closeAs={CLOSE_TO_CALENDAR}
     />
   );
 }

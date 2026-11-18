@@ -206,16 +206,13 @@ async function executeApproved(
   // created.
   if (row.action_type === 'approve_journal_spotlight') {
     if (!row.target_id) throw new Error('Spotlight approval has no target spotlight');
-    const { data: published, error } = await admin
+    const { error } = await admin
       .from('journal_vendor_spotlights')
       .update({ admin_approved_at: new Date().toISOString() })
       .eq('spotlight_id', row.target_id)
       .select('blog_slug');
     if (error) throw new Error(`Spotlight approval failed: ${error.message}`);
-    // The article is ISR for a day (app/blog/[slug]/page.tsx): the credit shows at once.
-    for (const p of (published ?? []) as Array<{ blog_slug: string | null }>) {
-      if (p.blog_slug) revalidatePath(`/blog/${p.blog_slug}`);
-    }
+    // (The article page it credited, /blog/[slug], is retired 2026-11-16 — nothing to revalidate.)
     return;
   }
 

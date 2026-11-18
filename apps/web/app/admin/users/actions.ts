@@ -599,10 +599,11 @@ function wantsGiftsReturn(formData: FormData): boolean {
  *   - Granting to existing `is_internal` accounts is blocked — they
  *     already carry a permanent grant; per-SKU comps on top of that
  *     would muddy audit + create dead rows.
- *   - Two-admin gate is NOT enforced in code for V1 (the
- *     `admin_approval_requests` primitive ships V1.x per § 9.1). Grants
- *     with retail_value > ₱10,000 still INSERT but the success message
- *     flags them for owner+spouse co-review.
+ *   - Two-admin gate is NOT enforced in code for a customer/event comp.
+ *     Grants with retail_value above COMP_GRANT_CO_REVIEW_PESOS still
+ *     INSERT; the success message says no second admin checked it and
+ *     to tell the owner (16 Nov), and the audit row carries
+ *     `requires_two_admin_review`.
  *
  * Source = 'external_promo' for every grant issued through this surface.
  * Owner-internal (§ 10a) + team-pool (§ 10b) + dispute-remedy +
@@ -745,9 +746,9 @@ export async function issueCompGrant(formData: FormData) {
   }
 
   // Insert the grant. `public_id` defaults to generate_public_id('C')
-  // per the schema. `approved_by` stays NULL for V1 — the two-admin
-  // gate ships V1.x. retail_value > ₱10K rows still INSERT but get
-  // surfaced in the success message for owner+spouse co-review.
+  // per the schema. `approved_by` stays NULL — no second admin runs on
+  // a customer comp. Rows over COMP_GRANT_CO_REVIEW_PESOS still INSERT;
+  // the success message says so plainly (16 Nov).
   const insertedAt = new Date().toISOString();
   const { data: inserted, error: insertErr } = await admin
     .from('comp_grants')
@@ -824,11 +825,14 @@ export async function issueCompGrant(formData: FormData) {
 
   // Surface large-grant warning in the success banner via the existing
   // transient-query-param pattern from resetUserPassword.
-  const needsReview = (retailValueCentavos ?? 0) > 10_000 * 100;
+  const needsReview = (retailValueCentavos ?? 0) > COMP_GRANT_CO_REVIEW_PESOS * 100;
   const scopeNote = scopeRaw === 'all_services' ? 'every Setnayan service' : `${scopedSkus?.length ?? 0} scoped services`;
   const eventNote = eventDisplayName ? ` on "${eventDisplayName}" only` : ' across every event they host';
   const banner = needsReview
-    ? `Comp grant ${inserted.public_id} issued — flag for owner+spouse co-approval (exceeds ₱10,000 · two-admin primitive lands V1.x)`
+    ? /* 💬 Owner 16 Nov (DECISION_LOG 75a46e3c (7), keep the rule, reword the banner): the old banner promised an
+         "owner+spouse co-approval" that nothing ever runs — a customer comp is granted at once by one admin. Say that,
+         and say the § 9.1 limit it went over, so the admin knows to tell the owner. */
+      `Comp grant ${inserted.public_id} issued — it is worth more than ₱${COMP_GRANT_CO_REVIEW_PESOS.toLocaleString('en-PH')}, the limit where § 9.1 asks for a second admin. Nobody else checks a customer comp yet, so tell the owner you gave it.`
     : `Comp grant ${inserted.public_id} issued — ${target.email ?? 'target user'} can now access ${scopeNote}${eventNote}`;
 
   // Optional `return_to=/admin/gifts` — a grant made FROM the gifts console

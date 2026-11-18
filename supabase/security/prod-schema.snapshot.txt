@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1892
-# tables: 505
-# columns: 6116
-# notnull: 3687
+# ledger: 1911
+# tables: 510
+# columns: 6148
+# notnull: 3713
 [ledger]
 20260512000000
 20260513000000
@@ -1895,15 +1895,34 @@
 20271346038449
 20271346331739
 20271346335702
+20271346425846
 20271346481550
 20271346561709
+20271346711828
+20271347341362
 20271347531019
 20271347719658
 20271348041863
 20271348170528
+20271348181787
+20271348267938
+20271348269771
+20271348281460
+20271348331884
 20271348421195
 20271348457307
+20271348490157
+20271348664988
+20271348804021
+20271348906302
 20271349022603
+20271349129379
+20271349476485
+20271349501852
+20271349668764
+20271349936814
+20271350082350
+20271350210033
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -5998,6 +6017,12 @@ seo_suggestions.reviewed_by
 seo_suggestions.route
 seo_suggestions.status
 seo_suggestions.suggested_value
+service_card_badge_holds.badge
+service_card_badge_holds.held_since
+service_card_badge_holds.hold_id
+service_card_badge_holds.lost_at
+service_card_badge_holds.vendor_profile_id
+service_card_badge_holds.vendor_service_id
 service_catalog.category
 service_catalog.created_at
 service_catalog.description
@@ -6083,6 +6108,13 @@ shared_attribute_groups.display_name_en
 shared_attribute_groups.display_name_tl
 shared_attribute_groups.group_name
 shared_attribute_groups.updated_at
+shop_award_flow_progress.finished_at
+shop_award_flow_progress.flow_key
+shop_award_flow_progress.opened_at
+shop_award_flow_progress.step
+shop_award_flow_progress.total_steps
+shop_award_flow_progress.updated_at
+shop_award_flow_progress.vendor_profile_id
 shop_badge_rewards.badge
 shop_badge_rewards.granted_at
 shop_badge_rewards.note
@@ -6148,6 +6180,15 @@ shop_papic_wallet_entries.order_id
 shop_papic_wallet_entries.photos
 shop_papic_wallet_entries.spend_ref
 shop_papic_wallet_entries.vendor_profile_id
+shop_seals.award_year
+shop_seals.awarded_at
+shop_seals.awarded_by
+shop_seals.created_at
+shop_seals.facts
+shop_seals.plan_gift_state
+shop_seals.seal
+shop_seals.seal_award_id
+shop_seals.vendor_profile_id
 site_visit_days.country
 site_visit_days.day
 site_visit_days.device
@@ -6849,6 +6890,12 @@ vendor_event_sets.set_id
 vendor_event_sets.slot_type
 vendor_event_sets.updated_at
 vendor_event_sets.vendor_profile_id
+vendor_event_story_notes.body
+vendor_event_story_notes.created_at
+vendor_event_story_notes.event_id
+vendor_event_story_notes.note_id
+vendor_event_story_notes.updated_at
+vendor_event_story_notes.vendor_profile_id
 vendor_event_unlocks.band
 vendor_event_unlocks.comp_reason
 vendor_event_unlocks.event_id
@@ -6887,6 +6934,8 @@ vendor_forms.retired_at
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_graph_unlocks_kept.kept_at
+vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivered_by
@@ -7742,6 +7791,7 @@ vendor_service_time_slots.vendor_service_id
 vendor_services.added_pax_block
 vendor_services.added_pax_price_php
 vendor_services.base_pax
+vendor_services.branch_copy_of
 vendor_services.branch_id
 vendor_services.category
 vendor_services.category_request_id
@@ -7842,6 +7892,7 @@ vendor_team_members.updated_at
 vendor_team_members.user_id
 vendor_team_members.vendor_profile_id
 vendor_team_members.vendor_team_member_id
+vendor_team_members.whole_branch_keys
 vendor_tier_history.admin_user_id
 vendor_tier_history.application_id
 vendor_tier_history.created_at
@@ -10455,6 +10506,11 @@ seo_suggestions.id
 seo_suggestions.route
 seo_suggestions.status
 seo_suggestions.suggested_value
+service_card_badge_holds.badge
+service_card_badge_holds.held_since
+service_card_badge_holds.hold_id
+service_card_badge_holds.vendor_profile_id
+service_card_badge_holds.vendor_service_id
 service_catalog.category
 service_catalog.created_at
 service_catalog.display_name
@@ -10518,6 +10574,10 @@ shared_attribute_groups.created_at
 shared_attribute_groups.display_name_en
 shared_attribute_groups.group_name
 shared_attribute_groups.updated_at
+shop_award_flow_progress.flow_key
+shop_award_flow_progress.step
+shop_award_flow_progress.updated_at
+shop_award_flow_progress.vendor_profile_id
 shop_badge_rewards.badge
 shop_badge_rewards.granted_at
 shop_badge_rewards.reward_id
@@ -10552,6 +10612,14 @@ shop_papic_wallet_entries.delta
 shop_papic_wallet_entries.entry_id
 shop_papic_wallet_entries.kind
 shop_papic_wallet_entries.vendor_profile_id
+shop_seals.award_year
+shop_seals.awarded_at
+shop_seals.awarded_by
+shop_seals.created_at
+shop_seals.facts
+shop_seals.seal
+shop_seals.seal_award_id
+shop_seals.vendor_profile_id
 site_visit_days.country
 site_visit_days.day
 site_visit_days.device
@@ -11012,6 +11080,12 @@ vendor_event_sets.set_id
 vendor_event_sets.slot_type
 vendor_event_sets.updated_at
 vendor_event_sets.vendor_profile_id
+vendor_event_story_notes.body
+vendor_event_story_notes.created_at
+vendor_event_story_notes.event_id
+vendor_event_story_notes.note_id
+vendor_event_story_notes.updated_at
+vendor_event_story_notes.vendor_profile_id
 vendor_event_unlocks.event_id
 vendor_event_unlocks.tokens_burned
 vendor_event_unlocks.unlock_id
@@ -11038,6 +11112,8 @@ vendor_forms.public_id
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_graph_unlocks_kept.kept_at
+vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivery_id
@@ -11610,6 +11686,7 @@ vendor_team_members.updated_at
 vendor_team_members.user_id
 vendor_team_members.vendor_profile_id
 vendor_team_members.vendor_team_member_id
+vendor_team_members.whole_branch_keys
 vendor_tier_history.created_at
 vendor_tier_history.tier_history_id
 vendor_tier_history.to_state

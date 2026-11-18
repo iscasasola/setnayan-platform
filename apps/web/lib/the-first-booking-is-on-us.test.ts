@@ -87,7 +87,8 @@ test('2 · a booking frozen free under the old rule stays free — read off the 
 /** Copy that names a COUNT of free bookings. Property, not a sentence. */
 const COUNTED_FREE = [
   // "first 5 bookings", "first five Setnayan-sourced bookings are free", "First 5 free"
-  /\bfirst\s+(?:5|five)\b(?=[^.\n<>]{0,40}\b(?:bookings?|booked|clients?|customers?|free|on us)\b)/i,
+  // (a rating is not a count: "Your first 5★ review from a booked couple" names a five-star review, not five bookings)
+  /\bfirst\s+(?:5|five)\b(?!\s*(?:★|-?\s*stars?\b))(?=[^.\n<>]{0,40}\b(?:bookings?|booked|clients?|customers?|free|on us)\b)/i,
   // "five free bookings", "5 free bookings"
   /\b(?:5|five)\s+free\s+bookings?\b/i,
   // "free until your 6th booking", "From your 6th booking"
@@ -146,7 +147,13 @@ test('3b · the scan can hit (each pattern convicts the line it was written for)
     assert.ok(COUNTED_FREE.some((re) => re.test(s)), `the guard is blind to: ${s}`);
   }
   // …and does not convict the words that are not about free bookings.
-  for (const s of ['Engaged over Christmas? Your first five steps', 'Your five main colours', FIRST_BOOKING_ON_US]) {
+  for (const s of [
+    'Engaged over Christmas? Your first five steps',
+    'Your five main colours',
+    FIRST_BOOKING_ON_US,
+    'Your first 5★ review from a booked couple',
+    'Your first five-star review from a booked couple',
+  ]) {
     assert.ok(!COUNTED_FREE.some((re) => re.test(s)), `the guard convicts an innocent line: ${s}`);
   }
 });

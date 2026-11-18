@@ -12,6 +12,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { matchesCommandQuery, type MatchableItem } from './command-match';
 import {
@@ -19,6 +22,7 @@ import {
   EVENT_TYPE_TERMS,
   eventSearchTerms,
   eventTypeBadge,
+  eventTypeWord,
   parseEventDate,
 } from './event-vocabulary';
 
@@ -124,4 +128,14 @@ test('a query still has to match something — this is not a filter that passes 
   const row = eventRow('wedding', 'Maria & Jose', '2026-12-12', 'Tagaytay');
   assert.ok(!matchesCommandQuery(row, 'zzzznope'), 'the matcher matches anything');
   assert.ok(!matchesCommandQuery(row, 'binyag'), 'a wedding is findable as a christening');
+});
+
+test('CHAT-30 · a sentence names the event by its own type — a birthday is never "this wedding"', () => {
+  assert.equal(eventTypeWord('birthday'), 'birthday');
+  assert.equal(eventTypeWord('wedding'), 'wedding');
+  assert.equal(eventTypeWord('simple_event'), 'get-together', 'the badge word, not the raw key');
+  assert.equal(eventTypeWord(null), 'event', 'an unread type is "event", never a guessed wedding');
+  const card = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../app/vendor-dashboard/clients/[eventId]/page.tsx'), 'utf8');
+  assert.ok(card.includes('Wrapped up this {eventWord}?'), 'the completion card reads the event word');
+  assert.ok(!card.includes('Wrapped up this wedding?'), 'the hard-coded wedding is back');
 });

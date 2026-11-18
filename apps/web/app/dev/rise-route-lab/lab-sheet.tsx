@@ -7,7 +7,7 @@ import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
-const SHOP = { id: 'S89V-LAB0000001', name: 'SetnaProd', logoUrl: null, publicHref: '/v/setnaprod', owned: true };
+const SHOP = { id: 'S89V-LAB0000001', name: 'SetnaProd', logoUrl: null, publicHref: '/setnaprod', owned: true };
 const DATA: SwitcherData = {
   userId: 'lab-user',
   displayName: 'Lab Supplier',

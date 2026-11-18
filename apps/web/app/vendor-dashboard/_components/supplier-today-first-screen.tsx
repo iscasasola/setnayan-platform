@@ -24,10 +24,11 @@ import {
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
-import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/lib/supplier-today';
+import { PERMIT_PAPERS_HREF, type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import { customerCardHref } from '@/lib/upcoming-schedule-door';
+import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
+import { fromToday } from '@/lib/picked-client-close';
 import { EventsYouRunRows } from './events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
@@ -46,12 +47,13 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 export function nextHref(t: SupplierNextTarget): string {
   switch (t.to) {
     case 'thread': {
-      const href = `/vendor-dashboard/messages/${t.threadId}`;
-      return href;
+      // A `thread` target names no event (lib/supplier-today.ts), so this is the full-screen thread on purpose.
+      return supplierChatHref(null, t.threadId);
     }
     case 'card': {
       // THE ONE BUILD integration: every door into a client is built by ONE function (`customerCardHref`).
-      const href = customerCardHref(t.eventId, t.tab);
+      // ✕ on the card comes back HERE, not to the Clients list (EB-290): the door says it came from Today.
+      const href = fromToday(customerCardHref(t.eventId, t.tab));
       return href;
     }
     case 'review': {
@@ -236,13 +238,6 @@ export type SupplierTodayFirstScreenProps = {
   nextEvents?: ReactNode;
   /** 📊 The five stats (`TodayStats`). */
   stats?: ReactNode;
-  /**
-   * ⚙ The pinned Needs-you-today row's ⚙ SLOT (`TodayGearSlot at="pin"`): since 11 Nov (owner *"Today settings yes"*)
-   * Today's ONE ⚙ sits on the photo header and fills this slot only once the header has scrolled away (`TodayGearRide`,
-   * Portfolio's `pin`). Null on a new shop — its six steps draw their own ⚙ — and then this heading does not pin
-   * either: the setup heading is the pinned row.
-   */
-  gear?: ReactNode;
   /** 📋 Needs you today — every row, in order; each JUMPS (`nextHref(row.target)`). */
   needs: readonly TodayNeed[];
   /** "N" — the same count as the cover's chip (null = the desk could not be read and shows nothing). */
@@ -268,6 +263,8 @@ export type SupplierTodayFirstScreenProps = {
   setup?: ReactNode;
   /** 🔍 The thumb row (`TodayThumbRow`: Search today · Show ▾) — drawn by the page. */
   thumb?: ReactNode;
+  /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
+  minis?: ReactNode;
 };
 
 const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
@@ -290,7 +287,6 @@ const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', '
  */
 export function SupplierTodayFirstScreen({
   cover = null,
-  gear = null,
   nextEvents = null,
   stats = null,
   needs,
@@ -306,6 +302,7 @@ export function SupplierTodayFirstScreen({
   library = false,
   setup = null,
   thumb = null,
+  minis = null,
 }: SupplierTodayFirstScreenProps) {
   const nothing = needs.length === 0 && !hasBills;
   return (
@@ -313,8 +310,14 @@ export function SupplierTodayFirstScreen({
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28; no cover row, as shipped). */}
       {setup}
       {setup ? null : cover}
-      {setup ? null : nextEvents}
-      {setup ? null : stats}
+      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
+          draws nothing of its own. */}
+      {setup ? null : (
+        <div data-today-top-only="">
+          {nextEvents}
+          {stats}
+        </div>
+      )}
 
       {/* THE ANSWER'S STATUS LINE — the whole sentence of an answer that redirected here, with the door it asks for. */}
       {outcome ? (
@@ -330,22 +333,31 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      {/* 🖥 THE DESKTOP PANES (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED"): the work pane (Needs you
+          today · Also today · Events you run · Coming up) and the Shop pane sit side by side from 1280; from 1600 the
+          work pane splits again (Needs | Coming up). Below 1280 both wrappers are `display: contents` — the phone and the
+          701 column draw exactly as before. The grid lives in `supplier-frame.css`. */}
+      <div data-today-pane="work">
+      <div data-today-pane-needs="">
       {/* 📋 NEEDS YOU TODAY — one row per thing waiting, in the app's words; EVERY row is ONE link to its page. */}
       <div data-today-needs="" data-tour="today-needs" id="whats-new">
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
             section) is Today's own page tour's. */}
         {/* 📌 THE ONE PINNED ROW ON TODAY (owner 10 Nov: *"Needs you today is the correct one to be pinned rather than
-            the row above it."*): the heading + its count stick under the bar while the rows scroll under them, and
-            Today's ⚙ rides onto its right end once the header has gone (owner 11 Nov); the cover, Next events and the stats scroll away. The pinned-row template (Clients' `customers-pin`):
-            sticky at the top, the page's own ground, the soft hairline (never a cut line), joined to the pin line
-            (`data-pinned-row`). A new shop (no ⚙ handed in) leaves it in the flow — its setup heading pins instead. */}
+            the row above it."*): the heading + its count stick under the bar while the rows scroll under them; the cover,
+            Next events and the stats scroll away. Joined to the pin line (`data-pinned-row`). No ⚙ here since 17 Nov
+            ("Removes: the second ⚙ pinned beside Needs you today … One ⚙ stays, in the header"). A new shop leaves it
+            in the flow — its setup heading pins instead. 🔒 today-gear-rides-the-header.test.ts */}
         <div
           className={
             setup
               ? 'hc-k2'
-              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sn-pin-hair sm:-mx-6 sm:px-6'
+              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sm:-mx-6 sm:px-6'
           }
-          style={setup ? undefined : { background: 'var(--sn-canvas)', marginTop: 0, marginBottom: 0 }}
+          // 🧼 THE CLEAN LOOK (owner 17 Nov, `dashboards_clean_look_2026-11-16`): the title sits ON the page — no band,
+          // no line under it, no ⚙ (the one ⚙ stays in the header). It still pins (owner 10 Nov), so it wears the
+          // page's OWN ground, fixed like `.sn-ambient`, and the rows slide under it unseen.
+          style={setup ? undefined : { background: 'var(--sn-ambient, rgb(var(--sn-page-bg)))', backgroundAttachment: 'fixed', marginTop: 0, marginBottom: 0 }}
           data-tour="today-next"
           data-today-needs-pin={setup ? undefined : ''}
           data-pinned-row={setup ? undefined : ''}
@@ -356,11 +368,6 @@ export function SupplierTodayFirstScreen({
               you", and a bare "0" read as a stray mark (Build 3 empty modes, 9 Nov). The "12 MN – 12 MN" hours that used to
               follow the count are gone — a midnight-to-midnight range says nothing (owner walkthrough, Nov). */}
           {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
-          {gear ? (
-            <span className={`inline-flex shrink-0 normal-case tracking-normal ${needsCount ? '' : 'ml-auto'}`} data-today-needs-gear="">
-              {gear}
-            </span>
-          ) : null}
         </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
           {needs.map((n) => (
@@ -412,6 +419,8 @@ export function SupplierTodayFirstScreen({
         </div>
       ) : null}
 
+      </div>
+
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
@@ -428,6 +437,20 @@ export function SupplierTodayFirstScreen({
         )}
       </div>
 
+      </div>
+
+      {/* 🖥 THE SIDE PANE (owner 17 Nov, P1 drawing `supplier_desktop_main_2026-11-16`, `.rp`): from 1280 it is the
+          sticky right column — Next events · the numbers · the Shop block (with its three small cards, approved pick 2)
+          · Setnayan Verified. Below 1280 it draws nothing of its own: the phone sees the Shop block exactly where it
+          was, and the side-only copies stay hidden. The same components, read once by the page — no new request.
+          🔒 app/vendor-dashboard/_components/today-has-a-side-pane-on-a-computer.test.ts */}
+      <aside data-today-side="" aria-label="Your shop">
+      {setup ? null : (
+        <div data-today-side-only="">
+          {nextEvents}
+          {stats}
+        </div>
+      )}
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}
       <div data-today-shop data-tour="today-shop">
         <TodayEyebrow door={{ label: 'Open', href: '/vendor-dashboard/shop' }}>Shop</TodayEyebrow>
@@ -445,6 +468,7 @@ export function SupplierTodayFirstScreen({
             rowIcon="shop"
           />
           <TodayRow href="/vendor-dashboard/shop#analytics" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
+          {minis ? <div data-today-side-minis="">{minis}</div> : null}
           {library ? (
             <TodayRow
               href={INSPIRATION_LIBRARY_HREF}
@@ -456,6 +480,14 @@ export function SupplierTodayFirstScreen({
           ) : null}
         </div>
       </div>
+      {/* ✅ SETNAYAN VERIFIED — only once Setnayan has checked the papers (the Shop pill says Live or Not yet); while
+          they are being checked the Shop row already says so, and nothing here claims more. */}
+      {shop.pill === 'Checking' ? null : (
+        <div data-today-side-verified="" className="[&>a]:border-t-0">
+          <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
+        </div>
+      )}
+      </aside>
 
       {thumb}
     </section>

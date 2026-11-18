@@ -14,6 +14,7 @@
  * Every number comes from `vendor_day_check` — the yes's own rule (`lib/day-check.ts`). This file decides nothing.
  * A failed read is said ("Couldn't check this day") and is not pressable: there is no day to open.
  */
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { useId, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ChevronRight, TriangleAlert } from 'lucide-react';
@@ -159,7 +160,7 @@ function DaySheetBody({ check }: { check: DayCheck }) {
       <Section label="Also asking for that day" empty={check.asking.length === 0}>
         {check.asking.map((a) =>
           a.threadId ? (
-            <Link key={a.eventId} href={`/vendor-dashboard/messages/${a.threadId}`} className={`sn-press ${ROW}`}>
+            <Link key={a.eventId} href={supplierChatHref(a.eventId, a.threadId)} className={`sn-press ${ROW}`}>
               <Row name={a.eventType ? `${a.name} · ${a.eventType}` : a.name} line="Asked to book · waiting for your yes" badge="Asking" />
               <ChevronRight {...ico} className="h-4 w-4 shrink-0 text-ink/70" />
             </Link>

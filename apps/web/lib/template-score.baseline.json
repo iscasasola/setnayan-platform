@@ -1,4 +1,5 @@
 {
+ "(hub)/dashboard": 16,
  "(shell)/about": 12,
  "(shell)/alaala": 8,
  "(shell)/download": 12,
@@ -87,7 +88,6 @@
  "dashboard/(account)/people": 3,
  "dashboard/(account)/profile": 56,
  "dashboard/(account)/samahan/[communityId]": 9,
- "dashboard/(launcher)": 16,
  "dashboard/[eventId]": 140,
  "dashboard/[eventId]/access-requests": 5,
  "dashboard/[eventId]/alaala": 7,

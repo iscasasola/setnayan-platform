@@ -15,5 +15,6 @@ Owner, 18 Nov ("yes, unify home and discover on fable"), against the 17 Nov "bar
   - D4 · every `PinnedRow` press (picker, action, icon-only action) is 44 px tall.
   - D7 · `RevealWhatIsSeen` finishes the `sn-rise` reveal (motion #4 Enter, unchanged) for what is off screen and on a jump-scroll, so a jump never lands on a blank. No new motion values.
   - D6 · resolved by data (owner, 18 Nov): test shops are marked `is_demo` through Admin › Suppliers › "Sample shop".
+- Review fixes (#7988 HOLD): mounted inside the hub `<main>`, the dashboard gate (`app/dashboard/layout.tsx`) no longer adds `min-h-dvh` or paints `bg-page`, so a short Home stops scrolling and the ambient wash shows. A layout's default export can take no extra prop (Next's generated type check), so the mount is told apart by `[main.sn-vt-page>&]`. Guard: `app/(hub)/the-gate-does-not-stretch-home.test.ts`. The template-score baseline follows Home to `(hub)/dashboard`, and its components that stayed in `dashboard/(launcher)/_components` still count, so Home holds at 16 rather than "falling" to 1.
 
 SPEC IMPACT: None. This builds the 2026-11-17 DECISION_LOG rows "USER DASHBOARD (Home + Discover)" and "navigation bars should not load with the screen" as ruled. The bar look is the approved drawing `prototypes/user_dashboard_clean_2026-11-17/user_dashboard_clean_2026-11-17_fable.html`.

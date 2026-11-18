@@ -41,6 +41,7 @@ import {
   serviceAlbums,
   type PortfolioGroups,
 } from '@/lib/portfolio-groups';
+import type { AlbumStats } from '@/lib/portfolio-albums';
 
 /**
  * YOUR COLLECTIONS — one count per store, read where each already lives (simpler supplier dashboard step 5;
@@ -96,6 +97,12 @@ export type CollectionsData = {
   best: BestWorkPhoto[] | null;
   /** 🖼 The supplier's stored section order (`portfolio_section_order`); `null` = unread → the shipped order. */
   sectionOrder: string[] | null;
+  /**
+   * 🖼 ROW 1's numbers (Portfolio, simpler — owner 2026-11-19): couples' opens per service card and the page gallery's
+   * photo views summed — the two counters the app ALREADY has, never a third — and when the shop last opened each album
+   * (`vendor_album_opens`). Each part is `null` when its read was refused: said, never drawn as 0.
+   */
+  albumStats: AlbumStats;
 };
 
 /** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
@@ -333,6 +340,36 @@ export async function loadCollectionsData(
 
   // ⭐ Your best work — the per-photo views the public page already counts (one read, the hero's own reader).
   const viewsRead = readPortfolioPhotoViews(supabase, vendorId);
+  // 🖼 Row 1 (Portfolio, simpler): couples' opens per service card — the SAME count Shop › Analytics draws
+  // (`service_card_opens`, 12 months) — and the albums this shop opened last. Each fails on its own into null.
+  const cardOpensRead: Promise<Record<string, number> | null> = Promise.resolve(supabase.rpc('service_card_opens', { p_vendor_profile_id: vendorId }))
+    .then(({ data, error }) => {
+      if (error) {
+        logQueryError('VendorCollections.cardOpens', error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as Array<{ vendor_service_id: string; opens_12m: number | string | null }>) out[r.vendor_service_id] = Number(r.opens_12m ?? 0);
+      return out;
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.cardOpens', err, { vendorId }, 'graceful_degrade');
+      return null;
+    });
+  const albumOpensRead: Promise<Record<string, string> | null> = Promise.resolve(
+    supabase.from('vendor_album_opens').select('album_kind, album_key, opened_at').eq('vendor_profile_id', vendorId).order('opened_at', { ascending: false }).limit(200),
+  )
+    .then(({ data, error }) => {
+      if (error) {
+        logQueryError('VendorCollections.albumOpens', error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      return Object.fromEntries(((data ?? []) as Array<{ album_kind: string; album_key: string; opened_at: string }>).map((r) => [`${r.album_kind}:${r.album_key}`, r.opened_at]));
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.albumOpens', err, { vendorId }, 'graceful_degrade');
+      return null;
+    });
   // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
   const allowanceRead = readPortfolioAllowance(supabase, vendorId);
   // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
@@ -386,7 +423,7 @@ export async function loadCollectionsData(
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
-  const [allowance, walletBalance, views] = await Promise.all([allowanceRead, walletRead, viewsRead]);
+  const [allowance, walletBalance, views, cardOpens, albumOpens] = await Promise.all([allowanceRead, walletRead, viewsRead, cardOpensRead, albumOpensRead]);
   const portfolioCap = portfolioPhotoCap(
     (own?.tier_state as string | null | undefined) ?? null,
     allowanceForCap(allowance),
@@ -425,6 +462,12 @@ export async function loadCollectionsData(
     igUnavailable: ig.unavailable,
     libraryOpen: access.allowed,
     best: bestWorkOf(portfolioRefs, portfolioDisplayMap, views),
+    albumStats: {
+      serviceOpens: cardOpens,
+      // Only the photos on the page right now count toward its album (a removed photo's views are not this album's).
+      pageViews: views === null ? null : portfolioRefs.reduce((sum, k) => sum + (views.get(k) ?? 0), 0),
+      opened: albumOpens,
+    },
     sectionOrder: own && Array.isArray(own.portfolio_section_order) ? (own.portfolio_section_order as string[]) : null,
     groups: {
       events:

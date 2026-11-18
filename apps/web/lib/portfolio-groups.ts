@@ -37,6 +37,8 @@ export type PortfolioAlbum = {
    * "Unlisted and uncounted until the top-up is settled · Settle ›", and `href` is where to settle. Absent → as shipped.
    */
   unlisted?: { href: string } | null;
+  /** The ISO time of its newest photo, where the album knows one (an event's) — Row 1's "Newest" sort. */
+  newest?: string | null;
 };
 
 export type PortfolioStory = { eventId: string; slug: string; hostNames: string; line: string };
@@ -102,6 +104,7 @@ export function eventAlbums(
         urls: a.urls,
         total: a.total,
         href: albumHref ? albumHref(eventId) : null,
+        newest: a.newest,
         ...(unlisted?.has(eventId) ? { unlisted: { href: unlisted.get(eventId)! } } : {}),
       };
     });

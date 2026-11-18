@@ -460,7 +460,7 @@ export function PaymentDetailsBlock({
                 href={mintedQr}
                 filename={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
                 data-pay-qr-share=""
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3.5 py-1.5 text-[12px] font-semibold text-ink/75 transition hover:border-ink/30 hover:text-ink"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 px-3.5 py-1.5 text-[12px] font-semibold text-ink/75 transition hover:border-ink/30 hover:text-ink"
               >
                 <Share aria-hidden className="h-3.5 w-3.5" />
                 Share

@@ -118,7 +118,7 @@ test('a booking fee must carry something the admin can match — now the receipt
   // superseded the TYPING ("the don't have to type") — the receipt is required
   // on every lane and its reference is read off it and stored.
   assert.match(actions, /if \(!screenshotUrl\) \{/);
-  assert.match(actions, /reference_number: bankReference \?\? receiptRead\?\.readReference/);
+  assert.match(actions, /bankReference \?\? readReferenceToLog\(receiptRead\?\.readReference/);
 });
 
 test('a pasted full reference is KEPT, not trimmed to six', () => {

@@ -65,7 +65,10 @@ const AA = 4.5;
  * globals.css says so at the top of its dark block — so measuring it here would
  * be asserting against pixels no host can see.
  */
-const lightBlock = globals.slice(0, globals.indexOf('--color-cream: 23 22 15'));
+// The dark block opens where `--color-cream` becomes a pointer at the dark page (the one colour set, 18 Nov 2026).
+const darkAt = globals.indexOf('--color-cream: var(--color-page)');
+assert.ok(darkAt > 0, 'the dark block’s anchor moved — the light block can no longer be cut out');
+const lightBlock = globals.slice(0, darkAt);
 
 /** `--color-x: 194 78 37` → the triple. The app's palette tokens are space-separated channels. */
 function paletteToken(name: string): Rgb {

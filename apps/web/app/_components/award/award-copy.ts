@@ -57,6 +57,7 @@ export function AWARD_COPY(year: number | string): Record<SealKind, SealCopy> {
       how: [
         ['The most second bookings of the seal year: clients who booked you again', true],
         [`At least ${CLIENTS_CHOICE_MIN_EVENTS} events completed through Setnayan that year`, true],
+        ['Setnayan Verified, with at least one second booking', true],
         ['One shop a year; a tie goes to the higher rating', false],
       ],
     },

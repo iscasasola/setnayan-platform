@@ -265,6 +265,8 @@ test("the Clients' Choice words say the engine's rule (owner 15 Nov: CLIENTS' CH
   // The engine (`pickClientsChoice`) counts SECOND BOOKINGS among shops with ≥ CLIENTS_CHOICE_MIN_EVENTS events.
   assert.match(words, /second booking/i, "the Clients' Choice pop-up no longer says it counts second bookings");
   assert.ok(heart.how.some((h) => h[0].includes(String(CLIENTS_CHOICE_MIN_EVENTS))), "the pop-up's minimum is not the engine's");
+  // The engine's filter: `c.verified && … && c.secondBookings > 0` — the pop-up says both.
+  assert.ok(heart.how.some((h) => /Setnayan Verified/.test(h[0]) && /at least one second booking/i.test(h[0])), 'the pop-up leaves out the Verified + one-second-booking rule');
   // The stale rule it used to print: a review-score percentile. The engine reads no such thing for this seal.
   assert.doesNotMatch(words, /review-weighted|top \d+\s*%|every review/i, "the pop-up says a review-score rule the engine does not use");
   const sel = (await import('node:fs')).readFileSync(new URL('./shop-seals.ts', import.meta.url), 'utf8');

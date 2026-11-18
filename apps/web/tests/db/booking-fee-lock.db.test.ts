@@ -142,7 +142,7 @@ after(async () => {
   await db?.close();
 });
 
-test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', async () => {
+test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, capped at max_payment_php', async () => {
   const q = async (c: number) => {
     const r = await db.query<{ f: number }>(`SELECT public.booking_fee_centavos($1)::int AS f`, [c]);
     return r.rows[0]!.f;
@@ -157,7 +157,12 @@ test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', a
   assert.equal(await q(60_000_00), 300_000); // ₱60,000 → ₱3,000
   assert.equal(await q(300_000_00), 700_000); // ₱300,000 → ₱7,000
   assert.equal(await q(1_000_000_00), 1_400_000); // ₱1M → ₱14,000, uncapped
-  assert.equal(await q(10_000_000_00), 10_400_000); // ₱10M → ₱104,000
+  // ⚖ THE CEILING (owner 2026-11-17): the booking fee can never exceed
+  // ₱100,000 — `platform_settings.max_payment_php`, seeded 100000. Exactly the
+  // ceiling is allowed; above it the fee is capped, not refused.
+  assert.equal(await q(9_600_000_00), 10_000_000); // ₱9.6M → 5,000 + 95,000 = exactly ₱100,000
+  assert.equal(await q(10_000_000_00), 10_000_000); // ₱10M → 5,000 + 99,000 → capped at ₱100,000
+  assert.equal(await q(50_000_000_00), 10_000_000); // ₱50M → capped
 
   // The property that stops under-declaration paying: monotonic across the edge.
   assert.ok(
@@ -166,7 +171,7 @@ test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', a
   );
 
   // And the SQL agrees with the TS to the centavo, so the two can never drift.
-  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 10_000_000]) {
+  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 9_600_000, 10_000_000, 50_000_000]) {
     assert.equal(
       await q(php * 100),
       Math.round(bookingFeePhp(php) * 100),

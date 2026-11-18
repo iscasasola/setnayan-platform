@@ -49,7 +49,7 @@ const STATUS_LABEL = BOOKING_LIST_LABEL;
 
 const STATUS_TONE: Record<BookingStatus, string> = {
   new: 'bg-terracotta text-cream',
-  in_progress: 'bg-sky-100 text-sky-800',
+  in_progress: 'bg-sky-100 dark:bg-[rgb(var(--color-info)/0.14)] text-sky-800 dark:text-[rgb(var(--color-info))]',
   closed: 'bg-ink/10 text-ink/65',
 };
 

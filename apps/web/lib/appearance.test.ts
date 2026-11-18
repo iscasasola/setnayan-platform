@@ -133,8 +133,8 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   // The supplier tree, admin, the front door, the guest Hub and Papic stay Light for EVERYONE until their batch
   // lists them — one prefix rule, no exception list (controller 2026-10-22). The couple's whole "/dashboard" area
   // opened on 18 Nov 2026 (owner: "dark mode. YES :D", pick 5); a sibling such as "/dashboardx" is not under it.
-  const SHIPPED_LIGHT = ['/', '/vendor-dashboard', '/vendor-dashboard/clients', '/admin', '/marco-marga', '/papic/abc'];
-  const SHIPPED_DARK = ['/dashboard', '/dashboard/abc', '/dashboard/abc/guests', '/dashboard/abc/budget', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
+  const SHIPPED_LIGHT = ['/', '/admin', '/admin/people', '/marco-marga', '/papic/abc'];
+  const SHIPPED_DARK = ['/dashboard', '/dashboard/abc', '/dashboard/abc/guests', '/dashboard/abc/budget', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/vendor-dashboard', '/vendor-dashboard/clients', '/login', '/signup/you'];
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
@@ -150,7 +150,8 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
     }
   }
   assert.ok(DARK_READY.includes('/dashboard'), 'the couple’s /dashboard area is on the ready-list (B3, 18 Nov 2026)');
-  assert.ok(!DARK_READY.some((p) => p.startsWith('/vendor-dashboard') || p.startsWith('/admin')), 'the supplier tree and admin open in their own batch');
+  assert.ok(DARK_READY.includes('/vendor-dashboard'), 'the supplier dashboard is on the ready-list (B4, 18 Nov 2026)');
+  assert.ok(!DARK_READY.some((p) => p.startsWith('/admin')), 'admin opens in its own batch');
 });
 
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {

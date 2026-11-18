@@ -267,7 +267,7 @@ function ActiveRecCard({
             <input type="hidden" name="service_code" value={rec.serviceCode} />
             <input type="hidden" name="enabled" value="false" />
             <SubmitButton
-              className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs font-medium text-ink hover:border-ink/40"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-raised/70 px-3 text-xs font-medium text-ink hover:border-ink/40"
               pendingLabel="Turning off…"
             >
               Turn off
@@ -314,12 +314,12 @@ function OptInOfferCard({
   suggestedSet: Set<string>;
 }) {
   return (
-    <div className="rounded-2xl border border-sky-300/60 bg-sky-50 p-4">
+    <div className="rounded-2xl border border-sky-300/60 dark:border-[rgb(var(--color-info)/0.4)] bg-sky-50 dark:bg-[rgb(var(--color-info)/0.14)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-base font-semibold text-ink">{rec.title}</p>
-            <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-sky-800">
+            <span className="inline-flex items-center rounded-full bg-sky-100 dark:bg-[rgb(var(--color-info)/0.14)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-sky-800 dark:text-[rgb(var(--color-info))]">
               Overlaps your work
             </span>
           </div>
@@ -348,7 +348,7 @@ function OptInOfferCard({
       ) : null}
 
       {rec.addonKey ? (
-        <div className="mt-3 border-t border-sky-300/40 pt-3">
+        <div className="mt-3 border-t border-sky-300/40 dark:border-[rgb(var(--color-info)/0.4)] pt-3">
           <SuggestToCoupleControl
             addonKey={rec.addonKey}
             connectedCouples={connectedCouples}
@@ -534,7 +534,7 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
           Cancel
         </button>
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-raised/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
           pendingLabel="Sending…"
         >
           Send flag
@@ -625,7 +625,7 @@ function SuggestControl({
           Cancel
         </button>
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-raised/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
           pendingLabel="Sending…"
         >
           Send suggestion

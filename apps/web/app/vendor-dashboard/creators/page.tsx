@@ -37,7 +37,7 @@ type SearchParams = {
 };
 
 const STATUS_STYLE: Record<VendorSentOffer['status'], string> = {
-  pending: 'bg-amber-100 text-amber-900',
+  pending: 'bg-amber-100 dark:bg-[rgb(var(--color-warn)/0.14)] text-amber-900 dark:text-[rgb(var(--color-warn))]',
   accepted: 'bg-success-100 text-success-800',
   declined: 'bg-ink/[0.06] text-ink/60',
   expired: 'bg-ink/[0.06] text-ink/50',
@@ -189,7 +189,7 @@ export default async function VendorCreatorsPage({
                           Fulfilled · chapter linked
                         </span>
                       ) : (
-                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-amber-900">
+                        <span className="rounded-full bg-amber-100 dark:bg-[rgb(var(--color-warn)/0.14)] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] text-amber-900 dark:text-[rgb(var(--color-warn))]">
                           Unfulfilled · awaiting chapter
                         </span>
                       )
@@ -218,7 +218,7 @@ export default async function VendorCreatorsPage({
             inquiries their chapters drove that a supplier unlocked). Discounts
             settle off-platform, so they&rsquo;re not shown here.
           </p>
-          <div className="overflow-x-auto rounded-tile border border-ink/10 bg-white">
+          <div className="overflow-x-auto rounded-tile border border-ink/10 bg-raised">
             <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="border-b border-ink/10 bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
                 <tr>
@@ -402,7 +402,7 @@ function roiStatusLabel(row: VendorCreatorRoiRow): string {
 
 function roiStatusStyle(row: VendorCreatorRoiRow): string {
   if (row.collabStatus === 'accepted' && !row.fulfilled) {
-    return 'bg-amber-100 text-amber-900';
+    return 'bg-amber-100 dark:bg-[rgb(var(--color-warn)/0.14)] text-amber-900 dark:text-[rgb(var(--color-warn))]';
   }
   return STATUS_STYLE[row.collabStatus];
 }

@@ -392,7 +392,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                         <SubmitButton
                           pendingLabel=""
                           aria-label={`Delete ${rule.label}`}
-                          className="text-ink/40 hover:text-red-700"
+                          className="text-ink/40 hover:text-red-700 dark:hover:text-[rgb(var(--color-danger))]"
                         >
                           <Trash2 aria-hidden className="h-4 w-4" />
                         </SubmitButton>
@@ -406,7 +406,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         )}
 
         {/* Add rule */}
-        <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3 print:hidden">
+        <details className="mt-4 rounded-xl border border-ink/10 bg-raised/50 p-3 print:hidden">
           <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold">
             <Plus aria-hidden className="h-4 w-4" /> Add a portion rule
           </summary>
@@ -429,7 +429,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
               <span className="text-ink/45">(none checked = all guests)</span>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <select name="applies_to_block" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" defaultValue="">
+              <select name="applies_to_block" className="rounded-lg border border-ink/20 bg-raised px-2 py-1.5" defaultValue="">
                 <option value="">Whole event</option>
                 {Object.entries(BLOCK_LABELS).map(([key, label]) => (
                   <option key={key} value={key}>
@@ -437,7 +437,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                   </option>
                 ))}
               </select>
-              <select name="headcount_basis" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" defaultValue="confirmed">
+              <select name="headcount_basis" className="rounded-lg border border-ink/20 bg-raised px-2 py-1.5" defaultValue="confirmed">
                 {Object.entries(BASIS_LABELS).map(([key, label]) => (
                   <option key={key} value={key}>
                     Count: {label}
@@ -446,7 +446,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
               </select>
               <label className="inline-flex items-center gap-1 text-ink/70">
                 Buffer %
-                <input type="number" name="waste_factor_pct" min="0" max="100" step="any" defaultValue="0" className="w-16 rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
+                <input type="number" name="waste_factor_pct" min="0" max="100" step="any" defaultValue="0" className="w-16 rounded-lg border border-ink/20 bg-raised px-2 py-1.5" />
               </label>
             </div>
             <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">

@@ -332,7 +332,7 @@ export function PapicCaptureController({
         ) : null}
         {recording ? (
           <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold text-white" style={{ background: 'rgb(var(--color-danger))' }}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC
+            <span className="h-2 w-2 animate-pulse rounded-full bg-raised" /> REC
           </div>
         ) : null}
         {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
@@ -399,7 +399,7 @@ export function PapicCaptureController({
             }}
           >
             <span
-              className="rounded-full bg-white transition-all"
+              className="rounded-full bg-raised transition-all"
               style={{ width: recording ? 22 : 48, height: recording ? 22 : 48, borderRadius: recording ? 6 : 999 }}
             />
           </button>

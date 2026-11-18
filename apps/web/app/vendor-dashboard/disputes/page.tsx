@@ -202,7 +202,7 @@ function DisputeCard({ row }: { row: DisputeRow }) {
 
       {/* The vendor's contest, if written */}
       {row.vendor_contest ? (
-        <div className="mt-3 rounded-lg border border-ink/10 bg-white/60 p-3">
+        <div className="mt-3 rounded-lg border border-ink/10 bg-raised/60 p-3">
           <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             <MessageSquareWarning aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Your response
@@ -218,7 +218,7 @@ function DisputeCard({ row }: { row: DisputeRow }) {
 
       {/* Resolution outcome, once the team has ruled */}
       {!isOpen ? (
-        <div className="mt-3 rounded-lg border border-ink/10 bg-white/60 p-3">
+        <div className="mt-3 rounded-lg border border-ink/10 bg-raised/60 p-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Team decision
             {row.resolved_at ? (

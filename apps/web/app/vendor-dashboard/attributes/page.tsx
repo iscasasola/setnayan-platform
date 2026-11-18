@@ -207,7 +207,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {removed ? (
-        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70">
+        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-raised/70 px-4 py-3 text-sm text-ink/70">
           Removed that service&rsquo;s attribute payload.
         </div>
       ) : null}
@@ -279,7 +279,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         )}
       </section>
 
-      <footer className="mt-10 rounded-xl border border-ink/10 bg-white/60 px-5 py-4 text-xs text-ink/55">
+      <footer className="mt-10 rounded-xl border border-ink/10 bg-raised/60 px-5 py-4 text-xs text-ink/55">
         Profile ID <span className="font-mono">{profile.vendor_profile_id}</span>
       </footer>
     </div>

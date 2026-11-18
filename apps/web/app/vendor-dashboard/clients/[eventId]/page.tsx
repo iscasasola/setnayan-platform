@@ -2048,7 +2048,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {brief.booked_categories.map((c) => (
         <span
           key={c}
-          className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+          className="inline-flex items-center rounded-full bg-raised px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
         >
           {/* "Booked" is said ONCE — by the stage pill (owner screenshot 17 Nov: "Booked · In-house · Booked · …"). */}
           {displayServiceLabel(c)}
@@ -2059,7 +2059,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const identityBlock = (
     <div className="flex items-start gap-4">
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-raised text-lg font-semibold text-ink/70">
         {initials(brief.event.display_name)}
       </span>
       <div className="min-w-0 flex-1">
@@ -2088,7 +2088,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       <Link
         href={customerLandingHref('proposals')}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
       </Link>
@@ -2098,26 +2098,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
       </Link>
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=files`}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <Paperclip aria-hidden className="h-3.5 w-3.5" /> Files
       </Link>
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
       </Link>
       {threadId ? (
         <Link
           href={`${supplierChatHref(eventId, threadId)}#pending-payments`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
         </Link>
@@ -2524,7 +2524,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : (
             <>
           <BookingMoneySummary money={ledgerMoney} />
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
             {ledgerMoney.rows.length > 0
               ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
@@ -2551,7 +2551,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <p className="home-k2 !mt-0 !mb-0">
           Payments
         </p>
-        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+        <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
           <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment
           schedule and couple-logged payments appear here once they book you
           {threadId ? '' : ' and you start a conversation'}.
@@ -3089,7 +3089,7 @@ function OverviewTab(props: {
             )}
           </dl>
           {brief.event.ceremony_type ? (
-            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-raised/70 px-2.5 py-1 text-xs font-medium text-ink/70">
               <Church aria-hidden className="h-3.5 w-3.5" />
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
@@ -3123,7 +3123,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No guest list yet — this
               fills in once they start their RSVPs.
             </p>
@@ -3259,7 +3259,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
               the couple hasn&rsquo;t opted into budget sharing.
             </p>
@@ -3516,7 +3516,7 @@ function OverviewTab(props: {
                       name="reason"
                       maxLength={200}
                       placeholder="Reason (optional) — e.g. no payment received"
-                      className="w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
+                      className="w-full rounded-md border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
                     />
                     <SubmitButton
                       className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-danger-100"
@@ -3647,7 +3647,7 @@ function QuoteTab(props: {
           Quotation
         </p>
         {proposals.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <FileText aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No quotes sent yet.
           </p>
         ) : (
@@ -3655,7 +3655,7 @@ function QuoteTab(props: {
             {proposals.map((p) => (
               <li
                 key={p.proposal_id}
-                className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta bg-white px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta bg-raised px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{formatCentavos(p.total_centavos)}</p>
@@ -3688,7 +3688,7 @@ function QuoteTab(props: {
               ? customerCardHref(eventId, 'quote')
               : customerLandingHref('proposals')
           }
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
         </Link>
@@ -3700,7 +3700,7 @@ function QuoteTab(props: {
           Payments
         </p>
         {!isBooked ? (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
             appears once they book you and pay a first payment.
           </p>
@@ -3955,7 +3955,7 @@ function ScheduleTab(props: {
           ) : null}
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
@@ -3971,7 +3971,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
@@ -3987,7 +3987,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
@@ -4002,7 +4002,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
@@ -4108,7 +4108,7 @@ function ScheduleTab(props: {
                     required
                     maxLength={120}
                     placeholder="e.g. Extra hour of coverage"
-                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>
                 <label className="block text-xs font-medium text-ink/70">
@@ -4121,7 +4121,7 @@ function ScheduleTab(props: {
                     required
                     inputMode="decimal"
                     placeholder="e.g. 5000"
-                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>
               </div>
@@ -4130,7 +4130,7 @@ function ScheduleTab(props: {
                 <input
                   type="date"
                   name="proposed_due_date"
-                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta sm:w-56"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta sm:w-56"
                 />
               </label>
               <label className="block text-xs font-medium text-ink/70">
@@ -4140,7 +4140,7 @@ function ScheduleTab(props: {
                   rows={2}
                   maxLength={2000}
                   placeholder="Anything the couple should know"
-                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                 />
               </label>
               <SubmitButton className="button-primary" pendingLabel="Sending…">
@@ -4168,7 +4168,7 @@ function ScheduleTab(props: {
                     ? Number(co.delta_amount_php)
                     : co.delta_amount_php ?? 0;
                 return (
-                  <li key={co.change_order_id} className="rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+                  <li key={co.change_order_id} className="rounded-xl border border-ink/10 bg-raised px-3 py-2.5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
@@ -4209,7 +4209,7 @@ function ScheduleTab(props: {
                           <input type="hidden" name="change_order_id" value={co.change_order_id} />
                           <input type="hidden" name="decision" value="decline" />
                           <SubmitButton
-                            className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                            className="rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
                             pendingLabel="Declining…"
                           >
                             Decline
@@ -4223,7 +4223,7 @@ function ScheduleTab(props: {
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="change_order_id" value={co.change_order_id} />
                         <SubmitButton
-                          className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                          className="rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
                           pendingLabel="Withdrawing…"
                         >
                           Withdraw

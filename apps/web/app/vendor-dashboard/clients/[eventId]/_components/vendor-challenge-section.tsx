@@ -130,11 +130,11 @@ export async function VendorChallengeSection({
               maxLength={280}
               rows={2}
               placeholder="Order our signature calamansi mojito and show us the pour"
-              className="w-full resize-none rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
             />
             <SubmitButton
               pendingLabel="Submitting"
-              className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+              className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-sn-on-accent transition-colors hover:bg-mulberry-600"
             >
               Submit for the couple&rsquo;s okay
             </SubmitButton>

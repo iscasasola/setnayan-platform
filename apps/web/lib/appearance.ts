@@ -74,6 +74,10 @@ export const DARK_READY: readonly string[] = [
   // a new one out. The couple's guest pages drawn INSIDE these screens (previews, look samples) keep the couple's own
   // design — the guest islands in globals.css.
   '/dashboard',
+  // B4 (18 Nov 2026 — owner: "do supplier navy dark next"): THE SUPPLIER DASHBOARD, in its own navy
+  // (`app/vendor-dashboard/_components/supplier-look.css`, the `html.dark:has([data-supplier-look])` scope — the
+  // 16 Nov blue look's dark, pick 1 "supplier navy kept"). Tokens only; held by `the-navy-is-readable.test.ts`.
+  '/vendor-dashboard',
   // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
   // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
   '/login',

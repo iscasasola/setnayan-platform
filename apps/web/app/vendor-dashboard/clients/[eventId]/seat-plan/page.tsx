@@ -97,12 +97,12 @@ function PinMarker({ o }: { o: PlanObject }) {
         className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-semibold shadow-sm ${
           o.is_mine
             ? 'border-terracotta bg-terracotta text-cream ring-2 ring-terracotta/30'
-            : 'border-ink/25 bg-white text-ink/70'
+            : 'border-ink/25 bg-raised text-ink/70'
         }`}
       >
         {o.is_mine ? 'YOU' : '•'}
       </span>
-      <span className="mt-0.5 max-w-24 truncate rounded bg-white/85 px-1 text-[9px] font-medium leading-tight text-ink/75">
+      <span className="mt-0.5 max-w-24 truncate rounded bg-raised/85 px-1 text-[9px] font-medium leading-tight text-ink/75">
         {o.label}
       </span>
     </div>
@@ -194,7 +194,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       {/* Floor map — one blueprint: reception room + the cocktail/waiting area */}
       {showMap ? (
         <div
-          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-white/70"
+          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-raised/70"
           style={{ aspectRatio: `${aspect}` }}
         >
           {/* Stage */}

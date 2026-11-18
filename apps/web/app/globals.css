@@ -6245,7 +6245,9 @@ body {
    not left as a trap for whoever turns dark mode on.) Matches the dark
    `--color-cream` (#17160F) the body already uses. */
 html.dark .sn-ambient {
-  background: rgb(var(--color-page));
+  /* `--sn-ambient-dark` is unset by default (the plain page); an area's look may light its own ground with it — the
+     supplier navy does (`supplier-look.css`), tokens only. */
+  background: var(--sn-ambient-dark, rgb(var(--color-page)));
 }
 
 /* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.

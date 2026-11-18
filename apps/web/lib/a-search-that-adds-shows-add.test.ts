@@ -20,7 +20,8 @@
  *   9 · as ＋, Enter adds what was typed.
  *
  * Sabotage — RUN 2026-11-19, eleven ways, each red then restored: `if (!matches) return 'add'` → `'search'` (1) ·
- * `return held || !matches` → `return !matches` (2) · `return asked ? 'add' : 'search'` → always `'search'` (2) ·
+ * `return words ? held : false` → `return held` (2 — clearing no longer lets go) · → `return words` (2 — a no-match
+ * holds) · `return asked ? 'add' : 'search'` → always `'search'` (2) ·
  * `onPointerDown={holdFocus}` removed from the icon (3) · `{adds ? (` → `{true ? (` in thumb-row.tsx (4) · an `action=`
  * seat put back on the Guests List row (5) · `<TypedWays …>` dropped from Guests' empty-field box (6) · the add colour
  * changed to `--color-danger` (7) · the typed words' red `color` removed (7 — this one stayed GREEN on the first run:
@@ -109,13 +110,17 @@ test('2 · a tap on 🔍 while there are matches → ＋; as ＋ the tap adds; e
   assert.equal(searchAddPress('Ana', 'add'), 'add', 'a tap on ＋ does not add');
   assert.equal(searchAddPress('   ', 'search'), 'focus', 'a tap on an empty search does not put the cursor in it');
   assert.match(PART, /if \(act === 'focus'\) input\.focus\(\{ preventScroll: true \}\);\s*else if \(act === 'ask'\) setHeld\(true\);\s*else add\.onAdd\(typed\);/);
-  // ＋ holds until the box is cleared — the ONLY way back to 🔍 (owner 19 Nov).
-  assert.equal(searchAddHeld(false, { words: true, matches: false }), true, 'nothing matched and ＋ is not held');
-  assert.equal(searchAddHeld(true, { words: true, matches: true }), true, 'words that match again turned ＋ back to 🔍 — only clearing may');
-  assert.equal(searchAddHeld(false, { words: true, matches: true }), false, 'a search that matches is held as ＋ before anyone asked');
-  assert.equal(searchAddHeld(true, { words: false, matches: true }), false, 'clearing the box does not return it to 🔍');
-  assert.equal(searchAddHeld(true, { words: false, matches: false }), false, 'clearing the box does not return it to 🔍');
-  assert.match(PART, /useEffect\(\(\) => \{\s*setHeld\(\(h\) => searchAddHeld\(h, \{ words, matches \}\)\);\s*\}, \[words, matches\]\);/, 'the hook does not hold ＋');
+  // The hold rule (owner 19 Nov, as changed): ＋ holds ONLY when they tapped 🔍; a ＋ that came by itself is not held.
+  assert.equal(searchAddHeld(false, { words: true }), false, 'a ＋ that came by itself (nothing matched) is held — it must go back to 🔍 when the words match again');
+  assert.equal(searchAddHeld(true, { words: true }), true, 'a ＋ they tapped for does not hold while the box has words');
+  assert.equal(searchAddHeld(true, { words: false }), false, 'clearing the box does not return it to 🔍');
+  // By itself: no match → ＋, the words match again → 🔍. Tapped: ＋ over matches, and it stays.
+  const auto = searchAddHeld(false, { words: true });
+  assert.equal(searchAddMode({ words: true, matches: false, asked: auto }), 'add');
+  assert.equal(searchAddMode({ words: true, matches: true, asked: auto }), 'search', 'after a no-match, words that match again leave it ＋');
+  assert.equal(searchAddMode({ words: true, matches: true, asked: searchAddHeld(true, { words: true }) }), 'add', 'a tapped ＋ went back to 🔍 while the words match');
+  assert.match(PART, /useEffect\(\(\) => \{\s*setHeld\(\(h\) => searchAddHeld\(h, \{ words \}\)\);\s*\}, \[words\]\);/, 'the hook does not let go of ＋ when the box is cleared');
+  assert.doesNotMatch(PART, /setHeld\((?!\(h\) => searchAddHeld|true\))/, 'something other than the tap holds ＋');
   assert.match(PART, /return \{ mode, asked: mode === 'add' && matches, press \};/, 'as ＋ over matches, Enter is not the add outright');
   assert.match(ROW, /<SearchAddIcon mode=\{searchAdd\.mode\} onPress=\{\(\) => searchAdd\.press\(ownInput\.current\)\}/);
 });

@@ -10,8 +10,9 @@ On top of tap-and-type (`154acd676d`). One shared part, `components/search-add.t
   `onAdd` draws its plain magnifier and has no mode. Guests › Map keeps its own ＋ Add guest (its field only finds a
   seat).
 - **The rule**: 🔍 while something matches or the box is empty · ＋ by itself when nothing matches · a tap on 🔍 over
-  words switches it to ＋ · as ＋, a tap on it or Enter adds what was typed · **＋ holds until the box is cleared** —
-  words that match again do not turn it back (`searchAddHeld`).
+  words switches it to ＋ · as ＋, a tap on it or Enter adds what was typed · **a ＋ they tapped for holds until the box is
+  cleared**, even when the words match; a ＋ that came by itself goes back to 🔍 (the reverse morph) as soon as the
+  words match again; clearing returns 🔍 either way (`searchAddHeld`).
 - **Every way the removed buttons opened is still there**: Guests' "From your people" / "Import a file" stand above the
   empty field while it has the cursor and in the typed results; Clients' "Add a booking from outside" is a row at the
   empty search and the sheet opens with the typed name in it; Suppliers' "Add your own" is the first row of the empty
@@ -36,11 +37,8 @@ one shared face, `components/sort-face.tsx`: lucide `SlidersHorizontal`, icon on
 anything not the default" measure — no option was added, removed or renamed.
 🔒 `apps/web/lib/show-and-sort-is-one-button.test.ts` — five properties, sabotaged seven ways (each red, then restored).
 
-NOT DONE, ON PURPOSE — needs the owner's word: "one PickMenu with a Show group then a Sort group". Guests › Map and
-Suppliers › Find already open one PickMenu; Guests › List and Clients open the approved Show & sort SHEET (3 Nov; v113),
-which also holds +1s, per-service counts, Group by, Schedule, Service, Status, Client and Handled by. Folding those two
-into a two-group menu would remove those controls, and no ruling lists them as removed. Nor did any of the four rows
-have two pills ("▽ All" · "⇅ Sort") to merge — each already had one round.
+Owner, 19 Nov: the Guests › List and Clients sheets and the Map's and Find's menus stay as shipped under the one face —
+nothing is folded into a two-group menu — and ⇕ Expand all stays where it is.
 
 NOT PROVEN: a real iPhone's keyboard staying up through the icon tap (headless WebKit and Chromium with touch only).
 

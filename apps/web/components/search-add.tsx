@@ -12,7 +12,8 @@
  *   · ＋ BY ITSELF when the words match nothing;
  *   · a tap on 🔍 while there are matches switches it to ＋ ("they search but they want to add");
  *   · as ＋, a tap on it — or Enter — adds what was typed;
- *   · clearing the box returns it to 🔍 — the ONLY way back (＋ holds even when the words match again);
+ *   · a ＋ they TAPPED for holds until the box is cleared, even when the words match; a ＋ that came by itself goes
+ *     back to 🔍 as soon as the words match again; clearing the box returns 🔍 either way;
  *   · the press never takes the cursor: the keyboard stays up (`holdFocus` on pointerdown and mousedown), and a
  *     finger's press is its touchend, never a click that may not come (`pressOnTouchEnd`).
  *
@@ -51,17 +52,18 @@ export function searchAddPress(typed: string, mode: SearchAddMode): 'focus' | 'a
 }
 
 /**
- * ＋ HOLDS UNTIL THE BOX IS CLEARED (owner 19 Nov 2026: clearing the field is the ONLY way back to 🔍). Once it is ＋ —
- * by itself because nothing matched, or because they tapped 🔍 — words that match again do not turn it back. Pure.
+ * ＋ HOLDS ONLY WHEN THEY ASKED FOR IT (owner 19 Nov 2026, the hold rule as he changed it): a tap on 🔍 over words
+ * switches to ＋ and it STAYS ＋ — words that match again do not turn it back — until the box is cleared. A ＋ that
+ * came BY ITSELF because nothing matched is not held: the moment the words match again it is 🔍 (the reverse morph).
+ * Clearing the box returns 🔍 in both cases. Pure: `held` is "they tapped 🔍"; this is what it is after the words change.
  */
-export function searchAddHeld(held: boolean, { words, matches }: { words: boolean; matches: boolean }): boolean {
-  if (!words) return false; // cleared → 🔍
-  return held || !matches;
+export function searchAddHeld(held: boolean, { words }: { words: boolean }): boolean {
+  return words ? held : false; // cleared → 🔍; a no-match never sets it
 }
 
 /**
  * The mode a search that can add is in. `add` absent → always 'search' (and the caller draws its plain magnifier).
- * `asked` — it is ＋ while something DOES match (they tapped 🔍, or it held from an earlier no-match): Enter is then
+ * `asked` — it is ＋ while something DOES match (they tapped 🔍 — the only way that happens): Enter is then
  * the add outright, never the host's own Enter over the matches.
  */
 export function useSearchAdd(add: SearchAdd | null | undefined): { mode: SearchAddMode; asked: boolean; press: (input: HTMLInputElement | null) => void } {
@@ -70,8 +72,8 @@ export function useSearchAdd(add: SearchAdd | null | undefined): { mode: SearchA
   const words = query.trim().length > 0;
   const matches = add?.matches ?? true;
   useEffect(() => {
-    setHeld((h) => searchAddHeld(h, { words, matches }));
-  }, [words, matches]);
+    setHeld((h) => searchAddHeld(h, { words }));
+  }, [words]);
   const mode: SearchAddMode = add ? searchAddMode({ words, matches, asked: held }) : 'search';
   const press = (input: HTMLInputElement | null) => {
     if (!add || !input) return;

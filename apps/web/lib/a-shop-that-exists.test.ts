@@ -56,7 +56,7 @@ test('every degraded fallback also reports that it measured nothing', () => {
   // construct a UserRoleSummary by hand in a catch block — they exist BECAUSE a
   // read failed — so each must say so, or the fail-closed rule has a hole in the
   // exact place the read already went wrong.
-  for (const rel of ['../app/dashboard/(launcher)/page.tsx', 'dashboard-shell.ts']) {
+  for (const rel of ['../app/(hub)/dashboard/page.tsx', 'dashboard-shell.ts']) {
     const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
     if (!/hasCustomerAccess: true/.test(src)) continue;
     assert.match(

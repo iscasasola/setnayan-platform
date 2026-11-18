@@ -105,9 +105,9 @@ test('3 · the event column pads by max(the dock, the row) below 701 — and by 
 test('4 · the account, launcher, Discover and supplier columns pad by the row at both widths', () => {
   const cols: [string, RegExp][] = [
     ['app/dashboard/(account)/layout.tsx', /<main\s+className="([^"]+)"/],
-    ['app/dashboard/(launcher)/layout.tsx', /<main\s+className="([^"]+)"/],
+    ['app/(hub)/layout.tsx', /<main\s+className="([^"]+)"/],
     ['app/vendor-dashboard/layout.tsx', /<div className="(pb-\[[^"]+)">\s*\{\/\* 🔔 The supplier pages' TOP for notices/],
-    ['app/_components/frontdoor/front-door.tsx', /\? '(sn-vt-page pb-\[[^']+)'/],
+    // Discover's column is the (hub) layout's <main> since 18 Nov 2026 (one layout with Home) — the row above holds it.
   ];
   for (const [file, re] of cols) {
     const cls = re.exec(read(file))?.[1] ?? '';

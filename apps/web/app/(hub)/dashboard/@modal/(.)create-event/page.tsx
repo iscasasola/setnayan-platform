@@ -1,5 +1,5 @@
 import CreateEventPage from '@/app/dashboard/(account)/create-event/page';
-import { CreateEventPanel } from '../../_components/create-event-panel';
+import { CreateEventPanel } from '@/app/dashboard/(launcher)/_components/create-event-panel';
 
 /**
  * `/dashboard/create-event`, INTERCEPTED from the board — the collection

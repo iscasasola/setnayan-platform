@@ -177,7 +177,7 @@ const COPY = new Map(FILES.map((f) => [relative(WEB, f), copyIn(f)]));
 
 test('the anchor: the reader walks the whole app and finds real copy, never a comment', () => {
   assert.ok(FILES.length > 1500, `only ${FILES.length} source files — run from apps/web`);
-  const board = COPY.get('app/dashboard/(launcher)/page.tsx');
+  const board = COPY.get('app/(hub)/dashboard/page.tsx');
   assert.ok(board, 'the Events board moved — re-point the anchor');
   assert.ok(board.some((c) => /moves up here/.test(c.text)), 'the reader did not pick up the Events board copy');
   // A comment is not copy (the guard would otherwise convict the docblock explaining a fix).

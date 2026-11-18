@@ -435,7 +435,7 @@ test('the shelves render in the ruled order: your people → the world → peopl
   const world = RENDER.indexOf('data-discover-shelf="world"');
   assert.ok(people > -1 && world > people, 'your people must come before the world');
 
-  assert.match(DOOR, /beforeShops=\{\s*discover \? \(\s*<>\s*<DiscoverEventShelves discover=\{discover\} \/>\s*<PeopleToFollowShelf discover=\{discover\} \/>/);
+  assert.match(DOOR, /beforeShops=\{\s*discover \? \(\s*<>\s*<DiscoverEventShelves discover=\{discover\}(?: followingOnly=\{following\})? \/>\s*<PeopleToFollowShelf discover=\{discover\} \/>/);
   assert.match(DOOR, /<MiniTour tourKey="discover_upcoming_v1" \/>/);
 });
 

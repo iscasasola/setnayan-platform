@@ -47,7 +47,7 @@ const DOOR = readFileSync(join(HERE, 'front-door.tsx'), 'utf8');
  * went RED on the move, which is how the gap was found.
  */
 const RAIL_DATA = readFileSync(join(HERE, 'rail-data.ts'), 'utf8');
-const PAGE = readFileSync(join(APP, 'page.tsx'), 'utf8');
+const PAGE = readFileSync(join(APP, '(hub)', 'page.tsx'), 'utf8');
 
 /** Strip comments so a rule mentioned in prose can never satisfy a check. */
 function code(src: string): string {
@@ -66,7 +66,7 @@ const RAIL_DATA_CODE = code(RAIL_DATA);
  * Does this URL path resolve to a real App Router route?
  *
  * 🔑 ROUTE GROUPS CAN SIT ANYWHERE IN THE PATH, not just at the end — the
- * shipped tree has `/dashboard` at `dashboard/(launcher)/page.tsx` AND
+ * shipped tree has `/dashboard` at `(hub)/dashboard/page.tsx` AND
  * `/dashboard/library` at `dashboard/(account)/library/page.tsx`. A resolver
  * that only checks the last segment reports three live routes as missing,
  * which is how a guard starts crying wolf and gets ignored.

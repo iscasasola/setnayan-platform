@@ -43,7 +43,7 @@ const page = (body: string, imports = '') => `${imports}\nexport default functio
 
 test('the scan: typed numbers per file; duplicates per screen', () => {
   const root = fixture({
-    'app/page.tsx': page('<a href="/home">h</a><a href="/other">o</a>'),
+    'app/(hub)/page.tsx': page('<a href="/home">h</a><a href="/other">o</a>'),
     'app/home/page.tsx': page('<Hero /><Tile />', "import { Hero } from './_c/hero';\nimport { Tile } from './_c/tile';"),
     'app/home/_c/hero.tsx': `export function Hero() { const d = daysUntil(x); return <p>{d} days to go</p>; }\n`,
     'app/home/_c/tile.tsx': `export function Tile() { return <p><b>190</b> days to go</p>; }\n`,
@@ -60,7 +60,7 @@ test('the scan: typed numbers per file; duplicates per screen', () => {
 
 test('the scan finds a sentence with the number typed in it', () => {
   const root = fixture({
-    'app/page.tsx': page('<a href="/home">h</a>'),
+    'app/(hub)/page.tsx': page('<a href="/home">h</a>'),
     'app/home/page.tsx': page('<p>Only 190 days to go!</p><p>{n} guests</p>'),
   });
   const screens = scanScreens({ webRoot: root, builders: new Map(), tableNodes: new Map() });

@@ -387,7 +387,7 @@ test('6 · the door seals, the event chip and the hero render the PLAYING logo w
 
 test('6 · every page-level screen hands its "animation on" answer down', () => {
   const HANDS = {
-    'app/dashboard/(launcher)/page.tsx': /markPlays=\{markPlays\}[\s\S]*plays=\{markPlays\}/,
+    'app/(hub)/dashboard/page.tsx': /markPlays=\{markPlays\}[\s\S]*plays=\{markPlays\}/,
     'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': /markPlays=\{markPlays\}/,
     'app/dashboard/[eventId]/layout.tsx': /eventMonogramPlays=\{railMarkPlays\}/,
     'app/dashboard/[eventId]/_components/event-rail-context.tsx': /plays=\{eventMonogramPlays \?\? eventMonogram\.plays\}/,

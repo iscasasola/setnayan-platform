@@ -218,7 +218,7 @@
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
 2 apps/web/app/dashboard/(account)/profile/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
-1 apps/web/app/dashboard/(launcher)/page.tsx
+1 apps/web/app/(hub)/dashboard/page.tsx
 2 apps/web/app/dashboard/[eventId]/_components/feature-us-card.tsx
 5 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 2 apps/web/app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx

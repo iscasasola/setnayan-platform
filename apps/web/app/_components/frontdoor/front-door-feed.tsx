@@ -301,15 +301,19 @@ export function FrontDoorFeed({
       {hideShopsShelf ? null : (
         <>
           {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
-          <h2 className="fd-sechead">
+          <h2 className="fd-sechead" data-discover-part="suppliers">
             {/* 🏷 "Suppliers" — Discover's part 2 (owner 16 Nov, "Discover in six parts"); verified shops only
                 (`LIVE_SHOP_GATE`, which reads `is_findable` — verified and listed). It replaced "Trending shops" / "The first shops" / "Shops". */}
             <span>Suppliers</span>
-            {/* 🛒 More shops are open than the shelf shows → the door to every supplier, on this page (the
-                supplier view, 2026-11-12). `liveShopCount` decides it and is never printed. */}
-            {liveShopCount !== null && liveShopCount > shops.length ? (
+            {/* ✅ "verified only" — the drawing's label (user_dashboard_clean_2026-11-17, walker D2c, 18 Nov). It states the
+                filter the shelf already holds (`LIVE_SHOP_GATE` → `is_findable`), so it can never be untrue here. */}
+            <span className="fd-meta" data-discover-verified-only="">verified only</span>
+            {/* 🛒 "See all" on every part that has something to show (the drawing; walker D2b, 18 Nov). It opens the
+                supplier view on this page (2026-11-12) — every category and filter, not only the shops drawn here —
+                so it is a real door even when every open shop already fits on the shelf. */}
+            {shops.length > 0 ? (
               <Link href="/?browse=1" className="fd-sechead-go" data-discover-see-all="">
-                See all suppliers →
+                See all →
               </Link>
             ) : null}
           </h2>

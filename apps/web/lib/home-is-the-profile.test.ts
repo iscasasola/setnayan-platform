@@ -86,7 +86,7 @@ test('2 · Home\'s sections: Events · People · Shop · Memories, Shop only for
   assert.equal(resolveHomeSeg('people', { ownsShop: false }), 'people');
   assert.equal(resolveHomeSeg('nonsense', { ownsShop: true }), 'events');
   assert.equal(homeSegHref('events'), HOME_HREF, 'Events is Home itself, and keeps ?hub=1');
-  const page = src('app/dashboard/(launcher)/page.tsx');
+  const page = src('app/(hub)/dashboard/page.tsx');
   assert.match(page, /export default async function HomePage\(/, '/dashboard is no longer Home');
   assert.match(page, /<HomeProfile[\s\S]*?>\s*\{body\}\s*<\/HomeProfile>/, 'Home no longer wraps the section in the profile');
 });
@@ -180,7 +180,7 @@ test('5 · the pinned row is the one switch: no tabs, no big create button, the 
   assert.match(pin, /action \? \{ label: action\.label/, 'the row lost its one action ("＋ Event")');
   const mem = src('app/dashboard/(account)/library/_components/memories-thumb.tsx');
   assert.match(mem, /homeSegOptions\(homeSegs, useHomeSegCounts\(\)\)/, 'Memories\' row lost the sections\' numbers');
-  const page = src('app/dashboard/(launcher)/page.tsx');
+  const page = src('app/(hub)/dashboard/page.tsx');
   assert.match(
     page,
     /<HomePinnedRow\s+seg="events"[\s\S]*?action=\{\{ label: 'Event', ariaLabel: 'Create an event', href: '\/dashboard\/create-event'/,

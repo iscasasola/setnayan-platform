@@ -50,7 +50,7 @@ const SHELL = 'app/_components/frontdoor/front-door-shell.tsx';
 const ESCAPE = 'app/_components/frontdoor/command-escape.ts';
 const RESULTS = 'app/_components/frontdoor/front-door-results.tsx';
 const FRONTDOOR = 'app/_components/frontdoor/front-door.tsx';
-const PAGE = 'app/page.tsx';
+const PAGE = 'app/(hub)/page.tsx';
 const DATA = 'app/_components/frontdoor/data.ts';
 
 // ── One box, one destination ───────────────────────────────────────────────
@@ -89,7 +89,7 @@ test("the palette's escape row lands on the same results view the form does", ()
 
 test('the front page reads the typed query and hands it to the results view', () => {
   const page = stripComments(read(PAGE));
-  assert.match(page, /params\.q\b/, 'app/page.tsx no longer reads ?q=');
+  assert.match(page, /params\.q\b/, 'app/(hub)/page.tsx no longer reads ?q=');
   assert.match(page, /<FrontDoor[^>]*\bq=\{q\}/, 'the query never reaches the front door');
 
   const fd = stripComments(read(FRONTDOOR));

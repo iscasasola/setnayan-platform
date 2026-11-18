@@ -92,12 +92,12 @@ test('0 · the line exists once, in all three places that read it', () => {
 
 const OPTED_IN = [
   'app/dashboard/(account)/layout.tsx',
-  'app/dashboard/(launcher)/layout.tsx',
+  'app/(hub)/layout.tsx',
   'app/dashboard/[eventId]/layout.tsx',
   'app/vendor-dashboard/layout.tsx',
 ];
 /** The two account layouts mount their dock through the account bar's slot, which hands the line to <BottomDock>. */
-const ACCOUNT_LAYOUTS = new Set(['app/dashboard/(account)/layout.tsx', 'app/dashboard/(launcher)/layout.tsx']);
+const ACCOUNT_LAYOUTS = new Set(['app/dashboard/(account)/layout.tsx', 'app/(hub)/layout.tsx']);
 
 test('1 · only the designed trees opt into the 701 line', () => {
   const hits: string[] = [];

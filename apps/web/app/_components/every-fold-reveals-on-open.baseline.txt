@@ -22,7 +22,7 @@ app/admin/categories/_components/what-couples-choose.tsx  # fold
 app/admin/pricing/_components/catalog-editor.tsx  # menu-like
 app/admin/queues/_components/queues-triage-feed.tsx  # menu-like
 app/dashboard/(launcher)/_components/year-moments-list.tsx  # fold
-app/dashboard/(launcher)/page.tsx  # menu-like
+app/(hub)/dashboard/page.tsx  # menu-like
 app/dashboard/[eventId]/_components/event-rail-context.tsx  # menu-like
 app/dashboard/[eventId]/_components/expand-card.tsx  # menu-like
 app/dashboard/[eventId]/_components/papic-home-card.tsx  # menu-like

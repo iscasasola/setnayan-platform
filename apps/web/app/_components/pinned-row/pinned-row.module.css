@@ -71,3 +71,19 @@
   display: inline-flex;
   flex: 0 0 auto;
 }
+
+/* 👆 EVERY PRESS ON THE ROW IS 44 × 44 OR TALLER — DRAWN, NOT ONLY HALOED (walker on live f8f278f at 390 px, 18 Nov 2026:
+   "Events ▾" 72×28, "＋" and "⚙" 40×40). The approved drawing (`user_dashboard_clean_2026-11-17_fable.html`) draws the
+   picker `.pm{min-height:44px}` and the round buttons 44×44, and 44 is the owner's floor (2026-10-12). The row is 44 tall,
+   so each control fills it. Held by `app/_components/pinned-row/the-row-presses-at-44.test.ts`. */
+.pinPick :global([data-pinned-picker]) {
+  min-height: 44px;
+}
+.pin :global(.ab) {
+  min-height: 44px;
+}
+.pin :global(.ab.icon-only) {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+}

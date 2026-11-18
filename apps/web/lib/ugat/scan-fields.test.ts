@@ -28,7 +28,7 @@ function fixture(files: Record<string, string>): string {
 }
 
 const FILES: Record<string, string> = {
-  'app/page.tsx': `export default function P() { return <a href="/guests/new">Add</a>; }\n`,
+  'app/(hub)/page.tsx': `export default function P() { return <a href="/guests/new">Add</a>; }\n`,
   'app/guests/new/page.tsx': `import { GuestForm } from './_components/guest-form';
 import { daysUntil } from '@/lib/days';
 export default async function P() {

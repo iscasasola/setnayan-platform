@@ -77,10 +77,10 @@ test('1 · the headline is the approved one', async () => {
 
 test('2 · no "never lose a photo" / "keep every photo" on the hero or the home <title>', async () => {
   assert.doesNotMatch(textOf(await hero()), OVERPROMISE, 'the hero overpromises the photos again');
-  const home = stripComments(readFileSync(path.join(APP, 'page.tsx'), 'utf8'));
+  const home = stripComments(readFileSync(path.join(APP, '(hub)', 'page.tsx'), 'utf8'));
   for (const name of ['HOME_TITLE', 'HOME_DESCRIPTION']) {
     const m = new RegExp(`const ${name}\\s*=\\s*'([^']+)'`).exec(home);
-    assert.ok(m, `${name} is gone from app/page.tsx — find it before changing this guard`);
+    assert.ok(m, `${name} is gone from app/(hub)/page.tsx — find it before changing this guard`);
     assert.doesNotMatch(m[1] ?? '', OVERPROMISE, `${name} overpromises the photos: ${JSON.stringify(m[1])}`);
   }
 });

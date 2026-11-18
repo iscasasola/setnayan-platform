@@ -91,7 +91,9 @@ test('premise: the resolver finds the doorway and the shell where they are', () 
   // 🔄 2026-11-12: probed on /help — /explore is no longer a page (it forwards to Discover), so it resolves nowhere.
   assert.equal(landsInShell('/help').ok, false, '/help should resolve into the (shell) doorway layout');
   assert.match(landsInShell('/help').why, /doorway/);
-  assert.equal(landsInShell('/').ok, false, '/ is the public front door, not the account shell');
+  // 🔄 18 Nov 2026 (owner "unify home and discover"): `/` sits under the (hub) layout, which draws the account bar and the
+  // app top bar for a member (and nothing for a stranger — the front door is drawn by the page then). So `/` is in it.
+  assert.equal(landsInShell('/').ok, true, landsInShell('/').why);
   assert.equal(landsInShell('/dashboard/people').ok, true, landsInShell('/dashboard/people').why);
 });
 
@@ -173,10 +175,11 @@ test('3 · a member’s /?q= answers ON Discover, in the shell form; a stranger�
   // Superseded 2026-10-24 (owner: "we will show the result on the page itself. not a new screen"): `/` draws the
   // account bar and Discover's own search row for a member now, so the words stay on it. The shell FORM still holds:
   // the member's results on `/` are the same shell results (no door out to the marketplace) — `place="discover"`.
-  const src = code(join(APP, 'page.tsx'));
-  assert.doesNotMatch(src, /redirect\(/, 'app/page.tsx sends a search somewhere else again');
+  const src = code(join(APP, '(hub)', 'page.tsx'));
+  assert.doesNotMatch(src, /redirect\(/, 'app/(hub)/page.tsx sends a search somewhere else again');
   assert.match(src, /<FrontDoor[^>]*\bq=\{q\}/, 'the front door lost its query');
   const fd = code(join(APP, '_components', 'frontdoor', 'front-door.tsx'));
   assert.match(fd, /<FrontDoorResults[\s\S]*?place="discover"/, 'a member’s results on Discover are not the shell form');
-  assert.match(fd, /<FrontDoorAccountBar \/>/, 'Discover lost the account bar the in-place results rely on');
+  // 18 Nov 2026: the account bar is the (hub) layout's now — the one Home wears, never remounted between them.
+  assert.equal(landsInShell('/').ok, true, 'Discover lost the account bar the in-place results rely on');
 });

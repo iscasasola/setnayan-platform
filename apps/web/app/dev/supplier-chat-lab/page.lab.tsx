@@ -29,6 +29,7 @@
  *                (the real `PickedClientShell`; its Chat body is `LabPickedChat`; the other pages are lab lines)
  *
  *   — Supplier Build 3 · lane B —
+ *   &calltime=1  🕕 the DUE NOW "Set your call time" pin (ruling A): Answer › opens a link to the Schedule tab's control
  *   &pins=1      two automatic pins (a payment due tomorrow, a guest-count change) + one waiting on the couple
  *   &run=meeting a (+) Meeting card open at the foot: the Running-topic pin, the (+) shut   &shut=1 the tap's toast
  *   &decide=1    an open decision pin — tap it: the opened decision rises (fixture filed rows) · &decide=refused its refused read
@@ -85,6 +86,7 @@ import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { schedulePinBodies } from '@/app/_components/chat/schedule-pin-bodies';
 import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
@@ -377,6 +379,9 @@ export default async function SupplierChatLabPage({
   if (sp.blocker === '1' && askOpen) {
     labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
   }
+  if (sp.calltime === '1') {
+    labPins.unshift({ key: 'call_time:unset', kind: 'call_time', title: 'Set your call time on their Schedule', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now(), dueMs: null });
+  }
   const shown = typeof sp.shown === 'string' ? Number(sp.shown) : 1;
   const left = typeof sp.left === 'string' ? Number(sp.left) : undefined;
   // ⏳ Round 2 · `&blocker=expired` — the supplier's expired-quotation blocker (one action: Send a new quotation).
@@ -582,7 +587,7 @@ export default async function SupplierChatLabPage({
             // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
             lockHandshake={null}
             extraPins={labPins}
-            pinBodies={decisionPinBodies(labPins, labFiled)}
+            pinBodies={Object.assign(decisionPinBodies(labPins, labFiled), schedulePinBodies(labPins, 'lab', 'lab-event'))}
             labFilings={
               labFiled
                 ? {

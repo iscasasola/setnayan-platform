@@ -7,9 +7,11 @@
  *   3 · Every door into People or Memories lands on Home's section — the old pages forward with every parameter,
  *       and no code links the old addresses (except the matchers that light Home on the pages still under them).
  *   4 · One header: the public `/u/[slug]` and Home draw the same `ProfileHeader`.
- *   5 · ONE ROW OF SECTIONS (owner 13 Nov 2026: "the buttons and the menu events people memories are dupes. we want
- *       them to be simple and just 1"): Home passes no pill doors to the header — the tabs are the one row — and the
- *       People tab carries the "N asking" number the doors used to.
+ *   5 · THE PINNED ROW IS THE ONE SWITCH (owner 13 Nov 2026: "the buttons and the menu events people memories are
+ *       dupes. we want them to be simple and just 1"; then 17 Nov 2026, "Yes, all 3" on the user dashboard drawing):
+ *       Home passes no pill doors and no "＋ Create an event" to the header, draws no tab row, and draws the section's
+ *       pinned row AT REST under the header (it stays when the top locks). Its picker carries the numbers the tabs did —
+ *       People's "N asking" as the dot that waits on you.
  *   (Home's "last view" — the section and the scroll — is the shared bar's: app/_components/nav/every-tab-keeps-its-last-view.test.ts)
  */
 import { test } from 'node:test';
@@ -153,23 +155,44 @@ test('4 · one header: the public page and Home draw the same ProfileHeader', ()
   assert.match(pub, /\$\{PROFILE_HEADER_CSS\}/, 'the public page lost the header\'s styles');
 });
 
-test('5 · one row of sections: Home draws no pill doors, and the People tab carries "N asking"', () => {
+test('5 · the pinned row is the one switch: no tabs, no big create button, the row at rest carries the numbers', () => {
   const home = src('app/dashboard/(launcher)/_components/home-profile.tsx');
   const header = home.match(/<ProfileHeader\b[\s\S]*?\/>/)?.[0] ?? '';
   assert.ok(header, 'Home no longer draws the shared header');
   assert.ok(!/\bdoors=/.test(header), 'Home passes doors to the header again — the same four places drawn twice (owner: "dupes")');
-  assert.ok(!/data-home-door|HomeDoorsInView/.test(home), 'Home grew a door row beside its tabs again');
-  assert.match(home, /data-home-create=""/, 'Home lost "＋ Create an event"');
-  assert.match(home, /\.\.\.\(asking \? \{ people: asking \} : \{\}\)/, 'the People tab no longer carries the asking count');
-  assert.match(home, /<HomeTabs [^>]*hot=\{hot\}/, 'the asking count is no longer drawn as the number that waits on you');
+  assert.ok(!/\bactions=/.test(header), 'Home draws "＋ Create an event" in the header again (owner 17 Nov: "＋ Event" on the row is the way in)');
+  assert.ok(!/data-home-door|HomeDoorsInView|data-home-create/.test(home), 'Home grew a door row or a create button beside its pinned row again');
+  assert.ok(!/<HomeTabs\b|data-home-segments/.test(home), 'Home draws a tab row again (owner 17 Nov: the tab row goes)');
+  // The top draws its row AT REST, over room the header leaves at its foot — not only once the header has gone.
+  const top = home.match(/<CollapsingTop\b[\s\S]*?>/)?.[0] ?? '';
+  assert.match(top, /\browAtRest\b/, 'the pinned row is drawn only once the header scrolls away — at rest Home has no switch');
+  assert.match(top, /rowHeight=\{TOP_ROW_H\}/);
+  assert.match(home, /const TOP_ROW_H = 44;/, 'the top reserves more than the one row (the tab row came back?)');
+  assert.match(home, /data-home-pin-slot=""/, 'the row lost its seat');
+  assert.match(home, /className=\{hp\.rowRoom\}/, 'the header leaves no room at its foot for the row at rest');
+  // The numbers: Home reads them once and hands them to the row's picker.
+  assert.match(home, /\.\.\.\(asking \? \{ people: asking \} : \{\}\)/, 'People no longer carries the asking count');
+  assert.match(home, /<HomeSegCountsProvider counts=\{counts\} hot=\{hot\}>/, 'the numbers no longer reach the row\'s picker');
 
-  // The tab draws the hot number in the brand colour with its word read aloud (the HomeTabs source — its CSS module
-  // cannot load under node, so the guard reads the drawing rather than rendering it).
-  const bar = src('app/dashboard/(launcher)/_components/home-segment-bar.tsx');
-  assert.match(bar, /data-hot=\{hot\[s\] \? '' : undefined\}/, 'the tab no longer marks a number that waits on you');
-  assert.match(bar, /<span className="sr-only"> \{hot\[s\]\}<\/span>/, 'the hot number lost its word ("asking") for a screen reader');
+  const pin = src('app/dashboard/(launcher)/_components/home-pin.tsx');
+  assert.match(pin, /homeSegOptions\(segs, useHomeSegCounts\(\)\)/, 'the Events row\'s picker lost the sections\' numbers');
+  assert.match(pin, /dot: true, dotNote: `\$\{formatCount\(n\)\} \$\{word\}`/, 'a number that waits on you is no longer the picker\'s dot');
+  assert.match(pin, /action \? \{ label: action\.label/, 'the row lost its one action ("＋ Event")');
+  const mem = src('app/dashboard/(account)/library/_components/memories-thumb.tsx');
+  assert.match(mem, /homeSegOptions\(homeSegs, useHomeSegCounts\(\)\)/, 'Memories\' row lost the sections\' numbers');
+  const page = src('app/dashboard/(launcher)/page.tsx');
+  assert.match(
+    page,
+    /<HomePinnedRow\s+seg="events"[\s\S]*?action=\{\{ label: 'Event', ariaLabel: 'Create an event', href: '\/dashboard\/create-event'/,
+    'the Events row no longer carries "＋ Event"',
+  );
+
+  // The CollapsingTop option itself: a row at rest is live (never inert) and visible.
+  const ct = src('app/_components/collapsing-top/collapsing-top.tsx');
+  assert.match(ct, /if \(!e\.atRest\) \{[\s\S]*?toggleAttribute\('inert', !pinned\)/, 'a row drawn at rest is made inert until the top locks');
+  assert.match(ct, /data-ct-row-at-rest="" style=\{\{ opacity: 1, pointerEvents: 'auto' \}\}/, 'a row drawn at rest is hidden until the top locks');
+
   const css = readFileSync(join(WEB, 'app/dashboard/(launcher)/_components/home-profile.module.css'), 'utf8');
-  assert.match(css, /\.n\[data-hot\]\s*\{[^}]*--color-mulberry-700/, 'the hot number is not in the brand colour');
   assert.ok(!/^\.door\b/m.test(css), 'the pill door styles came back');
+  assert.ok(!/^\.tabs?\b|^\.cta\b/m.test(css), 'the tab row or the big create button\'s styles came back');
 });
-

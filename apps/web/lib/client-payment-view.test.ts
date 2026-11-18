@@ -23,7 +23,7 @@ test('1 · a plan: the figures are priceSummaryOf’s, and Next is the first pay
   const plan = priceSummaryOf(steps, 'supplier', { clearedAt: null, today: '2026-11-07' });
   assert.deepEqual([v.agreedPhp, v.paidPhp, v.collectPhp], [plan.totalPhp, plan.paidPhp, plan.leftPhp]);
   assert.deepEqual([v.agreedPhp, v.paidPhp, v.collectPhp], [46000, 8000, 38000]);
-  assert.deepEqual(v.next, { amountPhp: 30000, name: 'Balance', dueDate: '2026-11-01', check: true }, 'a logged payment is not "Check"');
+  assert.deepEqual(v.next, { amountPhp: 30000, name: 'Balance', dueDate: '2026-11-01', check: true, late: false, dueText: null }, 'a logged payment is not "Check"');
   assert.equal(Math.round(v.meter.paidPct), 17);
   const asked = clientPaymentView({ steps: [step(1, 'Balance', 30000, '2026-11-01', 'due')], clearedAt: null, ledgerMoney: NO_LEDGER, ledgerUnreadable: false, today: '2026-11-07' });
   assert.equal(asked.next?.check, false, 'a payment nobody logged is "Ask", not "Check"');

@@ -21,7 +21,7 @@ import { ListPager } from '../../_components/list-pager';
 import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 import { dayHeadWords } from '@/lib/vendor-dates';
-import { clientLandingPage, openClientHref, type ClientDoorFacts, type PickedClientPage } from '@/lib/upcoming-schedule-door';
+import { clientLandingPage, customerCardHref, openClientHref, type ClientDoorFacts, type PickedClientPage } from '@/lib/upcoming-schedule-door';
 
 /**
  * CUSTOMERS › EVENTS (People until 2026-10-30 — owner: *"Customers still show people and not events"*) — one row per
@@ -330,6 +330,21 @@ export function RosterRowView({
           )}
           {href ? (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
+              {/* 💬 The chat is always one press away (CHAT-15, W1 walk 16 Nov 2026: a booked card offered "Open their Hub"
+                  and no chat, while a pending card's door IS the chat). Beside the main door when that door is not Chat. */}
+              {door.page !== 'chat' ? (
+                <RememberPickedOrigin to={customerCardHref(r.eventId, 'chat')}>
+                  <ActionButton
+                    tone="neutral"
+                    icon={<MessageSquare aria-hidden="true" strokeWidth={1.9} />}
+                    label={DOOR_WORDS.chat!}
+                    name={`${title} — ${DOOR_WORDS.chat!}`}
+                    href={customerCardHref(r.eventId, 'chat')}
+                    className="min-h-11"
+                    data-customer-chat-door=""
+                  />
+                </RememberPickedOrigin>
+              ) : null}
               <RememberPickedOrigin to={href}>
                 <ActionButton
                   tone="brand"

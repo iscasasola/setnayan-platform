@@ -26,10 +26,17 @@ test('(1) the app’s floating notice wears the one mark the canvas hides', () =
   assert.equal(EDITOR_CANVAS_HIDES_APP_CHROME, '[data-app-chrome]{display:none!important}');
   /* (The cookie notice wore it too until it was removed, 2026-10-22 — essential cookies only. The stale-tab bar is
      the floating notice that remains.) */
-  const notice = read('app/_components/stale-tab-notice.tsx');
-  const at = notice.indexOf('role="status"');
-  assert.ok(at > 0, 'the stale-tab notice was not found');
-  assert.match(notice.slice(at - 120, at), /data-app-chrome=""/, 'the stale-tab notice lost the mark — the canvas would draw it');
+  /* Both places the notice is drawn wear it: the page flow, and the top layer it rides while a sheet covers the page
+     (walk RW-7853-a). (Anchored on the wrapper's own marker since the wrapper stopped being a second `role="status"`.) */
+  for (const [rel, anchor] of [
+    ['app/_components/stale-tab-notice.tsx', 'data-stale-tab-notice=""'],
+    ['app/_components/stale-tab-notice-lift.tsx', 'data-stale-tab-lift=""'],
+  ] as const) {
+    const notice = read(rel);
+    const at = notice.indexOf(anchor);
+    assert.ok(at > 0, `the stale-tab notice was not found in ${rel}`);
+    assert.match(notice.slice(Math.max(0, at - 120), at), /data-app-chrome=""/, `${rel} lost the mark — the canvas would draw it`);
+  }
 });
 
 test('(2) the real canvas hides it — on the host’s canvas only, never on a guest’s page', () => {

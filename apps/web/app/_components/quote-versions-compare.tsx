@@ -16,10 +16,10 @@ import { versionDay, versionsSideBySide, type QuoteVersion, type SideBySideRow }
  * Draws only `versionsSideBySide` (lib/quote-versions.ts), which is built on the SAME pairing as `quoteChanges` — the
  * marked rows are exactly what `<QuoteWhatChanged>` lists for the same two versions. Never a second comparison.
  */
-function cell(row: SideBySideRow, v: SideBySideRow['a']): string {
+function cell(row: SideBySideRow, v: SideBySideRow['a'], words: string | undefined): string {
   if (row.kind === 'plan') return typeof v === 'string' && v ? v : 'No plan';
   if (v === undefined) return '—';
-  if (v === null) return 'Complimentary';
+  if (v === null) return words ?? '—'; // the line's own words (`quoteLinePriceWords`, carried by versionsSideBySide)
   if (typeof v !== 'number') return String(v);
   return v < 0 ? `−${formatCentavos(-v)}` : formatCentavos(v);
 }
@@ -81,8 +81,8 @@ export function QuoteVersionsCompare({
                   {r.changed ? <span className="sr-only">Changed: </span> : null}
                   {r.label}
                 </th>
-                <td className={`py-2 text-right tabular-nums ${r.kind === 'plan' ? 'text-[12px]' : ''} ${r.changed ? 'text-ink/55' : 'text-ink'}`}>{cell(r, r.a)}</td>
-                <td className={`py-2 text-right tabular-nums ${r.kind === 'plan' ? 'text-[12px]' : ''} text-ink`}>{cell(r, r.b)}</td>
+                <td className={`py-2 text-right tabular-nums ${r.kind === 'plan' ? 'text-[12px]' : ''} ${r.changed ? 'text-ink/55' : 'text-ink'}`}>{cell(r, r.a, r.aWords)}</td>
+                <td className={`py-2 text-right tabular-nums ${r.kind === 'plan' ? 'text-[12px]' : ''} text-ink`}>{cell(r, r.b, r.bWords)}</td>
               </tr>
             ))}
           </tbody>

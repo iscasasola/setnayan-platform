@@ -186,7 +186,7 @@ export function TodayRow({ href, label, line, pill, lineTone, marker, rowIcon, a
       <span className="min-w-0">
         <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
         {line ? (
-          <span className="block truncate text-[13px] text-ink/60" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
+          <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
             {line}
           </span>
         ) : null}
@@ -212,7 +212,7 @@ export function TodayNoteRow({ label, line, pill, rowIcon, marker }: {
       <RowIcon name={rowIcon} />
       <span className="min-w-0">
         <span className="home-t block text-[15px] leading-tight text-ink">{label}</span>
-        {line ? <span className="block text-[13px] text-ink/60">{line}</span> : null}
+        {line ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">{line}</span> : null}
       </span>
       <span className="flex items-center gap-2">{pill}</span>
     </div>
@@ -267,7 +267,7 @@ export type SupplierTodayFirstScreenProps = {
   minis?: ReactNode;
 };
 
-const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
+const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
 
 /**
  * 📱 THE SUPPLIER'S TODAY — THE ONE BUILD (owner 8 Nov 2026, *"Approved suuplier dashboard"*; contract prototype
@@ -324,7 +324,7 @@ export function SupplierTodayFirstScreen({
         <div
           role="status"
           data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink'}`}
         >
           <span className="min-w-0 flex-1">{outcome.text}</span>
           {outcome.door ? (
@@ -394,7 +394,7 @@ export function SupplierTodayFirstScreen({
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
-        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-ink/60">
+        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-[color:var(--m-slate-2)]">
           Nothing waiting matches that search
         </p>
       </div>
@@ -482,7 +482,7 @@ export function SupplierTodayFirstScreen({
       </div>
       {/* ✅ SETNAYAN VERIFIED — only once Setnayan has checked the papers (the Shop pill says Live or Not yet); while
           they are being checked the Shop row already says so, and nothing here claims more. */}
-      {shop.pill === 'Checking' ? null : (
+      {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
           <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>

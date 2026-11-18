@@ -16,6 +16,7 @@ import {
 } from '@/app/open-shop/_components/service-cards';
 import { cardMakerQueueHref, CARD_QUEUE_MAX } from '@/lib/card-queue';
 import { countNoun } from '@/lib/format-number';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 
 /**
  * ➕ ADD A SERVICE — THE ONE PICKER (ruling 5820, owner Nov 2026).
@@ -77,7 +78,7 @@ export function AddServicePicker({
   if (showMaker) return <div data-add-service-maker="">{maker}</div>;
 
   const blankCard = (
-    <p className="flex flex-wrap items-center gap-2 pt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+    <p className={`flex flex-wrap items-center gap-2 pt-1 ${TEMPLATE_SUBLINE}`}>
       Not on the list?
       <ActionButton tone="neutral" icon={FilePlus2} label="Start a blank card" onClick={() => setShowMaker(true)} data-testid="add-service-blank-card" />
     </p>
@@ -137,13 +138,13 @@ export function AddServicePicker({
 
   return (
     <div className="mx-auto grid w-full max-w-xl gap-3" data-add-service-picker="">
-      <p className="text-[15px] text-ink/70">Pick what you offer. Each one becomes its own card.</p>
+      <p className="text-[15px] text-[color:var(--m-slate-2)]">Pick what you offer. Each one becomes its own card.</p>
 
       {picked.length > 0 ? (
         <div className="grid gap-2" data-add-service-picked={picked.map((p) => p.key).join(',')}>
           {/* No box (lint:no-card): the picks are rows between two hairlines, the picker's own row grammar. */}
           <div>
-            <ul className="divide-y border-y" style={{ borderColor: 'var(--m-line)' }}>
+            <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
               {picked.map((p) => (
                 <li key={p.key}>
                   <SwipeToDelete
@@ -157,12 +158,12 @@ export function AddServicePicker({
                     radiusClass="rounded-none"
                     surfaceClass="bg-[var(--m-paper)]"
                   >
-                    <div className="grid min-h-[50px] gap-1.5 px-3.5 py-2.5" data-add-service-picked-row={p.key}>
+                    <div className="grid min-h-14 gap-1.5 px-3.5 py-2.5" data-add-service-picked-row={p.key}>
                       <span className="min-w-0">
-                        <span className="block truncate text-[15px]" style={{ color: 'var(--m-ink)' }}>
+                        <span className="block truncate text-[15px] font-semibold text-ink">
                           {p.label}
                         </span>
-                        <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                        <span className={`block truncate ${TEMPLATE_SUBLINE}`}>
                           {p.path}
                         </span>
                       </span>
@@ -195,7 +196,7 @@ export function AddServicePicker({
             data-testid="add-service-make-cards"
           />
           {full ? (
-            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            <p className={TEMPLATE_SUBLINE}>
               That is as many as one press makes — make these, then add more.
             </p>
           ) : null}

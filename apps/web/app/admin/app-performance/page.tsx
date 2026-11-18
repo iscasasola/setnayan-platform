@@ -1,19 +1,4 @@
 import { Suspense, type ReactNode } from 'react';
-import Link from 'next/link';
-import {
-  Activity,
-  LineChart,
-  Radar,
-  Globe,
-  BarChart3,
-  TrendingUp,
-  Bug,
-  WifiOff,
-  Waypoints,
-  ShieldAlert,
-  Timer,
-  Footprints,
-} from 'lucide-react';
 import {
   GridPageSkeleton,
   TablePageSkeleton,
@@ -33,6 +18,10 @@ import { BrowserBlocksSurface } from './_surfaces/browser-blocks-surface';
 import { SlowLoadsSurface } from './_surfaces/slow-loads-surface';
 import { VisitsSurface } from './_surfaces/visits-surface';
 import { AdminTotalsSurface } from './_surfaces/admin-totals-surface';
+import DemandPage from '../demand/page';
+import PapicStoragePage from '../papic-storage/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
+import { TabLanding } from '@/app/admin/_components/tab-landing';
 
 /**
  * Insights Studio — the tabbed /admin/app-performance shell that consolidates
@@ -89,21 +78,6 @@ function first(v: string | string[] | undefined): string | undefined {
 function coerceTab(v: string | undefined): Tab {
   return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'overview';
 }
-
-const TAB_STRIP: { key: Tab; label: string; icon: typeof Activity }[] = [
-  { key: 'overview', label: 'Overview', icon: Activity },
-  { key: 'visits', label: 'Visits', icon: Footprints },
-  { key: 'growth', label: 'Growth', icon: LineChart },
-  { key: 'intelligence', label: 'Intelligence', icon: Radar },
-  { key: 'seo', label: 'SEO & GEO', icon: Globe },
-  { key: 'funnels', label: 'Funnels', icon: BarChart3 },
-  { key: 'operations', label: 'Operations & Hiring', icon: TrendingUp },
-  { key: 'connection-logs', label: 'Problems', icon: Bug },
-  { key: 'offline', label: 'Offline daemon', icon: WifiOff },
-  { key: 'interconnections', label: 'Interconnections', icon: Waypoints },
-  { key: 'browser-blocks', label: 'Browser blocks', icon: ShieldAlert },
-  { key: 'slow-loads', label: 'Slow loads', icon: Timer },
-];
 
 // Per-tab <title> — restores what each standalone route used to set.
 const TAB_TITLE: Record<Tab, string> = {
@@ -223,39 +197,17 @@ function activeSurface(
   }
 }
 
-export default async function InsightsStudioPage({ searchParams }: Props) {
+async function InsightsStudioPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Numbers sections"
-        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
-      >
-        {TAB_STRIP.map((t) => {
-          const active = t.key === tab;
-          const Icon = t.icon;
-          return (
-            <Link
-              key={t.key}
-              href={`/admin/app-performance?tab=${t.key}`}
-              aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Per-tab Suspense — the tab strip above is already painted; the active
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-8">
+      {/* 📐 NO TAB STRIP (design template 2026-11-14, rule 1 · F-A-17): the views live behind the layout's pinned
+          row — "Insights · Overview ▾" — whose ▾ opens all of them, grouped (`lib/admin/admin-tabs.ts`). The
+          twelve wrapped tabs that used to sit here took half a phone before the first number.
+          Per-tab Suspense — the pinned row is already painted; the active
           surface streams in behind its own tab-shaped skeleton. Keyed by tab so
           switching tabs remounts the boundary and re-shows the skeleton. */}
       <Suspense key={tab} fallback={tabSkeleton(tab)}>
@@ -263,4 +215,33 @@ export default async function InsightsStudioPage({ searchParams }: Props) {
       </Suspense>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Insights · View ▾ — one read-only page.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?tab=` preselected (`lib/admin/admin-pages.ts`). Every other `?tab=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'demand': DemandPage,
+  'papic-storage': PapicStoragePage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.tab;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  // The bare address is the Insights dashboard (the tab's landing). v10 "Insights as ONE page of graphs": under its cards
+  // sit the shipped Overview charts (`CockpitSurface`), every chart on one screen; each card opens its full view.
+  if (key === undefined && Object.keys(sp).length === 0)
+    return (
+      <>
+        <TabLanding tab="insights" />
+        <div className="mx-auto w-full max-w-[1120px] px-4 pb-12 sm:px-6" data-insights-one-page="">
+          <CockpitSurface searchParams={Promise.resolve({})} />
+        </div>
+      </>
+    );
+  return mountView(InsightsStudioPage, sp);
 }

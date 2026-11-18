@@ -44,7 +44,7 @@ const TAGLINES: Record<string, string> = {
   wedding: 'The day you say “I do.”',
   debut: 'Her grand eighteenth.',
   gender_reveal: 'Pink or blue?',
-  birthday: 'Another year, celebrated.',
+  birthday: 'Another year, with your people.',
   celebration: 'Moments worth gathering for.',
   travel: 'The trip you’ll always remember.',
   corporate: 'Where your brand shines.',

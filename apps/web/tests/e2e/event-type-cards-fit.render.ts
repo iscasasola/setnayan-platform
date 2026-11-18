@@ -24,7 +24,7 @@ type Row = readonly [key: string, label: string, description: string];
 const ROWS: readonly Row[] = [
   ['wedding', 'Wedding', 'The day you say “I do.”'],
   ['gender_reveal', 'Gender Reveal', 'Pink or blue?'],
-  ['birthday', 'Birthday', 'Another year, celebrated.'],
+  ['birthday', 'Birthday', 'Another year, with your people.'],
   ['hangout', 'Hangout', 'Time with friends or barkada — two or more, for a meal, coffee, or a movie night.'],
   ['wake', 'Wake', 'The lamay — the nights of viewing, through to the funeral and the burial.'],
   ['debut', 'Debut', 'Her grand eighteenth.'],

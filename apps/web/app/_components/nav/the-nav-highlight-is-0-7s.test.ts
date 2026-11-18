@@ -21,7 +21,7 @@ import { RISE_MS_STANDARD } from '@/lib/motion-table';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const NAV = stripComments(readFileSync(join(WEB, 'app/_components/nav/bottom-nav.tsx'), 'utf8'));
-const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
 
 /** A token's value as declared in a plain `:root { … }` block. */
 function token(name: string): string | null {

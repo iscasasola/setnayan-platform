@@ -126,7 +126,7 @@ test('the shared Sheet draws itself on <body> — no caller can leave it inside 
   assert.match(sheet, /const host = usePortalHost\(\);/, 'the Sheet no longer finds <body> through the shared host hook');
   const inspector = read('app/_components/inspector/inspector-column.tsx');
   assert.match(inspector, /return createPortal\(layer \? <div className=\{layer\}>\{sheet\}<\/div> : sheet, portal\)/, 'the guest card sheet is drawn in place');
-  assert.match(inspector, /const onClose = useBackCloses\(true, onClosed\)/, "a guest card opened with no list behind it does not close on the phone's Back");
+  assert.match(inspector, /const onClose = useBackCloses\(true, \(\) => playPeekOut\(onClosed\)\)/, "a guest card opened with no list behind it does not close on the phone's Back");
   const admin = read('app/admin/categories/_components/four-level-map.tsx');
   assert.match(admin, /<Sheet\s+open=\{open\}[^>]*back=\{back\}/, 'Admin › Categories’ drawer is not the shared Sheet with its ‹');
 });

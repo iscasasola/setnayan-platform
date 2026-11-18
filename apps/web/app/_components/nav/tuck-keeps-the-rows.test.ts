@@ -29,7 +29,7 @@ import { TUCK_ATTR, TUCK_BLOCKERS, TUCK_MIN_SCROLL_PX, TUCK_OPEN_EVENT, tuckNext
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const css = (rel: string) => readFileSync(join(WEB, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const GLOBALS = css('app/globals.css');
 /** The tuck's own block of globals.css: from the pill's resting rule to the end of its reduced-motion rule. */
 const TUCK = (() => {
@@ -129,9 +129,22 @@ test('6 · away is Move on the Spring, back is Quick on Settle — the bar, the 
   assert.match(body(TUCK, "[data-bottom-dock] > nav[aria-label='Primary navigation']"), new RegExp(`transition:\\s*transform ${BACK.source}`));
   assert.match(body(TUCK, '[data-tuck-pill]'), new RegExp(`transition:\\s*transform ${BACK.source}`));
   assert.match(body(TUCK, `:root ${ROWS}`), new RegExp(`translate ${BACK.source}`));
+  // The top bar and every pinned head that follows it read ONE pair, flipped by the mark.
   const fd = css('app/_components/frontdoor/front-door.css');
-  assert.match(fd, /\.fd\[data-chrome='app'\] \.fd-topwrap\[data-hidden='true'\] \{\s*transform: translateY\(-100%\);\s*transition: transform var\(--sn-m-move\) var\(--sn-m-spring\);\s*\}/, 'the top bar tucks at a speed of its own');
-  assert.match(fd, /transition: transform var\(--sn-m-quick\) var\(--sn-m-settle\);/, 'the top bar comes back at a speed of its own');
+  assert.match(fd, /\.fd\[data-chrome='app'\] \.fd-topwrap \{[^}]*transition: transform var\(--sn-tuck-dur\) var\(--sn-tuck-ease\);/, 'the top bar tucks at a speed of its own');
+  assert.match(GLOBALS, /:root \{[^}]*--sn-tuck-dur: var\(--sn-m-quick\);\s*--sn-tuck-ease: var\(--sn-m-settle\);/, 'back is not Quick on Settle');
+  assert.match(GLOBALS, /html\[data-tuck\] \{\s*--sn-tuck-dur: var\(--sn-m-move\);\s*--sn-tuck-ease: var\(--sn-m-spring\);/, 'away is not Move on the Spring');
+  const PAIR = 'var(--sn-tuck-dur) var(--sn-tuck-ease)';
+  for (const [file, has] of [
+    ['app/_components/photo-group-header.tsx', `top_${PAIR.replace(' ', '_')}`],
+    ['app/dashboard/[eventId]/_components/home-cover-band.tsx', `top_${PAIR.replace(' ', '_')}`],
+    ['app/dashboard/[eventId]/guests/_components/guests-screen.module.css', `transition: top ${PAIR};`],
+    ['app/dashboard/[eventId]/vendors/_components/services-takeover.tsx', `transition:top ${PAIR},`],
+    ['app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx', `transition:top ${PAIR}}`],
+  ] as const) {
+    assert.ok(readFileSync(join(WEB, file), 'utf8').includes(has), `${file}: a pinned head no longer moves at the bar's speed — it will lag or lead the bar`);
+  }
+  assert.match(code('app/_components/nav/use-hide-on-scroll.ts'), /useLayoutEffect\(\(\) => \{\s*if \(!hidden\) return;/, 'the mark lands a frame after the bar starts — the first frames run at the wrong speed');
 });
 
 test('7 · only transform, translate and opacity move; reduced motion swaps at once', () => {

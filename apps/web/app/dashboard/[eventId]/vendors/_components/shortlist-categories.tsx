@@ -415,7 +415,7 @@ const SLCAT_CSS = `
    its new place while the bar was still sliding left a strip of the list
    showing between the pinned block and the head (controller's walk at 375,
    2026-10-08). Same duration, same curve as the bar, so they travel as one. */
-.slcat .fold.flat .cat.open>.cat-head-row{transition:top .3s ease-out}
+.slcat .fold.flat .cat.open>.cat-head-row{transition:top var(--sn-tuck-dur) var(--sn-tuck-ease)}
 html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}

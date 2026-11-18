@@ -8777,6 +8777,16 @@ html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opa
  * opacity only — the row's left room is set once, never animated. Not while the keyboard is up or the chrome has
  * stepped away (those own the dock then). Reduced motion: everything swaps at once.
  * 🔒 app/_components/nav/tuck-keeps-the-rows.test.ts */
+:root {
+  /* The bars' two speeds, as ONE pair every part that moves with the top bar reads (the bar itself, the pinned heads
+     that follow it): back in Quick on Settle at rest, away in Move on the Spring while tucked. */
+  --sn-tuck-dur: var(--sn-m-quick);
+  --sn-tuck-ease: var(--sn-m-settle);
+}
+html[data-tuck] {
+  --sn-tuck-dur: var(--sn-m-move);
+  --sn-tuck-ease: var(--sn-m-spring);
+}
 [data-tuck-pill] {
   opacity: 0;
   visibility: hidden;

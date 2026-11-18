@@ -28,7 +28,7 @@ import { pushDir } from '@/lib/nav-slide';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
 const frames = (name: string) => {
   const at = CSS.indexOf(`@keyframes ${name} {`);
   assert.ok(at >= 0, `globals.css has no @keyframes ${name}`);

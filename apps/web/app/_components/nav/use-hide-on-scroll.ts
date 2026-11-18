@@ -53,7 +53,7 @@
  * 🔒 app/_components/nav/tuck-keeps-the-rows.test.ts
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { pageIsLanding } from '@/lib/pin-landing';
 
 const TOP_ZONE_PX = 64; // always-visible band at the very top of the page
@@ -99,7 +99,9 @@ export function useHideOnScroll(enabled = true): boolean {
   const [hidden, setHidden] = useState(false);
 
   // 🫳 The one mark the bottom nav, the thumb row and the pinned row read — on while hidden, gone the moment it is not.
-  useEffect(() => {
+  // A LAYOUT effect: it must be on <html> in the same commit the bar's own `data-hidden` flips, before anything paints
+  // or follows the bar — it is what picks the bars' speed (`--sn-tuck-dur`), so a frame late would be the wrong speed.
+  useLayoutEffect(() => {
     if (!hidden) return;
     const root = document.documentElement;
     root.setAttribute(TUCK_ATTR, '');

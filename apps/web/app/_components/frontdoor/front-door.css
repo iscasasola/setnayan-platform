@@ -2098,9 +2098,10 @@ button.fd-ask.quiet {
   top: 0;
   /* Under the account panel's portalled sheet, over the page and the rail. */
   z-index: 20;
-  /* 🫳 TUCK (motion standard 18 Nov 2026, § 5 #37): the bar comes BACK in Quick on Settle — faster than it left (the
-     tucked rule below carries the way out: Move on the Spring). */
-  transition: transform var(--sn-m-quick) var(--sn-m-settle);
+  /* 🫳 TUCK (motion standard 18 Nov 2026, § 5 #37): the bar leaves in Move on the Spring and comes BACK in Quick on
+     Settle — faster than it left. The pair is `--sn-tuck-dur` / `--sn-tuck-ease` (globals.css; `html[data-tuck]` flips
+     it), the SAME pair every pinned head that follows the bar reads, so they still move as one. */
+  transition: transform var(--sn-tuck-dur) var(--sn-tuck-ease);
   /* Frosted, not solid — the shipped idiom on all three bars this replaces
      (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
      transparent strip over scrolling content is unreadable; a solid one is the
@@ -2663,7 +2664,6 @@ button.fd-ask.quiet {
      hamburger.) */
   .fd[data-chrome='app'] .fd-topwrap[data-hidden='true'] {
     transform: translateY(-100%);
-    transition: transform var(--sn-m-move) var(--sn-m-spring);
   }
 
   /* ⚠ "+ Create" IS DESKTOP-ONLY IN THE APP. A 360px row already carries

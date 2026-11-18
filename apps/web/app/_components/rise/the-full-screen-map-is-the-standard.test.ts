@@ -32,7 +32,7 @@ import { FULL_SCREEN_MAP, RISE_KINDS, picturePlan, riseScreenMotion, type RiseKi
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
 /** Every declaration of the rules whose selector is exactly `sel` (at the start of a line). */
 const rule = (sel: string) => {
   const bodies = CSS.split('\n' + sel + ' {').slice(1).map((rest) => rest.slice(0, rest.indexOf('}')));

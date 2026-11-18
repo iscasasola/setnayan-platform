@@ -17,11 +17,11 @@ const BASE = '/dev/motion-screens-lab';
 const PHOTO =
   "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'><rect width='40' height='30' fill='%23c9785c'/><circle cx='29' cy='10' r='5' fill='%23f6e7c8'/><path d='M0 30 14 14l9 9 6-5 11 12z' fill='%237a4a3a'/></svg>";
 
-// The app bar's own two speeds, as front-door.css draws them: back in Quick on Settle, away in Move on the Spring.
+// The app bar's own two speeds, as front-door.css draws them (`--sn-tuck-*`): back in Quick on Settle, away in Move on the Spring.
 const BAR_CSS =
   '.ms-lab-bar{position:sticky;top:0;z-index:20;height:51px;display:flex;align-items:center;padding:0 16px;font-weight:600;' +
-  'background:rgb(var(--sn-page-bg));border-bottom:1px solid var(--sn-hair);transition:transform var(--sn-m-quick) var(--sn-m-settle)}' +
-  '@media (max-width:700.98px){.ms-lab-bar[data-hidden="true"]{transform:translateY(-100%);transition:transform var(--sn-m-move) var(--sn-m-spring)}}';
+  'background:rgb(var(--sn-page-bg));border-bottom:1px solid var(--sn-hair);transition:transform var(--sn-tuck-dur) var(--sn-tuck-ease)}' +
+  '@media (max-width:700.98px){.ms-lab-bar[data-hidden="true"]{transform:translateY(-100%)}}';
 
 const TABS = [
   { key: 'home', label: 'Home', href: BASE, icon: Home, activeMatch: BASE, activeMatchExact: true },

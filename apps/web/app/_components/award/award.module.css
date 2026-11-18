@@ -1792,7 +1792,7 @@
   }
 }
 
-/* ───────────────────────── 🔒 the locked look (v86 .lkt): the art in grey under a lock, what it takes ───────────────────────── */
+/* ───────────────────────── 🔒 the locked look (v86 .lkt): the art in its REAL colours, a small lock at the bottom-right (owner 18 Nov: "we still want to see how they look like"; replaces v86's grey), what it takes ───────────────────────── */
 .lkt {
   position: relative;
   display: grid;
@@ -1808,8 +1808,6 @@
   height: 96px;
   display: grid;
   place-items: center;
-  filter: grayscale(1) contrast(0.75) brightness(1.08);
-  opacity: 0.42;
 }
 .lktArt svg {
   max-width: 100%;
@@ -1824,17 +1822,16 @@
 }
 .lktLock {
   position: absolute;
-  top: 62px;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 34px;
-  height: 34px;
+  /* the art box is 96 px, centred, starting 14 px down: the lock sits on its bottom-right corner */
+  top: 80px;
+  left: calc(50% + 34px);
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: Canvas;
   display: grid;
   place-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  opacity: 0.95;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 .lktGroup {
   font: 700 10px/1 var(--font-sans, system-ui), sans-serif;

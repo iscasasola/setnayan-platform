@@ -552,7 +552,7 @@ test('19 · Setnayan Verified: its own navy screen, v86 words verbatim, no plaqu
   assert.ok(css.includes('radial-gradient(120% 72% at 50% 36%, #1c2d57 0, #0b1124 52%, #04060e 100%)'), 'the navy stage');
 });
 
-test('20 · the locked look: grey art under a lock, the group, the name, what it takes — v86 words', async () => {
+test('20 · the locked look: the real art with a small lock, the group, the name, what it takes — v86 words, owner 18 Nov colour', async () => {
   const { LockedTile, LOCKED_HOW, bronzeAtLine } = await import('./locked-tile');
   assert.equal(LOCKED_HOW.shield, 'Bronze when 1 supplier recommends you');
   assert.equal(bronzeAtLine('Bronze', 5, 'bookings'), 'Bronze at 5 bookings');
@@ -560,7 +560,10 @@ test('20 · the locked look: grey art under a lock, the group, the name, what it
   assert.ok(m.includes('aria-label="Top 10 Supplier, locked. Top 10 of the year"'));
   assert.ok(m.includes('>Seal<') && m.includes('<b>Top 10 Supplier</b>'));
   const css = readFileSync(join(DIR, 'award.module.css'), 'utf8');
-  assert.ok(css.includes('filter: grayscale(1) contrast(0.75) brightness(1.08)'), 'the art is greyed');
+  // Owner 18 Nov: "we still want to see how they look like" — the art keeps its colours; the lock is small, bottom-right.
+  const lkt = css.slice(css.indexOf('.lktArt {'), css.indexOf('.lktGroup {'));
+  assert.ok(!/grayscale|opacity:\s*0\.[0-4]/.test(lkt), 'the locked art is never greyed or faded');
+  assert.ok(/\.lktLock \{[^}]*width: 24px/.test(lkt), 'the lock is small (24 px)');
 });
 
 /* ── v86 · the seals: No. 1's #1 RANK medal, the gold-ray stage, matte velvet, the smooth landing, the named gaps ── */

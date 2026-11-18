@@ -2,7 +2,7 @@
 /**
  * 🔒 THE LOCKED LOOK (owner 15 Nov: *"i do not see the locked badge for all and the popup for setnayan verified"*;
  * ported from `badge-milestones_v86.html` `.lkt`). Every badge at its Bronze step, Setnayan Verified and the five seals
- * show here until earned: the art in grey under a lock, the group (Badge · Verified · Seal), the name, and what it
+ * show here until earned: the art in its real colours with a small lock at the bottom-right (owner 18 Nov, replacing the grey), the group (Badge · Verified · Seal), the name, and what it
  * takes. Shown to the SHOP on its own badge page only — a locked one is never shown to couples (the caller's rule;
  * this tile only draws).
  *
@@ -27,7 +27,7 @@ export function bronzeAtLine(tierName: string, step: number, unit: string): stri
 }
 
 export type LockedTileProps = {
-  /** The badge/seal art, drawn in its own colours — the tile greys it. */
+  /** The badge/seal art, drawn in its own colours — the tile keeps them (owner 18 Nov). */
   art: ReactNode;
   group: LockedGroup;
   name: string;
@@ -40,7 +40,7 @@ export function LockedTile({ art, group, name, how }: LockedTileProps) {
     <div className={s.lkt} role="img" aria-label={`${name}, locked. ${how}`} data-award-locked={group}>
       <span className={s.lktArt}>{art}</span>
       <span className={s.lktLock} aria-hidden="true">
-        <Lock size={18} strokeWidth={2} />
+        <Lock size={13} strokeWidth={2.25} />
       </span>
       <span className={s.lktGroup}>{group}</span>
       <b>{name}</b>

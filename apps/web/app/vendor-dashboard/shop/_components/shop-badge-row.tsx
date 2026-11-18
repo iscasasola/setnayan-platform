@@ -24,7 +24,7 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  *     Now · how far to the next tier · Next goal · the reward lines · what it counts (`shelfLines`);
  *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz`);
  *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the v84 LOCKED look (`LockedTile`:
- *     the art in grey under a lock, what it takes) and the same lines, the reward box and its door.
+ *     the art in its real colours with a small lock, what it takes) and the same lines, the reward box and its door.
  *
  * 🏅 EVERY BADGE SITS IN ITS PROGRESS RING (owner 8 Nov): the shipped `ProgressRing`, drawn in once when seen.
  * 🔒 lib/shop-badge-shelf.test.ts · shop/the-shop-tab-is-v113.test.ts · performance/your-badges-are-on-the-page.test.ts
@@ -72,10 +72,10 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
   );
 }
 
-/** The v84 picture: the tier reached, or Bronze in grey under a lock before it; Verified is the blue check. */
+/** The v84 picture: the tier reached, or Bronze before it in its REAL colours with a small lock at the bottom-right
+ *  (owner 18 Nov: "we still want to see how they look like" — replaces v84's grey); Verified is the blue check. */
 function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   const earned = tile.state === 'earned';
-  const grey = earned ? undefined : 'grayscale(1) contrast(0.75) brightness(1.08)';
   return (
     <span className="relative inline-grid place-items-center" style={{ width: size, height: size }} data-badge-art="">
       {tile.src ? (
@@ -87,20 +87,20 @@ function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
           loading="lazy"
           decoding="async"
           alt=""
-          style={{ width: size, height: 'auto', filter: grey, opacity: earned ? 1 : 0.45 }}
+          style={{ width: size, height: 'auto' }}
           data-badge-img={tile.key}
         />
       ) : (
         <span
           className="inline-grid"
-          style={{ width: size * 0.9, height: size * 0.9, filter: grey, opacity: earned ? 1 : 0.45 }}
+          style={{ width: size * 0.9, height: size * 0.9 }}
           // trusted: the approved v84 art from a constant (lib/verified-v84-art.ts), never user text
           dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: Math.round(size * 0.9), word: false }) }}
         />
       )}
       {earned ? null : (
-        <span className="absolute grid h-6 w-6 place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow" style={{ top: size * 0.62 }} aria-hidden>
-          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+        <span className="absolute bottom-0 right-0 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow" aria-hidden data-badge-lock="">
+          <Lock className="h-3 w-3" strokeWidth={2.25} />
         </span>
       )}
     </span>
@@ -232,7 +232,7 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
 
 function BadgeArtLarge({ tile }: { tile: ShelfTile }) {
   if (tile.src) {
-    // eslint-disable-next-line @next/next/no-img-element -- the static v84 picture, greyed by the locked look
+    // eslint-disable-next-line @next/next/no-img-element -- the static v84 picture, in its own colours under the locked look's small lock
     return <img src={tile.src} width={BADGE_ART_W} height={BADGE_ART_H} alt="" loading="lazy" decoding="async" />;
   }
   // trusted: the approved v84 art from a constant, never user text

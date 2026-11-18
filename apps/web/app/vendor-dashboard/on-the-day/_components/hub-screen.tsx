@@ -280,14 +280,14 @@ export function HubPageRow({
   label: string;
   line: string;
   href: string;
-  /** "You can edit — the hosts are told" · "View only". */
-  access: string;
+  /** "You can edit — the hosts are told" · "View only". Omitted when the list above already says it once (CHAT-33). */
+  access?: string;
 }) {
   return (
     <div data-hub-page-row={pageKey} className="border-b border-ink/10">
       <Fold title={label} line={line} lead={<RowIcon icon={icon} />} data={`hub-page-${pageKey}`}>
         <div className="space-y-2 pb-3">
-          <p className="text-[13.5px] text-ink/65">{access}</p>
+          {access ? <p className="text-[13.5px] text-ink/65">{access}</p> : null}
           <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={`Open ${label}`} href={href} />
         </div>
       </Fold>

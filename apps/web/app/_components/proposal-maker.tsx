@@ -63,7 +63,7 @@ import {
 } from '@/lib/saved-quote';
 import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
 import type { QuoteEventBrief } from '@/lib/quote-event-brief';
-import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
+import { SITE_CHECK_TRANSPORT_DETAIL, type QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
 import { QuoteShopGifts, type QuoteShopGiftsBuy } from '@/app/_components/quote-shop-gifts';
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Package, Plus, Tag } from 'lucide-react';
@@ -551,12 +551,17 @@ export function ProposalMaker({
       ? revision.lines.map((s) => ({ ...s, key: nextKey() }))
       : [newLine(false)],
   );
+  // CHAT-31 (walk 16 Nov 2026): "Update this quote" showed ₱10,500 for an ₱8,750 quote — the stored "Crew meal ₱1,750"
+  // seeds as a line (lib/quote-revision-seed.ts) AND this default emitted it again. A revision already carries its crew
+  // charge (or its "couple provides" credit) in its lines, so its crew mode starts 'included', as that seed promises.
   const [crew, setCrew] = useState<Crew>({
-    mode: coupleCrewProvider ? 'offset' : 'charge',
+    mode: revision ? 'included' : coupleCrewProvider ? 'offset' : 'charge',
     size: 5,
     perHeadPhp: 350,
   });
-  const [transport, setTransport] = useState<Transport>({ mode: 'included', flatPhp: 2000 });
+  // 🚚 A revision of a quote whose transport was "Quoted after site check" reopens in distance mode, so the line is
+  // written again on send — never seeded as a free line (lib/quote-revision-seed.ts).
+  const [transport, setTransport] = useState<Transport>({ mode: revision?.transportAfterSiteCheck ? 'distance' : 'included', flatPhp: 2000 });
   // A revision's negative lines (discount, credit) arrive folded into this one
   // field — see lib/quote-revision-seed.ts for why they cannot seed as lines.
   const [discountPhp, setDiscountPhp] = useState(revision?.discountPhp ?? 0);
@@ -761,7 +766,7 @@ export function ProposalMaker({
     if (transport.mode === 'flat' && trans > 0) {
       li.push({ label: 'Transportation', detail: 'Flat fee', amount_centavos: trans });
     } else if (transport.mode === 'distance') {
-      li.push({ label: 'Transportation', detail: 'Quoted after site check', amount_centavos: null });
+      li.push({ label: 'Transportation', detail: SITE_CHECK_TRANSPORT_DETAIL, amount_centavos: null });
     }
     // 🏷 An applied offer is ITS OWN NAMED LINE on their quote — never folded into a price (prototype frame 6) — and it
     // comes BEFORE the typed discount (owner 12 Nov: "offer first then typed discount").
@@ -2263,6 +2268,9 @@ export function ProposalMaker({
             onChange={setShopGiftCodes}
             buy={shopGiftsBuy}
             cardCount={cards.filter((c) => pickedCards[c.id]).length}
+            // CHAT-31: the fee line above reads the SAME standing — a client who did not come from Setnayan carries
+            // no fee, so the limit must not call the sized figure "its booking fee".
+            feeNotCharged={feeStanding?.kind === 'not_sourced'}
           />
         ) : null}
       </div>

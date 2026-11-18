@@ -1,6 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
+import { Archive, Ban, Check, Power, RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { setDataPrivacyControl, type ControlActionResult } from '../actions';
 import type { PrivacyControlRow } from '@/lib/data-privacy-controls';
 
@@ -14,14 +16,10 @@ import type { PrivacyControlRow } from '@/lib/data-privacy-controls';
  * every approval.
  *
  * Drawn inside the control's fold on the Insights drawing (admin_pub/insights.html › Privacy & NPC): the note as a row,
- * then the presses at 44 px (T19 tones, tokens only). Each press keeps exactly the step it had — a direct submit, no
- * confirm added.
+ * then the presses at 44 px (the house `ActionButton`, tones only). Each press keeps exactly the step it had — a direct
+ * submit, no confirm added — and posts `status` through `formName` (controller, 16 Nov 2026: a form-name apart from
+ * the accessible name, so "Block" is read as "Block", not "status").
  */
-const PRESS =
-  'inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition-colors disabled:opacity-60';
-const BTN_NEUTRAL = `${PRESS} border border-ink/15 text-ink hover:bg-ink/[0.03]`;
-const BTN_OK = `${PRESS} bg-[var(--sn-success-soft)] text-[var(--sn-success-deep)] hover:opacity-90`;
-const BTN_DANGER = `${PRESS} border border-[var(--sn-danger)] text-[var(--sn-danger)] hover:bg-[var(--sn-danger-soft)]`;
 const FIELD = 'h-11 min-w-0 flex-1 rounded-lg border border-ink/15 bg-transparent px-3 text-sm text-ink sm:max-w-xs';
 
 export function ControlActions({ control: c }: { control: PrivacyControlRow }) {
@@ -48,28 +46,18 @@ export function ControlActions({ control: c }: { control: PrivacyControlRow }) {
         {c.status === 'retired' ? (
           // A retired control's feature is gone/not built — the only move is to
           // bring it back onto the live board (as Off), never straight to Active.
-          <button type="submit" name="status" value="inactive" disabled={isPending} className={BTN_NEUTRAL}>
-            {isPending ? 'Saving…' : 'Restore (set off)'}
-          </button>
+          <ActionButton tone="neutral" icon={RotateCcw} type="submit" formName="status" value="inactive" disabled={isPending} label={isPending ? 'Saving…' : 'Restore (set off)'} />
         ) : (
           <>
             {c.status !== 'active' ? (
-              <button type="submit" name="status" value="active" disabled={isPending} className={BTN_OK}>
-                {isPending ? 'Saving…' : 'Approve · activate'}
-              </button>
+              <ActionButton tone="ok" icon={Check} type="submit" formName="status" value="active" disabled={isPending} label={isPending ? 'Saving…' : 'Approve · activate'} />
             ) : (
-              <button type="submit" name="status" value="inactive" disabled={isPending} className={BTN_NEUTRAL}>
-                {isPending ? 'Saving…' : 'Turn off'}
-              </button>
+              <ActionButton tone="neutral" icon={Power} type="submit" formName="status" value="inactive" disabled={isPending} label={isPending ? 'Saving…' : 'Turn off'} />
             )}
             {c.status !== 'blocked' ? (
-              <button type="submit" name="status" value="blocked" disabled={isPending} className={BTN_DANGER}>
-                Block
-              </button>
+              <ActionButton tone="danger" icon={Ban} type="submit" formName="status" value="blocked" disabled={isPending} label="Block" />
             ) : null}
-            <button type="submit" name="status" value="retired" disabled={isPending} className={BTN_NEUTRAL}>
-              Retire
-            </button>
+            <ActionButton tone="neutral" icon={Archive} type="submit" formName="status" value="retired" disabled={isPending} label="Retire" />
           </>
         )}
       </div>

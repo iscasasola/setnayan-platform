@@ -119,7 +119,7 @@ export default async function AdminLogPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead title="Admin log" />
       {namesUnread ? (
-        <p role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p role="alert" className="mb-4 text-sm font-semibold text-danger-700">
           Couldn’t read the admins’ names just now, so some rows show an account number instead. Reload to try again.
         </p>
       ) : null}

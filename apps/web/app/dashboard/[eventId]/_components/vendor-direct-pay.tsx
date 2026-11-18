@@ -40,7 +40,6 @@ import {
   AlertTriangle,
   Building2,
   Check,
-  ChevronRight,
   Copy,
   Eye,
   ExternalLink,
@@ -52,6 +51,7 @@ import {
 } from 'lucide-react';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
 import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { qrWords, payloadCarriesOwnAmount, AGREED_AMOUNT } from '@/lib/qr-amount-truth';
@@ -164,32 +164,25 @@ function DirectPayTrigger({
     >
       {variant === 'couple' ? (
         <>
-          <button
+          {/* 📐 THE ONE MAIN BUTTON (design template 2026-11-14, rule 3 + "Supplier Payment · after"): filled
+              terracotta, full width on a phone, "Pay <supplier>". The ways they take money stay named for a screen
+              reader; the sheet it opens is unchanged. */}
+          <ActionButton
+            tone="brand"
+            main
+            icon={Wallet}
+            label={`Pay ${vendorName}`}
+            name={`Pay ${vendorName} directly — ${hint}`}
             type="button"
-            onClick={() => setOpen(true)}
             aria-haspopup="dialog"
-            className="group flex w-full items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/[0.04] px-4 py-3 text-left transition-colors hover:border-terracotta/60 hover:bg-terracotta/[0.07]"
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta-700" strokeWidth={1.75} />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-ink">
-                  Pay {vendorName} directly
-                </span>
-                <span className="truncate text-xs text-ink/55">{hint}</span>
-              </span>
-            </span>
-            <ChevronRight
-              aria-hidden
-              className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta-700"
-              strokeWidth={1.75}
-            />
-          </button>
+            onClick={() => setOpen(true)}
+            className="w-full"
+          />
           {/* Always-on reassurance — visible BEFORE the sheet opens so the
               "Setnayan doesn't hold this money" promise is never hidden behind
               a tap (project_setnayan_vendor_payment_disclosure). The full
               owner-locked disclosure renders inside the sheet. */}
-          <p className="text-[11px] leading-relaxed text-ink/45">
+          <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
             You pay the supplier directly — Setnayan never holds this money.
           </p>
         </>

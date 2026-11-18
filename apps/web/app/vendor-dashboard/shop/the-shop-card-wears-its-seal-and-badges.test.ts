@@ -27,7 +27,8 @@ test('the Shop header draws the app seal, the earned circles and the next step',
   assert.match(cover, /d\.earned && d\.earned\.length === 0 && d\.nextBadge/, 'nothing earned → the next step is said');
   const page = read('page.tsx');
   assert.match(page, /shopBadges\(\{ \.\.\.facts, verified: false \}\)\.filter\(\(b\) => b\.kind === 'milestone' \|\| b\.kind === 'award'\)/);
-  assert.match(page, /nextBadge: nextBadgeShort\(/);
+  assert.match(page, /nextBadge: shelfNextBadgeLine\(badges\)/, 'the header’s next step is the Completed bookings tile’s own goal');
+  assert.doesNotMatch(page, /nextBadgeShort\(/, 'a second ladder is back in the header');
   assert.match(page, /earned: data\.earned/);
 });
 

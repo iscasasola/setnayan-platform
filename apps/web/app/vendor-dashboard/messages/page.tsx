@@ -9,7 +9,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { buildVendorConversationRows, type ConversationRow } from '@/lib/conversation-list';
 import { readVendorConversationInputs } from '@/lib/vendor-conversation-inputs.server';
 import { isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { chatRowTellApart, eventChatTitle } from '@/lib/event-chat-title';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import type { InboxRow } from '@/app/dashboard/[eventId]/messages/_components/chat-inbox';
@@ -144,25 +144,40 @@ async function readSupplierChats(
     })),
   );
 
-  const toInboxRow = (r: ConversationRow, isArchived: boolean, unreadOnEvent: boolean): InboxRow => {
+  // ONE EVENT, ONE CHAT TITLE — the same words the thread head prints. With no facts read, the builder's own honest
+  // fallback ("A Setnayan event"), never an invented "(date not set)".
+  const titleOf = (r: ConversationRow): string => {
     const facts = inputs.customers.get(r.eventId);
     const kind = facts?.eventType && facts.eventType !== 'unspecified' ? eventTypeLabel(facts.eventType) : null;
-    // ONE EVENT, ONE CHAT TITLE — the same words the thread head prints. With no facts read, the builder's own honest
-    // fallback ("A Setnayan event"), never an invented "(date not set)".
-    const name = facts ? eventChatTitle({ name: facts.displayName, kind, date: facts.eventDate, nowMs, options: facts.dateOptions }) : r.displayName;
+    return facts ? eventChatTitle({ name: facts.displayName, kind, date: facts.eventDate, nowMs, options: facts.dateOptions }) : r.displayName;
+  };
+  // 🔎 Two rows with one title say what tells them apart on the event line (CHAT-11) — one row per event, so keyed by it.
+  const tellApart = chatRowTellApart(
+    folds.flatMap((f) => {
+      const r = rowById.get(f.lead.threadId);
+      const facts = r ? inputs.customers.get(r.eventId) : undefined;
+      return r ? [{ key: r.eventId, title: titleOf(r), ownName: facts?.displayName, city: facts?.city }] : [];
+    }),
+  );
+
+  const toInboxRow = (r: ConversationRow, isArchived: boolean, unreadOnEvent: boolean): InboxRow => {
+    const name = titleOf(r);
     return {
       threadId: r.threadId,
       // ✉️ The picked client, already on its Chat page — drawn over this list (`./@client`).
       href: `/vendor-dashboard/clients/${r.eventId}?tab=chat`,
       opensPicked: true,
       name,
+      // 👥 The couple's names as they wrote them ("Wanda & Indigo") — the title keeps one first name; search finds both.
+      names: inputs.customers.get(r.eventId)?.displayName ?? null,
       logoUrl: null,
       preview: r.preview,
       timeLabel: r.timeLabel,
       unread: unreadOnEvent,
-      // The chat title IS this row's event line — whose event, which kind, which day ("Ana's Wedding (Dec 12)"), so two
-      // events of one customer never read as one. Nothing beside it: at 390 a second line there cut the title's date.
-      eventLine: '',
+      // The chat title IS this row's event line — whose event, which kind, which day ("Ana's Wedding (Dec 12)"). Nothing
+      // beside it (at 390 a second line there cut the title's date) — UNLESS another row carries the very same title,
+      // when the event's own name (or its city) is what tells them apart (`chatRowTellApart`, CHAT-11).
+      eventLine: tellApart.get(r.eventId) ?? '',
       archived: isArchived,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={SUPPLIER_CHATS_HREF} archived={isArchived} />,
       // 🖥 From 701 the row opens the event's newest thread beside this list (`ChatPanes`), not the picked client over it.

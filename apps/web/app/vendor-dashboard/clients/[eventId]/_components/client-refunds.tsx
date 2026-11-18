@@ -18,7 +18,7 @@ import { DatesRow } from '../../../customers/_components/dates-row';
 /** A refund row as the Payment page draws it — the record plus its proof's display link (null when none / not servable). */
 export type ClientRefundView = ClientRefund & { proofUrl: string | null };
 
-const H = 'text-xs font-semibold uppercase tracking-[0.12em] text-ink/70';
+const H = 'home-k2 !mt-0 !mb-0';
 
 /** Today in Manila, 'YYYY-MM-DD' — the date field's default and its upper bound. */
 function manilaToday(): string {

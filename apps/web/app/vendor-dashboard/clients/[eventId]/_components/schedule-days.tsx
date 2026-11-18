@@ -27,7 +27,7 @@ export type AllClientsMonth = { bookings: OtherBooking[]; pools: { poolId: strin
  * 📅 THE DAYS STRIP ON A CLIENT'S SCHEDULE (owner 18 Nov 2026 "plan it and set to build"; drawing NL5NDoD6 v7). Sits on
  * top of the shipped blow-by-blow (`children`), which it never changes:
  *
- *   · a Week | Month switch and a "This client ▾ / All clients" dropdown (PickMenu);
+ *   · a "Week ▾" dropdown and a "This client ▾ / All clients" dropdown (both PickMenu, drawing v12 §6);
  *   · dots on this client's days — the event day(s), Meeting-card days, payment due days (`lib/schedule-days.ts`);
  *   · tap a day → its panel: the event day says the blow-by-blow is below (and shows it); a meeting or payment day lists
  *     its rows — a payment row's door is "See payment ›", switched in place — and the blow-by-blow waits behind
@@ -158,10 +158,19 @@ export function ScheduleDays({
   return (
     <div data-schedule-days="">
       <div className="rounded-2xl bg-frame px-1 pb-3 pt-1 shadow-sn-frame">
-        <div className="flex min-h-11 flex-wrap items-center gap-2 px-2">
-          <p className="min-w-0 flex-1 text-[16px] font-bold text-ink" data-schedule-days-heading="">
+        {/* The heading row carries the two 44 px steppers, so the seven day cells get the strip's full width (≥44 px each at 375). */}
+        <div className="flex min-h-11 items-center gap-1">
+          <button type="button" onClick={() => step(-1)} aria-label={view === 'month' ? 'Month before' : 'Week before'} className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70" data-schedule-days-step="before">
+            <ChevronLeft aria-hidden className="h-5 w-5" />
+          </button>
+          <p className="min-w-0 flex-1 text-center text-[16px] font-bold text-ink" data-schedule-days-heading="">
             {heading}
           </p>
+          <button type="button" onClick={() => step(1)} aria-label={view === 'month' ? 'Month after' : 'Week after'} className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70" data-schedule-days-step="after">
+            <ChevronRight aria-hidden className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-11 items-center justify-between gap-2 px-2">
           <PickMenu
             label="Whose days"
             value={scope}
@@ -173,38 +182,28 @@ export function ScheduleDays({
             dataAttr="data-schedule-days-scope"
             className="!min-h-11"
           />
-          <div className="inline-flex rounded-full bg-ink/[0.06] p-0.5" role="group" aria-label="Week or month">
-            {(['week', 'month'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-                className={`sn-press min-h-11 rounded-full px-3 text-[13px] font-semibold ${view === v ? 'bg-frame text-ink shadow-sm' : 'text-ink/70'}`}
-                data-schedule-days-view={v}
-              >
-                {v === 'week' ? 'Week' : 'Month'}
-              </button>
-            ))}
-          </div>
+          {/* "Week ▾" — a dropdown like "This client ▾" (drawing v12 §6: the Week | Month switch becomes one; same choices). */}
+          <PickMenu
+            label="Week or month"
+            value={view}
+            options={[
+              { key: 'week', label: 'Week' },
+              { key: 'month', label: 'Month' },
+            ]}
+            onPick={(k) => setView(k === 'month' ? 'month' : 'week')}
+            dataAttr="data-schedule-days-view"
+            className="!min-h-11"
+          />
         </div>
-        <div className="mt-1 flex items-center gap-1">
-          <button type="button" onClick={() => step(-1)} aria-label={view === 'month' ? 'Month before' : 'Week before'} className="sn-press grid h-11 w-8 flex-none place-items-center text-ink/70">
-            <ChevronLeft aria-hidden className="h-4 w-4" />
-          </button>
-          <div className="grid min-w-0 flex-1 grid-cols-7 gap-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <span key={i} className="text-center text-[11px] font-semibold text-ink/55" aria-hidden>
-                {d}
-              </span>
-            ))}
-            {view === 'week'
-              ? weekOf(weekAt).map((d) => cell(d, !byDay.has(d) && !otherDays.has(d)))
-              : monthGrid(month).map((d, i) => (d ? cell(d, !byDay.has(d) && !otherDays.has(d)) : <span key={`x${i}`} aria-hidden />))}
-          </div>
-          <button type="button" onClick={() => step(1)} aria-label={view === 'month' ? 'Month after' : 'Week after'} className="sn-press grid h-11 w-8 flex-none place-items-center text-ink/70">
-            <ChevronRight aria-hidden className="h-4 w-4" />
-          </button>
+        <div className="mt-1 grid grid-cols-7 gap-x-0.5 gap-y-1">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <span key={i} className="text-center text-[11px] font-semibold text-ink/55" aria-hidden>
+              {d}
+            </span>
+          ))}
+          {view === 'week'
+            ? weekOf(weekAt).map((d) => cell(d, !byDay.has(d) && !otherDays.has(d)))
+            : monthGrid(month).map((d, i) => (d ? cell(d, !byDay.has(d) && !otherDays.has(d)) : <span key={`x${i}`} aria-hidden />))}
         </div>
         {scope === 'all' && (allLoading || allRefused) ? (
           <p role="status" className={`px-3 pt-2 text-[13px] ${allRefused ? 'font-semibold text-danger-700' : 'text-ink/70'}`} data-schedule-days-all={allRefused ? 'unread' : 'loading'}>

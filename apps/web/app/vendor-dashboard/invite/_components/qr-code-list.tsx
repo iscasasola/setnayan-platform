@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, QrCode } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { InfoTip } from '@/app/_components/info-tip';
 import { usePromoteBridge } from '@/app/vendor-dashboard/shop/promote/_components/promote-bridge';
 import type { PrintQrMode } from '@/lib/supplier-prints';
@@ -40,6 +41,9 @@ export type QrRow = {
   href?: string;
   /** This code can go onto the shop's prints (Shop › Promote's codes). */
   putOn?: PrintQrMode;
+  /** A form to fill (the Booked deal) rises FULL SCREEN instead of the half sheet (W1 walk 16 Nov; DECISION_LOG
+   *  2026-11-10 "RISE FULL SCREEN" — a picker or code viewer stays the half sheet, 2026-11-12). */
+  rise?: boolean;
 };
 
 export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: string | null }) {
@@ -102,8 +106,15 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
         ))}
       </div>
 
+      {row?.rise ? (
+        <RiseScreen title={row.name} line={row.sheetLine} onClose={() => setOpen(null)} data={`qr-${row.key}`}>
+          <div className="px-4 pb-6" data-qr-sheet={row.key}>
+            {row.body}
+          </div>
+        </RiseScreen>
+      ) : null}
       <Sheet
-        open={row !== null}
+        open={row !== null && !row.rise}
         onClose={() => setOpen(null)}
         labelledById={titleId}
         head={

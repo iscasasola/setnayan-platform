@@ -173,7 +173,7 @@ test('the homepage openGraph/twitter override keeps the large brand card', () =>
       '"summary" thumbnail instead — measured live on 2026-08-09.',
   );
   assert.equal(
-    (meta.match(/\/brand\/og-card\.webp/g) ?? []).length >= 2,
+    (meta.match(/\/brand\/og-card-2026-11\.png/g) ?? []).length >= 2,
     true,
     'The 1200×630 brand card must be restated in BOTH the openGraph and twitter ' +
       'overrides on the homepage. Overriding either object drops the layout\'s image.',

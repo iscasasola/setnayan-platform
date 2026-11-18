@@ -24,6 +24,11 @@
  * the way OUT ("Crew meal", "Transportation"), so they seed as ordinary flat
  * lines; the builder's crew/transport modes stay 'included' so nothing is
  * counted twice.
+ *
+ * 🚚 EXCEPT THE UNPRICED TRANSPORT (owner screenshot 17 Nov, "Debut 18"): "Transportation · Quoted after site check"
+ * has NO amount, and a null amount otherwise seeds as a freebie — so a re-quote silently turned "we'll price it after
+ * the site check" into "transport is free" on the couple's quote. That one line is not seeded; the builder reopens in
+ * its distance mode (`transportAfterSiteCheck`) and writes the same line again on send. No amount changes.
  */
 import type { ProposalLineItem } from './vendor-proposals';
 import { lineStructureOf } from './quote-line-structure';
@@ -118,6 +123,9 @@ export type QuoteRevisionOffer = {
   giftLabels: string[];
 };
 
+/** The detail the quote builder writes on a distance-priced transport line (proposal-maker, transport 'distance'). */
+export const SITE_CHECK_TRANSPORT_DETAIL = 'Quoted after site check';
+
 export type QuoteRevisionSeed = {
   /** The quote being replaced — named in the builder's banner. */
   of: { publicId: string; title: string; totalCentavos: number; status: string; sentAt: string | null };
@@ -142,6 +150,8 @@ export type QuoteRevisionSeed = {
    * column is nullable by design, so the builder falls through to the cards.
    */
   giftSwitch: boolean | null;
+  /** The replaced quote carried "Transportation · Quoted after site check" — the builder reopens in distance mode. */
+  transportAfterSiteCheck?: boolean;
 };
 
 export type QuoteRevisionSource = {
@@ -193,6 +203,7 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
   let discountOfferId: string | null = null;
   let offer: QuoteRevisionOffer | null = null;
   const offerGifts: { id: string; label: string }[] = [];
+  let transportAfterSiteCheck = false;
   for (const li of raw) {
     const label = String(li?.label ?? '').trim();
     if (!label) continue;
@@ -201,6 +212,11 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
         ? null
         : Math.round(Number(li.amount_centavos));
     const s = lineStructureOf(li);
+    if (amount == null && String(li?.detail ?? '').trim() === SITE_CHECK_TRANSPORT_DETAIL) {
+      // Not a freebie — the transport priced after the site check. The builder's distance mode writes it again.
+      transportAfterSiteCheck = true;
+      continue;
+    }
     if (amount != null && amount < 0) {
       if (s.offer_id && !offer) {
         // The offer's own named line — kept as the offer, never folded into the Discount.
@@ -272,5 +288,6 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     paymentMethodIds: ids,
     schedule: seedScheduleFromStored(row.payment_schedule),
     giftSwitch: row.includes_setnayan_gift ?? null,
+    transportAfterSiteCheck,
   };
 }

@@ -317,7 +317,10 @@ html.dark .fc{
   transform:translateY(130%);opacity:0;transition:transform .35s var(--ease),opacity .3s;pointer-events:none}
 .fc .fc-dock.fc-show{transform:none;opacity:1;pointer-events:auto}
 .fc .fc-dock .fc-btn{width:100%;min-height:56px;box-shadow:0 12px 32px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.12)}
-.fc .fc-rv{opacity:0;transform:translateY(var(--sn-w-rise));transition:opacity var(--sn-m-move) var(--sn-m-settle),transform var(--sn-m-move) var(--sn-m-settle)}
+/* The waiting state lives only where the scroll cannot drive the motion: a browser that can is never told to hide. */
+@supports not (animation-timeline: view()){
+.fc .fc-rv{opacity:0;transform:translateY(var(--sn-w-rise))}}
+.fc .fc-rv{transition:opacity var(--sn-m-move) var(--sn-m-settle),transform var(--sn-m-move) var(--sn-m-settle)}
 .fc .fc-rv.fc-in{opacity:1;transform:none}
 .fc .fc-rv .fc-ph.fc-real>img,.fc .fc-ph.fc-real.fc-rv>img{transform:scale(var(--sn-w-hero-from));transition:transform var(--sn-m-rise) var(--sn-m-settle)}
 .fc .fc-rv.fc-in .fc-ph.fc-real>img,.fc .fc-ph.fc-real.fc-rv.fc-in>img{transform:scale(1)}
@@ -551,13 +554,19 @@ html.fc-qlock{overflow:hidden}
    class to be shown. Elsewhere the rules above play them from the one IntersectionObserver, on the same numbers. */
 @supports (animation-timeline: view()){
   @media (prefers-reduced-motion: no-preference){
-    .fc .fc-rv,.fc .fc-rv.fc-in,
+    .fc .fc-rv{
+      animation:sn-w-reveal linear backwards;animation-timeline:view();
+      animation-range:entry 0% entry 100%;
+      animation-range:entry 0% entry min(100%,var(--sn-w-reveal-span))}
     .fc[data-fc-motion] .fc-row,.fc[data-fc-motion] .fc-q h3,.fc[data-fc-motion] .fc-q p,.fc[data-fc-motion] .fc-promise{
       opacity:1;transform:none;transition:none;
       animation:sn-w-reveal linear backwards;animation-timeline:view();
       animation-range:entry 0% entry 100%;
       animation-range:entry 0% entry min(100%,var(--sn-w-reveal-span))}
-    .fc .fc-beat-head.fc-rv::before,.fc .fc-rv .fc-beat-head::before,.fc .fc-share.fc-rv i{transform:none;transition:none}
+    .fc .fc-share.fc-rv i{transform:none;transition:none}
+    .fc .fc-beat-head.fc-rv::before,.fc .fc-rv .fc-beat-head::before{
+      transform:none;transition:none;
+      animation:sn-w-underline linear backwards;animation-timeline:view();animation-range:entry 0% entry 100%}
     .fc[data-fc-motion] .fc-rows::after,.fc[data-fc-motion] .fc-rows:not(.fc-play)::after,
     .fc[data-fc-motion] .fc-qs::after,.fc[data-fc-motion] .fc-qs:not(.fc-play)::after{
       transform:none;transition:none;

@@ -544,7 +544,11 @@
 .dock .btn { width: 100%; min-height: 56px; box-shadow: 0 12px 32px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .12); }
 
 /* reveal on scroll (transform + opacity only) — only once the motion script runs */
-.root[data-motion] [data-rv] { opacity: 0; transform: translateY(var(--sn-w-rise)); transition: opacity var(--sn-m-move) var(--sn-m-settle), transform var(--sn-m-move) var(--sn-m-settle); }
+/* The waiting state lives only where the scroll cannot drive the motion: a browser that can is never told to hide. */
+@supports not (animation-timeline: view()) {
+  .root[data-motion] [data-rv] { opacity: 0; transform: translateY(var(--sn-w-rise)); }
+}
+.root[data-motion] [data-rv] { transition: opacity var(--sn-m-move) var(--sn-m-settle), transform var(--sn-m-move) var(--sn-m-settle); }
 .root[data-motion] [data-rv][data-in] { opacity: 1; transform: none; }
 .root[data-motion] .beatHead::before { transform: scaleX(0); transform-origin: left center; transition: transform var(--sn-m-move) var(--sn-m-settle) var(--sn-w-stagger); }
 .root[data-motion] .beatHead[data-in]::before { transform: none; }
@@ -653,8 +657,12 @@
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     /* REVEAL — 12 px up and a fade as a part enters */
-    .root [data-rv],
-    .root[data-motion] [data-rv],
+    .root [data-rv] {
+      animation: sn-w-reveal linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+      animation-range: entry 0% entry min(100%, var(--sn-w-reveal-span));
+    }
     .root[data-motion] .rows .row,
     .root[data-motion] .q h3,
     .root[data-motion] .q p,
@@ -667,10 +675,13 @@
       animation-range: entry 0% entry 100%;
       animation-range: entry 0% entry min(100%, var(--sn-w-reveal-span));
     }
-    /* EMPHASIS — the beat's underline is drawn; it does not wait for a class */
+    /* EMPHASIS — the beat's underline draws as its heading enters; it does not wait for a class */
     .root[data-motion] .beatHead::before {
       transform: none;
       transition: none;
+      animation: sn-w-underline linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
     }
     /* TIMELINE — the line follows the scroll; each dot answers as its step arrives */
     .root .rows::after,
@@ -703,6 +714,7 @@
 }
 /* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
 @keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
+@keyframes sn-w-underline { from { transform: scaleX(0); } }
 @keyframes sn-w-tl-line { from { transform: scaleY(0); } }
 @keyframes sn-w-tl-line-x { from { transform: scaleX(0); } }
 @keyframes sn-w-tl-dot { from { opacity: 0; transform: scale(0.4); } }

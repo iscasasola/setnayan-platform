@@ -108,11 +108,14 @@
   }
 }
 
-/* ── REVEAL · parts rise as they enter. Fallback path first: hidden only once the script has run, shown by `.in`. */
-.verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
-.verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
-  opacity: 0;
-  transform: translateY(var(--sn-w-rise));
+/* ── REVEAL · parts rise as they enter. Fallback path first: hidden only once the script has run, shown by `.in` —
+   and only where the scroll cannot drive the motion: a browser that can is never told to hide a part. */
+@supports not (animation-timeline: view()) {
+  .verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
+  .verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
+    opacity: 0;
+    transform: translateY(var(--sn-w-rise));
+  }
 }
 .verified[data-shop-js] :global([data-shop-section]) > *,
 .verified[data-shop-js] :global([data-rise]) {
@@ -134,12 +137,7 @@
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .verified :global([data-shop-section]) > *,
-    .verified :global([data-rise]),
-    .verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
-    .verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
-      opacity: 1;
-      transform: none;
-      transition: none;
+    .verified :global([data-rise]) {
       animation: sn-w-reveal linear backwards;
       animation-timeline: view();
       animation-range: entry 0% entry 100%;

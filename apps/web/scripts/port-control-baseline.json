@@ -2466,6 +2466,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2783,6 +2784,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -3381,6 +3383,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3517,6 +3520,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3558,6 +3562,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3956,6 +3961,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4140,6 +4146,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4582,6 +4589,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4767,6 +4775,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4916,6 +4925,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5016,6 +5026,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5613,6 +5624,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",
@@ -6918,6 +6930,7 @@
         "HeadcountView",
         "HomeBoothCard",
         "HomeCardRow",
+        "HomeControlBoardColumn",
         "HomeControlKey",
         "HomeControlRow",
         "HomeCoverBand",
@@ -6942,6 +6955,7 @@
         "HomeSettingsGear",
         "HomeSettingsLanded",
         "HomeTile",
+        "HomeTileCountKey",
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
@@ -7127,6 +7141,7 @@
         "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
+        "TileCountKey.Provider",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -9400,6 +9415,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "ListPageSkeleton",
         "PageMasthead"
@@ -13417,6 +13433,7 @@
         "submitPaymentProof"
       ],
       "blocks": [
+        "ActionButton",
         "Channel",
         "ChannelToggle",
         "CopyButton",
@@ -14132,6 +14149,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/back-when-not-risen.tsx",
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
@@ -14166,6 +14184,7 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
         "vendor-dashboard/_components/setup-qr-step.tsx",
+        "vendor-dashboard/_components/shop-door-screen.tsx",
         "vendor-dashboard/_components/stay-on-today-line.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
         "vendor-dashboard/_components/supplier-columns.tsx",
@@ -14308,9 +14327,11 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HolderSlot",
         "I",
         "Icon",
         "Image",
+        "InSheet.Provider",
         "InfoTip",
         "InlineDocsPayload",
         "InlineNotice",
@@ -14377,6 +14398,7 @@
         "SetupTourContext.Provider",
         "Sheet",
         "ShopBadgePill",
+        "ShopDoorPanel",
         "Show",
         "SidePanel",
         "Sk",
@@ -14415,6 +14437,7 @@
         "TodayNoteRow",
         "TodayRow",
         "TodaySettings",
+        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TrackRecordRow",
@@ -16332,9 +16355,9 @@
         "RecBox",
         "ReplyGauge",
         "ReplyVsPic",
-        "RiseScreen",
         "RowView",
         "Rows",
+        "ShopDoorScreen",
         "SlowPic",
         "SnapCarousel",
         "SourceBars",
@@ -16368,6 +16391,8 @@
         "updateBusinessStartDate"
       ],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchPanel",
         "CouldNotLoad",
@@ -16572,8 +16597,11 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardCheckInput",
         "CardChecksSummary",
+        "CardFoot.Provider",
         "CardPhotoGallery",
         "CardRecordSection",
         "CheckChip",
@@ -16599,6 +16627,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FootCtx",
         "FormCounter",
         "FormRow",
         "FormRows",
@@ -16652,6 +16681,7 @@
         "SelectChip",
         "ServiceCardFace",
         "ServiceCardItem",
+        "ServiceCardItemFooter",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
         "ServiceCardShareSheet",
@@ -16848,6 +16878,8 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "DatesRow",
         "Fold",
         "Icon",
@@ -17043,7 +17075,6 @@
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",
-        "RiseScreen",
         "Row",
         "RowIcon",
         "RowLead",
@@ -17067,6 +17098,7 @@
         "ShopBundles",
         "ShopCover",
         "ShopData",
+        "ShopDoorScreen",
         "ShopFormsBody",
         "ShopFormsMaker",
         "ShopHome",
@@ -17292,6 +17324,8 @@
       "blocks": [
         "ActionButton",
         "AgentServiceAssignment",
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchScope",
         "ChosenRow",

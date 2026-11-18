@@ -161,7 +161,8 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
         /* Fetched from this dev server itself (the photo is a file it serves) — never read off disk, so the server
            function carries no part of public/ (`no-server-file-carries-public.test.ts`). */
         const host = (await headers()).get('host');
-        const r = await fetch(`${host ? `http://${host}` : siteOrigin()}${shopPhotoRef}`);
+        const labOrigin = host ? 'http://' + host : siteOrigin();
+        const r = await fetch(labOrigin + shopPhotoRef);
         if (!r.ok) throw new Error('That photo could not be opened.');
         bytes = new Uint8Array(await r.arrayBuffer());
       }

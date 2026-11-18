@@ -216,7 +216,8 @@ export default async function OpenShopLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const host = (await headers()).get('host');
-  const LAB_LOGO = `${host ? `http://${host}` : siteOrigin()}${LAB_LOGO_PATH}`;
+  const labOrigin = host ? 'http://' + host : siteOrigin();
+  const LAB_LOGO = labOrigin + LAB_LOGO_PATH;
   if (q.screen === 'logo') {
     return (
       <AddYourLogo

@@ -1460,7 +1460,7 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   {
     table: 'signup_attributions',
     column: 'user_id',
-    why: '🏷 Which shop and printed piece brought the subject’s sign-up (owner 2026-11-16, migration 20271349425906) — one row about this person and nobody else; CASCADE on auth.users covers a hard delete, this is the erasure half. The shop keeps nothing but the aggregate count it already lost the row for.',
+    why: '🏷 Which shop and printed piece brought the subject’s sign-up (owner 2026-11-16, migration 20271350227421) — one row about this person and nobody else; CASCADE on auth.users covers a hard delete, this is the erasure half. The shop keeps nothing but the aggregate count it already lost the row for.',
   },
   {
     table: 'notifications',

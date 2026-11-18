@@ -60,7 +60,7 @@ test('the ten words: the seven print pieces (PRINT_PIECES ids, in order), then s
 });
 
 test('the migration CHECKs carry exactly the same ten words, on all four columns', () => {
-  const sql = readFileSync(join(WEB, '..', '..', 'supabase/migrations/20271349425906_material_tags_carry_the_piece.sql'), 'utf8');
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase/migrations/20271350227421_material_tags_carry_the_piece.sql'), 'utf8');
   const lists = [...sql.matchAll(/IN \(('[a-z]+'(?:, '[a-z]+')*)\)/g)].map((m) => m[1]!.split(', ').map((x) => x.slice(1, -1)));
   assert.equal(lists.length, 4, 'views.via · chat_threads.inquiry_via · event_vendors.source_via · signup_attributions.via');
   for (const l of lists) assert.deepEqual(l, [...MATERIAL_VIAS]);

@@ -21,7 +21,7 @@ INQUIRY time by the shop's CURRENT plan).
   re-judges in `startServiceInquiry` with the plan read at that moment (`readShopOnUltraNow`: `tier_state =
   'enterprise'` and not past `tier_expires_at`; promotions not counted; a failed read is not Ultra). Sticker, link
   and on-screen codes keep the 13 Nov rule (the d2e360e4 row leaves them OPEN).
-- Migration `20271349425906_material_tags_carry_the_piece.sql`: add-only, five nullable columns with CHECKs, one new
+- Migration `20271350227421_material_tags_carry_the_piece.sql`: add-only, five nullable columns with CHECKs, one new
   table with RLS on at create, anon closed, authenticated reading only its own row (RA 10173 export). No row written.
 - No UI change: the QR-stats screen (`qr_code_stats_2026-11-16_fable`) still awaits the owner.
 

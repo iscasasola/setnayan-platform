@@ -600,7 +600,7 @@ export async function buildPersonalDataExport(
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
     // RA 10173 (2026-11-16) — which shop and printed piece brought the subject's sign-up (migration
-    // 20271349425906, `signup_attributions`): one row, keyed to them (user_id), readable under their own RLS.
+    // 20271350227421, `signup_attributions`): one row, keyed to them (user_id), readable under their own RLS.
     supabase
       .from('signup_attributions')
       .select('vendor_profile_id, via, src, utm, created_at')

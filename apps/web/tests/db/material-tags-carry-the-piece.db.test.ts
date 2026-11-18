@@ -1,5 +1,5 @@
 /**
- * 🏷 MATERIAL TAGS CARRY THE PIECE — the schema half (migration 20271349425906, owner 2026-11-16 b8d39503).
+ * 🏷 MATERIAL TAGS CARRY THE PIECE — the schema half (migration 20271350227421, owner 2026-11-16 b8d39503).
  *
  *   · the four `via` columns take only the ten words (lib/material-tags.ts MATERIAL_VIAS) — a typo is refused, not kept
  *   · every new column is nullable with no default: adding it wrote nothing into an existing row

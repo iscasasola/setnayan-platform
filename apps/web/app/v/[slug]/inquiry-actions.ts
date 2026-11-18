@@ -797,11 +797,14 @@ export async function startServiceInquiry(input: {
     // Read with the service role scoped by THIS inquiry's own thread id (the upsert above proved it is the caller's),
     // the same client that stamped it — the stamp is provenance, not event content.
     // 🏷 The thread's piece + campaign tags ride along the same way (owner 2026-11-16): read back, never re-derived.
-    const { data: threadSourceRow } = await admin
+    const { data: threadSourceRow, error: threadSourceErr } = await admin
       .from('chat_threads')
       .select('inquiry_source, inquiry_via, inquiry_utm')
       .eq('thread_id', threadId)
       .maybeSingle();
+    // Provenance only (never the fee's input here), so the booking still goes on — but a failed read is said, not
+    // silently turned into "no source, no piece".
+    if (threadSourceErr) console.error('[inquiry] thread provenance read failed', threadSourceErr.message);
     const threadSource =
       typeof (threadSourceRow as { inquiry_source?: unknown } | null)?.inquiry_source === 'string'
         ? ((threadSourceRow as { inquiry_source: string }).inquiry_source)

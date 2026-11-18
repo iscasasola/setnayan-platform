@@ -52,14 +52,14 @@ test('the canonical account URL joins the list the day the cutover is flipped', 
   // The bare form is what production serves today (verified by the live page's
   // own canonical link), so the nested path is absent unless it is asked for.
   const off = storySurfacesFor('movie-night', 'ice');
-  assert.ok(!off.some((p) => p.startsWith('/u/')), `nested path leaked while the flag is off: ${off.join(', ')}`);
+  assert.ok(!off.includes('/ice/movie-night'), `nested path leaked while the flag is off: ${off.join(', ')}`);
 
   const previous = process.env.NEXT_PUBLIC_U_NESTING_CUTOVER;
   process.env.NEXT_PUBLIC_U_NESTING_CUTOVER = 'true';
   try {
     const on = storySurfacesFor('movie-night', 'ice');
     assert.ok(
-      on.includes('/u/ice/movie-night'),
+      on.includes('/ice/movie-night'), // the address move (2026-11-15): no `/u/`
       `the canonical surface is missing once the cutover is on: ${on.join(', ')}`,
     );
     // The bare root still resolves for a printed QR, so it stays in the list.

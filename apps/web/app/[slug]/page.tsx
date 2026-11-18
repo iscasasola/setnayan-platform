@@ -17,6 +17,7 @@ import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
+import AccountProfilePage from '@/app/u/[userSlug]/page';
 import { headers } from 'next/headers';
 import { invitationReentryHref, isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
 import { invitationLinkOn } from '@/lib/invitation-link';
@@ -42,6 +43,7 @@ import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolv
 import {
   isUserNestingCutoverEnabled,
   publicEventPath,
+  eventPageForward,
   publicEventUrl,
   resolveEventOwnerSlug,
 } from '@/lib/public-event-url';
@@ -550,6 +552,24 @@ async function publicInvitationPage({ params, searchParams }: Props) {
       // fall through to the vendor check, which notFound()s — a real 404.
     }
     if (renamedTo) redirect(renamedTo);
+    // 🔗 THE ADDRESS MOVE (owner 2026-11-15) — while the cutover is on:
+    //   · asked as `/{username}/{word}` and `{word}` is no event → a plain not-found. Never a shop or a person
+    //     drawn under somebody's name.
+    //   · a bare `/{word}` that is a PERSON → their public page (`/{username}`): the same page `/u/{username}` is,
+    //     with every gate it keeps (a hidden profile 404s; only public events and published stories show). One pool
+    //     of names, so a person's word is never also a shop's — asked only on this miss path.
+    if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
+      const reqHeaders = await headers();
+      if (reqHeaders.get('x-sn-u-nesting') === '1') notFound();
+      const { data: person, error: personErr } = await admin
+        .from('users')
+        .select('user_id')
+        .eq('slug', slug.toLowerCase())
+        .maybeSingle();
+      // A failed read is not "nobody has this name": never fall through to a not-found for a real person's page.
+      if (personErr) throw new Error(`Could not read who holds /${slug}: ${personErr.message}`);
+      if (person) return AccountProfilePage({ params: Promise.resolve({ userSlug: slug.toLowerCase() }) });
+    }
     // Not a renamed event → try a vendor at this slug. renderVendorBySlug
     // notFound()s itself if there's no vendor either.
     return renderVendorBySlug({ slug, searchParams });
@@ -577,7 +597,8 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   const skeletonOpening = skeletonOpeningMounts(event, search);
 
   // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
-  // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
+  // OFF). The canonical public URL for an event is now /{ownerSlug}/{slug} (no `/u/` since the address move,
+  // 2026-11-15); a
   // hit on the legacy bare root (printed QRs, old shares) 307-redirects to the
   // nested URL. 307 (not 308) keeps the cutover REVERSIBLE — flipping the flag
   // back never leaves a permanently-cached redirect. Suppressed when:
@@ -594,9 +615,15 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
     const firstPartyHost =
       !host || isSetnayanHost(host) || isLocalOrPreviewHost(host);
-    if (!viaNesting && firstPartyHost) {
+    // 🔗 THE ADDRESS MOVE (owner 2026-11-15): asked under `/{username}/{event}` — but is `{username}` really this
+    // event's creator? A wrong word, or the creator's OLD username after a rename, goes to the real address (old
+    // links forward forever). The middleware names the word it was asked under (`x-sn-u-owner`).
+    const askedOwner = viaNesting ? (reqHeaders.get('x-sn-u-owner') ?? '').toLowerCase() : null;
+    if (firstPartyHost && (!viaNesting || askedOwner)) {
       const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
-      if (ownerSlug && event.slug) {
+      // `eventPageForward` (lib/public-event-url.ts): never forwards a page-word event's bare address to itself.
+      const forwardTo = eventPageForward(event.slug, ownerSlug, viaNesting, askedOwner);
+      if (forwardTo) {
         // Carry the incoming query through the canonicalization redirect — the
         // bare `/{slug}` URL is where server actions + the redeem route land
         // their one-shot params (?save=, ?invite_error=, ?phase=, ?film=) and
@@ -609,7 +636,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           if (typeof v === 'string') qs.set(k, v);
         }
         const q = qs.toString();
-        redirect(`${publicEventPath(event.slug, ownerSlug)}${q ? `?${q}` : ''}`);
+        redirect(`${forwardTo}${q ? `?${q}` : ''}`);
       }
     }
   }
@@ -2777,7 +2804,7 @@ async function invitationBody({
         hubHref={
           // 📱 A page whose tabs ARE the day needs no door to a second hub.
           !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-            ? `/${event.slug}/hub`
+            ? `${publicEventPath(event.slug)}/hub`
             : null
         }
         selfRotateEnabled={envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)}

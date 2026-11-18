@@ -24,6 +24,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { isUsernameWord, nestableEventSlug } from '@/lib/u-nesting';
 
 /**
  * The cutover flag. OFF (default) → legacy bare-root `/{slug}` everywhere.
@@ -36,15 +37,28 @@ export function isUserNestingCutoverEnabled(): boolean {
 
 /**
  * The public PATH (leading slash, no origin) for an event landing page.
- *   • cutover ON  + ownerSlug known → `/u/{ownerSlug}/{slug}`
+ *   • cutover ON  + ownerSlug known → `/{ownerSlug}/{slug}` (the address move, 2026-11-15 — was `/u/{ownerSlug}/{slug}`)
  *   • cutover OFF or ownerSlug null → `/{slug}` (legacy bare root)
  */
-export function publicEventPath(slug: string, ownerSlug?: string | null): string {
+export function publicEventPath(slug: string | null | undefined, ownerSlug?: string | null): string {
+  // A missing slug reads exactly as the hand-typed `/${slug}` it replaced did — callers already guard it.
+  if (!slug) return `/${slug ?? ''}`;
   const owner = ownerSlug?.trim();
-  if (owner && isUserNestingCutoverEnabled()) {
-    return `/u/${owner}/${slug}`;
+  // 🔗 THE ADDRESS MOVE (owner 2026-11-15): `/{username}/{event}` — no `/u/`. An event whose own word is one of an
+  // event's / shop's page words keeps the bare address (`nestableEventSlug`): its nested form could never be told
+  // apart from that page.
+  if (owner && isUserNestingCutoverEnabled() && nestableEventSlug(slug)) {
+    return `/${owner}/${slug}`;
   }
   return `/${slug}`;
+}
+
+/**
+ * 🔗 THE ADDRESS MOVE (owner 2026-11-15): a person's public page is `/{username}` while the cutover is on, and
+ * `/u/{username}` before it (which then 308s). The account public-id form (`/u/S89U-…`) always keeps `/u/`.
+ */
+export function personPath(handle: string): string {
+  return isUserNestingCutoverEnabled() && isUsernameWord(handle) ? `/${handle}` : `/u/${handle}`;
 }
 
 /** Full public URL (origin + path) for an event landing page. */
@@ -57,8 +71,8 @@ export function publicEventUrl(
 }
 
 /**
- * Resolve an event's OWNER account slug — the `member_type='couple'` member's
- * `users.slug`, which is the `{ownerSlug}` segment of the nested public URL.
+ * Resolve an event's OWNER account slug — its CREATOR's `users.slug` (`events.created_by_user_id`), else the
+ * `member_type='couple'` member's, which is the `{ownerSlug}` segment of the nested public URL.
  *
  * Returns null when: the flag is OFF (no query runs — cost-free pre-cutover),
  * there is no couple member, or that account has no slug. Every null path
@@ -73,6 +87,21 @@ export async function resolveEventOwnerSlug(
   eventId: string,
 ): Promise<string | null> {
   if (!isUserNestingCutoverEnabled()) return null;
+
+  // 🔗 THE CREATOR'S USERNAME (owner 2026-11-15: "an event's address uses the CREATOR's username"). The column is set
+  // by the database when the event gets its first couple member, and backfilled once for older events from the same
+  // lowest-user_id tie-break below — so an address never moves because of it. Older rows without it fall through.
+  // A failed read answers null (the bare address), never a guess: falling through to the couple-member tie-break
+  // after an error could name a DIFFERENT owner than the creator, and every QR / redirect built from it would carry it.
+  const { data: ev, error: evErr } = await admin.from('events').select('created_by_user_id').eq('event_id', eventId).maybeSingle();
+  if (evErr) return null;
+  const creatorId = (ev as { created_by_user_id?: string | null } | null)?.created_by_user_id ?? null;
+  if (creatorId) {
+    const { data: creator, error: creatorErr } = await admin.from('users').select('slug').eq('user_id', creatorId).maybeSingle();
+    if (creatorErr) return null;
+    const creatorSlug = (creator as { slug?: string | null } | null)?.slug?.trim();
+    if (creatorSlug) return creatorSlug;
+  }
 
   const { data: member } = await admin
     .from('event_members')
@@ -106,3 +135,41 @@ export async function resolveEventOwnerSlug(
 // kept. It moved to `lib/slug-forwarding.ts` as `resolveRenamedPath`, ungated,
 // covering events, shops AND people. Nothing else in this module changed: the
 // `/u/` nesting cutover stays flag-dark exactly as before.
+
+/**
+ * 🔗 THE ADDRESS MOVE — where the event page itself forwards (`app/[slug]/page.tsx`), or null to render here.
+ *   · asked at the bare `/{event}` and the event has a nested address → that address;
+ *   · asked as `/{username}/{event}` under the wrong (or an old) username → the real address.
+ * An event whose own word is a page word (`recap`, `welcome`, `seat` …) keeps the bare address, so its bare request
+ * must NOT forward: `publicEventPath` hands back `/{event}` itself and the page would redirect to itself forever.
+ */
+export function eventPageForward(
+  slug: string | null | undefined,
+  ownerSlug: string | null,
+  viaNesting: boolean,
+  askedOwner: string | null,
+): string | null {
+  if (!slug) return null;
+  const target = publicEventPath(slug, ownerSlug);
+  if (viaNesting) return askedOwner !== (ownerSlug ?? '').toLowerCase() ? target : null;
+  return ownerSlug && target !== `/${slug}` ? target : null;
+}
+
+/**
+ * 🔗 THE ADDRESS MOVE — where an OLD sub-page link goes (`app/[slug]/layout.tsx`). `/{event}/{page}[?query]` →
+ * `/{username}/{event}/{page}[?query]` while the cutover is on and the event's creator has a username; null when
+ * there is nothing to forward (the bare page itself, the internal cached copy, no username, the switch off).
+ */
+export function oldSubPageTarget(requestPath: string | null, slug: string, ownerSlug: string | null): string | null {
+  if (!requestPath || !ownerSlug) return null;
+  const q = requestPath.indexOf('?');
+  const path = q === -1 ? requestPath : requestPath.slice(0, q);
+  const query = q === -1 ? '' : requestPath.slice(q);
+  const prefix = `/${slug}/`.toLowerCase();
+  if (!path.toLowerCase().startsWith(prefix)) return null;
+  const rest = path.slice(prefix.length).replace(/\/+$/, '');
+  if (!rest || rest.split('/')[0] === 'cached') return null;
+  const base = publicEventPath(slug, ownerSlug);
+  if (base === `/${slug}`) return null;
+  return `${base}/${rest}${query}`;
+}

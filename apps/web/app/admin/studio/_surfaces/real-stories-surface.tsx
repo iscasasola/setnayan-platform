@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
@@ -108,7 +109,7 @@ export async function RealStoriesSurface({
         return (
           <div id={`rs-${r.eventId}`}>
             <Link
-              href={`/${r.slug}`}
+              href={`${publicEventPath(r.slug)}`}
               className="font-medium text-ink hover:text-mulberry hover:underline"
             >
               {r.coupleNames}

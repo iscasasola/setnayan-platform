@@ -1,5 +1,6 @@
 'use server';
 
+import { publicEventPath } from '@/lib/public-event-url';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -192,7 +193,7 @@ async function notifyCreditedVendorsShowcaseFeatured(
     const eligible = profileIds;
     if (eligible.length === 0) return;
 
-    const storyUrl = `${APP_URL}/${slug}`;
+    const storyUrl = `${APP_URL}${publicEventPath(slug)}`;
     await Promise.all(
       eligible.map((vpid) => sendVendorFeaturedInStoryEmail(vpid, storyUrl, displayName)),
     );

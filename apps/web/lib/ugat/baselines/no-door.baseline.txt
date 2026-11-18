@@ -4,8 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
-/[slug]/everyone	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
-/[slug]/seat	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address

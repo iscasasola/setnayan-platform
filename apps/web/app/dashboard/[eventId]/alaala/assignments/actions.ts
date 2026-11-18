@@ -1,5 +1,6 @@
 'use server';
 
+import { publicEventPath } from '@/lib/public-event-url';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -195,7 +196,7 @@ async function dispatchNudgeEmail(
     // the couple's page (Guest Legibility Floor: the job must be reachable from
     // the inbox). Falls back to the Setnayan home if the slug isn't published.
     const slug = (event?.slug as string) || null;
-    const pageUrl = slug ? `${APP_URL}/${slug}` : APP_URL;
+    const pageUrl = slug ? `${APP_URL}${publicEventPath(slug)}` : APP_URL;
 
     const subject =
       variant === 'assigned'

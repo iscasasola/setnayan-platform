@@ -315,6 +315,6 @@ test('8 · the reply\'s save never lands on the site\'s home, and never calls a 
   const landed = submit.slice(from, submit.indexOf('\n}\n', from));
   assert.ok(from > write && landed.length > 50 && landed.length < 1200, 'anti-vacuity: the landed-reply tail moved');
   assert.doesNotMatch(landed, /eventAddressUnread\(|throw /, 'a reply that was saved can be reported as not sent');
-  assert.match(landed, /redirect\(ev\?\.slug \? `\/\$\{ev\.slug\}\?rsvp=\$\{outcome\}` : `\/\$\{replySlug\}\?rsvp=\$\{outcome\}`\);/);
+  assert.match(landed, /redirect\(ev\?\.slug \? `\$\{publicEventPath\(ev\.slug\)\}\?rsvp=\$\{outcome\}` : `\/\$\{replySlug\}\?rsvp=\$\{outcome\}`\);/);
   assert.match(landed, /if \(toInvite && !ev\?\.slug\) redirect\(`\$\{inviteEnterPath\(replySlug\)\}\?rsvp=\$\{outcome\}`\);/);
 });

@@ -1349,6 +1349,7 @@
         "[slug]/_lib/event-words.ts",
         "[slug]/_lib/first-screen-fit-dom.ts",
         "[slug]/_lib/first-screen-fit.ts",
+        "[slug]/_lib/forward-old-sub-page.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/held-pass-name.ts",
@@ -2483,6 +2484,7 @@
         "admin/_components/field-pick.tsx",
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
+        "admin/_components/focus-recents.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
@@ -2616,6 +2618,7 @@
         "ErrorState",
         "FocusCardSheet",
         "FocusHome",
+        "FocusRecents",
         "Fold",
         "Fragment",
         "GuidedTour",
@@ -5696,6 +5699,7 @@
       ],
       "destinations": [
         "/admin/vendors/[seg]",
+        "/admin/verify?status=[seg]",
         "/admin/verify?surface=[seg]",
         "/admin/verify?surface=applications&status=[seg]",
         "/admin/verify?surface=visibility&status=[seg]"

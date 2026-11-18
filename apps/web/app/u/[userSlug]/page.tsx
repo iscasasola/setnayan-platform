@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { personPath, publicEventPath } from '@/lib/public-event-url';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolvePublicProfile } from '@/lib/public-profile';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
@@ -165,7 +166,7 @@ export default async function AccountProfilePage({ params }: Props) {
   const canonicalSlug = (user.slug as string | null) ?? userSlug;
   // Reached by the account's public handle (`/u/S89U-…`, the address People links a slug-less account by)
   // while a slug exists → the slug is the address. A slug match never re-enters here (it IS the slug).
-  if (user.slug && user.slug.toLowerCase() !== userSlug.toLowerCase()) redirect(`/u/${user.slug}`);
+  if (user.slug && user.slug.toLowerCase() !== userSlug.toLowerCase()) redirect(personPath(user.slug));
 
   // #7b — per-account public/hidden gate. DORMANT by default: while the account
   // hasn't opted in, the /u shell 404s for strangers so it's neither a public
@@ -280,7 +281,7 @@ export default async function AccountProfilePage({ params }: Props) {
   // cookie-free and cached. The holder keeps the jump, as before.
   if (ongoing.length === 1 && !isOwnerPreview && !hasChapters && chaptersRead.ok) {
     viewer = viewer ?? (await readProfileViewer(user.user_id));
-    if (!viewerKnowsThem(viewer)) redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
+    if (!viewerKnowsThem(viewer)) redirect(publicEventPath(ongoing[0]!.slug, canonicalSlug));
   }
 
   // ongoing≥2 → the celebrations gallery; ongoing 0 → published stories (past
@@ -427,7 +428,7 @@ export default async function AccountProfilePage({ params }: Props) {
       return (
         <li key={event.event_id}>
           <Link
-            href={`/u/${canonicalSlug}/${event.slug}`}
+            href={publicEventPath(event.slug, canonicalSlug)}
             className="uprof-poster"
             style={sheetStyle}
             data-sheet={poster.sheet}

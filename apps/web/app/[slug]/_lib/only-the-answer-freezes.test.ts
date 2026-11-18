@@ -614,5 +614,5 @@ test('🔴 both arms render the SAME fields, so folding never drops a value', ()
 
 test('replying lands the guest on the event hub, not on a dead end', () => {
   const src = read('actions.ts');
-  assert.match(src, /redirect\(ev\?\.slug \? `\/\$\{ev\.slug\}\?rsvp=\$\{outcome\}`/, 'the guest no longer lands on the event');
+  assert.match(src, /redirect\(ev\?\.slug \? `\$\{publicEventPath\(ev\.slug\)\}\?rsvp=\$\{outcome\}`/, 'the guest no longer lands on the event');
 });

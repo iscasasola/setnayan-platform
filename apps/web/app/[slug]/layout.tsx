@@ -7,6 +7,7 @@ import { lookScopeProps } from './_components/host-draft-look';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
 import { withGuestReadLimitQuiet } from '@/lib/read-limit';
+import { forwardOldSubPage } from './_lib/forward-old-sub-page';
 
 /**
  * /[slug] guest-tree layout — the editorial-typography scope, the ONE place the
@@ -149,6 +150,13 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
     // page, never a precondition for it.
     eventId = null;
   }
+
+  // 🔗 THE ADDRESS MOVE — OLD SUB-PAGE LINKS FORWARD FOREVER (owner 2026-11-15). While the cutover is on, an
+  // event's pages live under its creator's username (`/{username}/{event}/invite`, `/hub`, `/seat` …). A guest
+  // holding an old `/{event}/invite` (already invited) or any other `/{event}/{page}` link is sent there, query and
+  // all. The bare `/{event}` is the page's own redirect; this covers the pages under it. Never on the cached Event
+  // Hub (it reads no request), never for a request that arrived nested, never for a form post (a Server Action).
+  if (eventId) await forwardOldSubPage(slug, eventId);
 
   // THE COUPLE'S LOOK — best-effort for the same reason: a page in the house
   // look is a page; a page that 500s because a palette could not be read is not.

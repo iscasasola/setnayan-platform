@@ -8,6 +8,7 @@
 //   · app/[slug]/_components/editorial/data.ts  (loadEditorialData — admin read + hero fallback)
 //   · lib/showcase-db.ts                         (loadPublishedShowcases — consent/visibility gate)
 // (2026-11-14: unframed photo tiles, design template rule 2).
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { ArrowRight, Pencil } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -100,7 +101,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   // lib/event-board.eventBoardHref makes when it returns null rather than
   // building `/null`.
   const editorHref = `/dashboard/${item.eventId}/story`;
-  const publicHref = item.slug ? `/${item.slug}` : null;
+  const publicHref = item.slug ? `${publicEventPath(item.slug)}` : null;
   const primaryHref = item.relation === 'owned' ? editorHref : publicHref;
 
   // No own colour → the house gold token (never a typed colour code).

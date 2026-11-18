@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { notFound, redirect } from 'next/navigation';
 import VendorInvitePage from '@/app/vendor-invite/[slug]/page';
 import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
@@ -122,7 +123,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
      the event page, whose one door is Sign in or Upload your QR — and a guest
      already holding their key is recognised there and sent to their RSVP. */
   if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {
-    redirect(`/${event.slug}`);
+    redirect(`${publicEventPath(event.slug)}`);
   }
 
   // Resolve the event's current join token server-side (it never appears in the

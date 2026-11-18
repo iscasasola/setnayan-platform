@@ -125,5 +125,5 @@ test('(4) the cost is said before the second press; the erased selfie before the
   assert.ok(SIGN_OUT_COSTS.length > 20 && /link|QR/.test(SIGN_OUT_COSTS), 'the cost no longer says how to get back in');
   // The page hands the selfie line in, for a guest who has one.
   const body = stripComments(readFileSync(join(__dirname, 'site-body.tsx'), 'utf8'));
-  assert.match(body, /<SignOutOfInvitation\s+action=\{`\/\$\{event\.slug\}\/sign-out`\}\s+erases=\{\s*guest\.photo_source === 'selfie' \? \(/);
+  assert.match(body, /<SignOutOfInvitation\s+action=\{`\$\{publicEventPath\(event\.slug\)\}\/sign-out`\}\s+erases=\{\s*guest\.photo_source === 'selfie' \? \(/);
 });

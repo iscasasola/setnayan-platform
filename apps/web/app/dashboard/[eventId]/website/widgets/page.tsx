@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -188,7 +189,7 @@ export default async function WidgetsEditorPage({
         null)
     : null;
   const previewUrl = previewGuest?.qr_token && event.slug
-    ? `/${event.slug}?invite=${encodeURIComponent(previewGuest.qr_token)}`
+    ? `${publicEventPath(event.slug)}?invite=${encodeURIComponent(previewGuest.qr_token)}`
     : null;
 
   // Per-widget content presence — the SAME signals the guest site reads (see

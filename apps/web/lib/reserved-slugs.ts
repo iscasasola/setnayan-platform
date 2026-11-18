@@ -151,6 +151,20 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // `for-suppliers` is.
   'for-coordinators',
 
+  // --- ⬇ ADDED 2026-11-16 -------------------------------------------------
+  // THE ADDRESS MOVE (owner 2026-11-15, specs DECISION_LOG d7910b5d). The words
+  // that sit UNDER a person or a shop — `/{user}/c/{id}` (a chapter),
+  // `/{shop}/invite`, `/{shop}/dates` · `booth` · `review` · `guest-review`, and
+  // the cached copies — so `/{x}/{y}` never needs a guess. Mirrored by the
+  // database (migration 20271350564435). `c` cannot be an address anyway (the
+  // format needs three characters); it is listed for the record.
+  'c',
+  'invite',
+  'dates',
+  'booth',
+  'review',
+  'guest-review',
+  'cached',
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----

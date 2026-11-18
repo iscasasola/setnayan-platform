@@ -20,7 +20,7 @@ DASHBOARD = THE OWNER'S BLUE LOOK, LIGHT AND DARK"). Stacked on dark mode PR 1 (
   `app/vendor-dashboard`.
 - **Guards:** `the-navy-is-readable.test.ts` (the ruled values · every text/surface pair at AA with the scope
   layered over the app's dark tokens · the word tokens · the ready-list) and a down-only raw-hex ratchet for the
-  supplier tree (`raw-hex-only-goes-down.test.ts`, 79 today — 63 of them the look's own token file). The counter
+  supplier tree (`raw-hex-only-goes-down.test.ts`, 86 today — 70 of them the look's own token file). The counter
   moved to `lib/raw-hex-ratchet.ts`, shared with the couple's ratchet.
 - `html.dark .sn-ambient` reads `--sn-ambient-dark` (unset = the plain page), so a look can light its dark ground
   with a token instead of a component rule.

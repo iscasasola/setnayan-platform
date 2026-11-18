@@ -260,6 +260,16 @@ html.dark:has([data-supplier-look]) {
   --color-band-from: 26 41 68; /* #1A2944 */
   --color-band-to: 23 35 56; /* #172338 */
 
+  /* the calendar's day that is not offered — a navy cell, never the warm brown; the seat GREEN stays as it is (owner
+     14 Nov: "dark mode should still have the same green") */
+  --seat-off: #1f2f4a;
+  --seat-off-ink: #b4bece;
+  --seat-off-line: #2e4166;
+  --seat-off-hatch: #35496f;
+  --seat-out: #1f2f4a;
+  --seat-out-line: #35496f;
+  --seat-hot-line: #f2a93b;
+
   /* private stays sky blue; its tint sits on the navy card */
   --color-private-tint: 28 57 83; /* #1C3953 */
 

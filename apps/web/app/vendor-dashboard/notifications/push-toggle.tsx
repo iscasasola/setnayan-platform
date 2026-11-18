@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   deactivateAllPushTokens,
   registerPushToken,
@@ -131,11 +132,11 @@ export function PushToggle() {
         {isActive ? (
           <Bell aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
         ) : (
-          <BellOff aria-hidden className="h-5 w-5 text-ink/40" strokeWidth={1.75} />
+          <BellOff aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
         )}
         <div>
           <p className="text-sm font-medium text-ink">Push notifications</p>
-          <p className="text-xs text-ink/55">
+          <p className="text-xs text-[color:var(--m-slate-2)]">
             {isActive
               ? 'On — you\'ll get an instant alert when a couple sends an inquiry.'
               : permission === 'denied'
@@ -144,28 +145,14 @@ export function PushToggle() {
                   ? 'Not available yet on this deployment.'
                   : 'Off — enable to get instant alerts.'}
           </p>
-          {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
+          {error ? <p className="mt-1 text-xs text-[rgb(var(--color-danger))]">{error}</p> : null}
         </div>
       </div>
 
       {isActive ? (
-        <button
-          type="button"
-          onClick={handleDisable}
-          disabled={disabling}
-          className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {disabling ? 'Disabling…' : 'Disable'}
-        </button>
+        <ActionButton tone="neutral" icon={BellOff} label={disabling ? 'Disabling…' : 'Disable'} onClick={handleDisable} disabled={disabling} />
       ) : permission === 'default' ? (
-        <button
-          type="button"
-          onClick={handleEnable}
-          disabled={enabling}
-          className="rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {enabling ? 'Enabling…' : 'Enable'}
-        </button>
+        <ActionButton tone="brand" icon={Bell} label={enabling ? 'Enabling…' : 'Enable'} onClick={handleEnable} disabled={enabling} />
       ) : null}
       </div>
 
@@ -177,17 +164,17 @@ export function PushToggle() {
         helper: say which buttons to press on the device in front of you.
       */}
       {guide && permission === 'denied' ? (
-        <div className="mt-3 border-t border-ink/10 pt-3">
-          <p className="text-xs font-semibold text-ink/70">
+        <div className="mt-3 border-t border-[color:var(--m-line)] pt-3">
+          <p className="text-xs font-semibold text-ink">
             How to turn them on — {guide.platform}
           </p>
-          <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs text-ink/60 marker:text-ink/40">
+          <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs text-[color:var(--m-slate-2)] marker:text-[color:var(--m-slate-2)]">
             {guide.steps.map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ol>
           {guide.systemNote ? (
-            <p className="mt-2 text-xs text-ink/50">{guide.systemNote}</p>
+            <p className="mt-2 text-xs text-[color:var(--m-slate-2)]">{guide.systemNote}</p>
           ) : null}
         </div>
       ) : null}

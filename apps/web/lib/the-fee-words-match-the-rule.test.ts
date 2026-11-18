@@ -9,26 +9,18 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from './booking-fee-lock';
-import { bookingFeeTourLine, TOURS } from './tours';
+import { TOURS } from './tours';
 import { vendorDayOfFreeUntilLabel } from './vendor-dayof-free-until';
 import { stripComments } from './strip-comments';
 
 const all = () => JSON.stringify(TOURS);
 
-test('the Money tour says when the fee is charged, from the lock — and nothing when the fee is off', () => {
-  assert.equal(
-    bookingFeeTourLine(true),
-    `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
-  );
-  assert.equal(bookingFeeTourLine(false), 'No booking fee is charged right now. Your own clients are always free.');
+// (retired 16 Nov 2026, W1-B14) the Money and Hub page tours whose fee words these two tests held were deleted with
+// the other supplier page tours, and `bookingFeeTourLine` with them. What still holds: no tour states a fee rule of its own.
+test('no tour says the fee is due after the day, or states a day-opens rule of its own', () => {
+  assert.ok(all().length > 1000, 'anti-vacuity: the tours were not read');
   assert.doesNotMatch(all(), /due after the day/i);
-  const src = stripComments(readFileSync(join(import.meta.dirname, 'tours.ts'), 'utf8'));
-  assert.match(src, /body: bookingFeeTourLine\(isBookingFeeEnabled\(\)\),/);
-});
-
-test('the Hub tour states no fee rule of its own — a waiting day says so on its row', () => {
   assert.doesNotMatch(all(), /A day opens once its booking fee is paid/);
-  assert.match(all(), /A day that is waiting on its booking fee says so on its row\./);
 });
 
 test('the fee bill says the same "when" sentence', () => {

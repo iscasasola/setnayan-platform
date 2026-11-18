@@ -12,7 +12,9 @@
 
 /* ── the prototype's names → the app's tokens ── */
 .fc{
-  --page:rgb(var(--color-cream)); --fc-paper:var(--m-paper); --soft:var(--m-paper-2); --ivory:var(--m-ivory);
+  --page:rgb(var(--sn-page-bg)); --fc-paper:var(--m-paper);
+  /* frames read the frame tokens (clean warm look, 16 Nov): white, soft lift, no line */
+  --fc-frame:rgb(var(--sn-frame-bg)); --fc-frame-r:var(--sn-frame-radius); --fc-frame-sh:var(--sn-frame-shadow); --soft:var(--m-paper-2); --ivory:var(--m-ivory);
   --fc-line:var(--m-line); --fc-ink:var(--m-ink); --text:var(--m-slate); --muted:var(--m-slate-2);
   --fc-accent:rgb(var(--color-mulberry)); --accent-ink:rgb(var(--sn-on-accent)); --fc-gold:rgb(var(--color-terracotta));
   --sage-bg:var(--m-sage); --sage-fg:var(--m-sage-deeper);
@@ -36,7 +38,7 @@ html.dark .fc{
 }
 
 
-.fc .fc-access{background:var(--fc-paper);border:1px solid var(--fc-line);border-radius:var(--m-r-lg);padding:18px;display:grid;gap:4px;box-shadow:0 18px 40px -28px rgba(23,22,15,.35);min-width:0}
+.fc .fc-access{background:var(--fc-frame);border-radius:var(--fc-frame-r);padding:18px;display:grid;gap:4px;box-shadow:var(--fc-frame-sh);min-width:0}
 .fc .fc-access .fc-ahead{display:grid;gap:4px;padding-bottom:8px;position:relative}
 .fc .fc-access .fc-stag{position:static;justify-self:start;margin:0}
 .fc .fc-access .fc-ak{font:600 1.05rem var(--f-body);color:var(--fc-ink);margin:0}
@@ -66,12 +68,12 @@ html.dark .fc{
 .fc .fc-dayof .fc-req b{display:block;font-size:.84rem;color:var(--fc-ink)}.fc .fc-dayof .fc-req small{color:var(--warn-fg,#8a5a12);font-size:.78rem}
 .fc .fc-dayof .fc-ack{border:1px solid var(--fc-line);background:var(--fc-paper);color:var(--fc-ink);border-radius:var(--m-r-full);padding:7px 11px;font:600 .76rem var(--f-body);cursor:pointer}
 .fc .fc-dayof .fc-ack[aria-pressed="true"]{background:var(--sage-bg);color:var(--sage-fg);border-color:transparent}
-.fc .fc-ctools{background:var(--fc-paper);border:1px solid var(--fc-line);border-radius:var(--m-r-md);padding:16px 18px;display:grid;gap:8px}
+.fc .fc-ctools{background:var(--fc-frame);border-radius:var(--fc-frame-r);box-shadow:var(--fc-frame-sh);padding:16px 18px;display:grid;gap:8px}
 .fc .fc-ctools .fc-ak{margin:0;font-weight:600;color:var(--fc-ink)}
 .fc .fc-ctools ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .fc .fc-ctools li{background:var(--soft);border-radius:var(--m-r-full);padding:6px 12px;font-size:.86rem;color:var(--fc-ink)}
 .fc .fc-ctools .fc-fine{margin:0}
-.fc .fc-dark{--page:#17160F; --fc-paper:#232019; --soft:#2B2821; --ivory:#332F27;
+.fc .fc-dark{--page:#17160F; --fc-paper:#232019; --fc-frame:var(--fc-paper); --fc-frame-sh:var(--fc-shadow); --soft:#2B2821; --ivory:#332F27;
   --fc-line:rgba(251,250,247,.16); --fc-ink:#FBFAF7; --text:#D6D1C7; --muted:#B3AEA3;
   --fc-accent:#E5794E; --accent-ink:#17160F; --fc-gold:#CBA766;
   --sage-bg:#363A2D; --sage-fg:#BCD7B3; --fc-ok:#6CC28F; --warn-fg:#F0C36B; --warn-bg:#3A2E14;
@@ -182,10 +184,10 @@ html.dark .fc{
 .fc .fc-prob h3{font-size:1.18rem;margin-bottom:3px;color:var(--fc-ink)}
 .fc .fc-prob p{font-size:.95rem;color:var(--muted)}
 .fc .fc-rows{display:grid;gap:12px}
-.fc .fc-row{display:grid;gap:6px;padding:20px 22px;background:var(--fc-paper);border-radius:var(--r-card);box-shadow:var(--fc-shadow);position:relative}
+.fc .fc-row{display:grid;gap:6px;padding:20px 22px;background:var(--fc-frame);border-radius:var(--fc-frame-r);box-shadow:var(--fc-frame-sh);position:relative}
 .fc .fc-row h3{font-size:1.35rem}
 .fc .fc-row .fc-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.fc .fc-cal{background:var(--fc-paper);border-radius:var(--r-card);box-shadow:var(--fc-shadow);border:1px solid var(--fc-line);padding:16px 14px;max-width:420px;width:100%;margin-inline:auto}
+.fc .fc-cal{background:var(--fc-frame);border-radius:var(--fc-frame-r);box-shadow:var(--fc-frame-sh);padding:16px 14px;max-width:420px;width:100%;margin-inline:auto}
 .fc .fc-cal-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;padding-inline:4px}
 .fc .fc-cal-top b{color:var(--fc-ink);font-size:1.05rem}
 .fc .fc-cal-top span{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);letter-spacing:.12em}
@@ -207,7 +209,7 @@ html.dark .fc{
 .fc .fc-sheet-btns button:disabled{opacity:.45;cursor:default}
 .fc .fc-sheet-note{font-size:.84rem;color:var(--muted)}
 .fc .fc-moments{display:grid;gap:18px;margin-top:10px}
-.fc .fc-moment{display:grid;gap:12px;background:var(--fc-paper);border-radius:var(--r-card);box-shadow:var(--fc-shadow);overflow:hidden;padding-bottom:20px}
+.fc .fc-moment{display:grid;gap:12px;background:var(--fc-frame);border-radius:var(--fc-frame-r);box-shadow:var(--fc-frame-sh);overflow:hidden;padding-bottom:20px}
 .fc .fc-moment>*:not(.fc-ph){margin-inline:20px}
 .fc .fc-moment .fc-ph{border-radius:0;box-shadow:none;margin-bottom:6px}
 .fc .fc-moment .fc-step{font-family:var(--f-mono);font-size:.72rem;color:var(--fc-accent);letter-spacing:.12em;text-transform:uppercase}
@@ -219,7 +221,7 @@ html.dark .fc{
 .fc .fc-moment:nth-child(1) .fc-code .fc-qr{background:var(--fc-accent);fill:var(--accent-ink)}
 .fc .fc-fine{font-size:.84rem;color:var(--muted)}
 .fc .fc-notices{display:grid;gap:12px}
-.fc .fc-notice{display:grid;grid-template-columns:40px 1fr;gap:14px;background:var(--fc-paper);box-shadow:var(--fc-shadow);border:1px solid var(--fc-line);border-radius:var(--m-r-lg);padding:16px}
+.fc .fc-notice{display:grid;grid-template-columns:40px 1fr;gap:14px;background:var(--fc-frame);box-shadow:var(--fc-frame-sh);border-radius:var(--fc-frame-r);padding:16px}
 .fc .fc-notice .fc-ic{width:40px;height:40px;border-radius:var(--m-r-md);background:var(--fc-accent);color:var(--accent-ink);display:grid;place-items:center;font:700 .86rem var(--f-mono)}
 .fc .fc-notice h3{font-size:1.02rem}
 .fc .fc-notice p{font-size:.92rem;color:var(--muted)}
@@ -230,7 +232,7 @@ html.dark .fc{
 .fc .fc-fee-steps li{list-style:none;display:grid;grid-template-columns:40px 1fr;gap:12px;padding-block:14px;border-top:1px solid var(--fc-line)}
 .fc .fc-fee-steps li:first-child{border-top:0}
 .fc .fc-fee-steps li::before{counter-increment:s;content:counter(s);width:32px;height:32px;border-radius:50%;background:var(--ivory);color:var(--fc-ink);display:grid;place-items:center;font:700 .84rem var(--f-mono)}
-.fc .fc-fee-steps li:last-child{margin-top:12px;border-top:0;background:var(--fc-paper);border-radius:var(--r-card);box-shadow:var(--fc-shadow);padding:20px 18px}
+.fc .fc-fee-steps li:last-child{margin-top:12px;border-top:0;background:var(--fc-frame);border-radius:var(--fc-frame-r);box-shadow:var(--fc-frame-sh);padding:20px 18px}
 .fc .fc-fee-steps li:last-child::before{background:var(--fc-accent);color:var(--accent-ink)}
 .fc .fc-fee-steps b{color:var(--fc-ink);font-size:1.12rem}
 .fc .fc-fee-steps li:last-child b{font-size:1.3rem;letter-spacing:-.01em;display:block;margin-bottom:8px}
@@ -264,7 +266,7 @@ html.dark .fc{
 .fc .fc-q{padding-block:20px;border-top:1px solid var(--fc-line);display:grid;gap:6px}
 .fc .fc-q h3{font-size:1.3rem}
 .fc .fc-promise{font-size:clamp(1.45rem,5.8vw,2.1rem);font-weight:800;color:var(--fc-ink);margin-top:4px;max-width:22em;line-height:1.2;letter-spacing:-.02em}
-.fc details.fc-fold{border:1px solid var(--fc-line);border-radius:var(--r-card);background:var(--fc-paper);box-shadow:var(--fc-shadow)}
+.fc details.fc-fold{border-radius:var(--fc-frame-r);background:var(--fc-frame);box-shadow:var(--fc-frame-sh)}
 .fc details.fc-fold>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:22px 22px;min-height:64px}
 .fc details.fc-fold>summary::-webkit-details-marker{display:none}
 .fc details.fc-fold>summary h2{font-size:1.55rem}
@@ -278,7 +280,7 @@ html.dark .fc{
 .fc .fc-fold-group li span:first-child{min-width:0}
 .fc .fc-fold-group li .fc-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;flex-shrink:0;max-width:48%}
 .fc .fc-plans{display:grid;gap:14px}
-.fc .fc-planstep{background:var(--fc-paper);border-radius:var(--r-card);padding:22px;display:grid;gap:8px;min-width:0;box-shadow:var(--fc-shadow);position:relative}
+.fc .fc-planstep{background:var(--fc-frame);border-radius:var(--fc-frame-r);padding:22px;display:grid;gap:8px;min-width:0;box-shadow:var(--fc-frame-sh);position:relative}
 .fc .fc-planstep .fc-n{font-family:var(--f-mono);font-size:.72rem;color:var(--fc-accent);letter-spacing:.14em;font-weight:700}
 .fc .fc-planstep h3{font-size:1.6rem}
 .fc .fc-planstep .fc-spec{font-family:var(--f-mono);font-size:.78rem;color:var(--fc-ink);line-height:1.6}

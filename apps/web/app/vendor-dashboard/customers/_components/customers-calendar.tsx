@@ -19,6 +19,7 @@ import { DayBar } from './day-bar';
 import { DATES_FIGURES_EVENT, DATES_JUMP_EVENT } from './customers-figures';
 import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figures';
 import { ALL_SCHEDULES, CLIENTS_SCHEDULE_EVENT, CLIENTS_SCHEDULING_EVENT, scheduleScopeOptions, schedulesOffered } from '../clients-show-sort';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 /**
  * CUSTOMERS › DATES — the month (S-PR3; plan § 2 "one month grid (booked · holding · blocked), the day's rows under
@@ -159,6 +160,10 @@ export function CustomersCalendar({
   */
   const onClients = place === 'clients';
   const [picked, setPicked] = useState<CalendarDay | null>(initialDay);
+  /* 🖥 Only a computer (the Clients 1280 line, `supplier-frame.css`) opens This day's events across columns 2 + 3; the
+     phone keeps the day sheet exactly as before (audit 17 Nov — the drawing names the computer only). SSR-safe: false
+     on the server and the first paint, so both draw the day sheet's link. */
+  const eventsOpenHere = useIsDesktop('xl');
   const toggleDay = (d: CalendarDay) => setPicked((was) => (was === d ? null : d));
   /*
     📅 SCHEDULE ▾ (2026-11-12) — which schedules the month marks. Picked in Show & sort's Schedule row or this month's chip
@@ -474,7 +479,10 @@ export function CustomersCalendar({
         .filter((d) => d.date >= todayIso)
         .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
         .filter((g) => g.rows.length > 0);
-  const drawRow = (r: DayRow, day: CalendarDay) => {
+  /* 🗂 On a computer, an event in This day (the picked day) opens ITS page — the picked client, over the still-mounted
+     list, across columns 2 + 3 with the rail and top bar kept (owner 17 Nov, `supplier-frame.css`). On the phone, and
+     for every other row and the no-day list, a row still opens its day, as before. */
+  const drawRow = (r: DayRow, day: CalendarDay, inPicked = false) => {
     const row = (
     <DatesRow
       key={r.key}
@@ -483,7 +491,7 @@ export function CustomersCalendar({
       line={r.line || undefined}
       line2={r.line2 || undefined}
       badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
-      href={onClients ? daySheetHref(day) : undefined}
+      href={onClients ? (inPicked && eventsOpenHere && r.href ? r.href : daySheetHref(day)) : undefined}
       lead={
         r.kind === 'blocked' || r.kind === 'held' ? (
           // #28: the calendar draws a closure as the day's struck number (no hatch, no soft fill) — so does its row.
@@ -538,6 +546,10 @@ export function CustomersCalendar({
 
   return (
     <div ref={rootRef} data-dates-month={place} aria-busy={pending}>
+      {/* 🖥 THREE PARTS, NO MAGIC ROWS (audit 17 Nov): the month and what sits on it (`top`), the picked day, and what
+          follows (`rest`). Both wrappers are `display: contents`, so the phone draws exactly what it drew; from 1280 the
+          Clients grid names them as areas — "top day" / "rest day" (`supplier-frame.css`). */}
+      <div data-dates-month-top="">
       {/* Nothing picks a schedule ABOVE the month any more (2026-11-12): the pick is Show & sort's Schedule row and the
           chip under the month. One schedule (Clients › Dates): its one line. */}
       {onClients && !schedulesOffered(options) && pools.length === 1 && !oneScreen ? (
@@ -550,7 +562,7 @@ export function CustomersCalendar({
           This month&rsquo;s held days couldn&rsquo;t load, so a day you held may show as open here. Reload the page to try again.
         </p>
       ) : null}
-      {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
+      {/* The month itself. (`data-tour` was the retired Dates tour's first stop — W1-B14, 16 Nov 2026.) */}
       <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="relative touch-pan-y overflow-x-clip transition-opacity" data-tour="dates-calendar">
         {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
             (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}
@@ -580,7 +592,10 @@ export function CustomersCalendar({
         />
       </div>
       {/* The Schedule month has no "asking" marks (its one read skips the shop's threads) — its legend says only what it draws. */}
-      {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />}
+      {/* The legend under the month — on one-screen Clients too (drawing `supplier_clients_clean_2026-11-16`: "the green
+          seat and colour legend on the calendar (14 Nov; shipped one-screen Clients hides the legend, so it now shows)").
+          Its words stay the shipped plain words (2026-10-14); the drawing's own words are an owner question. */}
+      <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />
       {/* 📅 THE CHIP (prototype `.chipv`): one 44px pill under the month's legend saying which schedules it marks —
           "All schedules", or "Showing · Video team schedule" — and opening the SAME choices as Show & sort's row.
           A shop with one schedule has nothing to pick, so no chip. The ONE Clients screen draws no chip (owner
@@ -654,10 +669,13 @@ export function CustomersCalendar({
       </div>
 
       {between}
+      </div>
 
       {/* Schedule (v113 `calC`): the month marks the event's day; the schedule follows — no day rows of the shop here. */}
       {!onClients ? null : picked ? (
-        <>
+        // 🖥 One block, so a computer can set it beside the month as Clients' third column (owner "Yes, all 8" item 1,
+        // 16 Nov; `supplier-frame.css`). The phone draws it exactly where it always was.
+        <div data-dates-picked-col="">
           {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
           <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
             <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
@@ -685,8 +703,8 @@ export function CustomersCalendar({
           </div>
           {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
           {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} onFlip={onFlip} /> : null}
-          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
-        </>
+          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked, true))}</div>
+        </div>
       ) : oneScreen ? null : (
         <div className="mt-4" data-dates-all-days="">
           {allDays.length === 0 ? (
@@ -713,7 +731,7 @@ export function CustomersCalendar({
           )}
         </div>
       )}
-      {after}
+      <div data-dates-month-rest="">{after}</div>
     </div>
   );
 }

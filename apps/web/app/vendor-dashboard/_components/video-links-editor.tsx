@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X, Play, ExternalLink } from 'lucide-react';
 import { parseVideoLink } from '@/lib/video-embed';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * "Featured videos" editor — a repeater of up to 10 external video URL inputs.
@@ -73,14 +74,14 @@ export function VideoLinksEditor({
               <button
                 type="button"
                 onClick={() => remove(idx)}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/15 text-ink/55 transition hover:border-terracotta/40 hover:text-terracotta"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[color:var(--m-slate-2)] hover:text-ink"
                 aria-label="Remove this video link"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
             {parsed ? (
-              <p className="flex items-center gap-1.5 pl-1 text-xs text-ink/55">
+              <p className="flex items-center gap-1.5 pl-1 text-xs text-[color:var(--m-slate-2)]">
                 {parsed.kind === 'iframe' ? (
                   <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                 ) : (
@@ -91,7 +92,7 @@ export function VideoLinksEditor({
                   : `${parsed.label} — opens in a new tab`}
               </p>
             ) : invalid ? (
-              <p className="pl-1 text-xs text-terracotta-700">
+              <p className="pl-1 text-xs text-[rgb(var(--color-danger))]">
                 That doesn&rsquo;t look like a video link. Paste a full https:// URL.
               </p>
             ) : null}
@@ -99,16 +100,9 @@ export function VideoLinksEditor({
         );
       })}
       {rows.length < MAX_LINKS ? (
-        <button
-          type="button"
-          onClick={add}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-ink/25 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta/40 hover:text-terracotta-700"
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Add another video
-        </button>
+        <ActionButton tone="neutral" icon={Plus} label="Add another video" onClick={add} />
       ) : (
-        <p className="pl-1 text-xs text-ink/45">Up to {formatCount(MAX_LINKS)} videos.</p>
+        <p className="pl-1 text-xs text-[color:var(--m-slate-2)]">Up to {formatCount(MAX_LINKS)} videos.</p>
       )}
     </div>
   );

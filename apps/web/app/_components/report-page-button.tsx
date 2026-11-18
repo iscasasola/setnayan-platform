@@ -43,12 +43,15 @@ export function ReportPageButton({
   targetId,
   label = 'Report this page',
   className,
+  triggerClassName,
 }: {
   /** 'vendor' added 2026-09-22 (CTRL-B3 build 9) — the id is `vendor_profiles.vendor_profile_id`. */
   targetType: 'event' | 'user_profile' | 'chapter' | 'vendor';
   targetId: string;
   label?: string;
   className?: string;
+  /** Replaces the trigger's look (the shop page's own outlined button, owner 15 Nov 2026). Default: the small link. */
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<string>('');
@@ -86,9 +89,12 @@ export function ReportPageButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/75 underline-offset-2 hover:text-ink hover:underline"
+        className={
+          triggerClassName ??
+          'inline-flex items-center gap-1.5 text-[11px] font-medium text-ink/75 underline-offset-2 hover:text-ink hover:underline'
+        }
       >
-        <Flag aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+        <Flag aria-hidden className={triggerClassName ? 'h-4 w-4' : 'h-3 w-3'} strokeWidth={1.75} />
         {label}
       </button>
 

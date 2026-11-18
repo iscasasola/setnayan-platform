@@ -1142,11 +1142,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Birthdays and other days that come around. Nothing here is an event yet.',
         },
         // 🏠 HOME · DISCOVER (owner 11 Nov 2026, "HOME IS THE PROFILE"): the bar is two tabs, and Events · People ·
-        // Shop · Memories are the sections of Home — the segments row (`home-segments`), not tabs.
+        // Shop · Memories are the sections of Home — switched from the pinned row's "Events ▾" (`home-segments`; the
+        // tab row went 17 Nov 2026).
         {
           anchor: 'home-segments',
           title: 'Your sections',
-          body: 'Events, People and Memories — and your shop, if you run one. All on your Home.',
+          body: 'Events ▾ switches to People and Memories — and your shop, if you run one. ＋ Event starts a new one.',
         },
         {
           anchor: 'tab-dashboard',

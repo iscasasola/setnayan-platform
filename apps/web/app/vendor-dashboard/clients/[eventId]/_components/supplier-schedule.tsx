@@ -27,7 +27,7 @@ import { markDay } from '@/lib/supplier-schedule-marks';
 import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
 import { formatCount } from '@/lib/format-number';
-import { OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, type OwnTimes } from '@/lib/supplier-own-times';
+import { CALL_TIME_ANCHOR, OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, type OwnTimes } from '@/lib/supplier-own-times';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -1019,12 +1019,13 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
   const keep = (k: 'call' | 'arrive' | 'done') => (hhmm: string) => {
     const next = { ...times, [k]: hhmm };
     setTimes(next);
-    if (!next.call && !next.arrive && !next.done) return { ok: true as const };
+    // 🕕 Clearing the last time saves too — the hosts are told (owner 16 Nov); nothing kept, nothing to clear.
+    if (!next.call && !next.arrive && !next.done && !own?.call && !own?.arrive && !own?.done) return { ok: true as const };
     return save(next);
   };
 
   return (
-    <section data-own-times="" data-tour="client-own-times" aria-label="Your times" className="space-y-1">
+    <section id={CALL_TIME_ANCHOR} data-own-times="" data-tour="client-own-times" aria-label="Your times" className="scroll-mt-24 space-y-1">
       {own === null ? (
         <p role="alert" className="text-sm font-semibold text-danger-700">
           Your times couldn’t be read just now. Nothing is lost — pull to refresh.

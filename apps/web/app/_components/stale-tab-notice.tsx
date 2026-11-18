@@ -51,6 +51,7 @@ import {
   servingVersionFrom,
   staleTabAction,
 } from '@/lib/build-version';
+import { whenPageSettles } from '@/lib/when-page-settles';
 
 /** The notice on the app's top notification layer, while a sheet or the full-screen thread covers the page. */
 const StaleTabNoticeLift = lazy(() => import('./stale-tab-notice-lift'));
@@ -191,8 +192,11 @@ export function StaleTabNotice() {
     document.addEventListener('click', onClick, true);
     // One check on mount covers a tab restored by the browser at start-up, which fires neither event. It never
     // reloads by itself — at most it arms the next link press.
-    void check(false);
+    // ⚡ It waits for the page to load and the browser to go idle (`whenPageSettles`, speed pass 2026-11-18): it draws
+    // nothing on first paint, so it never competes with the page's own scripts and reads. Still once per load.
+    const cancelFirstCheck = whenPageSettles(() => void check(false));
     return () => {
+      cancelFirstCheck();
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       document.removeEventListener('input', onInput, true);

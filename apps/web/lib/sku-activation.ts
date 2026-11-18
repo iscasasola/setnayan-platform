@@ -2487,7 +2487,15 @@ async function planHeldFromBeforeRecut(ctx: ActivationContext, sku: string): Pro
     .select('status, created_at')
     .eq('event_id', ctx.eventId)
     .eq('service_key', sku);
-  if (error || !data) return true;
+  if (error || !data) {
+    // Kept on a failed read (never strips a past buyer) — but said, never silent.
+    console.error('[sku-activation] could not read plan orders for the AI re-derive; keeping Setnayan AI', {
+      event_id: ctx.eventId,
+      sku,
+      error: error?.message ?? 'no rows object',
+    });
+    return true;
+  }
   const live = (data as Array<{ status: string | null; created_at: string | null }>).filter((r) => orderStatusConfersAccess(r.status));
   if (live.length === 0) return true;
   return live.some((r) => placedBeforeRecut(r.created_at));

@@ -49,6 +49,12 @@ const PATHS = [
   '/',
   '/dashboard',
   '/dashboard/abc/guests',
+  '/dashboard/7f3a9c1e',
+  '/dashboard/7f3a9c1e/',
+  '/dashboard/7f3a9c1e/budget',
+  '/dashboard/7f3a9c1e/guests/checkin',
+  '/dashboard/7f3a9c1e/website/editor',
+  '/dashboard/billing',
   '/dashboardx',
   '/vendor-dashboard/clients',
   '/admin',
@@ -133,8 +139,12 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   // The supplier tree, admin, the front door, the guest Hub and Papic stay Light for EVERYONE until their batch
   // lists them — one prefix rule, no exception list (controller 2026-10-22). The couple's whole "/dashboard" area
   // opened on 18 Nov 2026 (owner: "dark mode. YES :D", pick 5); a sibling such as "/dashboardx" is not under it.
-  const SHIPPED_LIGHT = ['/', '/admin', '/admin/people', '/marco-marga', '/papic/abc'];
-  const SHIPPED_DARK = ['/dashboard', '/dashboard/abc', '/dashboard/abc/guests', '/dashboard/abc/budget', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/vendor-dashboard', '/vendor-dashboard/clients', '/login', '/signup/you'];
+  // The event tree opens screen by screen: only the four that were rendered in dark, each EXACTLY. Everything else
+  // under an event — Suppliers, the Maker, the Studio, the website editor, seating, the routes below Guests — and the
+  // Events board itself stay Light until they are swept and walked (review of #7993, 19 Nov 2026).
+  const E = '/dashboard/7f3a9c1e-2b4d-4c6e-8a10-3f5b7d9e1c2a';
+  const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/billing', '/dashboard/search', `${E}/vendors`, `${E}/launch`, `${E}/studio`, `${E}/website/editor`, `${E}/seating`, `${E}/guests/checkin`, `${E}/budget/x`, '/vendor-dashboard', '/vendor-dashboard/shop', '/vendor-dashboard/clients/7f3a9c1e', '/admin', '/marco-marga', '/papic/abc'];
+  const SHIPPED_DARK = [E, `${E}/`, `${E}/budget`, `${E}/guests`, `${E}/schedule`, '/dashboard/S89E-4KQ7M2XW9T', '/vendor-dashboard/clients', '/vendor-dashboard/customers', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
@@ -149,8 +159,13 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
       }
     }
   }
-  assert.ok(DARK_READY.includes('/dashboard'), 'the couple’s /dashboard area is on the ready-list (B3, 18 Nov 2026)');
-  assert.ok(DARK_READY.includes('/vendor-dashboard'), 'the supplier dashboard is on the ready-list (B4, 18 Nov 2026)');
+  assert.ok(!DARK_READY.includes('/dashboard'), '"/dashboard" as one prefix opens the whole event tree — the Maker, the Studio and the rest are not swept');
+  for (const e of ['/dashboard/*$', '/dashboard/*/budget$', '/dashboard/*/guests$', '/dashboard/*/schedule$']) assert.ok(DARK_READY.includes(e), `${e} left the ready-list`);
+  // `*` is an id: it must hold a digit — and no static folder under /dashboard does, so `*` can never be one of them.
+  const statics = ['(account)', '(launcher)'].flatMap((g) => readdirSync(join(WEB, 'app/dashboard', g), { withFileTypes: true }).filter((d) => d.isDirectory() && !/^[_@(]/.test(d.name)).map((d) => d.name));
+  assert.ok(statics.length >= 10, 'anti-vacuity: the static dashboard folders were not read');
+  assert.deepEqual(statics.filter((n) => /\d/.test(n)), [], 'a static /dashboard folder holds a digit — `*` in DARK_READY would match it');
+  assert.ok(!DARK_READY.includes('/vendor-dashboard'), 'the whole supplier tree is on the ready-list — only its walked screens may be');
   assert.ok(!DARK_READY.some((p) => p.startsWith('/admin')), 'admin opens in its own batch');
 });
 

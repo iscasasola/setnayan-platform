@@ -26,8 +26,14 @@ job's one token — no twin was added.
   `lib/css-colour-tokens.ts` that follows a pointer the way the browser does; the existing guards that read a
   token's literal value now read it through that.
 
-**(b) `/dashboard` is on the ready-list.** `DARK_READY` (`lib/appearance.ts`) is now the one prefix `/dashboard`
-(the Events board, the account spokes B2 opened on 23 Oct, and the whole event tree). Before it was listed:
+**(b) Four event screens open to dark; the tokens are swept across the whole area.** `DARK_READY`
+(`lib/appearance.ts`) keeps the account spokes B2 opened on 23 Oct and adds ONLY the four event screens that were
+rendered in dark, each exactly: the event Home (`/dashboard/*$`), Budget, Guests and Schedule. `isDarkReady` (and
+the inline head script) learned two marks for that: `*` = one segment that is an id (it must hold a digit; no
+static `/dashboard` folder does) and a trailing `$` = this route exactly. Suppliers, the Hub door, the Maker, the
+Studio, the website editor, seating and the Events board STAY LIGHT until they are swept and walked — they still
+paint colours of their own (review of #7993, 19 Nov 2026). The sweep below ran across all of `app/dashboard`, so
+those screens are closer, not done:
 
 - solid `bg-white` → `bg-raised` and `text-white` on a token fill → `text-cream` / `text-sn-on-accent` across
   about 135 files (the same pixels in Light); translucent whites over photos and camera drawings kept;
@@ -37,7 +43,7 @@ job's one token — no twin was added.
 - the dark-contrast record (`scripts/label-contrast-dark.baseline.json`) fell from 161 unreadable uses to 101,
   and to **zero** under `app/dashboard`;
 - new down-only ratchet `app/dashboard/raw-hex-only-goes-down.test.ts` + `raw-hex.baseline.json`: raw hex per
-  area, 438 → 335. What remains is the person's or the art's own colour (palettes, monogram and logo art,
+  area, 438 → 336. What remains is the person's or the art's own colour (palettes, monogram and logo art,
   drawings of a phone / camera / seal, the seat-plan lab's stage, print and PDF routes that are always light).
 
 `scripts/lint-label-on-fill-contrast.mjs` follows the new pointers for the families that were literals, and

@@ -140,7 +140,9 @@ test('3 · the accent as a WORD is its own token here — and nowhere else', () 
 });
 
 test('4 · the supplier area is on the ready-list, and in Light the supplier ink and button are the blue look’s', () => {
-  assert.ok(DARK_READY.includes('/vendor-dashboard'), '/vendor-dashboard is not on DARK_READY (lib/appearance.ts)');
+  // Only the supplier screens that were rendered in the navy are listed, each exactly; the whole tree waits for its walk.
+  for (const e of ['/vendor-dashboard/clients$', '/vendor-dashboard/customers$']) assert.ok(DARK_READY.includes(e), `${e} is not on DARK_READY (lib/appearance.ts)`);
+  assert.ok(!DARK_READY.includes('/vendor-dashboard'), 'the whole supplier tree is on DARK_READY — only walked screens may be');
   // Owner 19 Nov 2026 ("all recommended"): the 172 `var(--m-ink)` / `var(--m-mulberry)` reads on supplier pages join the
   // blue set. They are pointers, so the Light scope must NOT pin them — and they resolve to the look's own values.
   const LIGHT = block('html:not(.dark):has([data-supplier-look])');

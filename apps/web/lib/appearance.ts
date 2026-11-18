@@ -65,19 +65,32 @@ export const THEME_COLOR: Record<'light' | 'dark', string> = {
  * couple's slug can never be put on the list by mistake.
  */
 export const DARK_READY: readonly string[] = [
-  // B3 (18 Nov 2026 — owner: "dark mode. YES :D" · "all picks", pick 5 "the couple's /dashboard goes dark first"):
-  // THE COUPLE'S WHOLE /dashboard AREA — the Events board ("/dashboard" exactly), the account spokes B2 opened on
-  // 23 Oct (people · library · life-flash · profile · notifications · create-event · samahan) and the event tree
-  // ("/dashboard/<eventId>/…": Home, Guests, Suppliers, Budget, Schedule, Hub door, Maker, Studio …). ONE prefix, no
-  // exception list. It wears the one colour set of 18 Nov (globals.css "THE ONE COLOUR SET, BY JOB"); the hard-coded
-  // colours in these routes were moved onto tokens first, and `app/dashboard/raw-hex-only-goes-down.test.ts` keeps
-  // a new one out. The couple's guest pages drawn INSIDE these screens (previews, look samples) keep the couple's own
-  // design — the guest islands in globals.css.
-  '/dashboard',
-  // B4 (18 Nov 2026 — owner: "do supplier navy dark next"): THE SUPPLIER DASHBOARD, in its own navy
-  // (`app/vendor-dashboard/_components/supplier-look.css`, the `html.dark:has([data-supplier-look])` scope — the
-  // 16 Nov blue look's dark, pick 1 "supplier navy kept"). Tokens only; held by `the-navy-is-readable.test.ts`.
-  '/vendor-dashboard',
+  // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
+  // the one holding the switch (/dashboard/profile). Every route below was walked signed in, at 375 px, light and
+  // dark, before it was listed (2026-10-23).
+  '/dashboard/people',
+  '/dashboard/library',
+  '/dashboard/life-flash',
+  '/dashboard/profile',
+  '/dashboard/notifications',
+  '/dashboard/create-event',
+  '/dashboard/samahan',
+  // B3, FIRST SLICE (18 Nov 2026 — owner: "dark mode. YES :D" · pick 5 "the couple's /dashboard goes dark first").
+  // ONLY THE FOUR EVENT SCREENS THAT WERE RENDERED IN DARK: the event Home, Budget, Guests and Schedule — each one
+  // EXACTLY (`$`), never the routes below it. The rest of the event tree (Suppliers, the Hub door, the Maker, the
+  // Studio, the website editor, seating …) still paints colours of its own and STAYS LIGHT until it is swept and
+  // walked: nobody may meet a half-dark screen (call 3, 2026-10-13; review of #7993, 19 Nov 2026). `*` is the event's
+  // id — one segment that holds a digit (see `isDarkReady`).
+  '/dashboard/*$',
+  '/dashboard/*/budget$',
+  '/dashboard/*/guests$',
+  '/dashboard/*/schedule$',
+  // B4, FIRST SLICE (18 Nov 2026 — owner: "do supplier navy dark next"): the supplier dashboard's dark is its own navy
+  // (`app/vendor-dashboard/_components/supplier-look.css`, tokens only; `the-navy-is-readable.test.ts`). ONLY the two
+  // supplier screens that were rendered in the navy are listed, each exactly: Clients and the customers list. The
+  // rest of the supplier tree stays Light until it is walked — the same rule as the event tree above.
+  '/vendor-dashboard/clients$',
+  '/vendor-dashboard/customers$',
   // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
   // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
   '/login',
@@ -125,9 +138,28 @@ export function isSessionCookieName(name: string): boolean {
   return /^sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?$/.test(name);
 }
 
-/** Is `pathname` under a ready-list prefix? */
+/**
+ * Is `pathname` on the ready-list?
+ *
+ * An entry is a path PREFIX ("/dashboard/people" → itself and everything below it, never the sibling
+ * "/dashboard/peoplex"). Two marks narrow it, because an event's screens sit under a dynamic segment a plain prefix
+ * cannot name:
+ *   · `*`  one path segment that is an ID — it must hold a digit. Every event id does (a UUID, `S89E-…`); no static
+ *          folder under /dashboard does (`lib/appearance.test.ts` reads the folders and holds that), so
+ *          "/dashboard/*" can never match "/dashboard/billing".
+ *   · `$`  at the end: this route EXACTLY, not the routes below it.
+ * The inline <head> script (`theme-bootstrap-script.ts`) applies the same rule; the test runs both on one table.
+ */
 export function isDarkReady(pathname: string, ready: readonly string[] = DARK_READY): boolean {
-  return ready.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/'));
+  const path = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  const have = path.split('/');
+  return ready.some((entry) => {
+    const exact = entry.endsWith('$');
+    const body = exact ? entry.slice(0, -1) : entry;
+    const want = (body.length > 1 && body.endsWith('/') ? body.slice(0, -1) : body).split('/');
+    if (exact ? have.length !== want.length : have.length < want.length) return false;
+    return want.every((seg, i) => (seg === '*' ? /\d/.test(have[i] ?? '') : seg === have[i]));
+  });
 }
 
 /**

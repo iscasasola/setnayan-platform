@@ -14,7 +14,9 @@ DASHBOARD = THE OWNER'S BLUE LOOK, LIGHT AND DARK"). Stacked on dark mode PR 1 (
   can be both. `text-mulberry` and `text-sn-accent` now read `--color-mulberry-word` / `--sn-accent-word` first
   (`tailwind.config.ts`, text only — the `text-terracotta` precedent). They are set only in the navy scope (the
   link blue, 7.20:1); unset everywhere else, so Light and the couple's dark paint exactly what they did.
-- **`/vendor-dashboard` is on `DARK_READY`.** Before it was listed: solid `bg-white` → `bg-raised` (100 uses, the
+- **Two supplier screens are on `DARK_READY`,** each exactly — Clients and the customers list, the two that were
+  rendered in the navy (`/vendor-dashboard/clients$`, `/vendor-dashboard/customers$`). The rest of the supplier
+  tree stays Light until it is walked. Swept across the whole tree first: solid `bg-white` → `bg-raised` (100 uses, the
   same pixels in Light), `text-cream` on the main button → `text-sn-on-accent`, stock-palette colours given a
   status-token dark partner. The dark-contrast record fell from 101 to 88 unreadable uses, zero under
   `app/vendor-dashboard`.

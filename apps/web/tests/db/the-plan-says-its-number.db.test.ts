@@ -138,6 +138,20 @@ async function storedWaitlist(vendorProfileId: string): Promise<number> {
   return Number(r.rows[0]!.n);
 }
 
+/**
+ * Since 2026-11-18 (owner, ruling 32: "waitlist no limit on every plan") every plan's waitlist ceiling is the column's
+ * own 10, so no shop can sit above it. The grandfathering mechanism still stands — the plan rows are admin-editable —
+ * so these tests lower ONE plan's row to exercise it, and put it back.
+ */
+async function withPlanCeiling(plan: string, n: number, fn: () => Promise<void>): Promise<void> {
+  await db.query(`UPDATE public.vendor_plan_contents SET value = $2 WHERE plan = $1 AND key = 'waitlist_acceptances'`, [plan, n]);
+  try {
+    await fn();
+  } finally {
+    await db.query(`UPDATE public.vendor_plan_contents SET value = 10 WHERE plan = $1 AND key = 'waitlist_acceptances'`, [plan]);
+  }
+}
+
 /** Put a shop ABOVE its ceiling the only honest way: with the ceilings off. */
 async function seedAboveCeiling(vendorProfileId: string, n: number): Promise<void> {
   await setCapsEnabled(false);
@@ -155,8 +169,8 @@ async function seedAboveCeiling(vendorProfileId: string, n: number): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('an unrelated save does NOT lower a number the supplier already chose', async () => {
-  // Pro, not Solo, since owner 2026-11-04 ("waitlist 0,0,1,5"): Solo has no waitlist now; Pro's ceiling is the 1.
-  const { vendorProfileId } = await newVendor('keep', 'pro'); // pro waitlist ceiling = 1
+  const { vendorProfileId } = await newVendor('keep', 'pro');
+  await withPlanCeiling('pro', 1, async () => {
   await seedAboveCeiling(vendorProfileId, 3);
   assert.equal(await storedWaitlist(vendorProfileId), 3, 'seeding must actually land');
 
@@ -171,10 +185,12 @@ test('an unrelated save does NOT lower a number the supplier already chose', asy
     3,
     'grandfathering failed: an unrelated save clamped a number nobody touched',
   );
+  });
 });
 
 test('changing the number IS agreeing to the ceiling', async () => {
-  const { vendorProfileId } = await newVendor('touch', 'pro'); // ceiling 1 (owner 2026-11-04)
+  const { vendorProfileId } = await newVendor('touch', 'pro');
+  await withPlanCeiling('pro', 1, async () => {
   await seedAboveCeiling(vendorProfileId, 3);
 
   await db.query(
@@ -187,10 +203,23 @@ test('changing the number IS agreeing to the ceiling', async () => {
     1,
     'the moment they set it themselves, the plan ceiling binds',
   );
+  });
+});
+
+test('every plan reaches the column’s own ceiling — no plan limit on the waitlist (owner 2026-11-18, ruling 32)', async () => {
+  const { vendorProfileId } = await newVendor('nolimit', 'free');
+  await setCapsEnabled(true);
+  await db.query(
+    `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 10
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(await storedWaitlist(vendorProfileId), 10, 'Free is not clamped below the shop’s own number');
 });
 
 test('a brand-new shop is inside the ceiling from its first row', async () => {
   await setCapsEnabled(true);
+  await withPlanCeiling('free', 0, async () => {
   const u = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email, raw_user_meta_data)
      VALUES ($1, jsonb_build_object('account_type','couple')) RETURNING id`,
@@ -203,7 +232,8 @@ test('a brand-new shop is inside the ceiling from its first row', async () => {
     [u.rows[0]!.id],
   );
   const stored = await storedWaitlist(r.rows[0]!.vendor_profile_id);
-  assert.equal(stored, 0, 'a brand-new shop is `free`, whose plan has no waiting list at all');
+  assert.equal(stored, 0, 'a brand-new shop is `free`, here lowered to no waiting list at all');
+  });
 });
 
 test('grandfathering protects a NUMBER, never a FEATURE — a 0-plan still has none', async () => {
@@ -211,6 +241,7 @@ test('grandfathering protects a NUMBER, never a FEATURE — a 0-plan still has n
   await seedAboveCeiling(vendorProfileId, 3);
   // Downgrading is refused by the tier guard, so put them on the 0-allowance
   // plan the only way the database permits: with the caps off, from a fresh row.
+  await withPlanCeiling('free', 0, async () => {
   await setCapsEnabled(false);
   const free = await newVendor('freeplan', 'free');
   await db.query(
@@ -233,6 +264,7 @@ test('grandfathering protects a NUMBER, never a FEATURE — a 0-plan still has n
   );
   assert.equal(r.rows[0]!.n, 0, 'a plan with no waiting list keeps none, grandfather or not');
   assert.equal(r.rows[0]!.on, false, 'and the switch cannot be left on');
+  });
 });
 
 test('MUTATION GUARD: with the caps OFF nothing is clamped at all', async () => {

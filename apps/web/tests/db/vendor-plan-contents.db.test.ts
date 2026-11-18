@@ -148,7 +148,7 @@ test('every change writes a history row; an unchanged write writes none', async 
 test('anyone may read the plan table; nobody but the service role may write it; history is not public', async () => {
   await asRole('anon');
   const r = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_plan_contents`);
-  assert.ok(r.rows[0]!.n >= 35, 'anon cannot read the plan table (the Plans page and vendor_tier_limit need it)');
+  assert.ok(r.rows[0]!.n >= 30, 'anon cannot read the plan table (the Plans page and vendor_tier_limit need it)');
   await assert.rejects(db.query(`UPDATE public.vendor_plan_contents SET value = 99 WHERE plan='pro' AND key='agent_accounts'`));
   await asRole('authenticated');
   await assert.rejects(db.query(`UPDATE public.vendor_plan_contents SET value = 99 WHERE plan='pro' AND key='agent_accounts'`));

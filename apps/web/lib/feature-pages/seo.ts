@@ -19,7 +19,7 @@ import { featureOffer, type ResolvedFeaturePrice } from './price';
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const BRAND_CARD = { path: '/brand/og-card.webp', width: 1200, height: 630 } as const;
+const BRAND_CARD = { path: '/brand/og-card-2026-11.png', width: 1200, height: 630 } as const;
 
 /**
  * The share image: the feature's first real PHOTOGRAPH (our own demo

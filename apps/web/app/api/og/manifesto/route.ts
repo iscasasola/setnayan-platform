@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   } catch {
     // Never hand a crawler a 500 — fall back to the static brand OG card.
     return Response.redirect(
-      `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '')}/brand/og-card.webp`,
+      `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '')}/brand/og-card-2026-11.png`,
       302,
     );
   }

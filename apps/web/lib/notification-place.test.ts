@@ -34,7 +34,7 @@ import {
   opensWords,
   placeLineText,
   placeLineWords,
-  placeMarkLetter,
+  placeMarkWords,
   placeWhoFromSwitcher,
   resolveNotificationPlace,
   type EventPlaceFact,
@@ -219,22 +219,20 @@ test('the account menu’s facts project to who is reading', () => {
   assert.equal(placeWhoFromSwitcher({ displayName: null, email: '', photoUrl: null, context: { shops: [] } }).initial, null);
 });
 
-test('the event\u2019s notification mark is ONE letter — the monogram\u2019s first, else the name\u2019s', () => {
-  const cases: Array<[string | null, string | null, string]> = [
-    ['M & J', 'Maria & Jose', 'M'],
-    [null, 'Ana\u2019s 30th', 'A'],
-    ['  ', 'jose', 'J'],
-    ['& ', '\u00c9lise & Paolo', '\u00c9'],
-    [null, null, '?'],
+test('the event\u2019s notification mark is its INITIALS\u2019 words — the monogram\u2019s, else the name\u2019s (owner 17 Nov)', () => {
+  const cases: Array<[string | null, string | null, string | null]> = [
+    ['M & J', 'Maria & Jose', 'M J'],
+    [null, 'Indalecio & Claire', 'Indalecio Claire'],
+    ['  ', 'jose', 'jose'],
+    ['& ', '\u00c9lise & Paolo', '\u00c9lise Paolo'],
+    [null, '/indalecio-claire', 'indalecioclaire'],
+    [null, null, null],
   ];
   for (const [monogram_text, display_name, want] of cases) {
-    const got = placeMarkLetter({ monogram_text, display_name });
-    assert.equal(got, want);
-    assert.equal(Array.from(got).length, 1, `the mark draws "${got}" — more than one character`);
+    assert.equal(placeMarkWords({ monogram_text, display_name }), want);
   }
-  // The row draws exactly that letter, and names the event in full for assistive tech.
   const LIST = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'notifications', 'notifications-list.tsx'), 'utf8'));
   const face = LIST.slice(LIST.indexOf('function PlaceFace('), LIST.indexOf("case 'shop':", LIST.indexOf('function PlaceFace(')));
-  assert.match(face, /aria-label=\{place\.name\}[\s\S]*?\{placeMarkLetter\(place\.event\)\}/, 'the event mark is not the one letter with the full name');
+  assert.match(face, /aria-label=\{place\.name\}[\s\S]*?\{eventInitials\(place\.event\)\}/, 'the event mark is not the initials with the full name');
   assert.doesNotMatch(face, /<EventMonogram\b/, 'the full monogram is back in the 38px mark');
 });

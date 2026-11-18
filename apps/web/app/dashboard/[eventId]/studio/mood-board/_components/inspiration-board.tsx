@@ -33,6 +33,7 @@ import {
   type MoodboardSlotPosition,
 } from '@/lib/moodboard-slots';
 import { Fold } from '@/app/_components/fold';
+import { formatCount } from '@/lib/format-number';
 import { CAP, cutWords, groupCount, INSPIRATION_OPEN_GROUP, partLine } from './inspiration-board-words';
 import { PhotoViewer } from '@/app/_components/gallery/photo-viewer';
 import { swipeBegin, swipeMove, swipeSettle, type SwipeDrag } from '@/app/_components/swipe-to-delete';
@@ -390,7 +391,7 @@ export function InspirationBoard({
                               photo={tile}
                               slotKey={slot.k}
                               slotPosition={pos}
-                              label={`${slot.label} photo ${saved.findIndex((c) => c.pos === pos) + 1}`}
+                              label={`${slot.label} photo ${formatCount(saved.findIndex((c) => c.pos === pos) + 1)}`}
                               onOpen={() =>
                                 setViewing({ slot: slot.k, at: saved.findIndex((c) => c.pos === pos) })
                               }
@@ -430,11 +431,11 @@ export function InspirationBoard({
                     </div>
                     {failed > 0 ? (
                       <p role="alert" className="mb-2 rounded-md bg-danger-50 px-2.5 py-2 text-[12px] text-danger-700">
-                        {`${failed} photo${failed === 1 ? '' : 's'} did not upload. Tap Retry.`}
+                        {`${formatCount(failed)} photo${failed === 1 ? '' : 's'} did not upload. Tap Retry.`}
                         {saved.length > 0
                           ? saved.length === 1
                             ? ' The other one is saved.'
-                            : ` The other ${saved.length} are saved.`
+                            : ` The other ${formatCount(saved.length)} are saved.`
                           : ''}
                       </p>
                     ) : null}
@@ -509,7 +510,7 @@ export function InspirationBoard({
                     group: g.title,
                     disabledNote:
                       s.k !== viewing.slot && freePositions(s.k, tiles).length === 0
-                        ? `${s.label} is full (${CAP} of ${CAP}). Remove one there first.`
+                        ? `${s.label} is full (${formatCount(CAP)} of ${formatCount(CAP)}). Remove one there first.`
                         : undefined,
                   })),
                 )}

@@ -7,7 +7,8 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { coupleMediaCapBytes, makerMediaMeterState } from '@/lib/maker-media-limits';
-import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { eventCoupleMediaPlan, settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
@@ -501,8 +502,13 @@ export default async function WebsiteEditorPage({
      below it, settling after the response keeps this render as fast as before
      and the next refresh (every save brings one) shows the freed bytes. */
   const countedMediaBytes = (event as { couple_media_bytes?: number | null }).couple_media_bytes ?? 0;
+  // 🎟 The plan's allowance (owner 2026-11-18: Free 10 MB · Plus 500 MB · Pro 1 GB · Ultra 2 GB) — the same reader the
+  // upload's reservation enforces with, shown as the viewer is SHOWN the plan ("view as a free couple" sees Free).
+  const mediaPlan: EventMediaPlan = (await asViewed(true))
+    ? await eventCoupleMediaPlan(await eventEntitlementClient(eventId), eventId).catch((): EventMediaPlan => 'free')
+    : 'free';
   let mediaUsedBytes = countedMediaBytes;
-  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(ownsPro)).isNear) {
+  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(mediaPlan)).isNear) {
     mediaUsedBytes = (await settleCoupleMediaBytes(eventId)) ?? countedMediaBytes;
   } else if (countedMediaBytes > 0) {
     after(async () => {
@@ -981,6 +987,7 @@ export default async function WebsiteEditorPage({
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
                       mediaUsedBytes={mediaUsedBytes}
+                      mediaPlan={mediaPlan}
                     />
                   </>
                 ),
@@ -1654,6 +1661,7 @@ export default async function WebsiteEditorPage({
                   videoChoice={videoChoice}
                   sceneUploads={sceneUploads}
                   mediaUsedBytes={mediaUsedBytes}
+                  mediaPlan={mediaPlan}
                   loopPosters={Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null]))}
                   ownsPro={ownsPro}
                 />
@@ -1816,6 +1824,7 @@ export default async function WebsiteEditorPage({
         videoChoice,
         sceneUploads,
         mediaUsedBytes,
+        mediaPlan,
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,

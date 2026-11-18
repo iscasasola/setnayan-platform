@@ -21,7 +21,7 @@ export type PlanPrices = {
   liveWatch: number | null;
   patiktok: { php: number; perDay: boolean } | null;
   ai: Partial<Record<AiBand, TwoPrices>>;
-  /** Event Plus — EVENT_PLUS. Where Setnayan AI is bought once it is no longer sold on its own (owner 2026-11-04). */
+  /** Event Plus — EVENT_PLUS. (Carried Setnayan AI 4 → 18 Nov 2026; since the 18 Nov re-cut the AI is Event Pro's.) */
   plus?: number | null;
 };
 
@@ -153,7 +153,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           line: 'Your photos, music, themes and logo.',
           item: 'Event Pro',
           tip:
-            'Everything: your photos, music, themes and logo on the Event Hub, the cinematic reveal, 500 MB of your own media, prints in your look, no Setnayan mark. ' +
+            'Everything: your photos, music, themes and logo on the Event Hub, the cinematic reveal, 1 GB of your own media, prints in your look, no Setnayan mark, and Setnayan AI to suggest your suppliers and watch your plan. ' +
               (p.pro.signup != null
                 ? `${peso(p.pro.signup)} while you set up your event · ${peso(p.pro.regular)} after.`
                 : `${peso(p.pro.regular)}.`) +
@@ -176,17 +176,10 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           tool: true,
           php: at(ai),
         }
-      : p.plus != null
-        ? {
-            k: 'ai',
-            q: 'Do you want help choosing suppliers?',
-            line: 'A team suggested by fit, and your plan watched.',
-            item: 'Event Plus',
-            tip: `Setnayan AI suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. It comes with Event Plus, ${peso(p.plus)}, with Papic credits for your guests — and with Event Pro and Event Ultra.`,
-            tool: true,
-            php: p.plus,
-          }
-        : null,
+      : // 🎟 18 Nov re-cut: with Setnayan AI off sale on its own, it comes with Event Pro (and Ultra) — no longer Event Plus —
+        // so the Pro question above already carries it (its tip says so). A separate "help choosing suppliers?" step
+        // priced at Event Pro would bill Pro twice when both are picked.
+        null,
     p.patiktok
       ? {
           k: 'patiktok',

@@ -87,6 +87,7 @@ import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/m
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
@@ -405,6 +406,7 @@ export function MainBackgroundPanel({
   overrideStillUrl,
   drafted,
   ownsPro,
+  mediaPlan,
   loops = [],
   photoChoices = [],
   videoChoice = null,
@@ -434,6 +436,8 @@ export function MainBackgroundPanel({
   /** The draft holds a different Main background from what guests see. */
   drafted: boolean;
   ownsPro: boolean;
+  /** 🎟 The event's upload plan (owner 2026-11-18) — the meter's number; absent reads the older Pro/Free answer. */
+  mediaPlan?: EventMediaPlan;
   /**
    * 🎞 MOVING BACKGROUNDS — every shipped loop of ours (`hubMovingBackgroundIds`),
    * each by its picture-able name and public still, built on the server.
@@ -1252,7 +1256,7 @@ export function MainBackgroundPanel({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
             <span className="text-[12px] text-ink/70" data-main-ground-tip="">
               <InfoTip label="Best size" align="start">
                 An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
@@ -1526,7 +1530,7 @@ export function MainBackgroundPanel({
             label="Upload a photo or clip"
           />
           {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it. */}
-          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

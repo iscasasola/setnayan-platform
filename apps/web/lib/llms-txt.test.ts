@@ -96,7 +96,7 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
   assert.ok(!body.includes('₱1,999'), 'Papic Pool 6k is ₱2,000 now, not ₱1,999');
 });
 
-test('Setnayan AI is never quoted a price of its own — it comes with Event Plus, Event Pro and Event Ultra', () => {
+test('Setnayan AI is never quoted a price of its own — it comes with Event Pro and Event Ultra', () => {
   /*
     ⚖ Owner 2026-11-04 (final price sheet): "Setnayan ai no separate purchase will be part of event plus and event
     pro". Until that day this test proved the four-rung AI ladder rendered; the ladder is no longer for sale, so the
@@ -118,7 +118,10 @@ test('Setnayan AI is never quoted a price of its own — it comes with Event Plu
   }
   assert.ok(!/priced by event type/i.test(body), 'llms.txt still sells Setnayan AI by event type');
   // Re-pointed 2026-11-13: Event Ultra is the third plan and carries the AI too (AI_INCLUDED_PLAN_SKUS, lib/sku-activation.ts).
-  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Plus, Event Pro and Event Ultra/);
+  // Re-pointed 2026-11-18 (the re-cut): Event Plus no longer carries it for new buyers — Event Pro and Event Ultra do.
+  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra/);
+  assert.doesNotMatch(body, /- \*\*Event Plus\*\*[^\n]*Setnayan AI/, 'llms.txt still sells Setnayan AI inside Event Plus');
+  assert.match(body, /- \*\*Event Pro\*\*[^\n]*Setnayan AI/, 'llms.txt no longer names Setnayan AI inside Event Pro');
   assert.ok(body.includes(peso(Number(RETAIL.find((r) => r.service_code === 'EVENT_PLUS')!.retail_price_php))), 'Event Plus is not priced');
   // The ladder primitive still resolves (other callers price from it); it is simply not rendered here.
   assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);

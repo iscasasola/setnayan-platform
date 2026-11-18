@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
+import type { EventMediaPlan } from '@/lib/event-plans';
 
 /**
  * Event Hub Maker — media limits (Phase 4, DECISION_LOG 2026-09-25).
@@ -47,7 +48,12 @@ export const MAKER_CLIP_TOO_LONG_MESSAGE = 'Please pick a video under 15 seconds
  */
 export const MAKER_EVENT_MEDIA_BYTES_CAP = {
   free: 10 * 1024 * 1024, // 10 MB
+  /** Event Plus (owner 2026-11-18) — and the Background part / the parts' cap, as sold on 22 Oct. */
   pro: 500 * 1024 * 1024, // 500 MB
+  /** 🎟 Event Pro (owner 2026-11-18, ruling 36). */
+  eventPro: 1024 * 1024 * 1024, // 1 GB
+  /** 🎟 Event Ultra (owner 2026-11-18, ruling 36). */
+  eventUltra: 2 * 1024 * 1024 * 1024, // 2 GB
 } as const;
 
 /**
@@ -61,8 +67,14 @@ export const MAKER_EVENT_MEDIA_BYTES_CAP = {
  * Existing files are never deleted: a couple over the new cap simply cannot
  * add (the cap only gates NEW reservations).
  */
-export function coupleMediaCapBytes(isPro: boolean): number {
-  return isPro ? MAKER_EVENT_MEDIA_BYTES_CAP.pro : MAKER_EVENT_MEDIA_BYTES_CAP.free;
+export function coupleMediaCapBytes(plan: boolean | EventMediaPlan): number {
+  // 🎟 By plan (owner 2026-11-18): Free 10 MB · Event Plus 500 MB · Event Pro 1 GB · Event Ultra 2 GB. A boolean is the
+  // older question "does the event hold the Background part (500 MB)?" — `true` still names 500 MB, so every caller that
+  // has not been handed the plan reads exactly what it read before.
+  if (plan === 'ultra') return MAKER_EVENT_MEDIA_BYTES_CAP.eventUltra;
+  if (plan === 'pro') return MAKER_EVENT_MEDIA_BYTES_CAP.eventPro;
+  if (plan === 'plus' || plan === true) return MAKER_EVENT_MEDIA_BYTES_CAP.pro;
+  return MAKER_EVENT_MEDIA_BYTES_CAP.free;
 }
 
 /**
@@ -203,6 +215,8 @@ export async function readCoupleMediaBytes(
 /** `"2.4 MB"` / `"12 MB"` — the one way every allowance surface writes a size (the meter, the refusal). */
 export function formatMakerMediaMB(bytes: number): string {
   const mb = bytes / (1024 * 1024);
+  // 🎟 A whole number of gigabytes reads as GB — Event Pro's "1 GB", Ultra's "2 GB" (owner 2026-11-18), never "1,024 MB".
+  if (mb >= 1024 && mb % 1024 === 0) return `${formatCount(mb / 1024)} GB`;
   // One decimal below 10 MB (small clips/photos are legible at that precision),
   // whole numbers above it — matches `bytesToHuman` house style in file-upload.tsx.
   return mb < 10 ? `${formatCount(mb, 1)} MB` : `${formatCount(Math.round(mb))} MB`;

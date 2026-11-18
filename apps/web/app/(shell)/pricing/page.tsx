@@ -456,7 +456,7 @@ export default async function PricingPage() {
                         ◆
                       </i>
                       <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 500 MB of media, prints in your look${prices.plus != null ? ' — and everything in Event Plus, Setnayan AI included' : ''}. One unlock covers everyone on the event.`}
+                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 1 GB of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
@@ -562,17 +562,18 @@ export default async function PricingPage() {
               </>
             ) : null}
 
-            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own — it comes inside Event
-                Plus and Event Pro. `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the row
-                below stops drawing; Event Plus, read from its own row, is where the planner is bought. */}
+            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own. 🎟 18 Nov re-cut: it
+                comes inside Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no suppliers).
+                `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the AI row below stops
+                drawing; Event Plus, read from its own row, is the smaller paid plan. */}
             {prices.plus != null ? (
               <>
-                <Moment>Help planning</Moment>
+                <Moment>A nicer, bigger event</Moment>
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip={`Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with ${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras. Event Pro includes everything in Event Plus.`}
-                    what="Setnayan AI and Papic credits, for this event."
+                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras, 500 MB of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
+                    what="Papic credits and more upload space, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}
                   />

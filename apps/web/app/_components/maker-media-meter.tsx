@@ -42,7 +42,7 @@ export function MakerMediaMeter({
   className?: string;
 }) {
   const state = makerMediaMeterState(usedBytes, capBytes);
-  const proBytes = coupleMediaCapBytes(true);
+  const proBytes = coupleMediaCapBytes('pro'); // 🎟 Event Pro's number (1 GB since the 18 Nov re-cut)
   const offerPro = Boolean(proHref) && state.capBytes < proBytes;
   return (
     <div className={className ? `space-y-1 ${className}` : 'space-y-1'}>

@@ -195,12 +195,12 @@ function PricesOverlay({
             , one-time · access until your wedding.
           </span>
         </div>
-      ) : pricing && pricing.plusPrice ? (
-        // ⚖ Owner 2026-11-04: Setnayan AI is no longer sold on its own — it comes with Event Plus and Event Pro.
+      ) : pricing && pricing.aiPlanPrice ? (
+        // ⚖ Owner 2026-11-04: Setnayan AI is no longer sold on its own. 🎟 18 Nov re-cut: it comes with Event Pro and Ultra.
         <div className="hr-gintro">
           <span className="hr-gintro-h">Setnayan AI</span>
           <span className="hr-gintro-b">
-            the planning brain that filters your suppliers — comes with Event Plus ({pricing.plusPrice}) and Event Pro.
+            the planning brain that filters your suppliers — comes with Event Pro ({pricing.aiPlanPrice}) and Event Ultra.
           </span>
         </div>
       ) : null}
@@ -407,8 +407,9 @@ function SetnayanAiOverlay({
   // would show two different numbers with no explanation — and every "you save X"
   // below would silently grow, which is a marketing claim, not a refactor.
   // The regular price UNDERSTATES the saving, which is the safe direction.
-  // ⚖ 2026-11-04: once Setnayan AI is off sale on its own, the figure a couple pays for it is Event Plus.
-  const mine = pricing.aiRegularPhp > 0 ? pricing.aiRegularPhp : pricing.plusPhp;
+  // ⚖ 2026-11-04: once Setnayan AI is off sale on its own, the figure a couple pays for it is its plan's — Event Pro since
+  // the 18 Nov re-cut (Event Plus no longer carries it).
+  const mine = pricing.aiRegularPhp > 0 ? pricing.aiRegularPhp : pricing.aiPlanPhp;
   // Every mode scales linearly toward its owner-set ceiling at 26 months.
   const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
@@ -571,9 +572,9 @@ function SetnayanAiOverlay({
       {/* The offer — price + act, LAST (owner 2026-07-03). The muted total ties
           the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice || pricing.plusPrice}</span>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice || pricing.aiPlanPrice}</span>
         <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          {pricing.aiPrice ? 'one-time · access until your wedding' : 'with Event Plus · one-time · access until your wedding'}
+          {pricing.aiPrice ? 'one-time · access until your wedding' : 'with Event Pro · one-time · access until your wedding'}
         </span>
         {mine > 0 ? (
           <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>

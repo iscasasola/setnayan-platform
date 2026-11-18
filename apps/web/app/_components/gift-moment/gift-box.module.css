@@ -1,0 +1,906 @@
+/*
+ * 🎁 THE GIFT BOX — the approved realistic box (owner 15 Nov "giftbox approved";
+ * corpus prototypes/supplier_badges_2026-11-15/gift-box_APPROVED_2026-11-15.html), ported rule for rule.
+ *
+ * A real box in CSS 3D: 1em = 1% of the stage, every face is one flat plane, and the ONLY things that ever animate are
+ * transform and opacity. No canvas, no image, no video. Colours mix from the app's tokens, so dark mode follows; the
+ * gold Setnayan box keeps the approved foil and wine values.
+ *
+ * ⏱ MOTION: every length is a motion token or a multiple of one (--sn-dur-enter 640 · --sn-dur-elem 320 ·
+ * --sn-pill-dur 700 · --sn-dur-rise-reduced 120), every curve is a token (--sn-ease · --sn-ease-out ·
+ * --sn-pill-spring · --sn-ease-rise). Only the endless rays turn on `linear`, the keyword for a turn with no ends.
+ * Held by app/_components/gift-moment/the-gift-box-is-the-approved-one.test.ts.
+ */
+
+/* ── the stage: the box sits in it; 1em = 1% of its width ── */
+.stage {
+  position: relative;
+  width: min(68vw, 300px);
+  aspect-ratio: 1 / 1;
+  margin: 12px auto 0;
+  flex: none;
+  font-size: calc(min(68vw, 300px) / 100);
+  line-height: 1;
+  --gb-open: calc(var(--sn-dur-enter) * 1.8);
+}
+@media (min-width: 768px) {
+  .stage {
+    width: 340px;
+    font-size: 3.4px;
+  }
+}
+
+/* the box's own tones: a supplier's terracotta paper and gold ribbon, mixed from the app's tokens */
+.gbox {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 88%;
+  --gb-paper: var(--m-mulberry);
+  --gb-gold: var(--m-orange);
+  --gb-lining: var(--m-ivory);
+  --gb-waxb: var(--gb-paper);
+  /* the light and shade the drawn SVG parts (seal, bow, ribbon tails, lid top) paint with */
+  --gb-shade: var(--sn-gift-umber-6);
+  --gb-sheen2: var(--sn-gift-glow-36);
+  --gb-sheen: var(--sn-gift-glow-37);
+  --gb-tint: var(--sn-gift-umber-25);
+  --gb-cream: var(--sn-gift-glow-28);
+  --gb-peach: var(--sn-gift-glow-21);
+  --gb-blush: var(--sn-gift-glow-15);
+  --gb-pearl: var(--sn-gift-glow-30);
+  --gb-crease: var(--sn-gift-umber-19);
+  --gb-p-hi: color-mix(in srgb, var(--gb-paper) 80%, var(--sn-gift-glow-17));
+  --gb-p-top: color-mix(in srgb, var(--gb-paper) 91%, var(--sn-gift-glow-17));
+  --gb-p-lo: color-mix(in srgb, var(--gb-paper) 82%, var(--sn-gift-umber-20));
+  --gb-p-sh: color-mix(in srgb, var(--gb-paper) 63%, var(--sn-gift-umber-20));
+  --gb-p-dk: color-mix(in srgb, var(--gb-paper) 48%, var(--sn-gift-umber-20));
+  --gb-g-sp: color-mix(in srgb, var(--gb-gold) 22%, var(--sn-gift-glow-33));
+  --gb-g-hi: color-mix(in srgb, var(--gb-gold) 55%, var(--sn-gift-glow-28));
+  --gb-g-lo: color-mix(in srgb, var(--gb-gold) 70%, var(--sn-gift-umber-25));
+  --gb-g-dk: color-mix(in srgb, var(--gb-gold) 46%, var(--sn-gift-umber-25));
+  --gb-l-lit: color-mix(in srgb, var(--gb-lining) 82%, var(--sn-gift-umber-26));
+  --gb-l-sh: color-mix(in srgb, var(--gb-lining) 58%, var(--sn-gift-umber-24));
+  --gb-l-dk: color-mix(in srgb, var(--gb-lining) 40%, var(--sn-gift-umber-18));
+  --gb-wax-hi: color-mix(in srgb, var(--gb-waxb) 62%, var(--sn-gift-glow-9));
+  --gb-wax: color-mix(in srgb, var(--gb-waxb) 66%, var(--sn-gift-umber-27));
+  --gb-wax-dk: color-mix(in srgb, var(--gb-waxb) 38%, var(--sn-gift-umber-21));
+  --gb-press: color-mix(in srgb, var(--gb-waxb) 30%, var(--sn-gift-umber-16));
+  --gb-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .9 0 0 0 -.42'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+/* owner 15 Nov: "Setnayan box is gold" · "make the gift box of setnayan more premium and expensive" — polished gold
+   foil with the Setnayan mark embossed all over, a deep wine satin ribbon edged in gold, a wine wax pressed in gold
+   leaf, a dark velvet lining, a slow light across the foil while it waits. */
+.fromSn {
+  --gb-paper: var(--sn-gift-glow-1);
+  --gb-p-hi: var(--sn-gift-glow-26);
+  --gb-p-top: var(--sn-gift-glow-7);
+  --gb-p-lo: var(--sn-gift-umber-34);
+  --gb-p-sh: var(--sn-gift-umber-32);
+  --gb-p-dk: var(--sn-gift-umber-29);
+  --gb-gold: var(--sn-gift-rose-3);
+  --gb-g-sp: var(--sn-gift-rose-6);
+  --gb-g-hi: var(--sn-gift-rose-4);
+  --gb-g-lo: var(--sn-gift-rose-1);
+  --gb-g-dk: var(--sn-gift-umber-12);
+  --gb-l-lit: var(--sn-gift-umber-28);
+  --gb-l-sh: var(--sn-gift-umber-23);
+  --gb-l-dk: var(--sn-gift-umber-11);
+  --gb-wax-hi: var(--sn-gift-rose-5);
+  --gb-wax: var(--sn-gift-rose-2);
+  --gb-wax-dk: var(--sn-gift-umber-8);
+  --gb-press: var(--sn-gift-glow-6);
+}
+
+.pool {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 46%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-20) 24%, transparent), color-mix(in srgb, var(--sn-gift-glow-20) 0%, transparent));
+  pointer-events: none;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  perspective: 230em;
+  perspective-origin: 50% 30%;
+}
+.world {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  font-size: 1.14em;
+  transform: rotateX(-25deg) rotateY(-29deg);
+}
+.g3 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+.f {
+  position: absolute;
+  left: 0;
+  top: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.f > i,
+.f > svg,
+.f > span > svg {
+  position: absolute;
+  display: block;
+}
+
+/* paper: grain + softened lit edges + a slow sheen + the face's own light */
+.pf.front {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-23) 34%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 1.3em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-23) 30%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 0.55em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-17) 42%, transparent), color-mix(in srgb, var(--sn-gift-umber-17) 0%, transparent) 6em),
+    linear-gradient(112deg, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 18%, color-mix(in srgb, var(--sn-gift-glow-31) 13%, transparent) 36%, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 56%),
+    linear-gradient(168deg, var(--gb-paper), var(--gb-p-lo));
+}
+.pf.right {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-18) 20%, transparent), color-mix(in srgb, var(--sn-gift-glow-18) 0%, transparent) 0.5em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-5) 40%, transparent), color-mix(in srgb, var(--sn-gift-umber-5) 0%, transparent) 7em), linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
+}
+.pf.back,
+.pf.left {
+  background: var(--gb-p-dk);
+}
+.pf.ltop {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-glow-27) 55%, transparent), color-mix(in srgb, var(--sn-gift-glow-27) 0%, transparent) 0.5em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-27) 38%, transparent), color-mix(in srgb, var(--sn-gift-glow-27) 0%, transparent) 0.5em),
+    linear-gradient(125deg, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 30%, color-mix(in srgb, var(--sn-gift-glow-32) 20%, transparent) 46%, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 64%),
+    linear-gradient(140deg, var(--gb-p-hi), var(--gb-p-top) 55%, var(--gb-paper));
+  outline: 0.14em solid var(--gb-p-top);
+}
+.pf.lfront {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-25) 42%, transparent), color-mix(in srgb, var(--sn-gift-glow-25) 0%, transparent) 0.55em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-17) 46%, transparent), color-mix(in srgb, var(--sn-gift-umber-17) 0%, transparent) 0.9em),
+    linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-23) 30%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 1.3em),
+    linear-gradient(270deg, color-mix(in srgb, var(--sn-gift-glow-23) 28%, transparent), color-mix(in srgb, var(--sn-gift-glow-23) 0%, transparent) 0.55em),
+    linear-gradient(170deg, var(--gb-p-top), var(--gb-paper));
+}
+.pf.lright {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-18) 26%, transparent), color-mix(in srgb, var(--sn-gift-glow-18) 0%, transparent) 0.5em),
+    linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-umber-5) 42%, transparent), color-mix(in srgb, var(--sn-gift-umber-5) 0%, transparent) 0.9em),
+    linear-gradient(180deg, var(--gb-p-sh), color-mix(in srgb, var(--gb-p-sh) 55%, var(--gb-p-dk)));
+}
+.pf.lback,
+.pf.lleft {
+  background: linear-gradient(180deg, var(--gb-p-sh), var(--gb-p-dk));
+}
+.pf.rim {
+  background: var(--gb-p-top);
+}
+.pf.rim.rimSh {
+  background: var(--gb-paper);
+}
+.pf.lrim {
+  background: var(--gb-p-lo);
+}
+/* the gold box: the mark embossed in the foil, the ribbon edged in gold */
+.fromSn .pf.front,
+.fromSn .pf.ltop {
+  background-blend-mode: normal;
+}
+.fromSn .pf.front::before,
+.fromSn .pf.right::before,
+.fromSn .pf.ltop::before,
+.fromSn .pf.lfront::before,
+.fromSn .pf.lright::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gb-emb) 0 0 / 10em;
+  opacity: 0.9;
+}
+.fromSn .pf.right::before,
+.fromSn .pf.lright::before {
+  opacity: 0.55;
+}
+.fromSn .pf.rim,
+.fromSn .pf.lrim {
+  background: linear-gradient(90deg, var(--sn-gift-umber-33), var(--sn-gift-glow-26) 40%, var(--sn-gift-glow-1) 70%, var(--sn-gift-umber-32));
+}
+.fromSn .rb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    var(--sn-gift-glow-16) 0 0.34em,
+    var(--sn-gift-umber-31) 0.34em 0.52em,
+    color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 0.52em calc(100% - 0.52em),
+    var(--sn-gift-umber-31) calc(100% - 0.52em) calc(100% - 0.34em),
+    var(--sn-gift-glow-5) calc(100% - 0.34em)
+  );
+}
+.fromSn .rb.h::before {
+  background: linear-gradient(
+    180deg,
+    var(--sn-gift-glow-16) 0 0.34em,
+    var(--sn-gift-umber-31) 0.34em 0.52em,
+    color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 0.52em calc(100% - 0.52em),
+    var(--sn-gift-umber-31) calc(100% - 0.52em) calc(100% - 0.34em),
+    var(--sn-gift-glow-5) calc(100% - 0.34em)
+  );
+}
+.fromSn .bow :global([data-sheen]) {
+  stroke-opacity: 0.32;
+}
+.foil {
+  display: none;
+}
+.fromSn .foil {
+  display: block;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.fromSn .foil::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--sn-gift-glow-34) 0%, transparent), color-mix(in srgb, var(--sn-gift-glow-34) 55%, transparent) 50%, color-mix(in srgb, var(--sn-gift-glow-34) 0%, transparent));
+  transform: translateX(-120%) skewX(-14deg);
+  animation: gb-foil calc(var(--sn-dur-enter) * 6.5) var(--sn-ease) calc(var(--sn-dur-enter) * 1.9) infinite;
+}
+@keyframes gb-foil {
+  0% {
+    transform: translateX(-120%) skewX(-14deg);
+  }
+  45%,
+  100% {
+    transform: translateX(300%) skewX(-14deg);
+  }
+}
+.open .foil {
+  visibility: hidden;
+}
+
+/* the lining, in shadow; the warm light is a separate layer that only fades */
+.in {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
+}
+.in.inb {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(100deg, color-mix(in srgb, var(--sn-gift-umber-10) 55%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 0%, transparent) 46%),
+    linear-gradient(180deg, var(--gb-l-lit), var(--gb-l-sh));
+}
+.in.inl {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-umber-10) 25%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 50%, transparent)),
+    linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-dk));
+}
+.in.flr {
+  background: var(--gb-grain) 0 0 / 9.6em, linear-gradient(120deg, color-mix(in srgb, var(--sn-gift-umber-10) 60%, transparent), color-mix(in srgb, var(--sn-gift-umber-10) 10%, transparent) 70%), var(--gb-l-sh);
+}
+.in.lin {
+  background: linear-gradient(180deg, var(--gb-l-sh), var(--gb-l-lit));
+}
+/* closed, nothing inside can be seen: leave it undrawn (a depth sort would otherwise show hairlines of lining) */
+.gbox:not(.open) .in {
+  visibility: hidden;
+}
+.glw {
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-glow-14) 95%, transparent), color-mix(in srgb, var(--sn-gift-glow-8) 42%, transparent) 52%, color-mix(in srgb, var(--sn-gift-glow-4) 5%, transparent));
+}
+.flr .glw {
+  background: radial-gradient(closest-side, var(--sn-gift-glow-24), color-mix(in srgb, var(--sn-gift-glow-10) 80%, transparent) 55%, color-mix(in srgb, var(--sn-gift-glow-4) 35%, transparent));
+}
+
+/* satin ribbon: a hard bright streak along the length, a fine weave, a shadow where it sits on the paper */
+.rb {
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
+    linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-35) 16%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 26%, color-mix(in srgb, var(--sn-gift-umber-19) 0%, transparent) 64%, color-mix(in srgb, var(--sn-gift-umber-19) 22%, transparent)),
+    linear-gradient(
+      90deg,
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 21%,
+      var(--gb-g-hi) 33%,
+      var(--gb-g-sp) 40%,
+      var(--gb-g-hi) 46%,
+      var(--gb-gold) 60%,
+      var(--gb-g-lo) 86%,
+      var(--gb-g-dk) 100%
+    );
+  box-shadow: 0.32em 0.08em 0.55em color-mix(in srgb, var(--sn-gift-umber-17) 42%, transparent), -0.08em 0 0.22em color-mix(in srgb, var(--sn-gift-umber-17) 22%, transparent);
+}
+.rb.h {
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
+    linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-glow-35) 20%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 30%, color-mix(in srgb, var(--sn-gift-umber-19) 0%, transparent) 70%, color-mix(in srgb, var(--sn-gift-umber-19) 16%, transparent)),
+    linear-gradient(
+      180deg,
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 20%,
+      var(--gb-g-hi) 34%,
+      var(--gb-g-sp) 42%,
+      var(--gb-g-hi) 49%,
+      var(--gb-gold) 63%,
+      var(--gb-g-lo) 88%,
+      var(--gb-g-dk) 100%
+    );
+  box-shadow: 0.08em 0.3em 0.5em color-mix(in srgb, var(--sn-gift-umber-17) 38%, transparent);
+}
+.rb.fold {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sn-gift-glow-35) 50%, transparent), color-mix(in srgb, var(--sn-gift-glow-35) 0%, transparent) 0.45em),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--sn-gift-white) 8.5%, transparent) 0 0.07em, color-mix(in srgb, var(--sn-gift-white) 0%, transparent) 0.07em 0.26em),
+    linear-gradient(
+      90deg,
+      var(--gb-g-dk) 0,
+      var(--gb-g-lo) 7%,
+      var(--gb-gold) 21%,
+      var(--gb-g-hi) 33%,
+      var(--gb-g-sp) 40%,
+      var(--gb-g-hi) 46%,
+      var(--gb-gold) 60%,
+      var(--gb-g-lo) 86%,
+      var(--gb-g-dk) 100%
+    );
+}
+.rb.shade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--sn-gift-umber-15) 44%, transparent);
+}
+.rb.up {
+  transform-origin: 50% 0;
+}
+.rb.dn {
+  transform-origin: 50% 100%;
+}
+/* ambient occlusion: the lid's overhang shades the box under it; fades as the lid leaves */
+.ao {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 16em;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sn-gift-umber-9) 62%, transparent) 0,
+    color-mix(in srgb, var(--sn-gift-umber-9) 62%, transparent) var(--gb-cover),
+    color-mix(in srgb, var(--sn-gift-umber-9) 22%, transparent) calc(var(--gb-cover) + 2.3em),
+    color-mix(in srgb, var(--sn-gift-umber-9) 0%, transparent)
+  );
+}
+.dim {
+  inset: 0;
+  background: color-mix(in srgb, var(--sn-gift-umber-13) 30%, transparent);
+  opacity: 0;
+}
+/* shadows on the floor: blurred once, never animated except by opacity */
+.sh {
+  background: color-mix(in srgb, var(--sn-gift-umber-4) 50%, transparent);
+  box-shadow: 0 0 4.2em 3em color-mix(in srgb, var(--sn-gift-umber-4) 50%, transparent);
+  border-radius: 2em;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.sh.far {
+  background: color-mix(in srgb, var(--sn-gift-umber-4) 16%, transparent);
+  box-shadow: 0 0 12em 9em color-mix(in srgb, var(--sn-gift-umber-4) 16%, transparent);
+}
+.sh.shLid {
+  opacity: 0;
+}
+.bow {
+  transform-origin: 50% 100%;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.bow svg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* the wax seal: the puddle, and the sender's mark pressed into it */
+.seal {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+}
+.wxHost {
+  position: absolute;
+  inset: -12%;
+}
+.wxHost svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.mk {
+  position: relative;
+  width: 66%;
+  height: 66%;
+  display: grid;
+  place-items: center;
+}
+.mk svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mk .lo {
+  color: color-mix(in srgb, var(--sn-gift-glow-12) 62%, transparent);
+  transform: translate(0.9%, 1.4%);
+}
+.mk .dk {
+  color: var(--gb-press);
+}
+.fromSn .mk .lo {
+  color: color-mix(in srgb, var(--sn-gift-umber-1) 75%, transparent);
+  transform: translate(1.2%, 1.8%);
+}
+.ini {
+  position: relative;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 6.4em;
+  letter-spacing: 0.03em;
+  color: var(--gb-press);
+  text-shadow: 0.05em 0.07em 0 color-mix(in srgb, var(--sn-gift-glow-12) 55%, transparent), -0.02em -0.03em 0.03em color-mix(in srgb, var(--sn-gift-umber-7) 55%, transparent);
+}
+.logo {
+  position: relative;
+  width: 60%;
+  height: 60%;
+  border-radius: var(--m-r-full);
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.3) brightness(0.55) sepia(0.6);
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
+/* the ticket they received, standing inside the box, turned to face you; the front wall hides it until it rises out */
+.tkt {
+  transform-origin: 50% 50%;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+.tktImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.gbox:not(.open) .tkt {
+  visibility: hidden;
+}
+.open .tkt {
+  transform: var(--gb-tk-end);
+}
+.open.anim .tkt {
+  animation: gmb-tk calc(var(--sn-dur-enter) * 1.1) var(--sn-ease) calc(var(--gb-open) * 0.36) both;
+}
+
+/* light from inside, the shipped gold flash, the sparks */
+.spill {
+  position: absolute;
+  left: 50%;
+  top: 41%;
+  width: 86em;
+  height: 74em;
+  margin: -40em 0 0 -43em;
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-14) 42%, transparent), color-mix(in srgb, var(--sn-gift-glow-3) 16%, transparent) 45%, color-mix(in srgb, var(--sn-gift-glow-2) 0%, transparent));
+}
+.flash {
+  position: absolute;
+  inset: -18%;
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--m-orange) 55%, transparent), transparent 66%);
+}
+.spk {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 2em;
+  height: 2em;
+  margin: -1em;
+  border-radius: var(--m-r-full);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--gb-g-sp);
+}
+.spk.s2 {
+  width: 1.1em;
+  height: 3.4em;
+  margin: -1.7em -0.55em;
+  border-radius: 0.6em;
+  background: var(--gb-g-hi);
+}
+.spk.s3 {
+  width: 1.9em;
+  height: 1.9em;
+  margin: -0.95em;
+  border-radius: 0.3em;
+  background: var(--gb-paper);
+}
+
+/* ── MOTION ── */
+.lid {
+  transform: var(--gb-lid-rest);
+}
+/* 1 · the shake (one "enter"), ending in the squash that loads the lid */
+.shake {
+  animation: gb-shake var(--sn-dur-enter) var(--sn-ease) both;
+}
+@keyframes gb-shake {
+  0% {
+    transform: rotate(0);
+  }
+  14% {
+    transform: rotate(-2deg);
+  }
+  28% {
+    transform: rotate(2deg);
+  }
+  42% {
+    transform: rotate(-4deg);
+  }
+  56% {
+    transform: rotate(4deg);
+  }
+  70% {
+    transform: rotate(-5deg);
+  }
+  82% {
+    transform: rotate(3deg) scale(1.01, 0.99);
+  }
+  100% {
+    transform: rotate(0) scale(1.045, 0.93);
+  }
+}
+/* 2 · the open */
+.open .lid {
+  transform: var(--gb-lid-end);
+}
+.open .rb.up,
+.open .rb.dn,
+.open .ao {
+  opacity: 0;
+}
+.open .glw {
+  opacity: 1;
+}
+.open .spill {
+  opacity: 0.85;
+}
+.open .dim,
+.open .sh.shLid {
+  opacity: 1;
+}
+.open .scene {
+  transform: translateX(-10em);
+}
+.open.anim {
+  animation: gb-rebound var(--sn-dur-elem) var(--sn-pill-spring) both;
+}
+@keyframes gb-rebound {
+  from {
+    transform: scale(1.045, 0.93);
+  }
+  to {
+    transform: none;
+  }
+}
+.open.anim .scene {
+  animation: gb-shift var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-shift {
+  0%,
+  12% {
+    transform: none;
+  }
+  100% {
+    transform: translateX(-10em);
+  }
+}
+.open.anim .lid {
+  animation: gmb-lid var(--gb-open) var(--sn-ease) both;
+}
+.open.anim .rb.up {
+  animation: gb-slip-up var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-slip-up {
+  0%,
+  6% {
+    transform: none;
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(0.04);
+    opacity: 1;
+  }
+  32%,
+  100% {
+    transform: scaleY(0.04);
+    opacity: 0;
+  }
+}
+.open.anim .rb.dn {
+  animation: gb-slip-dn var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-slip-dn {
+  0%,
+  8% {
+    transform: none;
+    opacity: 1;
+  }
+  40% {
+    transform: scaleY(0.05);
+    opacity: 1;
+  }
+  44%,
+  100% {
+    transform: scaleY(0.05);
+    opacity: 0;
+  }
+}
+.open.anim .ao {
+  animation: gb-out var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-out {
+  0%,
+  6% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+.open.anim .glw {
+  animation: gb-in var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-in {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  46%,
+  100% {
+    opacity: 1;
+  }
+}
+.open.anim .dim,
+.open.anim .sh.shLid {
+  animation: gb-late var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-late {
+  0%,
+  52% {
+    opacity: 0;
+  }
+  90%,
+  100% {
+    opacity: 1;
+  }
+}
+.open.anim .spill {
+  animation: gb-spill var(--gb-open) var(--sn-ease) both;
+}
+@keyframes gb-spill {
+  0%,
+  6% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  34% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0.85;
+    transform: none;
+  }
+}
+.open.anim .flash {
+  animation: gb-flash var(--sn-dur-elem) var(--sn-ease-out) calc(var(--sn-dur-elem) * 0.25);
+}
+@keyframes gb-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+.open.anim .spk {
+  animation: gb-spark var(--sn-dur-enter) var(--sn-ease-out) calc(var(--sn-dur-elem) * 0.3) both;
+}
+@keyframes gb-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--gb-dx), var(--gb-dy)) rotate(var(--gb-rt)) scale(0.7);
+  }
+}
+
+/* ── around the box, in the stage ── */
+/* the shipped touch glow's bloom under the finger */
+.tglow {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  margin: -175px 0 0 -175px;
+  border-radius: var(--m-r-full);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-22) 39%, transparent), color-mix(in srgb, var(--sn-gift-glow-22) 0%, transparent));
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--sn-pill-dur) var(--sn-ease);
+}
+/* the ticket comes out to you: a flat, full-size copy takes over from the one in the box and lands big and sharp */
+.tkhero {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(90vw, 390px);
+  aspect-ratio: 316 / 170;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.tkhero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.tkhalo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: var(--m-r-full);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--sn-gift-glow-14) 50%, transparent), color-mix(in srgb, var(--sn-gift-glow-3) 18%, transparent) 45%, color-mix(in srgb, var(--sn-gift-glow-2) 0%, transparent));
+}
+/* the box arrives: it drops in and settles */
+.arrive {
+  animation: gb-arrive calc(var(--sn-dur-enter) * 1.25) var(--sn-pill-spring) both;
+}
+@keyframes gb-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-46px) scale(0.82);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+/* reduce motion: one short cross-fade from wrapped to opened; nothing else moves */
+.xfIn {
+  animation: gb-fade var(--sn-dur-rise-reduced) var(--sn-ease) backwards;
+}
+@keyframes gb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── the badge's background (owner 15 Nov: "the gift should live on the same background as to whatever badge it is
+   on"): its colour, its slowly turning rays and its drifting lights stay behind the box — no grey stage between.
+   Navy for Verified, gold for a tier up. ── */
+.badgeStage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(120% 72% at 50% 36%, var(--sn-gift-night-2) 0, var(--sn-gift-night-1) 52%, var(--sn-gift-umber-2) 100%);
+}
+.badgeStage.tier {
+  background: radial-gradient(120% 72% at 50% 36%, var(--sn-gift-umber-30) 0, var(--sn-gift-umber-22) 52%, var(--sn-gift-umber-3) 100%);
+}
+.rays {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 190%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--sn-gift-night-3) 13%, transparent) 0 5deg, color-mix(in srgb, var(--sn-gift-night-3) 0%, transparent) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, var(--sn-gift-black) 18%, color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 72%);
+  mask: radial-gradient(closest-side, var(--sn-gift-black) 18%, color-mix(in srgb, var(--sn-gift-black) 0%, transparent) 72%);
+  animation: gb-spin calc(var(--sn-dur-enter) * 94) linear infinite;
+}
+.tier .rays {
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--sn-gift-glow-13) 13%, transparent) 0 5deg, color-mix(in srgb, var(--sn-gift-glow-13) 0%, transparent) 5deg 15deg);
+}
+@keyframes gb-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.mote {
+  position: absolute;
+  bottom: -4%;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--m-r-full);
+  background: var(--sn-gift-glow-11);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--sn-gift-glow-11) 70%, transparent);
+  opacity: 0;
+  animation: gb-mote var(--gb-d) linear var(--gb-dl) infinite;
+}
+@keyframes gb-mote {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--gb-x), -105vh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake,
+  .anim,
+  .anim *,
+  .arrive,
+  .rays,
+  .fromSn .foil::after {
+    animation: none !important;
+  }
+  .fromSn .foil::after {
+    opacity: 0;
+  }
+  .mote {
+    display: none;
+  }
+}

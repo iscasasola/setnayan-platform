@@ -167,6 +167,26 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
   };
 }
 
+/**
+ * 🗂 THIS MONTH, FOR THE SHOP PAGE'S DESKTOP SIDE CARD (v16 S4: the side card's "Check a date" is this month as the seat
+ * plan). The SAME six reads and the SAME answer as the full Check a date (`readShopDateFacts` → `checkDateAnswer`),
+ * bounded to one month (`checkDateWindow(today, 1)`) — only the Not-bookable days leave this file. A refused or
+ * incomplete read is `unreadable`, which the card says, never an all-green month.
+ */
+export async function readThisMonthNotBookable(
+  vendorProfileId: string,
+  now: Date = new Date(),
+): Promise<{ kind: 'unreadable' } | { kind: 'ok'; today: string; to: string; notBookable: string[] }> {
+  const admin = createAdminClient();
+  const today = checkDateToday(now);
+  const window = checkDateWindow(today, 1);
+  const read = await readShopDateFacts(admin, vendorProfileId, { today, from: window.from, to: window.to });
+  if (read.kind === 'unreadable') return { kind: 'unreadable' };
+  const { pools, bookings, blocks, dayStates, services } = read;
+  const answer = checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today });
+  return { kind: 'ok', today, to: window.to, notBookable: answer.notBookable };
+}
+
 /** The six window reads, shared by the public page and the booking gates (`lib/closed-day.server.ts`). */
 export type ShopDateFacts =
   | { kind: 'unreadable' }

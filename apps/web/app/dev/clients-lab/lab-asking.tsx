@@ -122,7 +122,7 @@ export function LabAskingPick({ page, accepted }: { page: PickedClientPage; acce
           <PipelineStrip reached={0} current={0} capAt={3} currentLabel={null} />
         </div>
         <DetailsNumbersRow
-          cells={detailsNumbers({ isBooked: false, todayIso: LAB_TODAY, eventDate: null, ledger: { receivedPhp: 0, expectedPhp: 0 }, onPlan: false, sentQuotePhp: undefined, peso: (n: number) => `₱${n.toLocaleString('en-PH')}` })}
+          cells={detailsNumbers({ isBooked: false, todayIso: LAB_TODAY, eventDate: null, ledger: { receivedPhp: 0, expectedPhp: 0 }, plan: null, sentQuotePhp: undefined, peso: (n: number) => `₱${n.toLocaleString('en-PH')}` })}
         />
         <HostsList hosts={hostRows([{ user_id: 'u1', first_name: 'Ice', name: 'Ice Casasola', role: null, label: 'Host' }])} />
         <section className="space-y-1" data-lab-stand-in="brief">

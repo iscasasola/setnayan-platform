@@ -8,6 +8,7 @@ import {
   CALENDAR_MONTH_SLIDE_PX,
   CALENDAR_WEEKDAYS,
   CALENDAR_BLOCKED_WORD,
+  CALENDAR_OPEN_WORD,
   CALENDAR_DOT_WORD,
   CALENDAR_HATCH,
   CALENDAR_PART_STYLE,
@@ -334,6 +335,14 @@ export function CalendarLegend({
 }) {
   return (
     <p data-calendar-legend="" className="flex flex-wrap gap-x-3.5 gap-y-1.5 px-0.5 pt-2 text-[12px] text-ink/70">
+      {/* 📅 A box grid fills every day that can still take a booking with the seat green — the legend names it, so the
+          green square is never read as the green "Booked here" dot (owner, 17 Nov). */}
+      {mark === 'box' ? (
+        <span className="inline-flex items-center gap-1.5" data-calendar-legend-open="">
+          <i aria-hidden className="block h-3 w-3.5 rounded-sm" style={{ background: 'var(--seat-top)' }} />
+          {CALENDAR_OPEN_WORD}
+        </span>
+      ) : null}
       {dots.map((d) => (
         <span key={d} className="inline-flex items-center gap-1.5" data-calendar-legend-dot={d}>
           <i aria-hidden className={`block h-2 w-2 rounded-full ${d === 'event' ? 'bg-sn-accent' : ''}`} style={d === 'event' ? undefined : { background: DOT_FILL[d] }} />

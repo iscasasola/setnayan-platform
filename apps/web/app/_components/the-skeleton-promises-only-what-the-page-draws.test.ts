@@ -114,7 +114,8 @@ function templateCall(file: string): string {
 
 function promisesTitle(file: string): boolean {
   const call = templateCall(file);
-  return /\stitle(\s*=\s*\{true\})?[\s/>]/.test(call);
+  // `title` · `title={true}` · `title="The page's own words"` (👻 Ghost, 18 Nov 2026: a known title is shown as itself).
+  return /\stitle(\s*=\s*\{true\}|\s*=\s*"[^"]+")?[\s/>]/.test(call);
 }
 
 function promisedActions(file: string): number {

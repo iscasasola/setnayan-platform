@@ -34,7 +34,7 @@ test('help_asks: RLS on, no browser grant', async () => {
 
 test('help_asks: a good row lands; bad ones are refused', async () => {
   await db.query(`INSERT INTO public.help_asks (words, coverage, outcome) VALUES ('how do I pay', 'user', 'none')`);
-  for (const [words, coverage, outcome] of [
+  for (const [words, coverage, outcome] of <Array<[string, string, string]>>[
     ['   ', 'user', 'none'],
     ['x'.repeat(121), 'user', 'none'],
     ['ok', 'vendor', 'none'],

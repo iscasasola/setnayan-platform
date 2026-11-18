@@ -9,6 +9,8 @@
  *
  * Pure data — no fetch, no server.
  */
+import { CLIENTS_CHOICE_MIN_EVENTS } from '@/lib/shop-seals';
+
 export type SealKind = 'no1' | 'medal' | 'heart' | 'crest' | 'verified' | 'partner';
 
 export type SealCopy = {
@@ -48,10 +50,14 @@ export function AWARD_COPY(year: number | string): Record<SealKind, SealCopy> {
     heart: {
       title: "Clients' Choice",
       eyebrow: `Setnayan · ${year}`,
-      body: 'Congratulations! The couples you served chose you. Every review behind this heart comes from a family who trusted you with a day they will live only once, and left glad they did. No campaign can earn it; only kept promises can.',
+      body: 'Congratulations! The couples you served chose you. Every second booking behind this heart is a family who trusted you with a day they will live only once, and came back to trust you again. No campaign can earn it; only kept promises can.',
+      // The rule is the seals engine's (lib/shop-seals.ts, owner 15 Nov "CLIENTS' CHOICE COUNTS SECOND BOOKINGS"):
+      // the most second bookings in the seal year, among shops with ≥ CLIENTS_CHOICE_MIN_EVENTS completed events.
+      // 🔒 lib/shop-seals.test.ts — "the Clients' Choice words say the engine's rule".
       how: [
-        ['Top 5% of all suppliers by review-weighted score', false],
-        ['Held through the year, not one good month', true],
+        ['The most second bookings of the seal year: clients who booked you again', true],
+        [`At least ${CLIENTS_CHOICE_MIN_EVENTS} events completed through Setnayan that year`, true],
+        ['One shop a year; a tie goes to the higher rating', false],
       ],
     },
     crest: {

@@ -1808,8 +1808,9 @@
   height: 96px;
   display: grid;
   place-items: center;
-  filter: grayscale(1) contrast(0.75) brightness(1.08);
-  opacity: 0.42;
+  /* 🔓 The REAL art, never grey (owner 18 Nov, "we still want to see how they look like"): the lock and the words say
+     "not yet". The same knob as the Shop row (`LOCKED_ART_OPACITY`, shop-badge-row.tsx). */
+  opacity: var(--sn-locked-art-opacity, 1);
 }
 .lktArt svg {
   max-width: 100%;

@@ -23,8 +23,8 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  *     middle, lands with a burst and its tap show, floats and turns). Its caption carries what the old sheet said —
  *     Now · how far to the next tier · Next goal · the reward lines · what it counts (`shelfLines`);
  *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz`);
- *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the v84 LOCKED look (`LockedTile`:
- *     the art in grey under a lock, what it takes) and the same lines, the reward box and its door.
+ *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the LOCKED look (`LockedTile`:
+ *     the real art under a small lock at its edge, what it takes — owner 18 Nov) and the same lines, the reward box and its door.
  *
  * 🏅 EVERY BADGE SITS IN ITS PROGRESS RING (owner 8 Nov): the shipped `ProgressRing`, drawn in once when seen.
  * 🔒 lib/shop-badge-shelf.test.ts · shop/the-shop-tab-is-v113.test.ts · performance/your-badges-are-on-the-page.test.ts
@@ -102,10 +102,18 @@ function FittedArt({ src, box, style, ...rest }: { src: string; box: number; sty
 /** The lock's own size (px): small enough to sit on the ring's edge, never on the badge. */
 const LOCK_PX = 22;
 
-/** The v84 picture: the tier reached, or Bronze in grey under a lock before it; Verified is the blue check. */
+/**
+ * 🔓 A LOCKED BADGE SHOWS ITS REAL ART (owner 18 Nov: *"we still want to see how they look like. or it will always
+ * stay a mystery until someone unlocks it?"*) — full colour, never grey, so the supplier sees what they are working
+ * toward. What says "not yet" is the small lock on the ring and the "5 to go" / "Not yet" line under it. ONE knob for
+ * the row and the risen look: `--sn-locked-art-opacity` (1 unless set; 0.85 is the softer option shown to the owner).
+ */
+export const LOCKED_ART_OPACITY = 'var(--sn-locked-art-opacity, 1)';
+
+/** The v84 picture: the tier reached, or Bronze in its own colours under a small lock before it; Verified is the blue check. */
 function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   const earned = tile.state === 'earned';
-  const grey = earned ? undefined : 'grayscale(1) contrast(0.75) brightness(1.08)';
+  const look = earned ? undefined : { opacity: LOCKED_ART_OPACITY };
   // ONE visual size for every badge: the Verified check's (0.9 of the slot), so no badge reads smaller than another.
   const art = Math.round(size * 0.9);
   // The lock sits ON THE RING at its lower right (45°), small, never over the badge's face.
@@ -113,11 +121,11 @@ function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   return (
     <span className="relative inline-grid place-items-center" style={{ width: size, height: size }} data-badge-art="">
       {tile.src ? (
-        <FittedArt src={tile.src} box={art} loading="lazy" style={{ filter: grey, opacity: earned ? 1 : 0.45 }} data-badge-img={tile.key} />
+        <FittedArt src={tile.src} box={art} loading="lazy" style={look} data-badge-img={tile.key} />
       ) : (
         <span
           className="inline-grid"
-          style={{ width: art, height: art, filter: grey, opacity: earned ? 1 : 0.45 }}
+          style={{ width: art, height: art, ...look }}
           // trusted: the approved v84 art from a constant (lib/verified-v84-art.ts), never user text
           dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: art, word: false }) }}
         />
@@ -204,7 +212,7 @@ function BadgeOpen({ tile, from, shopName, onClose }: { tile: ShelfTile; from: H
   return <BadgeSheet tile={tile} onClose={onClose} />;
 }
 
-/** Not earned yet (or not counted / unread): the v84 locked look, risen, with every line the old sheet carried. */
+/** Not earned yet (or not counted / unread): the locked look (real art, small lock), risen, with every line the old sheet carried. */
 function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void }) {
   const hid = useId();
   const reward = tile.reward;
@@ -259,9 +267,9 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
   );
 }
 
-/** The risen locked look's picture: the same measured fit as the row, 88 px inside the tile's 96 px art slot. */
+/** The risen locked look's picture: the same measured fit as the row, 84 px inside the tile's 96 px art slot (clear of the label under it). */
 function BadgeArtLarge({ tile }: { tile: ShelfTile }) {
-  if (tile.src) return <FittedArt src={tile.src} box={88} loading="lazy" />;
+  if (tile.src) return <FittedArt src={tile.src} box={84} loading="lazy" />;
   // trusted: the approved v84 art from a constant, never user text
   return <span dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'sheet-vr', size: 96, word: true }) }} />;
 }

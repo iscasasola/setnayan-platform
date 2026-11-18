@@ -47,7 +47,7 @@ test('the /pay action refuses an over-ceiling payment on the server', () => {
 test('the /pay page shows no code for an over-ceiling bill', () => {
   const page = read('app/pay/[reference]/page.tsx');
   assert.match(page, /const overCeiling = !paymentWithinCeiling\(payable\.amountPhp, maxPaymentPhp\);/);
-  assert.match(page, /const open = overCeiling \? \[\] : openAccounts\(settings\);/, 'a code is still minted above the ceiling');
+  assert.match(page, /const open = overCeiling \? \[\] : payerAccountsFor\(settings, railPick\);/, 'a code is still minted above the ceiling');
   assert.match(page, /\{!waiting && !overCeiling && \(\s*<PayPanel/);
 });
 

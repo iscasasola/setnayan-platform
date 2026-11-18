@@ -316,7 +316,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             />
           ))}
           {cappedRails.includes('gcash') && (
-            <div data-gcash-allowance="" className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+            <div data-gcash-allowance="" className="space-y-3 border-t border-ink/10 pt-4">
               <p className="text-sm font-semibold text-ink">
                 <InfoTip label="One QR: GCash for small payments" ariaLabel="How the one QR is picked" align="start">
                   A payment below the line shows the GCash QR while this month&rsquo;s GCash total
@@ -330,6 +330,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                   <input
                     id="gcash_max_php"
                     name="gcash_max_php"
+                    type="number"
+                    min={0}
+                    step="any"
                     defaultValue={gcashGate?.maxPhp != null ? String(gcashGate.maxPhp) : ''}
                     inputMode="decimal"
                     placeholder="1000"
@@ -340,6 +343,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                   <input
                     id="gcash_allowance_php"
                     name="gcash_allowance_php"
+                    type="number"
+                    min={0}
+                    step="any"
                     defaultValue={gcashGate?.allowancePhp != null ? String(gcashGate.allowancePhp) : ''}
                     inputMode="decimal"
                     placeholder="100000"

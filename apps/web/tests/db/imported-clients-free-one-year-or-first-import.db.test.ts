@@ -296,3 +296,26 @@ test('Q1 — a Locked QR issued AFTER the client already had an account: an exis
   await row(later, shop, 'host_marketplace_search', ago(19));
   assert.equal(await fee(shop, later), 'sourced', 'no year: the account was older than the invite');
 });
+
+test('34909f1 / 1abf35b (1) — a chat through the shop\'s OWN LINK is an import: it takes the event\'s free slot, a later import pays', async () => {
+  // Opus money review (2026-11-18): the own-link door had no test. `chat_threads_take_import_slot` must give the slot to
+  // the own-link shop, and a supplier-brought row that lands later on the same event must find the slot taken.
+  const own = await newShop();
+  const later = await newShop();
+  const couple = await newUser('existing');
+  await newEvent(couple, ago(300));
+  const eventId = await newEvent(couple, ago(40));
+  await db.query(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, inquiry_source, created_at) VALUES ($1, $2, 'website', $3)`,
+    [eventId, own, ago(39)],
+  );
+  await row(eventId, own, 'host_manual', ago(38));
+  const slot = await db.query<{ vendor_profile_id: string }>(
+    `SELECT vendor_profile_id FROM public.booking_fee_event_import_slots WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(slot.rows[0]?.vendor_profile_id, own, 'the own-link chat took the slot');
+  assert.equal(await fee(own, eventId), 'import', 'the own-link shop is the event\'s free first import');
+  await row(eventId, later, 'vendor_invite', ago(20));
+  assert.equal(await fee(later, eventId), 'sourced', 'a later import on the same event pays');
+});

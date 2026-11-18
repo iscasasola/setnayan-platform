@@ -81,6 +81,22 @@ SELECT DISTINCT ON (t.event_id) t.event_id, t.vendor_profile_id, t.created_at
  ORDER BY t.event_id, t.created_at, t.vendor_profile_id::text
 ON CONFLICT (event_id) DO NOTHING;
 
+-- …and where an own-link chat came BEFORE the supplier-brought row the previous file backfilled into the slot, the chat
+-- was the first import, exactly as the live triggers would have ruled (first committed wins). Backfilled slots only:
+-- this runs in the same deploy as the slot table's own creation, so every slot it can see is a backfill or seconds
+-- old. No frozen ledger row is touched (Opus money review, 2026-11-18).
+UPDATE public.booking_fee_event_import_slots s
+   SET vendor_profile_id = w.vendor_profile_id,
+       imported_at       = w.created_at
+  FROM (
+    SELECT DISTINCT ON (t.event_id) t.event_id, t.vendor_profile_id, t.created_at
+      FROM public.chat_threads t
+     WHERE t.event_id IS NOT NULL AND t.vendor_profile_id IS NOT NULL AND t.inquiry_source = 'website'
+     ORDER BY t.event_id, t.created_at, t.vendor_profile_id::text
+  ) w
+ WHERE w.event_id = s.event_id
+   AND w.created_at < s.imported_at;
+
 CREATE OR REPLACE FUNCTION public.booking_fee_import_invite_at(
   p_vendor_profile_id UUID,
   p_event_id UUID
@@ -219,7 +235,11 @@ AS $$
     ) THEN 'import'
     -- (4) A Setnayan fact on this event.
     WHEN public.booking_fee_attribution_for_event(p_vendor_profile_id, p_event_id) = 'sourced' THEN 'sourced'
-    -- HOLE 3 (LOCKED §3, every repeat): the same couple, sourced to this shop on an event first touched no later.
+    -- HOLE 3 (LOCKED §3, every repeat of a SOURCED CLIENT): the same couple, found for this shop BY SETNAYAN on an
+    -- event first touched no later. Read from that event's Setnayan facts only (booking_fee_attribution_for_event),
+    -- never its frozen ledger stamp: since these rulings a 'sourced' stamp also means "an unverified shop" (99b6ab50) or
+    -- "nothing imported" (answer 3) — a booking that paid, not a client Setnayan found — and carrying it would bill the
+    -- couple's next event even where the shop is that event's free first import (Opus money review, 2026-11-18).
     WHEN EXISTS (
       SELECT 1
         FROM public.event_members me
@@ -231,14 +251,7 @@ AS $$
          AND me.member_type = 'couple'
          AND public.booking_fee_first_contact_at(p_vendor_profile_id, mo.event_id)
                <= COALESCE(public.booking_fee_first_contact_at(p_vendor_profile_id, p_event_id), 'infinity'::timestamptz)
-         AND COALESCE(
-               (SELECT l.attribution
-                  FROM public.booking_fee_ledger l
-                 WHERE l.vendor_profile_id = p_vendor_profile_id
-                   AND l.event_id = mo.event_id
-                   AND l.attribution_frozen_at IS NOT NULL),
-               public.booking_fee_attribution_for_event(p_vendor_profile_id, mo.event_id)
-             ) = 'sourced'
+         AND public.booking_fee_attribution_for_event(p_vendor_profile_id, mo.event_id) = 'sourced'
     ) THEN 'sourced'
     -- 1abf35b (2): the couple's own Find invite claimed by a shop that already existed pays the normal fee.
     WHEN public.booking_fee_couple_invite_shop(p_vendor_profile_id, p_event_id) = 'existing' THEN 'sourced'
@@ -257,7 +270,8 @@ COMMENT ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) IS
   'sourced | import for a (vendor, event). FREE (import) only in three cases, owner 2026-11-16: the couple''s own Find '
   'invite created the shop (1abf35b); a verified shop''s import brought the client onto Setnayan, within 12 months '
   '(d4899cd5, invite timestamp Q1); the event''s one free import slot, imported after verification (9fe95ebe, 993cdb9). '
-  'Everything else is sourced: an unverified shop (99b6ab50), a Setnayan fact, the same couple sourced earlier (HOLE 3), '
+  'Everything else is sourced: an unverified shop (99b6ab50), a Setnayan fact, the same couple found by Setnayan earlier '
+  '(HOLE 3 - that event''s Setnayan facts, never its frozen stamp), '
   'an existing shop claiming the couple''s invite, a later import, and a booking with nothing imported (Q3). Bookings '
   'already made keep the attribution frozen in booking_fee_ledger.';
 

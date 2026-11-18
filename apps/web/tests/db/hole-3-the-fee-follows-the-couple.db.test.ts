@@ -9,7 +9,7 @@
  *
  * The fix is migration 20271352180500: `booking_fee_attribution_for` keeps the per-event rule
  * (`booking_fee_attribution_for_event`) and adds one arm — a COUPLE member of this event who is a couple member of
- * another event where the shop is sourced (its frozen ledger stamp, else its facts), whose first contact with the shop
+ * another event where SETNAYAN found them for the shop (that event's Setnayan facts — never its frozen ledger stamp, Opus money review 2026-11-18), whose first contact with the shop
  * came no later than this event's (`booking_fee_first_contact_at`). The guard cases below pin what the arm must NOT
  * do: cross a coordinator's events, cross to a different couple, or re-stamp a shop's own earlier client.
  */
@@ -163,4 +163,33 @@ test('STILL IMPORT · first contact wins — the shop\'s own client on an EARLIE
   // Event C, later: the couple saves the same shop from Find.
   await sourcedEvent(shop, couple, 'couple', '2026-10-01T00:00:00Z');
   assert.equal(await attribution(shop, eventA), 'import', 'the earlier own-client booking stays free');
+});
+
+/* ── Opus money review (2026-11-18): only a SETNAYAN fact carries the fee to the couple's next event ── */
+
+test('STILL IMPORT · a stamp that only says "this booking paid" (unverified shop, nothing imported) does not carry to the next event', async () => {
+  // Since the 16 Nov rulings a frozen 'sourced' ledger stamp no longer means "Setnayan found this couple": an unverified
+  // shop's booking pays (99b6ab50) and a booking with nothing imported pays (answer 3). Neither is a sourced CLIENT, so
+  // LOCKED §3 "every repeat of a sourced client" does not reach the couple's next event. Was OPEN on the PR head: the
+  // same-couple arm read the frozen stamp and billed event B, where this verified shop is the event's first import.
+  const shop = await newShop();
+  const couple = await newUser('couple');
+  const eventA = await newEventFor(couple);
+  await db.query(
+    `INSERT INTO public.event_vendors (event_id, marketplace_vendor_id, category, vendor_name, status, source, created_at)
+     VALUES ($1, $2, 'catering', 'Kusina', 'considering', 'host_manual', '2026-09-01T00:00:00Z')`,
+    [eventA, shop],
+  );
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger (vendor_profile_id, event_id, attribution, attribution_frozen_at)
+     VALUES ($1, $2, 'sourced', '2026-09-02T00:00:00Z')`,
+    [shop, eventA],
+  );
+  assert.equal(await attribution(shop, eventA), 'sourced', 'precondition: event A paid (nothing imported, answer 3)');
+  const perEventA = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for_event($1, $2) AS a`, [shop, eventA]);
+  assert.equal(perEventA.rows[0]!.a, 'import', 'precondition: Setnayan never found this couple for this shop');
+
+  // Event B: the shop, verified since 2020, is the first supplier to bring the couple's next event.
+  const eventB = await directEvent(shop, couple, '2026-10-05T00:00:00Z', 'vendor_invite');
+  assert.equal(await attribution(shop, eventB), 'import', 'the free first-import slot is not cancelled by a stamp with no Setnayan fact');
 });

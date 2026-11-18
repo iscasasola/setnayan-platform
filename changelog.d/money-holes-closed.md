@@ -36,6 +36,12 @@
    - A shop with no booking and no Setnayan-surface chat on the event has nothing to bill, so it reads `import`.
 9. **The fee words now say the new rule, everywhere** (owner Q4, "fix the copy in this PR"). `lib/booking-fee-who-words.ts` is the one place the rule is worded (second person, third person, Tagalog, the scope clause, the short chip). Every sentence that said "only on couples Setnayan brings you" or "your own clients never carry a fee" now quotes it: `/for-suppliers`, `/for-coordinators`, `/pricing`, the supplier front page, the booking-fee line, the front-door feed, the money settings, the supplier feature pages (EN and TL), the AI answers, the plan rows, help, the commission promise, the booking-fee disclosure, the tours, `llms.txt` and the December news post. The wording guards read the shared words.
 
+10. **Opus money review (2026-11-18), fixed on this branch:**
+   - **Hole 3 no longer carries a stamp that only says "this paid".** The same-couple arm read the other event's frozen ledger stamp, which since these rulings also says `sourced` for an unverified shop or a booking with nothing imported. It billed the couple's next event even where the verified shop was that event's free first import. The arm now reads the other event's Setnayan facts only (`booking_fee_attribution_for_event`).
+   - **Ultra waits for an `awaiting_payment` Pro or Plus too**, not only a `submitted` one (`ultraPlanPaymentOpen` in `lib/event-ultra.ts`). Before, Ultra sold at its full price on top of a Pro still owed, so Pro was paid twice once it cleared.
+   - **The slot backfill follows the live rule.** An own-link chat that came before the supplier-brought row backfilled into an event's slot now holds that slot, as the triggers would have ruled.
+   - The four migrations are reallocated after every migration on `main` (`pnpm migration:new`). Their bodies are unchanged apart from the two fixes above.
+
 No typed price. The new words a person sees are the refusal line in item 7 and the fee rule in item 9.
 
 SPEC IMPACT: None. The fixes implement existing rulings (DECISION_LOG 2026-11-16 d4899cd5 + 9fe95ebe "IMPORTED CLIENTS: A NEW ACCOUNT IS FREE FOR ONE YEAR…"; Vendor_Monetization_Model_LOCKED_2026-07-25 §3; DECISION_LOG 2026-11-13 "EVENT ULTRA UPGRADE — PAY THE DIFFERENCE"; 2026-11-16 "THE SHORTLIST QR STAYS FREE BUT IS NOT AN IMPORT" and "EVERY SUPPLIER IMPORT CARRIES AT LEAST ONE SETNAYAN GIFT").

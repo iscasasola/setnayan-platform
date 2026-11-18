@@ -1260,6 +1260,29 @@ export function ChatMessageStream({
     scrollToBottom('auto');
   }, [scrollToBottom]);
 
+  // 📍 AND STAY THERE WHILE THE THREAD FINISHES DRAWING (CHAT-07, W1 walk 16 Nov 2026: a notice "lands mid-thread,
+  // not at the newest message"). The pin above runs once, at mount — but photos, cards and the pay plan draw their
+  // height AFTER it, so the newest message slid below the fold and the reader landed in the middle. Every row's own
+  // growth now re-pins, while the reader is still at the bottom (`stickToBottomRef`): a reader who scrolled up to read
+  // an older message is never pulled back down.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (stickToBottomRef.current) el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+    });
+    const watchRows = () => {
+      for (const row of Array.from(el.children)) ro.observe(row);
+    };
+    watchRows();
+    const mo = new MutationObserver(watchRows);
+    mo.observe(el, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Postgres CHANGES subscription — new/updated messages on this thread.
   // ---------------------------------------------------------------------------

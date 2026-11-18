@@ -21,7 +21,7 @@
  *   · own web address  → `ownWebAddress` over `tierCaps(tier).customWebsiteName` (Solo+);
  *   · pinned review    → `tierCaps(tier).premiumPage` (Pro+);
  *   · About + accent colour → `micrositeCan(tier).canPersonalize` (Solo+) and `micrositeAccentVars` (the page's own);
- *   · service cards    → `tierCaps(tier).servicesPerLeaf`;
+ *   · service cards    → `tierCaps(tier).serviceCardsTotal`;
  *   · branches         → `tierCaps(tier).branchesIncluded` (`samplePlanBranchCities`).
  *
  * It is a DRAWING: the buttons are the page's buttons, drawn (no door to a shop that does not exist), and the hero name
@@ -233,7 +233,7 @@ export function SampleShopPage({
                 </div>
                 <p className="text-sm text-ink/60">
                   {d.verified
-                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} per category on this plan.`
+                    ? `Up to ${d.cardsPerCategory} service card${d.cardsPerCategory === 1 ? '' : 's'} live on this plan — make as many as you like.`
                     : `${d.cardsPerCategory} live · more open once verified.`}
                 </p>
               </section>

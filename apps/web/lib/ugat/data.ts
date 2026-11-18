@@ -968,7 +968,10 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       (eventWordFilters(q) ?? [])
         .reduce((qb, f) => qb.or(f), admin.from('events').select('event_id, public_id, display_name, slug'))
         .limit(6),
-    ).then((s) => logged('events', s)),
+    ).then((s) => {
+      if (s.failed) logQueryError('ugat search (events)', new Error('read failed'));
+      return s;
+    }),
     settleRead<any>(
       admin
         .from('users')

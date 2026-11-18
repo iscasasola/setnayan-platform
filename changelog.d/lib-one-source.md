@@ -11,6 +11,9 @@ Code only; no screen changes.
   `share-buttons-use-one-icon.test.ts` is dropped as that test asks ("allow-listed but gone").
   The other 13 are kept: read as text by a guard test, run as a worker or harness, a compile-time
   guard, or a flag the owner parked on purpose.
+- **(b) Spotlights / free tools — no change, by decision.** The 14 `SPOTLIGHTS` lists share no entry;
+  each is its page's own copy, already drawn by the one shared `Spotlights` component. Owner (2026-11-18):
+  leave them per page. `FREE_TOOLS` already has one source (`onboarding-shell.tsx`, used once).
 - **(c) Catalogue.** `formatCentavosPhp` is imported from `lib/php.ts` by the admin pricing table and
   the pricing report instead of through `lib/sku-catalog.ts`'s re-export, which is removed. Same
   function, same output.

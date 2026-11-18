@@ -75,24 +75,28 @@ const PILL: Record<Tone, string> = {
   view: 'border-ink/10 [&>b]:text-ink/60',
 };
 
+/**
+ * 📐 BEHIND THE ⓘ (design template 2026-11-14, "Supplier Payment · after": *"'Who can do what' … move[s] behind the
+ * ⓘ"*; rule 7 — the label stays, the explaining hides). It used to be a grey box above everything the couple came
+ * for; now it is one quiet line at the top right of each page, and a tap opens who does what — both sides, and the
+ * note. The actions themselves are the buttons on the page.
+ */
 export function PickedSupplierWho({ page, supplierName }: { page: Exclude<PickedSupplierPage, 'chat'>; supplierName: string }) {
   const w = PICKED_SUPPLIER_WHO[page];
   return (
-    <div className="grid gap-1.5 rounded-xl bg-ink/[0.04] px-3 py-2.5" data-picked-supplier-who={page}>
-      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink/55">
-        <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        <InfoTip label="Who can do what" align="start">
-          {w.note(supplierName)}
-        </InfoTip>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border bg-cream px-2.5 text-[12.5px] leading-tight ${PILL[w.tones[0]]}`}>
-          You · <b className="font-bold">{w.you}</b>
+    <div className="flex min-h-11 items-center justify-end gap-1.5 text-[13px] text-[color:var(--m-slate-2)]" data-picked-supplier-who={page}>
+      <Users aria-hidden className="h-4 w-4" strokeWidth={2} />
+      <InfoTip label="Who can do what" align="end">
+        <span className="flex flex-wrap gap-1.5 pb-1.5">
+          <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border bg-cream px-2.5 text-[12.5px] leading-tight ${PILL[w.tones[0]]}`}>
+            You · <b className="font-bold">{w.you}</b>
+          </span>
+          <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border bg-cream px-2.5 text-[12.5px] leading-tight ${PILL[w.tones[1]]}`}>
+            {supplierName} · <b className="font-bold">{w.them}</b>
+          </span>
         </span>
-        <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border bg-cream px-2.5 text-[12.5px] leading-tight ${PILL[w.tones[1]]}`}>
-          {supplierName} · <b className="font-bold">{w.them}</b>
-        </span>
-      </div>
+        {w.note(supplierName)}
+      </InfoTip>
     </div>
   );
 }

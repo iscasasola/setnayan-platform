@@ -9,6 +9,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { acceptCommunityInvite } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Join a group',
@@ -70,7 +71,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
         title={copy.title}
         sub={copy.body}
       >
-        <Link href="/" className="button-secondary">
+        <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Go home
         </Link>
       </DoorShell>
@@ -90,10 +91,10 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
     return (
       <InviteDoor invite={invite} sub="Sign in or create a free account to join.">
         <DoorActions>
-          <Link href={`/signup?next=${encodeURIComponent(nextUrl)}`} className="button-primary">
+          <Link href={`/signup?next=${encodeURIComponent(nextUrl)}`} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
             Create account
           </Link>
-          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className="button-secondary">
+          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className={actionButtonClass('neutral', { extra: '!h-11' })}>
             Sign in
           </Link>
         </DoorActions>
@@ -114,7 +115,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
         title="We couldn’t complete that just now."
         sub={`Error: ${search.error}. Try again, or ask an organizer for a fresh link.`}
       >
-        <Link href="/" className="button-secondary">
+        <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Go home
         </Link>
       </DoorShell>
@@ -132,7 +133,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
           </SubmitButton>
           <input name="token" type="hidden" value={token} />
         </form>
-        <Link href="/dashboard" className="button-secondary">
+        <Link href="/dashboard" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           No thanks
         </Link>
       </DoorActions>

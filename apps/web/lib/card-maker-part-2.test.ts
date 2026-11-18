@@ -10,7 +10,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPlanName, planItemsFromRows, planItemsToDrafts, planScopeQuestion, readPlanIntent, samePlanRows } from './vendor-pay-plans';
-import { linesToAdd, parseTemplateText, readTemplateRows, templateLines, templateToText } from './included-templates';
+import { linesToAdd, parseTemplateText, readTemplateRows, startingInclusions, templateLines, templateToText } from './included-templates';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanVideoUrl, readCardAbout, videoSiteName } from './card-about';
 import type { ParsedScheduleRow } from './service-card-save-parts';
 
@@ -164,4 +166,34 @@ test('the description and link are read only when the screen drew them', () => {
   assert.equal(bad.present && !bad.ok, true);
   const long = readCardAbout(form([['about_present', '1'], ['description', 'x'.repeat(1001)]]));
   assert.equal(long.present && !long.ok, true);
+});
+
+// ── 🌱 A NEW CARD OPENS WITH ITS SERVICE'S BASICS (owner, 18 Nov: "auto uploaded at the beginning") ─────────────
+// Sabotage (18 Nov): drop the `!t.isProposal` filter → "a draft is never pre-filled" red; drop `initial === null`
+// from the maker's seed → "only a NEW card" red (count 1 → 0).
+
+test('a new card starts with the first approved template’s lines, choices as one words line', () => {
+  const cat = { id: 'c', name: 'Catering basics', isProposal: false, rows: readTemplateRows([
+    { name: 'Type', kind: 'choice', options: ['Buffet', 'Plated'], basis: 'per_pax' },
+    { name: 'Tables and chairs', kind: 'plain', basis: 'none' },
+    { name: 'tables and chairs', kind: 'plain', basis: 'none' },
+  ]) };
+  const second = { id: 'd', name: 'Plated basics', isProposal: false, rows: readTemplateRows([{ name: 'Plated dinner', kind: 'plain', basis: 'none' }]) };
+  assert.deepEqual(startingInclusions([cat, second]), [{ label: 'Type: Buffet or Plated' }, { label: 'Tables and chairs' }]);
+});
+
+test('a draft is never pre-filled, and a refused or absent read pre-fills nothing', () => {
+  const draft = { id: 'p', name: 'Draft basics', isProposal: true, rows: readTemplateRows([{ name: 'Staff', kind: 'plain', basis: 'none' }]) };
+  assert.deepEqual(startingInclusions([draft]), []);
+  assert.deepEqual(startingInclusions(null), []);
+  assert.deepEqual(startingInclusions(undefined), []);
+  assert.deepEqual(startingInclusions([]), []);
+});
+
+test('only a NEW card is pre-filled — never one being edited or started from another card', () => {
+  const src = readFileSync(resolve(__dirname, '../app/vendor-dashboard/services/_components/canvas-maker.tsx'), 'utf8');
+  const seed = src.match(/const \[startLines\] = useState\(\(\) => \(initial === null && !isEdit \? startingInclusions\(library\?\.includedTemplates\) : \[\]\)\);/g) ?? [];
+  assert.equal(seed.length, 1, 'the seed is guarded by initial === null && !isEdit');
+  const use = src.match(/<InclusionsEditor initial=\{initial\?\.inclusions \?\? startLines\}/g) ?? [];
+  assert.equal(use.length, 1, 'a card started from another keeps its own lines; only a fresh one takes the basics');
 });

@@ -45,6 +45,7 @@ import {
 import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
+import { startingInclusions } from '@/lib/included-templates';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
@@ -398,6 +399,13 @@ export function CanvasMaker({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
+  /**
+   * 🌱 A NEW CARD OPENS WITH ITS SERVICE'S BASICS (owner, 18 Nov: "make sure all services has basic inclusions. and
+   * they are auto uploaded at the beginning"). Only a card that is NEW — not one being edited, and not one started
+   * from another card or a couple's card (`initial`), whose own lines win. Read once, on mount: the lines become the
+   * editor's starting rows and are then the supplier's to change; nothing is written until the card's save.
+   */
+  const [startLines] = useState(() => (initial === null && !isEdit ? startingInclusions(library?.includedTemplates) : []));
   // The simpler maker asks a first card nothing extra (the old intro sheet retired with the guided pass).
   void firstCardEver;
 
@@ -1362,7 +1370,7 @@ export function CanvasMaker({
               tip="Every line is part of the price · swipe a line left to remove it."
             >
               <div data-maker-row="included">
-                <InclusionsEditor initial={initial?.inclusions ?? []} bare templates={library ? library.includedTemplates : undefined} />
+                <InclusionsEditor initial={initial?.inclusions ?? startLines} bare templates={library ? library.includedTemplates : undefined} />
                 {incMissing && !inclusionsAreSet(snap.inclusionLabels) ? (
                   <p role="alert" className="mt-1.5 text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }} data-maker-inc-error="">
                     Add what’s included — at least one line.

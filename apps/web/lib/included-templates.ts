@@ -66,6 +66,19 @@ export function templateLines(rows: readonly IncludedTemplateRow[]): string[] {
     .map((l) => l.slice(0, 80));
 }
 
+/**
+ * 🌱 WHAT A NEW CARD OPENS WITH (owner, 18 Nov: "make sure all services has basic inclusions. and they are auto
+ * uploaded at the beginning"). The lines of the service's FIRST approved template (the read is ordered by
+ * `sort_order`, then name), as the What's included editor's starting rows — the supplier edits, swipes away or adds
+ * lines like any other. A draft (`isProposal`) is never pre-filled. `null` (read refused) or `undefined` (not offered)
+ * → nothing: the card opens empty, exactly as before, and Load still says why.
+ * The CALLER decides "new": an existing card, or a card started from another, never comes through here.
+ */
+export function startingInclusions(templates: readonly IncludedTemplate[] | null | undefined): { label: string }[] {
+  const first = (templates ?? []).find((t) => !t.isProposal && t.rows.length > 0);
+  return first ? linesToAdd([], templateLines(first.rows)).map((label) => ({ label })) : [];
+}
+
 /** Lines to append to what is already typed: a line already there (any case) is not added twice. */
 export function linesToAdd(existing: readonly string[], fromTemplate: readonly string[]): string[] {
   const have = new Set(existing.map((l) => l.trim().toLowerCase()).filter(Boolean));

@@ -177,6 +177,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'derived from a credential. Same line as resolved_by on event_day_requests.',
   },
   {
+    table: 'admin_received_transactions',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s own bank record — a transfer that arrived in our BDO, read from the admin\'s screenshot. ' +
+      '`created_by` / `matched_by` are the staff member who dropped or matched it; the row is not about them. ' +
+      'The buyer\'s side of the same money is their payment row, which is exported. Same line as platform_expenses.',
+  },
+  {
     table: 'platform_expenses',
     decision: 'excluded',
     why:
@@ -295,6 +303,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'shop_papic_wallet_entries. `created_by` is an actor stamp on who caused the entry; the row says nothing ' +
       'about that person, the shop owner reads it on Shop › Promote › Your gifts, and erasure clears the stamp ' +
       '(lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'vendor_client_invites',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s own "Add a client" invites (Own clients v4, 2026-11-16) — keyed to the shop (vendor_profile_id). ' +
+      '`created_by` is an actor stamp on which shop account pressed Add; the row says nothing about that person. The ' +
+      'name and contact it holds are the CLIENT\'s, typed by the shop about somebody who has no account yet; once ' +
+      'they join, the event they joined is theirs and is exported with `events`. The shop reads its own rows.',
   },
   {
     table: 'shop_badge_upgrades',

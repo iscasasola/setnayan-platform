@@ -2487,6 +2487,7 @@
         "admin/_components/field-pick.tsx",
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
+        "admin/_components/focus-received.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
@@ -2613,6 +2614,7 @@
         "AppRailShell",
         "AskAnswer",
         "BottomNav",
+        "BuyerSaysPaidCard",
         "ConfirmChoice",
         "ConfirmDialog",
         "CountUp",
@@ -2620,6 +2622,7 @@
         "ErrorState",
         "FocusCardSheet",
         "FocusHome",
+        "FocusReceived",
         "Fold",
         "Fragment",
         "GuidedTour",
@@ -2639,12 +2642,15 @@
         "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
+        "ReceivedCard",
+        "ReceivedTileBlock",
         "RequestCardView",
         "Row",
         "Screen",
         "Sheet",
         "Sk",
         "TabSettingsRows",
+        "TemplateFail",
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
@@ -4508,13 +4514,18 @@
         "admin/payments/_components/desk.tsx",
         "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
+        "admin/payments/_components/received-drop-tile.tsx",
+        "admin/payments/_components/received-match-pick.tsx",
+        "admin/payments/_components/received-pile.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
-        "admin/payments/page.tsx"
+        "admin/payments/page.tsx",
+        "admin/payments/received.ts"
       ],
       "destinations": [
-        "/admin/accounts?tab=events&q=[seg]"
+        "/admin/accounts?tab=events&q=[seg]",
+        "/admin/payments?open=[seg]"
       ],
       "actions": [
         "action",
@@ -4554,15 +4565,23 @@
         "PaymentRow",
         "PaymentsList",
         "PendingDecision",
+        "PickMenu",
+        "PileRow",
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
+        "ReceivedCard",
+        "ReceivedDropTile",
+        "ReceivedMatchPick",
+        "ReceivedPile",
+        "ReceivedTileBlock",
         "RecordPaymentCard",
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
         "SearchParamsRecord",
         "ServiceRemedyForms",
+        "Sheet",
         "SubmitButton",
         "TemplateEmpty",
         "TemplateFail",
@@ -5713,11 +5732,11 @@
         "markVendorContactConfirmed",
         "openApplicationDocument",
         "rejectApplication",
-        "rejectVendor",
         "revokeVerificationBypass",
         "runVendorDeepSearchAction",
         "saveManualDossierAction",
         "setApplicationInReview",
+        "setVendorPause",
         "verifyVendorExperience"
       ],
       "blocks": [
@@ -10448,6 +10467,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inc-dress-code-starter-note.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inc-dress-code-starter.ts",
+        "dashboard/[eventId]/studio/mood-board/_components/inspiration-board-words.ts",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/list-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
@@ -10491,6 +10511,7 @@
       "blocks": [
         "ActionButton",
         "ActionResult",
+        "AddPhotos",
         "ApplyResult",
         "ApplySummary",
         "ApplyTemplateSummary",
@@ -10522,6 +10543,7 @@
         "Explain",
         "File",
         "FinalizationActionResult",
+        "Fold",
         "FormRow",
         "FormRows",
         "GalleryAsset",
@@ -10574,6 +10596,8 @@
         "PartFinalizationPanel",
         "PeekToast",
         "PhotoShareOptions",
+        "PhotoTile",
+        "PhotoViewer",
         "Pic",
         "PickMenu",
         "PrintablePdfButton",
@@ -10595,7 +10619,6 @@
         "Sheet",
         "ShopLink",
         "Slider",
-        "SlotTile",
         "Spotlight",
         "StudioDos",
         "StudioPopup",
@@ -10605,6 +10628,7 @@
         "SwapSource",
         "SwatchPopover",
         "Swatches",
+        "SwipeDrag",
         "T",
         "Tab",
         "TemplateGallery",
@@ -10616,7 +10640,8 @@
         "ThemeTextReading",
         "Thumb",
         "Tile",
-        "TypedRow"
+        "TypedRow",
+        "UndoToastHost"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {
@@ -12637,6 +12662,24 @@
         "TerminalCard"
       ]
     },
+    "/i/[slug]": {
+      "files": [
+        "i/[slug]/actions.ts",
+        "i/[slug]/page.tsx"
+      ],
+      "destinations": [
+        "/login?next=[seg]&as=vendor"
+      ],
+      "actions": [
+        "joinSupplierInvite"
+      ],
+      "blocks": [
+        "ActionButton",
+        "FormFlash",
+        "SubmitButton",
+        "SupplierInviteDoor"
+      ]
+    },
     "/join/[eventId]": {
       "files": [
         "join/[eventId]/_components/join-flow.tsx",
@@ -14144,6 +14187,7 @@
         "ShopHeroGallery",
         "ShopInspirationSection",
         "ShopPagePackage",
+        "ShopPausedNotice",
         "ShopReachLine",
         "ShopReachMap",
         "ShopSectionBar",
@@ -15726,28 +15770,41 @@
       "files": [
         "vendor-dashboard/invite/_components/booked-qrs-list.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
+        "vendor-dashboard/invite/_components/own-client-gift.tsx",
         "vendor-dashboard/invite/_components/qr-code-list.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
         "vendor-dashboard/invite/actions.ts",
         "vendor-dashboard/invite/date-status-actions.ts",
         "vendor-dashboard/invite/loading.tsx",
+        "vendor-dashboard/invite/own-client-actions.ts",
         "vendor-dashboard/invite/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/profile"
+        "/vendor-dashboard/profile",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
+        "formAction",
         "issueLockedQr"
       ],
       "blocks": [
+        "ActionButton",
+        "AddClientBlock",
         "BookedBody",
         "BookedQrsList",
+        "BuyGiftsSheet",
+        "BuyList",
+        "ChosenRow",
         "CrewCode",
         "CrewQr",
         "CustomersPick",
         "DatesRow",
         "Fold",
         "FormRows",
+        "GetVerified",
+        "GiftHead",
+        "GiftPicks",
+        "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "InfoTip",
@@ -15756,6 +15813,7 @@
         "LockedQrForm",
         "LockedQrGenerator",
         "LockedQrInitial",
+        "OwnClientActionState",
         "PickMenu",
         "PutOnRow",
         "QrCard",
@@ -15766,11 +15824,13 @@
         "Row",
         "Sheet",
         "SubmitButton",
+        "SupplierSubmit",
         "SwipeToDelete",
         "TemplateEmpty",
         "TemplateFail",
         "TypedRow",
-        "UndoToastHost"
+        "UndoToastHost",
+        "VerifiedLine"
       ]
     },
     "/vendor-dashboard/lines": {
@@ -16390,6 +16450,8 @@
     },
     "/vendor-dashboard/partnerships": {
       "files": [
+        "vendor-dashboard/partnerships/_components/partner-remove-row.tsx",
+        "vendor-dashboard/partnerships/_components/preferred-supplier-card.tsx",
         "vendor-dashboard/partnerships/actions.ts",
         "vendor-dashboard/partnerships/loading.tsx",
         "vendor-dashboard/partnerships/page.tsx"
@@ -16400,16 +16462,27 @@
         "changePartnershipKind",
         "declinePartnership",
         "proposePartnership",
+        "removePartnership",
+        "toggleTrustedByHidden",
         "withdrawPartnership"
       ],
       "blocks": [
+        "ActionButton",
         "Fold",
         "FormFlash",
+        "HTMLFormElement",
+        "InfoTip",
         "ListPageSkeleton",
         "PageMasthead",
+        "PartnerRemoveRow",
+        "PreferredSupplierCard",
+        "QrCard",
         "SearchParams",
+        "Sheet",
         "StayForm",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "TrustedByToggle"
       ]
     },
     "/vendor-dashboard/payday": {
@@ -17173,6 +17246,7 @@
         "BadgeArtLarge",
         "BadgeFullscreen",
         "BadgeOpen",
+        "BadgePageCard",
         "BadgeRewardSweep",
         "BadgeRing",
         "BadgeSheet",
@@ -17396,6 +17470,8 @@
         "InfoTip",
         "Link",
         "NfcTapTest",
+        "OwnLinkAddGiftNotice",
+        "OwnLinkGift",
         "PaymentsPausedNote",
         "PickMenu",
         "PieceHead",

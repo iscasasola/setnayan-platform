@@ -115,10 +115,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hasPublic = (resolved?.publicWebsiteEvents.length ?? 0) > 0;
   if (!resolved || !enabled || !hasPublic) {
     return {
-      // `absolute` bypasses the root template so this renders exactly
-      // "Setnayan" and not "Setnayan · Setnayan". The neutral title is the
-      // privacy control here — it must not confirm the slug belongs to anyone.
-      title: { absolute: 'Setnayan' },
+      // Name-free on purpose: the neutral title is the privacy control here — it must not confirm the slug belongs
+      // to anyone. It is still a PER-PAGE title (W5-B5: the bare "Setnayan" told a tab nothing). The root layout's
+      // template adds the brand once: "Profile · Setnayan".
+      title: 'Profile',
       robots: { index: false, follow: false },
     };
   }

@@ -25,11 +25,20 @@ import {
 import { jobPrefillIsRead } from '@/lib/admin-map/prefill-consumers';
 import { buildNavRows, hitOffsetOf, shouldOfferAssistant } from '@/lib/admin-map/palette-nav';
 import {
-  toAdminRecordRows,
+  redactContactDetail,
   MIN_RECORD_QUERY_LENGTH,
   RECORD_SEARCH_DEBOUNCE_MS,
-  type AdminRecordRow,
 } from '@/lib/admin-map/admin-record-rows';
+import {
+  toFocusRows,
+  focusIsExactOnly,
+  classifyFocusQuery,
+  pushFocusRecent,
+  parseFocusRecents,
+  recentLabelOf,
+  FOCUS_RECENTS_KEY,
+  type FocusRow,
+} from '@/lib/admin-map/focus-search';
 import { searchAdminRecords } from './record-search';
 
 import { askTheAdmin, type AskAnswer } from './ask-actions';
@@ -162,14 +171,20 @@ export function AdminCommandPalette({
    * here: the visible box is `hidden … lg:flex` and the only other way in is
    * ⌘K, which needs a keyboard.
    */
-  const [records, setRecords] = useState<AdminRecordRow[]>([]);
+  const [records, setRecords] = useState<FocusRow[]>([]);
+  /** A search is on its way — "Nothing matches" waits for it instead of guessing. */
+  const [recordsPending, setRecordsPending] = useState(false);
+  /** Bumped by "Couldn't search … Tap to try again" — re-runs the same search. */
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const term = q.trim();
     if (term.length < MIN_RECORD_QUERY_LENGTH) {
       setRecords([]);
+      setRecordsPending(false);
       return;
     }
+    setRecordsPending(true);
     /*
       One in-flight answer per keystroke. `cancelled` is what makes a slow
       response for "mar" unable to overwrite a fast one for "maria" — the
@@ -181,13 +196,20 @@ export function AdminCommandPalette({
     const timer = setTimeout(() => {
       void searchAdminRecords(term).then(
         (groups) => {
-          if (!cancelled) setRecords(toAdminRecordRows(groups));
+          if (cancelled) return;
+          // 🔦 Focus at Spotlight level: each kind under its own heading, the top hit first, and a group whose
+          // read FAILED kept as a "Couldn't search" row — never dropped into "no matches".
+          setRecords(toFocusRows(groups, redactContactDetail));
+          setRecordsPending(false);
         },
-        // A refused or failed read shows no records rather than stale ones.
-        // The page and job hits above are unaffected: the box keeps working as
-        // a navigator even when the database cannot be reached.
+        // The whole search refused (not one group): SAID as one failed row, never an empty list. The page and
+        // job hits are unaffected — the box keeps working as a navigator when the database cannot be reached.
         () => {
-          if (!cancelled) setRecords([]);
+          if (cancelled) return;
+          setRecords([
+            { kind: 'failed', key: 'failed:all', category: 'Records', title: 'Couldn’t search records', detail: 'Not “no matches”. Tap to try again.' },
+          ]);
+          setRecordsPending(false);
         },
       );
     }, RECORD_SEARCH_DEBOUNCE_MS);
@@ -195,7 +217,26 @@ export function AdminCommandPalette({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q]);
+  }, [q, retry]);
+
+  /** A whole public ID lists exactly one record — no pages beside it (the approved drawing, picture 3). */
+  const exactOnly = classifyFocusQuery(q).kind === 'public-id' || focusIsExactOnly(records);
+  const pageHits = exactOnly ? [] : hits;
+
+  /*
+    RECENT — the last records and pages opened from Focus, kept in THIS browser (no table, no migration). Focus
+    home reads the same key. A blocked or full storage never stops the navigation it describes.
+  */
+  const remember = useCallback((href: string, title: string, label: string) => {
+    try {
+      const list = parseFocusRecents(window.localStorage.getItem(FOCUS_RECENTS_KEY));
+      window.localStorage.setItem(FOCUS_RECENTS_KEY, JSON.stringify(pushFocusRecent(list, { href, title, label, at: Date.now() })));
+    } catch {
+      /* storage unavailable — Recent simply does not grow */
+    }
+  }, []);
+
+
 
   /**
    * THE BUG THIS CLOSES: the owner typed the spec's own flagship example —
@@ -377,8 +418,8 @@ export function AdminCommandPalette({
   const askRowSelectable = showAskEscapeHatch && !(asked !== null && !asked.ok);
 
   const navRows = useMemo(
-    () => buildNavRows(askRowSelectable, hits, records, rec !== null),
-    [askRowSelectable, hits, records, rec],
+    () => buildNavRows(askRowSelectable, pageHits, records, rec !== null),
+    [askRowSelectable, pageHits, records, rec],
   );
 
   /** The ask row sits after the Recommended row when there is one. */
@@ -415,6 +456,25 @@ export function AdminCommandPalette({
     void askTheAdmin(q, [], { forget: true }).catch(() => undefined);
     setPicks((list) => list.filter((p) => p.phrase !== phrase));
   }, [q]);
+
+  /** Open one Focus row: an answer, a record, a prepared page; a failed row tries again. */
+  const openFocusRow = useCallback(
+    (r: FocusRow) => {
+      if (r.kind === 'failed') {
+        setRetry((n) => n + 1);
+        return;
+      }
+      if (r.kind === 'record') {
+        teach(r.href, r.title);
+        remember(r.href, r.title, recentLabelOf(r.recordKind));
+      } else if (r.kind === 'prepared') {
+        remember(r.href, r.title, 'Page');
+      }
+      close();
+      router.push(r.href);
+    },
+    [router, remember, teach, close],
+  );
 
   /*
     THE RECOMMENDED ROW. A job whose form this box can fill opens the ask-form (nothing is submitted there); anything
@@ -524,18 +584,22 @@ export function AdminCommandPalette({
           activateAskRow();
           return;
         }
-        if (target.kind === 'record') teach(target.record.href, target.record.title);
-        else teach(target.dest.href, target.dest.label);
-        close();
         // ONE list, so a found RECORD opens on Enter exactly like a page does.
         // Records that render but cannot be reached by the keyboard would be
         // the same defect the ask row already had here.
-        router.push(target.kind === 'record' ? target.record.href : target.dest.href);
+        if (target.kind === 'record') {
+          openFocusRow(target.record);
+          return;
+        }
+        teach(target.dest.href, target.dest.label);
+        remember(target.dest.href, target.dest.label, 'Page');
+        close();
+        router.push(target.dest.href);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, navRows, sel, close, router, askJob, activateAskRow, activateRecommendation, teach]);
+  }, [open, navRows, sel, close, router, askJob, activateAskRow, activateRecommendation, teach, openFocusRow, remember]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -567,6 +631,9 @@ export function AdminCommandPalette({
       : null;
 
   let lastGroup = '';
+  let lastRecordGroup = '';
+  /** Where the record rows start in `navRows` — counted off the list, never re-derived. */
+  const recordOffset = Math.max(0, navRows.findIndex((row) => row.kind === 'record'));
   return (
     <>
       <OverlayBackdrop onClose={close} className="z-[60]" />
@@ -841,7 +908,100 @@ export function AdminCommandPalette({
               {unknownNote}
             </p>
           ) : null}
-          {hits.length === 0 ? (
+          {records.length ? (
+            /*
+              🔦 FOCUS AT SPOTLIGHT LEVEL (owner approved 18 Nov 2026) — THE RECORDS, ABOVE THE PAGES.
+              Answer → Exact match / Top hit → Prepared → each kind under its own heading. In the same list the
+              keyboard walks (`navRows`), so the highlight is the row Enter opens.
+
+              🔒 A ROW SHOWS WHAT IDENTIFIES THE RECORD AND NOTHING MORE — a name, a status, its public ID. No
+              email, no phone, no address; `redactContactDetail` is applied to every row in `toFocusRows`.
+
+              🔑 A GROUP WHOSE READ FAILED SAYS SO ("Couldn't search Suppliers") — it never vanishes into
+              "no matches", and tapping it tries again.
+            */
+            <div data-focus-records="">
+              {records.map((r, i) => {
+                const header = r.category !== lastRecordGroup ? ((lastRecordGroup = r.category), r.category) : null;
+                const navIndex = recordOffset + i;
+                const selected = navIndex === sel;
+                return (
+                  <div key={r.key}>
+                    {header ? (
+                      <p
+                        className="px-3 pb-1 pt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
+                        style={{ color: 'var(--sn-ink-500)' }}
+                      >
+                        {header}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onMouseMove={() => setSel(navIndex)}
+                      onClick={() => openFocusRow(r)}
+                      data-focus-row={r.kind}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm"
+                      style={selected ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
+                    >
+                      {r.kind === 'answer' && !r.secondary ? (
+                        <span className="min-w-0">
+                          <span className="block text-[26px] font-bold leading-tight" style={{ color: 'var(--sn-ink)' }}>
+                            {r.number ?? '—'}
+                          </span>
+                          <span className="block text-[12px]" style={{ color: r.number === null ? 'var(--sn-warning-deep)' : 'var(--sn-ink-500)' }}>
+                            {r.line}
+                          </span>
+                        </span>
+                      ) : r.kind === 'answer' ? (
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold" style={{ color: r.number === null ? 'var(--sn-warning-deep)' : 'var(--sn-ink)' }}>
+                            {r.number === null ? r.line : `${r.number} ${r.line.split(' · ')[0]}`}
+                          </span>
+                          {r.number !== null ? (
+                            <span className="block truncate text-[11.5px]" style={{ color: 'var(--sn-ink-500)' }}>
+                              Same number as your Work list
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : r.kind === 'failed' ? (
+                        <span className="min-w-0" role="alert">
+                          <span className="block truncate font-semibold" style={{ color: 'var(--sn-warning-deep)' }}>
+                            ! {r.title}
+                          </span>
+                          <span className="block truncate text-[11.5px]" style={{ color: 'var(--sn-ink-500)' }}>
+                            {r.detail}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold" style={{ color: 'var(--sn-ink)' }}>
+                            {r.title}
+                          </span>
+                          {r.detail ? (
+                            <span className="block truncate text-[11.5px]" style={{ color: 'var(--sn-ink-500)' }}>
+                              {r.detail}
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
+                      {r.kind === 'record' && r.publicId ? (
+                        <span className="ml-auto shrink-0 font-mono text-[10.5px]" style={{ color: 'var(--sn-ink-500)' }}>
+                          {r.publicId}
+                        </span>
+                      ) : null}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {pageHits.length === 0 && (records.length > 0 || recordsPending) ? (
+            recordsPending && records.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
+                Searching records…
+              </p>
+            ) : null
+          ) : pageHits.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm" style={{ color: 'var(--sn-ink-500)' }}>
               <p>
                 Nothing matches “{q}”. Everything is also browsable under{' '}
@@ -887,7 +1047,7 @@ export function AdminCommandPalette({
             </div>
           ) : (
             <>
-              {hits.map((d, i) => {
+              {pageHits.map((d, i) => {
                 const header = d.group !== lastGroup ? ((lastGroup = d.group), d.group) : null;
                 // The ask row, when shown, is navRows[0] — so page hit `i` is
                 // navRows[i + 1]. Without this offset the highlight and the row
@@ -904,6 +1064,7 @@ export function AdminCommandPalette({
                       onMouseMove={() => setSel(navIndex)}
                       onClick={() => {
                         teach(d.href, d.label);
+                        remember(d.href, d.label, 'Page');
                         close();
                         router.push(d.href);
                       }}
@@ -933,62 +1094,6 @@ export function AdminCommandPalette({
                 );
               })}
 
-              {/*
-                THE RECORDS THEMSELVES — the guest, the shop, the celebration.
-                Rendered AFTER the pages and in the same list the keyboard
-                walks, so `navIndex` below is the real index in `navRows`
-                rather than a second opinion about it.
-
-                🔒 A ROW SHOWS WHAT IDENTIFIES THE RECORD AND NOTHING MORE —
-                a name, a status, and which celebration it belongs to. No
-                email, no phone, no address; those live on the record's own
-                page. `toAdminRecordRows` is what enforces that, so it holds
-                for every category at once instead of the one that needed it.
-              */}
-              {records.length ? (
-                <>
-                  <p
-                    className="px-3 pb-1 pt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em]"
-                    style={{ color: 'var(--sn-ink-500)' }}
-                  >
-                    Records
-                  </p>
-                  {records.map((r, i) => {
-                    const navIndex = hits.length + i + hitOffset;
-                    return (
-                      <button
-                        key={`${r.kind}:${r.id}`}
-                        type="button"
-                        onMouseMove={() => setSel(navIndex)}
-                        onClick={() => {
-                          teach(r.href, r.title);
-                          close();
-                          router.push(r.href);
-                        }}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm"
-                        style={navIndex === sel ? { background: 'var(--sn-paper-2, #F5EEE1)' } : undefined}
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold" style={{ color: 'var(--sn-ink)' }}>
-                            {r.title}
-                          </span>
-                          {r.detail ? (
-                            <span className="block truncate text-[11.5px]" style={{ color: 'var(--sn-ink-500)' }}>
-                              {r.detail}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span
-                          className="ml-auto shrink-0 font-mono text-[10.5px]"
-                          style={{ color: 'var(--sn-ink-500)' }}
-                        >
-                          {r.category}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </>
-              ) : null}
             </>
           )}
             </>

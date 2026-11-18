@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Gift, Lock } from 'lucide-react';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
 import { VerifiedFullscreen } from '@/app/_components/award/verified-fullscreen';
@@ -23,7 +23,7 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  *     middle, lands with a burst and its tap show, floats and turns). Its caption carries what the old sheet said —
  *     Now · how far to the next tier · Next goal · the reward lines · what it counts (`shelfLines`);
  *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz`);
- *   · not earned yet / not counted / unread → it RISES (the one `RiseScreen`) with the v84 LOCKED look (`LockedTile`:
+ *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the v84 LOCKED look (`LockedTile`:
  *     the art in grey under a lock, what it takes) and the same lines, the reward box and its door.
  *
  * 🏅 EVERY BADGE SITS IN ITS PROGRESS RING (owner 8 Nov): the shipped `ProgressRing`, drawn in once when seen.
@@ -182,7 +182,7 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
   const what = tile.key === 'verified' ? 'Verified' : 'Badge';
   const takes = tile.state === 'unread' ? 'Couldn’t read this count just now.' : (tile.next ?? tile.how);
   return (
-    <RiseScreen labelledById={hid} onClose={onClose} data={`badge-${tile.key}`}>
+    <ShopDoorScreen labelledById={hid} onClose={onClose} data={`badge-${tile.key}`}>
       <div className="space-y-4 px-4 pb-6 pt-2" data-badge-sheet={tile.key}>
         <h2 id={hid} className="sr-only">
           {tile.title}
@@ -226,7 +226,7 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
           </Link>
         ) : null}
       </div>
-    </RiseScreen>
+    </ShopDoorScreen>
   );
 }
 

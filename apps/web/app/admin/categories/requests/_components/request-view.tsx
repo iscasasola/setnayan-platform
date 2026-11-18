@@ -7,6 +7,7 @@ import type { RequestDraft } from '../../_components/model';
 import { RequestDraftNotes } from '../../_components/request-row';
 import { AdminStatusPill } from './admin-request-bits';
 import { DecisionForm, type DecisionCategory, type DecisionService } from './decision-form';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 export type AdminRequest = {
   request_id: string;
@@ -76,7 +77,7 @@ export function ServiceRequestAdminView({
         </p>
       ) : null}
 
-      <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+      <section className={`${ADMIN_FRAME} mb-4 p-4`}>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt className="text-ink/60">Filed under</dt>
           <dd className="text-ink">
@@ -136,7 +137,7 @@ export function ServiceRequestAdminView({
           </div>
         </>
       ) : (
-        <section className="rounded-2xl bg-white p-4 shadow-sm text-sm">
+        <section className={`${ADMIN_FRAME} p-4 text-sm`}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
             <dt className="text-ink/60">Decision</dt>
             <dd className="text-ink">

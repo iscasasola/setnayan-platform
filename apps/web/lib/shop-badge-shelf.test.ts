@@ -82,7 +82,7 @@ test('5 · the row opens the award kit and lazy-loads the art', () => {
   assert.match(src, /<BadgeFullscreen\b/);
   assert.match(src, /<VerifiedFullscreen\b/);
   assert.match(src, /<LockedTile\b/);
-  assert.match(src, /<RiseScreen\b/);
+  assert.match(src, /<ShopDoorScreen\b/); // the ONE RiseScreen on a phone, the 440 right panel from 701 (main, 16 Nov)
   assert.match(src, /<ProgressRing\b/);
   assert.match(src, /loading="lazy"/);
   assert.match(src, /width=\{BADGE_ART_W\}\s+height=\{BADGE_ART_H\}/);

@@ -13,7 +13,7 @@ export function datesBookingsForWire(
 ): DatesBooking[] {
   return bookings.map((b) => {
     const h = hours?.get(b.poolBookingId);
-    return { poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName, ...(h ? { hours: h.hours, mine: h.mine, ...(h.unread ? { hoursUnread: true } : {}) } : {}) };
+    return { poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName, eventId: b.eventId, ...(h ? { hours: h.hours, mine: h.mine, ...(h.unread ? { hoursUnread: true } : {}) } : {}) };
   });
 }
 

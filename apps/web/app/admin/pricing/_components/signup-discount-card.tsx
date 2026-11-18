@@ -1,13 +1,14 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Save } from 'lucide-react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import {
   PAPIC_DISCOUNT_FLOOR_PCT,
   discountComplaints,
   previewFamilySave,
 } from '@/lib/onboarding-family-discount';
+import { ActionButton } from '@/components/action-button';
 
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 
@@ -109,12 +110,7 @@ export function SignupDiscountCard({
       )}
 
       <div className="mt-3 flex items-center gap-2">
-        <button
-          type="submit"
-          className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-        >
-          Save
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
         {state.message && (
           <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
             {state.message}

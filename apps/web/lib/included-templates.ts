@@ -18,7 +18,8 @@ export type IncludedTemplate = {
   id: string;
   name: string;
   rows: IncludedTemplateRow[];
-  /** Drafted for the owner's review (the seed) — the admin panel tags it "Proposal". */
+  /** A draft waiting for the owner's review — the admin panel tags it "Proposal", and a new card is never pre-filled
+   *  from one. The 18 Nov seed was approved, so none is a draft today. */
   isProposal: boolean;
 };
 

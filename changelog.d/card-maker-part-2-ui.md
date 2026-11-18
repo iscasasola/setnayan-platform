@@ -10,3 +10,10 @@ Stacked on the part 2 migrations. Extends the shipped one-page maker (ruling 202
 - Tests: `lib/card-maker-part-2.test.ts` (9).
 
 SPEC IMPACT: None — implements DECISION_LOG 2026-11-17 (bf69604a · 4906a9a8 · 7596f63a) and HYBRID map Q3. Open owner questions are on the PR.
+
+## 2026-11-18 · feat(card-maker): a new service card opens with its service's basics
+
+Owner, 18 Nov: "make sure all services has basic inclusions. and they are auto uploaded at the beginning". A NEW card on `/vendor-dashboard/services/new/[category]` (also the "Make N cards" path) starts with the lines of its service's first approved template (`startingInclusions` in `lib/included-templates.ts`); the supplier edits, swipes away or adds lines, and nothing is written until Save. An edited card, or one started from another card or a couple's card, keeps its own lines. A draft template is never pre-filled. Not covered: the bare `/vendor-dashboard/services/new` door, where the service is picked on the card and no template is read. Tests in `lib/card-maker-part-2.test.ts` (2 sabotages, both red).
+
+SPEC IMPACT: None — implements the owner's 18 Nov ruling (relayed by the controller, posted on PRs #7939 and #7950); it reverses the 17 Nov "a new card starts empty" reading.
+

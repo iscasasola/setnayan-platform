@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readBadgeRewardFacts } from '@/lib/badge-rewards.server';
 import { readShopSeals } from '@/lib/shop-seals.server';
 import type { ShopBadgeFacts } from '@/lib/shop-badges';
-import { printBadgesV84, type PrintBadge } from '@/lib/print-badges-v84';
+import { printBadgesAllRead, printBadgesV84, type PrintBadge } from '@/lib/print-badges-v84';
 
 /**
  * 🖨 THE PRINT BADGES, READ ON THE SERVER — the one place a print route learns what the shop wears today. Every print
@@ -16,6 +16,15 @@ import { printBadgesV84, type PrintBadge } from '@/lib/print-badges-v84';
  * beside each other. A failed read prints nothing of that kind — never a guess (`printBadgesV84`).
  */
 export async function readPrintBadges(admin: SupabaseClient, vendorProfileId: string, facts: ShopBadgeFacts): Promise<PrintBadge[]> {
+  return (await readPrintBadgeList(admin, vendorProfileId, facts)).badges;
+}
+
+/** The same, with whether every read behind it was answered (`printBadgesAllRead`) — what the Prints sheet needs. */
+export async function readPrintBadgeList(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  facts: ShopBadgeFacts,
+): Promise<{ badges: PrintBadge[]; allRead: boolean }> {
   const [counts, seals] = await Promise.all([
     readBadgeRewardFacts(admin, vendorProfileId, facts).catch((err) => {
       console.error('[print-badges] reward counts unread', err);
@@ -23,5 +32,6 @@ export async function readPrintBadges(admin: SupabaseClient, vendorProfileId: st
     }),
     readShopSeals(vendorProfileId, facts.verified).catch(() => null),
   ]);
-  return printBadgesV84({ verified: facts.verified, counts, seals: seals?.rows ?? null });
+  const input = { verified: facts.verified, counts, seals: seals?.rows ?? null };
+  return { badges: printBadgesV84(input), allRead: printBadgesAllRead(input) };
 }

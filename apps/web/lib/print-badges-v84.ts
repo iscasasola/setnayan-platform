@@ -68,6 +68,32 @@ export function printBadgesV84(i: PrintBadgeInput): PrintBadge[] {
   return out;
 }
 
+/**
+ * 🔎 WAS EVERY READ BEHIND THE PRINT LIST ANSWERED? `printBadgesV84` drops what it could not read (never a guess on
+ * paper) — so an empty list from refused reads looks exactly like a shop with nothing earned. This says which it is:
+ * false when the counts or the seals were unread, or any one badge's own count was. The Prints sheet then says it
+ * could not load, never "None yet" (🔒 lib/print-badges-v84.test.ts).
+ */
+export function printBadgesAllRead(i: PrintBadgeInput): boolean {
+  if (i.counts === null || i.seals === null) return false;
+  return SHOP_BADGE_KEYS.every((key) => shelfBadge(key, { counts: i.counts, verified: i.verified, granted: null }).state !== 'unread');
+}
+
+/**
+ * What the Prints sheet's "Your badges" row may say about a list (`/api/vendor/badges?view=print`):
+ *   unread   nothing listed AND a read was refused — "Couldn't load", never "None yet";
+ *   partial  some listed, a read was refused — the list is shown and says some could not load;
+ *   none     every read answered and nothing is earned — "None yet";
+ *   ok       every read answered.
+ * A missing `allRead` (an older answer) counts as answered.
+ */
+export type PrintBadgeListState = 'unread' | 'partial' | 'none' | 'ok';
+export function printBadgeListState(count: number, allRead: boolean | undefined): PrintBadgeListState {
+  const read = allRead !== false;
+  if (count === 0) return read ? 'none' : 'unread';
+  return read ? 'ok' : 'partial';
+}
+
 /** The words of a badge in a print's quiet line ("Completed bookings (Gold)", "Top 10 Supplier 2026"). */
 export function printBadgeWords(b: PrintBadge): string {
   return b.kind === 'seal' ? `${b.label} ${b.year}` : b.label;

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { grantOwedBadgeRewards, readBadgeRewardFacts } from '@/lib/badge-rewards.server';
-import { readPrintBadges } from '@/lib/print-badges-v84.server';
+import { readPrintBadgeList } from '@/lib/print-badges-v84.server';
 import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 import { printBadgeListItem } from '@/lib/print-badges-v84';
 import { tellBadgesJustEarned } from '@/lib/badge-earned.server';
@@ -88,11 +88,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     return NextResponse.json({ vendorId: profile.vendor_profile_id, facts, granted }, { headers: { 'cache-control': 'private, no-store' } });
   }
-  const all = await readPrintBadges(admin, profile.vendor_profile_id, facts);
+  const { badges: all, allRead } = await readPrintBadgeList(admin, profile.vendor_profile_id, facts);
   if (sp.get('view') === 'print') {
-    return NextResponse.json({ badges: all.map(printBadgeListItem) }, { headers: { 'cache-control': 'private, no-store' } });
+    // `allRead: false` = some read was refused, so a short (or empty) list is NOT "none earned" (the sheet says so)
+    return NextResponse.json({ badges: all.map(printBadgeListItem), allRead }, { headers: { 'cache-control': 'private, no-store' } });
   }
   const picked = want === 'all' ? all : all.filter((b) => b.key === want);
+  if (picked.length === 0 && !allRead) {
+    // a refused read is never told as "you have none" — the shop may well wear the badge
+    return NextResponse.json({ error: 'Couldn’t load your badges just now. Try again in a moment.' }, { status: 503 });
+  }
   if (picked.length === 0) {
     return NextResponse.json(
       { error: want === 'all' ? 'Your shop has no badges to print yet.' : 'That badge isn’t on your shop today.' },

@@ -10,7 +10,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import type { ShopBadgeFacts } from '@/lib/shop-badges';
-import type { PrintBadgeListItem } from '@/lib/print-badges-v84';
+import { printBadgeListState, type PrintBadgeListItem } from '@/lib/print-badges-v84';
 import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import {
   DEFAULT_PRINT_DESIGN,
@@ -713,13 +713,13 @@ function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr
  * the facts READ when it is saved. Its facts are read once, when the sheet first opens. A refused read says so; a shop
  * with none yet is told they show by themselves — the words Analytics › Your badges already uses.
  */
-type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: PrintBadgeListItem[]; verified: boolean; rated: boolean };
+type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: PrintBadgeListItem[]; partial: boolean; verified: boolean; rated: boolean };
 
 /**
  * The shop's badge facts, read ONCE per sheet visit and shared by the badges piece and YOUR FACTS' Verified seal — two
  * readers, one request (a failed read is forgotten, so the next opening asks again).
  */
-type BadgeReads = { facts: ShopBadgeFacts; badges: PrintBadgeListItem[] };
+type BadgeReads = { facts: ShopBadgeFacts; badges: PrintBadgeListItem[]; allRead: boolean };
 const factReads = new Map<string, Promise<BadgeReads | null>>();
 const getJson = <T,>(url: string): Promise<T | null> =>
   fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } })
@@ -733,15 +733,16 @@ function readBadgeFacts(url: string): Promise<BadgeReads | null> {
   let p = factReads.get(url);
   if (!p) {
     const lab = url.startsWith('data:');
-    p = Promise.all([getJson<{ facts: ShopBadgeFacts; badges?: PrintBadgeListItem[] }>(url), lab ? Promise.resolve(null) : getJson<{ badges: PrintBadgeListItem[] }>(BADGE_LIST_API)]).then(
+    p = Promise.all([getJson<{ facts: ShopBadgeFacts; badges?: PrintBadgeListItem[] }>(url), lab ? Promise.resolve(null) : getJson<{ badges: PrintBadgeListItem[]; allRead?: boolean }>(BADGE_LIST_API)]).then(
       ([f, l]) => {
         const badges = lab ? f?.badges : l?.badges;
-        return f?.facts && Array.isArray(badges) ? { facts: f.facts, badges } : null;
+        // a refused read behind the list is not "none earned" (`printBadgeListState`)
+        return f?.facts && Array.isArray(badges) ? { facts: f.facts, badges, allRead: lab ? true : l?.allRead !== false } : null;
       },
     );
     factReads.set(url, p);
     void p.then((f) => {
-      if (f === null) factReads.delete(url);
+      if (f === null || !f.allRead) factReads.delete(url);
     });
   }
   return p;
@@ -753,7 +754,10 @@ function useBadgeFacts(open: boolean, factsUrl: string): BadgeRead {
   useEffect(() => {
     if (!open || started.current) return;
     started.current = true;
-    void readBadgeFacts(factsUrl).then((r) => setRead(r ? { k: 'ok', badges: r.badges, verified: r.facts.verified, rated: cardRecordRatingFromTrusted(r.facts.trusted) !== null } : { k: 'unread' }));
+    void readBadgeFacts(factsUrl).then((r) => {
+      const state = r ? printBadgeListState(r.badges.length, r.allRead) : 'unread';
+      setRead(r && state !== 'unread' ? { k: 'ok', badges: r.badges, partial: state === 'partial', verified: r.facts.verified, rated: cardRecordRatingFromTrusted(r.facts.trusted) !== null } : { k: 'unread' });
+    });
   }, [open, factsUrl]);
   return read;
 }
@@ -768,7 +772,9 @@ function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
         ? 'Couldn’t load your badges just now.'
         : read.badges.length === 0
           ? 'None yet — they show here by themselves as you earn them.'
-          : 'Every badge your shop wears today, ready to print.';
+          : read.partial
+            ? 'Some of your badges couldn’t load just now — these are ready to print.'
+            : 'Every badge your shop wears today, ready to print.';
   return (
     <div className="border-b border-ink/10 px-4 pb-4 pt-2" data-prints-piece="badges" data-prints-badges={read.k === 'ok' ? read.badges.length : read.k}>
       <div className="flex items-center gap-2.5">

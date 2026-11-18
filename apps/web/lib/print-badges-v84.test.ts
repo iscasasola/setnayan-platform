@@ -121,3 +121,32 @@ test('the resolver hands every kind a box and a picture for the PDF; Verified is
   for (const a of arts.slice(1)) assert.ok(a.png && a.png.length > 1000);
   assert.match(arts[0]!.svg, /data-verified-v84/);
 });
+
+test('a REFUSED read is never told as "none earned": the list says which it is (opus review 18 Nov)', async () => {
+  const { printBadgesAllRead, printBadgeListState } = await import('./print-badges-v84');
+  // every read refused, shop not verified: the print list is empty — exactly what a shop with nothing earned gets
+  const refused = { verified: false, counts: null, seals: null };
+  assert.deepEqual(printBadgesV84(refused), []);
+  assert.equal(printBadgesAllRead(refused), false);
+  assert.equal(printBadgeListState(printBadgesV84(refused).length, printBadgesAllRead(refused)), 'unread', 'refused reads must not read "None yet"');
+  // one count refused (bookings): the shelf tile is unread, so the list is partial, not complete
+  const oneRefused = { verified: true, counts: counts({ completedBookings: null as unknown as number }), seals: [] };
+  assert.equal(printBadgesAllRead(oneRefused), false);
+  assert.equal(printBadgeListState(printBadgesV84(oneRefused).length, printBadgesAllRead(oneRefused)), 'partial');
+  // seals unread alone also counts
+  assert.equal(printBadgesAllRead({ verified: true, counts: counts(), seals: null }), false);
+  // every read answered and nothing earned: "None yet" is true
+  const none = { verified: false, counts: counts({ completedBookings: 0, fiveStarReviews: 0, giftPoints: 0, trustedBy: 0 }), seals: [] };
+  assert.equal(printBadgesAllRead(none), true);
+  assert.equal(printBadgeListState(printBadgesV84(none).length, true), 'none');
+  assert.equal(printBadgeListState(2, undefined), 'ok', 'an answer without allRead counts as answered');
+});
+
+test('the Prints sheet and the badges route use the honest list, not the bare one', () => {
+  const sheet = readFileSync(path.join(__dirname, '../app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx'), 'utf8');
+  assert.match(sheet, /printBadgeListState\(/, 'the sheet decides "None yet" without knowing whether the reads answered');
+  const route = readFileSync(path.join(__dirname, '../app/api/vendor/badges/route.ts'), 'utf8');
+  assert.match(route, /readPrintBadgeList\(/);
+  assert.match(route, /badges: all\.map\(printBadgeListItem\), allRead/, 'view=print must carry allRead');
+  assert.match(route, /picked\.length === 0 && !allRead/, 'a refused read must not answer "no badges to print yet"');
+});

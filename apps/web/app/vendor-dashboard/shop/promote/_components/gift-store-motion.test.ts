@@ -11,9 +11,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const here = join(process.cwd(), 'app/vendor-dashboard/shop/promote/_components');
-const css = readFileSync(join(here, 'gift-store.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = stripComments(readFileSync(join(here, 'gift-store.module.css'), 'utf8'));
 const section = readFileSync(join(here, 'shop-gifts-section.tsx'), 'utf8');
 
 test('keyframes move only transform and opacity', () => {

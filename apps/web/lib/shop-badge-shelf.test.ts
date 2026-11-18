@@ -2,7 +2,7 @@
  * 🏅 Shop › Badges is the approved v84 shelf (lib/shop-badge-shelf.ts) — owner 17 Nov: "old pop ups of badges".
  *   1 · the row is exactly Setnayan Verified + the five v84 badges — no retired tile;
  *   2 · each tier draws its own v84 picture, and every picture is a real file under public/badges/v84;
- *   3 · honest states: unread is "Couldn't load", Invites is "Not counted yet", below Bronze is locked with a count;
+ *   3 · honest states: unread is "Couldn't load" (Invites too, since #7891 counts it), below Bronze is locked with a count;
  *   4 · nothing of the old sheet is lost: Now · progress · Next goal · reward · what it counts are all lines;
  *   5 · the row component opens the award kit's full screens, and the locked look rises.
  *   6 · the Shop header's "Next badge" IS the Completed bookings tile's goal — one ladder, one goal (W1 F2);
@@ -53,9 +53,11 @@ test('2 · each tier draws its own v84 picture, and the picture exists', () => {
 
 test('3 · honest states', () => {
   const unread = shopBadgeShelf({ counts: null, verified: null, granted: null });
-  for (const t of unread.filter((t) => t.key !== 'invites')) assert.equal(t.sub, COULDNT_LOAD, `${t.key} unread is not "Couldn't load"`);
-  const tiles = shopBadgeShelf({ counts: counts(), verified: false, granted: [] });
-  assert.equal(tiles.find((t) => t.key === 'invites')!.sub, NOT_COUNTED_YET);
+  // Invites is COUNTED since #7891 (BADGE_REWARDS.invites.measured), so an unread Invites is "Couldn't load" like the rest.
+  for (const t of unread) assert.equal(t.sub, COULDNT_LOAD, `${t.key} unread is not "Couldn't load"`);
+  const tiles = shopBadgeShelf({ counts: counts({ invites: 0 }), verified: false, granted: [] });
+  assert.notEqual(tiles.find((t) => t.key === 'invites')!.sub, NOT_COUNTED_YET, 'Invites is counted since #7891');
+  assert.equal(shopBadgeShelf({ counts: counts(), verified: false, granted: [] }).find((t) => t.key === 'invites')!.sub, COULDNT_LOAD, 'an unread Invites must not read as counted');
   const five = tiles.find((t) => t.key === 'five_star_reviews')!;
   assert.equal(five.state, 'locked');
   assert.equal(five.now, 'Now: 12 five-star reviews');

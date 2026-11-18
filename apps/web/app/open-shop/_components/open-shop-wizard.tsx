@@ -135,7 +135,13 @@ export function OpenShopWizard({
   sentTo = null,
   accountKey = 'guest',
   prefilledAccountEmail = null,
+  invitedBy = null,
 }: {
+  /**
+   * 🤝 The shop whose invite link opened this setup (Invite a supplier v3, owner 16 Nov): one "Invited by <shop>" line
+   * on top; the setup itself is unchanged. Null = not invited.
+   */
+  invitedBy?: string | null;
   /**
    * 🔁 WHO THE PAGE WAS DRAWN FOR (walk 13 Nov, F-W1-13) — the signed-in account's id, or 'guest'. The boxes filled
    * FROM the account (the name, the company email) are keyed on it, so when the account changes while the wizard is
@@ -897,6 +903,20 @@ export function OpenShopWizard({
               screen reader at every size. */}
           <div className="grid gap-3 md:block">
             <FirstRunBrand className="md:hidden" color="var(--m-ink)" size={13} />
+            {invitedBy ? (
+              <p className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }} data-invited-by="">
+                <span
+                  aria-hidden
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border font-mono text-[11px] font-bold"
+                  style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
+                >
+                  {invitedBy.trim().charAt(0).toUpperCase()}
+                </span>
+                <span>
+                  Invited by <strong style={{ color: 'var(--m-ink)' }}>{invitedBy}</strong>
+                </span>
+              </p>
+            ) : null}
             <div
               className="flex gap-1.5 md:sr-only"
               role="progressbar"

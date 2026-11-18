@@ -186,7 +186,6 @@ export async function loadMakerContext(
       existingParents,
       cardsByCategory,
       parentCategories: caps.parentCategories,
-      serviceCardsTotal: caps.serviceCardsTotal,
       leaves,
     });
 

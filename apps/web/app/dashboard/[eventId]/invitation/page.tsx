@@ -151,6 +151,9 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // column lands with migration 20270917400000; before it applies (or on any
   // read error) this map is simply empty and the page renders as before.
   const rotatedAtByGuest = new Map<string, string>();
+  // ⛔ A refused read used to be logged and then drawn as "nobody's link was renewed" — the claim the warning
+  // below names (audit 2026-11-17). It is now said above the list.
+  let rotationsUnread = false;
   try {
     const { data: rotatedRows, error: rotatedRowsError } = await createAdminClient()
       .from('guests')
@@ -161,6 +164,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     // ⚠ were, which is a claim about who can still get in.
     if (rotatedRowsError) {
       logQueryError('InvitationPage.rotatedRows', rotatedRowsError, { eventId }, 'graceful_degrade');
+      rotationsUnread = true;
     }
     for (const r of rotatedRows ?? []) {
       if (r.qr_token_rotated_at) rotatedAtByGuest.set(r.guest_id, r.qr_token_rotated_at);
@@ -211,6 +215,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   return (
     <section className="space-y-6 tab:mx-auto tab:w-full tab:max-w-3xl">
+      {rotationsUnread ? <ReadRefusedNotice what="which guests’ invite links were renewed" partial /> : null}
       <PageMasthead
         titleNode={
           <>

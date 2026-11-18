@@ -360,6 +360,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   void startAhead(resolveProfileByEvent(eventId));
   const renamedRead = startAhead(eventHasRenamed(eventId).catch(() => false));
   const seenRead = startAhead(Promise.resolve(supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle()));
+  /* ⚡ The event's entitlement client needs only the id and the viewer too — it left AFTER the viewer read (one trip
+     in single file). Started here, awaited at the line that always awaited it (`const ent` below). */
+  const entRead = startAhead(eventEntitlementClient(eventId));
 
   /*
     🔒 MAY THIS VIEWER SEE THE REPLIES AT ALL?
@@ -395,7 +398,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const needsRead = readEventNeedsFor(supabase, eventId, 'LaunchPage');
   // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
   // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
-  const ent = await eventEntitlementClient(eventId);
+  const ent = await entRead;
   /* ⚡ The part prices wait only on the store-shell check (headers, no database) — so they leave beside the reads
      below instead of after them (speed pass 2026-11-14: one step off the page's depth). Still none in the store shell. */
   const proPricesP = startAhead(

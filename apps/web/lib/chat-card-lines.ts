@@ -67,9 +67,16 @@ export function changeAskFromLine(body: string | null | undefined): { subject: A
   return null;
 }
 
-/** The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null. */
+/**
+ * The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null.
+ * "Send again" (owner 18 Nov 2026) words it "I sent you a form again — “<title>”. Your last answers are still ticked; …"
+ * — the same form, so the host's face mounts under it too, with their answers already in it.
+ */
 export function formLineTitle(body: string | null | undefined): string | null {
-  const m = /^I sent you a form — “(.+)”\. Answer it in your event\.$/.exec((body ?? '').trim());
+  const m =
+    /^I sent you a form(?: again)? — “(.+)”\. (?:Answer it in your event|Your last answers are still ticked; change any you like in your event)\.$/.exec(
+      (body ?? '').trim(),
+    );
   return m ? m[1]! : null;
 }
 

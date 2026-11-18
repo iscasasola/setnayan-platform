@@ -5,6 +5,8 @@
 // COUNTERPARTY gets accept / propose-new-time / decline (backed by the existing
 // respondAppointment single-winner machine); the proposer sees the status.
 
+import { ScheduleDayDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-day-door';
+import { manilaDayAndTime } from '@/lib/schedule-days';
 import { useState } from 'react';
 import { respondAppointment } from './appointments-actions';
 import { MEETING_MODE_LABEL, meetingModeOf, type AppointmentKind } from '@/lib/appointments';
@@ -73,7 +75,18 @@ export function ChatAppointmentCard({
   const live = data.status === 'proposed' || data.status === 'confirmed';
 
   const rows: NegRow[] = [
-    { label: 'When', value: formatWhen(data.scheduled_at) },
+    {
+      label: 'When',
+      // 📅 Owner 18 Nov 2026: on the supplier's side a meeting's date opens this client's Schedule on that day.
+      value:
+        viewerRole === 'vendor' ? (
+          <ScheduleDayDoor eventId={eventId} day={manilaDayAndTime(data.scheduled_at)?.day ?? null}>
+            {formatWhen(data.scheduled_at)}
+          </ScheduleDayDoor>
+        ) : (
+          formatWhen(data.scheduled_at)
+        ),
+    },
     {
       label: 'Format',
       value: isVirtual

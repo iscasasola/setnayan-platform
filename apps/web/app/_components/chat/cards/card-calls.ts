@@ -35,6 +35,7 @@ import {
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { openDecision } from '@/lib/chat-decisions';
+import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 
 type Fail = { ok: false };
@@ -554,15 +555,23 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
 
 // ── Form · the shop's library ────────────────────────────────────────────────
 
-/** The shop's form library for the Send-a-form card: each live form and its asked questions (`readShopForms`' read). */
+/**
+ * The shop's forms for the Send-a-form card: each live form and its asked questions (`readShopForms`' read) — ONLY the
+ * forms this client may be sent (owner 18 Nov 2026: the forms on the cards they asked about + the chat forms), asked of
+ * `formsAction` op `client` in the same wave. A refused narrowing is a refused read, never the whole library.
+ */
 export async function loadShopFormsForCard(
   threadId: string,
 ): Promise<{ ok: true; forms: { formId: string; title: string; questions: string[] }[] } | Fail> {
   const supabase = createClient();
-  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id, event_id').eq('thread_id', threadId).maybeSingle();
   if (tErr || !thread) return refused('forms · thread', tErr);
   const shop = (thread as { vendor_profile_id: string }).vendor_profile_id;
-  const [formsRes, itemsRes] = await Promise.all([
+  const eventId = (thread as { event_id: string | null }).event_id;
+  const clientFd = new FormData();
+  clientFd.set('op', 'client');
+  clientFd.set('event_id', eventId ?? '');
+  const [formsRes, itemsRes, clientRes] = await Promise.all([
     supabase.from('vendor_forms').select('form_id, title').eq('vendor_profile_id', shop).is('retired_at', null).order('updated_at', { ascending: false }),
     supabase
       .from('vendor_questions')
@@ -571,12 +580,15 @@ export async function loadShopFormsForCard(
       .not('form_id', 'is', null)
       .eq('is_asked', true)
       .order('display_order', { ascending: true }),
+    formsAction({ status: 'idle' }, clientFd).catch(() => null),
   ]);
   if (formsRes.error || itemsRes.error) return refused('forms · library', formsRes.error ?? itemsRes.error);
+  if (!clientRes || clientRes.status !== 'client') return refused('forms · this client', null);
+  const theirs = new Set(clientRes.formIds);
   const items = (itemsRes.data ?? []) as { form_id: string; item_kind: string; prompt: string }[];
   return {
     ok: true,
-    forms: ((formsRes.data ?? []) as { form_id: string; title: string }[]).map((f) => ({
+    forms: ((formsRes.data ?? []) as { form_id: string; title: string }[]).filter((f) => theirs.has(f.form_id)).map((f) => ({
       formId: f.form_id,
       title: f.title,
       questions: items.filter((it) => it.form_id === f.form_id && it.item_kind === 'question').map((it) => it.prompt),

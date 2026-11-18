@@ -3,12 +3,12 @@
 import { useId, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatCount } from '@/lib/format-number';
-import { ChevronRight, ClipboardList, FolderOpen, Plus } from 'lucide-react';
+import { ChevronRight, ClipboardList, FolderOpen, Plus, Send } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
-import { draftItemOf, sentFormState, titleForCouple, usedWithLine, type FormDraft, type FormItemDraft } from '@/lib/vendor-forms';
+import { draftItemOf, formsForThisClient, sentFormState, titleForCouple, usedWithLine, type ClientFormGroup, type FormDraft, type FormItemDraft } from '@/lib/vendor-forms';
 import type { EventFormsRead, ShopForm, SuggestionsRead } from '@/lib/vendor-forms.server';
 import { formsAction } from '../actions';
 import { FormMaker, type FormMakerCard, type FormMakerLocks } from './form-maker';
@@ -42,6 +42,7 @@ export function FormsPageBody({
   locks,
   answersOpen,
   shopId,
+  clientCardIds,
 }: {
   eventId: string | null;
   coupleName: string;
@@ -57,8 +58,17 @@ export function FormsPageBody({
   locks: FormMakerLocks;
   answersOpen: boolean;
   shopId: string;
+  /**
+   * 📋 The cards THIS client asked about or booked (owner 18 Nov 2026) — the client's page lists only those cards'
+   * forms plus the chat forms (`formsForThisClient`). `null` = the read was refused ("couldn't load", never the whole
+   * library); absent = no client (the lab's library alone).
+   */
+  clientCardIds?: string[] | null;
 }) {
   const loadTitle = useId();
+  // The forms this client may be sent: null while either read is refused.
+  const theirs = clientCardIds === undefined ? null : library === null || clientCardIds === null ? null : formsForThisClient(library, clientCardIds);
+  const isCardForm = (formId: string) => theirs?.some((f) => f.formId === formId && f.group === 'card') ?? false;
   const [maker, setMaker] = useState<{ open: boolean; draft: FormDraft | null }>({ open: false, draft: null });
   const [loadOpen, setLoadOpen] = useState(false);
   const [openSent, setOpenSent] = useState<string | null>(null);
@@ -98,6 +108,20 @@ export function FormsPageBody({
   };
   const openForm = (f: ShopForm) => (eventId ? setViewing(f) : edit(f));
   const fresh = () => setMaker({ open: true, draft: null });
+  /* 🔁 SEND AGAIN (owner 18 Nov 2026): the same send, so their answers stay on it — they re-pick in the chat. */
+  const [againing, startAgain] = useTransition();
+  const sendAgain = (formId: string) =>
+    startAgain(async () => {
+      if (!eventId) return;
+      const fd = new FormData();
+      fd.set('op', 'send');
+      fd.set('again', '1');
+      fd.set('form_id', formId);
+      fd.set('event_id', eventId);
+      fd.set('return_path', returnPath);
+      const r = await formsAction({ status: 'idle' }, fd);
+      setSaid(r.status === 'error' ? r.message : r.status === 'sent' ? r.message : null);
+    });
   const copySuggestion = (templateKey: string) =>
     startUse(async () => {
       const fd = new FormData();
@@ -140,6 +164,19 @@ export function FormsPageBody({
                       {s.total === 0 && !s.locked ? 'No questions' : sentFormState(s).words}
                     </span>
                   </SentHead>
+                  {canSend && !s.locked && isCardForm(s.formId) ? (
+                    <div className="mt-1 flex justify-end">
+                      <ActionButton
+                        tone="neutral"
+                        icon={Send}
+                        label="Send again"
+                        disabled={againing}
+                        onClick={() => sendAgain(s.formId)}
+                        className="!h-11"
+                        data-forms-send-again={s.formId}
+                      />
+                    </div>
+                  ) : null}
                   {openSent === s.formId ? (
                     <div className="mt-1 space-y-2 rounded-xl bg-ink/[0.03] px-3.5 py-3" data-forms-answers={s.formId}>
                       {!answersOpen ? (
@@ -198,11 +235,19 @@ export function FormsPageBody({
         </section>
       ) : null}
 
+      {clientCardIds !== undefined ? (
+        <section className="space-y-3" aria-labelledby="forms-lib-h" data-forms-for-client="">
+          <h2 id="forms-lib-h" className={H2}>
+            Forms for {coupleName}
+          </h2>
+          <ClientFormsList forms={theirs} coupleName={coupleName} onOpen={openForm} />
+        </section>
+      ) : (
       <section className="space-y-3" aria-labelledby="forms-lib-h">
         <h2 id="forms-lib-h" className={H2}>
           Your forms · the library
         </h2>
-        <p className="text-sm text-ink/70">Every form is open to every service. Make it once, send it to any client; they answer in their event.</p>
+        <p className="text-sm text-ink/70">{LIBRARY_RULE}</p>
         {library === null ? (
           <Unread what="your forms" />
         ) : library.length === 0 ? (
@@ -225,6 +270,7 @@ export function FormsPageBody({
           </ul>
         )}
       </section>
+      )}
 
       {eventId ? (
         <section className="space-y-3" aria-labelledby="forms-booked-h">
@@ -276,16 +322,28 @@ export function FormsPageBody({
           <h2 id={loadTitle} className="pr-12 text-[19px] font-semibold text-ink">
             Forms Maker
           </h2>
-          <FormsLibraryList
-            library={library}
-            suggestions={suggestions}
-            onEdit={(f) => {
-              setLoadOpen(false);
-              openForm(f);
-            }}
-            onUse={copySuggestion}
-            busy={using}
-          />
+          {clientCardIds !== undefined ? (
+            // 📋 A client's Load a form lists only their two groups — no suggestions, no other cards' forms.
+            <ClientFormsList
+              forms={theirs}
+              coupleName={coupleName}
+              onOpen={(f) => {
+                setLoadOpen(false);
+                openForm(f);
+              }}
+            />
+          ) : (
+            <FormsLibraryList
+              library={library}
+              suggestions={suggestions}
+              onEdit={(f) => {
+                setLoadOpen(false);
+                openForm(f);
+              }}
+              onUse={copySuggestion}
+              busy={using}
+            />
+          )}
           <ActionButton
             tone="brand"
             main
@@ -389,7 +447,7 @@ export function FormsLibraryList({
           busy={busy}
         />
       ) : null}
-      <p className="text-[13px] text-ink/70">Every form is open to every service. A form is sent to the client from the chat; they answer in their event.</p>
+      <p className="text-[13px] text-ink/70">{LIBRARY_RULE}</p>
     </>
   );
 }
@@ -451,6 +509,60 @@ export function ShopFormsMaker({
         returnPath={returnPath}
         shopId={shopId}
       />
+    </div>
+  );
+}
+
+/**
+ * 📋 The rule a library says (owner 18 Nov 2026 — replaces "Every form is open to every service"): a card's form shows
+ * only for the clients who asked about that card; a form on no card is a chat form, for every client.
+ */
+const LIBRARY_RULE =
+  'A form on a card shows only for clients who asked about that card. A form on no card is a chat form: no price, for every client. They answer in their event.';
+
+type ClientForm = ShopForm & { group: ClientFormGroup };
+
+/** 📋 The two groups one client's page lists (owner 18 Nov 2026): the forms on the cards they asked about · your chat forms. */
+function ClientFormsList({ forms, coupleName, onOpen }: { forms: ClientForm[] | null; coupleName: string; onOpen: (f: ShopForm) => void }) {
+  if (forms === null) return <Unread what="the forms for this client" />;
+  const groups: { key: ClientFormGroup; heading: string; line: (f: ClientForm) => string; empty: string }[] = [
+    {
+      key: 'card',
+      heading: 'From the cards they asked about',
+      line: (f) => `${f.sizeLine} · Card form`,
+      empty: `No form is linked to a card ${coupleName} asked about.`,
+    },
+    {
+      key: 'chat',
+      heading: 'Your chat forms · no price',
+      line: (f) => `${f.sizeLine} · Chat form`,
+      empty: 'No chat forms yet. Tap ＋ New form and link it to no card.',
+    },
+  ];
+  return (
+    <div className="space-y-4" data-forms-client-groups="">
+      {groups.map((g) => {
+        const rows = forms.filter((f) => f.group === g.key);
+        return (
+          <div key={g.key} className="space-y-2" data-forms-client-group={g.key}>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">{g.heading}</p>
+            {rows.length === 0 ? (
+              <p className="text-sm text-ink/70">{g.empty}</p>
+            ) : (
+              rows.map((f) => (
+                <button key={f.formId} type="button" className={ROW} onClick={() => onOpen(f)} data-forms-client-row={f.formId}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
+                    <span className="block text-xs text-ink/70">{g.line(f)}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
+                </button>
+              ))
+            )}
+          </div>
+        );
+      })}
+      <p className="text-[13px] text-ink/70">Forms from your other cards don&rsquo;t show here. {coupleName} never asked about those services.</p>
     </div>
   );
 }

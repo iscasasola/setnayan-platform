@@ -63,7 +63,7 @@ export function FormStepCard({
         ) : read.at === 'failed' ? (
           <CouldNotLoad what="your forms" onRetry={load} />
         ) : (
-          <EmptyLine line="No saved forms yet — make one under Forms in your shop, then send it here." />
+          <EmptyLine line="No forms for this client yet. Your chat forms and the forms on the cards they asked about show here." />
         )}
       </ChatCardShell>
     );

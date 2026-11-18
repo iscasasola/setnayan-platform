@@ -7,8 +7,11 @@ import { parseClientRef } from '@/lib/r2-client-ref';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { notifyHostsOfForm } from '@/lib/vendor-forms-on-booking.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readBookedCardIds, readShopForms } from '@/lib/vendor-forms.server';
 import {
   draftItemsOfTemplate,
+  formsForThisClient,
   itemRow,
   validateFormDraft,
   type FormDraft,
@@ -29,6 +32,10 @@ import {
  *                supplier, tells the hosts in the app. 🔑 THE SEND IS THE SUCCESS (the shipped
  *                `sendQuestionsToEvent` rule): a failed line or notice is logged, never reported as a failed send.
  *   • `keep`   — "Save to my library": a form made for one event joins the library (`in_library` → TRUE, never back).
+ *   • `send` + `again=1` — "Send again" (owner 18 Nov 2026): the SAME send record (the upsert moves `sent_at` only), so
+ *                the couple's answers stay on it and their last picks come back ticked; the chat line says so.
+ *   • `client` — the forms ONE client may be sent (owner 18 Nov 2026, `formsForThisClient`): the chat's ＋ Form card asks
+ *                this, since the cards a client asked about sit on `event_vendors`, which only the service role reads.
  *
  * 📋 PIECE 3a (DECISION_LOG 2026-11-12 "AN EDIT SAVES A NEW FORM"): a `save` whose draft carries `forEventId` is an
  * edit made from a client's page — its FIRST save INSERTS a new form for that event (`for_event_id`,
@@ -49,6 +56,8 @@ export type FormsActionState =
   | { status: 'saved'; formId: string; message: string }
   | { status: 'sent'; formId: string; message: string }
   | { status: 'retired'; formId: string }
+  /** `client`: the form ids this client may be sent (the shop's live forms, narrowed by `formsForThisClient`). */
+  | { status: 'client'; formIds: string[] }
   /** `formId` set when the form row exists although a later step failed — the next save updates it, never duplicates. */
   | { status: 'error'; message: string; formId?: string };
 
@@ -191,11 +200,21 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
   if (op === 'send') {
     const formId = String(formData.get('form_id') ?? '');
     const eventId = String(formData.get('event_id') ?? '');
+    const again = formData.get('again') === '1';
     if (!formId || !eventId) return { status: 'error', message: 'Missing form.' };
-    const sent = await sendFormIntoEvent(supabase, { shop, shopName: profile.business_name, formId, eventId });
+    const sent = await sendFormIntoEvent(supabase, { shop, shopName: profile.business_name, formId, eventId, again });
     if ('error' in sent) return { status: 'error', message: sent.error };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
-    return { status: 'sent', formId, message: `Sent to the chat` };
+    return { status: 'sent', formId, message: again ? 'Sent again · their last answers stay ticked' : `Sent to the chat` };
+  }
+
+  if (op === 'client') {
+    const eventId = String(formData.get('event_id') ?? '');
+    if (!/^[0-9a-f-]{36}$/i.test(eventId)) return { status: 'error', message: 'Missing client.' };
+    // Scoped to THIS shop on THIS event (the helper's own rule); a refused read is said, never an empty list.
+    const [library, booked] = await Promise.all([readShopForms(supabase, shop), readBookedCardIds(createAdminClient(), eventId, shop)]);
+    if (library.status !== 'ok' || booked.status !== 'ok') return { status: 'error', message: 'We couldn’t load your forms.' };
+    return { status: 'client', formIds: formsForThisClient(library.forms, booked.cardIds).map((f) => f.formId) };
   }
 
   return { status: 'error', message: 'Unknown action.' };
@@ -304,7 +323,7 @@ async function saveDraft(
 /** Send one of the shop's live forms into an event it talks to (the supplier's own session). */
 async function sendFormIntoEvent(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  args: { shop: string; shopName: string | null; formId: string; eventId: string },
+  args: { shop: string; shopName: string | null; formId: string; eventId: string; again?: boolean },
 ): Promise<{ ok: true } | { error: string }> {
   const { data: thread, error: tErr } = await supabase
     .from('chat_threads')
@@ -351,7 +370,10 @@ async function sendFormIntoEvent(
     thread_id: t.thread_id,
     event_id: t.event_id,
     vendor_profile_id: t.vendor_profile_id,
-    body: `I sent you a form — “${title}”. Answer it in your event.`,
+    // "Send again" keeps the same send, so their answers are still on it: the line says they can re-pick, not restart.
+    body: args.again
+      ? `I sent you a form again — “${title}”. Your last answers are still ticked; change any you like in your event.`
+      : `I sent you a form — “${title}”. Answer it in your event.`,
   });
   if (msgError) console.error('[formsAction.send] line failed:', msgError.message);
 

@@ -33,7 +33,7 @@ const code = (...rel: string[]) => stripComments(readFileSync(join(HERE, ...rel)
 const MONTH = code('_components', 'customers-calendar.tsx');
 const SHEET = code('_components', 'clients-show-sort.tsx');
 const PAGE = code('page.tsx');
-const SCHEDULE_PAGE = code('..', 'clients', '[eventId]', '_components', 'schedule-calendar.tsx');
+const SCHEDULE_PAGE = code('..', 'clients', '[eventId]', '_components', 'schedule-days.tsx');
 
 /** The month's JSX from its root `<div ref={rootRef}` down to the grid — what is drawn ABOVE the month. */
 const aboveTheMonth = (() => {
@@ -101,8 +101,11 @@ test('3 · the chip under the legend opens the same choices', () => {
   assert.notEqual(CLIENTS_SCHEDULE_EVENT, CLIENTS_SCHEDULING_EVENT);
 });
 
-test('4 · the Schedule page reuses the month — same chip, its own pick', () => {
-  assert.match(SCHEDULE_PAGE, /<CustomersCalendar\s+place="schedule"/, 'the Schedule page no longer draws the Clients month');
+// 📅 Owner 18 Nov 2026: the client's Schedule page draws THIS client's days strip, not the shop month — its "All my
+// clients" asks the Clients month's own action, never a second one; the month keeps its place guards below.
+test('4 · the Schedule page draws the client’s days strip (All clients = the Clients month’s own read); the month keeps its place', () => {
+  assert.doesNotMatch(SCHEDULE_PAGE, /<CustomersCalendar\b/, 'the Schedule page draws the shop month again (owner 18 Nov: the days strip)');
+  assert.match(SCHEDULE_PAGE, /fetchCustomerCalendarMonth\(m, \{ whole: true \}\)/, 'All clients does not read the Clients month');
   // The events are wired behind `onClients`: the Schedule page's month never hears or speaks for the Clients list.
   assert.match(MONTH, /useEffect\(\(\) => \{\s*if \(!onClients\) return;\s*const pick = \(e: Event\) => setScope/, 'the Schedule month hears Clients’ sheet');
   // The chip itself is not gated on the place: the Schedule page has no Show & sort, so the chip is its only way in.

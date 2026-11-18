@@ -28,7 +28,7 @@
 import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
 import { BOOKED_DATE_HELD_LINE } from './booking-ask-words';
-import { openClientHref } from './upcoming-schedule-door';
+import { clientScheduleDayHref } from './upcoming-schedule-door';
 import { blockOnDay, DAY_PART_SHORT, DAY_PART_WORDS, repeatWords, type DayPart, type RepeatRule } from './not-available';
 
 /** Kind 31's state for one day of the month, or null for a quiet one (drawn as a plain day). */
@@ -239,7 +239,8 @@ export function dayRowsOf(
         line: [b.hours ?? '', namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · ') || 'Booked here',
         line2: b.mine ?? null,
         ...(b.hoursUnread ? { unread: true } : {}),
-        ...(b.eventId ? { href: openClientHref(b.eventId, { booked: true, eventToday: day === today }) } : {}),
+        // 📅 Owner 18 Nov 2026: a day's client opens their Schedule with THIS day picked.
+        ...(b.eventId ? { href: clientScheduleDayHref(b.eventId, day) } : {}),
         badge: { tone: 'ok', word: 'Booked' },
       }),
     );

@@ -13,10 +13,12 @@
  *                             the brief · Suppliers on this event · Decisions (Build 2 #42: the list, v118's five rows) ·
  *                             Forms sent.
  *     &decisions=none|partial   Decisions empty · a refused card read said in one line.
- *   ?v=pick&page=schedule     its Schedule page: the Clients month itself (`ScheduleCalendar` → `CustomersCalendar`
- *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
- *     &cal=fail                 the month's one read refused — said, never an empty month.
- *     &cal=two                  a shop with two schedules — the month's Schedule chip shows (2026-11-12).
+ *   ?v=pick&page=schedule     its Schedule page: the days strip (owner 18 Nov 2026 — `ScheduleDays`: the event day
+ *                             8 Nov, a meeting on the 5th, payments due 20 Oct (paid) and 20 Nov; "All clients" adds
+ *                             the lab month's other bookings, Villanueva clashing in Main team on the 8th), then the
+ *                             supplier's part in v113 order. Add `&day=2026-11-05` to land on the meeting day.
+ *     &cal=fail                 "All clients" refused — said, and only this client's days are drawn.
+ *     &cal=two                  a shop with two schedules (2026-11-12).
  *
  * 📅 Build 2 #43 (B2-A): `?v=events` is the ONE Clients screen — "Clients · 4 booked · ₱18,000 to collect · ⚙", the
  * month (the shipped `CustomersCalendar`, lab inputs, no request), the tiles as their own row, Overdue / Unread, then
@@ -49,7 +51,8 @@ import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_componen
 import { LabDetailsDecisions } from './lab-decisions';
 import { LabAskingPick } from './lab-asking';
 import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
-import { ScheduleCalendar } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-calendar';
+import { ScheduleDays, type AllClientsMonth } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-days';
+import { clientScheduleDays, type ScheduleDayInputs } from '@/lib/schedule-days';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
 import { buildSupplierDay, type SupplierBlockRow } from '@/lib/supplier-schedule';
 import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
@@ -186,8 +189,15 @@ function pickedBodies(
     ),
     schedule: (
       <>
-        <ScheduleCalendar eventDate="2026-11-08" todayIso={LAB_TODAY} lab={cal === 'fail' ? null : cal === 'two' ? LAB_CALENDAR_TWO : LAB_CALENDAR} />
-        <div className="mt-4">
+        <ScheduleDays
+          eventId="lab"
+          eventName="Reyes & Santos"
+          eventDate="2026-11-08"
+          todayIso={LAB_TODAY}
+          items={clientScheduleDays(LAB_DAYS)}
+          lab={cal === 'fail' ? null : labAllClients(cal === 'two' ? LAB_CALENDAR_TWO : LAB_CALENDAR)}
+        >
+        <div>
           <SupplierSchedule
             eventId="lab"
             lab
@@ -203,6 +213,7 @@ function pickedBodies(
             where={where}
           />
         </div>
+        </ScheduleDays>
       </>
     ),
     chat: later('Chat'),
@@ -295,6 +306,25 @@ async function labDayWrite(): Promise<void> {
 async function labDayRefused(): Promise<void> {
   'use server';
   throw new Error('clients-lab: refused on purpose');
+}
+
+/** 📅 The lab client's days (owner 18 Nov 2026 strip): the event, a Meeting card, a paid and an open installment. */
+const LAB_DAYS: ScheduleDayInputs = {
+  eventDate: '2026-11-08',
+  chapters: [],
+  meetings: [{ appointment_id: 'lab-ap1', label: 'Ocular visit', scheduled_at: '2026-11-05T06:00:00.000Z', status: 'confirmed' }],
+  payments: [
+    { label: 'Deposit', due_date: '2026-10-20', state: 'paid' },
+    { label: 'Second payment', due_date: '2026-11-20', state: 'due' },
+  ],
+};
+
+/** "All clients" on the lab month: Reyes & Santos is this client (`lab`); the rest are the shop's other bookings. */
+function labAllClients(c: typeof LAB_CALENDAR): AllClientsMonth {
+  return {
+    bookings: c.bookings.map((b) => (b.eventName.startsWith('Reyes') ? { ...b, eventId: 'lab' } : b)),
+    pools: c.pools.map((p) => ({ poolId: p.poolId, name: p.calendarName ?? p.label })),
+  };
 }
 
 export default async function ClientsLabPage({ searchParams }: Props) {

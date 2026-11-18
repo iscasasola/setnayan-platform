@@ -68,6 +68,9 @@ import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
+import { QuoteTopLines } from './_components/quote-top-lines';
+import { quotePlanLine } from '@/lib/quote-top-lines';
+import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -173,7 +176,8 @@ import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
-import { ScheduleCalendar } from './_components/schedule-calendar';
+import { ScheduleDays } from './_components/schedule-days';
+import { clientScheduleDays } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
 import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows } from './_components/hosts-rows';
@@ -2697,10 +2701,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       details: detailsShipped,
       schedule: (
         <>
-          {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
-              on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
-          {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
-          {gated(scheduleNode)}
+          {/* 📅 THE DAYS STRIP (owner 18 Nov 2026, drawing NL5NDoD6 v7 — replaces v113's shop month here): this client's
+              days on top — the event day(s), Meeting-card days, payment due days, all from reads above — with "All
+              clients" asking the Clients month (one request, only when chosen). The blow-by-blow below is unchanged. A
+              chapter's day is operating detail, so it joins only once the fee unlocks the event. */}
+          <ScheduleDays
+            eventId={eventId}
+            eventName={eventName}
+            eventDate={brief.event.event_date ?? null}
+            todayIso={manilaTodayIso()}
+            items={clientScheduleDays({
+              eventDate: brief.event.event_date ?? null,
+              chapters: feeUnlocked ? allBlocks : [],
+              meetings: appointmentViews,
+              payments: planRowsAll.flatMap((p) => p.steps ?? []),
+            })}
+          >
+            {gated(scheduleNode)}
+          </ScheduleDays>
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (
             <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">
@@ -2737,6 +2755,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
           : undefined,
     },
+    // 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" → Payment and "Who it counts · rule · N", above the quote. Both
+    // from reads above (the plan, `get_vendor_headcount_rule`) — booked only, as Payment is.
+    quoteTop: isBooked ? (
+      <QuoteTopLines
+        eventId={eventId}
+        plan={(() => {
+          const steps = planRowsAll.flatMap((p) => p.steps ?? []);
+          return quotePlanLine(planReadComplete, steps, computePlanRollup(steps).next?.dueDate ?? null);
+        })()}
+        count={
+          headcountRule
+            ? { rule: ruleWords(headcountRule.mode, [...ruleRoleLabels(headcountRule.roles, headcountNames), ...headcountRule.groups]), counted: headcountRule.counted }
+            : null
+        }
+      />
+    ) : null,
   });
 
   return (

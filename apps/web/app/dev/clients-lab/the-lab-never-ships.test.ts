@@ -23,7 +23,7 @@ test('the clients lab calls notFound() in production, before anything else', () 
   assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, 'the production 404 is not the first statement');
 });
 
-test('the lab’s Schedule month is handed its inputs — it never asks the server', () => {
-  assert.match(LAB, /<ScheduleCalendar eventDate="2026-11-08" todayIso=\{LAB_TODAY\} lab=\{cal === 'fail' \? null : cal === 'two' \? LAB_CALENDAR_TWO : LAB_CALENDAR\} \/>/);
+test('the lab’s Schedule days strip is handed its inputs — it never asks the server', () => {
+  assert.match(LAB, /lab=\{cal === 'fail' \? null : labAllClients\(cal === 'two' \? LAB_CALENDAR_TWO : LAB_CALENDAR\)\}/);
   assert.doesNotMatch(LAB, /fetchCustomerCalendarMonth|createClient|supabase/, 'the lab reaches for the database');
 });

@@ -272,6 +272,28 @@ export function formsForBookedCards(
 }
 
 /**
+ * 📋 THE FORMS ONE CLIENT SEES (owner 18 Nov 2026, client-page rulings — supersedes "Every form is open to every
+ * service"): the client's Forms tab and the chat's ＋ Form list ONLY
+ *   (1) the forms linked to a card THIS client asked about or booked (`card`), and
+ *   (2) the shop's chat forms — forms linked to no card at all (`chat`; a form carries no price).
+ * A form linked only to the shop's OTHER cards is hidden here (the shop's own library page still lists every form).
+ * Order kept as given; each form once.
+ */
+export type ClientFormGroup = 'card' | 'chat';
+export function formsForThisClient<F extends { formId: string; serviceIds: readonly string[] }>(
+  forms: readonly F[],
+  clientCardIds: readonly string[],
+): (F & { group: ClientFormGroup })[] {
+  const theirs = new Set(clientCardIds);
+  const out: (F & { group: ClientFormGroup })[] = [];
+  for (const f of forms) {
+    if (f.serviceIds.length === 0) out.push({ ...f, group: 'chat' });
+    else if (f.serviceIds.some((s) => theirs.has(s))) out.push({ ...f, group: 'card' });
+  }
+  return out;
+}
+
+/**
  * "Suggested for <service>" then "Also useful for <group>" (DECISION_LOG 2026-10-28): the service's own suggestions
  * first, then the rest of its group's, each template once. Ships EMPTY (no seed) — callers say so honestly.
  */

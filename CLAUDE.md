@@ -255,6 +255,33 @@ If you cannot name the existing component and the existing design, **you have no
    since migration `20270826385580`. If a number governs money and you cannot cite where it came
    from, find its existing home or stop — do not annotate the invention and ship it.
 
+## 🔌 WIRING STANDARD — one source of truth (owner, 2026-11-18)
+
+Full map + current audit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Checks: `/verify-wiring`
+(hardcoded data, raw routes, dead handlers) and `/audit` (build configs, page layers, buttons/themes).
+Hooks in `.claude/settings.json` warn on TODO/localhost/mock writes and block a build beside a dev server.
+
+1. **One source of truth.** Never create `v2`, `-copy`, `-old`, `-new` or backup files/folders.
+   Change the shipped file; git keeps the history. (RULE 0 above: find it, extend it.)
+2. **Folders have one job each.** This repo has no `src/` — the real homes are:
+   | Job | Lives in |
+   |---|---|
+   | UI (presentational) | `apps/web/app/**/_components/`, `apps/web/components/` |
+   | Pages / route entry (reads data once, passes props) | `apps/web/app/**/page.tsx`, `layout.tsx` |
+   | Mutations (server actions) | `apps/web/app/**/actions.ts` |
+   | Data reads, services, config, constants | `apps/web/lib/` |
+   | Types | next to their module (`lib/<area>/types.ts`) or `apps/web/types/` |
+   | Prices / plans / taxonomy | the database (`platform_retail_catalog_v2`, vendor billing catalog, taxonomy tables) — never a literal |
+3. **Zero hardcoding inside UI components:** no data arrays, prices, URLs, API keys, or business
+   rules. Routes come from `apps/web/lib/routes.ts` builders (`routes.x.y()`), never `"/dashboard"`.
+   Colours come from tokens in `apps/web/app/globals.css` / the tailwind config — no hex, `rgb(`,
+   or `[#…]` in components. Buttons use the shared `ActionButton` (`apps/web/components/action-button.tsx`).
+4. **Flat pages:** under 3 wrapper layers between a page and its content; one batched read per
+   screen (`Promise.all`), never the same user/session read in both a layout and its page.
+5. **A no-op handler must be deliberate.** `() => {}` is allowed only for a required callback the
+   screen does not use — never on a control the user can press.
+6. Exempt: tests, `apps/web/app/dev/**`, `*.lab.tsx` (dev labs may use sample data).
+
 ## What this repo is
 
 The Setnayan V1 implementation. **All product specs and decision logs live OUTSIDE this repo** at `~/Documents/Claude/Projects/Setnayan/`. Read that folder's `CLAUDE.md` for the canonical decision log before any iteration work.

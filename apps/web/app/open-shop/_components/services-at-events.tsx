@@ -67,7 +67,7 @@ export function ServicesAtEvents({
     <div className="grid gap-0 pt-1" data-open-shop-services-at-events="">
       <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
         What you offer at each event{' '}
-        <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
+        <small className="font-normal" style={{ color: 'var(--m-slate-2)' }}>
           · untick what you don’t do there
         </small>
       </span>
@@ -84,7 +84,7 @@ export function ServicesAtEvents({
               <b className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
                 {e.label}
               </b>
-              <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              <span className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
                 <Count value={onCount} id={`open-shop-ev-${e.key}`} /> of {formatOffered(offered.length)}
               </span>
             </div>

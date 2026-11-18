@@ -10,6 +10,8 @@ import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import RecommendationsPage from '../vendor-recommendations/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 export const metadata = { title: 'Supplier partnerships · Admin' };
 
 type SearchParams = {
@@ -101,7 +103,7 @@ const LIVE_LIMIT = 25;
  */
 const VENDOR_OPTIONS_LIMIT = 500;
 
-export default async function AdminVendorPartnershipsPage({ searchParams }: Props) {
+async function AdminVendorPartnershipsPage({ searchParams }: Props) {
   await requireAdmin();
   const sp = await searchParams;
 
@@ -556,4 +558,21 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       </section>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — People › Ties · Show ▾ — partnerships and recommendations.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'recommendations': RecommendationsPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminVendorPartnershipsPage, sp);
 }

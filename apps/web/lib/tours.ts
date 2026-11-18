@@ -14,8 +14,6 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
-import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 import {
   Apple,
@@ -184,15 +182,6 @@ export type TourKey =
   // APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
   | 'vendor_today_v1'
   | 'vendor_customers_v1'
-  // The supplier dashboard redesign (corpus SUPPLIER_DASHBOARD_REDESIGN_2026-10-08
-  // § 4 NEW 1): one slide each for Shop and the Event Hub. Registered in S-PR0;
-  // each MOUNTS with the page it describes (S-PR6 · S-PR11), never before.
-  | 'vendor_shop_v1'
-  | 'vendor_hub_v1'
-  // 🔦 Customers › Dates and Customers › Money — first-visit spotlights (owner
-  // "Yes to all" 2026-10-22, journey_fixes Supplier 3), beside Shop and Hub.
-  | 'vendor_dates_v1'
-  | 'vendor_money_v1'
   // 🔦 The spotlight journeys (DECISION_LOG 2026-10-02 "NOBODY SHOULD LEAVE
   // BECAUSE THEY DON'T UNDERSTAND THE APP"): the host from creating the event
   // to Post Event, the supplier from shop set-up to payday. NEW keys, so a
@@ -220,9 +209,6 @@ export type TourKey =
   | 'customer_suppliers_v1'
   | 'customer_library_v1'
   | 'vendor_today_v2'
-  | 'vendor_today_v3'
-  | 'vendor_people_v1'
-  | 'vendor_collections_v1'
   // 🔦 A new shop's Today, once its QR is downloaded (step 6 of "Get your shop live" — owner 7 Nov 2026, prototype
   // `open-shop-redesign.html` v21 "the spotlight tour … starts once after step 6"). Recorded when it ends or is
   // skipped, and that record is step 6's ✓ (`lib/supplier-setup.ts`).
@@ -271,10 +257,6 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'admin_force_majeure_v1',
   'vendor_today_v1',
   'vendor_customers_v1',
-  'vendor_shop_v1',
-  'vendor_hub_v1',
-  'vendor_dates_v1',
-  'vendor_money_v1',
   'host_spotlight_v1',
   'host_day_spotlight_v1',
   'supplier_spotlight_v1',
@@ -292,9 +274,6 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_suppliers_v1',
   'customer_library_v1',
   'vendor_today_v2',
-  'vendor_today_v3',
-  'vendor_people_v1',
-  'vendor_collections_v1',
   'vendor_setup_tour_v1',
   'guest_papic_camera_v2',
   'guest_papic_me_v2',
@@ -309,16 +288,6 @@ export type TourDefinition = {
   /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
   spotlight?: SpotlightScript;
 };
-
-/**
- * 💳 The Money tour's fee step, from the rule itself (walk RW-20): ON → when it is charged + the free first booking + own
- * clients free; OFF → that no booking fee is charged right now. `NEXT_PUBLIC_BOOKING_FEE_ENABLED` (`isBookingFeeEnabled`).
- */
-export function bookingFeeTourLine(feeOn: boolean): string {
-  return feeOn
-    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
-    : 'No booking fee is charged right now. Your own clients are always free.';
-}
 
 export const TOURS: Record<TourKey, TourDefinition> = {
   couple_welcome_v1: {
@@ -1173,11 +1142,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Birthdays and other days that come around. Nothing here is an event yet.',
         },
         // 🏠 HOME · DISCOVER (owner 11 Nov 2026, "HOME IS THE PROFILE"): the bar is two tabs, and Events · People ·
-        // Shop · Memories are the sections of Home — the segments row (`home-segments`), not tabs.
+        // Shop · Memories are the sections of Home — switched from the pinned row's "Events ▾" (`home-segments`; the
+        // tab row went 17 Nov 2026).
         {
           anchor: 'home-segments',
           title: 'Your sections',
-          body: 'Events, People and Memories — and your shop, if you run one. All on your Home.',
+          body: 'Events ▾ switches to People and Memories — and your shop, if you run one. ＋ Event starts a new one.',
         },
         {
           anchor: 'tab-dashboard',
@@ -1463,173 +1433,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Took a booking outside Setnayan? The round + adds it, free, so the date is held and you are never double-booked.',
       },
     ],
-  },
-  // 🧭 THE SUPPLIER DASHBOARD REDESIGN — one slide per page (owner-approved
-  // prototype `supplier_dashboard_2026-10-08_fable.html`, its `TOUR` map, word
-  // for word). ⚠ NOT MOUNTED YET, ON PURPOSE: a tour that names Services ·
-  // Page · Insights before Shop has those three segments would describe a page
-  // that is not there. `vendor_shop_v1` mounts with S-PR6 and `vendor_hub_v1`
-  // with S-PR11 — `a-supplier-tour-mounts-with-its-page.test.ts` holds both
-  // the keys and the "not before its page" half.
-  vendor_shop_v1: {
-    key: 'vendor_shop_v1',
-    label: 'Supplier — Shop mini-tour',
-    blurb: 'How your shop is going, and the badges it has earned.',
-    slides: [
-      {
-        Icon: Briefcase,
-        title: 'Services · Page · Insights',
-        body: 'What you sell, how your page looks, how it is doing.',
-      },
-    ],
-    // 🔦 SWITCHED ON 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3):
-    // the slide above stays as the switched-off carousel's script; this is what
-    // runs — three stops, none the Today tour already makes (it lands on Your
-    // details and + Create service card). Mounted by the supplier layout through
-    // `lib/supplier-page-tours.ts`, after `supplier_spotlight_v1`.
-    spotlight: {
-      steps: [
-        // THE ONE BUILD (8 Nov 2026, C4 · integration): the Shop tab is v113 now — Your details row, How it is going,
-        // Your badges — and the old ▾ (`shop-segments`) and Page's list are no longer on it, so the old three stops
-        // would wait on parts that are not drawn. `shop-details` ("Your details") is NOT repeated here: the Today
-        // journey (`supplier_spotlight_v1`) already lands on it, and no page tour repeats a journey stop.
-        {
-          anchor: 'shop-analytics',
-          title: 'How it is going',
-          body: 'Your Analytics — swipe through your numbers, switch any card between 30 days and 12 months, and tap one to see what we recommend you do next.',
-        },
-        {
-          anchor: 'shop-badges',
-          title: 'Your badges',
-          body: 'What your shop has earned, and what the next one asks of you.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'Today’s Next card always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
-        button: 'Done',
-      },
-    },
-  },
-  vendor_hub_v1: {
-    key: 'vendor_hub_v1',
-    label: 'Supplier — Hub mini-tour',
-    blurb: 'Running one event on its day.',
-    slides: [
-      {
-        Icon: Calendar,
-        title: 'Run the day',
-        body: 'Scan, schedule, shot list, headcount — for this event only.',
-      },
-    ],
-    // 🔦 SWITCHED ON 2026-10-22 (journey_fixes Supplier 3) — drawn on a day with
-    // no event; on an event day its anchors are not there and it waits.
-    spotlight: {
-      steps: [
-        {
-          anchor: 'hub-next-days',
-          title: 'Your events',
-          // RW-20 / F-W1-75 (walk 13 Nov 2026): no fee rule typed here — whether a day waits on its fee is a live setting,
-          // and a day that does says so on its own row (`feeLockCopy`).
-          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
-        },
-        {
-          anchor: 'hub-empty',
-          title: 'Your Hub',
-          body: 'When a couple books you, their event lands here — set it up ahead, and run it on the day.',
-        },
-        {
-          // (2026-10-25) On an event day — the quiet day’s stops above are dropped there, and this one here.
-          anchor: 'hub-day-launch',
-          title: 'Run the day',
-          body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
-        },
-        {
-          // 📣 Post an update (cut 6, 2026-11-14) — on top of each booked event's page.
-          anchor: 'hub-post-update',
-          title: 'Post an update',
-          body: 'Tell the couple where you are — On site, Setup done, Running late. Need help also reaches their coordinator.',
-        },
-        {
-          anchor: 'hub-setup',
-          title: 'Your day-of tools',
-          body: 'What you can run on the day. Set them up per event; Crew picks who can open them.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'On the day, Today’s Next card says “Run the day” and brings you here.',
-        button: 'Done',
-      },
-    },
-  },
-  vendor_dates_v1: {
-    key: 'vendor_dates_v1',
-    label: 'Supplier — Dates spotlight',
-    blurb: 'The month, checking a date, adding the bookings you already have.',
-    slides: [],
-    spotlight: {
-      steps: [
-        {
-          anchor: 'dates-calendar',
-          title: 'Your month at a glance',
-          // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
-          // 🎨 EB-231 (16 Nov 2026): the FILL says whether a day can still take a booking (owner 2026-11-14, "THE CLIENTS
-          // CALENDAR KEEPS WHAT IT HAS — ONLY THE COLOUR CODING CHANGES": open = seat green, cannot = outlined); the
-          // DOTS say what is on it. This step said "Green is booked here" over a month of open green days.
-          // Held by `app/vendor-dashboard/customers/the-calendar-key-says-what-green-means.test.ts`.
-          body: 'A green day can still take a booking; an outlined day cannot. The dots say what is on it: green booked here, grey booked elsewhere, gold a couple asking. Tap a day to see it — or block it off.',
-        },
-        {
-          // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.
-          anchor: 'customers-add',
-          title: 'Add what you already have',
-          body: 'Bookings from outside Setnayan go here too, so a couple never asks for a day you have given away.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'Every day you block or book shows here and on Today.',
-        button: 'Done',
-      },
-    },
-  },
-  vendor_money_v1: {
-    key: 'vendor_money_v1',
-    label: 'Supplier — Money spotlight',
-    blurb: 'What is still to come in, each payment, logging one, Setnayan’s fee.',
-    slides: [],
-    spotlight: {
-      steps: [
-        {
-          anchor: 'money-summary',
-          title: 'What is still to come in',
-          body: 'Received, against everything booked. Anything overdue shows first.',
-        },
-        {
-          anchor: 'money-next',
-          title: 'One row per payment',
-          body: 'Who, how much and when it is due. Tap a row to remind them or to log what they paid.',
-        },
-        {
-          anchor: 'money-log',
-          title: 'Log a payment',
-          body: 'When a couple pays you directly — GCash, bank, cash — log it here so their balance stays right.',
-        },
-        {
-          anchor: 'money-fees',
-          title: 'Setnayan’s fee',
-          // RW-20 (walk 13 Nov 2026): the sentences are the lock's own — WHEN it is charged and what is waived — and the
-          // switch decides whether it is charged at all; never "due after the day", which no code does.
-          body: bookingFeeTourLine(isBookingFeeEnabled()),
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: '“To come in” on Today is this page in one number.',
-        button: 'Done',
-      },
-    },
   },
   // ─────────────────────────────────────────────────────────────────────────
   // 🔦 THE SPOTLIGHT JOURNEYS. Each step's `anchor` is a `data-tour` token on
@@ -2265,55 +2068,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
-  /* 🔦 TODAY'S PAGE TOUR, THE ONE BUILD (8 Nov 2026 — v113 Today; spec A2 A13, owner Q10 default "bump so every
-     supplier sees the new Today once"): Messages → the cover → Next events → the stats → Needs you today → Show. A stop
-     not drawn on this screen (no event ahead) is dropped by the engine. Mounted by the supplier frame through
-     `lib/supplier-page-tours.ts`; `vendor_today_v2` (the Next card's tour) is kept only as the seen mark it is. */
-  vendor_today_v3: {
-    key: 'vendor_today_v3',
-    label: 'Supplier — Today page spotlight',
-    blurb: 'Messages, your greeting, the next events, your numbers, what needs you and Show.',
-    slides: [],
-    spotlight: {
-      steps: [
-        {
-          anchor: 'supplier-messages',
-          title: 'Messages',
-          body: 'Every customer chat, in one place.',
-        },
-        {
-          anchor: 'today-cover',
-          title: 'Your day',
-          body: 'Today’s date and how many things need you. Your Today settings are on the ⚙.',
-        },
-        {
-          anchor: 'today-next-events',
-          title: 'Next events',
-          body: 'Your next booked event. Tap it to open that client’s Hub.',
-        },
-        {
-          anchor: 'today-stats',
-          title: 'Your numbers',
-          body: 'Views, inquiries, bookings, photos and money to come in. Each one opens where it is counted.',
-        },
-        {
-          anchor: 'today-needs',
-          title: 'Needs you today',
-          body: 'One row for each thing waiting on you. Tap a row to open where it is answered.',
-        },
-        {
-          anchor: 'today-show',
-          title: 'Show',
-          body: 'Show only inquiries, bookings, payments and more — or search with the box beside it.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'Needs you today always lists what is waiting on you, most urgent first.',
-        button: 'Done',
-      },
-    },
-  },
   /* 🔦 A NEW SHOP'S TODAY, AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21 `TOUR_COPY`): it
      starts once, the moment the shop's QR is downloaded, and lights Today top → bottom. The words are the prototype's;
      the last stop says the bar THE ONE BUILD ships (Today · Clients · Shop · Portfolio — v113, BARS LOCKED 7 Nov). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
@@ -2356,78 +2110,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'Get your shop live stays on Today until every step is done.',
-        button: 'Done',
-      },
-    },
-  },
-  /* 🔦 CUSTOMERS › EVENTS (People until 2026-10-30) — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. The key keeps its old name: it is the "seen" mark a supplier already holds. */
-  vendor_people_v1: {
-    key: 'vendor_people_v1',
-    label: 'Supplier — Clients page spotlight',
-    blurb: 'Events ▾, the three counts, ⚙, search and ＋ an outside booking.',
-    slides: [],
-    spotlight: {
-      steps: [
-        {
-          anchor: 'customers-segments',
-          title: 'Events ▾',
-          body: 'Switch between your customers’ events, your calendar and your payments.',
-        },
-        {
-          anchor: 'customers-filter',
-          title: 'Asking · Booked · Done',
-          body: 'Every event is listed. Tap a count to show only those; tap it again to see them all. Tap an event to see everyone hosting it.',
-        },
-        {
-          anchor: 'customers-gear',
-          title: 'Clients settings',
-          body: 'How you get paid, how many a day, your schedules and your phone calendar.',
-        },
-        {
-          anchor: 'customers-search',
-          title: 'Search events',
-          body: 'Type a name to find an event.',
-        },
-        {
-          anchor: 'customers-add',
-          title: 'Add an outside booking',
-          body: '＋ adds a booking from outside Setnayan, free, so the date is held — then send them their one-time code.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'Whoever is waiting on you is always at the top.',
-        button: 'Done',
-      },
-    },
-  },
-  /* 🔦 YOUR COLLECTIONS — a first-visit page tour (owner 2026-10-25). Approved Portfolio (owner 9 Nov): the filter stop became the ⚙'s "Who sees what". Its own address, so the Shop tour no longer starts here (`lib/supplier-page-tours.ts`). */
-  vendor_collections_v1: {
-    key: 'vendor_collections_v1',
-    label: 'Supplier — Collections page spotlight',
-    blurb: 'Which collections, each one, and adding photos.',
-    slides: [],
-    spotlight: {
-      steps: [
-        {
-          anchor: 'collections-gear',
-          title: 'Who sees what',
-          body: 'Who sees each collection, and which album Show plays, live in ⚙.',
-        },
-        {
-          anchor: 'collections-list',
-          title: 'Every photo and video you own',
-          body: 'One section per collection. › opens it, ˅ folds it.',
-        },
-        {
-          anchor: 'collections-add',
-          title: 'Add photos',
-          body: 'Photos, videos, or your Instagram.',
-        },
-      ],
-      finale: {
-        title: 'You’re set 🎉',
-        body: 'Couples see what is on your page once you Apply.',
         button: 'Done',
       },
     },

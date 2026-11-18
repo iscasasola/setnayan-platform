@@ -16,6 +16,10 @@
  * 🔒 lib/seats-list-is-the-guests-list.test.ts
  */
 
+/** How long a finger holds a guest still before they lift — Seats › List's row (`seat-list.tsx` › `HOLD_MS`) and the
+ *  tray under the floor (`seat-face-tray.tsx`) alike; 🔒 the-seat-plan-drags-on-a-phone.test.ts holds them equal. */
+export const SEAT_HOLD_MS = 300;
+
 export type SeatDropTarget =
   | { kind: 'seat'; tableId: string; seat: number; occupantId: string | null }
   | { kind: 'unseated' };

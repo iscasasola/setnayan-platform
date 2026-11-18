@@ -18,6 +18,7 @@
  * Pure: no React, no I/O, no clock of its own (`nowMs` is handed in). Every time is a WALL CLOCK at the venue
  * (`lib/schedule-chapters.ts`), compared with now only through `plannedInstant` — never a zone sum of its own.
  */
+import { ownTimesNoticeWords } from './supplier-own-times';
 import { TIME_TBA, chaptersFromBlocks, clockWords, findTaskClashes, wallDay, type Chapter, type MomentLike, type TaskRow } from '@/lib/schedule-chapters';
 import { plannedInstant } from '@/lib/run-of-show';
 
@@ -51,6 +52,11 @@ export type HomeScheduleFacts = {
   needYou: number;
   /** Booked suppliers the schedule names on nothing yet. */
   oweTimes: number;
+  /**
+   * 🕕 The supplier who most recently set their OWN times (`supplier_own_times`, owner 16 Nov "SCHEDULE MODEL" rule 3):
+   * their shop name and "Crew call 11:00 AM · arrives 12:00 PM · done 10:00 PM". Null = nobody has, or none is booked.
+   */
+  timesSet?: { shop: string; words: string } | null;
 };
 
 /** What a chapter is busy for: its own end, else its last moment's end or start, else one hour. */
@@ -100,6 +106,8 @@ export function homeScheduleFrom(i: {
    * ("Prep · Thu, May 13" for a couple who picked June 19). Undated, a line says its clock only, never a day.
    */
   undated?: boolean;
+  /** 🕕 The supplier who last set their own times (`latestTimesSet`) — passed through to the card. */
+  timesSet?: HomeScheduleFacts['timesSet'];
 }): HomeScheduleFacts {
   const chapters = chaptersFromBlocks(i.blocks);
   const kidsOf = new Map<string, HomeScheduleBlock[]>();
@@ -169,11 +177,28 @@ export function homeScheduleFrom(i: {
   for (const t of i.tasks) if (t.vendor_id) named.add(t.vendor_id);
   const oweTimes = new Set(i.bookedVendorIds.filter((v) => !named.has(v))).size;
 
-  return { chapters: chapters.length, now, next, then, toApprove: i.openRequests, needYou, oweTimes };
+  return { chapters: chapters.length, now, next, then, toApprove: i.openRequests, needYou, oweTimes, timesSet: i.timesSet ?? null };
 }
 
 /** Release shows in the last week before the day, and on the day (plan §3b: "Release (one week out, Pro)"). */
 export const RELEASE_DAYS_BEFORE = 7;
 export function releaseOpen(daysToGo: number | null): boolean {
   return daysToGo !== null && daysToGo >= 0 && daysToGo <= RELEASE_DAYS_BEFORE;
+}
+
+/* ── 🕕 "Lumière Studio set their times" (owner 16 Nov "SCHEDULE MODEL", rule 3) ───────────────────────────── */
+
+export type OwnTimesRow = { vendor_profile_id: string; call_clock: string | null; arrive_clock: string | null; done_clock: string | null; updated_at: string };
+
+/** The newest row that still holds a time, from a shop on this event's list — its name and its times, as the drawing. */
+export function latestTimesSet(
+  rows: readonly OwnTimesRow[],
+  vendors: readonly { vendor_name: string | null; marketplace_vendor_id: string | null }[],
+): HomeScheduleFacts['timesSet'] {
+  for (const r of rows) {
+    const words = ownTimesNoticeWords({ call: r.call_clock, arrive: r.arrive_clock, done: r.done_clock });
+    const shop = vendors.find((v) => v.marketplace_vendor_id === r.vendor_profile_id)?.vendor_name?.trim();
+    if (words && shop) return { shop, words };
+  }
+  return null;
 }

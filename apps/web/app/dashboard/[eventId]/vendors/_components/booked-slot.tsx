@@ -25,7 +25,7 @@ import { resolveEventMoneySettled, unreadEventMoney } from '@/lib/budget-truth';
 import { buildBudgetList } from '@/lib/budget-page-view';
 import { readBookedPlans } from '@/lib/booked-plans.server';
 import { readBookedRoomSizes } from '@/lib/booked-room.server';
-import { readScheduleMarks } from '@/lib/supplier-schedule-marks.server';
+import { readCrewCalls, readScheduleMarks } from '@/lib/supplier-schedule-marks.server';
 import { readBookedSchedule } from '@/lib/booked-call-times.server';
 import { readTradeChapters } from '@/lib/trade-chapters';
 import { readOpenDateChange } from '@/lib/date-change.server';
@@ -72,7 +72,7 @@ export async function BookedSlot({
   // Started here so it runs alongside the batch below (which keeps its own shape), awaited after it.
   const favoritesRead =
     user && bookedIds.length > 0 ? offerHostFavorites(createAdminClient(), user.id, eventId) : Promise.resolve(null);
-  const [money, plans, rooms, dateChange, schedule, marks, trade, counts] = await Promise.all([
+  const [money, plans, rooms, dateChange, schedule, marks, trade, crewCalls, counts] = await Promise.all([
     isBudgetTruthEnabled() ? resolveEventMoneySettled(supabase, eventId) : Promise.resolve(unreadEventMoney()),
     readBookedPlans(supabase, eventId, bookedIds),
     readBookedRoomSizes(supabase, venueShops),
@@ -83,6 +83,8 @@ export async function BookedSlot({
     scheduleShared && bookedIds.length > 0 ? readScheduleMarks(supabase, eventId) : Promise.resolve(undefined),
     // 📖 Each trade's usual chapters — "Which chapters will they serve?" starts from them (owner 2026-11-04).
     scheduleShared && bookedIds.length > 0 ? readTradeChapters(supabase) : Promise.resolve({ ok: false as const }),
+    // 🕕 Each supplier's own Crew call (owner 16 Nov "SCHEDULE MODEL") — apart from On site from, same batch.
+    scheduleShared && bookedIds.length > 0 ? readCrewCalls(supabase, eventId) : Promise.resolve(undefined),
     // 🧮 "Who they count" per per-head service (owner 2026-11-04) — one request, in the same batch.
     bookedIds.length > 0 ? readEventServiceCounts(supabase, eventId) : Promise.resolve(null),
   ]);
@@ -97,6 +99,7 @@ export async function BookedSlot({
     dateChange: dateChange.ok ? dateChange.view : null,
     callTimes: schedule === undefined ? undefined : schedule === null ? null : schedule.callTimes,
     marks,
+    crewCalls,
     chapters: schedule === undefined ? undefined : schedule === null ? null : schedule.chapters,
     tradeChapters: trade.ok ? trade.byCategory : null,
   });

@@ -72,9 +72,20 @@ export type SentRowLike = {
  * it, and stored no earlier than a minute before Send was pressed (a clock skew allowance — never an older
  * identical "ok" from yesterday).
  */
+/**
+ * 🪤 CHAT-04 (W1 walk 2026-11-16): a form-posted textarea sends a new line as "\r\n" (the HTML form encoding) and the
+ * stored body keeps it, while the pending copy read from the textarea's value holds "\n". Compared raw, a two-line
+ * message never matched its own row: the faded copy stayed, then said "Not sent · Try again" over a message that WAS
+ * sent — an invitation to send it twice. Both sides are compared with every line ending as "\n".
+ */
+export function sameWords(a: string, b: string): boolean {
+  const norm = (t: string) => t.replace(/\r\n?/g, '\n').trim();
+  return norm(a) === norm(b);
+}
+
 export function matchesPending(row: SentRowLike, pending: PendingSend, viewerRole: string): boolean {
   if (row.sender_role !== viewerRole) return false;
-  if ((row.body ?? '').trim() !== pending.body.trim()) return false;
+  if (!sameWords(row.body ?? '', pending.body)) return false;
   // A file rode it → the row must carry one. Not the same NAME: compression may rename it (photo.HEIC → photo.jpg).
   if (pending.fileName && !(row.attachment_name ?? '').trim()) return false;
   const stored = Date.parse(row.created_at);

@@ -18,7 +18,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ADMIN_TABS } from '@/lib/admin/admin-tabs';
+// The one source moved to admin-pages.ts with the 17 Nov reorg.
+import { ADMIN_BAR_TABS as ADMIN_TABS } from '@/lib/admin/admin-pages';
 import { stripComments } from '@/lib/strip-comments';
 
 const ADMIN = join(process.cwd(), 'app/admin');
@@ -31,7 +32,7 @@ const rows = code(read('_components/admin-tab-rows.tsx'));
 const home = code(read('page.tsx'));
 
 test('the phone bar is the five tabs, drawn from the one source — and has no More', () => {
-  assert.match(bar, /export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem\[\] = ADMIN_TABS\.map\(/);
+  assert.match(bar, /export const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem\[\] = ADMIN_BAR_TABS\.map\(/);
   assert.deepEqual(
     ADMIN_TABS.map((t) => t.label),
     ['Work', 'Money', 'People', 'Catalogue', 'Insights'],

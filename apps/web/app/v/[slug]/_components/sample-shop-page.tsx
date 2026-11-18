@@ -219,7 +219,7 @@ export function SampleShopPage({
                 <p className="text-sm text-ink/65">Starting prices set by the shop. Final quotes happen in chat.</p>
                 <div className="grid gap-3">
                   {cards.map((c) => (
-                    <div key={c.title} data-service-card="" className="overflow-hidden rounded-2xl bg-ink/[0.03] shadow-sm">
+                    <div key={c.title} data-service-card="" className="overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame">
                       <div className="relative h-28 w-full bg-ink/5">
                         <Image src={c.photo} alt="" fill sizes="430px" className="object-cover" />
                       </div>

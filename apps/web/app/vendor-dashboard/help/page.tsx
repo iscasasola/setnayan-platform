@@ -18,9 +18,10 @@ export default async function VendorHelpPage() {
   if (!user) redirect('/login');
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-supplier-help="">
-      <h1 className="sn-h1">Help</h1>
-      <div className="mt-3">
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 sm:px-6" data-supplier-help="">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Help</h1>
+      <div className="mt-1">
         {SUPPLIER_HELP_ROWS.map((r) => (
           <DatesRow key={r.key} data={`help-${r.key}`} title={r.title} line={r.line} href={r.href} />
         ))}

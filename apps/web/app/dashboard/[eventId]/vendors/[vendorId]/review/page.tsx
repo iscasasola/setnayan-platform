@@ -433,7 +433,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
 
       <form
         action={submitCoupleReview}
-        className="space-y-6 rounded-2xl border border-ink/10 bg-cream p-6"
+        className="space-y-6 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-6"
       >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="event_vendor_id" value={eventVendor.vendor_id} />

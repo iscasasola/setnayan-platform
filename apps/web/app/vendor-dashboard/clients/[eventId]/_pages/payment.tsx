@@ -27,6 +27,7 @@ import { Wallet } from 'lucide-react';
 import { ClientRefunds, ThumbRow } from './lazy';
 import { PriceSummary } from '@/app/_components/price-summary';
 import { formatPhp } from '@/lib/php';
+import { isPastDue } from '@/lib/chat-plan-fold';
 import { clientPaymentView } from '@/lib/client-payment-view';
 import type { StepperInstallment } from '@/lib/vendor-service-payment-schedules';
 import type { PendingVendorPayment } from '@/lib/vendor-service-payment-schedules.server';
@@ -80,6 +81,8 @@ export type PaymentMoney = {
   ledgerUnreadable: boolean;
   /** The card's own "couldn't load" note, drawn ONE way. */
   unreadableNote?: ReactNode;
+  /** Manila's today from the server (`manilaTodayIso`). Absent → the Next line never says "Overdue" (never a guess). */
+  todayIso?: string | null;
 };
 
 export type PaymentPageProps = PickedPageProps & {
@@ -93,7 +96,7 @@ export type PaymentPageProps = PickedPageProps & {
   refunds?: { eventVendorId: string; clientName: string; measured: boolean; rows: ClientRefundView[] };
 };
 
-const H = 'text-xs font-semibold uppercase tracking-[0.12em] text-ink/70';
+const H = 'home-k2 !mt-0 !mb-0';
 
 export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, asks, refunds }: PaymentPageProps) {
   if (!money) {
@@ -151,6 +154,10 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
                     amountPhp: view.next.amountPhp,
                     name: view.next.name,
                     dueDate: view.next.dueDate,
+                    dueText: view.next.dueText,
+                    late: view.next.late,
+                    // ⏰ Said the same way as Details and the chat (owner screenshot 17 Nov: "Next ₱5,350 · Nov 13" on the 17th).
+                    overdue: isPastDue(view.next.dueDate, money.todayIso ?? null),
                     action: view.next.check ? (
                       <BudgetNextLink href="#payment-logged" mark="check">
                         Check ›

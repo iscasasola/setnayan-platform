@@ -60,7 +60,7 @@ export function ChatCardShell({
           <Icon className="h-4 w-4" strokeWidth={1.9} />
         </span>
         <span className="grid min-w-0">
-          <span className="text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-ink/55">{kicker}</span>
+          <span className="text-[12px] font-medium leading-tight text-ink/55">{kicker}</span>
           <span className="truncate text-[16px] font-semibold leading-tight text-ink">{title}</span>
         </span>
         {onClose ? (

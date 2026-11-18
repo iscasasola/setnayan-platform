@@ -13,10 +13,10 @@ export function ClaimWaitLines({ read }: { read: ClaimWaitsRead }) {
       {read.ok ? (
         read.waits.map((w) => (
           <div key={w.requestId} className="flex items-start gap-3 py-3">
-            <Hourglass aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+            <Hourglass aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-ink">{claimWaitTitle(w)}</p>
-              <p className="mt-0.5 text-[13px] text-ink/70">{CLAIM_WAIT_LINE}</p>
+              <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{CLAIM_WAIT_LINE}</p>
             </div>
           </div>
         ))

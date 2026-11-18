@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { Check, Plus, AlertCircle } from 'lucide-react';
 import { offerServiceInterest, type OfferServiceResult } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 export type VendorOfferOption = {
   vendorServiceId: string;
@@ -68,47 +70,38 @@ export function VendorOfferService({
           });
         });
       }}
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 bg-cream/40 px-4 py-2.5"
+      // Rule 2 · no card around it: the label, the pick and its button on one line of the panel.
+      className="flex flex-wrap items-center gap-2 py-1"
     >
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-        Offer another service
-      </span>
-      <select
+      <span className="text-[13px] font-semibold text-ink">Offer another service</span>
+      {/* Rule 4 · a set of choices is ONE PickMenu (never a native select). */}
+      <PickMenu
+        label="Offer another service"
         value={selected}
-        onChange={(e) => {
-          setSelected(e.target.value);
+        options={[{ key: '', label: 'Pick a service…' }, ...options.map((o) => ({ key: o.vendorServiceId, label: o.label }))]}
+        onPick={(key) => {
+          if (pending) return;
+          setSelected(key);
           if (state.kind !== 'idle') setState({ kind: 'idle' });
         }}
-        disabled={pending}
-        className="min-w-[10rem] rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
-      >
-        <option value="">Pick a service…</option>
-        {options.map((o) => (
-          <option key={o.vendorServiceId} value={o.vendorServiceId}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <button
+        dataAttr="data-offer-service"
+        className="min-w-[10rem] !min-h-11"
+      />
+      <ActionButton
         type="submit"
+        tone="neutral"
+        icon={<Plus aria-hidden strokeWidth={2} />}
+        label={pending ? 'Sending…' : 'Send card'}
         disabled={pending || !selected}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/20 px-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5 disabled:cursor-default disabled:opacity-60"
-      >
-        {pending ? (
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-        ) : (
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        )}
-        {pending ? 'Sending…' : 'Send card'}
-      </button>
+      />
       {state.kind === 'done' ? (
-        <span className="inline-flex items-center gap-1 text-xs text-success-700">
-          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <span className="inline-flex items-center gap-1 text-[13px]" style={{ color: 'rgb(var(--color-ok))' }}>
+          <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
           Card sent
         </span>
       ) : state.kind === 'error' ? (
-        <span className="inline-flex items-center gap-1 text-xs text-danger-700">
-          <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <span role="alert" className="inline-flex items-center gap-1 text-[13px]" style={{ color: 'rgb(var(--color-danger))' }}>
+          <AlertCircle aria-hidden className="h-4 w-4" strokeWidth={2} />
           {state.message}
         </span>
       ) : null}

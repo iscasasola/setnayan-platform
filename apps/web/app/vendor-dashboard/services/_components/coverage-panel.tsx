@@ -81,9 +81,9 @@ export function CoveragePanel({
         <span className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
           Add what you serve
         </span>
-        <span className="text-xs" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-3)' }}>
+        <span className="text-[13px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-2)' }}>
           Parents{' '}
-          <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-orange-2)' }}>
+          <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-ink)' }}>
             {formatCount(parentUsage.used)} of {capLabel}
           </b>
           {overCap ? ' · upgrade to add more' : ''}
@@ -100,11 +100,11 @@ export function CoveragePanel({
 
       <div className="border-t" style={{ borderColor: line }} />
 
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
         Your coverage
       </p>
       {coverages.length === 0 ? (
-        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+        <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
           Nothing yet — pick a category above and it lands here. Service cards
           are built inside your coverage.
         </p>
@@ -167,7 +167,7 @@ function YourCoverage({
             <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
               {parent}
             </span>
-            <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            <span className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
               {items.length} {items.length === 1 ? 'leaf' : 'leaves'}
             </span>
           </div>
@@ -177,11 +177,11 @@ function YourCoverage({
               return (
                 <span
                   key={c.id}
-                  className="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1.5 text-xs"
+                  className="inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1.5 text-[13px]"
                   style={{
                     borderColor: on ? 'var(--m-orange-3)' : line,
                     background: on ? 'var(--m-orange-4)' : paper,
-                    color: on ? 'var(--m-orange-2)' : 'var(--m-slate)',
+                    color: on ? 'var(--m-ink)' : 'var(--m-slate)',
                   }}
                 >
                   <button
@@ -193,7 +193,7 @@ function YourCoverage({
                   >
                     {c.leafLabel}
                     {c.serviceCount > 0 ? (
-                      <span style={{ color: 'var(--m-slate-3)' }}>· {formatCount(c.serviceCount)}</span>
+                      <span style={{ color: 'var(--m-slate-2)' }}>· {formatCount(c.serviceCount)}</span>
                     ) : null}
                     <Tag className="h-3 w-3" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
                   </button>
@@ -235,16 +235,16 @@ function YourCoverage({
         <StayForm
           door="svServices.updateCoverageServes"
           action={updateCoverageServes}
-          className="space-y-4 rounded-2xl border p-4"
-          style={{ borderColor: 'var(--m-orange-3)', background: paper }}
+          className="space-y-4 rounded-[var(--m-r-lg)] p-4"
+          style={{ background: 'var(--m-paper-2)' }}
         >
           <input type="hidden" name="coverage_id" value={open.id} />
           <div>
-            <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>{open.pathLabel}</p>
+            <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>{open.pathLabel}</p>
             <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
               Who do you serve this for?
             </p>
-            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
               Now: {open.eventTypes.map(eventLabel).join(' · ') || 'no event types'} ·{' '}
               {open.faiths.length === 0 ? 'all faiths' : open.faiths.map(faithLabel).join(', ')}
             </p>
@@ -260,12 +260,12 @@ function YourCoverage({
             </div>
             {allowedEventOptions(eventTypeOptions, open.allowedEventTypes).length <
             eventTypeOptions.length ? (
-              <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+              <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
                 Only the events this category can serve are shown.
               </p>
             ) : null}
             {droppedEventTypes(open.eventTypes, open.allowedEventTypes).length > 0 ? (
-              <p className="text-[11px]" style={{ color: 'var(--m-blush-deep)' }}>
+              <p className="text-[13px]" style={{ color: 'var(--m-blush-deep)' }}>
                 No longer offered for this category:{' '}
                 {droppedEventTypes(open.eventTypes, open.allowedEventTypes)
                   .map(eventLabel)
@@ -285,11 +285,12 @@ function YourCoverage({
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <button type="button" onClick={() => setOpenId(null)} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Close
+            {/* Rule 3 · the button pieces: grey Close, green Save (it confirms). */}
+            <button type="button" onClick={() => setOpenId(null)} className="ab ab-neutral !min-h-11">
+              <span className="lbl">Close</span>
             </button>
-            <SubmitButton className="button-primary" pendingLabel="Saving…">
-              Save
+            <SubmitButton className="ab ab-ok !min-h-11" pendingLabel="Saving…">
+              <span className="lbl">Save</span>
             </SubmitButton>
           </div>
         </StayForm>
@@ -382,15 +383,15 @@ function CoverageBrowse({
         door="svServices.createCoverage"
         action={createCoverage}
         onSaved={() => setLeaf(null)}
-        className="space-y-4 rounded-2xl border p-4"
-        style={{ borderColor: 'var(--m-orange-3)', background: paper }}
+        className="space-y-4 rounded-[var(--m-r-lg)] p-4"
+        style={{ background: 'var(--m-paper-2)' }}
       >
         <input type="hidden" name="canonical_service" value={leaf.canonicalService} />
 
         <button
           type="button"
           onClick={() => setLeaf(null)}
-          className="inline-flex items-center gap-1 text-xs font-medium"
+          className="inline-flex min-h-11 items-center gap-1 text-[13px] font-medium"
           style={{ color: 'var(--m-slate-2)' }}
         >
           <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
@@ -398,7 +399,7 @@ function CoverageBrowse({
         </button>
 
         <div>
-          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>{path}</p>
+          <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>{path}</p>
           <p className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
             Add “{leaf.label}” to your coverage?
           </p>
@@ -417,7 +418,7 @@ function CoverageBrowse({
               );
             })}
           </div>
-          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
             Only the events this category can serve are shown.
           </p>
         </div>
@@ -435,7 +436,7 @@ function CoverageBrowse({
               );
             })}
           </div>
-          <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
             Leave all off to welcome every faith.
           </p>
         </div>
@@ -489,7 +490,7 @@ function CoverageBrowse({
       ) : (
         <>
           {/* Breadcrumb */}
-          <div className="flex flex-wrap items-center gap-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-[13px]">
             <Crumb active={!parentId} onClick={() => { setParentId(null); setBranchId(null); }}>
               Categories
             </Crumb>
@@ -595,11 +596,11 @@ function GridCard({
         )}
       </span>
       {added ? (
-        <span className="truncate text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+        <span className="truncate text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
           Already added
         </span>
       ) : sub ? (
-        <span className="truncate text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+        <span className="truncate text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
           {sub}
         </span>
       ) : null}
@@ -613,7 +614,8 @@ function Crumb({ children, active, onClick }: { children: ReactNode; active?: bo
       type="button"
       onClick={onClick}
       className="rounded px-1 py-0.5 font-medium"
-      style={{ color: active ? 'var(--m-ink)' : 'var(--m-orange-2)' }}
+      // Gold is never small words (rule 13): the trail is ink, the current crumb bold.
+      style={{ color: active ? 'var(--m-ink)' : 'var(--m-slate-2)' }}
     >
       {children}
     </button>
@@ -625,7 +627,7 @@ function SelectChip({ children, on }: { children: ReactNode; on: boolean }) {
   // clicking the label toggles it and fires its onChange.
   return (
     <label
-      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px]"
       style={{
         borderColor: on ? 'var(--m-orange-3)' : line,
         background: on ? 'var(--m-orange-4)' : paper,
@@ -650,7 +652,7 @@ function CheckChip({
 }) {
   return (
     <label
-      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs has-[:checked]:font-medium"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] has-[:checked]:font-medium"
       style={{ borderColor: line, color: 'var(--m-slate)' }}
     >
       <input type="checkbox" name={name} value={value} defaultChecked={defaultChecked} className="h-3.5 w-3.5 accent-[var(--m-ink)]" />
@@ -661,11 +663,11 @@ function CheckChip({
 
 function SubLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[10px] uppercase tracking-[0.13em]" style={{ color: 'var(--m-slate-3)' }}>
+    <p className="text-[11.5px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--m-slate-2)' }}>
       {children}
     </p>
   );
 }
 function Muted({ children }: { children: ReactNode }) {
-  return <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>{children}</p>;
+  return <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>{children}</p>;
 }

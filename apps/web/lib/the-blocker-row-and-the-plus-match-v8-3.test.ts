@@ -33,6 +33,7 @@ test('the (+) is a filled 40-px brand circle with a white ＋, grey when shut', 
   const tag = src.slice(at, at + 260);
   assert.match(tag, /h-10 w-10 place-items-center rounded-full/);
   assert.match(tag, /bg-sn-accent text-white/);
-  assert.match(tag, /bg-ink\/\[0\.06\] text-ink\/35/);
+  // Grey when shut — the template's warm surface and mid grey (tokens, 2026-11-14), was ink at 6 % / 35 %.
+  assert.match(tag, /bg-\[color:var\(--m-paper-2\)\] text-\[color:var\(--m-slate-3\)\]/);
   assert.ok(!/PlusCircle/.test(src), 'the outlined ⊕ is gone');
 });

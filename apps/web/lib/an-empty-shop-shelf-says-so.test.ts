@@ -25,8 +25,9 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('the front door shelf: plain heading and line when empty, and never "none" on a failed read', () => {
   const feed = code('app/_components/frontdoor/front-door-feed.tsx');
-  assert.match(feed, /shape\.shopsHeading === 'first-shops'\s*\?\s*'The first shops'\s*:\s*'Shops'/,
-    'an empty shelf must not be headed "The first shops"');
+  // 🔄 2026-11-16 (owner, "Discover in six parts"): the shelf is always headed "Suppliers" — empty or not.
+  assert.match(feed, /<span>Suppliers<\/span>/, 'the shelf lost its plain "Suppliers" heading');
+  assert.doesNotMatch(feed, /The first shops/, 'an empty shelf must not be headed "The first shops"');
   assert.match(feed, /liveShopCount === 0\s*\?\s*'No supplier has opened a shop yet\.'/,
     'the "none yet" sentence must be tied to a MEASURED zero, not to an empty list');
   assert.match(feed, /couldn.t load/, 'a failed read must say so');

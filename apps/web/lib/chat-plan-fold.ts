@@ -9,8 +9,9 @@
  * 🔒 lib/the-plan-folds-to-one-row.test.ts
  */
 import type { PlanRollup } from './vendor-service-payment-schedules';
+import { formatPhp } from './php';
 
-const peso = (n: number) => `₱${Math.abs(Math.round(n)).toLocaleString('en-PH')}`;
+const peso = (n: number) => formatPhp(Math.abs(Math.round(n)));
 
 /** "Nov 15" — a frozen due date is DATE-ONLY (YYYY-MM-DD), anchored at UTC noon so Manila never shifts it a day. */
 export function planShortDate(isoDate: string | null): string | null {
@@ -24,16 +25,36 @@ export function planShortDate(isoDate: string | null): string | null {
  * The folded row's words, after the bold "Plan": the received-of-total roll-up, then the ONE thing that matters next —
  * the same facts, in the same order, the open card says (`vendor-payment-live.tsx`), cut to one line.
  */
-export function planFoldLine(rollup: PlanRollup, cleared: boolean, hasSteps: boolean): string {
+export function planFoldLine(rollup: PlanRollup, cleared: boolean, hasSteps: boolean, todayIso: string | null): string {
   if (cleared) return 'cleared · nothing outstanding';
   if (!hasSteps || rollup.total <= 0) return 'no payment schedule';
   const head = `${peso(rollup.received)} of ${peso(rollup.total)}`;
   if (rollup.pending > 0) return `${head} · ${peso(rollup.pending)} to confirm`;
-  if (rollup.next) {
-    const when = planShortDate(rollup.next.dueDate);
-    return `${head} · next ${peso(rollup.next.amountPhp)}${when ? ` ${when}` : ''}`;
+  const next = planNextWords(rollup, todayIso);
+  return next ? `${head} · ${next}` : `${head} · all confirmed`;
+}
+
+/**
+ * The plan's next payment in a few words — "next ₱1,750 Nov 15", or "₱5,350 overdue since Nov 13" once its day has
+ * passed (owner screenshot 17 Nov: "next ₱5,350 Nov 13" on the 17th). `todayIso` is Manila's today from the server;
+ * null (unknown) keeps the plain "next" — never a guessed "overdue". Null when nothing is left to pay.
+ * One source for the chat's plan row and the client's Details numbers.
+ */
+/**
+ * Is a payment due on `dueDate` past due on `todayIso` (Manila's today)? The ONE rule the chat's plan row, Details and
+ * the Payment page's Next line all read. An unknown day on either side is never "overdue" — never a guess.
+ */
+export function isPastDue(dueDate: string | null | undefined, todayIso: string | null | undefined): boolean {
+  return Boolean(dueDate && todayIso && dueDate.slice(0, 10) < todayIso.slice(0, 10));
+}
+
+export function planNextWords(rollup: PlanRollup, todayIso: string | null): string | null {
+  if (!rollup.next) return null;
+  const when = planShortDate(rollup.next.dueDate);
+  if (when && isPastDue(rollup.next.dueDate, todayIso)) {
+    return `${peso(rollup.next.amountPhp)} overdue since ${when}`;
   }
-  return `${head} · all confirmed`;
+  return `next ${peso(rollup.next.amountPhp)}${when ? ` ${when}` : ''}`;
 }
 
 /** The device's memory of the logged payments already shown, per chat. */

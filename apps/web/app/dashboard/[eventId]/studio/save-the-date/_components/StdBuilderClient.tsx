@@ -567,7 +567,7 @@ export function StdBuilderClient({
                 Suggested for your Chinese ceremony — an auspicious red &amp; gold.
               </p>
             ) : null}
-            <div className="rounded-xl border border-ink/10 bg-cream p-3">
+            <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-3">
               <ColorRow
                 label="Accent colour"
                 value={accentColor}

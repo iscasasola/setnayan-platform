@@ -20,7 +20,7 @@ guest questions", "Help — no AI answers yet", "No programmer labels").
 - **The team's help** is the same page inside Setnayan HQ, `/admin/help/guides` (Setnayan HQ's sheet → Help): team
   guides only (`lib/help-admin.ts`, still imported from `app/admin/**` alone), and in place of Message us the
   **No answer yet** list — most-asked first, across all three helps.
-- New table `help_asks` (migration `20271344889246`): the words, which help, web or app, the outcome. No name, no
+- New table `help_asks` (migration `20271350667658`): the words, which help, web or app, the outcome. No name, no
   email, no user id; RLS on with no policy and anon/authenticated grants revoked — service role only.
 - Yes / No rides the existing `submitHelpMessage` (`intent=answered`) — no new server action (budget 1251 unchanged).
 - Guards: `lib/help-ask-finds-the-answer.test.ts` (new); `help-and-features-share-one-search` now holds the top box on

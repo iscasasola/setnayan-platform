@@ -54,7 +54,7 @@ export function BestAnswer({ hit, ctx }: { hit: AskHit; ctx: AnswerCtx }) {
       {hit.notInApp ? null : <Door door={ctx.doorFor(hit.topicKey)} main />}
       {whole ? (
         <details className="group mt-3">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-terracotta [&::-webkit-details-marker]:hidden">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-semibold text-terracotta [&::-webkit-details-marker]:hidden">
             <span className="group-open:hidden">Read the full answer</span>
             <span className="hidden group-open:inline">Hide the full answer</span>
           </summary>
@@ -110,7 +110,7 @@ export function NoAnswer({ result, ctx }: { result: AskResult; ctx: AnswerCtx })
   return (
     <section aria-label="No answer yet" className="mt-5" data-help-none="">
       <p className="text-lg font-semibold text-ink">We don’t have an answer for that yet.</p>
-      <p className="mt-1 text-sm text-ink/70">We saved your question so we can write one.</p>
+      <p className="mt-1 text-sm text-ink/70">Questions we can’t answer yet go to the team, so we can write one.</p>
       <p className="mt-3 flex flex-wrap gap-2">
         <ActionButton tone="neutral" icon={<RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Ask another way" href={ctx.askAgainHref} />
         <ActionButton tone="info" icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Message us" href={ctx.messageHref} />

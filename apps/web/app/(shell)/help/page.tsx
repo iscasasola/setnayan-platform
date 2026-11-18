@@ -240,7 +240,7 @@ export default async function HelpPage({ searchParams }: Props) {
             {coverage === 'public' ? (
               <>
                 {' · '}
-                <Link href="/login?next=/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
+                <Link href="/login?next=/help" className="inline-flex min-h-11 items-center font-medium text-terracotta underline-offset-2 hover:underline">
                   Sign in for your own event or shop
                 </Link>
               </>

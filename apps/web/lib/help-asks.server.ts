@@ -5,7 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { AskOutcome, HelpCoverage } from '@/lib/help-ask-core';
 
 /**
- * THE HELP'S OWN LOG — `public.help_asks` (migration 20271344889246). What people asked, which account's help, web or
+ * THE HELP'S OWN LOG — `public.help_asks` (migration 20271350667658). What people asked, which account's help, web or
  * app, and what it found; no name, no email, no user id. Service-role only (RLS on, no policy, grants revoked).
  *
  *   write  every ask a person PRESSES (never a page render) and every Yes / No press — one row per words + account +

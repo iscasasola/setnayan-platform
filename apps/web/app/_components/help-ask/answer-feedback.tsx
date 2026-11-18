@@ -42,14 +42,14 @@ export function AnswerFeedback({
   if (vote === 'yes') {
     return (
       <p role="status" className="mt-3 text-sm text-ink/70" data-help-answered="yes">
-        Thanks. Saved.
+        Thanks.
       </p>
     );
   }
   if (vote === 'no') {
     return (
       <div role="status" className="mt-3" data-help-answered="no">
-        <p className="text-sm text-ink/70">Sorry about that. Saved, so we can fix this answer.</p>
+        <p className="text-sm text-ink/70">Sorry about that. Ask another way, or message us and a person will help.</p>
         <p className="mt-2 flex flex-wrap gap-2">
           <ActionButton tone="neutral" icon={RotateCcw} label="Ask another way" href={askAgainHref} />
           <ActionButton tone="info" icon={MessageSquare} label="Message us" href={messageHref} />

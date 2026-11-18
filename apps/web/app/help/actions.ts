@@ -68,13 +68,19 @@ async function resolveSubmitterVendorTier(
 /**
  * ❓ "DID THIS ANSWER IT?" rides THIS action (`intent=answered`), not a new export — the server-action budget is full
  * (scripts/lint-server-action-budget.mjs), and Yes / No is the Help's own feedback into the Help's own log. It writes
- * one `help_asks` row (yes · no; no name, no email) and returns nothing: the press already says "Saved." in place.
+ * one `help_asks` row (yes · no; no name, no email) and returns nothing: the press says "Thanks." in place.
  */
 async function recordAnswered(formData: FormData): Promise<void> {
   const vote = formData.get('vote');
   const coverage = formData.get('coverage');
   if ((vote !== 'yes' && vote !== 'no') || typeof coverage !== 'string') return;
   if (!(ASK_COVERAGES as ReadonlyArray<string>).includes(coverage)) return;
+  // 'team' is the admins' own help (/admin/help/guides): a signed-out stranger may not write into the team's log.
+  if (coverage === 'team') {
+    const sb = await createClient();
+    const { data: isAdmin, error } = await sb.rpc('is_admin');
+    if (error || isAdmin !== true) return;
+  }
   await logHelpAsk({
     words: trimmed(formData.get('words'), 120) || trimmed(formData.get('slug'), 120),
     coverage: coverage as HelpAskCoverage,

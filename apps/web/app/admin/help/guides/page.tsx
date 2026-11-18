@@ -128,7 +128,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
         </section>
 
         <p className="text-sm">
-          <Link href="/admin/help" className="font-medium text-ink underline underline-offset-2">
+          <Link href="/admin/help" className="inline-flex min-h-11 items-center font-medium text-ink underline underline-offset-2">
             Messages ›
           </Link>
         </p>

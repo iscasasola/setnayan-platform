@@ -105,9 +105,19 @@ test('every empty or failed Discover shelf is one line + one action, details beh
   assert.equal(shelves, 8, `rendered ${shelves} shelves — expected 3+3+2; the read is wrong`);
 });
 
-test("the feed's own shelves (Shops, real weddings, Trending) use the same one-line block", () => {
+test("Discover's own shelves (Suppliers and parts 3–6) use the same one-line block", () => {
+  // 🔄 2026-11-16 (owner, "Discover in six parts"): real weddings and Trending retired; Service cards, Event stories,
+  // Articles and Inspiration (discover-six-parts.tsx) each say an empty or failed shelf in the same one-line block.
   const feed = stripComments(readFileSync(join(HERE, 'front-door-feed.tsx'), 'utf8'));
-  assert.doesNotMatch(feed, /fd-invite|fd-rule|fd-notice/, 'the feed draws a dashed card, a grey rule or a notice box again');
-  assert.ok((feed.match(/<EmptyShelf\b/g) ?? []).length >= 3, 'Shops, real weddings and Trending must each end in <EmptyShelf>');
+  const six = stripComments(readFileSync(join(HERE, 'discover-six-parts.tsx'), 'utf8'));
+  for (const [name, src] of [['front-door-feed.tsx', feed], ['discover-six-parts.tsx', six]] as const) {
+    assert.doesNotMatch(src, /fd-invite|fd-rule|fd-notice/, `${name} draws a dashed card, a grey rule or a notice box again`);
+  }
+  assert.ok((feed.match(/<EmptyShelf\b/g) ?? []).length >= 1, 'Suppliers must end in <EmptyShelf>');
+  for (const part of ['ServiceCardsShelf', 'EventStoriesShelf', 'ArticlesShelf', 'InspirationShelf']) {
+    const at = six.indexOf(`export function ${part}(`);
+    const body = six.slice(at, six.indexOf('\n}\n', at));
+    assert.ok(at > -1 && /<EmptyShelf\b/.test(body), `${part} has no one-line empty state`);
+  }
   assert.doesNotMatch(feed, /some with video, some\s+without/, 'the New uploads explainer is back beside its heading');
 });

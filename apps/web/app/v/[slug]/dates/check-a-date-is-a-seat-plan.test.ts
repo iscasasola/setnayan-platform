@@ -50,7 +50,8 @@ test('reduced motion: the light stops as a still band, the months move without a
 
 test('it rises OVER the shop: × is the one way out ("See the shop" goes), and the header shows the logo', () => {
   assert.doesNotMatch(CAL, /See the shop/);
-  assert.match(CAL, /aria-label="Close"/);
+  // The × is an ActionButton since the 16 Nov sweep: its `label` is its aria-label (components/action-button.tsx).
+  assert.match(CAL, /<ActionButton tone="neutral" icon=\{X\} label="Close" iconOnly onClick=\{onClose\}/);
   assert.match(CAL, /\{logoUrl \? \(/, 'the logo, initials only when there is none');
   assert.match(CAL, /<SeatMonths/);
 });

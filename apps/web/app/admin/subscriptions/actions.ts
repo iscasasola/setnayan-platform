@@ -40,6 +40,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   notifyVendorSubscriptionActivated,
   notifyVendorSubscriptionRejected,
@@ -119,8 +121,32 @@ export async function rejectSubscription(formData: FormData): Promise<void> {
     );
   }
 
+  // 🔒 A REJECT THAT CHANGED NOTHING IS NOT A REJECT (plan-purchase audit, 2026-11-16). `reject_vendor_subscription`
+  // is an UPDATE … WHERE status = 'pending_payment' that RETURNS VOID — on a row that is already `paid` (a second
+  // admin confirmed it, a stale tab, the payments desk approved the same plan) it updates ZERO rows and raises
+  // nothing. This action then said "Order marked rejected" and EMAILED the shop "Your plan upgrade couldn't be
+  // confirmed" about a plan that is live. So the row is read back, and only a row that now says `rejected` is
+  // announced. 🔒 app/admin/subscriptions/a-reject-that-changed-nothing-says-so.test.ts
+  const { data: after, error: readErr } = await createAdminClient()
+    .from('vendor_subscriptions')
+    .select('status')
+    .eq('purchase_id', id as string)
+    .maybeSingle();
+  if (readErr) logQueryError('admin/subscriptions: reject read-back', readErr, { purchase_id: id });
+  const nowStatus = (after as { status?: string | null } | null)?.status ?? null;
+  if (nowStatus !== 'rejected') {
+    redirect(
+      '/admin/subscriptions?error=' +
+        encodeURIComponent(
+          readErr || nowStatus === null
+            ? 'Could not check that the order was rejected — refresh before telling the supplier anything.'
+            : `Not rejected: this order is already ${nowStatus === 'paid' ? 'confirmed and the plan is on' : nowStatus}. Nothing was changed and the supplier was not told.`,
+        ),
+    );
+  }
+
   // Tell the vendor their upgrade couldn't be confirmed + why. Fail-soft.
-  await notifyVendorSubscriptionRejected(id, rejectReason);
+  await notifyVendorSubscriptionRejected(id as string, rejectReason);
 
   revalidatePath('/admin/subscriptions');
   redirect('/admin/subscriptions?done=rejected');

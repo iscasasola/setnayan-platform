@@ -50,6 +50,7 @@ export function placePickList({
   listHeight,
   viewport,
   minWidth: wanted,
+  prefer,
 }: {
   /** The button's rect. */
   button: { top: number; bottom: number; left: number; width: number };
@@ -61,6 +62,9 @@ export function placePickList({
   /** 📏 The list's own floor width (`PickMenuProps.menuMinWidth`, owner-approved 2026-10-30 for the Papic card head: its
    *  options must not wrap). Never wider than the screen less its margins; absent = today's rule exactly. */
   minWidth?: number;
+  /** ⬆ Admin reorg v10 (17 Nov 2026, "sheet dropdowns on the phone open upward"): open ABOVE whenever the list fits
+   *  there. Absent = today's rule exactly (below when it fits). */
+  prefer?: 'above';
 }): PickListPlacement {
   const minWidth = Math.min(
     Math.max(button.width, PICK_LIST_MIN_WIDTH, wanted ?? 0),
@@ -73,7 +77,8 @@ export function placePickList({
   const roomBelow = Math.max(0, Math.min(viewport.height, viewport.floor ?? viewport.height) - button.bottom - PICK_LIST_GAP - PICK_LIST_MARGIN);
   const roomAbove = Math.max(0, button.top - PICK_LIST_GAP - PICK_LIST_MARGIN);
 
-  if (want <= roomBelow || roomBelow >= roomAbove) {
+  const upFirst = prefer === 'above' && want <= roomAbove;
+  if (!upFirst && (want <= roomBelow || roomBelow >= roomAbove)) {
     return {
       top: button.bottom + PICK_LIST_GAP,
       left,

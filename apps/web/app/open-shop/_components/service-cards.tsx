@@ -213,7 +213,7 @@ export function ServiceCards({
               <span className="grid min-w-0 text-[15px] font-medium leading-[1.2]" style={{ color: 'var(--m-ink)' }}>
                 <span className="[overflow-wrap:anywhere]">{cat}</span>
                 {group && normName(group) !== normName(cat) ? (
-                  <span className="mt-0.5 text-xs font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                  <span className="mt-0.5 text-xs font-normal" style={{ color: 'var(--m-slate-2)' }}>
                     {place?.categoryHint ? (
                       <InfoTip label={group} labelClassName="text-xs" ariaLabel={`What is ${cat}?`} align="start">
                         {place.categoryHint}
@@ -302,7 +302,7 @@ export function ServiceCards({
                       />
                     </div>
                   ) : siblings.length ? (
-                    <div className="flex items-center gap-1.5 px-3 py-2.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                    <div className="flex items-center gap-1.5 px-3 py-2.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
                       <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} style={{ color: 'var(--m-sage-deep)' }} />
                       Every {cat} service is on your list
                     </div>
@@ -359,7 +359,7 @@ export function ServiceCards({
       <CoverageMeter list={list} />
       {/* ② The one-line hint + ⓘ that stays inline; the explainer itself opens on Continue (`PlanSheet`). */}
       {over ? (
-        <span className="relative flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-note="">
+        <span className="relative flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }} data-open-shop-plan-note="">
           <LockOpen aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           <InfoTip
             label={`${FIRST_BOOKING_FREE_LABEL}. What each plan adds shows before you continue.`}
@@ -447,7 +447,7 @@ export function Specialties({
         return (
           <div key={f.key} className="grid gap-1.5">
             {lone ? null : (
-              <span className="text-[12.5px]" style={{ color: 'var(--m-slate-3)' }}>
+              <span className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
                 {/* The prototype's question, then "Pick all that apply." — a schema label carries no punctuation of its
                     own, so a full stop separates the two. */}
                 {f.single ? f.label : `${/[.?!]$/.test(f.label) ? f.label : `${f.label}.`} Pick all that apply.`}
@@ -556,7 +556,7 @@ export function CoverageMeter({ list }: { list: readonly MeterService[] }) {
         </InfoTip>
       </span>
       {line.split ? (
-        <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-coverage-split="">
+        <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }} data-open-shop-coverage-split="">
           {line.split}
         </span>
       ) : null}

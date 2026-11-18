@@ -1,45 +1,17 @@
 /**
- * front-door-feed.tsx — Shops, New uploads, Trending — and, since 2026-09-29,
- * the two SLOTS Discover's new shelves render into (see `DiscoverSlots`
- * below): the event layers ABOVE the shops, People to follow right AFTER them.
+ * front-door-feed.tsx — Discover's Suppliers shelf (part 2), with the two SLOTS the other parts render into:
+ * `beforeShops` (the viewer's events, the upcoming shelves, then People to follow — part 1) and `afterShops`
+ * (Service cards · Event stories · Articles · Inspiration — parts 3 to 6, `discover-six-parts.tsx`).
  *
- * 2026-09-03 REWRITE — the chip-filtered "one shelf" (All / Your people /
- * Stories / Articles) is retired along with the group-chat hero
- * (`front-door-anchor.tsx` replaces the old opening). Three sections now,
- * always fully shown, never filtered:
+ * Owner 16 Nov, DECISION_LOG "Discover in six parts" (approved 41057aae · 45fd9c21 · 448fd3c1 · a85b0260): New uploads
+ * and Trending are retired — Event stories replaced both — and the shop shelf is "Suppliers", verified shops only.
+ * This file still owns the cards the other parts reuse: `StoryCard` (Event stories), `ShopCard`, `ChannelLink`.
  *
- *   1. SHOPS — moved from the page's tail to directly under the anchor.
- *      Researched this session: at this stage, supply liquidity (real
- *      vendors, seen) is this kind of product's survival metric, and a
- *      content-only first screen reads as "empty site" to a stranger. Still
- *      its own room — the chip-era rule "Marketplace is a different room,
- *      considered and refused twice as a filter" still holds; this is a
- *      POSITION change, not the rejected merge revisited.
- *   2. NEW UPLOADS — exactly the old "one shelf" composition
- *      (`splitShelfRows`, unchanged), just never filtered by a chip. Stories
- *      first (a real person's piece is never buried under our own writing),
- *      articles fill the rest.
- *   3. TRENDING — new. Chapters only, ranked by real view count
- *      (`selectTrendingChapters`). No new "earned" threshold was invented —
- *      every chapter here already passed the admin Feature gate that puts it
- *      in `stories` at all (see `data.ts`), so view count only decides
- *      ORDER, not admission. Editorials never appear; they carry no view
- *      count by design. Honestly empty today (prod: 0 chapters) — composed
- *      on purpose, not a gap.
- *
- * "Your people" (a signed-in narrowing to stories from people you know) is
- * retired with the chip bar — there is no filter left to attach it to.
+ * History: the 2026-09-03 rewrite (Shops · New uploads · Trending, never chip-filtered) is in git.
  */
 import { SHOP_ARRIVAL_SRC, withShopArrival } from '@/lib/shop-back';
 import type { ReactNode } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
-
-import {
-  composeFrontDoor,
-  selectTrendingChapters,
-  splitShelfRows,
-} from '@/lib/front-door-composition';
 
 import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
@@ -48,7 +20,6 @@ import { bookingFeeBandsLine, bookingFeeMinimumAmount } from '@/lib/booking-fee'
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
-import { InfoTip } from '@/app/_components/info-tip';
 import { SampleMarker } from '@/app/_components/sample-marker';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
@@ -83,16 +54,6 @@ function cardBlurb(s: { excerpt: string | null; kindLabel: string; kind: 'chapte
  * character), so it is fixed by the same change. */
 function initialsOf(name: string): string {
   return shopInitials(name, 2, 'SN');
-}
-
-/**
- * A count the page could not read says so. It NEVER says 0 — an unknown is
- * not a nought, and "0" shown where the truth is "we could not tell" is how a
- * person stops believing the rest of the page.
- */
-function CountText({ value }: { value: number | null }) {
-  if (value === null) return <span className="fd-unknown">couldn&rsquo;t load</span>;
-  return <span className="fd-mono">{value}</span>;
 }
 
 /**
@@ -165,7 +126,7 @@ export function ChannelLink({
   );
 }
 
-function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
+export function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
   return (
     <div className="fd-item">
       <div className="fd-thumb">
@@ -302,14 +263,12 @@ export function ShopCard({
 }
 
 /**
- * ─── DISCOVER'S LAYERS (owner 2026-09-29, "DISCOVER — UNPARKED" (e)) ──────
- * "your people → events → suppliers → public profiles ('People to follow') →
- * stories". Shops, New uploads and Trending stay exactly as they were; the two
- * new layers arrive as SLOTS so this file never imports the Discover shelves
- * (they import `ChannelLink` from here — one byline door, never two copies).
+ * ─── DISCOVER'S PARTS (owner 16 Nov, "Discover in six parts") ──────────────
+ * The other parts arrive as SLOTS so this file never imports the Discover shelves
+ * (they import `ChannelLink` and `StoryCard` from here — one card, never two copies).
  *
- *   beforeShops — "Upcoming from people you follow" + "Upcoming on Setnayan"
- *   afterShops  — "People to follow"
+ *   beforeShops — your events · "Upcoming from people you follow" · "Upcoming on Setnayan" · People to follow (1)
+ *   afterShops  — Service cards (3) · Event stories (4) · Articles (5) · Inspiration (6)
  */
 type DiscoverSlots = { beforeShops?: ReactNode; afterShops?: ReactNode };
 
@@ -329,61 +288,11 @@ export function FrontDoorFeed({
    */
   shopTools?: ReactNode;
 } & DiscoverSlots) {
-  const {
-    stories,
-    storyCount,
-    shops,
-    liveShopCount,
-    realShopCount,
-    realWeddingCount,
-  } = data;
-
-  // Where the lead grid stops and the rest of the writing starts — from the
-  // shared composer, because that boundary MOVES with the story count and
-  // hard-coding it silently drops articles (see splitShelfRows). Unchanged
-  // from the chip era: every story and every article is always in scope now,
-  // so this runs over the full arrays rather than a chip-selected subset.
-  // 🗞✂ 2026-11-16 — the blog is retired, so the shelf is stories only (no articles to top it up).
-  const { leadStories } = splitShelfRows(stories, []);
-
-  /*
-    Every rail's shape comes from the shared composer, not from `if`s written
-    here. A threshold inside a JSX branch is unreachable from any test, so its
-    only symptom when it regresses is a customer seeing something wrong.
-
-    ⚠ `null` (a failed read) is passed as 0 ON PURPOSE. The composer floors
-    unknowns so a read that failed can never PROMOTE a rail. The nulls are
-    kept separately below for the COUNT TEXT, which says "couldn't load"
-    rather than "0". Shape fails safe; wording stays honest.
-  */
-  const shape = composeFrontDoor({
-    chapters: stories.length,
-    articles: 0,
-    stories: realWeddingCount,
-    // 🔢 The heading counts REAL shops only — 20 demo shops must never make the shelf "Trending" (owner 2026-11-06:
-    // "demo numbers never count in real totals"). Emptiness still reads `liveShopCount`, demo shops included.
-    liveShops: realShopCount ?? 0,
-  });
-
-  // `none` = no shops to show — a real zero OR a failed read (the composer
-  // floors null to 0). "The first shops" over an empty grid would name shops
-  // that are not there, so it is plain "Shops"; the line under it says which.
-  const shopsHeading =
-    shape.shopsHeading === 'trending'
-      ? 'Trending shops'
-      : shape.shopsHeading === 'first-shops'
-        ? 'The first shops'
-        : 'Shops';
-  const realWeddingsEarnedGrid = shape.stories === 'grid';
-  // 📱 The app hides the whole Shops shelf while no shop is live (owner,
+  const { shops, liveShopCount } = data;
+  // 📱 The app hides the whole Suppliers shelf while no shop is live (owner,
   // DECISION_LOG 2026-10-19 (2)); one live shop brings it back. The web keeps
   // the plain "none yet" line below.
   const hideShopsShelf = hidesEmptyShelfInApp(storeShell, liveShopCount);
-
-  // Chapters ranked by real views — see the module docblock. Not filtered by
-  // the composer above: a chapter reaching `stories` at all already passed
-  // the admin Feature gate, which IS the "earned" test for this shelf.
-  const trending = selectTrendingChapters(stories);
 
   return (
     <>
@@ -394,9 +303,9 @@ export function FrontDoorFeed({
         <>
           {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
           <h2 className="fd-sechead">
-            <span>{shopsHeading}</span>
-            {/* 🧹 "not trending — one shop cannot trend" is gone (owner 2026-10-01, NO SMALL
-                EXPLAINER LABELS): the heading already says "The first shops". */}
+            {/* 🏷 "Suppliers" — Discover's part 2 (owner 16 Nov, "Discover in six parts"); verified shops only
+                (`LIVE_SHOP_GATE`, which reads `is_findable` — verified and listed). It replaced "Trending shops" / "The first shops" / "Shops". */}
+            <span>Suppliers</span>
             {/* 🛒 More shops are open than the shelf shows → the door to every supplier, on this page (the
                 supplier view, 2026-11-12). `liveShopCount` decides it and is never printed. */}
             {liveShopCount !== null && liveShopCount > shops.length ? (
@@ -483,61 +392,9 @@ export function FrontDoorFeed({
         </>
       )}
 
-      {/* ═ DISCOVER · People to follow — public profiles, after the shops ═ */}
+      {/* ═ DISCOVER · Service cards · Event stories · Articles · Inspiration (parts 3–6), after the suppliers ═
+          New uploads and Trending are gone (owner 16 Nov, "Discover in six parts"): Event stories replaced both. */}
       {afterShops}
-
-      {/* ═ NEW UPLOADS — the old one shelf, never filtered now ═ */}
-      <div className="fd-grid">
-        {leadStories.map((s) => (
-          <StoryCard key={s.href} s={s} />
-        ))}
-      </div>
-
-      <h2 className="fd-sechead">
-        <span className="fd-badge" aria-hidden="true">
-          ◎
-        </span>
-        {/*
-          🗞✂ 2026-11-16 — this heading was the door to the stories hub, and the shelf mixed in blog articles
-          ("ours"). Both are retired (owner, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"): the heading
-          is a heading, and the count is the stories people shared.
-        */}
-        <span>New uploads</span>
-        <span className="fd-meta">
-          <CountText value={storyCount} /> shared
-        </span>
-      </h2>
-
-      {/* REAL WEDDINGS.
-          Below the threshold this is ONE WRITTEN INVITATION, not an empty
-          shelf — "the shelf is not empty; it is simply all reading". */}
-      {realWeddingsEarnedGrid ? null : (
-        <EmptyShelf
-          line="The first real weddings will land right here."
-          tip="When a couple decides to share their day it joins this shelf — their photos, their suppliers, their timeline, in their own words. Nothing appears without them saying yes."
-        />
-      )}
-
-      {/* ═ TRENDING — chapters ranked by real views, honestly empty today ═ */}
-      <h2 className="fd-sechead">
-        {/* "earned, never sold" moved into the ⓘ (owner 2026-10-01, NO SMALL EXPLAINER LABELS). */}
-        <InfoTip label="Trending" align="start" className="fd-sechead-tip">
-          Stories ranked by real views from real readers — never seeded, padded, or sold.
-        </InfoTip>
-      </h2>
-
-      {trending.length === 0 ? (
-        <EmptyShelf
-          line="No story has earned a spot yet."
-          tip="The first story to earn its place appears here on its own."
-        />
-      ) : (
-        <div className="fd-grid">
-          {trending.map((s) => (
-            <StoryCard key={s.href} s={s} />
-          ))}
-        </div>
-      )}
     </>
   );
 }

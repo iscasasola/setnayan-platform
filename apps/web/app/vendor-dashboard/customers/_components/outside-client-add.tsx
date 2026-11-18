@@ -21,6 +21,7 @@ function hallsSeatLine(seats: SeatsByPool | null, pools: readonly OutsidePool[],
   return { tone: 'ok', text: `${picked.map(name).join(' + ')} free that day` };
 }
 import { SupplierSubmit } from '../../_components/supplier-submit';
+import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 
 /**
  * ADD — an outside client, from the People thumb row (S-PR2; prototype frame
@@ -130,7 +131,7 @@ export function OutsideClientAdd({
           >
             <input type="hidden" name="return_to" value={returnTo} />
             {returnTo === 'dates' && from ? <input type="hidden" name="return_month" value={from.slice(0, 7)} /> : null}
-            {halls ? picked.map((id) => <input key={id} type="hidden" name="pool_ids" value={id} />) : <input type="hidden" name="pool_id" value={pool ?? ''} />}
+            {halls ? picked.map((id) => <input key={id} type="hidden" name="pool_ids" value={id} />) : <input type="hidden" name="pool_id" value={outsideClientPoolOf(pool, pools) ?? ''} />}
             <input type="hidden" name="start_date" value={from ?? ''} />
             <input type="hidden" name="end_date" value={to ?? ''} />
             <input type="hidden" name="client_time" value={time} />

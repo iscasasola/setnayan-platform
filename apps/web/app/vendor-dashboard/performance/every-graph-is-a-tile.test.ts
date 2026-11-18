@@ -74,9 +74,10 @@ test('2 · every tile names its data before it draws', () => {
 
 test('3 · a tap rises into THE one Rise full screen — no second rise', () => {
   const tile = read(TILE);
-  assert.match(tile, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/);
+  // Through the Shop door: the ONE RiseScreen below 701, the 440 right panel from 701 (owner 2026-11-16).
+  assert.match(tile, /import \{ ShopDoorScreen \} from '@\/app\/vendor-dashboard\/_components\/shop-door-screen';/);
   assert.match(tile, /<button\s+type="button"\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the card is a button');
-  assert.match(tile, /\{open \? \(\s*<RiseScreen\b/, 'the tap opens the shared RiseScreen');
+  assert.match(tile, /\{open \? \(\s*<ShopDoorScreen\b/, 'the tap opens the shared Shop door (RiseScreen on a phone)');
   assert.match(tile, /thumb=\{\s*<div className="ag-onedoor" data-graph-door=\{g\.k\}>/, 'the one door sits in the thumb zone');
   assert.ok(!/BodyPanel|createPortal|data-rise-screen=|position:\s*['"]?fixed/.test(tile), 'no rise of its own — the Rise is RiseScreen');
 });

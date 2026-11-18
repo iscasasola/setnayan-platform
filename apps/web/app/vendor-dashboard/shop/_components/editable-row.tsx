@@ -233,7 +233,7 @@ export function EditableRow({
 
   if (inlineDirect) {
     return (
-      <li className={flat ? FLAT_ROW : 'rounded-lg border bg-white'} style={flat ? undefined : { borderColor: 'var(--m-line)' }} data-editable-row={flat ? 'flat' : undefined}>
+      <li className={flat ? FLAT_ROW : 'bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame'} data-editable-row={flat ? 'flat' : undefined}>
         <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'p-3'}>
           <div className={flat ? 'flex min-w-0 flex-1 items-center gap-3' : 'flex items-center gap-3'}>
             <StatusChip ok={false} />
@@ -305,7 +305,7 @@ export function EditableRow({
 
   return (
     <li
-      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'}
+      className={flat ? FLAT_ROW : 'overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame'}
       style={flat ? undefined : { borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
       data-editable-row={flat ? 'flat' : undefined}
     >
@@ -402,7 +402,7 @@ export function ServiceCoverageRow({
   flat?: boolean;
 }) {
   return (
-    <li className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} style={flat ? undefined : { borderColor: 'var(--m-line)' }} data-editable-row={flat ? 'flat' : undefined}>
+    <li className={flat ? FLAT_ROW : 'overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame'} data-editable-row={flat ? 'flat' : undefined}>
       <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
         <StatusChip ok={item.ok} />
         <span className="min-w-0 flex-1">
@@ -487,7 +487,7 @@ export function RequestOnlyRow({
 
   return (
     <li
-      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} // no-card-ok: the EditableRow's own shell, beside it in the same list; it opens an ask in place
+      className={flat ? FLAT_ROW : 'overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame'} // no-card-ok: the EditableRow's own shell, beside it in the same list; it opens an ask in place
       style={flat ? undefined : { borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
       data-editable-row={flat ? 'flat' : undefined}
       data-request-only={pending ? 'pending' : 'ask'}

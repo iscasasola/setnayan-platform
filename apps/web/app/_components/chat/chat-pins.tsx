@@ -23,6 +23,7 @@ import {
   PIN_TOPIC,
   collapsedLine,
   countdownLabel,
+  pinPress,
   stackPins,
   waitingLine,
   type PinFact,
@@ -206,8 +207,12 @@ export function ChatPins({
           action={tone === 'waiting' ? `Waiting for ${f.themName ?? 'them'}` : tone === 'blocker' ? 'Open ›' : 'Answer ›'}
           expanded={body ? openKey === f.key : undefined}
           onPress={() => {
-            if (tone === 'blocker' && onBlocker) onBlocker(f.key);
-            else if (body) toggle(f.key);
+            if (tone === 'blocker' && onBlocker) return onBlocker(f.key);
+            // CHAT-27: no answer to open in place → its card in the chat (the money step), never a dead press.
+            const press = pinPress(f.kind, Boolean(body));
+            if (!press) return;
+            if ('open' in press) toggle(f.key);
+            else jumpTo(press.jump);
           }}
         />
         {f.olderCount ? (

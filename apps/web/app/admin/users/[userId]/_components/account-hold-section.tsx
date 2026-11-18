@@ -8,6 +8,7 @@ import {
   isSuspendReason,
 } from '@/lib/account-suspension';
 import { accountHold } from '../../suspend-actions';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * ⏸ ACCOUNT HOLD — Suspend / Unsuspend on the Person page (owner 2026-11-13, "Yes, add both"). PORTED from the
@@ -97,13 +98,7 @@ export function AccountHoldSection({
           >
             <input type="hidden" name="op" value="unsuspend" />
             <input type="hidden" name="user_id" value={userId} />
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-medium text-cream hover:bg-ink/90"
-            >
-              <Undo2 className="h-4 w-4" strokeWidth={2} aria-hidden />
-              Unsuspend
-            </button>
+            <ActionButton tone="brand" main type="submit" icon={<Undo2 aria-hidden strokeWidth={1.9} />} label="Unsuspend" />
           </ConfirmForm>
         </>
       ) : (
@@ -179,13 +174,7 @@ export function AccountHoldSection({
                 <PostedFieldRow name="Note for admins (they don’t see this)" fieldName="note" long maxLength={2000} />
               </div>
             </div>
-            <button
-              type="submit"
-              className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/20 px-4 text-sm font-medium text-ink hover:bg-ink/5"
-            >
-              <PauseCircle className="h-4 w-4" strokeWidth={2} aria-hidden />
-              Suspend…
-            </button>
+            <ActionButton tone="warn" type="submit" className="mt-3" icon={<PauseCircle aria-hidden strokeWidth={1.9} />} label="Suspend…" />
           </ConfirmForm>
         </>
       )}

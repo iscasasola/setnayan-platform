@@ -47,7 +47,8 @@ export type PaperStateView = {
 /** The person-check line (owner ruling 17) — once the papers are sent, and before (honest: a draft is not yet in the
  *  admin queue; it reaches it on Send for review, as every paper does). */
 export const PERSON_CHECKS_PAPER = 'A person at Setnayan is checking this paper';
-export const PERSON_WILL_CHECK_PAPER = 'A person at Setnayan checks this paper once you send your papers';
+// W1-B35 (18 Nov 2026): ONE line for a kept paper, before it is sent — owner's own words.
+export const PERSON_WILL_CHECK_PAPER = 'Kept for a person to check. Send your papers when ready.';
 
 /** Outcomes that leave a paper refused — the copy was not kept. */
 const REFUSALS: ReadonlySet<IntakeOutcome> = new Set<IntakeOutcome>([
@@ -86,7 +87,9 @@ export function paperState(
   );
   // The SAME rule `isSlotComplete` counts by (`lib/vendor-verification.ts`: a stored `r2_key` string) — never a second one.
   const filed = typeof s?.r2_key === 'string';
-  const note = report && report.outcome !== 'read_ok' ? report.message : null;
+  // W1-B35: a kept paper's state line already says it is kept for a person — the upload's own "kept" report would
+  // say it a second time, so it is not drawn as a note.
+  const note = report && report.outcome !== 'read_ok' && report.outcome !== 'tries_used_kept' ? report.message : null;
   if (filed && s?.manual !== true && s?.evidence?.model) {
     return { kind: 'in', text: 'Recognised', reason: null, attempts, isIn: true, note };
   }

@@ -19,7 +19,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
+// The one source moved to admin-pages.ts with the 17 Nov reorg (the 18 merged pages).
+import { ADMIN_BAR_TABS as ADMIN_TABS, activeAdminBarKey as activeAdminTabKey } from '@/lib/admin/admin-pages';
 
 const HERE = __dirname;
 const RAIL = readFileSync(join(HERE, 'admin-rail-context.tsx'), 'utf8');
@@ -76,7 +77,7 @@ test('no rail row hardcodes its own active state', () => {
   );
   assert.match(
     RAIL_CODE,
-    /activeAdminTabKey\(/,
+    /activeAdminBarKey\(/,
     'the rail no longer resolves an active key at all',
   );
 });
@@ -97,7 +98,7 @@ test('the rail draws the five tabs from the one source, in order', () => {
     ADMIN_TABS.map((t) => t.key),
     ['work', 'money', 'people', 'catalogue', 'insights'],
   );
-  assert.match(RAIL_CODE, /ADMIN_TABS\.map\(/, 'the rail no longer draws its rows from ADMIN_TABS');
+  assert.match(RAIL_CODE, /ADMIN_BAR_TABS\.map\(/, 'the rail no longer draws its rows from ADMIN_BAR_TABS');
 });
 
 /** A stand-in for `useSearchParams()` — the matcher only ever calls `.get`. */
@@ -116,12 +117,12 @@ for (const [pathname, query, expected] of [
   ['/admin/app-performance', '', 'insights'],
   ['/admin/money', '', 'money'],
   // Query-aware: one page, two tabs — the query decides.
-  ['/admin/pricing', 'tab=pricing', 'catalogue'],
+  ['/admin/pricing', 'tab=pricing', 'money'], // owner call 1 (17 Nov): Prices moved to Money
   ['/admin/pricing', 'tab=free-windows', 'money'],
   ['/admin/studio', 'tab=discount-codes', 'money'],
   // The old "bare tabbed URL lights nothing" gap is CLOSED: /admin/pricing with
   // no query is Catalogue › Prices.
-  ['/admin/pricing', '', 'catalogue'],
+  ['/admin/pricing', '', 'money'],
 ] as const) {
   const url = query ? `${pathname}?${query}` : pathname;
   test(`${url} lights exactly one tab — ${expected}`, () => {

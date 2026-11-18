@@ -1,9 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { Badge } from '@/app/_components/badge';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import type { CustomerEventSummary } from '@/lib/customer-event-summary';
 
 /**
@@ -85,7 +86,8 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Customer details"
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+        // The grey button piece (rule 3), its own class list — never a hand-made pill.
+        className={`${actionButtonClass('neutral')} shrink-0 px-3`}
       >
         <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Customer
@@ -117,40 +119,36 @@ function RailBody({
       {!inSheet ? (
         <p
           id={headingId}
-          className="border-b border-ink/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
+          // The template's section label (rule 13): small grey capitals, never gold typewriter words.
+          className="border-b border-[color:var(--m-line)] px-4 py-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]"
         >
           Customer
         </p>
       ) : null}
 
       {/* Identity */}
-      <div className="flex flex-col items-center gap-2 border-b border-ink/10 px-4 py-5 text-center">
-        <span className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-ink/10 bg-white text-sm font-semibold text-ink/70">
+      <div className="flex flex-col items-center gap-2 border-b border-[color:var(--m-line)] px-4 py-5 text-center">
+        <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-sm font-semibold text-ink">
           {initials}
         </span>
         <p className="text-base font-semibold text-ink">{displayName}</p>
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${stage.tone}`}
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${stage.tone}`}
         >
           {stage.label}
         </span>
         {source ? (
           <p className="flex flex-wrap items-center justify-center gap-1" data-rail-source="">
-            <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
-              {source.label}
-            </span>
-            {source.returning ? (
-              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                {source.returning}
-              </span>
-            ) : null}
+            {/* Rule 5 · status chips: soft fill, no border, never 9 px typewriter capitals. */}
+            <Badge tone="quiet">{source.label}</Badge>
+            {source.returning ? <Badge tone="ok">{source.returning}</Badge> : null}
           </p>
         ) : null}
       </div>
 
       <>
           {/* WHO STARTED WHAT, AND WHEN. */}
-          <p className="border-b border-ink/10 px-4 py-4 text-left text-sm leading-relaxed text-ink/75">
+          <p className="border-b border-[color:var(--m-line)] px-4 py-4 text-left text-sm leading-relaxed text-[color:var(--m-slate-2)]">
             {summary.sentence}
           </p>
 
@@ -162,7 +160,7 @@ function RailBody({
               still absent: that sits behind the agreement ladder in
               `get_vendor_event_brief`, which the 2026-09-08 ruling did not
               touch. */}
-          <dl className="flex flex-col gap-3 border-b border-ink/10 px-4 py-4 text-left">
+          <dl className="flex flex-col gap-3 border-b border-[color:var(--m-line)] px-4 py-4 text-left">
             {summary.facts.map((f) => (
               <SnapRow
                 key={f.label}
@@ -181,15 +179,16 @@ function RailBody({
               `Locked suppliers` row above. Categories only; the supplier's
               NAMES stay behind the booked-stage `vendor_roster`. */}
           {summary.lockedCategories.length > 0 ? (
-            <div className="border-b border-ink/10 px-4 py-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            <div className="border-b border-[color:var(--m-line)] px-4 py-4">
+              <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
                 Already locked
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              {/* Facts, not statuses — one dark-grey line joined by a middot (rule 5). */}
+              <div className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[color:var(--m-slate-2)] [&>span+span]:before:mr-1.5 [&>span+span]:before:content-['·']">
                 {summary.lockedCategories.map((c) => (
                   <span
                     key={c}
-                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+                    className="inline-flex items-center"
                   >
                     {c}
                   </span>
@@ -204,14 +203,14 @@ function RailBody({
               this thread (#5614) — this button reloaded the page it sat on.
               `details` is the shell tab that holds the full brief. */}
           <div className="px-3 pb-4 pt-2">
-            <Link
+            {/* The grey button piece (rule 3) — a dark filled block competed with the screen's one main. */}
+            <ActionButton
+              tone="neutral"
+              icon={<User aria-hidden strokeWidth={2} />}
+              label="Full customer profile"
               href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2.5 text-sm font-semibold text-cream hover:bg-ink/90"
-            >
-              <User aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Full customer profile
-              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </Link>
+              className="w-full !min-h-11"
+            />
           </div>
       </>
     </div>
@@ -241,14 +240,14 @@ function SnapRow({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">{label}</dt>
+      <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]">{label}</dt>
       <dd className="text-sm font-medium text-ink">
         {value}
         {note ? (
           <>
-            <span className="mt-0.5 block text-xs font-normal text-ink/55">{note}</span>
+            <span className="mt-0.5 block text-[13px] font-normal text-[color:var(--m-slate-2)]">{note}</span>
             {noteIsPrivate ? (
-              <span className="mt-0.5 block text-[11px] font-normal text-ink/40">
+              <span className="mt-0.5 block text-[13px] font-normal text-[color:var(--m-slate-3)]">
                 Your pipeline only — the couple never sees this line.
               </span>
             ) : null}

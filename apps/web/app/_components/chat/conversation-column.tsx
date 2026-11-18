@@ -77,13 +77,13 @@ export function ConversationColumn({
   const unreadCount = rows.filter((r) => r.unread).length;
 
   return (
-    <aside className="hidden w-[17.5rem] shrink-0 flex-col overflow-hidden sn-row xl:flex">
+    <aside className="hidden w-[17.5rem] shrink-0 flex-col overflow-hidden border-r border-[color:var(--m-line)] xl:flex">
       {heading ? (
-        <div className="flex items-baseline gap-2 border-b border-ink/10 px-3 pb-2 pt-3">
+        <div className="flex items-baseline gap-2 border-b border-[color:var(--m-line)] px-3 pb-2 pt-3">
           {backHref ? (
             <Link
               href={backHref}
-              className="shrink-0 text-xs font-medium text-mulberry hover:underline"
+              className="inline-flex min-h-11 shrink-0 items-center text-[13px] font-medium text-mulberry hover:underline"
             >
               {backLabel ?? '‹ Back'}
             </Link>
@@ -91,21 +91,21 @@ export function ConversationColumn({
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{heading}</span>
           {/* The roll-up the prototype prints beside the heading: how many of
               these have something in them the reader has not seen. */}
-          <span className="shrink-0 text-[11px] text-ink/55">
+          <span className="shrink-0 text-[13px] tabular-nums text-[color:var(--m-slate-2)]">
             {rows.length}
             {unreadCount > 0 ? ` · ${formatCount(unreadCount)} new` : ''}
           </span>
         </div>
       ) : null}
 
-      <div className="border-b border-ink/10 p-3">
+      <div className="border-b border-[color:var(--m-line)] p-3">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search conversations"
           aria-label="Search conversations"
-          className="h-9 w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-mulberry focus:outline-none"
+          className="h-11 w-full rounded-xl border border-[color:var(--m-line)] bg-white px-3 text-sm text-ink placeholder:text-[color:var(--m-slate-3)] focus:border-mulberry focus:outline-none dark:bg-raised"
         />
       </div>
 
@@ -114,7 +114,7 @@ export function ConversationColumn({
       <div
         role="group"
         aria-label="Filter conversations"
-        className="flex gap-1 overflow-x-auto border-b border-ink/10 px-3 py-2"
+        className="flex gap-1 overflow-x-auto border-b border-[color:var(--m-line)] px-3 py-2"
       >
         {chips.map((f) => {
           const on = filter === f.key;
@@ -124,10 +124,10 @@ export function ConversationColumn({
               type="button"
               aria-pressed={on}
               onClick={() => setFilter(f.key)}
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${
+              className={`inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium ${
                 on
                   ? 'border-mulberry bg-mulberry text-cream'
-                  : 'border-ink/15 bg-white text-ink/65 hover:border-ink/30'
+                  : 'border-[color:var(--m-line)] bg-white text-[color:var(--m-slate-2)] hover:border-ink/30 dark:bg-raised'
               }`}
             >
               {f.label}
@@ -142,7 +142,7 @@ export function ConversationColumn({
              as "you have no conversations", which is a different and much worse
              sentence than "none of them are unanswered" — and it is the same
              disease as a refused read drawing a blank page. */
-          <p className="px-4 py-6 text-center text-xs leading-relaxed text-ink/55">
+          <p className="px-4 py-6 text-center text-[13px] leading-relaxed text-[color:var(--m-slate-2)]">
             {rows.length === 0
               ? 'No conversations yet.'
               : query.trim()
@@ -167,13 +167,13 @@ export function ConversationColumn({
                        `<alpha-value>` placeholder and the rule is dropped
                        silently. Transparent on the inactive rows so nothing
                        shifts by 3px when the selection moves. */
-                    className={`flex gap-2.5 border-b border-l-[3px] border-ink/[0.07] px-3 py-2.5 ${
+                    className={`flex gap-2.5 border-b border-l-[3px] border-[color:var(--m-line)] px-3 py-2.5 ${
                       active
                         ? 'border-l-mulberry bg-mulberry/[0.07]'
                         : 'border-l-transparent hover:bg-ink/[0.03]'
                     }`}
                   >
-                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 bg-white text-[11px] font-semibold text-ink/70">
+                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-[12px] font-semibold text-ink">
                       {r.initials}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -181,7 +181,7 @@ export function ConversationColumn({
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                           {r.displayName}
                         </span>
-                        <span className="shrink-0 font-mono text-[10px] text-ink/45">
+                        <span className="shrink-0 text-[12px] tabular-nums text-[color:var(--m-slate-2)]">
                           {r.timeLabel}
                         </span>
                       </span>
@@ -190,8 +190,8 @@ export function ConversationColumn({
                           prototype's own note records this costing a whole
                           revision, where the text simply clipped mid-word. */}
                       <span
-                        className={`mt-0.5 block truncate text-xs ${
-                          r.unread ? 'font-semibold text-ink' : 'text-ink/60'
+                        className={`mt-0.5 block truncate text-[13px] ${
+                          r.unread ? 'font-semibold text-ink' : 'text-[color:var(--m-slate-2)]'
                         }`}
                       >
                         {r.preview}
@@ -201,7 +201,7 @@ export function ConversationColumn({
                           p.kind === 'unanswered' ? (
                             <span
                               key="unanswered"
-                              className="rounded-full border border-mulberry bg-white px-1.5 py-0.5 text-[10px] font-semibold text-mulberry"
+                              className="rounded-full border border-mulberry bg-white px-2 py-0.5 text-[12px] font-semibold text-mulberry dark:bg-raised"
                             >
                               Unanswered
                             </span>
@@ -210,7 +210,7 @@ export function ConversationColumn({
                                thread this row opens — never a second palette. */
                             <span
                               key={`stage-${p.stage}`}
-                              className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${THREAD_STAGE_TONE[p.stage]}`}
+                              className={`rounded-full border px-2 py-0.5 text-[12px] font-medium ${THREAD_STAGE_TONE[p.stage]}`}
                             >
                               {THREAD_STAGE_LABEL[p.stage]}
                             </span>
@@ -219,7 +219,7 @@ export function ConversationColumn({
                         {r.labels.map((l) => (
                           <span
                             key={l}
-                            className="rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-ink/55"
+                            className="rounded-full bg-[color:var(--m-paper-2)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--m-slate-2)]"
                           >
                             {l}
                           </span>

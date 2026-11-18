@@ -20,7 +20,8 @@ test('one pill per badge, in print order, every word outlined (no <text> a print
   const keys = [...svg.matchAll(/data-badge="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(keys, ['verified', 'milestone:50', 'rating', 'years']);
   assert.doesNotMatch(svg, /<text\b/);
-  assert.match(svg, /data-qr-centre="setnayan"/, 'the official mark sits in the Verified circle');
+  // Owner 17 Nov ("Prints did not use Setnayan Verified badge"): the Verified circle holds the APPROVED v84 blue check.
+  assert.match(svg, /data-verified-v84=""/, 'the v84 Setnayan Verified sits in the Verified circle');
   assert.match(svg, /<linearGradient id="foil0"/, 'the gold-foil edge');
   assert.match(svg, /^<\?xml/);
 });

@@ -5,6 +5,7 @@ import { HubRunOfShow } from '@/app/vendor-dashboard/on-the-day/_components/hub-
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { CREW_NO_SCANNER_LINE, CREW_ROLE_LABEL, crewRoleOpens, crewToolsWords, type CrewRole } from '@/lib/crew-pass';
 import { CrewJoinForm } from './crew-name-form';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * 📱 THE CREW PHONE'S SCREENS (owner 2026-10-29, DECISION_LOG "CREW JOIN THE SUPPLIER'S EVENT HUB BY QR — AND SEE ONLY
@@ -29,8 +30,10 @@ export function CrewNameForm({ token, shopWords, anonymous }: { token: string; s
         <QrCode aria-hidden className="h-8 w-8 text-sn-accent" strokeWidth={1.6} />
         <h1 className="text-[22px] font-medium leading-snug text-ink">Join the crew</h1>
         <p className="text-[14.5px] text-ink/70">
-          {shopWords} will see your name and tap Allow. Then this phone opens their Event Hub for this event — only the
-          tools you need on the day.
+          {shopWords} will see your name and tap Allow.{' '}
+          <InfoTip label="" ariaLabel="What happens then" align="start">
+            Then this phone opens their Event Hub for this event — only the tools you need on the day.
+          </InfoTip>
         </p>
         <CrewJoinForm token={token} anonymous={anonymous} />
       </div>

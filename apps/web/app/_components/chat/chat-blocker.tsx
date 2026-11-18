@@ -131,7 +131,7 @@ export function ChatBlocker({
           <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-danger-100 text-danger-800">
             <Icon className="h-5 w-5" strokeWidth={1.9} />
           </span>
-          <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-danger-700">Needs you first</span>
+          <span className="text-[13px] font-semibold text-danger-700">Needs you first</span>
         </div>
         <h2 id={`blocker-${subjectKey}`} className="mt-4 text-[24px] font-semibold leading-tight text-ink">
           {title}

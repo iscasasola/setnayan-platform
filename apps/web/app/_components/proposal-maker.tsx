@@ -274,9 +274,9 @@ function QuoteSection({
   children: React.ReactNode;
 }) {
   return (
-    <section data-quote-section={id} aria-label={title} className="border-b border-ink/10">
+    <section data-quote-section={id} aria-label={title} className="pb-2">
       <div
-        className={`flex min-h-9 items-center justify-between gap-3 px-4 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45${pin ? ' sticky top-0 z-[2] bg-cream pb-1' : ''}`}
+        className={`flex min-h-9 items-center justify-between gap-3 px-4 pt-3 text-[13px] font-semibold text-ink/70${pin ? ' sticky top-0 z-[2] bg-cream pb-1' : ''}`}
         data-quote-section-head={pin ? 'pinned' : ''}
       >
         {info ? (
@@ -287,7 +287,7 @@ function QuoteSection({
           <span>{title}</span>
         )}
         <span className="flex items-center gap-2">
-          {hint ? <span className="normal-case tracking-normal text-ink/40">{hint}</span> : null}
+          {hint ? <span className="text-[12px] font-normal text-ink/55">{hint}</span> : null}
           {action}
         </span>
       </div>
@@ -357,6 +357,7 @@ export function ProposalMaker({
   threadId,
   requestedPax,
   livePax = null,
+  paxKnown = true,
   requestedHours = 8,
   coupleName,
   packages = [],
@@ -479,6 +480,12 @@ export function ProposalMaker({
    * either one is how a supplier quotes against a number nobody agreed to.
    */
   livePax?: number | null;
+  /**
+   * 👥 The couple gave a count at all (owner screenshot 17 Nov, "Debut 18": "On their list 100" while their event has
+   * no estimate, no final count and no guests — the 100 is the page's stand-in seed). False → the row says
+   * "No count yet", the same words Details' Agreed now says; the seed still prices the draft (unchanged).
+   */
+  paxKnown?: boolean;
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
@@ -1514,7 +1521,7 @@ export function ProposalMaker({
   const numField = `${field} text-right tabular-nums`;
   // A native select ignores min-height on WebKit (the Safari engine measured 26px) — it gets a real height.
   const selectField = `${field} h-11`;
-  const lbl = 'font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta';
+  const lbl = 'text-[12px] font-medium text-ink/55';
 
   if (!open) {
     return (
@@ -1666,8 +1673,8 @@ export function ProposalMaker({
                 {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
-              {formatCount(seedPax)}
+            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={paxKnown ? '' : 'none'}>
+              {paxKnown ? formatCount(seedPax) : 'No count yet'}
             </strong>
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">
@@ -1708,7 +1715,11 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">Billed</span>
               <span className="block text-xs text-ink/55">
-                {pax > seedPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
+                {!paxKnown
+                  ? 'no count from them yet'
+                  : pax > seedPax
+                    ? 'your minimum · above their list'
+                    : 'their list · at or above your minimum'}
               </span>
             </span>
             <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
@@ -1872,7 +1883,7 @@ export function ProposalMaker({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             {brief.rows.map((r) => (
               <div key={r.label} className="contents">
-                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
+                <dt className="text-[12px] font-medium text-ink/55 pt-0.5">{r.label}</dt>
                 <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
                   {r.value}
                   {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
@@ -1939,14 +1950,15 @@ export function ProposalMaker({
                   value={l.label}
                   onChange={(e) => patchLine(l.key, { label: e.target.value })}
                   aria-label="Line item name"
-                  className={`min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
+                  data-quote-line-title=""
+                  className={`min-h-11 min-w-0 flex-1 truncate border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
                 />
                 {l.free ? (
-                  <span className="whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
+                  <span className="shrink-0 whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
                     Complimentary
                   </span>
                 ) : (
-                  <span className="whitespace-nowrap font-serif text-base text-ink tabular-nums">
+                  <span className="shrink-0 whitespace-nowrap font-serif text-base text-ink tabular-nums" data-quote-line-price="">
                     {formatCentavos(cents)}
                   </span>
                 )}

@@ -130,3 +130,41 @@ export function eventRowTitle(args: {
   const day = said === 'date not set' && args.options?.trim() ? args.options.trim() : said;
   return [own || null, saysKind ? null : kind, day].filter(Boolean).join(' · ');
 }
+
+/**
+ * 🔎 WHAT TELLS TWO SAME-TITLED CHATS APART (CHAT-11, W1 walk 16 Nov 2026).
+ *
+ * Measured live: a supplier's Chats list read "TEST's Birthday (date not set)" on five rows — one customer, five
+ * undated birthdays — so nothing on screen said which was which. The chat title stays the owner's words ("User's event
+ * (date)", above); what differs goes in the row's EVENT LINE, the shipped slot the couple's rows already use ("each row
+ * says WHICH event", Frame L 2026-10-28). It says, in order: the event's own name as the customer wrote it — the words
+ * Customers › Events leads with (`eventRowTitle`) — else its city. Only for a title that more than one row shares, and
+ * only a word that is unique within that group: a line that repeats on every row tells nothing apart, so it is not said.
+ */
+export function chatRowTellApart(
+  rows: { key: string; title: string; ownName: string | null | undefined; city: string | null | undefined }[],
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const byTitle = new Map<string, typeof rows>();
+  for (const r of rows) byTitle.set(r.title, [...(byTitle.get(r.title) ?? []), r]);
+  for (const group of byTitle.values()) {
+    if (group.length < 2) continue;
+    const count = (pick: (r: (typeof rows)[number]) => string) => {
+      const n = new Map<string, number>();
+      for (const r of group) {
+        const w = pick(r);
+        if (w) n.set(w, (n.get(w) ?? 0) + 1);
+      }
+      return n;
+    };
+    const own = (r: (typeof rows)[number]) => (r.ownName ?? '').trim();
+    const city = (r: (typeof rows)[number]) => (r.city ?? '').trim();
+    const owns = count(own);
+    const cities = count(city);
+    for (const r of group) {
+      const word = owns.get(own(r)) === 1 ? own(r) : cities.get(city(r)) === 1 ? city(r) : '';
+      if (word) out.set(r.key, word);
+    }
+  }
+  return out;
+}

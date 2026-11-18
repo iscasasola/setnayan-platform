@@ -25,7 +25,7 @@ export function EventsYouRunRows({ events, where }: { events: readonly EventYouR
           <RowIcon name="run" />
           <span className="min-w-0">
             <span className="home-t block truncate text-[15px] leading-tight text-ink">{e.name}</span>
-            <span className="block truncate text-[13px] text-ink/60">{where === 'today' ? e.line : e.placeLine}</span>
+            <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{where === 'today' ? e.line : e.placeLine}</span>
             <span className="block truncate text-[13px] text-sn-accent" data-needs="">{e.needs}</span>
           </span>
           <span className="inline-flex items-center gap-0.5 text-[14px] font-medium text-sn-accent">
@@ -65,7 +65,7 @@ export function CheckinDeskRows({ events }: { events: readonly EventYouRun[] }) 
             <RowIcon name="scan" />
             <span className="min-w-0">
               <span className="home-t block truncate text-[15px] leading-tight text-ink">{e.name}</span>
-              <span className="block truncate text-[13px] text-ink/60">Scan guests in at the reception · {e.status}</span>
+              <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">Scan guests in at the reception · {e.status}</span>
             </span>
             <span className="inline-flex items-center gap-0.5 text-[14px] font-medium text-sn-accent">
               Open
@@ -105,7 +105,7 @@ export function MessageEveryoneRows({ events, enabled }: { events: readonly Even
             <RowIcon name="chat" />
             <span className="min-w-0">
               <span className="home-t block truncate text-[15px] leading-tight text-ink">{e.name}</span>
-              <span className="block truncate text-[13px] text-ink/60">An announcement every guest sees</span>
+              <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">An announcement every guest sees</span>
             </span>
             <span className="inline-flex items-center gap-0.5 text-[14px] font-medium text-sn-accent">
               Write
@@ -134,7 +134,7 @@ export function SeatFinderRow({ eventId, name }: { eventId: string; name: string
           <RowIcon name="scan" />
           <span className="min-w-0">
             <span className="home-t block truncate text-[15px] leading-tight text-ink">Find a guest’s seat</span>
-            <span className="block truncate text-[13px] text-ink/60">Scan their pass · {name}</span>
+            <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">Scan their pass · {name}</span>
           </span>
           <span className="inline-flex items-center gap-0.5 text-[14px] font-medium text-sn-accent">
             Open

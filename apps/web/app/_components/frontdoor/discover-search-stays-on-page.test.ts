@@ -79,7 +79,8 @@ test('3 · an empty query renders the normal Discover feed, never a blank page',
   const fd = code('app/_components/frontdoor/front-door.tsx');
   assert.match(fd, /const searchQuery = \(q \?\? ''\)\.trim\(\);/, 'the words are no longer trimmed — "   " would be a search');
   // No words → the sections; the results only ever stand in their place.
-  assert.match(fd, /\) : \(\s*<>\s*<FrontDoorFeed\b/, 'with no words, Discover no longer draws its feed');
+  // 🔄 2026-11-16: with no words the feed is drawn unless one of Discover's own "See all" views is open.
+  assert.match(fd, /\) : \(\s*<>\s*\{view\.kind === 'stories' \?[\s\S]*?\) : \(\s*<FrontDoorFeed\b/, 'with no words, Discover no longer draws its feed');
   // The old results address with no words: back to Discover before anything is drawn.
   const page = code('app/dashboard/(account)/search/page.tsx');
   const bare = page.indexOf("if (!query) redirect('/');");

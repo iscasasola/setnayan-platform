@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormPick } from '@/app/dashboard/[eventId]/guests/_components/card-fields';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
@@ -74,31 +75,31 @@ export function RequestForm({
 
       {rsvpAsks(ask, 'plus_ones') ? (
         <div className="space-y-1.5">
-          <label htmlFor="request-seats" className="block text-sm font-medium text-ink">
-            How many of you?
-          </label>
-          <select id="request-seats" name="seats" defaultValue="1" className="input-field">
-            {Array.from({ length: REQUEST_MAX_SEATS }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n === 1 ? 'Just me' : `${n} — me and ${n - 1} more`}
-              </option>
-            ))}
-          </select>
+          <p className="block text-sm font-medium text-ink">How many of you?</p>
+          {/* Design template rule 4: the ▾ picker (the guest card's FormPick — PickMenu + the posted hidden field). */}
+          <FormPick
+            name="seats"
+            label="How many of you?"
+            value="1"
+            dataAttr="request-seats"
+            options={Array.from({ length: REQUEST_MAX_SEATS }, (_, i) => i + 1).map((n) => ({
+              key: String(n),
+              label: n === 1 ? 'Just me' : `${n} — me and ${n - 1} more`,
+            }))}
+          />
         </div>
       ) : null}
 
       {rsvpAsks(ask, 'meal') ? (
         <div className="space-y-1.5">
-          <label htmlFor="request-meal" className="block text-sm font-medium text-ink">
-            Meal preference
-          </label>
-          <select id="request-meal" name="meal_preference" defaultValue="no_preference" className="input-field">
-            {meals.map((m) => (
-              <option key={m} value={m}>
-                {MEAL_LABELS[m]}
-              </option>
-            ))}
-          </select>
+          <p className="block text-sm font-medium text-ink">Meal preference</p>
+          <FormPick
+            name="meal_preference"
+            label="Meal preference"
+            value="no_preference"
+            dataAttr="request-meal"
+            options={meals.map((m) => ({ key: m, label: MEAL_LABELS[m] }))}
+          />
         </div>
       ) : null}
 

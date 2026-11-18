@@ -81,7 +81,7 @@ test('1 · Today and Your details draw ONE six from ONE call', () => {
   assert.equal(detailsFigures({ verified: true, docsIn: 3, docsTotal: 3, done: null, of: 6, steps: false }).some((f) => f.key === 'done'), false);
 });
 
-test('2 · "Send your documents" ticks by the paper rows’ rule, and still names the Send', () => {
+test('2 · "Send your documents" ticks only once the papers are SENT, and names the Send while they are in (W1-B36)', () => {
   const uploads = {
     dti_certificate: { r2_key: 'r2://a', attempts: 0, evidence: { model: {} } },
     bir_2303: { r2_key: 'r2://b', attempts: 3, manual: true },
@@ -98,9 +98,12 @@ test('2 · "Send your documents" ticks by the paper rows’ rule, and still name
     serviceLabel: (k) => k,
   });
   const docs = all.folds.find((f) => f.key === 'docs')!;
-  assert.equal(docs.done, true, 'every paper row reads in, the step does not');
+  // W1-B36 / B33 (live walk, 18 Nov 2026): a tick beside "Send them" looked finished while it still asked for the
+  // Send, and the tick moved the folds on to step 6 on the third upload. Papers IN are not papers SENT.
+  assert.equal(docs.done, false, 'step 5 ticks before the papers are sent');
   assert.equal(docs.badge?.word, 'Send them', 'the Send is no longer named');
-  assert.equal(setupHeadline(all), 'All done — send your papers for review', '"All done" claims Setnayan is checking papers nobody sent');
+  assert.equal(all.firstOpen, 'docs', 'the folds leave step 5 before its papers are sent');
+  assert.doesNotMatch(setupHeadline(all), /All done/, '"All done" while the papers are not sent');
 
   const sent = shopSetupView({
     d: { checklist: CHECKLIST, verify: { status: 'pending_review' }, docsIn, docsTotal: 3, businessName: 'x' },

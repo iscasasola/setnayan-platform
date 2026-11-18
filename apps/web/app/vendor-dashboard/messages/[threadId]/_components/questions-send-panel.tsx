@@ -6,6 +6,7 @@ import { formatCount } from '@/lib/format-number';
 import { dayMonth } from '@/lib/format-date';
 import { readCoupleAnswers } from '@/app/vendor-dashboard/clients/[eventId]/_components/couple-answers';
 import { SendQuestionsButton } from './send-questions-button';
+import { TemplateEmpty, TemplateFail } from '@/app/_components/template-rows';
 
 /**
  * ❓ QUESTIONS FOR THE COUPLE — the chat ＋ panel (owner 2026-11-04, verbatim "Yes, every supplier"; prototype
@@ -22,12 +23,18 @@ export async function QuestionsSendPanel({
   eventId,
   vendorProfileId,
   coupleName,
+  quietWhenEmpty = false,
 }: {
   supabase: SupabaseClient;
   threadId: string;
   eventId: string;
   vendorProfileId: string;
   coupleName: string;
+  /**
+   * The picked client's Forms page mounts this UNDER `QuestionsSection`, which already says there are no questions —
+   * so the empty line is drawn once there, not three times (owner, 17 Nov). The chat keeps its line (default).
+   */
+  quietWhenEmpty?: boolean;
 }) {
   const [questionsRes, askRes, answers] = await Promise.all([
     supabase
@@ -47,10 +54,10 @@ export async function QuestionsSendPanel({
   if (error) {
     logQueryError('QuestionsSendPanel.read', error, { event_id: eventId }, 'graceful_degrade');
     return (
-      <p role="alert" className="text-sm text-ink/70">
-        <strong className="text-ink">We couldn&rsquo;t load your questions.</strong> Nothing was sent or lost —
-        reload in a moment.
-      </p>
+      // Rule 6 · a refused read says so, in amber — never the "no questions yet" line.
+      <TemplateFail data="questions-read">
+        <strong>We couldn&rsquo;t load your questions.</strong> Nothing was sent or lost — reload in a moment.
+      </TemplateFail>
     );
   }
   return (
@@ -60,6 +67,7 @@ export async function QuestionsSendPanel({
       asked={askedQuestions((questionsRes.data ?? []) as VendorQuestion[])}
       sentAt={(askRes.data as { sent_at: string } | null)?.sent_at ?? null}
       answered={answers.unread ? null : answers.questionnaire.answered}
+      quietWhenEmpty={quietWhenEmpty}
     />
   );
 }
@@ -71,6 +79,7 @@ export function QuestionsSendBody({
   asked,
   sentAt,
   answered,
+  quietWhenEmpty = false,
 }: {
   threadId: string;
   coupleName: string;
@@ -78,16 +87,18 @@ export function QuestionsSendBody({
   sentAt: string | null;
   /** null = the answers could not be read; never drawn as "0 answered". */
   answered: number | null;
+  quietWhenEmpty?: boolean;
 }) {
   if (asked.length === 0) {
+    if (quietWhenEmpty) return null;
     return (
-      <p className="text-sm leading-relaxed text-ink/70">
+      <TemplateEmpty data="questions">
         You have no questions yet.{' '}
         <Link href="/vendor-dashboard/activities#questions" className="font-semibold text-sn-accent underline-offset-4 hover:underline">
           Write your questions
         </Link>{' '}
         once — then send them to every couple from here.
-      </p>
+      </TemplateEmpty>
     );
   }
   const status = sentAt
@@ -95,13 +106,13 @@ export function QuestionsSendBody({
     : 'Not sent yet';
   return (
     <div className="space-y-3">
-      <p className="text-[13px] text-ink/60">
+      <p className="text-[13px] text-[color:var(--m-slate-2)]">
         {formatCount(asked.length)} question{asked.length === 1 ? '' : 's'} · {status}
       </p>
-      <ol className="divide-y divide-ink/10">
+      <ol className="divide-y divide-[color:var(--m-line)]">
         {asked.map((q, i) => (
           <li key={q.question_id} className="flex gap-2 py-2 text-[14px] leading-snug text-ink">
-            <span className="w-5 shrink-0 text-ink/45">{i + 1}.</span>
+            <span className="w-5 shrink-0 text-[color:var(--m-slate-2)]">{i + 1}.</span>
             <span className="min-w-0 flex-1">{q.prompt}</span>
           </li>
         ))}

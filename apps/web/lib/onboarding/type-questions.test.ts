@@ -130,3 +130,18 @@ test('each type now has 3–4 signature questions (Standard depth)', () => {
     assert.ok(qs.length >= 3 && qs.length <= 4, `${type} has ${qs.length} questions (want 3–4)`);
   }
 });
+
+test('a dessert answer adds Cakes & Desserts, never Food Carts (owner 17 Nov 2026, after T1 part 2)', () => {
+  // T1 part 2 folded the old Dessert category into Food Carts; the owner ruled the onboarding's dessert answers point at
+  // Cakes & Desserts (`cake`, which holds the Dessert table) instead — "2. yes".
+  assert.deepEqual(extraPicksFromAnswers('birthday', { highlight: 'dessert' }), ['cake']);
+  for (const qs of Object.values(PER_TYPE_QUESTIONS)) {
+    for (const q of qs) {
+      for (const o of q.options) {
+        if (/dessert|sweets/i.test(`${o.key} ${o.title}`)) {
+          assert.ok(!o.adds.includes('food_cart'), `${q.id}/${o.key} ("${o.title}") still adds Food Carts`);
+        }
+      }
+    }
+  }
+});

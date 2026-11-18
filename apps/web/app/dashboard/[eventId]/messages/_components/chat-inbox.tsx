@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { SquarePen } from 'lucide-react';
+import { Archive, ArchiveRestore, SquarePen } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { ThumbRow } from '@/components/thumb-row';
 import { ThumbDock } from '@/components/thumb-dock';
 import { Sheet } from '@/app/_components/sheet';
@@ -67,6 +68,8 @@ export type InboxRow = {
   /** "Dec 18 · Claire & Indalecio" — the event this one thread belongs to, beside the name (frame L). */
   eventLine: string;
   archived: boolean;
+  /** 👥 The other side's other names, for the search only (`InboxSearchRow.names`, CHAT-16). Never drawn. */
+  names?: string | null;
   /** Archive / unarchive — the shipped per-row form, drawn by the page. */
   archive: ReactNode;
   /** The row opens a picked page (`PickedShell`) over this list — its tap is recorded for the rise and the reverse. */
@@ -183,11 +186,24 @@ export function ChatInbox({
     ) : (
     <li
       key={r.threadId}
-      className="flex items-center"
       data-inbox-row={unread ? 'unread' : 'read'}
       {...(r.needsYou ? { 'data-inbox-needs-you': r.needsYou } : {})}
       {...(isOpen ? { 'data-open-row': '', 'data-open-current': '' } : {})}
     >
+      {/* 👆 TAP OPENS, SWIPE LEFT REMOVES (owner 4 Nov, app-wide; CHAT-17, W1 walk 16 Nov 2026): the ONE swipe
+          (`SwipeToDelete`); on a chat, remove = archive (unarchive in the Archived group) — the row's own shipped form,
+          submitted. On a computer the word shows on hover, as on every list. */}
+      <SwipeToDelete
+        label={`${r.archived ? 'Unarchive' : 'Archive'} ${r.name}`}
+        word={r.archived ? 'Unarchive' : 'Archive'}
+        icon={r.archived ? ArchiveRestore : Archive}
+        radiusClass="rounded-none"
+        onDelete={(close) => {
+          document.querySelector<HTMLFormElement>(`[data-row-archive="${r.threadId}"] form`)?.requestSubmit();
+          close();
+        }}
+      >
+      <div className="flex items-center">
       <Link
         href={r.href}
         prefetch
@@ -231,7 +247,12 @@ export function ChatInbox({
         </span>
         {unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}
       </Link>
-      {r.archive}
+      </div>
+      </SwipeToDelete>
+      {/* The shipped per-row archive form — the swipe's Archive submits it; no always-on icon beside the row. */}
+      <div hidden data-row-archive={r.threadId}>
+        {r.archive}
+      </div>
     </li>
     );
   };

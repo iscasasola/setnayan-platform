@@ -60,7 +60,7 @@ import {
 } from '@/lib/home-public-reads';
 import { ReadRefused } from '@/lib/remembered-read-core';
 import { loadYourPeople } from '@/lib/your-people';
-import { loadPublishedShowcases } from '@/lib/showcase-db';
+import { loadPublishedShowcasesResult } from '@/lib/showcase-db';
 import { editorialsToStories } from '@/lib/front-door-editorials';
 // The SAME tokenizer the reading search uses, so one typed query is split one
 // way for both halves of the answer. A local split here is how "St. Mary's"
@@ -251,6 +251,12 @@ export type FrontDoorData = {
    * day when eight are published, with nothing anywhere saying so.
    */
   storyCount: number | null;
+  /**
+   * 🩺 Did the published-editorials read ANSWER? `false` = it refused (or partly refused), so the editorials in
+   * `stories` are not the truth and Event stories must say "couldn't load" — never "the first stories will land
+   * here". An error is not empty (the `guests.ts` · `fetchGuestsByEventMeasured` rule, 2026-11-17).
+   */
+  editorialsMeasured: boolean;
   shops: FrontDoorShop[];
   /** null = the read failed. Never coerced to 0. Demo shops included — it decides whether the shelf is empty. */
   liveShopCount: number | null;
@@ -596,7 +602,8 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
         and it signs its pictures inside. It is asked on every view until it
         can report its own success, as the chapters read above does.
       */
-      loadPublishedShowcases(24).catch(() => null),
+      // 🩺 2026-11-17 — the MEASURED read (`ok`), so Event stories can tell "none shared" from "did not load".
+      loadPublishedShowcasesResult(24).catch(() => ({ items: [], ok: false })),
       /*
         💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. `loadYourPeople`
         returns on its first line without a session — which is every visitor to
@@ -665,7 +672,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
   // the front door's threshold is a claim about how many real couples have
   // shared their day, and counting a sample toward it would make the page
   // lie about the one thing it promises ("nothing is staged").
-  const realShowcases = (showcasesRaw ?? []).filter((s) => !s.isSample);
+  const realShowcases = showcasesRaw.items.filter((s) => !s.isSample);
   const realWeddingCount = realShowcases.length;
 
   /*
@@ -721,6 +728,7 @@ export async function loadFrontDoorData(): Promise<FrontDoorData> {
     stories,
     // null ⇒ the read failed ⇒ the heading says "couldn't load", never "0".
     storyCount: storiesRaw.ok ? storiesRaw.items.length : null,
+    editorialsMeasured: showcasesRaw.ok,
     shops: shopsRaw.shops,
     liveShopCount: shopsRaw.count,
     realShopCount: shopsRaw.realCount,

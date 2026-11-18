@@ -99,16 +99,16 @@ export function ServiceCardFace({
   */
   const gift = snap.givesSetnayanGift ? (
     <SetnayanGiftLine
-      className="flex items-center gap-1 text-[10.5px]"
+      className="flex items-center gap-1 text-[12px]"
       style={{ color: 'var(--m-orange-2)' }}
     />
   ) : packLine ? (
-    <p className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--m-orange-2)' }} data-card-gift-pack="">
+    <p className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--m-orange-2)' }} data-card-gift-pack="">
       <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
       <span>{packLine}</span>
     </p>
   ) : snap.hasExclusive ? (
-    <p className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--m-orange-2)' }}>
+    <p className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--m-orange-2)' }}>
       <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />
       Setnayan Exclusive inside · opens in chat
     </p>
@@ -124,7 +124,7 @@ export function ServiceCardFace({
       includes={snap.includesLine}
       extra={
         addonsFromPhp != null ? (
-          <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+          <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--m-slate-3)' }}>
             <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             Add-ons from +{php(addonsFromPhp)}
           </span>
@@ -136,12 +136,12 @@ export function ServiceCardFace({
         footer === undefined ? (
           <p className="flex items-center gap-2">
             <span
-              className="rounded-lg px-3 py-1.5 text-[11px] font-medium"
+              className="rounded-lg px-3 py-1.5 text-[12px] font-medium"
               style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
             >
               Request a quote
             </span>
-            <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
+            <span className="text-[12px]" style={{ color: 'var(--m-slate-3)' }}>
               final price by quote
             </span>
           </p>

@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { Users, Briefcase, TestTube, CalendarDays, MapPin } from 'lucide-react';
 import {
   parseTempPasswordFlash,
   TEMP_PASSWORD_FLASH_COOKIE,
@@ -45,23 +43,6 @@ function coerceTab(v: string | undefined): Tab {
   return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'users';
 }
 
-// The full 5-tab IA. `wired` tabs render inline via ?tab=; the not-yet-wired
-// tabs link out to their still-standalone legacy routes (converted to real
-// tabs in later slices) so the final IA is visible and nothing is a dead link.
-const TAB_STRIP: {
-  key: string;
-  label: string;
-  icon: typeof Users;
-  wired: boolean;
-  legacyHref: string;
-}[] = [
-  { key: 'users', label: 'Users', icon: Users, wired: true, legacyHref: '/admin/users' },
-  { key: 'vendors', label: 'Suppliers', icon: Briefcase, wired: true, legacyHref: '/admin/vendors' },
-  { key: 'demo-vendors', label: 'Demo suppliers', icon: TestTube, wired: true, legacyHref: '/admin/demo-vendors' },
-  { key: 'events', label: 'Events', icon: CalendarDays, wired: true, legacyHref: '/admin/events' },
-  { key: 'venues', label: 'Venues', icon: MapPin, wired: true, legacyHref: '/admin/venues' },
-];
-
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -80,33 +61,10 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
       : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Accounts sections"
-        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
-      >
-        {TAB_STRIP.map((t) => {
-          const active = t.wired && t.key === tab;
-          const href = t.wired ? `/admin/accounts?tab=${t.key}` : t.legacyHref;
-          const Icon = t.icon;
-          return (
-            <Link
-              key={t.key}
-              href={href}
-              aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-8 pt-2 sm:px-6 lg:px-8">
+      {/* 📐 NO TAB STRIP (design template 2026-11-14, rule 1 · F-A-07): People · Shops · Events · Venues · Demo
+          suppliers are the layout's pinned-row views ("People · Everyone ▾", `lib/admin/admin-tabs.ts`) — this
+          wrapped strip duplicated them above every list. */}
       {tab === 'demo-vendors' ? (
         <DemoVendorsSurface />
       ) : tab === 'venues' ? (

@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { EyeOff, Link2, Mic } from 'lucide-react';
+import { Check, CircleOff, EyeOff, Link2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { slotsIn } from '@/lib/emcee-lines';
@@ -95,157 +98,133 @@ export default async function VendorLinesPage({
   const notes = all.filter((l) => l.is_private_note);
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
-          What you say, kept once
-        </h1>
-        <p className="max-w-prose text-sm leading-relaxed text-ink/70">
-          Every line you write on a wedding is saved here automatically, with the couple&rsquo;s
-          names swapped out for a blank. The next wedding opens already written in your words —
-          you only change what is different. Nobody else ever sees this list.
-        </p>
-      </header>
+    <section className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">What you say, kept once</h1>
 
       {sp.error ? (
-        <p
-          role="alert"
-          className="border border-terracotta-700/40 bg-terracotta-700/5 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="py-2 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
           {sp.error}
         </p>
       ) : null}
 
-      {all.length === 0 ? (
-        <div className="border border-ink/10 bg-paper-deep p-6 text-center">
-          <Mic aria-hidden className="mx-auto h-6 w-6 text-ink/25" strokeWidth={1.5} />
-          <p className="mt-3 text-sm font-medium text-ink">Nothing here yet — and that is fine.</p>
-          <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-ink/65">
-            Write your lines on your next wedding and they land here on their own. From the
-            wedding after that, most of your script arrives already written.
-          </p>
-        </div>
+      {linesRes.error ? (
+        <TemplateFail data="lines">
+          We couldn&rsquo;t load your lines just now — they have not been deleted. Reload in a moment.
+        </TemplateFail>
+      ) : all.length === 0 ? (
+        <TemplateSection
+          label="Lines you say"
+          first
+          tip="Every line you write on a wedding lands here, names blanked. The next wedding opens already written. Only you see it."
+        >
+          <TemplateEmpty data="lines">
+            Nothing here yet — write your lines on your next wedding and they land here on their own.
+          </TemplateEmpty>
+        </TemplateSection>
       ) : null}
 
       {spoken.length > 0 ? (
-        <div className="space-y-3">
-          <h2 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-            Lines you say · {spoken.length}
-          </h2>
-          {spoken.map((line) => {
-            const slots = slotsIn(line.body);
-            return (
-              <article key={line.line_id} className="border border-ink/10 bg-white p-4">
-                <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/50">
-                  {matchedBy(line, line.activity_id ? activityLabel.get(line.activity_id) ?? null : null)}
-                  {line.use_count > 0 ? ` · used ${line.use_count}×` : ''}
-                </p>
+        <TemplateSection
+          label={`Lines you say · ${spoken.length}`}
+          first
+          tip="Every line you write on a wedding lands here, names blanked. The next wedding opens already written. Only you see it."
+        >
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+            {spoken.map((line) => {
+              const slots = slotsIn(line.body);
+              return (
+                <li key={line.line_id} className="py-3">
+                  <p className={TEMPLATE_SUBLINE}>
+                    {matchedBy(line, line.activity_id ? activityLabel.get(line.activity_id) ?? null : null)}
+                    {line.use_count > 0 ? ` · used ${line.use_count}×` : ''}
+                  </p>
 
-                <StayForm door="supLines.updateLine" action={updateLine} className="mt-2 space-y-2">
-                  <input type="hidden" name="line_id" value={line.line_id} />
-                  <label className="block">
-                    <span className="sr-only">Your line</span>
-                    <textarea
-                      name="body"
-                      defaultValue={line.body}
-                      rows={3}
-                      maxLength={2000}
-                      className="w-full border border-ink/15 bg-white px-3 py-2 font-pahina text-[15px] leading-relaxed text-ink"
-                    />
-                  </label>
-                  {slots.length > 0 ? (
-                    <p className="text-xs text-ink/55">
-                      Blanks filled per wedding: {slots.map((s) => `⟨${s}⟩`).join(' · ')}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-ink/45">
-                      No blanks in this one — it reads the same at every wedding.
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="submit"
-                      className="border border-ink bg-ink px-3 py-1.5 text-xs font-semibold text-paper"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </StayForm>
-
-                <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-3">
-                  {/* rung 2 → rung 1: make a by-name guess into an exact match. */}
-                  {activities.length > 0 ? (
-                    <StayForm door="supLines.attachLineToActivity" action={attachLineToActivity} className="flex items-center gap-2">
-                      <input type="hidden" name="line_id" value={line.line_id} />
-                      <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/45" />
-                      <label className="sr-only" htmlFor={`act-${line.line_id}`}>
-                        Attach to one of your segments
-                      </label>
-                      <select
-                        id={`act-${line.line_id}`}
-                        name="activity_id"
-                        defaultValue={line.activity_id ?? ''}
-                        className="border border-ink/15 bg-white px-2 py-1 text-xs text-ink"
-                      >
-                        <option value="">Not tied to a segment</option>
-                        {activities.map((a) => (
-                          <option key={a.activity_id} value={a.activity_id}>
-                            {a.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button type="submit" className="text-xs font-semibold text-gild underline">
-                        Update match
-                      </button>
-                    </StayForm>
-                  ) : null}
-
-                  <StayForm door="supLines.deleteLine" action={deleteLine} className="ml-auto">
+                  <StayForm door="supLines.updateLine" action={updateLine} className="mt-2 space-y-2">
                     <input type="hidden" name="line_id" value={line.line_id} />
-                    <button type="submit" className="text-xs text-ink/50 underline hover:text-terracotta-700">
-                      Remove
-                    </button>
+                    <label className="block">
+                      <span className="sr-only">Your line</span>
+                      <textarea
+                        name="body"
+                        defaultValue={line.body}
+                        rows={3}
+                        maxLength={2000}
+                        className="w-full rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] leading-relaxed text-ink" // no-card-ok: the textarea's own outline
+                      />
+                    </label>
+                    <p className={TEMPLATE_SUBLINE}>
+                      {slots.length > 0
+                        ? `Blanks filled per wedding: ${slots.map((s) => `⟨${s}⟩`).join(' · ')}`
+                        : 'No blanks in this one — it reads the same at every wedding.'}
+                    </p>
+                    <ActionButton type="submit" tone="brand" icon={<Check aria-hidden />} label="Save" />
                   </StayForm>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {/* rung 2 → rung 1: make a by-name guess into an exact match. */}
+                    {activities.length > 0 ? (
+                      <StayForm door="supLines.attachLineToActivity" action={attachLineToActivity} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="line_id" value={line.line_id} />
+                        <Link2 aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" />
+                        <label className="sr-only" htmlFor={`act-${line.line_id}`}>
+                          Attach to one of your segments
+                        </label>
+                        <select
+                          id={`act-${line.line_id}`}
+                          name="activity_id"
+                          defaultValue={line.activity_id ?? ''}
+                          className="min-h-11 rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 text-[14px] text-ink"
+                        >
+                          <option value="">Not tied to a segment</option>
+                          {activities.map((a) => (
+                            <option key={a.activity_id} value={a.activity_id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ActionButton type="submit" tone="neutral" icon={<Link2 aria-hidden />} label="Update match" />
+                      </StayForm>
+                    ) : null}
+
+                    <StayForm door="supLines.deleteLine" action={deleteLine} className="ml-auto">
+                      <input type="hidden" name="line_id" value={line.line_id} />
+                      <ActionButton type="submit" tone="neutral" quiet icon={<CircleOff aria-hidden />} label="Remove" />
+                    </StayForm>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </TemplateSection>
       ) : null}
 
       {notes.length > 0 ? (
-        <div className="space-y-3">
-          <h2 className="flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
-            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Notes to yourself · {notes.length}
-          </h2>
-          <p className="max-w-prose text-xs leading-relaxed text-ink/60">
-            These were written on private moments, so they are kept for you to look back on but
-            are <strong className="text-ink">never reused on another wedding</strong> — the
-            coordinator, the cue, the room are different every time.
-          </p>
-          {notes.map((line) => (
-            <article key={line.line_id} className="border border-ink/25 bg-ink/[0.03] p-4">
-              <p className="inline-flex items-center gap-1.5 bg-ink px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-paper">
-                <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} />
-                Never reused
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-ink/75">{line.body}</p>
-              <StayForm door="supLines.deleteLine" action={deleteLine} className="mt-3 border-t border-ink/10 pt-3">
-                <input type="hidden" name="line_id" value={line.line_id} />
-                <button type="submit" className="text-xs text-ink/50 underline hover:text-terracotta-700">
-                  Remove
-                </button>
-              </StayForm>
-            </article>
-          ))}
-        </div>
+        <TemplateSection
+          label={`Notes to yourself · ${notes.length}`}
+          tip="Written on private moments, so they are kept for you but never reused on another wedding."
+        >
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+            {notes.map((line) => (
+              <li key={line.line_id} className="py-3">
+                <Badge tone="quiet">
+                  <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Never reused
+                </Badge>
+                <p className="mt-2 text-[15px] leading-relaxed text-ink">{line.body}</p>
+                <StayForm door="supLines.deleteLine" action={deleteLine} className="mt-2">
+                  <input type="hidden" name="line_id" value={line.line_id} />
+                  <ActionButton type="submit" tone="neutral" quiet icon={<CircleOff aria-hidden />} label="Remove" />
+                </StayForm>
+              </li>
+            ))}
+          </ul>
+        </TemplateSection>
       ) : null}
 
-      <p className="border-t border-ink/10 pt-4 text-xs leading-relaxed text-ink/55">
+      <p className={`border-t border-[color:var(--m-line)] pt-4 ${TEMPLATE_SUBLINE}`}>
         Editing a line here changes what future weddings start from. It never changes a script
         you have already written for a couple —{' '}
-        <Link href="/vendor-dashboard/clients" className="underline">
+        <Link href="/vendor-dashboard/clients" className="text-link underline">
           those stay as you left them
         </Link>
         .

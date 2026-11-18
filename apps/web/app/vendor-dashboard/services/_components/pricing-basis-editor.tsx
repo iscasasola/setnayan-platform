@@ -334,7 +334,7 @@ export function IncludedFlags({
         />
         {transport === 'flat' ? (
           <FormRow name="Flat transport fee" data="transport-fee">
-            <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="₱ e.g. 2000" aria-label="Flat transport fee (PHP)" className="input-field !h-10 w-[150px] flex-none text-right tabular-nums" />
+            <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="₱ e.g. 2000" aria-label="Flat transport fee (PHP)" className="input-field !h-11 w-[150px] flex-none text-right tabular-nums" />
           </FormRow>
         ) : null}
       </>

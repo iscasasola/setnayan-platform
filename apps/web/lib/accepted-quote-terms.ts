@@ -239,6 +239,29 @@ export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnIS
   return row.dueText;
 }
 
+/**
+ * R10 (walk 18 Nov 2026) · how the workspace frames an ACCEPTED quote's schedule.
+ *
+ * Accepting a quote is not a booking: `respond_vendor_proposal` writes the price and moves the row to
+ * `shortlisted`; the booking is made when the supplier agrees to lock (`contracted`, CONFIRMED_VENDOR_STATUSES).
+ * The Budget counts only booked suppliers (BA2, owner 2026-09-02: "no quotes here. we only add the finalized
+ * budgets"), and `moneyStep` already answers `not_booked` — nothing to pay — for such a row. The Schedule section
+ * was the one place on the sheet that drew the quote's dues as if owed ("Final balance ₱6,750 · that day has already
+ * passed") while the Budget said Agreed ₱0 · Owed ₱0 · Booked 0. Unbooked, it now says so in its label and tip.
+ */
+export function quoteScheduleFrame(booked: boolean, supplierName: string): { label: string; tip: string } {
+  if (booked) {
+    return {
+      label: 'Schedule',
+      tip: `From the quote you accepted. Pay ${supplierName} directly; they confirm each payment as received.`,
+    };
+  }
+  return {
+    label: 'Schedule · not booked yet',
+    tip: `The terms of the quote you accepted. Nothing is owed yet: ${supplierName} hasn’t booked you, so your Budget doesn’t count it. These payments start once ${supplierName} confirms the booking.`,
+  };
+}
+
 /** "First payment requested: ₱3,350 — due on lock", or null when none was requested. */
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;
@@ -644,9 +667,15 @@ export type MoneyStep =
     }
   | { kind: 'paid_in_full'; paidCentavos: number };
 
+/**
+ * The first payment's name, as the plan writes it. No "· books the date": every caller is `moneyStep`, which only
+ * answers for a BOOKED event (`input.booked`) — the date is already held (DECISION_LOG 2026-11-04: book on accept), so
+ * that tag told a booked couple their payment would book a date they already had (CHAT-10, W1 walk 16 Nov 2026:
+ * "DUE NOW · books the date" after booking). The public proposal, read BEFORE accepting, keeps its own tag.
+ */
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · books the date`;
+  return row?.label || 'First payment';
 }
 
 function laterStep(

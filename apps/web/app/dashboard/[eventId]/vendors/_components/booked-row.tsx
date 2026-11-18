@@ -64,7 +64,6 @@ import {
   WAITING_PILL,
   pillSaysMore,
   WAITING_UNTIL,
-  type BookedCallTime,
   type BookedPlan,
   type BookedRow,
   type BookedVerb,
@@ -77,6 +76,7 @@ import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import { BookedRoomLine } from './booked-room-line';
 import { TIMES_MARK_UNREAD } from '@/lib/supplier-schedule-marks';
+import type { BookedTimesLine } from '@/lib/supplier-own-times';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SupplierShareButton } from '../../_components/supplier-share-button';
 import { CancelBookingButton } from './cancel-booking-button';
@@ -462,23 +462,31 @@ function TimesMarkLine({ mark }: { mark: NonNullable<BookedRow['timesMark']> }) 
   );
 }
 
-/** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
-function CallTimeLine({ line }: { line: BookedCallTime }) {
+/**
+ * 🕕 THE TWO TIMES, TWO NAMES (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL"; drawing event_pages_today_doors):
+ *   Crew call 11:00 AM
+ *   On site from 1:00 PM · arrives 12:00 PM · done 10:00 PM
+ * or, with none of their own: "No times yet" · "On site from 2:30 PM, from the moments you tagged them on". The words are
+ * `bookedTimesLines` (lib/supplier-own-times.ts); nothing here keeps a copy of either time.
+ */
+function TimesLines({ lines }: { lines: readonly BookedTimesLine[] }) {
   return (
-    <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-call-time={line.kind}>
-      <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/70" />
-      {line.kind === 'set' ? (
-        <span>
-          <span className="text-ink">Call time </span>
-          <b className="font-semibold text-ink tabular-nums">{line.clock}</b>
-          <span className="text-[12.5px] text-ink/70"> · {line.moment} · from your Schedule</span>
-        </span>
-      ) : line.kind === 'none' ? (
-        <span className="text-[12.5px] text-ink/70">No call time yet — tag them on a Schedule moment</span>
-      ) : (
-        <span className="text-[12.5px] text-ink/70">We couldn’t check your Schedule for their call time.</span>
-      )}
-    </p>
+    <>
+      {lines.map((l, at) => (
+        <p key={`${l.id}-${at}`} className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-times={l.id}>
+          <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/70" />
+          {l.id === 'unread' || l.id === 'none' ? (
+            <span className="text-[12.5px] text-ink/70">{l.lead}</span>
+          ) : (
+            <span>
+              <span className="text-ink">{l.lead}</span>
+              {l.clock ? <b className="font-semibold text-ink tabular-nums">{l.clock}</b> : null}
+              {l.tail ? <span className="text-[12.5px] text-ink/70">{l.tail}</span> : null}
+            </span>
+          )}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -719,7 +727,7 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
     // `.bk-exp>div{overflow:clip}` cut every right-hand button. `minmax(0,1fr)` lets each child shrink to the column.
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
-      {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.times ? <TimesLines lines={row.times} /> : null}
       {row.timesMark ? <TimesMarkLine mark={row.timesMark} /> : null}
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.updated ? <UpdatedLine updated={row.updated} /> : null}

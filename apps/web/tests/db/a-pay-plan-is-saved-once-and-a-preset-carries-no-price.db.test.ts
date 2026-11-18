@@ -8,7 +8,7 @@
  *   B · vendor_services.description + video_url: optional, a video link is https only, and "Copy to another
  *       branch" carries both and the plan the card follows.
  *   C · service_included_templates: every signed-in account reads, only an admin writes, a row can never carry a
- *       price, and the PROPOSED seed is there (marked is_proposal) with the owner's own Catering rows intact.
+ *       price, and the APPROVED seed is there (owner 18 Nov, not a proposal) with the owner's own Catering rows intact.
  *
  * Every case asserts a VALUE, never only a row count.
  */
@@ -242,7 +242,7 @@ test('B · "Copy to another branch" carries the description, the video link and 
 
 // ── C · Setnayan's starting What's included templates ──────────────────────
 
-test('C · the proposed seed is there, marked a proposal, and the owner’s Catering rows are intact', async () => {
+test('C · the approved seed is there, not a proposal, and the owner’s Catering rows are intact', async () => {
   const cat = (
     await db.query<{ name: string; rows: unknown; source: string; is_proposal: boolean }>(
       `SELECT name, rows, source, is_proposal FROM public.service_included_templates WHERE canonical_service = 'catering'`,
@@ -250,7 +250,7 @@ test('C · the proposed seed is there, marked a proposal, and the owner’s Cate
   ).rows;
   assert.equal(cat.length, 1);
   assert.equal(cat[0]!.source, 'owner');
-  assert.equal(cat[0]!.is_proposal, true);
+  assert.equal(cat[0]!.is_proposal, false);
   assert.deepEqual(
     (cat[0]!.rows as { name: string }[]).map((r) => r.name),
     ['Type', 'Food tasting', 'Tables and chairs', 'Service booth', 'Staff'],
@@ -258,13 +258,13 @@ test('C · the proposed seed is there, marked a proposal, and the owner’s Cate
   );
   assert.deepEqual((cat[0]!.rows as { options?: string[] }[])[0]!.options, ['Buffet', 'Plated']);
   const counts = (
-    await db.query<{ services: number; not_proposal: number }>(
-      `SELECT count(DISTINCT canonical_service)::int AS services, count(*) FILTER (WHERE NOT is_proposal)::int AS not_proposal
+    await db.query<{ services: number; proposal: number }>(
+      `SELECT count(DISTINCT canonical_service)::int AS services, count(*) FILTER (WHERE is_proposal)::int AS proposal
          FROM public.service_included_templates`,
     )
   ).rows[0]!;
   assert.ok(counts.services >= 250, `the seed covers the live services (got ${counts.services})`);
-  assert.equal(counts.not_proposal, 0, 'every seeded template waits for the owner’s review');
+  assert.equal(counts.proposal, 0, 'the owner approved every seeded template on 18 Nov');
 });
 
 test('C · a template row can never carry a price', async () => {
@@ -295,7 +295,7 @@ test('C · a supplier reads the templates and cannot write them; an admin can', 
   await reset();
   const names = (await db.query<{ n: string; p: boolean }>(`SELECT name AS n, is_proposal AS p FROM public.service_included_templates WHERE canonical_service = 'catering' ORDER BY name`)).rows;
   assert.deepEqual(names, [
-    { n: 'Catering basics', p: true },
+    { n: 'Catering basics', p: false },
     { n: 'Plated basics', p: false },
   ]);
 });

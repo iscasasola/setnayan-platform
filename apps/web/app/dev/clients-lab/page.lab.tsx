@@ -159,7 +159,7 @@ function pickedBodies(
     details: (
       <div className="space-y-4" data-details-shipped="">
         <DetailsNumbersRow
-          cells={detailsNumbers({ isBooked: true, todayIso: LAB_TODAY, eventDate: '2026-11-08', ledger: { receivedPhp: 30000, expectedPhp: 38000 }, onPlan: false, sentQuotePhp: undefined, peso })}
+          cells={detailsNumbers({ isBooked: true, todayIso: LAB_TODAY, eventDate: '2026-11-08', ledger: { receivedPhp: 30000, expectedPhp: 38000 }, plan: null, sentQuotePhp: undefined, peso })}
         />
         <HostsList
           hosts={hostRows([

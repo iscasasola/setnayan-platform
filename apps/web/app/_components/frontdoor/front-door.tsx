@@ -59,6 +59,7 @@ import {
 import { resolveRailStudioEvent } from './rail-data';
 import { loadPublishedShowcasesResult } from '@/lib/showcase-db';
 import { editorialsToStories } from '@/lib/front-door-editorials';
+import { eventTypeShownWords } from '@/lib/event-type-shown-words';
 
 export async function FrontDoor({ q, params = {} }: { q?: string; params?: MarketplaceSearchParams }) {
   /*
@@ -212,7 +213,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           },
           sortOptions: [],
           faithOptions: marketplaceFaithOptions(),
-          eventTypeOptions: shelfOccasions.map((t) => ({ value: t.key, label: t.label })),
+          eventTypeOptions: eventTypeShownWords(shelfOccasions).map((t) => ({ value: t.key, label: t.label })),
           matchableEvent: null,
           hostVenueSetting: null,
           hostVenueLabel: null,
@@ -333,7 +334,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
                     })()
                   : null
               }
-              occasions={storyOccasions.map((t) => ({ key: t.key, label: t.label }))}
+              occasions={eventTypeShownWords(storyOccasions).map((t) => ({ key: t.key, label: t.label }))}
               occasion={view.occasion}
               order={view.order}
             />

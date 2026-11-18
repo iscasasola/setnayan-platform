@@ -10,7 +10,7 @@
  */
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { DoorOpen, Plus, RotateCw, Trash2 } from 'lucide-react';
+import { Check, DoorOpen, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
@@ -190,7 +190,7 @@ function GroupBlock({ group, units, groups, run, children }: { group: UnitGroup;
               onClick={() => setOpen(open === u.id ? null : u.id)}
             >
               {u.kind === 'table' && u.shape ? <TableGlyph shape={u.shape} chairs={u.chairs ?? 0} ends={u.chairsAtEnds} /> : null}
-              <span className="text-[15px] font-medium text-ink">{u.kind === 'room' ? `Room ${u.name}` : u.name}</span>
+              <span className="text-[15px] font-medium text-ink">{u.kind === 'room' && /^\d+$/.test(u.name) ? `Room ${u.name}` : u.name}</span>
               {u.kind === 'table' && u.shape ? <span className="text-[13px] text-ink/70">{tableWords(u.shape, u.chairs ?? 0, u.chairsAtEnds)}</span> : null}
             </button>
             {open === u.id ? <UnitEdit unit={u} groups={groups} run={run} onDone={() => setOpen(null)} /> : null}
@@ -241,7 +241,7 @@ function UnitEdit({ unit, groups, run, onDone }: { unit: Unit; groups: UnitGroup
         <ActionButton
           tone="ok"
           main
-          icon={Plus}
+          icon={Check}
           label="Save"
           className="!h-11"
           onClick={async () => {
@@ -320,7 +320,7 @@ function AddUnits({ kind, groups, run }: { kind: 'room' | 'table'; groups: UnitG
           maxLength={400}
           openAsk={ask}
           onKeep={(t) => setNames(t)}
-          note="Commas between them; 301-310 makes ten"
+          note={kind === 'room' ? 'Commas between them; 301-310 makes ten' : 'Commas between them; T1-T8 makes eight'}
         />
         {kind === 'table' ? <TableRows shape={shape} setShape={setShape} chairs={chairs} setChairs={setChairs} ends={ends} setEnds={setEnds} /> : null}
         <ChosenRow name="Where" value={whereNow} options={whereOptions} onPick={setWhere} dataAttr={`data-add-${kind}-where`} />

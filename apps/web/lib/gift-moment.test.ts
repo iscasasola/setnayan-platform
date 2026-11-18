@@ -166,7 +166,7 @@ const strip = (src: string) => stripComments(src);
 
 test('5 · the piece: lazy, tokens only, 44 px, "supplier"', () => {
   const host = readFileSync(join(HERE, 'gift-moments.tsx'), 'utf8');
-  assert.match(host, /dynamic\(\(\) => import\('\.\/gift-moment'\)/, 'the popup must load lazily');
+  assert.match(host, /dynamic\(\(\) => import\('\.\/gift-moment-shown'\)/, 'the popup must load lazily');
   assert.doesNotMatch(strip(host), /^import [^;]*from '\.\/gift-moment';/m, 'the popup is imported statically — every page would carry it');
 
   const css = strip(readFileSync(join(HERE, 'gift-moment.module.css'), 'utf8'));

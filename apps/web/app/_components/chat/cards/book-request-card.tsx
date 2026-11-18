@@ -20,12 +20,39 @@ const WORDS: Record<BookRequestState, { title: string; line: (who: string) => st
   expired: { title: 'Booking ask expired', line: () => 'It ran out without an answer.', tone: 'text-ink/60' },
 };
 
-export function BookRequestCard({ state, reason, supplierName, at }: { state: BookRequestState; reason: string | null; supplierName: string; at: string }) {
+/** An ask a later line answered (`answeredBookAsks`) says how it was answered — never "Waiting" again. */
+const ANSWERED: Record<Exclude<BookRequestState, 'asked'>, string> = {
+  booked: 'Answered · booked',
+  not_available: 'Answered · not available',
+  withdrawn: 'Withdrawn by the hosts',
+  closed: 'Closed',
+  expired: 'Expired without an answer',
+};
+
+export function BookRequestCard({
+  state,
+  reason,
+  supplierName,
+  at,
+  answeredAs = null,
+}: {
+  state: BookRequestState;
+  reason: string | null;
+  supplierName: string;
+  at: string;
+  /** The state of the later line that answered this ask; null = nothing answered it yet. */
+  answeredAs?: BookRequestState | null;
+}) {
   const w = WORDS[state];
+  const answered = state === 'asked' && answeredAs && answeredAs !== 'asked' ? ANSWERED[answeredAs] : null;
   return (
     <ChatCardShell topic="details" kicker={`Setnayan · ${at}`} title={w.title} tone="auto">
-      <p className={`text-[15px] font-medium ${w.tone}`} data-book-request={state}>
-        {state === 'not_available' && reason ? reason : w.line(supplierName)}
+      <p
+        className={`text-[15px] font-medium ${answered ? 'text-ink/60' : w.tone}`}
+        data-book-request={state}
+        data-book-request-answered={answered ? answeredAs : undefined}
+      >
+        {answered ?? (state === 'not_available' && reason ? reason : w.line(supplierName))}
       </p>
     </ChatCardShell>
   );

@@ -132,7 +132,7 @@ export function AddressPreview({
     <span className="block space-y-1.5">
       <span className="flex items-baseline gap-1 text-xs" style={{ color: 'var(--m-slate)' }}>
         Your Setnayan page
-        <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-slate-3)' }}>
+        <span className="inline-flex items-center gap-1" style={{ color: 'var(--m-slate-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
           you can&rsquo;t change this later
         </span>
@@ -140,11 +140,11 @@ export function AddressPreview({
 
       <span
         className="flex items-center overflow-hidden rounded-lg border"
-        style={{ borderColor: 'var(--m-line)', background: '#fff' }}
+        style={{ borderColor: 'var(--m-line)', background: 'rgb(var(--color-raised))' }}
       >
         <span
           className="shrink-0 pl-2.5 font-mono text-[12px]"
-          style={{ color: 'var(--m-slate-3)' }}
+          style={{ color: 'var(--m-slate-2)' }}
         >
           setnayan.com/
         </span>
@@ -185,7 +185,7 @@ export function AddressPreview({
       <input type="hidden" name="business_slug" value={effective} />
 
       {checking ? (
-        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }} aria-live="polite">
           <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" strokeWidth={2} />
           Checking…
         </span>
@@ -203,7 +203,7 @@ export function AddressPreview({
           Taken — try another.
         </span>
       ) : check?.state === 'auto' || (!effective && touched) ? (
-        <span className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+        <span className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
           <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           Needs at least 3 letters or numbers.
         </span>

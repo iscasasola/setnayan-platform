@@ -206,7 +206,11 @@ test('2 · the event QR, the sheet and every set piece share that rule', () => {
   assert.match(route, /thumb && url\.searchParams\.get\('draft'\)/, 'the sheet reads the draft for a file, or never');
   assert.match(route, /qrLook: qrLookForHostDraft\(event, sheetDraft\) \?\? \(await resolveEventQrLook\(admin, eventId, event\)\)/);
   // The set pieces (corner QR, the pass) — `loadPrintSet` is handed a draft only for `mode=screen`.
-  assert.match(code('lib/print-set.server.ts'), /const qrLook = qrLookForHostDraft\(liveEvent, draft\) \?\? \(await resolveEventQrLook\(admin, eventId, event\)\);/);
+  // ⚡ The saved look is read beside the other reads (speed pass 2026-11-18) — and only when no drafted look stands.
+  const printSet = code('lib/print-set.server.ts');
+  assert.match(printSet, /const draftedQrLook = qrLookForHostDraft\(liveEvent, draft\);/);
+  assert.match(printSet, /const qrLookRead = draftedQrLook \? null : startAhead\(resolveEventQrLook\(admin, eventId, event\)\);/);
+  assert.match(printSet, /const qrLook = draftedQrLook \?\? \(await qrLookRead!\);/);
   assert.match(route, /mode !== 'print' && piece !== 'passes' && url\.searchParams\.get\('draft'\)/);
 });
 

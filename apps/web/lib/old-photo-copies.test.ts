@@ -38,5 +38,7 @@ test('the tool is a dry run until pressed, never deletes, and prints keep the or
   const action = code('app/admin/papic-storage/old-photos-actions.ts');
   assert.match(action, /await requireAdminAction\(\);[\s\S]*makeSmallCopies\(createAdminClient\(\), userId\)/, 'the press is not behind the admin gate');
   const print = code('lib/print-set.server.ts');
-  assert.match(print, /mode === 'print' \? await printOriginalMain\(admin, event\.event_id, await readHeroConfig\(admin, event\.event_id\)\)/, 'a print would print the small copy');
+  // ⚡ The hero row is read once, beside the Hub theme (speed pass 2026-11-18); the print still swaps it to the original.
+  assert.match(print, /\[hub, storedHeroConfig\] = await Promise\.all\(\[resolveHubTheme\(event\), readHeroConfig\(admin, event\.event_id\)\]\)/, 'the hero row is no longer the one read');
+  assert.match(print, /mode === 'print' \? await printOriginalMain\(admin, event\.event_id, storedHeroConfig\)/, 'a print would print the small copy');
 });

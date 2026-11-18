@@ -580,10 +580,11 @@ async function posterPhotoBytes(ref: string, mode: PrintMode): Promise<Uint8Arra
  * the page's own `pictureOf`, its measured frame and scrim). The picture is fetched at the print's size.
  */
 async function hubPrintInput(admin: SupabaseClient, event: PrintEventRow, mode: PrintMode): Promise<WornHub> {
-  const hub = await resolveHubTheme(event);
+  // ⚡ The hero row is read beside the Hub's theme (it needs nothing from it) — speed pass 2026-11-18. `readHeroConfig` never rejects.
+  const [hub, storedHeroConfig] = await Promise.all([resolveHubTheme(event), readHeroConfig(admin, event.event_id)]);
   const page = guestLookFrom(event as unknown as EventShellRow, hub, true);
   // 🖨 A cover pointed at its small web copy prints from the ORIGINAL (`originalForPrint`, owner 2026-10-23).
-  const heroConfig = mode === 'print' ? await printOriginalMain(admin, event.event_id, await readHeroConfig(admin, event.event_id)) : await readHeroConfig(admin, event.event_id);
+  const heroConfig = mode === 'print' ? await printOriginalMain(admin, event.event_id, storedHeroConfig) : storedHeroConfig;
   const ground = await mainGroundPictureFor(
     { theme: hub.theme, heroConfig, event: event as unknown as Parameters<typeof mainGroundPictureFor>[0]['event'], viewerIsHost: true },
     { full: mode === 'print' },
@@ -742,10 +743,26 @@ export async function loadPrintSet(
   draft: HubDraftEvents | null = null,
 ): Promise<LoadedPrintSet | null> {
   const admin = createAdminClient();
-  const liveEvent = await readPrintEvent(admin, eventId);
+  /* ⚡ READS THAT NEED NOTHING FROM EACH OTHER START TOGETHER (speed pass 2026-11-18 — a cold `/api/hub-print/invitation` took
+     5.2 s on live c1f9e2f, most of it reads queued in single file behind the Hub picture's fetch). Each is started with
+     `startAhead` and awaited on the line that always awaited it: the same values, the same failures, no read added.
+     `readPrintEvent` never rejects (it logs and answers null). 🔒 `lib/print-set-starts-its-reads-together.test.ts`. */
+  const liveEventRead = startAhead(readPrintEvent(admin, eventId));
+  const ownsPro = await printOwnsPro(eventId);
+  const liveEvent = await liveEventRead;
   if (!liveEvent) return null;
   const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
-  const ownsPro = await printOwnsPro(eventId);
+  const sampleGalleryEarly = opts.samplePalette !== undefined;
+  const inputsRead = startAhead(readPrintSetInputs(admin, eventId, event));
+  const printMarkRead = startAhead(printMarkFor(event));
+  const planMarkRead = sampleGalleryEarly ? null : startAhead(eventSetnayanMark(admin, eventId));
+  const draftedQrLook = qrLookForHostDraft(liveEvent, draft);
+  const qrLookRead = draftedQrLook ? null : startAhead(resolveEventQrLook(admin, eventId, event));
+  const isWeddingEarly = (event.event_type ?? 'wedding') === 'wedding';
+  const wordsRead = isWeddingEarly ? null : startAhead(eventWordsFor(event.event_type));
+  // The poster photo is named by the event row itself (`print_details`), the same value `readPrintSetInputs` parses.
+  const posterRef = parsePrintDetails(event.print_details).posterPhoto?.ref ?? null;
+  const posterRead = posterRef ? startAhead(posterPhotoBytes(posterRef, opts.mode)) : null;
   const sampleGallery = opts.samplePalette !== undefined;
   /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is
      pro"*) — Classic's type on white paper, whatever theme it saved: the set is drawn as Classic (its file name, its spot layers).
@@ -762,12 +779,12 @@ export async function loadPrintSet(
   /* 🏷 THE PLAN'S SETNAYAN MARK ON PAPER (Build 6 Lane L, DECISION_LOG 2026-11-04): Free = the line · Event Plus = the
      tiny quiet mark · Event Pro = none, on every print and pass — never louder than the look's own (a Prints-part print
      already carries the quiet mark). The theme gallery's samples keep their own. */
-  const planMark = sampleGallery ? null : await eventSetnayanMark(admin, eventId);
+  const planMark = planMarkRead ? await planMarkRead : null;
   const look = planMark ? { ...worn.look, brand: printBrandForMark(planMark, printBrandOf(worn.look)) } : worn.look;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
   const [{ stored, blocks: liveBlocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
-    readPrintSetInputs(admin, eventId, event),
+    inputsRead,
     /* The Hub's own picture, when the print wears it; else the theme's still as it always was. */
     worn.picture
       ? Promise.resolve(worn.picture)
@@ -776,7 +793,7 @@ export async function loadPrintSet(
           ? heroStill(event, opts.mode).then((h) => h ?? themeStill(theme, opts.mode))
           : themeStill(theme, opts.mode)
         : Promise.resolve(null),
-    printMarkFor(event),
+    printMarkRead,
   ]);
   const inc = stored.include;
   // 🕒 A drafted ceremony time stands where Apply will put it (`blocksWithDraftedCeremony`).
@@ -794,12 +811,12 @@ export async function loadPrintSet(
   const isWedding = (event.event_type ?? 'wedding') === 'wedding';
   // 🕊 A wake's printed card is never "The celebration of" (audit 2026-09-30) —
   // it takes the post-event cover's own words ("In loving memory", frontKicker).
-  const solemn = isWedding ? false : (await eventWordsFor(event.event_type)).solemn;
+  const solemn = isWedding || !wordsRead ? false : (await wordsRead).solemn;
 
   const images: PrintImages = {};
   // 🖼 The Our Story poster's own photo (owner 2026-09-29, OWNER ANSWERS (1)) —
   // only when the couple chose one; the theme's picture stays the default.
-  const posterBg = stored.posterPhoto ? await posterPhotoBytes(stored.posterPhoto.ref, opts.mode) : null;
+  const posterBg = stored.posterPhoto && posterRead ? await posterRead : null;
   if (posterBg) images.posterBg = { bytes: posterBg, mime: 'image/jpeg' };
   let still = stillRaw;
   if (still && look.sepia) still = await sepia(still);
@@ -811,7 +828,7 @@ export async function loadPrintSet(
   // Resolved once, here, so the corner QR and every guest pass agree.
   // 💾 On the Maker's preview (a `draft` was handed in) a drafted QR look is the
   // one drawn, as the event QR beside the address draws it (`qrLookForHostDraft`).
-  const qrLook = qrLookForHostDraft(liveEvent, draft) ?? (await resolveEventQrLook(admin, eventId, event));
+  const qrLook = draftedQrLook ?? (await qrLookRead!);
 
   let hasEventQr = false;
   // 🔳 The couple switched the event QR OFF (Info › Your Event Hub › QR) — no print carries it.

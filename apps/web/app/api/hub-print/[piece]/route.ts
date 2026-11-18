@@ -4,10 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent, type LoadedPrintSet } from '@/lib/print-set.server';
-import { PDFDocument } from 'pdf-lib';
-import { GET as seatingPrintGET } from '@/app/dashboard/[eventId]/seating/print/route';
-import { GET as seatingExportGET } from '@/app/dashboard/[eventId]/seating/export/route';
-import { GET as catererGET } from '@/app/dashboard/[eventId]/seating/caterer/route';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
 import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests } from '@/lib/print-picked-guests';
 import { bytesStream } from '@/lib/stream-file';
@@ -19,8 +15,8 @@ import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
-import { renderImposedPdf, renderPrintBook, renderPrintPdf } from '@/lib/print-render-pdf';
-import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
+// ⚡ The PDF writer and the JPEG rasteriser load when a file asks for them, never for an SVG preview (speed pass 2026-11-18).
+import { renderImposedPdf, renderPrintBook, renderPrintPdf, renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-drawers-on-demand';
 import {
   PRINT_PIECES,
   PRINT_SET_KEYS,
@@ -311,6 +307,12 @@ async function everythingPdf(
     { ...set.images, ...all.images },
     { title, subject: 'The set, every guest’s pass and place card, the day’s sheets' },
   );
+  const [{ PDFDocument }, { GET: seatingPrintGET }, { GET: seatingExportGET }, { GET: catererGET }] = await Promise.all([
+    import('pdf-lib'),
+    import('@/app/dashboard/[eventId]/seating/print/route'),
+    import('@/app/dashboard/[eventId]/seating/export/route'),
+    import('@/app/dashboard/[eventId]/seating/caterer/route'),
+  ]);
   const out = await PDFDocument.load(head);
   const append = async (bytes: Uint8Array) => {
     const src = await PDFDocument.load(bytes);
@@ -405,10 +407,20 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // caterer report — under /dashboard/<id>/seating); never drawn here.
   if (PRINT_PIECES[piece].kind === 'free') return new NextResponse('No such piece.', { status: 404 });
 
-  const [ownsPro, storeShell, printEvent] = await Promise.all([
+  /* ⚡ The host's draft is read BESIDE the gate's three reads (speed pass 2026-11-18) — it depends only on the address, and the
+     host gate above has already passed. A refusal below still refuses; the draft is then simply never used. */
+  const draftP: Promise<HubDraftEvents | null> =
+    mode !== 'print' && piece !== 'passes' && url.searchParams.get('draft')
+      ? createClient()
+          .then((c) => readHubDraft(c, eventId))
+          .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
+          .catch(() => null)
+      : Promise.resolve(null);
+  const [ownsPro, storeShell, printEvent, draftRead] = await Promise.all([
     printOwnsPro(eventId),
     isStoreShellRequest(),
     readPrintEvent(createAdminClient(), eventId),
+    draftP,
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
@@ -428,12 +440,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
      the host's drafted names, date and ceremony time laid on — read through
      the host's own session, after the host gate above. A file that is saved
      or printed (`mode=print`, `passes`) is always drawn from what is live. */
-  const draft: HubDraftEvents | null =
-    mode !== 'print' && piece !== 'passes' && url.searchParams.get('draft')
-      ? await readHubDraft(await createClient(), eventId)
-          .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
-          .catch(() => null)
-      : null;
+  const draft: HubDraftEvents | null = draftRead;
   // The theme this request would draw — decided ONCE, here, and handed to the
   // loader below, so the gate and the drawing cannot disagree about it.
   const theme = printThemeFor(printEvent, url.searchParams.get('theme'));

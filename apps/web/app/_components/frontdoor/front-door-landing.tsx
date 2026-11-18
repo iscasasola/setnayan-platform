@@ -186,11 +186,13 @@ function EventTypeStrip({ types, reverse }: { types: readonly EventTypeTile[]; r
   const tile = (t: EventTypeTile, dup: boolean) => (
     <figure className={dup ? 'fl-et fl-et-dup' : 'fl-et'} key={`${dup ? 'b' : 'a'}-${t.key}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {/* ⚡ The tile is 150 CSS px wide: a repo photo gets its 330-px copy (~24 KB, not ~170 KB). An admin upload keeps its own URL. */}
+      {/* ⚡ The tile is 150 CSS px wide on a phone and 200 from 701 px (`.fl-et` in front-door-landing.css): a repo photo
+          offers its 330-px copy (~24 KB, not ~170 KB) and the browser takes the 880 only where the screen needs it. An
+          admin upload keeps its own URL. `sizes` names both widths, or a 2× desktop would draw the 330 at 400 px. */}
       <img
         src={t.photo}
         srcSet={t.photo === eventTypeRepoPhotoSrc(t.key) ? `${eventTypeSmallPhotoSrc(t.key)} 330w, ${t.photo} 880w` : undefined}
-        sizes="150px"
+        sizes="(min-width: 701px) 200px, 150px"
         alt=""
         loading="lazy"
         decoding="async"

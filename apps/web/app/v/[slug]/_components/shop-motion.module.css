@@ -1,32 +1,25 @@
 /*
- * 🎞 THE VERIFIED SHOP'S MOTION (prototype public_pages_three_2026-11-13, README "Animations and their reduced-motion
- * fallback"; owner-approved 13 Nov 2026). The numbers are the family's: 700 ms on cubic-bezier(.2,.8,.2,1)
- * (`--sn-pill-dur` / `--sn-ease-rise`), 120 ms cross-fade when the reader asks for less motion (`--sn-dur-rise-reduced`).
+ * 🎞 THE VERIFIED SHOP'S MOTION — on the motion standard since Phase 5 (owner 18 Nov 2026; specs
+ * MOTION_STANDARD_2026-11-18.md § 6). The shop wears the website's six named motions and their tokens
+ * (`--sn-m-*`, `--sn-w-*` in globals.css): Hero settle (the picture from 1.06 in Rise, the name's words 80 ms apart),
+ * Reveal (12 px in Move on Settle, neighbours 60 ms apart, the first six only), Emphasis (the kicker's underline in
+ * Move; a badge stamps in Quick on Spring) and Scroll-away (the hero's words fade to 40 % and lift 24 px with the
+ * scroll). It replaced the 13 Nov numbers (heroSettle 1600 ms from 1.12, lineUp 900 ms, fadeUp, drawX, stamp, pop).
+ * A CSS module cannot read a global keyframe, so the `sn-w-*` keyframes are copied at the foot, letter for letter
+ * (🔒 lib/the-website-motions-are-one.test.ts).
  *
- * 🔑 THE RESTING STATE IS THE BASE STYLE. Arrival motion is `from`-only keyframes (no JS); scroll motion hides a part
- * only once `ShopSectionBar` has set `data-shop-js` on the root, and its one IntersectionObserver adds `.in`. With no
- * JS the page is simply still and complete. Transform / opacity / stroke-dashoffset only — no layout work per frame.
+ * 🔑 THE RESTING STATE IS THE BASE STYLE. Arrival motion is `from`-only keyframes (no JS), filled `backwards` so no
+ * transform lingers. A part entering on the scroll rides the scroll itself where the browser can
+ * (`animation-timeline: view()`, no script, nothing hidden by a class); elsewhere a part is hidden only once
+ * `ShopSectionBar` has set `data-shop-js` on the root, and its one IntersectionObserver adds `.in`. With no JS the page
+ * is simply still and complete. Transform / opacity / stroke-dashoffset only — no layout work per frame.
  *
- * Only the verified look wears `.verified`; the unverified shop gets `.calm` (one 240 ms fade, the prototype's).
+ * Only the verified look wears `.verified`; the unverified shop gets `.calm` (one Quick fade).
  */
 
-/* ── 1 · hero photo settles · 2 · kicker, name word by word, tagline · 3 · seal stamps, badges pop · 5 · card rises */
+/* ── HERO SETTLE · the photo settles; the name rises word by word (the first six 80 ms apart, the rest with the sixth) */
 .verified .heroPhoto {
-  animation: heroSettle 1600ms var(--sn-ease-rise) both;
-}
-.verified .kicker {
-  animation: fadeUp var(--sn-pill-dur) var(--sn-ease-rise) 160ms both;
-}
-.verified .kicker::before {
-  content: '';
-  display: inline-block;
-  width: 34px;
-  height: 2px;
-  margin-right: 12px;
-  vertical-align: middle;
-  background: currentColor;
-  transform-origin: left;
-  animation: drawX var(--sn-pill-dur) var(--sn-ease-rise) 260ms both;
+  animation: sn-w-hero-img var(--sn-m-rise) var(--sn-m-settle) backwards;
 }
 .word {
   display: inline-block;
@@ -39,110 +32,146 @@
   display: inline-block;
 }
 .verified .word > span {
-  animation: lineUp 900ms var(--sn-ease-rise) both;
-  animation-delay: calc(260ms + var(--i, 0) * 110ms);
+  animation: sn-w-hero-line var(--sn-m-rise) var(--sn-m-settle) backwards;
+  animation-delay: calc(min(var(--i, 0), 5) * var(--sn-w-hero-gap));
+}
+/* ── REVEAL · the kicker, the tagline and (tablet up) the side card arrive with the name */
+.verified .kicker {
+  animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) backwards;
 }
 .verified .tagline {
-  animation: fadeUp var(--sn-pill-dur) var(--sn-ease-rise) 560ms both;
-}
-.verified :global([data-shop-hero-badges]) > :first-child {
-  animation: stamp var(--sn-pill-dur) var(--sn-ease-rise) 760ms both;
-}
-.verified :global([data-shop-hero-badges]) > * {
-  animation: pop var(--sn-pill-dur) var(--sn-ease-rise) both;
-  animation-delay: 1050ms;
-}
-.verified :global([data-shop-hero-badges]) > *:nth-child(2) { animation-delay: 1140ms; }
-.verified :global([data-shop-hero-badges]) > *:nth-child(3) { animation-delay: 1230ms; }
-.verified :global([data-shop-hero-badges]) > *:nth-child(4) { animation-delay: 1320ms; }
-.verified :global([data-shop-hero-badges]) > *:nth-child(n + 5) { animation-delay: 1410ms; }
-/* 3 (cont.) · the seal's ring, then its tick, draw themselves (`ImageBadge drawn` — strokes with pathLength 1). */
-.verified :global([data-badge-ring]) {
-  animation: drawStroke 900ms var(--sn-ease-rise) 900ms both;
-}
-.verified :global([data-badge-tick]) {
-  animation: drawStroke 500ms var(--sn-ease-rise) 1250ms both;
-}
-/* 8 · the reach ring draws itself, then fills; the "N km" tag fades in; the pin drops (ReachMap, client-drawn — it
-   plays when the map mounts). At rest every part is complete: the keyframes only say where they start from. */
-.verified :global([data-reach-ring]) {
-  animation:
-    drawStroke 1300ms var(--sn-ease-rise) 250ms both,
-    ringFill 700ms ease-out 1100ms both;
-}
-.verified :global([data-reach-km]) {
-  animation: fadeIn 500ms ease-out 1300ms both;
-}
-.verified :global([data-reach-pin]) {
-  animation: pinDrop var(--sn-pill-dur) var(--sn-ease-rise) 120ms both;
+  animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-w-hero-gap) * 3) backwards;
 }
 /* Tablet+ only: on a phone the card holds the floating Inquire, and an animating transform would become its
    containing block and drag it off the bottom of the screen. */
 @media (min-width: 768px) {
   .verified .card {
-    animation: cardUp 900ms var(--sn-ease-rise) 500ms both;
+    animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-w-hero-gap) * 3) backwards;
   }
 }
+/* ── EMPHASIS · the kicker's underline draws; the seal stamps, then each badge after it (six steps, then together) */
+.verified .kicker::before {
+  content: '';
+  display: inline-block;
+  width: 34px;
+  height: 2px;
+  margin-right: 12px;
+  vertical-align: middle;
+  background: currentColor;
+  transform-origin: left;
+  animation: sn-w-underline var(--sn-m-move) var(--sn-m-settle) var(--sn-w-stagger) backwards;
+}
+.verified :global([data-shop-hero-badges]) > * {
+  animation: sn-w-stamp var(--sn-m-quick) var(--sn-m-spring) backwards;
+  animation-delay: calc(var(--sn-m-move) + var(--sn-w-stagger) * 5);
+}
+.verified :global([data-shop-hero-badges]) > *:nth-child(1) { animation-delay: var(--sn-m-move); }
+.verified :global([data-shop-hero-badges]) > *:nth-child(2) { animation-delay: calc(var(--sn-m-move) + var(--sn-w-stagger)); }
+.verified :global([data-shop-hero-badges]) > *:nth-child(3) { animation-delay: calc(var(--sn-m-move) + var(--sn-w-stagger) * 2); }
+.verified :global([data-shop-hero-badges]) > *:nth-child(4) { animation-delay: calc(var(--sn-m-move) + var(--sn-w-stagger) * 3); }
+.verified :global([data-shop-hero-badges]) > *:nth-child(5) { animation-delay: calc(var(--sn-m-move) + var(--sn-w-stagger) * 4); }
+/* The seal's ring, then its tick, draw themselves (`ImageBadge drawn` — strokes with pathLength 1). */
+.verified :global([data-badge-ring]) {
+  animation: drawStroke var(--sn-m-rise) var(--sn-m-settle) var(--sn-m-move) backwards;
+}
+.verified :global([data-badge-tick]) {
+  animation: drawStroke var(--sn-m-move) var(--sn-m-settle) var(--sn-m-rise) backwards;
+}
+/* The reach ring draws itself, then fills; the "N km" tag fades in; the pin drops (ReachMap, client-drawn — it
+   plays when the map mounts). At rest every part is complete: the keyframes only say where they start from. */
+.verified :global([data-reach-ring]) {
+  animation:
+    drawStroke var(--sn-m-rise) var(--sn-m-settle) backwards,
+    ringFill var(--sn-m-move) var(--sn-m-settle) var(--sn-m-rise) backwards;
+}
+.verified :global([data-reach-km]) {
+  animation: sn-w-fade var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-rise) backwards;
+}
+.verified :global([data-reach-pin]) {
+  animation: pinDrop var(--sn-m-move) var(--sn-m-spring) backwards;
+}
 
-/* ── 4 · the hero drifts and its words sink as the page scrolls (CSS scroll timeline, zero JS; else it holds still) */
+/* ── SCROLL-AWAY · the hero's words fade to 40 % and lift 24 px as the page moves past (the scroll itself, zero JS;
+   else the hero holds still). The photo no longer drifts on its own: one shared part, not two.
+   The hero clips its own overflow — which makes IT the nearest scroller for an anonymous `view()`, a timeline that
+   never moves — so the timeline is named on the hero and read by its words. */
 @supports (animation-timeline: view()) {
-  .verified .heroDrift {
-    animation: drift linear both;
-    animation-timeline: view();
-    animation-range: exit 0% exit 100%;
-  }
-  .verified .heroBody {
-    animation: sink linear both;
-    animation-timeline: view();
-    animation-range: exit 0% exit 80%;
+  @media (prefers-reduced-motion: no-preference) {
+    .verified :global([data-shop-hero]) {
+      view-timeline: --sn-w-hero block;
+    }
+    .verified .heroBody {
+      animation: sn-w-away linear backwards;
+      animation-timeline: --sn-w-hero;
+      animation-range: exit 0% exit 100%;
+    }
   }
 }
 
-/* ── 6 · 7 · 9 · 10 · parts rise as they enter, staggered; photos wipe in; the pinned review settles */
+/* ── REVEAL · parts rise as they enter. Fallback path first: hidden only once the script has run, shown by `.in`. */
 .verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
 .verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
   opacity: 0;
-  transform: translateY(26px);
-}
-.verified[data-shop-js] :global([data-rise='settle']):not(:global(.in)) {
-  transform: translateX(-18px) rotate(-1.4deg);
+  transform: translateY(var(--sn-w-rise));
 }
 .verified[data-shop-js] :global([data-shop-section]) > *,
 .verified[data-shop-js] :global([data-rise]) {
   transition:
-    opacity var(--sn-pill-dur) var(--sn-ease-rise),
-    transform var(--sn-pill-dur) var(--sn-ease-rise);
+    opacity var(--sn-m-move) var(--sn-m-settle),
+    transform var(--sn-m-move) var(--sn-m-settle);
+  transition-delay: calc(var(--sn-w-stagger) * 5);
 }
+.verified[data-shop-js] :global([data-shop-section]) > :nth-child(1) { transition-delay: 0ms; }
+.verified[data-shop-js] :global([data-shop-section]) > :nth-child(2) { transition-delay: var(--sn-w-stagger); }
+.verified[data-shop-js] :global([data-shop-section]) > :nth-child(3) { transition-delay: calc(var(--sn-w-stagger) * 2); }
+.verified[data-shop-js] :global([data-shop-section]) > :nth-child(4) { transition-delay: calc(var(--sn-w-stagger) * 3); }
+.verified[data-shop-js] :global([data-shop-section]) > :nth-child(5) { transition-delay: calc(var(--sn-w-stagger) * 4); }
+.verified[data-shop-js] :global([data-rise]) { transition-delay: 0ms; }
 .verified[data-shop-js] :global([data-shop-section]) > :global(.in) :global(img) {
-  animation: settle 1400ms var(--sn-ease-rise) both;
+  animation: sn-w-hero-img var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+/* On the scroll itself where the browser can: nothing waits for a class, and nothing is hidden by one. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .verified :global([data-shop-section]) > *,
+    .verified :global([data-rise]),
+    .verified[data-shop-js] :global([data-shop-section]) > :not(:global(.in)),
+    .verified[data-shop-js] :global([data-rise]):not(:global(.in)) {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      animation: sn-w-reveal linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+      animation-range: entry 0% entry min(100%, var(--sn-w-reveal-span));
+    }
+  }
 }
 
-/* ── 11 · desktop hover lift on service cards (pointer devices only) */
+/* ── desktop hover lift on service cards (pointer devices only) */
 @media (hover: hover) and (min-width: 900px) {
   .verified :global([data-service-card]) {
-    transition: transform 0.3s var(--sn-ease-rise), box-shadow 0.3s var(--sn-ease-rise);
+    transition: transform var(--sn-m-quick) var(--sn-m-settle), box-shadow var(--sn-m-quick) var(--sn-m-settle);
   }
   .verified :global([data-service-card]):hover {
     transform: translateY(-5px);
   }
 }
 
-/* ── the unverified shop: one 240 ms fade, nothing travels */
+/* ── the unverified shop: one Quick fade, nothing travels */
 .calm {
-  animation: fadeIn 240ms ease-out both;
+  animation: sn-w-fade var(--sn-m-quick) var(--sn-m-settle) backwards;
 }
 
-@keyframes heroSettle { from { transform: scale(1.12); } }
-@keyframes fadeIn { from { opacity: 0; } }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } }
-@keyframes lineUp { from { transform: translateY(108%); } }
-@keyframes drawX { from { transform: scaleX(0); } }
-@keyframes stamp { from { opacity: 0; transform: scale(1.5) rotate(-18deg); } }
-@keyframes pop { from { opacity: 0; transform: scale(0.6); } }
-@keyframes cardUp { from { opacity: 0; transform: translateY(44px); } }
-@keyframes settle { from { transform: scale(1.06); } }
-@keyframes drift { to { transform: translateY(9%); } }
-@keyframes sink { to { opacity: 0.15; transform: translateY(-26px); } }
+/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 the-website-motions-are-one). */
+@keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
+@keyframes sn-w-fade { from { opacity: 0; } }
+@keyframes sn-w-hero-img { from { transform: scale(var(--sn-w-hero-from)); } }
+@keyframes sn-w-hero-line { from { transform: translateY(108%); } }
+@keyframes sn-w-away { to { opacity: var(--sn-w-away-fade); transform: translateY(var(--sn-w-away-lift)); } }
+@keyframes sn-w-underline { from { transform: scaleX(0); } }
+@keyframes sn-w-stamp { from { opacity: 0; transform: scale(1.6); } }
+/* The shop's own two: a stroke that draws itself, and the pin. */
 @keyframes drawStroke { from { stroke-dashoffset: 1; } }
 @keyframes ringFill { from { fill-opacity: 0; } }
 @keyframes pinDrop { from { opacity: 0; transform: translateY(-14px); } }
@@ -154,7 +183,7 @@
   .verified *::after,
   .verified,
   .calm {
-    animation-name: fadeIn !important;
+    animation-name: sn-w-fade !important;
     animation-duration: var(--sn-dur-rise-reduced) !important;
     animation-delay: 0ms !important;
     animation-timeline: auto !important;

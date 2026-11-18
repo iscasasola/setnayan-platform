@@ -291,3 +291,40 @@ test('10 · Event Ultra gift stock lands once, as reward stock (the badge-reward
   );
   assert.equal(stock, 2, '2 × Event Ultra, once');
 });
+
+test('11 · the paused plan’s PAID days do not burn under the gift — its purchase moves with it (owner pick, 18 Nov)', async () => {
+  const { userId, shop } = await newShop({ tier: 'pro', expiresIn: 10 * DAY });
+  const purchase = await one<string>(
+    `INSERT INTO public.vendor_subscriptions
+       (vendor_id, sku_code, tier, billing_cycle, amount_php, period_days, status, activated_at, expires_at, paid_at)
+     VALUES ($1, 'test_pro_28', 'pro', 'monthly', 2800, 28, 'paid',
+             now() - interval '60 days', now() + interval '10 days', now() - interval '60 days')
+     RETURNING purchase_id AS v`,
+    [shop],
+  );
+  const gift = await sendPlan(shop, 'enterprise');
+  assert.equal((await claim(gift, shop, 'now', userId)).status, 'claimed');
+  const sinceSub = (days: number) => db.query(
+    `UPDATE public.vendor_subscriptions SET expires_at = now() + ($2 || ' days')::interval WHERE purchase_id = $1`,
+    [purchase, String(days)],
+  );
+
+  // Time travel: the gift began 14 days ago, when the purchase had 10 days left → it "ends" 4 days ago by the clock,
+  // but the plan is PAUSED, so its unused value must still be the 10 days it had at the pause (the clock is stopped).
+  await db.query(`UPDATE public.setnayan_shop_gifts SET plan_starts_at = now() - interval '14 days' WHERE gift_id = $1`, [gift]);
+  await sinceSub(-4);
+  const during = Number(await one<string>(`SELECT public.vendor_unused_plan_value_php($1)::text AS v`, [shop]));
+  assert.ok(Math.abs(during - (2800 * 10) / 28) < 1, 'unused value is the 10 days it had left, frozen');
+
+  // The gift ends after 28 days; the sweep hands the plan back and the purchase moves with the profile.
+  await db.query(`UPDATE public.setnayan_shop_gifts SET plan_starts_at = now() - interval '28 days' WHERE gift_id = $1`, [gift]);
+  await sinceSub(-18);
+  await endTheGift(gift, shop);
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+
+  const back = await planOf(shop);
+  const sub = await one<string>(`SELECT expires_at::text AS v FROM public.vendor_subscriptions WHERE purchase_id = $1`, [purchase]);
+  assert.equal(back.tier_state, 'pro');
+  assert.ok(Math.abs(msLeft(sub) - 10 * DAY) < 5 * 60_000, 'the paid purchase has its 10 days again');
+  assert.ok(Math.abs(msLeft(sub) - msLeft(back.tier_expires_at)) < 5 * 60_000, 'purchase and profile agree');
+});

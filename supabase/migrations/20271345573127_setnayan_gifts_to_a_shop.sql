@@ -333,6 +333,21 @@ BEGIN
      WHERE vendor_profile_id = p_vendor_id;
   END IF;
 
+  -- 🔑 THE PAID DAYS DID NOT BURN UNDER THE GIFT. The profile above gets back exactly the days it had left, but the
+  -- purchase that bought them (`vendor_subscriptions.expires_at`) still carried its OLD end day — and the unused
+  -- value a later plan change is credited from (`vendor_unused_plan_value_php`) is derived from THAT column. So the
+  -- paid purchases that were running when the gift began move forward by exactly the time the plan was paused, which
+  -- is the same shift the profile just received (new end = now + days left = old end + (now - gift start)).
+  IF g.return_tier IS NOT NULL AND NOT g.return_open_ended THEN
+    UPDATE public.vendor_subscriptions s
+       SET expires_at = s.expires_at + (now() - g.plan_starts_at)
+     WHERE s.vendor_id = p_vendor_id
+       AND s.status = 'paid'
+       AND s.expires_at IS NOT NULL
+       AND s.expires_at > g.plan_starts_at
+       AND (s.activated_at IS NULL OR s.activated_at <= g.plan_starts_at);
+  END IF;
+
   UPDATE public.setnayan_shop_gifts
      SET finished_at = now(), finish_reason = CASE WHEN p_reason = 'went_back' THEN 'went_back' ELSE 'ended' END
    WHERE gift_id = g.gift_id;
@@ -399,6 +414,43 @@ COMMENT ON FUNCTION public.setnayan_shop_gift_claim(UUID, UUID, TEXT, UUID) IS
   'checks the caller runs the shop.';
 
 -- ── the shipped lapse sweep, with the two gift branches ─────────────────────────────────────────────────────────────
+-- ── The unused value of a PAUSED plan is frozen while the gift runs ───────────────────────────────────────────────
+-- Body of 20271177335213 (the only definition) with ONE change: "now" is the day the gift began while a Setnayan plan
+-- gift has this shop's own plan paused, so a plan change quoted during the gift credits the days the shop had left when
+-- it paused — not fewer each day. Nothing else differs.
+CREATE OR REPLACE FUNCTION public.vendor_unused_plan_value_php(p_vendor_id UUID)
+RETURNS NUMERIC
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  WITH clock AS (
+    SELECT COALESCE(
+             (SELECT g.plan_starts_at FROM public.setnayan_shop_gifts g
+               WHERE g.vendor_profile_id = p_vendor_id AND g.gift_type = 'plan'
+                 AND g.claim_choice IN ('start', 'now') AND g.plan_starts_at IS NOT NULL
+                 AND g.finished_at IS NULL AND g.return_tier IS NOT NULL AND NOT g.return_open_ended
+               LIMIT 1),
+             now()) AS t
+  )
+  SELECT COALESCE(ROUND(SUM(
+           s.amount_php
+           * ( EXTRACT(EPOCH FROM (
+                 s.expires_at
+                 - GREATEST((SELECT t FROM clock), s.expires_at - make_interval(days => s.period_days))
+               ))
+               / EXTRACT(EPOCH FROM make_interval(days => s.period_days)) )
+         ), 2), 0)
+    FROM public.vendor_subscriptions s
+   WHERE s.vendor_id = p_vendor_id
+     AND s.status = 'paid'
+     AND s.amount_php IS NOT NULL
+     AND s.period_days > 0
+     AND s.expires_at IS NOT NULL
+     AND s.expires_at > (SELECT t FROM clock);
+$$;
+
 CREATE OR REPLACE FUNCTION public.sweep_vendor_tier_expiry(p_vendor_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql

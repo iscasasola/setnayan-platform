@@ -1,7 +1,7 @@
 /**
  * ADMIN AREAS × LEVELS + THE OWNER APPROVES HIS OWN REQUEST (migrations replayed).
  * DECISION_LOG 2026-11-13, both rows. Migration
- * 20271348365823_admin_team_areas_levels_and_owner_self_approval.sql.
+ * 20271350705084_admin_team_areas_levels_and_owner_self_approval.sql.
  *
  * What the database itself must hold, whatever the app does:
  *
@@ -20,7 +20,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
-import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -273,4 +273,59 @@ test('work_escalations: one open escalation per item, RLS on', async () => {
       ),
     /work_escalations_one_open_per_item|duplicate/,
   );
+});
+
+// ── OPUS REVIEW 2026-11-18 ──────────────────────────────────────────────────
+// The admin RLS policies let ANY admin insert/update admin_approval_requests
+// through the browser session. Before the fix, a staff admin could file a
+// request in the OWNER's name with self_confirmed_at already set (or stamp one
+// of his), and the runner — service role — executed it 24 hours later without
+// the owner ever typing anything. The wait may only be started, and the
+// owner's own request only closed, by the server.
+test('a staff admin in a browser session cannot start the owner\'s 24-hour wait', async () => {
+  await db.query(`UPDATE public.users SET account_type = 'admin' WHERE user_id = $1`, [staffId]);
+  const existing = await newRequest(ownerId);
+  const asStaff = async <T>(fn: () => Promise<T>): Promise<T> => {
+    await setAuthUid(db, staffId);
+    await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+    await db.exec(`SET ROLE authenticated`);
+    try {
+      return await fn();
+    } finally {
+      await db.exec(`RESET ROLE`);
+      await setAuthUid(db, null);
+      await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+    }
+  };
+  // ANCHOR — the staff session really can write this table (else the refusals below prove nothing).
+  await asStaff(() =>
+    db.query(`UPDATE public.admin_approval_requests SET rationale = 'still add them' WHERE approval_id = $1`, [existing]),
+  );
+  const anchored = await db.query<{ rationale: string }>(
+    `SELECT rationale FROM public.admin_approval_requests WHERE approval_id = $1`,
+    [existing],
+  );
+  assert.equal(anchored.rows[0]!.rationale, 'still add them', 'the staff session must be able to update the row at all');
+
+  await assert.rejects(
+    () =>
+      asStaff(() =>
+        db.query(
+          `INSERT INTO public.admin_approval_requests (action_type, target_user_id, rationale, initiated_by, self_confirmed_at)
+           VALUES ('grant_team_member', $1, 'forged', $2, NOW())`,
+          [staffId, ownerId],
+        ),
+      ),
+    /only the server may start the 24-hour wait/,
+  );
+  await assert.rejects(
+    () => asStaff(() => typeTheWord(existing)),
+    /only the server may start the 24-hour wait/,
+  );
+  const r = await db.query<{ s: string | null }>(
+    `SELECT self_confirmed_at::text AS s FROM public.admin_approval_requests WHERE approval_id = $1`,
+    [existing],
+  );
+  assert.equal(r.rows[0]!.s, null);
+  await db.query(`UPDATE public.users SET account_type = 'customer' WHERE user_id = $1`, [staffId]);
 });

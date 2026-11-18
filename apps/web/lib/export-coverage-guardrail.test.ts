@@ -184,7 +184,7 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
-  // ── added 2026-11-13 (admin areas × levels, migration 20271348365823) ──
+  // ── added 2026-11-13 (admin areas × levels, migration 20271350705084) ──
   admin_scopes:
     'Staff console configuration: which admin areas an account may act in (granted_by is an actor stamp). Same kind of fact as the users.is_team_member flag, which the export already carries on the profile; no customer data.',
   work_escalations:

@@ -6,7 +6,7 @@ approvals row, map.html builder panel `#builder-2026-11-13`). Two owner rulings,
 ACTIONS — TYPED + 24 H".
 
 **Areas × levels**
-- Migration `20271348365823`: `public.admin_areas()` (the 16 areas from the drawing's `admin.js`, one list for every
+- Migration `20271350705084`: `public.admin_areas()` (the 16 areas from the drawing's `admin.js`, one list for every
   CHECK) · `admin_scopes(user_id, area, level)` with RLS on at CREATE (admin-or-self read, service-role writes) ·
   `admin_audit_log.area` (CHECK-ed; NOT backfilled — the log is append-only, so old rows read their area from the
   action name) · `work_escalations` (Escalate ▸ with a note; one open per item).
@@ -44,3 +44,9 @@ is overwritten; staff never; an audit row records area and actor). Exposure base
 read (two admin-only tables, two columns shaped like their neighbours, two helpers).
 
 SPEC IMPACT: FEATURE_REGISTER.md (corpus) gains the row for `/admin/team` + `/admin/admin-log`. No ruling changed.
+
+**Opus review 2026-11-18:** migration re-allocated forward (`20271348365823` → `20271350705084`, it sorted below
+main's head). `guard_owner_self_approval` now refuses a browser session (`authenticated`/`anon`) that starts the
+owner's 24-hour wait or closes the owner's own request — before, any admin could file or stamp a request in the
+owner's name through the session client and the service-role runner executed it a day later. New DB test proves it
+(and fails without the fix).

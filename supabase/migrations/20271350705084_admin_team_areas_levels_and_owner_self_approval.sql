@@ -288,6 +288,19 @@ BEGIN
 
   IF NEW.self_confirmed_at IS NOT NULL
      AND (TG_OP = 'INSERT' OR OLD.self_confirmed_at IS NULL) THEN
+    -- 🔒 OPUS REVIEW 2026-11-18: never from a browser session. The admin RLS
+    -- policies on this table let ANY admin insert or update a row through the
+    -- session client, and this trigger only asks whether the INITIATOR is the
+    -- owner — so without this line a staff admin could file a request in the
+    -- owner's name (or stamp an existing one of his) and the runner would
+    -- execute it with the service role 24 hours later, the owner never having
+    -- typed anything. The typed word arrives only through startOwnerWait
+    -- (lib/admin/self-approval.server.ts), which proves the SESSION is the
+    -- owner and writes with the service role.
+    IF current_user IN ('authenticated', 'anon') THEN
+      RAISE EXCEPTION 'owner self-approval: only the server may start the 24-hour wait'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
     IF NOT public.is_platform_owner(NEW.initiated_by) THEN
       RAISE EXCEPTION 'owner self-approval: only the owner may approve his own request'
         USING ERRCODE = 'check_violation';
@@ -310,6 +323,12 @@ BEGIN
           OR OLD.status IS DISTINCT FROM NEW.status) THEN
     IF NOT public.is_platform_owner(NEW.decided_by) THEN
       RAISE EXCEPTION 'four eyes: a different admin must decide this request'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    -- 🔒 OPUS REVIEW 2026-11-18: same reason as (a) — only the runner (service
+    -- role) closes the owner's own request; a browser session never does.
+    IF current_user IN ('authenticated', 'anon') THEN
+      RAISE EXCEPTION 'owner self-approval: only the server may run the owner''s own request'
         USING ERRCODE = 'check_violation';
     END IF;
     IF NEW.run_after IS NULL OR NOW() < NEW.run_after THEN

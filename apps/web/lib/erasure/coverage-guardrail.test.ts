@@ -195,7 +195,7 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
-  // ── added 2026-11-13 with the tables (admin areas × levels, migration 20271348365823) ──
+  // ── added 2026-11-13 with the tables (admin areas × levels, migration 20271350705084) ──
   admin_scopes:
     'Which admin areas a staff member may act in. user_id is NOT NULL ON DELETE CASCADE, so the rows go with the account on their own; granted_by is an actor stamp, ON DELETE SET NULL. Console configuration, nothing a customer typed.',
   work_escalations:

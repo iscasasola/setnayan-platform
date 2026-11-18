@@ -177,7 +177,13 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
     1,
     'the guest-list row must name the inquiry count the quote is moved away from',
   );
-  assert.match(makerSrc, /data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}/, 'and show their live count as "On their list"');
+  // With no count from them at all, the row says so instead of drawing the page's stand-in seed (owner screenshot
+  // 17 Nov, "Debut 18": "On their list 100" with no count anywhere — the-client-workspace-says-what-is-true.test.ts 8).
+  assert.match(
+    makerSrc,
+    /data-quote-live-pax=\{paxKnown \? '' : 'none'\}[^>]*>\s*\{paxKnown \? formatCount\(seedPax\) : 'No count yet'\}/,
+    'and show their live count as "On their list"',
+  );
 });
 
 test('nothing snaps the quote back to the inquiry count', () => {

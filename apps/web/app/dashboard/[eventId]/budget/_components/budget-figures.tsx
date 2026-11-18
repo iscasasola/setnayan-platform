@@ -61,6 +61,8 @@ export type BudgetFiguresNext =
       dueText?: string | null;
       /** Past due: the due words draw in the wine "bad news" tone. */
       late?: boolean;
+      /** Its day has passed (`isPastDue`) — the line says "Overdue … · since Nov 13", never "Next … · Nov 13". */
+      overdue?: boolean;
     }
   | 'unread'
   | null;
@@ -127,8 +129,8 @@ export function BudgetFigures({
           <span className={`${styles.nextTxt} ${styles.mute}`}>couldn&rsquo;t check</span>
         </div>
       ) : next ? (
-        <div className={styles.nextdue} data-budget-next="">
-          <span className={styles.mute}>Next</span>
+        <div className={styles.nextdue} data-budget-next={next.late || next.overdue ? 'overdue' : ''}>
+          <span className={styles.mute}>{next.late || next.overdue ? 'Overdue' : 'Next'}</span>
           <span className={styles.nextTxt}>
             <b className={styles.num}>
               <Peso value={next.amountPhp} id="budget-next" />
@@ -142,7 +144,7 @@ export function BudgetFigures({
                 </span>
               </>
             ) : next.dueDate ? (
-              ` · ${shortDate(next.dueDate)}`
+              ` · ${next.overdue ? 'since ' : ''}${shortDate(next.dueDate)}`
             ) : (
               ''
             )}

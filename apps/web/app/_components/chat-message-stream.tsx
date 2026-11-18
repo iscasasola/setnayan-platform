@@ -152,7 +152,7 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
+import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
 import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -1451,6 +1451,11 @@ export function ChatMessageStream({
     they cost NO layout height, and each only appears when its target is
     off-screen.
   */
+  // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
+  const bookAskAnswers = useMemo(
+    () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
+    [messages],
+  );
   const latestProposalRef = useRef<HTMLLIElement | null>(null);
   // The newest quote in the thread — what "jump to the quote" means, and the
   // only card that gets the ref. Older quotes stay in place as the audit trail.
@@ -1989,7 +1994,10 @@ export function ChatMessageStream({
                       {!quoteState.history && quoteVersion?.plan ? (
                         <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">{quoteVersion.plan}</p>
                       ) : null}
+                      {/* 💳 Said ONCE (owner screenshot 17 Nov): inside the picked client its Details page carries the
+                          nudge, so the quote card does not repeat it; the full-screen chat has no Details beside it. */}
                       {viewerRole === 'vendor' &&
+                      !inPicked &&
                       isLatestProposal &&
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
@@ -2345,6 +2353,7 @@ export function ChatMessageStream({
                     messageId={m.message_id}
                     meId={currentUserId}
                     nameOf={personName}
+                    answeredAs={bookAskAnswers.get(m.message_id) ?? null}
                   />
                 </li>
               );

@@ -1447,6 +1447,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           shopGiftsBuy={shopGifts.buy}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
+          paxKnown={guestCounts.atInquiry != null || guestCounts.live != null}
           coupleName={coupleLabel}
           packages={proposalPackages.filter((p) => !bundleIds.has(p.id))}
           cards={quoteCards}
@@ -1872,6 +1873,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       initialPending={pendingPayments}
       initialPlans={planProgress}
       fold={{ paymentHref: customerCardHref(thread.event_id, 'payments') }}
+      todayIso={todayIso}
     />
   );
   const chatBox = (

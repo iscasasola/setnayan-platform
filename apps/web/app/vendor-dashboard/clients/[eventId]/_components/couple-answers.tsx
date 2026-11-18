@@ -59,7 +59,7 @@ export function TheyToldYou({
   return (
     <section>
       <div id="their-answers" className="flex scroll-mt-4 flex-wrap items-baseline justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+        <p className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[color:var(--m-slate-2)]">
           <MessageCircleQuestion className="h-3.5 w-3.5" aria-hidden />
           What {coupleName} told you
         </p>

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
+import { quoteLinePriceWords } from '@/lib/quote-line-price-words';
 import {
   QUOTE_VERSION_SELECT,
   changesSincePrevious,
@@ -118,7 +119,7 @@ export function QuoteVersionsEvidence({
                           <li key={k} className="flex justify-between gap-2 py-0.5">
                             <span>{li.label}</span>
                             <span className="tabular-nums">
-                              {typeof li.amount_centavos === 'number' ? formatCentavos(li.amount_centavos) : 'Complimentary'}
+                              {quoteLinePriceWords(li)}
                             </span>
                           </li>
                         ))}

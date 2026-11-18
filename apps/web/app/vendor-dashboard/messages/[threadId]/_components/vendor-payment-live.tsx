@@ -160,6 +160,7 @@ export function VendorPaymentLive({
   initialPending,
   initialPlans,
   fold = null,
+  todayIso = null,
 }: {
   threadId: string;
   eventId: string;
@@ -172,6 +173,8 @@ export function VendorPaymentLive({
    * Payment tab): the whole card, open, as before.
    */
   fold?: { paymentHref: string } | null;
+  /** Manila's today (YYYY-MM-DD), from the server — the folded row says a past due date is overdue. Null = unknown. */
+  todayIso?: string | null;
 }) {
   const [pending, setPending] = useState<PendingVendorPayment[]>(initialPending);
   const [plans, setPlans] = useState<PlanProgressItem[]>(initialPlans);
@@ -350,10 +353,10 @@ export function VendorPaymentLive({
     if (pending.length === 0 && planViews.length === 0) return null;
     const lead = planViews[0];
     const line = lead
-      ? planFoldLine(lead.rollup, lead.cleared, lead.steps.length > 0)
+      ? planFoldLine(lead.rollup, lead.cleared, lead.steps.length > 0, todayIso)
       : `${peso(pending.reduce((sum, p) => sum + p.amountPhp, 0))} to confirm`;
     return (
-      <div className="border-b border-ink/10 bg-cream px-3 py-0.5 sm:px-4" data-chat-plan-fold={foldOpen ? 'open' : 'closed'}>
+      <div className="bg-cream px-3 py-0.5 sm:px-4" data-chat-plan-fold={foldOpen ? 'open' : 'closed'}>
         <button
           type="button"
           aria-expanded={foldOpen}
@@ -376,7 +379,7 @@ export function VendorPaymentLive({
                 {planViews.length > 1 ? <p className="pt-1 text-[13px] font-semibold text-ink">{p.vendorLabel}</p> : null}
                 {ack}
                 {stepper}
-                <div className="flex items-center gap-1 border-t border-ink/10 pt-1.5">
+                <div className="flex items-center gap-1 pt-1.5">
                   {clearForm}
                   {!cleared ? (
                     <Explain title="Mark payment cleared" data="chat-plan-clear">

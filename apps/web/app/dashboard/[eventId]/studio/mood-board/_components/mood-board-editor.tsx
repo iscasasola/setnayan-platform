@@ -38,6 +38,7 @@ import {
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { studioPartsSnapshot } from '@/lib/inspiration-slots';
 /* ⚡ The studio's client pieces load when the board is opened — never with the
    Maker that draws it (`mood-board-lazy.tsx`). Types still come from their files. */
 import {
@@ -1224,7 +1225,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
     <>
     <MoodBoardStudio
       eventId={eventId}
-      inspirationParts={await getInspirationParts()}
+      /* ⚡ Only the parts the Studio draws (`studioPartsSnapshot`) — never all ~300 with their services (111 KB, 2026-11-18). */
+      inspirationParts={studioPartsSnapshot(await getInspirationParts())}
       /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
       palette={draft && ('role_palette' in draft.events || 'main_colours' in draft.events) ? drafted : studio.palette}
       fallbackFive={fallbackFive}

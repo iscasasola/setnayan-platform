@@ -105,13 +105,13 @@ export function offerProgress(
 
 /**
  * 🔢 THE CARDS A SERVICE COUNTS TO (owner 12 Nov 2026, the supplier first-login release): Good · Better · Best asks for
- * three, but a Free or Verified shop may make only `servicesPerLeaf` (ONE) per category — so the step said "2 to go" to
+ * three, but a Free shop may make only ONE card (`serviceCardsTotal`, in total since 2026-11-18) — so the step said "2 to go" to
  * a supplier whose next card the maker refuses with "Upgrade to add more here", and it could never be ticked. It counts
- * to the smaller of the two; a founder (no per-category limit, `is_founder`) counts to three.
+ * to the smaller of the two; a founder (no card limit, `is_founder`) counts to three.
  */
-export function cardsToCount(servicesPerLeaf: number, isFounder: boolean): number {
-  if (isFounder || !Number.isFinite(servicesPerLeaf)) return CARDS_PER_SERVICE;
-  return Math.max(1, Math.min(CARDS_PER_SERVICE, Math.floor(servicesPerLeaf)));
+export function cardsToCount(serviceCardsTotal: number, isFounder: boolean): number {
+  if (isFounder || !Number.isFinite(serviceCardsTotal)) return CARDS_PER_SERVICE;
+  return Math.max(1, Math.min(CARDS_PER_SERVICE, Math.floor(serviceCardsTotal)));
 }
 
 /** "1 to go" · "3 of 3" — the words on a service's row and on the fold. */

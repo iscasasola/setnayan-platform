@@ -708,6 +708,8 @@ export async function printInputsVersion(eventId: string): Promise<string | null
   const admin = createAdminClient();
   const event = await readPrintEvent(admin, eventId);
   if (!event) return null;
+  // ⚡ The plan's mark is read beside the rest (speed pass 2026-11-18) — awaited where it always was; it never rejects.
+  const setnayanMarkRead = startAhead(eventSetnayanMark(admin, eventId));
   const [inputs, qrLook, ownsPro] = await Promise.all([
     readPrintSetInputs(admin, eventId, event),
     resolveEventQrLook(admin, eventId, event),
@@ -717,7 +719,7 @@ export async function printInputsVersion(eventId: string): Promise<string | null
      itself — an unlock or a lapse is a new picture, never last week's cached one. */
   const hub = ownsPro ? { heroConfig: await readHeroConfig(admin, eventId) } : null;
   // 🏷 …and the plan's Setnayan mark (Build 6 Lane L): buying Plus or Pro is a new picture, never the cached one.
-  const setnayanMark = await eventSetnayanMark(admin, eventId);
+  const setnayanMark = await setnayanMarkRead;
   return printPreviewVersion({ event, inputs, qrLook, hub, setnayanMark });
 }
 

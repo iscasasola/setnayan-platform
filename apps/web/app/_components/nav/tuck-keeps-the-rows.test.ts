@@ -161,3 +161,13 @@ test('7 · only transform, translate and opacity move; reduced motion swaps at o
   for (const s of ['[data-tuck-pill]', "[data-bottom-dock] > nav[aria-label='Primary navigation']", `:root ${ROWS}`]) assert.ok(reduced.includes(s), `${s} still travels under reduced motion`);
   assert.match(reduced, /transition:\s*none;/);
 });
+
+test('8 · the public front door tucks too (owner 19 Nov 2026, "Yes, tuck it")', () => {
+  const shell = code('app/_components/frontdoor/front-door-shell.tsx');
+  assert.match(shell, /useHideOnScroll\(true\)/, 'the front door opted out of the tuck again — every page tucks');
+  assert.match(shell, /data-bar-hidden=\{!inApp && barHidden \? '' : undefined\}/, 'the public bar no longer wears the reading');
+  const fd = css('app/_components/frontdoor/front-door.css');
+  const narrow = fd.slice(fd.indexOf("  .fd[data-chrome='app'] .fd-topwrap[data-hidden='true']"));
+  assert.match(narrow, /\.fd:not\(\[data-chrome='app'\]\) > \.fd-topbar \{\s*transition: transform var\(--sn-tuck-dur\) var\(--sn-tuck-ease\);/, 'the public bar tucks at a speed of its own');
+  assert.match(narrow, /\.fd\[data-bar-hidden\]:not\(\[data-chrome='app'\]\) > \.fd-topbar \{\s*transform: translateY\(-100%\);/, 'the public bar never leaves');
+});

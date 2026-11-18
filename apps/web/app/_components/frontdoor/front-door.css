@@ -2666,6 +2666,16 @@ button.fd-ask.quiet {
     transform: translateY(-100%);
   }
 
+  /* 🫳 THE PUBLIC BAR TUCKS TOO (owner 19 Nov 2026, "Yes, tuck it" — reverses the "stays put" ruling). It has no
+     wrapper (sticky needs a parent with room to travel), so the `.fd` root wears `data-bar-hidden` and the <header> moves at the
+     same pair as the app bar. Reduced motion: `.fd *` already drops every transition. */
+  .fd:not([data-chrome='app']) > .fd-topbar {
+    transition: transform var(--sn-tuck-dur) var(--sn-tuck-ease);
+  }
+  .fd[data-bar-hidden]:not([data-chrome='app']) > .fd-topbar {
+    transform: translateY(-100%);
+  }
+
   /* ⚠ "+ Create" IS DESKTOP-ONLY IN THE APP. A 360px row already carries
      identity, the search and the account cluster. Creation is reached from
      the board's create grid and the bottom bar — the phone's locked grammar.

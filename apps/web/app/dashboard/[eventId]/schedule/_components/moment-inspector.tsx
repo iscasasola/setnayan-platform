@@ -676,7 +676,7 @@ export function MomentInspector({
                   ),
                 )
               }
-              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-terracotta-300 px-4 text-[13px] font-semibold text-ink"
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-terracotta-300 px-4 text-[13px] font-semibold text-ink dark:text-cream"
             >
               <Send aria-hidden className="h-3.5 w-3.5" /> Release to couple
             </button>

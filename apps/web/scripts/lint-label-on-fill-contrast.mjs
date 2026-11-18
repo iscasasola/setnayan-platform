@@ -205,6 +205,20 @@ function readCssVars(mode = 'light') {
       if (rgb) vars.set(name, rgb);
       return rgb;
     }
+    // `rgb(var(--other))` — a POINTER at a token held as three numbers, with no alpha: the form `--m-*`, `--sn-*` and
+    // `--fd-*` take since the one colour set (18 Nov 2026 — `--m-paper: rgb(var(--color-raised))`). Opaque, so judged.
+    // Without this the reader fell through to a caller's light `var(--m-paper-2, #f4f2ec)` fallback and scored a dark
+    // pair against a light ground (measured: four false failures in the Ugat console).
+    // ⚠ ONLY for the families that were literals until that day (`--m-*`, `--sn-*`, `--fd-*`, `--surface*`), so the lint
+    // judges exactly the pairs it judged before. A page's OWN local pointer (`--fc-gold:rgb(var(--color-terracotta))`)
+    // was never resolved and still is not: resolving it too surfaced six LIGHT pairs that have been under 4.5:1 since
+    // before this change (the worst: gold on ivory 2.89:1 in `_for-coordinators.css`) — real, and their own PR.
+    const pointer = /^(?:m|sn|fd)-|^surface(?:-soft)?$/.test(name) ? value.match(/^rgb\(\s*var\(\s*--([a-z0-9-]+)\s*\)\s*\)$/i) : null;
+    if (pointer) {
+      const rgb = resolve(pointer[1], seen);
+      if (rgb) vars.set(name, rgb);
+      return rgb;
+    }
     return null; // color-mix, rgba with alpha, gradients — see SCOPE
   };
   for (const name of raw.keys()) resolve(name);

@@ -73,7 +73,7 @@ test('3 · below 1280 the pane is contents and its own parts hidden; from 1280 i
 
 test('4 · Verified only once checked, and it opens the one paper place', () => {
   const v = SIDE.slice(SIDE.indexOf('shop.pill'), SIDE.indexOf('</aside>'));
-  assert.match(v, /shop\.pill === 'Checking' \? null :/, 'Verified must never show while the papers are being checked');
+  assert.match(v, /shop\.pill === 'Checking' \|\| shop\.pill === 'Not sent' \? null :/, 'Verified must never show before the papers are checked (sent or not)');
   assert.match(v, /href=\{PERMIT_PAPERS_HREF\}/);
 });
 

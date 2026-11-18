@@ -28,6 +28,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ADMIN_TABS, ADMIN_TAB_MAP } from './admin-tabs';
+// 17 Nov 2026 reorg: a NEW merged page (/admin/offers) is homed in `admin/admin-pages.ts` until the two maps fold.
+import { adminShellPlaceFor } from './admin/admin-pages';
 import { redirectTargetIn, rendersJsx, urlPathFor } from './admin-map/scan-admin-routes';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -70,7 +72,7 @@ test('the walk found the admin — a floor, so an empty sweep cannot pass', () =
 
 test('every admin page on disk has a tab', () => {
   const mapped = new Set(ADMIN_TAB_MAP.map((e) => e.route));
-  const unmapped = DISK.map((p) => p.route).filter((r) => !mapped.has(r));
+  const unmapped = DISK.map((p) => p.route).filter((r) => !mapped.has(r) && !adminShellPlaceFor(r, null));
   assert.deepEqual(
     unmapped,
     [],

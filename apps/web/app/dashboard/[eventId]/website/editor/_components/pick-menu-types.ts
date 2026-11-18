@@ -96,6 +96,9 @@ export type PickMenuProps = {
    * changes.
    */
   menuMinWidth?: number;
+  /** ⬆ Open the list above the button whenever it fits there (admin reorg v10: dropdowns in a phone sheet open
+   *  upward, toward the thumb). Absent = below when it fits, as before. */
+  opensUp?: boolean;
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
   /** The option shown on the button. */

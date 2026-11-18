@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { paymentWasLogged } from '@/lib/payment-logged';
-import { Receipt, AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
+import { Receipt } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -8,7 +7,18 @@ import { formatCentavosPhp } from '@/lib/payouts';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import { whyNotBilled, type PendingCharge, type UnbilledVerdict } from '@/lib/unbilled-fee-repair';
 import { gatherUnbilledFacts } from '@/lib/unbilled-fee-repair.server';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { FeeRowMore } from './fee-row-more';
 import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
 import { ReviewMinForm } from './review-min-form';
 import { BookingsOpenForm } from './bookings-open-form';
@@ -31,7 +41,7 @@ export const dynamic = 'force-dynamic';
  * half of that sentence: **seeing who owes.** A charge sits `pending` from the
  * moment the vendor confirms the deposit, and nothing anywhere listed those.
  *
- * 🔑 THIS PAGE DECIDES NOTHING. No buttons, on purpose. Money is confirmed
+ * 🔑 THIS PAGE DECIDES NOTHING about money. No approve button, on purpose. Money is confirmed
  * where the PROOF is — the payment row with its reference and screenshot — and
  * a second place to approve from would be a second way to get it wrong. Each
  * row links to the payment instead.
@@ -224,218 +234,180 @@ export default async function AdminBookingFeesPage() {
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
   ).length;
 
+  const owedLabel = `${formatCentavosPhp(owedTotal)} on ${charges.length} ${charges.length === 1 ? 'booking' : 'bookings'}`;
+
+  // 📐 THE DESIGN TEMPLATE (owner-approved 2026-11-14, `design_template_sheet_2026-11-14_fable.html` › "Booking fees
+  // owed"). The page's name lives in the layout's pinned row ("Money · Fees owed ▾" with its count), so nothing here
+  // restates it. Plain sections and hairline rows — no card anywhere; every explaining paragraph moved behind an ⓘ;
+  // each fee is ONE row with ONE action (or a chip) and the rest behind ⋯; the review count is a − / + sentence that
+  // saves itself; a failed read is amber with its own Try again, never "none".
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
-      {/* The shared masthead, not a hand-rolled <header> — a guard rejects a new
-          page that draws its own, and it has no eyebrow by design. */}
-      <PageMasthead
-        title="Booking fees owed"
-      />
-
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* 🚪 BOOKINGS (owner 2026-11-02, "for now, they cannot add bookings"). `lib/bookings-open.ts`. */}
-      <div className="sn-tile mb-4 p-4">
-        <h2 className="font-serif text-lg text-ink">
-          Bookings are {bookingsOpen === null ? 'unknown' : bookingsOpen ? 'open' : 'closed'}
-        </h2>
-        <p className="mb-3 mt-1 text-sm text-[color:var(--sn-ink-500)]">
-          {bookingsOpen === null
-            ? 'Could not read the switch right now — this is not the same as closed. Reload to try again.'
-            : bookingsOpen
-              ? 'Verified shops can be booked, and booking fees are made.'
-              : 'No booking can be made from any door and no fee is made. Shop pages, packages and prices still show, with “Bookings open soon”.'}
-        </p>
-        <BookingsOpenForm open={bookingsOpen} />
-      </div>
-
-      {unreadable ? (
-        <div className="sn-tile mb-4 flex items-start gap-3 p-4">
-          <AlertTriangle
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: '#B54708' }}
-          />
-          <p className="text-sm" style={{ color: '#B54708' }}>
-            Could not load the fees right now — this is <strong>not</strong> the same as
-            nobody owing anything.
-          </p>
-        </div>
-      ) : null}
-
-      {billingUnread && !unreadable ? (
-        <div className="sn-tile mb-4 flex items-start gap-3 p-4">
-          <AlertTriangle
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: '#B54708' }}
-          />
-          <p className="text-sm" style={{ color: '#B54708' }}>
-            Could not check which of these have been billed or paid — so each one reads
-            &ldquo;status unknown&rdquo; below. That is <strong>not</strong> the same as
-            &ldquo;never billed&rdquo;. Refresh to try again.
-          </p>
-        </div>
-      ) : null}
-
-      {!unreadable && charges.length > 0 ? (
-        <div className="sn-tile mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 p-4">
-          <span className="text-sm">
-            <strong>{formatCentavosPhp(owedTotal)}</strong> owed across {charges.length}{' '}
-            {charges.length === 1 ? 'booking' : 'bookings'}
-          </span>
-          {notBilled.size > 0 ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-sm font-semibold"
-              style={{ color: '#B54708' }}
+      <TemplateSection label="Bookings" first data="bookings">
+        <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+          <span className="min-w-0 flex-1">
+            <InfoTip
+              label={`Bookings are ${bookingsOpen === null ? 'unknown' : bookingsOpen ? 'open' : 'closed'}`}
+              labelClassName="text-[15px] font-semibold text-ink"
+              align="start"
             >
-              <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {notBilled.size} {notBilled.size === 1 ? 'has' : 'have'} never been billed
-            </span>
-          ) : null}
-          {billingUnread ? null : (
-            <span className="text-sm text-[color:var(--sn-ink-500)]">
-              {withProof} {withProof === 1 ? 'has' : 'have'} sent proof and{' '}
-              {withProof === 1 ? 'is' : 'are'} waiting on you
-            </span>
-          )}
+              {bookingsOpen === null
+                ? 'Couldn’t read the switch — that is not the same as closed. The switch is hidden until it can be read.'
+                : bookingsOpen
+                  ? 'Verified shops can be booked, and booking fees are made.'
+                  : 'No booking can be made from any door and no fee is made. Shop pages, packages and prices still show, with “Bookings open soon”.'}
+            </InfoTip>
+          </span>
+          {bookingsOpen === null ? null : <BookingsOpenForm open={bookingsOpen} />}
         </div>
-      ) : null}
+        {bookingsOpen === null ? (
+          <TemplateFail retryHref="/admin/booking-fees" data="bookings">
+            Couldn&rsquo;t check &mdash; the switch is hidden until we can.
+          </TemplateFail>
+        ) : null}
+      </TemplateSection>
 
-      {!unreadable && charges.length === 0 ? (
-        <div className="sn-tile flex items-start gap-3 p-4">
-          <CheckCircle2
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: 'var(--sn-ink-500)' }}
-          />
-          <p className="text-sm text-[color:var(--sn-ink-500)]" data-fees-minting={String(feesMinting)}>
-            {feesMinting === true
-              ? 'Nobody owes a booking fee right now. The booking fee is on, so a booking that owes one shows here as soon as it is locked.'
-              : feesMinting === false
-                ? 'Nobody owes a booking fee right now. The booking fee is off, so this page stays empty even when bookings are being locked.'
-                : 'Nobody owes a booking fee right now. Whether the booking fee is on could not be read just now.'}
-          </p>
-        </div>
-      ) : null}
+      <TemplateSection
+        label="Fees owed"
+        right={!unreadable && charges.length > 0 ? owedLabel : undefined}
+        data="fees"
+      >
+        {unreadable ? (
+          <TemplateFail retryHref="/admin/booking-fees" data="fees">
+            Couldn&rsquo;t check the fees &mdash; not the same as nobody owing anything.
+          </TemplateFail>
+        ) : null}
 
-      {charges.length > 0 ? (
-        <ul className="space-y-3">
-          {charges.map((c) => {
-            const key = bookingFeeLockServiceKey(c.charge_id);
-            const pay = paidRefs.get(key);
-            const days = ageDays(c.created_at, nowMs);
-            // NOT BILLED is a different state from NOT PAID, and the tile says
-            // which one this is. `pay` is undefined exactly when no order row
-            // exists for the charge — i.e. when nobody was ever asked.
-            const missing = notBilled.get(c.charge_id) ?? null;
-            return (
-              <li key={c.charge_id} className="sn-tile flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-ink/5">
-                  <Receipt
-                    aria-hidden
-                    className="h-5 w-5"
-                    strokeWidth={1.75}
-                    style={{ color: missing || pay?.hasProof ? '#B54708' : 'var(--sn-ink-500)' }}
-                  />
-                </span>
+        {billingUnread && !unreadable ? (
+          <TemplateFail retryHref="/admin/booking-fees" data="billing">
+            Couldn&rsquo;t check which were billed or paid, so each reads &ldquo;Status unknown&rdquo; &mdash; not the same as never billed.
+          </TemplateFail>
+        ) : null}
 
-                <span className="flex min-w-[10rem] flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-semibold">
-                    {vendorNames.get(c.vendor_profile_id) ?? 'A supplier'}
-                  </span>
-                  <span className="text-xs text-[color:var(--sn-ink-500)]">
-                    {formatCentavosPhp(owedOf(c))}
-                    {owedOf(c) > num(c.amount_charged_centavos)
-                      ? ` (fee ${formatCentavosPhp(num(c.amount_charged_centavos))} + gift ${formatCentavosPhp(owedOf(c) - num(c.amount_charged_centavos))})`
-                      : ''}{' '}
-                    on a{' '}
-                    {formatCentavosPhp(num(c.proposal_amount_centavos))} booking
-                    {c.public_id ? ` · ${c.public_id}` : ''}
-                  </span>
-                  {missing ? (
-                    <span
-                      className="mt-1 text-xs"
-                      style={{ color: '#B54708' }}
-                      data-unbilled-reason={missing.code}
-                    >
-                      {missing.reason}
-                    </span>
-                  ) : null}
-                </span>
-
-                <span className="flex shrink-0 items-center gap-3">
-                  <span
-                    className="inline-flex items-center gap-1 text-xs"
-                    style={{ color: 'var(--sn-ink-500)' }}
-                  >
-                    <Clock3 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    {days === 0 ? 'today' : `${days}d`}
-                  </span>
-
-                  {missing ? (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-semibold"
-                      style={{ color: '#B54708' }}
-                    >
-                      <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                      Never billed
-                    </span>
-                  ) : billingUnread ? (
-                    <span className="text-xs font-semibold" style={{ color: '#B54708' }}>
-                      Status unknown
-                    </span>
-                  ) : pay?.hasProof ? (
-                    <Link
-                      href={`/admin/payments?filter=all&q=${encodeURIComponent(pay.orderPublicId ?? c.public_id ?? '')}`}
-                      className="rounded-md px-3 py-1.5 text-xs font-semibold"
-                      style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
-                    >
-                      Check their payment
-                    </Link>
-                  ) : (
-                    <span className="text-xs" style={{ color: 'var(--sn-ink-500)' }}>
-                      Billed — nothing sent yet
-                    </span>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-
-      <h2 className="mb-2 mt-8 font-serif text-lg text-ink">Suppliers to review</h2>
-      <div className="sn-tile mb-3 p-4">
-        <p className="mb-3 text-sm text-[color:var(--sn-ink-500)]">
-          Suppliers with several events their couples treat as booked — a booked status or a
-          payment recorded — and no settled booking fee. For review only.
-        </p>
-        <ReviewMinForm value={review.ok ? review.minEvents : null} />
-      </div>
-      {!review.ok ? (
-        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
-          Could not read {review.why} — this is <strong>not</strong> the same as nobody to review.
-        </p>
-      ) : review.rows.length === 0 ? (
-        <p className="sn-tile p-4 text-sm text-[color:var(--sn-ink-500)]">
-          No supplier has {review.minEvents} or more such events.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {review.rows.map((r) => (
-            <li key={r.vendorProfileId} className="sn-tile flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
-              <span className="min-w-[10rem] flex-1 text-sm font-semibold">{r.name ?? 'A supplier'}</span>
-              <span className="text-xs tabular-nums text-[color:var(--sn-ink-500)]">
-                {r.events} {r.events === 1 ? 'event' : 'events'} · couples recorded{' '}
-                {formatCentavosPhp(Math.round(r.paymentsPhp * 100))} · fee owed{' '}
-                {formatCentavosPhp(r.owedCentavos)}
+        {!unreadable && charges.length > 0 && (notBilled.size > 0 || !billingUnread) ? (
+          <p className={`pb-1 ${TEMPLATE_SUBLINE}`} data-fees-summary="">
+            {notBilled.size > 0 ? (
+              <span style={{ color: 'rgb(var(--color-danger))' }}>
+                {notBilled.size} never billed
               </span>
-            </li>
-          ))}
-        </ul>
-      )}
+            ) : null}
+            {notBilled.size > 0 && !billingUnread ? ' · ' : null}
+            {billingUnread ? null : (
+              <span>
+                {withProof} sent proof {withProof === 1 ? 'and is' : 'and are'} waiting on you
+              </span>
+            )}
+          </p>
+        ) : null}
+
+        {/* 💸 F-A-23 (admin walk 13 Nov 2026): the empty line reads the real fee switch — its words are the walk's. */}
+        {!unreadable && charges.length === 0 ? (
+          <TemplateEmpty data="fees">
+            <span data-fees-minting={String(feesMinting)}>
+              {feesMinting === true
+                ? 'Nobody owes a booking fee right now. The booking fee is on, so a booking that owes one shows here as soon as it is locked.'
+                : feesMinting === false
+                  ? 'Nobody owes a booking fee right now. The booking fee is off, so this page stays empty even when bookings are being locked.'
+                  : 'Nobody owes a booking fee right now. Whether the booking fee is on could not be read just now.'}
+            </span>
+          </TemplateEmpty>
+        ) : null}
+
+        {charges.length > 0 ? (
+          <TemplateRows label="Fees owed">
+            {charges.map((c) => {
+              const key = bookingFeeLockServiceKey(c.charge_id);
+              const pay = paidRefs.get(key);
+              const days = ageDays(c.created_at, nowMs);
+              // NOT BILLED is a different state from NOT PAID, and the row says which one this is. `pay` is
+              // undefined exactly when no order row exists for the charge — i.e. when nobody was ever asked.
+              const missing = notBilled.get(c.charge_id) ?? null;
+              const name = vendorNames.get(c.vendor_profile_id) ?? 'A supplier';
+              // 💳 RW-45: what the supplier owes is the BILL — the fee plus any Papic gift on it (`owedOf`).
+              const owed = owedOf(c);
+              const fee = formatCentavosPhp(owed);
+              const paymentHref = pay
+                ? `/admin/payments?filter=all&q=${encodeURIComponent(pay.orderPublicId ?? c.public_id ?? '')}`
+                : null;
+              return (
+                <TemplateRow
+                  key={c.charge_id}
+                  data={c.charge_id}
+                  edge={missing ? 'late' : pay?.hasProof ? 'due' : undefined}
+                  title={`${name} · ${fee}`}
+                  line={
+                    missing ? (
+                      <span style={{ color: 'rgb(var(--color-danger))' }} data-unbilled-reason={missing.code}>
+                        {missing.reason}
+                      </span>
+                    ) : (
+                      <>
+                        {owed > num(c.amount_charged_centavos)
+                          ? `Fee ${formatCentavosPhp(num(c.amount_charged_centavos))} + gift ${formatCentavosPhp(owed - num(c.amount_charged_centavos))} · `
+                          : ''}
+                        On a {formatCentavosPhp(num(c.proposal_amount_centavos))} booking · {days === 0 ? 'today' : `${days}d`}
+                      </>
+                    )
+                  }
+                  right={
+                    <>
+                      {missing ? (
+                        <Badge tone="no">Never billed</Badge>
+                      ) : billingUnread ? (
+                        <Badge tone="wait">Status unknown</Badge>
+                      ) : pay?.hasProof && paymentHref ? (
+                        <ActionButton tone="ok" icon={<Receipt aria-hidden strokeWidth={1.9} />} label="Check payment" href={paymentHref} />
+                      ) : (
+                        <Badge tone="quiet">Billed — nothing sent yet</Badge>
+                      )}
+                      <FeeRowMore
+                        title={`${name} · ${fee}`}
+                        code={c.public_id}
+                        paymentHref={paymentHref}
+                        shopHref={`/admin/vendors/${c.vendor_profile_id}`}
+                      />
+                    </>
+                  }
+                />
+              );
+            })}
+          </TemplateRows>
+        ) : null}
+      </TemplateSection>
+
+      {/* ⚖ SUPPLIERS TO REVIEW — lists; it charges and tells nobody. */}
+      <TemplateSection
+        label="Suppliers to review"
+        tip="Suppliers with several events their couples treat as booked — a booked status or a payment recorded — and no settled booking fee. For review only."
+        data="review"
+      >
+        <ReviewMinForm value={review.ok ? review.minEvents : null} />
+        {!review.ok ? (
+          <TemplateFail retryHref="/admin/booking-fees" data="review">
+            Couldn&rsquo;t read {review.why} &mdash; not the same as nobody to review.
+          </TemplateFail>
+        ) : review.rows.length === 0 ? (
+          <TemplateEmpty data="review">No supplier has {review.minEvents} or more such events.</TemplateEmpty>
+        ) : (
+          <TemplateRows label="Suppliers to review">
+            {review.rows.map((r) => (
+              <TemplateRow
+                key={r.vendorProfileId}
+                data={r.vendorProfileId}
+                href={`/admin/vendors/${r.vendorProfileId}`}
+                title={r.name ?? 'A supplier'}
+                line={
+                  <span className="tabular-nums">
+                    {r.events} {r.events === 1 ? 'event' : 'events'} · couples recorded{' '}
+                    {formatCentavosPhp(Math.round(r.paymentsPhp * 100))} · fee owed {formatCentavosPhp(r.owedCentavos)}
+                  </span>
+                }
+              />
+            ))}
+          </TemplateRows>
+        )}
+      </TemplateSection>
     </div>
   );
 }

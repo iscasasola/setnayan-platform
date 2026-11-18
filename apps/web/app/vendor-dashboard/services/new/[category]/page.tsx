@@ -171,34 +171,35 @@ export default async function NewServicePage({
     <div className={canvas ? 'mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6' : 'mx-auto w-full max-w-2xl px-4 py-8 sm:px-6'}>
       <Link
         href="/vendor-dashboard/services"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
+        className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-[color:var(--m-slate-2)] hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Services
       </Link>
       {canvas ? null : (
         <>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+          <h1 className="sr-only">
             {initial ? 'Start from one of your cards' : 'Add a service'}
           </h1>
-          <p className="mb-6 mt-1 text-sm text-ink/60">
+          <p className="mb-4 text-[13px] text-[color:var(--m-slate-2)]">
             A few quick answers — three to publish, the rest optional. Everything saves together at the end.
           </p>
         </>
       )}
       {canvas && cardQueue.length > 0 ? (
-        <p className="mb-3 text-[13.5px] text-ink/65" data-card-queue={cardQueue.join(',')}>
+        <p className="mb-3 text-[13.5px] text-[color:var(--m-slate-2)]" data-card-queue={cardQueue.join(',')}>
           {cardQueueLine(cardQueue, kindLabel)}
         </p>
       ) : null}
       {showClaimBanner && claimContext ? (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
+        <div className="mb-4 flex items-start gap-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-4 py-3">
           <Heart
             aria-hidden
             className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
             strokeWidth={1.75}
           />
-          <p className="text-sm text-ink/80">
+          <p className="text-[14px] text-ink">
             Set up your service for{' '}
             <span className="font-semibold text-ink">
               {claimContext.coupleDisplayName}

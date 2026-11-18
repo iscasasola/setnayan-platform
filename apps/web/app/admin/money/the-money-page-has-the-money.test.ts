@@ -48,7 +48,10 @@ test('an unmeasured queue count renders an em-dash, never a confident zero', () 
   const src = stripComments(ledger);
   // On a money screen a 0 claims "nothing is waiting". `null` means the read
   // did not happen — a different and much weaker claim.
-  assert.match(src, /q\.count == null \? '—' : formatCount\(q\.count\)/);
+  // 📐 2026-11-14 (design template): the per-queue chip card moved to the pinned row's ▾ views, which carry their
+  // own "—" for an unread count. What stays on the page is ONE line — and an unread queue must still say so there.
+  assert.match(src, /anyUnmeasured\s*\?\s*'Some money queues couldn’t be checked just now/);
+  assert.match(src, /moneyQueues\.some\(\(q\) => q\.count == null\)/);
   assert.match(src, /received == null \? null : formatPhp\(received\)/);
   assert.match(src, /outstanding == null \? null : formatPhp\(outstanding\)/);
 });

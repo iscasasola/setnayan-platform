@@ -252,6 +252,9 @@ export function playGrowParts(parts: GrowParts, plan: GrowPlan, out: boolean): A
  * towards where you are looking. Nothing is held: the transform is gone when the animation ends. (A sheet does not call
  * this: its own scrim already dims.)
  */
+/** The dim's box: the viewport's size, in the page's flow of layers — never `fixed` (see `playBehind`). */
+export const RISE_DIM_BOX = 'position:absolute;top:0;left:0;width:100vw;height:100dvh';
+
 export function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): Animation[] {
   const anims: Animation[] = [];
   const at = out ? closeWindow(plan.behind, plan) : plan.behind;
@@ -274,8 +277,17 @@ export function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): A
   const dim = document.createElement('div');
   dim.dataset.riseDim = '';
   dim.setAttribute('aria-hidden', 'true');
-  dim.style.cssText = 'position:fixed;inset:0;pointer-events:none;background:#000;opacity:0;z-index:var(--sn-z-pop)';
+  // 📱 NEVER `position: fixed` (owner 18 Nov 2026, on his iPhone: *"why is the dynamic island row blacked out. it should
+  // look continuous"*). Measured in the iOS simulator's Safari: WebKit colours the system's edge bands — the status-bar /
+  // Dynamic Island row, the toolbar band — from the FIXED layers that reach the screen's edges, it read this layer's
+  // black whatever its opacity, and it KEPT it after the layer was gone: a solid black row over a cream screen. Drawn
+  // `absolute` over the same box (placed where the viewport is, by a transform that never animates) it dims exactly the
+  // same and is not one of those layers. The risen screen itself is the fixed layer at the edges, in its own colour.
+  // 🔒 app/_components/rise/a-risen-screen-owns-the-status-row.test.ts
+  dim.style.cssText = `${RISE_DIM_BOX};pointer-events:none;background:#000;opacity:0;z-index:var(--sn-z-pop)`;
   screen.before(dim);
+  const box = dim.getBoundingClientRect();
+  dim.style.transform = `translate(${-box.left}px, ${-box.top}px)`;
   const d = dim.animate([{ opacity: 0 }, { opacity: plan.behind.dim }], {
     duration: at.duration,
     delay: at.delay,

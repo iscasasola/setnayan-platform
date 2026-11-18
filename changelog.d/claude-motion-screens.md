@@ -36,6 +36,16 @@ opener, no raw timing. Stacked on `claude/motion-grow` (Phase 1).
   back: Quick on Settle; reduced motion: at once. Rules: near the top everything shows · the page's end brings it back ·
   a page too short to scroll never tucks · never started while a sheet, an Undo toast or a busy save is up · the
   keyboard rule is untouched.
+- **Fix — the Dynamic Island row over a risen screen is no longer black** (owner, on his iPhone, "Your page" risen from
+  a Today task: *"why is the dynamic island row blacked out. it should look continuous"*). The opener is the ONE
+  `RiseScreen` (via `RiseRoute`); it already reaches under the status bar and pads its head by the inset. The black was
+  the grow's dim: a `position: fixed; inset: 0; background: #000` layer (`playBehind`, `lib/rise-screen.ts`). WebKit
+  colours the system's edge bands from the fixed layers at the screen's edges, read that black whatever its opacity,
+  and kept it after the layer was gone. The dim is now `absolute` over the same box (`RISE_DIM_BOX`) — same look, not
+  one of those layers. Guard: `a-risen-screen-owns-the-status-row` (root fixed to all four edges on its own ground,
+  head pads the inset, the grow ends on the whole screen, no fixed layer in the page-behind player, `viewportFit:
+  'cover'` + light `theme-color` + `default` status bar). Measured on a static reproduction in the iOS simulator's
+  Safari — not in the Capacitor app or the home-screen icon.
 - **Lab:** `/dev/motion-screens-lab` — every motion above on the shipped parts, no sign-in, no database.
 - **Guards** (each sabotaged red once, then restored): `the-full-screen-map-is-the-standard` ·
   `the-nav-highlight-is-0-7s` · `tuck-keeps-the-rows` · `the-screens-move-by-the-standard`; re-anchored

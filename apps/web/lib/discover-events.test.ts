@@ -420,20 +420,22 @@ test('every read checks its error, and a failure becomes "unavailable", never an
   assert.match(RENDER, /couldn’t (check|load)/);
 });
 
-test('the shelves render in the ruled order: your people → the world → shops → people to follow → stories', () => {
+test('the shelves render in the ruled order: your people → the world → people to follow → suppliers → parts 3–6', () => {
+  // 🔄 2026-11-16 (owner, "Discover in six parts"): People to follow moved ahead of the suppliers (part 1), and parts
+  // 3–6 (Service cards · Event stories · Articles · Inspiration) follow them; New uploads is retired. The parts' own
+  // order is held by front-door-invariants.test.ts.
   const before = FEED.indexOf('{beforeShops}');
   const shops = FEED.indexOf('Open your shop');
   const after = FEED.indexOf('{afterShops}');
-  const uploads = FEED.indexOf('New uploads');
-  assert.ok(before > -1 && shops > -1 && after > -1 && uploads > -1, 'a slot or section is missing');
-  assert.ok(before < shops && shops < after && after < uploads, 'the Discover layers are out of order');
+  assert.ok(before > -1 && shops > -1 && after > -1, 'a slot or section is missing');
+  assert.ok(before < shops && shops < after, 'the Discover layers are out of order');
+  assert.doesNotMatch(FEED, /New uploads/, 'New uploads came back');
 
   const people = RENDER.indexOf('data-discover-shelf="people"');
   const world = RENDER.indexOf('data-discover-shelf="world"');
   assert.ok(people > -1 && world > people, 'your people must come before the world');
 
-  assert.match(DOOR, /beforeShops=\{discover \? <DiscoverEventShelves/);
-  assert.match(DOOR, /afterShops=\{discover \? <PeopleToFollowShelf/);
+  assert.match(DOOR, /beforeShops=\{\s*discover \? \(\s*<>\s*<DiscoverEventShelves discover=\{discover\} \/>\s*<PeopleToFollowShelf discover=\{discover\} \/>/);
   assert.match(DOOR, /<MiniTour tourKey="discover_upcoming_v1" \/>/);
 });
 

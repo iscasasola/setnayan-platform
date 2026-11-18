@@ -503,7 +503,7 @@ export function CollectionsList({
         </div>
         {show === 'videos' ? null : everyAlbum.length === 0 ? (
           <EmptyRail id="page" line="Nothing yet · your photos show here and on your page" door={pageDoor} icon={ic(Images)} />
-        ) : rowAlbums.length === 0 ? (
+        ) : rowAlbums.length === 0 ? nothing ? null : (
           <p className="px-4 pb-2 text-[14px] text-ink/65" data-portfolio-albums-none="">
             {needle ? `No album matches “${words.trim()}”.` : 'No albums of this kind yet.'}
           </p>

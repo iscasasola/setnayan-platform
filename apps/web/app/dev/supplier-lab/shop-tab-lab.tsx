@@ -232,10 +232,18 @@ function portfolioLab(fail: boolean, none: boolean) {
             { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-10-18' },
             { eventId: 'ev-reyes', eventName: 'Reyes christening', bookedDate: '2026-09-27' },
           ],
-          { thisYear: 2026, albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` },
+          {
+            thisYear: 2026,
+            albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio`,
+            // 📍 Sample venues (fixtures) — so Search by place can be tried here: type "tagaytay".
+            facts: new Map([
+              ['ev-santos', { venue: 'Taal Vista Hotel', address: 'Tagaytay City, Cavite', services: ['Wedding photo & video', 'Photo booth'] }],
+              ['ev-cruz', { venue: 'Club Punta Fuego', address: 'Nasugbu, Batangas', services: ['Photo booth'] }],
+            ]),
+          },
         ),
-        services: serviceAlbums(serviceCards),
-        inspiration: inspirationAlbums(looks),
+        services: serviceAlbums(serviceCards, new Map([['svc-photo', 'Taal Vista Hotel · Tagaytay City, Cavite'], ['svc-booth', 'Taal Vista Hotel · Tagaytay City, Cavite · Club Punta Fuego · Nasugbu, Batangas']])),
+        inspiration: inspirationAlbums(looks, new Map([['l0', 'Wedding · Taal Vista Hotel · Nov 2026']])),
         stories: [
           { eventId: 'ev-santos', slug: 'santos-delacruz', hostNames: 'Ana & Miguel', line: 'Tagaytay · Nov 2026' },
           { eventId: 'ev-cruz', slug: 'bea-cruz-18', hostNames: 'Bea Cruz', line: 'Batangas · Oct 2026' },

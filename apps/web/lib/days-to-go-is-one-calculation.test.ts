@@ -35,6 +35,6 @@ test('1b · tomorrow, today and past read as 1, 0 and negative; an unreadable da
 
 test('2 · Schedule reads the shared calculation and keeps no calendar-day copy of it', () => {
   const page = read('app/dashboard/[eventId]/schedule/page.tsx');
-  assert.match(page, /const daysToGo = eventDateKey \? daysToGoCount\(/, 'Schedule no longer reads daysToGoCount');
+  assert.match(page, /const daysLeft = eventDateKey \? daysToGoCount\(/, 'Schedule no longer reads daysToGoCount');
   assert.doesNotMatch(page, /daysBetween\(/, 'Schedule counts calendar days again');
 });

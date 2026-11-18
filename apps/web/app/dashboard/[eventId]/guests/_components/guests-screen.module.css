@@ -379,13 +379,6 @@ button.pinCount:disabled {
   margin: 4px 0 10px;
   color: var(--gs-ink);
 }
-.summaryWaiting {
-  /* W4 B3 — the counts' place while the phone's old copy is on screen: a quiet block as tall as a card (64px) plus the
-     carousel's dots, so the rows below do not jump when the real counts arrive. */
-  min-height: 78px;
-  border-radius: var(--m-r-md);
-  background: rgb(var(--color-ink) / 0.05);
-}
 .card {
   position: relative;
   display: flex;

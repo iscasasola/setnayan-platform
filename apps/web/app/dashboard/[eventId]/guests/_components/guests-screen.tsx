@@ -2242,23 +2242,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
               {/* ✋ The card holding the filter the list shows stays in the centre, no rotation, until it is unpicked (owner
                   2026-11-01): Replies for Attending · Not coming · No reply · To invite, the +1s card for its two halves. */}
-              {/* 🛑 W4 B3 (18 Nov 2026): while the fresh list is still coming, the phone's old copy is on screen and its
-                  numbers read as today's ("Total guests 1 · 8% replied") before settling at the real 6 / 50%. A loading
-                  state never draws as data: the copy's ROWS stay (the owner's "opens from the phone"), its COUNTS wait.
-                  A copy that FAILED to refresh keeps its counts, dimmed and labelled out of date (its own line says so). */}
-              {copy?.freshness === 'updating' ? (
-                <div className={styles.summaryWaiting} role="status" aria-busy="true" data-roster-counts-waiting="">
-                  <span className="sr-only">Updating your guest counts…</span>
-                </div>
-              ) : (
-                <SnapCarousel
-                  cards={summaryCards}
-                  label="Guest summary"
-                  attrs={{ 'data-guests-carousel': '' }}
-                  rowFrom="xl"
-                  holdKey={replyFilter ? 'replies' : plusFilter ? 'plus' : null}
-                />
-              )}
+              <SnapCarousel
+                cards={summaryCards}
+                label="Guest summary"
+                attrs={{ 'data-guests-carousel': '' }}
+                rowFrom="xl"
+                holdKey={replyFilter ? 'replies' : plusFilter ? 'plus' : null}
+              />
               {/* What a search or a door is showing — "N of M shown · × Clear" — only while one is on. */}
               {q || filtered ? (
                 <p className={`${styles.counts} ${styles.mute} ${styles.shownLine}`} data-roster-shown="">

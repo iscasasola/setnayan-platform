@@ -68,9 +68,9 @@ export type PaletteNavRow<T, R = never> =
   | { kind: 'ask' }
   | { kind: 'dest'; dest: T }
   /**
-   * A found RECORD — a guest, a shop, a celebration, an account. Last in the
-   * list on purpose: the box's headline job is still navigation, and a record
-   * must never outrank the page you were reaching for.
+   * A found RECORD — a guest, a shop, a celebration, an account, an answered
+   * number. Since Focus at Spotlight level (owner approved 18 Nov 2026) records
+   * sit ABOVE the pages: the drawing's "Type anything. The real record comes up."
    */
   | { kind: 'record'; record: R };
 
@@ -103,8 +103,10 @@ export function buildNavRows<T, R = never>(
   return [
     ...(recommend ? [{ kind: 'recommend' as const }] : []),
     ...(offerAsk ? [{ kind: 'ask' as const }] : []),
-    ...hits.map((dest) => ({ kind: 'dest' as const, dest })),
+    // 🔦 FOCUS AT SPOTLIGHT LEVEL (owner approved 18 Nov 2026): the records the words found — the answer, the top
+    // hit, each kind — come BEFORE the pages, exactly as the approved drawing stacks them ("Top hit … Pages").
     ...records.map((record) => ({ kind: 'record' as const, record })),
+    ...hits.map((dest) => ({ kind: 'dest' as const, dest })),
   ];
 }
 
@@ -125,8 +127,8 @@ export function buildNavRows<T, R = never>(
  * 🪤 IT COUNTS ONLY THE ROWS **BEFORE** THE HITS, AND IT HAS TO. This used to
  * be `rows.filter(kind !== 'dest').length` — every non-destination row,
  * wherever it sat. That was correct while the ask row was the only one and it
- * was always first. Record rows are appended AFTER the hits, so the old count
- * added them to the offset too: the box would have shipped with every page row
+ * was always first. Record rows were appended AFTER the hits then (they lead
+ * since 18 Nov), so the old count added them to the offset too: the box would have shipped with every page row
  * highlighting N places away from the row Enter opened, the exact bug this
  * function's own docblock says it exists to make unwritable — reintroduced by
  * adding a row somewhere else entirely. Leading-count, never total-count.

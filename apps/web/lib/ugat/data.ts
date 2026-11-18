@@ -15,6 +15,22 @@ import {
   guestRsvpLabel,
 } from './data-pure';
 import { ugatRecordHref } from './record-href';
+import {
+  classifyFocusQuery,
+  countOrNull,
+  focusPaymentHref,
+  focusVendorHref,
+  matchFocusAnswer,
+  referenceIlikePattern,
+  referenceIsExact,
+  referenceMatches,
+  settleRead,
+  type FocusAnswerKey,
+  type FocusCount,
+  type PublicIdLetter,
+  type SettledRead,
+} from '@/lib/admin-map/focus-search';
+import { getAdminQueueDigest } from '@/lib/admin/queue-counts';
 
 export { scoreUgatMatch } from './data-pure';
 
@@ -879,11 +895,19 @@ export interface UgatSearchHit {
    */
   href: string;
   score: number;
+  /** The record's public ID (or a payment's reference), shown at the row's end. */
+  publicId?: string | null;
+  /** Pages prepared beside a top hit — they only open a page, never act. */
+  prepared?: ReadonlyArray<{ label: string; sub: string; href: string }>;
 }
 
 export interface UgatSearchGroup {
   category: string;
   hits: UgatSearchHit[];
+  /** 🔑 The read behind this group FAILED — the box says "Couldn't search", never "no matches". */
+  failed?: boolean;
+  /** An answered question ("paid today") — counted numbers; `count: null` = could not be read. */
+  answer?: FocusCount[];
 }
 
 /*
@@ -899,6 +923,22 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const admin = createAdminClient();
+
+  /*
+    🔦 FOCUS AT SPOTLIGHT LEVEL (owner approved 18 Nov 2026). Three changes to
+    how this search answers, each decided in the pure `focus-search.ts`:
+      · a WHOLE public ID reads the one table its letter belongs to and returns
+        that record alone (`Exact ID`) — before, only events matched an ID;
+      · a payment reference reads `payments.reference_number` — before, no arm
+        searched it at all;
+      · a question ("paid today") returns a counted number (`Answer`).
+    And one change to every arm: 🔑 A FAILED READ IS A FAILED GROUP. Each arm
+    used to end in `() => []`, so a refused read rendered exactly like "no
+    matches". `settleRead` keeps the difference, and the box draws it.
+  */
+  const parsed = classifyFocusQuery(q);
+  if (parsed.kind === 'public-id') return searchByPublicId(admin, parsed.publicId, parsed.known);
+
   /*
     SHARED SANITIZER, and it fixes the four arms below as well as the new one.
     This used to escape `%` and `_` and nothing else — but `.or()` splits its
@@ -909,149 +949,149 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
   */
   const like = `%${sanitizeIlikeTerm(q)}%`;
   const guestFilter = guestNameOrFilter(q);
+  const logged = <T,>(label: string, s: SettledRead<T>) => {
+    if (s.failed) logQueryError(`ugat search (${label})`, new Error('read failed'));
+    return s;
+  };
+  const answerKey = matchFocusAnswer(q);
 
-  const [vendors, events, users, orders, tiles, guests] = await Promise.all([
-    admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id, public_id, business_name, business_slug')
-      .or(`business_name.ilike.${like},business_slug.ilike.${like}`)
-      .limit(6)
-      .then(({ data }) => data ?? [], () => []),
-    // 🔎 F-W2-37: word by word, with the public id — and a refused read is LOGGED, never a silent "no matches".
-    (eventWordFilters(q) ?? [])
-      .reduce((qb, f) => qb.or(f), admin.from('events').select('event_id, public_id, display_name, slug'))
-      .limit(6)
-      .then(
-        ({ data, error }) => {
-          if (error) logQueryError('ugat search (events)', error);
-          return data ?? [];
-        },
-        () => [],
-      ),
-    admin
-      .from('users')
-      .select('user_id, public_id, display_name, email')
-      .or(`display_name.ilike.${like},email.ilike.${like}`)
-      .limit(6)
-      .then(({ data }) => data ?? [], () => []),
-    admin
-      .from('orders')
-      .select('order_id, public_id, reference_code, service_key, status')
-      .or(`reference_code.ilike.${like},service_key.ilike.${like}`)
-      .limit(6)
-      .then(({ data }) => data ?? [], () => []),
-    admin
-      .from('canonical_service_taxonomy')
-      .select('canonical_service, tile_id')
-      .ilike('canonical_service', like)
-      .limit(6)
-      .then(({ data }) => data ?? [], () => []),
+  const [vendors, events, users, orders, tiles, guests, payments, answer] = await Promise.all([
+    settleRead<any>(
+      admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, public_id, business_name, business_slug')
+        .or(`business_name.ilike.${like},business_slug.ilike.${like}`)
+        .limit(6),
+    ).then((s) => logged('vendors', s)),
+    // 🔎 F-W2-37: word by word, with the public id.
+    settleRead<any>(
+      (eventWordFilters(q) ?? [])
+        .reduce((qb, f) => qb.or(f), admin.from('events').select('event_id, public_id, display_name, slug'))
+        .limit(6),
+    ).then((s) => logged('events', s)),
+    settleRead<any>(
+      admin
+        .from('users')
+        .select('user_id, public_id, display_name, email')
+        .or(`display_name.ilike.${like},email.ilike.${like}`)
+        .limit(6),
+    ).then((s) => logged('users', s)),
+    settleRead<any>(
+      admin
+        .from('orders')
+        .select('order_id, public_id, reference_code, service_key, status')
+        .or(`reference_code.ilike.${like},service_key.ilike.${like}`)
+        .limit(6),
+    ).then((s) => logged('orders', s)),
+    settleRead<any>(
+      admin.from('canonical_service_taxonomy').select('canonical_service, tile_id').ilike('canonical_service', like).limit(6),
+    ).then((s) => logged('taxonomy', s)),
     /*
       GUESTS — by NAME, and nothing that is not a name.
       · `email`, `mobile` and `address` are not in this select, so there is no
         arm of this feature where a contact detail can reach a screen.
       · `deleted_at is null` — a removed guest is not a record to hand back.
-      · A refused read is LOGGED rather than silently becoming "no matches";
-        Supabase resolves with `{ error }` instead of throwing, so without this
-        a closed grant and an empty guest list look identical.
     */
     guestFilter === null
-      ? Promise.resolve([])
-      : admin
-          .from('guests')
-          .select('guest_id, public_id, first_name, last_name, display_name, rsvp_status, event_id')
-          .or(guestFilter)
-          .is('deleted_at', null)
-          .limit(6)
-          .then(
-            ({ data, error }) => {
-              if (error) logQueryError('ugat search (guests)', error);
-              return data ?? [];
-            },
-            () => [],
-          ),
+      ? Promise.resolve<SettledRead<any>>({ rows: [], failed: false })
+      : settleRead<any>(
+          admin
+            .from('guests')
+            .select('guest_id, public_id, first_name, last_name, display_name, rsvp_status, event_id')
+            .or(guestFilter)
+            .is('deleted_at', null)
+            .limit(6),
+        ).then((s) => logged('guests', s)),
+    /*
+      PAYMENTS — by the reference the couple typed (GCash / BDO), the same field
+      the Payments queue reads. Only when the words ARE a reference: a wildcard
+      between every digit finds it however it was spaced, and `referenceMatches`
+      is the exact check on what comes back.
+    */
+    parsed.referenceDigits === null
+      ? Promise.resolve<SettledRead<any>>({ rows: [], failed: false })
+      : settleRead<any>(
+          admin
+            .from('payments')
+            .select('payment_id, order_id, user_id, reference_number, channel, status, amount_php')
+            .ilike('reference_number', referenceIlikePattern(parsed.referenceDigits))
+            .order('created_at', { ascending: false })
+            .limit(20),
+        ).then((s) => logged('payments', s)),
+    answerKey ? countFocusAnswer(admin, answerKey) : Promise.resolve(null),
+  ]);
+
+  const groups: UgatSearchGroup[] = [];
+  if (answer) groups.push({ category: 'Answer', hits: [], answer });
+
+  /*
+    THE PAYMENT, THEN WHAT FOLLOWS IT: the order it is on, and who logged it.
+    Read only when a reference actually matched.
+  */
+  const refDigits = parsed.referenceDigits;
+  const paymentRows = refDigits ? (payments.rows as any[]).filter((p) => referenceMatches(p.reference_number, refDigits)).slice(0, 6) : [];
+  if (refDigits && (payments.failed || paymentRows.length)) {
+    const exact = paymentRows.some((p) => referenceIsExact(p.reference_number, refDigits));
+    groups.push({
+      category: exact ? 'Exact reference' : 'Payments',
+      failed: payments.failed,
+      hits: paymentRows.map((p) => ({
+        id: p.payment_id,
+        type: 'billing' as const,
+        title: `${channelWord(p.channel)} payment`,
+        sub: `Payment · ${paymentStatusWord(p.status)} · opens Payments`,
+        href: focusPaymentHref(p.payment_id),
+        publicId: p.reference_number ? `ref ${p.reference_number}` : null,
+        score: 100,
+      })),
+    });
+  }
+  const payOrderIds = Array.from(new Set(paymentRows.map((p) => p.order_id).filter(Boolean)));
+  const payUserIds = Array.from(new Set(paymentRows.map((p) => p.user_id).filter(Boolean)));
+  const [payOrders, payUsers] = await Promise.all([
+    payOrderIds.length
+      ? settleRead<any>(admin.from('orders').select('order_id, public_id, reference_code, service_key, status').in('order_id', payOrderIds)).then((s) => logged('payment orders', s))
+      : Promise.resolve<SettledRead<any>>({ rows: [], failed: false }),
+    payUserIds.length
+      ? settleRead<any>(admin.from('users').select('user_id, public_id, display_name, email').in('user_id', payUserIds)).then((s) => logged('payment people', s))
+      : Promise.resolve<SettledRead<any>>({ rows: [], failed: false }),
   ]);
 
   /*
-    WHICH CELEBRATION each found guest belongs to. A name on its own does not
-    identify anybody — there is more than one Maria — and the event is
-    also where the hit LANDS, so this read is what makes the destination real
-    rather than a guess. Only runs when a guest actually matched.
+    WHICH OF THE FOUND SHOPS HAVE PAPERS WAITING — that is where a supplier row
+    opens (its Verify job, at the per-shop address), and what its row says.
+    A failed read is said on the row and the row opens the shop page.
   */
-  const guestEventById = new Map<string, { public_id: string | null; display_name: string | null; slug: string | null }>();
-  const guestEventIds = Array.from(
-    new Set((guests as any[]).map((g) => g.event_id).filter(Boolean)),
-  );
-  if (guestEventIds.length) {
-    const { data: guestEvents, error: guestEventsError } = await admin
-      .from('events')
-      .select('event_id, public_id, display_name, slug')
-      .in('event_id', guestEventIds);
-    if (guestEventsError) logQueryError('ugat search (guest events)', guestEventsError);
-    for (const e of guestEvents ?? []) {
-      guestEventById.set(e.event_id, {
-        public_id: e.public_id ?? null,
-        display_name: e.display_name ?? null,
-        slug: e.slug ?? null,
-      });
-    }
-  }
+  const vendorIds = (vendors.rows as any[]).map((v) => v.vendor_profile_id).filter(Boolean);
+  const waiting = await readWaitingApplications(admin, vendorIds);
 
-  const groups: UgatSearchGroup[] = [];
-
-  const vendorHits: UgatSearchHit[] = (vendors as any[])
-    .map((v) => ({
-      id: v.public_id ?? v.vendor_profile_id,
-      type: 'vendor' as const,
-      title: v.business_name || v.public_id || 'Supplier',
-      sub: v.business_slug ? `/${v.business_slug}` : (v.public_id ?? ''),
-      href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
-      score: scoreUgatMatch(v.business_name ?? v.business_slug ?? '', q),
-    }))
+  const vendorHits: UgatSearchHit[] = (vendors.rows as any[])
+    .map((v) => vendorHit(v, waiting, scoreUgatMatch(v.business_name ?? v.business_slug ?? '', q)))
     .sort((a, b) => b.score - a.score);
-  if (vendorHits.length) groups.push({ category: 'Suppliers', hits: vendorHits });
+  pushGroup(groups, 'Suppliers', vendorHits, vendors.failed);
 
-  const eventHits: UgatSearchHit[] = (events as any[])
-    .map((e) => ({
-      id: e.public_id ?? e.event_id,
-      type: 'event' as const,
-      title: e.display_name || e.public_id || 'Event',
-      sub: e.slug ? `/${e.slug}` : (e.public_id ?? ''),
-      href: ugatRecordHref({
-        kind: 'event',
-        publicId: e.public_id ?? null,
-        slug: e.slug ?? null,
-      }),
-      score: scoreUgatMatch(e.display_name ?? e.slug ?? '', q),
-    }))
+  const eventHits: UgatSearchHit[] = (events.rows as any[])
+    .map((e) => eventHit(e, scoreUgatMatch(e.display_name ?? e.slug ?? '', q)))
     .sort((a, b) => b.score - a.score);
-  if (eventHits.length) groups.push({ category: 'Events', hits: eventHits });
+  pushGroup(groups, 'Events', eventHits, events.failed);
 
-  const userHits: UgatSearchHit[] = (users as any[])
-    .map((u) => ({
-      id: u.public_id ?? u.user_id,
-      type: 'user' as const,
-      title: u.display_name || u.email || u.public_id || 'User',
-      sub: u.email ?? (u.public_id ?? ''),
-      href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
-      score: scoreUgatMatch(`${u.display_name ?? ''} ${u.email ?? ''}`, q),
-    }))
-    .sort((a, b) => b.score - a.score);
-  if (userHits.length) groups.push({ category: 'Users', hits: userHits });
+  const userHits: UgatSearchHit[] = [
+    ...(payUsers.rows as any[]).map((u) => ({ ...userHit(u, 100), sub: 'Person · logged this payment' })),
+    ...(users.rows as any[])
+      .filter((u) => !payUserIds.includes(u.user_id))
+      .map((u) => userHit(u, scoreUgatMatch(`${u.display_name ?? ''} ${u.email ?? ''}`, q))),
+  ].sort((a, b) => b.score - a.score);
+  pushGroup(groups, 'People', userHits, users.failed || payUsers.failed);
 
-  const orderHits: UgatSearchHit[] = (orders as any[])
-    .map((o) => ({
-      id: o.public_id ?? o.order_id,
-      type: 'order' as const,
-      title: o.reference_code || o.public_id || 'Order',
-      sub: `${o.service_key ?? '—'} · ${o.status ?? '—'}`,
-      href: ugatRecordHref({ kind: 'order', publicId: o.public_id ?? null }),
-      score: scoreUgatMatch(`${o.reference_code ?? ''} ${o.service_key ?? ''}`, q),
-    }))
-    .sort((a, b) => b.score - a.score);
-  if (orderHits.length) groups.push({ category: 'Orders', hits: orderHits });
+  const orderHits: UgatSearchHit[] = [
+    ...(payOrders.rows as any[]).map((o) => ({ ...orderHit(o, 100), sub: `Order · ${o.status ?? '—'} · this payment is on it` })),
+    ...(orders.rows as any[])
+      .filter((o) => !payOrderIds.includes(o.order_id))
+      .map((o) => orderHit(o, scoreUgatMatch(`${o.reference_code ?? ''} ${o.service_key ?? ''}`, q))),
+  ].sort((a, b) => b.score - a.score);
+  pushGroup(groups, 'Orders', orderHits, orders.failed || payOrders.failed);
 
-  const tileHits: UgatSearchHit[] = (tiles as any[])
+  const tileHits: UgatSearchHit[] = (tiles.rows as any[])
     .map((t) => ({
       id: t.canonical_service,
       type: 'taxonomy' as const,
@@ -1065,36 +1105,282 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       score: scoreUgatMatch(t.canonical_service ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
-  if (tileHits.length) groups.push({ category: 'Taxonomy', hits: tileHits });
+  pushGroup(groups, 'Taxonomy', tileHits, tiles.failed);
 
   /*
-    A GUEST HIT SHOWS THREE THINGS: who they are, whether they replied, and
-    whose event it is. That is what identifies the record — no more.
-    The event is named because a name alone identifies nobody, and it is
-    also the only surface an admin can act on, since a guest has no page.
+    WHICH CELEBRATION each found guest belongs to. A name on its own does not
+    identify anybody — there is more than one Maria — and the event is
+    also where the hit LANDS, so this read is what makes the destination real
+    rather than a guess. Only runs when a guest actually matched.
   */
-  const guestHits: UgatSearchHit[] = (guests as any[])
-    .map((g) => {
-      const name = guestDisplayName(g);
-      const ev = guestEventById.get(g.event_id);
-      const where = ev?.display_name || ev?.public_id || 'an unnamed celebration';
-      return {
-        id: g.public_id ?? g.guest_id,
-        type: 'guest' as const,
-        title: name,
-        sub: `${guestRsvpLabel(g.rsvp_status)} · ${where}`,
-        href: ugatRecordHref({
-          kind: 'guest',
-          eventPublicId: ev?.public_id ?? null,
-          eventSlug: ev?.slug ?? null,
-        }),
-        score: scoreUgatMatch(name, q),
-      };
-    })
+  const guestEventIds = Array.from(new Set((guests.rows as any[]).map((g) => g.event_id).filter(Boolean)));
+  const guestEventById = await readGuestEvents(admin, guestEventIds);
+  const guestHits: UgatSearchHit[] = (guests.rows as any[])
+    .map((g) => guestHit(g, guestEventById, scoreUgatMatch(guestDisplayName(g), q)))
     .sort((a, b) => b.score - a.score);
-  if (guestHits.length) groups.push({ category: 'Guests', hits: guestHits });
+  pushGroup(groups, 'Guests', guestHits, guests.failed);
 
   return groups;
+}
+
+/** A group with hits, or a failed group — never a failed read dressed as nothing. */
+function pushGroup(groups: UgatSearchGroup[], category: string, hits: UgatSearchHit[], failed: boolean) {
+  if (failed) groups.push({ category, hits, failed: true });
+  else if (hits.length) groups.push({ category, hits });
+}
+
+type GuestEventRef = { public_id: string | null; display_name: string | null; slug: string | null };
+
+async function readGuestEvents(admin: SupabaseClient, ids: string[]): Promise<Map<string, GuestEventRef>> {
+  const out = new Map<string, GuestEventRef>();
+  if (!ids.length) return out;
+  const { data, error } = await admin.from('events').select('event_id, public_id, display_name, slug').in('event_id', ids);
+  if (error) logQueryError('ugat search (guest events)', error);
+  for (const e of data ?? []) {
+    out.set(e.event_id, { public_id: e.public_id ?? null, display_name: e.display_name ?? null, slug: e.slug ?? null });
+  }
+  return out;
+}
+
+/** vendor_profile_id → the status of its waiting application. `null` = could not be read. */
+async function readWaitingApplications(
+  admin: SupabaseClient,
+  vendorIds: string[],
+): Promise<Map<string, 'pending_review' | 'in_review'> | null> {
+  const out = new Map<string, 'pending_review' | 'in_review'>();
+  if (!vendorIds.length) return out;
+  const s = await settleRead<{ vendor_profile_id: string; status: string }>(
+    admin
+      .from('vendor_verification_applications')
+      .select('vendor_profile_id, status')
+      .in('vendor_profile_id', vendorIds)
+      .in('status', ['pending_review', 'in_review']),
+  );
+  if (s.failed) {
+    logQueryError('ugat search (waiting applications)', new Error('read failed'));
+    return null;
+  }
+  for (const r of s.rows) {
+    // pending_review is the Verify queue's own count — it wins over in_review.
+    if (r.status === 'pending_review' || !out.has(r.vendor_profile_id)) {
+      out.set(r.vendor_profile_id, r.status === 'pending_review' ? 'pending_review' : 'in_review');
+    }
+  }
+  return out;
+}
+
+function vendorHit(v: any, waiting: Map<string, 'pending_review' | 'in_review'> | null, score: number): UgatSearchHit {
+  const status = waiting?.get(v.vendor_profile_id) ?? null;
+  const shop = focusVendorHref(v.vendor_profile_id, null);
+  const sub =
+    waiting === null
+      ? 'Supplier · couldn’t read its papers · opens the shop'
+      : status === 'pending_review'
+        ? 'Supplier · documents waiting · opens Verify'
+        : status === 'in_review'
+          ? 'Supplier · papers in review · opens Verify'
+          : `Supplier${v.business_slug ? ` · /${v.business_slug}` : ''}`;
+  return {
+    id: v.public_id ?? v.vendor_profile_id,
+    type: 'vendor',
+    title: v.business_name || v.public_id || 'Supplier',
+    sub,
+    href: focusVendorHref(v.vendor_profile_id, status),
+    publicId: v.public_id ?? null,
+    prepared: [
+      ...(status ? [{ label: 'Open its shop page', sub: 'Plan, team and edit live there', href: shop }] : []),
+      { label: 'Open its plan', sub: 'You press the real button there', href: `${shop}/plan` },
+    ],
+    score,
+  };
+}
+
+function eventHit(e: any, score: number): UgatSearchHit {
+  return {
+    id: e.public_id ?? e.event_id,
+    type: 'event',
+    title: e.display_name || e.public_id || 'Event',
+    sub: e.slug ? `Event · /${e.slug}` : 'Event',
+    href: ugatRecordHref({ kind: 'event', publicId: e.public_id ?? null, slug: e.slug ?? null }),
+    publicId: e.public_id ?? null,
+    score,
+  };
+}
+
+function userHit(u: any, score: number): UgatSearchHit {
+  return {
+    id: u.public_id ?? u.user_id,
+    type: 'user',
+    title: u.display_name || u.email || u.public_id || 'Person',
+    sub: u.email ?? '',
+    href: ugatRecordHref({ kind: 'user', userId: u.user_id }),
+    publicId: u.public_id ?? null,
+    score,
+  };
+}
+
+function orderHit(o: any, score: number): UgatSearchHit {
+  return {
+    id: o.public_id ?? o.order_id,
+    type: 'order',
+    title: o.reference_code || o.public_id || 'Order',
+    sub: `${o.service_key ?? '—'} · ${o.status ?? '—'}`,
+    href: ugatRecordHref({ kind: 'order', publicId: o.public_id ?? null }),
+    publicId: o.public_id ?? null,
+    score,
+  };
+}
+
+/*
+  A GUEST HIT SHOWS THREE THINGS: who they are, whether they replied, and
+  whose event it is. That is what identifies the record — no more.
+*/
+function guestHit(g: any, byEvent: Map<string, GuestEventRef>, score: number): UgatSearchHit {
+  const ev = byEvent.get(g.event_id);
+  const where = ev?.display_name || ev?.public_id || 'an unnamed celebration';
+  return {
+    id: g.public_id ?? g.guest_id,
+    type: 'guest',
+    title: guestDisplayName(g),
+    sub: `${guestRsvpLabel(g.rsvp_status)} · ${where}`,
+    href: ugatRecordHref({ kind: 'guest', eventPublicId: ev?.public_id ?? null, eventSlug: ev?.slug ?? null }),
+    score,
+  };
+}
+
+/**
+ * A WHOLE public ID: the one table its letter belongs to, `public_id = <id>`,
+ * one record. Nothing else is listed beside it. A letter Focus cannot open, or
+ * no such record, returns nothing — and the box says "Nothing matches", which
+ * is then true. A failed read returns a failed group.
+ */
+async function searchByPublicId(
+  admin: SupabaseClient,
+  publicId: string,
+  letter: PublicIdLetter | null,
+): Promise<UgatSearchGroup[]> {
+  if (!letter) return [];
+  const exact = (hit: UgatSearchHit | null, failed: boolean): UgatSearchGroup[] =>
+    failed ? [{ category: 'Exact ID', hits: [], failed: true }] : hit ? [{ category: 'Exact ID', hits: [hit] }] : [];
+  switch (letter) {
+    case 'B': {
+      const s = await settleRead<any>(
+        admin.from('vendor_profiles').select('vendor_profile_id, public_id, business_name, business_slug').eq('public_id', publicId).limit(1),
+      );
+      const v = s.rows[0];
+      if (!v) return exact(null, s.failed);
+      const waiting = await readWaitingApplications(admin, [v.vendor_profile_id]);
+      return exact({ ...vendorHit(v, waiting, 100), prepared: [] }, false);
+    }
+    case 'U': {
+      const s = await settleRead<any>(admin.from('users').select('user_id, public_id, display_name, email').eq('public_id', publicId).limit(1));
+      return exact(s.rows[0] ? { ...userHit(s.rows[0], 100), sub: 'Person' } : null, s.failed);
+    }
+    case 'E': {
+      const s = await settleRead<any>(admin.from('events').select('event_id, public_id, display_name, slug').eq('public_id', publicId).limit(1));
+      return exact(s.rows[0] ? eventHit(s.rows[0], 100) : null, s.failed);
+    }
+    case 'O': {
+      const s = await settleRead<any>(
+        admin.from('orders').select('order_id, public_id, reference_code, service_key, status').eq('public_id', publicId).limit(1),
+      );
+      return exact(s.rows[0] ? { ...orderHit(s.rows[0], 100), sub: `Order · ${s.rows[0].status ?? '—'}` } : null, s.failed);
+    }
+    case 'G': {
+      const s = await settleRead<any>(
+        admin
+          .from('guests')
+          .select('guest_id, public_id, first_name, last_name, display_name, rsvp_status, event_id')
+          .eq('public_id', publicId)
+          .is('deleted_at', null)
+          .limit(1),
+      );
+      const g = s.rows[0];
+      if (!g) return exact(null, s.failed);
+      const byEvent = await readGuestEvents(admin, g.event_id ? [g.event_id] : []);
+      return exact({ ...guestHit(g, byEvent, 100), publicId: g.public_id ?? null }, false);
+    }
+    default:
+      return [];
+  }
+}
+
+/**
+ * ONE COUNTED NUMBER for a question the box understood. Each count is read from
+ * the database — the Work list's own `getAdminQueueDigest` for the waiting
+ * queues, one head-count each for "paid today" and "orders this week".
+ * 🔑 A count that cannot be read is `null`, never 0, and the box says so.
+ */
+async function countFocusAnswer(admin: SupabaseClient, key: FocusAnswerKey): Promise<FocusCount[]> {
+  const digestCount = async (queue: 'payments' | 'verify'): Promise<number | null> => {
+    try {
+      const d = await getAdminQueueDigest();
+      const c = d[queue]?.count;
+      return typeof c === 'number' ? c : null;
+    } catch {
+      return null;
+    }
+  };
+  const head = async (build: () => PromiseLike<{ count: number | null; error: unknown }>): Promise<number | null> => {
+    try {
+      return countOrNull(await build());
+    } catch {
+      return null;
+    }
+  };
+  switch (key) {
+    case 'paid-today': {
+      const since = manilaMidnightIso(Date.now());
+      const [paid, waitingCount] = await Promise.all([
+        head(() => admin.from('payments').select('payment_id', { count: 'exact', head: true }).eq('status', 'matched').gte('reviewed_at', since)),
+        digestCount('payments'),
+      ]);
+      return [
+        { key, count: paid },
+        { key: 'payments-waiting', count: waitingCount },
+      ];
+    }
+    case 'orders-this-week': {
+      const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      return [{ key, count: await head(() => admin.from('orders').select('order_id', { count: 'exact', head: true }).gte('created_at', since)) }];
+    }
+    case 'waiting-to-verify':
+      return [{ key, count: await digestCount('verify') }];
+    case 'payments-waiting':
+      return [{ key, count: await digestCount('payments') }];
+    default:
+      return [];
+  }
+}
+
+/** Today's midnight in Manila, as an ISO instant. */
+function manilaMidnightIso(nowMs: number): string {
+  const day = new Date(nowMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  return new Date(`${day}T00:00:00+08:00`).toISOString();
+}
+
+function channelWord(channel: string | null | undefined): string {
+  const c = (channel ?? '').toLowerCase();
+  if (c.includes('gcash')) return 'GCash';
+  if (c.includes('maya')) return 'Maya';
+  if (c.includes('bdo')) return 'BDO';
+  if (c.includes('bpi')) return 'BPI';
+  return c ? c.charAt(0).toUpperCase() + c.slice(1) : 'A';
+}
+
+function paymentStatusWord(status: string | null | undefined): string {
+  switch (status) {
+    case 'pending':
+      return 'waiting for you';
+    case 'matched':
+      return 'confirmed';
+    case 'rejected':
+      return 'refused';
+    case 'resubmit_requested':
+      return 'asked to send again';
+    default:
+      return status ?? '—';
+  }
 }
 
 /** Per-request memoized omnibox search. */

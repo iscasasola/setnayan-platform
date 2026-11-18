@@ -1462,9 +1462,16 @@ function Omnibox({
               ) : groups.length === 0 ? (
                 <div className="ug-nd-hd">No matches for “{q}”.</div>
               ) : (
-                groups.map((g) => (
+                // 🔦 Focus answers ("paid today") belong to the admin's search box; this console lists records.
+                groups.filter((g) => !g.answer).map((g) => (
                   <div key={g.category}>
                     <div className="ug-nd-hd">{g.category}</div>
+                    {/* A failed read is SAID — never drawn as "no matches". */}
+                    {g.failed ? (
+                      <div className="ug-nd-s" role="alert">
+                        Couldn’t search {g.category} — not the same as no matches.
+                      </div>
+                    ) : null}
                     {g.hits.map((h) => (
                       /*
                         A REAL LINK, not a button that highlights a diagram.

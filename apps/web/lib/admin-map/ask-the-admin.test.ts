@@ -119,7 +119,8 @@ test('the assistant is offered only when the free path has nothing', () => {
   const palette = stripComments(
     readFileSync(join(WEB, 'app/admin/_components/admin-command-palette.tsx'), 'utf8'),
   );
-  const emptyBranch = palette.indexOf('hits.length === 0');
+  // `pageHits` since Focus at Spotlight level: a whole public ID lists no pages beside its one record.
+  const emptyBranch = palette.indexOf('pageHits.length === 0');
   const askButton = palette.indexOf('Ask Setnayan where this lives');
   assert.ok(emptyBranch > 0 && askButton > emptyBranch, 'the ask button escaped the empty branch');
   // 🪤 REV 1 OF THIS ASSERTION COULD NOT FIRE. It was /useEffect\([^)]*ask\(\)/,

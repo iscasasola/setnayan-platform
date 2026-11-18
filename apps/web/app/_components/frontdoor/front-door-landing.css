@@ -64,6 +64,11 @@
   border-color: rgb(var(--color-ink) / 0.6);
 }
 .fd .fl-more {
+  /* A text link that stands on its own presses 44 tall (W5 walk 2026-11-18: these measured 23). The box grows,
+     the words do not move; `inline-flex` keeps it inline inside a sentence. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: rgb(var(--color-link));
   font-weight: 600;
   font-size: 15px;
@@ -1157,18 +1162,16 @@
 .fd .fl-foot nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 0 16px;
 }
+/* 44 tall by its own box (W5 walk 2026-11-18: 20). A wrapped row of links cannot share an invisible halo — the
+   halos of two rows 6px apart overlap — so each link is a 44px box and the row gap is 0 (the foot grows ~40px). */
 .fd .fl-foot a {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: inherit;
   text-decoration: none;
-}
-/* A 44px press on a 13px line, without moving the line (the top bar's expander). */
-.fd .fl-foot a::after {
-  content: '';
-  position: absolute;
-  inset: -14px -6px;
 }
 .fd .fl-foot a:hover {
   color: rgb(var(--color-ink));

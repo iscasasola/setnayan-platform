@@ -82,7 +82,7 @@ test('a page a stranger cannot open is never indexed and never names the shop in
   const meta = between(PAGE, 'export async function vendorMetadataBySlug(', 'const displayLabel');
   assert.match(
     meta,
-    /if \(!vendor \|\| shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: false(, bookingsOpen: await areBookingsOpen\(\))? \}\)\.open !== 'public'\) \{\s*return \{ title: 'Setnayan supplier', robots: \{ index: false, follow: false \} \};/,
+    /if \(!vendor \|\| shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: false(, bookingsOpen: await areBookingsOpen\(\))? \}\)\.open !== 'public'\) \{\s*return \{ title: 'Supplier', robots: \{ index: false, follow: false \} \};/,
   );
 });
 

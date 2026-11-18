@@ -204,6 +204,8 @@ html.hr-snap {
 .home-reskin .hr-nav .hr-signin {
   display: flex;
   align-items: center;
+  /* The 44 press floor (W5 walk 2026-11-18: 36 at 390). Painted pill: it grows, its words and padding stay. */
+  min-height: 44px;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -1715,6 +1717,10 @@ html.hr-snap {
 .home-reskin .hr-foot-base a {
   color: var(--hr-foot-ink);
   border-bottom: 1px solid transparent;
+  /* The 44 press floor — the DPO address was the one footer link left at the line's own 20 (W5 walk 2026-11-18). */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .home-reskin .hr-foot-base a:hover {
   color: var(--hr-ink);
@@ -2707,7 +2713,7 @@ html.hr-snap {
      Enlarging the LABEL's hit area, not the 15px input itself: the input
      stays its designed size, the label just claims more room around it. */
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   color: var(--hr-grey);
@@ -2733,6 +2739,13 @@ html.hr-snap {
 .home-reskin-ov .hr-si-row .hr-si-link,
 .home-reskin-ov .hr-si-foot .hr-si-link {
   position: relative;
+}
+/* "Forgot password?" sits in a row with the 44px "Stay signed in" label, so its own box can be 44 too — no row
+   grows (W5 walk 2026-11-18 measured the box at 19; the expander below was invisible to a box audit). */
+.home-reskin-ov .hr-si-row .hr-si-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .home-reskin-ov .hr-si-row .hr-si-link::after,
 .home-reskin-ov .hr-si-foot .hr-si-link::after {

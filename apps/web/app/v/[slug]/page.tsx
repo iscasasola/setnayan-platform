@@ -572,7 +572,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
   if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
-    return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
+    return { title: 'Supplier', robots: { index: false, follow: false } };
   }
   // 🧪 A demo shop's page is PUBLIC now (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS") but it is NEVER
   // indexed: a search engine must not list a demo as a supplier (plan § 6(a) — "noindex stays"). The sitemap keeps
@@ -615,6 +615,10 @@ export async function vendorMetadataBySlug(slug: string) {
     is_verified: vendor.verification_state === 'verified',
   });
   const titleText = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Setnayan supplier${suffix}`;
+  // The DOCUMENT title goes through the root layout's `template: '%s · Setnayan'`, so it must not carry the brand
+  // itself ("NAME · Setnayan supplier · Setnayan" read it twice — W5-B5). The share cards (openGraph/twitter) do NOT
+  // go through the template, so they keep the full `titleText`.
+  const docTitle = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Supplier${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
   // resolve `vendor.logo_url` straight into a presigned R2 URL
@@ -636,7 +640,7 @@ export async function vendorMetadataBySlug(slug: string) {
     alt: displayLabel,
   };
   return {
-    title: titleText,
+    title: docTitle,
     description: descText,
     // Two rules, two lines — each is its own ruling and its own guard (demo: 2026-11-06; not yet verified: 2026-11-07).
     ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),

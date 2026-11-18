@@ -52,3 +52,20 @@ part, so each screen — today's and the next — inherits it; no screen was edi
   bottom nav, templates, Tuck, the supplier thumb row's host, the inspector).
 
 SPEC IMPACT: None
+
+## 2026-11-18 · fix(icons): a tapped service icon is seen — carried when its tile leaves, retimed onto the tokens
+
+Owner, live: *"when i tap the icons nothing is happening"*. Measured on production (`da4a079`): the press DID start
+the play (`.go` landed, each part's 850 ms animation was created), no CSS rule, press scale or `pointer-events`
+stopped it — but the icons sit in tiles whose tap opens another screen, so the tile left the page with its icon.
+
+- `app/_components/service-icon-play.tsx`: the play still starts on touch-down and the navigation is never held; an
+  icon whose tile leaves the page mid-play is **carried** — a still-playing copy where it was (`.si-carry`), going on
+  from where the play had got to, then fading in Quick. An icon that stays keeps `.go` through a re-render that
+  rewrites its class.
+- `app/service-icons.css`: the play is Rise (was .85 s), colour on in Tap (was .06 s), back over Rise (was .7 s),
+  Move under reduce motion (was .5 s); the 14 raw `cubic-bezier`s are Settle or Spring.
+- `icon-tile-folder-strip.tsx`: the folder link wears `sn-press` (a plain link had no pressed state).
+- Guard: new `lib/a-tapped-service-icon-is-seen.test.ts` (sabotaged six ways, each red).
+
+SPEC IMPACT: None

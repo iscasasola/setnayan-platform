@@ -256,7 +256,9 @@ function TileLink({
   // each tile compact enough that the full strip fits within a single
   // viewport row on tablet / desktop without wrapping.
   const base =
-    'group flex h-[78px] w-[96px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 transition-all sm:w-[104px]';
+    // `sn-press` (18 Nov 2026): a plain link is not one of the press feel's own targets, so this tile showed NO pressed
+    // state — the tap went straight to the next page. With it the tile dips on touch-down (Tap) while its icon plays.
+    'sn-press group flex h-[78px] w-[96px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 transition-all sm:w-[104px]';
   const cls = active
     ? `${base} border-terracotta bg-terracotta/8 text-terracotta`
     : `${base} border-ink/10 bg-cream text-ink/65 hover:border-terracotta/40 hover:text-terracotta`;

@@ -138,7 +138,7 @@
   "apps/web/app/papic/guest/_components/tag-scanner-overlay.tsx": 1,
   "apps/web/app/papic/me/[token]/_components/guest-story-maker.tsx": 1,
   "apps/web/app/papic/seat/[token]/_components/papic-seat-capture.tsx": 2,
-  "apps/web/app/service-icons.css": 16,
+  "apps/web/app/service-icons.css": 6,
   "apps/web/app/tour/_components/tour-chat-thread.tsx": 2,
   "apps/web/app/tour/gallery/_components/tour-live-wall.tsx": 2,
   "apps/web/app/tour/vendors/_components/tour-shortlist.tsx": 1,

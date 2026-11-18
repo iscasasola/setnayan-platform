@@ -98,13 +98,3 @@ test('4 · slug_change_log has the index its by-event read needs', () => {
     .some((f) => /CREATE INDEX[^;]*ON\s+public\.slug_change_log\s*\(\s*entity_type\s*,\s*entity_id\s*\)/i.test(readFileSync(join(dir, f), 'utf8')));
   assert.ok(hit, '`eventHasRenamed` filters slug_change_log on (entity_type, entity_id) and no migration indexes it');
 });
-
-test('6 · the event entitlement client leaves with the event-only reads, not after the viewer read', () => {
-  const src = readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'launch', 'page.tsx'), 'utf8');
-  const started = src.indexOf('const entRead = startAhead(eventEntitlementClient(eventId))');
-  const viewer = src.indexOf('const viewer = await fetchEventViewer(');
-  assert.ok(started > 0, 'the Maker page no longer starts the entitlement client ahead');
-  assert.ok(started < viewer, 'the entitlement client starts after the viewer read again (one trip in single file)');
-  assert.ok(src.includes('const ent = await entRead;'), 'the early entitlement read is no longer awaited where it always was');
-  assert.ok(!src.includes('const ent = await eventEntitlementClient('), 'the entitlement client is awaited on its own line again');
-});

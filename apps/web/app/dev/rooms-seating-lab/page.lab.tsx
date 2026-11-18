@@ -6,6 +6,7 @@
  *   ?show=rooms · halls · tables   each section with sample rows
  *   ?state=empty                   a new shop with nothing yet
  *   ?state=refused                 a refused read (says so, with Try again — never "no rooms yet")
+ *   ?plan=pro                      a Pro shop: the dining area's drawn Floor plan opens (default: Grid only)
  * Buttons post the REAL action; pressing them here needs a session (the lab draws, it does not save). Names are samples.
  */
 import { notFound } from 'next/navigation';
@@ -46,7 +47,13 @@ export default async function RoomsSeatingLabPage({ searchParams }: { searchPara
     <main className="mx-auto w-full max-w-2xl bg-cream px-4 pb-40 pt-4" data-rooms-seating-lab="">
       <h1 className="text-[22px] font-semibold text-ink">Rooms &amp; seating</h1>
       <p className="mt-1 text-[14px] text-ink/70">Make your rooms, halls and tables once. Each service card then picks the ones it sells.</p>
-      <RoomsSeatingScreen key={`${show}-${state}`} initial={data} hallSize={state === 'empty' ? null : { widthM: 24, lengthM: 18 }} show={show} />
+      <RoomsSeatingScreen
+        key={`${show}-${state}-${String(sp.plan)}`}
+        initial={data}
+        hallSize={state === 'empty' ? null : { widthM: 24, lengthM: 18 }}
+        show={show}
+        floorPlanOpen={sp.plan === 'pro'}
+      />
     </main>
   );
 }

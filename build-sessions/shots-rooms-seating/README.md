@@ -11,4 +11,7 @@ Proposed: the page, drawn by the dev lab `/dev/rooms-seating-lab` (the real `Roo
 - `proposed-table-edit-390.png` — a table opened: name, area, type, chairs, chairs at the ends.
 - `proposed-refused-390.png` — a refused read says so, with Try again. It never says "no rooms yet".
 
-The drawn plan (Grid · Move · Line up · tables on a sized room) is the shared seat-plan core another session is building. It is not in these shots.
+The drawn plan, folded in from #7969 (18 Nov): each dining area now draws its tables with the shared `PlanMaker`.
+- `now-beside-proposed-tables-floor-plan-390.png`. Now: the Dining tables section had rows only. Proposed: a Pro shop (`/dev/rooms-seating-lab?show=tables&plan=pro`) gets the drawn Floor plan of the area at its Wide × Deep, with the main door on its wall, Line up, and drag to move. The rows below are unchanged.
+- `now-beside-proposed-tables-grid-390.png`. Every other shop gets Grid, with Floor plan greyed in the View dropdown ("On Pro, Max and Ultra").
+- The plan maker's own shots (read-only with one table marked, the table sheet, Line up) are in `build-sessions/shots-plan-maker/`.

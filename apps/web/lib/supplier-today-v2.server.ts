@@ -1,5 +1,4 @@
 import 'server-only';
-import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { coverIsSet } from '@/lib/service-publish-gate';
@@ -87,20 +86,6 @@ async function readCards(supabase: SupabaseClient, admin: SupabaseClient, vendor
   };
 }
 
-async function readCardRoom(supabase: SupabaseClient, vendorProfileId: string): Promise<TodayV2Reads['cardRoom']> {
-  const [tier, made] = await Promise.all([
-    supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
-    supabase.from('vendor_services').select('vendor_service_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).is('branch_copy_of', null),
-  ]);
-  if (tier.error || !tier.data || made.error || made.count == null) {
-    logQueryError('supplier-today-v2: card room', tier.error ?? made.error ?? { message: 'no row' }, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-    return null;
-  }
-  const t = tier.data as { tier_state: string | null; is_founder: boolean | null };
-  if (t.is_founder === true) return null;
-  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, t.tier_state);
-  return Number.isFinite(caps.serviceCardsTotal) ? { allowed: caps.serviceCardsTotal, made: made.count } : null;
-}
 
 async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
   const r = await admin
@@ -130,7 +115,10 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
     getVendorDemandRadar(supabase, vendorProfileId).catch(() => DEMAND_RADAR_UNREADABLE),
     readCutoffs(admin).catch(() => ({ fewInquiries: null, fewBookings: null })),
     readInspirationPhotos(admin, vendorProfileId).catch(() => null),
-    readCardRoom(supabase, vendorProfileId).catch(() => null),
+    // ⏸ THE CARDS ROW IS OFF (owner 2026-11-19: "we already agreed they can add as many … so we can motivate them to
+    // upgrade"): making cards is unlimited — the plan limits how many are LIVE. The row comes back as "You can turn on
+    // N more" once the plans fix moves the limit to live cards; until then nothing is read and no row is drawn.
+    Promise.resolve(null as TodayV2Reads['cardRoom']),
   ]);
   return {
     done,

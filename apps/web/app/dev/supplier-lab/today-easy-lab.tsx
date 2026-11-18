@@ -579,7 +579,7 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
           cutoffs: { fewInquiries: 20, fewBookings: 2 },
           inspirationPhotos: 4,
           // The plans rebuild's Verified total (#7975: 1 · 3 · 10 · 20 · 80 · 200) — a lab number; the page reads it.
-          cardRoom: { allowed: 3, made: 1 },
+          cardRoom: null, // ⏸ off until the live-cards limit lands (see supplier-today-v2.server.ts)
         },
         aside: readTodayAside(null, TODAY),
         feeForecasts: Object.fromEntries(

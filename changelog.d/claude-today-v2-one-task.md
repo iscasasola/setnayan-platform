@@ -29,3 +29,7 @@ Migration `20271350875090_grow_lines_on_today_are_the_owners.sql`: two nullable 
 
 SPEC IMPACT: DECISION_LOG row "TODAY v2 BUILT" — the 8 Nov "every Today row jumps" rule no longer holds for the five
 quick kinds; the two grow cut-offs live on Admin › Settings, blank = off.
+
+- **Cards row: OFF for now (owner 2026-11-19).** "we already agreed they can add as many … so we can motivate them to
+  upgrade" — making cards is unlimited; the plan limits LIVE cards. The row returns as "You can turn on N more" once the
+  plans fix moves the limit to live cards. Until then nothing is read and no cards row is drawn.

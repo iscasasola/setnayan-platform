@@ -1275,17 +1275,20 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   }
 
   /*
-   * .skeleton — animated loading placeholder (owner directive 2026-06-03,
-   * app-wide "we want an animation loading so they do not feel they are
-   * waiting too long"). A GPU-only background-position sweep over an ink/6%
-   * base that matches the existing animate-pulse loaders. Size + radius come
-   * from Tailwind utilities ON the element; this class owns colour + motion,
-   * so don't add `bg-*` utilities to a `.skeleton` block.
+   * .skeleton — THE loading placeholder (owner 2026-06-03; motion standard 18 Nov 2026 § 4 #7 Sheen + #17 Load,
+   * § 9 "D · Ghost"). Size + radius come from Tailwind utilities ON the element; this class owns colour + motion,
+   * so don't add `bg-*` utilities to a `.skeleton` block. Consumed by `@/components/skeletons`.
    *
-   * The global `prefers-reduced-motion: reduce` block above freezes the sweep
-   * to a static block (still reads as structure) for motion-sensitive
-   * visitors — no per-element guard needed. Consumed by
-   * `@/components/skeletons`.
+   *  · A grey block is only ever an UNKNOWN part. What is already known (the title, section names, last visit's
+   *    names) is drawn as itself, at once — `Ghost` in `@/components/skeletons`.
+   *  · LOAD RULE 1 — the block waits `--sn-m-load-wait` (150 ms) before it shows, by CSS alone (a loading screen
+   *    is drawn before any script runs), then fades in Quick · Settle. A page that answers sooner never shows it.
+   *  · SHEEN — the ONE allowed loop: a light strip on `::after`, moved by TRANSFORM, `--sn-m-sheen` (1.4 s)
+   *    linear. The block itself never repaints. (Until 18 Nov two shimmers swept `background-position` — paint on
+   *    every frame: `sk-shimmer` 1.5 s here and the kit's `.sn-skeleton`.) `.sn-skeleton` is the same part.
+   *  · Reduced motion: a still grey block, no strip, no wait (the rule under this one + the global freeze).
+   *
+   * 🔒 lib/the-sheen-is-one.test.ts · lib/the-load-rules-are-one.test.ts
    */
   /* ⏳ A loading screen's placeholders give up (owner, live phone test
    * 2026-10-02: grey cards still showing on the guest view). If the content
@@ -1307,18 +1310,30 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
     }
   }
 
-  .skeleton {
+  .skeleton,
+  .sn-skeleton {
+    position: relative;
+    overflow: hidden;
     background-color: rgb(30 34 41 / 0.06);
-    background-image: linear-gradient(
-      90deg,
-      rgb(30 34 41 / 0) 0%,
-      rgb(255 255 255 / 0.6) 50%,
-      rgb(30 34 41 / 0) 100%
-    );
-    background-size: 200% 100%;
-    background-position: -150% 0;
-    background-repeat: no-repeat;
-    animation: sk-shimmer 1.5s ease-in-out infinite;
+    animation: sn-load-wait var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-load-wait) backwards;
+  }
+  .skeleton::after,
+  .sn-skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 30%;
+    pointer-events: none;
+    background-image: linear-gradient(90deg, rgb(255 255 255 / 0), rgb(255 255 255 / 0.6), rgb(255 255 255 / 0));
+    animation: sn-sheen var(--sn-m-sheen) linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after,
+    .sn-skeleton::after {
+      content: none;
+    }
   }
 
   /*
@@ -1335,9 +1350,20 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   }
 }
 
-@keyframes sk-shimmer {
+/* Sheen — the one loop. The strip is 30% wide, so -120% → 340% of ITSELF carries it from just off the left edge
+   to just off the right one. Transform only. */
+@keyframes sn-sheen {
+  from {
+    transform: translateX(-120%);
+  }
   to {
-    background-position: 150% 0;
+    transform: translateX(340%);
+  }
+}
+/* Load rule 1 — held at 0 through the wait (fill backwards), then a Quick fade to the block's own opacity. */
+@keyframes sn-load-wait {
+  from {
+    opacity: 0;
   }
 }
 
@@ -2469,7 +2495,7 @@ html {
   }
   .sd-orbit-a {
     inset: -6%;
-    animation: sd-spin 1.9s linear infinite;
+    animation: sn-spin 1.9s linear infinite;
   }
   .sd-orbit-a::before {
     width: 14px;
@@ -2478,7 +2504,7 @@ html {
   }
   .sd-orbit-b {
     inset: 16%;
-    animation: sd-spin 1.5s linear infinite reverse;
+    animation: sn-spin 1.5s linear infinite reverse;
   }
   .sd-orbit-b::before {
     width: 10px;
@@ -2728,11 +2754,6 @@ html {
   }
   50% {
     transform: scale(1.02);
-  }
-}
-@keyframes sd-spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 @keyframes sd-blob {
@@ -3971,6 +3992,10 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
   --sn-m-move:          320ms;
   --sn-m-rise:          700ms;
   --sn-m-sheen:         1400ms;
+  /* Waits, not speeds (§ 2): a loader shows after the first and, once shown, stays the second. Mirror of
+     lib/load-rules.ts — 🔒 lib/the-load-rules-are-one.test.ts. */
+  --sn-m-load-wait:     150ms;
+  --sn-m-load-stay:     400ms;
   --sn-m-settle:        cubic-bezier(.2,.8,.2,1);
   --sn-m-settle-rev:    cubic-bezier(.8,0,.8,.2);
   --sn-m-spring:        linear(0, 0.062, 0.204, 0.379, 0.551, 0.704, 0.827, 0.919, 0.983, 1.022, 1.042, 1.05, 1.048, 1.042, 1.034, 1.025, 1.017, 1.01, 1.005, 1.002, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 1);
@@ -7805,17 +7830,21 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 [data-reveal] .sn-reveal { animation-play-state: paused; }
 
 /* ---------- loaders ---------- */
+/* Motion standard 18 Nov 2026, Phase 4: the kit's loaders are folded into the standard.
+   · `.sn-skeleton` IS `.skeleton` (one rule, in the components layer above) under the one Sheen — `sn-sheen`, by
+     transform. Its own background-position sweep is gone.
+   · `sn-indet` (animated `left`) is gone: the busy bar is `.sn-busy-bar` below, the same Sheen.
+   · `sn-dots` is gone (owner 18 Nov: "shimmer ok, bounce off"). `sn-spin` is THE spinner turn — the veil's orbits
+     (`.sd-orbit-*`) use it too; `sd-spin` is gone. */
 @keyframes sn-spin  { to { transform:rotate(360deg); } }
-@keyframes sn-dots  { 0%,80%,100% { transform:none; opacity:.45; } 40% { transform:translateY(-7px); opacity:1; } }
-@keyframes sn-sheen { from { background-position:-200% 0; } to { background-position:200% 0; } }
-@keyframes sn-indet { from { left:-35%; } to { left:105%; } }
-.sn-skeleton { background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%); background-size:200% 100%; animation:sn-sheen 1.4s linear infinite; }
+.sn-busy-bar { position:relative; overflow:hidden; height:3px; border-radius:var(--sn-r-pill); background:rgb(30 34 41 / 0.06); }
+.sn-busy-bar::after { content:''; position:absolute; top:0; bottom:0; left:0; width:30%; border-radius:inherit; background:var(--sn-gold-500); animation:sn-sheen var(--sn-m-sheen) linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sn-busy-bar::after { width:100%; opacity:.45; animation:none; } }
 
 /* ---------- data viz ---------- */
 @keyframes sn-grow    { from { width:0; } }                 /* horizontal bars */
 @keyframes sn-grow-y  { from { transform:scaleY(0); } }     /* bar charts: transform-origin:bottom */
 @keyframes sn-donut   { from { stroke-dashoffset:251.2; } } /* r=40 circle; dasharray = pct * 2.512 */
-@keyframes sn-shimmer { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
 .sn-bar > i { display:block; height:100%; border-radius:inherit; animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both; }
 
 /* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */

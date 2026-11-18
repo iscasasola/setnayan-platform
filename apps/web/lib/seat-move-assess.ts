@@ -118,3 +118,23 @@ export function seatMoveDoneWords(a: MoveAssessment, mover: MoveGuest, other: Mo
       : `${first(mover.name)} → ${toLabel}${seat !== null ? ` · seat ${seat + 1}` : ''}${a.rows[0]?.where && mover.seated_table_id ? ` (was ${a.rows[0].where})` : ''}`;
   return alsoMoved.length ? `${main} · moved ${alsoMoved.map(first).join(' & ')} too` : main;
 }
+
+/** Where one person sat before a move — what an Undo puts back. */
+export type SeatBefore = { id: string; tableId: string | null; seat: number | null };
+
+/**
+ * ↩ WHAT AN UNDO PUTS BACK (walk W4/W5 18 Nov 2026, #7906 follow-up: "Undo misses the +1"). A move can carry more than
+ * the mover: the +1 who sat beside them comes along (`sideEffects`, ticked). An Undo restores EVERYONE the move moved:
+ *   · a swap is swapped back (mover ⇄ other) — AND every +1 who came along goes back to their own chair;
+ *   · a plain move puts everyone back where they sat (or off a seat, if they had none).
+ * Until 18 Nov a swap's Undo swapped the two back and stopped — the +1 stayed at the new table.
+ * PURE — the editor runs the plan through its own seat writes (`tradeSeats` · `seatGuestHere` · `unseat`).
+ */
+export function seatMoveUndo(
+  moverId: string,
+  otherId: string | null,
+  before: readonly SeatBefore[],
+): { trade: readonly [string, string] | null; putBack: SeatBefore[] } {
+  if (!otherId) return { trade: null, putBack: [...before] };
+  return { trade: [moverId, otherId], putBack: before.filter((b) => b.id !== moverId && b.id !== otherId) };
+}

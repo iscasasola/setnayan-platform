@@ -503,7 +503,7 @@ function YoutubeConnect({
           2026-10-02 the action refuses the pool to an event without the hosted
           channel (owner ruling 2026-09-14), so the warning follows ownership too. */}
       {mayBroadcastOnSharedChannel(ownsHostedChannel) ? (
-        <p className="max-w-prose rounded-xl border border-amber-200/80 dark:border-amber-800/80 bg-amber-50/60 dark:bg-amber-950/60 px-4 py-3 text-sm text-ink/80">
+        <p className="max-w-prose rounded-xl border border-amber-200/80 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] px-4 py-3 text-sm text-ink/80">
           {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
         </p>
       ) : null}

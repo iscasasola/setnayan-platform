@@ -25,77 +25,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripComments } from '@/lib/strip-comments';
+import { areaOf, assertHexOnlyGoesDown, countHex } from '@/lib/raw-hex-ratchet';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BASELINE = join(HERE, 'raw-hex.baseline.json');
-const HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
-
-/** `[eventId]/budget/page.tsx` → `[eventId]/budget` · `(account)/billing/x.tsx` → `(account)/billing` · `page.tsx` → `(root)`. */
-export function areaOf(rel: string): string {
-  const parts = rel.split('/');
-  if (parts.length === 1) return '(root)';
-  if ((parts[0] === '[eventId]' || parts[0] === '(account)') && parts.length > 2) return `${parts[0]}/${parts[1]}`;
-  return parts[0]!;
-}
-
-/** A hex colour, not an id: `#7098` inside a word such as `PR #7098` is prose, and prose lives in comments (stripped). */
-export function countHex(source: string, isCss: boolean): number {
-  const code = isCss ? source.replace(/\/\*[\s\S]*?\*\//g, '') : stripComments(source);
-  return (code.match(HEX) ?? []).length;
-}
-
-function scan(): Record<string, number> {
-  const out: Record<string, number> = {};
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir)) {
-      const abs = join(dir, name);
-      if (statSync(abs).isDirectory()) {
-        walk(abs);
-        continue;
-      }
-      if (!/\.(tsx?|css)$/.test(name) || /\.test\.tsx?$/.test(name) || /\.harness\.tsx?$/.test(name)) continue;
-      const n = countHex(readFileSync(abs, 'utf8'), name.endsWith('.css'));
-      if (n === 0) continue;
-      const area = areaOf(relative(HERE, abs));
-      out[area] = (out[area] ?? 0) + n;
-    }
-  };
-  walk(HERE);
-  return out;
-}
-
-type Baseline = { _about: string; total: number; areas: Record<string, number> };
 
 test('the couple’s dashboard: raw hex colours per area only go down', () => {
-  const now = scan();
-  const base = JSON.parse(readFileSync(BASELINE, 'utf8')) as Baseline;
-
-  if (process.env.WRITE_HEX_BASELINE === '1') {
-    const raised = Object.entries(now).filter(([a, n]) => a in base.areas && n > base.areas[a]!);
-    assert.deepEqual(raised, [], 'refusing to RAISE a count — remove the hex, do not record it');
-    const areas = Object.fromEntries(Object.entries(now).sort(([a], [b]) => a.localeCompare(b)));
-    const next: Baseline = { _about: base._about, total: Object.values(areas).reduce((s, n) => s + n, 0), areas };
-    writeFileSync(BASELINE, `${JSON.stringify(next, null, 2)}\n`);
-    return;
-  }
-
-  assert.ok(Object.keys(now).length >= 10, 'anti-vacuity: the scan read too few areas — it has gone blind');
-  const over: string[] = [];
-  for (const [area, n] of Object.entries(now)) {
-    const allowed = base.areas[area];
-    if (allowed === undefined) over.push(`${area}: ${n} raw hex in an area with no baseline — paint from a token (bg-raised, text-ink, var(--m-…), rgb(var(--color-…)))`);
-    else if (n > allowed) over.push(`${area}: ${n} raw hex, the baseline is ${allowed} — a colour was typed as a hex; read a token instead`);
-  }
-  assert.deepEqual(over, [], 'a raw hex colour does not follow dark mode — /dashboard paints dark since 18 Nov 2026');
-  assert.equal(
-    base.total,
-    Object.values(base.areas).reduce((s, n) => s + n, 0),
-    'the baseline total does not match its rows — it was edited by hand',
-  );
+  assertHexOnlyGoesDown(HERE, join(HERE, 'raw-hex.baseline.json'), '18 Nov 2026');
 });
 
 test('the counter can see a hex — and is not fooled by a comment or an id', () => {

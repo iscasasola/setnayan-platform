@@ -14,7 +14,7 @@ import {
   updateDocUploadInline,
   type InlineDocsPayload,
 } from '../inline-docs-actions';
-import { MAX_TRIES } from '@/lib/paper-intake-shared';
+import { latestReportBySlot, paperState, unplacedReports } from '@/lib/paper-intake-shared';
 import { sentBackOf, type DocUpload } from '@/lib/vendor-verification';
 import type { IntakeReport, IntakeSlot } from '@/lib/paper-intake';
 import type { ModelPaperRead, ReadableSlotKey } from '@/lib/verification-paper-read';
@@ -147,7 +147,21 @@ export function PaperUploadPlace({
     () => Object.fromEntries(ROWS.map((r) => [r.slot, asSlot(payload.docMap[r.slot])])) as Record<ReadableSlotKey, IntakeSlot | null>,
     [payload.docMap],
   );
-  const inCount = ROWS.filter((r) => slots[r.slot]?.r2_key).length;
+  // 🧾 ONE PAPER, ONE STATE (W1-B12): each row, its reason and the "N of 3" are ONE derivation (`paperState`) of the
+  // stored slot plus the last upload's word on THAT paper — the list below draws only the files that named no paper.
+  const lastSaid = latestReportBySlot(reports);
+  const states = Object.fromEntries(
+    ROWS.map((r) => [
+      r.slot,
+      paperState(payload.docMap[r.slot], lastSaid[r.slot] ?? null, {
+        reading: pending && checking > 0,
+        sent: locked,
+        sentBackReason: sentBackOf(payload.docMap[r.slot] as DocUpload)?.reason ?? null,
+      }),
+    ]),
+  ) as Record<ReadableSlotKey, ReturnType<typeof paperState>>;
+  const unplaced = unplacedReports(reports);
+  const inCount = ROWS.filter((r) => states[r.slot].isIn).length;
   // 🛡 THE PAPER THAT HOLDS THEM BACK (owner 2026-10-29, v13 note 4 — carried over from the retired pairs): an
   // unverified shop's FIRST missing paper is marked, and [Get verified] (`#docs`) brings it into view.
   const firstMissing = isVerified || locked ? null : (ROWS.find((r) => !slots[r.slot]?.r2_key)?.slot ?? null);
@@ -224,9 +238,9 @@ export function PaperUploadPlace({
         </div>
       )}
 
-      {reports.length > 0 ? (
-        <ul className="space-y-1.5" aria-live="polite">
-          {reports.map((r, i) => (
+      {unplaced.length > 0 ? (
+        <ul className="space-y-1.5" aria-live="polite" data-paper-unplaced="">
+          {unplaced.map((r, i) => (
             <li
               key={`${r.r2Key}-${r.page ?? 'x'}-${i}`}
               className="rounded-lg px-3 py-2 text-xs"
@@ -238,16 +252,14 @@ export function PaperUploadPlace({
               <span className="font-medium">{r.message}</span>
               <span className="block" style={{ color: MUTE }}>
                 {fileName(r.r2Key)}
-                {r.page !== null ? ` · page ${r.page + 1}` : ''} · {reportTail(r)}
-                {r.outcome === 'unreadable' && (r.attempts ?? 0) === 1 ? ' Lay the paper flat, in good light, all four corners in.' : ''}
-                {r.outcome === 'unreadable' && (r.attempts ?? 0) === 2 ? ' A scan or the PDF from your email works best.' : ''}
+                {r.page !== null ? ` · page ${r.page + 1}` : ''} · {reportTail(r)} · not filed under any paper
               </span>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {reports.some((x) => x.outcome === 'unreadable') ? (
+      {ROWS.some((r) => states[r.slot].kind === 'refused') ? (
         <details className="text-xs" style={{ color: MUTE }}>
           <summary className="flex min-h-[44px] cursor-pointer items-center">What doesn’t count as a try?</summary>
           {/* The approved demo's list — the code's own list is NOT_A_TRY (lib/paper-intake.ts). */}
@@ -275,18 +287,21 @@ export function PaperUploadPlace({
         {ROWS.map((row) => {
           const s = slots[row.slot];
           const model = s?.evidence?.model ?? null;
-          let status: { icon: 'ok' | 'wait' | 'person' | 'none'; text: string };
-          // The approved demo's words: Recognised · Reading… · Not clear enough — not kept · A person will check
-          // this · Waiting for a photo.
-          if (s?.r2_key && s.manual) status = { icon: 'person', text: 'A person will check this' };
-          else if (s?.r2_key && model) status = { icon: 'ok', text: 'Recognised' };
-          else if (pending && checking > 0) status = { icon: 'wait', text: 'Reading…' };
-          else if (s && s.attempts > 0)
-            status = {
-              icon: 'wait',
-              text: `Not clear enough — not kept · Try ${formatCount(Math.min(s.attempts + 1, MAX_TRIES))} of ${formatCount(MAX_TRIES)}${s.attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`,
-            };
-          else status = { icon: 'none', text: 'Waiting for a photo' };
+          const st = states[row.slot];
+          // The approved demo's words (Recognised · Reading… · Not clear enough — not kept · A person will check this ·
+          // Waiting for a photo), each from the ONE state of this paper.
+          const status: { icon: 'ok' | 'wait' | 'person' | 'none'; text: string } = {
+            icon: st.kind === 'in' ? 'ok' : st.kind === 'person' ? 'person' : st.kind === 'waiting' ? 'none' : 'wait',
+            text: st.text,
+          };
+          const tip =
+            st.kind === 'refused' && lastSaid[row.slot]?.outcome === 'unreadable'
+              ? st.attempts === 1
+                ? 'Lay the paper flat, in good light, all four corners in.'
+                : st.attempts === 2
+                  ? 'A scan or the PDF from your email works best.'
+                  : null
+              : null;
 
           return (
             <li
@@ -301,22 +316,33 @@ export function PaperUploadPlace({
                   Start here
                 </p>
               ) : null}
-              {/* 📨 The send-back's reason, on the NAMED paper only (owner 2026-11-14, "Only the named one" — #7627).
-                  Gone the moment a new copy is filed in the slot. */}
-              {!s?.r2_key && sentBackOf(payload.docMap[row.slot] as DocUpload) ? (
-                <p role="alert" className="mb-1.5 text-xs font-medium text-danger-700" data-paper-reason="">
-                  Needs a new copy · {sentBackOf(payload.docMap[row.slot] as DocUpload)!.reason}
-                </p>
-              ) : null}
+              {/* 📨 The send-back's reason, on the NAMED paper only (owner 2026-11-14, "Only the named one" — #7627), is now
+                  this paper's own state line (`paperState` → "Needs a new copy · …"): one line, never a second one beside it. */}
               <div className="flex min-h-[44px] items-start gap-3">
                 <StatusIcon kind={status.icon} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
                     {row.title}
                   </span>
-                  <span className="block text-xs" style={{ color: status.icon === 'ok' ? 'var(--m-sage-deep)' : MUTE }}>
+                  <span
+                    className={`block text-xs${sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? ' font-medium text-danger-700' : ''}`}
+                    style={sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? undefined : { color: status.icon === 'ok' ? 'var(--m-sage-deep)' : MUTE }}
+                    data-paper-state={st.kind}
+                    // audit #7898: a sent-back paper's "Needs a new copy · {reason}" is announced, as it was before.
+                    role={sentBackOf(payload.docMap[row.slot] as DocUpload) && !st.isIn ? 'alert' : undefined}
+                  >
                     {status.text}
                   </span>
+                  {st.note ? (
+                    <span className="block text-xs" style={{ color: MUTE }} data-paper-note="">
+                      {st.note}
+                    </span>
+                  ) : null}
+                  {tip ? (
+                    <span className="block text-xs" style={{ color: MUTE }}>
+                      {tip}
+                    </span>
+                  ) : null}
                   {status.icon === 'none' ? (
                     <span className="block text-xs" style={{ color: MUTE }}>
                       {row.hint}
@@ -325,7 +351,7 @@ export function PaperUploadPlace({
                 </span>
               </div>
 
-              {s?.r2_key && model && !s.manual ? (
+              {st.kind === 'in' && model ? (
                 <div className="mt-2 space-y-1 pl-9">
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                     {readLines(row.slot, model).map(([k, v]) => (
@@ -345,7 +371,7 @@ export function PaperUploadPlace({
                 </div>
               ) : null}
 
-              {s?.r2_key && s.manual ? (
+              {st.kind === 'person' && s?.r2_key && s.manual ? (
                 <TypedForm slot={row.slot} typed={s.typed ?? null} locked={locked} fileRef={s.r2_key} onSaved={onSaved} />
               ) : null}
             </li>
@@ -410,8 +436,8 @@ function TypedForm({
         {fileName(fileRef)} · try 3 · kept
       </p>
       <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-        <strong className="block">{slot === 'mayors_permit' ? 'Type what’s on your permit instead' : 'Type what’s on this paper instead'}</strong>
-        Three photos couldn’t be read. We kept the last one so a person can compare it with what you type.
+        <strong className="block">{slot === 'mayors_permit' ? 'Type what’s on your permit (optional)' : 'Type what’s on this paper (optional)'}</strong>
+        We kept your last photo for a person at Setnayan to check. Typing what it says helps them.
       </p>
       <form
         className="space-y-2"

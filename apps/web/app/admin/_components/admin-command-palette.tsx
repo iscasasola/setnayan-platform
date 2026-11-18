@@ -37,6 +37,7 @@ import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 
 import { buildDestinations, type Dest, type RowDest } from './admin-destinations';
 import { formatCount } from '@/lib/format-number';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * A job hiding inside an href, the way a page-destination hides in one, is read
@@ -874,15 +875,14 @@ export function AdminCommandPalette({
                     : 'It could not place that one either.'}
                 </p>
               ) : (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="neutral"
+                  icon={Sparkles}
                   onClick={ask}
                   disabled={asking || q.trim().length < 3}
-                  className="mt-3 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-50"
-                  style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink)' }}
-                >
-                  {asking ? 'Thinking…' : 'Ask Setnayan where this lives'}
-                </button>
+                  className="mt-3"
+                  label={asking ? 'Thinking…' : 'Ask Setnayan where this lives'}
+                />
               )}
             </div>
           ) : (

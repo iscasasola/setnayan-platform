@@ -30,9 +30,9 @@ Checks: `/verify-wiring`, `/audit` (`.claude/commands/`). Hooks: `.claude/settin
 
 | Item | Size / count | Verdict | Re-measure |
 |---|---|---|---|
-| `.claude/worktrees/` in the main checkout | **30 GB**, 19 worktrees, each ~2.1 GB | Biggest bloat by far. Most belong to finished PRs. | `du -sh .claude/worktrees/*` |
-| Registered worktrees, whole machine | 54, of which 8 point at deleted folders | 8 are free to `git worktree prune`; the rest need a merged-PR check before removal | `git worktree list` |
-| `.next` inside kept worktrees | 13 folders, ~1 GB | Safe to delete; rebuilt on demand | `du -shc .claude/worktrees/*/apps/web/.next` |
+| `.claude/worktrees/` in the main checkout | **30 GB**, 19 worktrees, each ~2.1 GB (mostly `node_modules`) | **Corrected after step 1:** this is NOT mostly finished work. Measured per worktree: all but one belonged to a running session, an open PR, or unpushed commits made in the last hours (`motion-*` hold 13–17 local-only commits each). Step 1 removed only the one archived, clean, fully-pushed worktree (741 MB), one empty folder, and 8 dead locked entries. The rest frees itself as each PR merges and its session prunes its own worktree. | `du -sh .claude/worktrees/*` |
+| Registered worktrees, whole machine | 54 → 42 after step 1 | Dead entries pruned (locks from processes long gone; branches kept) | `git worktree list` |
+| `.next` inside kept worktrees | 1 folder left, ~0.5 GB, in use by a running session | Nothing to clear | `du -shc .claude/worktrees/*/apps/web/.next` |
 | Root `node_modules` | 1.4 GB | Normal for this app | `du -sh node_modules` |
 | `dist/`, `build/`, `.cache/` at root | none present | Nothing to do | — |
 
@@ -207,7 +207,7 @@ components.** Re-measure with the regexes in `.claude/commands/audit.md`.
 
 ## Proposed cleanup order (awaiting approval — nothing done)
 
-1. **Disk:** prune the 8 dead worktree entries; remove `.claude/worktrees/*` whose PR is merged;
+1. **Disk — DONE 2026-11-18 (741 MB + 8 dead entries):** see section 1; the rest is live work.
    clear `.next` in the rest. (~20–28 GB back.) Machine-only, no code change.
 2. **CI double build:** build once in `ci.yml`, reuse in `e2e.yml`.
 3. **Routes:** decide — wire `lib/routes.ts` for real (codemod + `lint-routes` guard) or retire its

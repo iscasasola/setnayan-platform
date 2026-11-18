@@ -28,10 +28,13 @@ export function TheyToldYou({
   coupleName,
   unread,
   questionnaire,
+  quietWhenEmpty = false,
 }: {
   coupleName: string;
   unread: boolean;
   questionnaire: Questionnaire;
+  /** No questions → nothing (the Forms page says it once, in `QuestionsSection`). Default: the shipped line. */
+  quietWhenEmpty?: boolean;
 }) {
   if (unread) {
     return (
@@ -42,13 +45,14 @@ export function TheyToldYou({
     );
   }
   if (questionnaire.rows.length === 0) {
+    if (quietWhenEmpty) return null;
     return (
       <p className="text-xs text-ink/70">
         Ask {coupleName} what only they can tell you —{' '}
         <Link href="/vendor-dashboard/activities#questions" className="underline">
           write your questions once
         </Link>{' '}
-        and every couple you work with answers them.
+        and every client you work with answers them.
       </p>
     );
   }
@@ -126,12 +130,14 @@ export async function CoupleAnswers({
   eventId,
   vendorProfileId,
   coupleName,
+  quietWhenEmpty = false,
 }: {
   supabase: SupabaseClient;
   eventId: string;
   vendorProfileId: string;
   coupleName: string;
+  quietWhenEmpty?: boolean;
 }) {
   const { unread, questionnaire } = await readCoupleAnswers(supabase, eventId, vendorProfileId);
-  return <TheyToldYou coupleName={coupleName} unread={unread} questionnaire={questionnaire} />;
+  return <TheyToldYou coupleName={coupleName} unread={unread} questionnaire={questionnaire} quietWhenEmpty={quietWhenEmpty} />;
 }

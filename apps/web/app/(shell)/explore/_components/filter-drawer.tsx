@@ -175,14 +175,6 @@ export function FilterDrawer({
   carry,
 }: FilterDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const cityId = useId();
-  const sortId = useId();
-  const faithId = useId();
-  const eventTypeId = useId();
-  const verifiedId = useId();
-  const matchId = useId();
-  const venueId = useId();
-  const offSeasonId = useId();
 
   // Focus trap + move-into-panel + restore + Esc-to-close + body-scroll-lock via
   // the shared hook. The panel is the trap container (holds all form controls).
@@ -230,314 +222,365 @@ export function FilterDrawer({
           </button>
         </header>
 
-        <form
-          method="get"
+        <FilterDrawerForm
+          onClose={onClose}
+          filters={filters}
+          sortOptions={sortOptions}
+          faithOptions={faithOptions}
+          eventTypeOptions={eventTypeOptions}
+          matchableEvent={matchableEvent}
+          hostVenueSetting={_hostVenueSetting}
+          hostVenueLabel={hostVenueLabel}
+          showVenueToggle={showVenueToggle}
+          hasActiveFilters={hasActiveFilters}
           action={action}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          {/* Scrollable inner area — Apply / Clear footer stays pinned even
-              with many filters open. */}
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
-            {/* Hidden inputs preserve the keys the parent page already drove
-                via folder strip / search input / category drill-in. The
-                drawer is a focused 'edit filter values' surface — it does
-                NOT own the search / folder / category state. */}
-            {filters.q ? (
-              <input type="hidden" name="q" value={filters.q} />
-            ) : null}
-            {filters.category ? (
-              <input
-                type="hidden"
-                name="category"
-                value={filters.category}
-              />
-            ) : null}
-            {filters.folder ? (
-              <input
-                type="hidden"
-                name="folder"
-                value={filters.folder}
-              />
-            ) : null}
-            {filters.focusedMode ? (
-              <input type="hidden" name="from" value="plan" />
-            ) : null}
-            {!sortInside && filters.sort && filters.sort !== 'most_reviews' ? (
-              <input type="hidden" name="sort" value={filters.sort} />
-            ) : null}
-            {(carry ?? []).map(([name, value]) => (
-              <input key={`${name}=${value}`} type="hidden" name={name} value={value} />
-            ))}
-
-            {/* City */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor={cityId}
-                className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
-              >
-                City
-              </label>
-              <input
-                autoComplete="off"
-                id={cityId}
-                type="text"
-                name="city"
-                defaultValue={filters.city}
-                placeholder="Manila, Cebu, Davao…"
-                className="input-field"
-              />
-            </div>
-
-            {/* Sort by — `/explore` only; Discover's Sort is its own dropdown (`sortInside`). */}
-            {sortInside ? (
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor={sortId}
-                className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
-              >
-                Sort by
-              </label>
-              <select
-                id={sortId}
-                name="sort"
-                defaultValue={filters.sort}
-                className="input-field"
-              >
-                {sortOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            ) : null}
-
-            {/* Occasion — 2026-08-15. Owner, looking at the browse page:
-                *"they can also search by type of event."* Sits ABOVE Faith
-                deliberately: the kind of celebration is the wider question and
-                for fifteen of the sixteen kinds the faith narrow is not even
-                the right one to ask next.
-
-                PORTED FROM THE FAITH SECTION BELOW, NOT INVENTED — same
-                `.input-field` select, same prepended empty option, same
-                hidden-input fallback when the section cannot render. One
-                control grammar in this drawer; a second one would read as a
-                different product.
-
-                The empty option is worded "Any occasion" rather than "All
-                occasions": this narrows SUPPLIERS by the celebrations they
-                serve, and "all" would read as a promise that each result
-                serves every kind. */}
-            {eventTypeOptions && eventTypeOptions.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor={eventTypeId}
-                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
-                >
-                  Occasion
-                </label>
-                <select
-                  id={eventTypeId}
-                  name="event_type"
-                  defaultValue={filters.eventType ?? ''}
-                  className="input-field"
-                >
-                  <option value="">Any occasion</option>
-                  {eventTypeOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : filters.eventType ? (
-              /* Same edge case the Faith narrow guards: the visitor already
-                 carries ?event_type=… but this render has no roster to offer
-                 (a vocab read that degraded to empty). Preserve the narrow as
-                 a hidden input so submitting the drawer does not silently drop
-                 a filter the visitor never chose to clear. */
-              <input type="hidden" name="event_type" value={filters.eventType} />
-            ) : null}
-
-            {/* Faith — 2026-05-30 PM. Owner directive *"why are these still
-                showing. they should be embedded inside the filter"*. The
-                inline FaithPillRow rendered by PRs #657 + #659 above every
-                faith-bearing folder is retired; faith narrows now live here
-                in the drawer alongside City + Sort. Section hides entirely
-                when no faith-tagged sub-categories survive the hide-empty
-                filter (Photo & Video, Reception, Rings & Accessories,
-                Booths & Stations, Invitations & Keepsakes folders OR a
-                fully unpopulated catalog). The empty `<option value="">`
-                appears first so couples can clear the narrow back to "All
-                faiths" without leaving the drawer. */}
-            {faithOptions && faithOptions.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor={faithId}
-                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
-                >
-                  Faith
-                </label>
-                <select
-                  id={faithId}
-                  name="faith"
-                  defaultValue={filters.faith ?? ''}
-                  className="input-field"
-                >
-                  <option value="">All faiths</option>
-                  {faithOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : filters.faith ? (
-              /* Edge case: host already has ?faith=… set but the current
-                 view exposes zero faith-tagged tiles (e.g., scoped to a
-                 folder with no faith categories). Preserve the existing
-                 narrow as a hidden input so the form submit doesn't
-                 silently drop it. */
-              <input type="hidden" name="faith" value={filters.faith} />
-            ) : null}
-
-            {/* Verified only */}
-            <div className="rounded-xl border border-ink/10 bg-cream p-3">
-              <label
-                htmlFor={verifiedId}
-                className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
-              >
-                <input
-                  id={verifiedId}
-                  type="checkbox"
-                  name="verified"
-                  value="1"
-                  defaultChecked={filters.verifiedOnly}
-                  className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                />
-                <span>
-                  <span className="block font-medium text-ink">
-                    Verified only
-                  </span>
-                  <span className="mt-0.5 block text-[12px] text-ink/55">
-                    Hide suppliers who haven&rsquo;t completed verification.
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            {/* Off-season savings — a SWITCH in the drawer on Discover (`offSeason` given); `/explore` keeps its chip. */}
-            {offSeason !== undefined ? (
-              <div className="px-3 py-1">
-                <label
-                  htmlFor={offSeasonId}
-                  className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
-                >
-                  <input
-                    id={offSeasonId}
-                    type="checkbox"
-                    role="switch"
-                    name="offseason"
-                    value="1"
-                    defaultChecked={offSeason}
-                    className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                  />
-                  <span className="block font-medium text-ink">Off-season savings</span>
-                </label>
-              </div>
-            ) : null}
-
-            {/* Match my event — only when host has an in-progress event */}
-            {matchableEvent ? (
-              <div className="rounded-xl border border-ink/10 bg-cream p-3">
-                <label
-                  htmlFor={matchId}
-                  className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
-                >
-                  <input
-                    id={matchId}
-                    type="checkbox"
-                    name="match"
-                    value="1"
-                    defaultChecked={filters.matchEvent}
-                    className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                  />
-                  <span>
-                    <span className="block font-medium text-ink">
-                      Match my event
-                    </span>
-                    <span className="mt-0.5 block text-[12px] text-ink/55">
-                      Only show suppliers compatible with{' '}
-                      <span className="font-mono text-ink/70">
-                        {matchableEvent.ceremony_type}
-                      </span>{' '}
-                      ceremonies.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            ) : null}
-
-            {/* Show all venue settings — Reception folder + host has setting */}
-            {showVenueToggle && hostVenueLabel ? (
-              <div className="rounded-xl border border-ink/10 bg-cream p-3">
-                <label
-                  htmlFor={venueId}
-                  className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
-                >
-                  <input
-                    id={venueId}
-                    type="checkbox"
-                    name="venue"
-                    value="0"
-                    defaultChecked={filters.venueDefault === 'off'}
-                    className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-                  />
-                  <span>
-                    <span className="block font-medium text-ink">
-                      Show all venue settings
-                    </span>
-                    <span className="mt-0.5 block text-[12px] text-ink/55">
-                      Uncheck to focus on{' '}
-                      <span className="font-medium text-ink/75">
-                        {hostVenueLabel}
-                      </span>{' '}
-                      — your wedding&rsquo;s picked setting.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Footer — Apply + Clear. Uniform 44pt height per the global rule.
-              border-t separates the scrollable area cleanly. */}
-          <footer className="border-t border-ink/10 px-5 py-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                onClick={() => onClose?.()}
-                className="button-primary flex-1"
-              >
-                Apply filters
-              </button>
-              {hasActiveFilters ? (
-                <Link
-                  href={
-                    clearHref ??
-                    (filters.folder
-                      ? `/explore?folder=${filters.folder}`
-                      : '/explore')
-                  }
-                  className="button-secondary"
-                >
-                  Clear
-                </Link>
-              ) : null}
-            </div>
-          </footer>
-        </form>
+          clearHref={clearHref}
+          sortInside={sortInside}
+          offSeason={offSeason}
+          carry={carry}
+        />
       </div>
     </div>
+  );
+}
+
+/**
+ * ⤴ THE FILTER FORM ITSELF — the drawer's body, with no frame of its own. `/explore` draws it in this file's drawer; Discover
+ * rises it full screen (`discover-filter-sheet.tsx`, owner 2026-11-10 "fullscreen everything", the ONE `RiseScreen`). One
+ * form, two frames — never a second copy of the fields.
+ */
+export function FilterDrawerForm({
+  onClose,
+  filters,
+  sortOptions,
+  faithOptions,
+  eventTypeOptions,
+  matchableEvent,
+  hostVenueLabel,
+  showVenueToggle,
+  hasActiveFilters,
+  action = '/explore',
+  clearHref,
+  sortInside = true,
+  offSeason,
+  carry,
+}: Omit<FilterDrawerProps, 'open'>) {
+  const cityId = useId();
+  const sortId = useId();
+  const faithId = useId();
+  const eventTypeId = useId();
+  const verifiedId = useId();
+  const matchId = useId();
+  const venueId = useId();
+  const offSeasonId = useId();
+
+  return (
+    <form
+      method="get"
+      action={action}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {/* Scrollable inner area — Apply / Clear footer stays pinned even
+          with many filters open. */}
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+        {/* Hidden inputs preserve the keys the parent page already drove
+            via folder strip / search input / category drill-in. The
+            drawer is a focused 'edit filter values' surface — it does
+            NOT own the search / folder / category state. */}
+        {filters.q ? (
+          <input type="hidden" name="q" value={filters.q} />
+        ) : null}
+        {filters.category ? (
+          <input
+            type="hidden"
+            name="category"
+            value={filters.category}
+          />
+        ) : null}
+        {filters.folder ? (
+          <input
+            type="hidden"
+            name="folder"
+            value={filters.folder}
+          />
+        ) : null}
+        {filters.focusedMode ? (
+          <input type="hidden" name="from" value="plan" />
+        ) : null}
+        {!sortInside && filters.sort && filters.sort !== 'most_reviews' ? (
+          <input type="hidden" name="sort" value={filters.sort} />
+        ) : null}
+        {(carry ?? []).map(([name, value]) => (
+          <input key={`${name}=${value}`} type="hidden" name={name} value={value} />
+        ))}
+
+        {/* City */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor={cityId}
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+          >
+            City
+          </label>
+          <input
+            autoComplete="off"
+            id={cityId}
+            type="text"
+            name="city"
+            defaultValue={filters.city}
+            placeholder="Manila, Cebu, Davao…"
+            className="input-field"
+          />
+        </div>
+
+        {/* Sort by — `/explore` only; Discover's Sort is its own dropdown (`sortInside`). */}
+        {sortInside ? (
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor={sortId}
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+          >
+            Sort by
+          </label>
+          <select
+            id={sortId}
+            name="sort"
+            defaultValue={filters.sort}
+            className="input-field"
+          >
+            {sortOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        ) : null}
+
+        {/* Occasion — 2026-08-15. Owner, looking at the browse page:
+            *"they can also search by type of event."* Sits ABOVE Faith
+            deliberately: the kind of celebration is the wider question and
+            for fifteen of the sixteen kinds the faith narrow is not even
+            the right one to ask next.
+
+            PORTED FROM THE FAITH SECTION BELOW, NOT INVENTED — same
+            `.input-field` select, same prepended empty option, same
+            hidden-input fallback when the section cannot render. One
+            control grammar in this drawer; a second one would read as a
+            different product.
+
+            The empty option is worded "Any occasion" rather than "All
+            occasions": this narrows SUPPLIERS by the celebrations they
+            serve, and "all" would read as a promise that each result
+            serves every kind. */}
+        {eventTypeOptions && eventTypeOptions.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={eventTypeId}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+            >
+              Occasion
+            </label>
+            <select
+              id={eventTypeId}
+              name="event_type"
+              defaultValue={filters.eventType ?? ''}
+              className="input-field"
+            >
+              <option value="">Any occasion</option>
+              {eventTypeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : filters.eventType ? (
+          /* Same edge case the Faith narrow guards: the visitor already
+             carries ?event_type=… but this render has no roster to offer
+             (a vocab read that degraded to empty). Preserve the narrow as
+             a hidden input so submitting the drawer does not silently drop
+             a filter the visitor never chose to clear. */
+          <input type="hidden" name="event_type" value={filters.eventType} />
+        ) : null}
+
+        {/* Faith — 2026-05-30 PM. Owner directive *"why are these still
+            showing. they should be embedded inside the filter"*. The
+            inline FaithPillRow rendered by PRs #657 + #659 above every
+            faith-bearing folder is retired; faith narrows now live here
+            in the drawer alongside City + Sort. Section hides entirely
+            when no faith-tagged sub-categories survive the hide-empty
+            filter (Photo & Video, Reception, Rings & Accessories,
+            Booths & Stations, Invitations & Keepsakes folders OR a
+            fully unpopulated catalog). The empty `<option value="">`
+            appears first so couples can clear the narrow back to "All
+            faiths" without leaving the drawer. */}
+        {faithOptions && faithOptions.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={faithId}
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+            >
+              Faith
+            </label>
+            <select
+              id={faithId}
+              name="faith"
+              defaultValue={filters.faith ?? ''}
+              className="input-field"
+            >
+              <option value="">All faiths</option>
+              {faithOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : filters.faith ? (
+          /* Edge case: host already has ?faith=… set but the current
+             view exposes zero faith-tagged tiles (e.g., scoped to a
+             folder with no faith categories). Preserve the existing
+             narrow as a hidden input so the form submit doesn't
+             silently drop it. */
+          <input type="hidden" name="faith" value={filters.faith} />
+        ) : null}
+
+        {/* Verified only */}
+        <div className="rounded-xl border border-ink/10 bg-cream p-3">
+          <label
+            htmlFor={verifiedId}
+            className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
+          >
+            <input
+              id={verifiedId}
+              type="checkbox"
+              name="verified"
+              value="1"
+              defaultChecked={filters.verifiedOnly}
+              className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+            />
+            <span>
+              <span className="block font-medium text-ink">
+                Verified only
+              </span>
+              <span className="mt-0.5 block text-[12px] text-ink/55">
+                Hide suppliers who haven&rsquo;t completed verification.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {/* Off-season savings — a SWITCH in the drawer on Discover (`offSeason` given); `/explore` keeps its chip. */}
+        {offSeason !== undefined ? (
+          <div className="px-3 py-1">
+            <label
+              htmlFor={offSeasonId}
+              className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
+            >
+              <input
+                id={offSeasonId}
+                type="checkbox"
+                role="switch"
+                name="offseason"
+                value="1"
+                defaultChecked={offSeason}
+                className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+              />
+              <span className="block font-medium text-ink">Off-season savings</span>
+            </label>
+          </div>
+        ) : null}
+
+        {/* Match my event — only when host has an in-progress event */}
+        {matchableEvent ? (
+          <div className="rounded-xl border border-ink/10 bg-cream p-3">
+            <label
+              htmlFor={matchId}
+              className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
+            >
+              <input
+                id={matchId}
+                type="checkbox"
+                name="match"
+                value="1"
+                defaultChecked={filters.matchEvent}
+                className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+              />
+              <span>
+                <span className="block font-medium text-ink">
+                  Match my event
+                </span>
+                <span className="mt-0.5 block text-[12px] text-ink/55">
+                  Only show suppliers compatible with{' '}
+                  <span className="font-mono text-ink/70">
+                    {matchableEvent.ceremony_type}
+                  </span>{' '}
+                  ceremonies.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {/* Show all venue settings — Reception folder + host has setting */}
+        {showVenueToggle && hostVenueLabel ? (
+          <div className="rounded-xl border border-ink/10 bg-cream p-3">
+            <label
+              htmlFor={venueId}
+              className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
+            >
+              <input
+                id={venueId}
+                type="checkbox"
+                name="venue"
+                value="0"
+                defaultChecked={filters.venueDefault === 'off'}
+                className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+              />
+              <span>
+                <span className="block font-medium text-ink">
+                  Show all venue settings
+                </span>
+                <span className="mt-0.5 block text-[12px] text-ink/55">
+                  Uncheck to focus on{' '}
+                  <span className="font-medium text-ink/75">
+                    {hostVenueLabel}
+                  </span>{' '}
+                  — your wedding&rsquo;s picked setting.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Footer — Apply + Clear. Uniform 44pt height per the global rule.
+          border-t separates the scrollable area cleanly. */}
+      <footer className="border-t border-ink/10 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            onClick={() => onClose?.()}
+            className="button-primary flex-1"
+          >
+            Apply filters
+          </button>
+          {hasActiveFilters ? (
+            <Link
+              href={
+                clearHref ??
+                (filters.folder
+                  ? `/explore?folder=${filters.folder}`
+                  : '/explore')
+              }
+              className="button-secondary"
+            >
+              Clear
+            </Link>
+          ) : null}
+        </div>
+      </footer>
+    </form>
   );
 }

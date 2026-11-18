@@ -151,6 +151,8 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
                     amountPhp: view.next.amountPhp,
                     name: view.next.name,
                     dueDate: view.next.dueDate,
+                    dueText: view.next.dueText,
+                    late: view.next.late,
                     action: view.next.check ? (
                       <BudgetNextLink href="#payment-logged" mark="check">
                         Check ›

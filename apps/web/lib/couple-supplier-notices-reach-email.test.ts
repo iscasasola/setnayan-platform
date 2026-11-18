@@ -282,6 +282,11 @@ function emitSites(): EmitSite[] {
       // read from the helper's own body in lib/.
       const helper = /^([A-Za-z_$][\w$]*)\(/.exec(linkExpr)?.[1];
       if (links.length === 0 && helper) links = helperLinks(helper);
+      // A ternary of route helpers (`toShop ? supplierChatHref(…) : coupleChatHref(…)`): every arm's helper is read, so
+      // each side's button is checked — not only the first.
+      if (links.length === 0 && /\?[\s\S]*:/.test(linkExpr)) {
+        links = [...linkExpr.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].flatMap((m) => helperLinks(m[1]!));
+      }
       // A file-local wrapper that forwards its caller's link
       // (`relatedUrl: args.relatedUrl`): the links are the ones its callers,
       // in the same file, wrote out.

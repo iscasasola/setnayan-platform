@@ -758,6 +758,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "Figure",
         "GuestSpotlight",
         "HubProWays",
@@ -788,6 +789,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "InfoTip",
         "Link",
         "PickMenu",
@@ -2466,6 +2468,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2481,11 +2484,13 @@
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
         "admin/_components/kpi-stat-card.tsx",
+        "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
         "admin/_components/posted-field-row.tsx",
         "admin/_components/read-failed.tsx",
         "admin/_components/record-kit.tsx",
         "admin/_components/record-search.ts",
+        "admin/_components/tab-landing.tsx",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
         "admin/error.tsx",
@@ -2579,6 +2584,9 @@
         "/admin/verify",
         "/admin/website-media",
         "/admin/work",
+        "/admin?ask=badges",
+        "/admin?ask=papers",
+        "/admin?ask=payments",
         "/admin?card=[seg]",
         "/dashboard",
         "/dashboard/profile"
@@ -2609,6 +2617,7 @@
         "FocusCardSheet",
         "FocusHome",
         "Fold",
+        "Fragment",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -2621,7 +2630,9 @@
         "MoreSearch",
         "Notice",
         "OverlayBackdrop",
+        "P",
         "PageMasthead",
+        "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
         "RequestCardView",
@@ -2783,6 +2794,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -2850,6 +2862,7 @@
         "ResolveDriftButton",
         "Row",
         "Rows",
+        "SearchParamsRecord",
         "Sec",
         "SeoRerunButton",
         "SeoSurface",
@@ -2862,6 +2875,7 @@
         "StackedBars",
         "StatusPill",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TypedRow",
         "VendorPicker",
@@ -2998,6 +3012,7 @@
         "FormRows",
         "LoaderAppearanceCard",
         "PageMasthead",
+        "SearchParamsRecord",
         "SentrySmokeTestButton",
         "SettingRow",
         "TemplateFail",
@@ -3381,6 +3396,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3517,6 +3533,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3558,6 +3575,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3618,13 +3636,22 @@
     },
     "/admin/directory": {
       "files": [
+        "admin/directory/_components/people-show-sort.tsx",
+        "admin/directory/_components/people-show.ts",
         "admin/directory/loading.tsx",
         "admin/directory/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "MobileLandingGrid"
+        "AdminAskPill",
+        "ChosenRow",
+        "FilterFace",
+        "PeopleShowSort",
+        "SearchParamsRecord",
+        "ShowSortSheet",
+        "ShowSortTopic",
+        "TabLanding"
       ]
     },
     "/admin/discount-codes": {
@@ -3956,6 +3983,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4006,7 +4034,8 @@
         "HelpMessageRow",
         "HelpMessenger",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "SearchParamsRecord"
       ]
     },
     "/admin/hub-music": {
@@ -4140,6 +4169,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4217,7 +4247,9 @@
         "Link",
         "RevenueSummary",
         "Row",
+        "SearchParamsRecord",
         "Suspense",
+        "TabLanding",
         "TablePageSkeleton",
         "TransactionsLedger"
       ]
@@ -4278,6 +4310,32 @@
       "blocks": [
         "NpcTaskResult",
         "NpcTaskStatus"
+      ]
+    },
+    "/admin/offers": {
+      "files": [
+        "admin/offers/_surfaces/badges-view.tsx",
+        "admin/offers/_surfaces/not-yet-built.ts",
+        "admin/offers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgeRewardsLedger",
+        "BadgeUpgradesLedger",
+        "BadgesView",
+        "DiscountCodesSurface",
+        "Link",
+        "NotYetBuilt",
+        "PageMasthead",
+        "ReferralsSurface",
+        "SearchParamsRecord",
+        "ShopBadges",
+        "SpotlightAwardsSurface",
+        "TemplateNums",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/offline": {
@@ -4444,6 +4502,7 @@
         "FormDate",
         "FormPick",
         "FormRows",
+        "Fragment",
         "HTMLInputElement",
         "InboxMatcher",
         "Link",
@@ -4462,6 +4521,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "SearchParamsRecord",
         "ServiceRemedyForms",
         "SubmitButton",
         "TemplateEmpty",
@@ -4582,6 +4642,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4767,6 +4828,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4916,6 +4978,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5016,6 +5079,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5122,6 +5186,7 @@
         "RevealStudio",
         "RevealStudioSurface",
         "ScheduledPostCard",
+        "SearchParamsRecord",
         "ShowcaseAdminRow",
         "SiteWidgetPage",
         "SocialQueueSurface",
@@ -5183,6 +5248,7 @@
         "DemoModeSurface",
         "PageMasthead",
         "SampleEventSwitch",
+        "SearchParamsRecord",
         "SettingRow",
         "SettingValue",
         "TemplateFail",
@@ -5243,6 +5309,7 @@
         "Resolution",
         "ScreenRow",
         "ScreensSurface",
+        "SearchParamsRecord",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
@@ -5364,6 +5431,7 @@
         "InfoTip",
         "PageMasthead",
         "SearchParams",
+        "SearchParamsRecord",
         "SubmitButton"
       ]
     },
@@ -5613,6 +5681,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",
@@ -5735,8 +5804,10 @@
         "Preview",
         "QueuesTriageFeed",
         "ReasonPick",
+        "SearchParamsRecord",
         "SupplierInbox",
         "Suspense",
+        "TabLanding",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"
@@ -6521,16 +6592,17 @@
         "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLElement",
-        "HTMLSpanElement",
         "HomeFindRow",
         "HomeGear",
         "HomePinPortal",
         "HomePinnedRow",
         "HomeProfile",
         "HomeSegBody",
+        "HomeSegCounts",
+        "HomeSegCountsContext.Provider",
+        "HomeSegCountsProvider",
         "HomeSegMemory",
         "HomeShopSegment",
-        "HomeTabs",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6540,7 +6612,6 @@
         "Link",
         "MemoriesSegment",
         "MomentRow",
-        "NewEventButton",
         "NewEventCard",
         "NewThingTile",
         "Notice",
@@ -9226,6 +9297,7 @@
         "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLFormElement",
         "Icon",
         "LeftChatRow",
         "Link",
@@ -9237,6 +9309,7 @@
         "StartThreadPicker",
         "SubmitButton",
         "SupplierColumns",
+        "SwipeToDelete",
         "ThreadArchiveToggle",
         "ThreadArrival",
         "ThreadListAvatar",
@@ -9831,6 +9904,7 @@
         "dashboard/[eventId]/seating/_components/close-outside.ts",
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-face-tray.tsx",
         "dashboard/[eventId]/seating/_components/seat-list.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-facts.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-in-guests.tsx",
@@ -9933,6 +10007,7 @@
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
+        "SeatFaceTray",
         "SeatList",
         "SeatPeoplePanel",
         "SeatPickMenu",
@@ -9961,6 +10036,7 @@
         "SwitchRow",
         "T",
         "TableType",
+        "TrayItem",
         "TypedRow",
         "UndoToastHost",
         "VipMark",
@@ -11019,6 +11095,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ColorRow",
         "DeviceFrame",
         "DeviceToggle",
@@ -13421,6 +13498,7 @@
         "submitPaymentProof"
       ],
       "blocks": [
+        "ActionButton",
         "Channel",
         "ChannelToggle",
         "CopyButton",
@@ -14136,6 +14214,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/back-when-not-risen.tsx",
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
@@ -14177,8 +14256,6 @@
         "vendor-dashboard/_components/supplier-hero.tsx",
         "vendor-dashboard/_components/supplier-open-row.tsx",
         "vendor-dashboard/_components/supplier-page-menu.tsx",
-        "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
-        "vendor-dashboard/_components/supplier-page-spotlight.tsx",
         "vendor-dashboard/_components/supplier-setup-folds.tsx",
         "vendor-dashboard/_components/supplier-setup-screen.tsx",
         "vendor-dashboard/_components/supplier-submit.tsx",
@@ -14294,6 +14371,7 @@
         "DeleteRequestBody",
         "DisputeBody",
         "DoorRow",
+        "EarnedMark",
         "EventCard",
         "EventLinesBody",
         "EventLockedByFee",
@@ -14313,9 +14391,11 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HolderSlot",
         "I",
         "Icon",
         "Image",
+        "InSheet.Provider",
         "InfoTip",
         "InlineDocsPayload",
         "InlineNotice",
@@ -14381,7 +14461,6 @@
         "SetupQrStep",
         "SetupTourContext.Provider",
         "Sheet",
-        "ShopBadgePill",
         "ShopDoorPanel",
         "Show",
         "SidePanel",
@@ -14399,8 +14478,6 @@
         "SupplierHero",
         "SupplierOpenRow",
         "SupplierPageMenu",
-        "SupplierPageSpotlight",
-        "SupplierPageSpotlightMount",
         "SupplierSetupFolds",
         "SupplierSetupScreen",
         "SupplierSubmit",
@@ -14410,6 +14487,7 @@
         "SupplierTodayScreen",
         "Suspense",
         "SyncResult",
+        "T",
         "TermsReacceptSheet",
         "ThumbFit",
         "ThumbLayer",
@@ -14421,6 +14499,7 @@
         "TodayNoteRow",
         "TodayRow",
         "TodaySettings",
+        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TrackRecordRow",
@@ -15584,6 +15663,7 @@
         "QrCodeList",
         "QrCodes",
         "QrThumb",
+        "RiseScreen",
         "Row",
         "Sheet",
         "SubmitButton",
@@ -16374,6 +16454,8 @@
         "updateBusinessStartDate"
       ],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchPanel",
         "CouldNotLoad",
@@ -16859,6 +16941,8 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "DatesRow",
         "Fold",
         "Icon",
@@ -16953,10 +17037,13 @@
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
+        "BadgeArt",
+        "BadgeArtLarge",
+        "BadgeFullscreen",
+        "BadgeOpen",
         "BadgeRewardSweep",
         "BadgeRing",
         "BadgeSheet",
-        "BadgeTile",
         "BodyPanel",
         "BranchManager",
         "BundlePreviewSample",
@@ -17020,6 +17107,7 @@
         "LockExplainer",
         "LockedFeature",
         "LockedIdentityFieldKey",
+        "LockedTile",
         "LogoFrame",
         "LogoPhotoMenu",
         "LogoRowControl",
@@ -17122,6 +17210,7 @@
         "VendorSlotInput",
         "VenueMatchSaveResult",
         "VenueTypeSaveResult",
+        "VerifiedFullscreen",
         "VerifySection",
         "VideoLinksEditor",
         "ViewShopScreen",
@@ -17303,6 +17392,8 @@
       "blocks": [
         "ActionButton",
         "AgentServiceAssignment",
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchScope",
         "ChosenRow",

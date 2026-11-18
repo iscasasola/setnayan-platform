@@ -49,6 +49,13 @@ import { ADMIN_ROUTES } from '@/lib/admin-map/admin-routes.generated';
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
 import { ADMIN_NAV_DESCRIPTIONS, ADMIN_NAV_ALIASES } from './admin-nav-descriptions';
 
+/** The Ask bar's in-place answers (`focus-home.tsx` FOCUS_ASK_ANSWERS reads the `?ask=` key). */
+const FOCUS_ASKS = [
+  { label: 'Suppliers’ badge progress', href: '/admin?ask=badges', hay: 'suppliers badge progress badges tiers awards trace seals' },
+  { label: 'Payments to confirm', href: '/admin?ask=payments', hay: 'payments to confirm receipts slips approve' },
+  { label: 'Papers to verify', href: '/admin?ask=papers', hay: 'papers to verify documents permit bir dti sec verification' },
+] as const;
+
 export type Dest = {
   label: string;
   href: string;
@@ -113,6 +120,11 @@ export function buildDestinations(rows: readonly RowDest[] = []): Dest[] {
       byHref.set(item.href, dest);
       coveredPaths.add(pathOf(item.href));
     }
+  }
+
+  // ➕ ADMIN REORG v10 (17 Nov 2026): three questions the Ask bar answers IN PLACE on Focus, with the same rows.
+  for (const a of FOCUS_ASKS) {
+    out.push({ label: a.label, href: a.href, group: 'Answered on Focus', hay: a.hay, source: 'menu' });
   }
 
   for (const route of ADMIN_ROUTES) {

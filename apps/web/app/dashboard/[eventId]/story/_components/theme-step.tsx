@@ -203,7 +203,7 @@ export function ThemeStep({
                       />
                     ) : (
                       <span
-                        className="flex items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-1.5"
+                        className="flex items-center gap-1.5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-1.5"
                         title={`${hex} — ${name}`}
                       >
                         <span

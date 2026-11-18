@@ -367,10 +367,21 @@ export const OFFICIAL_QR_HOSTS: ReadonlyArray<{ host: string; label: string }> =
 
 export type QrVerdict =
   | { kind: 'official'; label: string; href: string }
+  /**
+   * Another `.gov.ph` site — typically the city's own permit portal (Mayor's
+   * Permits carry these; LGU portals are not on the official list, DECISION_LOG
+   * 2026-11-14). A `.gov.ph` name is registered only by government, so this is
+   * NOT "Not a government site" — but it is not DTI, SEC or BIR either, so it is
+   * never `official` and never green. The reviewer checks it is the shop's city.
+   */
+  | { kind: 'gov_other'; label: GovOtherLabel; href: string }
   | { kind: 'not_government'; label: '⚠ Not a government site'; href: string }
   | { kind: 'text'; label: 'This QR holds text, not a link'; text: string }
   | { kind: 'unreadable'; label: 'Couldn’t read the QR — check by hand' }
   | { kind: 'none' };
+
+export const GOV_OTHER_LABEL = 'A .gov.ph site — not DTI, SEC or BIR. Check it is the city’s.' as const;
+type GovOtherLabel = typeof GOV_OTHER_LABEL;
 
 /** Strict host match: equal, or ends in "." + the official host. */
 export function hostIsUnder(hostname: string, official: string): boolean {
@@ -402,6 +413,9 @@ export function classifyPaperQr(read: Pick<PaperRead, 'qrText' | 'qrUnreadable'>
   if (url.protocol === 'https:' && !url.username && !url.password) {
     const hit = OFFICIAL_QR_HOSTS.find((o) => hostIsUnder(url!.hostname, o.host));
     if (hit) return { kind: 'official', label: hit.label, href: url.href };
+    // A sub-domain of gov.ph (never bare `gov.ph`, never `gov.ph.evil.com`).
+    const h = url.hostname.toLowerCase().replace(/\.$/, '');
+    if (h !== 'gov.ph' && hostIsUnder(h, 'gov.ph')) return { kind: 'gov_other', label: GOV_OTHER_LABEL, href: url.href };
   }
   return { kind: 'not_government', label: '⚠ Not a government site', href: url.href };
 }

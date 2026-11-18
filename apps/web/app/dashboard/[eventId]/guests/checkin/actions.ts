@@ -338,6 +338,9 @@ export async function saveDeskAccess(eventId: string, next: unknown): Promise<Sa
       .is('removed_at', null)
       // The same seat readDeskViewer honours: an invite never accepted opens no desk, so it cannot be picked either.
       .not('accepted_at', 'is', null)
+      // …and never a limited helper (owner 2026-09-28: "may view but may not edit"). The supplier pin above already
+      // rules one out; saying it here keeps that true if the pin ever widens. 🔒 lib/a-limited-helper-views-never-edits.test.ts
+      .neq('role_subtype', 'viewer')
       .maybeSingle();
     if (seatError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
     if (!seat) return { ok: false, error: 'That supplier no longer has access to this event.' };

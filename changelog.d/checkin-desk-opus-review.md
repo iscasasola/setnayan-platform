@@ -8,3 +8,8 @@ the parts; everyone else gets none, so the action says "try again" and the page 
 notice, as its own comment already said. Test: `lib/checkin-desk.test.ts` "(opus review) a refused read never answers yes".
 
 SPEC IMPACT: None
+
+- 18 Nov (seating + check-in lane, after merging main): `saveDeskAccess`'s door-supplier seat check now also says
+  `.neq('role_subtype', 'viewer')`, as `lib/a-limited-helper-views-never-edits.test.ts` (from main) asks of every
+  accepted-seat edit gate. The `wedding_planner_external` pin already ruled a limited helper out; nothing a host
+  sees changes.

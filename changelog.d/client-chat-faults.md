@@ -1,0 +1,23 @@
+## 2026-11-17 · fix(clients): the supplier's client chat, Details and Quotation say what is true
+
+Owner screenshot of the supplier's client "Debut 18" (booked, quote v1 ₱26,750) on the #7901 preview:
+
+- **An answered booking ask stops reading "Waiting for your answer."** A later book-request line ("Booked ✓", "Not available", withdrawn, closed or expired) now answers every open ask before it (`answeredBookAsks` in `lib/chat-card-lines.ts`). The stream passes that answer to `BookRequestCard`, which then reads "Answered · booked" and similar.
+- **A past due date reads overdue.** The folded plan row now says "₱0 of ₱26,750 · ₱5,350 overdue since Nov 13" instead of "next ₱5,350 Nov 13" (`planFoldLine` takes Manila's today from the thread page; when today is unknown it still says "next"). It now uses `formatPhp`.
+- **The client page menu shows that it scrolls.** A side that has more pages past it fades, using the same mask as the pinned row's door strip (`picked-shell.tsx`, `data-picked-menu-more`).
+- **The chat follows the clean-look rule** (`dashboards_clean_look_2026-11-16_fable.html`). Card kickers ("Due now", "Setnayan · Nov 14, 12:25 AM"), the quote's "Quote · version 1", message stamps and the "Agreed now" and Files headings are now sentence case, with no mono capitals. Space replaces the divider lines between pins and in the plan row.
+- **An unpriced transport line is not free.** "Transportation · Quoted after site check" now says "Quoted after site check" in the price column instead of "Complimentary". The rule is one function, `quoteLinePriceWords` (`lib/quote-line-price-words.ts`), used by the quote card, the versions sheet and the dispute evidence view.
+- **No guest count is not 100.** When the couple gave no count, the Quotation's "On their list" now reads "No count yet", the same as Details (`paxKnown` from the thread page). The draft still prices at the page's stand-in seed; that money question went to the controller and nothing was changed.
+- **Details reads the real plan.** Paid shows "₱0 · received" and Balance shows "₱26,750 · ₱5,350 overdue since Nov 13", instead of "— on Payment". A dash appears only when the plan read failed, and then it says "couldn't load" (`readPlanProgressForVendor` returns `complete`).
+- **"Booked" is said once.** The category chips no longer prefix "Booked ·"; the stage pill already says it.
+- **The payment-method prompt shows once.** Inside the client workspace the quote card no longer repeats the prompt Details shows. The full-screen chat keeps it.
+- **A long line title ends in "…" before the price.** The Quotation's line title truncates and the price never shrinks. The versions sheet gets the same treatment.
+- **The client tabs are in sentence case.** This covers Your locks, Hosts · in your shared chat, Forms, Decisions, Suppliers, This client, Notes, Ask for a payment, the Payment and Files headings, and the Quotation's section headings and field labels. The Quotation sections are no longer split by lines.
+- **Audit follow-up.** "What changed" and the side-by-side sheet now say "Quoted after site check" too: `quoteChanges` and `versionsSideBySide` carry the words from the one rule. The Payment page's Next line says "Overdue ₱5,350 · First payment · since Nov 13" through `isPastDue`, the same rule as Details and Chat. The Forms door on Details names the event instead of "this couple". Every remaining uppercase label in the client workspace's own files is sentence case, including Your next move, Day-of timeline, Your handovers, Asked of you, Your times, the script, activity, answers and booth headings.
+- **Not in this PR:** "Not available" on the shop's own booked date is CHAT-29 on #7870, and the re-quote ₱28,500 vs ₱26,750 is CHAT-31 on #7870. The clipped newest bubble was a mid-scroll frame, so it was dropped.
+
+Guards: `lib/the-client-chat-says-what-is-true.test.ts` and `lib/the-client-workspace-says-what-is-true.test.ts` (each guard was seen red when its fix was broken on purpose), plus overdue cases in `the-supplier-chat-gives-the-messages-room.test.ts` and the plan cases in `no-all-paid-without-a-booking.test.ts`.
+
+- **One house label.** Every section label in the client workspace now uses the shared `.home-k2` label (bold sentence case on supplier pages, from main's clean-look tokens), so there is no second 13px label style. Field labels, number captions and note meta lines keep their own small text. Guarded in `the-client-workspace-says-what-is-true.test.ts` (+b).
+
+SPEC IMPACT: None. These are bug fixes plus the already-approved clean-look rule.

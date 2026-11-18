@@ -77,7 +77,16 @@ import {
 } from './_components/people-more';
 import { CustomersPin, type CustomersDoor, type CustomersQuick } from './_components/customers-pin';
 import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-tile-lists';
-import { countWords, overdueRead, toCollectTileWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
+import {
+  OPEN_MEETING_STATUSES,
+  countWords,
+  openMeetingsWindow,
+  overdueRead,
+  toCollectTileWords,
+  unreadEvents,
+  type ClientMeeting,
+  type CountRead,
+} from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
 import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, scheduleScopeOptions, type ClientsContext } from './clients-show-sort';
@@ -294,8 +303,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       .from('event_appointments')
       .select('appointment_id, event_id, type, custom_label, scheduled_at, status', { count: 'exact' })
       .eq('vendor_profile_id', vendorProfileId)
-      .in('status', ['proposed', 'confirmed'])
-      .or(`scheduled_at.gte.${new Date(`${todayIso}T00:00:00+08:00`).toISOString()},scheduled_at.is.null`)
+      .in('status', [...OPEN_MEETING_STATUSES])
+      .or(openMeetingsWindow(todayIso))
       .order('scheduled_at', { ascending: true, nullsFirst: false })
       .limit(200),
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
@@ -949,7 +958,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
+    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];

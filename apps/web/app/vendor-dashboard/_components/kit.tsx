@@ -30,7 +30,7 @@
  * (#A9834B, 3.37:1 on white — FAILS AA for text) and the action colour lives
  * in the slot named `mulberry`. So:
  *   · no tone below ever emits the bare gold text utility;
- *   · gold-toned TEXT uses `text-terracotta-700`, the dark text-gold;
+ *   · gold-toned TEXT reads in full ink (rule 13 · gold is for lines and edges, never small words);
  *   · the action tone uses `mulberry`.
  * Centralising the tone map means the contrast argument is made once, here,
  * instead of re-litigated per file.
@@ -101,18 +101,18 @@ export function ShopCard({
 
 /* ──────────────────────────────────────────────────────────────────────────
  * ShopPill — the status pill, with the tone argument settled once.
- * `gold` deliberately emits text-terracotta-700 (the dark text-gold), never
+ * `gold` deliberately emits text-ink (gold is a line, never small words — rule 13), never
  * the bare gold utility — see the colour rules in the header.
  * ────────────────────────────────────────────────────────────────────────── */
 export type ShopPillTone = 'ink' | 'action' | 'gold' | 'success' | 'warn' | 'danger';
 
 const PILL_TONE: Record<ShopPillTone, string> = {
-  ink: 'bg-ink/[0.05] text-ink/70',
+  ink: 'bg-ink/[0.05] text-[color:var(--m-slate-2)]',
   action: 'bg-mulberry/10 text-mulberry',
-  gold: 'bg-terracotta/10 text-terracotta-700',
-  success: 'bg-success-50 text-success-800',
-  warn: 'bg-warn-50 text-warn-900',
-  danger: 'bg-danger-50 text-danger-800',
+  gold: 'bg-terracotta/10 text-ink',
+  success: 'bg-[rgb(var(--color-ok)/0.08)] text-[rgb(var(--color-ok))]',
+  warn: 'bg-[rgb(var(--color-warn)/0.08)] text-[rgb(var(--color-warn))]',
+  danger: 'bg-[rgb(var(--color-danger)/0.08)] text-[rgb(var(--color-danger))]',
 };
 
 export function ShopPill({
@@ -130,7 +130,7 @@ export function ShopPill({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] ${PILL_TONE[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${PILL_TONE[tone]} ${className}`}
     >
       {children}
     </span>
@@ -142,10 +142,10 @@ export function ShopPill({
  * 9×, the gold/terracotta info band 5×, byte-similar each time).
  * ────────────────────────────────────────────────────────────────────────── */
 const NOTICE_TONE: Record<Exclude<ShopPillTone, 'ink' | 'action'>, string> = {
-  gold: 'border-terracotta/30 bg-terracotta/10 text-terracotta-700',
-  success: 'border-success-300/60 bg-success-50 text-success-800',
-  warn: 'border-warn-300/60 bg-warn-50 text-warn-900',
-  danger: 'border-danger-300/60 bg-danger-50 text-danger-800',
+  gold: 'border-terracotta/30 bg-terracotta/10 text-ink',
+  success: 'border-[rgb(var(--color-ok)/0.35)] bg-[rgb(var(--color-ok)/0.08)] text-[rgb(var(--color-ok))]',
+  warn: 'border-[rgb(var(--color-warn)/0.35)] bg-[rgb(var(--color-warn)/0.08)] text-[rgb(var(--color-warn))]',
+  danger: 'border-[rgb(var(--color-danger)/0.35)] bg-[rgb(var(--color-danger)/0.08)] text-[rgb(var(--color-danger))]',
 };
 
 export function ShopNotice({
@@ -179,12 +179,13 @@ export function ShopNotice({
 /**
  * The inline spelling, exported for elements that must keep their own tag —
  * a lone `<li>` standing in for an empty roster. `ShopEmpty inline` composes
- * this same constant. text-ink/60, not the ink/45 three of the shipped list
+ * this same constant. text-[color:var(--m-slate-2)], not the ink/45 three of the shipped list
  * empties carried — ink/45 measures 2.62:1 on white, a hard AA fail the
  * states kit corrected once already.
  */
 export const shopEmptyInlineClass =
-  'rounded-xl border border-dashed border-ink/15 px-3 py-4 text-center text-sm text-ink/60';
+  // Rule 6 · empty is one plain line where the rows would be — no dashed box.
+  'px-1 py-3 text-[14px] text-[color:var(--m-slate-2)]';
 
 export function ShopEmpty({
   inline = false,
@@ -201,7 +202,7 @@ export function ShopEmpty({
   }
   return (
     <div
-      className={`rounded-2xl border border-dashed border-ink/15 p-8 text-center text-sm text-ink/60 ${className}`}
+      className={`px-1 py-3 text-[14px] text-[color:var(--m-slate-2)] ${className}`}
     >
       {children}
     </div>

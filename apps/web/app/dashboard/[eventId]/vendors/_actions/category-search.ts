@@ -32,7 +32,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import type { EventVenueColumns } from '@/lib/event-venues';
 import { demoScopeFor } from '@/lib/demo-scope';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 // The ladder's own vocabulary lives in the PURE module that enforces the
@@ -106,6 +106,7 @@ import { resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { liveTierState } from '@/lib/vendor-tier-lapse';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -853,7 +854,7 @@ export async function searchCategoryVendors(input: {
 
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state')
+    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
@@ -871,12 +872,15 @@ export async function searchCategoryVendors(input: {
       name_revealed_at: string | null;
       services: string[] | null;
       tier_state: string | null;
+      tier_expires_at?: string | null;
+      verification_state?: string | null;
     };
     profById.set(row.vendor_profile_id, {
       screen_name: row.screen_name,
       name_revealed_at: row.name_revealed_at,
       services: row.services,
-      tier_state: row.tier_state,
+      // A plan whose paid days ended reads as the sweep will write it — never its old reach (`liveTierState`).
+      tier_state: liveTierState(row, Date.now()),
     });
   }
 
@@ -1186,14 +1190,9 @@ export async function searchCategoryVendors(input: {
       primary_canonical_service: prof?.services?.[0] ?? null,
       location_city: r.location_city ?? null,
     });
-    // Same gate `resolveVendorDisplayName` used: TRUE here means the
-    // resolved `name` above is the placeholder, not the real business_name.
-    const nameAnonymized = !isVendorNameRevealed({
-      name_revealed_at: prof?.name_revealed_at ?? null,
-      isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
-      is_verified: r.verification_state === 'verified',
-      services: prof?.services ?? null,
-    });
+    // TRUE only when there is no real name to show (ruling 2026-11-16 (15): an unverified shop is named by its
+    // business name, so "unverified" alone withholds nothing).
+    const nameAnonymized = isShopNameWithheld({ business_name: r.business_name ?? null });
     const vLat = (r.hq_latitude as number | null) ?? null;
     const vLng = (r.hq_longitude as number | null) ?? null;
     const dKm =

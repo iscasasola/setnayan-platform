@@ -54,6 +54,8 @@ export const SUPPLIER_TYPE_WORD: Record<SupplierType, string> = {
 /** Kinds that are a church's own, whatever the taxonomy calls their family. */
 const CHURCH_KINDS = new Set(['religious_venue', 'ceremony_venue', 'church_fees', 'officiant']);
 const PHOTOGRAPHER_KINDS = new Set(['photographer', 'pre_nup_photographer']);
+/** A feast-family kind that is a caterer's own (per guest). The code taxonomy's catering · crew_meals · stations tiles. */
+const CATERING_KIND_RE = /cater|lechon|lauriat|buffet|meal|station|banquet|food|_package$/; // `christening_package` (catering tile)
 
 /**
  * The supplier type a card's kind belongs to.
@@ -67,7 +69,10 @@ export function supplierTypeForKind(kind: string, folder: string | null): Suppli
   if (CHURCH_KINDS.has(k) || /church|parish|chapel|mass|baptism|blessing/.test(k)) return 'church';
   if (PHOTOGRAPHER_KINDS.has(k)) return 'photographer';
   const f = folder ?? familyOfLegacyKind(k);
-  if (f === 'feast') return 'caterer';
+  // 🎂 W1-B27 (supplier walk 16 Nov 2026): the feast family is more than catering — a cake shop opened "Per guest". Only a
+  // caterer's own kinds (meals, buffets, lechon, lauriat, food stations) take the caterer's per-guest defaults; a cake,
+  // desserts or anything else in the family falls to 'other' (One price, nothing filled for the wrong trade).
+  if (f === 'feast') return CATERING_KIND_RE.test(k) ? 'caterer' : 'other';
   if (f === 'documentary') return 'studio';
   // 🌸 RW-262 (re-walk 14 Nov 2026): the design family is more than flowers — a Lights & Sound card opened "Filled for a
   // florist". Only florals, decor and styling take the florist's defaults; lights, sound, LED walls, dance floors, tents,
@@ -238,6 +243,24 @@ export function coverageLeafForKind(kind: string, leaves: LeafIndex): string | n
   const m = VENDOR_CATEGORY_CANONICAL[kind as VendorCategory];
   const tile = m.kind === 'tile' ? m.tile : m.kind === 'tiles' ? (m.tiles[0] ?? null) : null;
   return tile && leaves.label.has(tile) ? tile : null;
+}
+
+/**
+ * 🧰 EVERY LEAF THE SERVICES PICKED AT SIGN-UP RESOLVE TO (walk step 3, 2026-11-16 — "Add Florals to what you do?").
+ *
+ * Sign-up stores `vendor_profiles.services` as the COARSE category first, then the picked leaf
+ * (`app/open-shop/actions.ts`: `[coarseService, pickedLeaf, ...added]`). Cut 3 counted only the entries that are
+ * themselves live leaves, while a card of the coarse kind is asked about through `coverageLeafForKind`, which maps it
+ * to its tile's leaf — so the shop was asked to "add" the service it signed up with. This resolves every entry with
+ * that SAME rule, once each, for the covered set only (never for what is listed). Read only.
+ */
+export function signupCoveredLeaves(services: readonly string[] | null | undefined, leaves: LeafIndex): string[] {
+  const out: string[] = [];
+  for (const s of services ?? []) {
+    const leaf = s ? coverageLeafForKind(s, leaves) : null;
+    if (leaf && !out.includes(leaf)) out.push(leaf);
+  }
+  return out;
 }
 
 /**

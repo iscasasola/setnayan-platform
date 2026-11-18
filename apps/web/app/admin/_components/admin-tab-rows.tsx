@@ -13,7 +13,8 @@
  *    Drawn by the app's ONE thumb row (`ThumbRow` in `ThumbDock`). Phone and tablet only: from 1024 the top bar
  *    already carries the same search box.
  *
- * Where a page lives comes from `lib/admin/admin-tabs.ts` and nowhere else.
+ * Where a page lives comes from `lib/admin/admin-pages.ts` (admin reorg v7, 17 Nov 2026 — the 18 merged pages; the
+ * open list is grouped by page, "Queue · Kind ▾", as the drawing's tab picker draws it) and nowhere else.
  *
  * ⚖ HONEST STATES (T28/T29). The row's note says what the view's queue holds, in words, and never a 0 over a failed
  * read: a count → "3 waiting"; zero → "Nothing waiting"; a refused read → "Couldn't count — not the same as none";
@@ -32,17 +33,18 @@ import { ThumbDock } from '@/components/thumb-dock';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
+import type { AdminTab, AdminView } from '@/lib/admin/admin-tabs';
 import {
-  ADMIN_AVATAR_ROWS,
-  adminPlaceFor,
-  type AdminPlace,
-  type AdminTab,
-  type AdminView,
-} from '@/lib/admin/admin-tabs';
+  ADMIN_SETUP_PAGES,
+  adminShellPlaceFor,
+  pageGroupLabel,
+  type AdminShellPlace,
+} from '@/lib/admin/admin-pages';
 
 import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 import { useAdminAddress } from './admin-address';
 import css from './admin-tab-rows.module.css';
+import { PeopleShowSort } from '../directory/_components/people-show-sort';
 
 /** A read that failed is never a 0. */
 export const COUNT_REFUSED = 'Couldn’t count — not the same as none';
@@ -65,10 +67,15 @@ function viewTrail(view: AdminView, counts: AdminQueueCounts | undefined): PickO
   return { text: formatCount(n), tone: 'left', label: `${formatCount(n)} waiting` };
 }
 
-function useAdminPlace(at?: string): AdminPlace | null {
+function useAdminPlace(at?: string): AdminShellPlace | null {
   const { pathname, params } = useAdminAddress(at);
-  return adminPlaceFor(pathname, params);
+  return adminShellPlaceFor(pathname, params);
 }
+
+/** Setup's views, grouped under their page — the avatar's pages that exist today. */
+const SETUP_OPTIONS = ADMIN_SETUP_PAGES.filter((p) => p.href).flatMap((p) =>
+  p.views.map((v) => ({ key: `${p.key}.${v.key}`, label: v.label, group: pageGroupLabel(p), href: v.href })),
+);
 
 export function AdminPinnedRow({
   queueCounts,
@@ -87,38 +94,63 @@ export function AdminPinnedRow({
   if (!place) return null;
   if (focus && pathname === '/admin') return null;
 
-  if (place.kind === 'avatar') {
-    // Admin-of-admin: the same row, listing the avatar's pages that exist today.
-    const rows = ADMIN_AVATAR_ROWS.filter((r) => r.href);
+  if (place.kind === 'focus') return null;
+
+  if (place.kind === 'setup') {
+    // Admin-of-admin (Setup, under the avatar): the same row, listing Setup's pages and their views.
     return (
-      <div className={css.stick} data-admin-pin="avatar">
+      <div className={css.stick} data-admin-pin="setup">
         <PinnedRow
           picker={{
-            label: 'Admin settings page',
-            value: place.row.key,
-            buttonText: `Admin · ${place.row.label}`,
-            options: rows.map((r) => ({ key: r.key, label: r.label })),
+            label: 'Setup page',
+            value: `${place.page.key}.${place.view.key}`,
+            buttonText: `${place.page.label} · ${place.view.label}`,
+            options: SETUP_OPTIONS.map(({ key, label, group }) => ({ key, label, group })),
             onPick: (key) => {
-              const row = rows.find((r) => r.key === key);
-              if (row?.href) router.push(row.href);
+              const row = SETUP_OPTIONS.find((r) => r.key === key);
+              if (row) router.push(row.href);
             },
           }}
           doors={[]}
           gear={null}
-          data={{ 'data-admin-pinned-row': 'avatar' }}
+          data={{ 'data-admin-pinned-row': 'setup' }}
         />
       </div>
     );
   }
 
-  const { tab, view, isSetting } = place;
+  if (place.kind === 'landing') {
+    // A tab's own dashboard: the same picker, nothing picked yet.
+    const { tab } = place;
+    return (
+      <div className={css.stick} data-admin-pin={tab.key}>
+        <PinnedRow
+          picker={{
+            label: `${tab.label} page`,
+            value: '',
+            buttonText: tab.label,
+            options: tab.views.map((v) => ({ key: v.key, label: v.label, group: v.group, trail: viewTrail(v, queueCounts) })),
+            onPick: (key) => {
+              const v = tab.views.find((x) => x.key === key);
+              if (v) router.push(v.href);
+            },
+          }}
+          doors={[]}
+          gear={null}
+          data={{ 'data-admin-pinned-row': tab.key }}
+        />
+      </div>
+    );
+  }
+
+  const { tab, view, isSetting, page } = place;
   return (
     <div className={css.stick} data-admin-pin={tab.key}>
       <PinnedRow
         picker={{
           label: `${tab.label} view`,
           value: isSetting ? '' : view.key,
-          buttonText: isSetting ? `${tab.label} · ⚙ ${view.label}` : `${tab.label} · ${view.label}`,
+          buttonText: isSetting ? `${tab.label} · ⚙ ${view.label}` : `${page.label} · ${view.label}`,
           options: tab.views.map((v) => ({ key: v.key, label: v.label, group: v.group, trail: viewTrail(v, queueCounts) })),
           onPick: (key) => {
             const v = tab.views.find((x) => x.key === key);
@@ -172,7 +204,8 @@ function TabSettingsRows({ tab, current, onGo }: { tab: AdminTab; current: strin
 
 export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
   const place = useAdminPlace(at);
-  if (!place || place.kind !== 'tab') return null;
+  const { params } = useAdminAddress(at);
+  if (!place || (place.kind !== 'tab' && place.kind !== 'landing')) return null;
   const { tab } = place;
   return (
     // From 1024 the top bar's own search box is the search; the dock would draw a second one in the page.
@@ -196,7 +229,15 @@ export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
               </button>
             ),
           }}
-          action={tab.create ? { icon: Plus, label: tab.create.label, href: tab.create.href } : null}
+          action={
+            // ➕ v10 (owner 17 Nov): on People the round right of the ONE search is the Show & sort icon — the shipped
+            // sheet, as on Guests. Add a venue stays one tap away in Look up › Venues.
+            tab.key === 'people' && place.kind === 'landing'
+              ? { node: <PeopleShowSort show={params?.get('show') ?? 'everyone'} /> }
+              : tab.create
+                ? { icon: Plus, label: tab.create.label, href: tab.create.href }
+                : null
+          }
         />
       </ThumbDock>
     </div>

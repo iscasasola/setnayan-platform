@@ -98,7 +98,22 @@ export type PickedShellProps<P extends string> = {
   tours?: ReadonlyArray<{ id: P; tour: string }>;
   /** The side's own reading of a raw `?tab=` / legacy `#hash` (its alias table); absent = the page ids only. */
   pageOf?: (raw: string) => P | null;
+  /**
+   * ‹ A NAMED WAY BACK beside ✕ (owner rule "never lose the back button", DECISION_LOG 17 Nov). The SAME close, drawn
+   * as icon + word ("‹ Calendar"). CSS decides which one shows (`data-picked-close-as` is hidden unless a page's own
+   * rule shows it, as Clients does on a computer, `supplier-frame.css`). Absent = only today's ✕, unchanged: the couple
+   * side never passes it.
+   */
+  closeAs?: { label: string; icon: LucideIcon } | null;
 };
+
+/** The menu's edge fade per side that has more pages past it — the pinned row's door-strip mask, both ways. */
+const MENU_FADE = {
+  none: '',
+  right: '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]',
+  left: '[-webkit-mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)]',
+  both: '[-webkit-mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)]',
+} as const;
 
 export function PickedShell<P extends string>({
   pickedId,
@@ -117,12 +132,33 @@ export function PickedShell<P extends string>({
   badges = {},
   tours = [],
   pageOf,
+  closeAs = null,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // ➡ THE MENU SAYS WHEN IT SCROLLS (owner screenshot 17 Nov: "Hub · R…" clipped, no cue): a side with more pages past it
+  // fades out, as the pinned row's door strip does (`pinned-row/pin-doors.tsx`). Measured on scroll and resize.
+  const [menuMore, setMenuMore] = useState<{ left: boolean; right: boolean }>({ left: false, right: false });
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const measure = () => {
+      const left = el.scrollLeft > 2;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      setMenuMore((was) => (was.left === left && was.right === right ? was : { left, right }));
+    };
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      ro?.disconnect();
+    };
+  }, [host]);
   // 🥞 The page rows' floor (host) and the column they span from 701 (the pinned row's column — it never slides).
   const [thumbHost, setThumbHost] = useState<HTMLDivElement | null>(null);
   const [thumbColumn, setThumbColumn] = useState<HTMLDivElement | null>(null);
@@ -358,6 +394,9 @@ export function PickedShell<P extends string>({
               {gear.node}
             </MenuSettingsButton>
           ) : null}
+          {closeAs ? (
+            <ActionButton tone="neutral" icon={closeAs.icon} label={closeAs.label} onClick={close} data-testid="picked-close-as" data-picked-close-as="" />
+          ) : null}
           <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} data-testid="picked-close" />
         </div>
         {/* 🗂 The page menu — icon over word, the picked one framed (it is the one you pressed). */}
@@ -365,8 +404,9 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className="mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
+          data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
           {menu.map((m) => {
             const Icon: LucideIcon = icons[m.id];

@@ -279,6 +279,7 @@ export default async function SuppliersLabPage({
     money: moneyStageOf(one('money')),
     today: one('today') ?? null,
     callTimesFail: one('calltimes') === 'fail',
+    crewCall: one('crewcall') === '1' || one('crewcall') === 'fail' ? (one('crewcall') as '1' | 'fail') : null,
     ask: one('ask') === '1',
     favorites: one('favorites') === '1',
     chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,

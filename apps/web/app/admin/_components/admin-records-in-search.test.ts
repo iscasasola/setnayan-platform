@@ -35,15 +35,17 @@ const PALETTE = 'app/admin/_components/admin-command-palette.tsx';
 
 /* ── THE OFFSET, EXECUTED ───────────────────────────────────────────────── */
 
-test('record rows appended after the hits do NOT push the hit offset', () => {
+// 🔦 Focus at Spotlight level (owner approved 18 Nov 2026): records now LEAD the pages, so they are counted into the
+// offset — read off the list, never assumed.
+test('record rows before the hits push the hit offset by exactly their count', () => {
   const hits = ['a', 'b', 'c'];
   const records = [{ href: '/x' }, { href: '/y' }];
 
   const withoutAsk = buildNavRows(false, hits, records);
-  assert.equal(hitOffsetOf(withoutAsk), 0, 'records inflated the offset with no ask row');
+  assert.equal(hitOffsetOf(withoutAsk), 2, 'the offset does not count the records above the pages');
 
   const withAsk = buildNavRows(true, hits, records);
-  assert.equal(hitOffsetOf(withAsk), 1, 'records inflated the offset past the ask row');
+  assert.equal(hitOffsetOf(withAsk), 3, 'the offset does not count the ask row and the records');
 });
 
 test('the highlighted row IS the row Enter opens, for every hit', () => {
@@ -60,9 +62,9 @@ test('the highlighted row IS the row Enter opens, for every hit', () => {
   }
 });
 
-test('records come last in the one list the keyboard walks', () => {
+test('records come before the pages in the one list the keyboard walks (the approved drawing)', () => {
   const rows = buildNavRows(true, ['a'], [{ href: '/x' }]);
-  assert.deepEqual(rows.map((r) => r.kind), ['ask', 'dest', 'record']);
+  assert.deepEqual(rows.map((r) => r.kind), ['ask', 'record', 'dest']);
 });
 
 test('with no records the list is byte-for-byte what it was', () => {
@@ -80,7 +82,7 @@ test('the palette actually runs the shipped search', () => {
   const src = read(PALETTE);
   assert.match(src, /import \{ searchAdminRecords \}/, 'the box no longer calls the shipped search');
   assert.match(src, /searchAdminRecords\(term\)/, 'the search is imported but never called');
-  assert.match(src, /toAdminRecordRows\(groups\)/, 'the results never become rows');
+  assert.match(src, /toFocusRows\(groups, redactContactDetail\)/, 'the results never become rows');
 });
 
 test('the box reads through a module that can only ever READ', () => {
@@ -120,12 +122,12 @@ test('the records the box fetched are the records the keyboard walks', () => {
   const src = read(PALETTE);
   assert.match(
     src,
-    /buildNavRows\(\s*askRowSelectable,\s*hits,\s*records\s*(,\s*rec !== null\s*)?\)/,
+    /buildNavRows\(\s*askRowSelectable,\s*pageHits,\s*records\s*(,\s*rec !== null\s*)?\)/,
     'the fetched records are not in the list the keyboard walks',
   );
   assert.match(
     src,
-    /target\.kind === 'record' \? target\.record\.href : target\.dest\.href/,
+    /target\.kind === 'record'\) \{\s*openFocusRow\(target\.record\)/,
     'Enter cannot open a record',
   );
   assert.match(src, /records\.map\(/, 'the records are never rendered');
@@ -134,7 +136,8 @@ test('the records the box fetched are the records the keyboard walks', () => {
 test('a record row renders its name and its category, and no contact field', () => {
   const src = read(PALETTE);
   assert.match(src, /\{r\.title\}/, 'a record row stopped showing the name');
-  assert.match(src, /\{r\.category\}/);
+  // The category is the HEADING each kind sits under since Focus at Spotlight level (no flat "Records" column).
+  assert.match(src, /r\.category !== lastRecordGroup/);
   assert.match(src, /\{r\.detail\}/);
   // The row may only render fields the redacting layer produced. Reaching for
   // a raw contact field here would walk straight around that fence.

@@ -40,6 +40,9 @@ const MONEY_GATES = [
   'lib/admin/green-payments.ts',
   'lib/admin/green-payments.server.ts',
   'app/admin/work/actions.ts',
+  // Received BDO screenshots (2026-11-17): the model transcribes them through
+  // the .server seam; a HUMAN press on Match approves via approvePaymentCore.
+  'app/admin/payments/received.ts',
 ] as const;
 
 test('no money gate imports the receipt reader', () => {

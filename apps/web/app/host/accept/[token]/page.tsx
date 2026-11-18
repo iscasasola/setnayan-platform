@@ -11,6 +11,7 @@ import { acceptHostInvite, declineHostInvite } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { articleFor, eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Accept your invitation',
@@ -192,15 +193,15 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
         <DoorActions>
           <Link
             href={`/signup?next=${encodeURIComponent(nextUrl)}&email=${encodeURIComponent(invite.invitation_email ?? '')}`}
-            className="button-primary"
+            className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
           >
             Create account
           </Link>
-          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className="button-secondary">
+          <Link href={`/login?next=${encodeURIComponent(nextUrl)}`} className={actionButtonClass('neutral', { extra: '!h-11' })}>
             Sign in
           </Link>
         </DoorActions>
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Invitation expires{' '}
           {invite.invitation_expires_at
             ? new Date(invite.invitation_expires_at).toLocaleDateString('en-PH', {
@@ -227,9 +228,9 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
           title="This invitation was sent to a different email."
           body={
             <>
-              You&apos;re signed in as <span className="font-mono">{user.email}</span>, but
+              You&apos;re signed in as <span className="font-semibold">{user.email}</span>, but
               this invitation was sent to{' '}
-              <span className="font-mono">{search.expected ?? invite.invitation_email}</span>.
+              <span className="font-semibold">{search.expected ?? invite.invitation_email}</span>.
               Sign out and back in with the correct account, or ask the inviter to
               re-send to your current address.
             </>
@@ -340,7 +341,7 @@ function TerminalCard({
       sub={body}
     >
       {cta ? (
-        <Link href={cta.href} className="button-primary w-full sm:w-auto">
+        <Link href={cta.href} className={actionButtonClass('brand', { main: true, extra: 'w-full sm:w-auto !h-11' })}>
           {cta.label}
         </Link>
       ) : null}

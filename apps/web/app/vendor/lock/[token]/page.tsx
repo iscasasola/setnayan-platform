@@ -21,6 +21,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = {
   title: 'Lock in your supplier',
@@ -136,7 +137,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         {mineAndClaimed && tok.claimed_event_id ? (
           <Link
             href={`/dashboard/${tok.claimed_event_id}/vendors`}
-            className="mt-5 inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+            className={actionButtonClass('brand', { main: true, extra: 'mt-5 !h-11' })}
           >
             Go to your suppliers
           </Link>
@@ -171,7 +172,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6">
       {/* Vendor + deal identity */}
-      <div className="rounded-3xl border border-ink/10 bg-cream p-6 text-center">
+      <div className="rounded-3xl bg-[color:var(--m-paper-2)] p-6 text-center">
         {logoDisplayUrl ? (
           <Image
             src={logoDisplayUrl}
@@ -185,7 +186,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
             <Store className="h-8 w-8 text-ink/40" strokeWidth={1.5} />
           </div>
         )}
-        <p className="mt-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+        <p className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           <Lock className="h-3 w-3" strokeWidth={2} /> {categoryLabel}
           {eventTypeLabel ? ` · ${eventTypeLabel}` : ''}
         </p>
@@ -194,7 +195,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       </div>
 
       {/* Deal summary */}
-      <div className="mt-4 rounded-2xl border border-ink/10 bg-white/60 p-5">
+      <div className="mt-4 rounded-2xl p-5">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-ink/60">Total</span>
           <span className="text-lg font-semibold text-ink">
@@ -215,7 +216,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         ) : null}
         {schedule.length > 0 && (
           <div className="mt-4 border-t border-ink/10 pt-3">
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               Payment schedule
             </p>
             <ul className="space-y-1.5">
@@ -238,7 +239,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         )}
         {scope ? (
           <div className="mt-4 border-t border-ink/10 pt-3">
-            <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
               What you availed
             </p>
             <p className="whitespace-pre-wrap text-sm text-ink/80">{scope}</p>
@@ -249,7 +250,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       {statusMessage ? (
         <p
           role="alert"
-          className="mt-4 rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          className="mt-4 rounded-xl bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
           {statusMessage}
         </p>
@@ -258,14 +259,14 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       {/* Action zone */}
       <div className="mt-6">
         {!user ? (
-          <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="rounded-2xl p-5 text-center">
             <p className="text-sm text-ink/70">
               Create your free Setnayan plan to lock in {vendor.business_name} and
               track this payment schedule.
             </p>
             <Link
               href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
             >
               Sign up free & lock it in
             </Link>
@@ -357,13 +358,13 @@ async function ClaimForm({
 
   if (hostEvents.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
+      <div className="rounded-2xl p-5 text-center">
         <p className="text-sm text-ink/70">
           Create your event first, then we’ll lock the supplier into it.
         </p>
         <Link
           href={`/dashboard/create-event?event_type=${encodeURIComponent(eventTypeKey)}&next=${encodeURIComponent(nextPath)}`}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+          className={actionButtonClass('brand', { main: true, extra: 'mt-4 w-full !h-11' })}
         >
           Set up your event
         </Link>

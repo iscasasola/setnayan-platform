@@ -5161,6 +5161,9 @@ export function ShortlistCategories({
           onSearch={setQuery}
           preset={thumbPreset}
           onAdd={addYourOwn}
+          // ➕ 🔍 → ＋ by itself only where the page KNOWS nothing matched: the whole-shortlist search (`shortlistMissed`).
+          // Inside one open category the cards are searched by their own list — there the tap on 🔍 is the switch.
+          matches={!shortlistMissed}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
           sortMenu={findSortMenu({

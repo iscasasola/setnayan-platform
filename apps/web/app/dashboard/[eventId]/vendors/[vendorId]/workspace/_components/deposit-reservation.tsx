@@ -50,7 +50,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { recordDeposit } from '../../../actions';
 import { logScheduledPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { FileUpload } from '@/app/_components/file-upload';
-import { moneyStepLine, pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
+import { moneyStepLine, nothingOwedYet, pesoFromCentavos, type MoneyStep } from '@/lib/accepted-quote-terms';
 import { PaymentHistoryList } from '@/app/_components/payment-history-list';
 import type { PaymentHistory } from '@/lib/payment-history';
 import { ProofImage } from '@/app/_components/proof-image';
@@ -169,9 +169,13 @@ export function DepositReservation({
   const recorded = Boolean(depositRecordedAt);
   const acked = Boolean(depositAcknowledgedAt);
   const declined = Boolean(depositDeclinedAt);
+  // R12 (walk 18 Nov 2026) · NOT BOOKED, NOTHING LOGGED → NOTHING IS OWED. An accepted quote is not a booking
+  // (`moneyStep` → `not_booked`; the Budget says ₱0 owed), so the card shows no amount, no Pay and no Record payment —
+  // it says the payment starts once the supplier confirms. Every booked row reads `false` here: unchanged.
+  const notBookedYet = nothingOwedYet(step, recorded);
   // Still owed: nothing recorded, or the supplier said it never arrived.
   // Confirmed or awaiting an answer → paying again is not the next step.
-  const owed = (!recorded || declined) && !acked;
+  const owed = (!recorded || declined) && !acked && !notBookedYet;
   const noMethods = noPayMethodsSentence(payMethodsState, payMethods.length, vendorName);
   const firstLabel =
     step && step.kind === 'first_payment_due' ? step.label : 'First payment';
@@ -189,7 +193,7 @@ export function DepositReservation({
   // Money already on the ledger with no first payment recorded: the next step
   // is the next installment (`decideDepositRecord` will not re-record it), so
   // the first-payment form must not be offered on top of it.
-  const firstPaymentOffered = (!recorded || declined) && !(later && !recorded);
+  const firstPaymentOffered = (!recorded || declined) && !(later && !recorded) && !notBookedYet;
   // Something is due now: the first payment, or the next installment after it.
   // ONE pay sheet serves both (the supplier's destinations do not change).
   // …and the destinations also appear once the couple opens "Pay early", since
@@ -341,11 +345,13 @@ export function DepositReservation({
           ink, what it is, and a chip for where it stands (rule 5). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <InfoTip
-          label={recorded && !declined && !later && !notDueYet ? 'You logged' : 'Amount to pay'}
+          label={notBookedYet ? 'Not booked yet' : recorded && !declined && !later && !notDueYet ? 'You logged' : 'Amount to pay'}
           labelClassName="text-[13px] font-bold uppercase tracking-[0.08em] text-[color:var(--m-slate-2)]"
           align="start"
         >
-          {recorded
+          {notBookedYet
+            ? `Accepting a quote is not a booking. Pay ${vendorName} once they confirm it. Setnayan never holds your money.`
+            : recorded
             ? `First payment recorded ${fmtDate(depositRecordedAt)} — your date is held on ${vendorName}’s schedule.`
             : `Pay ${vendorName} directly, then record it here to hold your date on their schedule while they confirm. Setnayan never holds your money — this is your own record.`}
         </InfoTip>
@@ -365,7 +371,12 @@ export function DepositReservation({
         </p>
       ) : null}
 
-      {recorded ? (
+      {notBookedYet ? (
+        <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]" data-nothing-owed-yet="">
+          <b className="block text-[15px] font-semibold text-ink">Nothing owed yet</b>
+          Your first payment starts once {vendorName} confirms the booking.
+        </p>
+      ) : recorded ? (
         <p className="text-[13px] leading-snug text-[color:var(--m-slate-2)]">
           <b className="block text-[15px] font-semibold text-ink">First payment · your date is held</b>
           {acked

@@ -1,11 +1,16 @@
 'use client';
 
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { slideBelow } from '@/lib/rows-move';
+import { MOVE_MS } from '@/lib/motion-table';
+
+/** Server-safe layout effect (the fold is also rendered to static markup in tests). */
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** How many OPEN folds this one sits inside — its head pins that many slim lines further down (flush under theirs). */
 const FoldDepth = createContext(0);
@@ -118,7 +123,10 @@ function useSlimPin(on: boolean, depth: number) {
  *     opened INSIDE it never closes it — `OneOpenScope`);
  *   · what is inside STAYS MOUNTED while shut (a field in it keeps its words and its place in a form) — it is only
  *     out of reach (`inert`) and out of sight;
- *   · the height moves on `grid-template-rows` at the press family's one speed; nothing moves under "reduce motion".
+ *   · 🎞 OPEN (the motion standard, owner 18 Nov 2026 — § 4 #9, § 0 "Rows via transform, NOT grid-template-rows"): the
+ *     grid rows are the fold's STATE, never animated. The body takes its place at once; the panel fades in and settles
+ *     (Move on Settle, `sn-m-open-panel`) and everything below slides as one piece by transform (`slideBelow`,
+ *     lib/rows-move.ts). Shut is the same slide, the other way. Nothing moves under "reduce motion".
  *
  * Neutral: it knows no screen, and writes no colour of its own.
  */
@@ -265,11 +273,26 @@ export function Fold({
       return;
     }
     // transitionend does not fire under "reduce motion" (no transition) — a short timer covers it either way.
-    const t = setTimeout(() => setSettled(true), 750); // the height moves at --sn-pill-dur (700 ms)
+    const t = setTimeout(() => setSettled(true), MOVE_MS + 40); // the rows below slide in Move (the height itself no longer moves)
     return () => clearTimeout(t);
   }, [open, popovers]);
   const scope = useOneOpen(open, setOpen);
   const id = useId();
+  /* 🎞 The rows below slide to their new place (never on the first drawing — only when `open` really changes). */
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const openWas = useRef(open);
+  useIsoLayoutEffect(() => {
+    if (openWas.current === open) return;
+    openWas.current = open;
+    const body = bodyRef.current;
+    if (!body) return;
+    slideBelow(body, () => {
+      body.style.gridTemplateRows = open ? '0fr' : '1fr';
+      return () => {
+        body.style.gridTemplateRows = '';
+      };
+    });
+  }, [open]);
   const depth = useContext(FoldDepth);
   const { pinRef, box } = useSlimPin(open, depth);
   // 🔭 A USER'S open glides the head to the pin line when the body runs past the bottom (owner 2026-11-04, app-wide —
@@ -393,9 +416,10 @@ export function Fold({
       {between !== undefined ? <div data-fold-between="">{between}</div> : null}
       <div
         id={id}
+        ref={bodyRef}
         data-fold-body=""
         inert={!open}
-        className={`grid transition-[grid-template-rows] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
         {/* min-w-0: once a `popovers` fold stops clipping, its widest row must not widen the fold past the screen. */}

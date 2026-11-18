@@ -17,7 +17,7 @@ import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches, canBuyExtraSeats, type VendorTier } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches, canBuyExtraSeats, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
 
 /**
@@ -139,19 +139,15 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   const limits: TableRow[] = PLAN_LIMITS.map((l) => ({
     key: `limit:${l.key}`,
     label: l.key === 'reach' ? 'Shown in search' : l.title,
-    ...(l.key === 'bookingsPerDate'
-      ? {
-          note: 'Counted per service: every card of one service at one branch shares the number, and each branch has its own. A venue counts each room on its own.',
-        }
-      : {}),
     cells: each((t) => limitCell(t, l.key, paywallOn)),
   }));
   limits.push({
     key: 'limit:waitlist',
     label: 'Waiting list, per date',
+    // No plan limit since 2026-11-18 (ruling 32) — the shop sets its own number, up to the setting's ceiling.
     cells: each((t) => {
       const v = allowance(TIER_CAPS[t].waitlistAcceptances, 'waitlistAcceptances', paywallOn);
-      return v > 0 ? words(formatCount(v)) : no('None');
+      return v >= WAITLIST_SETTING_MAX ? words('No plan limit') : v > 0 ? words(formatCount(v)) : no('None');
     }),
   });
   if (FREE_HELPER_SEATS > 0) {

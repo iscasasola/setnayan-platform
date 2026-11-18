@@ -107,6 +107,17 @@ test('a message the shop did not send is a message somebody is waiting on', () =
   // A role added tomorrow is still somebody waiting — the rule asks the one
   // question that survives the enum growing.
   assert.equal(threadOwesReply('setnayan'), true);
+  // ...but a line the APP wrote ("Booked ✓", "Event date set") is nobody waiting (CHAT-13).
+  assert.equal(threadOwesReply('system'), false);
+});
+
+test('CHAT-13 · the desk reads the last word from a PERSON — an app line never becomes "Reply to"', () => {
+  const src = read(OVERVIEW);
+  const at = src.indexOf('async function fetchOwedThreadReplies(');
+  assert.ok(at > 0, 'fetchOwedThreadReplies moved — re-aim this guard');
+  const fn = src.slice(at, src.indexOf('\n}\n', at));
+  // The skip comes BEFORE the newest-per-thread pick, or a system line still hides the couple's message behind it.
+  assert.match(fn, /for \(const row of rows\) \{\s*if \(isSystemLine\(row\.sender_role\)\) continue;\s*if \(!newestPerThread\.has/, 'a system line can be a thread\'s "last word" again');
 });
 
 // ── THE WIRING ─────────────────────────────────────────────────────────────

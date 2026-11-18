@@ -96,6 +96,13 @@ export type VendorItemizationCardProps = {
   summary: VendorBudgetSummary;
   eventId: string;
   /**
+   * R9 (walk 18 Nov 2026) · the name the CALLER calls this supplier everywhere else on the sheet. The workspace
+   * passes its `displayName` (the shop's business_name); without it the card fell back to
+   * `event_vendors.vendor_name` — a free-text label on the row that can be stale or another supplier's ("Payments
+   * to TEST W1 per-guest supplier…" on Liwanag's sheet). Omitted = the row's label, as before.
+   */
+  vendorName?: string;
+  /**
    * 'card'  — full chrome (header + status pill + Money strip + sections)
    *           used on /budget.
    * 'embed' — minimal (Money strip + sections only) used on the workspace
@@ -148,6 +155,7 @@ export function VendorItemizationCard({
   acceptedQuoteLines = null,
   acceptedQuoteTotalCentavos = null,
   paymentDoor = 'log',
+  vendorName: callerVendorName,
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -161,6 +169,8 @@ export function VendorItemizationCard({
     paymentsMeasured,
     lineItemsMeasured,
   } = summary;
+  // R9 · one name per sheet: the caller's, else the row's own label.
+  const supplierName = callerVendorName ?? vendor.vendor_name;
 
   /**
    * The ledger ROW — what the archetype shows without being asked: the money,
@@ -259,7 +269,7 @@ export function VendorItemizationCard({
           vendorControlledItems={vendorControlledItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
-          vendorName={vendor.vendor_name}
+          vendorName={supplierName}
           directPayMethods={directPayMethods}
           installments={installments}
           paymentDoor={paymentDoor}

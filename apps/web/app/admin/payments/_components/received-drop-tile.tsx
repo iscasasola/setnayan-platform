@@ -21,6 +21,7 @@ import { ImagePlus } from 'lucide-react';
 import { approvePayment } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 // The ONE on-phone reader, shared with the buyer's receipt upload — never forked.
 import { readOnThisPhone } from '@/lib/on-phone-reader';
 
@@ -114,14 +115,20 @@ export function ReceivedDropTile() {
             {pasting ? 'Paste a text instead' : count === 1 ? '1 picked.' : `${formatCount(count)} picked.`}
           </h2>
           {pasting ? (
-            <textarea
-              className="min-h-32 w-full rounded-md border p-3 text-[15px]"
-              style={{ borderColor: 'var(--sn-line)' }}
-              placeholder="Paste the alert from your BDO app"
-              value={pasted}
-              onChange={(e) => setPasted(e.currentTarget.value)}
-              aria-label="Paste the alert from your BDO app"
-            />
+            <FormRows width="wide">
+              <TypedRow
+                name="The alert from your BDO app"
+                value={pasted}
+                empty="Paste it here"
+                placeholder="Paste the alert from your BDO app"
+                long
+                boxed
+                maxLength={4000} // = MAX_TEXT in ../received.ts
+                onType={setPasted}
+                onKeep={(t) => setPasted(t)}
+                data="received-paste"
+              />
+            </FormRows>
           ) : (
             <p className="text-[14px] text-[color:var(--sn-ink-500)]">Read on this phone. Nothing is uploaded.</p>
           )}

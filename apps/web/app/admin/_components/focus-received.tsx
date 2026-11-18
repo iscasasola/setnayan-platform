@@ -1,7 +1,7 @@
 /**
  * FocusReceived — "From your BDO" in Focus (owner 2026-11-17, specs
  * prototypes/admin_payment_verify_2026-11-17/ v5: "Tap a row and its oldest
- * item opens as one card, the approved pile grammar. ‹ Focus goes back; after
+ * item opens as one card, the approved pile grammar. The sheet’s ✕ goes back (the drawing’s "‹ Focus"; /admin is a bar root, so no back link); after
  * you act, the next one opens.").
  *
  *   /admin?card=received:<received_id>   In your BDO, no order · match by hand
@@ -60,7 +60,8 @@ export async function FocusReceived({ cardKey }: { cardKey?: string }) {
     const position = at >= 0 ? `${formatCount(at + 1)} of ${formatCount(list.length)}` : null;
     let body: ReactNode;
     if (at < 0) {
-      body = <p className="text-[14px] text-ink">This one is done. <Link href="/admin" className="underline underline-offset-2">Back to Focus</Link></p>;
+      // The sheet's ✕ returns to Focus — the one way back (the map: /admin is a bar root, no back link).
+      body = <p className="text-[14px] text-ink">This one is done.</p>;
     } else if (cardKey.startsWith('received:')) {
       const row = noOrder[at]!;
       body = <ReceivedCard row={row} waiting={waiting ?? []} query="" next={next} />;
@@ -71,9 +72,6 @@ export async function FocusReceived({ cardKey }: { cardKey?: string }) {
     sheet = (
       <FocusCardSheet title={kicker} kicker={kicker}>
         <div className="flex items-center justify-between gap-3 text-[13px] text-[color:var(--sn-ink-500)]" data-focus-received-position="">
-          <Link href="/admin" scroll={false} className="underline underline-offset-2">
-            ‹ Focus
-          </Link>
           {position ? <span className="tabular-nums">{position}</span> : null}
           {at >= 0 && at + 1 < list.length ? (
             <Link href={next} scroll={false} className="underline underline-offset-2">

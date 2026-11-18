@@ -174,19 +174,19 @@
 /* Starting → Growing → Established: a path that grows */
 .rows { display: grid; gap: 12px; position: relative; padding-left: 30px; }
 .rows::before, .rows::after { content: ""; position: absolute; left: 8px; top: 30px; bottom: 30px; width: 3px; border-radius: var(--m-r-xs); background: var(--sf-line); }
-.rows::after { background: var(--sf-accent); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sn-m-rise) * 3) linear; }
+.rows::after { background: var(--sf-accent); transform-origin: top; transition: transform calc(var(--sn-m-rise) * 3) linear; }
 .row { display: grid; gap: 6px; padding: 20px 22px; background: var(--sf-paper); border-radius: var(--sf-r); box-shadow: var(--sf-shadow); position: relative; transition: opacity var(--sn-m-move) var(--sn-m-settle), transform var(--sn-m-move) var(--sn-m-settle), box-shadow var(--sn-m-move) var(--sn-m-settle); }
 .row h3 { font-size: 1.35rem; }
 .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .row::before { content: ""; position: absolute; left: -28px; top: 26px; width: 15px; height: 15px; border-radius: 50%; background: var(--sf-line); box-shadow: 0 0 0 4px var(--sf-relief); transition: background var(--sn-m-quick) var(--sn-m-settle), transform var(--sn-m-quick) var(--sn-m-spring); }
 .root[data-motion] .rows .row { opacity: .42; transform: translateY(var(--sn-w-rise)); }
 .rows[data-play] .row, .root[data-motion] .rows[data-play] .row { opacity: 1; transform: none; }
-.rows[data-play]::after { transform: none; }
+/* TIMELINE's waiting state exists only once the script has run (`data-motion`): with no script the line is drawn */
+.root[data-motion] .rows:not([data-play])::after { transform: scaleY(0); }
 .rows[data-play] .row::before { background: var(--sf-accent); transform: scale(1.25); }
 .rows[data-play] .row:nth-child(1), .rows[data-play] .row:nth-child(1)::before { transition-delay: calc(var(--sn-m-rise) * 0.5); }
 .rows[data-play] .row:nth-child(2), .rows[data-play] .row:nth-child(2)::before { transition-delay: calc(var(--sn-m-rise) * 1.5); }
 .rows[data-play] .row:nth-child(3), .rows[data-play] .row:nth-child(3)::before { transition-delay: calc(var(--sn-m-rise) * 2.5); }
-.root:not([data-motion]) .rows::after { transform: none; }
 .root:not([data-motion]) .rows .row::before { background: var(--sf-accent); }
 
 /* the calendar, in the phone */
@@ -378,8 +378,8 @@
 /* Three honest questions: one at a time, on a quiet line that grows */
 .qs { position: relative; display: grid; grid-template-columns: 1fr; gap: 0; padding-left: 34px; max-width: 46em; }
 .qs::before, .qs::after { content: ""; position: absolute; left: 9px; top: 28px; bottom: 28px; width: 3px; border-radius: var(--m-r-xs); background: var(--sf-line); }
-.qs::after { background: var(--sf-accent); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--sn-m-rise) * 3) linear; }
-.qs[data-play]::after, .root:not([data-motion]) .qs::after { transform: none; }
+.qs::after { background: var(--sf-accent); transform-origin: top; transition: transform calc(var(--sn-m-rise) * 3) linear; }
+.root[data-motion] .qs:not([data-play])::after { transform: scaleY(0); }
 .q { position: relative; padding: 26px 0; display: grid; gap: 10px; }
 .q::before { content: ""; position: absolute; left: -32px; top: 36px; width: 15px; height: 15px; border-radius: 50%; background: var(--sf-line); box-shadow: 0 0 0 4px var(--sf-ivory); transition: background var(--sn-m-quick) var(--sn-m-settle); }
 .qs[data-play] .q::before, .root:not([data-motion]) .q::before { background: var(--sf-accent); }
@@ -563,7 +563,7 @@
   .prob:nth-child(2) { border-top: 0; }
   .rows { grid-template-columns: repeat(3, 1fr); padding-left: 0; padding-top: 34px; }
   .rows::before, .rows::after { left: 16%; right: 16%; top: 9px; bottom: auto; height: 3px; width: auto; transform-origin: left; }
-  .rows::after { transform: scaleX(0); }
+  .root[data-motion] .rows:not([data-play])::after { transform: scaleX(0); }
   .row::before { left: 50%; top: -34px; margin-left: -8px; }
   .moments { grid-template-columns: repeat(3, 1fr); gap: 20px; }
   .notices { grid-template-columns: repeat(3, 1fr); }
@@ -674,7 +674,9 @@
     }
     /* TIMELINE — the line follows the scroll; each dot answers as its step arrives */
     .root .rows::after,
-    .root .qs::after {
+    .root .qs::after,
+    .root[data-motion] .rows:not([data-play])::after,
+    .root[data-motion] .qs:not([data-play])::after {
       transform: none;
       transition: none;
       animation: sn-w-tl-line linear backwards;
@@ -694,11 +696,12 @@
 @media (min-width: 720px) {
   @supports (animation-timeline: view()) {
     @media (prefers-reduced-motion: no-preference) {
-      .root .rows::after { animation-name: sn-w-tl-line-x; }
+      .root .rows::after,
+      .root[data-motion] .rows:not([data-play])::after { animation-name: sn-w-tl-line-x; }
     }
   }
 }
-/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 the-website-motions-are-one). */
+/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
 @keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
 @keyframes sn-w-tl-line { from { transform: scaleY(0); } }
 @keyframes sn-w-tl-line-x { from { transform: scaleX(0); } }

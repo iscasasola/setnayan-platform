@@ -1676,7 +1676,7 @@ button.btnFill {
   }
 }
 
-/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 the-website-motions-are-one). */
+/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
 @keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
 @keyframes sn-w-fade { from { opacity: 0; } }
 @keyframes sn-w-stamp { from { opacity: 0; transform: scale(1.6); } }

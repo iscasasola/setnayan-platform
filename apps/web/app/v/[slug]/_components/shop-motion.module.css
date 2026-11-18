@@ -6,7 +6,7 @@
  * Move; a badge stamps in Quick on Spring) and Scroll-away (the hero's words fade to 40 % and lift 24 px with the
  * scroll). It replaced the 13 Nov numbers (heroSettle 1600 ms from 1.12, lineUp 900 ms, fadeUp, drawX, stamp, pop).
  * A CSS module cannot read a global keyframe, so the `sn-w-*` keyframes are copied at the foot, letter for letter
- * (🔒 lib/the-website-motions-are-one.test.ts).
+ * (🔒 lib/the-website-moves-by-the-standard.test.ts).
  *
  * 🔑 THE RESTING STATE IS THE BASE STYLE. Arrival motion is `from`-only keyframes (no JS), filled `backwards` so no
  * transform lingers. A part entering on the scroll rides the scroll itself where the browser can
@@ -163,7 +163,7 @@
   animation: sn-w-fade var(--sn-m-quick) var(--sn-m-settle) backwards;
 }
 
-/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 the-website-motions-are-one). */
+/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
 @keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
 @keyframes sn-w-fade { from { opacity: 0; } }
 @keyframes sn-w-hero-img { from { transform: scale(var(--sn-w-hero-from)); } }

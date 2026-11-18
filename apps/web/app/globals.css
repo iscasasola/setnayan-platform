@@ -4053,7 +4053,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 /* 🌐 THE WEBSITE'S SIX MOTIONS — Reveal · Timeline · Hero settle · Scroll-away · Emphasis · Drift (MOTION_STANDARD
    § 6, Phase 5; owner 18 Nov 2026). The public pages (`/`, /for-suppliers, /for-coordinators, /features, /pricing, a
    shop at /v/…) wear THESE keyframes and nothing of their own. A CSS module cannot read a global keyframe, so the three
-   module sheets carry a copy under the same name — 🔒 lib/the-website-motions-are-one.test.ts holds every copy equal to
+   module sheets carry a copy under the same name — 🔒 lib/the-website-moves-by-the-standard.test.ts holds every copy equal to
    this block.
    THE RULES THEY KEEP (🔒 lib/the-website-moves-by-the-standard.test.ts):
      · transform and opacity only — never a filter, never a layout property;

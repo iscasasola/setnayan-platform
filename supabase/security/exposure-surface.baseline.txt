@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7901
+# facts: 7938
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     642
-#   col       5684
-#   policy    1160
+#   tpriv     645
+#   col       5712
+#   policy    1166
 #   view      10
 #   func      401
 #
@@ -647,6 +647,9 @@ tpriv	public.vendor_tier_history|anon	SIUD
 tpriv	public.vendor_tier_history|authenticated	SIUD
 tpriv	public.vendor_token_purchases|anon	SIUD
 tpriv	public.vendor_token_purchases|authenticated	SIUD
+tpriv	public.vendor_unit_doors|authenticated	SIUD
+tpriv	public.vendor_unit_groups|authenticated	SIUD
+tpriv	public.vendor_units|authenticated	SIUD
 tpriv	public.vendor_verification_applications|anon	SD
 tpriv	public.vendor_verification_applications|authenticated	SD
 tpriv	public.vendor_verifications|authenticated	S
@@ -6199,6 +6202,34 @@ col	public.vendor_token_purchases.reviewed_by	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.status	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.token_count	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.vendor_id	anon=SIU authenticated=SIU
+col	public.vendor_unit_doors.along	anon=- authenticated=SIU
+col	public.vendor_unit_doors.created_at	anon=- authenticated=SIU
+col	public.vendor_unit_doors.door_id	anon=- authenticated=SIU
+col	public.vendor_unit_doors.door_kind	anon=- authenticated=SIU
+col	public.vendor_unit_doors.group_id	anon=- authenticated=SIU
+col	public.vendor_unit_doors.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_unit_doors.wall	anon=- authenticated=SIU
+col	public.vendor_unit_groups.created_at	anon=- authenticated=SIU
+col	public.vendor_unit_groups.group_id	anon=- authenticated=SIU
+col	public.vendor_unit_groups.kind	anon=- authenticated=SIU
+col	public.vendor_unit_groups.length_m	anon=- authenticated=SIU
+col	public.vendor_unit_groups.name	anon=- authenticated=SIU
+col	public.vendor_unit_groups.sort_order	anon=- authenticated=SIU
+col	public.vendor_unit_groups.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_unit_groups.width_m	anon=- authenticated=SIU
+col	public.vendor_units.chairs	anon=- authenticated=SIU
+col	public.vendor_units.chairs_at_ends	anon=- authenticated=SIU
+col	public.vendor_units.created_at	anon=- authenticated=SIU
+col	public.vendor_units.group_id	anon=- authenticated=SIU
+col	public.vendor_units.kind	anon=- authenticated=SIU
+col	public.vendor_units.name	anon=- authenticated=SIU
+col	public.vendor_units.rotation_deg	anon=- authenticated=SIU
+col	public.vendor_units.sort_order	anon=- authenticated=SIU
+col	public.vendor_units.table_shape	anon=- authenticated=SIU
+col	public.vendor_units.unit_id	anon=- authenticated=SIU
+col	public.vendor_units.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_units.x_pos	anon=- authenticated=SIU
+col	public.vendor_units.y_pos	anon=- authenticated=SIU
 col	public.vendor_verification_applications.admin_user_id	anon=S authenticated=S
 col	public.vendor_verification_applications.application_id	anon=S authenticated=SIU
 col	public.vendor_verification_applications.application_type	anon=S authenticated=SIU
@@ -7480,6 +7511,12 @@ policy	public.vendor_team_members|vendor_team_members_member_read	mode=PERMISSIV
 policy	public.vendor_tier_history|vendor_tier_history_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_tier_history.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_token_purchases|vtp_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=( SELECT is_console_admin() AS is_console_admin) check=NULL
 policy	public.vendor_token_purchases|vtp_vendor_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) check=NULL
+policy	public.vendor_unit_doors|vendor_unit_doors_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.vendor_unit_doors|vendor_unit_doors_team_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
+policy	public.vendor_unit_groups|vendor_unit_groups_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.vendor_unit_groups|vendor_unit_groups_team_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
+policy	public.vendor_units|vendor_units_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.vendor_units|vendor_units_team_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))

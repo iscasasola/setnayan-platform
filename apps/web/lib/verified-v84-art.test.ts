@@ -5,8 +5,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { VERIFIED_V84_MARK, verifiedV84Body, verifiedV84Ops } from './verified-v84-art';
-import { badgePrintSvg, badgePillOps } from './shop-badge-print';
-import { verifiedBadge, milestoneBadge } from './shop-badges';
+import { badgePrintSvg, printBadgeOps } from './shop-badge-print';
+import { standInArt } from './print-badges-v84.fixture';
 
 test('the art is the v84 drawing: its blue disc stops and its check, at the prototype geometry', () => {
   const b = verifiedV84Body('t', true);
@@ -17,17 +17,19 @@ test('the art is the v84 drawing: its blue disc stops and its check, at the prot
   assert.doesNotMatch(b, /b147_/, 'the ids are not made unique');
 });
 
-test('the badges print file draws the v84 Verified — and only for the Verified pill', () => {
-  const withV = badgePrintSvg([verifiedBadge()]);
-  assert.ok(withV.includes(VERIFIED_V84_MARK), 'the Verified pill prints without the v84 mark');
+const VERIFIED = standInArt({ kind: 'verified', key: 'verified', label: 'Setnayan Verified' });
+const TIER = standInArt({ kind: 'tier', key: 'completed_bookings', label: 'Completed bookings (Bronze)', family: 'calendar', tier: 1 });
+
+test('the badges print file draws the v84 Verified — and only for Verified', () => {
+  const withV = badgePrintSvg([VERIFIED]);
+  assert.ok(withV.includes(VERIFIED_V84_MARK), 'Verified prints without the v84 mark');
   assert.ok(withV.includes('M35.5,45.5 L46,56 L65.5,34.5'));
-  const without = badgePrintSvg([milestoneBadge(10)]);
-  assert.ok(!without.includes(VERIFIED_V84_MARK), 'a shop that is not verified prints the Verified mark');
+  assert.ok(!badgePrintSvg([TIER]).includes(VERIFIED_V84_MARK), 'a shop that is not verified prints the Verified mark');
 });
 
 test('the PDF ops draw the same v84 disc and check in flat ink', () => {
-  const ops = badgePillOps(verifiedBadge(), 34, 0, 0).ops;
+  const ops = printBadgeOps(VERIFIED, 0, 0, 34).ops;
   assert.ok(verifiedV84Ops(0, 0, 10).some((o) => o.fill === '#1F4CBA'));
-  assert.ok(ops.some((o) => o.t === 'path' && o.fill === '#1F4CBA'), 'the door sticker’s Verified pill has no v84 disc');
-  assert.ok(ops.some((o) => o.t === 'path' && o.stroke === '#FFFFFF'), 'the door sticker’s Verified pill has no v84 check');
+  assert.ok(ops.some((o) => o.t === 'path' && o.fill === '#1F4CBA'), 'the door sticker’s Verified has no v84 disc');
+  assert.ok(ops.some((o) => o.t === 'path' && o.stroke === '#FFFFFF'), 'the door sticker’s Verified has no v84 check');
 });

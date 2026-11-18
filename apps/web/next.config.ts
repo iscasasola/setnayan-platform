@@ -426,7 +426,10 @@ const nextConfig: NextConfig = {
     ],
     // 🖨 The supplier's prints (lib/supplier-prints-svg.ts) outline every letter from these faces — read by a dynamic
     // path, so nft cannot see them. Only the one route that draws a print carries them.
-    '/api/vendor/prints': ['./public/print-fonts/*.ttf'],
+    '/api/vendor/prints': ['./public/print-fonts/*.ttf', './public/badges/v84/*.webp'],
+    // 🏅 The v84 tier pictures every print badge is drawn from (lib/print-badge-art.ts), read from disk by path.
+    '/api/vendor/badges': ['./public/badges/v84/*.webp'],
+    '/api/vendor/door-sticker': ['./public/badges/v84/*.webp'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required

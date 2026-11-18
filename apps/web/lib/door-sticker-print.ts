@@ -2,11 +2,12 @@ import QRCode from 'qrcode';
 import { outlineWords } from '@/lib/logo-fonts';
 import { diePathFor, type PrintDoc, type PrintOp } from '@/lib/print-layout';
 import { BLEED_MM, PT_PER_MM } from '@/lib/print-pieces';
+import type { PrintImages } from '@/lib/print-layout';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { QUIET } from '@/lib/qr-style-svg';
-import { badgePillOps, jostFace, setnayanMarkOps } from '@/lib/shop-badge-print';
-import type { ShopBadge } from '@/lib/shop-badges';
+import { jostFace, printBadgeOps, printBadgeRef, setnayanMarkOps } from '@/lib/shop-badge-print';
+import type { PrintBadgeArt } from '@/lib/print-badges-v84';
 import {
   DOOR_STICKER_CM,
   DOOR_STICKER_SCAN_LINE,
@@ -21,7 +22,8 @@ import {
  * 2026-11-05: *"add them to the marketing tools"*; the pure half is `lib/door-sticker.ts`).
  *
  *   the Setnayan mark · WE ARE PART OF · SETNAYAN · the shop's code on a white plate · what a scan opens · the shop's
- *   name · the badges it wears today
+ *   name · the badges it wears today — ONLY the approved v84 art (`printBadgeOps`: Verified as vector, a tier or a
+ *   seal as its picture, handed to both backends as an image by `doorStickerImages`)
  *
  * 🔑 ONE `PrintDoc`, THE PRINT PIPELINE'S TWO BACKENDS. The sticker is laid out once in print ops and drawn by the SAME
  * `renderPrintSvg` and `renderPrintPdf` that draw every couple print — so the SVG and the PDF cannot disagree, and the
@@ -49,8 +51,8 @@ export type DoorStickerInput = {
   url: string;
   code: DoorStickerCode;
   size: DoorStickerSize;
-  /** `badgesForPrint(...)` from facts read NOW. Empty = the sticker prints without a badge row. */
-  badges: readonly ShopBadge[];
+  /** `resolvePrintBadgeArt(readPrintBadges(...))` — read NOW. Empty = the sticker prints without a badge row. */
+  badges: readonly PrintBadgeArt[];
 };
 
 /** The side of the sticker in points. */
@@ -108,41 +110,45 @@ export function qrModulesPath(url: string, x: number, y: number, side: number): 
 }
 
 /** The badges as one row (two when one row would print them too small), centred on `cx`, top at `top`. */
-function badgeRows(badges: readonly ShopBadge[], cx: number, top: number, u: number, maxWidth: number): PrintOp[] {
+function badgeRows(badges: readonly PrintBadgeArt[], cx: number, top: number, u: number, maxWidth: number): PrintOp[] {
   if (badges.length === 0) return [];
   const gap = 1.4 * u;
-  const widthAt = (row: readonly ShopBadge[], F: number) =>
-    row.reduce((sum, b) => sum + badgePillOps(b, F, 0, 0).width, 0) + gap * (row.length - 1);
-  const ONE_ROW_F = 2.2 * u;
-  const MIN_F = 1.55 * u;
-  const one = widthAt(badges, ONE_ROW_F);
-  let rows: Array<readonly ShopBadge[]>;
-  let F: number;
+  const widthAt = (row: readonly PrintBadgeArt[], H: number) => row.reduce((sum, b) => sum + (b.w / b.h) * H, 0) + gap * (row.length - 1);
+  const ONE_ROW_H = 8.4 * u;
+  const MIN_H = 4.6 * u;
+  const one = widthAt(badges, ONE_ROW_H);
+  let rows: Array<readonly PrintBadgeArt[]>;
+  let H: number;
   if (one <= maxWidth) {
     rows = [badges];
-    F = ONE_ROW_F;
-  } else if (one * (MIN_F / ONE_ROW_F) <= maxWidth) {
+    H = ONE_ROW_H;
+  } else if (one * (MIN_H / ONE_ROW_H) <= maxWidth) {
     rows = [badges];
-    F = ONE_ROW_F * (maxWidth / one);
+    H = ONE_ROW_H * (maxWidth / one);
   } else {
     const half = Math.ceil(badges.length / 2);
     rows = [badges.slice(0, half), badges.slice(half)];
-    F = Math.min(MIN_F, ...rows.map((r) => MIN_F * (maxWidth / widthAt(r, MIN_F))));
+    H = Math.min(MIN_H, ...rows.map((r) => MIN_H * (maxWidth / widthAt(r, MIN_H))));
   }
   const ops: PrintOp[] = [];
   let y = top;
   for (const row of rows) {
-    let x = cx - widthAt(row, F) / 2;
-    let h = 0;
+    let x = cx - widthAt(row, H) / 2;
     for (const b of row) {
-      const drawn = badgePillOps(b, F, x, y);
+      const drawn = printBadgeOps(b, x, y, H);
       ops.push(...drawn.ops);
       x += drawn.width + gap;
-      h = Math.max(h, drawn.height);
     }
-    y += h + 0.9 * u;
+    y += H + 0.6 * u;
   }
   return ops;
+}
+
+/** The badges' pictures, by the ref their image ops name — what both backends are handed. */
+export function doorStickerImages(input: DoorStickerInput): PrintImages {
+  const out: PrintImages = {};
+  for (const b of input.badges) if (b.png) out[printBadgeRef(b)] = { bytes: b.png, mime: 'image/png' };
+  return out;
 }
 
 /** The sticker as ONE `PrintDoc` — what both files are drawn from. */
@@ -180,14 +186,14 @@ export function layoutDoorSticker(input: DoorStickerInput): PrintDoc {
 export function doorStickerSvg(input: DoorStickerInput): string {
   const doc = layoutDoorSticker(input);
   const mm = DOOR_STICKER_CM[input.size] * 10;
-  const drawn = renderPrintSvg(doc, {}, { idPrefix: `door-${input.size}` });
+  const drawn = renderPrintSvg(doc, doorStickerImages(input), { idPrefix: `door-${input.size}` });
   const sized = drawn.replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*">/, `<svg $1width="${mm}mm" height="${mm}mm">`);
   return `<?xml version="1.0" encoding="UTF-8"?>${sized.replace(/^(<svg[^>]*>)/, `$1<title>${escapeXml(`${input.shopName} — We are part of SETNAYAN`)}</title>`)}`;
 }
 
 /** The sticker as a print-ready PDF — the house's `renderPrintPdf` in print mode: 3 mm bleed, crop marks, die line. */
 export async function doorStickerPdf(input: DoorStickerInput): Promise<Uint8Array> {
-  return renderPrintPdf([layoutDoorSticker(input)], {}, {
+  return renderPrintPdf([layoutDoorSticker(input)], doorStickerImages(input), {
     mode: 'print',
     title: `${input.shopName} — We are part of SETNAYAN`,
     subject: `Door sticker · ${DOOR_STICKER_CM[input.size]} × ${DOOR_STICKER_CM[input.size]} cm`,

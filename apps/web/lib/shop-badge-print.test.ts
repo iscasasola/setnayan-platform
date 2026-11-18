@@ -1,45 +1,35 @@
 /**
- * 🖨 The badges' print file is the pill, outlined, with today's badges — and nothing the shop has not earned.
+ * 🖨 The badges' print file wears ONLY the approved v84 art (owner 15 Nov: "THE BADGES IN THE APPROVED PROTOTYPE ARE THE
+ * ONLY BADGES") — today's badges, nothing the shop has not earned, no retired pill.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { badgePrintSvg } from './shop-badge-print';
-import { badgesForPrint, type ShopBadgeFacts } from './shop-badges';
+import { badgePrintSvg, printBadgeOps, printBadgeRef } from './shop-badge-print';
+import { BUSY_PRINT_BADGES } from './print-badges-v84.fixture';
+import { VERIFIED_V84_MARK } from './verified-v84-art';
 
-const facts: ShopBadgeFacts = {
-  verified: true,
-  completedEvents: 50,
-  trusted: { trusted_avg_rating: 4.8, trusted_review_count: 31 },
-  inBusinessSinceYear: 2014,
-  awards: [],
-  nowYear: 2026,
-};
-
-test('one pill per badge, in print order, every word outlined (no <text> a print shop could lack the font for)', () => {
-  const svg = badgePrintSvg(badgesForPrint(facts));
-  const keys = [...svg.matchAll(/data-badge="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(keys, ['verified', 'milestone:50', 'rating', 'years']);
+test('one picture per badge, in print order, no <text> a print shop could lack the font for', () => {
+  const svg = badgePrintSvg(BUSY_PRINT_BADGES);
+  assert.deepEqual([...svg.matchAll(/data-badge="([^"]+)"/g)].map((m) => m[1]), ['top10', 'verified', 'completed_bookings', 'five_star_reviews']);
+  assert.deepEqual([...svg.matchAll(/data-print-badge="([^"]+)"/g)].map((m) => m[1]), ['seal', 'verified', 'tier', 'tier']);
   assert.doesNotMatch(svg, /<text\b/);
-  // Owner 17 Nov ("Prints did not use Setnayan Verified badge"): the Verified circle holds the APPROVED v84 blue check.
-  assert.match(svg, /data-verified-v84=""/, 'the v84 Setnayan Verified sits in the Verified circle');
-  assert.match(svg, /<linearGradient id="foil0"/, 'the gold-foil edge');
+  assert.ok(svg.includes(VERIFIED_V84_MARK), 'Setnayan Verified is the v84 blue check');
+  assert.doesNotMatch(svg, /foil\d|data-tier=|milestone:|data-badge="(rating|years)"/, 'a retired pill printed');
   assert.match(svg, /^<\?xml/);
 });
 
-test('a medal un-earned since the design was made is not printed', () => {
-  const svg = badgePrintSvg(badgesForPrint({ ...facts, completedEvents: 49 }));
-  assert.doesNotMatch(svg, /milestone:50/);
-  assert.match(svg, /data-badge="milestone:10" data-tier="tier1"/, 'and the medal it still holds wears that step’s material');
+test('every badge stands at the file’s one height; nothing earned = nothing drawn', () => {
+  const svg = badgePrintSvg(BUSY_PRINT_BADGES, { size: 100 });
+  assert.match(svg, /height="100pt"/);
+  assert.equal(badgePrintSvg([]).includes('data-print-badge'), false);
 });
 
-test('grounds: dark and colour put SETNAYAN in foil; a bad colour falls back to the prototype green', () => {
-  const dark = badgePrintSvg(badgesForPrint(facts).slice(0, 1), { ground: 'dark' });
-  assert.match(dark, /fill="#151312"/);
-  assert.match(dark, /fill="url\(#foil0\)"/);
-  // The top step wears the laurel.
-  const top = badgePrintSvg(badgesForPrint({ ...facts, completedEvents: 10000 }).filter((b) => b.kind === 'milestone'));
-  assert.match(top, /data-tier="tier7"/);
-  assert.match(top, /stroke="#d9b866"/);
-  const colour = badgePrintSvg(badgesForPrint(facts).slice(0, 1), { ground: 'colour', colour: 'red;x' });
-  assert.match(colour, /fill="#1F3A2C"/);
+test('the PDF ops: Verified is vector, a tier or a seal is its picture by ref', () => {
+  const [seal, verified, tier] = BUSY_PRINT_BADGES;
+  assert.ok(printBadgeOps(verified!, 0, 0, 10).ops.every((o) => o.t === 'path'), 'Verified prints as the v84 vector');
+  for (const a of [seal!, tier!]) {
+    const { ops } = printBadgeOps(a, 0, 0, 10);
+    assert.deepEqual(ops.map((o) => o.t), ['image']);
+    assert.equal((ops[0] as { ref: string }).ref, printBadgeRef(a));
+  }
 });

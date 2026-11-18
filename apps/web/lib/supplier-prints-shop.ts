@@ -1,5 +1,6 @@
 import { shopInitials } from '@/lib/shop-initials';
-import { shopBadges, type ShopBadgeFacts } from '@/lib/shop-badges';
+import type { ShopBadgeFacts } from '@/lib/shop-badges';
+import type { PrintBadgeArt } from '@/lib/print-badges-v84';
 import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { myPagePath, myPageUrl, ownDatesUrl, ownPageUrl, ownReviewsUrl } from '@/lib/supplier-qr-codes';
@@ -17,8 +18,9 @@ import type { PrintQrMode } from '@/lib/supplier-prints';
  *              tagline when the shop lists no service; nothing when it has neither (never a filler)
  *   ini      — `shopInitials(name)` (the shop's logo goes in the circle in a later part)
  *   handle   — `setnayan.com/<slug>` (the card back)
- *   seal · rating · badges — `shopBadges(facts)` from facts read AT PRINT TIME (`readShopBadgeFacts`, the badge
- *              print's own read): a badge un-earned since is not printed; one earned since is
+ *   seal · rating — from facts read AT PRINT TIME (`readShopBadgeFacts`)
+ *   badges   — ONLY the approved v84 badges, read and drawn by the route (`readPrintBadges` → `resolvePrintBadgeArt`,
+ *              `lib/print-badges-v84.server.ts` + `lib/print-badge-art.ts`): a badge un-earned since is not printed; one earned since is
  *
  * And the QR: the address of the code the supplier picked, built by the SAME helpers the Promote codes use —
  * Check a date `ownDatesUrl` · Shortlist `buildVendorInviteUrl` (any event, all services) · My page `myPageUrl` ·
@@ -47,6 +49,8 @@ export function printShopFrom(o: {
   services: readonly string[];
   tagline: string | null;
   facts: ShopBadgeFacts;
+  /** The v84 badges, art resolved — `resolvePrintBadgeArt(await readPrintBadges(...))`. */
+  badges: readonly PrintBadgeArt[];
   kindLabel: (k: string) => string;
   origin: string;
 }): PrintShop {
@@ -59,7 +63,7 @@ export function printShopFrom(o: {
     handle: printHandle(o.origin, o.slug),
     verified: o.facts.verified,
     rating: cardRecordRatingFromTrusted(o.facts.trusted),
-    badges: shopBadges(o.facts),
+    badges: o.badges,
   };
 }
 

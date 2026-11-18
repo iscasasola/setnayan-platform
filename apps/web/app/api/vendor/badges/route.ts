@@ -4,21 +4,26 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { grantOwedBadgeRewards, readBadgeRewardFacts } from '@/lib/badge-rewards.server';
-import { badgesForPrint } from '@/lib/shop-badges';
+import { readPrintBadges } from '@/lib/print-badges-v84.server';
+import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
+import { printBadgeListItem } from '@/lib/print-badges-v84';
 import { tellBadgesJustEarned } from '@/lib/badge-earned.server';
-import { badgePrintSvg, type PrintGround } from '@/lib/shop-badge-print';
+import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { orderAwardQueue, todayAwardLine, validFlowStep } from '@/lib/award-queue';
 import { readAwardFlowProgress, readAwardQueue, saveAwardFlowProgress } from '@/lib/award-queue.server';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/vendor/badges?badge=<key|all>&ground=light|white|dark|colour&colour=#RRGGBB
+ * GET /api/vendor/badges?badge=<key|all>[&inline=1]
  *
- * 🖨 A supplier's badges as a print-ready vector (the pill, type outlined — `lib/shop-badge-print.ts`), for their
- * calling card and tarps (owner 2026-10-28). The facts are READ NOW (`readShopBadgeFacts`) and passed through
- * `badgesForPrint` — never a value saved when a design was made — so a file carries the badges the shop wears on the
- * day it is saved. Saved through the shipped `SaveFileLink` (`usePrintSave`): share sheet on a phone, a download on a
+ * 🖨 A supplier's badges as a print-ready SVG — ONLY the approved v84 art (owner 15 Nov: "THE BADGES IN THE APPROVED
+ * PROTOTYPE ARE THE ONLY BADGES"): Setnayan Verified's blue check, each earned tier's picture, each seal held
+ * (`lib/shop-badge-print.ts`). The badges are READ NOW (`readPrintBadges`, the Shop › Badges shelf's own counts and
+ * the shop's seals) — never a value saved when a design was made — so a file carries the badges the shop wears on the
+ * day it is saved. `inline=1` answers the same file without the download header, for the Prints sheet's own picture.
+ *
+ * `?view=print` answers the list as JSON (key + words, no art) — what Shop › Promote › Prints shows before Save. Saved through the shipped `SaveFileLink` (`usePrintSave`): share sheet on a phone, a download on a
  * computer.
  *
  * `?view=facts` answers the badges' facts as JSON instead — what the Today line (`badge-earned-line.tsx`) compares
@@ -46,8 +51,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const sp = request.nextUrl.searchParams;
   const want = sp.get('badge') ?? 'all';
-  const g = sp.get('ground');
-  const ground: PrintGround = g === 'white' || g === 'dark' || g === 'colour' ? g : 'light';
 
   const admin = createAdminClient();
   if (sp.get('view') === 'awards') {
@@ -85,7 +88,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       });
     return NextResponse.json({ vendorId: profile.vendor_profile_id, facts, granted }, { headers: { 'cache-control': 'private, no-store' } });
   }
-  const all = badgesForPrint(facts);
+  const all = await readPrintBadges(admin, profile.vendor_profile_id, facts);
+  if (sp.get('view') === 'print') {
+    return NextResponse.json({ badges: all.map(printBadgeListItem) }, { headers: { 'cache-control': 'private, no-store' } });
+  }
   const picked = want === 'all' ? all : all.filter((b) => b.key === want);
   if (picked.length === 0) {
     return NextResponse.json(
@@ -93,13 +99,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { status: 404 },
     );
   }
-  const svg = badgePrintSvg(picked, { ground, colour: sp.get('colour') ?? undefined });
+  const svg = badgePrintSvg(await resolvePrintBadgeArt(picked));
   const name = want === 'all' ? 'setnayan-badges' : `setnayan-${want.replace(/[^a-z0-9]+/gi, '-')}`;
   return new NextResponse(svg, {
     status: 200,
     headers: {
       'content-type': 'image/svg+xml; charset=utf-8',
-      'content-disposition': `attachment; filename="${name}.svg"`,
+      ...(sp.get('inline') === '1' ? {} : { 'content-disposition': `attachment; filename="${name}.svg"` }),
       'cache-control': 'private, no-store',
     },
   });

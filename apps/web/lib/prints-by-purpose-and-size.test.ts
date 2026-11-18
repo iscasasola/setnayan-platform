@@ -5,7 +5,8 @@
  *   · each piece carries the blocks its purpose names (`PRINT_PURPOSE`) — and no other;
  *   · a missing fact drops its block — never a zero, never an empty box;
  *   · the ONE `On your prints ▾` switch takes a block off EVERY piece (the picture and the Save file both);
- *   · one fact, one place: where the stars line is drawn, no rating pill; where "since" is drawn, no years pill;
+ *   · the badges are ONLY the approved v84 art (owner 15 Nov): no retired rating, years, milestone or award pill prints;
+ *     the stars and "since" lines are text of their own;
  *   · 🔒 NO PRICE on any print (no "₱", ever) and no phone or email — even when the supplier typed one into a title;
  *   · the personal calling card: the member's name, their Team label ONLY when set (never the access level);
  *   · the door print is unchanged.
@@ -31,6 +32,8 @@ import {
 import { printSafe, renderPrint, type PrintMember, type PrintShop } from '@/lib/supplier-prints-svg';
 import { printMemberFrom, printQr, printReachLine, printShopFrom, printSinceLine } from '@/lib/supplier-prints-shop';
 import { stripComments } from '@/lib/strip-comments';
+import { printBadgeWords } from '@/lib/print-badges-v84';
+import { BUSY_PRINT_BADGES } from '@/lib/print-badges-v84.fixture';
 
 const WEB = path.join(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(WEB, rel), 'utf8');
@@ -39,12 +42,15 @@ const read = (rel: string) => readFileSync(path.join(WEB, rel), 'utf8');
 const PX = { href: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', w: 1, h: 1 };
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'casa-buenaventura';
+// the v84 badges with stand-in art (lib/print-badges-v84.fixture.ts) — this file is about WHERE a print places them
+const ARTS = BUSY_PRINT_BADGES;
 const BASE = printShopFrom({
   name: 'Casa Buenaventura',
   slug: SLUG,
   services: ['catering'],
   tagline: 'Weddings and debuts done gently',
   facts: { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: [], nowYear: 2026 },
+  badges: ARTS,
   kindLabel: () => 'Catering',
   origin: ORIGIN,
 });
@@ -78,7 +84,7 @@ const SHOWS: Record<PrintBlock, (d: { svg: string; text: string }) => boolean> =
   tagline: (d) => has(d.text, FULL.tagline!),
   services: (d) => d.svg.includes('data-print-block="services"'),
   stars: (d) => d.svg.includes('data-print-block="stars"') || has(d.text, '32 REVIEWS'),
-  badges: (d) => d.svg.includes('data-print-badge=') || BASE.badges.some((b) => b.kind !== 'verified' && b.kind !== 'rating' && has(d.text, b.label)),
+  badges: (d) => d.svg.includes('data-print-badge=') || BASE.badges.some((b) => b.badge.kind !== 'verified' && has(d.text, printBadgeWords(b.badge))),
   since: (d) => has(d.text, 'In business since 2014'),
   area: (d) => has(d.text, FULL.area!),
   photo: (d) => d.svg.includes('data-print-block="photo"'),
@@ -113,7 +119,7 @@ test('the service list follows the purpose — up to 3 · 3 · 4 · 6 names, non
 });
 
 test('A MISSING FACT DROPS ITS BLOCK — never a zero, never an empty box', () => {
-  const bare: PrintShop = { ...BASE, rating: null, badges: BASE.badges.filter((b) => b.kind !== 'rating'), logo: null, services: [], since: null, area: null, photo: null, about: null, ownDomain: null };
+  const bare: PrintShop = { ...BASE, rating: null, logo: null, services: [], since: null, area: null, photo: null, about: null, ownDomain: null };
   for (const p of PRINT_PIECES) {
     const d = draw(p, bare);
     for (const b of ['logo', 'services', 'stars', 'since', 'area', 'photo', 'about'] as const) assert.equal(SHOWS[b](d), false, `${p.name}: "${b}" drawn with no fact behind it`);
@@ -142,46 +148,37 @@ test('ONE SWITCH, EVERY PIECE — `On your prints ▾` takes a block off each pr
   assert.ok(has(off.text, 'Casa Buenaventura'), 'the name left with the blocks');
 });
 
-test('ONE FACT, ONE PLACE — the stars line takes the rating pill’s place; the since line, the years pill’s', () => {
-  assert.ok(BASE.badges.some((b) => b.kind === 'rating') && BASE.badges.some((b) => b.kind === 'years'), 'the seed lost its rating/years badges');
+const RETIRED_PILL = /data-print-badge="(rating|years|milestone|award)"|data-badge="(rating|years|milestone:\d+|award:[^"]*)"/;
+
+test('ONLY v84 BADGES PRINT — no retired rating, years, milestone or award pill, on any piece, look or side', () => {
+  for (const p of PRINT_PIECES) {
+    for (const design of PRINT_DESIGNS) {
+      for (const side of p.sides === 2 ? (['f', 'b'] as const) : (['f'] as const)) {
+        const svg = renderPrint({ piece: p, design, shop: FULL, qr: QR, side });
+        assert.doesNotMatch(svg, RETIRED_PILL, `${p.name} · ${design.name} · ${side}: a retired pill printed`);
+        for (const m of svg.matchAll(/data-print-badge="([^"]+)"/g)) assert.ok(['verified', 'tier', 'seal'].includes(m[1]!), `${p.name}: "${m[1]}" is not a v84 badge`);
+      }
+    }
+  }
+});
+
+test('the stars and "since" lines are TEXT of their own — switching one off leaves the v84 badges where they are', () => {
   for (const id of ['tarp', 'rollup', 'backdrop']) {
     const d = draw(piece(id), FULL);
-    assert.ok(SHOWS.stars(d) && !d.svg.includes('data-print-badge="rating"'), `${id}: the rating is printed twice`);
-    assert.ok(SHOWS.since(d) && !d.svg.includes('data-print-badge="years"'), `${id}: the years are printed twice`);
+    assert.ok(SHOWS.stars(d) && SHOWS.since(d), `${id}: the stars and since lines`);
+    assert.ok(d.svg.includes('data-print-badge="tier"') && d.svg.includes('data-print-badge="seal"'), `${id}: the v84 tiers and seal`);
+    for (const off of ['stars', 'since'] as const) {
+      const o = draw(piece(id), FULL, { hide: [off] });
+      assert.ok(!SHOWS[off](o), `${id}: "${off}" still drawn`);
+      assert.equal((o.svg.match(/data-print-badge="(tier|seal|verified)"/g) ?? []).length, (d.svg.match(/data-print-badge="(tier|seal|verified)"/g) ?? []).length, `${id}: "${off}" off took a badge with it`);
+    }
   }
-  // a shop with NO stars line to draw (no reviews read as a line) still shows its rating pill — the pill is the one place
-  const noLine = draw(piece('tarp'), { ...FULL, rating: null });
-  assert.ok(noLine.svg.includes('data-print-badge="rating"'), 'with no stars line the rating pill is the fact’s one place');
 });
 
-test('SWITCHED OFF IS GONE — "Stars and reviews" off takes the rating pill too, on every piece', () => {
-  for (const p of PRINT_PIECES) {
-    const d = draw(p, FULL, { hide: ['stars'] });
-    assert.ok(!SHOWS.stars(d), `${p.name}: the stars line is still drawn`);
-    assert.ok(!d.svg.includes('data-print-badge="rating"'), `${p.name}: the rating came back as a pill`);
-    const rating = BASE.badges.find((b) => b.kind === 'rating')!;
-    assert.ok(!has(d.text, rating.label), `${p.name}: the rating came back as a badge word`);
-  }
-  // the other badges stay — only the switched-off fact leaves
-  assert.ok(draw(piece('tarp'), FULL, { hide: ['stars'] }).svg.includes('data-print-badge='), 'every badge left with the rating');
-});
-
-test('SWITCHED OFF IS GONE — "In business since" off takes the years pill too, on every piece', () => {
-  const years = BASE.badges.find((b) => b.kind === 'years')!;
-  for (const p of PRINT_PIECES) {
-    const d = draw(p, FULL, { hide: ['since'] });
-    assert.ok(!SHOWS.since(d), `${p.name}: the since line is still drawn`);
-    assert.ok(!d.svg.includes('data-print-badge="years"'), `${p.name}: the years came back as a pill`);
-    assert.ok(!has(d.text, years.label), `${p.name}: the years came back as a badge word`);
-  }
-  assert.ok(draw(piece('tarp'), FULL, { hide: ['since'] }).svg.includes('data-print-badge='), 'every badge left with the years');
-});
-
-test('one fact, one place — continued: the standee and table draw no since line, so the years pill stays', () => {
-  for (const id of ['standee', 'table']) {
-    const d = draw(piece(id), FULL);
-    assert.ok(!d.svg.includes('data-print-badge="rating"') && d.svg.includes('data-print-badge="years"'), id);
-  }
+test('the small pieces\u2019 quiet line names the v84 badges in words — never Verified twice, never a retired one', () => {
+  const back = draw(piece('card'), FULL);
+  assert.ok(has(back.text, 'Top 10 Supplier 2026') || has(back.text, 'Completed bookings'), 'the card back names a v84 badge');
+  for (const w of ['EVENTS ON SETNAYAN', 'YEARS IN BUSINESS', 'IN BUSINESS']) assert.ok(!has(back.text.replace(/In business since \d+/gi, ''), w), `the card back still says "${w}"`);
 });
 
 // ── 🔒 NO PRICE · NO DOOR OUT ────────────────────────────────────────────────────────────────────────────────────────

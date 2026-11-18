@@ -25,6 +25,8 @@
  *                      rating, badges) · &noaddress=1 (no web address yet)
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
+import { verifiedV84Svg } from '@/lib/verified-v84-art';
+import { badgeArtSrc } from '@/lib/shop-badge-shelf';
 import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
@@ -416,7 +418,15 @@ function labBadgeFactsUrl(long: boolean): string {
   const facts = long
     ? { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: [], nowYear: 2026 }
     : { verified: false, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 };
-  return `data:application/json;base64,${Buffer.from(JSON.stringify({ facts })).toString('base64')}`;
+  // the v84 badges the badge print wears for this fixture (the real sheet reads `/api/vendor/badges?view=print`)
+  const badges = long
+    ? [
+        { key: 'verified', kind: 'verified', label: 'Setnayan Verified', src: `data:image/svg+xml;base64,${Buffer.from(verifiedV84Svg({ uid: 'labv', size: 44, word: false })).toString('base64')}` },
+        { key: 'completed_bookings', kind: 'tier', label: 'Completed bookings (Ruby)', src: badgeArtSrc('calendar', 4) },
+        { key: 'five_star_reviews', kind: 'tier', label: 'Five-star reviews (Silver)', src: badgeArtSrc('bubble', 2) },
+      ]
+    : [];
+  return `data:application/json;base64,${Buffer.from(JSON.stringify({ facts, badges })).toString('base64')}`;
 }
 
 export default async function SupplierPlanLabPage({

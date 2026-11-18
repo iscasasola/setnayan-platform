@@ -20,7 +20,7 @@ import jsQR from 'jsqr';
 import { renderPrint, type PrintShop } from '@/lib/supplier-prints-svg';
 import { printQrUrl } from '@/lib/supplier-prints-shop';
 import { PRINT_DESIGNS, PRINT_PIECES, PRINT_QR_ORDER, pieceHasQr, type PrintPiece, type PrintSide } from '@/lib/supplier-prints';
-import { shopBadges } from '@/lib/shop-badges';
+import { BUSY_PRINT_BADGES } from '@/lib/print-badges-v84.fixture';
 import { checkADateUrl } from '@/lib/check-a-date';
 import { myPageUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
@@ -29,7 +29,6 @@ import { reviewDoorPath } from '@/lib/shop-review-door';
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'casa-buenaventura';
 
-const facts = { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: ['Setnayan’s Top Pick'], nowYear: 2026 };
 const BUSY: PrintShop = {
   name: 'Casa Buenaventura Catering & Events Services',
   line: 'Catering · Buffets · Grazing tables',
@@ -37,7 +36,7 @@ const BUSY: PrintShop = {
   handle: `setnayan.com/${SLUG}`,
   verified: true,
   rating: { avg: 4.9, count: 32 },
-  badges: shopBadges(facts),
+  badges: BUSY_PRINT_BADGES,
 };
 const PLAIN: PrintShop = { name: 'Setnayan Productions', line: 'Weddings & Events', ini: 'SP', handle: 'setnayan.com/setnaprod', verified: false, rating: null, badges: [] };
 

@@ -9,8 +9,8 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
-import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
-import { badgesForPrint, type ShopBadge, type ShopBadgeFacts } from '@/lib/shop-badges';
+import type { ShopBadgeFacts } from '@/lib/shop-badges';
+import type { PrintBadgeListItem } from '@/lib/print-badges-v84';
 import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import {
   DEFAULT_PRINT_DESIGN,
@@ -84,6 +84,8 @@ const ON_YOUR_PRINTS =
   'ONE place for every content block, on every piece. Switch a block off and it leaves every print that carried it. A small piece never carries more than its size allows, whatever is switched on. Your name and the QR are always on. A block with nothing behind it (no reviews yet, no photo, no logo) simply is not printed — never a zero, never an empty box. No prices, phones or emails are ever printed.';
 
 const BADGE_FACTS_API = '/api/vendor/badges?view=facts';
+/** What the badge print wears — ONLY the approved v84 badges (`printBadgesV84`), with the picture each prints. */
+const BADGE_LIST_API = '/api/vendor/badges?view=print';
 const BADGE_PRINT_API = '/api/vendor/badges?badge=all';
 
 const HOW =
@@ -711,20 +713,32 @@ function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr
  * the facts READ when it is saved. Its facts are read once, when the sheet first opens. A refused read says so; a shop
  * with none yet is told they show by themselves — the words Analytics › Your badges already uses.
  */
-type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: ShopBadge[]; verified: boolean; rated: boolean };
+type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: PrintBadgeListItem[]; verified: boolean; rated: boolean };
 
 /**
  * The shop's badge facts, read ONCE per sheet visit and shared by the badges piece and YOUR FACTS' Verified seal — two
  * readers, one request (a failed read is forgotten, so the next opening asks again).
  */
-const factReads = new Map<string, Promise<ShopBadgeFacts | null>>();
-function readBadgeFacts(url: string): Promise<ShopBadgeFacts | null> {
+type BadgeReads = { facts: ShopBadgeFacts; badges: PrintBadgeListItem[] };
+const factReads = new Map<string, Promise<BadgeReads | null>>();
+const getJson = <T,>(url: string): Promise<T | null> =>
+  fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } })
+    .then((r) => (r.ok ? (r.json() as Promise<T>) : null))
+    .catch(() => null);
+/**
+ * The shop's badge facts (Verified · rating) and the v84 badges the badge print wears. A /dev lab hands in ONE data:
+ * URI carrying both (`{ facts, badges }`); the real sheet reads the two routes side by side.
+ */
+function readBadgeFacts(url: string): Promise<BadgeReads | null> {
   let p = factReads.get(url);
   if (!p) {
-    p = fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } })
-      .then((r) => (r.ok ? (r.json() as Promise<{ facts: ShopBadgeFacts }>) : null))
-      .then((j) => j?.facts ?? null)
-      .catch(() => null);
+    const lab = url.startsWith('data:');
+    p = Promise.all([getJson<{ facts: ShopBadgeFacts; badges?: PrintBadgeListItem[] }>(url), lab ? Promise.resolve(null) : getJson<{ badges: PrintBadgeListItem[] }>(BADGE_LIST_API)]).then(
+      ([f, l]) => {
+        const badges = lab ? f?.badges : l?.badges;
+        return f?.facts && Array.isArray(badges) ? { facts: f.facts, badges } : null;
+      },
+    );
     factReads.set(url, p);
     void p.then((f) => {
       if (f === null) factReads.delete(url);
@@ -739,7 +753,7 @@ function useBadgeFacts(open: boolean, factsUrl: string): BadgeRead {
   useEffect(() => {
     if (!open || started.current) return;
     started.current = true;
-    void readBadgeFacts(factsUrl).then((f) => setRead(f ? { k: 'ok', badges: badgesForPrint(f), verified: f.verified, rated: cardRecordRatingFromTrusted(f.trusted) !== null } : { k: 'unread' }));
+    void readBadgeFacts(factsUrl).then((r) => setRead(r ? { k: 'ok', badges: r.badges, verified: r.facts.verified, rated: cardRecordRatingFromTrusted(r.facts.trusted) !== null } : { k: 'unread' }));
   }, [open, factsUrl]);
   return read;
 }
@@ -777,8 +791,10 @@ function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
       </div>
       {read.k === 'ok' && read.badges.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-2">
+          {/* the approved v84 art each badge prints as — never the retired pill */}
           {read.badges.map((b) => (
-            <ShopBadgePill key={b.key} badge={b} size="sm" title={b.label} />
+            // eslint-disable-next-line @next/next/no-img-element -- the badge's own print art (a static v84 file or the print route's SVG); next/image adds JS for nothing here
+            <img key={b.key} src={b.src} alt={b.label} title={b.label} width={44} height={44} loading="lazy" decoding="async" className="h-11 w-11 object-contain" data-prints-badge={b.kind} />
           ))}
         </div>
       ) : null}

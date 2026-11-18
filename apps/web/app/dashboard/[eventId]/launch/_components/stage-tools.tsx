@@ -35,7 +35,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartRisesEditor, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -1778,7 +1778,7 @@ export function StageTools({
           laid over exactly the FOUR ROWS: as tall as they are, standing on the room kept under the last row. On
           Edit the rows are this toolbar's own and the work area's tool waits under them, out of sight. */}
       <style>
-        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
+        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}html.dark:has([data-stage-tools]){${STAGE_PANEL_VARS_DARK}}` +
           STAGE_BAR_ROW_VARS +
           /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13) — at EVERY width, so it sits
              outside the phone-only block below (it was inside it, and the desktop's tabs lost their lock — W1, 2026-11-14). */

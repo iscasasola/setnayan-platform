@@ -13,6 +13,33 @@
 >   `--color-cream`) are re-pointed per scope by hub themes, `[data-art]` and Admin › Colours. A `:root`
 >   alias would resolve once at the root and freeze those scopes.
 >
+> **18 Nov 2026 — THE ONE COLOUR SET, BY JOB (owner: "dark mode. YES :D" · "all picks").** Colour now has one home.
+> Each job below has ONE `--color-*` token, declared for Light at `:root` and for Dark under `html.dark` in
+> `apps/web/app/globals.css` ("THE ONE COLOUR SET, BY JOB"); the older families hold a pointer
+> (`--m-paper: rgb(var(--color-raised))`), never a second copy. Held by `apps/web/lib/the-colour-set-is-one.test.ts`;
+> a guard that needs a colour's value reads it through `apps/web/lib/css-colour-tokens.ts`, which follows the pointer.
+>
+> | Job | The one token | Points at it |
+> |---|---|---|
+> | page | `--color-page` | `--sn-page-bg` · `--sn-canvas` (dark) · `--fd-cream` (dark) |
+> | frame (the card) | `--color-raised` | `--sn-frame-bg` · `--m-paper` · `--surface` · `--fd-cream` (light) |
+> | raised (a tile in a card) | `--color-raised-2` | `--m-paper-2` · `--surface-soft` |
+> | wash (chip, quiet pill) | `--color-wash` | `--m-ivory` |
+> | band (the hero) | `--color-band-from` / `-to` / `-glow` | `--sn-band-from` / `-to` · `.sn-band` |
+> | text 1 · 2 · 3 | `--color-ink` · `--color-ink-2` · `--color-ink-3` | `--m-ink` · `--m-slate` · `--m-slate-2` · `--sn-on-band` · `--fd-ink` · `--fd-m1` |
+> | decision | `--color-mulberry` (+ `-600`, `-700`) | `--m-mulberry` · `--m-mulberry-2` · the fallback of `--sn-decision` |
+> | words on decision / toggle | `--color-on-accent` | `--sn-on-accent` |
+> | money | `--color-ok` | read directly |
+> | private chat | `--color-private` · `-text` · `-tint` | read directly |
+> | toggle on | `--color-toggle` | `--sn-accent` |
+> | category tiles | `--color-cat-booked` / `-schedule` / `-asked` / `-collect` | `--sn-cat-*` |
+> | accent (icons, rings) | `--color-terracotta` | `--m-orange` · `--fd-hi` |
+>
+> House names are kept (14 Nov ruling above): where a `--color-*` token already held a job (`cream`, `ink`, `raised`,
+> `mulberry`, `ok`, `terracotta`, `private`) it IS that job's one token — no job-named twin was added beside it. The
+> drawing's table called the frame `--color-frame` and the decision `--color-decision`; the app already had
+> `--color-raised` and `--color-mulberry` for exactly those jobs, so those names stand.
+>
 > The original proposal follows.
 > Measured on `origin/main` @ `0e9f11ab51` (14 Nov 2026, 21:18). It scanned 11,510 files under
 > `apps/web/{app,components,lib}`, with comments removed by `lib/strip-comments.ts`. Scanner:

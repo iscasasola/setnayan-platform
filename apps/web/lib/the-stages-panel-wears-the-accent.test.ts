@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { SP_DD_BUTTON, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, STAGE_PANEL_VARS, STAGE_TAP_TARGETS } from './maker-stage-room';
+import { SP_DD_BUTTON, SP_SWATCH, SP_SWATCH_FACE, SP_SWATCH_MORE, SP_SWATCH_ON, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_TAP_TARGETS } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -94,7 +94,14 @@ test('(1) the panel’s “on” colour and its wash READ the accent — swap th
   const byHand = Object.entries(SP).filter(([, v]) => /#[0-9a-f]{3,8}\b/i.test(v)).map(([k]) => k.replace('--sp-', ''));
   assert.deepEqual(byHand, ['page', 'paper', 'ink', 'ink2', 'mute', 'gold', 'gold-soft', 'gold-wash', 'line', 'line2', 'pill', 'pill-on', 'ok']);
   /* The panel puts those names on the page from this one string. */
-  assert.match(read(`${L}/stage-tools.tsx`), /`html:has\(\[data-stage-tools\]\)\{\$\{STAGE_PANEL_VARS\}\}`/);
+  assert.match(read(`${L}/stage-tools.tsx`), /`html:has\(\[data-stage-tools\]\)\{\$\{STAGE_PANEL_VARS\}\}html\.dark:has\(\[data-stage-tools\]\)\{\$\{STAGE_PANEL_VARS_DARK\}\}`/);
+  /* 🌙 …and their Dark, from the string beside it (18 Nov 2026): the SAME thirteen names, each reading the one colour
+     set — not one colour written by hand, so the panel can never be a light desk under the app's light ink. */
+  const DARK = Object.fromEntries(STAGE_PANEL_VARS_DARK.split(';').map((d) => [d.slice(0, d.indexOf(':')), d.slice(d.indexOf(':') + 1)]));
+  assert.deepEqual(Object.keys(DARK).map((k) => k.replace('--sp-', '')), byHand, 'the dark set does not cover exactly the thirteen neutrals');
+  for (const [k, v] of Object.entries(DARK)) {
+    assert.match(v, /^rgb\(var\(--color-[a-z0-9-]+\)(?: \/ \.\d+)?\)$/, `${k} writes its own dark colour (${v}) — read the one colour set`);
+  }
 });
 
 /* ── (2) the door, the confirm, Done ──────────────────────────────────── */

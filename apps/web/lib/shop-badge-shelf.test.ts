@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { COULDNT_LOAD, NOT_COUNTED_YET, SHELF_FAMILY, VERIFIED_HOW, badgeArtSrc, shelfLines, shelfNextBadgeLine, shopBadgeShelf } from './shop-badge-shelf';
+import { BADGE_ART_BOX, COULDNT_LOAD, NOT_COUNTED_YET, SHELF_FAMILY, VERIFIED_HOW, badgeArtFit, badgeArtSrc, shelfLines, shelfNextBadgeLine, shopBadgeShelf } from './shop-badge-shelf';
 import type { BadgeRewardFacts } from './badge-rewards';
 import { SHOP_BADGE_KEYS } from './badge-tiers';
 
@@ -121,4 +121,33 @@ test('7 · a sheet says what a badge counts once', () => {
   const v = shopBadgeShelf({ counts: counts(), verified: false, granted: [] }).find((t) => t.key === 'verified')!;
   assert.equal(v.next, null, 'Verified grew a next goal — its sheet would say a different line');
   assert.equal(v.how, VERIFIED_HOW);
+});
+
+test('8 · every badge draws at one size, centred in its ring, the lock at the edge (owner 18 Nov)', () => {
+  // The measured boxes: seven per family, each inside the 300 × 286 canvas.
+  for (const fam of Object.values(SHELF_FAMILY)) {
+    const boxes = BADGE_ART_BOX[fam];
+    assert.equal(boxes.length, 7, `${fam}: a tier has no measured box`);
+    for (const [x0, y0, x1, y1] of boxes) assert.ok(x0 >= 0 && y0 >= 0 && x1 <= 300 && y1 <= 286 && x1 > x0 && y1 > y0, `${fam}: a box is off the canvas`);
+  }
+  // Fitted into a 54 px square, every tier's DRAWN badge is 54 px on its long side and centred both ways.
+  for (const fam of Object.values(SHELF_FAMILY)) {
+    for (let t = 1; t <= 7; t++) {
+      const fit = badgeArtFit(badgeArtSrc(fam, t), 54)!;
+      const [x0, y0, x1, y1] = BADGE_ART_BOX[fam][t - 1]!;
+      const s = fit.width / 300;
+      const l = fit.left + x0 * s, r = fit.left + x1 * s, tp = fit.top + y0 * s, b = fit.top + y1 * s;
+      assert.ok(Math.abs(Math.max(r - l, b - tp) - 54) < 0.6, `${fam}-${t}: drawn at ${Math.max(r - l, b - tp)} px, not 54`);
+      assert.ok(Math.abs(l - (54 - r)) < 0.6 && Math.abs(tp - (54 - b)) < 0.6, `${fam}-${t}: not centred`);
+    }
+  }
+  assert.equal(badgeArtFit('/some/other.png', 54), null);
+  // The row and the risen look both place the picture by its measured box; the lock is never over the art's middle.
+  const row = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx'), 'utf8'));
+  assert.match(row, /badgeArtFit\(src, box\)/, 'the v84 picture is no longer placed by its measured box');
+  assert.ok((row.match(/<FittedArt /g) ?? []).length >= 2, 'the row or the risen look draws the v84 picture at its canvas size again');
+  assert.doesNotMatch(row, /top: size \* 0\.62/, 'the row lock is back over the badge face');
+  const css = readFileSync(join(WEB, 'app/_components/award/award.module.css'), 'utf8');
+  const lock = /\.lktLock \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(lock, /left: calc\(50% \+ \d+px\)/, 'the risen lock is back in the middle of the art');
 });

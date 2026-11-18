@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Gift, Lock } from 'lucide-react';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
@@ -8,7 +8,7 @@ import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
 import { VerifiedFullscreen } from '@/app/_components/award/verified-fullscreen';
 import { LockedTile } from '@/app/_components/award/locked-tile';
-import { BADGE_ART_H, BADGE_ART_W, awardedOnWords, shelfLines, type ShelfTile } from '@/lib/shop-badge-shelf';
+import { BADGE_ART_H, BADGE_ART_W, awardedOnWords, badgeArtFit, shelfLines, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
 
@@ -72,35 +72,64 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
   );
 }
 
+/**
+ * 📐 A v84 picture placed by its MEASURED art box (`badgeArtFit`, owner 18 Nov: *"the badges are small and not centered
+ * properly"*): the drawn badge — not the 300 × 286 canvas around it — fills a `box` square, centred both ways. The
+ * canvas's empty margin and the soft shadow under the badge spill outside the square, unseen.
+ */
+function FittedArt({ src, box, style, ...rest }: { src: string; box: number; style?: CSSProperties; loading?: 'lazy'; 'data-badge-img'?: string }) {
+  const fit = badgeArtFit(src, box);
+  return (
+    <span className="relative block" style={{ width: box, height: box }} data-badge-art-box="">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a fixed-size static picture; next/image adds JS for nothing here */}
+      <img
+        src={src}
+        width={BADGE_ART_W}
+        height={BADGE_ART_H}
+        decoding="async"
+        alt=""
+        style={
+          fit
+            ? { position: 'absolute', left: fit.left, top: fit.top, width: fit.width, maxWidth: 'none', height: 'auto', ...style }
+            : { width: box, height: 'auto', ...style }
+        }
+        {...rest}
+      />
+    </span>
+  );
+}
+
+/** The lock's own size (px): small enough to sit on the ring's edge, never on the badge. */
+const LOCK_PX = 22;
+
 /** The v84 picture: the tier reached, or Bronze in grey under a lock before it; Verified is the blue check. */
 function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   const earned = tile.state === 'earned';
   const grey = earned ? undefined : 'grayscale(1) contrast(0.75) brightness(1.08)';
+  // ONE visual size for every badge: the Verified check's (0.9 of the slot), so no badge reads smaller than another.
+  const art = Math.round(size * 0.9);
+  // The lock sits ON THE RING at its lower right (45°), small, never over the badge's face.
+  const lockAt = Math.round(size / 2 + size * 0.45 - LOCK_PX / 2);
   return (
     <span className="relative inline-grid place-items-center" style={{ width: size, height: size }} data-badge-art="">
       {tile.src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a fixed-size static picture; next/image adds JS for nothing here
-        <img
-          src={tile.src}
-          width={BADGE_ART_W}
-          height={BADGE_ART_H}
-          loading="lazy"
-          decoding="async"
-          alt=""
-          style={{ width: size, height: 'auto', filter: grey, opacity: earned ? 1 : 0.45 }}
-          data-badge-img={tile.key}
-        />
+        <FittedArt src={tile.src} box={art} loading="lazy" style={{ filter: grey, opacity: earned ? 1 : 0.45 }} data-badge-img={tile.key} />
       ) : (
         <span
           className="inline-grid"
-          style={{ width: size * 0.9, height: size * 0.9, filter: grey, opacity: earned ? 1 : 0.45 }}
+          style={{ width: art, height: art, filter: grey, opacity: earned ? 1 : 0.45 }}
           // trusted: the approved v84 art from a constant (lib/verified-v84-art.ts), never user text
-          dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: Math.round(size * 0.9), word: false }) }}
+          dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: art, word: false }) }}
         />
       )}
       {earned ? null : (
-        <span className="absolute grid h-6 w-6 place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow" style={{ top: size * 0.62 }} aria-hidden>
-          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+        <span
+          className="absolute grid place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow"
+          style={{ left: lockAt, top: lockAt, width: LOCK_PX, height: LOCK_PX }}
+          aria-hidden
+          data-badge-lock=""
+        >
+          <Lock className="h-3 w-3" strokeWidth={2.25} />
         </span>
       )}
     </span>
@@ -230,11 +259,9 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
   );
 }
 
+/** The risen locked look's picture: the same measured fit as the row, 88 px inside the tile's 96 px art slot. */
 function BadgeArtLarge({ tile }: { tile: ShelfTile }) {
-  if (tile.src) {
-    // eslint-disable-next-line @next/next/no-img-element -- the static v84 picture, greyed by the locked look
-    return <img src={tile.src} width={BADGE_ART_W} height={BADGE_ART_H} alt="" loading="lazy" decoding="async" />;
-  }
+  if (tile.src) return <FittedArt src={tile.src} box={88} loading="lazy" />;
   // trusted: the approved v84 art from a constant, never user text
   return <span dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'sheet-vr', size: 96, word: true }) }} />;
 }

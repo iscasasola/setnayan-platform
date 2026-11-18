@@ -40,7 +40,7 @@ export function LockedTile({ art, group, name, how }: LockedTileProps) {
     <div className={s.lkt} role="img" aria-label={`${name}, locked. ${how}`} data-award-locked={group}>
       <span className={s.lktArt}>{art}</span>
       <span className={s.lktLock} aria-hidden="true">
-        <Lock size={18} strokeWidth={2} />
+        <Lock size={14} strokeWidth={2.25} />
       </span>
       <span className={s.lktGroup}>{group}</span>
       <b>{name}</b>

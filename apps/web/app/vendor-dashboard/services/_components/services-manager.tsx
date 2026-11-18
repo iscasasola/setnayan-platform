@@ -597,8 +597,7 @@ export async function VendorServicesManager({
         {addCategory !== null || pickerRequested ? (
         <details
           id={SERVICE_PICKER_ANCHOR_ID}
-          className="scroll-mt-24 rounded-2xl border"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          className="scroll-mt-24 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame"
           open={addCategory !== null || pickerRequested}
         >
           <summary
@@ -952,8 +951,7 @@ export async function VendorServicesManager({
       {showProposeForm || myRequests.length > 0 || !requestsMeasured ? (
       <section
         id={PROPOSE_CATEGORY_ANCHOR_ID}
-        className="space-y-4 rounded-2xl border p-5"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        className="space-y-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-5"
         data-service-requests=""
       >
         <div className="space-y-1">
@@ -990,7 +988,7 @@ export async function VendorServicesManager({
             reviewed — it is not shown here right now.
           </p>
         ) : null}
-        <ul className="divide-y rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
+        <ul className="divide-y bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame">
           {myRequests.length > 0 ? (
             <li>
               <Link href={SERVICE_REQUESTS_HREF} className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm" data-your-requests-row="">
@@ -1025,7 +1023,7 @@ export async function VendorServicesManager({
       {/* 🗂 THE CATEGORIES YOU SERVE — the events and faiths each one serves (the shipped panel, unchanged). Not a third
           section to pick any more: it folds shut at the foot of the one list, and opens in place (Lane E reading — see
           the PR: "No need to add coverage" retires ADDING it here; what each category serves is still edited here). */}
-      <details className="rounded-2xl border" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }} data-shop-categories-fold="">
+      <details className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame" data-shop-categories-fold="">
         <summary className="flex min-h-12 cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium text-ink">
           <span>
             Your categories

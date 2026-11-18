@@ -45,6 +45,7 @@ import {
   WHAT_YOU_CHANGE_WINDOW_DAYS,
   type WhatYouChangeCounts,
 } from '@/lib/admin/what-you-change';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /** Every nav item, flattened once, so a tile can find its own destination. */
 function hrefFor(key: string): string {
@@ -110,7 +111,7 @@ export function WhatYouChange({ counts }: { counts: WhatYouChangeCounts }) {
           <Link
             key={key}
             href={hrefFor(key)}
-            className="group flex min-h-[92px] flex-col gap-1 rounded-xl border border-ink/15 bg-paper p-4 transition-colors hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+            className={`${ADMIN_FRAME} group flex min-h-[92px] flex-col gap-1 p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry`}
           >
             <Icon
               aria-hidden

@@ -47,3 +47,21 @@ export function endedPlanReadsFree<
     ...('tier_billing_cycle' in row ? { tier_billing_cycle: null } : {}),
   };
 }
+
+/**
+ * 🔎 THE PLAN A SHOP IS ACTUALLY ON, for a surface that reads OTHER shops' rows (plan-purchase audit, 2026-11-16).
+ *
+ * The lapse sweep is LOGIN-DRIVEN — it runs when the shop opens its own dashboard. Couple search reads every shop's
+ * `tier_state` raw, so a Pro or Ultra whose paid days ended last month kept Pro's 100 km / Ultra's nationwide reach
+ * (and the day-1 true name) in every couple's search until it next signed in: a paid entitlement nobody paid for.
+ * Search must read the row the way the sweep WILL write it. Pass the row with `tier_expires_at` and
+ * `verification_state` selected beside `tier_state`.
+ * 🔒 lib/search-reads-the-live-plan.test.ts
+ */
+export function liveTierState(
+  row: { tier_state?: string | null; tier_expires_at?: string | null; verification_state?: string | null } | null | undefined,
+  nowMs: number,
+): string | null {
+  if (!row) return null;
+  return endedPlanReadsFree(row, nowMs)?.tier_state ?? null;
+}

@@ -88,11 +88,18 @@ export function buildRenewalReminderEmail(
   return { subject, text, html };
 }
 
-/** RFC 8058 one-click-unsubscribe headers for this relationship mail. */
+/**
+ * Unsubscribe header for this relationship mail.
+ *
+ * ⛔ It pointed at `${APP_URL}/settings/notifications` with RFC 8058 one-click — a page that
+ * never existed (`lib/vendor-email-triggers.ts` says so of the same path). A mail client's
+ * "Unsubscribe" POSTed to a 404 and the reader stayed subscribed while being told they were
+ * not. It now carries the shape every sibling relationship mail already carries (guest
+ * reminders `guestReminderUnsubscribeHeaders`, anniversary, godchild): a `mailto:` to support.
+ */
 export function renewalUnsubscribeHeaders(): Record<string, string> {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
   return {
-    'List-Unsubscribe': `<${base}/settings/notifications>`,
+    'List-Unsubscribe': `<mailto:${RENEWAL_SUPPORT_EMAIL}?subject=unsubscribe>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   };
 }

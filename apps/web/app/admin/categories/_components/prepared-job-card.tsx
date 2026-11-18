@@ -26,7 +26,7 @@
  * very feature recently passed while the button it described was dead.
  */
 
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -57,6 +57,7 @@ import type {
   PreparedJobSpec,
   PreparedValues,
 } from './prepared-jobs';
+import { ActionButton } from '@/components/action-button';
 
 /** Anything Next will accept as a `<form action=…>`. */
 type FormAction = (formData: FormData) => void | Promise<void> | Promise<never>;
@@ -209,13 +210,7 @@ export function PreparedJobCard({
           >
             {spec.verb}
           </SubmitButton>
-          <button
-            type="button"
-            onClick={onDiscard}
-            className="rounded-md border border-ink/15 px-3 py-1.5 text-xs text-ink/60 hover:bg-ink/5"
-          >
-            Discard
-          </button>
+          <ActionButton tone="neutral" quiet icon={X} onClick={onDiscard} label="Discard" />
         </div>
       </div>
 

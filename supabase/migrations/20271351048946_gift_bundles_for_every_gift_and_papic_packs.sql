@@ -42,7 +42,9 @@
 --      pack this row moves; `delta` stays the credits, so every existing reader
 --      of the credit balance is unchanged). Badge-reward Papic rows are filled in
 --      by a BEFORE INSERT trigger (the pack whose credits one unit carries) and
---      backfilled once below.
+--      backfilled once below, as are bought / reversal rows and the 'given' rows
+--      whose quote held one pack. A 'given' row left without a pack makes the
+--      door answer 'already' for that event (no gift twice).
 --   4. shop_gift_pack_stock_status — the stock per pack: balance and held, in packs.
 --   5. shop_gift_deliver_for_booking — re-created from its latest body
 --      (20271309169686, still the latest on main); it now gives per pack and
@@ -86,41 +88,6 @@ COMMENT ON COLUMN public.platform_retail_catalog_v2.bundle_quantity IS
 GRANT SELECT (bundle_of_service_code, bundle_quantity)
   ON public.platform_retail_catalog_v2 TO anon, authenticated;
 
--- One bundle per gift. Seeded once; after this the admin owns them (Admin ›
--- Pricing), so a re-apply never resets them. 💰 The price is NOT typed: it is
--- 10 × the gift's own retail_price_php as the catalogue holds it when this runs
--- (owner 17 Nov: "10 + 1 price = 10 × catalogue unit price"). A gift whose row is
--- missing, inactive, retired or unpriced gets no bundle.
-INSERT INTO public.platform_retail_catalog_v2
-  (service_code, title, retail_price_php, onboarding_price_php,
-   saas_overhead_cost_php, description, is_active, billing_period,
-   is_pax_priced, is_token_able, bundle_of_service_code, bundle_quantity)
-SELECT b.bundle_code,
-       '11 × ' || c.title,
-       10 * c.retail_price_php,
-       NULL, 0,
-       'Buy 10, get 1 free: eleven ' || c.title || ' gifts for your couples.',
-       TRUE, 'one_time', FALSE, FALSE,
-       c.service_code, 11
-  FROM (VALUES
-          ('GIFT_BUNDLE_PAPIC_150',
-           'PAPIC_GUEST_150'),
-          ('GIFT_BUNDLE_PAPIC_1K',
-           'PAPIC_GUEST_1K'),
-          ('GIFT_BUNDLE_PAPIC_3000',
-           'PAPIC_GUEST'),
-          ('GIFT_BUNDLE_EVENT_PLUS',
-           'EVENT_PLUS'),
-          ('GIFT_BUNDLE_EVENT_PRO',
-           'COUPLE_WEBSITE_PRO'),
-          ('GIFT_BUNDLE_EVENT_ULTRA',
-           'EVENT_ULTRA')
-       ) AS b(bundle_code, gift_code)
-  JOIN public.platform_retail_catalog_v2 c ON c.service_code = b.gift_code
- WHERE c.is_active IS TRUE
-   AND c.retired_at IS NULL
-   AND c.retail_price_php > 0
-ON CONFLICT (service_code) DO NOTHING;
 
 -- ── 2 · what a gift order bought: packs per unit, and a bundle ──────────────
 ALTER TABLE public.shop_gift_purchases
@@ -233,6 +200,45 @@ CREATE TRIGGER shop_gift_stock_entries_badge_pack
   BEFORE INSERT ON public.shop_gift_stock_entries
   FOR EACH ROW EXECUTE FUNCTION public.tg_shop_gift_stock_entries_badge_pack();
 
+-- ── 1b · the bundle rows (DML only after EVERY ALTER above: an INSERT/UPDATE that
+-- queues trigger events on a table makes a later ALTER of it in the same
+-- transaction fail with 55006 — the 2026-11-01 deploy-blocker) ──────────────────
+-- One bundle per gift. Seeded once; after this the admin owns them (Admin ›
+-- Pricing), so a re-apply never resets them. 💰 The price is NOT typed: it is
+-- 10 × the gift's own retail_price_php as the catalogue holds it when this runs
+-- (owner 17 Nov: "10 + 1 price = 10 × catalogue unit price"). A gift whose row is
+-- missing, inactive, retired or unpriced gets no bundle.
+INSERT INTO public.platform_retail_catalog_v2
+  (service_code, title, retail_price_php, onboarding_price_php,
+   saas_overhead_cost_php, description, is_active, billing_period,
+   is_pax_priced, is_token_able, bundle_of_service_code, bundle_quantity)
+SELECT b.bundle_code,
+       '11 × ' || c.title,
+       10 * c.retail_price_php,
+       NULL, 0,
+       'Buy 10, get 1 free: eleven ' || c.title || ' gifts for your couples.',
+       TRUE, 'one_time', FALSE, FALSE,
+       c.service_code, 11
+  FROM (VALUES
+          ('GIFT_BUNDLE_PAPIC_150',
+           'PAPIC_GUEST_150'),
+          ('GIFT_BUNDLE_PAPIC_1K',
+           'PAPIC_GUEST_1K'),
+          ('GIFT_BUNDLE_PAPIC_3000',
+           'PAPIC_GUEST'),
+          ('GIFT_BUNDLE_EVENT_PLUS',
+           'EVENT_PLUS'),
+          ('GIFT_BUNDLE_EVENT_PRO',
+           'COUPLE_WEBSITE_PRO'),
+          ('GIFT_BUNDLE_EVENT_ULTRA',
+           'EVENT_ULTRA')
+       ) AS b(bundle_code, gift_code)
+  JOIN public.platform_retail_catalog_v2 c ON c.service_code = b.gift_code
+ WHERE c.is_active IS TRUE
+   AND c.retired_at IS NULL
+   AND c.retail_price_php > 0
+ON CONFLICT (service_code) DO NOTHING;
+
 -- Backfill (fills NULL columns only — nothing that was written is changed).
 -- Measured 2026-11-14: the only Papic rows in prod were badge rewards of 150; the
 -- ladder since pays 1000 / 3000 too, so each row takes the pack its credits name.
@@ -261,6 +267,28 @@ UPDATE public.shop_gift_stock_entries e
    AND e.pack_code IS NULL
    AND p.order_id = e.order_id
    AND p.gift_kind = 'papic';
+
+-- Gifts GIVEN before this file (the credit-counted door) carry no pack. Fill the
+-- pack when that quote's Papic lines were all one pack and the row gave exactly
+-- their credits; anything else stays NULL and the door below treats that event as
+-- already given (never a second gift — an unbackfilled 'given' row is invisible to
+-- a pack count, so without this the per-pack door would give it again).
+UPDATE public.shop_gift_stock_entries e
+   SET pack_code = w.pack_code,
+       packs     = -w.lines
+  FROM (
+    SELECT g.proposal_id, MIN(g.service_code) AS pack_code,
+           COUNT(*)::INTEGER AS lines, SUM(g.credits)::INTEGER AS credits
+      FROM public.vendor_proposal_shop_gifts g
+     WHERE g.gift_kind = 'papic'
+     GROUP BY g.proposal_id
+    HAVING COUNT(DISTINCT g.service_code) = 1
+  ) w
+ WHERE e.gift_kind = 'papic'
+   AND e.kind = 'given'
+   AND e.pack_code IS NULL
+   AND e.proposal_id = w.proposal_id
+   AND -e.delta = w.credits;
 
 -- ── 4 · the stock per pack ──────────────────────────────────────────────────
 -- balance = SUM(packs) per pack. held = per live quote, its lines of that pack
@@ -397,6 +425,20 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(
     hashtextextended('shop_gift_stock:' || v_shop::text, 0));
+
+  -- A gift given BEFORE packs were counted (a 'given' row the backfill could not
+  -- name a pack for) is invisible to the per-pack count below: that event already
+  -- received its gift from the credit-counted door, so it is 'already' — never twice.
+  SELECT COALESCE(-SUM(e.delta), 0)::INTEGER INTO v_given
+    FROM public.shop_gift_stock_entries e
+   WHERE e.vendor_profile_id = v_shop
+     AND e.event_id = v_event
+     AND e.gift_kind = 'papic'
+     AND e.kind = 'given'
+     AND e.pack_code IS NULL;
+  IF v_given > 0 THEN
+    RETURN jsonb_build_object('status', 'already', 'credits', v_given);
+  END IF;
 
   -- Per pack: the quote's lines − what this shop already gave this event of it.
   SELECT COALESCE(jsonb_agg(jsonb_build_object(

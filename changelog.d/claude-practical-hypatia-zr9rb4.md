@@ -57,7 +57,7 @@ Ultra can be bought; 10 + 1 bundles for ALL gifts; every ₱ read from `platform
   `20271348181787_black_diamond_gives_event_ultra.sql` (applied in prod) is the truth. The seven functions and five
   CHECKs it shares with the deleted copy were diffed: same behaviour, nothing carried over. Its changelog
   `gift-event-ultra.md` is deleted with it.
-- 🗄 The bundles migration is re-allocated forward as `20271350129549_gift_bundles_for_every_gift_and_papic_packs.sql`
+- 🗄 The bundles migration is re-allocated forward as `20271351048946_gift_bundles_for_every_gift_and_papic_packs.sql`
   (old unapplied `20271346218077` deleted). Changed from the 14 Nov file:
   - one 10 + 1 bundle row per gift — Papic 150 / 1000 / 3000 and Event Plus / Pro / Ultra — seeded at
     **10 × the gift's own `retail_price_php`, read at apply time** (no ₱ typed; ON CONFLICT DO NOTHING, admin-owned after);
@@ -83,3 +83,10 @@ cap; `writeQuoteShopGifts` re-counts the shop's own ACTIVE `vendor_services` row
 list cannot raise the cap. Guard: `lib/a-quote-holds-one-gift.test.ts`.
 
 SPEC IMPACT: specs DECISION_LOG a74f265b (logged by the controller); its OPEN "tied or count" is answered "count only".
+
+### Opus review fixes (2026-11-18, wave 4)
+- 🚨 **No gift given twice.** The per-pack door counted "given" only from rows that name a pack. Papic gifts given before this file name none, so the next call would have given those events their gift again. The migration now backfills a 'given' row's pack when its quote held one pack. The door answers 'already' for any event that still has a credit-only 'given' row. New DB test: `a-supplier-gift-lands-once` test 9.
+- **ALTER before any DML.** The seed INSERT of the bundle rows now runs after every ALTER TABLE in the file. This is the 55006 deploy-blocker shape from 2026-11-01.
+- The migration moves to the forward prefix `20271351048946`. It was never applied.
+- The six `GIFT_BUNDLE_*` rows stay off `fetchV2CustomerCatalog`, so they never show on /pricing as couple products and never appear in the discount or free-window pickers.
+- A failed bundle read reaches the Buy sheet as "Couldn't load the Buy 10, get 1 free bundles". Before, it rendered as no bundles on sale.

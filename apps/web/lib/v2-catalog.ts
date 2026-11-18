@@ -227,7 +227,10 @@ export async function fetchV2CustomerCatalog(
     .eq('is_active', true)
     // Belt-and-suspenders: the old Today's-Focus / Setnayan-AI-planner SKU stays
     // excluded by name too (it is also is_active=false). See DECISION_LOG 2026-06-05.
-    .neq('service_code', 'TODAYS_FOCUS');
+    .neq('service_code', 'TODAYS_FOCUS')
+    // 📦 The supplier gift bundles (buy 10, get 1 — #7678) are bought by SHOPS on their Gifts sheet, never by a couple:
+    // off /pricing's Products, the discount / free-window pickers and the onboarding bundle, admin included.
+    .not('service_code', 'like', 'GIFT_BUNDLE_%');
 
   // Live Studio Roam is is_active=TRUE (so its flag-gated buy path works — migration
   // 20270930100000) but must stay OFF /pricing until launch (owner-locked "not on

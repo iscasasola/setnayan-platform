@@ -656,3 +656,29 @@ test('8 · 📦 every gift has a 10 + 1 bundle — a catalogue row saying which 
     [order, shopF],
   );
 });
+
+test('9 · 🚨 a gift GIVEN before packs were counted (a given row with no pack) is never given a second time', async () => {
+  const uF = await newUser('shop-f-gifts@test.test', 'vendor');
+  const shopF = await shopOf(uF, 'Gift Shop F');
+  await stockIn(shopF, 3, await giftOrder(uF, shopF));
+  const b = await bookingWithQuote(shopF, 'accepted', 1);
+  await pay(b.eventVendorId);
+  // What the credit-counted door wrote before this migration: credits only, no pack_code / packs.
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, proposal_id, note)
+     VALUES ($1, 'papic', -1000, 'given', $2, $3, 'legacy given row')`,
+    [shopF, b.eventId, b.proposalId],
+  );
+  const again = await deliver(b.eventVendorId);
+  assert.equal(again.status, 'already', 'the per-pack door gave a pre-pack gift a second time');
+  const rows = await one<number>(
+    `SELECT COUNT(*)::int AS v FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND event_id = $2 AND kind = 'given'`,
+    [shopF, b.eventId],
+  );
+  assert.equal(rows, 1, 'a second given row was written');
+  const pool = await one<number>(
+    `SELECT COUNT(*)::int AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'shop_gift'`,
+    [b.eventId],
+  );
+  assert.equal(pool, 0, 'credits reached the pool twice');
+});

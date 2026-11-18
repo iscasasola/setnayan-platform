@@ -43,9 +43,9 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
       readRewardNames(giftsAdmin),
     ]);
   // 📦 A Papic bundle rides the Papic switch with its pack; an Event Plus / Pro / Ultra bundle does not (2026-11-17).
-  const bundles = packs
-    ? ((await fetchShopGiftBundles(giftsAdmin, packs)) ?? []).filter((b) => papicOn || b.pack.kind !== 'papic')
-    : [];
+  // null = the bundle read failed — carried to the Buy sheet, which says so (never shown as "no bundles on sale").
+  const bundlesRead = packs ? await fetchShopGiftBundles(giftsAdmin, packs) : [];
+  const bundles = bundlesRead === null ? null : bundlesRead.filter((b) => papicOn || b.pack.kind !== 'papic');
   return {
     stock,
     // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (#7297, slice 2).

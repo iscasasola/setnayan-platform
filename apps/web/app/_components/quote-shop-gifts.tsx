@@ -24,7 +24,8 @@ import {
  * Buying from inside the quote — present only where the shop can buy (Papic on, not the App Store shell). 📦 `bundles`:
  * the buy-10-get-1 bundles on sale (2026-11-14); every single gift is at its one list price.
  */
-export type QuoteShopGiftsBuy = { bundles: ShopGiftBundle[]; openRails: OpenRail[] };
+/** `bundles` null ⇒ the bundle read failed (the Buy sheet says so). */
+export type QuoteShopGiftsBuy = { bundles: ShopGiftBundle[] | null; openRails: OpenRail[] };
 
 const BUY_KEY = '__buy_more_gifts';
 

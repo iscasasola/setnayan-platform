@@ -453,9 +453,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     if (!basis || packs.length === 0) return { basis: null, buy: null };
     const openRails = openRailOptions(settings);
     // 📦 The buy-10-get-1 bundles, read from the catalogue (2026-11-14) — a Papic one only while Papic is on (2026-11-17).
-    const bundles = storeShell
-      ? []
-      : ((await fetchShopGiftBundles(giftAdmin, basis.packs)) ?? []).filter((b) => papicOn || b.pack.kind !== 'papic');
+    // null = the bundle read failed: the Buy sheet says so instead of showing no bundles.
+    const bundlesRead = storeShell ? [] : await fetchShopGiftBundles(giftAdmin, basis.packs);
+    const bundles = bundlesRead === null ? null : bundlesRead.filter((b) => papicOn || b.pack.kind !== 'papic');
     return { basis: { ...basis, packs }, buy: storeShell ? null : { bundles, openRails } };
   })().catch((err) => {
     console.error('[supabase-error] messages thread · shop gifts', err);

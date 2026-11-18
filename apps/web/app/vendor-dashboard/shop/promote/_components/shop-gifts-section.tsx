@@ -64,9 +64,10 @@ export type ShopGiftsSectionData = {
   packs: ShopGiftPack[] | null;
   /**
    * 📦 BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14), from the catalogue. Every shop may buy them. [] ⇒ none on
-   * sale or unread — the singles stay on sale either way. ONE price per single gift: its list price.
+   * sale; null ⇒ the bundles could not be read (the Buy sheet says so — never "no bundles"). The singles stay on sale
+   * either way. ONE price per single gift: its list price.
    */
-  bundles: ShopGiftBundle[];
+  bundles: ShopGiftBundle[] | null;
   /** null ⇒ the purchases could not be read. */
   bought: ShopGiftBoughtLine[] | null;
   openRails: OpenRail[];
@@ -356,17 +357,20 @@ export function BuyGiftsSheet({
   open,
   onClose,
   packs,
-  bundles = [],
+  bundles: bundlesRead = [],
   openRails,
   initialCode,
 }: {
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
-  bundles?: ShopGiftBundle[];
+  /** null ⇒ the bundles could not be read: a line says so, the singles stay on sale. */
+  bundles?: ShopGiftBundle[] | null;
   openRails: OpenRail[];
   initialCode?: string | null;
 }) {
+  const bundles = bundlesRead ?? [];
+  const bundlesUnread = bundlesRead === null;
   const headingId = useId();
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
@@ -402,6 +406,11 @@ export function BuyGiftsSheet({
           <PaymentsPausedNote className="mt-4" />
         ) : (
           <form action={formAction} className="mt-4 space-y-4">
+            {bundlesUnread ? (
+              <p data-gift-bundles-unread="" role="status" className="text-sm text-ink/70">
+                Couldn’t load the Buy 10, get 1 free bundles just now — reload to see them.
+              </p>
+            ) : null}
             <input type="hidden" name="for" value="gift" />
             <input type="hidden" name="pack" value={picked.code} />
             <input type="hidden" name="quantity" value={qty} />

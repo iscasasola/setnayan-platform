@@ -92,7 +92,7 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
   // The grow's parts play on the way in AND mirrored on the way out — the page behind, the steps, the chrome last.
   assert.equal([...SCREEN.matchAll(/playBehind\(el, plan, (?:false|true)\);/g)].length, 2, 'the page behind does not step back and forward again');
-  assert.equal([...SCREEN.matchAll(/playGrowParts\(el, plan, (?:false|true)\);/g)].length, 2, 'the content steps / chrome do not play both ways');
+  assert.equal([...SCREEN.matchAll(/playGrowParts\(riseParts\(el\), plan, (?:false|true)\);/g)].length, 2, 'the content steps / chrome do not play both ways');
   assert.match(SCREEN, /window\.addEventListener\(TAB_RESELECT_EVENT, on\)/, 'a tab re-tap no longer gets past an open screen');
   // The head: ✕ first (left), the title over its one line, the ⓘ last (the settings prototype's `.fs-head`).
   // (the JSX attributes — the grow's helpers name the same parts as selectors higher up the file)

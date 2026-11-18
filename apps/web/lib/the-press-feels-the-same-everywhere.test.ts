@@ -69,7 +69,9 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   assert.match(src, /const SPRING = 'cubic-bezier\(\.34,1\.56,\.64,1\)';/);
   assert.match(src, /const PRESS_IN_EASE = 'ease-out';/);
   // The numbers are the table's tokens, never numbers of its own — and the tokens are the approved table's.
-  assert.match(css, /--sn-m-press-in:\s*100ms;/);
+  // 18 Nov (motion standard): the press-in is the standard's Tap — an alias, the number lives once in --sn-m-tap.
+  assert.match(css, /--sn-m-press-in:\s*var\(--sn-m-tap\);/);
+  assert.match(css, /--sn-m-tap:\s*100ms;/);
   assert.match(css, /--sn-m-release:\s*280ms;/);
   assert.match(css, /--sn-m-ripple:\s*520ms;/);
   assert.deepEqual([pressMs('280ms'), pressMs(' 280ms '), pressMs('0.28s'), pressMs('460ms'), pressMs(''), pressMs('none'), pressMs('', 100)], [280, 280, 280, 460, 280, 280, 100]);

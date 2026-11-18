@@ -29,7 +29,8 @@ const fold = HOST.slice(HOST.indexOf('export function SetupOfferFold('), HOST.in
 const sheetBranch = fold.slice(fold.indexOf('{open ? ('));
 
 test('0 · anti-vacuity: the Sheet really draws nothing while shut (so a maker inside it WOULD be unmounted)', () => {
-  assert.match(SHEET, /if \(!open\) return null;/, 'the Sheet keeps its body while shut — re-measure what this guard protects');
+  /* The Sheet may stay drawn only while its mirrored close plays (`present`, ported from #7686); once shut it still returns null. */
+  assert.match(SHEET, /if \(!open(?: && !present)?\) return null;/, 'the Sheet keeps its body while shut — re-measure what this guard protects');
   assert.ok(fold.length > 500 && sheetBranch.length > 100, 'SetupOfferFold or its sheet branch was not found');
 });
 

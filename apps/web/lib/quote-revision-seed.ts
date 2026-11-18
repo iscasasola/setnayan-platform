@@ -32,6 +32,7 @@
  */
 import type { ProposalLineItem } from './vendor-proposals';
 import { lineStructureOf } from './quote-line-structure';
+import { QUOTED_AFTER_SITE_CHECK } from './quote-line-price-words';
 import {
   isResolvedSchedule,
   type AutoBalanceMeta,
@@ -123,8 +124,12 @@ export type QuoteRevisionOffer = {
   giftLabels: string[];
 };
 
-/** The detail the quote builder writes on a distance-priced transport line (proposal-maker, transport 'distance'). */
-export const SITE_CHECK_TRANSPORT_DETAIL = 'Quoted after site check';
+/**
+ * The detail the quote builder writes on a distance-priced transport line (proposal-maker, transport 'distance').
+ * ONE source for the words: it is `QUOTED_AFTER_SITE_CHECK`, the same string the price column reads to say
+ * "Quoted after site check" instead of "Complimentary" — two copies could drift and break the round trip.
+ */
+export const SITE_CHECK_TRANSPORT_DETAIL = QUOTED_AFTER_SITE_CHECK;
 
 export type QuoteRevisionSeed = {
   /** The quote being replaced — named in the builder's banner. */

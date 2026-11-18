@@ -8,6 +8,7 @@
  */
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   computeStepper,
   rowToCoupleFacing,
@@ -180,36 +181,52 @@ export async function fetchPlanProgressForCouple(opts: {
  * plan + payments. Returns one entry per booking of the vendor's on this event
  * that carries a frozen plan; bookings with no plan are omitted.
  */
+export type VendorPlanProgressRow = PlanProgress & {
+  eventVendorId: string;
+  vendorLabel: string;
+  // No-Show Downpayment Protection — when this booking locked under a
+  // protected reservation policy the couple acknowledged, the ISO date they
+  // acknowledged it. Drives the "Protected by your reservation policy" badge.
+  reservationAcknowledgedAt: string | null;
+};
+
 export async function fetchPlanProgressForVendor(opts: {
   adminClient: SupabaseClient;
   eventId: string;
   vendorProfileId: string;
-}): Promise<
-  Array<
-    PlanProgress & {
-      eventVendorId: string;
-      vendorLabel: string;
-      // No-Show Downpayment Protection — when this booking locked under a
-      // protected reservation policy the couple acknowledged, the ISO date they
-      // acknowledged it. Drives the "Protected by your reservation policy" badge.
-      reservationAcknowledgedAt: string | null;
-    }
-  >
-> {
+}): Promise<VendorPlanProgressRow[]> {
+  return (await readPlanProgressForVendor(opts)).plans;
+}
+
+/**
+ * ⚖ THE SAME READ, SAYING WHETHER IT WAS WHOLE (owner screenshot 17 Nov: Details read "Paid —" on a booked plan).
+ * `complete: false` when the bookings, the plans or the payments were refused — then a "₱0 paid" drawn from it would
+ * be a lie (every installment reads 'due' when the payments never arrived), so a money figure must say "couldn't load".
+ * The acknowledgements carry no money and do not count.
+ */
+export async function readPlanProgressForVendor(opts: {
+  adminClient: SupabaseClient;
+  eventId: string;
+  vendorProfileId: string;
+}): Promise<{ plans: VendorPlanProgressRow[]; complete: boolean }> {
   const { adminClient, eventId, vendorProfileId } = opts;
 
   // 1. The vendor's bookings on this event (ownership-scoped).
-  const { data: bookings } = await adminClient
+  const { data: bookings, error: bookingsError } = await adminClient
     .from('event_vendors')
     .select('vendor_id, vendor_name')
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
   const evRows = (bookings ?? []) as Array<{ vendor_id: string; vendor_name: string | null }>;
-  if (evRows.length === 0) return [];
+  if (bookingsError) {
+    logQueryError('readPlanProgressForVendor.bookings', bookingsError, { eventId, vendorProfileId }, 'graceful_degrade');
+    return { plans: [], complete: false };
+  }
+  if (evRows.length === 0) return { plans: [], complete: true };
   const eventVendorIds = evRows.map((b) => b.vendor_id).filter(Boolean);
 
   // 2. Frozen plans on those bookings.
-  const { data: plans } = await adminClient
+  const { data: plans, error: plansError } = await adminClient
     .from('event_vendor_payment_plan')
     .select('event_vendor_id, instances_json, cleared_at')
     .eq('event_id', eventId)
@@ -219,10 +236,14 @@ export async function fetchPlanProgressForVendor(opts: {
     instances_json: unknown;
     cleared_at: string | null;
   }>;
-  if (planRows.length === 0) return [];
+  if (plansError) {
+    logQueryError('readPlanProgressForVendor.plans', plansError, { eventId, vendorProfileId }, 'graceful_degrade');
+    return { plans: [], complete: false };
+  }
+  if (planRows.length === 0) return { plans: [], complete: true };
 
   // 3. All logged payments on those bookings (seq + confirm flag).
-  const { data: payRows } = await adminClient
+  const { data: payRows, error: payError } = await adminClient
     .from('event_vendor_payments')
     .select('vendor_id, schedule_instance_seq, vendor_confirmed_at, payment_refused_at')
     .in('vendor_id', eventVendorIds);
@@ -259,7 +280,7 @@ export async function fetchPlanProgressForVendor(opts: {
     ackByVendor.set(a.event_vendor_id, a.acknowledged_at);
   }
 
-  return planRows.map((plan) => {
+  const rows = planRows.map((plan) => {
     const instances: PlanInstance[] = Array.isArray(plan.instances_json)
       ? (plan.instances_json as PlanInstance[])
       : [];
@@ -271,6 +292,8 @@ export async function fetchPlanProgressForVendor(opts: {
       reservationAcknowledgedAt: ackByVendor.get(plan.event_vendor_id) ?? null,
     };
   });
+  if (payError) logQueryError('readPlanProgressForVendor.payments', payError, { eventId, vendorProfileId }, 'graceful_degrade');
+  return { plans: rows, complete: !payError };
 }
 
 /** One couple-logged payment awaiting the vendor's confirmation. */

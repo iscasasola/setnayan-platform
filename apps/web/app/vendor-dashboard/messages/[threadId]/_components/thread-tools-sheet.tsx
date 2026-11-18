@@ -2,6 +2,7 @@
 
 import { CHAT_ATTACH_INPUT_ID, CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -17,7 +18,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { layerHolder } from '@/lib/use-back-closes';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
   THREAD_TOOL_GROUPS,
@@ -142,16 +145,56 @@ const SHORTCUT_ROWS: readonly SheetRow[] = [
 function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
   return (
     <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
-      <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-ink/45">
+      {/* The template's section label (rule 2 · 13): small grey capitals at the dark grey, never ink at part strength. */}
+      <span className="text-[11.5px] font-bold uppercase leading-none tracking-[0.1em] text-[color:var(--m-slate-2)]">
         {page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(page)}
       </span>
-      <span className="h-px flex-1 bg-ink/10" />
+      <span className="h-px flex-1 bg-[color:var(--m-line)]" />
     </li>
   );
 }
 
-export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+/** "See every version" with one version in the chat — the same words the row's toast used to say after the fact. */
+export const ONE_VERSION_REASON = 'One version so far · a change or an accepted counter makes the next';
+
+/**
+ * ⏭ CHAT-20 (walk 16 Nov 2026) — "See every version" and "Report a problem" opened NOTHING. The sheet holds a history
+ * entry of its own (`useBackCloses`: Back closes the layer), and a sheet closed by its owner steps back through that
+ * entry one tick later. Anything the row opened in that same tick was undone by the step: the versions sheet claimed
+ * the entry and was then closed by the `popstate`; the Report link's `router.push` (pending until its page arrived) was
+ * overtaken by the traversal. So a row that LEAVES the sheet for another layer or page waits until the sheet's own
+ * entry is gone — the `popstate` of its step back — and only then opens what it names. No entry of ours on top (a lab,
+ * an older sheet) = go at once.
+ */
+export function afterSheetStepsBack(fn: () => void, holdsEntry: boolean = Boolean(layerHolder(window.history.state))): void {
+  if (!holdsEntry) {
+    window.setTimeout(fn, 0);
+    return;
+  }
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener('popstate', go);
+    window.clearTimeout(safety);
+    // After the router's own popstate handling, so the traversal has settled before we navigate or open.
+    window.setTimeout(fn, 0);
+  };
+  window.addEventListener('popstate', go);
+  // Never stranded: a step back that never comes (a browser that coalesces it) still opens the row.
+  const safety = window.setTimeout(go, 1200);
+}
+
+export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  // 🧾 CHAT-20: "See every version" presses the live quote card's own versions row, which exists only once a second
+  // version does. Looked for when the sheet opens: absent, the row is drawn shut with its reason (never a dead press).
+  const [versionsDoor, setVersionsDoor] = useState(true);
+  useEffect(() => {
+    if (open) setVersionsDoor(Boolean(document.querySelector('[data-quote-every-version]')));
+  }, [open]);
+  const rows = givenRows.map((r) => (r.act === 'versions' && !r.shut && !versionsDoor ? { ...r, shut: { reason: ONE_VERSION_REASON } } : r));
   const plus = usePlus(threadId ?? '');
   // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
   // answer — the (+) is shut; a tap says which and jumps to it.
@@ -181,7 +224,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
       items.push(
-        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55" data-thread-tool-group={row.group}>
+        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" data-thread-tool-group={row.group}>
           {g?.label}
         </li>,
       );
@@ -195,7 +238,11 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-          shut ? 'bg-ink/[0.03] text-ink/25' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-sn-accent'
+          shut
+            ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-4)]'
+            : row.primary
+              ? 'bg-sn-accent/10 text-sn-accent'
+              : 'bg-[color:var(--m-paper-2)] text-sn-accent'
         }`}
       >
         <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
@@ -203,10 +250,10 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     );
     const words = (
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-ink/40' : 'text-ink'}`}>
+        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-[color:var(--m-slate-3)]' : 'text-ink'}`}>
           {row.label}
         </span>
-        <span className="mt-0.5 block truncate text-[13px] leading-tight text-ink/60">{row.line}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-2)]">{row.line}</span>
       </span>
     );
     // 48 px tall (the 44-px press floor, with 2 px of air each side) — nine rows and eight topic labels fit a 390 × 844
@@ -219,8 +266,9 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
           <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={rowClass}>
             {lead}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-semibold leading-tight text-ink/40">{row.label}</span>
-              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-ink/45">
+              {/* Shut = the mid grey, at 13 px or larger only (rule 13). */}
+              <span className="block truncate text-[15px] font-semibold leading-tight text-[color:var(--m-slate-3)]">{row.label}</span>
+              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-3)]">
                 {shut.reason}
               </span>
             </span>
@@ -232,10 +280,22 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     items.push(
       <li key={row.key} data-thread-tool-row={row.key}>
         {row.href ? (
-          <Link href={row.href} className={`sn-press ${rowClass}`} onClick={() => setOpen(false)}>
+          <Link
+            href={row.href}
+            className={`sn-press ${rowClass}`}
+            onClick={(e) => {
+              // A new tab / window keeps the browser's own way; this tab waits for the sheet's step back (CHAT-20).
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              const href = row.href!;
+              const holds = Boolean(layerHolder(window.history.state));
+              setOpen(false);
+              afterSheetStepsBack(() => router.push(href), holds);
+            }}
+          >
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </Link>
         ) : (
           <button
@@ -245,17 +305,27 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
               if (row.act === 'versions') {
                 // The shipped versions sheet on the live quote's card (`quote-versions-sheet.tsx`) — the one place
                 // every version is listed. Only drawn once a second version exists; until then, say so.
+                // CHAT-20: pressed only after the sheet's own history entry is gone, or the step back closed it again.
+                const holds = Boolean(layerHolder(window.history.state));
                 setOpen(false);
-                const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
-                if (door) window.setTimeout(() => door.click(), 0);
-                else if (threadId) patchPlus(threadId, { toast: { text: 'One version so far — a change or an accepted counter makes the next', at: Date.now() } });
+                afterSheetStepsBack(() => {
+                  const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
+                  if (door) door.click();
+                  else if (threadId) patchPlus(threadId, { toast: { text: ONE_VERSION_REASON, at: Date.now() } });
+                }, holds);
                 return;
               }
               if (row.card && threadId) {
+                const holds = Boolean(layerHolder(window.history.state));
                 setOpen(false);
                 patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
                 // ⤴ A poll or decision rises full screen (CHAT-09) — the chat under it stays where it was.
-                if (!RISING_DRAFTS.has(row.card)) window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                if (!RISING_DRAFTS.has(row.card)) {
+                  window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                  // 📍 CHAT-25: the sheet's step back is a history traversal, and the browser restores the PAGE's scroll
+                  // on it — which put the couple's new card back below the screen. Jump again once it has settled.
+                  afterSheetStepsBack(() => jumpTo(PLUS_DRAFT_ANCHOR), holds);
+                }
                 return;
               }
               if (row.attach) {
@@ -264,15 +334,16 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
                 setOpen(false);
                 return;
               }
+              const holds = Boolean(layerHolder(window.history.state));
               setOpen(false);
-              // After the sheet has gone, so the opened panel is what they are looking at.
+              // After the sheet has gone — and its history step with it (CHAT-20) — so the opened panel stays open.
               const reveal = row.reveal;
-              if (reveal) window.setTimeout(() => revealThreadTool(reveal), 0);
+              if (reveal) afterSheetStepsBack(() => revealThreadTool(reveal), holds);
             }}
           >
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </button>
         )}
       </li>,
@@ -316,7 +387,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
         <span
           aria-hidden
           data-plus-circle=""
-          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-ink/[0.06] text-ink/35' : 'bg-sn-accent text-white'}`}
+          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-3)]' : 'bg-sn-accent text-white'}`}
         >
           <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
         </span>
@@ -413,7 +484,7 @@ export function ThreadToolsSheet({
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote }), 'vendor', eventId, state.hasAgreement);
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement }), 'vendor', eventId, state.hasAgreement);
   return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
 }
 
@@ -426,17 +497,20 @@ export function CoupleThreadToolsSheet({
   eventId,
   threadId,
   canLogPayment = true,
+  booked = false,
 }: {
   dealReveal?: readonly string[] | null;
   eventId: string;
   threadId?: string;
   canLogPayment?: boolean;
+  /** 🔒 CHAT-19: booked at the accepted quote — "Counter with a price" is drawn shut with its reason (`hostPlusRows`). */
+  booked?: boolean;
 }) {
   // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
   // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
   const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen }), 'couple', eventId, true).map((r) =>
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, true).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;
@@ -463,14 +537,15 @@ export function ComposerPlusSheet({ more = [], sheetMark = 'plain' }: { more?: r
  */
 export function AnswerAskButton() {
   return (
-    <button
+    // Rule 3 · the button piece in its amber tone (it needs you), never a hand-made pill in raw palette colours.
+    <ActionButton
       type="button"
+      tone="warn"
+      icon={Handshake}
+      label="They asked to book"
       onClick={() => revealThreadTool(['booking-ask'])}
       data-answer-ask=""
-      className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-warn-300 bg-warn-100 px-4 text-sm font-semibold text-warn-900"
-    >
-      <Handshake aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-      They asked to book
-    </button>
+      className="!min-h-11 shrink-0"
+    />
   );
 }

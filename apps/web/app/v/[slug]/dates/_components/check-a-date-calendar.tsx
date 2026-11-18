@@ -8,6 +8,7 @@ import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
 import {
+  CHECK_DATE_POPULAR,
   CHECK_DATE_WORDS,
   checkDateAskLine,
   checkDateResumeHref,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/check-a-date';
 import { startServiceInquiry } from '@/app/v/[slug]/inquiry-actions';
 import { SeatMonths } from './seat-months';
+import { dayShines } from '@/lib/hot-date';
 
 /**
  * CHECK A DATE — the month and its one sheet (approved prototype `prototypes/check_a_date_2026-10-28/index.html`,
@@ -222,15 +224,7 @@ export function CheckADateCalendar({
   return (
     <div className="flex w-full flex-col" data-check-date-shop={shop.slug}>
       <header className="flex items-center gap-2.5 border-b border-ink/10 px-4 py-3">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="grid h-10 w-10 flex-none place-items-center rounded-full border border-ink/15 bg-cream text-ink"
-          data-testid="check-date-close"
-        >
-          <X aria-hidden className="h-5 w-5" strokeWidth={1.8} />
-        </button>
+        <ActionButton tone="neutral" icon={X} label="Close" iconOnly onClick={onClose} className="flex-none" data-testid="check-date-close" />
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a 40px logo already resolved for the shop page above
           <img src={logoUrl} alt="" className="h-10 w-10 flex-none rounded-full object-cover" data-check-date-logo="" />
@@ -285,6 +279,16 @@ export function CheckADateCalendar({
               <span className="mb-2.5 mt-1 inline-block rounded-full bg-[rgb(var(--color-ok)/0.12)] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-ok))]" data-check-date-state="available">
                 {CHECK_DATE_WORDS.available}
               </span>
+              {/* ✦ v16 `cadDaySheet`: a popular day (the shipped hot-date rule, `dayShines`) says so beside Available —
+                  in the legend's own seat colours, and never instead of Available. */}
+              {day && dayShines(day) ? (
+                <span
+                  className="mb-2.5 ml-1.5 mt-1 inline-block rounded-full bg-[var(--seat-top)] px-2.5 py-0.5 text-[12px] font-bold text-[var(--seat-ink)] shadow-[inset_0_0_0_1.5px_var(--seat-hot-line)]"
+                  data-check-date-popular=""
+                >
+                  ✦ {CHECK_DATE_POPULAR}
+                </span>
+              ) : null}
               {services.length === 0 ? (
                 <p className="py-3 text-[14px] text-ink/70" data-check-date-no-services="">
                   This shop hasn&rsquo;t listed its services yet. Ask from the shop page.

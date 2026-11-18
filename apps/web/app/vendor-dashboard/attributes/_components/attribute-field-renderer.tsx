@@ -49,13 +49,13 @@ export function AttributeFieldRenderer({
   const hint = (
     <span className="ml-2 inline-flex items-center gap-1">
       {def.required ? (
-        <span className="font-mono text-[9px] uppercase tracking-wider text-terracotta-700">required</span>
+        <span className="tabular-nums text-[12px] uppercase tracking-wider text-ink">required</span>
       ) : null}
       {isFacet ? (
-        <span className="font-mono text-[9px] uppercase tracking-wider text-ink/50">filter</span>
+        <span className="tabular-nums text-[12px] uppercase tracking-wider text-[color:var(--m-slate-2)]">filter</span>
       ) : null}
       {def.required_if ? (
-        <span className="font-mono text-[9px] text-ink/45">
+        <span className="tabular-nums text-[12px] text-[color:var(--m-slate-2)]">
           required if {def.required_if.replaceAll('_', ' ')}
         </span>
       ) : null}
@@ -65,14 +65,14 @@ export function AttributeFieldRenderer({
   if (def.type === 'boolean') {
     const checked = initial === true;
     return (
-      <label className="flex items-start gap-3 rounded-lg border border-ink/10 bg-white/70 px-3 py-2.5">
+      <label className="flex min-h-14 items-start gap-3 border-b border-[color:var(--m-line)] py-2.5">
         <input
           type="checkbox"
           name={inputName}
           defaultChecked={checked}
-          className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+          className="mt-0.5 h-4 w-4 rounded border-ink/25 text-mulberry focus:ring-terracotta/40"
         />
-        <span className="text-sm text-ink/80">
+        <span className="text-sm text-ink">
           {label}
           {hint}
         </span>
@@ -84,7 +84,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'number' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink/80">
+        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
           {label}
           {hint}
         </label>
@@ -99,7 +99,7 @@ export function AttributeFieldRenderer({
           className="input-field w-full max-w-xs"
         />
         {def.min !== undefined ? (
-          <p className="font-mono text-[10px] text-ink/45">minimum {def.min}</p>
+          <p className="tabular-nums text-[12px] text-[color:var(--m-slate-2)]">minimum {def.min}</p>
         ) : null}
       </div>
     );
@@ -109,7 +109,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink/80">
+        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
           {label}
           {hint}
         </label>
@@ -130,7 +130,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink/80">
+        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
           {label}
           {hint}
         </label>
@@ -152,7 +152,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink/80">
+        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
           {label}
           {hint}
         </label>
@@ -179,7 +179,7 @@ export function AttributeFieldRenderer({
     const initialArr = Array.isArray(initial) ? (initial as string[]) : [];
     return (
       <fieldset className="space-y-2">
-        <legend className="block text-sm font-medium text-ink/80">
+        <legend className="block text-sm font-medium text-ink">
           {label}
           {hint}
         </legend>
@@ -189,14 +189,14 @@ export function AttributeFieldRenderer({
             return (
               <label
                 key={opt}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1.5 text-xs text-[color:var(--m-slate-2)] transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
               >
                 <input
                   type="checkbox"
                   name={inputName}
                   value={opt}
                   defaultChecked={checked}
-                  className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                  className="h-3.5 w-3.5 rounded border-ink/25 text-mulberry focus:ring-terracotta/40"
                 />
                 <span>{formatOption(opt)}</span>
               </label>
@@ -217,11 +217,11 @@ export function AttributeFieldRenderer({
   // that haven't yet shipped a renderer.
   return (
     <div className="space-y-1">
-      <label className="block text-sm font-medium text-ink/55">
+      <label className="block text-sm font-medium text-[color:var(--m-slate-2)]">
         {label}
-        <span className="ml-2 font-mono text-[10px] text-terracotta-700">unsupported field type: {def.type}</span>
+        <span className="ml-2 tabular-nums text-[12px] text-ink">unsupported field type: {def.type}</span>
       </label>
-      <pre className="overflow-auto rounded-md border border-ink/15 bg-ink/[0.04] p-2 text-[11px] text-ink/65">
+      <pre className="overflow-auto rounded-md border border-ink/15 bg-ink/[0.04] p-2 text-[12px] text-[color:var(--m-slate-2)]">
         {JSON.stringify(initial ?? null)}
       </pre>
     </div>
@@ -262,7 +262,7 @@ function MultiSelectOpen({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={`${inputName}__draft`} className="block text-sm font-medium text-ink/80">
+      <label htmlFor={`${inputName}__draft`} className="block text-sm font-medium text-ink">
         {label}
         {hint}
       </label>
@@ -274,14 +274,14 @@ function MultiSelectOpen({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1.5 rounded-full border border-terracotta/30 bg-terracotta/10 px-3 py-1 text-xs text-terracotta-700"
+            className="inline-flex items-center gap-1.5 rounded-full border border-terracotta/30 bg-terracotta/10 px-3 py-1 text-xs text-ink"
           >
             <span>{tag}</span>
             <button
               type="button"
               onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
               aria-label={`Remove ${tag}`}
-              className="text-terracotta-700 hover:text-terracotta-800"
+              className="text-mulberry hover:underline"
             >
               ×
             </button>
@@ -301,18 +301,18 @@ function MultiSelectOpen({
               }
             }}
             placeholder="Type and press Enter…"
-            className="input-field h-9 min-w-[180px]"
+            className="input-field h-11 min-w-[180px]"
           />
           <button
             type="button"
             onClick={addDraft}
-            className="button-secondary h-9 px-3 text-xs"
+            className="ab ab-neutral !min-h-11"
           >
-            Add
+            <span className="lbl">Add</span>
           </button>
         </div>
       </div>
-      <p className="font-mono text-[10px] text-ink/45">
+      <p className="tabular-nums text-[12px] text-[color:var(--m-slate-2)]">
         Press Enter or comma to add. Click × to remove.
       </p>
     </div>

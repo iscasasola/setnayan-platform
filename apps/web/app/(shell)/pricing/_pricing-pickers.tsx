@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ListChecks } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * /pricing's client pieces (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25` revision 5): Event Pro's
@@ -117,14 +119,14 @@ export function IncludedGroup({ rows, shown = 6 }: { rows: readonly IncludedRow[
         ))}
       </ul>
       {!open && rows.length > shown ? (
-        <button
-          type="button"
-          className="mt-1 min-h-[44px] bg-transparent p-0 text-sm font-semibold text-terracotta-700 lg:hidden"
+        <ActionButton
+          tone="neutral"
+          icon={ListChecks}
+          label="See all included ↓"
+          className="mt-1 lg:hidden"
           onClick={() => setOpen(true)}
           data-see-all-included=""
-        >
-          See all included ↓
-        </button>
+        />
       ) : null}
     </div>
   );

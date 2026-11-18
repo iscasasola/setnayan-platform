@@ -28,6 +28,7 @@
 import { shopPath } from '@/lib/shop-address';
 import { coldWayBack } from './discover-way-back';
 import { arrivalUtmOf, materialViaOf, VIA_PARAM, type MaterialVia } from './material-tags';
+import { OWN_LINK_SRC } from './supplier-qr-codes';
 
 /** The arrival tags a door into a shop page may carry. Free text on the view row; these are the ones with a back. */
 export const SHOP_ARRIVAL_SRC = {
@@ -107,6 +108,25 @@ export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDo
   }
   if (eventId) return { href: `/dashboard/${encodeURIComponent(eventId)}/vendors`, label: 'Back to suppliers', back: true };
   return SHOP_BACK_COLD;
+}
+
+/**
+ * 🌐 SETNAYAN's home, as an ABSOLUTE address (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE TOP BAR, ONCE SCROLLED"):
+ * pressing SETNAYAN on a shop page opens www.setnayan.com. A "/" would stay on the shop when the page is served from the
+ * shop's own domain (`ownWebAddress`, lib/shop-page-plan.ts), so the shop page never links SETNAYAN with a path.
+ */
+export const SETNAYAN_HOME_URL = 'https://www.setnayan.com';
+
+/**
+ * 🚪 "SEE MORE SUPPLIERS" IS FOR A VISITOR WHO CAME FROM OUTSIDE (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE: ONE
+ * BACK BUTTON, NAMED FOR WHERE THE VISITOR CAME FROM"): a scan of the supplier's own QR or link (`?src=own`,
+ * `OWN_LINK_SRC` in lib/supplier-qr-codes.ts) or a typed / shared address (no `src` at all). Those visitors have nothing
+ * of ours behind them, so the low door above the footer offers the marketplace. Every other arrival — any door of ours,
+ * an event's Suppliers, or an arrival tag this rule does not name — has the top-left back and no second door.
+ */
+export function shopColdDoorShows(arrival: ShopArrival): boolean {
+  if (shopBackDoor(arrival).back) return false;
+  return arrival.src === null || arrival.src === OWN_LINK_SRC;
 }
 
 /**

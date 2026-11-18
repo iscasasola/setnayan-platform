@@ -23,13 +23,13 @@ import type { DowngradeFit, FitRow } from '@/lib/downgrade-limits';
 
 function FitLine({ r }: { r: FitRow }) {
   const Icon = r.state === 'keeps' ? BadgeCheck : CircleAlert;
-  const tint = r.state === 'keeps' ? 'text-success' : r.state === 'blocks' ? 'text-danger' : 'text-ink/55';
+  const tint = r.state === 'keeps' ? 'text-success' : r.state === 'blocks' ? 'text-danger' : 'text-[color:var(--m-slate-2)]';
   return (
     <div className="flex min-h-11 items-start gap-3 border-t border-ink/10 py-2 first:border-t-0" data-fit-row={r.key} data-fit-state={r.state}>
       <Icon aria-hidden className={`mt-0.5 h-[18px] w-[18px] flex-none ${tint}`} strokeWidth={1.9} />
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-ink">{r.title}</span>
-        <span className="block text-[12.5px] leading-snug text-ink/70">{r.line}</span>
+        <span className="block text-[13px] leading-snug text-[color:var(--m-slate-2)]">{r.line}</span>
         {r.fix ? (
           <span className="block pt-1.5">
             <ActionButton tone={r.state === 'blocks' ? 'brand' : 'neutral'} quiet icon={ArrowRight} label={r.fix.label} href={r.fix.href} />
@@ -77,7 +77,7 @@ export function LowerPlanSwitch({ fit, switchForm, endsOn }: { fit: DowngradeFit
           data="limits-sheet"
           thumb={
             fit.blocked ? (
-              <p className="text-center text-[13px] text-ink/70" data-limits-blocked="">
+              <p className="text-center text-[13px] text-[color:var(--m-slate-2)]" data-limits-blocked="">
                 Fix the storage line first — then you can switch.
               </p>
             ) : (
@@ -91,7 +91,7 @@ export function LowerPlanSwitch({ fit, switchForm, endsOn }: { fit: DowngradeFit
             <p className="text-[17px] font-semibold leading-snug text-ink">
               {fit.blocked ? `${name} holds less than you have` : `A few things change on ${name}`}
             </p>
-            <p className="pt-2 text-[14px] text-ink/70">Each line opens the page that fixes it. Nothing is deleted by the switch.</p>
+            <p className="pt-2 text-[14px] text-[color:var(--m-slate-2)]">Each line opens the page that fixes it. Nothing is deleted by the switch.</p>
             <LimitsList fit={fit} />
           </div>
         </RiseScreen>

@@ -65,7 +65,7 @@ const PAGE_TITLE = 'Memories — A New Way to Remember · Setnayan';
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
   'Memories brings together everything you create on Setnayan — Papic, Live Watch, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
@@ -319,7 +319,7 @@ export default function AlaalaLandingPage() {
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Albums kept the photo. Memories keeps the day.
           </LineRevealHeading>
-          <RevealList className="mt-7 overflow-hidden rounded-2xl shadow-[var(--m-shadow-sm)]" stagger={0.06} y={12}>
+          <RevealList className="mt-7 overflow-hidden bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame" stagger={0.06} y={12}>
             {VS.map(([before, after], i) => (
               <li
                 key={after}

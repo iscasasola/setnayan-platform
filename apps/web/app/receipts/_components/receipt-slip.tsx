@@ -114,7 +114,7 @@ function SlipLineRow({ line }: { line: SlipLine }) {
 /** The page around the slip: the back link, the slip, the actions — the page takes the dark set, the slip never. */
 export function ReceiptPage({ children, actions }: { children: ReactNode; actions: ReactNode }) {
   return (
-    <main className="min-h-dvh bg-[var(--m-paper-2)] px-4 pb-10 pt-3.5 dark:bg-cream print:bg-white print:p-0">
+    <main className="min-h-dvh bg-page px-4 pb-10 pt-3.5 print:bg-white print:p-0">
       <style>{PRINT_CSS}</style>
       <div className="mx-auto w-full max-w-[340px]">
         <Link

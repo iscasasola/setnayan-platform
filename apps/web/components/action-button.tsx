@@ -111,7 +111,13 @@ type AsButton = Common & {
   type?: 'button' | 'submit';
   /** `form` attribute, for a submit that lives outside its form. */
   form?: string;
-  name?: string;
+  /**
+   * The FORM FIELD name this submit posts (`<button name>`), with `value`. Kept apart from `name`, which is the
+   * accessible name: one prop doing both made a "Confirm fraud" that posts `action=confirm_fraud` be read aloud as
+   * "action" (controller, 16 Nov 2026, on #7874: "add a separate form-name prop so buttons that post name/value keep
+   * working"). Absent → the button posts no field, exactly as a plain `<button>` without `name`.
+   */
+  formName?: string;
   value?: string;
   'aria-pressed'?: boolean;
   'aria-expanded'?: boolean;
@@ -194,7 +200,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         /* Waiting: a press does nothing — not its handler, and not its form. */
         type={waiting ? 'button' : (p.type ?? 'button')}
         form={p.form}
-        name={p.name}
+        name={p.formName}
         value={p.value}
         onClick={waiting ? undefined : p.onClick}
         disabled={p.disabled}

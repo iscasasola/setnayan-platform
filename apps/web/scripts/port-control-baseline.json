@@ -6918,6 +6918,7 @@
         "HeadcountView",
         "HomeBoothCard",
         "HomeCardRow",
+        "HomeControlBoardColumn",
         "HomeControlKey",
         "HomeControlRow",
         "HomeCoverBand",
@@ -6942,6 +6943,7 @@
         "HomeSettingsGear",
         "HomeSettingsLanded",
         "HomeTile",
+        "HomeTileCountKey",
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
@@ -7127,6 +7129,7 @@
         "SwipeToDelete",
         "SwitchTrack",
         "TeamMeta",
+        "TileCountKey.Provider",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -9400,6 +9403,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "ListPageSkeleton",
         "PageMasthead"
@@ -12448,10 +12452,12 @@
     },
     "/forgot-password": {
       "files": [
+        "forgot-password/_components/reset-sent.tsx",
         "forgot-password/actions.ts",
         "forgot-password/page.tsx"
       ],
       "destinations": [
+        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -12460,7 +12466,10 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "HTMLSpanElement",
         "Link",
+        "RememberResetEmail",
+        "ResetSent",
         "SubmitButton",
         "TurnstileField"
       ]
@@ -12677,6 +12686,7 @@
         "/forgot-password"
       ],
       "actions": [
+        "sendRelink",
         "sendReset",
         "signInWithPassword",
         "submitInPlace"
@@ -12897,7 +12907,6 @@
         "open-shop/page.tsx"
       ],
       "destinations": [
-        "/login?check_email=[seg]&next=%2Fvendor-dashboard",
         "/privacy",
         "/terms"
       ],
@@ -12976,9 +12985,7 @@
         "open-shop/logo/_components/add-your-logo.tsx",
         "open-shop/logo/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -13491,7 +13498,6 @@
         "reset-password/page.tsx"
       ],
       "destinations": [
-        "/forgot-password",
         "/login"
       ],
       "actions": [
@@ -13501,6 +13507,7 @@
         "DoorActions",
         "DoorNotice",
         "DoorShell",
+        "ExpiredResend",
         "Link",
         "PasswordField",
         "SubmitButton"
@@ -14169,6 +14176,7 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
         "vendor-dashboard/_components/setup-qr-step.tsx",
+        "vendor-dashboard/_components/shop-door-screen.tsx",
         "vendor-dashboard/_components/stay-on-today-line.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
         "vendor-dashboard/_components/supplier-columns.tsx",
@@ -14380,6 +14388,7 @@
         "SetupTourContext.Provider",
         "Sheet",
         "ShopBadgePill",
+        "ShopDoorPanel",
         "Show",
         "SidePanel",
         "Sk",
@@ -16335,9 +16344,9 @@
         "RecBox",
         "ReplyGauge",
         "ReplyVsPic",
-        "RiseScreen",
         "RowView",
         "Rows",
+        "ShopDoorScreen",
         "SlowPic",
         "SnapCarousel",
         "SourceBars",
@@ -16575,8 +16584,11 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardBadgeRow",
+        "CardBadgesRead",
         "CardCheckInput",
         "CardChecksSummary",
+        "CardFoot.Provider",
         "CardPhotoGallery",
         "CardRecordSection",
         "CheckChip",
@@ -16602,6 +16614,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FootCtx",
         "FormCounter",
         "FormRow",
         "FormRows",
@@ -16655,6 +16668,7 @@
         "SelectChip",
         "ServiceCardFace",
         "ServiceCardItem",
+        "ServiceCardItemFooter",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
         "ServiceCardShareSheet",
@@ -17046,7 +17060,6 @@
         "ReachMap",
         "RegNumberSaveResult",
         "RequestOnlyRow",
-        "RiseScreen",
         "Row",
         "RowIcon",
         "RowLead",
@@ -17070,6 +17083,7 @@
         "ShopBundles",
         "ShopCover",
         "ShopData",
+        "ShopDoorScreen",
         "ShopFormsBody",
         "ShopFormsMaker",
         "ShopHome",

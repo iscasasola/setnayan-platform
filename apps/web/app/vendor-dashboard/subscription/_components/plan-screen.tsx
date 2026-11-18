@@ -29,6 +29,7 @@ import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
+import { supplierPlanTier } from '@/lib/supplier-plan-offer';
 import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
@@ -102,6 +103,8 @@ export type PlanSearch = {
     applied?: string;
     /** A scheduled change was called off. */
     kept?: string;
+    /** W1-B21: the plan picked on /for-suppliers (`plus` · `pro` · `ultra`, `parseSupplierPlan`) — its row opens. */
+    plan?: string;
 };
 
 // Self-serve subscription tiers. All three paid tiers (Solo · Pro · Enterprise)
@@ -572,6 +575,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           <PlanSheet
             plans={sheet}
             current={currentTier}
+            offer={supplierPlanTier(search.plan)}
             cycle={currentCycleKey}
             verified={isVerifiedVendor}
             action={startSubscriptionPurchase}

@@ -4,6 +4,7 @@ import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
@@ -174,7 +175,10 @@ async function loadAttendedAlbum(
     .maybeSingle();
 
   const guestId = (member?.guest_id as string | null | undefined) ?? null;
-  if (memberError) return { count: 0, refs: [], measured: false };
+  if (memberError) {
+    logQueryError('photos-albums.attended.event_members', memberError, { event_id: eventId }, 'graceful_degrade');
+    return { count: 0, refs: [], measured: false };
+  }
   if (!guestId) return { count: 0, refs: [], measured: true };
 
   const gallery = await getGuestLiveGallery(eventId, guestId, THUMBS_PER_ALBUM);

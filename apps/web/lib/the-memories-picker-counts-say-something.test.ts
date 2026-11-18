@@ -53,7 +53,7 @@ test('Home marks which of its numbers it could not read', () => {
 test('each event’s photo count: a refused read is unmeasured, never 0 — and the row says so', () => {
   const data = read('app/dashboard/(account)/library/_data/photos-albums.ts');
   assert.match(data, /measured: !seatRes\.error && !guestRes\.error/, 'a refused photo read still counts as "no photos"');
-  assert.match(data, /if \(memberError\) return \{ count: 0, refs: \[\], measured: false \};/);
+  assert.match(data, /if \(memberError\) \{\s*logQueryError\([^;]*\);\s*return \{ count: 0, refs: \[\], measured: false \};/, 'a refused member read is dropped silently or counted as none');
   assert.match(data, /if \(!gallery\) return \{ count: 0, refs: \[\], measured: false \};/, 'the live gallery’s null (a failed read) counts as none');
   // The catch-all: one bad event is an album whose count is unmeasured.
   const catchAll = data.slice(data.indexOf('} catch {', data.indexOf('const loaded =')));

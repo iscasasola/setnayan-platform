@@ -109,8 +109,13 @@ test('Announce · an unanswered send is neither "sent" nor "failed": the words s
 
 test('Mood Board · a photo whose remove was not confirmed is put back', () => {
   const src = code(`${E}/studio/mood-board/_components/inspiration-board.tsx`);
-  assert.match(src, /const was = tiles\[key\(slot, pos\)\];/);
-  assert.match(src, /try \{\s*await removeMoodboardSlot\(fd\);\s*\} catch \{\s*setTiles\(\(t\) => \(\{ \.\.\.t, \[key\(slot, pos\)\]: was \}\)\);\s*setError\('Could not remove — please try again\.'\);\s*\}/);
+  // 18 Nov (one + per part): the remove waits out its Undo window in `deleteWithUndo`, whose commit RETURNS the
+  // refusal and lets a throw through — and deleteWithUndo puts the photo back and says so on either.
+  assert.match(src, /const was = tilesRef\.current\[k\];/);
+  assert.match(src, /restore: \(\) => setTiles\(\(t\) => \(t\[k\] \? t : \{ \.\.\.t, \[k\]: was \}\)\)/);
+  assert.match(src, /const res = await removeMoodboardSlot\(fd\);\s*return res\.status === 'ok' \? \{ ok: true \} : \{ ok: false, error: res\.message \?\? null \};/);
+  const undo = code('app/_components/undo/delete-with-undo.ts');
+  assert.match(undo, /\} catch \{\s*restore\(\);\s*guestToast\.error\(failed\);/, 'a thrown remove no longer puts the photo back');
 });
 
 test('floor plan · a Save that was not confirmed stays "unsaved"', () => {

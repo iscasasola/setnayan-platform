@@ -52,6 +52,7 @@ import {
   paymentScheduleSource,
   paymentDoor,
   scheduleDueText,
+  quoteScheduleFrame,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -963,6 +964,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     policyAck = null;
   }
 
+  // ⛔ A refused contracts read used to become `[]`: the chip said the booking had no contract and the panel said
+  // "No contracts uploaded yet" — over a read that never answered (audit 2026-11-17). Measured now.
+  const contractsMeasured = !contractsRes.error;
+  if (!contractsMeasured) logQueryError('workspace.contracts', contractsRes.error, { event_id: eventId });
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
     public_id: string;
@@ -1851,6 +1856,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     scheduleSource === 'quote' && acceptedQuote
       ? acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0)
       : null;
+  // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
+  // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
+  const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
+  // R12 · an unbooked quote's rows are terms, not debts — no "that day has already passed" on them.
+  const quoteBooked = stage !== null;
   const statusSection = (
       <section id="payments" aria-label="Payment" className="space-y-1">
         <PaymentAsksCard
@@ -1897,17 +1907,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         */}
         {scheduleSource === 'quote' && acceptedQuote ? (
           <TemplateSection
-            label="Schedule"
+            label={quoteSchedule.label}
             right={scheduleTotalCentavos !== null ? <b className={TEMPLATE_MONEY}>Total {pesoFromCentavos(scheduleTotalCentavos)}</b> : undefined}
-            tip={`From the quote you accepted. Pay ${displayName} directly; they confirm each payment as received.`}
+            tip={quoteSchedule.tip}
             data="schedule"
           >
+            {quoteSchedule.line ? (
+              <p className={`${TEMPLATE_SUBLINE} pb-2`} data-schedule-not-owed="">
+                {quoteSchedule.line}
+              </p>
+            ) : null}
             <TemplateRows label="Payment schedule">
               {acceptedQuote.schedule.map((row, i) => (
                 <TemplateRow
                   key={`${i}-${row.label}`}
                   title={row.label}
-                  line={`Due ${scheduleDueText(row, manilaToday())}`}
+                  line={`Due ${scheduleDueText(row, manilaToday(), quoteBooked)}`}
                   right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
                 />
               ))}
@@ -2023,6 +2038,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             summary={vendorBudgetSummary}
             eventId={eventId}
             variant="embed"
+            vendorName={displayName}
             directPayMethods={directPayMethods}
             installments={paymentPlan}
             acceptedQuoteLines={acceptedQuote?.lines ?? null}
@@ -2173,6 +2189,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <div className="flex items-center gap-2">
               {/* Derived contract indicator (2026-06-22) — shows this booking's
                   contract status at a glance, linking to the contract. */}
+              {contractsMeasured ? (
               <span
                 className={[
                   'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
@@ -2185,9 +2202,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               >
                 {bookingContractStateLabel(contractState)}
               </span>
+              ) : null}
               <Link
                 href={`/dashboard/${eventId}/contracts`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+                className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
               >
                 <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Manage
@@ -2200,6 +2218,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
+          ) : !contractsMeasured ? (
+            <p role="status" className="text-xs text-warn-800">
+              Couldn&rsquo;t load contracts just now &mdash; that does not mean there are none.
+            </p>
           ) : contracts.length === 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-ink/55">
@@ -2211,7 +2233,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   in the thread. Deep-links straight to the conversation. */}
               <Link
                 href={conversationHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
               >
                 <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Ask {displayName} for a contract

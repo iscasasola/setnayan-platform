@@ -15,7 +15,8 @@
  * ── THE SIX CHECKS (named as the approved design names them) ────────────────
  *   1. All three papers read — DTI or SEC · BIR 2303 · the city's permit, each
  *      identified as the paper its box asks for, every needed line present and
- *      nothing listed as unreadable.
+ *      nothing listed as unreadable — and each RECOGNISED (`lib/paper-recognised.ts`,
+ *      W1-B34): no test marker, issued by the government body for its type.
  *   2. The name agrees across them — after folding case, punctuation, spacing,
  *      "&"/"and" and legal suffixes, an EXACT match. "Similar" (one letter off)
  *      is a different business until a person says otherwise.
@@ -42,6 +43,7 @@ import {
   type ReadableSlotKey,
 } from '@/lib/verification-paper-read';
 import type { LivePageResult } from '@/lib/qr-live-check';
+import { notRecognisedBecause } from '@/lib/paper-recognised';
 
 export type PaperEvidence = {
   slotKey: ReadableSlotKey;
@@ -300,6 +302,10 @@ export function decideAutoVerify(input: AutoVerifyInput): AutoVerifyDecision {
     if (m.couldNotRead.length > 0) { readProblems.push(`a line on the ${name} could not be made out (${m.couldNotRead.join(', ')})`); continue; }
     if (namesOn(m).length === 0) { readProblems.push(`no name was read on the ${name}`); continue; }
     if (slot !== 'mayors_permit' && !m.registrationNumber) { readProblems.push(`no number was read on the ${name}`); continue; }
+    // 🛂 W1-B34: the same rule the supplier's "Recognised" uses — no test marker, every line its type prints, issued
+    // by the government body for that type. Anything else goes to a person, with the reason.
+    const held = notRecognisedBecause(m);
+    if (held) { readProblems.push(`the ${name} is not recognised: ${held}`); continue; }
   }
   const dti = bySlot.get('dti_certificate')?.model ?? null;
   const bir = bySlot.get('bir_2303')?.model ?? null;
@@ -474,4 +480,23 @@ export function decideAutoVerify(input: AutoVerifyInput): AutoVerifyDecision {
     checks,
     reason: failed ? failed.detail : `All ${checks.length} checks passed.`,
   };
+}
+
+/**
+ * 🔒 AUTOMATIC APPROVAL IS HELD (controller pick, 18 Nov 2026, owner said "don't wait for me
+ * to decide"). The seal fix (#7955) makes the check RUN again for the first time, but W1-B34 is
+ * still open: papers stamped "TEST — NOT VALID" can read as Recognised. Until B34 is closed, a
+ * shop whose every check passes still goes to a person — the check runs, its result and every
+ * check are logged and shown to the admin, and nothing is approved without someone.
+ * To release: set this to false in the PR that closes B34, with the owner's word.
+ */
+export const AUTO_APPROVAL_HELD = true;
+
+export const AUTO_APPROVAL_HELD_REASON =
+  'Every check passed. Automatic approval is on hold for now, so a person approves.';
+
+/** A `verify` becomes `to_admin` while automatic approval is held; anything else is unchanged. */
+export function holdAutoApproval(decided: AutoVerifyDecision, held: boolean = AUTO_APPROVAL_HELD): AutoVerifyDecision {
+  if (!held || decided.decision !== 'verify') return decided;
+  return { ...decided, decision: 'to_admin', reason: AUTO_APPROVAL_HELD_REASON };
 }

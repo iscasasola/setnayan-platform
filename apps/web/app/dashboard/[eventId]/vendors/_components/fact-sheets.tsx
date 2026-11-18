@@ -480,7 +480,7 @@ function FewDates({
 }) {
   const o = data.options ?? { mode: 'specific' as const, candidates: [], windowStart: null, windowEnd: null };
   const [w, setW] = useState({
-    mode: o.mode,
+    mode: o.mode as 'window' | 'specific' | 'months',
     candidates: [...o.candidates].sort(),
     windowStart: o.windowStart,
     windowEnd: o.windowEnd,

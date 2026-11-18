@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { CITIES } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { MAX_EVENT_AREAS } from '@/lib/create-event-capture';
 
 /**
  * Compact area picker for the non-wedding inline create form — pick up to 3 (owner 2026-11-17, Q15; was 2)

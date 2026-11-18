@@ -254,6 +254,7 @@ export function LocationStep({
         <div className="locunsure-toggle">
           <ActionButton
             tone="neutral"
+            icon={<></>}
             quiet={!unsure}
             label="Not sure yet"
             aria-pressed={unsure}

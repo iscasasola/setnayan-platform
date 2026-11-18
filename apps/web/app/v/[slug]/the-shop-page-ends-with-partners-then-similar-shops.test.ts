@@ -45,8 +45,10 @@ test('Trusted by is still the shop\'s own choice, keeps "couldn\'t load", and is
   assert.match(fn, /<TrustedByCarousel/);
 });
 
-test('each partner wears the app\'s own kind words, strongest first, and its round shop photo', () => {
-  assert.match(PAGE, /kindLabel: PARTNERSHIP_PUBLIC_LABEL\[v\.relationshipType\]/);
+test('each partner wears its tie\'s ⓘ tag (Worked together · Added · Invited), strongest first, and its round shop photo', () => {
+  // 🤝 Invite a supplier v3 (owner 16 Nov): the chip names where the tie came from, not the commercial kind.
+  assert.match(PAGE, /kindLabel: ORIGIN_TAG\[v\.origin\]/);
+  assert.match(PAGE, /kindHint: trustedByHint\(/);
   assert.match(TRUSTED, /PARTNERSHIP_RANK\[b\.relationshipType\] - PARTNERSHIP_RANK\[a\.relationshipType\]/, 'sorted by the one rank, strongest first');
   assert.match(TRUSTED, /logoRef: nameRevealed \?/, 'a still-hidden partner never shows its logo — it would name the shop');
   assert.match(PAGE, /logoUrl: v\.logoRef \? await resolveDisplayUrl\(v\.logoRef\) : null/);

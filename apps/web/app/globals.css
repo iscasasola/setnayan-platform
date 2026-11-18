@@ -3910,14 +3910,27 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dur-rise:    var(--sn-m-grow-shape);
   --sn-ease-rise:   var(--sn-m-ease-emph);
   --sn-dur-rise-reduced: 120ms;
-  /* 🎞 THE ONE TIMING TABLE (owner 13 Nov 2026, "motion approved" — grow-full-screen-fable.html § 6; DECISION_LOG
-     2026-11-13 "Motion system approved": the faster numbers REPLACE the 0.7 s rise and the 0.7 s press family). Two
-     curves only: emphasized for what travels or opens, the house spring for what lets go. Mirrored for the Web
-     Animations API by `lib/motion-table.ts`; 🔒 lib/the-motion-table-is-one.test.ts keeps the two equal. */
-  --sn-m-ease-emph:     cubic-bezier(.2,0,0,1);
-  --sn-m-ease-emph-rev: cubic-bezier(1,0,.8,1);
-  --sn-m-press-in:      100ms;
+  /* 🎞 THE ONE TIMING TABLE — 18 Nov 2026 standard + 13 Nov details, COMBINED (owner 18 Nov, *"Combine them"*; specs
+     MOTION_STANDARD_2026-11-18.md § 0 / § 2). FIVE SPEEDS + ONE LOOP, TWO EASINGS: Settle for anything that travels,
+     opens or fades; Spring (a real spring as `linear()`, a cubic fallback below) for what moves and lets go. Mirrored
+     for the Web Animations API by `lib/motion-table.ts`; 🔒 lib/the-motion-table-is-one.test.ts and
+     lib/the-motion-standard-tokens.test.ts keep the two equal.
+     ⚠ HOUSE RULE (§ 3.7): never write `var()` inside a `@keyframes` block's `animation-timing-function` — Chrome then
+     runs it LINEAR. Put the token on the element's `animation` / `transition` instead (🔒 lib/no-var-in-keyframe-timing.test.ts). */
+  --sn-m-tap:           100ms;
+  --sn-m-quick:         200ms;
   --sn-m-release:       280ms;
+  --sn-m-move:          320ms;
+  --sn-m-rise:          700ms;
+  --sn-m-sheen:         1400ms;
+  --sn-m-settle:        cubic-bezier(.2,.8,.2,1);
+  --sn-m-settle-rev:    cubic-bezier(.8,0,.8,.2);
+  --sn-m-spring:        linear(0, 0.062, 0.204, 0.379, 0.551, 0.704, 0.827, 0.919, 0.983, 1.022, 1.042, 1.05, 1.048, 1.042, 1.034, 1.025, 1.017, 1.01, 1.005, 1.002, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 1);
+  /* The 13 Nov names — ALIASES now: the emphasized `(.2,0,0,1)` is REPLACED by Settle as the travel / open curve; the
+     reversed close is Settle's reverse; the grow's press is Tap and its shape is Move. */
+  --sn-m-ease-emph:     var(--sn-m-settle);
+  --sn-m-ease-emph-rev: var(--sn-m-settle-rev);
+  --sn-m-press-in:      var(--sn-m-tap);
   --sn-m-ripple:        520ms;
   --sn-m-toggle:        260ms;
   --sn-m-toggle-tick:   140ms;
@@ -3928,8 +3941,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-m-field-line:    260ms;
   --sn-m-row-open:      320ms;
   --sn-m-row-shut:      260ms;
-  --sn-m-grow-press:    120ms;
-  --sn-m-grow-shape:    360ms;
+  --sn-m-swipe-snap:    220ms;
+  --sn-m-grow-press:    var(--sn-m-tap);
+  --sn-m-grow-shape:    var(--sn-m-move);
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
      under it stands at `top: var(--sn-pin-h)`. 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts */
   --sn-pin-h:       44px;
@@ -4028,6 +4042,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      these numbers; the edge reuses `--sn-glass-line`. */
   --sn-glass-row-alpha: 62%;
   --sn-glass-row-blur: blur(16px) saturate(1.3);
+}
+/* 🎞 Spring's fallback (MOTION_STANDARD § 2 / § 3.9): where `linear()` is not understood, the house cubic spring.
+   🔒 lib/the-motion-standard-tokens.test.ts */
+@supports not (transition-timing-function: linear(0, 1)) {
+  :root {
+    --sn-m-spring: cubic-bezier(.34,1.56,.64,1);
+  }
 }
 html.dark {
   /* 🌙 The scrim in dark mode: `--color-ink` turns LIGHT under html.dark, so the ink-based dark would LIGHTEN the

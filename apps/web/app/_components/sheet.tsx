@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -8,6 +8,67 @@ import { useBackCloses } from '@/lib/use-back-closes';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { OverlayBackdrop } from './overlay-backdrop';
 import { useShellBoundary, type ShellBoundary } from './shell-boundary';
+import { closeWindow, growPlan, playGrowParts, riseOriginNow, sheetGrowFrames, watchRiseOrigins, type GrowParts, type GrowPlan } from '@/lib/rise-screen';
+import { RISE_CLOSE_MS, RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
+
+// Note presses from the moment a sheet can open, so the first door tapped already has an origin (idempotent).
+if (typeof window !== 'undefined') watchRiseOrigins();
+
+/** Server-safe layout effect (the sheet is also rendered to static markup in tests). */
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+const boxOf = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+};
+const radiusOf = (el: HTMLElement) => {
+  const n = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return Number.isFinite(n) ? n : 14;
+};
+const reducedNow = () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+
+/**
+ * 🎞 THE GROW, ON A SHEET (owner 2026-11-13, DECISION_LOG "Motion system approved"; ported from #7686 onto the ONE grow
+ * player on 18 Nov, MOTION_STANDARD_2026-11-18.md § 0): the panel opens OUT OF the thing that was pressed — moved onto
+ * it and clipped to its box (`sheetGrowFrames`), then into place unclipped in Move 320 ms on Settle — its head, first
+ * block and the rest arriving in three steps 40 ms apart, ✕ and the foot last (`playGrowParts`, the same player as Rise
+ * full screen), the dark fading in with the shape. Closing plays the mirror at 80 %, chrome first, back into the same
+ * thing, and only then leaves the page — still showing what it showed. No fresh press behind it (a deep link, a reload,
+ * an automatic open): it simply appears and simply leaves, as before. Reduced motion: a 120 ms cross-fade.
+ */
+function sheetParts(root: HTMLElement): (GrowParts & { panel: HTMLElement; backdrop: HTMLElement | null }) | null {
+  const panel = root.querySelector<HTMLElement>('[data-sheet-panel]');
+  if (!panel) return null;
+  const head = panel.querySelector(':scope > [data-sheet-head], :scope > [data-sheet-pinned], :scope > header');
+  const body = panel.querySelector(':scope > [data-sheet-body]');
+  return {
+    panel,
+    backdrop: root.querySelector<HTMLElement>('[data-overlay-backdrop]'),
+    title: head,
+    blocks: body ? Array.from(body.children).slice(0, 9) : [],
+    chrome: Array.from(panel.querySelectorAll('[data-sheet-close], [data-sheet-handle]')),
+    bar: Array.from(panel.querySelectorAll(':scope > [data-sheet-foot]')),
+  };
+}
+
+/** Play the sheet's grow — open, or (`out`) the mirror at 80 % — and resolve when the last part has played. */
+function playSheetGrow(parts: NonNullable<ReturnType<typeof sheetParts>>, origin: HTMLElement, out: boolean): Promise<void> {
+  const runs: Animation[] = [];
+  const fade = [{ opacity: 0 }, { opacity: 1 }];
+  if (reducedNow()) {
+    runs.push(parts.panel.animate(fade, { duration: RISE_REDUCED_MS, easing: 'linear', direction: out ? 'reverse' : 'normal', fill: out ? 'forwards' : 'none' }));
+    if (out && parts.backdrop) runs.push(parts.backdrop.animate(fade, { duration: RISE_REDUCED_MS, easing: 'linear', direction: 'reverse', fill: 'forwards' }));
+  } else {
+    const plan = growPlan(false, true) as GrowPlan;
+    const shape = out ? closeWindow(plan.shape, plan) : plan.shape;
+    const frames = sheetGrowFrames(boxOf(origin), boxOf(parts.panel), radiusOf(origin));
+    runs.push(parts.panel.animate(frames, { duration: out ? RISE_CLOSE_MS : RISE_MS, delay: shape.delay, easing: RISE_EASE, direction: out ? 'reverse' : 'normal', fill: out ? 'forwards' : 'backwards' }));
+    runs.push(...playGrowParts(parts, plan, out));
+    // The dark comes and goes with the shape (and is already gone when the sheet leaves the page, so nothing flashes).
+    if (parts.backdrop) runs.push(parts.backdrop.animate(fade, { duration: out ? RISE_CLOSE_MS : RISE_MS, delay: shape.delay, easing: 'linear', direction: out ? 'reverse' : 'normal', fill: out ? 'forwards' : 'backwards' }));
+  }
+  return Promise.all(runs.map((a) => a.finished.catch(() => undefined))).then(() => undefined);
+}
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
 // small screens (single-thumb reach) and docks as a right-side drawer on
@@ -243,7 +304,48 @@ export function Sheet({
     if (open) setSnap('half');
   }, [open]);
 
-  if (!open) return null;
+  /* 🎞 Present = drawn: stays true after `open` goes false until the mirrored close has played. */
+  const [present, setPresent] = useState(open);
+  const originRef = useRef<HTMLElement | null>(null);
+  if (open && !present) setPresent(true);
+  useIsoLayoutEffect(() => {
+    const root = dialogRef.current;
+    if (!open || !host || !root) return;
+    const parts = sheetParts(root);
+    const origin = riseOriginNow();
+    originRef.current = origin && !root.contains(origin) ? origin : null;
+    if (!parts || !originRef.current || typeof parts.panel.animate !== 'function') return;
+    // Opened again while its close was still playing: that close's held last frame must not outlive this open.
+    for (const a of [...parts.panel.getAnimations({ subtree: true }), ...(parts.backdrop?.getAnimations() ?? [])]) a.cancel();
+    void playSheetGrow(parts, originRef.current, false);
+  }, [open, host]);
+  useEffect(() => {
+    if (open || !present) return;
+    const root = dialogRef.current;
+    const parts = root ? sheetParts(root) : null;
+    const origin = originRef.current;
+    if (!parts || !origin || !origin.isConnected || typeof parts.panel.animate !== 'function') {
+      setPresent(false);
+      return;
+    }
+    let live = true;
+    const done = () => {
+      if (live) setPresent(false);
+    };
+    playSheetGrow(parts, origin, true).then(done, done);
+    return () => {
+      live = false;
+    };
+  }, [open, present]);
+
+  /* While the close plays, the sheet shows what it showed when it was open — a caller that clears its item on close must
+     not empty the panel mid-close (that would be a jump). */
+  const shown = useRef({ children, head, foot });
+  if (open) shown.current = { children, head, foot };
+
+  if (!open && !present) return null;
+  const closing = !open;
+  if (closing) ({ children, head, foot } = shown.current);
 
   const sheet = (
     <div
@@ -253,6 +355,8 @@ export function Sheet({
       aria-labelledby={labelledById}
       data-sheet=""
       className={at.root}
+      data-sheet-closing={closing ? '' : undefined}
+      style={closing ? { pointerEvents: 'none' } : undefined}
     >
       {/* Backdrop — tapping the darkened space dismisses. THE shared one (`overlay-backdrop.tsx`): fixed to the screen,
           dark and blurred, a drag on it moves nothing (owner 2026-10-25). */}
@@ -346,6 +450,7 @@ export function Sheet({
               type="button"
               onClick={close}
               aria-label="Close"
+              data-sheet-close=""
               className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -356,12 +461,13 @@ export function Sheet({
             type="button"
             onClick={close}
             aria-label="Close"
+            data-sheet-close=""
             className="absolute right-[calc(0.75rem+var(--sn-safe-r))] top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-frame text-ink/70 shadow-sn-frame hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
+        <div data-sheet-body="" className={`flex-1 overflow-y-auto overscroll-contain${foot ? '' : ' pb-[max(env(safe-area-inset-bottom),16px)]'}`}>
           <InSheet.Provider value>{children}</InSheet.Provider>
         </div>
         {foot ? (

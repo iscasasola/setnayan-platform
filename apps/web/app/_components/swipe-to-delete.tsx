@@ -151,7 +151,7 @@ export function SwipeToDelete({
             all while the row is closed and still: a rounded row's anti-aliased corners would otherwise show a red
             hairline over it. It hides only once the 0.2 s slide back has ended, so a closing row never shows the page behind. */}
         <div
-          className={`absolute inset-y-0 right-0 flex [@media(hover:hover)_and_(pointer:fine)]:hidden ${tx === 0 && !dragging ? 'invisible [transition:visibility_0s_0.2s]' : ''}`}
+          className={`absolute inset-y-0 right-0 flex [@media(hover:hover)_and_(pointer:fine)]:hidden ${tx === 0 && !dragging ? 'invisible [transition:visibility_0s_var(--sn-m-swipe-snap)]' : ''}`}
           style={{ width: SWIPE_REVEAL_PX }}
         >
           <button
@@ -212,7 +212,7 @@ export function SwipeToDelete({
             // No transform at rest: a transform (even translateX(0)) makes this box the frame for every
             // `position: fixed` inside the row, and the row's own sheets would be cut to the row.
             transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
-            transition: dragging ? 'none' : 'transform 0.2s ease',
+            transition: dragging ? 'none' : 'transform var(--sn-m-swipe-snap) var(--sn-m-settle)', // 🎞 snap back 220 ms on Settle (13 Nov table, 18 Nov curve; ported from #7686)
             touchAction: 'pan-y',
           }}
         >
@@ -315,7 +315,7 @@ export function useSwipeReveal({ enabled = true, reveal = SWIPE_REVEAL_PX }: { e
   /** The row's own movement — none at rest (a transform would frame every `position: fixed` inside the row). */
   const rowStyle: CSSProperties = {
     transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
-    transition: dragging ? 'none' : 'transform 0.2s ease',
+    transition: dragging ? 'none' : 'transform var(--sn-m-swipe-snap) var(--sn-m-settle)', // 🎞 snap back 220 ms on Settle (13 Nov table, 18 Nov curve; ported from #7686)
     touchAction: 'pan-y',
   };
   return { tx, open: tx !== 0, close: () => setTx(0), rowProps, rowStyle, reveal };

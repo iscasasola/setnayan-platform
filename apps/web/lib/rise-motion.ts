@@ -12,17 +12,18 @@
  * Consumers: the picked client in Clients (it rises from the tapped list row and falls back into it). Neutral module —
  * the frames are pure (tested); `riseFromRect` uses the Web Animations API and does nothing on the server.
  * 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts (the rise's numbers and its reverse)
- * 🔒 lib/the-rise-is-0-7s.test.ts (700 ms, one number, nobody keeps their own)
+ * 🔒 lib/the-rise-is-0-7s.test.ts (kept by name: one number — Move 320 since 18 Nov — and nobody keeps their own)
  */
 
 import { EASE_EMPHASIZED, MOTION_TABLE } from '@/lib/motion-table';
 
 /**
  * ⏱ 13 Nov 2026 — the 0.7 s rise is REPLACED by the approved grow (owner "motion approved", grow-full-screen-fable.html
- * § "Why these numbers"; DECISION_LOG 2026-11-13 "Motion system approved"): the SHAPE opens in 360 ms on the emphasized
- * curve after the 120 ms press, and the close plays the same frames backwards at 80 % (288 ms) — played in reverse, the
- * emphasized curve IS the table's reversed curve `(1,0,.8,1)`. The numbers live in `lib/motion-table.ts`; these names
- * stay so every caller keeps reading the one rise.
+ * § "Why these numbers"; DECISION_LOG 2026-11-13 "Motion system approved"); 18 Nov 2026 retimed onto the motion standard
+ * (owner *"Combine them"*, MOTION_STANDARD_2026-11-18.md § 0): the SHAPE opens in Move 320 ms on Settle after the Tap
+ * 100 ms press, and the close plays the same frames backwards at 80 % (256 ms) — played in reverse, Settle IS the
+ * table's reversed curve `(.8,0,.8,.2)`. The numbers live in `lib/motion-table.ts`; these names stay so every caller
+ * keeps reading the one rise.
  */
 export const RISE_MS = MOTION_TABLE.growShapeMs;
 export const RISE_EASE = EASE_EMPHASIZED;

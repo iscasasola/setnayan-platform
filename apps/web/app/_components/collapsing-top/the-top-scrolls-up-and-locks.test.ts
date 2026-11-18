@@ -138,9 +138,9 @@ test('the event Home reads "stuck" through the shared hook — its 52-px line an
   assert.match(hook, /isStuck\(window\.scrollY, el\.getBoundingClientRect\(\)\.top, parseFloat\(getComputedStyle\(el\)\.top\)\)/);
 });
 
-test('the rise: 360 ms on the emphasized curve (.2,0,0,1), the close the exact reverse; 120 ms cross-fade under reduced motion', () => {
-  assert.equal(RISE_MS, 360);
-  assert.equal(RISE_EASE, 'cubic-bezier(.2,0,0,1)');
+test('the rise: Move 320 ms on Settle (.2,.8,.2,1) (motion standard 18 Nov), the close the exact reverse; 120 ms cross-fade under reduced motion', () => {
+  assert.equal(RISE_MS, 320);
+  assert.equal(RISE_EASE, 'cubic-bezier(.2,.8,.2,1)');
   assert.equal(RISE_REDUCED_MS, 120);
   const f = riseFrames({ left: 16, top: 400, width: 343, height: 64 }, { left: 0, top: 0, width: 375, height: 812 });
   assert.deepEqual(f[1], { transform: 'none' }, 'it does not end at rest');
@@ -154,7 +154,9 @@ test('the tokens: the pinned row is 44 px, the rise reads the timing table\'s gr
   const css = read('app/globals.css');
   assert.match(css, /--sn-pin-h: {7}44px;/);
   assert.match(css, /--sn-dur-rise: {4}var\(--sn-m-grow-shape\);/);
-  assert.match(css, /--sn-m-grow-shape: {4}360ms;/);
+  assert.match(css, /--sn-m-grow-shape: {4}var\(--sn-m-move\);/);
+  assert.match(css, /--sn-m-move: {10}320ms;/);
   assert.match(css, /--sn-ease-rise: {3}var\(--sn-m-ease-emph\);/);
-  assert.match(css, /--sn-m-ease-emph: {5}cubic-bezier\(\.2,0,0,1\);/);
+  assert.match(css, /--sn-m-ease-emph: {5}var\(--sn-m-settle\);/);
+  assert.match(css, /--sn-m-settle: {8}cubic-bezier\(\.2,\.8,\.2,1\);/);
 });

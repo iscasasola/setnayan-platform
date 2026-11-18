@@ -44,7 +44,6 @@ app/dashboard/[eventId]/monogram/animate-rows.tsx  # fold
 app/dashboard/[eventId]/schedule/_components/chapters-host.tsx  # menu-like
 app/dashboard/[eventId]/schedule/_components/day-ui.tsx  # menu-like
 app/dashboard/[eventId]/seating/_components/seat-list.tsx  # menu-like
-app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx  # fold
 app/dashboard/[eventId]/vendors/_components/build-compare.tsx  # menu-like
 app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx  # menu-like
 app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx  # menu-like

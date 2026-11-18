@@ -43,7 +43,6 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
   ['app/dashboard/(account)/people/_components/dependents-section.tsx', 'chip — a ninong / ninang chip’s ✕ inside a loved one’s card'],
-  ['app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx', 'tile — a pinned photo’s ✕ in the board’s image grid'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', 'confirm — the “Remove this photo?” box’s own Remove'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx', 'editor field — a Do / Don’t text input’s ✕ inside the dress-code form'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx', 'editor field + chip — a custom role’s fields and its colour swatches inside the palette editor'],

@@ -216,6 +216,9 @@ export const FIND_INSPIRATION_WORDS = {
     'Each category shows its parts above its suppliers. A look you saved from a supplier is marked “On your list” ' +
     'when that supplier is on your list.',
   sheetTitle: 'Your inspiration board',
+  // ⓘ The board's how-to, behind the sheet title (owner 2026-11-18, the one-+ drawing).
+  boardTip:
+    'Tap + on a part to pick photos from your phone. You can add up to 3 per part. Tap a photo to open it, swipe it left to remove it. A photo from a supplier shows their name.',
   // 💗 The opened category (owner 2026-11-12, the organized-Find prototype).
   likedHead: 'Liked ideas',
   community: 'Community photo',

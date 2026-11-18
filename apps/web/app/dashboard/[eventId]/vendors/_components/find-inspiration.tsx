@@ -25,6 +25,7 @@ import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
 import { Explain } from '@/app/_components/explain';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   FIND_BOARD_PARAM,
   FIND_INSPIRATION_WORDS as W,
@@ -272,9 +273,12 @@ export function InspirationBoardSheet({ children }: { children: React.ReactNode 
   return (
     <Sheet open onClose={close} labelledById={titleId} full rise>
       <div className="px-5 pb-[calc(1rem+var(--sn-safe-b,0px))] pt-5" data-find-inspiration-board="">
-        <h2 id={titleId} className="pr-12 text-[17px] font-semibold text-ink">
-          {W.sheetTitle}
-        </h2>
+        {/* ⓘ How the board works lives behind the title (owner 18 Nov, the one-+ drawing) — rows stay one line and a count. */}
+        <div className="pr-12">
+          <InfoTip label={W.sheetTitle} labelAs="h2" labelId={titleId} labelClassName="text-[17px] font-semibold text-ink" align="start">
+            {W.boardTip}
+          </InfoTip>
+        </div>
         <div className="mt-3">{children}</div>
       </div>
     </Sheet>

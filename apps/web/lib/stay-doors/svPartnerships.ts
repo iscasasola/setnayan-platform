@@ -5,5 +5,7 @@ export const SV_PARTNERSHIPS_STAY_DOORS = [
   'svPartnerships.declinePartnership',
   'svPartnerships.withdrawPartnership',
   'svPartnerships.changePartnershipKind',
+  'svPartnerships.removePartnership',
+  'svPartnerships.toggleTrustedByHidden',
 ] as const;
 export type SvPartnershipsStayDoor = (typeof SV_PARTNERSHIPS_STAY_DOORS)[number];

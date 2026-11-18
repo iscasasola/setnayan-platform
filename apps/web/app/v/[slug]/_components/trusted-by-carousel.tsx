@@ -4,8 +4,9 @@
  * 🤝 TRUSTED BY — an endless row of shop profile photos (owner 2026-11-14, DECISION_LOG "A SHOP PAGE ENDS WITH ITS
  * PARTNERS, THEN SIMILAR SHOPS NEARBY — APPROVED AS DRAWN"; owner: *"carousel infinity"*).
  *
- * Each partner = its round shop profile photo (the shop card's logo circle; initials with no logo) · its name · how
- * they work together, in `lib/vendor-partnership-kinds.ts`'s words. Order is the server's (strongest kind first).
+ * Each partner = its round shop profile photo (the shop card's logo circle; initials with no logo) · its name · where
+ * the tie came from — Worked together · Added · Invited (Invite a supplier v3, owner 16 Nov; `lib/supplier-invite.ts`),
+ * its one sentence on the chip's hint. Order is the server's (strongest kind first).
  *
  *   · NATIVE SWIPE — the row is a horizontal scroller with scroll-snap; a phone swipes it like any list. No library.
  *   · ENDLESS — once the row is wider than its box, the list is drawn three times and the scroller is parked on the

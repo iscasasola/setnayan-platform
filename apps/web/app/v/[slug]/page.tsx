@@ -75,7 +75,7 @@ import {
   TRUSTED_BY_UNREADABLE,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
-import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
+import { ORIGIN_TAG, trustedByHint, trustedByLine } from '@/lib/supplier-invite';
 import {
   ServicesGallery,
   type ServiceCard,
@@ -1560,21 +1560,6 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
-  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
-  const trustedByTiles: TrustedByTile[] = showTrustedBy
-    ? await Promise.all(
-        trustedBy.map(async (v) => ({
-          id: v.vendorProfileId,
-          name: v.displayName,
-          href: v.href,
-          kindLabel: PARTNERSHIP_PUBLIC_LABEL[v.relationshipType],
-          kindHint: PARTNERSHIP_PUBLIC_HINT[v.relationshipType],
-          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
-          initials: shopInitials(v.displayName, 2, 'SN'),
-        })),
-      )
-    : [];
   // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
   // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
   const distinctServiceKeys = distinctShopServices(
@@ -1808,6 +1793,22 @@ export async function renderVendorBySlug({
     isPaidTier: isTrueNameTier(effectiveTierState),
     is_verified: vendor.verification_state === 'verified',
   });
+  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
+  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  const trustedByTiles: TrustedByTile[] = showTrustedBy
+    ? await Promise.all(
+        trustedBy.map(async (v) => ({
+          id: v.vendorProfileId,
+          name: v.displayName,
+          href: v.href,
+          // 🤝 The ⓘ tag is where the tie came from (Invite a supplier v3, owner 16 Nov): Worked together · Added · Invited.
+          kindLabel: ORIGIN_TAG[v.origin],
+          kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
+          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          initials: shopInitials(v.displayName, 2, 'SN'),
+        })),
+      )
+    : [];
 
   // The shop's OTHER locations, as a customer may see them (owner-ruled
   // 2026-08-28: yes, customers should see a supplier's branches — and a branch
@@ -4225,9 +4226,7 @@ function TrustedBySection({
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Trusted by
         </h2>
-        <p className="text-sm text-ink/65">
-          Fellow suppliers who endorsed {businessName} — each one confirmed it.
-        </p>
+        <p className="text-sm text-ink/65">{trustedByLine(businessName)}</p>
       </header>
       <TrustedByCarousel tiles={vendors} label={`Suppliers who trust ${businessName}`} />
     </section>

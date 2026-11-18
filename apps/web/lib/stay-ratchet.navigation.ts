@@ -36,6 +36,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/help/actions.ts › submitHelpMessage": "one-shot contact form → `?submitted=` receipt",
   "app/host/accept/[token]/actions.ts › acceptHostInvite": "accept → event dashboard",
   "app/host/accept/[token]/actions.ts › declineHostInvite": "decline → receipt on the same token page (one-shot)",
+  "app/i/[slug]/actions.ts › joinSupplierInvite": "join through another supplier's invite link → Shop › Partnerships (the new partner)",
   "app/join/[eventId]/actions.ts › joinEventAction": "join → event page / dashboard",
   "app/join/[eventId]/actions.ts › selfJoinAction": "self-join → RSVP / request page",
   "app/join/[eventId]/connect/confirm/actions.ts › confirmSeatLinkAction": "seat-link step → next step",

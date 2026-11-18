@@ -20,6 +20,7 @@ import {
   declinePartnership,
   withdrawPartnership,
   changePartnershipKind,
+  toggleTrustedByHidden,
 } from './actions';
 import {
   PARTNERSHIP_KINDS,
@@ -27,6 +28,21 @@ import {
   PARTNERSHIP_VENDOR_LABEL_SHORT,
 } from '@/lib/vendor-partnership-kinds';
 import { StayForm } from '@/app/_components/stay-form';
+import { LIVE_SHOP_GATE } from '@/lib/live-shops';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { siteOrigin } from '@/lib/site-origin';
+import {
+  ADDED_WAITING_LINE,
+  addedYouLine,
+  joinedThroughLinkLine,
+  originOf,
+  partnerLine,
+  supplierInvitePath,
+  type PartnershipOrigin,
+} from '@/lib/supplier-invite';
+import { readJoinedThroughLink } from '@/lib/supplier-invite.server';
+import { PreferredSupplierCard, type AddableShop } from './_components/preferred-supplier-card';
+import { PartnerRemoveRow } from './_components/partner-remove-row';
 
 export const metadata = { title: 'Partnerships · Supplier' };
 
@@ -37,6 +53,15 @@ type SearchParams = {
   withdrawn?: string;
   changed?: string;
   error?: string;
+  added?: string;
+  removed?: string;
+  joined?: string;
+  already?: string;
+  hidden?: string;
+  shown?: string;
+  /** 🤝 the Add sheet's search (a GET): `add=1&q=…` opens it on arrival with the results. */
+  add?: string;
+  q?: string;
 };
 
 type PartnershipRow = {
@@ -47,6 +72,8 @@ type PartnershipRow = {
   status: string;
   is_active: boolean;
   created_at: string;
+  accepted_at: string | null;
+  origin: PartnershipOrigin;
 };
 
 // Shared with the public page and Explore — one set of words, one rank order.
@@ -76,7 +103,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const { data: rows, error: rowsError } = await supabase
     .from('vendor_partnerships')
     .select(
-      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active, created_at',
+      'id, recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active, created_at, accepted_at, origin',
     )
     .or(`recommending_vendor_id.eq.${myId},recommended_vendor_id.eq.${myId}`)
     .order('created_at', { ascending: false });
@@ -90,7 +117,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
     logQueryError('VendorPartnershipsPage.rows', rowsError, { myId }, 'graceful_degrade');
   }
   const partnershipsMeasured = !rowsError && rows !== null;
-  const partnerships = (rows ?? []) as PartnershipRow[];
+  const partnerships = ((rows ?? []) as PartnershipRow[]).map((p) => ({ ...p, origin: originOf(p.origin) }));
 
   // Resolve the OTHER party's display name for every partnership.
   const otherIds = Array.from(
@@ -139,6 +166,65 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   // ⚠ A refused read is `measured: false` and says so — it must never draw the "nobody yet" sentence.
   const served = await readPartnersYouServedWith(supabase, myId);
   const proposable = proposableShops(served);
+  // "Worked together · 2 events" — the served-together read already in hand, counted per shop.
+  const eventsWith = new Map<string, number>();
+  if (served.measured) {
+    for (const r of served.partners) eventsWith.set(r.vendorProfileId, r.events.length);
+  }
+
+  // 🙈 Owner Q5 (16 Nov): the rows this shop hid from its own Trusted by — each row's fold offers Hide / Show. A refused
+  // read draws no toggle at all (null) rather than offering "Hide" on a row that may already be hidden.
+  const { data: hiddenRows, error: hiddenError } = await supabase
+    .from('vendor_trusted_by_hidden')
+    .select('hidden_vendor_profile_id')
+    .eq('vendor_profile_id', myId);
+  if (hiddenError) logQueryError('VendorPartnershipsPage.hidden', hiddenError, { myId }, 'graceful_degrade');
+  const hiddenSet: Set<string> | null = hiddenError
+    ? null
+    : new Set(((hiddenRows ?? []) as { hidden_vendor_profile_id: string }[]).map((h) => h.hidden_vendor_profile_id));
+
+  // ── 🤝 ADD A PREFERRED SUPPLIER (Invite a supplier v3, owner 16 Nov) ──────────────────────────────────────────
+  const slug = (profile as { business_slug?: string | null }).business_slug ?? null;
+  const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
+  const invitePath = slug ? supplierInvitePath(slug) : null;
+  const inviteUrl = invitePath ? `${siteOrigin()}${invitePath}` : null;
+  const [inviteSvg, joinedCount] = await Promise.all([
+    inviteUrl ? renderUrlQrSvg(inviteUrl).catch(() => null) : Promise.resolve(null),
+    readJoinedThroughLink(supabase, myId),
+  ]);
+  const query = (sp.q ?? '').trim().slice(0, 60);
+  let addResults: AddableShop[] | 'unreadable' | null = null;
+  if (sp.add === '1' && query.length >= 2) {
+    // Setnayan shops that are live on the marketplace, by name — never this shop.
+    const { data: found, error: findError } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, location_city')
+      .ilike('business_name', `%${query.replace(/[%_,()]/g, ' ')}%`)
+      // The ONE rule for a live, verified shop (lib/live-shops.ts) — never the columns spelled by hand.
+      .match(LIVE_SHOP_GATE)
+      .neq('vendor_profile_id', myId)
+      .order('business_name', { ascending: true })
+      .limit(20);
+    if (findError) {
+      logQueryError('VendorPartnershipsPage.addSearch', findError, { myId }, 'graceful_degrade');
+      addResults = 'unreadable';
+    } else {
+      const tied = new Map<string, 'sent' | 'partner'>();
+      for (const p of partnerships) {
+        const other = p.recommending_vendor_id === myId ? p.recommended_vendor_id : p.recommending_vendor_id;
+        if (p.status === 'accepted' && p.is_active) tied.set(other, 'partner');
+        else if (p.status === 'proposed' && p.is_active && p.recommending_vendor_id === myId && !tied.has(other)) tied.set(other, 'sent');
+      }
+      addResults = ((found ?? []) as { vendor_profile_id: string; business_name: string | null; location_city: string | null }[])
+        .filter((v) => v.business_name?.trim())
+        .map((v) => ({
+          vendorProfileId: v.vendor_profile_id,
+          name: v.business_name!.trim(),
+          line: v.location_city ?? '',
+          state: tied.get(v.vendor_profile_id) ?? null,
+        }));
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
@@ -163,6 +249,28 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         <FormFlash tone="success">Partnership accepted — the badge is now live on both profiles.</FormFlash>
       ) : null}
       {sp.declined ? <FormFlash tone="success">Request declined.</FormFlash> : null}
+      {sp.added ? (
+        <FormFlash tone="success">
+          Added. They are on your Trusted by now; you show on theirs once they accept.
+        </FormFlash>
+      ) : null}
+      {sp.removed ? <FormFlash tone="success">Removed from both shop pages.</FormFlash> : null}
+      {sp.joined ? (
+        <FormFlash tone="success">You joined — you are each other&rsquo;s preferred supplier now.</FormFlash>
+      ) : null}
+      {sp.already ? <FormFlash tone="success">You two are partners already.</FormFlash> : null}
+      {sp.hidden ? <FormFlash tone="success">Hidden from your Trusted by. Your partnership is unchanged.</FormFlash> : null}
+      {sp.shown ? <FormFlash tone="success">Shown on your Trusted by again.</FormFlash> : null}
+
+      {/* ── 🤝 ADD A PREFERRED SUPPLIER — at the top (Invite a supplier v3, owner 16 Nov) ─────────────────────── */}
+      <PreferredSupplierCard
+        shopName={shopName}
+        invite={inviteUrl ? { url: inviteUrl, svg: inviteSvg, label: inviteUrl.replace(/^https?:\/\//, '') } : null}
+        joinedLine={joinedCount === null ? null : joinedThroughLinkLine(joinedCount)}
+        query={query}
+        results={addResults}
+        openAdd={sp.add === '1'}
+      />
       {sp.withdrawn ? <FormFlash tone="success">Request withdrawn.</FormFlash> : null}
 
       {/* ── INCOMING PROPOSALS (accept / decline) ─────────────────────────── */}
@@ -192,7 +300,9 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
                   <p className="text-xs text-ink/55">
-                    Proposes: {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
+                    {p.origin === 'added'
+                      ? addedYouLine(p.created_at)
+                      : `Proposes: ${RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}`}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -236,7 +346,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                 // line under it, NO buttons on the closed row. It used to carry the kind dropdown and Re-propose
                 // beside the name, which crushed the name to one word per line on a phone. Tapping opens the row in
                 // place (the shared Fold) — same pattern as the propose list below.
-                <li key={p.id} className="m-card px-4">
+                <PartnerRemoveRow key={p.id} id={p.id} name={otherName(p)}>
+                  <div className="px-4">
                   <Fold
                     title={otherName(p)}
                     titleNode={
@@ -247,7 +358,12 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         </span>
                       </>
                     }
-                    line={`${kindLabel} · ${iProposed ? 'You proposed' : 'They proposed'}`}
+                    line={
+                      // 🤝 Invited and added ties say where they came from (v3); a worked-together tie keeps its kind.
+                      p.origin === 'worked_together'
+                        ? `${partnerLine({ origin: p.origin, iProposed, at: p.accepted_at, events: eventsWith.get(iProposed ? p.recommended_vendor_id : p.recommending_vendor_id) ?? null })} · ${kindLabel}`
+                        : partnerLine({ origin: p.origin, iProposed, at: p.accepted_at ?? p.created_at })
+                    }
                     wrap
                     lead={<CheckCircle2 className="h-5 w-5 text-success-600" />}
                     data="partner-accepted"
@@ -301,8 +417,13 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         They proposed this partnership, so only they can change how it&rsquo;s described.
                       </p>
                     )}
+                    <TrustedByToggle
+                      otherId={iProposed ? p.recommended_vendor_id : p.recommending_vendor_id}
+                      hidden={hiddenSet}
+                    />
                   </Fold>
-                </li>
+                  </div>
+                </PartnerRemoveRow>
               );
             })}
           </ul>
@@ -322,8 +443,14 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
                   <p className="text-xs text-ink/55">
-                    {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
-                    {' · '}Waiting for them to accept
+                    {p.origin === 'added' ? (
+                      ADDED_WAITING_LINE
+                    ) : (
+                      <>
+                        {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
+                        {' · '}Waiting for them to accept
+                      </>
+                    )}
                   </p>
                 </div>
                 <StayForm door="svPartnerships.withdrawPartnership" action={withdrawPartnership}>
@@ -411,6 +538,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                       </p>
                     </div>
                   </StayForm>
+                  {/* Served together = automatic on your Trusted by (owner Q5) — hide it here if you'd rather not. */}
+                  {v.isLive ? <TrustedByToggle otherId={v.vendorProfileId} hidden={hiddenSet} /> : null}
                 </Fold>
               </li>
             ))}
@@ -418,5 +547,31 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * 🙈 Hide / Show one row on this shop's OWN Trusted by (owner Q5, 16 Nov). Inside the row's fold, never on the closed
+ * row. `hidden` null = the hidden-rows read failed: no toggle rather than a guess.
+ */
+function TrustedByToggle({ otherId, hidden }: { otherId: string; hidden: Set<string> | null }) {
+  if (!hidden) return null;
+  const isHidden = hidden.has(otherId);
+  return (
+    <StayForm door="svPartnerships.toggleTrustedByHidden" action={toggleTrustedByHidden} className="flex flex-col gap-1 pb-4">
+      <input type="hidden" name="other_vendor_id" value={otherId} />
+      <input type="hidden" name="hide" value={isHidden ? '0' : '1'} />
+      <div>
+        <SubmitButton
+          pendingLabel={isHidden ? 'Showing…' : 'Hiding…'}
+          className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+        >
+          {isHidden ? 'Show on your Trusted by' : 'Hide from your Trusted by'}
+        </SubmitButton>
+      </div>
+      <p className="text-xs text-ink/45">
+        {isHidden ? 'Hidden from your shop page. ' : ''}Only your page changes — the tie and their page stay as they are.
+      </p>
+    </StayForm>
   );
 }

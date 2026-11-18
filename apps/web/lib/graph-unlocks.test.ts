@@ -44,7 +44,10 @@ test('below Bronze, a badge hides its graphs and leaves ONE plain line, in the d
   assert.deepEqual(lockedLine(cb), { lead: 'Events Bronze', rest: 'shows you your slow months' });
   assert.deepEqual(lockedLine(u.locked.find((l) => l.badge === 'five_star_reviews')!), { lead: 'Reviews Bronze', rest: 'shows you what couples say' });
   assert.deepEqual(lockedLine(u.locked.find((l) => l.badge === 'gifts_given')!), { lead: 'Gift points Bronze', rest: 'shows you which gifts turn into bookings' });
-  assert.equal(u.locked.length, 3, 'one line per counted badge with graphs (completed · five-star · gifts), never one per graph');
+  // Invites is COUNTED since Invite a supplier v3 (#7891 flips BADGE_REWARDS.invites.measured): it is locked below
+  // Bronze too, but the drawing gives it no line (BRONZE_LINES), so lockedLine is null and nothing is printed for it.
+  assert.equal(lockedLine(u.locked.find((l) => l.badge === 'invites')!), null, 'Invites has no line in the drawing');
+  assert.equal(u.locked.length, 4, 'one entry per counted badge with graphs (completed · five-star · gifts · invites), never one per graph');
 });
 
 test('Bronze, the badges and their names are main’s — SHOP_BADGE_STEPS and BADGE_REWARDS, never a copy', () => {
@@ -85,7 +88,7 @@ test('a shop that already saw graphs keeps them — but a graph NEW with this ch
   for (const g of ['slow', 'lost', 'split', 'rep', 'replyvs']) assert.ok(!u.hidden.has(g), `${g} was seen before — kept`);
   assert.ok(u.hidden.has('gifts'), 'the gifts graph is new: nobody "had" it');
   assert.ok(u.hidden.has('invites'), 'the Invites graph is new too');
-  assert.deepEqual(u.locked.map((l) => l.badge), ['gifts_given']);
+  assert.deepEqual(u.locked.map((l) => l.badge), ['gifts_given', 'invites'], 'both NEW graphs wait for their badge (Invites is counted since #7891)');
 });
 
 test('a count we could not read is never 0: the graphs stay shown, no locked line, and the badge is named unsure', () => {

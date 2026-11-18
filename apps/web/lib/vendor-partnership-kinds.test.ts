@@ -160,7 +160,9 @@ test('neither surface keeps its own copy of the rank order', () => {
 
 test('the public page reads the shared labels, not its own map', () => {
   const profile = read('..', 'app', 'v', '[slug]', 'page.tsx');
-  assert.match(profile, /PARTNERSHIP_PUBLIC_LABEL\[/);
+  // 🤝 Invite a supplier v3 (owner 16 Nov): Trusted by's chip is the tie's origin tag (Worked together · Added ·
+  // Invited), read from the one shared map in lib/supplier-invite.ts — still never a local copy.
+  assert.match(profile, /ORIGIN_TAG\[/);
   assert.ok(
     !/TRUSTED_BY_RELATIONSHIP_LABEL\s*:/.test(profile),
     'the old local label map is back',

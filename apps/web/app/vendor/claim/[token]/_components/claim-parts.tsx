@@ -270,6 +270,71 @@ export function TeamInviteDoor({
   );
 }
 
+/**
+ * 🤝 THE DOOR ON ANOTHER SUPPLIER'S INVITE LINK (`/i/<slug>`) — Invite a supplier v3 (owner 16 Nov 2026, specs
+ * cb1affde frame 3 "Proposed · invited by a supplier"). The shipped claim door's shape and perks, with a supplier as
+ * the inviter: eyebrow · title · one line · What you get · Create my free shop / I already have a Setnayan shop.
+ * `existing` is the second button — a link to sign in, or (signed in with a shop) the page's own join form.
+ */
+export function SupplierInviteDoor({
+  inviterName,
+  createHref,
+  existing,
+  note,
+}: {
+  inviterName: string;
+  createHref: string | null;
+  existing: ReactNode;
+  /** A plain line under the buttons (a refusal, "your own link", …). */
+  note?: ReactNode;
+}) {
+  return (
+    <DoorShell
+      width="lg"
+      eyebrow="Invited by a supplier"
+      title={
+        <>
+          <strong className="font-semibold">{inviterName}</strong> invited you to join Setnayan.
+        </>
+      }
+      sub={
+        <>
+          Once you&rsquo;re in, you are each other&rsquo;s <strong className="text-ink">preferred supplier</strong>.
+        </>
+      }
+    >
+      <article className="space-y-6" data-claim-door="supplier-invite">
+        <section>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">What you get</p>
+          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>
+              {inviterName} shows on your page as a preferred supplier, and you on theirs
+            </Perk>
+            <Perk>Chat with them in-app</Perk>
+            <Perk>Marketplace exposure to other PH couples</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
+          </ul>
+        </section>
+
+        <div className="flex flex-wrap gap-3">
+          {createHref ? (
+            <ActionButton
+              tone="brand"
+              main
+              icon={<UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+              label="Create my free shop"
+              href={createHref}
+            />
+          ) : null}
+          {existing}
+        </div>
+        {note ? <p className="text-xs text-ink/55">{note}</p> : null}
+      </article>
+    </DoorShell>
+  );
+}
+
 export function SnapshotField({
   label,
   value,

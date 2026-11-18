@@ -399,10 +399,10 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
     place: 'setup',
     label: 'Team',
     picker: 'Show',
-    href: null,
+    href: '/admin/team',
     line: 'Who can do what, and who did it.',
-    views: [],
-    waitsOn: ['#7585 (Team & permissions, Admin log)'],
+    // #7585 (Team & permissions, Admin log) — carried in by its merge with main, 18 Nov.
+    views: [v('team', 'Team & permissions', '/admin/team'), v('admin-log', 'Admin log', '/admin/admin-log')],
   },
   {
     key: 'switches',

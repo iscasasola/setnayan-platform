@@ -329,6 +329,16 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'app/admin/fraud/actions.ts',
+    {
+      count: 1,
+      why:
+        'Staff only. It is in the scanned set because the home page\'s cron-free runner (lib/admin/self-approval-runner.ts, ' +
+        'DECISION_LOG 2026-11-13) imports the admin approvals dispatcher, which executes an owner-confirmed fraud wipe-ban; ' +
+        'the read is the banned shop\'s appeal address for the ban notice, server-side, never returned to any page.',
+    },
+  ],
+  [
     'app/dashboard/[eventId]/access-requests/actions.ts',
     {
       count: 1,

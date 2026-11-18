@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import {
   MAX_ONBOARDING_DISCOUNT_PCT,
@@ -67,6 +68,8 @@ export async function saveRetailRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   // Every field the row card can submit, read HERE and nowhere else —
@@ -316,6 +319,8 @@ export async function retireRetailRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('service_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing service code.' };
@@ -359,6 +364,8 @@ export async function reactivateRetailRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('service_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing service code.' };
@@ -392,6 +399,8 @@ export async function removeRetailRowForGood(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('service_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing service code.' };
@@ -442,6 +451,8 @@ export type RemoveAllState = { ok: boolean; message: string | null; removed: num
  */
 export async function removeAllSafeRetailRows(): Promise<RemoveAllState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const { data: retired } = await admin
@@ -490,6 +501,8 @@ export async function saveBundleRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const code = String(formData.get('package_code') ?? '').trim();
@@ -540,6 +553,8 @@ export async function retireBundleRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('package_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing bundle code.' };
@@ -582,6 +597,8 @@ export async function reactivateBundleRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('package_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing bundle code.' };
@@ -619,6 +636,8 @@ export async function saveVendorRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const code = String(formData.get('sku_code') ?? '').trim();
@@ -671,6 +690,8 @@ export async function retireVendorRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('sku_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing SKU code.' };
@@ -714,6 +735,8 @@ export async function reactivateVendorRow(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // Areas × levels (DECISION_LOG 2026-11-13): prices_promos · escalated.
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
   const code = String(formData.get('sku_code') ?? '').trim();
   if (!code) return { ok: false, message: 'Missing SKU code.' };

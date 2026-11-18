@@ -314,6 +314,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'admin_scopes',
+    decision: 'excluded',
+    why:
+      'Staff console configuration (admin areas × levels, 2026-11-13, migration 20271350705084): which admin areas an ' +
+      'account may act in. The same kind of fact as the users.is_team_member flag, which the export already carries on ' +
+      'the profile; `granted_by` is an actor stamp (SET NULL on delete) and no customer data is held here.',
+  },
+  {
     table: 'card_claim_words',
     decision: 'excluded',
     why:

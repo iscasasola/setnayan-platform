@@ -86,7 +86,11 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // merged tree — re-measure with the test, never trust this number).
 // 153 since 2026-11-14: one more PAGE, Admin › What can I ask? (`/admin/ask`, Focus | Full — owner approved 14 Nov) —
 // every page must still reach the model, so the rule above, raised by one.
-export const MODEL_CHOICE_CAP = 157; // +1 for /admin/offers, +3 for the Focus ask answers (admin reorg v7/v10). On a merge with #7693/#7585: take the higher value, +4.
+// 155 since 2026-11-15 (on top of main's 153): two more PAGES, Admin › Team and Admin › Admin log (admin slice 2 — areas ×
+// levels, DECISION_LOG 2026-11-13) — every page must still reach the model, so the rule above, raised by two
+// (measured with the test on the merged tree).
+// 159 on the merge with main's 157 (#7585 adds the two pages above; re-measured with the test on the merged tree).
+export const MODEL_CHOICE_CAP = 159; // +1 for /admin/offers, +3 for the Focus ask answers (admin reorg v7/v10). On a merge with #7693/#7585: take the higher value, +4.
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

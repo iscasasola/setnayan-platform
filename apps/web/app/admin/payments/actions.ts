@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
@@ -160,6 +161,8 @@ function deskQuery(raw: FormDataEntryValue | null): string | null {
 
 export async function approvePayment(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
   const q = deskQuery(formData.get('q'));
   // ── RECORD A PAYMENT RECEIVED (owner 2026-10-01, admin rows 13–16) ────────
   // An intent branch, not a new exported action: the server-action budget is
@@ -903,6 +906,8 @@ async function isPaymentDecisiveById(
  */
 export async function batchApprovePayments(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
   const ids = formData
     .getAll('batch_payment_ids')
     .filter((v): v is string => typeof v === 'string' && v.length > 0);
@@ -1208,6 +1213,8 @@ async function issueReceiptForOrder(args: {
 
 export async function rejectPayment(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
   const paymentId = formData.get('payment_id');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
@@ -1384,6 +1391,8 @@ export async function rejectPayment(formData: FormData) {
 
 export async function requestPaymentResubmit(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
   const paymentId = formData.get('payment_id');
   const noticeRaw = formData.get('admin_resubmit_notice');
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
@@ -1516,6 +1525,8 @@ export async function requestPaymentResubmit(formData: FormData) {
 
 export async function refundOrder(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
+  await requireAdminCan('refunds', 'escalated');
   // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
   // Two intent branches, not new exported actions: the server-action budget is
   // at its ceiling, and both sit beside this refund tool on the same order row.
@@ -1901,6 +1912,8 @@ async function applyRefund(
 
 export async function confirmOrderTotal(formData: FormData) {
   await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
   const orderId = formData.get('order_id');
   const confirmedRaw = formData.get('confirmed_total_php');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));
@@ -1972,6 +1985,8 @@ export async function confirmOrderTotal(formData: FormData) {
  */
 export async function releasePayoutHoldAction(formData: FormData) {
   const { userId } = await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · escalated.
+  await requireAdminCan('payments', 'escalated');
   const payoutId = nullIfBlank(formData.get('payout_id'));
   if (!payoutId) throw new Error('Missing payout_id.');
   const reason = nullIfBlank(formData.get('reason'));
@@ -2013,6 +2028,8 @@ export async function releasePayoutHoldAction(formData: FormData) {
  */
 export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   await requireAdmin();
+  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+  await requireAdminCan('payments', 'basic');
 
   const paymentId = nullIfBlank(formData.get('payment_id'));
   if (!paymentId) throw new Error('Missing payment_id.');

@@ -26,7 +26,7 @@ import { readPaymentLights } from '@/lib/admin/green-payments.server';
 import { greenIds } from '@/lib/admin/green-payments';
 import { overridePublishReview, rejectAppeal } from '@/app/admin/reviews/actions';
 import { markPayoutPaidAction } from '@/app/admin/payouts/actions';
-import { approveRequest, rejectRequest } from '@/app/admin/approvals/actions';
+import { adminTeamAct, approveRequest } from '@/app/admin/approvals/actions';
 
 /**
  * Settle a queue item FROM THE WORK LIST, without leaving it.
@@ -227,11 +227,13 @@ export async function agreeToRequestFromWorkList(formData: FormData): Promise<vo
     const back = safeNext(formData.get('back'), '/admin/work');
     const reason = pickedReason('approval', formData.get('reason'));
     if (!reason) redirect(workBackHref(back, 'refused', 'Pick the reason your colleague will see.'));
+    // `rejectRequest` is reached through the Team dispatcher (op=reject) since admin slice 2 — one export, no new route.
     const fd = new FormData();
+    fd.set('op', 'reject');
     fd.set('approval_id', String(formData.get('approval_id') ?? ''));
     fd.set('reason', reason);
     try {
-      await rejectRequest(fd);
+      await adminTeamAct(fd);
     } catch (e) {
       redirect(workBackHref(back, 'refused', e instanceof Error ? e.message : 'That could not be done.'));
     }

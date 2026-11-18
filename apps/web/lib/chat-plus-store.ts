@@ -74,6 +74,16 @@ export function usePlus(threadId: string): State {
 /** The DOM id of a draft card / the scroll target of a pin. */
 export const PLUS_DRAFT_ANCHOR = 'chat-plus-draft';
 
+/** The scroll position that centres a target (`top` from the scroller's start, `height` tall) in a `view`-tall box. */
+export function centredScrollTop(top: number, height: number, view: number): number {
+  return Math.max(0, Math.round(top - view / 2 + Math.min(height, view) / 2));
+}
+
+/** Is a box (its top and bottom against the screen) wholly on a `view`-tall screen? */
+export function inViewport(top: number, bottom: number, view: number): boolean {
+  return top >= 0 && bottom <= view;
+}
+
 /** Scroll a card into view and ring it for a moment (the prototype's `jump`). */
 export function jumpTo(anchorId: string): void {
   if (typeof document === 'undefined') return;
@@ -85,10 +95,16 @@ export function jumpTo(anchorId: string): void {
   while (box && !(box.scrollHeight > box.clientHeight && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) {
     box = box.parentElement;
   }
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const behavior = reduce ? 'auto' : 'smooth';
+  const rect = el.getBoundingClientRect();
   if (box) {
-    const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    box.scrollTo({ top: Math.max(0, top - box.clientHeight / 2 + el.clientHeight / 2), behavior: reduce ? 'auto' : 'smooth' });
+    const top = rect.top - box.getBoundingClientRect().top + box.scrollTop;
+    box.scrollTo({ top: centredScrollTop(top, el.clientHeight, box.clientHeight), behavior });
+  } else if (!inViewport(rect.top, rect.bottom, window.innerHeight)) {
+    // 📍 CHAT-25 (walk 16 Nov 2026): on a chat whose PAGE is the scroller (the couple's, at 390 px) there is no
+    // conversation scroller to move, and the new card sat at y≈1114 of an 844-px screen. Then the page itself scrolls.
+    window.scrollTo({ top: centredScrollTop(rect.top + window.scrollY, el.clientHeight, window.innerHeight), behavior });
   }
   el.setAttribute('data-hot', '');
   window.setTimeout(() => el.removeAttribute('data-hot'), 1400);

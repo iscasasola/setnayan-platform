@@ -216,7 +216,7 @@ export function GiftStore({
     if (state.status === 'error') notify.error(state.message);
   }, [state, notify]);
 
-  // Scroll to the row just added and flash it (prototype v16 `rowFlash`, 1.4 s).
+  // Scroll to the row just added and highlight it (prototype v16; Rise 700, gift-store.module.css).
   useEffect(() => {
     if (!open || !flash) return;
     const t = window.setTimeout(() => {

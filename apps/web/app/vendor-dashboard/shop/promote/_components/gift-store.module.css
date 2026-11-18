@@ -1,26 +1,43 @@
-/* 🛒 The gift store's two motions, from the owner-approved prototype gifts-interactive v16 (2026-11-17):
-   the row just added flashes (`rowFlash`, 1.4 s) and the "Added to your order" note rises then falls toward the cart
-   bar (`tstGo`, 2.4 s). Both are still under "reduce motion". */
+/* 🛒 The gift store's two motions (owner-approved prototype gifts-interactive v16, 2026-11-17), timed to the
+   Motion Standard 2026-11-18 — transform + opacity only, named speeds, curves written literally (never var() inside
+   a keyframe's timing function):
+   • the row just added is HIGHLIGHTED: an accent ring that fades out over Rise 700 on Settle. The ring sits on a
+     pseudo-element and only its OPACITY moves, so nothing repaints a box-shadow every frame;
+   • "Added to your order" is a TOAST: in Move 320 on Spring, out Quick 200 on Settle after it has been read. The
+     section unmounts it a moment later (GIFT_TOAST_MS in shop-gifts-section.tsx).
+   Reduced motion: no animation, and the toast still SHOWS — it is the only "Added" confirmation on the screen. */
 .flash {
-  animation: rowFlash 1.4s ease-out both;
+  position: relative;
   background: rgb(37 99 235 / 0.06);
 }
-@keyframes rowFlash {
-  0% { box-shadow: inset 0 0 0 2px var(--sn-accent, #2563eb); }
-  100% { box-shadow: inset 0 0 0 2px transparent; }
+.flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--sn-accent, #2563eb);
+  opacity: 0;
+  animation: giftRowHighlight 700ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes giftRowHighlight {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 .toast {
   translate: -50% -50%;
-  animation: tstGo 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation:
+    giftToastIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+    giftToastOut 200ms cubic-bezier(0.2, 0.8, 0.2, 1) 2000ms forwards;
 }
-@keyframes tstGo {
-  0% { opacity: 0; transform: scale(0.85); }
-  12% { opacity: 1; transform: scale(1.03); }
-  18% { transform: scale(1); }
-  72% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(300px) scale(0.3); }
+@keyframes giftToastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes giftToastOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .flash { animation: none; }
-  .toast { animation: none; opacity: 0; }
+  .flash::after { animation: none; }
+  .toast { animation: none; }
 }

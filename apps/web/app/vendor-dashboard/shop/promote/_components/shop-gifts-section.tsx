@@ -156,6 +156,9 @@ function day(iso: string): string {
     : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 }
 
+/** How long the "Added to your order" toast stays (its fade-out starts at 2 s, gift-store.module.css). */
+const GIFT_TOAST_MS = 2400;
+
 /**
  * 🎁 YOUR GIFTS — the supplier's gift stock and its STORE (owner-approved prototype `gifts-interactive` v16, 2026-11-17,
  * "build it"; first drawn as prototype supplier dashboard v59 "Your gifts", 2026-11-04).
@@ -193,6 +196,13 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const [sheetCode, setSheetCode] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ code: string; n: number } | null>(null);
   const [toast, setToast] = useState<{ label: string; n: number; key: number } | null>(null);
+  // The "Added to your order" toast leaves on its own (gift-store.module.css fades it out at 2 s) — and is taken off the
+  // screen here, so with reduced motion (no fade) it still shows, then goes, rather than never showing or never going.
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), GIFT_TOAST_MS);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
   const list = tiles(packs, stock);
   const free = (t: Tile) => (t.stock ? freeCredits(t.stock) ?? 0 : null);

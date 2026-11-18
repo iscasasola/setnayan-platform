@@ -57,7 +57,10 @@ test('F-W1-10 · closing the Terms sheet holds for the browser session', () => {
 
 test('F-W1-06 · "Celebration" is said as an event on Events you serve; the key is kept', () => {
   const tiles = code('app/open-shop/_components/event-tiles.tsx');
-  assert.match(tiles, /e\.key === 'celebration' \? \{ \.\.\.e, label: 'Other events' \} : e/);
+  // The rule moved to one shared module (R7, 18 Nov: Discover's Occasion filter uses it too) — the door still calls it.
+  assert.match(tiles, /return eventTypeShownWords\(options\)/, 'the supplier door no longer uses the shared word rule');
+  assert.match(code('lib/event-type-shown-words.ts'), /e\.key === GENERIC_EVENT_TYPE_KEY \? \{ \.\.\.e, label: GENERIC_EVENT_TYPE_WORD \} : e/);
+  assert.match(code('lib/event-type-shown-words.ts'), /GENERIC_EVENT_TYPE_KEY = 'celebration'[\s\S]*GENERIC_EVENT_TYPE_WORD = 'Other events'/);
   assert.match(WIZARD, /supplierEventWords\(rosterIn\)/, 'the wizard must use the door words for its roster');
 });
 

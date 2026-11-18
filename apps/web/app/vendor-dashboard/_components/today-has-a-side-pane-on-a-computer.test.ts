@@ -74,7 +74,8 @@ test('3 · below 1280 the pane is contents and its own parts hidden; from 1280 i
 test('4 · Verified only once checked, and it opens the one paper place', () => {
   const v = SIDE.slice(SIDE.indexOf('shop.pill'), SIDE.indexOf('</aside>'));
   assert.match(v, /shop\.pill === 'Checking' \|\| shop\.pill === 'Not sent' \? null :/, 'Verified must never show before the papers are checked (sent or not)');
-  assert.match(v, /href=\{PERMIT_PAPERS_HREF\}/);
+  // The papers door is the renewal's one href since papers renewal (#7875) retired PERMIT_PAPERS_HREF — same address.
+  assert.match(v, /href=\{RENEW_PAPERS_HREF\}/);
 });
 
 test('5 · the small cards are the stats already read, never a typed figure', () => {

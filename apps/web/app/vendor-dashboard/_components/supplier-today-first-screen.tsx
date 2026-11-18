@@ -24,7 +24,8 @@ import {
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
-import { PERMIT_PAPERS_HREF, type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { RENEW_PAPERS_HREF } from '@/lib/papers-renewal';
+import { type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
@@ -484,7 +485,7 @@ export function SupplierTodayFirstScreen({
           they are being checked the Shop row already says so, and nothing here claims more. */}
       {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
-          <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
+          <TodayRow href={RENEW_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>
       )}
       </aside>

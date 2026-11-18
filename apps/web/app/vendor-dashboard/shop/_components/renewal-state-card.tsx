@@ -57,7 +57,7 @@ export function RenewalStateCard({ card, facts }: { card: 'free_unverified' | 'w
         </p>
         <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
           {renewalWaitingBody(facts.handTyped ?? null)} You stay out of Find until then;{' '}
-          {n === null ? 'your bookings carry on.' : `your ${formatCount(n)} ${n === 1 ? 'booking carries' : 'bookings carry'} on.`}
+          {n === null || n === 0 ? 'your bookings carry on.' : `your ${formatCount(n)} ${n === 1 ? 'booking carries' : 'bookings carry'} on.`}
         </p>
       </div>
     );

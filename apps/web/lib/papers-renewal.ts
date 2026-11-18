@@ -247,7 +247,7 @@ export function freeUnverifiedLines(bookings: number | null): Array<{ ok: boolea
     {
       ok: true,
       text:
-        bookings === null
+        bookings === null || bookings === 0
           ? 'Your bookings carry on'
           : `Your ${formatCount(bookings)} ${bookings === 1 ? 'booking carries' : 'bookings carry'} on`,
     },

@@ -58,3 +58,11 @@ SPEC IMPACT: None — builds the approved prototype; the "find, not book" wordin
   save, the Switches line, `fetchVendorValidateContacts`; the two columns stay, unread). A failed claim of the number
   read off the DTI/SEC paper is written as an audit row and the admin's registration check says "Claim failed"
   (`readRegistrationClaimFailures`) instead of only logging it.
+
+### Opus review fixes (2026-11-18, wave 4)
+- Merged with #7793 and origin/main. The shop page keeps main's Awards row; a lapsed shop's Verified award stays hidden (`&& !renewing`).
+- The Today side pane's "Setnayan Verified" row imported `PERMIT_PAPERS_HREF`, which this PR deleted. It is now pointed at `RENEW_PAPERS_HREF` (same address), so the typecheck builds again.
+- 💸 Re-approval stops, and writes nothing, when the held-plan read fails. Before, a failed read approved anyway and a Plus/Pro shop's held days were lost for good. The failure is logged with `logQueryError`.
+- The admin Renewals list fetches one extra day, so a shop 7 Manila calendar days out lands in "Due in 7 days". A shop's record shows its newest 40 reminders, not its oldest.
+- "Your 0 bookings carry on" now reads "Your bookings carry on".
+- The drop-function migration moves to the forward prefix `20271350627144`. It was never applied.

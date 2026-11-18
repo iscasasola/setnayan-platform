@@ -44,7 +44,9 @@ export async function readRenewalsList(now: Date = new Date()): Promise<Renewals
   // The SERVICE ROLE, inline: the renewal day is a trust column no session reads (20271217955839).
   const admin = createAdminClient();
   // The windows are the chips' own: "Due in N days" is the last reminder window, "Renewed" the news line's two weeks.
-  const weekAhead = new Date(now.getTime() + RENEWAL_WEEK_DAYS * 86_400_000).toISOString();
+  // +1 day: the band counts MANILA CALENDAR days (`renewalStage`), so a shop 7 calendar days out can be due up to ~8×24 h
+  // from now. Query wide; `renewalBucket` decides which chip it lands on.
+  const weekAhead = new Date(now.getTime() + (RENEWAL_WEEK_DAYS + 1) * 86_400_000).toISOString();
   const twoWeeksAgo = new Date(now.getTime() - RENEWED_NEWS_DAYS * 86_400_000).toISOString();
   const shops = await admin
     .from('vendor_profiles')
@@ -134,7 +136,8 @@ export async function readRenewalRecord(
       .select('action, metadata, created_at')
       .in('action', [AUDIT_REMIND, PAPERS_LAPSED_AUDIT_ACTION])
       .eq('target_id', vendorProfileId)
-      .order('created_at', { ascending: true })
+      // Newest 40 (then turned oldest-first below): ascending + limit kept LAST years' reminders and cut this year's.
+      .order('created_at', { ascending: false })
       .limit(40),
     admin
       .from('vendor_verification_applications')
@@ -159,7 +162,7 @@ export async function readRenewalRecord(
     contactEmail: shop.error || !email.includes('@') ? null : email,
     reminders: said.error
       ? null
-      : ((said.data ?? []) as Array<{ action: string; metadata: { stage?: unknown } | null; created_at: string }>).map((r) => ({
+      : ((said.data ?? []) as Array<{ action: string; metadata: { stage?: unknown } | null; created_at: string }>).slice().reverse().map((r) => ({
           at: r.created_at,
           stage:
             r.action === PAPERS_LAPSED_AUDIT_ACTION

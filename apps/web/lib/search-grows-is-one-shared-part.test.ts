@@ -99,7 +99,9 @@ test('4 · the lists the owner named search in that row — so they inherit it',
   // Guests · the supplier's Clients · the couple's Suppliers (Find). (Bookings has no search to grow: see the PR.)
   assert.match(read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /const field: ThumbField = \{\s*placeholder: 'Search guests',/);
   const clients = read('app/vendor-dashboard/customers/page.tsx');
-  assert.match(clients, /<ThumbRow\s+name="customers"\s+field=\{\{\s*node: \(\s*<SearchBox\s+placeholder="Search clients"/);
+  // 19 Nov 2026: the Clients search is the add — the row seats `ClientsSearch`, which draws the same shared SearchBox.
+  assert.match(clients, /<ThumbRow\s+name="customers"\s+field=\{\{\s*node: \(\s*<ClientsSearch\b/);
+  assert.match(read('app/vendor-dashboard/customers/_components/clients-search.tsx'), /<SearchBox\s+placeholder="Search clients"/);
   const find = readdirSync(join(WEB, 'app/dashboard/[eventId]/vendors/_components')).filter((f) => /thumb/i.test(f) && !/test/.test(f));
   assert.ok(find.length > 0, 'anti-vacuity: the couple’s Suppliers thumb row was not found');
   assert.ok(

@@ -44,9 +44,10 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useId, useRef, type FocusEvent, type InputHTMLAttributes, type MouseEvent, type ReactNode, type Ref } from 'react';
+import { useCallback, useId, useRef, type FocusEvent, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Plus, Search } from 'lucide-react';
 import { ClearButton, clearTyped } from '@/components/clear-field';
+import { SearchAddIcon, useSearchAdd } from '@/components/search-add';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
@@ -121,6 +122,20 @@ export type ThumbField = {
    * rotating example hints) — `lib/use-rotating-hint.ts`. Each from what THIS box does and this event's own data.
    */
   hints?: readonly string[];
+  /**
+   * ➕ SEARCH OR ADD (owner 18–19 Nov 2026: *"tap the magnifying glass to convert it to add"* · *"not all search bar
+   * converts to add. just only those that needs conversion"*). ONLY a list whose search can add something passes
+   * this: its magnifier is then the 🔍 → ＋ icon (`components/search-add.tsx`) — ＋ by itself when nothing matches, on
+   * a tap while something does; as ＋, the tap or Enter calls this with the typed words. Absent → a plain search,
+   * exactly as before. With it, the row seats NO separate ＋ Add beside the field.
+   */
+  onAdd?: (typed: string) => void;
+  /** With `onAdd`: the words the list is searched with now (the host's own, after its wait). */
+  query?: string;
+  /** With `onAdd`: does anything in the list match those words? */
+  matches?: boolean;
+  /** With `onAdd`: 🔦 a spotlight tour's anchor on the 🔍 → ＋ icon itself. */
+  addTour?: string;
 };
 
 /** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
@@ -244,6 +259,28 @@ export function ThumbRow({
   const onFieldInput = ride.rowProps.onInput;
   /* 💡 The empty box's hint cycles its examples — the placeholder attribute only, never a render (rotating-hint.ts). */
   useRotatingHint(ownInput, field && !('node' in field) ? field.placeholder : '', field && !('node' in field) ? field.hints : null);
+  /* ➕ SEARCH OR ADD — only for a field handed `onAdd` (`components/search-add.tsx`); any other field is 'search' for
+     good and draws its plain magnifier. */
+  const ownField = field && !('node' in field) ? field : null;
+  const adds = ownField?.onAdd && ownField.kind !== 'date' ? { onAdd: ownField.onAdd, query: ownField.query ?? '', matches: ownField.matches ?? true } : null;
+  const searchAdd = useSearchAdd(adds);
+  const hostKeyDown = ownField?.input?.onKeyDown;
+  /* ⏎ As ＋, Enter adds what was typed. They ASKED for the add (tapped 🔍 over matches) → Enter is the add outright;
+     nothing matched → the host's own Enter first (Guests' one-Enter grammar already adds, its own way), and the add
+     only when the host did nothing with the key. */
+  const onAddKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    const enterAdds = Boolean(adds) && searchAdd.mode === 'add' && e.key === 'Enter' && !e.nativeEvent.isComposing && e.currentTarget.value.trim() !== '';
+    if (enterAdds && searchAdd.asked) {
+      e.preventDefault();
+      adds?.onAdd(e.currentTarget.value.trim());
+      return;
+    }
+    hostKeyDown?.(e);
+    if (enterAdds && !e.defaultPrevented) {
+      e.preventDefault();
+      adds?.onAdd(e.currentTarget.value.trim());
+    }
+  };
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;
@@ -274,12 +311,17 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput}>
-              <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-search-mode={adds ? searchAdd.mode : undefined} data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput}>
+              {adds ? (
+                <SearchAddIcon mode={searchAdd.mode} onPress={() => searchAdd.press(ownInput.current)} place={field.placeholder.replace(/^Search\s+/i, '')} tour={field.addTour} />
+              ) : (
+                <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
+              )}
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
                 autoComplete="off"
                 {...field.input}
+                onKeyDown={adds ? onAddKeyDown : field.input?.onKeyDown}
                 id={inputId}
                 ref={setInputRef}
                 placeholder={field.placeholder}
@@ -315,7 +357,7 @@ export function ThumbRow({
             'node' in r ? (
               <NodeRound key={`node-${i}`} node={r.node} />
             ) : 'menu' in r ? (
-              <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
+              <span key={r.mark ?? r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
                 <PickMenu
                   label={r.label}
                   value={r.value}

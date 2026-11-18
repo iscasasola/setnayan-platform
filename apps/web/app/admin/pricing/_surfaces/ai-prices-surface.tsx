@@ -1,4 +1,6 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateFail } from '@/app/_components/template-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -121,15 +123,12 @@ export async function AiPricesSurface(_props: Props) {
       <PageMasthead title="Setnayan AI prices" />
 
       {unreadable && (
-        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">
-            Prices couldn&apos;t load
-          </p>
-          <p className="mt-1 text-sm text-danger-900">
+        <TemplateFail data="ai-prices">
+          <InfoTip label="Prices couldn't load" align="start">
             This screen is showing what it could read, which may be incomplete. Refresh in a
             moment — don&apos;t save from here until it loads cleanly.
-          </p>
-        </div>
+          </InfoTip>
+        </TemplateFail>
       )}
 
       <AiBandsEditor

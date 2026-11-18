@@ -1,8 +1,8 @@
-import { AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { TemplateFail, TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import {
   formatLaunchCap,
@@ -77,78 +77,79 @@ export default async function AdminLaunchOfferPage() {
           ? 'On — not taking bookings yet'
           : 'Off';
 
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the pinned row names the page; the three facts
+  // are one frame of rows (no tile, no mono capitals); a failed read is amber, never "off".
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:max-w-5xl lg:py-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead title="Launch offer" />
 
       {!offer ? (
-        <div className="sn-tile mb-4 flex items-start gap-3 p-4">
-          <AlertTriangle
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: '#B54708' }}
-          />
-          <p className="text-sm" style={{ color: '#B54708' }}>
+        <TemplateSection label="The offer" first data="offer">
+          <TemplateFail data="offer">
             Could not load the launch offer right now — this is <strong>not</strong> the same as
             it being off. Refresh to try again.
-          </p>
-        </div>
+          </TemplateFail>
+        </TemplateSection>
       ) : (
         <>
-          <div className="sn-tile mb-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Status</p>
-              <p className="mt-1 text-sm font-semibold text-ink">{state}</p>
-              {offer.startedAt ? (
-                <p className="text-xs text-ink/60">Started {formatLaunchDate(offer.startedAt)}</p>
-              ) : null}
-            </div>
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Fee-free bookings used
-              </p>
-              <p className="mt-1 text-sm font-semibold tabular-nums text-ink">
-                {formatLaunchCap(offer.used)}
-                {offer.cap ? ` of ${formatLaunchCap(offer.cap)}` : ''}
-              </p>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Free Pro ends</p>
-              <p className="mt-1 text-sm font-semibold text-ink">{proEnds ?? '—'}</p>
-              <p className="text-xs text-ink/60">
-                {offer.closedAt
-                  ? 'The end of the cycle running when the offer ended.'
-                  : offer.enabled
-                    ? 'Moves forward each cycle until the offer ends.'
-                    : 'Set when the offer is on.'}
-              </p>
-            </div>
-          </div>
+          <TemplateSection label="Status" first data="status">
+            <TemplateRows label="Launch offer status">
+              <TemplateRow
+                data="status"
+                title="Status"
+                line={offer.startedAt ? `Started ${formatLaunchDate(offer.startedAt)}` : undefined}
+                right={<span className="text-[14px] font-semibold text-ink">{state}</span>}
+              />
+              <TemplateRow
+                data="used"
+                title="Fee-free bookings used"
+                right={
+                  <span className="text-[14px] font-semibold tabular-nums text-ink">
+                    {formatLaunchCap(offer.used)}
+                    {offer.cap ? ` of ${formatLaunchCap(offer.cap)}` : ''}
+                  </span>
+                }
+              />
+              <TemplateRow
+                data="pro-ends"
+                title="Free Pro ends"
+                line={
+                  offer.closedAt
+                    ? 'The end of the cycle running when the offer ended.'
+                    : offer.enabled
+                      ? 'Moves forward each cycle until the offer ends.'
+                      : 'Set when the offer is on.'
+                }
+                right={<span className="text-[14px] font-semibold text-ink">{proEnds ?? '—'}</span>}
+              />
+            </TemplateRows>
+          </TemplateSection>
 
-          <h2 className="mb-2 mt-6 font-serif text-lg text-ink">The offer</h2>
-          <LaunchOfferNumbersForm
-            cap={offer.cap}
-            papicCredits={offer.papicCredits}
-            cycleDays={offer.cycleDays}
-            enabled={offer.enabled}
-            closed={Boolean(offer.closedAt)}
-          />
+          <TemplateSection label="The offer" data="offer">
+            <LaunchOfferNumbersForm
+              cap={offer.cap}
+              papicCredits={offer.papicCredits}
+              cycleDays={offer.cycleDays}
+              enabled={offer.enabled}
+              closed={Boolean(offer.closedAt)}
+            />
+          </TemplateSection>
         </>
       )}
 
-      <h2 className="mb-2 mt-6 font-serif text-lg text-ink">Free-fee window</h2>
-      {winErr ? (
-        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
-          Could not load the free-fee window right now — refresh to try again.
-        </p>
-      ) : (
-        <FreeFeeWindowForm
-          from={isoToManilaLocal(w.booking_fee_free_from ?? null)}
-          until={isoToManilaLocal(w.booking_fee_free_until ?? null)}
-          reason={storedReason}
-        />
-      )}
+      <TemplateSection label="Free-fee window" data="window">
+        {winErr ? (
+          <TemplateFail data="window">
+            Could not load the free-fee window right now — refresh to try again.
+          </TemplateFail>
+        ) : (
+          <FreeFeeWindowForm
+            from={isoToManilaLocal(w.booking_fee_free_from ?? null)}
+            until={isoToManilaLocal(w.booking_fee_free_until ?? null)}
+            reason={storedReason}
+          />
+        )}
+      </TemplateSection>
     </div>
   );
 }

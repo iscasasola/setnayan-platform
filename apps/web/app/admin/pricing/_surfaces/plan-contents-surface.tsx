@@ -1,7 +1,18 @@
 import Link from 'next/link';
+import { Send } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { PostedFieldRow } from '@/app/admin/_components/posted-field-row';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { ActionButton } from '@/components/action-button';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -69,53 +80,55 @@ export async function PlanContentsSurface({ searchParams }: Props) {
   const admin = createAdminClient();
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageMasthead title="Plan contents" />
-      <header className="space-y-2">
-        <p className="text-sm text-ink/70">
-          What each plan includes. A change is asked here and confirmed by a second admin in Approvals, the same as
-          a price. Lowering a number never takes anything from a shop: shops over it keep what they have and can&rsquo;t
-          add more.
-        </p>
-        {/* The plan picker (prototype `plan-pick`): one chip per plan — links, so it needs no client code. */}
-        <nav aria-label="Which plan" className="space-y-2">
-          {[
-            { group: 'Supplier plans', items: VENDOR_TIERS.map((t) => ({ key: t as View, label: planWords(t) })) },
-            {
-              group: 'Event plans',
-              items: [
-                { key: 'ev-free' as View, label: 'Free' },
-                { key: 'ev-plus' as View, label: 'Event Plus' },
-                { key: 'ev-pro' as View, label: 'Event Pro' },
-              ],
-            },
-          ].map((g) => (
-            <div key={g.group} className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-ink/55">{g.group}</span>
-              {g.items.map((it) => (
-                <Link
-                  key={it.key}
-                  href={`/admin/pricing?tab=plan-contents&plan=${it.key}`}
-                  aria-current={it.key === view ? 'page' : undefined}
-                  className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-sm ${
-                    it.key === view ? 'bg-ink text-cream' : 'bg-ink/[0.05] text-ink hover:bg-ink/10'
-                  }`}
-                >
-                  {it.label}
-                </Link>
-              ))}
-            </div>
-          ))}
+      {/* 📐 Clean port (19 Nov): the lede went behind the ⓘ; the two rows of plan chips are ONE ▾ dropdown, grouped
+          the same way and still a page address per plan (so the page stays server-rendered). */}
+      <TemplateSection
+        first
+        label="Which plan"
+        tip={
+          <>
+            What each plan includes. A change is asked here and confirmed by a second admin in Approvals, the same as
+            a price. Lowering a number never takes anything from a shop: shops over it keep what they have and can&rsquo;t
+            add more.
+          </>
+        }
+      >
+        <nav aria-label="Which plan" className="py-1">
+          <LinkPickMenu
+            label="Which plan"
+            value={view}
+            dataAttr="plan-contents-plan"
+            options={[
+              { group: 'Supplier plans', items: VENDOR_TIERS.map((t) => ({ key: t as View, label: planWords(t) })) },
+              {
+                group: 'Event plans',
+                items: [
+                  { key: 'ev-free' as View, label: 'Free' },
+                  { key: 'ev-plus' as View, label: 'Event Plus' },
+                  { key: 'ev-pro' as View, label: 'Event Pro' },
+                ],
+              },
+            ].flatMap((g) =>
+              g.items.map((it) => ({
+                key: it.key,
+                label: it.label,
+                group: g.group,
+                href: `/admin/pricing?tab=plan-contents&plan=${it.key}`,
+              })),
+            )}
+          />
         </nav>
-      </header>
+      </TemplateSection>
 
       {saved ? (
-        <p role="status" className="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800">
+        <p role="status" className="mt-3 text-sm" style={{ color: 'rgb(var(--color-ok))' }}>
           {saved}
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
+        <p role="alert" className="mt-3 text-sm" style={{ color: 'rgb(var(--color-warn))' }}>
           {error}
         </p>
       ) : null}
@@ -163,16 +176,15 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
 
   return (
     <>
-      <section className="sn-tile p-5">
-        <h2 className="mb-1 text-base font-medium text-ink">What {planWords(plan)} includes</h2>
-        <p className="mb-4 text-xs text-ink/55">
-          {shopsRes.error ? 'Shops on this plan: couldn’t count.' : `Shops on this plan: ${shopsRes.count ?? 0}.`} Seeded
-          from the code values (TIER_CAPS); the code value is used if a row is missing.
-        </p>
+      <TemplateSection
+        label={`What ${planWords(plan)} includes`}
+        tip="Seeded from the code values (TIER_CAPS); the code value is used if a row is missing."
+        right={shopsRes.error ? 'Shops on this plan: couldn’t count.' : `Shops on this plan: ${shopsRes.count ?? 0}.`}
+      >
         {rowsRes.error ? (
           <ReadFailed what="the plan table — editing stays off until it reads" />
         ) : (
-          <ul className="divide-y divide-ink/10">
+          <TemplateRows label={`What ${planWords(plan)} includes`}>
             {EDITABLE_PLAN_KEYS.map((def) => {
               const stored = byKey.has(def.key) ? (byKey.get(def.key) ?? null) : codeValue(plan, def.capKey);
               const code = codeValue(plan, def.capKey);
@@ -181,9 +193,9 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
                 <li key={def.key} className="py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-sm font-medium text-ink">{def.label}</span>
-                    <span className="font-mono text-sm text-ink">{planValueWords(stored)}</span>
+                    <span className={`text-sm ${TEMPLATE_MONEY}`}>{planValueWords(stored)}</span>
                   </div>
-                  <p className="mt-0.5 text-xs text-ink/55">
+                  <p className={`mt-0.5 ${TEMPLATE_SUBLINE}`}>
                     Read by {def.readBy}.{stored !== code ? ` Code value: ${planValueWords(code)}.` : ''}
                   </p>
                   {waiting ? (
@@ -209,25 +221,26 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
                           <input type="checkbox" name="no_limit" /> No limit
                         </label>
                       ) : null}
-                      <button type="submit" className="button-secondary min-h-[44px]">
-                        Ask to change
-                      </button>
+                      <ActionButton tone="neutral" type="submit" icon={<Send aria-hidden strokeWidth={1.9} />} label="Ask to change" />
                     </form>
                   )}
                 </li>
               );
             })}
-          </ul>
+          </TemplateRows>
         )}
-      </section>
+      </TemplateSection>
 
-      <section className="sn-tile p-5">
-        <h2 className="mb-1 text-base font-medium text-ink">Also in {planWords(plan)}</h2>
-        <p className="mb-3 text-xs text-ink/55">
-          Set in code today (lib/vendor-tier-caps.ts). Not editable here yet, because the screens that print them do not
-          read the plan table.
-        </p>
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+      <TemplateSection
+        label={`Also in ${planWords(plan)}`}
+        tip={
+          <>
+            Set in code today (lib/vendor-tier-caps.ts). Not editable here yet, because the screens that print them do not
+            read the plan table.
+          </>
+        }
+      >
+        <dl className={`${ADMIN_FRAME} grid grid-cols-1 gap-x-4 gap-y-2 p-4 text-sm sm:grid-cols-2`}>
           {readOnlyLines(plan).map(([l, v]) => (
             <div key={l} className="flex justify-between gap-2">
               <dt className="text-ink/60">{l}</dt>
@@ -235,18 +248,17 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
             </div>
           ))}
         </dl>
-      </section>
+      </TemplateSection>
 
-      <section className="sn-tile p-5">
-        <h2 className="mb-1 text-base font-medium text-ink">Change history</h2>
+      <TemplateSection label="Change history">
         {histRes.error ? (
           <ReadFailed what="the change history" />
         ) : (histRes.data ?? []).length === 0 ? (
-          <p className="text-sm text-ink/55">
+          <TemplateEmpty>
             No change recorded for {planWords(plan)} since this screen opened — every earlier change was a code release.
-          </p>
+          </TemplateEmpty>
         ) : (
-          <ul className="space-y-1.5 text-sm">
+          <TemplateRows label="Change history">
             {(
               (histRes.data ?? []) as {
                 change_id: number;
@@ -256,16 +268,16 @@ async function SupplierPlan({ plan, admin }: { plan: VendorTier; admin: ReturnTy
                 changed_at: string;
               }[]
             ).map((h) => (
-              <li key={h.change_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2">
+              <li key={h.change_id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
                 <span className="text-ink">
                   {labelOf.get(h.key) ?? h.key}: {planValueWords(h.old_value)} → {planValueWords(h.new_value)}
                 </span>
                 <span className="text-xs text-ink/55">{h.changed_at.slice(0, 10)}</span>
               </li>
             ))}
-          </ul>
+          </TemplateRows>
         )}
-      </section>
+      </TemplateSection>
     </>
   );
 }
@@ -310,12 +322,17 @@ async function EventPlan({
 
   return (
     <>
-      <section className="sn-tile p-5">
-        <h2 className="mb-1 text-base font-medium text-ink">What {column.name} includes</h2>
-        <p className="mb-3 text-xs text-ink/55">
-          {column.tag} The lines are the Plans page&rsquo;s own (lib/features-page.ts EVENT_PLANS); events that already
-          bought a plan keep what they got.
-        </p>
+      <TemplateSection
+        label={`What ${column.name} includes`}
+        tip={
+          <>
+            {column.tag} The lines are the Plans page&rsquo;s own (lib/features-page.ts EVENT_PLANS); events that already
+            bought a plan keep what they got. The other event-plan lines are copy on the Plans page, not settings — no
+            number is held for them, so there is nothing to edit here.
+          </>
+        }
+      >
+      <div className={`${ADMIN_FRAME} p-4`}>
         <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-ink">
           {column.lines.map((l) => (
             <li key={l}>{l}</li>
@@ -326,9 +343,9 @@ async function EventPlan({
           poolRes?.error ? (
             <ReadFailed what="the free Papic grant" />
           ) : (
-            <p className="text-sm text-ink">
+            <div className="text-sm text-ink">
               Free Papic credits on every event:{' '}
-              <span className="font-mono">
+              <span className={TEMPLATE_MONEY}>
                 {(() => {
                   const n = (poolRes?.data as { free_grant_points?: number } | null)?.free_grant_points;
                   return typeof n === 'number' ? formatCount(n) : '—';
@@ -337,7 +354,7 @@ async function EventPlan({
               <Link href="/admin/pricing?tab=papic-shots" className="text-xs underline">
                 edited on Papic shot prices
               </Link>
-            </p>
+            </div>
           )
         ) : catalogRes?.error || !row ? (
           <ReadFailed what="this plan’s catalogue row — editing stays off until it reads" />
@@ -345,7 +362,7 @@ async function EventPlan({
           <div className="space-y-3">
             <p className="text-sm text-ink">
               Price:{' '}
-              <span className="font-mono">₱{Number(row.retail_price_php).toLocaleString('en-PH')}</span>{' '}
+              <span className={TEMPLATE_MONEY}>₱{Number(row.retail_price_php).toLocaleString('en-PH')}</span>{' '}
               <Link href="/admin/pricing?tab=pricing" className="text-xs underline">
                 its own row on Pricing
               </Link>
@@ -353,7 +370,7 @@ async function EventPlan({
             <div>
               <p className="text-sm text-ink">
                 Papic credits included:{' '}
-                <span className="font-mono">
+                <span className={TEMPLATE_MONEY}>
                   {row.included_papic_credits === null ? 'None' : formatCount(Number(row.included_papic_credits))}
                 </span>
               </p>
@@ -374,22 +391,17 @@ async function EventPlan({
                       maxLength={7}
                     />
                   </div>
-                  <button type="submit" className="button-secondary min-h-[44px]">
-                    Ask to change
-                  </button>
+                  <ActionButton tone="neutral" type="submit" icon={<Send aria-hidden strokeWidth={1.9} />} label="Ask to change" />
                 </form>
               )}
-              <p className="mt-1 text-xs text-ink/55">
+              <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>
                 An upgrade still tops up to the higher plan&rsquo;s number — never both.
               </p>
             </div>
           </div>
         )}
-      </section>
-      <p className="text-xs text-ink/55">
-        The other event-plan lines are copy on the Plans page, not settings — no number is held for them, so there is
-        nothing to edit here.
-      </p>
+      </div>
+      </TemplateSection>
     </>
   );
 }

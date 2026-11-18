@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCentavosPhp } from '@/lib/sku-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { Badge } from '@/app/_components/badge';
 
 /**
  * The 43-row legacy v1 `service_catalog` — WHATS_NEXT_Managing_Prices_2026-08-26.md
@@ -15,7 +16,7 @@ import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
  * with no `name=` attribute anywhere, so there is no form to submit even by
  * accident. The download link (`/admin/addons/pricing-report`, the only
  * export path for this table since the Add-ons tab was removed 2026-07-21)
- * stays on the page masthead for anyone who wants the full audit file.
+ * sits beside the "Older catalogue" heading (admin clean port, 19 Nov 2026) for anyone who wants the full audit file.
  */
 
 type ServiceCatalogRow = {
@@ -43,15 +44,9 @@ export async function LegacyCatalogDisclosure() {
     <details className={`${ADMIN_FRAME} overflow-hidden`}>
       <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink/70 transition hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
         <span>Older catalogue — the previous system&apos;s prices</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">read-only</span>
+        <Badge tone="quiet">Read-only</Badge>
       </summary>
       <div className="border-t border-ink/10 px-4 py-3">
-        <p className="mb-3 text-[13px] text-ink/60">
-          These are the prices from the system Setnayan used before. Readable here at last, and
-          deliberately not editable — an editable dead catalogue would be a second price authority
-          waiting to disagree with the one above. Use the &quot;Download legacy catalog
-          report&quot; link at the top of this page for the full file.
-        </p>
         <ConsoleTable<ServiceCatalogRow>
           rows={rows}
           rowKey={(r) => r.sku_code}

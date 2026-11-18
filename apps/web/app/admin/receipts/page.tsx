@@ -5,7 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
-import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
+import { TemplateNums, TemplateSection } from '@/app/_components/template-rows';
+import { InsightsParamPick } from '@/app/admin/app-performance/_components/insights-param-pick';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Receipts · Admin' };
@@ -98,53 +99,49 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content. ⚖ The sentence survives for the same
           reason it does on Platform settings: these are NOT BIR Official
           Receipts, and somebody reconciling a month's takings has to know that
-          before they file anything. */}
+          before they file anything — so it sits behind the ⓘ on the section's
+          own label (admin clean port 19 Nov 2026: words unchanged, moved). */}
       <PageMasthead title="Transaction receipts" />
-      <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          App-issued transaction receipts (one per paid order). These are{' '}
-          <strong>not</strong> BIR Official Receipts &mdash; cross-reference with your
-          BIR-side OR records before filing. Filter by month for reconciliation.
-        </p>
-      </div>
 
-      <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end" method="get">
-        <label className="space-y-1">
-          <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Month
-          </span>
-          <select name="month" defaultValue={filterMonth ?? ''} className="input-field">
-            <option value="">All months</option>
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className="button-secondary">
-          Apply
-        </button>
-      </form>
+      <TemplateSection
+        label="Transaction receipts"
+        first
+        data="receipts"
+        tip={
+          <>
+            App-issued transaction receipts (one per paid order). These are{' '}
+            <strong>not</strong> BIR Official Receipts &mdash; cross-reference with your
+            BIR-side OR records before filing. Filter by month for reconciliation.
+          </>
+        }
+      >
+        {/* 🗓 The month is ONE dropdown (the one-selector rule): a pick moves `?month=` and keeps `?view=receipts`,
+            exactly as the old GET form + Apply did — the same read, re-run on the server. */}
+        <InsightsParamPick
+          name="Month"
+          param="month"
+          value={filterMonth ?? ''}
+          options={[
+            { key: '', label: 'All months' },
+            ...monthOptions.map((m) => ({ key: m, label: monthLabel(m) })),
+          ]}
+        />
 
-      {/* `null` when the read was refused: KpiStatCard renders an em-dash, never
-          a misleading ₱0 total. A zero here would read as "no money came in". */}
-      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiStatCard label="Receipts" value={receipts ? receipts.length : null} />
-        <KpiStatCard
-          label="Pre-VAT sales"
-          value={totals ? formatPhpFromString(totals.preVat) : null}
+        {/* `null` when the read was refused: an em-dash, never a misleading ₱0
+            total. A zero here would read as "no money came in". */}
+        <TemplateNums
+          items={[
+            { label: 'Receipts', value: receipts ? String(receipts.length) : '—', tone: receipts ? undefined : 'warn' },
+            { label: 'Pre-VAT sales', value: totals ? formatPhpFromString(totals.preVat) : '—', tone: totals ? undefined : 'warn' },
+            { label: 'VAT collected', value: totals ? formatPhpFromString(totals.vat) : '—', tone: totals ? undefined : 'warn' },
+            { label: 'Gross', value: totals ? formatPhpFromString(totals.gross) : '—', tone: totals ? undefined : 'warn' },
+          ]}
         />
-        <KpiStatCard
-          label="VAT collected"
-          value={totals ? formatPhpFromString(totals.vat) : null}
-        />
-        <KpiStatCard label="Gross" value={totals ? formatPhpFromString(totals.gross) : null} />
-      </section>
+      </TemplateSection>
 
       <ConsoleTable
         rows={receipts}

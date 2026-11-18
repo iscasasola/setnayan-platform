@@ -303,7 +303,7 @@ async function AdminPaymentsPage({ searchParams }: Props) {
 
   return (
     <div
-      className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-1 sm:px-6"
+      className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6"
       data-money-desk={openId ? 'payment' : filter}
     >
       <PageMasthead

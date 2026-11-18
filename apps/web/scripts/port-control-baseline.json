@@ -130,6 +130,48 @@
         "RevealList"
       ]
     },
+    "/(shell)/articles/(list)": {
+      "files": [
+        "(shell)/articles/(list)/loading.tsx",
+        "(shell)/articles/(list)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ArticlesFeedView"
+      ]
+    },
+    "/(shell)/articles/[slug]": {
+      "files": [
+        "(shell)/articles/[slug]/article-view.tsx",
+        "(shell)/articles/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Article",
+        "ArticleParagraph",
+        "ArticleView",
+        "BackButton",
+        "BylineName",
+        "LinkCardView",
+        "Metadata",
+        "ReplyBox",
+        "ReportPageButton",
+        "TagChips"
+      ]
+    },
+    "/(shell)/articles/write": {
+      "files": [
+        "(shell)/articles/write/loading.tsx",
+        "(shell)/articles/write/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "WriteSheet"
+      ]
+    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",
@@ -2466,6 +2508,7 @@
         "admin/_components/admin-bottom-nav.tsx",
         "admin/_components/admin-command-palette.tsx",
         "admin/_components/admin-destinations.ts",
+        "admin/_components/admin-frame.ts",
         "admin/_components/admin-mode-toggle.tsx",
         "admin/_components/admin-nav-descriptions.ts",
         "admin/_components/admin-nav-groups.tsx",
@@ -2783,6 +2826,7 @@
         "viewReceipt"
       ],
       "blocks": [
+        "ActionButton",
         "ActionCenterZone",
         "AdminTotalsSurface",
         "AiAnswerCheckRow",
@@ -3381,6 +3425,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ComplianceFormState",
         "Field",
         "K",
@@ -3517,6 +3562,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "ChosenRow",
         "ControlActionResult",
@@ -3558,6 +3604,7 @@
         "runDemandRadarRefresh"
       ],
       "blocks": [
+        "ActionButton",
         "DemandRadarCard",
         "FormRow",
         "FormRows",
@@ -3956,6 +4003,7 @@
         "setVendorTier"
       ],
       "blocks": [
+        "ActionButton",
         "BadgeRewardLedgerRow",
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
@@ -4140,6 +4188,7 @@
         "formAction"
       ],
       "blocks": [
+        "ActionButton",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
@@ -4582,6 +4631,7 @@
         "setFreeWindowActive"
       ],
       "blocks": [
+        "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
         "BandCard",
@@ -4767,6 +4817,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "FourFlapEnvelope",
         "HTMLDivElement",
         "PreviewTpl",
@@ -4916,6 +4967,7 @@
         "uploadBrandIcon"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "BrandIconCard",
         "BrandIconUploadForm",
@@ -5016,6 +5068,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "SpotlightAwardType"
       ]
     },
@@ -5613,6 +5666,7 @@
         "verifyVendorExperience"
       ],
       "blocks": [
+        "ActionButton",
         "ActionRow",
         "AdminUser",
         "ApplicationCard",
@@ -14136,6 +14190,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/back-when-not-risen.tsx",
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
@@ -14313,9 +14368,11 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HolderSlot",
         "I",
         "Icon",
         "Image",
+        "InSheet.Provider",
         "InfoTip",
         "InlineDocsPayload",
         "InlineNotice",
@@ -14421,6 +14478,7 @@
         "TodayNoteRow",
         "TodayRow",
         "TodaySettings",
+        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TrackRecordRow",
@@ -16374,6 +16432,8 @@
         "updateBusinessStartDate"
       ],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchPanel",
         "CouldNotLoad",
@@ -16859,6 +16919,8 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
+        "BackWhenNotRisen",
         "DatesRow",
         "Fold",
         "Icon",
@@ -17303,6 +17365,8 @@
       "blocks": [
         "ActionButton",
         "AgentServiceAssignment",
+        "BackButton",
+        "BackWhenNotRisen",
         "Badge",
         "BranchScope",
         "ChosenRow",

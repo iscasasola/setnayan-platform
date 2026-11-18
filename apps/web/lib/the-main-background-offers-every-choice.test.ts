@@ -116,7 +116,9 @@ test('3 · the Maker offers a moving background ◆ · same as my hero · Upload
   assert.doesNotMatch(comp, /<Choice\s+on=\{choice === '(hero|media|none)'\}/, 'a background choice is a button again (a pill stack)');
   // 🎞 By a name you can picture (owner 2026-09-29, OWNER ANSWERS (11)) — "Luxe chandeliers", built on the server.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /loops=\{hubMovingBackgroundIds\(\)\.map\(\(id\) => \(\{\s*id,\s*name: themeBackgroundName\(id\),/, 'a loop is not named by its picture-able name');
+  /* ⚡ The list is built once and handed to the panel (`themeLoops`, speed pass 2026-11-18) — each loop still named here. */
+  assert.match(page, /const themeLoops = hubMovingBackgroundIds\(\)\.map\(\(id\) => \{[\s\S]{0,160}return \{ id, name: themeBackgroundName\(id\),/, 'a loop is not named by its picture-able name');
+  assert.match(page, /loops=\{themeLoops\}/, 'the Background panel is not handed the named loops');
   assert.match(comp, /label: 'Just the colour'/);
   // The page's own loop stays the stored choice it always was (nothing a couple had becomes a charge); any other is a loop of ours.
   assert.match(comp, /id === themeId \? \{ ground: 'theme' \} : \{ ground: 'loop', loop: id \}/, 'a loop pick is not a stored choice');

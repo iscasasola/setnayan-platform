@@ -545,11 +545,9 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
 }
 
 /**
- * A CARD'S BOOKINGS PER DATE STAYS INSIDE ITS PLAN (owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A
- * PLAN ALLOWANCE": Solo 1 · Pro 3 · Ultra 5, plus any "+1 booking per date" bought). Null = it may be saved; else the
- * sentence to show. Free · Verified: 1 each, like Solo (owner click 2026-11-06). A card re-saved with the SAME number
- * it already holds above a lowered cap is grandfathered (lib/card-bookings-per-date.ts). The database honours only the
- * cap either way (`service_card_daily_limit`).
+ * A CARD'S BOOKINGS PER DATE IS THE SHOP'S OWN NUMBER (owner 2026-11-18, ruling 17 — no plan limit on any plan), up to
+ * DAILY_CAPACITY_MAX. Null = it may be saved; else the sentence to show. A card re-saved with the SAME number it already
+ * holds is never refused (lib/card-bookings-per-date.ts).
  */
 async function bookingsPerDatePlanRefusal(
   supabase: SupabaseClient,
@@ -558,13 +556,6 @@ async function bookingsPerDatePlanRefusal(
   serviceId: string | null,
 ): Promise<string | null> {
   if (requested === null) return null;
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
   let stored: number | null = null;
   if (serviceId) {
     const { data: row } = await supabase
@@ -576,7 +567,12 @@ async function bookingsPerDatePlanRefusal(
     const n = Number((row as { daily_capacity?: number | null } | null)?.daily_capacity);
     stored = Number.isInteger(n) && n > 0 ? n : null;
   }
-  return bookingsPerDateRefusal({ tier, effectiveCap: caps.bookingsPerDatePerService, requested, stored });
+  return bookingsPerDateRefusal({ requested, stored });
+}
+
+/** The refusal past the plan's service-card total (owner 2026-11-18). */
+function serviceCardsTotalRefusal(cap: number): string {
+  return `Your plan allows ${cap} service ${cap === 1 ? 'card' : 'cards'} in total. Upgrade to add more.`;
 }
 
 /** Resolve a submitted coverage_id to a number ONLY if it belongs to this
@@ -809,7 +805,7 @@ export async function createVendorService(formData: FormData) {
   // unlock_vendor_event. Other caps unchanged.
   const caps =
     tierRowTyped?.is_founder === true
-      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      ? { ...baseCaps, parentCategories: Infinity, serviceCardsTotal: Infinity }
       : baseCaps;
 
   // (0) Per-service daily capacity (#2) — the supplier's own number, inside the plan's bookings per date per card
@@ -835,14 +831,11 @@ export async function createVendorService(formData: FormData) {
     .is('branch_copy_of', null);
   const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
-  // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
-  // PRO 5 · ENTERPRISE ∞ distinct listings within one leaf category.
-  if (caps.servicesPerLeaf !== Infinity) {
-    const inLeaf = existing.filter((r) => r.category === category).length;
-    if (inLeaf >= caps.servicesPerLeaf) {
-      const msg = `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`;
-      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`);
-    }
+  // (1) Service cards IN TOTAL (owner 2026-11-18, rulings 23 · 39): Free 1 · Verified 3 · Plus 10 · Pro 20 · Max 80.
+  // Every kind counts toward one number; a shop already over it keeps every card — only a NEW card is refused.
+  if (caps.serviceCardsTotal !== Infinity && existing.length >= caps.serviceCardsTotal) {
+    const msg = serviceCardsTotalRefusal(caps.serviceCardsTotal);
+    return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`);
   }
 
   // (2) Parent-category cap (Phase B): distinct parents of the 10 — FREE 1 ·
@@ -1644,7 +1637,7 @@ export async function commitVendorService(formData: FormData) {
   const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   const caps =
     tierRowTyped?.is_founder === true
-      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      ? { ...baseCaps, parentCategories: Infinity, serviceCardsTotal: Infinity }
       : baseCaps;
 
   // ---- Parse the vendor_services fields (reuse the legacy helpers) ----
@@ -2033,13 +2026,9 @@ export async function commitVendorService(formData: FormData) {
       .is('branch_copy_of', null);
     const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
-    if (caps.servicesPerLeaf !== Infinity) {
-      const inLeaf = existing.filter((r) => r.category === category).length;
-      if (inLeaf >= caps.servicesPerLeaf) {
-        return back(
-          `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`,
-        );
-      }
+    // Service cards IN TOTAL (owner 2026-11-18, rulings 23 · 39) — the same gate as the list's Add.
+    if (caps.serviceCardsTotal !== Infinity && existing.length >= caps.serviceCardsTotal) {
+      return back(serviceCardsTotalRefusal(caps.serviceCardsTotal));
     }
     // Parent cap counts the UNION of legacy service-category parents ∪ the
     // vendor's coverage parents — coverage is becoming the source of truth

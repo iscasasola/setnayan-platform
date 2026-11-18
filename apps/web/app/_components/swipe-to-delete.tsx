@@ -24,8 +24,12 @@
  * app/_components/swipe-to-delete.test.ts (the gesture's rules).
  */
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { Trash2, type LucideIcon } from 'lucide-react';
+import { rowArrives, rowLeaves } from '@/lib/rows-move';
+
+/** Server-safe layout effect (the row is also rendered to static markup in tests). */
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** px width of the revealed action. */
 export const SWIPE_REVEAL_PX = 84;
@@ -123,9 +127,29 @@ export function SwipeToDelete({
   }, [id]);
 
   const close = () => setTx(0);
+  /* 🎞 LEAVE and ENTER (the motion standard, owner 18 Nov 2026 — § 4 #6 · #13; `lib/rows-move.ts`): a row whose Delete
+     was pressed and which then leaves the page SLIDES OUT (Quick on Settle) and the rows under it close the gap by
+     transform (Move on Settle) — never a height animated, never a cut. A row that mounts into a list already drawn
+     ARRIVES (Move on Settle; Undo brings a row back this way). Reduced motion: neither plays.
+     The measure is taken only for a row whose own Delete was pressed — a page that simply leaves measures nothing. */
+  const rowRef = useRef<HTMLElement | null>(null);
+  const deletePressed = useRef(false);
+  useIsoLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    rowArrives(row);
+    return () => {
+      if (deletePressed.current) rowLeaves(row);
+    };
+  }, []);
   const press = () => {
     if (disabled || busy) return;
-    onDelete(close);
+    deletePressed.current = true;
+    onDelete(() => {
+      // The warning was cancelled: the row stays, and a later unmount is not this Delete's.
+      deletePressed.current = false;
+      close();
+    });
   };
 
   const end = () => {
@@ -145,7 +169,7 @@ export function SwipeToDelete({
   // only inside the row — never over a page's pinned bar (owner 17 Nov on Shop › Services, "scrolling overlaps": the
   // cards scrolled OVER the sticky bar at z-[5]/z-[6]). The row's sheets are portalled to <body>, so none is trapped.
   return (
-    <Tag className={`group/swipe relative isolate flex items-stretch ${className}`} data-swipe-row="">
+    <Tag className={`group/swipe relative isolate flex items-stretch ${className}`} data-swipe-row="" ref={rowRef as never}>
       <div className={`relative min-w-0 flex-1 overflow-hidden ${radiusClass}`}>
         {/* The Delete behind the row — revealed by a left swipe. Phones only: a mouse cannot swipe. Not drawn at
             all while the row is closed and still: a rounded row's anti-aliased corners would otherwise show a red

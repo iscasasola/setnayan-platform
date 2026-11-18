@@ -2,7 +2,7 @@
  * The sample shop page's RULES — pure, no drawing (`sample-shop-page.tsx` draws them; it re-exports everything here).
  * Each plan difference is the page's own primitive, never typed: reach (`shopReach`), own web address
  * (`ownWebAddress` over `customWebsiteName`), pinned review (`premiumPage`), About + accent (`canPersonalize`), service
- * cards (`servicesPerLeaf`), branches (`branchesIncluded`). The look itself — verified or calm — follows `verified`,
+ * cards (`serviceCardsTotal`), branches (`branchesIncluded`). The look itself — verified or calm — follows `verified`,
  * exactly as `/v/[slug]` does (owner 13 Nov 2026, "two looks").
  */
 import { ownWebAddress, pinnedQuote, shopReach, type ShopReach } from '@/lib/shop-page-plan';
@@ -60,7 +60,7 @@ export function samplePlanShop(plan: SampleShopPlan, declaredOuterKm: number | n
     ownAddress: ownWebAddress({ planAllows: caps.customWebsiteName, domain: SAMPLE.domain, verifiedAt: '2026-10-01' }),
     quote: caps.premiumPage ? pinnedQuote(SAMPLE.review) : null,
     personalize: can.canPersonalize,
-    cardsPerCategory: caps.servicesPerLeaf,
+    cardsPerCategory: caps.serviceCardsTotal,
   };
 }
 

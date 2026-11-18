@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TOUR_KEYS, type TourKey } from '@/lib/tours';
-import { toursEndedWith } from '@/lib/supplier-page-tours';
 
 function isTourKey(value: unknown): value is TourKey {
   return typeof value === 'string' && (TOUR_KEYS as ReadonlyArray<string>).includes(value);
@@ -35,13 +34,12 @@ export async function completeTour(tourKey: TourKey) {
     .maybeSingle();
 
   const seen = (row?.tour_seen_keys ?? []) as string[];
-  // 🔦 W1-B14: the supplier's journey is the ONE tour — finishing or skipping it records every page tour with it, so
-  // none auto-opens on the next page (`toursEndedWith`, lib/supplier-page-tours.ts).
-  const add = toursEndedWith(tourKey).filter((k) => !seen.includes(k));
-  if (add.length === 0) return;
+  // 🔦 W1-B14: the supplier's journey is the ONE tour. The seven page tours it used to end with it (`toursEndedWith`)
+  // were deleted on 16 Nov 2026, so a finish records only the tour that finished.
+  if (seen.includes(tourKey)) return;
 
   const update: Record<string, unknown> = {
-    tour_seen_keys: [...seen, ...add],
+    tour_seen_keys: [...seen, tourKey],
     updated_at: new Date().toISOString(),
   };
   // Keep the legacy welcome flag in sync so old code that reads

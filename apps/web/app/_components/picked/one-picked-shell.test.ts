@@ -97,7 +97,10 @@ test('3 · a Chats row opens the picked page ON CHAT; the host’s lists open on
   assert.match(sup, /foldByEvent\(/, 'the supplier Chats no longer folds threads by event');
   assert.match(sup, /href: `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=chat`,\s*opensPicked: true,/);
   const host = read(`${HOST_CHATS}/page.tsx`);
-  assert.match(host, /`\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=chat`/);
+  // The row's link is the one couple chat door every chat notice also uses (CHAT-07, lib/couple-chat-door.ts) — the page
+  // passes its picked row, the helper writes the picked page on Chat.
+  assert.match(host, /href: coupleChatHref\(eventId, eventVendorId, r\.threadId\),/);
+  assert.match(read('../lib/couple-chat-door.ts'), /\? `\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=chat`/);
   assert.match(host, /opensPicked: Boolean\(eventVendorId\)/);
   // The menus: `?tab=chat` → Chat. No tab: BOTH open on Chat — the supplier's picked client since the owner's 11 Nov order
   // (DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE ORDER"), the host's picked supplier mirrored the same

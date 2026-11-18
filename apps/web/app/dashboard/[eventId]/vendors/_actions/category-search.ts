@@ -106,6 +106,7 @@ import { resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { liveTierState } from '@/lib/vendor-tier-lapse';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -860,7 +861,7 @@ export async function searchCategoryVendors(input: {
 
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state')
+    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
@@ -878,12 +879,15 @@ export async function searchCategoryVendors(input: {
       name_revealed_at: string | null;
       services: string[] | null;
       tier_state: string | null;
+      tier_expires_at?: string | null;
+      verification_state?: string | null;
     };
     profById.set(row.vendor_profile_id, {
       screen_name: row.screen_name,
       name_revealed_at: row.name_revealed_at,
       services: row.services,
-      tier_state: row.tier_state,
+      // A plan whose paid days ended reads as the sweep will write it — never its old reach (`liveTierState`).
+      tier_state: liveTierState(row, Date.now()),
     });
   }
 

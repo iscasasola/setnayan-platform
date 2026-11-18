@@ -135,7 +135,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                 sendAction={labSend}
                 lead={
                   side === 'couple' ? (
-                    <CoupleThreadToolsSheet dealReveal={dealEntry.composer.reveal} eventId={LAB_EVENT} threadId={threadId} />
+                    <CoupleThreadToolsSheet dealReveal={dealEntry.composer.reveal} eventId={LAB_EVENT} threadId={threadId} booked={booked} />
                   ) : (
                     <ThreadToolsSheet
                       eventId={LAB_EVENT}

@@ -61,7 +61,7 @@ const PAGE_TITLE = 'Guest List — Every Guest, Every Detail · Setnayan';
  *  correct WITH the brand. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('guest-list');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

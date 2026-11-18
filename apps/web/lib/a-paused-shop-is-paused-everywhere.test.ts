@@ -77,7 +77,7 @@ test('(4) the claim action refuses a paused shop, and the QR page says "This sho
   assert.match(page, /\bpaused_at\b/, 'the QR page no longer selects the pause');
   assert.match(page, /const paused = isShopPaused\(vendor\)/);
   // The notice comes FIRST in the action zone, so a paused shop never shows the add-to-plan form.
-  const zoneAt = page.indexOf('<div className="mt-6">');
+  const zoneAt = page.indexOf('<div className="mt-4">'); // the wave-2 restyle (Rule 2: no card) moved it from mt-6
   assert.ok(zoneAt > 0, 'the action zone moved — re-anchor this test');
   const zone = page.slice(zoneAt);
   assert.match(zone.slice(0, 400), /\{paused \? \(/, 'the paused notice is no longer the first branch of the action zone');

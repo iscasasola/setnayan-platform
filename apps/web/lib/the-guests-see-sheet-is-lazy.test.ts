@@ -117,6 +117,6 @@ test('6 · the three buttons fit a phone: ↺ and "Back to our picks" on one lin
   // The 16 px gutter: the sheet's own 8 (`MakerSheet` px-2) and 8 here.
   assert.match(src, /role="table" aria-label=\{W\.title\} className="flex-1 bg-inherit px-2"/);
   assert.match(src, /data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink\/10 bg-inherit px-2 /);
-  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-white px-2 /);
+  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-raised px-2 /);
 });
 

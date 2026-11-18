@@ -129,12 +129,12 @@ test('(b) the real <head> script decides and paints exactly as the rule, for eve
   assert.ok(n >= 200, `only ${n} cases ran`);
 });
 
-test('(c) as shipped — dark reaches ONLY the swept account spokes + sign-in cards (B2), never the event tree', () => {
-  // The event tree, the supplier tree, admin, the guest Hub and Papic stay Light for EVERYONE until their batch
-  // lists them — one prefix rule, no exception list (controller 2026-10-22). "/dashboard" exactly is the Events
-  // board, which opens with the event tree (B3); a B2 prefix must never be a sibling-match of it.
-  const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/abc/guests', '/dashboard/peoplex', '/vendor-dashboard/clients', '/admin', '/marco-marga', '/papic/abc'];
-  const SHIPPED_DARK = ['/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
+test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the sign-in cards (B3, 18 Nov 2026)', () => {
+  // The supplier tree, admin, the front door, the guest Hub and Papic stay Light for EVERYONE until their batch
+  // lists them — one prefix rule, no exception list (controller 2026-10-22). The couple's whole "/dashboard" area
+  // opened on 18 Nov 2026 (owner: "dark mode. YES :D", pick 5); a sibling such as "/dashboardx" is not under it.
+  const SHIPPED_LIGHT = ['/', '/vendor-dashboard', '/vendor-dashboard/clients', '/admin', '/marco-marga', '/papic/abc'];
+  const SHIPPED_DARK = ['/dashboard', '/dashboard/abc', '/dashboard/abc/guests', '/dashboard/abc/budget', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
@@ -149,7 +149,8 @@ test('(c) as shipped — dark reaches ONLY the swept account spokes + sign-in ca
       }
     }
   }
-  assert.ok(!DARK_READY.includes('/dashboard'), '"/dashboard" opens with the whole event tree (B3), not before');
+  assert.ok(DARK_READY.includes('/dashboard'), 'the couple’s /dashboard area is on the ready-list (B3, 18 Nov 2026)');
+  assert.ok(!DARK_READY.some((p) => p.startsWith('/vendor-dashboard') || p.startsWith('/admin')), 'the supplier tree and admin open in their own batch');
 });
 
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {

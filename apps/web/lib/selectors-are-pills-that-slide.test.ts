@@ -530,7 +530,9 @@ function handDrawnTracks(source: string): string[] {
     const tag = m[0];
     if (!/(?:^|[\s"`])rounded-(?:md|lg|xl|2xl|full|\[)/.test(tag)) continue;
     if (!/(?:^|[\s"`])p-(?:0\.5|1|\[\dpx\])/.test(tag)) continue;
-    if (!/(?:^|[\s"`])bg-(?:ink\/|white\/|cream|\[rgba)/.test(tag)) continue;
+    // `bg-raised/` joined 18 Nov 2026: the dashboard's `bg-white/NN` tracks became `bg-raised/NN` (same pixels in Light)
+    // when /dashboard opened to dark — a hand-drawn track is still a hand-drawn track.
+    if (!/(?:^|[\s"`])bg-(?:ink\/|white\/|raised\/|cream|\[rgba)/.test(tag)) continue;
     if (!/aria-(?:pressed|selected|checked)=\{/.test(source.slice(m.index!, m.index! + 900))) continue;
     hits.push(tag.replace(/\s+/g, ' ').slice(0, 200));
   }

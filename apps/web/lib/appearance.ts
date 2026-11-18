@@ -65,18 +65,15 @@ export const THEME_COLOR: Record<'light' | 'dark', string> = {
  * couple's slug can never be put on the list by mistake.
  */
 export const DARK_READY: readonly string[] = [
-  // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
-  // the one holding the switch (/dashboard/profile), so a pick changes the screen it was made on. NOT
-  // "/dashboard" itself: that prefix covers the whole event tree, which opens as one with B3 (no exception list).
-  // Not "/dashboard/year" either: it is a redirect to "/dashboard#worth-planning" and paints nothing of its own.
-  // Every route below was walked signed in, at 375 px, light and dark, before it was listed (2026-10-23).
-  '/dashboard/people',
-  '/dashboard/library',
-  '/dashboard/life-flash',
-  '/dashboard/profile',
-  '/dashboard/notifications',
-  '/dashboard/create-event',
-  '/dashboard/samahan',
+  // B3 (18 Nov 2026 — owner: "dark mode. YES :D" · "all picks", pick 5 "the couple's /dashboard goes dark first"):
+  // THE COUPLE'S WHOLE /dashboard AREA — the Events board ("/dashboard" exactly), the account spokes B2 opened on
+  // 23 Oct (people · library · life-flash · profile · notifications · create-event · samahan) and the event tree
+  // ("/dashboard/<eventId>/…": Home, Guests, Suppliers, Budget, Schedule, Hub door, Maker, Studio …). ONE prefix, no
+  // exception list. It wears the one colour set of 18 Nov (globals.css "THE ONE COLOUR SET, BY JOB"); the hard-coded
+  // colours in these routes were moved onto tokens first, and `app/dashboard/raw-hex-only-goes-down.test.ts` keeps
+  // a new one out. The couple's guest pages drawn INSIDE these screens (previews, look samples) keep the couple's own
+  // design — the guest islands in globals.css.
+  '/dashboard',
   // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
   // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
   '/login',

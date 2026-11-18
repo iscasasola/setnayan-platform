@@ -26,6 +26,7 @@
  */
 import { dueLabel, isResolvedSchedule, type ResolvedSchedule } from '@/lib/proposal-payment-schedule';
 import { formatCount } from '@/lib/format-number';
+import { quoteLinePriceWords } from '@/lib/quote-line-price-words';
 
 /** One stored line, as `vendor_proposals.line_items` holds it. */
 export type QuoteVersionLine = {
@@ -167,10 +168,14 @@ export function versionsNewestFirst(versions: readonly QuoteVersion[], proposalI
 
 // ── WHAT CHANGED ──────────────────────────────────────────────────────────────
 
+/**
+ * `fromWords` / `toWords`: what the price column says for a side with NO amount — present only then, and read from the
+ * ONE rule (`quoteLinePriceWords`): "Quoted after site check" for the unpriced transport, else "Complimentary".
+ */
 export type QuoteLineChange =
-  | { kind: 'added'; label: string; to: number | null }
-  | { kind: 'removed'; label: string; from: number | null }
-  | { kind: 'changed'; label: string; from: number | null; to: number | null };
+  | { kind: 'added'; label: string; to: number | null; toWords?: string }
+  | { kind: 'removed'; label: string; from: number | null; fromWords?: string }
+  | { kind: 'changed'; label: string; from: number | null; to: number | null; fromWords?: string; toWords?: string };
 
 export type QuoteChanges = {
   /** Lines in their display order: changed and added (in the new order), then removed. */
@@ -210,6 +215,15 @@ function amountOf(li: QuoteVersionLine): number | null {
   return typeof li.amount_centavos === 'number' && Number.isFinite(li.amount_centavos) ? li.amount_centavos : null;
 }
 
+/** The price words of a line with no amount (undefined when it has one) — the ONE rule, `quoteLinePriceWords`. */
+function noAmountWords(li: QuoteVersionLine): string | undefined {
+  return amountOf(li) === null ? quoteLinePriceWords({ detail: li.detail ?? null, amount_centavos: null }) : undefined;
+}
+const wordsField = <K extends string>(key: K, li: QuoteVersionLine): Partial<Record<K, string>> => {
+  const w = noAmountWords(li);
+  return (w === undefined ? {} : { [key]: w }) as Partial<Record<K, string>>;
+};
+
 /**
  * The two sides' lines, paired by identity, in display order: the newer side's order first, then what the older side
  * had and the newer one dropped. The ONE pairing — `quoteChanges` and `versionsSideBySide` both read it, so the list
@@ -233,11 +247,18 @@ export function quoteChanges(prev: QuoteSide, next: QuoteSide): QuoteChanges {
   const lines: QuoteLineChange[] = [];
   for (const { before: old, after: line } of pairLines(prev.lines, next.lines)) {
     if (line && !old) {
-      lines.push({ kind: 'added', label: lineLabel(line), to: amountOf(line) });
+      lines.push({ kind: 'added', label: lineLabel(line), to: amountOf(line), ...wordsField('toWords', line) });
     } else if (line && old && amountOf(old) !== amountOf(line)) {
-      lines.push({ kind: 'changed', label: lineLabel(line), from: amountOf(old), to: amountOf(line) });
+      lines.push({
+        kind: 'changed',
+        label: lineLabel(line),
+        from: amountOf(old),
+        to: amountOf(line),
+        ...wordsField('fromWords', old),
+        ...wordsField('toWords', line),
+      });
     } else if (old && !line) {
-      lines.push({ kind: 'removed', label: lineLabel(old), from: amountOf(old) });
+      lines.push({ kind: 'removed', label: lineLabel(old), from: amountOf(old), ...wordsField('fromWords', old) });
     }
   }
   const plan = (prev.plan ?? null) !== (next.plan ?? null) ? { from: prev.plan ?? null, to: next.plan ?? null } : null;
@@ -259,6 +280,9 @@ export type SideBySideRow = {
   /** Line: centavos, null = complimentary, undefined = not on that version. Plan: its words. Total: centavos. */
   a: number | string | null | undefined;
   b: number | string | null | undefined;
+  /** Line: what a side with NO amount says (`quoteLinePriceWords`) — present only then. */
+  aWords?: string;
+  bWords?: string;
   /** Marked as changed — exactly the lines `quoteChanges` lists, the plan when it differs, the total when it moved. */
   changed: boolean;
 };
@@ -279,6 +303,8 @@ export function versionsSideBySide(a: QuoteVersion, b: QuoteVersion): SideBySide
     kind: 'line',
     a: before ? amountOf(before) : undefined,
     b: after ? amountOf(after) : undefined,
+    ...(before ? wordsField('aWords', before) : {}),
+    ...(after ? wordsField('bWords', after) : {}),
     changed: !before || !after || amountOf(before) !== amountOf(after),
   }));
   rows.push({ key: 'plan', label: 'Payment plan', kind: 'plan', a: a.plan, b: b.plan, changed: changes.plan !== null });

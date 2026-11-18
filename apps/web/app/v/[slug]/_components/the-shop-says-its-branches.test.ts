@@ -1,5 +1,5 @@
 /**
- * "Also in <city> · <city>" — the shop's other branches under the reach line (owner 2026-11-13, verbatim:
+ * "Also in <city>, <city>" — the shop's other branches under the reach line (owner 2026-11-13, verbatim:
  * "Show the branches as needed"). RENDER-LEVEL: the shared `ShopBranchesLine` is painted (renderToStaticMarkup)
  * so an empty or teasing line cannot hide behind a passing rule.
  *
@@ -24,11 +24,18 @@ test('a shop with 0 branches draws nothing at all — no empty "Also in"', () =>
   assert.equal(shopAlsoInLine([]), null);
 });
 
-test('a shop with 2 branches says "Also in A · B"', () => {
+test('a shop with 2 branches says "Also in A, B"', () => {
   const html = paint(['Lipa', 'Batangas City']);
   assert.match(html, /data-shop-branches/);
-  assert.match(html, /Also in Lipa · Batangas City/);
-  assert.equal(shopAlsoInLine(['Lipa', 'Batangas City']), 'Also in Lipa · Batangas City');
+  assert.match(html, /Also in Lipa, Batangas City/);
+  assert.equal(shopAlsoInLine(['Lipa', 'Batangas City']), 'Also in Lipa, Batangas City');
+});
+
+test('a 10-branch shop names three and counts the rest (owner 15 Nov 2026, "show me a website with 10 branches")', () => {
+  const cities = ['Makati', 'Quezon City', 'Muntinlupa', 'Taguig', 'Cebu City', 'Davao City', 'Iloilo City', 'Baguio', 'Lipa', 'Bacolod'];
+  assert.equal(shopAlsoInLine(cities, 'Pasig'), 'Also in Makati, Quezon City, Muntinlupa and 7 more');
+  assert.equal(shopAlsoInLine(cities.slice(0, 3), 'Pasig'), 'Also in Makati, Quezon City, Muntinlupa');
+  assert.equal(shopAlsoInLine(cities.slice(0, 4), 'Pasig'), 'Also in Makati, Quezon City, Muntinlupa and 1 more');
 });
 
 test('branches with no city, a repeat, or the shop\'s own city add nothing — never a made-up place', () => {

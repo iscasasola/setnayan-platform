@@ -28,7 +28,7 @@ const base = (over: Partial<PinFactInputs> = {}): PinFactInputs => ({
 const firstDue: MoneyStep = {
   kind: 'first_payment_due',
   action: 'record_deposit',
-  label: 'Deposit · books the date',
+  label: 'Deposit',
   amountCentavos: 1_000_000,
   minimumCentavos: null,
   resend: false,

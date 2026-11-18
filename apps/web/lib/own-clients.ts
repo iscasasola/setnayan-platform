@@ -19,7 +19,7 @@
  * 🎁 EVERY GIFT KIND: Papic credits land in the couple's pool; an Event Plus / Pro / Ultra unlocks the event the way the
  * quote door does (one unit each). Each kind is counted from its OWN bought stock — never pooled across kinds.
  */
-import { SHOP_GIFT_KINDS, freeByKind, giftCount, type FreeByKind, type ShopGiftKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
+import { SHOP_GIFT_KINDS, freeByKind, giftCount, type ShopGiftKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
 import { shopInvitePath } from './shop-address';
 
 /** One gift line on an own client, as stored (`vendor_client_invites.gift_lines`, `vendor_own_link_gifts`). */
@@ -100,15 +100,22 @@ export function fromStockLine(left: number | null): string {
   return left === null ? 'From your stock · couldn’t count it' : `From your stock · ${giftCount(left)} left`;
 }
 
+/**
+ * 🔢 The own-client gift step counts its stock PER KIND (Papic in credits, the plans in units). #7678's `FreeByKind`
+ * also carries per-pack counts, which this step never reads, so it takes the narrower type. A `FreeByKind` is a
+ * `KindCounts`, so the shared readers pass straight in.
+ */
+export type KindCounts = Readonly<Record<ShopGiftKind, number>>;
+
 /* ── the stock, as gifts (per kind) ───────────────────────────────────────────────────────────────────────────── */
 
-const ZERO: FreeByKind = Object.fromEntries(SHOP_GIFT_KINDS.map((k) => [k, 0])) as FreeByKind;
+const ZERO: KindCounts = Object.fromEntries(SHOP_GIFT_KINDS.map((k) => [k, 0])) as KindCounts;
 
 /**
  * What is free to give AS AN OWN-CLIENT GIFT, per kind: free to offer, less what is still badge reward (v4 answer 3).
  * The database door measures exactly this (`own_client_gift_give`). Null = the stock could not be read — never 0.
  */
-export function boughtFreeByKind(free: FreeByKind | null, rewardLeft: FreeByKind | null | undefined): FreeByKind | null {
+export function boughtFreeByKind(free: KindCounts | null, rewardLeft: KindCounts | null | undefined): KindCounts | null {
   if (!free) return null;
   const out = { ...ZERO };
   for (const k of SHOP_GIFT_KINDS) {
@@ -130,7 +137,7 @@ export function ownGiftPacks(packs: readonly ShopGiftPack[] | null): ShopGiftPac
 }
 
 /** What the picked codes need, per kind, read from the catalogue; null when any code is not a pack on sale. */
-export function needByKind(codes: readonly string[], packs: readonly ShopGiftPack[] | null): FreeByKind | null {
+export function needByKind(codes: readonly string[], packs: readonly ShopGiftPack[] | null): KindCounts | null {
   const on = ownGiftPacks(packs);
   const out = { ...ZERO };
   for (const c of codes) {
@@ -142,18 +149,18 @@ export function needByKind(codes: readonly string[], packs: readonly ShopGiftPac
 }
 
 /** Do the needs fit the stock, every kind? */
-export function fitsStock(need: FreeByKind | null, free: FreeByKind | null): boolean {
+export function fitsStock(need: KindCounts | null, free: KindCounts | null): boolean {
   if (!need || !free) return false;
   return SHOP_GIFT_KINDS.every((k) => need[k] <= free[k]);
 }
 
 /** The stock left for ONE line once every OTHER line is counted — two lines never promise the same unit twice. */
 export function roomForLine(
-  free: FreeByKind | null,
+  free: KindCounts | null,
   packs: readonly ShopGiftPack[] | null,
   picks: readonly string[],
   index: number,
-): FreeByKind | null {
+): KindCounts | null {
   if (!free) return null;
   const others = needByKind(picks.filter((_, j) => j !== index), packs) ?? ZERO;
   const out = { ...ZERO };
@@ -170,8 +177,8 @@ export type OwnGiftOption = { key: string; label: string; hint?: string; disable
  */
 export function ownGiftMenu(
   packs: readonly ShopGiftPack[] | null,
-  room: FreeByKind | null,
-  rewardLeft: FreeByKind,
+  room: KindCounts | null,
+  rewardLeft: KindCounts,
   canBuy: boolean,
 ): OwnGiftOption[] {
   const out: OwnGiftOption[] = [];
@@ -194,13 +201,13 @@ export function ownGiftMenu(
 }
 
 /** Is any pack pickable at all? False ⇒ the step shows the buy list instead of the ▾. */
-export function anyPackPickable(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): boolean {
+export function anyPackPickable(packs: readonly ShopGiftPack[] | null, free: KindCounts | null): boolean {
   if (!free) return false;
   return ownGiftPacks(packs).some((p) => (packsLeft(free[p.kind], p) ?? 0) > 0);
 }
 
 /** The first pack the stock covers — "one is picked for you from your stock". Null when none is. */
-export function defaultOwnGift(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): string | null {
+export function defaultOwnGift(packs: readonly ShopGiftPack[] | null, free: KindCounts | null): string | null {
   if (!free) return null;
   return ownGiftPacks(packs).find((p) => (packsLeft(free[p.kind], p) ?? 0) > 0)?.code ?? null;
 }
@@ -282,10 +289,9 @@ export function isEmailOrPhone(raw: string): boolean {
 export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
   stock: ShopGiftStocks | null;
   packs: ShopGiftPack[] | null;
-  paysGiftPrice: boolean;
   canBuy: boolean;
   openRails: R[];
-  rewards?: { left: FreeByKind | null } | undefined;
+  rewards?: { left: KindCounts | null } | undefined;
 }) {
   // Every kind the catalogue knows (`freeByKind`, the shared reader) — a kind added later can never be missed here.
   const free = freeByKind(g.stock);
@@ -296,7 +302,6 @@ export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
     free: boughtFreeByKind(free, g.rewards?.left ?? null),
     rewardLeft,
     canBuy: g.canBuy,
-    paysGiftPrice: g.paysGiftPrice,
     openRails: g.openRails,
   };
 }

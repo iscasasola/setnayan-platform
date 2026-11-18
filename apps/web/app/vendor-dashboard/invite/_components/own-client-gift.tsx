@@ -11,9 +11,10 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { ActionButton } from '@/components/action-button';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { BuyGiftsSheet } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
-import { formatPhp } from '@/lib/php';
+import { formatCentavosPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
-import { giftPackLine, giftUnitPrice, type FreeByKind, type ShopGiftPack } from '@/lib/shop-gifts';
+import { giftPackLine, type ShopGiftPack } from '@/lib/shop-gifts';
+import type { KindCounts } from '@/lib/own-clients';
 import {
   ADD_ANOTHER_GIFT,
   ADD_CLIENT_LEAD,
@@ -72,11 +73,10 @@ export type OwnGiftData = {
   /** null ⇒ the catalogue could not be read. */
   packs: ShopGiftPack[] | null;
   /** Free to give as an own-client gift, per kind (bought, not badge reward). null ⇒ unread. */
-  free: FreeByKind | null;
+  free: KindCounts | null;
   /** Badge-reward stock still held, per kind — listed greyed, never pickable. */
-  rewardLeft: FreeByKind;
+  rewardLeft: KindCounts;
   canBuy: boolean;
-  paysGiftPrice: boolean;
   openRails: OpenRail[];
 };
 
@@ -160,7 +160,7 @@ function BuyList({ data, chosen, setChosen, empty }: { data: OwnGiftData; chosen
               <span className="block text-[15px] font-medium leading-tight text-ink">{p.title}</span>
               <span className="mt-0.5 block text-[13px] text-ink/60">{giftPackLine(p)}</span>
             </span>
-            <span className="tabular-nums text-[14px] text-ink">{formatPhp(giftUnitPrice(p, data.paysGiftPrice).centavos / 100)}</span>
+            <span className="tabular-nums text-[14px] text-ink">{formatCentavosPhp(p.srpCentavos)}</span>
           </button>
         ))}
         <Link href="/vendor-dashboard/subscription" className="sn-press flex min-h-14 w-full items-center gap-3 py-2.5 text-left" data-own-gift-plans="">
@@ -422,7 +422,6 @@ export function AddClientBlock({ data, bookedHref, verified }: { data: OwnGiftDa
           open
           onClose={() => setBuying(null)}
           packs={ownGiftPacks(data.packs)}
-          paysGiftPrice={data.paysGiftPrice}
           openRails={data.openRails}
           initialCode={buying.code}
           note={buying.added ? BUY_AND_ADD_NOTE : undefined}
@@ -492,7 +491,7 @@ export function OwnLinkGift({ data, current, verified }: { data: OwnGiftData; cu
         </>
       )}
       {buying && data.canBuy && data.packs ? (
-        <BuyGiftsSheet open onClose={() => setBuying(false)} packs={ownGiftPacks(data.packs)} paysGiftPrice={data.paysGiftPrice} openRails={data.openRails} initialCode={pick} />
+        <BuyGiftsSheet open onClose={() => setBuying(false)} packs={ownGiftPacks(data.packs)} openRails={data.openRails} initialCode={pick} />
       ) : null}
     </div>
   );

@@ -57,7 +57,9 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
   // "if we change our color to blue, it will be easy to change the button colors" — the template names the accent by
   // its JOB (`--sn-accent`), which holds the terracotta today; `the-accent-is-one-token.test.ts` holds the rest.)
   assert.equal(P.PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent');
-  assert.match(raw('app/globals.css'), /--sn-accent: var\(--color-mulberry\);/, 'the accent is no longer the terracotta token');
+  // `--sn-accent` → `--color-toggle` → `--color-mulberry` (the one colour set, 18 Nov 2026: toggles wear the decision colour).
+  assert.match(raw('app/globals.css'), /--sn-accent: var\(--color-toggle\);/, 'the accent no longer points at the toggle token');
+  assert.match(raw('app/globals.css'), /--color-toggle: var\(--color-mulberry\);/, 'the toggle is no longer the terracotta token');
   assert.match(raw('app/globals.css'), /--color-mulberry: 194 78 37;\s*\/\* CTA → #C24E25/, 'anti-vacuity: the terracotta token moved');
   assert.match(P.PILL_OFF_CLASS, /^text-ink\/\d\d hover:text-ink$/);
   for (const seg of [P.pillSegClass, K.iSegClass] as ((on: boolean, tone?: 'plain' | 'wine') => string)[]) {

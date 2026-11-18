@@ -68,11 +68,12 @@ const resolve = (value: string, vars: Vars, depth = 0): string => {
   return out;
 };
 const ROOT = CSS.slice(CSS.indexOf(':root {'), CSS.indexOf('html.dark {'));
-const THE_ONE_LINE = '--sn-accent: var(--color-mulberry);';
+// The toggle's one line since the one colour set (18 Nov 2026): `--sn-accent` points at `--color-toggle`.
+const THE_ONE_LINE = '--color-toggle: var(--color-mulberry);';
 const BLUE = '37 99 235';
 assert.equal(ROOT.split(THE_ONE_LINE).length - 1, 1, 'anti-vacuity: the accent’s one line was not found');
 const LIGHT = varsOf(ROOT);
-const BLUED = varsOf(ROOT.replace(THE_ONE_LINE, `--sn-accent: ${BLUE};`));
+const BLUED = varsOf(ROOT.replace(THE_ONE_LINE, `--color-toggle: ${BLUE};`));
 
 /* ── (1) one line reaches the panel ───────────────────────────────────── */
 

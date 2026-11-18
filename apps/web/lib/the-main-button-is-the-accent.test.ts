@@ -31,6 +31,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { tokenRgb } from './css-colour-tokens';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -82,14 +83,12 @@ const OFF = BOTH.flatMap((b) => [`${b}:disabled`, `${b}[aria-disabled='true']`])
 
 /* The `:root` tokens the second button and the grey state name, as the stylesheet declares them. */
 const hexOf = (name: string): [number, number, number] => {
-  // A token may point at its kit twin (`--sn-surface: var(--m-paper)`, the token layer 14 Nov 2026): follow
-  // the alias to the hex it resolves to, so the contrast below is still measured on the real colour.
-  const alias = new RegExp(`${name}:\\s*var\\((--[\\w-]+)\\)\\s*;`).exec(css);
-  if (alias) return hexOf(alias[1]!);
-  const m = new RegExp(`${name}:\\s*#([0-9a-fA-F]{6})\\b`).exec(css);
-  assert.ok(m, `${name} is not a hex in the stylesheet`);
-  const n = parseInt(m[1]!, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // A token may point at another (`--sn-surface: var(--m-paper)`, 14 Nov 2026; `--m-paper: rgb(var(--color-raised))`,
+  // the one colour set 18 Nov 2026): follow the pointer to the colour it resolves to, so the contrast below is still
+  // measured on the real colour (`lib/css-colour-tokens.ts`).
+  const rgb = tokenRgb(name, 'light');
+  assert.ok(rgb, `${name} does not resolve to one opaque colour in the stylesheet`);
+  return rgb;
 };
 const lum = ([r, g, b]: [number, number, number]) => {
   const c = (x: number) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : ((x / 255 + 0.055) / 1.055) ** 2.4);

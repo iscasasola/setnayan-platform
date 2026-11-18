@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7917
+# facts: 7968
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     643
-#   col       5698
-#   policy    1161
+#   tpriv     647
+#   col       5737
+#   policy    1167
 #   view      10
-#   func      401
+#   func      403
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -338,6 +338,7 @@ tpriv	public.onboarding_refinements|authenticated	SIUD
 tpriv	public.order_ledger|authenticated	SI
 tpriv	public.order_refunds|authenticated	SIUD
 tpriv	public.orders|authenticated	SU
+tpriv	public.own_client_gifts|authenticated	S
 tpriv	public.owner_alerts|anon	SIUD
 tpriv	public.owner_alerts|authenticated	SIUD
 tpriv	public.pakanta_intake_drafts|anon	SIUD
@@ -515,6 +516,7 @@ tpriv	public.vendor_calendar_blocks|authenticated	SIUD
 tpriv	public.vendor_calendar_day_states|authenticated	SIUD
 tpriv	public.vendor_change_orders|anon	SIUD
 tpriv	public.vendor_change_orders|authenticated	SIUD
+tpriv	public.vendor_client_invites|authenticated	S
 tpriv	public.vendor_client_notes|authenticated	SIUD
 tpriv	public.vendor_contracts|anon	SIUD
 tpriv	public.vendor_contracts|authenticated	SIUD
@@ -561,6 +563,7 @@ tpriv	public.vendor_locked_qr_tokens|authenticated	SIUD
 tpriv	public.vendor_member_token_wallets|authenticated	SIUD
 tpriv	public.vendor_offer_cards|authenticated	SIUD
 tpriv	public.vendor_offers|authenticated	SIUD
+tpriv	public.vendor_own_link_gifts|authenticated	S
 tpriv	public.vendor_package_item_options|anon	SIUD
 tpriv	public.vendor_package_item_options|authenticated	SIUD
 tpriv	public.vendor_package_items|anon	SIUD
@@ -648,6 +651,7 @@ tpriv	public.vendor_tier_history|anon	SIUD
 tpriv	public.vendor_tier_history|authenticated	SIUD
 tpriv	public.vendor_token_purchases|anon	SIUD
 tpriv	public.vendor_token_purchases|authenticated	SIUD
+tpriv	public.vendor_trusted_by_hidden|authenticated	SID
 tpriv	public.vendor_verification_applications|anon	SD
 tpriv	public.vendor_verification_applications|authenticated	SD
 tpriv	public.vendor_verifications|authenticated	S
@@ -3489,6 +3493,18 @@ col	public.orders.vendor_net_centavos	anon=- authenticated=SU
 col	public.orders.vendor_profile_id	anon=- authenticated=SU
 col	public.orders.voucher_code_applied	anon=- authenticated=SU
 col	public.orders.voucher_discount_centavos	anon=- authenticated=SU
+col	public.own_client_gifts.account_new_by_import	anon=- authenticated=S
+col	public.own_client_gifts.created_at	anon=- authenticated=S
+col	public.own_client_gifts.credits	anon=- authenticated=S
+col	public.own_client_gifts.event_id	anon=- authenticated=S
+col	public.own_client_gifts.event_new_by_import	anon=- authenticated=S
+col	public.own_client_gifts.first_import_on_event	anon=- authenticated=S
+col	public.own_client_gifts.gift_lines	anon=- authenticated=S
+col	public.own_client_gifts.invite_id	anon=- authenticated=S
+col	public.own_client_gifts.own_gift_id	anon=- authenticated=S
+col	public.own_client_gifts.pool_grant_id	anon=- authenticated=S
+col	public.own_client_gifts.vendor_profile_id	anon=- authenticated=S
+col	public.own_client_gifts.via	anon=- authenticated=S
 col	public.owner_alerts.acknowledged_at	anon=SIU authenticated=SIU
 col	public.owner_alerts.acknowledged_by	anon=SIU authenticated=SIU
 col	public.owner_alerts.alert_id	anon=SIU authenticated=SIU
@@ -4517,6 +4533,7 @@ col	public.shop_gift_stock_entries.gift_kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.own_client_gift_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
@@ -5059,6 +5076,18 @@ col	public.vendor_change_orders.status	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.title	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_change_orders.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_client_invites.claimed_at	anon=- authenticated=S
+col	public.vendor_client_invites.claimed_event_id	anon=- authenticated=S
+col	public.vendor_client_invites.client_contact	anon=- authenticated=S
+col	public.vendor_client_invites.client_name	anon=- authenticated=S
+col	public.vendor_client_invites.client_note	anon=- authenticated=S
+col	public.vendor_client_invites.created_at	anon=- authenticated=S
+col	public.vendor_client_invites.created_by	anon=- authenticated=S
+col	public.vendor_client_invites.gift_lines	anon=- authenticated=S
+col	public.vendor_client_invites.invite_id	anon=- authenticated=S
+col	public.vendor_client_invites.status	anon=- authenticated=S
+col	public.vendor_client_invites.token	anon=- authenticated=S
+col	public.vendor_client_invites.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_client_notes.author_user_id	anon=- authenticated=SIU
 col	public.vendor_client_notes.body	anon=- authenticated=SIU
 col	public.vendor_client_notes.created_at	anon=- authenticated=SIU
@@ -5438,6 +5467,13 @@ col	public.vendor_offers.until_date	anon=- authenticated=SIU
 col	public.vendor_offers.updated_at	anon=- authenticated=SIU
 col	public.vendor_offers.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_offers.who	anon=- authenticated=SIU
+col	public.vendor_own_link_gifts.credits	anon=- authenticated=S
+col	public.vendor_own_link_gifts.gift_kind	anon=- authenticated=S
+col	public.vendor_own_link_gifts.service_code	anon=- authenticated=S
+col	public.vendor_own_link_gifts.set_by	anon=- authenticated=S
+col	public.vendor_own_link_gifts.title	anon=- authenticated=S
+col	public.vendor_own_link_gifts.updated_at	anon=- authenticated=S
+col	public.vendor_own_link_gifts.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_package_item_options.created_at	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.display_order	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.is_available	anon=SIU authenticated=SIU
@@ -5549,11 +5585,13 @@ col	public.vendor_papic_portfolio_photos.video_r2_key	anon=- authenticated=SI
 col	public.vendor_partnerships.accepted_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.additional_fee_centavos	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.admin_verified	anon=SIU authenticated=SIU
+col	public.vendor_partnerships.brought_new_shop	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.covered_plan_groups	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.created_at	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.discount_pct	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.is_active	anon=SIU authenticated=SIU
+col	public.vendor_partnerships.origin	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommended_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.recommending_vendor_id	anon=SIU authenticated=SIU
 col	public.vendor_partnerships.relationship_type	anon=SIU authenticated=SIU
@@ -5729,6 +5767,8 @@ col	public.vendor_profiles.outer_radius_km	anon=- authenticated=SIU
 col	public.vendor_profiles.papers_current	anon=S authenticated=SIU
 col	public.vendor_profiles.papers_lapsed_at	anon=- authenticated=SIU
 col	public.vendor_profiles.papic_challenge_expires_at	anon=- authenticated=SIU
+col	public.vendor_profiles.paused_at	anon=- authenticated=SIU
+col	public.vendor_profiles.paused_by	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier_billing_cycle	anon=- authenticated=SIU
 col	public.vendor_profiles.pending_tier_period_days	anon=- authenticated=SIU
@@ -6214,6 +6254,9 @@ col	public.vendor_token_purchases.reviewed_by	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.status	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.token_count	anon=SIU authenticated=SIU
 col	public.vendor_token_purchases.vendor_id	anon=SIU authenticated=SIU
+col	public.vendor_trusted_by_hidden.created_at	anon=- authenticated=SI
+col	public.vendor_trusted_by_hidden.hidden_vendor_profile_id	anon=- authenticated=SI
+col	public.vendor_trusted_by_hidden.vendor_profile_id	anon=- authenticated=SI
 col	public.vendor_verification_applications.admin_user_id	anon=S authenticated=S
 col	public.vendor_verification_applications.application_id	anon=S authenticated=SIU
 col	public.vendor_verification_applications.application_type	anon=S authenticated=SIU
@@ -6992,6 +7035,7 @@ policy	public.orders|orders_insert_status_guard	mode=RESTRICTIVE cmd=INSERT role
 policy	public.orders|orders_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin) OR ((event_id IN ( SELECT current_couple_or_coordinator_event_ids() AS current_couple_or_coordinator_event_ids)) AND ((user_id IS NULL) OR is_event_member(event_id, user_id)))) check=NULL
 policy	public.orders|orders_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.orders|orders_update_status_guard	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=((( SELECT auth.role() AS role) = 'service_role'::text) OR ( SELECT is_admin() AS is_admin) OR (status = ANY (ARRAY['draft'::order_status, 'submitted'::order_status, 'awaiting_payment'::order_status, 'cancelled'::order_status])))
+policy	public.own_client_gifts|own_client_gifts_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.owner_alerts|owner_alerts_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.owner_alerts|owner_alerts_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.pakanta_intake_drafts|lh_ro_del_pakanta_intake_drafts	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
@@ -7256,6 +7300,7 @@ policy	public.vendor_change_orders|vendor_change_orders_couple_read	mode=PERMISS
 policy	public.vendor_change_orders|vendor_change_orders_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((event_id IS NULL) OR (NOT (event_id IN ( SELECT money_hidden_event_ids() AS money_hidden_event_ids))) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
 policy	public.vendor_change_orders|vendor_change_orders_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (raised_by = 'vendor'::text) AND (status = 'proposed'::text) AND (proposed_by_user_id = ( SELECT auth.uid() AS uid)))
 policy	public.vendor_change_orders|vendor_change_orders_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))) check=NULL
+policy	public.vendor_client_invites|vendor_client_invites_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_client_notes|vendor_client_notes_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_contracts|vendor_contracts_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_contracts|vendor_contracts_event_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((status <> 'draft'::text) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = vendor_contracts.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
@@ -7356,6 +7401,7 @@ policy	public.vendor_offer_cards|vendor_offer_cards_vendor_all	mode=PERMISSIVE c
 policy	public.vendor_offers|vendor_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_console_admin() AS is_console_admin) check=( SELECT is_console_admin() AS is_console_admin)
 policy	public.vendor_offers|vendor_offers_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((is_on = true) AND (vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true)))) check=NULL
 policy	public.vendor_offers|vendor_offers_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_own_link_gifts|vendor_own_link_gifts_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type))))) check=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_package_item_options|vendor_package_item_options_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.is_active = true))) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))
@@ -7496,6 +7542,9 @@ policy	public.vendor_team_members|vendor_team_members_member_read	mode=PERMISSIV
 policy	public.vendor_tier_history|vendor_tier_history_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_tier_history.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_token_purchases|vtp_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=( SELECT is_console_admin() AS is_console_admin) check=NULL
 policy	public.vendor_token_purchases|vtp_vendor_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(vendor_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) check=NULL
+policy	public.vendor_trusted_by_hidden|shop hides a row from its own trusted by	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_trusted_by_hidden|shop reads its own hidden trusted-by rows	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_trusted_by_hidden|shop shows a hidden row again	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = 'draft'::text))
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_verification_applications|vendor_verification_applications_owner_update_draft	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = 'draft'::text)) check=((EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_verification_applications.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) AND (status = ANY (ARRAY['draft'::text, 'pending_review'::text])))
@@ -7736,6 +7785,7 @@ func	public.is_couple_member(p_event_id uuid)	secdef=yes exec=anon,authenticated
 func	public.is_event_member(p_event_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.is_limited_helper(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.join_entourage_line(p_event_id uuid, p_anchor uuid, p_joiner uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.join_supplier_invite(p_inviter_slug text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -7830,6 +7880,7 @@ func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders in
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_walking(p_event_id uuid, p_guest_id uuid, p_walks boolean)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
+func	public.set_shop_status(p_vendor_profile_id uuid, p_status text)	secdef=yes exec=authenticated search_path=public
 func	public.set_supplier_where(p_vendor_id uuid, p_block_ids uuid[], p_covered_group text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.set_vendor_colour_access(p_event_id uuid, p_vendor_id uuid, p_active boolean)	secdef=yes exec=authenticated search_path=public

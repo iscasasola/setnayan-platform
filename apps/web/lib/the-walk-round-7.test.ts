@@ -98,13 +98,13 @@ test('RW-108 · a claimed per-guest booking reads the couple’s figure and coun
 
   const { detailsNumbers } = await import('../app/vendor-dashboard/clients/[eventId]/_components/details-numbers');
   const cells = detailsNumbers({
-    isBooked: false, todayIso: '2026-11-14', eventDate: '2027-05-01', ledger: null, onPlan: false,
+    isBooked: false, todayIso: '2026-11-14', eventDate: '2027-05-01', ledger: null, plan: null,
     sentQuotePhp: undefined, perGuest: { totalPhp: 4000, guests: 4 }, peso: (n) => `₱${n.toLocaleString('en-PH')}`,
   });
   const q = cells.find((c) => c.key === 'quote')!;
   assert.deepEqual([q.label, q.value, q.sub], ['Agreed', '₱4,000', '4 guests']);
   const zero = detailsNumbers({
-    isBooked: false, todayIso: '2026-11-14', eventDate: null, ledger: null, onPlan: false,
+    isBooked: false, todayIso: '2026-11-14', eventDate: null, ledger: null, plan: null,
     sentQuotePhp: undefined, perGuest: { totalPhp: 0, guests: 4 }, peso: (n) => `₱${n}`,
   }).find((c) => c.key === 'quote')!;
   assert.notEqual(zero.value, '₱0');

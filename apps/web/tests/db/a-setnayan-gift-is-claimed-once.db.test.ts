@@ -327,4 +327,13 @@ test('11 · the paused plan’s PAID days do not burn under the gift — its pur
   assert.equal(back.tier_state, 'pro');
   assert.ok(Math.abs(msLeft(sub) - 10 * DAY) < 5 * 60_000, 'the paid purchase has its 10 days again');
   assert.ok(Math.abs(msLeft(sub) - msLeft(back.tier_expires_at)) < 5 * 60_000, 'purchase and profile agree');
+
+  // RESUMING NEVER DOUBLE-EXTENDS: the sweep runs on every login, and the hand-back may be asked again. Neither may move
+  // the purchase a second time.
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+  await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [shop]);
+  assert.equal(await one<string>(`SELECT public.setnayan_plan_gift_return($1, 'ended') AS v`, [shop]), 'none');
+  const subAgain = await one<string>(`SELECT expires_at::text AS v FROM public.vendor_subscriptions WHERE purchase_id = $1`, [purchase]);
+  assert.equal(subAgain, sub, 'a second sweep or hand-back moves the purchase nowhere');
+  assert.equal((await planOf(shop)).tier_expires_at, back.tier_expires_at, 'nor the profile');
 });

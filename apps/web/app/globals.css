@@ -757,7 +757,7 @@
   100% { transform: scaleX(1); }
 }
 .nav-pill-stretch {
-  animation: nav-pill-travel var(--bn-dur, 500ms) cubic-bezier(0.34, 1.4, 0.5, 1);
+  animation: nav-pill-travel var(--bn-dur, var(--sn-m-rise)) var(--sn-m-spring);
 }
 
 /*
@@ -774,7 +774,7 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scaleX(1); }
 }
 .nav-press-flash {
-  animation: nav-press-flash var(--bn-dur, 500ms) ease-out;
+  animation: nav-press-flash var(--bn-dur, var(--sn-m-rise)) var(--sn-m-settle);
 }
 
 /*
@@ -3246,23 +3246,78 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   animation: none;
   mix-blend-mode: normal;
 }
+/* ↔ SLIDE (motion standard 18 Nov 2026, § 5 #29): Move on Settle; the OLD page travels 30 % and dims, the NEW one comes
+   the full width over it (the new snapshot paints above the old). The tokens sit on the rule, never inside a keyframe
+   (a `var()` in a keyframe's timing function runs linear in Chrome). Reduced motion: the listener starts no slide.
+   🔒 app/_components/nav/the-screens-move-by-the-standard.test.ts */
 ::view-transition-old(sn-page),
 ::view-transition-new(sn-page) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-duration: var(--sn-m-move);
+  animation-timing-function: var(--sn-m-settle);
   animation-fill-mode: both;
 }
 html[data-sn-nav-dir='fwd']::view-transition-old(sn-page) {
-  animation-name: sn-vt-out-left;
+  animation-name: sn-vt-page-out-left;
 }
 html[data-sn-nav-dir='fwd']::view-transition-new(sn-page) {
   animation-name: sn-vt-in-right;
 }
 html[data-sn-nav-dir='back']::view-transition-old(sn-page) {
-  animation-name: sn-vt-out-right;
+  animation-name: sn-vt-page-out-right;
 }
 html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
   animation-name: sn-vt-in-left;
+}
+/* 🖼 PICTURE LEADS, card → its page (motion standard § 5 #33): the tapped photo and the next page's picture share ONE
+   name while the transition runs (`NavSlideController` puts it on the tapped photo; the page's picture wears
+   `data-picture-hero`), so the browser flies the one into the other — Rise on Settle. The page itself is the "card":
+   it rises 40 px, a beat (80 ms = 0.4 × Quick) after the photo has left. Reduced motion: the listener starts nothing.
+   🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts */
+html[data-sn-nav-dir='picture'] [data-picture-hero] {
+  view-transition-name: sn-picture;
+}
+::view-transition-group(sn-picture) {
+  animation-duration: var(--sn-m-rise);
+  animation-timing-function: var(--sn-m-settle);
+}
+::view-transition-old(sn-picture),
+::view-transition-new(sn-picture) {
+  /* The same photo at two sizes: fill the flying box, no cross-fade wash. */
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: normal;
+}
+html[data-sn-nav-dir='picture']::view-transition-old(sn-page) {
+  animation-name: sn-picture-old;
+  animation-duration: var(--sn-m-quick);
+}
+html[data-sn-nav-dir='picture']::view-transition-new(sn-page) {
+  animation-name: sn-picture-card;
+  animation-delay: calc(var(--sn-m-quick) * 0.4);
+}
+@keyframes sn-picture-old {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sn-picture-card {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+/* The page that leaves on a tab press: 30 % of the way, dimming (the bar-set slide below keeps the full-width pair). */
+@keyframes sn-vt-page-out-left {
+  to {
+    transform: translateX(-30%);
+    opacity: 0.4;
+  }
+}
+@keyframes sn-vt-page-out-right {
+  to {
+    transform: translateX(30%);
+    opacity: 0.4;
+  }
 }
 @keyframes sn-vt-out-left {
   to {
@@ -7317,7 +7372,7 @@ div:has(> [data-apply-pro-sheet]),
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
-  animation: sn-peek-in 0.28s var(--sn-ease) both;
+  animation: sn-peek-in var(--sn-m-quick) var(--sn-m-settle) both;
 }
 .sn-inspector-sheet {
   position: fixed;
@@ -7333,15 +7388,39 @@ div:has(> [data-apply-pro-sheet]),
   border-left: 1px solid var(--sn-hairline);
   border-radius: 24px 0 0 24px;
   background: var(--sn-paper, #fffdf8);
-  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
+  /* The second shadow is the panel's own paper running on past its right edge: the Side peek lands on the Spring, so
+   * for a few frames it stands a little LEFT of its place, and the list must not show through at the screen's edge. */
+  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45), 3rem 0 0 0 var(--sn-paper, #fffdf8);
   padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, var(--sn-safe-r)) max(1.25rem, env(safe-area-inset-bottom)) 1.25rem;
   /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
    * animation ends, and a held transform — even the identity — makes this
    * element the containing block for every `position: fixed` descendant, which
    * silently unpins anything fixed inside the card. See
    * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
-  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
+  /* 👤 SIDE PEEK (motion standard 18 Nov 2026, § 5 #31 — a person's card: guest, client): the whole panel slides in from
+   * the right — Move on the Spring — and the strip of list beside it stays tappable (`.sn-inspector-peek`, the way
+   * back). The close is the open mirrored at 80 % on Settle reversed, played by `playPeekOut` before the card unmounts.
+   * Reduced motion: the global freeze — it is simply there, and simply gone.
+   * 🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts */
+  animation: sn-side-peek-in var(--sn-m-move) var(--sn-m-spring) backwards;
 }
+/* No fill on the way out: a held transform would make the leaving card the containing block of its fixed children.
+ * `playPeekOut` marks it `data-closed` in the same frame the slide ends, so it never shows again before it unmounts. */
+.sn-inspector-sheet[data-closing] {
+  animation: sn-side-peek-out calc(var(--sn-m-move) * 0.8) var(--sn-m-settle-rev);
+  pointer-events: none;
+}
+.sn-inspector-sheet[data-closed],
+.sn-inspector-peek[data-closed] {
+  visibility: hidden;
+}
+.sn-inspector-peek[data-closing] {
+  animation: sn-peek-out var(--sn-m-quick) var(--sn-m-settle) forwards;
+  pointer-events: none;
+}
+@keyframes sn-side-peek-in { from { transform: translateX(100%); } }
+@keyframes sn-side-peek-out { to { transform: translateX(100%); } }
+@keyframes sn-peek-out { to { opacity: 0; } }
 /* ⚖ THE CARD'S HEADER STAYS IN VIEW (owner 2026-10-02: *"maybe we can leave
  * this part persistent?"*). Eyebrow · name · reply · × in one slim bar, sticky
  * to the top of whichever box scrolls the card (the phone/tablet sheet, or the
@@ -7713,7 +7792,19 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * element to its own styles afterwards — visually identical, structurally
  * inert. The keyframe declares only `from`, so nothing is lost by not holding
  * an end state. */
-.sn-page-enter { animation: sn-rise-soft 400ms backwards var(--sn-ease-out); }
+.sn-page-enter { animation: sn-rise-soft var(--sn-m-move) backwards var(--sn-m-settle); }
+
+/* → PUSH (motion standard 18 Nov 2026, § 5 #30): a page DEEPER in its section arrives from the right; its Back arrives
+ * from the left — the reverse way. `NavSlideController` writes `html[data-sn-push]` on the tap (or the phone's Back) and
+ * clears it once the page has landed; a first load, a tab press and a sideways link carry no mark and keep Enter above.
+ * Only the NAME changes here: Move, Settle and `backwards` stay the template's own (never `both` — a held transform
+ * unpins every fixed child). `:where()` keeps these below the two `animation: none` rules that follow (a tab's own
+ * slide, an open chat thread), so those still win. Reduced motion: no travel (the rule below, and the global freeze).
+ * 🔒 app/_components/nav/the-screens-move-by-the-standard.test.ts */
+@keyframes sn-push-fwd { from { opacity: 0; transform: translateX(clamp(24px, 30%, 96px)); } }
+@keyframes sn-push-back { from { opacity: 0; transform: translateX(calc(-1 * clamp(24px, 30%, 96px))); } }
+:where(html[data-sn-push='fwd']) .sn-page-enter { animation-name: sn-push-fwd; }
+:where(html[data-sn-push='back']) .sn-page-enter { animation-name: sn-push-back; }
 
 /* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
  * during the directional VT slide the incoming pane is a LIVE capture, so the
@@ -8672,6 +8763,63 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 /* `visibility: hidden` once it has slid (after its 200 ms): out of the Tab order and the screen reader while away. */
 html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 200ms; }
 @media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+
+/* 🫳 TUCK — THE BARS HIDE ON SCROLL, THE ROWS STAY (motion standard 18 Nov 2026, § 5 #37; owner: *"yes. thumb row and
+ * compressed row stays."* · *"but when bottom and top nav appears, the thumb row and compressed pin rows adjust as
+ * well"*). `use-hide-on-scroll.ts` writes ONE mark, `html[data-tuck]`, while the page scrolls down; everything here
+ * answers it, on a phone (below 701 — from 701 the bar and the rows stand where they are):
+ *   · the bottom nav SHRINKS to the left (scaleX to `--sn-tuck-k`, the pill's share of its width) and fades, and the
+ *     small floating pill (`[data-tuck-pill]`, bottom-nav.tsx) grows in its place — one tap on it opens the bar;
+ *   · the floating thumb row STAYS: it comes down onto the pill's row (`translate`, one bar-height) and starts to the
+ *     pill's right; scroll up and it goes back up with the bar — the same two speeds, as one move;
+ *   · the top bar tucks away (front-door.css) and the pinned 44-px row rides up with it (collapsing-top.tsx).
+ * Away: Move on the Spring. Back: Quick on Settle (the resting rules carry the way back). Transform, translate and
+ * opacity only — the row's left room is set once, never animated. Not while the keyboard is up or the chrome has
+ * stepped away (those own the dock then). Reduced motion: everything swaps at once.
+ * 🔒 app/_components/nav/tuck-keeps-the-rows.test.ts */
+[data-tuck-pill] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.5);
+  transition: transform var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick);
+}
+[data-bottom-dock] > nav[aria-label='Primary navigation'] {
+  transform-origin: left center;
+  transition: transform var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear 0s;
+}
+:root :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+  transition: transform var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-quick) var(--sn-m-settle);
+}
+@media (max-width: 700.98px) {
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]) [data-bottom-dock] > nav[aria-label='Primary navigation'] {
+    transform: scaleX(var(--sn-tuck-k, 0.18));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick);
+  }
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]) [data-tuck-pill] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition: transform var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear 0s;
+  }
+  /* The rows that float on the dock — only where a dock is on the page to shrink. */
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]):has([data-bottom-dock]) :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+    translate: 0 var(--sn-bottomnav-h, 64px);
+    padding-left: calc(var(--sn-safe-l) + 14px + var(--sn-bottomnav-h, 64px) + 8px);
+    transition: transform var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-move) var(--sn-m-spring);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tuck-pill],
+  [data-bottom-dock] > nav[aria-label='Primary navigation'],
+  :root :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+    transition: none;
+  }
+}
 /* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
  * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
 [data-ride-row][data-riding] [data-ride-fold] { display: none !important; }

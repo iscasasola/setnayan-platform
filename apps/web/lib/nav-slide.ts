@@ -61,3 +61,24 @@ export function tabSlideDir(pressed: number, active: number): 'fwd' | 'back' | n
   if (pressed < 0 || active < 0 || pressed === active) return null;
   return pressed > active ? 'fwd' : 'back';
 }
+
+/**
+ * → PUSH (motion standard 18 Nov 2026, § 5 #30) — which way a page arrives when the address moves INSIDE a section:
+ * 'fwd' (from the right) when `to` is deeper than `from`, 'back' (from the left — the reverse) when it is shallower,
+ * null for anything else (a sideways link, another section, the same page) — that keeps the plain Enter.
+ *
+ * A dashboard's HOME is not "above" its sections: Home → Guests is a tab's move (the Slide), never a Push, though the
+ * one address starts with the other. The account's own home (`/dashboard`) is treated the same.
+ */
+const PUSH_HOME = /^\/(dashboard(\/[^/]+)?|vendor-dashboard|admin)$/;
+const trim = (p: string) => (p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p);
+
+export function pushDir(from: string, to: string): 'fwd' | 'back' | null {
+  const a = trim(from);
+  const b = trim(to);
+  if (!a || !b || a === b) return null;
+  if (PUSH_HOME.test(a) || PUSH_HOME.test(b)) return null;
+  if (b.startsWith(a + '/')) return 'fwd';
+  if (a.startsWith(b + '/')) return 'back';
+  return null;
+}

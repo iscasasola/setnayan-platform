@@ -18,7 +18,9 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Lock, X } from 'lucide-react';
+import { Check, Lock, Send, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 
 export type VendorSignoffRow = {
@@ -86,55 +88,48 @@ export function VendorPartSignoff({
   }
 
   return (
-    <section className="sn-tile p-5 sm:p-6">
-      <h2 className="mb-1 text-lg font-semibold">Sign-off</h2>
-      <p className="mb-4 text-sm text-ink/55">
-        The couple has asked you to agree to part of this design. Agreeing freezes it — they
-        cannot change it afterwards without asking you first.
-      </p>
-
+    <TemplateSection
+      label="Sign-off"
+      tip="The couple asked you to agree to part of this design. Agreeing freezes it until you say yes to a change."
+      data="part-signoff"
+    >
       {message ? (
-        <p
-          role="status"
-          className="mb-3 rounded-lg border border-warn-400/40 bg-warn-50 px-3 py-2 text-xs text-warn-900"
-        >
+        <p role="status" className="py-2 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
           {message}
         </p>
       ) : null}
 
-      <ul className="divide-y divide-ink/10">
+      <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
         {asks.map((row) => (
           <li key={row.finalizationId} className="space-y-2 py-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <span className="flex-1 text-sm font-medium text-ink">{row.partLabel}</span>
-              <span className="text-[11px] text-warn-900">
-                {lockRequestFuseLabel(row.expiresAt) ?? 'no deadline recorded'}
+            <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="min-w-0 flex-1">
+                <b className="block text-[15px] font-semibold text-ink">{row.partLabel}</b>
+                <span className={`block ${TEMPLATE_SUBLINE}`}>
+                  {lockRequestFuseLabel(row.expiresAt) ?? 'no deadline recorded'}
+                </span>
               </span>
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                icon={Check}
+                label="I’ll build this"
                 disabled={busy === row.finalizationId}
                 onClick={() => run(row.finalizationId, () => agreeAction(row.finalizationId))}
-                className="inline-flex items-center gap-1 rounded-full bg-terracotta-700 px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
-              >
-                <Check className="h-3.5 w-3.5" aria-hidden />
-                I&rsquo;ll build this
-              </button>
-              <button
-                type="button"
+              />
+              <ActionButton
+                tone="neutral"
+                icon={X}
+                label="Not as designed"
                 disabled={busy === row.finalizationId}
                 onClick={() =>
                   setReasonFor(reasonFor === row.finalizationId ? null : row.finalizationId)
                 }
-                className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Not as designed
-              </button>
+              />
             </div>
             {reasonFor === row.finalizationId ? (
-              <div className="space-y-1.5 rounded-lg border border-ink/10 bg-cream/60 p-3">
+              <div className="space-y-2 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-3">
                 <label
-                  className="block text-xs text-ink/70"
+                  className={`block ${TEMPLATE_SUBLINE}`}
                   htmlFor={`reason-${row.finalizationId}`}
                 >
                   Tell them why — they will see your words, and it is the only way they learn
@@ -146,19 +141,18 @@ export function VendorPartSignoff({
                   maxLength={240}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
-                  className="w-full rounded-md border border-ink/15 px-2 py-1.5 text-sm"
+                  className="w-full rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink"
                   placeholder="We cannot source that shade of peony in November."
                 />
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  icon={Send}
+                  label="Send"
                   disabled={busy === row.finalizationId}
                   onClick={() =>
                     run(row.finalizationId, () => declineAction(row.finalizationId, reason))
                   }
-                  className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-                >
-                  Send
-                </button>
+                />
               </div>
             ) : null}
           </li>
@@ -166,59 +160,57 @@ export function VendorPartSignoff({
 
         {reopens.map((row) => (
           <li key={row.finalizationId} className="space-y-2 py-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <span className="flex-1 text-sm font-medium text-ink">
-                {row.partLabel}
-                <span className="ml-2 font-normal text-ink/60">
-                  — they want to change this after you agreed
+            <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="min-w-0 flex-1">
+                <b className="block text-[15px] font-semibold text-ink">{row.partLabel}</b>
+                <span className={`block ${TEMPLATE_SUBLINE}`}>
+                  They want to change this after you agreed ·{' '}
+                  {lockRequestFuseLabel(row.reopenExpiresAt) ?? 'no deadline recorded'}
                 </span>
               </span>
-              <span className="text-[11px] text-warn-900">
-                {lockRequestFuseLabel(row.reopenExpiresAt) ?? 'no deadline recorded'}
-              </span>
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                icon={Check}
+                label="Go ahead, change it"
                 disabled={busy === row.finalizationId}
                 onClick={() =>
                   run(row.finalizationId, () =>
                     answerReopenAction(row.finalizationId, true, ''),
                   )
                 }
-                className="rounded-full bg-terracotta-700 px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-800 disabled:opacity-50"
-              >
-                Go ahead, change it
-              </button>
-              <button
-                type="button"
+              />
+              <ActionButton
+                tone="neutral"
+                icon={Lock}
+                label="Keep it as agreed"
                 disabled={busy === row.finalizationId}
                 onClick={() =>
                   run(row.finalizationId, () =>
                     answerReopenAction(row.finalizationId, false, reason),
                   )
                 }
-                className="rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-50"
-              >
-                Keep it as agreed
-              </button>
+              />
             </div>
             {/* ⚠ IF NOBODY ANSWERS, THE PART STAYS AS AGREED. Said here rather
                 than left to be discovered: silence is not consent in either
                 direction, and a supplier who ignores this is not accidentally
                 releasing work they planned around. */}
-            <p className="text-[11px] text-ink/50">
+            <p className={TEMPLATE_SUBLINE}>
               If you do not answer, it stays exactly as you agreed it.
             </p>
           </li>
         ))}
 
         {settled.map((row) => (
-          <li key={row.finalizationId} className="flex items-center gap-2 py-2.5">
-            <Lock className="h-3.5 w-3.5 text-success-700" aria-hidden />
-            <span className="text-sm text-ink/70">{row.partLabel}</span>
-            <span className="text-[11px] text-ink/50">agreed — the couple cannot change it</span>
+          <li key={row.finalizationId} className="flex min-h-14 items-center gap-2.5 py-2">
+            <Lock className="h-4 w-4 flex-none" style={{ color: 'rgb(var(--color-ok))' }} aria-hidden />
+            <span className="min-w-0 flex-1">
+              <b className="block text-[15px] font-semibold text-ink">{row.partLabel}</b>
+              <span className={`block ${TEMPLATE_SUBLINE}`}>Agreed — the couple cannot change it</span>
+            </span>
           </li>
         ))}
       </ul>
-    </section>
+    </TemplateSection>
   );
 }

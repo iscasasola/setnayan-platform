@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Globe, Plus, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Check, AlertTriangle } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   addVendorDomain,
   verifyVendorDomain,
@@ -102,24 +104,20 @@ export function DomainManager({
   }
 
   return (
-    <section
-      className="mt-8 space-y-4 rounded-2xl p-6"
-      style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)', boxShadow: 'var(--m-shadow-sm)' }}
-    >
-      <div className="space-y-1">
-        <p className="sn-eye inline-flex items-center gap-2" style={{ color: 'var(--m-orange-2)' }}>
-          <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Your own domain
-        </p>
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Use your own web address</h2>
-        <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate)' }}>
-          Point a domain you own (like <span className="font-mono">sny.yourshop.com</span>) at your
-          Setnayan page.{proAsks ? '' : ' It’s free.'} You’ll add one DNS record, then verify.
-        </p>
-      </div>
+    <section className="mt-6 space-y-3" data-domain-manager="">
+      {/* Template rule 2 + 7: a plain section (no card) — the label, and the how-to behind its ⓘ. */}
+      <InfoTip
+        label="Use your own web address"
+        labelAs="h2"
+        align="start"
+        labelClassName="inline-flex items-center gap-2 text-[15px] font-semibold text-ink"
+      >
+        Point a domain you own (like sny.yourshop.com) at your Setnayan page.{proAsks ? '' : ' It’s free.'} You’ll add one
+        DNS record, then verify.
+      </InfoTip>
 
       {items.length > 0 && (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
           {items.map((d) => (
             <SwipeToDelete
               key={d.domain_id}
@@ -128,62 +126,52 @@ export function DomainManager({
               word="Remove"
               onDelete={() => handleRemove(d)}
               disabled={pending}
-              radiusClass="rounded-xl"
-              surfaceClass="bg-[var(--m-ivory,#fff)]"
+              radiusClass="rounded-none"
+              surfaceClass="bg-white"
             >
-            <div
-              className="rounded-xl p-4"
-              style={{ background: 'var(--m-ivory, #fff)', border: '1px solid var(--m-line)' }}
-              data-domain-row=""
-            >
+            <div className="py-3" data-domain-row="">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-2 font-mono text-sm text-ink">
+                <span className="inline-flex items-center gap-2 text-[15px] font-semibold text-ink">
                   {d.verified ? (
-                    <Check aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-sage-deep, #3f7d54)' }} strokeWidth={2} />
+                    <Check aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2} />
                   ) : (
                     <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
                   )}
                   {d.domain}
-                  <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                  <span className="text-[13px] font-normal text-[color:var(--m-slate-2)]">
                     {d.verified ? '· Live' : '· Pending DNS'}
                   </span>
                 </span>
                 <div className="flex items-center gap-2">
                   {!d.verified && (
-                    <button
-                      type="button"
+                    <ActionButton
+                      tone="info"
+                      icon={Check}
+                      label={busyId === d.domain_id && pending ? 'Checking…' : 'Verify'}
                       onClick={() => handleVerify(d.domain_id)}
                       disabled={pending}
-                      className="button-secondary inline-flex items-center gap-2"
-                    >
-                      {busyId === d.domain_id && pending ? (
-                        <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-                      ) : (
-                        <Check aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                      )}
-                      Verify
-                    </button>
+                    />
                   )}
                 </div>
               </div>
 
               {!d.verified && d.dns && d.dns.length > 0 && (
-                <div className="mt-3 space-y-2 rounded-lg p-3" style={{ background: 'var(--m-paper)' }}>
-                  <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                <div className="mt-3 space-y-2 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-3">
+                  <p className="text-[13px] text-[color:var(--m-slate-2)]">
                     Add {d.dns.length === 1 ? 'this record' : 'these records'} at your domain provider,
                     then click Verify:
                   </p>
                   {d.dns.map((r, i) => (
-                    <div key={i} className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-xs text-ink">
-                      <span style={{ color: 'var(--m-slate)' }}>Type</span><span>{r.type}</span>
-                      <span style={{ color: 'var(--m-slate)' }}>Name</span><span className="break-all">{r.name}</span>
-                      <span style={{ color: 'var(--m-slate)' }}>Value</span><span className="break-all">{r.value}</span>
+                    <div key={i} className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13px] text-ink">
+                      <span className="text-[color:var(--m-slate-2)]">Type</span><span className="font-mono">{r.type}</span>
+                      <span className="text-[color:var(--m-slate-2)]">Name</span><span className="break-all font-mono">{r.name}</span>
+                      <span className="text-[color:var(--m-slate-2)]">Value</span><span className="break-all font-mono">{r.value}</span>
                     </div>
                   ))}
                 </div>
               )}
               {d.note && (
-                <p className="mt-2 text-xs" style={{ color: 'var(--m-orange-2)' }}>{d.note}</p>
+                <p className="mt-2 text-[13px] text-[rgb(var(--color-warn))]">{d.note}</p>
               )}
             </div>
             </SwipeToDelete>
@@ -214,23 +202,17 @@ export function DomainManager({
             />
           </FormRows>
         </div>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          icon={Plus}
+          label={pending && !busyId ? 'Adding…' : 'Add domain'}
           onClick={() => handleAdd()}
           disabled={pending || !input.trim()}
-          className="button-primary inline-flex items-center justify-center gap-2"
-        >
-          {pending && !busyId ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          )}
-          Add domain
-        </button>
+        />
       </div>
 
       {error && (
-        <p className="text-sm" style={{ color: 'var(--m-orange-2)' }} role="alert">{error}</p>
+        <p className="text-sm text-[rgb(var(--color-danger))]" role="alert">{error}</p>
       )}
     </section>
   );

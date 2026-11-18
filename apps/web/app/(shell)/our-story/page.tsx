@@ -99,7 +99,7 @@ export default async function OurStoryPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageJsonLd) }}
       />
-      <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
+      <main className="bg-page text-[var(--m-ink)]">
         <OurStoryManifesto clips={orbClips} />
 
         {/* "What Setnayan is" — a plain-language description of the product and

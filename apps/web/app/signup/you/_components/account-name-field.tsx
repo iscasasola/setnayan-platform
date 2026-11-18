@@ -106,7 +106,7 @@ export function AccountNameField({ suggested }: { suggested: string }) {
           style={{
             display: 'block',
             paddingBottom: 10,
-            color: verdict.tone === 'ok' ? '#2F6B35' : verdict.tone === 'no' ? '#8A3418' : 'var(--hr-grey)',
+            color: verdict.tone === 'ok' ? 'rgb(var(--color-ok))' : verdict.tone === 'no' ? 'rgb(var(--color-danger))' : 'var(--hr-grey)',
           }}
         >
           {verdict.text}

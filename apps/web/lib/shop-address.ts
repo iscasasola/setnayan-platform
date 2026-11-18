@@ -35,9 +35,12 @@ export function shopInvitePath(slug: string): string {
  * later change adds before it is given its bare form here.
  */
 export function legacyShopRedirect(pathname: string): string | null {
-  const m = new RegExp(`^/v/(${WORD})(?:/(${SHOP_SUB_PAGES.join('|')}))?/?$`, 'i').exec(pathname);
+  // W1-B19: `/v/{shop}/story/{event}` (an Ultra story page) carries one more segment than the other sub-pages —
+  // it forwards too, to `/{shop}/story/{event}`. Only `story` takes that segment; `/v/{shop}/dates/x` stays null.
+  const m = new RegExp(`^/v/(${WORD})(?:/(${SHOP_SUB_PAGES.join('|')})(?:/(${WORD}))?)?/?$`, 'i').exec(pathname);
   if (!m) return null;
-  return shopPath(m[1]!, m[2] ? `/${m[2]}` : '');
+  if (m[3] && m[2]!.toLowerCase() !== 'story') return null;
+  return shopPath(m[1]!, m[2] ? `/${m[2]}${m[3] ? `/${m[3]}` : ''}` : '');
 }
 
 /** `/vendor-invite/{shop}` → `/{shop}/invite` (308 — shop QR codes are printed; the caller keeps the query). */

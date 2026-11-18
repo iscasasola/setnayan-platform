@@ -59,8 +59,10 @@ import {
 } from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
+  readPlanProgressForVendor,
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
+import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
 import { loadRoleNames } from '@/lib/role-names.server';
@@ -140,6 +142,8 @@ import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-wor
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { clientPaymentView } from '@/lib/client-payment-view';
+import { readClientNoun } from '@/lib/client-words.server';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
 import type { ClientRefundView } from './_components/client-refunds';
 import { CLIENT_REFUND_SELECT, clientRefundOf, type ClientRefundDbRow } from '@/lib/client-refunds';
@@ -163,6 +167,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
@@ -260,6 +265,7 @@ import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 import { StayForm } from '@/app/_components/stay-form';
+import { eventTypeWord } from '@/lib/event-vocabulary';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -1037,7 +1043,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       .limit(1)
       .maybeSingle()) : null;
   const plansP = isBooked ? startRead(Promise.all([
-      fetchPlanProgressForVendor({
+      readPlanProgressForVendor({
         adminClient: admin,
         eventId,
         vendorProfileId: profile.vendor_profile_id,
@@ -1358,9 +1364,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // this used to render "No payments to confirm yet" over a real deposit. Now
   // the Quote and Payments tabs say the payments couldn't load.
   let ledgerUnreadable = false;
+  // ⚖ The plan read was whole (bookings, plans AND payments) — else Details says "couldn't load", never "₱0 paid".
+  let planReadComplete = true;
   if (isBooked) {
-    const [plans, pending, payday] = (await plansP)!;
+    const [planRead, pending, payday] = (await plansP)!;
+    const plans = planRead.plans;
     planRowsAll = plans;
+    planReadComplete = planRead.complete;
     if (!payday.complete) {
       logQueryError(
         'VendorClientPage.paydayInstallments',
@@ -1906,6 +1916,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       label: resolveAppointmentLabel(a, typeLabels),
     }));
   }
+  // 🗓 W1-B29: a client not booked yet still has meetings (an ocular visit set from the chat) — its Schedules cell
+  // counts them with the Clients tile's own rule (`openMeetingsWindow`), never a hard-coded "none yet" over a real one.
+  // A refused read is `null` ("couldn't load").
+  let openMeetings: number | null = 0;
+  if (!isBooked) {
+    const { count, error } = await supabase
+      .from('event_appointments')
+      .select('appointment_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .in('status', [...OPEN_MEETING_STATUSES])
+      .or(openMeetingsWindow(manilaTodayIso()));
+    if (error) logQueryError('vendorClientCard.openMeetings', error, { eventId }, 'graceful_degrade');
+    openMeetings = error ? null : (count ?? 0);
+  }
 
   clientTimer.flush();
 
@@ -2025,7 +2050,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           key={c}
           className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
         >
-          {isBooked ? 'Booked · ' : ''}
+          {/* "Booked" is said ONCE — by the stage pill (owner screenshot 17 Nov: "Booked · In-house · Booked · …"). */}
           {displayServiceLabel(c)}
         </span>
       ))}
@@ -2222,6 +2247,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     be a door that always refuses.
   */
   const askNotice = typeof search.ask === 'string' ? search.ask : null;
+  // 💸 The ask form's suggestion — the plan's next unpaid payment, from the SAME fold the Payment page draws
+  // (`clientPaymentView`), so the panel never types a figure of its own and never says "nothing outstanding" over it.
+  const askNext = isBooked
+    ? clientPaymentView({ steps: planStepRows?.steps ?? null, clearedAt: planStepRows?.clearedAt ?? null, ledgerMoney, ledgerUnreadable }).next
+    : null;
+  const askSuggestion = askNext && !askNext.check ? askNext : null;
   // Rendered when the shop CAN ask, or when it just tried and needs to be told
   // why it could not — never nothing in the second case.
   const askPanel = isBooked || askNotice ? (
@@ -2244,6 +2275,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       measured={asksMeasured}
       notice={askNotice}
       canAsk={isBooked}
+      suggest={askSuggestion}
+      // CHAT-32: the SAME accepted-quote row Details reads (`firstPaymentStatus`), so the two pages cannot disagree.
+      quoteAskLine={firstPaymentStatus?.line ?? null}
     />
   ) : null;
 
@@ -2388,6 +2422,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
+  // 🔤 The event kind's word for this client ("celebrant" on a debut — owner, 17 Nov: "about this couple" on a debut).
+  const clientNoun = await readClientNoun(eventId);
   const activityNode = (
     <>
       {!notesMeasured ? (
@@ -2398,7 +2434,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} clientNoun={clientNoun} />
     </>
   );
 
@@ -2544,9 +2580,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     todayIso: manilaTodayIso(),
     eventDate: brief.event.event_date,
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
-    onPlan: planRowsAll.length > 0,
+    plan: !planReadComplete
+      ? 'unread'
+      : planRowsAll.length > 0
+        ? {
+            rollup: computePlanRollup(planRowsAll.flatMap((p) => p.steps ?? [])),
+            cleared: planRowsAll.every((p) => p.clearedAt != null),
+          }
+        : null,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
     perGuest: shopPerGuest,
+    meetings: openMeetings,
     peso: (php) => fmtPeso(php),
   });
 
@@ -2643,7 +2687,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
       <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor />
+      <DetailsFormsDoor eventName={eventName} />
     </div>
   );
 
@@ -2684,6 +2728,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             ledgerMoney,
             ledgerUnreadable,
             unreadableNote: <LedgerUnreadableNote />,
+            todayIso: manilaTodayIso(),
           }
         : undefined,
       asks: askPanel,
@@ -2705,7 +2750,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       scrollToScript={wantsScriptFold(rawTab) && showScript}
       settingsLine={{
-        line: 'Who looks after this client, and what reaches you.',
+        // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
+        // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.
+        // The line names what the sheet holds. A handler picker is an owner call, not built here.
+        line: 'The host’s setting for you, and your team’s notes.',
         tip: 'Settings for this client only. Your shop-wide settings stay in Clients ⚙.',
       }}
       settings={
@@ -2727,7 +2775,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 // Details-tab node share one source of truth (reuses vendorMarkServiceComplete —
 // no handshake logic reimplemented).
 // ===========================================================================
-function VendorCompletionCard({
+async function VendorCompletionCard({
   eventId,
   isCompleteConfirmed,
   isDisputed,
@@ -2750,6 +2798,20 @@ function VendorCompletionCard({
    */
   notice?: string | null;
 }) {
+  // CHAT-30 (walk 16 Nov 2026): a birthday client was asked about "this wedding". The event's own type word, read
+  // only here (the brief RPC carries no type), through the ONE badge map (`eventTypeBadge`: "birthday", "debut",
+  // "get-together"). The page already proved this shop may see the event (`get_vendor_event_brief`), and only the
+  // type leaves the read. A refused read says "event" — never a guessed "wedding".
+  const typeRead = await createAdminClient()
+    .from('events')
+    .select('event_type')
+    .eq('event_id', eventId)
+    .maybeSingle()
+    .then(
+      (r) => (r.error ? null : ((r.data as { event_type: string | null } | null)?.event_type ?? null)),
+      () => null,
+    );
+  const eventWord = eventTypeWord(typeRead);
   return (
     <Card>
       {notice === '1' ? (
@@ -2793,7 +2855,7 @@ function VendorCompletionCard({
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-ink/70">
-            <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
+            <span className="font-medium text-ink">Wrapped up this {eventWord}?</span> Mark your
             service complete — the couple confirms they got everything, then their review opens.
           </div>
           <form action={vendorMarkServiceComplete}>

@@ -48,6 +48,7 @@ import { haversineKm } from '@/lib/geo';
 import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
 import { readDemoVendorIds } from '@/lib/demo-vendors';
 import type { DemoScope } from '@/lib/demo-scope';
+import { liveTierState } from '@/lib/vendor-tier-lapse';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -546,7 +547,7 @@ export async function fetchWizardVendorRecommendations(
     const attrIds = baseRows.map((r) => r.vendor_profile_id);
     const { data: attrRows } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, capacity_max, venue_type, tier_state')
+      .select('vendor_profile_id, capacity_max, venue_type, tier_state, tier_expires_at, verification_state')
       .in('vendor_profile_id', attrIds);
     const attrById = new Map<
       string,
@@ -558,13 +559,16 @@ export async function fetchWizardVendorRecommendations(
           capacity_max: number | null;
           venue_type: string | null;
           tier_state: string | null;
+          tier_expires_at?: string | null;
+          verification_state?: string | null;
         };
         return [
           row.vendor_profile_id,
           {
             cap: row.capacity_max ?? null,
             type: row.venue_type ?? null,
-            tier: row.tier_state ?? null,
+            // A plan whose paid days ended reads as the sweep will write it (`liveTierState`).
+            tier: liveTierState(row, Date.now()),
           },
         ];
       }),
@@ -749,7 +753,7 @@ export async function fetchWizardVendorRecommendations(
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id,verification_state,next_renewal_due_at,presentation_pattern,name_revealed_at,screen_name,tier_state',
+          'vendor_profile_id,verification_state,next_renewal_due_at,presentation_pattern,name_revealed_at,screen_name,tier_state,tier_expires_at',
         )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
@@ -772,6 +776,7 @@ export async function fetchWizardVendorRecommendations(
         name_revealed_at?: string | null;
         screen_name?: string | null;
         tier_state?: string | null;
+        tier_expires_at?: string | null;
       }>) {
         const pattern =
           row.presentation_pattern === 'creations' ||
@@ -784,7 +789,7 @@ export async function fetchWizardVendorRecommendations(
           presentation_pattern: pattern,
           name_revealed_at: row.name_revealed_at ?? null,
           screen_name: row.screen_name ?? null,
-          tier_state: row.tier_state ?? null,
+          tier_state: liveTierState(row, Date.now()),
         });
       }
       return out;

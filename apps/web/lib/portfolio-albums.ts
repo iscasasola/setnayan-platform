@@ -123,7 +123,7 @@ export type PortfolioWay = 'events' | 'services' | 'inspiration' | 'videos';
 export const showKeepsWay = (show: PortfolioShow, way: PortfolioWay) => show === 'all' || show === way;
 
 /** A value sorted first when it is larger; a `null` (uncounted · never) always after every answered one. */
-const desc = <T,>(of: (a: RowAlbum) => T | null) => (a: RowAlbum, b: RowAlbum) => {
+const desc = <T extends number | string>(of: (a: RowAlbum) => T | null) => (a: RowAlbum, b: RowAlbum) => {
   const x = of(a);
   const y = of(b);
   if (x === null && y === null) return 0;

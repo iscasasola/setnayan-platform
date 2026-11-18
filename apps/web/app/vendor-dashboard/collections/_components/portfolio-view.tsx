@@ -19,7 +19,7 @@ import {
   PORTFOLIO_SORT_DEFAULT,
   portfolioSortIsOn,
   type AlbumStats,
-  type PortfolioShow,
+  type PortfolioShow as ShowFilter,
   type PortfolioSort,
 } from '@/lib/portfolio-albums';
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
@@ -114,7 +114,7 @@ export function PortfolioView({
   const inheritedChats = useContext(PhotoChatContext);
   const [picked, setPicked] = useState<string | null>(null);
   const [showing, setShowing] = useState(false);
-  const [show, setShow] = useState<PortfolioShow>(PORTFOLIO_SHOW_DEFAULT);
+  const [show, setShow] = useState<ShowFilter>(PORTFOLIO_SHOW_DEFAULT);
   const [sort, setSort] = useState<PortfolioSort>(PORTFOLIO_SORT_DEFAULT);
   const [words, setWords] = useState('');
   const [nothing, setNothing] = useState(false);
@@ -226,7 +226,7 @@ export function PortfolioView({
                 value: null,
                 onPick: (k: string) => {
                   const [what, key] = k.split(':');
-                  if (what === 'show') setShow(key as PortfolioShow);
+                  if (what === 'show') setShow(key as ShowFilter);
                   else setSort(key as PortfolioSort);
                 },
                 mark: 'data-portfolio-sort',

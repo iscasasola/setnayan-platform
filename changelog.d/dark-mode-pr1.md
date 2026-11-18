@@ -23,14 +23,14 @@ job's one token — no twin was added.
   grey pill. Every retired 13 Oct neutral (`#17160F`, `#232019`, `#FBFAF7` …) left the dark token blocks.
 - New guard `lib/the-colour-set-is-one.test.ts` (one token per job · pointers, never copies · the ruled values ·
   every text/surface pair at AA in both themes · no retired neutral) and a shared reader
-  `lib/css-colour-tokens.ts` that follows a pointer the way the browser does; 19 existing guards that read a
+  `lib/css-colour-tokens.ts` that follows a pointer the way the browser does; the existing guards that read a
   token's literal value now read it through that.
 
 **(b) `/dashboard` is on the ready-list.** `DARK_READY` (`lib/appearance.ts`) is now the one prefix `/dashboard`
 (the Events board, the account spokes B2 opened on 23 Oct, and the whole event tree). Before it was listed:
 
 - solid `bg-white` → `bg-raised` and `text-white` on a token fill → `text-cream` / `text-sn-on-accent` across
-  136 files (the same pixels in Light); translucent whites over photos and camera drawings kept;
+  about 135 files (the same pixels in Light); translucent whites over photos and camera drawings kept;
 - every stock-palette class got its dark partner; the two big embedded stylesheets (Suppliers bench, plan and
   budget) and the Story editor's own neutrals read the one set in dark; the Maker's stage panel got its dark
   thirteen (`STAGE_PANEL_VARS_DARK`), each reading a token;

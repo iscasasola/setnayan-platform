@@ -190,7 +190,6 @@ import {
   SCRIPT_FOLD_ID,
   pickedAnchorOf,
   pickedMenuFor,
-  SCRIPT_FOLD_ID,
   visiblePickedPage,
   wantsScriptFold,
 } from './_components/picked-client-menu';

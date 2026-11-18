@@ -152,6 +152,8 @@ type Props = {
   searchParams: Promise<{
     surface?: string; // 'applications' (default) | 'visibility'
     status?: string;
+    /** 🔦 ONE shop's application — the per-shop Verify address Focus opens (`?shop=<vendor_profile_id>`). */
+    shop?: string;
     approved?: string;
     rejected?: string;
     archived?: string;
@@ -277,7 +279,7 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
       <SurfaceTabs current={surface} />
 
       {surface === 'applications' ? (
-        <ApplicationsSurface statusParam={search.status} error={search.error} />
+        <ApplicationsSurface statusParam={search.status} error={search.error} shopParam={search.shop} />
       ) : (
         <VisibilitySurface statusParam={search.status} error={search.error} />
       )}
@@ -397,12 +399,20 @@ function FlashBanner({
 async function ApplicationsSurface({
   statusParam,
   error,
+  shopParam,
 }: {
   statusParam?: string;
   error?: string;
+  shopParam?: string;
 }) {
   const tabFilter = parseApplicationsTab(statusParam);
   const admin = createAdminClient();
+  /*
+    🔦 THE PER-SHOP VERIFY ADDRESS (Focus at Spotlight level, owner approved 18 Nov 2026): a supplier found in Focus
+    with papers waiting opens HERE, on its own application, instead of the whole queue. Only a uuid is read —
+    anything else is ignored and the whole queue shows.
+  */
+  const shopId = typeof shopParam === 'string' && /^[0-9a-f-]{36}$/i.test(shopParam) ? shopParam.toLowerCase() : null;
 
   // Read applications joined with their vendor row. We don't use a foreign-key
   // joined select via Supabase JS because the relationship hasn't been declared
@@ -413,6 +423,7 @@ async function ApplicationsSurface({
       'application_id,public_id,vendor_profile_id,application_type,fee_php_centavos,status,doc_uploads,docs_complete,submitted_at,sla_due_at,decision,decision_reason,decided_at,admin_user_id,created_at',
     )
     .in('status', tabFilter.statuses)
+    .match(shopId ? { vendor_profile_id: shopId } : {})
     .order('submitted_at', { ascending: true, nullsFirst: false })
     .limit(200);
 
@@ -754,6 +765,15 @@ async function ApplicationsSurface({
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
+
+      {shopId ? (
+        <p className="mb-3 text-sm text-ink/75" data-verify-one-shop="">
+          Showing one shop&apos;s application.{' '}
+          <Link href={`/admin/verify?status=${encodeURIComponent(statusParam ?? 'pending_review')}`} className="underline underline-offset-2">
+            Show the whole queue
+          </Link>
+        </p>
+      ) : null}
 
       {appErr ? (
         <FormFlash tone="error">

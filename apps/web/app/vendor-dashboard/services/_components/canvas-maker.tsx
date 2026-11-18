@@ -1420,16 +1420,16 @@ export function CanvasMaker({
                       defaultValue={initial || isEdit ? (initial?.recommendedLeadTimeMonths ?? '') : (defaults.leadMonths ?? '')}
                       key={initial || isEdit ? 'kept' : `lead-${kindType}`}
                       aria-label="Book ahead (months)"
-                      className="input-field !h-10 w-[72px] text-right tabular-nums"
+                      className="input-field !h-11 w-[72px] text-right tabular-nums"
                     />
                     <span className="text-[13px] text-ink/60">months</span>
                   </label>
                 </FormRow>
                 <FormRow name="Last-minute" line="ends · surcharge" data="last-minute">
                   <span className="flex flex-none items-center gap-1.5">
-                    <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} aria-label="Last-minute ends (months)" placeholder="mo" className="input-field !h-10 w-[56px] text-right tabular-nums" />
+                    <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} aria-label="Last-minute ends (months)" placeholder="mo" className="input-field !h-11 w-[56px] text-right tabular-nums" />
                     <span className="text-[13px] text-ink/60">mo ·</span>
-                    <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} aria-label="Last-minute surcharge (%)" placeholder="+%" className="input-field !h-10 w-[56px] text-right tabular-nums" />
+                    <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} aria-label="Last-minute surcharge (%)" placeholder="+%" className="input-field !h-11 w-[56px] text-right tabular-nums" />
                     <span className="text-[13px] text-ink/60">%</span>
                   </span>
                 </FormRow>
@@ -1514,7 +1514,7 @@ export function CanvasMaker({
                       {!defaults.crewApplies ? <p className="py-2 text-[13px] text-ink/60">Usually nothing to feed or move — fill it only if you bring a team.</p> : null}
                       <FormRow name="Crew size" data="crew-size">
                         <label className="flex flex-none items-center gap-1.5">
-                          <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} aria-label="Crew size" className="input-field !h-10 w-[72px] text-right tabular-nums" />
+                          <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} aria-label="Crew size" className="input-field !h-11 w-[72px] text-right tabular-nums" />
                           <span className="text-[13px] text-ink/60">people</span>
                         </label>
                       </FormRow>
@@ -1557,7 +1557,7 @@ export function CanvasMaker({
                       />
                       {branches.length > 0 ? (
                         <FormRow name="Branch" data="branch">
-                          <select id="branch_id" name="branch_id" defaultValue={editing?.branchId ?? ''} aria-label="Branch" className="input-field !h-10 w-[150px] flex-none cursor-pointer">
+                          <select id="branch_id" name="branch_id" defaultValue={editing?.branchId ?? ''} aria-label="Branch" className="input-field !h-11 w-[150px] flex-none cursor-pointer">
                             <option value="">You (main)</option>
                             {branches.map((b) => (
                               <option key={b.id} value={b.id} disabled={b.usable === false}>
